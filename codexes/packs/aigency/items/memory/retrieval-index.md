@@ -1699,3 +1699,273 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-8c0ad44.md](../build_/COMMITS/COMMIT-8c0ad44.md)
 - Message: /api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube
+
+## Commit `d2e9a0d` — 2026-05-31T18:40:44Z
+- Type: `push`
+- Brief: [COMMIT-d2e9a0d.md](../build_/COMMITS/COMMIT-d2e9a0d.md)
+- Message: trigger deploy to dev
+
+## Commit `3853b5f` — 2026-05-31T18:40:44Z
+- Type: `push`
+- Brief: [COMMIT-3853b5f.md](../build_/COMMITS/COMMIT-3853b5f.md)
+- Message: Venture iQube Phase A2: commit ExperienceQube hydration on ingest
+
+## Commit `7459b1b` — 2026-05-31T19:24:18Z
+- Type: `push`
+- Brief: [COMMIT-7459b1b.md](../build_/COMMITS/COMMIT-7459b1b.md)
+- Message: trigger deploy to dev
+
+## Commit `dc9ec96` — 2026-05-31T19:24:18Z
+- Type: `refactor`
+- Brief: [COMMIT-dc9ec96.md](../build_/COMMITS/COMMIT-dc9ec96.md)
+- Message: AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3
+
+## Commit `b497263` — 2026-05-31T19:41:29Z
+- Type: `push`
+- Brief: [COMMIT-b497263.md](../build_/COMMITS/COMMIT-b497263.md)
+- Message: trigger deploy to dev
+
+## Commit `c502c4c` — 2026-05-31T19:41:29Z
+- Type: `push`
+- Brief: [COMMIT-c502c4c.md](../build_/COMMITS/COMMIT-c502c4c.md)
+- Message: NBA cards: contextual title rewrites via LLM rerank
+
+## Commit `17e0d6b` — 2026-05-31T19:46:35Z
+- Type: `push`
+- Brief: [COMMIT-17e0d6b.md](../build_/COMMITS/COMMIT-17e0d6b.md)
+- Message: trigger deploy to dev
+
+## Commit `b582f2a` — 2026-05-31T19:46:35Z
+- Type: `refactor`
+- Brief: [COMMIT-b582f2a.md](../build_/COMMITS/COMMIT-b582f2a.md)
+- Message: my-space restructure: myArtifacts tabGroup with three sub-tabs
+
+## Commit `f09ac66` — 2026-05-31T19:48:16Z
+- Type: `push`
+- Brief: [COMMIT-f09ac66.md](../build_/COMMITS/COMMIT-f09ac66.md)
+- Message: trigger deploy to dev
+
+## Commit `e3b0bd0` — 2026-05-31T19:48:16Z
+- Type: `push`
+- Brief: [COMMIT-e3b0bd0.md](../build_/COMMITS/COMMIT-e3b0bd0.md)
+- Message: AVL → MVL Pass 2: /api/avl/* directory + FE callsites + log tags
+
+## Commit `6db2a85` — 2026-05-31T20:41:17Z
+- Type: `push`
+- Brief: [COMMIT-6db2a85.md](../build_/COMMITS/COMMIT-6db2a85.md)
+- Message: trigger deploy to dev
+
+## Commit `ff63bfe` — 2026-05-31T20:41:16Z
+- Type: `chore`
+- Brief: [COMMIT-ff63bfe.md](../build_/COMMITS/COMMIT-ff63bfe.md)
+- Message: nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures
+
+## Commit `d48b6f2` — 2026-05-31T20:44:08Z
+- Type: `push`
+- Brief: [COMMIT-d48b6f2.md](../build_/COMMITS/COMMIT-d48b6f2.md)
+- Message: trigger deploy to dev
+
+## Commit `995f518` — 2026-05-31T20:44:08Z
+- Type: `push`
+- Brief: [COMMIT-995f518.md](../build_/COMMITS/COMMIT-995f518.md)
+- Message: myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint)
+
+## Commit `0a9c834` — 2026-05-31T20:58:02Z
+- Type: `push`
+- Brief: [COMMIT-0a9c834.md](../build_/COMMITS/COMMIT-0a9c834.md)
+- Message: metaMe cartridge: swap myArtifacts and Activations top-menu order
+
+## Commit `a5f865a` — 2026-05-31T21:32:31Z
+- Type: `push`
+- Brief: [COMMIT-a5f865a.md](../build_/COMMITS/COMMIT-a5f865a.md)
+- Message: trigger deploy to dev
+
+## Commit `2e60b85` — 2026-05-31T21:32:31Z
+- Type: `push`
+- Brief: [COMMIT-2e60b85.md](../build_/COMMITS/COMMIT-2e60b85.md)
+- Message: canvasService.listEntries: surface meta_json.surface stamp via JSON-path
+
+## Commit `0d769b7` — 2026-05-31T21:54:59Z
+- Type: `push`
+- Brief: [COMMIT-0d769b7.md](../build_/COMMITS/COMMIT-0d769b7.md)
+- Message: trigger deploy to dev
+
+## Commit `e549a85` — 2026-05-31T21:54:59Z
+- Type: `push`
+- Brief: [COMMIT-e549a85.md](../build_/COMMITS/COMMIT-e549a85.md)
+- Message: myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation
+
+## Commit `4e01b23` — 2026-05-31T22:32:06Z
+- Type: `push`
+- Brief: [COMMIT-4e01b23.md](../build_/COMMITS/COMMIT-4e01b23.md)
+- Message: trigger deploy to dev
+
+## Commit `609c885` — 2026-05-31T22:32:06Z
+- Type: `push`
+- Brief: [COMMIT-609c885.md](../build_/COMMITS/COMMIT-609c885.md)
+- Message: MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern
+
+## Commit `05a8d6c` — 2026-05-31T23:37:11Z
+- Type: `push`
+- Brief: [COMMIT-05a8d6c.md](../build_/COMMITS/COMMIT-05a8d6c.md)
+- Message: trigger deploy to dev
+
+## Commit `48086c8` — 2026-05-31T23:37:11Z
+- Type: `push`
+- Brief: [COMMIT-48086c8.md](../build_/COMMITS/COMMIT-48086c8.md)
+- Message: SmartWalletDrawer: remove mandatory persona-creation gate on sign-in
+
+## Commit `1ce6738` — 2026-06-01T02:07:36Z
+- Type: `push`
+- Brief: [COMMIT-1ce6738.md](../build_/COMMITS/COMMIT-1ce6738.md)
+- Message: trigger deploy to dev
+
+## Commit `a875f3e` — 2026-06-01T02:07:36Z
+- Type: `refactor`
+- Brief: [COMMIT-a875f3e.md](../build_/COMMITS/COMMIT-a875f3e.md)
+- Message: metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts
+
+## Commit `09a18bf` — 2026-06-01T12:41:57Z
+- Type: `push`
+- Brief: [COMMIT-09a18bf.md](../build_/COMMITS/COMMIT-09a18bf.md)
+- Message: trigger deploy to dev: ops layout — anchor calibration repositioned + Base mainnet card
+
+## Commit `7538ba5` — 2026-06-01T12:41:57Z
+- Type: `push`
+- Brief: [COMMIT-7538ba5.md](../build_/COMMITS/COMMIT-7538ba5.md)
+- Message: ops page: anchor calibration repositioned + Base mainnet card added
+
+## Commit `72e03a8` — 2026-06-01T12:39:46Z
+- Type: `push`
+- Brief: [COMMIT-72e03a8.md](../build_/COMMITS/COMMIT-72e03a8.md)
+- Message: trigger deploy to dev: ops anchor cron + K/T policy + calibration card + network-costs doc
+
+## Commit `fbf7823` — 2026-06-01T12:39:45Z
+- Type: `docs`
+- Brief: [COMMIT-fbf7823.md](../build_/COMMITS/COMMIT-fbf7823.md)
+- Message: docs: AgentiQ Network Costs — first-class reference doc + cartridge collection
+
+## Commit `d7eab2f` — 2026-06-01T12:38:16Z
+- Type: `push`
+- Brief: [COMMIT-d7eab2f.md](../build_/COMMITS/COMMIT-d7eab2f.md)
+- Message: ops: AnchorCalibrationCard — runtime tuning panel on /ops
+
+## Commit `3138ef5` — 2026-06-01T12:36:24Z
+- Type: `push`
+- Brief: [COMMIT-3138ef5.md](../build_/COMMITS/COMMIT-3138ef5.md)
+- Message: ops: anchor cron + K/T policy backend — schema, cron-tick, calibration, history
+
+## Commit `99783e1` — 2026-05-31T19:47:04Z
+- Type: `refactor`
+- Brief: [COMMIT-99783e1.md](../build_/COMMITS/COMMIT-99783e1.md)
+- Message: trigger deploy to dev: trinity rename (code-surface only; DB enum values preserved)
+
+## Commit `d0d5618` — 2026-05-31T19:47:03Z
+- Type: `refactor`
+- Brief: [COMMIT-d0d5618.md](../build_/COMMITS/COMMIT-d0d5618.md)
+- Message: trinity rename: code surface — disambiguate iQube primitives from SmartTriad
+
+## Commit `df33f1f` — 2026-06-01T13:20:49Z
+- Type: `push`
+- Brief: [COMMIT-df33f1f.md](../build_/COMMITS/COMMIT-df33f1f.md)
+- Message: trigger deploy to dev
+
+## Commit `cdcf115` — 2026-06-01T13:20:49Z
+- Type: `push`
+- Brief: [COMMIT-cdcf115.md](../build_/COMMITS/COMMIT-cdcf115.md)
+- Message: RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode
+
+## Commit `4a36c1f` — 2026-06-01T13:37:53Z
+- Type: `fix`
+- Brief: [COMMIT-4a36c1f.md](../build_/COMMITS/COMMIT-4a36c1f.md)
+- Message: trigger deploy to dev: env allowlist fix for CRON_TRIGGER_TOKEN
+
+## Commit `5c07dab` — 2026-06-01T13:37:53Z
+- Type: `fix`
+- Brief: [COMMIT-5c07dab.md](../build_/COMMITS/COMMIT-5c07dab.md)
+- Message: fix(ops): add CRON_TRIGGER_TOKEN to env allowlist
+
+## Commit `c98ed5e` — 2026-06-01T15:33:36Z
+- Type: `push`
+- Brief: [COMMIT-c98ed5e.md](../build_/COMMITS/COMMIT-c98ed5e.md)
+- Message: trigger deploy to dev
+
+## Commit `f6455ca` — 2026-06-01T15:33:36Z
+- Type: `push`
+- Brief: [COMMIT-f6455ca.md](../build_/COMMITS/COMMIT-f6455ca.md)
+- Message: MyCanvasTab: Edit button + in-panel edit-mode on saved experience_derived entries
+
+## Commit `336eacc` — 2026-06-01T23:26:40Z
+- Type: `fix`
+- Brief: [COMMIT-336eacc.md](../build_/COMMITS/COMMIT-336eacc.md)
+- Message: backlog: auto-merge workflow repair + anchor cron scheduler wiring
+
+## Commit `7ccb102` — 2026-06-02T00:14:35Z
+- Type: `push`
+- Brief: [COMMIT-7ccb102.md](../build_/COMMITS/COMMIT-7ccb102.md)
+- Message: spec: intent chain orchestrator — draft v1 + reference template
+
+## Commit `927f459` — 2026-06-02T00:38:30Z
+- Type: `push`
+- Brief: [COMMIT-927f459.md](../build_/COMMITS/COMMIT-927f459.md)
+- Message: intent chains commit 1: schema + types + template registry + reference
+
+## Commit `b065860` — 2026-06-02T00:44:01Z
+- Type: `push`
+- Brief: [COMMIT-b065860.md](../build_/COMMITS/COMMIT-b065860.md)
+- Message: intent chains: feedback table + spec §6.7 — like/dislike learning loop
+
+## Commit `375df58` — 2026-06-02T00:49:58Z
+- Type: `push`
+- Brief: [COMMIT-375df58.md](../build_/COMMITS/COMMIT-375df58.md)
+- Message: intent chains commit 2: sanitizeReceiptMetadata + canary tests
+
+## Commit `4312058` — 2026-06-02T01:10:14Z
+- Type: `push`
+- Brief: [COMMIT-4312058.md](../build_/COMMITS/COMMIT-4312058.md)
+- Message: intent chains commit 3: dispatcher + advancer + refs + listener hook
+
+## Commit `8b7f98f` — 2026-06-02T01:13:27Z
+- Type: `push`
+- Brief: [COMMIT-8b7f98f.md](../build_/COMMITS/COMMIT-8b7f98f.md)
+- Message: intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback
+
+## Commit `9db46a1` — 2026-06-02T01:15:29Z
+- Type: `push`
+- Brief: [COMMIT-9db46a1.md](../build_/COMMITS/COMMIT-9db46a1.md)
+- Message: intent chains commit 5: Marketa propose intake + Factory Ingestion stub
+
+## Commit `a905e0e` — 2026-06-02T01:17:54Z
+- Type: `push`
+- Brief: [COMMIT-a905e0e.md](../build_/COMMITS/COMMIT-a905e0e.md)
+- Message: intent chains commit 6: cron extension for scheduled steps + wait timeouts
+
+## Commit `9c15b5d` — 2026-06-02T01:21:03Z
+- Type: `feat`
+- Brief: [COMMIT-9c15b5d.md](../build_/COMMITS/COMMIT-9c15b5d.md)
+- Message: intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete
+
+## Commit `5a33625` — 2026-06-02T01:24:02Z
+- Type: `push`
+- Brief: [COMMIT-5a33625.md](../build_/COMMITS/COMMIT-5a33625.md)
+- Message: intent chains commit 8: ExpandedNBEPill chain breadcrumb + ChainDetailDrawer
+
+## Commit `0077105` — 2026-06-02T01:26:12Z
+- Type: `push`
+- Brief: [COMMIT-0077105.md](../build_/COMMITS/COMMIT-0077105.md)
+- Message: intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer
+
+## Commit `4148830` — 2026-06-02T01:28:30Z
+- Type: `push`
+- Brief: [COMMIT-4148830.md](../build_/COMMITS/COMMIT-4148830.md)
+- Message: intent chains commit 10: v1 close report
+
+## Commit `cab9fb4` — 2026-06-02T03:05:07Z
+- Type: `fix`
+- Brief: [COMMIT-cab9fb4.md](../build_/COMMITS/COMMIT-cab9fb4.md)
+- Message: trigger deploy: backfill VALID_SOURCES allowlist fix
+
+## Commit `b45d9a0` — 2026-06-02T03:04:51Z
+- Type: `fix`
+- Brief: [COMMIT-b45d9a0.md](../build_/COMMITS/COMMIT-b45d9a0.md)
+- Message: fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES

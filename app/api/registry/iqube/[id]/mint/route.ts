@@ -17,6 +17,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { startSaga, driveSagaToCompletion } from '@/services/registry/mintSaga';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+interface MintBody {
+  visibility?: 'public' | 'private';
+}
 
 export async function POST(
   request: NextRequest,
@@ -36,11 +41,46 @@ export async function POST(
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
+  // Phase B B4 — accept visibility choice from the legacy mint dialog.
+  // Stashed on idempotency_keys.visibility so the saga (or a follow-up
+  // consumer) can apply it when the canonical visibility_state column
+  // surfaces on iqube_id_map. Today this is informational — the saga
+  // doesn't yet flip visibility_state — but the choice is durable in
+  // the saga record for audit + future application.
+  let body: MintBody = {};
+  try {
+    body = (await request.json()) as MintBody;
+  } catch {
+    // Empty body is fine — visibility defaults to record's current state.
+  }
+  const visibility = body.visibility === 'public' || body.visibility === 'private'
+    ? body.visibility
+    : undefined;
+
   try {
     const initial = await startSaga({
       iqube_id: iqubeId,
       initiated_by_persona_id: persona.personaId,
     });
+
+    // If visibility was supplied, persist on the saga's idempotency_keys
+    // before driving so subsequent reads + the saga's own steps can
+    // observe it. Best-effort — failure here doesn't block the mint.
+    if (visibility) {
+      try {
+        const sb = getSupabaseServer();
+        if (sb) {
+          const newKeys = { ...(initial.idempotency_keys ?? {}), visibility };
+          await sb
+            .from('mint_sagas')
+            .update({ idempotency_keys: newKeys })
+            .eq('saga_id', initial.saga_id);
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
     const final = await driveSagaToCompletion(initial.saga_id);
     return NextResponse.json({
       saga_id: final.saga_id,
@@ -52,6 +92,7 @@ export async function POST(
       is_failure: final.is_failure,
       is_pending: final.is_pending,
       idempotency_keys: final.idempotency_keys,
+      visibility_choice: visibility ?? null,
     });
   } catch (err) {
     return NextResponse.json(

@@ -3,10 +3,10 @@
  *
  * Replaces the mock that returned a fake registryId. PRD v1.0 §11.2 +
  * Stage 1 close report. The draft is created in two surfaces:
- *   1. iq_meta_qubes (triad meta) via server/services/iqRegistryService
+ *   1. iq_meta_qubes (trinity meta) via server/services/iqRegistryService
  *   2. iqube_id_map (canonical id join) via direct insert
  *
- * The triad blak + token are NOT created here — those land via the
+ * The trinity blak + token are NOT created here — those land via the
  * mint saga when the iQube moves through the mint pipeline. A draft
  * iQube has meta + iqube_id_map only; mint_status='unminted',
  * internal_lifecycle='draft'.
@@ -24,6 +24,13 @@ import { listIQubes, resolveIQube } from '@/services/registry/resolver';
 import type { IQubePrimitiveType } from '@/types/iqube/legibility';
 import type { IQubeIdMapSource } from '@/types/registry-canonical';
 
+interface ScoreAxes {
+  sensitivity?: number;
+  accuracy?: number;
+  verifiability?: number;
+  risk?: number;
+}
+
 interface CreateDraftRequest {
   name: string;
   slug?: string;
@@ -34,6 +41,96 @@ interface CreateDraftRequest {
   tags?: string[];
   preview_url?: string;
   metadata?: Record<string, unknown>;
+
+  // Phase B B1 — legacy template field surface. These are stashed under
+  // `metadata.legacyTemplateExtras` on the canonical record so the legacy
+  // resolver/list path can round-trip them without a schema migration.
+  // Score axes additionally upsert into `iqube_scores` with the operator-
+  // override source flag (sacred per the backfill close report).
+  business_model?: string;
+  price?: number;
+  score_axes?: ScoreAxes;
+  blakqube_labels?: unknown;
+  meta_extras?: Array<{ k: string; v: string }>;
+  parent_template_id?: string;
+  identity_state?: string;
+  min_reputation_bucket?: number;
+  require_human_proof?: boolean;
+  require_agent_declare?: boolean;
+  instance_type?: 'template' | 'instance';
+  visibility_state?: 'public' | 'unlisted' | 'private' | 'public_meta_private_payload';
+}
+
+function pickLegacyExtras(body: CreateDraftRequest): Record<string, unknown> | undefined {
+  const extras: Record<string, unknown> = {};
+  if (body.business_model !== undefined) extras.businessModel = body.business_model;
+  if (body.price !== undefined) extras.price = body.price;
+  if (body.blakqube_labels !== undefined) extras.blakqubeLabels = body.blakqube_labels;
+  if (body.meta_extras !== undefined) extras.metaExtras = body.meta_extras;
+  if (body.parent_template_id !== undefined) extras.parentTemplateId = body.parent_template_id;
+  if (body.identity_state !== undefined) extras.identityState = body.identity_state;
+  if (body.min_reputation_bucket !== undefined) extras.minReputationBucket = body.min_reputation_bucket;
+  if (body.require_human_proof !== undefined) extras.requireHumanProof = body.require_human_proof;
+  if (body.require_agent_declare !== undefined) extras.requireAgentDeclare = body.require_agent_declare;
+  if (body.instance_type !== undefined) extras.instanceType = body.instance_type;
+  if (body.visibility_state !== undefined) extras.visibilityState = body.visibility_state;
+  return Object.keys(extras).length > 0 ? extras : undefined;
+}
+
+function clampScoreAxis(v: unknown): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(10, Math.round(n)));
+}
+
+async function upsertOperatorOverrideScores(
+  iqubeId: string,
+  axes: ScoreAxes,
+  supabase: ReturnType<typeof getSupabaseServer>,
+): Promise<void> {
+  if (!supabase) return;
+  const sensitivity = axes.sensitivity !== undefined ? clampScoreAxis(axes.sensitivity) : null;
+  const accuracy = axes.accuracy !== undefined ? clampScoreAxis(axes.accuracy) : null;
+  const verifiability = axes.verifiability !== undefined ? clampScoreAxis(axes.verifiability) : null;
+  const risk = axes.risk !== undefined ? clampScoreAxis(axes.risk) : null;
+
+  // Reliability = accuracy*0.6 + verifiability*0.4
+  // Trust = 10 - (sensitivity*0.4 + risk*0.6)
+  // Derived axes only meaningful when both raw inputs present.
+  const reliability =
+    accuracy !== null && verifiability !== null
+      ? Number((accuracy * 0.6 + verifiability * 0.4).toFixed(1))
+      : null;
+  const trust =
+    sensitivity !== null && risk !== null
+      ? Number((10 - (sensitivity * 0.4 + risk * 0.6)).toFixed(1))
+      : null;
+
+  const row: Record<string, unknown> = {
+    iqube_id: iqubeId,
+    derivation_strategy: 'operator_override_v1',
+    updated_at: new Date().toISOString(),
+  };
+  if (sensitivity !== null) {
+    row.sensitivity = sensitivity;
+    row.sensitivity_source = 'operator_override';
+  }
+  if (accuracy !== null) {
+    row.accuracy = accuracy;
+    row.accuracy_source = 'operator_override';
+  }
+  if (verifiability !== null) {
+    row.verifiability = verifiability;
+    row.verifiability_source = 'operator_override';
+  }
+  if (risk !== null) {
+    row.risk = risk;
+    row.risk_source = 'operator_override';
+  }
+  if (reliability !== null) row.derived_reliability = reliability;
+  if (trust !== null) row.derived_trust = trust;
+
+  await supabase.from('iqube_scores').upsert(row, { onConflict: 'iqube_id' });
 }
 
 function isPrimitiveType(value: unknown): value is IQubePrimitiveType {
@@ -148,7 +245,17 @@ export async function POST(request: NextRequest) {
       .replace(/^-+|-+$/g, '')
       .substring(0, 80);
 
-  // 4. Create the meta qube (triad spine)
+  // 4. Create the meta qube (trinity spine)
+  //    Phase B B1: legacy template extras (business model, identity hints,
+  //    blakqube labels, fork lineage, etc.) are folded into the JSONB
+  //    metadata column under `legacyTemplateExtras`. The resolver/adapter
+  //    surface them back as legacy IQubeTemplate fields on read.
+  const legacyExtras = pickLegacyExtras(body);
+  const mergedMetadata: Record<string, unknown> = {
+    ...(body.metadata as Record<string, unknown> | undefined ?? {}),
+    ...(legacyExtras ? { legacyTemplateExtras: legacyExtras } : {}),
+  };
+
   let metaQubeId: string;
   try {
     metaQubeId = await createMetaQube({
@@ -160,7 +267,7 @@ export async function POST(request: NextRequest) {
       tags: body.tags,
       description: body.description,
       previewUrl: body.preview_url,
-      metadata: body.metadata as Record<string, unknown> | undefined,
+      metadata: Object.keys(mergedMetadata).length > 0 ? mergedMetadata : undefined,
     });
   } catch (err) {
     return NextResponse.json(
@@ -199,6 +306,18 @@ export async function POST(request: NextRequest) {
 
   const iqubeId = (data as { iqube_id: string }).iqube_id;
 
+  // 6. Phase B B1: if the caller supplied score axes, write them as
+  //    operator-override into iqube_scores. Best-effort — failure here
+  //    doesn't fail the create (the draft is real; backfill will derive
+  //    later if overrides are missing).
+  if (body.score_axes && typeof body.score_axes === 'object') {
+    try {
+      await upsertOperatorOverrideScores(iqubeId, body.score_axes, supabase);
+    } catch {
+      // Non-fatal — operator can re-derive from the Health tab.
+    }
+  }
+
   return NextResponse.json({
     iqube_id: iqubeId,
     meta_qube_id: metaQubeId,
@@ -210,5 +329,7 @@ export async function POST(request: NextRequest) {
     mint_status: 'unminted',
     card_url: `/api/iqubes/${iqubeId}/card`,
     created_at: new Date().toISOString(),
+    extras_persisted: legacyExtras ? Object.keys(legacyExtras) : [],
+    scores_overridden: body.score_axes ? Object.keys(body.score_axes) : [],
   });
 }

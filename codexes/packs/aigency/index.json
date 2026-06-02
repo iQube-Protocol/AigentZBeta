@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-30T02:48:11.168Z",
+  "last_updated": "2026-06-02T03:06:53.595Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8c0ad44bd484222f184dd06750023e2b419d4963",
-  "latest_commit_short": "8c0ad44",
-  "latest_commit_title": "/api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube",
+  "latest_commit": "b45d9a0979aa181edc24e72cfaa299c4771e7ded",
+  "latest_commit_short": "b45d9a0",
+  "latest_commit_title": "fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,492 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b45d9a0",
+      "full_sha": "b45d9a0979aa181edc24e72cfaa299c4771e7ded",
+      "title": "fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES",
+      "author": "Claude",
+      "timestamp": "2026-06-02T03:04:51Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b45d9a0.md"
+    },
+    {
+      "sha": "cab9fb4",
+      "full_sha": "cab9fb4ba1e562a0e677d94d7bf66f0af021fc7e",
+      "title": "trigger deploy: backfill VALID_SOURCES allowlist fix",
+      "author": "Claude",
+      "timestamp": "2026-06-02T03:05:07Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-cab9fb4.md"
+    },
+    {
+      "sha": "4148830",
+      "full_sha": "414883014ea07d628fad6a9fad2d167b8145a5c4",
+      "title": "intent chains commit 10: v1 close report",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:28:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4148830.md"
+    },
+    {
+      "sha": "0077105",
+      "full_sha": "0077105de1ff8ce1a0cc0cf6f4e20d784a10847c",
+      "title": "intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:26:12Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0077105.md"
+    },
+    {
+      "sha": "5a33625",
+      "full_sha": "5a336253f1cb3238817e7a071d93a61f7750dff1",
+      "title": "intent chains commit 8: ExpandedNBEPill chain breadcrumb + ChainDetailDrawer",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:24:02Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5a33625.md"
+    },
+    {
+      "sha": "9c15b5d",
+      "full_sha": "9c15b5db33de5372673f4a39e01393a919cac3fe",
+      "title": "intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:21:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9c15b5d.md"
+    },
+    {
+      "sha": "a905e0e",
+      "full_sha": "a905e0ed6bd03bc749533e9496d16ca6d27ccc45",
+      "title": "intent chains commit 6: cron extension for scheduled steps + wait timeouts",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:17:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a905e0e.md"
+    },
+    {
+      "sha": "9db46a1",
+      "full_sha": "9db46a19fe1854946346163f39a48f625ce75063",
+      "title": "intent chains commit 5: Marketa propose intake + Factory Ingestion stub",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:15:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9db46a1.md"
+    },
+    {
+      "sha": "8b7f98f",
+      "full_sha": "8b7f98f173e79aa8c8bc40c134f0eb41b1be9acc",
+      "title": "intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:13:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8b7f98f.md"
+    },
+    {
+      "sha": "4312058",
+      "full_sha": "43120584cd3305a1ec8bd79509db259ab2e97c75",
+      "title": "intent chains commit 3: dispatcher + advancer + refs + listener hook",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:10:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4312058.md"
+    },
+    {
+      "sha": "375df58",
+      "full_sha": "375df582f384fe54f545dcdc9425dc593e945572",
+      "title": "intent chains commit 2: sanitizeReceiptMetadata + canary tests",
+      "author": "Claude",
+      "timestamp": "2026-06-02T00:49:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-375df58.md"
+    },
+    {
+      "sha": "b065860",
+      "full_sha": "b06586021ef524b9528dee8089268dc558372166",
+      "title": "intent chains: feedback table + spec §6.7 — like/dislike learning loop",
+      "author": "Claude",
+      "timestamp": "2026-06-02T00:44:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b065860.md"
+    },
+    {
+      "sha": "927f459",
+      "full_sha": "927f459ceffc1cb0c9748f54b269373d21053f47",
+      "title": "intent chains commit 1: schema + types + template registry + reference",
+      "author": "Claude",
+      "timestamp": "2026-06-02T00:38:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-927f459.md"
+    },
+    {
+      "sha": "7ccb102",
+      "full_sha": "7ccb1027eb477ce51bed0e645c6394d54fc6c12e",
+      "title": "spec: intent chain orchestrator — draft v1 + reference template",
+      "author": "Claude",
+      "timestamp": "2026-06-02T00:14:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7ccb102.md"
+    },
+    {
+      "sha": "336eacc",
+      "full_sha": "336eacc81cd76e8d7403c05edc8d69b50e7dffa6",
+      "title": "backlog: auto-merge workflow repair + anchor cron scheduler wiring",
+      "author": "Claude",
+      "timestamp": "2026-06-01T23:26:40Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-336eacc.md"
+    },
+    {
+      "sha": "f6455ca",
+      "full_sha": "f6455cacc09e14e1c906ca28d0e5553a95a1da05",
+      "title": "MyCanvasTab: Edit button + in-panel edit-mode on saved experience_derived entries",
+      "author": "Claude",
+      "timestamp": "2026-06-01T15:33:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f6455ca.md"
+    },
+    {
+      "sha": "c98ed5e",
+      "full_sha": "c98ed5e843f11495aa338a2c396229d5c321cda7",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-01T15:33:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c98ed5e.md"
+    },
+    {
+      "sha": "5c07dab",
+      "full_sha": "5c07dab75546242781f18d152735423c2f5d657d",
+      "title": "fix(ops): add CRON_TRIGGER_TOKEN to env allowlist",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:37:53Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5c07dab.md"
+    },
+    {
+      "sha": "4a36c1f",
+      "full_sha": "4a36c1fb2a8728f7414a1b570042d00b72d87f32",
+      "title": "trigger deploy to dev: env allowlist fix for CRON_TRIGGER_TOKEN",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:37:53Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4a36c1f.md"
+    },
+    {
+      "sha": "cdcf115",
+      "full_sha": "cdcf11569eef7dc90930350bc5f3df26aa9d18cf",
+      "title": "RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:20:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cdcf115.md"
+    },
+    {
+      "sha": "df33f1f",
+      "full_sha": "df33f1f8efdfa2a1b63bcd36b1f7d05812103d96",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:20:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-df33f1f.md"
+    },
+    {
+      "sha": "d0d5618",
+      "full_sha": "d0d561824e882545f08daceb4ab095c8d2bea23c",
+      "title": "trinity rename: code surface — disambiguate iQube primitives from SmartTriad",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:47:03Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-d0d5618.md"
+    },
+    {
+      "sha": "99783e1",
+      "full_sha": "99783e119f7093ef0052080579a4c10b9f9581e6",
+      "title": "trigger deploy to dev: trinity rename (code-surface only; DB enum values preserved)",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:47:04Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-99783e1.md"
+    },
+    {
+      "sha": "3138ef5",
+      "full_sha": "3138ef5bf8a893048e4e1410cab9775f53b11114",
+      "title": "ops: anchor cron + K/T policy backend — schema, cron-tick, calibration, history",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:36:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3138ef5.md"
+    },
+    {
+      "sha": "d7eab2f",
+      "full_sha": "d7eab2f95dc4bf72ed82850bc8577d98eb91785b",
+      "title": "ops: AnchorCalibrationCard — runtime tuning panel on /ops",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:38:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d7eab2f.md"
+    },
+    {
+      "sha": "fbf7823",
+      "full_sha": "fbf7823ec47bdba78cd5c3174b688869324baa11",
+      "title": "docs: AgentiQ Network Costs — first-class reference doc + cartridge collection",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:39:45Z",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-fbf7823.md"
+    },
+    {
+      "sha": "72e03a8",
+      "full_sha": "72e03a8d725c25afcb8a21d2ceb41a2248222962",
+      "title": "trigger deploy to dev: ops anchor cron + K/T policy + calibration card + network-costs doc",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:39:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-72e03a8.md"
+    },
+    {
+      "sha": "7538ba5",
+      "full_sha": "7538ba53f3cd63ecb70246eccb1267e92b4fdd31",
+      "title": "ops page: anchor calibration repositioned + Base mainnet card added",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:41:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7538ba5.md"
+    },
+    {
+      "sha": "09a18bf",
+      "full_sha": "09a18bf3645901162d7f3cec5f2208a11a81d1db",
+      "title": "trigger deploy to dev: ops layout — anchor calibration repositioned + Base mainnet card",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:41:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-09a18bf.md"
+    },
+    {
+      "sha": "a875f3e",
+      "full_sha": "a875f3e5d2d6ad220b59329a817ee2297ba2d54a",
+      "title": "metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts",
+      "author": "Claude",
+      "timestamp": "2026-06-01T02:07:36Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-a875f3e.md"
+    },
+    {
+      "sha": "1ce6738",
+      "full_sha": "1ce6738deb0bbf77ba0384683ad71b3b7e4ffd39",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-01T02:07:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1ce6738.md"
+    },
+    {
+      "sha": "48086c8",
+      "full_sha": "48086c86e4c463e99febc53db606dd7065b84408",
+      "title": "SmartWalletDrawer: remove mandatory persona-creation gate on sign-in",
+      "author": "Claude",
+      "timestamp": "2026-05-31T23:37:11Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-48086c8.md"
+    },
+    {
+      "sha": "05a8d6c",
+      "full_sha": "05a8d6c04997d79c1515e9f1163861da87fca337",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T23:37:11Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-05a8d6c.md"
+    },
+    {
+      "sha": "609c885",
+      "full_sha": "609c885d6cdb7f7720402589ce70787cebc4d4a6",
+      "title": "MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern",
+      "author": "Claude",
+      "timestamp": "2026-05-31T22:32:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-609c885.md"
+    },
+    {
+      "sha": "4e01b23",
+      "full_sha": "4e01b23bfb637e617cc92d0b1144989bc7baf9fe",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T22:32:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4e01b23.md"
+    },
+    {
+      "sha": "e549a85",
+      "full_sha": "e549a8507875dcae26984042d507b9a4ad345d24",
+      "title": "myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation",
+      "author": "Claude",
+      "timestamp": "2026-05-31T21:54:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e549a85.md"
+    },
+    {
+      "sha": "0d769b7",
+      "full_sha": "0d769b77c620e1c0c7bc50770460c5204d1a2979",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T21:54:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0d769b7.md"
+    },
+    {
+      "sha": "2e60b85",
+      "full_sha": "2e60b85c0283d09fbea6fdd7186a5359cdc43ee4",
+      "title": "canvasService.listEntries: surface meta_json.surface stamp via JSON-path",
+      "author": "Claude",
+      "timestamp": "2026-05-31T21:32:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2e60b85.md"
+    },
+    {
+      "sha": "a5f865a",
+      "full_sha": "a5f865ac1b1f80511ff8d04d9968ffde34795dcb",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T21:32:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a5f865a.md"
+    },
+    {
+      "sha": "0a9c834",
+      "full_sha": "0a9c8349c11353c82c1a6ba318efd2d53db05abd",
+      "title": "metaMe cartridge: swap myArtifacts and Activations top-menu order",
+      "author": "Claude",
+      "timestamp": "2026-05-31T20:58:02Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0a9c834.md"
+    },
+    {
+      "sha": "995f518",
+      "full_sha": "995f51837a707f5052cb9d74ec707dd2397c8a17",
+      "title": "myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint)",
+      "author": "Claude",
+      "timestamp": "2026-05-31T20:44:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-995f518.md"
+    },
+    {
+      "sha": "d48b6f2",
+      "full_sha": "d48b6f2749924f0196ee91d1d766e26d3792e5d0",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T20:44:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d48b6f2.md"
+    },
+    {
+      "sha": "ff63bfe",
+      "full_sha": "ff63bfee9a594938d89d0bec840f450f3bc9d610",
+      "title": "nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures",
+      "author": "Claude",
+      "timestamp": "2026-05-31T20:41:16Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-ff63bfe.md"
+    },
+    {
+      "sha": "6db2a85",
+      "full_sha": "6db2a855a219a746ea9975681fca4038bae7ee2c",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T20:41:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6db2a85.md"
+    },
+    {
+      "sha": "e3b0bd0",
+      "full_sha": "e3b0bd05c56ff71d2fc3fd438de5f57cf99fe0c7",
+      "title": "AVL → MVL Pass 2: /api/avl/* directory + FE callsites + log tags",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:48:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e3b0bd0.md"
+    },
+    {
+      "sha": "f09ac66",
+      "full_sha": "f09ac6603a4e7c75078f694d55ab8279b16026db",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:48:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f09ac66.md"
+    },
+    {
+      "sha": "b582f2a",
+      "full_sha": "b582f2a9651df7987406857c41f25c135ae58bec",
+      "title": "my-space restructure: myArtifacts tabGroup with three sub-tabs",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:46:35Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-b582f2a.md"
+    },
+    {
+      "sha": "17e0d6b",
+      "full_sha": "17e0d6b30a7219e494eb6e3f472b256cd043c39c",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:46:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-17e0d6b.md"
+    },
+    {
+      "sha": "c502c4c",
+      "full_sha": "c502c4c82975eaf27d99c7a4505f93284f874cb0",
+      "title": "NBA cards: contextual title rewrites via LLM rerank",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:41:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c502c4c.md"
+    },
+    {
+      "sha": "b497263",
+      "full_sha": "b4972637aa0dca2757c19a31c1fcf2ec5bdae80e",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:41:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b497263.md"
+    },
+    {
+      "sha": "dc9ec96",
+      "full_sha": "dc9ec96c1365c22024ee456c08dbecb24aa3d5b6",
+      "title": "AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:24:18Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-dc9ec96.md"
+    },
+    {
+      "sha": "7459b1b",
+      "full_sha": "7459b1bd0e7b31daf366b9ffb729b86456634004",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:24:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7459b1b.md"
+    },
+    {
+      "sha": "3853b5f",
+      "full_sha": "3853b5ff6bbaa11c8b902110ee6279e7d55888ad",
+      "title": "Venture iQube Phase A2: commit ExperienceQube hydration on ingest",
+      "author": "Claude",
+      "timestamp": "2026-05-31T18:40:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3853b5f.md"
+    },
+    {
+      "sha": "d2e9a0d",
+      "full_sha": "d2e9a0deb0c7c32dea9c23896b8876ee6819deee",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T18:40:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d2e9a0d.md"
+    },
     {
       "sha": "8c0ad44",
       "full_sha": "8c0ad44bd484222f184dd06750023e2b419d4963",
@@ -766,492 +1252,6 @@
       "timestamp": "2026-05-28T22:41:48Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-2e4ee0b.md"
-    },
-    {
-      "sha": "f517444",
-      "full_sha": "f517444cd52117ed03cc53c790f29948e744171b",
-      "title": "Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check",
-      "author": "Claude",
-      "timestamp": "2026-05-28T22:16:32Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f517444.md"
-    },
-    {
-      "sha": "b41253f",
-      "full_sha": "b41253fc1664d19fdffb96f5e9f5dda6c8dd7299",
-      "title": "Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T22:12:53Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b41253f.md"
-    },
-    {
-      "sha": "9ddf15d",
-      "full_sha": "9ddf15d9dbe5ed9097b2c057462735aa23748e18",
-      "title": "KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge",
-      "author": "Claude",
-      "timestamp": "2026-05-28T21:14:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9ddf15d.md"
-    },
-    {
-      "sha": "51be5ac",
-      "full_sha": "51be5ac706de3e8dfab07ab81bcd79931b180b3f",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T21:14:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-51be5ac.md"
-    },
-    {
-      "sha": "9294258",
-      "full_sha": "9294258385854d28b253003fd0ad83389bbb999e",
-      "title": "KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate",
-      "author": "Claude",
-      "timestamp": "2026-05-28T18:21:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9294258.md"
-    },
-    {
-      "sha": "0ccf0e0",
-      "full_sha": "0ccf0e04d7a4a5e3bef6f2fecde976a8df857e9f",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T18:21:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0ccf0e0.md"
-    },
-    {
-      "sha": "28cb0d4",
-      "full_sha": "28cb0d4e0cb8309e40c6a56e128b109b1013f694",
-      "title": "compose modals: thread personaId to UploadAttachmentPicker",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:49:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-28cb0d4.md"
-    },
-    {
-      "sha": "aa1d41a",
-      "full_sha": "aa1d41aa3f274f12f000d93919f720923413fe4f",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:49:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-aa1d41a.md"
-    },
-    {
-      "sha": "a7cce75",
-      "full_sha": "a7cce75b6c219eb6aa70e7e702738edd3944f43e",
-      "title": "Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:34:26Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-a7cce75.md"
-    },
-    {
-      "sha": "3bdae27",
-      "full_sha": "3bdae274891dcb57df8bf86d295488a89d4a284f",
-      "title": "uploads: keep status='ready' on enrichment failure + clarify Marketa label",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:22:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3bdae27.md"
-    },
-    {
-      "sha": "ef74414",
-      "full_sha": "ef7441484ee38433cb55c919b0077b63d0312f68",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:22:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ef74414.md"
-    },
-    {
-      "sha": "2deac7d",
-      "full_sha": "2deac7d1196005083f433fb2bb2567a7f55367b8",
-      "title": "add persona-uploads bucket setup runbook",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:11:00Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2deac7d.md"
-    },
-    {
-      "sha": "9754fe6",
-      "full_sha": "9754fe68951ff0635100c92b5beca363881b14f9",
-      "title": "iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:45:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9754fe6.md"
-    },
-    {
-      "sha": "1e657ab",
-      "full_sha": "1e657ab9eb63f541449c567fb831baef420ee559",
-      "title": "iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:43:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1e657ab.md"
-    },
-    {
-      "sha": "d5b2194",
-      "full_sha": "d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3",
-      "title": "iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:39:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d5b2194.md"
-    },
-    {
-      "sha": "b317316",
-      "full_sha": "b3173162713c3a93dee28e0a283019da3a06d310",
-      "title": "reinstate persona-uploads frontend wiring (lost in stable-build revert)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:21:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b317316.md"
-    },
-    {
-      "sha": "808e230",
-      "full_sha": "808e230cc244296acc8a70c8a0d1a4d2f5185031",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:21:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-808e230.md"
-    },
-    {
-      "sha": "1b7c2f8",
-      "full_sha": "1b7c2f815589b2c32b83164cec12a0b79e7df571",
-      "title": "harden aigentMe Capsule/Layout contract — single activator + guardrails",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:13:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1b7c2f8.md"
-    },
-    {
-      "sha": "29b5492",
-      "full_sha": "29b5492eaab95029b48cc271f3194d2adddc13dc",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:13:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-29b5492.md"
-    },
-    {
-      "sha": "614526f",
-      "full_sha": "614526f4b5f73f138b61b0477c5df0d8b2c10514",
-      "title": "Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:12:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-614526f.md"
-    },
-    {
-      "sha": "b226c88",
-      "full_sha": "b226c88aa765d6e244364132ef53e2951f5d8d25",
-      "title": "fix capsule disappearance + restore Pill pattern to Move-forward + Venture",
-      "author": "Claude",
-      "timestamp": "2026-05-28T05:43:50Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-b226c88.md"
-    },
-    {
-      "sha": "6ce6085",
-      "full_sha": "6ce60855cc5da589f07892b3a6784f1fed8ba046",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T05:43:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6ce6085.md"
-    },
-    {
-      "sha": "d52a3a5",
-      "full_sha": "d52a3a5f4295f08ea59c7d9b202f41c3c7cbb0b7",
-      "title": "Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T03:53:24Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d52a3a5.md"
-    },
-    {
-      "sha": "f40facd",
-      "full_sha": "f40facd5b5f8cdfa7b030783c18584eec135bc5a",
-      "title": "Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates",
-      "author": "Claude",
-      "timestamp": "2026-05-28T02:59:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f40facd.md"
-    },
-    {
-      "sha": "7f85e60",
-      "full_sha": "7f85e60de82fed0e2ebde2f2422581d490398fce",
-      "title": "Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated",
-      "author": "Claude",
-      "timestamp": "2026-05-28T02:00:33Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-7f85e60.md"
-    },
-    {
-      "sha": "d6a7362",
-      "full_sha": "d6a73629b42b74c009c1e4da7e6826eec66b6027",
-      "title": "Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top",
-      "author": "Claude",
-      "timestamp": "2026-05-28T00:35:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d6a7362.md"
-    },
-    {
-      "sha": "f6143da",
-      "full_sha": "f6143daf264a210d110196500c8e6b3555e3748d",
-      "title": "Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid",
-      "author": "Claude",
-      "timestamp": "2026-05-27T22:30:29Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f6143da.md"
-    },
-    {
-      "sha": "b82bb3a",
-      "full_sha": "b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214",
-      "title": "Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number",
-      "author": "Claude",
-      "timestamp": "2026-05-27T20:58:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b82bb3a.md"
-    },
-    {
-      "sha": "c305db9",
-      "full_sha": "c305db9bc61d5afe72a79e731d26b5c3ffe7749d",
-      "title": "Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row",
-      "author": "Claude",
-      "timestamp": "2026-05-27T20:54:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c305db9.md"
-    },
-    {
-      "sha": "e0e0470",
-      "full_sha": "e0e0470958421d0ab7f4fce6bfa261d7cef776ca",
-      "title": "Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)",
-      "author": "Claude",
-      "timestamp": "2026-05-27T19:24:25Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e0e0470.md"
-    },
-    {
-      "sha": "47347c4",
-      "full_sha": "47347c40af2ff2046edd5aa3357b84b3e75e36a1",
-      "title": "Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern",
-      "author": "Claude",
-      "timestamp": "2026-05-27T18:50:28Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-47347c4.md"
-    },
-    {
-      "sha": "df780ef",
-      "full_sha": "df780eff29c51ac0c493de83a153170a9c55388c",
-      "title": "Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker",
-      "author": "Claude",
-      "timestamp": "2026-05-27T18:41:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-df780ef.md"
-    },
-    {
-      "sha": "51f6a32",
-      "full_sha": "51f6a32f6652ecec53bceb42d60f131cc9e2993c",
-      "title": "Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs",
-      "author": "Claude",
-      "timestamp": "2026-05-27T15:26:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-51f6a32.md"
-    },
-    {
-      "sha": "31d3a6a",
-      "full_sha": "31d3a6a0a3b762e7809ff6a62487620ea051e739",
-      "title": "Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20)",
-      "author": "Claude",
-      "timestamp": "2026-05-27T14:50:45Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-31d3a6a.md"
-    },
-    {
-      "sha": "b83c732",
-      "full_sha": "b83c7325a5f9aaa7198495ca6cfd273b5f2ba2de",
-      "title": "Rasterise PDF covers server-side to WebP so they render as real thumbnails",
-      "author": "Claude",
-      "timestamp": "2026-05-27T05:26:35Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b83c732.md"
-    },
-    {
-      "sha": "b386014",
-      "full_sha": "b38601486449bf62b1d5a54b3851817b05ce4f63",
-      "title": "Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group",
-      "author": "Claude",
-      "timestamp": "2026-05-27T05:03:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b386014.md"
-    },
-    {
-      "sha": "c52d1aa",
-      "full_sha": "c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2",
-      "title": "Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers",
-      "author": "Claude",
-      "timestamp": "2026-05-27T04:43:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c52d1aa.md"
-    },
-    {
-      "sha": "6352ef3",
-      "full_sha": "6352ef3ca5399e596a310146becde5b29d515e2c",
-      "title": "Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache",
-      "author": "Claude",
-      "timestamp": "2026-05-27T04:39:35Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6352ef3.md"
-    },
-    {
-      "sha": "95e536c",
-      "full_sha": "95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf",
-      "title": "Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer",
-      "author": "Claude",
-      "timestamp": "2026-05-27T03:34:50Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-95e536c.md"
-    },
-    {
-      "sha": "0e1fe66",
-      "full_sha": "0e1fe6681e3c77d69719e6cdf8e8b7d082ead602",
-      "title": "Wire Qriptopian Papers tab + admin codex list to actual asset data",
-      "author": "Claude",
-      "timestamp": "2026-05-27T01:55:18Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-0e1fe66.md"
-    },
-    {
-      "sha": "9f14330",
-      "full_sha": "9f14330f44a8696d174ec644f4ccf4a9d1666d5d",
-      "title": "Add Qripto Cover content type + fix upload preview link for Supabase URLs",
-      "author": "Claude",
-      "timestamp": "2026-05-27T01:31:26Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9f14330.md"
-    },
-    {
-      "sha": "ddadc89",
-      "full_sha": "ddadc89d29ab2d98801f3803542c79ced24f142e",
-      "title": "Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs",
-      "author": "Claude",
-      "timestamp": "2026-05-27T00:21:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ddadc89.md"
-    },
-    {
-      "sha": "0929def",
-      "full_sha": "0929defe329a50b4aafb64ab20133def0b25edc1",
-      "title": "Qripto-aware Codex Upload modal — Series + Content Types live",
-      "author": "Claude",
-      "timestamp": "2026-05-26T23:14:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0929def.md"
-    },
-    {
-      "sha": "6997901",
-      "full_sha": "6997901e0c04a54bf5f02612089cc8179fc86b1f",
-      "title": "Qriptopian Pulse — wire live + clone admin moderation + drop \"Admin\" labels",
-      "author": "Claude",
-      "timestamp": "2026-05-26T22:32:43Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6997901.md"
-    },
-    {
-      "sha": "41c69e5",
-      "full_sha": "41c69e5e2541419c0984af0d68a7ae27a9b652ab",
-      "title": "myCanvas → Pulse publish + cartridge split end-to-end",
-      "author": "Claude",
-      "timestamp": "2026-05-26T20:49:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-41c69e5.md"
-    },
-    {
-      "sha": "fd34baa",
-      "full_sha": "fd34baa4a7e05b89c58e3e360219aeff46868e44",
-      "title": "Qriptopian Cartridge v3.1 refinement — Store, Qriptopia, Admin reorder + Community Correspondent",
-      "author": "Claude",
-      "timestamp": "2026-05-26T19:55:50Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fd34baa.md"
-    },
-    {
-      "sha": "51d51fa",
-      "full_sha": "51d51fae303507f02a72d2fd6eb7e0679f7decbe",
-      "title": "Qriptopian Cartridge v3 restructure + KNYT Pulse rename",
-      "author": "Claude",
-      "timestamp": "2026-05-26T17:53:08Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-51d51fa.md"
-    },
-    {
-      "sha": "c56ae59",
-      "full_sha": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
-      "title": "copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context",
-      "author": "Claude",
-      "timestamp": "2026-05-26T14:46:41Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c56ae59.md"
-    },
-    {
-      "sha": "f32d517",
-      "full_sha": "f32d51767fafb82350355a26b99a64695f2a1d13",
-      "title": "copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance",
-      "author": "Claude",
-      "timestamp": "2026-05-26T14:19:24Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f32d517.md"
-    },
-    {
-      "sha": "89d80cf",
-      "full_sha": "89d80cfd47367eb3754cc9a1afc9ce24fc82007e",
-      "title": "AgentiQ OS: stub Admin tabGroup so the mirror has content",
-      "author": "Claude",
-      "timestamp": "2026-05-26T10:12:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-89d80cf.md"
-    },
-    {
-      "sha": "f9a34db",
-      "full_sha": "f9a34dbad05f7767c10c357a53959f39415c7355",
-      "title": "register TabRendererFallback component + add Admin under Marketa Partner",
-      "author": "Claude",
-      "timestamp": "2026-05-26T10:09:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f9a34db.md"
-    },
-    {
-      "sha": "7c3125f",
-      "full_sha": "7c3125f382b6d9078474b850461a57bdf1549716",
-      "title": "CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)",
-      "author": "Claude",
-      "timestamp": "2026-05-26T09:55:18Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7c3125f.md"
-    },
-    {
-      "sha": "ea60f8e",
-      "full_sha": "ea60f8e87e08db5782fe0bf1bf1be7d34765de13",
-      "title": "CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants",
-      "author": "Claude",
-      "timestamp": "2026-05-26T09:53:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ea60f8e.md"
-    },
-    {
-      "sha": "41d1079",
-      "full_sha": "41d107988fae82afb82700340424a2d554ddcac2",
-      "title": "fix admin-tab visibility: hook uses personaFetch (Bearer token), not raw fetch",
-      "author": "Claude",
-      "timestamp": "2026-05-26T09:47:13Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-41d1079.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

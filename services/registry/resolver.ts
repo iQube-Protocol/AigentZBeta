@@ -284,6 +284,35 @@ export async function listIQubes(filter: ListIQubesFilter = {}): Promise<ListIQu
 
 // ── Projection driver ─────────────────────────────────────────────────────
 
+async function loadScoreBlock(iqube_id: string) {
+  try {
+    const sb = client();
+    const { data } = await sb
+      .from('iqube_scores')
+      .select('*')
+      .eq('iqube_id', iqube_id)
+      .maybeSingle();
+    if (!data) return undefined;
+    const r = data as Record<string, unknown>;
+    return {
+      sensitivity: (r.sensitivity as number | null) ?? null,
+      accuracy: (r.accuracy as number | null) ?? null,
+      verifiability: (r.verifiability as number | null) ?? null,
+      risk: (r.risk as number | null) ?? null,
+      derived_reliability: (r.derived_reliability as number | null) ?? null,
+      derived_trust: (r.derived_trust as number | null) ?? null,
+      sensitivity_source: r.sensitivity_source as 'derived' | 'operator_override',
+      accuracy_source: r.accuracy_source as 'derived' | 'operator_override',
+      verifiability_source: r.verifiability_source as 'derived' | 'operator_override',
+      risk_source: r.risk_source as 'derived' | 'operator_override',
+      derivation_strategy: (r.derivation_strategy as string | null) ?? null,
+      updated_at: r.updated_at as string,
+    };
+  } catch {
+    return undefined; // best-effort — projection is fine without scores
+  }
+}
+
 async function projectRecord(
   record: CanonicalIQubeInternalRecord,
   opts: ResolveOpts,
@@ -292,7 +321,18 @@ async function projectRecord(
 
   if (projection === 'internal') return record;
 
-  if (projection === 'admin') return projectAdmin(record);
+  // Score block applies to admin + cartridge views (not public — scores
+  // are operator-facing). Best-effort fetch; undefined surfaces as
+  // placeholder UX in the consumer.
+  const scores = projection === 'admin' || projection === 'cartridge'
+    ? await loadScoreBlock(record.iqube_id)
+    : undefined;
+
+  if (projection === 'admin') {
+    const view = projectAdmin(record);
+    if (scores) view.scores = scores;
+    return view;
+  }
 
   if (projection === 'public') {
     if (
@@ -316,7 +356,9 @@ async function projectRecord(
     callerCanRead = await callerCanReadViaSpine(opts.persona, record);
   }
 
-  return projectCartridge(record, callerOwns, callerCanRead);
+  const view = projectCartridge(record, callerOwns, callerCanRead);
+  if (scores) view.scores = scores;
+  return view;
 }
 
 // ── Spine delegation (never reimplement; always call) ─────────────────────

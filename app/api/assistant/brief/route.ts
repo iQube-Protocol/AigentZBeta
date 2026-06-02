@@ -7,7 +7,7 @@
  * Body (all optional):
  *   {
  *     briefType?: 'daily' | 'project' | 'cartridge',  // default 'daily'
- *     scopedCartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'avl',
+ *     scopedCartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'mvl',
  *   }
  *
  * Response: BriefShape (services/orchestration/briefBuilder.ts).
@@ -42,7 +42,7 @@ const VALID_CARTRIDGES: ActiveCartridgeSlug[] = [
   'knyt',
   'qriptopian',
   'marketa',
-  'avl',
+  'mvl',
 ];
 
 interface PostBody {

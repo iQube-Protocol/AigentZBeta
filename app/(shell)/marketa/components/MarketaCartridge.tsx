@@ -144,7 +144,7 @@ export default function MarketaCartridge() {
     try {
       const [campaignRes, partnerRes, kpiRes] = await Promise.all([
         fetch('/api/marketa/campaigns'),
-        fetch('/api/avl/partners'),
+        fetch('/api/mvl/partners'),
         fetch('/api/marketa/kpi').catch(() => null),
       ]);
       if (campaignRes.ok) {
@@ -526,9 +526,9 @@ export default function MarketaCartridge() {
             )}
           </TabsContent>
 
-          {/* Partners Tab — live AVL partner list */}
+          {/* Partners Tab — live MVL partner list */}
           <TabsContent value="partners" className="space-y-4 mt-6">
-            <h3 className="text-lg font-semibold text-white">AVL Partners — Wave Activation</h3>
+            <h3 className="text-lg font-semibold text-white">MVL Partners — Wave Activation</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {avlPartners.map((partner) => (
                 <GlassCard key={partner.id} className="p-4">

@@ -71,22 +71,42 @@ function entryRowToShape(row: DbEntryRow): CanvasEntry {
 export async function listEntries(personaId: string): Promise<CanvasEntry[]> {
   const admin = getSupabaseServer();
   if (!admin) return [];
-  // PIECE 1 of the 413 fix — don't select body_md OR meta_json here.
-  // Derived experience entries store full article bodies (600–900 words)
-  // in body_md AND base64-encoded images (data:image/png;base64,...) in
-  // meta_json.imageUrl. With a handful of saved remixes the cumulative
-  // list response exceeds AWS Lambda's 6 MB payload limit (413) and
-  // eventually 504s on retry. The detail panel reads the full row via
-  // GET /api/mycanvas/entries/[id] (see PIECE 2).
+  // PIECE 1 of the 413 fix — don't select body_md OR full meta_json
+  // here. Derived experience entries store full article bodies
+  // (600–900 words) in body_md AND base64-encoded images
+  // (data:image/png;base64,...) in meta_json.imageUrl. With a handful
+  // of saved remixes the cumulative list response exceeds AWS Lambda's
+  // 6 MB payload limit (413) and eventually 504s on retry. The detail
+  // panel reads the full row via GET /api/mycanvas/entries/[id]
+  // (see PIECE 2).
+  //
+  // 2026-05-29 surface discriminator: we DO need the meta_json.surface
+  // stamp on the list response so the FE can route entries between
+  // myCanvas / myWorkspace tabs. Pull it via a JSON-path expression
+  // — that gives us the single tiny string key without dragging the
+  // bulky imageUrl payload back into the list.
   const { data } = await admin
     .from('mycanvas_entries')
-    .select('id, persona_id, title, tags, visibility, entry_type, created_at, updated_at')
+    .select(
+      `id, persona_id, title, tags, visibility, entry_type, created_at, updated_at,
+       surface:meta_json->>surface`,
+    )
     .eq('persona_id', personaId)
     .order('updated_at', { ascending: false })
     .limit(100);
   if (!Array.isArray(data)) return [];
-  return (data as Array<Omit<DbEntryRow, 'body_md' | 'meta_json'>>).map((row) =>
-    entryRowToShape({ ...row, body_md: '', meta_json: {} }),
+  return (data as Array<Omit<DbEntryRow, 'body_md' | 'meta_json'> & { surface?: string | null }>).map(
+    (row) =>
+      entryRowToShape({
+        ...row,
+        body_md: '',
+        // Reconstruct the minimum meta_json the FE filter needs — just
+        // the surface stamp. Detail view (getEntry) returns the full
+        // meta_json. Anything else the list previously got from
+        // meta_json (which was nothing, given the strip above) keeps
+        // returning {}.
+        meta_json: row.surface ? { surface: row.surface } : {},
+      }),
   );
 }
 

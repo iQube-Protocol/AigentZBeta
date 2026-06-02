@@ -526,23 +526,47 @@ class EmbeddingService {
   }
 
   /**
-   * Hybrid search combining semantic and keyword search
+   * Hybrid search combining semantic and keyword search.
+   *
+   * Phase 8 of the myCartridge PRD §16 extends the signature with an
+   * optional `cartridgeSlug` filter. When provided, the implementation
+   * will eventually scope the embedding lookup to chunks tagged with
+   * that cartridge slug (per `cartridge_kb_sources` — PRD §17 / §26;
+   * table lands in v0.5). For MVP, the parameter is accepted on the
+   * contract but the filter falls back to the domain-scoped lookup
+   * because cartridge KB sources are not yet populated. The graceful
+   * fallback matches the PRD: "if cartridge KB is empty, copilot falls
+   * back to domain-scoped KB."
+   *
+   * Callers should pass `cartridgeSlug` whenever they have one — the
+   * signature won't change again when v0.5 wires the filter for real.
    */
   async hybridSearch(
     query: string,
     domain: string = 'metaKnyts',
-    limit: number = 5
+    limit: number = 5,
+    options?: { cartridgeSlug?: string }
   ): Promise<SimilaritySearchResult[]> {
+    if (options?.cartridgeSlug) {
+      // Phase 8a — log only. v0.5 will branch here into a cartridge-
+      // scoped semanticSearch path. For now, fall through to the
+      // domain-scoped lookup so existing chat behaviour is preserved.
+      console.log(
+        `[embeddingService] cartridgeSlug=${options.cartridgeSlug} requested; ` +
+          `falling back to domain-scoped lookup (cartridge KB pipeline lands in v0.5)`
+      );
+    }
+
     // Try semantic search first
     const semanticResults = await this.semanticSearch(query, domain, limit);
-    
+
     if (semanticResults.length >= limit) {
       return semanticResults;
     }
 
     const keywordResults = await this.keywordSearch(query, domain, limit);
     const seenIds = new Set(semanticResults.map(r => r.chunkId));
-    
+
     for (const item of keywordResults) {
       if (!seenIds.has(item.chunkId)) {
         semanticResults.push(item);

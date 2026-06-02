@@ -6,7 +6,7 @@
  *
  * Body (all optional):
  *   {
- *     cartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'avl'
+ *     cartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'mvl'
  *   }
  *
  * - Body omitted → builder picks the strongest NBE across the user's active
@@ -35,7 +35,7 @@ const VALID_CARTRIDGES: ActiveCartridgeSlug[] = [
   'knyt',
   'qriptopian',
   'marketa',
-  'avl',
+  'mvl',
 ];
 
 interface PostBody {

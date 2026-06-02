@@ -36,6 +36,14 @@ const DOC_ALLOWLIST: ReadonlyArray<DocEntry> = [
     order: 0,
     description: 'Canonical agent-facing contract. Read first.',
   },
+  {
+    id: 'score-derivation',
+    path: 'docs/iqube-score-derivation.md',
+    label: 'iQube Score Derivation Reference',
+    group: 'primary',
+    order: 1,
+    description: 'Per-primitive sensitivity/accuracy/verifiability/risk derivation rules.',
+  },
 
   // PRD trail
   {
@@ -147,6 +155,30 @@ const DOC_ALLOWLIST: ReadonlyArray<DocEntry> = [
     label: 'Stage 9 — Phase 2 stubs',
     group: 'stage',
     order: 9,
+  },
+  {
+    id: 'legacy-registry-phase-a-close',
+    path: 'codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-a-close-report.md',
+    label: 'Legacy /registry Integration — Phase A close',
+    group: 'stage',
+    order: 10,
+    description: 'Read path complete: list + detail + identity filters + score display + analytics banner.',
+  },
+  {
+    id: 'legacy-registry-phase-b-close',
+    path: 'codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-b-close-report.md',
+    label: 'Legacy /registry Integration — Phase B close',
+    group: 'stage',
+    order: 11,
+    description: 'Write path + mint canonicalisation + batch mint complete. 9 commits.',
+  },
+  {
+    id: 'legacy-registry-phase-c-close',
+    path: 'codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-c-close-report.md',
+    label: 'Legacy /registry Integration — Phase C close (integration shipped)',
+    group: 'stage',
+    order: 12,
+    description: 'Component lift + cartridge grid/modal/intake + legacy route deprecation. End of three-phase integration.',
   },
 ];
 

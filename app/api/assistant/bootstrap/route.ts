@@ -108,7 +108,7 @@ interface AssistantBootstrapSurface {
 
   /** Cartridges the user can pivot Aigent Me into for this session. */
   availableCartridges: Array<{
-    slug: 'metame' | 'knyt' | 'qriptopian' | 'marketa' | 'avl';
+    slug: 'metame' | 'knyt' | 'qriptopian' | 'marketa' | 'mvl';
     label: string;
   }>;
 
@@ -157,7 +157,7 @@ const AVAILABLE_CARTRIDGES: AssistantBootstrapSurface['availableCartridges'] = [
   { slug: 'knyt', label: 'KNYT' },
   { slug: 'qriptopian', label: 'The Qriptopian' },
   { slug: 'marketa', label: 'Marketa' },
-  { slug: 'avl', label: 'metaMe Venture Lab' },
+  { slug: 'mvl', label: 'metaMe Venture Lab' },
 ];
 
 const AVAILABLE_SPECIALISTS: AssistantSpecialist[] = [

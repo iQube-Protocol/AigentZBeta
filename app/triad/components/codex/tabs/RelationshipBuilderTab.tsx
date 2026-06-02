@@ -281,7 +281,7 @@ function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () =
   const patchPartner = useCallback(async (fields: Record<string, unknown>) => {
     setSaving(true);
     try {
-      await fetch("/api/avl/partners", {
+      await fetch("/api/mvl/partners", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: partner.id, ...fields }),
@@ -375,7 +375,7 @@ function AddPartnerForm({ onSaved }: { onSaved: () => void }) {
     if (!name.trim()) { setErr("Name required"); return; }
     setSaving(true); setErr("");
     try {
-      const res = await fetch("/api/avl/partners", {
+      const res = await fetch("/api/mvl/partners", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), org: org.trim() || name.trim(), wave, contact_name: contact.trim() || null, contact_email: email.trim() || null }),
@@ -435,7 +435,7 @@ function PartnersPanel() {
   const load = useCallback(async (wave: "" | "1" | "2") => {
     setLoading(true);
     try {
-      const url = wave ? `/api/avl/partners?wave=${wave}` : "/api/avl/partners";
+      const url = wave ? `/api/mvl/partners?wave=${wave}` : "/api/mvl/partners";
       const res = await fetch(url);
       const json = await res.json() as { ok: boolean; data?: { partners: Partner[]; summary: PartnerSummary } };
       if (json.ok && json.data) {
@@ -863,8 +863,8 @@ function ComposerPanel() {
     void (async () => {
       setLoadingInit(true);
       const [packsRes, partnersRes] = await Promise.all([
-        fetch("/api/avl/comms-packs").catch(() => null),
-        fetch("/api/avl/partners").catch(() => null),
+        fetch("/api/mvl/comms-packs").catch(() => null),
+        fetch("/api/mvl/partners").catch(() => null),
       ]);
       if (packsRes?.ok) {
         const j = await packsRes.json() as { ok: boolean; data?: CommsPack[] };
@@ -897,7 +897,7 @@ function ComposerPanel() {
     setPreview([]);
     setResult(null);
     try {
-      const res = await fetch("/api/avl/send", {
+      const res = await fetch("/api/mvl/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -919,7 +919,7 @@ function ComposerPanel() {
     setSending(true);
     setResult(null);
     try {
-      const res = await fetch("/api/avl/send", {
+      const res = await fetch("/api/mvl/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

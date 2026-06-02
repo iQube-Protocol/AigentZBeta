@@ -52,6 +52,19 @@ export interface ExpandedNBEPillSecondTier {
   error: string | null;
 }
 
+/**
+ * Intent Chain breadcrumb — present when this pill is part of a chain
+ * (spec §8). Surfaces the chain's current position so the user can
+ * click through to the ChainDetailDrawer for full step history.
+ */
+export interface ExpandedNBEPillChainBreadcrumb {
+  chain_id: string;
+  chain_label: string;
+  step_index: number;     // 1-based
+  total_steps: number;
+  step_label: string;
+}
+
 interface Props {
   action: NextBestActionData;
   queued: ExpandedNBEPillQueuedState;
@@ -70,6 +83,11 @@ interface Props {
    *  in the pill header so the user can advance pill state to green
    *  even when no artifact-level execution signal has fired. */
   onMarkComplete?: () => void;
+  /** Intent-chain breadcrumb. Present when this pill is part of a chain.
+   *  Renders at the top of the pill as a clickable link that opens the
+   *  ChainDetailDrawer via onChainBreadcrumbClick. */
+  chainBreadcrumb?: ExpandedNBEPillChainBreadcrumb;
+  onChainBreadcrumbClick?: (chain_id: string) => void;
   theme?: "light" | "dark";
 }
 
@@ -78,7 +96,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "metaMe Venture Lab",
+  mvl: "metaMe Venture Lab",
 };
 
 const SPECIALIST_LABELS: Record<string, string> = {
@@ -137,6 +155,8 @@ export function ExpandedNBEPill({
   onApproveSecondTier,
   onCancelSecondTier,
   onMarkComplete,
+  chainBreadcrumb,
+  onChainBreadcrumbClick,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -173,7 +193,32 @@ export function ExpandedNBEPill({
       data-pill-intent-id={queued.intentId}
       data-pill-nbe-id={action.id}
       data-pill-state={complete ? "complete" : "queued"}
+      data-pill-chain-id={chainBreadcrumb?.chain_id}
     >
+      {/* Intent Chain breadcrumb (spec §8) — present when this pill is
+          part of a chain. Click opens the ChainDetailDrawer. */}
+      {chainBreadcrumb && (
+        <button
+          type="button"
+          onClick={() => onChainBreadcrumbClick?.(chainBreadcrumb.chain_id)}
+          className={`group flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-[11px] transition-colors ${
+            isDark
+              ? "bg-violet-500/10 ring-1 ring-violet-500/30 text-violet-200 hover:bg-violet-500/20"
+              : "bg-violet-50 ring-1 ring-violet-200 text-violet-700 hover:bg-violet-100"
+          }`}
+          aria-label={`Open chain ${chainBreadcrumb.chain_label}`}
+          title={`Step ${chainBreadcrumb.step_index} of ${chainBreadcrumb.total_steps}: ${chainBreadcrumb.step_label}`}
+        >
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className="text-violet-400">↳</span>
+            <span className="truncate font-medium">{chainBreadcrumb.chain_label}</span>
+          </span>
+          <span className="shrink-0 tabular-nums opacity-80">
+            Step {chainBreadcrumb.step_index}/{chainBreadcrumb.total_steps}
+          </span>
+        </button>
+      )}
+
       {/* Pill header — state badge + label + mark complete + dismiss */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -195,7 +240,9 @@ export function ExpandedNBEPill({
             )}
           </div>
           <h4 className={`text-base font-semibold leading-tight ${isDark ? "text-slate-100" : "text-slate-900"}`}>
-            {action.label}
+            {action.contextualTitle && action.contextualTitle.trim().length > 0
+              ? action.contextualTitle
+              : action.label}
           </h4>
           <p className={`text-sm mt-1 ${mutedClass}`}>{queued.queueMessage}</p>
           <p className={`text-[11px] mt-1.5 ${mutedClass}`}>

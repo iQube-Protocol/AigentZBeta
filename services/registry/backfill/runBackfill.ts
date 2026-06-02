@@ -74,7 +74,7 @@ interface SourceRow {
 
 type SourceLoader = () => Promise<SourceRow[]>;
 
-async function loadTriadMetaRows(): Promise<SourceRow[]> {
+async function loadTrinityMetaRows(): Promise<SourceRow[]> {
   const sb = client();
   // Identify orphan metas (Stage 0 Finding F — flagged as test fixtures)
   // and tag them with notes='legacy_test_fixture'.
@@ -169,6 +169,28 @@ async function loadToolQubeCodeRows(): Promise<SourceRow[]> {
   }));
 }
 
+async function loadChainTemplateRows(): Promise<SourceRow[]> {
+  // Factory Ingestion stub for intent chain templates (spec §6.6).
+  // Each template in services/intentChains/templates/*.json registers
+  // as a synthetic ToolQube primitive so it appears in the registry
+  // plane (Browse, Score Coverage). Full canonization (meta + blak +
+  // token + governance) is deferred follow-on work.
+  try {
+    const { listTemplates } = await import('@/services/intentChains/registry');
+    return listTemplates().map((t) => ({
+      source_id: t.id,
+      primitive_type: 'ToolQube' as IQubePrimitiveType,
+      synthetic: true,
+      iqube_id: syntheticIQubeId('code:chainTemplate', t.id),
+      legacy_primitive_type: 'WorkflowQube',
+      notes: `intent chain template v=${t.version} cost_qc=${t.cost_qc}`,
+    }));
+  } catch (err) {
+    console.warn('[chain template loader] failed:', (err as Error).message);
+    return [];
+  }
+}
+
 async function loadLiquidUiTemplateRows(): Promise<SourceRow[]> {
   const { getStore } = await import('@/app/api/registry/templates/store');
   return getStore()
@@ -185,7 +207,7 @@ async function loadLiquidUiTemplateRows(): Promise<SourceRow[]> {
 }
 
 const SOURCE_LOADERS: Record<IQubeIdMapSource, SourceLoader | null> = {
-  triad_meta: loadTriadMetaRows,
+  triad_meta: loadTrinityMetaRows,
   triad_blak: null,            // Implied via triad_meta; not separately backfilled
   triad_token: null,           // Implied via triad_meta; not separately backfilled
   content_qube: loadContentQubeRows,
@@ -197,6 +219,7 @@ const SOURCE_LOADERS: Record<IQubeIdMapSource, SourceLoader | null> = {
   'code:aigentQubeSource': loadAigentQubeCodeRows,
   'code:toolQubeSource': loadToolQubeCodeRows,
   'code:liquidui-template': loadLiquidUiTemplateRows,
+  'code:chainTemplate': loadChainTemplateRows,
 };
 
 // ── Backfill execution ────────────────────────────────────────────────────

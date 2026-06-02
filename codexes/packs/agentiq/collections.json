@@ -40,7 +40,21 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-02_cartridge-isolation-hardening.md",
+        "updates/2026-06-02_mycartridge-personal-system-isolation-fix.md",
+        "updates/2026-06-02_mycartridge-phase-9-wallet.md",
+        "updates/2026-06-02_mycartridge-phase-8-triad-scoping.md",
+        "updates/2026-06-02_mycartridge-phase-7-operator-manager.md",
+        "updates/2026-06-02_mycartridge-phase-6-wizard.md",
+        "updates/2026-06-02_mycartridge-phase-5-tab-templates.md",
+        "updates/2026-06-02_debug-bypass-test-assertion-mismatch-backlog.md",
+        "updates/2026-06-02_mycartridge-phase-4b-spine-extension.md",
+        "updates/2026-06-02_mycartridge-phase-4a-config-roles-db.md",
+        "updates/2026-06-01_venture-iqube-schema-v0.4.md",
+        "updates/2026-06-01_mycartridge-prd-draft.md",
+        "updates/2026-06-01_mobile-landscape-iframe-truncation-backlog.md",
         "updates/2026-05-31_thin-client-wallet-persona-deep-link-spec.md",
+        "updates/2026-05-29_venture-iqube-schema-v0.3.md",
         "updates/2026-05-29_venture-iqube-schema-v0.2.md",
         "updates/2026-05-29_venture-iqube-schema-v0.1.md",
         "updates/2026-05-29_aigentme-voice-loop-stt-tts-sync-backlog.md",
@@ -151,7 +165,19 @@
                 "updates/2026-05-31_stage-5-close-report.md",
                 "updates/2026-05-31_stage-6-close-report.md",
                 "updates/2026-05-31_stage-7-close-report.md",
-                "updates/2026-05-31_stage-9-close-report.md"
+                "updates/2026-05-31_stage-9-close-report.md",
+                "updates/2026-05-31_dependency-hygiene-backlog.md",
+                "updates/2026-05-31_legacy-registry-canonical-integration-plan.md",
+                "updates/2026-05-31_registry-analytics-backend-backlog.md",
+                "updates/2026-05-31_iqube-score-data-backfill-backlog.md",
+                "updates/2026-05-31_score-data-backfill-close-report.md",
+                "updates/2026-05-31_legacy-registry-phase-a-close-report.md",
+                "updates/2026-05-31_legacy-registry-phase-b-close-report.md",
+                "updates/2026-05-31_legacy-registry-phase-c-close-report.md",
+                "updates/2026-05-31_resolver-skipped-inventory-and-id-map-cleanup-backlog.md",
+                "updates/2026-05-31_iqube-trinity-naming-convention.md",
+                "updates/2026-06-01_auto-merge-workflow-and-cron-scheduler-backlog.md",
+                "updates/2026-06-02_intent-chain-orchestrator-v1-close.md"
       ]
     },
     {
@@ -239,6 +265,22 @@
         "updates/2026-05-07_thin-client-active-persona-integration.md",
         "updates/2026-05-08_phase-1-iam-spine-closure.md",
         "updates/2026-05-08_thin-client-handshake-spec.md"
+      ]
+    },
+    {
+      "id": "col_network_economics",
+      "title": "Network Economics",
+      "description": "Canonical reference for what it costs to run the AgentiQ network — anchor + cross-chain cost model, K/T policy, calibration knobs, and cost-per-receipt projections at mainnet cutover.",
+      "items": [
+        "items/AGENTIQ_NETWORK_COSTS.md"
+      ]
+    },
+    {
+      "id": "col_intent_chains",
+      "title": "Intent Chains",
+      "description": "Spec + reference for the metaMe/aigentMe intent-chain orchestrator — turns CTAs into stateful multi-step workflows with DVN-receipt-anchored provenance. Draft spec awaiting operator confirmation before build.",
+      "items": [
+        "items/AGENTIQ_INTENT_CHAINS_SPEC.md"
       ]
     }
   ]

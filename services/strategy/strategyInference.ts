@@ -193,10 +193,10 @@ function deterministicBaseline(
       explanation: 'KNYT activation and active campaigns share investor-update artifacts.',
     });
   }
-  if (qube.blak.experienceGoals?.length && qube.meta.activeCartridges.includes('avl')) {
+  if (qube.blak.experienceGoals?.length && qube.meta.activeCartridges.includes('mvl')) {
     correlations.push({
       from: 'experienceGoals',
-      to: 'AVL progress',
+      to: 'MVL progress',
       relation: 'depends-on',
       explanation: 'Venture progress reporting only resonates when tied to declared goals.',
     });
@@ -278,7 +278,7 @@ Rules:
 - Paragraphs: 2-3 sentences, concrete, non-generic. Reference the actual goals/partners/cartridges in the input.
 - correlations: 2-5 entries showing how venture goals, partners, KPIs, and personal focus interact.
 - nbeHints.keywords: lowercase, 5-12 short terms drawn from goals and partners.
-- nbeHints.cartridgeBias: subset of ["metame","knyt","qriptopian","marketa","avl"].
+- nbeHints.cartridgeBias: subset of ["metame","knyt","qriptopian","marketa","mvl"].
 - nbeHints.preferArtifacts: from ["google-doc","gmail-draft","calendar-block","brief","venture-report"].
 - No markdown, no prose outside JSON.`;
 
@@ -409,7 +409,7 @@ function safeParseAndValidate(raw: string, baseline: InferredStrategy): Inferred
           : baseline.nbeHints.keywords,
         cartridgeBias: Array.isArray(parsed.nbeHints?.cartridgeBias)
           ? (parsed.nbeHints!.cartridgeBias as ActiveCartridgeSlug[]).filter((s) =>
-              ['metame', 'knyt', 'qriptopian', 'marketa', 'avl'].includes(s as string),
+              ['metame', 'knyt', 'qriptopian', 'marketa', 'mvl'].includes(s as string),
             )
           : baseline.nbeHints.cartridgeBias,
         preferArtifacts: Array.isArray(parsed.nbeHints?.preferArtifacts)

@@ -799,7 +799,7 @@ export const KNYT_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'Users',
-        description: 'Partner and customer outreach — 18 AVL partner contacts, KS Prospects funnel, campaign composer for Marketa email dispatch',
+        description: 'Partner and customer outreach — 18 MVL partner contacts, KS Prospects funnel, campaign composer for Marketa email dispatch',
         color: 'violet'
       }
     },
@@ -2097,7 +2097,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'Users',
-        description: 'Partner and customer outreach — AVL partner contacts, KS Prospects funnel, campaign composer, and QubeTalk agent coordination',
+        description: 'Partner and customer outreach — MVL partner contacts, KS Prospects funnel, campaign composer, and QubeTalk agent coordination',
         color: 'violet'
       }
     },
@@ -2287,9 +2287,9 @@ export const METAME_CODEX: CodexConfig = {
   tabGroups: [
     { id: 'web',          label: 'metame.com',       icon: 'Globe',      order: -1,  iconOnly: true },
     { id: 'aigentme',     label: 'aigentMe',         icon: 'Sparkles',   order: 0 },
-    { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.5 },
-    { id: 'mycanvas',     label: 'myCanvas',         icon: 'PenSquare',  order: 0.6, activationId: 'mycanvas' },
-    { id: 'order',        label: 'Order of Metayé',  icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
+    { id: 'mycluster',    label: 'myCluster',        icon: 'PenSquare',  order: 0.5, activationId: 'mycanvas' },
+    { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.6 },
+    { id: 'order',        label: 'KNYT',             icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
@@ -2442,36 +2442,87 @@ export const METAME_CODEX: CodexConfig = {
       },
     },
 
-    // ── myCanvas group (activation-gated; auto-granted) ──────────────────────
+    // ── myCluster group (activation-gated; auto-granted) ──────────────────
+    //
+    // Renamed from "myArtifacts" 2026-06-01 per myCartridge PRD v0.2 — adds
+    // myCartridge as a fourth sub-tab between Workspace and Ledger.
+    //
+    // Four sub-tabs under one group chip:
+    //   myCanvas    — public-publishable experiences (articles, stories,
+    //                 remixable templates). Includes the Qriptopian Agents
+    //                 of Change 15-min reading-sprint seed
+    //                 (exp_1773512145689_1vnt1jcnt) as a remix-from-empty
+    //                 affordance.
+    //   myWorkspace — private work artifacts (docs, reports, tools,
+    //                 workflows, briefs). Separate kind column on the
+    //                 entries table to prevent leak risk between public
+    //                 + private surfaces.
+    //   myCartridge — owner-side view of the user's cartridge engagement
+    //                 estate. Wizard CTA when unconfigured. External-facing
+    //                 summary when configured.
+    //   myLedger    — the persona's personal ledger of canvas + workspace
+    //                 artifacts (formerly myWorkbench's content).
     {
       id: 'mycanvas',
       label: 'myCanvas',
       slug: 'mycanvas',
       enabled: true,
       activationId: 'mycanvas',
-      group: 'mycanvas',
+      group: 'mycluster',
       order: 0,
       type: 'static',
       config: { component: 'MyCanvasTab', props: {} },
       metadata: {
         icon: 'PenSquare',
-        description: 'Personal publishing surface — drafts, ideas, works-in-progress',
+        description: 'Personal publishing surface — articles, stories, remixable experiences',
         color: 'violet',
       },
     },
     {
-      id: 'myworkbench',
-      label: 'myWorkbench',
-      slug: 'my-workbench',
+      id: 'myworkspace',
+      label: 'myWorkspace',
+      slug: 'my-workspace',
       enabled: true,
       activationId: 'mycanvas',
-      group: 'mycanvas',
+      group: 'mycluster',
       order: 1,
       type: 'static',
-      config: { component: 'MyWorkbenchTab', props: {} },
+      config: { component: 'MyWorkspaceTab', props: {} },
       metadata: {
         icon: 'Hammer',
-        description: 'Workbench — works in active development, scratch space, drafts pre-publication',
+        description: 'Private work artifacts — docs, reports, tools, workflows, briefs',
+        color: 'violet',
+      },
+    },
+    {
+      id: 'mycartridge',
+      label: 'myCartridge',
+      slug: 'my-cartridge',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycluster',
+      order: 2,
+      type: 'static',
+      config: { component: 'MyCartridgeTab', props: {} },
+      metadata: {
+        icon: 'Boxes',
+        description: 'The owner-side view of your cartridge — identity, primary tab, copilot stance, wallet stance, activation requests',
+        color: 'violet',
+      },
+    },
+    {
+      id: 'myledger',
+      label: 'myLedger',
+      slug: 'my-ledger',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycluster',
+      order: 3,
+      type: 'static',
+      config: { component: 'MyLedgerTab', props: {} },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'Personal ledger of canvas + workspace artifacts — activity, receipts, audit',
         color: 'violet',
       },
     },
@@ -2481,7 +2532,7 @@ export const METAME_CODEX: CodexConfig = {
     // Source KNYT cartridge is not modified.
     {
       id: 'order-of-metaye',
-      label: 'Order of Metayé',
+      label: 'KNYT',
       slug: 'order-of-metaye',
       enabled: true,
       activationId: 'order-of-metaye',
@@ -2984,7 +3035,7 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       order: 3,
       type: 'static',
       config: { component: 'MarketaPartnersAdminTab', props: {} },
-      metadata: { icon: 'Users', description: 'AVL pipeline, activation actions, wave management' },
+      metadata: { icon: 'Users', description: 'MVL pipeline, activation actions, wave management' },
     },
     {
       id: 'marketa-approvals',
@@ -3182,6 +3233,18 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'IQubeRegistryBrowseTab' },
       metadata: { icon: 'Search', description: 'iQube discovery + filter + detail view', color: 'violet' },
+    },
+    {
+      id: 'iqube-registry-intake',
+      label: 'Intake',
+      slug: 'intake',
+      enabled: true,
+      adminOnly: true,
+      group: 'browse',
+      order: 1,
+      type: 'static',
+      config: { component: 'IQubeRegistryIntakeTab' },
+      metadata: { icon: 'Factory', description: 'Ingestion Factory — canonical intake', color: 'violet' },
     },
     {
       id: 'iqube-registry-receipts',

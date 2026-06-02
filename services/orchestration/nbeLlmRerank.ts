@@ -28,6 +28,9 @@ Return ONE JSON object exactly:
 {
   "order": [ "<nbe id>", ... ],
   "topReason": "<one short sentence — why the new #1 is the strongest move right now>",
+  "nbaContextualTitles": {
+    "<nbe id>": "<≤140-char contextual rewrite of the catalogue label — see Rules>"
+  },
   "nbaPromptHints": {
     "<nbe id>": "<≤200-char concrete compose / action prompt tailored to this persona — see Rules>"
   }
@@ -47,6 +50,22 @@ Rules:
   and never invent ids. If it's noise, ignore it.
 - Penalise candidates that duplicate work the persona has already done.
 - topReason: ≤ 140 chars, concrete (reference the actual blocker or goal, or the live signal when it drove the pick). No markdown.
+- nbaContextualTitles — for EACH id in your "order" array, rewrite the
+  catalogue's generic label into a contextually-specific TITLE the
+  operator will read on the NBA card. Each title MUST:
+    * Reference the persona's actual venture, partner, goal, or
+      cartridge by name — never generic ("partner proposal" alone is
+      not enough; "Metaiye Media partner proposal" is correct).
+    * Stay verb-first and imperative, matching the catalogue label's
+      voice ("Ask Marketa for a Metaiye Media partner proposal",
+      "Generate the metaKnyts venture progress report", "Draft a Gmail
+      outreach to <named partner> on Operation metaWill launch").
+    * Be ≤ 140 chars (drops into an h4 on the NBA card).
+    * Skip the title (omit the key) ONLY when you genuinely have no
+      grounded signal — the catalogue label will render verbatim as
+      the fallback. NEVER invent a partner name or metric.
+    * No markdown, no JSON-escaped newlines, no T0 ids (personaId /
+      auth_profile_id / tenant_id / kybe_did).
 - nbaPromptHints — for EACH id in your "order" array, emit one short
   prompt string the operator could feed straight into a compose modal
   (or use as a starting frame for non-compose actions). Each hint MUST:
@@ -84,7 +103,7 @@ function stripJsonFences(raw: string): string {
 async function callAnthropic(userPrompt: string): Promise<string | null> {
   if (!ANTHROPIC_API_KEY) return null;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8_000);
+  const timeoutId = setTimeout(() => controller.abort(), 12_000);
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -95,7 +114,13 @@ async function callAnthropic(userPrompt: string): Promise<string | null> {
       },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
-        max_tokens: 400,
+        // 1500-token ceiling — old budget was 400, which truncated the
+        // response once nbaContextualTitles joined nbaPromptHints
+        // (≤140 + ≤200 chars per candidate × 5 candidates ≈ 425 tokens
+        // before JSON structure overhead). Truncated JSON → parse fail
+        // → empty {nbaContextualTitles:{}, nbaPromptHints:{}, topNbeReason:null}
+        // in the brief response. 1500 covers 10+ candidates comfortably.
+        max_tokens: 1500,
         temperature: 0.2,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }],
@@ -161,6 +186,14 @@ export interface NbeRerankResult {
   /** ≤140-char rationale for the new top pick. Null when no LLM pass ran. */
   topReason: string | null;
   /**
+   * Optional per-NBA contextual title rewrites, keyed by NBE id.
+   * Renders in place of the catalogue label on the NBA card so each
+   * card reads with the operator's actual venture / partner / goal
+   * names instead of generic copy. Falls through to the catalogue
+   * label when the LLM didn't emit one for a given id.
+   */
+  nbaContextualTitles: Record<string, string>;
+  /**
    * Optional per-NBA compose / action prompt hints, keyed by NBE id.
    * Renders as the italic "aigentMe's take" line on the NBA card and
    * doubles as composerInitialPrompt when Act maps to a compose modal.
@@ -178,20 +211,25 @@ export async function llmRerankNbeCandidates(
   candidates: NbeCandidate[],
   ctx: RerankContext,
 ): Promise<NbeRerankResult> {
-  if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
-  if (candidates.length < 2) return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
+  if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
+  if (candidates.length < 2) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
 
   const raw = await callAnthropic(summariseForPrompt(candidates, ctx));
-  if (!raw) return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
+  if (!raw) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
 
-  let parsed: { order?: unknown; topReason?: unknown; nbaPromptHints?: unknown };
+  let parsed: { order?: unknown; topReason?: unknown; nbaContextualTitles?: unknown; nbaPromptHints?: unknown };
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
+    // Common cause: response truncated by max_tokens before the closing
+    // brace lands. Log the first 200 chars so we can confirm vs blame
+    // a quota / shape issue.
+    console.warn(`[nbeLlmRerank] JSON.parse failed; raw head: ${raw.slice(0, 200)}`);
+    return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
   }
   if (!parsed || !Array.isArray(parsed.order)) {
-    return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
+    console.warn(`[nbeLlmRerank] parsed shape missing order array: ${JSON.stringify(parsed).slice(0, 200)}`);
+    return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
   }
 
   const validIds = new Set(candidates.map((c) => c.id));
@@ -215,6 +253,26 @@ export async function llmRerankNbeCandidates(
       ? parsed.topReason.trim().slice(0, 200)
       : null;
 
+  const nbaContextualTitles: Record<string, string> = {};
+  if (parsed.nbaContextualTitles && typeof parsed.nbaContextualTitles === 'object' && !Array.isArray(parsed.nbaContextualTitles)) {
+    for (const [id, title] of Object.entries(parsed.nbaContextualTitles as Record<string, unknown>)) {
+      if (!validIds.has(id)) continue;
+      if (typeof title !== 'string') continue;
+      // Strip Markdown emphasis — Sonnet sometimes wraps the contextual
+      // title in **bold** even after a "no markdown" instruction. The
+      // NBA card renders the title verbatim as an h4, so unstripped
+      // asterisks ship as visible chrome.
+      const stripped = title
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        .replace(/`([^`\n]+)`/g, '$1')
+        .replace(/^#{1,6}\s+/g, '')
+        .trim();
+      if (stripped.length === 0) continue;
+      nbaContextualTitles[id] = stripped.slice(0, 140);
+    }
+  }
+
   const nbaPromptHints: Record<string, string> = {};
   if (parsed.nbaPromptHints && typeof parsed.nbaPromptHints === 'object' && !Array.isArray(parsed.nbaPromptHints)) {
     for (const [id, hint] of Object.entries(parsed.nbaPromptHints as Record<string, unknown>)) {
@@ -226,5 +284,5 @@ export async function llmRerankNbeCandidates(
     }
   }
 
-  return { ranked, topReason, nbaPromptHints, llmApplied: true };
+  return { ranked, topReason, nbaContextualTitles, nbaPromptHints, llmApplied: true };
 }

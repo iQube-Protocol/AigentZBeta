@@ -6,7 +6,7 @@
  *
  * Body (all optional):
  *   {
- *     cartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'avl';
+ *     cartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'mvl';
  *     recentLimit?: number;  // default 5, capped at 20
  *   }
  *
@@ -32,7 +32,7 @@ const VALID_CARTRIDGES: ActiveCartridgeSlug[] = [
   'knyt',
   'qriptopian',
   'marketa',
-  'avl',
+  'mvl',
 ];
 
 interface PostBody {

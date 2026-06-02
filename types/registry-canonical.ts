@@ -383,6 +383,10 @@ export interface RegistryAdminView {
   version: string;
   created_at: string;
   updated_at: string;
+
+  /** Trust/Validation scores — same shape as cartridge view; admin sees
+   *  derivation_strategy + per-axis _source flags for governance review. */
+  scores?: IQubeScoreBlock;
 }
 
 /**
@@ -391,6 +395,28 @@ export interface RegistryAdminView {
  * resolver calls userOwnsAsset() / evaluateAccess() (NEVER reimplements
  * them).
  */
+/**
+ * Score block — the 4 raw trust/validation axes + 2 derived scores.
+ * Surfaced on RegistryCartridgeView + RegistryAdminView when present in
+ * iqube_scores. Per the 2026-05-31 backfill backlog item; populated by
+ * services/registry/scoreBackfill/runBackfill.ts. Per-axis _source flag
+ * lets the UI distinguish derived defaults from operator overrides.
+ */
+export interface IQubeScoreBlock {
+  sensitivity: number | null;
+  accuracy: number | null;
+  verifiability: number | null;
+  risk: number | null;
+  derived_reliability: number | null;
+  derived_trust: number | null;
+  sensitivity_source: 'derived' | 'operator_override';
+  accuracy_source: 'derived' | 'operator_override';
+  verifiability_source: 'derived' | 'operator_override';
+  risk_source: 'derived' | 'operator_override';
+  derivation_strategy: string | null;
+  updated_at: string;
+}
+
 export interface RegistryCartridgeView {
   iqube_id: string;
   primitive_type: IQubePrimitiveType;
@@ -410,6 +436,13 @@ export interface RegistryCartridgeView {
   caller_can_read?: boolean;
 
   cartridge_bindings: string[];
+
+  /**
+   * Trust/Validation scores. Undefined when iqube_scores has no row for
+   * this iqube_id — UI renders placeholder dots. Per 2026-05-31 operator
+   * decision: every iQube must surface this; backfill backlog populates.
+   */
+  scores?: IQubeScoreBlock;
 }
 
 /**
@@ -443,7 +476,12 @@ export type IQubeIdMapSource =
   | 'memory_iqube'
   | 'code:aigentQubeSource'
   | 'code:toolQubeSource'
-  | 'code:liquidui-template';
+  | 'code:liquidui-template'
+  // Intent Chain Orchestrator (2026-06-02) — chain templates registered
+  // as synthetic ToolQube primitives so they appear in the registry plane.
+  // Full canonization to WorkflowQube/ToolQube is deferred follow-on work.
+  // See AGENTIQ_INTENT_CHAINS_SPEC.md §6.6.
+  | 'code:chainTemplate';
 
 export interface IQubeIdMapEntry {
   iqube_id: string;

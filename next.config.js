@@ -21,6 +21,15 @@ const nextConfig = {
     // so that /api/codex/packs/[packId]/file can read them at runtime on Lambda.
     outputFileTracingIncludes: {
       "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
+      // Stage 8+ docs tab — markdown reader serves the legibility profile
+      // (docs/) + the PRD trail (codexes/packs/agentiq/updates/). Without
+      // these the Lambda bundle ships without the .md files and the route
+      // returns HTTP 500 read_failed.
+      "/api/admin/registry/docs": [
+        "./docs/iqube-agent-legibility-profile.md",
+        "./docs/iqube-score-derivation.md",
+        "./codexes/packs/agentiq/updates/**/*.md",
+      ],
     },
   },
   transpilePackages: [

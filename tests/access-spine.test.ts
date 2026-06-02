@@ -228,6 +228,84 @@ describe('policyResolvers', () => {
     expect(credentialRequiresExternalVerifier(undefined)).toBe(false);
     expect(credentialRequiresExternalVerifier('investor')).toBe(false);
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Phase 4b — cartridge membership credential resolvers
+  //
+  // The myCartridge PRD §23 mandates that role checks flow through
+  // evaluateAccess via descriptor credentials, not parallel call-site
+  // resolvers. These tests pin the credentialMatchesCartridgeFlag
+  // extension for `member:<slug>` and `role:<slug>:<role>` so a future
+  // edit can't silently change the semantics.
+  // ─────────────────────────────────────────────────────────────────────
+
+  it('member:<slug> matches when the persona holds any role on the slug', () => {
+    const flags = {
+      isAdmin: false,
+      isPartner: false,
+      cartridgeMemberships: { 'my-cart': 'member' as const },
+    };
+    expect(credentialMatchesCartridgeFlag('member:my-cart', flags)).toBe(true);
+    expect(credentialMatchesCartridgeFlag('member:other-cart', flags)).toBe(false);
+  });
+
+  it('member:<slug> short-circuits on isAdmin and adminCartridges', () => {
+    expect(credentialMatchesCartridgeFlag('member:any-cart', {
+      isAdmin: true, isPartner: false,
+    })).toBe(true);
+    expect(credentialMatchesCartridgeFlag('member:my-cart', {
+      isAdmin: false, isPartner: false,
+      adminCartridges: ['my-cart'],
+    })).toBe(true);
+  });
+
+  it('role:<slug>:<role> applies the PRD §23 hierarchy', () => {
+    const editor = {
+      isAdmin: false, isPartner: false,
+      cartridgeMemberships: { 'my-cart': 'editor' as const },
+    };
+    // editor >= editor: yes
+    expect(credentialMatchesCartridgeFlag('role:my-cart:editor', editor)).toBe(true);
+    // editor >= member: yes (editor outranks member)
+    expect(credentialMatchesCartridgeFlag('role:my-cart:member', editor)).toBe(true);
+    // editor >= admin: no (editor is below admin)
+    expect(credentialMatchesCartridgeFlag('role:my-cart:admin', editor)).toBe(false);
+    // editor >= owner: no
+    expect(credentialMatchesCartridgeFlag('role:my-cart:owner', editor)).toBe(false);
+  });
+
+  it('role:<slug>:<role> short-circuits on isAdmin and adminCartridges', () => {
+    // Uber-admin satisfies any role on any cartridge.
+    expect(credentialMatchesCartridgeFlag('role:any-cart:owner', {
+      isAdmin: true, isPartner: false,
+    })).toBe(true);
+    // Per-cartridge admin satisfies any role on that cartridge only.
+    expect(credentialMatchesCartridgeFlag('role:my-cart:owner', {
+      isAdmin: false, isPartner: false,
+      adminCartridges: ['my-cart'],
+    })).toBe(true);
+    expect(credentialMatchesCartridgeFlag('role:other-cart:owner', {
+      isAdmin: false, isPartner: false,
+      adminCartridges: ['my-cart'],
+    })).toBe(false);
+  });
+
+  it('role:<slug>:<role> fails closed on unknown roles and malformed input', () => {
+    const ed = {
+      isAdmin: false, isPartner: false,
+      cartridgeMemberships: { 'my-cart': 'editor' as const },
+    };
+    expect(credentialMatchesCartridgeFlag('role:my-cart:bogus-role', ed)).toBe(false);
+    expect(credentialMatchesCartridgeFlag('role:my-cart:', ed)).toBe(false);
+    expect(credentialMatchesCartridgeFlag('role::editor', ed)).toBe(false);
+    expect(credentialMatchesCartridgeFlag('role:', ed)).toBe(false);
+  });
+
+  it('member:<slug> and role:<slug>:<role> fail closed when cartridgeMemberships absent', () => {
+    const none = { isAdmin: false, isPartner: false };
+    expect(credentialMatchesCartridgeFlag('member:my-cart', none)).toBe(false);
+    expect(credentialMatchesCartridgeFlag('role:my-cart:member', none)).toBe(false);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -405,5 +483,37 @@ describe('privacy contract', () => {
     const blob = JSON.stringify(decision);
     expect(blob).not.toContain('leak-canary-pid');
     expect(blob).not.toContain('leak-canary-apid');
+  });
+
+  it('Phase 4b — cartridgeMemberships is T1-safe (slug + role only, no persona ids leak)', async () => {
+    // A persona with a role grant. The map value is the role enum
+    // string — never the row's persona_id or granted_by.
+    mockedOwns.mockResolvedValue({ owned: false, via: undefined });
+    const ctx = makeContext({
+      personaId: 'leak-canary-pid-2',
+      authProfileId: 'leak-canary-apid-2',
+      cartridgeFlags: {
+        isAdmin: false,
+        isPartner: false,
+        adminCartridges: [],
+        cartridgeMemberships: { 'my-cart': 'editor' },
+      },
+    });
+    // Role-gated allow path: the descriptor carries `role:my-cart:editor`
+    // and the persona's editor role meets it. The receipt MUST NOT echo
+    // either the persona id OR the role string (the role is a T1 fact
+    // about the persona, but the receipt is the T2 attribution surface
+    // where alias commitment + cohort id are the only allowed identifiers).
+    const desc = makeDescriptor('C_gated_wip', 'credential', {
+      gating: { kind: 'credential', credential: 'role:my-cart:editor' },
+    });
+    const decision = await evaluateAccess(ctx, desc, 'read');
+    expect(decision.allow).toBe(true);
+    expect(decision.reason).toBe('credential-met');
+    const blob = JSON.stringify(decision.receipt);
+    expect(blob).not.toContain('leak-canary-pid-2');
+    expect(blob).not.toContain('leak-canary-apid-2');
+    expect(blob).not.toContain('editor');
+    expect(blob).not.toContain('my-cart');
   });
 });

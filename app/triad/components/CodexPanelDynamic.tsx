@@ -184,7 +184,7 @@ export default function CodexPanelDynamic({
     if (isAdmin) return; // admins see all tabs regardless
 
     let cancelled = false;
-    fetch(`/api/avl/partners/by-email?email=${encodeURIComponent(personaId)}`)
+    fetch(`/api/mvl/partners/by-email?email=${encodeURIComponent(personaId)}`)
       .then((r) => r.json())
       .then((d) => {
         if (!cancelled && d.ok && d.partner?.id) {

@@ -3,14 +3,14 @@
  *
  * Wraps the shipped legibility ContentQube source
  * (services/iqube/legibility/sources/contentQubeSource.ts) and joins
- * iqube_id_map + content_qubes' bridged-triad columns
+ * iqube_id_map + content_qubes' bridged-trinity columns
  * (master_qube_id / media_asset_id) to assemble the
  * CanonicalIQubeInternalRecord.
  *
  * The legibility source remains the visibility / gating / identity-tier
  * decision authority for ContentQubes (per Phase 8 design). This adapter
  * adds the fields the legibility surface doesn't track: meta/blak/token
- * triad refs, internal_lifecycle (placeholder until Stage 3 maps),
+ * trinity refs, internal_lifecycle (placeholder until Stage 3 maps),
  * mint_status, instance_model, edition_supply rollup, cartridge_bindings.
  *
  * Adapter authority rule: NEVER decides access; NEVER decides ownership;
@@ -86,11 +86,11 @@ async function loadEditionSupply(qubeId: string): Promise<EditionSupply | undefi
 }
 
 /**
- * Resolve a ContentQube row to its bridged triad references.
+ * Resolve a ContentQube row to its bridged trinity references.
  * Returns null for any meta/blak/token that don't exist; this is normal
  * for activation_tab content_kind and other non-minted classes.
  */
-async function loadTriadFromContentQube(qubeId: string): Promise<{
+async function loadTrinityFromContentQube(qubeId: string): Promise<{
   meta_qube_id?: string;
   blak_qube_id?: string;
   token_qube_id?: string;
@@ -98,7 +98,7 @@ async function loadTriadFromContentQube(qubeId: string): Promise<{
   const sb = client();
 
   // content_qubes bridges via master_qube_id → master_content_qubes
-  // or media_asset_id → codex_media_assets. Both can carry triad refs.
+  // or media_asset_id → codex_media_assets. Both can carry trinity refs.
   const { data: qube } = await sb
     .from('content_qubes')
     .select('master_qube_id, media_asset_id')
@@ -157,7 +157,7 @@ export const contentQubeAdapter: RegistryPrimitiveAdapter = {
     const src = await getContentQubeSource(entry.source_id, { allowPrivate: opts.allowPrivate });
     if (!src) return null;
 
-    const triad = await loadTriadFromContentQube(entry.source_id);
+    const trinity = await loadTrinityFromContentQube(entry.source_id);
     const editionSupply = await loadEditionSupply(entry.source_id);
 
     const internal_lifecycle = mapContentQubeInternalToUniversal(src.raw_lifecycle_state);
@@ -192,9 +192,9 @@ export const contentQubeAdapter: RegistryPrimitiveAdapter = {
       primitive_type: 'ContentQube',
       instance_type: 'instance',
 
-      meta_qube_id: triad.meta_qube_id ?? '',
-      blak_qube_id: triad.blak_qube_id,
-      token_qube_id: triad.token_qube_id,
+      meta_qube_id: trinity.meta_qube_id ?? '',
+      blak_qube_id: trinity.blak_qube_id,
+      token_qube_id: trinity.token_qube_id,
 
       // T0 — never populated from this adapter; the creator persona link
       // lives on master_content_qubes / codex_media_assets and is loaded
