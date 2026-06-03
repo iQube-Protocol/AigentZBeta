@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-03T06:18:38.454Z",
+  "last_updated": "2026-06-03T14:58:18.868Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "abb7d556780007e91d984b4851c25b4c0af9f508",
-  "latest_commit_short": "abb7d55",
-  "latest_commit_title": "Wire initialAuthMode + initialPersonaFlow through SmartWalletDrawer — closes deep-link backlog #1 + #2 from Lovable Part 1",
+  "latest_commit": "cf928c7efc704a4f965d0c4b61761521745e1c1a",
+  "latest_commit_short": "cf928c7",
+  "latest_commit_title": "Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "cf928c7",
+      "full_sha": "cf928c7efc704a4f965d0c4b61761521745e1c1a",
+      "title": "Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec",
+      "author": "Claude",
+      "timestamp": "2026-06-03T14:56:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cf928c7.md"
+    },
     {
       "sha": "abb7d55",
       "full_sha": "abb7d556780007e91d984b4851c25b4c0af9f508",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T00:27:23Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1b7d6bd.md"
-    },
-    {
-      "sha": "395a8f2",
-      "full_sha": "395a8f295c88f34fc50c78b5affedaa228b9ba76",
-      "title": "Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025",
-      "author": "Claude",
-      "timestamp": "2026-05-29T00:18:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-395a8f2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

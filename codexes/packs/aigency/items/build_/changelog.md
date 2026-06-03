@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`cf928c7`](https://github.com/iQube-Protocol/AigentZBeta/commit/cf928c7efc704a4f965d0c4b61761521745e1c1a) [push] Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec (Claude, 2026-06-03T14:56:18Z)
 - [`abb7d55`](https://github.com/iQube-Protocol/AigentZBeta/commit/abb7d556780007e91d984b4851c25b4c0af9f508) [feat] Wire initialAuthMode + initialPersonaFlow through SmartWalletDrawer — closes deep-link backlog #1 + #2 from Lovable Part 1 (Claude, 2026-06-03T06:16:43Z)
 - [`76a1012`](https://github.com/iQube-Protocol/AigentZBeta/commit/76a1012c84a134a471fe84f877deb83af6f2e7e5) [feat] feat(intent chain): emit specialist_invoked + clickable workbench pills (Claude, 2026-06-03T05:47:06Z)
 - [`b6b73af`](https://github.com/iQube-Protocol/AigentZBeta/commit/b6b73af5ee95ef205288b24b74139c50c2d9ac06) [push] trigger deploy: chain-of-intent (specialist_invoked + clickable pills) (Claude, 2026-06-03T05:47:09Z)
