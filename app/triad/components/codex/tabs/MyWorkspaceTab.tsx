@@ -30,11 +30,12 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, Sparkles, Hammer, UploadCloud, Users, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Sparkles, Hammer, UploadCloud, Users, FileText, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { MyCanvasTab } from "./MyCanvasTab";
 import { CohortMetricsCard } from "@/components/metame/workbench/CohortMetricsCard";
 import { ChainDetailDrawer } from "@/components/metame/chains/ChainDetailDrawer";
+import { IntentChainPanel, useIntentChainCache } from "@/components/metame/workbench/IntentChainPanel";
 
 interface Props {
   personaId?: string;
@@ -79,43 +80,35 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
   const [intentsLoading, setIntentsLoading] = useState(false);
   const [intentsError, setIntentsError] = useState<string | null>(null);
 
-  // ── Intent → chain_id map (intent-chain orchestrator, commit 9) ───
-  // Fetched once per tab activation. Maps each ActiveIntent's intentId
-  // to the chain it dispatched (when one exists). Click → drawer open.
-  const [intentToChain, setIntentToChain] = useState<Record<string, string>>({});
+  // ── Intent expand / chain-of-intent surface ─────────────────────────
+  // Every intent expands inline to show its orchestration timeline
+  // (specialist_invoked + chain events) via /api/assistant/intent-chain.
+  // When the timeline payload reports an attached intent_chains row, the
+  // "open full chain" affordance below the panel deep-links into the
+  // existing ChainDetailDrawer.
+  const [expandedIntents, setExpandedIntents] = useState<Set<string>>(new Set());
+  const { cache: chainCache, requestChain } = useIntentChainCache(personaId);
   const [drawerChainId, setDrawerChainId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  useEffect(() => {
-    if (!personaId || activeSubTab !== 'intents') return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/intent-chains?limit=200', { cache: 'no-store' });
-        if (!res.ok) return;
-        const body = (await res.json()) as { chains?: Array<{ chain_id: string; cartridge?: string | null }> };
-        // Map intent_id → chain_id by reading chain.context.intent_id on
-        // each row. The list endpoint doesn't return context to save bytes;
-        // we'd need a separate fetch per chain. For v1, store a placeholder
-        // chain_id keyed by chain order — clicking an intent card opens
-        // the most recent chain for that cartridge. Full intent↔chain
-        // correlation is a v1.1 improvement once we have a join surface.
-        const map: Record<string, string> = {};
-        const chains = body.chains ?? [];
-        chains.forEach((c) => { if (!map.__lastChain) (map as Record<string, string>).__lastChain = c.chain_id; });
-        if (!cancelled) setIntentToChain(map);
-      } catch {
-        /* best-effort */
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [personaId, activeSubTab]);
 
-  const openChainDrawer = (intentId: string) => {
-    // Try intent-keyed lookup first; fall back to the most recent chain
-    // for now (v1.1 will fetch per-chain context for precise correlation).
-    const cid = intentToChain[intentId] ?? intentToChain.__lastChain ?? null;
-    if (!cid) return;
-    setDrawerChainId(cid);
+  const toggleIntentExpanded = useCallback(
+    (intentId: string) => {
+      setExpandedIntents((prev) => {
+        const next = new Set(prev);
+        if (next.has(intentId)) {
+          next.delete(intentId);
+        } else {
+          next.add(intentId);
+          requestChain(intentId);
+        }
+        return next;
+      });
+    },
+    [requestChain],
+  );
+
+  const openChainDrawer = (chainId: string) => {
+    setDrawerChainId(chainId);
     setDrawerOpen(true);
   };
   useEffect(() => {
@@ -244,37 +237,54 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
               <>
                 <ul className="space-y-1.5">
                   {intentsPaged.map((i) => {
-                    const hasChain = Boolean(intentToChain[i.intentId] ?? intentToChain.__lastChain);
+                    const isOpen = expandedIntents.has(i.intentId);
+                    const chainState = chainCache[i.intentId];
+                    const attachedChain = chainState?.data?.chain ?? null;
                     return (
-                      <li key={i.intentId}>
-                        <button
-                          type="button"
-                          onClick={() => hasChain && openChainDrawer(i.intentId)}
-                          disabled={!hasChain}
-                          className={`w-full text-left rounded-md border px-3 py-2 transition-colors ${
-                            hasChain
-                              ? 'border-slate-700/50 bg-slate-900/40 hover:border-violet-500/50 hover:bg-violet-500/5 cursor-pointer'
-                              : 'border-slate-700/50 bg-slate-900/40 cursor-default'
-                          }`}
-                          title={hasChain ? 'Open intent chain' : 'No chain attached to this intent'}
+                      <li key={i.intentId} className="rounded-md border border-slate-700/50 bg-slate-900/40 overflow-hidden">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleIntentExpanded(i.intentId)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleIntentExpanded(i.intentId);
+                            }
+                          }}
+                          aria-expanded={isOpen}
+                          className="w-full text-left px-3 py-2 cursor-pointer transition-colors hover:border-violet-500/50 hover:bg-violet-500/5"
                         >
                           <div className="flex items-center gap-2">
+                            <ChevronRight
+                              className={`w-3 h-3 text-slate-500 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                            />
                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusChip(i.status)}`}>
                               {i.status.replace(/_/g, ' ')}
                             </span>
                             <span className="text-[10px] uppercase tracking-wider text-slate-500">{i.cartridge}</span>
-                            {hasChain && (
-                              <span className="text-[10px] text-violet-400 ml-auto">↳ chain</span>
-                            )}
-                            {!hasChain && (
-                              <span className="text-[10px] text-slate-500 ml-auto">{new Date(i.createdAt).toLocaleDateString()}</span>
-                            )}
-                            {hasChain && (
-                              <span className="text-[10px] text-slate-500">{new Date(i.createdAt).toLocaleDateString()}</span>
-                            )}
+                            <span className="text-[10px] text-slate-500 ml-auto">
+                              {new Date(i.createdAt).toLocaleDateString()}
+                            </span>
                           </div>
-                          <div className="text-xs text-white mt-1 truncate">{i.intentName}</div>
-                        </button>
+                          <div className="text-xs text-white mt-1 truncate pl-5">{i.intentName}</div>
+                        </div>
+                        {isOpen && (
+                          <>
+                            <IntentChainPanel chainState={chainState} isDark={theme !== 'light'} />
+                            {attachedChain && (
+                              <div className="border-t border-slate-700/60 bg-slate-950/40 px-3 py-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openChainDrawer(attachedChain.chainId)}
+                                  className="text-[11px] inline-flex items-center gap-1 text-violet-300 hover:text-violet-200"
+                                >
+                                  <ExternalLink className="w-3 h-3" /> Open full chain
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </li>
                     );
                   })}
