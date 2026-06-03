@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-03T15:01:09.859Z",
+  "last_updated": "2026-06-03T16:25:12.024Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bd1bc832798c563505d888529ea0b1e00448845f",
-  "latest_commit_short": "bd1bc83",
-  "latest_commit_title": "fix(chain of intent): make every pill expand inline on both surfaces",
+  "latest_commit": "3ea9f0fb8a5076c21eb5ff4161daea7d8aa45196",
+  "latest_commit_short": "3ea9f0f",
+  "latest_commit_title": "feat(aigentme): downloadable VentureQube schema + downloads menu",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3ea9f0f",
+      "full_sha": "3ea9f0fb8a5076c21eb5ff4161daea7d8aa45196",
+      "title": "feat(aigentme): downloadable VentureQube schema + downloads menu",
+      "author": "Claude",
+      "timestamp": "2026-06-03T16:23:08Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-3ea9f0f.md"
+    },
+    {
+      "sha": "42ef1c9",
+      "full_sha": "42ef1c9f4fde7c9eae0dcb16e0296f51fc8b18f4",
+      "title": "trigger deploy: aigentMe downloads menu + VentureQube schema (3ea9f0fb)",
+      "author": "Claude",
+      "timestamp": "2026-06-03T16:23:12Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-42ef1c9.md"
+    },
     {
       "sha": "bd1bc83",
       "full_sha": "bd1bc832798c563505d888529ea0b1e00448845f",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T05:54:57Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-78bea0f.md"
-    },
-    {
-      "sha": "9700f42",
-      "full_sha": "9700f42986666043052d2deb142d20c34d6fe32b",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T05:54:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9700f42.md"
-    },
-    {
-      "sha": "ec82d25",
-      "full_sha": "ec82d25c7eb260821d855d8b4535b3013c9a24a2",
-      "title": "Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop",
-      "author": "Claude",
-      "timestamp": "2026-05-29T05:26:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ec82d25.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
