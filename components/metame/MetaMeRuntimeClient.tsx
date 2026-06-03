@@ -2258,6 +2258,13 @@ export default function MetaMeRuntimeClient() {
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [connectionsDrawerOpen, setConnectionsDrawerOpen] = useState(false);
   const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments" | "reputation" | "library">("wallet");
+  // Shell deep-link envelope state — see MENU_ACTION handler. One-shot
+  // seeds for `SmartWalletDrawer.initialAuthMode` and
+  // `initialPersonaFlow`. Reset to `undefined` after the drawer
+  // consumes them so a subsequent default-open (e.g. "Wallet" without
+  // a deep_link) doesn't re-trigger Sign Up / wizard.
+  const [walletInitialAuthMode, setWalletInitialAuthMode] = useState<"signin" | "signup" | undefined>(undefined);
+  const [walletInitialPersonaFlow, setWalletInitialPersonaFlow] = useState<"create-wizard" | "quick-add" | undefined>(undefined);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
   // Runtime social-sharing modal state. Smart-action 'Share' button on
@@ -5020,14 +5027,36 @@ export default function MetaMeRuntimeClient() {
             ? (deepLink.tab as 'wallet' | 'tasks' | 'reputation' | 'rewards' | 'library' | 'payments')
             : 'wallet';
           setWalletInitialTab(tab);
+          // Honour the `intent` field — drawer's `initialAuthMode` prop
+          // seeds the Sign In / Sign Up tab pair when unauthenticated.
+          // Clears on every open so a plain "Wallet" tap doesn't reuse
+          // a stale Sign Up intent from a prior Sign Up click.
+          const intent = deepLink?.intent === 'signin' || deepLink?.intent === 'signup'
+            ? deepLink.intent
+            : undefined;
+          setWalletInitialAuthMode(intent);
+          // No persona flow on wallet dispatches.
+          setWalletInitialPersonaFlow(undefined);
           setWalletDrawerOpen(true);
         };
         const openPersonaWithDeepLink = () => {
-          // Persona deep links open the persona picker for now. The
-          // create-wizard flow is launched inside the wallet drawer
-          // by the operator clicking 'Create with Wizard'; auto-launch
-          // requires a new prop on SmartWalletDrawer — tracked in the
-          // backlog as fast-follow #4.
+          // Persona deep links route to the wallet drawer with the
+          // matching `initialPersonaFlow` so it auto-launches the right
+          // modal (PersonaSetupWizard for "create-wizard",
+          // PersonaQuickAddModal for "quick-add"). Both flows render
+          // INSIDE the wallet drawer — see SmartWalletDrawer's
+          // useEffect on `open`. Falls through to the persona picker
+          // bottom-sheet when no flow is supplied (legacy behaviour).
+          const flow = deepLink?.flow === 'create-wizard' || deepLink?.flow === 'quick-add'
+            ? deepLink.flow
+            : undefined;
+          if (flow) {
+            setWalletInitialTab('wallet');
+            setWalletInitialAuthMode(undefined);
+            setWalletInitialPersonaFlow(flow);
+            setWalletDrawerOpen(true);
+            return;
+          }
           setPersonaPickerOpen(true);
         };
         const DRAWER_ACTION_HANDLERS: Record<string, () => void> = {
@@ -5900,11 +5929,20 @@ export default function MetaMeRuntimeClient() {
       />
       <SmartWalletDrawer
         open={walletDrawerOpen}
-        onClose={() => setWalletDrawerOpen(false)}
+        onClose={() => {
+          setWalletDrawerOpen(false);
+          // Clear the one-shot deep-link seeds so a subsequent open
+          // (e.g. native "Wallet" tile, no deep_link envelope)
+          // doesn't re-trigger Sign Up / wizard.
+          setWalletInitialAuthMode(undefined);
+          setWalletInitialPersonaFlow(undefined);
+        }}
         variant="overlay"
         agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
         personaId={activePersonaId || undefined}
         initialTab={walletInitialTab}
+        initialAuthMode={walletInitialAuthMode}
+        initialPersonaFlow={walletInitialPersonaFlow}
       />
       {/* metaMe Settings — left-entering drawer (Be tab sub-item) */}
       {settingsDrawerOpen ? (
@@ -6274,11 +6312,20 @@ export default function MetaMeRuntimeClient() {
       ) : null}
       <SmartWalletDrawer
         open={walletDrawerOpen}
-        onClose={() => setWalletDrawerOpen(false)}
+        onClose={() => {
+          setWalletDrawerOpen(false);
+          // Clear the one-shot deep-link seeds so a subsequent open
+          // (e.g. native "Wallet" tile, no deep_link envelope)
+          // doesn't re-trigger Sign Up / wizard.
+          setWalletInitialAuthMode(undefined);
+          setWalletInitialPersonaFlow(undefined);
+        }}
         variant="overlay"
         agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
         personaId={activePersonaId || undefined}
         initialTab={walletInitialTab}
+        initialAuthMode={walletInitialAuthMode}
+        initialPersonaFlow={walletInitialPersonaFlow}
       />
       <SocialSharingModal
         isOpen={!!runtimeShareItem}
