@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-03T14:58:18.868Z",
+  "last_updated": "2026-06-03T15:01:09.859Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cf928c7efc704a4f965d0c4b61761521745e1c1a",
-  "latest_commit_short": "cf928c7",
-  "latest_commit_title": "Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec",
+  "latest_commit": "bd1bc832798c563505d888529ea0b1e00448845f",
+  "latest_commit_short": "bd1bc83",
+  "latest_commit_title": "fix(chain of intent): make every pill expand inline on both surfaces",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bd1bc83",
+      "full_sha": "bd1bc832798c563505d888529ea0b1e00448845f",
+      "title": "fix(chain of intent): make every pill expand inline on both surfaces",
+      "author": "Claude",
+      "timestamp": "2026-06-03T14:59:01Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-bd1bc83.md"
+    },
+    {
+      "sha": "f1cd8a8",
+      "full_sha": "f1cd8a83d8cb8e02af0fd63cb97492472c6a6090",
+      "title": "trigger deploy: pills expand inline on both ledger + workspace (bd1bc83)",
+      "author": "Claude",
+      "timestamp": "2026-06-03T14:59:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f1cd8a8.md"
+    },
     {
       "sha": "cf928c7",
       "full_sha": "cf928c7efc704a4f965d0c4b61761521745e1c1a",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T05:26:03Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-ec82d25.md"
-    },
-    {
-      "sha": "d388e2a",
-      "full_sha": "d388e2aa1f3470f27445b66b52d3d166b2413816",
-      "title": "Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)",
-      "author": "Claude",
-      "timestamp": "2026-05-29T05:04:32Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d388e2a.md"
-    },
-    {
-      "sha": "1b7d6bd",
-      "full_sha": "1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9",
-      "title": "Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)",
-      "author": "Claude",
-      "timestamp": "2026-05-29T00:27:23Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1b7d6bd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
