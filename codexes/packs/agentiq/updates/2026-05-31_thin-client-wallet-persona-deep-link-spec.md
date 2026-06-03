@@ -102,7 +102,7 @@ State clears on every drawer close so a subsequent plain "Wallet" tile click (no
 2. ~~Wallet drawer `initialTab` routing for `tasks`, `rewards`, `reputation`, `library`, `payments`~~ — done.
 3. ~~Wallet drawer `initialAuthMode` prop forcing Sign Up tab when `intent: "signup"` is passed~~ — done.
 4. ~~`SmartWalletDrawer.initialPersonaFlow` prop + auto-launch of `PersonaSetupWizard` / `PersonaQuickAddModal`~~ — done.
-5. Documentation update in `packages/iframe-bridge/README.md` to add the deep_link contract to the inbound message spec.
+5. ~~Documentation update in `packages/iframe-bridge/README.md` to add the deep_link contract to the inbound message spec~~ — done (`packages/iframe-bridge/README.md` shipped 2026-05-31; documents the bridge architecture, full `MENU_ACTION` payload shape including `deep_link` envelope, per-item dispatch table, and the runtime-side handler reference).
 6. **Reputation as a visible tile?** — wiring is in `DEEP_LINK_DISPATCH`, but whether Reputation should appear as a first-class Earn submenu tile (alongside Goal / Task / Wallet / Reward / Payments / Sign In) is an **operator product decision**, not a code question. Today Reputation is only reachable via the wallet drawer's own tab bar; making it a top-level Earn tile would add a seventh slot. Pending answer.
 
 ## Files
