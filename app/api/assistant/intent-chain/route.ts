@@ -1,0 +1,174 @@
+/**
+ * GET /api/assistant/intent-chain?intentId=<uuid>
+ *
+ * Returns the orchestration_events timeline for a single IntentQube,
+ * plus any attached intent_chains row when the intent kicked off a
+ * declarative chain.
+ *
+ * Powers the click-to-expand on workbench-ledger pills — surfaces
+ * "Aigent Z → Marketa", "specialist replied", "artifact sent",
+ * "chain advanced", etc., so the operator can see the chain of intent
+ * behind the headline pill label.
+ *
+ * Auth: spine-resolved. The caller must own the intent — we look up
+ * the nbe_plans row and require persona_id match before returning any
+ * events. Receipt-eligible events live in orchestration_events; we
+ * filter them by metadata->>intent_id.
+ *
+ * Privacy: T0 fields are never serialized. The events returned are
+ * already T1-safe (sanitizeReceiptMetadata strips persona/auth ids
+ * before insertion); we just surface them.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getIntentQube } from '@/services/iqube/intentQube';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+export const dynamic = 'force-dynamic';
+
+interface TimelineEvent {
+  eventId: string;
+  eventType: string;
+  fromRole: string;
+  toRole: string;
+  reason: string;
+  cartridge: string | null;
+  receiptEligible: boolean;
+  recordedAt: string;
+  metadata: Record<string, unknown>;
+}
+
+interface AttachedChain {
+  chainId: string;
+  templateId: string;
+  templateVersion: number | null;
+  status: string;
+  currentStepId: string | null;
+  currentStepIndex: number | null;
+  totalSteps: number | null;
+  costQc: number | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+interface IntentChainResponse {
+  intent: {
+    intentId: string;
+    intentName: string;
+    intentType: string;
+    cartridge: string;
+    status: string;
+    targetAgents: string[];
+    createdAt: string;
+  };
+  events: TimelineEvent[];
+  chain: AttachedChain | null;
+}
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const persona = await getActivePersona(req);
+  if (!persona?.personaId) {
+    return NextResponse.json({ error: 'persona-required' }, { status: 401 });
+  }
+
+  const url = new URL(req.url);
+  const intentId = url.searchParams.get('intentId');
+  if (!intentId) {
+    return NextResponse.json({ error: 'missing-intentId' }, { status: 400 });
+  }
+
+  const intent = await getIntentQube(intentId);
+  if (!intent) {
+    return NextResponse.json({ error: 'intent-not-found' }, { status: 404 });
+  }
+  if (intent.personaId !== persona.personaId) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
+  const sb = getSupabaseServer();
+  if (!sb) {
+    return NextResponse.json({ error: 'db-unavailable' }, { status: 503 });
+  }
+
+  // Pull every orchestration event whose metadata.intent_id matches.
+  // Bounded — most intents have <20 events; cap at 200 defensively.
+  const { data: rows, error } = await sb
+    .from('orchestration_events')
+    .select(
+      'event_id, event_type, from_role, to_role, reason, active_cartridge, receipt_eligible, created_at, metadata',
+    )
+    .eq('metadata->>intent_id', intentId)
+    .order('created_at', { ascending: true })
+    .limit(200);
+
+  if (error) {
+    return NextResponse.json(
+      { error: 'events-query-failed', detail: error.message },
+      { status: 500 },
+    );
+  }
+
+  const events: TimelineEvent[] = (rows ?? []).map((r) => ({
+    eventId: String(r.event_id),
+    eventType: String(r.event_type),
+    fromRole: String(r.from_role ?? ''),
+    toRole: String(r.to_role ?? ''),
+    reason: String(r.reason ?? ''),
+    cartridge: r.active_cartridge ? String(r.active_cartridge) : null,
+    receiptEligible: Boolean(r.receipt_eligible),
+    recordedAt: String(r.created_at),
+    metadata: (r.metadata as Record<string, unknown>) ?? {},
+  }));
+
+  // Optional: surface an attached intent_chains row if any of the
+  // events carry a chain_id. The chain is the richer surface (step
+  // history + cost + status) — UI can deep-link into the chain
+  // detail drawer when present.
+  let chain: AttachedChain | null = null;
+  const chainEventId = events
+    .map((e) => (typeof e.metadata?.chain_id === 'string' ? (e.metadata.chain_id as string) : null))
+    .find((id): id is string => !!id);
+
+  if (chainEventId) {
+    const { data: chainRow } = await sb
+      .from('intent_chains')
+      .select(
+        'id, template_id, template_version, status, current_step_id, current_step_index, total_steps, cost_qc, started_at, completed_at',
+      )
+      .eq('id', chainEventId)
+      .maybeSingle();
+    if (chainRow) {
+      chain = {
+        chainId: String(chainRow.id),
+        templateId: String(chainRow.template_id),
+        templateVersion: typeof chainRow.template_version === 'number' ? chainRow.template_version : null,
+        status: String(chainRow.status),
+        currentStepId: chainRow.current_step_id ? String(chainRow.current_step_id) : null,
+        currentStepIndex:
+          typeof chainRow.current_step_index === 'number' ? chainRow.current_step_index : null,
+        totalSteps: typeof chainRow.total_steps === 'number' ? chainRow.total_steps : null,
+        costQc: typeof chainRow.cost_qc === 'number' ? chainRow.cost_qc : null,
+        startedAt: String(chainRow.started_at),
+        completedAt: chainRow.completed_at ? String(chainRow.completed_at) : null,
+      };
+    }
+  }
+
+  const body: IntentChainResponse = {
+    intent: {
+      intentId: intent.id,
+      intentName: intent.intentName,
+      intentType: intent.intentType,
+      cartridge: intent.activeCartridge,
+      status: intent.status,
+      targetAgents: intent.targetAgents,
+      createdAt: intent.createdAt,
+    },
+    events,
+    chain,
+  };
+
+  return NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });
+}
