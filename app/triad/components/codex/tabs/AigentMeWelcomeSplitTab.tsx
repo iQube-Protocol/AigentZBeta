@@ -73,8 +73,8 @@ import type { StageEvaluation } from "@/services/strategy/stageProgression";
 // All six now mounted inline by ComposerLayout, not by this tab.
 
 import { ComposeQuickActionsStrip, type ComposeKind } from "@/components/metame/copilot/ComposeQuickActionsStrip";
-import AgentWalletDrawer from "@/components/AgentWalletDrawer";
 import { UploadDrawer } from "@/components/metame/uploads/UploadDrawer";
+import { DownloadsMenu } from "@/components/metame/downloads/DownloadsMenu";
 // WelcomeRightPane is composed by the layout registry now — `StackLayout`
 // wraps it identically so Phase 1 behavior is preserved while Phase 2
 // slices add intent-specific layouts alongside.
@@ -438,13 +438,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     error: string | null;
   } | null>(null);
 
-  // Wallet drawer.
-  const [walletOpen, setWalletOpen] = useState(false);
   // Upload drawer — opens via the Upload icon in the compose strip.
   // Drives /api/uploads (persona_uploads + Supabase Storage) and the
   // parse-on-upload indexer that backs chat-context attach + email
   // attachment + iqube embed flows.
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+  // Downloads menu — opens via the Download icon in the compose strip.
+  // Lets the operator grab the VentureQube JSON schema (+ runbooks) to
+  // share with their off-platform agent. The agent prepares content
+  // that uploads cleanly back through the Upload icon next to it.
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   // Compose modal open/close booleans.
   // Phase 2 Slice 4: compose-modal open booleans removed. The single
@@ -2737,8 +2740,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               <div className="pointer-events-auto">
                 <ComposeQuickActionsStrip
                   onOpen={openComposeByKind}
-                  onWalletOpen={() => setWalletOpen(true)}
                   onUploadOpen={() => setUploadDrawerOpen(true)}
+                  onDownloadsOpen={() => setDownloadsOpen(true)}
                   theme={theme}
                 />
               </div>
@@ -2815,15 +2818,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           the matching form, submit creates the artifact then flips
           composerKind→null so the same layout shows the draft
           preview with Send draft → unified ApprovalLayout overlay. */}
-      <AgentWalletDrawer
-        open={walletOpen}
-        onClose={() => setWalletOpen(false)}
-        agent={{ id: 'aigent-me', name: 'aigentMe' }}
-      />
       <UploadDrawer
         open={uploadDrawerOpen}
         onClose={() => setUploadDrawerOpen(false)}
         personaId={personaId}
+        theme={theme}
+      />
+      <DownloadsMenu
+        open={downloadsOpen}
+        onClose={() => setDownloadsOpen(false)}
         theme={theme}
       />
     </>
