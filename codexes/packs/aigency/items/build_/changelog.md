@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`83fa3de`](https://github.com/iQube-Protocol/AigentZBeta/commit/83fa3def7b2027623f5081c58e45ea51ec747318) [push] trigger deploy: Agent Runbook now downloadable (1ae9df03) (Claude, 2026-06-03T16:39:22Z)
 - [`42ef1c9`](https://github.com/iQube-Protocol/AigentZBeta/commit/42ef1c9f4fde7c9eae0dcb16e0296f51fc8b18f4) [push] trigger deploy: aigentMe downloads menu + VentureQube schema (3ea9f0fb) (Claude, 2026-06-03T16:23:12Z)
 - [`f1cd8a8`](https://github.com/iQube-Protocol/AigentZBeta/commit/f1cd8a83d8cb8e02af0fd63cb97492472c6a6090) [push] trigger deploy: pills expand inline on both ledger + workspace (bd1bc83) (Claude, 2026-06-03T14:59:05Z)
 - [`cf928c7`](https://github.com/iQube-Protocol/AigentZBeta/commit/cf928c7efc704a4f965d0c4b61761521745e1c1a) [push] Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec (Claude, 2026-06-03T14:56:18Z)
