@@ -7,7 +7,8 @@ export type SmartWalletDrawerTab =
   | "library"
   | "tasks"
   | "reputation"
-  | "rewards";
+  | "rewards"
+  | "payments";
 
 export interface SmartWalletEventMeta {
   eventId: string;

@@ -2257,7 +2257,7 @@ export default function MetaMeRuntimeClient() {
   const [playMenuOpen, setPlayMenuOpen] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [connectionsDrawerOpen, setConnectionsDrawerOpen] = useState(false);
-  const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments">("wallet");
+  const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments" | "reputation" | "library">("wallet");
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
   // Runtime social-sharing modal state. Smart-action 'Share' button on
@@ -4995,13 +4995,48 @@ export default function MetaMeRuntimeClient() {
             : typeof payload.item_id === "string"
               ? payload.item_id
               : null;
+        // Deep-link envelope (added 2026-05-31) — shell-dispatched
+        // MENU_ACTION payloads may include `deep_link` to route the
+        // wallet drawer to a specific tab + intent, or open the
+        // persona create-wizard. Optional; legacy dispatches without
+        // it keep working unchanged.
+        //
+        // Contract (mirrors the docs the shell team consumes):
+        //   payload.deep_link = {
+        //     module: 'wallet' | 'persona';
+        //     tab?:   'wallet' | 'tasks' | 'reputation' | 'rewards' | 'library';
+        //     intent?: 'signin' | 'signup';            // wallet only
+        //     flow?:  'create-wizard' | 'quick-add';   // persona only
+        //   }
+        //
+        // Unknown `tab` values silently fall back to 'wallet' so a
+        // typo doesn't leave the drawer in a broken state.
+        const deepLink = (payload?.deep_link && typeof payload.deep_link === 'object')
+          ? payload.deep_link as { module?: string; tab?: string; intent?: string; flow?: string }
+          : undefined;
+        const ALLOWED_WALLET_TABS = new Set(['wallet', 'tasks', 'reputation', 'rewards', 'library', 'payments']);
+        const openWalletWithDeepLink = () => {
+          const tab = deepLink?.tab && ALLOWED_WALLET_TABS.has(deepLink.tab)
+            ? (deepLink.tab as 'wallet' | 'tasks' | 'reputation' | 'rewards' | 'library' | 'payments')
+            : 'wallet';
+          setWalletInitialTab(tab);
+          setWalletDrawerOpen(true);
+        };
+        const openPersonaWithDeepLink = () => {
+          // Persona deep links open the persona picker for now. The
+          // create-wizard flow is launched inside the wallet drawer
+          // by the operator clicking 'Create with Wizard'; auto-launch
+          // requires a new prop on SmartWalletDrawer — tracked in the
+          // backlog as fast-follow #4.
+          setPersonaPickerOpen(true);
+        };
         const DRAWER_ACTION_HANDLERS: Record<string, () => void> = {
-          wallet:      () => setWalletDrawerOpen(true),
+          wallet:      openWalletWithDeepLink,
           settings:    () => setSettingsDrawerOpen(true),
           connections: () => setConnectionsDrawerOpen(true),
           memory:      () => setMemoryDrawerOpen(true),
           identity:    () => setIdentityIQubeOpen(true),
-          persona:     () => setPersonaPickerOpen(true),
+          persona:     openPersonaWithDeepLink,
           // Make sub-actions — open cartridge overlays
           "make-create-design": () => setActiveCartridgeOverlay({ slug: 'metame',   title: 'metaMe Studio', initialTab: 'metame-studio'   }),
           "make-build":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'AgentiQ OS',    initialTab: 'agentiq-os'       }),

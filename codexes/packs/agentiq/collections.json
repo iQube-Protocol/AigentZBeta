@@ -40,6 +40,8 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-02_cartridge-isolation-hardening.md",
+        "updates/2026-06-02_mycartridge-personal-system-isolation-fix.md",
         "updates/2026-06-02_mycartridge-phase-9-wallet.md",
         "updates/2026-06-02_mycartridge-phase-8-triad-scoping.md",
         "updates/2026-06-02_mycartridge-phase-7-operator-manager.md",
@@ -51,6 +53,7 @@
         "updates/2026-06-01_venture-iqube-schema-v0.4.md",
         "updates/2026-06-01_mycartridge-prd-draft.md",
         "updates/2026-06-01_mobile-landscape-iframe-truncation-backlog.md",
+        "updates/2026-05-31_thin-client-wallet-persona-deep-link-spec.md",
         "updates/2026-05-29_venture-iqube-schema-v0.3.md",
         "updates/2026-05-29_venture-iqube-schema-v0.2.md",
         "updates/2026-05-29_venture-iqube-schema-v0.1.md",

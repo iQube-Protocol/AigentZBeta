@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T01:30:18.707Z",
+  "last_updated": "2026-06-02T23:28:26.029Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "414883014ea07d628fad6a9fad2d167b8145a5c4",
-  "latest_commit_short": "4148830",
-  "latest_commit_title": "intent chains commit 10: v1 close report",
+  "latest_commit": "710fd94b2e0ce39bd933fc9069c26646b757919b",
+  "latest_commit_short": "710fd94",
+  "latest_commit_title": "Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "710fd94",
+      "full_sha": "710fd94b2e0ce39bd933fc9069c26646b757919b",
+      "title": "Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union",
+      "author": "Claude",
+      "timestamp": "2026-06-02T23:26:34Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-710fd94.md"
+    },
+    {
+      "sha": "2e9022f",
+      "full_sha": "2e9022fdab8000b5bc318952ce11233a7e7f556a",
+      "title": "MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable",
+      "author": "Claude",
+      "timestamp": "2026-06-02T23:21:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2e9022f.md"
+    },
+    {
+      "sha": "b45d9a0",
+      "full_sha": "b45d9a0979aa181edc24e72cfaa299c4771e7ded",
+      "title": "fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES",
+      "author": "Claude",
+      "timestamp": "2026-06-02T03:04:51Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b45d9a0.md"
+    },
+    {
+      "sha": "cab9fb4",
+      "full_sha": "cab9fb4ba1e562a0e677d94d7bf66f0af021fc7e",
+      "title": "trigger deploy: backfill VALID_SOURCES allowlist fix",
+      "author": "Claude",
+      "timestamp": "2026-06-02T03:05:07Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-cab9fb4.md"
+    },
     {
       "sha": "4148830",
       "full_sha": "414883014ea07d628fad6a9fad2d167b8145a5c4",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-05-28T23:33:41Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7c30d2e.md"
-    },
-    {
-      "sha": "5c63350",
-      "full_sha": "5c63350364acdf04dba1593ce02d1d095672289b",
-      "title": "Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T23:30:40Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-5c63350.md"
-    },
-    {
-      "sha": "2e4ee0b",
-      "full_sha": "2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43",
-      "title": "Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking",
-      "author": "Claude",
-      "timestamp": "2026-05-28T22:41:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2e4ee0b.md"
-    },
-    {
-      "sha": "f517444",
-      "full_sha": "f517444cd52117ed03cc53c790f29948e744171b",
-      "title": "Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check",
-      "author": "Claude",
-      "timestamp": "2026-05-28T22:16:32Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f517444.md"
-    },
-    {
-      "sha": "b41253f",
-      "full_sha": "b41253fc1664d19fdffb96f5e9f5dda6c8dd7299",
-      "title": "Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T22:12:53Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b41253f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

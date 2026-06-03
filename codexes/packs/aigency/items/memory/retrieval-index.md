@@ -1959,3 +1959,23 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-4148830.md](../build_/COMMITS/COMMIT-4148830.md)
 - Message: intent chains commit 10: v1 close report
+
+## Commit `cab9fb4` — 2026-06-02T03:05:07Z
+- Type: `fix`
+- Brief: [COMMIT-cab9fb4.md](../build_/COMMITS/COMMIT-cab9fb4.md)
+- Message: trigger deploy: backfill VALID_SOURCES allowlist fix
+
+## Commit `b45d9a0` — 2026-06-02T03:04:51Z
+- Type: `fix`
+- Brief: [COMMIT-b45d9a0.md](../build_/COMMITS/COMMIT-b45d9a0.md)
+- Message: fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES
+
+## Commit `2e9022f` — 2026-06-02T23:21:57Z
+- Type: `push`
+- Brief: [COMMIT-2e9022f.md](../build_/COMMITS/COMMIT-2e9022f.md)
+- Message: MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable
+
+## Commit `710fd94` — 2026-06-02T23:26:34Z
+- Type: `feat`
+- Brief: [COMMIT-710fd94.md](../build_/COMMITS/COMMIT-710fd94.md)
+- Message: Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union
