@@ -1989,3 +1989,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-76a1012.md](../build_/COMMITS/COMMIT-76a1012.md)
 - Message: feat(intent chain): emit specialist_invoked + clickable workbench pills
+
+## Commit `abb7d55` — 2026-06-03T06:16:43Z
+- Type: `feat`
+- Brief: [COMMIT-abb7d55.md](../build_/COMMITS/COMMIT-abb7d55.md)
+- Message: Wire initialAuthMode + initialPersonaFlow through SmartWalletDrawer — closes deep-link backlog #1 + #2 from Lovable Part 1
