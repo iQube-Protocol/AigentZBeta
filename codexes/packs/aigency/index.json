@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-03T05:49:14.390Z",
+  "last_updated": "2026-06-03T06:18:38.454Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "76a1012c84a134a471fe84f877deb83af6f2e7e5",
-  "latest_commit_short": "76a1012",
-  "latest_commit_title": "feat(intent chain): emit specialist_invoked + clickable workbench pills",
+  "latest_commit": "abb7d556780007e91d984b4851c25b4c0af9f508",
+  "latest_commit_short": "abb7d55",
+  "latest_commit_title": "Wire initialAuthMode + initialPersonaFlow through SmartWalletDrawer — closes deep-link backlog #1 + #2 from Lovable Part 1",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "abb7d55",
+      "full_sha": "abb7d556780007e91d984b4851c25b4c0af9f508",
+      "title": "Wire initialAuthMode + initialPersonaFlow through SmartWalletDrawer — closes deep-link backlog #1 + #2 from Lovable Part 1",
+      "author": "Claude",
+      "timestamp": "2026-06-03T06:16:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-abb7d55.md"
+    },
     {
       "sha": "76a1012",
       "full_sha": "76a1012c84a134a471fe84f877deb83af6f2e7e5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T00:18:58Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-395a8f2.md"
-    },
-    {
-      "sha": "2bd4971",
-      "full_sha": "2bd4971b651f4b4e655aad6b710c9b08474900fa",
-      "title": "Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T23:58:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2bd4971.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
