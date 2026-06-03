@@ -1999,3 +1999,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-cf928c7.md](../build_/COMMITS/COMMIT-cf928c7.md)
 - Message: Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec
+
+## Commit `f1cd8a8` — 2026-06-03T14:59:05Z
+- Type: `push`
+- Brief: [COMMIT-f1cd8a8.md](../build_/COMMITS/COMMIT-f1cd8a8.md)
+- Message: trigger deploy: pills expand inline on both ledger + workspace (bd1bc83)
