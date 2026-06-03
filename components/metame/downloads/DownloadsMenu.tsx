@@ -48,12 +48,11 @@ const DOWNLOADS: DownloadItem[] = [
   },
   {
     id: "agent-runbook",
-    filename: "aigentme-agent-runbook.pdf",
+    filename: "aigentme-agent-runbook.md",
     title: "aigentMe Agent Runbook",
-    description: "The Experience Sovereignty series guide for your off-platform agent. Explains how to coach you through your venture work.",
-    purpose: "A deeper companion for your off-platform agent. Covers the system architecture, the operator–agent relationship, and the boundaries of what aigentMe will and won't do on your behalf.",
+    description: "The Experience Sovereignty series guide for your off-platform agent. Explains the metaMe stack, handoff map, decision tree, and includes 9 machine-readable brief templates.",
+    purpose: "A deeper companion for your off-platform agent. Share this alongside the VentureQube schema. The runbook covers the corrected operating stack (Registry → nanOS → Studio → Catalogue → Runtime), how to recommend Cartridge vs Tab vs Capsule vs Pill, when to hand off to aigentMe vs a Cartridge CoPilot vs Studio Composer, and JSON templates the agent can fill (Experience Intent Brief, Cartridge Creation Brief, iQube Preparation Brief, Mini-RFP Brief, and six more). The agent recommends. You authorize. The metaMe stack validates and activates.",
     Icon: FileText,
-    comingSoon: true,
   },
   {
     id: "experience-operator-manual",
