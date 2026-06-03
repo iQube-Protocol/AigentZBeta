@@ -35,7 +35,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Boxes, Loader2, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
+import { Boxes, Globe, Loader2, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { CartridgeSetupWizard } from "@/components/metame/setup/CartridgeSetupWizard";
 
@@ -83,6 +83,7 @@ interface CartridgeDetail {
   availableSpecialists: string[];
   tokenWhitelist: string[];
   smartTriadConfig: Record<string, unknown> | null;
+  publishedToCluster: boolean;
   createdAt: string;
   updatedAt: string;
   isOwnerCaller: boolean;
@@ -354,6 +355,28 @@ function ManagerDetail({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [opError, setOpError] = useState<string | null>(null);
 
+  async function doTogglePublish() {
+    setSavingId("publish");
+    setOpError(null);
+    try {
+      const res = await personaFetch(
+        `/api/cartridge/${encodeURIComponent(c.slug)}/publish-to-cluster`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ published: !c.publishedToCluster }),
+        },
+      );
+      const j = (await res.json()) as { ok: boolean; error?: string; detail?: string };
+      if (!res.ok || !j.ok) throw new Error(j.detail || j.error || `save failed (${res.status})`);
+      onChanged();
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   async function patchCartridge(body: Record<string, unknown>, opId: string) {
     setSavingId(opId);
     setOpError(null);
@@ -395,13 +418,45 @@ function ManagerDetail({
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <header>
-        <h2 className="text-xl font-semibold text-slate-100">{c.title}</h2>
-        <div className="mt-1 text-xs text-slate-500 font-mono">/{c.slug}</div>
-        <div className="mt-2 flex flex-wrap gap-2 text-xs">
-          {c.category && <Chip>{c.category}</Chip>}
-          {c.visibility && <Chip>{c.visibility}</Chip>}
-          <Chip>caller: {detail.caller.reason}</Chip>
-          {!canEdit && <Chip className="text-amber-300">read-only</Chip>}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-100">{c.title}</h2>
+            <div className="mt-1 text-xs text-slate-500 font-mono">/{c.slug}</div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              {c.category && <Chip>{c.category}</Chip>}
+              {c.visibility && <Chip>{c.visibility}</Chip>}
+              <Chip>caller: {detail.caller.reason}</Chip>
+              {!canEdit && <Chip className="text-amber-300">read-only</Chip>}
+            </div>
+          </div>
+          {/* Publish to myCluster toggle */}
+          <button
+            type="button"
+            disabled={!canEdit || savingId === "publish"}
+            onClick={() => void doTogglePublish()}
+            title={
+              c.publishedToCluster
+                ? "Remove from myCluster — the tab will disappear from your myCluster group"
+                : "Publish to myCluster — adds a tab with your cartridge name in the myCluster group"
+            }
+            className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border transition disabled:opacity-40 ${
+              c.publishedToCluster
+                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-red-500/20 hover:border-red-500/40 hover:text-red-300"
+                : "bg-slate-700/40 border-slate-600 text-slate-300 hover:bg-violet-500/20 hover:border-violet-500/40 hover:text-violet-200"
+            }`}
+          >
+            {savingId === "publish" ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                {c.publishedToCluster ? "Removing…" : "Publishing…"}
+              </>
+            ) : (
+              <>
+                <Globe className="w-3 h-3" />
+                {c.publishedToCluster ? "Published to myCluster" : "Publish to myCluster"}
+              </>
+            )}
+          </button>
         </div>
       </header>
 

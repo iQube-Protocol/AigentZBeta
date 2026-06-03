@@ -63,7 +63,7 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
   const { data: cfg, error: cfgErr } = await db
     .from("codex_configs")
     .select(
-      "id,slug,name,enabled,metadata,owner_persona_id,primary_tab_slug,available_specialists,token_whitelist,smart_triad_config,created_at,updated_at",
+      "id,slug,name,enabled,metadata,owner_persona_id,primary_tab_slug,available_specialists,token_whitelist,smart_triad_config,published_to_cluster,created_at,updated_at",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -131,6 +131,7 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
     available_specialists: string[] | null;
     token_whitelist: string[] | null;
     smart_triad_config: Record<string, unknown> | null;
+    published_to_cluster: boolean;
     created_at: string;
     updated_at: string;
   };
@@ -152,6 +153,7 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
         availableSpecialists: cfgTyped.available_specialists ?? [],
         tokenWhitelist: cfgTyped.token_whitelist ?? [],
         smartTriadConfig: cfgTyped.smart_triad_config ?? null,
+        publishedToCluster: cfgTyped.published_to_cluster ?? false,
         createdAt: cfgTyped.created_at,
         updatedAt: cfgTyped.updated_at,
         // T0 owner_persona_id intentionally NOT echoed.
