@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T23:28:26.029Z",
+  "last_updated": "2026-06-03T14:58:18.868Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "710fd94b2e0ce39bd933fc9069c26646b757919b",
-  "latest_commit_short": "710fd94",
-  "latest_commit_title": "Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union",
+  "latest_commit": "cf928c7efc704a4f965d0c4b61761521745e1c1a",
+  "latest_commit_short": "cf928c7",
+  "latest_commit_title": "Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "cf928c7",
+      "full_sha": "cf928c7efc704a4f965d0c4b61761521745e1c1a",
+      "title": "Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec",
+      "author": "Claude",
+      "timestamp": "2026-06-03T14:56:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cf928c7.md"
+    },
+    {
+      "sha": "abb7d55",
+      "full_sha": "abb7d556780007e91d984b4851c25b4c0af9f508",
+      "title": "Wire initialAuthMode + initialPersonaFlow through SmartWalletDrawer — closes deep-link backlog #1 + #2 from Lovable Part 1",
+      "author": "Claude",
+      "timestamp": "2026-06-03T06:16:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-abb7d55.md"
+    },
+    {
+      "sha": "76a1012",
+      "full_sha": "76a1012c84a134a471fe84f877deb83af6f2e7e5",
+      "title": "feat(intent chain): emit specialist_invoked + clickable workbench pills",
+      "author": "Claude",
+      "timestamp": "2026-06-03T05:47:06Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-76a1012.md"
+    },
+    {
+      "sha": "b6b73af",
+      "full_sha": "b6b73af5ee95ef205288b24b74139c50c2d9ac06",
+      "title": "trigger deploy: chain-of-intent (specialist_invoked + clickable pills)",
+      "author": "Claude",
+      "timestamp": "2026-06-03T05:47:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b6b73af.md"
+    },
     {
       "sha": "710fd94",
       "full_sha": "710fd94b2e0ce39bd933fc9069c26646b757919b",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-05-29T00:27:23Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1b7d6bd.md"
-    },
-    {
-      "sha": "395a8f2",
-      "full_sha": "395a8f295c88f34fc50c78b5affedaa228b9ba76",
-      "title": "Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025",
-      "author": "Claude",
-      "timestamp": "2026-05-29T00:18:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-395a8f2.md"
-    },
-    {
-      "sha": "2bd4971",
-      "full_sha": "2bd4971b651f4b4e655aad6b710c9b08474900fa",
-      "title": "Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T23:58:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2bd4971.md"
-    },
-    {
-      "sha": "125b99e",
-      "full_sha": "125b99ecd34223386faa432f7e0d9265a81c3634",
-      "title": "Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T23:45:56Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-125b99e.md"
-    },
-    {
-      "sha": "7c30d2e",
-      "full_sha": "7c30d2ec4bb2afeded912c206d648663e630416c",
-      "title": "Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T23:33:41Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7c30d2e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

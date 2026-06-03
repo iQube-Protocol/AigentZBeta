@@ -165,6 +165,27 @@ interface SmartWalletDrawerProps {
   onPurchaseComplete?: (content?: SmartContentQube) => void;
   recipientAddress?: string;
   initialTab?: DrawerTab;
+  /**
+   * Force the auth form to a specific mode on open. Used by the
+   * thin-client deep-link envelope's `intent` field — when the shell
+   * dispatches `MENU_ACTION { action_id: "wallet", deep_link: { ..., intent: "signup" } }`
+   * the runtime passes `initialAuthMode="signup"` so the drawer's
+   * Sign Up tab is pre-selected. Falls back to "signin" (the default)
+   * when omitted. Only consulted when the persona is unauthenticated;
+   * a no-op for already-signed-in users.
+   */
+  initialAuthMode?: "signin" | "signup";
+  /**
+   * Auto-launch the persona create flow on open. Used by the
+   * thin-client deep-link envelope's `flow` field — when the shell
+   * dispatches `MENU_ACTION { action_id: "persona", deep_link: { module: "persona", flow: "create-wizard" } }`
+   * the runtime opens the drawer with `initialPersonaFlow="create-wizard"`
+   * and the drawer auto-launches `PersonaSetupWizard`. `quick-add`
+   * launches `PersonaQuickAddModal` instead. Both require an
+   * authenticated session; for unauthenticated users the drawer falls
+   * through to its normal Sign In landing and the flow is skipped.
+   */
+  initialPersonaFlow?: "create-wizard" | "quick-add";
   onPersonaChange?: (personaId: string) => void;
   onCreatePersona?: () => void;
   onSubmitReputationClaim?: (claimData: any) => void;
@@ -216,6 +237,8 @@ export default function SmartWalletDrawer({
   onPurchaseComplete,
   recipientAddress,
   initialTab = "wallet",
+  initialAuthMode,
+  initialPersonaFlow,
   onPersonaChange,
   onCreatePersona,
   onSubmitReputationClaim,
@@ -364,7 +387,11 @@ export default function SmartWalletDrawer({
   const [signInPasswordInput, setSignInPasswordInput] = useState("");
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signInPending, setSignInPending] = useState(false);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  // Seeded from the `initialAuthMode` prop so the thin-client deep-link
+  // envelope's `intent: "signup"` flips the form to Sign Up on open
+  // (default is "signin"). Once mounted the user can switch tabs
+  // freely — this is just the initial-state seed.
+  const [authMode, setAuthMode] = useState<"signin" | "signup">(initialAuthMode ?? "signin");
   const [signUpConfirmationSent, setSignUpConfirmationSent] = useState(false);
   const [showQcBreakdown, setShowQcBreakdown] = useState(false);
   const [logoLoadErrors, setLogoLoadErrors] = useState<Record<string, boolean>>({});
@@ -433,6 +460,29 @@ export default function SmartWalletDrawer({
 
   useEffect(() => {
     if (!open) setIsFullscreen(false);
+  }, [open]);
+
+  // Deep-link prop application — when the drawer opens with
+  // `initialAuthMode` / `initialPersonaFlow` set, seed the matching
+  // state. Runs only on the `open` transition; if the user dismisses
+  // the modals or switches tabs manually after open, we don't
+  // re-trigger. The thin-client dispatches a fresh deep-link envelope
+  // for each user click, so the next open will re-seed if needed.
+  useEffect(() => {
+    if (!open) return;
+    if (initialAuthMode) {
+      setAuthMode(initialAuthMode);
+    }
+    if (initialPersonaFlow === "create-wizard") {
+      setPersonaSetupOpen(true);
+    } else if (initialPersonaFlow === "quick-add") {
+      setQuickAddOpen(true);
+    }
+    // Intentionally not listing initialAuthMode / initialPersonaFlow in
+    // the dep array — they're a one-shot seed at open time. Listing
+    // them would cause the wizard to re-open if the parent flipped the
+    // flag while the drawer was already mounted, which is wrong.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {

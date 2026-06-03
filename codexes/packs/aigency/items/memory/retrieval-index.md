@@ -1979,3 +1979,23 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-710fd94.md](../build_/COMMITS/COMMIT-710fd94.md)
 - Message: Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union
+
+## Commit `b6b73af` — 2026-06-03T05:47:09Z
+- Type: `push`
+- Brief: [COMMIT-b6b73af.md](../build_/COMMITS/COMMIT-b6b73af.md)
+- Message: trigger deploy: chain-of-intent (specialist_invoked + clickable pills)
+
+## Commit `76a1012` — 2026-06-03T05:47:06Z
+- Type: `feat`
+- Brief: [COMMIT-76a1012.md](../build_/COMMITS/COMMIT-76a1012.md)
+- Message: feat(intent chain): emit specialist_invoked + clickable workbench pills
+
+## Commit `abb7d55` — 2026-06-03T06:16:43Z
+- Type: `feat`
+- Brief: [COMMIT-abb7d55.md](../build_/COMMITS/COMMIT-abb7d55.md)
+- Message: Wire initialAuthMode + initialPersonaFlow through SmartWalletDrawer — closes deep-link backlog #1 + #2 from Lovable Part 1
+
+## Commit `cf928c7` — 2026-06-03T14:56:18Z
+- Type: `push`
+- Brief: [COMMIT-cf928c7.md](../build_/COMMITS/COMMIT-cf928c7.md)
+- Message: Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec

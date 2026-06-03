@@ -81,13 +81,29 @@ initialPersonaFlow?: "create-wizard" | "quick-add";
 
 When set, the drawer opens the matching modal on mount. The flow then runs inside the drawer and on completion calls `onCreatePersona`. This is tracked as fast-follow #4 in the backlog list below — ping when the shell-side wiring is ready and we'll ship it.
 
+## Verification — six dispatches × parent handler
+
+End-to-end check after Lovable shipped Part 1 (2026-05-31). Each menu item dispatches a `MENU_ACTION` with an optional `deep_link`; the parent runtime's handler in `MetaMeRuntimeClient.tsx::DRAWER_ACTION_HANDLERS` routes it:
+
+| Menu item | Dispatched | Parent routes to | State applied | Result |
+|---|---|---|---|---|
+| Sign In | `{ action_id: "wallet", deep_link: { module: "wallet", tab: "wallet", intent: "signin" } }` | `openWalletWithDeepLink` | `walletInitialTab="wallet"`, `walletInitialAuthMode="signin"` | ✅ Drawer opens at Wallet tab; Sign In form selected when unauthed |
+| Rewards | `{ action_id: "wallet", deep_link: { module: "wallet", tab: "rewards" } }` | `openWalletWithDeepLink` | `walletInitialTab="rewards"` | ✅ Drawer opens at Rewards tab |
+| Tasks | `{ action_id: "wallet", deep_link: { module: "wallet", tab: "tasks" } }` | `openWalletWithDeepLink` | `walletInitialTab="tasks"` | ✅ Drawer opens at Tasks tab |
+| Payments | `{ action_id: "wallet", deep_link: { module: "wallet", tab: "payments" } }` | `openWalletWithDeepLink` | `walletInitialTab="payments"` | ✅ Drawer opens at Payments tab |
+| Reputation | `{ action_id: "wallet", deep_link: { module: "wallet", tab: "reputation" } }` | `openWalletWithDeepLink` | `walletInitialTab="reputation"` | ✅ Drawer opens at Reputation tab |
+| + Create persona | `{ action_id: "persona", deep_link: { module: "persona", flow: "create-wizard" } }` | `openPersonaWithDeepLink` | `walletInitialTab="wallet"`, `walletInitialPersonaFlow="create-wizard"` | ✅ Drawer opens; `PersonaSetupWizard` auto-launches inside it |
+
+State clears on every drawer close so a subsequent plain "Wallet" tile click (no envelope) doesn't reuse a stale Sign Up intent or wizard flag.
+
 ## Backlog (parent-side fast-follow)
 
 1. ~~MENU_ACTION deep_link envelope reader~~ — done.
-2. ~~Wallet drawer `initialTab` routing for `tasks`, `rewards`, `reputation`, `library`~~ — done.
-3. Wallet drawer `authIntent` prop to force Sign Up tab when `intent: "signup"` is passed.
-4. `SmartWalletDrawer.initialPersonaFlow` prop + auto-launch of `PersonaSetupWizard` / `PersonaQuickAddModal`.
-5. Documentation update in `packages/iframe-bridge/README.md` to add the deep_link contract to the inbound message spec.
+2. ~~Wallet drawer `initialTab` routing for `tasks`, `rewards`, `reputation`, `library`, `payments`~~ — done.
+3. ~~Wallet drawer `initialAuthMode` prop forcing Sign Up tab when `intent: "signup"` is passed~~ — done.
+4. ~~`SmartWalletDrawer.initialPersonaFlow` prop + auto-launch of `PersonaSetupWizard` / `PersonaQuickAddModal`~~ — done.
+5. ~~Documentation update in `packages/iframe-bridge/README.md` to add the deep_link contract to the inbound message spec~~ — done (`packages/iframe-bridge/README.md` shipped 2026-05-31; documents the bridge architecture, full `MENU_ACTION` payload shape including `deep_link` envelope, per-item dispatch table, and the runtime-side handler reference).
+6. **Reputation as a visible tile?** — wiring is in `DEEP_LINK_DISPATCH`, but whether Reputation should appear as a first-class Earn submenu tile (alongside Goal / Task / Wallet / Reward / Payments / Sign In) is an **operator product decision**, not a code question. Today Reputation is only reachable via the wallet drawer's own tab bar; making it a top-level Earn tile would add a seventh slot. Pending answer.
 
 ## Files
 
