@@ -2004,3 +2004,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f1cd8a8.md](../build_/COMMITS/COMMIT-f1cd8a8.md)
 - Message: trigger deploy: pills expand inline on both ledger + workspace (bd1bc83)
+
+## Commit `42ef1c9` — 2026-06-03T16:23:12Z
+- Type: `push`
+- Brief: [COMMIT-42ef1c9.md](../build_/COMMITS/COMMIT-42ef1c9.md)
+- Message: trigger deploy: aigentMe downloads menu + VentureQube schema (3ea9f0fb)
