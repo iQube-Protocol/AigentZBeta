@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-04T03:45:48.442Z",
+  "last_updated": "2026-06-04T04:08:50.931Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fc884603fac61dde0f9c9a61c8e4b736945cde14",
-  "latest_commit_short": "fc88460",
-  "latest_commit_title": "feat(chain): persist specialist response + chain section in myLedger",
+  "latest_commit": "2dcff5ed123474a6e7bf0605946dddcf6da2c5b0",
+  "latest_commit_short": "2dcff5e",
+  "latest_commit_title": "style(workspace): green container around expanded intent pills",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2dcff5e",
+      "full_sha": "2dcff5ed123474a6e7bf0605946dddcf6da2c5b0",
+      "title": "style(workspace): green container around expanded intent pills",
+      "author": "Claude",
+      "timestamp": "2026-06-04T04:06:48Z",
+      "type": "style",
+      "brief": "items/build_/COMMITS/COMMIT-2dcff5e.md"
+    },
+    {
+      "sha": "1ca89bf",
+      "full_sha": "1ca89bfd91143ca31bab1db7c3b485a993744c17",
+      "title": "trigger deploy: emerald container around expanded intents (2dcff5ed)",
+      "author": "Claude",
+      "timestamp": "2026-06-04T04:06:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1ca89bf.md"
+    },
     {
       "sha": "fc88460",
       "full_sha": "fc884603fac61dde0f9c9a61c8e4b736945cde14",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T08:40:55Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-6903e15.md"
-    },
-    {
-      "sha": "a203a05",
-      "full_sha": "a203a05d57cd6daa5b810036b14b8c82e3c0760b",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T08:40:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a203a05.md"
-    },
-    {
-      "sha": "89adda9",
-      "full_sha": "89adda9ac8f884c10a1c89e2af267f5fd9b940ad",
-      "title": "Guard rail — baseTokenMint refuses to broadcast unless connected RPC reports chainId 8453 (caught wrong-chain phantom-mint to Sepolia 2026-05-29)",
-      "author": "Claude",
-      "timestamp": "2026-05-29T08:16:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-89adda9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
