@@ -148,13 +148,28 @@ function formatTimeAgo(iso: string): string {
   return `${d}d ago`;
 }
 
+export interface IntentChainPanelProps {
+  chainState: ChainCacheEntry | undefined;
+  isDark?: boolean;
+  /**
+   * When provided, the chain header renders Approve / Mark complete /
+   * Cancel buttons that POST /api/assistant/intent-advance and call
+   * onAdvanced() so the caller can refresh the panel. Omit to render
+   * read-only (e.g. inside ActivityReceiptCard where the receipt
+   * itself owns the action surface).
+   */
+  intentId?: string;
+  intentStatus?: string;
+  onAdvanced?: () => void;
+}
+
 export function IntentChainPanel({
   chainState,
   isDark = true,
-}: {
-  chainState: ChainCacheEntry | undefined;
-  isDark?: boolean;
-}) {
+  intentId,
+  intentStatus,
+  onAdvanced,
+}: IntentChainPanelProps) {
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const surfaceClass = isDark ? "border-slate-700/60 bg-slate-950/40" : "border-slate-200 bg-slate-50";
   return (
@@ -168,7 +183,13 @@ export function IntentChainPanel({
         <p className={`text-xs ${isDark ? "text-rose-400" : "text-rose-600"}`}>{chainState.error}</p>
       )}
       {chainState?.data && !chainState.loading && (
-        <ChainTimeline data={chainState.data} isDark={isDark} />
+        <ChainTimeline
+          data={chainState.data}
+          isDark={isDark}
+          intentId={intentId}
+          intentStatus={intentStatus}
+          onAdvanced={onAdvanced}
+        />
       )}
     </div>
   );
@@ -271,10 +292,33 @@ function deriveChainStatus(data: IntentChainDto): {
   return { badgeLabel: "queued", badgeClass: "border-slate-600 text-slate-300 bg-slate-500/10", flow: null };
 }
 
-function ChainTimeline({ data, isDark }: { data: IntentChainDto; isDark: boolean }) {
+function ChainTimeline({
+  data,
+  isDark,
+  intentId,
+  intentStatus,
+  onAdvanced,
+}: {
+  data: IntentChainDto;
+  isDark: boolean;
+  intentId?: string;
+  intentStatus?: string;
+  onAdvanced?: () => void;
+}) {
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const { events, receipts = [], chain } = data;
   const status = deriveChainStatus(data);
+
+  // Action buttons render when the caller has provided intentId +
+  // onAdvanced. Hide once the intent is terminated so the operator
+  // doesn't try to re-advance a completed/cancelled row.
+  const canAct =
+    !!intentId && !!onAdvanced && intentStatus !== "completed" && intentStatus !== "cancelled";
+  // Whether an approval_granted receipt is already present — when so,
+  // the Approve button reads "Re-approve" so the operator can still
+  // record a fresh approval if needed but the primary CTA shifts to
+  // Mark complete.
+  const alreadyApproved = receipts.some((r) => r.actionType === "approval_granted");
 
   // Merge orchestration events + activity receipts into one chronological
   // timeline. Receipts carry the human-readable consultation summary +
@@ -303,7 +347,20 @@ function ChainTimeline({ data, isDark }: { data: IntentChainDto; isDark: boolean
           {chain && typeof chain.costQc === "number" && chain.costQc > 0 && (
             <span className={mutedClass}>· ${(chain.costQc / 100).toFixed(2)}</span>
           )}
+          {intentStatus && (
+            <span className={`ml-auto text-[10px] uppercase tracking-wider ${mutedClass}`}>
+              intent: {intentStatus.replace(/_/g, " ")}
+            </span>
+          )}
         </div>
+        {canAct && (
+          <ChainActionRow
+            intentId={intentId!}
+            isDark={isDark}
+            alreadyApproved={alreadyApproved}
+            onAdvanced={onAdvanced!}
+          />
+        )}
       </div>
 
       {merged.length === 0 ? (
@@ -362,6 +419,98 @@ function specialistDisplay(s: string): string {
     case "metaye": return "metaye";
     default: return s;
   }
+}
+
+function ChainActionRow({
+  intentId,
+  isDark,
+  alreadyApproved,
+  onAdvanced,
+}: {
+  intentId: string;
+  isDark: boolean;
+  alreadyApproved: boolean;
+  onAdvanced: () => void;
+}) {
+  const [pending, setPending] = React.useState<"approve" | "complete" | "cancel" | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const fire = async (action: "approve" | "complete" | "cancel") => {
+    setPending(action);
+    setError(null);
+    try {
+      const { personaFetch } = await import("@/utils/personaSpine");
+      const res = await personaFetch("/api/assistant/intent-advance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentId, action }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `advance failed (${res.status})`);
+      }
+      onAdvanced();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const baseBtn = "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] transition disabled:opacity-50 disabled:cursor-not-allowed";
+  const approveBtn = isDark
+    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
+    : "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
+  const completeBtn = isDark
+    ? "border-sky-500/50 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20"
+    : "border-sky-400 bg-sky-50 text-sky-700 hover:bg-sky-100";
+  const cancelBtn = isDark
+    ? "border-rose-500/40 text-rose-300 hover:bg-rose-500/10"
+    : "border-rose-400 text-rose-700 hover:bg-rose-50";
+
+  return (
+    <div className="mt-2 pt-2 border-t border-slate-700/40 flex flex-wrap items-center gap-1.5">
+      <button
+        type="button"
+        disabled={!!pending}
+        onClick={(e) => {
+          e.stopPropagation();
+          void fire("approve");
+        }}
+        className={`${baseBtn} ${approveBtn}`}
+      >
+        {pending === "approve" ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+        {alreadyApproved ? "Re-approve" : "Approve"}
+      </button>
+      <button
+        type="button"
+        disabled={!!pending}
+        onClick={(e) => {
+          e.stopPropagation();
+          void fire("complete");
+        }}
+        className={`${baseBtn} ${completeBtn}`}
+      >
+        {pending === "complete" ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+        Mark complete
+      </button>
+      <button
+        type="button"
+        disabled={!!pending}
+        onClick={(e) => {
+          e.stopPropagation();
+          void fire("cancel");
+        }}
+        className={`${baseBtn} ${cancelBtn}`}
+      >
+        {pending === "cancel" ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+        Cancel
+      </button>
+      {error && (
+        <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
+      )}
+    </div>
+  );
 }
 
 function ReceiptRow({ r, isDark }: { r: AttachedReceiptDto; isDark: boolean }) {
@@ -538,5 +687,17 @@ export function useIntentChainCache(personaId?: string) {
     });
   }, []);
 
-  return { cache, requestChain };
+  /**
+   * Force a re-fetch after an operator action (Approve / Mark complete /
+   * Cancel) so the chain header status badge re-derives without a full
+   * panel close+open dance.
+   */
+  const invalidate = React.useCallback((intentId: string) => {
+    setCache((prev) => ({
+      ...prev,
+      [intentId]: { loading: true, error: null, data: null },
+    }));
+  }, []);
+
+  return { cache, requestChain, invalidate };
 }

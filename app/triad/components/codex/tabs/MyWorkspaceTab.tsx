@@ -87,7 +87,7 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
   // "open full chain" affordance below the panel deep-links into the
   // existing ChainDetailDrawer.
   const [expandedIntents, setExpandedIntents] = useState<Set<string>>(new Set());
-  const { cache: chainCache, requestChain } = useIntentChainCache(personaId);
+  const { cache: chainCache, requestChain, invalidate: invalidateChain } = useIntentChainCache(personaId);
   const [drawerChainId, setDrawerChainId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -111,30 +111,45 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
     setDrawerChainId(chainId);
     setDrawerOpen(true);
   };
-  useEffect(() => {
-    if (!personaId || activeSubTab !== 'intents') return;
+  const refetchIntents = useCallback(async () => {
+    if (!personaId) return;
     setIntentsLoading(true);
     setIntentsError(null);
-    void (async () => {
-      try {
-        const res = await personaFetch('/api/assistant/workbench-ledger?limit=200', { personaIdHint: personaId });
-        if (!res.ok) { setIntentsError(`HTTP ${res.status}`); return; }
-        const json = await res.json() as { entries?: Array<{ kind: string; intentId?: string; intentName?: string; status?: string; cartridge?: string; createdAt?: string }> };
-        const pills = (json.entries ?? []).filter((e) => e.kind === 'pill').map((e) => ({
-          intentId: e.intentId ?? '',
-          intentName: e.intentName ?? '',
-          status: (e.status as ActiveIntent['status']) ?? 'in_progress',
-          cartridge: e.cartridge ?? '',
-          createdAt: e.createdAt ?? '',
-        }));
-        setIntents(pills);
-      } catch (err) {
-        setIntentsError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setIntentsLoading(false);
-      }
-    })();
-  }, [personaId, activeSubTab]);
+    try {
+      const res = await personaFetch('/api/assistant/workbench-ledger?limit=200', { personaIdHint: personaId });
+      if (!res.ok) { setIntentsError(`HTTP ${res.status}`); return; }
+      const json = await res.json() as { entries?: Array<{ kind: string; intentId?: string; intentName?: string; status?: string; cartridge?: string; createdAt?: string }> };
+      const pills = (json.entries ?? []).filter((e) => e.kind === 'pill').map((e) => ({
+        intentId: e.intentId ?? '',
+        intentName: e.intentName ?? '',
+        status: (e.status as ActiveIntent['status']) ?? 'in_progress',
+        cartridge: e.cartridge ?? '',
+        createdAt: e.createdAt ?? '',
+      }));
+      setIntents(pills);
+    } catch (err) {
+      setIntentsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIntentsLoading(false);
+    }
+  }, [personaId]);
+
+  useEffect(() => {
+    if (!personaId || activeSubTab !== 'intents') return;
+    void refetchIntents();
+  }, [personaId, activeSubTab, refetchIntents]);
+
+  // Called after an intent-advance click lands. Invalidate the chain
+  // cache for that intent so the chain header re-derives, and refetch
+  // the workspace pill list so the status chip flips (in_progress →
+  // completed/cancelled) without requiring a full tab switch.
+  const handleIntentAdvanced = useCallback(
+    (intentId: string) => {
+      invalidateChain(intentId);
+      void refetchIntents();
+    },
+    [invalidateChain, refetchIntents],
+  );
 
   // ── Strategic uploads ─────────────────────────────────────────────
   const [uploads, setUploads] = useState<StrategicUpload[]>([]);
@@ -282,7 +297,13 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
                         </div>
                         {isOpen && (
                           <div className="border-t border-emerald-500/30">
-                            <IntentChainPanel chainState={chainState} isDark={theme !== 'light'} />
+                            <IntentChainPanel
+                              chainState={chainState}
+                              isDark={theme !== 'light'}
+                              intentId={i.intentId}
+                              intentStatus={i.status}
+                              onAdvanced={() => handleIntentAdvanced(i.intentId)}
+                            />
                             {attachedChain && (
                               <div className="border-t border-emerald-500/30 bg-emerald-950/20 px-3 py-2">
                                 <button

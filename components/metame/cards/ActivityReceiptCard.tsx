@@ -129,36 +129,33 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
   // Lazy-fetch the intent-chain payload on first expand. Skips the
   // request when this receipt isn't intent-attached (e.g. orphan
   // compose-strip drafts) or when we've already loaded once.
+  const fetchChain = useCallback(async () => {
+    if (!data.intentId) return;
+    setChainState({ loading: true, error: null, data: null });
+    try {
+      const res = await personaFetch(
+        `/api/assistant/intent-chain?intentId=${encodeURIComponent(data.intentId)}`,
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `chain fetch failed (${res.status})`);
+      }
+      const json = (await res.json()) as IntentChainDto;
+      setChainState({ loading: false, error: null, data: json });
+    } catch (err) {
+      setChainState({
+        loading: false,
+        error: err instanceof Error ? err.message : String(err),
+        data: null,
+      });
+    }
+  }, [data.intentId]);
+
   useEffect(() => {
     if (!expanded || !data.intentId) return;
     if (chainState.data || chainState.loading) return;
-    let cancelled = false;
-    setChainState({ loading: true, error: null, data: null });
-    void (async () => {
-      try {
-        const res = await personaFetch(
-          `/api/assistant/intent-chain?intentId=${encodeURIComponent(data.intentId!)}`,
-        );
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body?.detail || body?.error || `chain fetch failed (${res.status})`);
-        }
-        const json = (await res.json()) as IntentChainDto;
-        if (cancelled) return;
-        setChainState({ loading: false, error: null, data: json });
-      } catch (err) {
-        if (cancelled) return;
-        setChainState({
-          loading: false,
-          error: err instanceof Error ? err.message : String(err),
-          data: null,
-        });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [expanded, data.intentId, chainState.data, chainState.loading]);
+    void fetchChain();
+  }, [expanded, data.intentId, chainState.data, chainState.loading, fetchChain]);
 
   const json = JSON.stringify(data, null, 2);
 
@@ -324,7 +321,16 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
                   Chain of intent
                 </span>
               </div>
-              <IntentChainPanel chainState={chainState} isDark={isDark} />
+              <IntentChainPanel
+                chainState={chainState}
+                isDark={isDark}
+                intentId={data.intentId ?? undefined}
+                intentStatus={
+                  (chainState.data as IntentChainDto & { intent?: { status?: string } } | null)
+                    ?.intent?.status
+                }
+                onAdvanced={() => void fetchChain()}
+              />
             </div>
           )}
 
