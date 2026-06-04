@@ -14,7 +14,7 @@
  */
 
 import React from "react";
-import { Loader2, ArrowRight, ExternalLink, FileText, Sparkles, Link2, ChevronDown } from "lucide-react";
+import { Loader2, ArrowRight, ExternalLink, FileText, Sparkles, Link2, ChevronDown, PlusCircle, CheckCircle2 } from "lucide-react";
 
 export interface TimelineEventDto {
   eventId: string;
@@ -401,8 +401,18 @@ function ChainTimeline({
               );
             }
             // Receipt row — own component so it can hold the body-expand
-            // state without forcing every other row to re-render.
-            return <ReceiptRow key={row.key} r={row.receipt!} isDark={isDark} />;
+            // state without forcing every other row to re-render. Threads
+            // the parent intentId so each recommendation can spawn a
+            // child intent via /api/assistant/intent-queue-next.
+            return (
+              <ReceiptRow
+                key={row.key}
+                r={row.receipt!}
+                isDark={isDark}
+                parentIntentId={intentId}
+                onChildSpawned={onAdvanced}
+              />
+            );
           })}
         </ol>
       )}
@@ -419,6 +429,98 @@ function specialistDisplay(s: string): string {
     case "metaye": return "metaye";
     default: return s;
   }
+}
+
+function RecommendationItem({
+  recommendation,
+  parentIntentId,
+  parentSpecialist,
+  isDark,
+  onSpawned,
+}: {
+  recommendation: string;
+  parentIntentId: string | null;
+  parentSpecialist: string | null;
+  isDark: boolean;
+  onSpawned?: () => void;
+}) {
+  const [state, setState] = React.useState<"idle" | "spawning" | "spawned" | "error">("idle");
+  const [errMsg, setErrMsg] = React.useState<string | null>(null);
+  const canSpawn = !!parentIntentId && state !== "spawning" && state !== "spawned";
+
+  const queue = async () => {
+    if (!parentIntentId) return;
+    setState("spawning");
+    setErrMsg(null);
+    try {
+      const { personaFetch } = await import("@/utils/personaSpine");
+      const res = await personaFetch("/api/assistant/intent-queue-next", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parentIntentId,
+          recommendation,
+          specialist: parentSpecialist ?? undefined,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `queue failed (${res.status})`);
+      }
+      setState("spawned");
+      onSpawned?.();
+    } catch (err) {
+      setState("error");
+      setErrMsg(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  return (
+    <li className="flex items-start gap-1.5">
+      <span className={`mt-0.5 text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>•</span>
+      <div className="flex-1 min-w-0">
+        <p className={`text-[11px] leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+          {recommendation}
+        </p>
+        <div className="mt-0.5 flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={!canSpawn}
+            onClick={(e) => {
+              e.stopPropagation();
+              void queue();
+            }}
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] transition disabled:opacity-50 disabled:cursor-not-allowed ${
+              state === "spawned"
+                ? isDark
+                  ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200"
+                  : "border-emerald-400 bg-emerald-50 text-emerald-700"
+                : isDark
+                  ? "border-violet-500/50 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+                  : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100"
+            }`}
+            title={
+              !parentIntentId
+                ? "Recommendation needs a parent intent to queue under"
+                : "Spawn a child intent for this action — appears in Active Intents"
+            }
+          >
+            {state === "spawning" ? (
+              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+            ) : state === "spawned" ? (
+              <CheckCircle2 className="w-2.5 h-2.5" />
+            ) : (
+              <PlusCircle className="w-2.5 h-2.5" />
+            )}
+            {state === "spawned" ? "Queued" : state === "spawning" ? "Queueing…" : "Queue as next action"}
+          </button>
+          {errMsg && (
+            <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{errMsg}</span>
+          )}
+        </div>
+      </div>
+    </li>
+  );
 }
 
 function ChainActionRow({
@@ -513,7 +615,17 @@ function ChainActionRow({
   );
 }
 
-function ReceiptRow({ r, isDark }: { r: AttachedReceiptDto; isDark: boolean }) {
+function ReceiptRow({
+  r,
+  isDark,
+  parentIntentId,
+  onChildSpawned,
+}: {
+  r: AttachedReceiptDto;
+  isDark: boolean;
+  parentIntentId?: string;
+  onChildSpawned?: () => void;
+}) {
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const [bodyOpen, setBodyOpen] = React.useState(false);
   const label = ACTION_LABELS[r.actionType] ?? r.actionType.replace(/_/g, " ");
@@ -567,11 +679,16 @@ function ReceiptRow({ r, isDark }: { r: AttachedReceiptDto; isDark: boolean }) {
               {r.specialistResponse.summary}
             </p>
             {r.specialistResponse.recommendations.length > 0 && (
-              <ul className="list-disc pl-4 space-y-0.5">
+              <ul className="space-y-1">
                 {r.specialistResponse.recommendations.map((rec, i) => (
-                  <li key={i} className={`text-[11px] leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                    {rec}
-                  </li>
+                  <RecommendationItem
+                    key={i}
+                    recommendation={rec}
+                    parentIntentId={parentIntentId ?? null}
+                    parentSpecialist={specialistFromReceipt(r)}
+                    isDark={isDark}
+                    onSpawned={onChildSpawned}
+                  />
                 ))}
               </ul>
             )}
