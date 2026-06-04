@@ -2019,3 +2019,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2a2e9a4.md](../build_/COMMITS/COMMIT-2a2e9a4.md)
 - Message: trigger deploy: Operator Manual + chain status header + inline receipts (bb7723ff)
+
+## Commit `93efc7e` — 2026-06-04T03:43:55Z
+- Type: `push`
+- Brief: [COMMIT-93efc7e.md](../build_/COMMITS/COMMIT-93efc7e.md)
+- Message: trigger deploy: specialist_response + myLedger chain section (fc884603)
