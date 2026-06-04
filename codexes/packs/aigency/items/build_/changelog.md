@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1f160a2`](https://github.com/iQube-Protocol/AigentZBeta/commit/1f160a24dd7ed6d046377c10e62981bedbc50ceb) [push] trigger deploy: operator-driven intent advance buttons (5caee4af) (Claude, 2026-06-04T18:32:48Z)
 - [`1ca89bf`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ca89bfd91143ca31bab1db7c3b485a993744c17) [push] trigger deploy: emerald container around expanded intents (2dcff5ed) (Claude, 2026-06-04T04:06:53Z)
 - [`93efc7e`](https://github.com/iQube-Protocol/AigentZBeta/commit/93efc7ef18ae417f848b07be1ecc60735bb7f363) [push] trigger deploy: specialist_response + myLedger chain section (fc884603) (Claude, 2026-06-04T03:43:55Z)
 - [`2a2e9a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/2a2e9a46fe241166817ed29c2ce3bc98e79f88dd) [push] trigger deploy: Operator Manual + chain status header + inline receipts (bb7723ff) (Claude, 2026-06-04T03:28:46Z)
