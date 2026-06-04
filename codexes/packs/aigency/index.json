@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-03T16:25:12.024Z",
+  "last_updated": "2026-06-03T16:41:26.517Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3ea9f0fb8a5076c21eb5ff4161daea7d8aa45196",
-  "latest_commit_short": "3ea9f0f",
-  "latest_commit_title": "feat(aigentme): downloadable VentureQube schema + downloads menu",
+  "latest_commit": "1ae9df032f56c2c026b9f6a6f11fc61e16b2f7e3",
+  "latest_commit_short": "1ae9df0",
+  "latest_commit_title": "feat(downloads): ship Agent Runbook + flip menu entry to available",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1ae9df0",
+      "full_sha": "1ae9df032f56c2c026b9f6a6f11fc61e16b2f7e3",
+      "title": "feat(downloads): ship Agent Runbook + flip menu entry to available",
+      "author": "Claude",
+      "timestamp": "2026-06-03T16:39:17Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1ae9df0.md"
+    },
+    {
+      "sha": "83fa3de",
+      "full_sha": "83fa3def7b2027623f5081c58e45ea51ec747318",
+      "title": "trigger deploy: Agent Runbook now downloadable (1ae9df03)",
+      "author": "Claude",
+      "timestamp": "2026-06-03T16:39:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-83fa3de.md"
+    },
     {
       "sha": "3ea9f0f",
       "full_sha": "3ea9f0fb8a5076c21eb5ff4161daea7d8aa45196",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T05:57:30Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-68482e1.md"
-    },
-    {
-      "sha": "52ab4ac",
-      "full_sha": "52ab4ace7488030e368adfdb23276d22a3c7359b",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T05:57:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-52ab4ac.md"
-    },
-    {
-      "sha": "78bea0f",
-      "full_sha": "78bea0fcc98199c82f64829dfc6727ff3952610e",
-      "title": "draft services: Anthropic primary, OpenAI secondary (was OpenAI-only)",
-      "author": "Claude",
-      "timestamp": "2026-05-29T05:54:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-78bea0f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -2009,3 +2009,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-42ef1c9.md](../build_/COMMITS/COMMIT-42ef1c9.md)
 - Message: trigger deploy: aigentMe downloads menu + VentureQube schema (3ea9f0fb)
+
+## Commit `83fa3de` — 2026-06-03T16:39:22Z
+- Type: `push`
+- Brief: [COMMIT-83fa3de.md](../build_/COMMITS/COMMIT-83fa3de.md)
+- Message: trigger deploy: Agent Runbook now downloadable (1ae9df03)
