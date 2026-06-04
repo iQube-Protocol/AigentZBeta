@@ -241,7 +241,14 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
                     const chainState = chainCache[i.intentId];
                     const attachedChain = chainState?.data?.chain ?? null;
                     return (
-                      <li key={i.intentId} className="rounded-md border border-slate-700/50 bg-slate-900/40 overflow-hidden">
+                      <li
+                        key={i.intentId}
+                        className={`rounded-md border overflow-hidden transition-colors ${
+                          isOpen
+                            ? 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/20 shadow-[0_0_0_1px_rgba(16,185,129,0.08)]'
+                            : 'border-slate-700/50 bg-slate-900/40'
+                        }`}
+                      >
                         <div
                           role="button"
                           tabIndex={0}
@@ -253,7 +260,11 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
                             }
                           }}
                           aria-expanded={isOpen}
-                          className="w-full text-left px-3 py-2 cursor-pointer transition-colors hover:border-violet-500/50 hover:bg-violet-500/5"
+                          className={`w-full text-left px-3 py-2 cursor-pointer transition-colors ${
+                            isOpen
+                              ? 'hover:bg-emerald-500/10'
+                              : 'hover:border-violet-500/50 hover:bg-violet-500/5'
+                          }`}
                         >
                           <div className="flex items-center gap-2">
                             <ChevronRight
@@ -270,20 +281,20 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
                           <div className="text-xs text-white mt-1 truncate pl-5">{i.intentName}</div>
                         </div>
                         {isOpen && (
-                          <>
+                          <div className="border-t border-emerald-500/30">
                             <IntentChainPanel chainState={chainState} isDark={theme !== 'light'} />
                             {attachedChain && (
-                              <div className="border-t border-slate-700/60 bg-slate-950/40 px-3 py-2">
+                              <div className="border-t border-emerald-500/30 bg-emerald-950/20 px-3 py-2">
                                 <button
                                   type="button"
                                   onClick={() => openChainDrawer(attachedChain.chainId)}
-                                  className="text-[11px] inline-flex items-center gap-1 text-violet-300 hover:text-violet-200"
+                                  className="text-[11px] inline-flex items-center gap-1 text-emerald-300 hover:text-emerald-200"
                                 >
                                   <ExternalLink className="w-3 h-3" /> Open full chain
                                 </button>
                               </div>
                             )}
-                          </>
+                          </div>
                         )}
                       </li>
                     );
