@@ -2014,3 +2014,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-83fa3de.md](../build_/COMMITS/COMMIT-83fa3de.md)
 - Message: trigger deploy: Agent Runbook now downloadable (1ae9df03)
+
+## Commit `2a2e9a4` — 2026-06-04T03:28:46Z
+- Type: `push`
+- Brief: [COMMIT-2a2e9a4.md](../build_/COMMITS/COMMIT-2a2e9a4.md)
+- Message: trigger deploy: Operator Manual + chain status header + inline receipts (bb7723ff)
