@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-04T04:08:50.931Z",
+  "last_updated": "2026-06-04T18:34:45.680Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2dcff5ed123474a6e7bf0605946dddcf6da2c5b0",
-  "latest_commit_short": "2dcff5e",
-  "latest_commit_title": "style(workspace): green container around expanded intent pills",
+  "latest_commit": "5caee4afff9fbb2cd566f86861a8a6ec03687e20",
+  "latest_commit_short": "5caee4a",
+  "latest_commit_title": "feat(chain): operator-driven advance — Approve / Mark complete / Cancel",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5caee4a",
+      "full_sha": "5caee4afff9fbb2cd566f86861a8a6ec03687e20",
+      "title": "feat(chain): operator-driven advance — Approve / Mark complete / Cancel",
+      "author": "Claude",
+      "timestamp": "2026-06-04T18:32:42Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5caee4a.md"
+    },
+    {
+      "sha": "1f160a2",
+      "full_sha": "1f160a24dd7ed6d046377c10e62981bedbc50ceb",
+      "title": "trigger deploy: operator-driven intent advance buttons (5caee4af)",
+      "author": "Claude",
+      "timestamp": "2026-06-04T18:32:48Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1f160a2.md"
+    },
     {
       "sha": "2dcff5e",
       "full_sha": "2dcff5ed123474a6e7bf0605946dddcf6da2c5b0",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T08:52:52Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-9dce3d2.md"
-    },
-    {
-      "sha": "f2ef1a7",
-      "full_sha": "f2ef1a78dec6da9db80076f2c8678cd1a4170ca2",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T08:52:52Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f2ef1a7.md"
-    },
-    {
-      "sha": "6903e15",
-      "full_sha": "6903e15b6b0524bf4159fcbd8d9aa0716b4897cb",
-      "title": "draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6",
-      "author": "Claude",
-      "timestamp": "2026-05-29T08:40:55Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-6903e15.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
