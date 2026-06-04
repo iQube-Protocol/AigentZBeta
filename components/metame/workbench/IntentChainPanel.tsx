@@ -14,7 +14,7 @@
  */
 
 import React from "react";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, ExternalLink, FileText, Sparkles, Link2 } from "lucide-react";
 
 export interface TimelineEventDto {
   eventId: string;
@@ -41,8 +41,20 @@ export interface AttachedChainDto {
   completedAt: string | null;
 }
 
+export interface AttachedReceiptDto {
+  receiptId: string;
+  actionType: string;
+  summary: string;
+  agentsInvoked: string[];
+  toolsUsed: string[];
+  artifactsCreated: string[];
+  receiptStatus: string;
+  createdAt: string;
+}
+
 export interface IntentChainDto {
   events: TimelineEventDto[];
+  receipts?: AttachedReceiptDto[];
   chain: AttachedChainDto | null;
 }
 
@@ -152,72 +164,228 @@ export function IntentChainPanel({
   );
 }
 
+// Friendly action_type → label for activity_receipts.
+const ACTION_LABELS: Record<string, string> = {
+  intent_queued: "Intent queued",
+  specialist_consulted: "Specialist consulted",
+  artifact_created: "Artifact created",
+  artifact_sent: "Artifact sent",
+  approval_granted: "Approval granted",
+  approval_rejected: "Approval rejected",
+  experience_model_updated: "ExperienceModel updated",
+};
+
+// Per-type Drive/Gmail/Calendar URL builders for artifact entries
+// (mirrors ActivityReceiptCard.ARTIFACT_URL_BUILDERS).
+const ARTIFACT_URL_BUILDERS: Record<string, (id: string) => string> = {
+  "google-doc":     (id) => `https://docs.google.com/document/d/${id}/edit`,
+  "google-sheet":   (id) => `https://docs.google.com/spreadsheets/d/${id}/edit`,
+  "google-slides":  (id) => `https://docs.google.com/presentation/d/${id}/edit`,
+  "slide-outline":  (id) => `https://docs.google.com/presentation/d/${id}/edit`,
+  "gmail-draft":    (id) => `https://mail.google.com/mail/u/0/#drafts/${id}`,
+  "calendar-block": (id) => `https://calendar.google.com/calendar/u/0/r/eventedit/${id}`,
+};
+
+function buildArtifactUrl(entry: string): { type: string; label: string; url: string | null } {
+  const colon = entry.indexOf(":");
+  if (colon === -1) return { type: "", label: entry, url: null };
+  const type = entry.slice(0, colon);
+  const id = entry.slice(colon + 1);
+  const builder = ARTIFACT_URL_BUILDERS[type];
+  if (!builder || !id || id.length < 15 || !/^[\w-]+$/.test(id)) {
+    return { type, label: entry, url: null };
+  }
+  const friendly: Record<string, string> = {
+    "google-doc": "Open Doc",
+    "google-sheet": "Open Sheet",
+    "google-slides": "Open Slides",
+    "slide-outline": "Open Slides",
+    "gmail-draft": "Open Draft",
+    "calendar-block": "Open Event",
+  };
+  return { type, label: friendly[type] ?? "Open", url: builder(id) };
+}
+
+interface UnifiedRow {
+  key: string;
+  recordedAt: string;
+  kind: "event" | "receipt";
+  event?: TimelineEventDto;
+  receipt?: AttachedReceiptDto;
+}
+
+function specialistFromReceipt(r: AttachedReceiptDto): string | null {
+  const known = ["marketa", "quill", "kn0w1", "aigent-z", "aigent-c", "aigent-me", "moneypenny", "metaye"];
+  return r.agentsInvoked.find((a) => known.includes(a) && a !== "aigent-me") ?? null;
+}
+
+function deriveChainStatus(data: IntentChainDto): {
+  badgeLabel: string;
+  badgeClass: string;
+  flow: string | null;
+} {
+  const { chain, receipts = [], events } = data;
+  // Chain attached — use its declared status.
+  if (chain) {
+    const flow = `${chain.templateId}${
+      typeof chain.totalSteps === "number" && typeof chain.currentStepIndex === "number"
+        ? ` · step ${chain.currentStepIndex + 1}/${chain.totalSteps}`
+        : ""
+    }`;
+    return { badgeLabel: chain.status, badgeClass: "border-violet-500/60 text-violet-200 bg-violet-500/10", flow };
+  }
+  // No chain — derive a pseudo-chain status from receipts + events.
+  const hasArtifactSent = receipts.some((r) => r.actionType === "artifact_sent");
+  const hasArtifact = receipts.some((r) => r.actionType === "artifact_created" || r.artifactsCreated.length > 0);
+  const hasConsultation = receipts.some((r) => r.actionType === "specialist_consulted");
+  const hasInvoke = events.some((e) => e.eventType === "specialist_invoked");
+  if (hasArtifactSent) return { badgeLabel: "delivered", badgeClass: "border-emerald-500/60 text-emerald-200 bg-emerald-500/10", flow: null };
+  if (hasArtifact)
+    return {
+      badgeLabel: "draft ready",
+      badgeClass: "border-sky-500/60 text-sky-200 bg-sky-500/10",
+      flow: hasConsultation ? "Specialist drafted — awaiting your review" : null,
+    };
+  if (hasConsultation)
+    return {
+      badgeLabel: "consulted",
+      badgeClass: "border-sky-500/60 text-sky-200 bg-sky-500/10",
+      flow: "Specialist consulted — output recorded in this intent",
+    };
+  if (hasInvoke)
+    return {
+      badgeLabel: "invoked",
+      badgeClass: "border-amber-500/60 text-amber-200 bg-amber-500/10",
+      flow: "Specialist invoked — awaiting response",
+    };
+  return { badgeLabel: "queued", badgeClass: "border-slate-600 text-slate-300 bg-slate-500/10", flow: null };
+}
+
 function ChainTimeline({ data, isDark }: { data: IntentChainDto; isDark: boolean }) {
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
-  const { events, chain } = data;
+  const { events, receipts = [], chain } = data;
+  const status = deriveChainStatus(data);
+
+  // Merge orchestration events + activity receipts into one chronological
+  // timeline. Receipts carry the human-readable consultation summary +
+  // artifact references; events carry the spine attribution.
+  const merged: UnifiedRow[] = [
+    ...events.map<UnifiedRow>((e) => ({ key: `e:${e.eventId}`, recordedAt: e.recordedAt, kind: "event", event: e })),
+    ...receipts.map<UnifiedRow>((r) => ({ key: `r:${r.receiptId}`, recordedAt: r.createdAt, kind: "receipt", receipt: r })),
+  ].sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt));
+
   return (
-    <div className="space-y-2.5">
-      {chain && (
-        <div className={`text-[11px] flex flex-wrap items-center gap-1.5 ${mutedClass}`}>
-          <span className="uppercase tracking-wider">Chain</span>
-          <span className={isDark ? "text-violet-300" : "text-violet-700"}>{chain.templateId}</span>
-          {typeof chain.totalSteps === "number" && typeof chain.currentStepIndex === "number" && (
-            <span>
-              · step {chain.currentStepIndex + 1}/{chain.totalSteps}
-            </span>
-          )}
-          <span>· {chain.status}</span>
-          {typeof chain.costQc === "number" && chain.costQc > 0 && (
-            <span>· ${(chain.costQc / 100).toFixed(2)}</span>
+    <div className="space-y-3">
+      {/* Chain identity header — always present so the operator can see
+          the chain status even when no intent_chains row exists. */}
+      <div className={`rounded-md border px-2.5 py-2 ${isDark ? "border-slate-700/60 bg-slate-900/60" : "border-slate-200 bg-white"}`}>
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+          <Link2 className={`w-3 h-3 ${isDark ? "text-violet-300" : "text-violet-700"}`} />
+          <span className={`uppercase tracking-wider ${mutedClass}`}>Chain of intent</span>
+          <span className={`px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wider ${status.badgeClass}`}>
+            {status.badgeLabel}
+          </span>
+          {chain ? (
+            <span className={isDark ? "text-violet-300" : "text-violet-700"}>{status.flow}</span>
+          ) : status.flow ? (
+            <span className={mutedClass}>· {status.flow}</span>
+          ) : null}
+          {chain && typeof chain.costQc === "number" && chain.costQc > 0 && (
+            <span className={mutedClass}>· ${(chain.costQc / 100).toFixed(2)}</span>
           )}
         </div>
-      )}
-      {events.length === 0 ? (
+      </div>
+
+      {merged.length === 0 ? (
         <p className={`text-xs ${mutedClass}`}>
-          No orchestration events recorded yet for this intent.
+          No orchestration events or receipts recorded yet for this intent.
         </p>
       ) : (
         <ol className="space-y-1.5">
-          {events.map((evt) => {
-            const label = EVENT_LABELS[evt.eventType] ?? evt.eventType.replace(/_/g, " ");
-            const spec = specialistLabel(evt.metadata);
-            const reason =
-              typeof evt.reason === "string" && evt.reason.length > 0 ? evt.reason : null;
+          {merged.map((row) => {
+            if (row.kind === "event" && row.event) {
+              const evt = row.event;
+              const label = EVENT_LABELS[evt.eventType] ?? evt.eventType.replace(/_/g, " ");
+              const spec = specialistLabel(evt.metadata);
+              const reason = evt.reason && evt.reason.length > 0 ? evt.reason : null;
+              return (
+                <li key={row.key} className="flex items-start gap-2 text-xs">
+                  <ArrowRight className={`w-3 h-3 mt-0.5 shrink-0 ${mutedClass}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className={`font-medium ${isDark ? "text-slate-100" : "text-slate-900"}`}>
+                        {label}
+                      </span>
+                      {spec ? (
+                        <span className={mutedClass}>· {roleLabel(evt.fromRole)} → {spec}</span>
+                      ) : (
+                        <span className={mutedClass}>· {roleLabel(evt.fromRole)} → {roleLabel(evt.toRole)}</span>
+                      )}
+                      {evt.receiptEligible && (
+                        <span className={`text-[10px] uppercase tracking-wider ${isDark ? "text-emerald-300/80" : "text-emerald-700/80"}`}>· receipt</span>
+                      )}
+                    </div>
+                    {reason && (
+                      <p className={`text-[11px] mt-0.5 truncate ${mutedClass}`} title={reason}>{reason}</p>
+                    )}
+                    <p className={`text-[10px] ${mutedClass}`} title={evt.recordedAt}>{formatTimeAgo(evt.recordedAt)}</p>
+                  </div>
+                </li>
+              );
+            }
+            // Receipt row — surfaces specialist consultation summaries +
+            // drafted artifacts with clickable Open Doc / Open Draft etc.
+            const r = row.receipt!;
+            const label = ACTION_LABELS[r.actionType] ?? r.actionType.replace(/_/g, " ");
+            const spec = specialistFromReceipt(r);
             return (
-              <li key={evt.eventId} className="flex items-start gap-2 text-xs">
-                <ArrowRight className={`w-3 h-3 mt-0.5 shrink-0 ${mutedClass}`} />
+              <li key={row.key} className={`flex items-start gap-2 text-xs rounded-md border p-2 ${isDark ? "border-slate-700/60 bg-slate-900/40" : "border-slate-200 bg-slate-50"}`}>
+                <Sparkles className={`w-3 h-3 mt-0.5 shrink-0 ${isDark ? "text-violet-300" : "text-violet-700"}`} />
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={`font-medium ${isDark ? "text-slate-100" : "text-slate-900"}`}>
-                      {label}
-                    </span>
-                    {spec ? (
-                      <span className={mutedClass}>
-                        · {roleLabel(evt.fromRole)} → {spec}
-                      </span>
-                    ) : (
-                      <span className={mutedClass}>
-                        · {roleLabel(evt.fromRole)} → {roleLabel(evt.toRole)}
-                      </span>
+                    <span className={`font-medium ${isDark ? "text-slate-100" : "text-slate-900"}`}>{label}</span>
+                    {spec && (
+                      <span className={mutedClass}>· Aigent Z → {roleLabel("guide-agent") === "Specialist" ? specialistDisplay(spec) : spec}</span>
                     )}
-                    {evt.receiptEligible && (
-                      <span
-                        className={`text-[10px] uppercase tracking-wider ${
-                          isDark ? "text-emerald-300/80" : "text-emerald-700/80"
-                        }`}
-                      >
-                        · receipt
-                      </span>
-                    )}
+                    <span className={`text-[10px] uppercase tracking-wider ${isDark ? "text-emerald-300/80" : "text-emerald-700/80"}`}>· receipt</span>
                   </div>
-                  {reason && (
-                    <p className={`text-[11px] mt-0.5 truncate ${mutedClass}`} title={reason}>
-                      {reason}
+                  {r.summary && (
+                    <p className={`text-[11px] mt-0.5 leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                      {r.summary}
                     </p>
                   )}
-                  <p className={`text-[10px] ${mutedClass}`} title={evt.recordedAt}>
-                    {formatTimeAgo(evt.recordedAt)}
-                  </p>
+                  {r.artifactsCreated.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <FileText className={`w-3 h-3 ${mutedClass}`} />
+                      {r.artifactsCreated.map((entry) => {
+                        const { url, label: lbl } = buildArtifactUrl(entry);
+                        if (url) {
+                          return (
+                            <a
+                              key={entry}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] ${
+                                isDark
+                                  ? "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+                                  : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100"
+                              }`}
+                            >
+                              <ExternalLink className="w-2.5 h-2.5" /> {lbl}
+                            </a>
+                          );
+                        }
+                        return (
+                          <span key={entry} className={`px-1.5 py-0.5 rounded border text-[10px] ${isDark ? "border-slate-700 bg-slate-800/60 text-slate-300" : "border-slate-200 bg-white text-slate-700"}`}>
+                            {entry}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <p className={`text-[10px] mt-1 ${mutedClass}`} title={r.createdAt}>{formatTimeAgo(r.createdAt)}</p>
                 </div>
               </li>
             );
@@ -226,6 +394,17 @@ function ChainTimeline({ data, isDark }: { data: IntentChainDto; isDark: boolean
       )}
     </div>
   );
+}
+
+function specialistDisplay(s: string): string {
+  switch (s) {
+    case "marketa": return "Marketa";
+    case "kn0w1": return "Know1";
+    case "quill": return "Quill";
+    case "moneypenny": return "Moneypenny";
+    case "metaye": return "metaye";
+    default: return s;
+  }
 }
 
 /**

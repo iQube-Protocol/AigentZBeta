@@ -56,12 +56,11 @@ const DOWNLOADS: DownloadItem[] = [
   },
   {
     id: "experience-operator-manual",
-    filename: "experience-operator-manual.pdf",
+    filename: "experience-operator-manual.md",
     title: "Experience Operator Manual",
-    description: "The operator-facing companion to the Agent Runbook. How to drive AgentiQ effectively as a sovereign founder.",
-    purpose: "For the operator (you), not your off-platform agent. Walks through the cockpit surfaces, when to escalate to a specialist, how the receipt plane protects you, and how to read the chain of intent on your work ledger.",
+    description: "Two-paper companion: the metaMe Operator's Manual + the Experience Vibing Operator's Manual. For you AND your off-platform agent.",
+    purpose: "Operator-facing reference. Paper 1 covers the operating stack (AgentiQ OS → iQube Registry → nanOS → Studio → Runtime → Catalogue), Cartridges, Codexes, Tabs, Capsules/Pills/Chips, the Experience Model (Strategy/Ladder/Matrix/Journey/State), SmartTriad operations, Liquid UI, and the Cartridge creation playbook. Paper 2 covers Experience Vibing — outcome-led experience composition for non-technical operators: the 15-step loop, surface selection guide (when to use a Cartridge vs Tab vs Capsule vs Pill), publishing routes, four worked examples, and the time-sovereignty thesis. Pair with the Agent Runbook above.",
     Icon: FileText,
-    comingSoon: true,
   },
 ];
 

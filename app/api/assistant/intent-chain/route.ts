@@ -53,6 +53,17 @@ interface AttachedChain {
   completedAt: string | null;
 }
 
+interface AttachedReceipt {
+  receiptId: string;
+  actionType: string;
+  summary: string;
+  agentsInvoked: string[];
+  toolsUsed: string[];
+  artifactsCreated: string[];
+  receiptStatus: string;
+  createdAt: string;
+}
+
 interface IntentChainResponse {
   intent: {
     intentId: string;
@@ -64,6 +75,7 @@ interface IntentChainResponse {
     createdAt: string;
   };
   events: TimelineEvent[];
+  receipts: AttachedReceipt[];
   chain: AttachedChain | null;
 }
 
@@ -92,25 +104,40 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'db-unavailable' }, { status: 503 });
   }
 
-  // Pull every orchestration event whose metadata.intent_id matches.
-  // Bounded — most intents have <20 events; cap at 200 defensively.
-  const { data: rows, error } = await sb
-    .from('orchestration_events')
-    .select(
-      'event_id, event_type, from_role, to_role, reason, active_cartridge, receipt_eligible, created_at, metadata',
-    )
-    .eq('metadata->>intent_id', intentId)
-    .order('created_at', { ascending: true })
-    .limit(200);
+  // Pull every orchestration event whose metadata.intent_id matches +
+  // every activity_receipt rowed against this intent_id. The receipts
+  // carry the specialist consultation outputs (summary text, artifact
+  // refs) that the operator wants to see when expanding a pill — the
+  // orchestration_events alone don't show "Marketa drafted X".
+  // Both queries are bounded; most intents have <20 events / receipts.
+  const [eventsRes, receiptsRes] = await Promise.all([
+    sb
+      .from('orchestration_events')
+      .select(
+        'event_id, event_type, from_role, to_role, reason, active_cartridge, receipt_eligible, created_at, metadata',
+      )
+      .eq('metadata->>intent_id', intentId)
+      .order('created_at', { ascending: true })
+      .limit(200),
+    sb
+      .from('activity_receipts')
+      .select(
+        'id, action_type, summary, agents_invoked, tools_used, artifacts_created, receipt_status, created_at',
+      )
+      .eq('intent_id', intentId)
+      .eq('persona_id', persona.personaId)
+      .order('created_at', { ascending: true })
+      .limit(200),
+  ]);
 
-  if (error) {
+  if (eventsRes.error) {
     return NextResponse.json(
-      { error: 'events-query-failed', detail: error.message },
+      { error: 'events-query-failed', detail: eventsRes.error.message },
       { status: 500 },
     );
   }
 
-  const events: TimelineEvent[] = (rows ?? []).map((r) => ({
+  const events: TimelineEvent[] = (eventsRes.data ?? []).map((r) => ({
     eventId: String(r.event_id),
     eventType: String(r.event_type),
     fromRole: String(r.from_role ?? ''),
@@ -120,6 +147,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     receiptEligible: Boolean(r.receipt_eligible),
     recordedAt: String(r.created_at),
     metadata: (r.metadata as Record<string, unknown>) ?? {},
+  }));
+
+  // activity_receipts may not be queryable (table missing in some envs).
+  // Treat error as empty rather than failing the whole expand.
+  const receipts: AttachedReceipt[] = (receiptsRes.error ? [] : receiptsRes.data ?? []).map((r) => ({
+    receiptId: String(r.id),
+    actionType: String(r.action_type),
+    summary: String(r.summary ?? ''),
+    agentsInvoked: Array.isArray(r.agents_invoked) ? (r.agents_invoked as string[]) : [],
+    toolsUsed: Array.isArray(r.tools_used) ? (r.tools_used as string[]) : [],
+    artifactsCreated: Array.isArray(r.artifacts_created) ? (r.artifacts_created as string[]) : [],
+    receiptStatus: String(r.receipt_status ?? 'local'),
+    createdAt: String(r.created_at),
   }));
 
   // Optional: surface an attached intent_chains row if any of the
@@ -167,6 +207,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       createdAt: intent.createdAt,
     },
     events,
+    receipts,
     chain,
   };
 
