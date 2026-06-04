@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-03T16:41:26.517Z",
+  "last_updated": "2026-06-04T03:30:49.793Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1ae9df032f56c2c026b9f6a6f11fc61e16b2f7e3",
-  "latest_commit_short": "1ae9df0",
-  "latest_commit_title": "feat(downloads): ship Agent Runbook + flip menu entry to available",
+  "latest_commit": "bb7723ff4b4fad8b3baceb99529a21d029e1113b",
+  "latest_commit_short": "bb7723f",
+  "latest_commit_title": "feat: ship Operator Manual + show chain status + receipts on expand",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bb7723f",
+      "full_sha": "bb7723ff4b4fad8b3baceb99529a21d029e1113b",
+      "title": "feat: ship Operator Manual + show chain status + receipts on expand",
+      "author": "Claude",
+      "timestamp": "2026-06-04T03:28:41Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-bb7723f.md"
+    },
+    {
+      "sha": "2a2e9a4",
+      "full_sha": "2a2e9a46fe241166817ed29c2ce3bc98e79f88dd",
+      "title": "trigger deploy: Operator Manual + chain status header + inline receipts (bb7723ff)",
+      "author": "Claude",
+      "timestamp": "2026-06-04T03:28:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2a2e9a4.md"
+    },
     {
       "sha": "1ae9df0",
       "full_sha": "1ae9df032f56c2c026b9f6a6f11fc61e16b2f7e3",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T07:21:26Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-81104c7.md"
-    },
-    {
-      "sha": "d36a2ae",
-      "full_sha": "d36a2aece3b47d3f92fe9f55e9c7b038260df313",
-      "title": "Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update",
-      "author": "Claude",
-      "timestamp": "2026-05-29T06:57:06Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-d36a2ae.md"
-    },
-    {
-      "sha": "68482e1",
-      "full_sha": "68482e1723de235ac7822337d469de7a3e5b3fa0",
-      "title": "artifact card + receipt: surface attachment count for diagnostics",
-      "author": "Claude",
-      "timestamp": "2026-05-29T05:57:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-68482e1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
