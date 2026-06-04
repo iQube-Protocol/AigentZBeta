@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-04T03:30:49.793Z",
+  "last_updated": "2026-06-04T03:45:48.442Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bb7723ff4b4fad8b3baceb99529a21d029e1113b",
-  "latest_commit_short": "bb7723f",
-  "latest_commit_title": "feat: ship Operator Manual + show chain status + receipts on expand",
+  "latest_commit": "fc884603fac61dde0f9c9a61c8e4b736945cde14",
+  "latest_commit_short": "fc88460",
+  "latest_commit_title": "feat(chain): persist specialist response + chain section in myLedger",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fc88460",
+      "full_sha": "fc884603fac61dde0f9c9a61c8e4b736945cde14",
+      "title": "feat(chain): persist specialist response + chain section in myLedger",
+      "author": "Claude",
+      "timestamp": "2026-06-04T03:43:51Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-fc88460.md"
+    },
+    {
+      "sha": "93efc7e",
+      "full_sha": "93efc7ef18ae417f848b07be1ecc60735bb7f363",
+      "title": "trigger deploy: specialist_response + myLedger chain section (fc884603)",
+      "author": "Claude",
+      "timestamp": "2026-06-04T03:43:55Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-93efc7e.md"
+    },
     {
       "sha": "bb7723f",
       "full_sha": "bb7723ff4b4fad8b3baceb99529a21d029e1113b",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T08:16:01Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-89adda9.md"
-    },
-    {
-      "sha": "477030b",
-      "full_sha": "477030b561120cc3d3d56fa80d55f66e48e1b658",
-      "title": "STT timeout + composer state persistence (sub-tab survival)",
-      "author": "Claude",
-      "timestamp": "2026-05-29T07:21:26Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-477030b.md"
-    },
-    {
-      "sha": "81104c7",
-      "full_sha": "81104c7cc922b3561ae32b59f4050fc7835d733f",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T07:21:26Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-81104c7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
