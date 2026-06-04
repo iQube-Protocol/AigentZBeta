@@ -14,7 +14,7 @@
  */
 
 import React from "react";
-import { Loader2, ArrowRight, ExternalLink, FileText, Sparkles, Link2 } from "lucide-react";
+import { Loader2, ArrowRight, ExternalLink, FileText, Sparkles, Link2, ChevronDown } from "lucide-react";
 
 export interface TimelineEventDto {
   eventId: string;
@@ -41,6 +41,15 @@ export interface AttachedChainDto {
   completedAt: string | null;
 }
 
+export interface AttachedSpecialistResponseDto {
+  title: string;
+  summary: string;
+  recommendations: string[];
+  suggestedArtifacts: string[];
+  confidence: "low" | "medium" | "high";
+  source: "llm" | "template";
+}
+
 export interface AttachedReceiptDto {
   receiptId: string;
   actionType: string;
@@ -49,6 +58,7 @@ export interface AttachedReceiptDto {
   toolsUsed: string[];
   artifactsCreated: string[];
   receiptStatus: string;
+  specialistResponse?: AttachedSpecialistResponseDto | null;
   createdAt: string;
 }
 
@@ -333,62 +343,9 @@ function ChainTimeline({ data, isDark }: { data: IntentChainDto; isDark: boolean
                 </li>
               );
             }
-            // Receipt row — surfaces specialist consultation summaries +
-            // drafted artifacts with clickable Open Doc / Open Draft etc.
-            const r = row.receipt!;
-            const label = ACTION_LABELS[r.actionType] ?? r.actionType.replace(/_/g, " ");
-            const spec = specialistFromReceipt(r);
-            return (
-              <li key={row.key} className={`flex items-start gap-2 text-xs rounded-md border p-2 ${isDark ? "border-slate-700/60 bg-slate-900/40" : "border-slate-200 bg-slate-50"}`}>
-                <Sparkles className={`w-3 h-3 mt-0.5 shrink-0 ${isDark ? "text-violet-300" : "text-violet-700"}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={`font-medium ${isDark ? "text-slate-100" : "text-slate-900"}`}>{label}</span>
-                    {spec && (
-                      <span className={mutedClass}>· Aigent Z → {roleLabel("guide-agent") === "Specialist" ? specialistDisplay(spec) : spec}</span>
-                    )}
-                    <span className={`text-[10px] uppercase tracking-wider ${isDark ? "text-emerald-300/80" : "text-emerald-700/80"}`}>· receipt</span>
-                  </div>
-                  {r.summary && (
-                    <p className={`text-[11px] mt-0.5 leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                      {r.summary}
-                    </p>
-                  )}
-                  {r.artifactsCreated.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      <FileText className={`w-3 h-3 ${mutedClass}`} />
-                      {r.artifactsCreated.map((entry) => {
-                        const { url, label: lbl } = buildArtifactUrl(entry);
-                        if (url) {
-                          return (
-                            <a
-                              key={entry}
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] ${
-                                isDark
-                                  ? "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
-                                  : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100"
-                              }`}
-                            >
-                              <ExternalLink className="w-2.5 h-2.5" /> {lbl}
-                            </a>
-                          );
-                        }
-                        return (
-                          <span key={entry} className={`px-1.5 py-0.5 rounded border text-[10px] ${isDark ? "border-slate-700 bg-slate-800/60 text-slate-300" : "border-slate-200 bg-white text-slate-700"}`}>
-                            {entry}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <p className={`text-[10px] mt-1 ${mutedClass}`} title={r.createdAt}>{formatTimeAgo(r.createdAt)}</p>
-                </div>
-              </li>
-            );
+            // Receipt row — own component so it can hold the body-expand
+            // state without forcing every other row to re-render.
+            return <ReceiptRow key={row.key} r={row.receipt!} isDark={isDark} />;
           })}
         </ol>
       )}
@@ -405,6 +362,129 @@ function specialistDisplay(s: string): string {
     case "metaye": return "metaye";
     default: return s;
   }
+}
+
+function ReceiptRow({ r, isDark }: { r: AttachedReceiptDto; isDark: boolean }) {
+  const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
+  const [bodyOpen, setBodyOpen] = React.useState(false);
+  const label = ACTION_LABELS[r.actionType] ?? r.actionType.replace(/_/g, " ");
+  const spec = specialistFromReceipt(r);
+  const hasBody = !!r.specialistResponse;
+
+  return (
+    <li className={`flex items-start gap-2 text-xs rounded-md border p-2 ${isDark ? "border-slate-700/60 bg-slate-900/40" : "border-slate-200 bg-slate-50"}`}>
+      <Sparkles className={`w-3 h-3 mt-0.5 shrink-0 ${isDark ? "text-violet-300" : "text-violet-700"}`} />
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={`font-medium ${isDark ? "text-slate-100" : "text-slate-900"}`}>{label}</span>
+          {spec && (
+            <span className={mutedClass}>· Aigent Z → {specialistDisplay(spec)}</span>
+          )}
+          <span className={`text-[10px] uppercase tracking-wider ${isDark ? "text-emerald-300/80" : "text-emerald-700/80"}`}>· receipt</span>
+          {r.specialistResponse?.source && (
+            <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+              · {r.specialistResponse.source}
+            </span>
+          )}
+          {r.specialistResponse?.confidence && (
+            <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+              · {r.specialistResponse.confidence} confidence
+            </span>
+          )}
+        </div>
+        {r.summary && (
+          <p className={`text-[11px] mt-0.5 leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+            {r.summary}
+          </p>
+        )}
+        {hasBody && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setBodyOpen((v) => !v);
+            }}
+            className={`mt-1.5 inline-flex items-center gap-1 text-[11px] underline ${
+              isDark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-900"
+            }`}
+          >
+            <ChevronDown className={`w-3 h-3 transition-transform ${bodyOpen ? "rotate-180" : ""}`} />
+            {bodyOpen ? "Hide specialist response" : "Show specialist response"}
+          </button>
+        )}
+        {bodyOpen && r.specialistResponse && (
+          <div className={`mt-1.5 rounded-md border p-2 space-y-1.5 ${isDark ? "border-slate-700/60 bg-slate-950/40" : "border-slate-200 bg-white"}`}>
+            <p className={`text-[11px] leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+              {r.specialistResponse.summary}
+            </p>
+            {r.specialistResponse.recommendations.length > 0 && (
+              <ul className="list-disc pl-4 space-y-0.5">
+                {r.specialistResponse.recommendations.map((rec, i) => (
+                  <li key={i} className={`text-[11px] leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                    {rec}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {r.specialistResponse.suggestedArtifacts.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>Suggested</span>
+                {r.specialistResponse.suggestedArtifacts.map((a, i) => (
+                  <span
+                    key={i}
+                    className={`px-1.5 py-0.5 rounded border text-[10px] ${
+                      isDark
+                        ? "border-slate-700 bg-slate-800/60 text-slate-300"
+                        : "border-slate-200 bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {a}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {r.artifactsCreated.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <FileText className={`w-3 h-3 ${mutedClass}`} />
+            {r.artifactsCreated.map((entry) => {
+              const { url, label: lbl } = buildArtifactUrl(entry);
+              if (url) {
+                return (
+                  <a
+                    key={entry}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] ${
+                      isDark
+                        ? "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+                        : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100"
+                    }`}
+                  >
+                    <ExternalLink className="w-2.5 h-2.5" /> {lbl}
+                  </a>
+                );
+              }
+              return (
+                <span
+                  key={entry}
+                  className={`px-1.5 py-0.5 rounded border text-[10px] ${
+                    isDark ? "border-slate-700 bg-slate-800/60 text-slate-300" : "border-slate-200 bg-white text-slate-700"
+                  }`}
+                >
+                  {entry}
+                </span>
+              );
+            })}
+          </div>
+        )}
+        <p className={`text-[10px] mt-1 ${mutedClass}`} title={r.createdAt}>{formatTimeAgo(r.createdAt)}</p>
+      </div>
+    </li>
+  );
 }
 
 /**

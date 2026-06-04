@@ -53,6 +53,15 @@ interface AttachedChain {
   completedAt: string | null;
 }
 
+interface AttachedSpecialistResponse {
+  title: string;
+  summary: string;
+  recommendations: string[];
+  suggestedArtifacts: string[];
+  confidence: 'low' | 'medium' | 'high';
+  source: 'llm' | 'template';
+}
+
 interface AttachedReceipt {
   receiptId: string;
   actionType: string;
@@ -61,6 +70,7 @@ interface AttachedReceipt {
   toolsUsed: string[];
   artifactsCreated: string[];
   receiptStatus: string;
+  specialistResponse: AttachedSpecialistResponse | null;
   createdAt: string;
 }
 
@@ -122,7 +132,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     sb
       .from('activity_receipts')
       .select(
-        'id, action_type, summary, agents_invoked, tools_used, artifacts_created, receipt_status, created_at',
+        'id, action_type, summary, agents_invoked, tools_used, artifacts_created, receipt_status, specialist_response, created_at',
       )
       .eq('intent_id', intentId)
       .eq('persona_id', persona.personaId)
@@ -159,6 +169,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     toolsUsed: Array.isArray(r.tools_used) ? (r.tools_used as string[]) : [],
     artifactsCreated: Array.isArray(r.artifacts_created) ? (r.artifacts_created as string[]) : [],
     receiptStatus: String(r.receipt_status ?? 'local'),
+    specialistResponse: (r.specialist_response as AttachedSpecialistResponse | null) ?? null,
     createdAt: String(r.created_at),
   }));
 

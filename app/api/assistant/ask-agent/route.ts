@@ -181,6 +181,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
 
     // Emit a 'specialist_consulted' receipt. Best-effort; non-fatal.
+    // Persists the full SpecialistResponse body so the operator can
+    // re-read what the specialist said from any expand surface — the
+    // myWorkspace intent panel, the myLedger card, or a future Pill.
     await createActivityReceipt({
       personaId: context.personaId,
       intentId: body.intentId ?? null,
@@ -193,6 +196,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       contextShared: handoffFrom
         ? ['intent-summary', 'experience-meta-slice', 'specialist-handoff']
         : ['intent-summary', 'experience-meta-slice'],
+      specialistResponse: {
+        title: response.title,
+        summary: response.summary,
+        recommendations: response.recommendations,
+        suggestedArtifacts: response.suggestedArtifacts,
+        confidence: response.confidence,
+        source: response.source,
+      },
     }).catch(() => undefined);
 
     // Surface the hand-off on the response so the layout can show a

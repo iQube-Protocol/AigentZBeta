@@ -8,7 +8,7 @@
  * invoked, context shared, artifacts created, approvals granted.
  */
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Receipt,
   Users,
@@ -21,7 +21,19 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Link2,
 } from "lucide-react";
+import { personaFetch } from "@/utils/personaSpine";
+import { IntentChainPanel, type IntentChainDto } from "@/components/metame/workbench/IntentChainPanel";
+
+export interface ActivityReceiptSpecialistResponse {
+  title: string;
+  summary: string;
+  recommendations: string[];
+  suggestedArtifacts: string[];
+  confidence: "low" | "medium" | "high";
+  source: "llm" | "template";
+}
 
 export interface ActivityReceiptData {
   id: string;
@@ -39,6 +51,8 @@ export interface ActivityReceiptData {
   policyEnvelopeId: string | null;
   receiptStatus: "local" | "dvn_pending" | "dvn_recorded" | "dvn_failed";
   dvnReceiptId: string | null;
+  /** Specialist response body when actionType === 'specialist_consulted'. */
+  specialistResponse?: ActivityReceiptSpecialistResponse | null;
   createdAt: string;
 }
 
@@ -98,11 +112,53 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
 
   const status = STATUS_META[data.receiptStatus];
 
-  // Click-to-expand toggles a raw-JSON drawer at the bottom of the card.
-  // The serialized object is the T1-safe ActivityReceiptData shape — no
+  // Click-to-expand reveals: (1) the specialist response body when
+  // present, (2) the chain-of-intent panel when this receipt has an
+  // intentId (lazy-fetched), (3) the raw JSON drawer for power users.
+  // The serialized JSON is the T1-safe ActivityReceiptData shape — no
   // T0 identifiers (personaId, authProfileId, rootDid) by construction.
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showJson, setShowJson] = useState(false);
+  const [chainState, setChainState] = useState<{
+    loading: boolean;
+    error: string | null;
+    data: IntentChainDto | null;
+  }>({ loading: false, error: null, data: null });
+
+  // Lazy-fetch the intent-chain payload on first expand. Skips the
+  // request when this receipt isn't intent-attached (e.g. orphan
+  // compose-strip drafts) or when we've already loaded once.
+  useEffect(() => {
+    if (!expanded || !data.intentId) return;
+    if (chainState.data || chainState.loading) return;
+    let cancelled = false;
+    setChainState({ loading: true, error: null, data: null });
+    void (async () => {
+      try {
+        const res = await personaFetch(
+          `/api/assistant/intent-chain?intentId=${encodeURIComponent(data.intentId!)}`,
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.detail || body?.error || `chain fetch failed (${res.status})`);
+        }
+        const json = (await res.json()) as IntentChainDto;
+        if (cancelled) return;
+        setChainState({ loading: false, error: null, data: json });
+      } catch (err) {
+        if (cancelled) return;
+        setChainState({
+          loading: false,
+          error: err instanceof Error ? err.message : String(err),
+          data: null,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, data.intentId, chainState.data, chainState.loading]);
 
   const json = JSON.stringify(data, null, 2);
 
@@ -188,46 +244,141 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
         )}
       </div>
 
-      {/* JSON drawer — collapsed by default; expanded via the header
-          click. Renders the T1-safe receipt payload as pretty JSON with
-          a copy affordance. No T0 fields by construction. */}
+      {/* Expanded payload: (1) specialist response body, (2) chain of
+          intent panel, (3) collapsible raw JSON for power users. All
+          T1-safe — no personaId, authProfileId, rootDid by construction. */}
       {expanded && (
         <div
           id={`receipt-${data.id}-json`}
-          className={`mt-2 rounded-md border ${
-            isDark
-              ? "border-slate-800/60 bg-slate-950/50"
-              : "border-slate-200 bg-slate-50"
-          }`}
+          className="space-y-2 mt-2"
         >
-          <div className={`flex items-center justify-between px-3 py-1.5 border-b ${
-            isDark ? "border-slate-800/60" : "border-slate-200"
-          }`}>
-            <span className={`text-[10px] uppercase tracking-[0.16em] ${mutedClass}`}>
-              Receipt JSON
-            </span>
-            <button
-              type="button"
-              onClick={handleCopy}
-              aria-label={copied ? "Copied" : "Copy receipt JSON"}
-              title={copied ? "Copied" : "Copy JSON"}
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] ${
-                isDark
-                  ? "text-slate-300 hover:bg-slate-800/60"
-                  : "text-slate-600 hover:bg-slate-100"
+          {/* (1) Specialist response body — when present. */}
+          {data.specialistResponse && (
+            <div
+              className={`rounded-md border p-3 space-y-1.5 ${
+                isDark ? "border-slate-700/60 bg-slate-900/60" : "border-slate-200 bg-slate-50"
               }`}
             >
-              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </div>
-          <pre
-            className={`overflow-auto max-h-72 text-[11px] leading-snug p-3 font-mono ${
-              isDark ? "text-slate-300" : "text-slate-700"
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+                  Specialist response
+                </span>
+                <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+                  · {data.specialistResponse.source}
+                </span>
+                <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+                  · {data.specialistResponse.confidence} confidence
+                </span>
+              </div>
+              <p className={`text-xs leading-snug ${isDark ? "text-slate-100" : "text-slate-900"} font-medium`}>
+                {data.specialistResponse.title}
+              </p>
+              <p className={`text-[11px] leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                {data.specialistResponse.summary}
+              </p>
+              {data.specialistResponse.recommendations.length > 0 && (
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {data.specialistResponse.recommendations.map((rec, i) => (
+                    <li key={i} className={`text-[11px] leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {data.specialistResponse.suggestedArtifacts.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>Suggested</span>
+                  {data.specialistResponse.suggestedArtifacts.map((a, i) => (
+                    <span
+                      key={i}
+                      className={`px-1.5 py-0.5 rounded border text-[10px] ${
+                        isDark
+                          ? "border-slate-700 bg-slate-800/60 text-slate-300"
+                          : "border-slate-200 bg-white text-slate-700"
+                      }`}
+                    >
+                      {a}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* (2) Chain of intent — lazy-fetched from /api/assistant/intent-chain
+              when this receipt is intent-attached. Shows the same merged
+              orchestration+receipts timeline as the workspace pill expand. */}
+          {data.intentId && (
+            <div
+              className={`rounded-md border overflow-hidden ${
+                isDark ? "border-slate-700/60" : "border-slate-200"
+              }`}
+            >
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1.5 border-b ${
+                  isDark ? "border-slate-700/60 bg-slate-900/60" : "border-slate-200 bg-slate-50"
+                }`}
+              >
+                <Link2 className={`w-3 h-3 ${isDark ? "text-violet-300" : "text-violet-700"}`} />
+                <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+                  Chain of intent
+                </span>
+              </div>
+              <IntentChainPanel chainState={chainState} isDark={isDark} />
+            </div>
+          )}
+
+          {/* (3) Raw JSON — collapsed by default, toggled via Show JSON. */}
+          <div
+            className={`rounded-md border ${
+              isDark ? "border-slate-800/60 bg-slate-950/50" : "border-slate-200 bg-slate-50"
             }`}
           >
-            {json}
-          </pre>
+            <div
+              className={`flex items-center justify-between px-3 py-1.5 ${
+                showJson ? `border-b ${isDark ? "border-slate-800/60" : "border-slate-200"}` : ""
+              }`}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowJson((v) => !v);
+                }}
+                className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.16em] ${mutedClass} ${
+                  isDark ? "hover:text-slate-200" : "hover:text-slate-900"
+                }`}
+              >
+                <ChevronDown className={`w-3 h-3 transition-transform ${showJson ? "rotate-180" : ""}`} />
+                {showJson ? "Hide receipt JSON" : "Show receipt JSON"}
+              </button>
+              {showJson && (
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  aria-label={copied ? "Copied" : "Copy receipt JSON"}
+                  title={copied ? "Copied" : "Copy JSON"}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] ${
+                    isDark
+                      ? "text-slate-300 hover:bg-slate-800/60"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              )}
+            </div>
+            {showJson && (
+              <pre
+                className={`overflow-auto max-h-72 text-[11px] leading-snug p-3 font-mono ${
+                  isDark ? "text-slate-300" : "text-slate-700"
+                }`}
+              >
+                {json}
+              </pre>
+            )}
+          </div>
         </div>
       )}
     </div>

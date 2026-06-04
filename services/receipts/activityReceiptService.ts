@@ -38,6 +38,15 @@ export type ActivityActionType =
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
+export interface SpecialistResponsePayload {
+  title: string;
+  summary: string;
+  recommendations: string[];
+  suggestedArtifacts: string[];
+  confidence: 'low' | 'medium' | 'high';
+  source: 'llm' | 'template';
+}
+
 export interface ActivityReceiptRecord {
   id: string;
   sessionId: string | null;
@@ -54,6 +63,12 @@ export interface ActivityReceiptRecord {
   policyEnvelopeId: string | null;
   receiptStatus: ReceiptStatus;
   dvnReceiptId: string | null;
+  /**
+   * SpecialistResponse body persisted on the receipt — title, summary,
+   * recommendations, suggestedArtifacts, confidence, source. Present on
+   * specialist_consulted receipts; null elsewhere.
+   */
+  specialistResponse: SpecialistResponsePayload | null;
   createdAt: string;
 }
 
@@ -74,6 +89,7 @@ interface DbRow {
   policy_envelope_id: string | null;
   receipt_status: ReceiptStatus;
   dvn_receipt_id: string | null;
+  specialist_response: SpecialistResponsePayload | null;
   created_at: string;
 }
 
@@ -94,6 +110,7 @@ function rowToRecord(row: DbRow): ActivityReceiptRecord {
     policyEnvelopeId: row.policy_envelope_id,
     receiptStatus: row.receipt_status,
     dvnReceiptId: row.dvn_receipt_id,
+    specialistResponse: row.specialist_response ?? null,
     createdAt: row.created_at,
   };
 }
@@ -122,6 +139,7 @@ export interface CreateActivityReceiptInput {
   artifactsCreated?: string[];
   approvalsGranted?: string[];
   policyEnvelopeId?: string | null;
+  specialistResponse?: SpecialistResponsePayload | null;
 }
 
 const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST205']);
@@ -155,6 +173,7 @@ export async function createActivityReceipt(
     approvals_granted: input.approvalsGranted ?? [],
     policy_envelope_id: input.policyEnvelopeId ?? null,
     receipt_status: 'local' as ReceiptStatus,
+    specialist_response: input.specialistResponse ?? null,
   };
 
   const { data, error } = await admin

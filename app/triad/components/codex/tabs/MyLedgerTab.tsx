@@ -31,6 +31,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { BookMarked, Loader2, RefreshCw } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 
 interface Props {
   personaId?: string;
@@ -52,6 +53,14 @@ interface ActivityReceipt {
   approvalsGranted: string[];
   receiptStatus?: string;
   dvnReceiptId?: string;
+  specialistResponse?: {
+    title: string;
+    summary: string;
+    recommendations: string[];
+    suggestedArtifacts: string[];
+    confidence: 'low' | 'medium' | 'high';
+    source: 'llm' | 'template';
+  } | null;
   createdAt: string;
 }
 
@@ -172,32 +181,37 @@ export function MyLedgerTab({ personaId }: Props) {
               : `No receipts matching "${CHIP_LABELS[activeChip]}" filter.`}
           </div>
         ) : (
-          <ul className="space-y-1.5">
-            {filtered.map((r) => (
-              <li key={r.id} className="rounded-md border border-slate-700/50 bg-slate-900/40 px-3 py-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/10 text-violet-300">
-                    {r.actionType.replace(/_/g, ' ')}
-                  </span>
-                  <span className="text-[10px] text-slate-400">{r.activeCartridge}</span>
-                  {r.dvnReceiptId && (
-                    <span className="text-[10px] font-mono text-emerald-400">{r.dvnReceiptId.slice(0, 16)}…</span>
-                  )}
-                  <span className="text-[10px] text-slate-500 ml-auto">{new Date(r.createdAt).toLocaleString()}</span>
-                </div>
-                <div className="text-xs text-white mt-1">{r.summary}</div>
-                {(r.agentsInvoked.length > 0 || r.toolsUsed.length > 0) && (
-                  <div className="flex flex-wrap gap-1 mt-1.5 text-[10px] text-slate-400">
-                    {r.agentsInvoked.map((a) => (
-                      <span key={`a-${a}`} className="px-1.5 py-0.5 rounded border border-slate-700 bg-slate-800/40">{a}</span>
-                    ))}
-                    {r.toolsUsed.map((t) => (
-                      <span key={`t-${t}`} className="px-1.5 py-0.5 rounded border border-slate-700/60 bg-slate-800/20 text-slate-500">{t}</span>
-                    ))}
-                  </div>
-                )}
-              </li>
-            ))}
+          <ul className="space-y-2">
+            {filtered.map((r) => {
+              // Adapt MyLedgerTab's lightweight ActivityReceipt shape to
+              // the canonical ActivityReceiptData the card expects. The
+              // receipt status enum defaults to 'local' when the receipts
+              // endpoint hasn't set it.
+              const cardData: ActivityReceiptData = {
+                id: r.id,
+                sessionId: r.sessionId,
+                intentId: r.intentId,
+                activeCartridge: r.activeCartridge,
+                actionType: r.actionType,
+                summary: r.summary,
+                agentsInvoked: r.agentsInvoked,
+                toolsUsed: r.toolsUsed,
+                iqubesUsed: r.iqubesUsed,
+                contextShared: r.contextShared,
+                artifactsCreated: r.artifactsCreated,
+                approvalsGranted: r.approvalsGranted,
+                policyEnvelopeId: null,
+                receiptStatus: (r.receiptStatus as ActivityReceiptData['receiptStatus']) ?? 'local',
+                dvnReceiptId: r.dvnReceiptId ?? null,
+                specialistResponse: r.specialistResponse ?? null,
+                createdAt: r.createdAt,
+              };
+              return (
+                <li key={r.id}>
+                  <ActivityReceiptCard data={cardData} theme="dark" />
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
