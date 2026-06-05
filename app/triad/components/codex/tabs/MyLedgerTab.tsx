@@ -26,6 +26,14 @@ interface ActivityReceipt {
   id: string;
   sessionId: string | null;
   intentId: string | null;
+  /**
+   * Parent intentId when the receipt's intent is a child spawned from
+   * another intent's recommendation. Receipts API enriches this so
+   * child receipts can fold under the parent capsule instead of
+   * spawning an orphan top-level capsule. Required by the Content
+   * Capsule Containment golden rule (CLAUDE.md).
+   */
+  parentIntentId?: string | null;
   activeCartridge: string;
   actionType: string;
   summary: string;
@@ -135,15 +143,21 @@ export function MyLedgerTab({ personaId }: Props) {
     });
   }, [receipts, activeChip]);
 
-  // Group receipts by intentId. Receipts without intentId stay standalone.
+  // Group receipts by EFFECTIVE intentId — `parentIntentId` when the
+  // receipt's intent is a child spawned from a recommendation, else
+  // `intentId`. This rolls every child intent's receipts up into the
+  // parent capsule so approvals/artifacts on child intents flip state
+  // inside the parent (Content Capsule Containment golden rule, CLAUDE.md)
+  // rather than spawning a new orphan top-level capsule.
   const { intentGroups, standalone } = useMemo(() => {
     const byIntent = new Map<string, ActivityReceipt[]>();
     const solo: ActivityReceipt[] = [];
     for (const r of filtered) {
-      if (r.intentId) {
-        const arr = byIntent.get(r.intentId) ?? [];
+      const groupKey = r.parentIntentId || r.intentId;
+      if (groupKey) {
+        const arr = byIntent.get(groupKey) ?? [];
         arr.push(r);
-        byIntent.set(r.intentId, arr);
+        byIntent.set(groupKey, arr);
       } else {
         solo.push(r);
       }

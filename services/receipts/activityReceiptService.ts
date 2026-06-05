@@ -51,6 +51,12 @@ export interface ActivityReceiptRecord {
   id: string;
   sessionId: string | null;
   intentId: string | null;
+  /**
+   * When the receipt's intent is a child spawned from another intent's
+   * recommendation, this is the parent's intentId. Set by the receipts
+   * API after enrichment; null for receipts on root intents.
+   */
+  parentIntentId?: string | null;
   activeCartridge: string;
   actionType: ActivityActionType;
   summary: string;

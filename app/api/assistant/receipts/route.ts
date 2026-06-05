@@ -19,8 +19,52 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import {
   listActivityReceiptsForPersona,
   type ActivityActionType,
+  type ActivityReceiptRecord,
 } from '@/services/receipts/activityReceiptService';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+/**
+ * Batch-look-up parentIntentId for every receipt that has an intentId.
+ * Reads the rationale sentinel on `nbe_plans` (where IntentQubes live)
+ * and extracts parentIntentId — single query for all distinct ids.
+ */
+async function enrichWithParentIntentIds(
+  receipts: ActivityReceiptRecord[],
+  personaId: string,
+): Promise<ActivityReceiptRecord[]> {
+  const intentIds = Array.from(
+    new Set(receipts.map((r) => r.intentId).filter((id): id is string => !!id)),
+  );
+  if (intentIds.length === 0) return receipts;
+  const admin = getSupabaseServer();
+  if (!admin) return receipts;
+  const { data, error } = await admin
+    .from('nbe_plans')
+    .select('id, rationale')
+    .eq('persona_id', personaId)
+    .in('id', intentIds);
+  if (error || !data) return receipts;
+  const parentByIntent = new Map<string, string | null>();
+  const SENTINEL = '__intent_qube_v1__:';
+  for (const row of data as Array<{ id: string; rationale: string | null }>) {
+    let parent: string | null = null;
+    if (row.rationale && row.rationale.startsWith(SENTINEL)) {
+      try {
+        const extras = JSON.parse(row.rationale.slice(SENTINEL.length)) as {
+          parentIntentId?: string | null;
+        };
+        parent = extras.parentIntentId ?? null;
+      } catch {
+        parent = null;
+      }
+    }
+    parentByIntent.set(row.id, parent);
+  }
+  return receipts.map((r) => ({
+    ...r,
+    parentIntentId: r.intentId ? parentByIntent.get(r.intentId) ?? null : null,
+  }));
+}
 
 /**
  * T1-safe display label for the active persona. Never returns the
@@ -95,12 +139,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }),
       readPersonaDisplayLabel(context.personaId),
     ]);
+
+    // Enrich receipts with parentIntentId so myLedger can group child
+    // intent receipts UNDER their parent capsule instead of spawning
+    // orphan capsules at the top level. Required by the Content Capsule
+    // Containment golden rule (CLAUDE.md): derivative content from a
+    // capsule must render inside that capsule.
+    const enriched = await enrichWithParentIntentIds(receipts, context.personaId);
+
     // personaDisplayLabel is T1 only. personaId, authProfileId, and any
     // root DiD are never serialised by this endpoint.
     return NextResponse.json(
       {
-        receipts,
-        count: receipts.length,
+        receipts: enriched,
+        count: enriched.length,
         personaDisplayLabel,
       },
       { headers: { 'Cache-Control': 'no-store' } },
