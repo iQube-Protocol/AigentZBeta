@@ -483,6 +483,35 @@ Mapping is defined once at `app/triad/components/codex/tabs/AigentMeWelcomeSplit
 
 ---
 
+## Content Capsule Containment — GOLDEN RULE (PARAMOUNT)
+
+**Any derivative content generated from actions taken WITHIN a capsule MUST be rendered inside that same capsule. It must never spawn orphan pills, chips, or capsules outside of it.**
+
+This is the cardinal rule for capsule-scoped execution. The capsule is the operator's work context — everything that flows from a CTA, specialist consultation, queued action, or approval within that capsule belongs inside it. Orphan output severs the causal chain and destroys the operator's ability to understand what produced what.
+
+### What this means in practice
+
+- **Approval actions** on an `intent_queued` chip must flip that chip's state in place (emerald/approved, rose/rejected) — they must not create a new standalone receipt card, pill, or capsule at the page level.
+- **Specialist responses** triggered from within a capsule render inside that capsule's chain timeline — not as new top-level cards in myLedger or myWorkspace.
+- **Artifacts created** from an approved child intent should surface as amber artifact rows inside the parent capsule's chain panel — not as new top-level activity cards.
+- **Stage strip advancement** (queued → approved → acted → complete) happens by updating the existing capsule's strip — not by spawning a new capsule with a higher stage.
+
+### When containment cannot be achieved
+
+If a downstream action genuinely cannot be rendered inside the originating capsule (e.g. a cross-cartridge artifact that has no representation in the chain model), **stop and ask the operator before executing**. Do not silently create orphan output.
+
+### Failure examples to avoid
+
+- Clicking "Approve" on an `intent_queued` chip → a new standalone `approval_granted` capsule appears outside the current capsule. **Wrong.**
+- Queuing a specialist recommendation → a second `specialist_consulted` card appears at the top level of myLedger. **Wrong.**
+- Marking a child intent complete → a new standalone receipt card renders in the myWorkspace active intents list alongside the parent. **Wrong.**
+
+### Why this rule exists
+
+The 2026-06-05 session demonstrated the failure mode: the inline chip Approve button was firing `intent-advance` on the child intent, which created a new `approval_granted` activity receipt at the top level (because the receipt's `intentId` matched the child, not the parent). The operator saw a new capsule appear in myLedger instead of the chip turning green. The fix: approval actions on child chips must update state in-place (optimistic local state + refetch of the parent chain) and the newly created receipt must be scoped to the child intent's own chain, not surfaced as a new top-level entry.
+
+---
+
 ## Grids of PDF Assets with Covers — MUST READ (PARAMOUNT)
 
 **Whenever you build a grid of PDF assets (papers, magazines, episodes, scrolls, anything with a thumbnail card that opens a PDF), follow this pattern exactly. Do not invent variants. Do not try to render PDFs as image thumbnails server-side. Three sessions of work were lost trying to bolt a PDF rasteriser onto Lambda before this rule was written down.**
