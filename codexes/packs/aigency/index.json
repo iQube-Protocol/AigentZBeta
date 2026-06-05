@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-05T18:16:07.549Z",
+  "last_updated": "2026-06-05T20:30:30.831Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d3141314c710aabb1847219f2ebf17f38a1f5b8e",
-  "latest_commit_short": "d314131",
-  "latest_commit_title": "document capsule containment infraction pattern + fix in CLAUDE.md",
+  "latest_commit": "46d4eeb4de65d72c664b96b42beca7c439d39057",
+  "latest_commit_short": "46d4eeb",
+  "latest_commit_title": "improve chain panel legibility: copy, doc approval decoupling, timeline ordering",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "46d4eeb",
+      "full_sha": "46d4eeb4de65d72c664b96b42beca7c439d39057",
+      "title": "improve chain panel legibility: copy, doc approval decoupling, timeline ordering",
+      "author": "Claude",
+      "timestamp": "2026-06-05T20:28:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-46d4eeb.md"
+    },
     {
       "sha": "d314131",
       "full_sha": "d3141314c710aabb1847219f2ebf17f38a1f5b8e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T14:20:39Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3cdddb4.md"
-    },
-    {
-      "sha": "7306936",
-      "full_sha": "730693658b341a326d463a55fc19e8c6346f15e9",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T14:20:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7306936.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
