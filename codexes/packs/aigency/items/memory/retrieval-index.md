@@ -2039,3 +2039,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1ddb87c.md](../build_/COMMITS/COMMIT-1ddb87c.md)
 - Message: trigger deploy: queueable recommendations close execution loop (f2824ee7)
+
+## Commit `f4d58a0` — 2026-06-05T02:09:28Z
+- Type: `push`
+- Brief: [COMMIT-f4d58a0.md](../build_/COMMITS/COMMIT-f4d58a0.md)
+- Message: trigger deploy: auto-consult on queue closes execution loop
+
+## Commit `1d0f4c0` — 2026-06-05T02:09:28Z
+- Type: `feat`
+- Brief: [COMMIT-1d0f4c0.md](../build_/COMMITS/COMMIT-1d0f4c0.md)
+- Message: feat(chain): auto-consult specialist on Queue — close the recursion loop
