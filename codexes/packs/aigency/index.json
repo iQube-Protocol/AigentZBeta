@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-05T20:30:30.831Z",
+  "last_updated": "2026-06-05T22:06:03.399Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "46d4eeb4de65d72c664b96b42beca7c439d39057",
-  "latest_commit_short": "46d4eeb",
-  "latest_commit_title": "improve chain panel legibility: copy, doc approval decoupling, timeline ordering",
+  "latest_commit": "403c7899e552a5bb943795e709a13e82f6dcbdb4",
+  "latest_commit_short": "403c789",
+  "latest_commit_title": "fix chain timeline ordering: doc before analysis, original queue before specialist",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "403c789",
+      "full_sha": "403c7899e552a5bb943795e709a13e82f6dcbdb4",
+      "title": "fix chain timeline ordering: doc before analysis, original queue before specialist",
+      "author": "Claude",
+      "timestamp": "2026-06-05T22:04:04Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-403c789.md"
+    },
     {
       "sha": "46d4eeb",
       "full_sha": "46d4eeb4de65d72c664b96b42beca7c439d39057",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T14:34:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-bee1d11.md"
-    },
-    {
-      "sha": "3cdddb4",
-      "full_sha": "3cdddb486f9b195582a61f5e526379bbc4dbafd0",
-      "title": "ArtifactCard: copy-id button next to truncated receipt prefix",
-      "author": "Claude",
-      "timestamp": "2026-05-29T14:20:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3cdddb4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

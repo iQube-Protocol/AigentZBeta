@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`403c789`](https://github.com/iQube-Protocol/AigentZBeta/commit/403c7899e552a5bb943795e709a13e82f6dcbdb4) [fix] fix chain timeline ordering: doc before analysis, original queue before specialist (Claude, 2026-06-05T22:04:04Z)
 - [`46d4eeb`](https://github.com/iQube-Protocol/AigentZBeta/commit/46d4eeb4de65d72c664b96b42beca7c439d39057) [push] improve chain panel legibility: copy, doc approval decoupling, timeline ordering (Claude, 2026-06-05T20:28:31Z)
 - [`d314131`](https://github.com/iQube-Protocol/AigentZBeta/commit/d3141314c710aabb1847219f2ebf17f38a1f5b8e) [fix] document capsule containment infraction pattern + fix in CLAUDE.md (Claude, 2026-06-05T18:14:15Z)
 - [`337282f`](https://github.com/iQube-Protocol/AigentZBeta/commit/337282fcbd7c1c5a6ca12d3a2f35c9aaff943ce1) [feat] add capsule containment golden rule to CLAUDE.md (Claude, 2026-06-05T18:01:33Z)
