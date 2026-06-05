@@ -89,6 +89,18 @@ function deriveGenesisLabel(receipts: ActivityReceipt[]): string {
   return receipts[0]?.summary ?? 'Intent';
 }
 
+function stageChip(stage: IntentStage): { cls: string; label: string } {
+  switch (stage) {
+    case 'complete':              return { cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200', label: 'complete' };
+    case 'cancelled':             return { cls: 'border-slate-500/40 bg-slate-500/10 text-slate-300',       label: 'cancelled' };
+    case 'approved':              return { cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200', label: 'approved' };
+    case 'acted':                 return { cls: 'border-amber-500/40 bg-amber-500/10 text-amber-200',       label: 'acted' };
+    case 'queued':                return { cls: 'border-violet-500/40 bg-violet-500/10 text-violet-200',    label: 'queued' };
+    case 'specialist_consulted':  return { cls: 'border-amber-500/40 bg-amber-500/10 text-amber-200',       label: 'awaiting review' };
+    default:                      return { cls: 'border-violet-500/40 bg-violet-500/10 text-violet-200',    label: 'in progress' };
+  }
+}
+
 function deriveStageFromReceipts(receipts: ActivityReceipt[]): IntentStage {
   const types = new Set(receipts.map((r) => r.actionType));
   if (types.has('approval_rejected')) return 'cancelled';
@@ -227,31 +239,44 @@ export function MyLedgerTab({ personaId }: Props) {
         ) : (
           <div className="space-y-3">
             {/* Intent-grouped capsules — one per unique intentId */}
-            {intentGroups.map((group) => (
-              <GenesisCapsule
-                key={group.intentId}
-                label={deriveGenesisLabel(group.receipts)}
-                cartridge={group.cartridge}
-                createdAt={new Date(group.latestAt).toISOString()}
-                currentStage={deriveStageFromReceipts(group.receipts)}
-                isDark={true}
-                defaultCollapsed={true}
-                persistKey={`ledger:${group.intentId}`}
-                onExpandChange={(expanded) => {
-                  if (expanded) requestChain(group.intentId);
-                }}
-              >
-                <IntentChainPanel
-                  chainState={chainCache[group.intentId]}
+            {intentGroups.map((group) => {
+              const stage = deriveStageFromReceipts(group.receipts);
+              const chip = stageChip(stage);
+              return (
+                <GenesisCapsule
+                  key={group.intentId}
+                  label={deriveGenesisLabel(group.receipts)}
+                  cartridge={group.cartridge}
+                  createdAt={new Date(group.latestAt).toISOString()}
+                  currentStage={stage}
                   isDark={true}
-                  intentId={group.intentId}
-                  onAdvanced={() => {
-                    invalidateChain(group.intentId);
-                    void load();
+                  defaultCollapsed={true}
+                  persistKey={`ledger:${group.intentId}`}
+                  onExpandChange={(expanded) => {
+                    if (expanded) requestChain(group.intentId);
                   }}
-                />
-              </GenesisCapsule>
-            ))}
+                >
+                  {/* Status chip — mirrors myWorkspace pattern */}
+                  <div className="flex items-center gap-2 px-0.5">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${chip.cls}`}>
+                      {chip.label}
+                    </span>
+                  </div>
+                  {/* Chain of intent timeline — inner border matches workspace */}
+                  <div className="rounded-md border overflow-hidden border-slate-700/50">
+                    <IntentChainPanel
+                      chainState={chainCache[group.intentId]}
+                      isDark={true}
+                      intentId={group.intentId}
+                      onAdvanced={() => {
+                        invalidateChain(group.intentId);
+                        void load();
+                      }}
+                    />
+                  </div>
+                </GenesisCapsule>
+              );
+            })}
 
             {/* Standalone receipts — no intentId (e.g. canvas publishes) */}
             {standalone.map((r) => {
