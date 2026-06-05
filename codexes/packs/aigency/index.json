@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-04T18:34:45.680Z",
+  "last_updated": "2026-06-04T19:45:25.919Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5caee4afff9fbb2cd566f86861a8a6ec03687e20",
-  "latest_commit_short": "5caee4a",
-  "latest_commit_title": "feat(chain): operator-driven advance — Approve / Mark complete / Cancel",
+  "latest_commit": "f2824ee74ec0b07ea1bfedfd2f30afe6e76131db",
+  "latest_commit_short": "f2824ee",
+  "latest_commit_title": "feat(chain): close execution loop — recommendations spawn child intents",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f2824ee",
+      "full_sha": "f2824ee74ec0b07ea1bfedfd2f30afe6e76131db",
+      "title": "feat(chain): close execution loop — recommendations spawn child intents",
+      "author": "Claude",
+      "timestamp": "2026-06-04T19:43:19Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f2824ee.md"
+    },
+    {
+      "sha": "1ddb87c",
+      "full_sha": "1ddb87c7374a181cde71a51b571cabb372e2fcc2",
+      "title": "trigger deploy: queueable recommendations close execution loop (f2824ee7)",
+      "author": "Claude",
+      "timestamp": "2026-06-04T19:43:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1ddb87c.md"
+    },
     {
       "sha": "5caee4a",
       "full_sha": "5caee4afff9fbb2cd566f86861a8a6ec03687e20",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T09:36:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c2b0b5f.md"
-    },
-    {
-      "sha": "bebbf22",
-      "full_sha": "bebbf22991c4646aad717fd0dec35521e899ea78",
-      "title": "Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog",
-      "author": "Claude",
-      "timestamp": "2026-05-29T09:02:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bebbf22.md"
-    },
-    {
-      "sha": "9dce3d2",
-      "full_sha": "9dce3d294f1c2d5e6cd9273bc3b84326b031ce4e",
-      "title": "llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback",
-      "author": "Claude",
-      "timestamp": "2026-05-29T08:52:52Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9dce3d2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
