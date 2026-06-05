@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`1d0f4c0`](https://github.com/iQube-Protocol/AigentZBeta/commit/1d0f4c092eedf69d3cd8d930d709b49f0d641f33) [feat] feat(chain): auto-consult specialist on Queue — close the recursion loop (Claude, 2026-06-05T02:09:28Z)
+- [`f4d58a0`](https://github.com/iQube-Protocol/AigentZBeta/commit/f4d58a06bdf043bc8f338ae37f39ab81eeee905d) [push] trigger deploy: auto-consult on queue closes execution loop (Claude, 2026-06-05T02:09:28Z)
 - [`1ddb87c`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ddb87c7374a181cde71a51b571cabb372e2fcc2) [push] trigger deploy: queueable recommendations close execution loop (f2824ee7) (Claude, 2026-06-04T19:43:28Z)
 - [`1f160a2`](https://github.com/iQube-Protocol/AigentZBeta/commit/1f160a24dd7ed6d046377c10e62981bedbc50ceb) [push] trigger deploy: operator-driven intent advance buttons (5caee4af) (Claude, 2026-06-04T18:32:48Z)
 - [`1ca89bf`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ca89bfd91143ca31bab1db7c3b485a993744c17) [push] trigger deploy: emerald container around expanded intents (2dcff5ed) (Claude, 2026-06-04T04:06:53Z)

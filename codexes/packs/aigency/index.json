@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-04T19:45:25.919Z",
+  "last_updated": "2026-06-05T02:11:10.025Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f2824ee74ec0b07ea1bfedfd2f30afe6e76131db",
-  "latest_commit_short": "f2824ee",
-  "latest_commit_title": "feat(chain): close execution loop — recommendations spawn child intents",
+  "latest_commit": "1d0f4c092eedf69d3cd8d930d709b49f0d641f33",
+  "latest_commit_short": "1d0f4c0",
+  "latest_commit_title": "feat(chain): auto-consult specialist on Queue — close the recursion loop",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1d0f4c0",
+      "full_sha": "1d0f4c092eedf69d3cd8d930d709b49f0d641f33",
+      "title": "feat(chain): auto-consult specialist on Queue — close the recursion loop",
+      "author": "Claude",
+      "timestamp": "2026-06-05T02:09:28Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1d0f4c0.md"
+    },
+    {
+      "sha": "f4d58a0",
+      "full_sha": "f4d58a06bdf043bc8f338ae37f39ab81eeee905d",
+      "title": "trigger deploy: auto-consult on queue closes execution loop",
+      "author": "Claude",
+      "timestamp": "2026-06-05T02:09:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f4d58a0.md"
+    },
     {
       "sha": "f2824ee",
       "full_sha": "f2824ee74ec0b07ea1bfedfd2f30afe6e76131db",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T14:10:00Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d8ea55d.md"
-    },
-    {
-      "sha": "b9e2e08",
-      "full_sha": "b9e2e083f3507bb730b7dd8ee68b2b6b0e543a8f",
-      "title": "STT: add Groq Whisper-large-v3 as fallback when OpenAI fails",
-      "author": "Claude",
-      "timestamp": "2026-05-29T09:36:27Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b9e2e08.md"
-    },
-    {
-      "sha": "c2b0b5f",
-      "full_sha": "c2b0b5fba1c1306b456c7d5ff331cf007a3bb978",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T09:36:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c2b0b5f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
