@@ -309,16 +309,51 @@ function ChainTimeline({
   const { events, receipts = [], chain } = data;
   const status = deriveChainStatus(data);
 
-  // Action buttons render when the caller has provided intentId +
-  // onAdvanced. Hide once the intent is terminated so the operator
-  // doesn't try to re-advance a completed/cancelled row.
-  const canAct =
-    !!intentId && !!onAdvanced && intentStatus !== "completed" && intentStatus !== "cancelled";
-  // Whether an approval_granted receipt is already present — when so,
-  // the Approve button reads "Re-approve" so the operator can still
-  // record a fresh approval if needed but the primary CTA shifts to
-  // Mark complete.
+  // Terminal state — resolves from explicit intentStatus prop first,
+  // falls back to data.intent.status when the chain endpoint surfaced
+  // it, then derives from receipts (session_completed / approval_rejected
+  // both lock the capsule). Terminal = all action buttons hide.
+  const dataIntent = (data as IntentChainDto & { intent?: { status?: string } }).intent;
+  const effectiveStatus = intentStatus ?? dataIntent?.status;
+  const derivedTerminal =
+    receipts.some((r) => r.actionType === "session_completed") ||
+    receipts.some((r) => r.actionType === "approval_rejected");
+  const isTerminal =
+    effectiveStatus === "completed" ||
+    effectiveStatus === "cancelled" ||
+    effectiveStatus === "failed" ||
+    derivedTerminal;
+
+  // Top-of-capsule action buttons (Approve / Mark complete / Cancel)
+  // render only on non-terminal intents. Once terminal, the entire
+  // capsule is read-only — no double-approval surface anywhere.
+  const canAct = !!intentId && !!onAdvanced && !isTerminal;
   const alreadyApproved = receipts.some((r) => r.actionType === "approval_granted");
+
+  // Build the set of recommendation prefixes that have already been
+  // queued as child intents. The intent-queue-next route truncates
+  // recommendations at 160 chars (157 + '…') for the receipt summary —
+  // store the prefix (minus the ellipsis) so we can prefix-match the
+  // rendered recommendation text. Survives chain refetches so the
+  // green ✓ Queued state never reverts back to violet.
+  const queuedRecommendations = new Set<string>();
+  for (const r of receipts) {
+    if (r.actionType === "intent_queued" && r.summary) {
+      const stripped = r.summary
+        .replace(/^Queued( next action)?:\s*/i, "")
+        .replace(/…$/, "")
+        .trim();
+      if (stripped) queuedRecommendations.add(stripped);
+    }
+  }
+
+  function isRecommendationQueued(rec: string): boolean {
+    const cleaned = rec.trim();
+    for (const queued of queuedRecommendations) {
+      if (cleaned === queued || cleaned.startsWith(queued)) return true;
+    }
+    return false;
+  }
 
   // Merge orchestration events + activity receipts into one chronological
   // timeline. Receipts carry the human-readable consultation summary +
@@ -410,6 +445,8 @@ function ChainTimeline({
                 r={row.receipt!}
                 isDark={isDark}
                 parentIntentId={intentId}
+                isTerminal={isTerminal}
+                isRecommendationQueued={isRecommendationQueued}
                 onChildSpawned={onAdvanced}
               />
             );
@@ -436,17 +473,35 @@ function RecommendationItem({
   parentIntentId,
   parentSpecialist,
   isDark,
+  isTerminal,
+  alreadyQueued,
   onSpawned,
 }: {
   recommendation: string;
   parentIntentId: string | null;
   parentSpecialist: string | null;
   isDark: boolean;
+  isTerminal: boolean;
+  alreadyQueued: boolean;
   onSpawned?: () => void;
 }) {
-  const [state, setState] = React.useState<"idle" | "spawning" | "spawned" | "error">("idle");
+  const [state, setState] = React.useState<"idle" | "spawning" | "spawned" | "error">(
+    alreadyQueued ? "spawned" : "idle",
+  );
   const [errMsg, setErrMsg] = React.useState<string | null>(null);
-  const canSpawn = !!parentIntentId && state !== "spawning" && state !== "spawned";
+  // Effective spawned = derived-from-chain OR local optimistic state.
+  // alreadyQueued comes from the parent's intent_queued receipts so the
+  // green ✓ state survives chain refetches that would otherwise reset
+  // local component state.
+  const effectiveSpawned = alreadyQueued || state === "spawned";
+  const canSpawn = !!parentIntentId && !isTerminal && !effectiveSpawned && state !== "spawning";
+
+  // Re-sync local state when alreadyQueued flips true after a refetch
+  // (the optimistic "spawned" we set on click is now confirmed by the
+  // chain data — keep showing green, don't snap back to idle).
+  React.useEffect(() => {
+    if (alreadyQueued && state !== "spawned") setState("spawned");
+  }, [alreadyQueued, state]);
 
   const queue = async () => {
     if (!parentIntentId) return;
@@ -491,7 +546,7 @@ function RecommendationItem({
               void queue();
             }}
             className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] transition disabled:opacity-50 disabled:cursor-not-allowed ${
-              state === "spawned"
+              effectiveSpawned
                 ? isDark
                   ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200"
                   : "border-emerald-400 bg-emerald-50 text-emerald-700"
@@ -502,17 +557,19 @@ function RecommendationItem({
             title={
               !parentIntentId
                 ? "Recommendation needs a parent intent to queue under"
-                : "Spawn a child intent for this action — appears in Active Intents"
+                : isTerminal
+                  ? "Intent is closed — no further actions"
+                  : "Spawn a child intent for this action — appears in Active Intents"
             }
           >
             {state === "spawning" ? (
               <Loader2 className="w-2.5 h-2.5 animate-spin" />
-            ) : state === "spawned" ? (
+            ) : effectiveSpawned ? (
               <CheckCircle2 className="w-2.5 h-2.5" />
             ) : (
               <PlusCircle className="w-2.5 h-2.5" />
             )}
-            {state === "spawned" ? "Queued" : state === "spawning" ? "Queueing…" : "Queue as next action"}
+            {effectiveSpawned ? "Queued" : state === "spawning" ? "Queueing…" : "Queue as next action"}
           </button>
           {errMsg && (
             <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{errMsg}</span>
@@ -615,18 +672,89 @@ function ChainActionRow({
   );
 }
 
+/**
+ * Approve & complete — lives ON the artifact_created receipt row.
+ * Closes the loop the operator follows: open the doc, review it, come
+ * back, approve it here, capsule turns fully green. Hits the same
+ * /api/assistant/intent-advance(complete) endpoint as the chain-header
+ * Mark complete button so receipts + intent status stay in sync.
+ */
+function ArtifactApproveButton({
+  intentId,
+  isDark,
+  onApproved,
+}: {
+  intentId: string;
+  isDark: boolean;
+  onApproved?: () => void;
+}) {
+  const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const fire = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      const { personaFetch } = await import("@/utils/personaSpine");
+      const res = await personaFetch("/api/assistant/intent-advance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentId, action: "complete" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `complete failed (${res.status})`);
+      }
+      onApproved?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={(e) => {
+          e.stopPropagation();
+          void fire();
+        }}
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] transition disabled:opacity-50 disabled:cursor-not-allowed ${
+          isDark
+            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
+            : "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+        }`}
+        title="Approve this artifact and mark the intent complete"
+      >
+        {pending ? (
+          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+        ) : (
+          <CheckCircle2 className="w-2.5 h-2.5" />
+        )}
+        {pending ? "Approving…" : "Approve & complete"}
+      </button>
+      {error && (
+        <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
+      )}
+    </>
+  );
+}
+
 function receiptRowColors(actionType: string, isDark: boolean): { border: string; icon: string } {
   switch (actionType) {
     case "specialist_consulted":
       return {
-        border: isDark ? "border-amber-500/30 bg-amber-950/20" : "border-amber-300 bg-amber-50",
-        icon: isDark ? "text-amber-300" : "text-amber-600",
+        border: isDark ? "border-cyan-500/30 bg-cyan-950/20" : "border-cyan-300 bg-cyan-50",
+        icon: isDark ? "text-cyan-300" : "text-cyan-600",
       };
     case "artifact_created":
     case "artifact_sent":
       return {
-        border: isDark ? "border-cyan-500/30 bg-cyan-950/20" : "border-cyan-300 bg-cyan-50",
-        icon: isDark ? "text-cyan-300" : "text-cyan-600",
+        border: isDark ? "border-amber-500/30 bg-amber-950/20" : "border-amber-300 bg-amber-50",
+        icon: isDark ? "text-amber-300" : "text-amber-600",
       };
     case "approval_granted":
       return {
@@ -640,8 +768,13 @@ function receiptRowColors(actionType: string, isDark: boolean): { border: string
       };
     case "intent_queued":
       return {
-        border: isDark ? "border-violet-500/20 bg-violet-950/20" : "border-violet-200 bg-violet-50",
+        border: isDark ? "border-violet-500/30 bg-violet-950/20" : "border-violet-300 bg-violet-50",
         icon: isDark ? "text-violet-300" : "text-violet-700",
+      };
+    case "session_completed":
+      return {
+        border: isDark ? "border-slate-600/40 bg-slate-800/30" : "border-slate-300 bg-slate-100",
+        icon: isDark ? "text-slate-300" : "text-slate-600",
       };
     default:
       return {
@@ -655,11 +788,15 @@ function ReceiptRow({
   r,
   isDark,
   parentIntentId,
+  isTerminal,
+  isRecommendationQueued,
   onChildSpawned,
 }: {
   r: AttachedReceiptDto;
   isDark: boolean;
   parentIntentId?: string;
+  isTerminal: boolean;
+  isRecommendationQueued: (rec: string) => boolean;
   onChildSpawned?: () => void;
 }) {
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
@@ -725,6 +862,8 @@ function ReceiptRow({
                     parentIntentId={parentIntentId ?? null}
                     parentSpecialist={specialistFromReceipt(r)}
                     isDark={isDark}
+                    isTerminal={isTerminal}
+                    alreadyQueued={isRecommendationQueued(rec)}
                     onSpawned={onChildSpawned}
                   />
                 ))}
@@ -764,8 +903,8 @@ function ReceiptRow({
                     onClick={(e) => e.stopPropagation()}
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] ${
                       isDark
-                        ? "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
-                        : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                        : "border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"
                     }`}
                   >
                     <ExternalLink className="w-2.5 h-2.5" /> {lbl}
@@ -783,6 +922,13 @@ function ReceiptRow({
                 </span>
               );
             })}
+            {r.actionType === "artifact_created" && parentIntentId && !isTerminal && (
+              <ArtifactApproveButton
+                intentId={parentIntentId}
+                isDark={isDark}
+                onApproved={onChildSpawned}
+              />
+            )}
           </div>
         )}
         <p className={`text-[10px] mt-1 ${mutedClass}`} title={r.createdAt}>{formatTimeAgo(r.createdAt)}</p>

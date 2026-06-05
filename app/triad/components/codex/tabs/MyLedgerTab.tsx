@@ -83,10 +83,10 @@ function deriveGenesisLabel(receipts: ActivityReceipt[]): string {
 
 function deriveStageFromReceipts(receipts: ActivityReceipt[]): IntentStage {
   const types = new Set(receipts.map((r) => r.actionType));
-  if (types.has('artifact_sent')) return 'complete';
+  if (types.has('approval_rejected')) return 'cancelled';
+  if (types.has('session_completed') || types.has('artifact_sent')) return 'complete';
   if (types.has('artifact_created')) return 'acted';
   if (types.has('approval_granted')) return 'approved';
-  // Child intents queued from recommendations have recommendation-spawn in contextShared.
   const hasChildQueued = receipts.some(
     (r) => r.actionType === 'intent_queued' && (r.contextShared ?? []).includes('recommendation-spawn'),
   );
@@ -222,6 +222,7 @@ export function MyLedgerTab({ personaId }: Props) {
                 currentStage={deriveStageFromReceipts(group.receipts)}
                 isDark={true}
                 defaultCollapsed={true}
+                persistKey={`ledger:${group.intentId}`}
                 onExpandChange={(expanded) => {
                   if (expanded) requestChain(group.intentId);
                 }}
