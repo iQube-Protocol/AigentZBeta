@@ -74,6 +74,32 @@ function intentStatusToStage(status: ActiveIntent['status']): IntentStage {
   }
 }
 
+/**
+ * Stage derivation that prefers RECEIPT signals over intent.status.
+ * intent-advance(approve) writes an approval_granted receipt but does
+ * NOT mutate intent.status, so the strip must read receipts to surface
+ * APPROVED / ACTED states. Mirrors deriveStageFromReceipts in MyLedgerTab.
+ */
+function deriveStageFromIntentAndChain(
+  status: ActiveIntent['status'],
+  chainData: { receipts?: Array<{ actionType: string; contextShared?: string[] }> } | null | undefined,
+): IntentStage {
+  if (status === 'cancelled' || status === 'failed') return 'cancelled';
+  if (status === 'completed') return 'complete';
+  const receipts = chainData?.receipts ?? [];
+  const types = new Set(receipts.map((r) => r.actionType));
+  if (types.has('approval_rejected')) return 'cancelled';
+  if (types.has('session_completed') || types.has('artifact_sent')) return 'complete';
+  if (types.has('artifact_created')) return 'acted';
+  if (types.has('approval_granted')) return 'approved';
+  const hasChildQueued = receipts.some(
+    (r) => r.actionType === 'intent_queued' && (r.contextShared ?? []).includes('recommendation-spawn'),
+  );
+  if (hasChildQueued) return 'queued';
+  if (types.has('specialist_consulted')) return 'specialist_consulted';
+  return intentStatusToStage(status);
+}
+
 export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
   const [activeSubTab, setActiveSubTab] = useState<WorkspaceSubTab>('intents');
   const [intentsPage, setIntentsPage] = useState(0);
@@ -254,7 +280,7 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
                         label={i.intentName}
                         cartridge={i.cartridge}
                         createdAt={i.createdAt}
-                        currentStage={intentStatusToStage(i.status)}
+                        currentStage={deriveStageFromIntentAndChain(i.status, chainState?.data)}
                         isDark={theme !== 'light'}
                         defaultCollapsed={true}
                         persistKey={`workspace:${i.intentId}`}
