@@ -204,13 +204,22 @@ export function IntentChainPanel({
 
 // Friendly action_type → label for activity_receipts.
 const ACTION_LABELS: Record<string, string> = {
-  intent_queued: "Intent queued",
-  specialist_consulted: "Specialist consulted",
-  artifact_created: "Artifact created",
-  artifact_sent: "Artifact sent",
-  approval_granted: "Approval granted",
-  approval_rejected: "Approval rejected",
-  experience_model_updated: "ExperienceModel updated",
+  intent_queued: "Follow-on action queued",
+  specialist_consulted: "Specialist analysis complete",
+  artifact_created: "Doc created",
+  artifact_sent: "Doc sent",
+  approval_granted: "Approval recorded",
+  approval_rejected: "Rejected",
+  experience_model_updated: "Experience profile updated",
+};
+
+// Human-readable intent status labels.
+const INTENT_STATUS_LABELS: Record<string, string> = {
+  in_progress: "in progress",
+  awaiting_approval: "awaiting your review",
+  completed: "complete",
+  cancelled: "cancelled",
+  failed: "failed",
 };
 
 // Per-type Drive/Gmail/Calendar URL builders for artifact entries
@@ -280,19 +289,19 @@ function deriveChainStatus(data: IntentChainDto): {
   if (hasArtifactSent) return { badgeLabel: "delivered", badgeClass: "border-emerald-500/60 text-emerald-200 bg-emerald-500/10", flow: null };
   if (hasArtifact)
     return {
-      badgeLabel: "draft ready",
-      badgeClass: "border-sky-500/60 text-sky-200 bg-sky-500/10",
-      flow: hasConsultation ? "Specialist drafted — awaiting your review" : null,
+      badgeLabel: "awaiting review",
+      badgeClass: "border-amber-500/60 text-amber-200 bg-amber-500/10",
+      flow: hasConsultation ? "Specialist doc ready — open it, review, then approve below" : null,
     };
   if (hasConsultation)
     return {
-      badgeLabel: "consulted",
+      badgeLabel: "analysis complete",
       badgeClass: "border-sky-500/60 text-sky-200 bg-sky-500/10",
-      flow: "Specialist consulted — output recorded in this intent",
+      flow: "Specialist analysis recorded — see doc and recommendations below",
     };
   if (hasInvoke)
     return {
-      badgeLabel: "invoked",
+      badgeLabel: "specialist working",
       badgeClass: "border-amber-500/60 text-amber-200 bg-amber-500/10",
       flow: "Specialist invoked — awaiting response",
     };
@@ -381,10 +390,29 @@ function ChainTimeline({
   // Merge orchestration events + activity receipts into one chronological
   // timeline. Receipts carry the human-readable consultation summary +
   // artifact references; events carry the spine attribution.
+  //
+  // Secondary sort key ensures artifact_created always appears before
+  // intent_queued chips even if sub-second timestamps are equal — this
+  // gives the natural reading order: analysis → doc → follow-on actions.
+  const TYPE_ORDER: Record<string, number> = {
+    specialist_consulted: 0,
+    artifact_created: 1,
+    artifact_sent: 2,
+    approval_granted: 3,
+    approval_rejected: 3,
+    intent_queued: 10,
+    session_completed: 20,
+  };
   const merged: UnifiedRow[] = [
     ...events.map<UnifiedRow>((e) => ({ key: `e:${e.eventId}`, recordedAt: e.recordedAt, kind: "event", event: e })),
     ...receipts.map<UnifiedRow>((r) => ({ key: `r:${r.receiptId}`, recordedAt: r.createdAt, kind: "receipt", receipt: r })),
-  ].sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt));
+  ].sort((a, b) => {
+    const tDiff = Date.parse(a.recordedAt) - Date.parse(b.recordedAt);
+    if (tDiff !== 0) return tDiff;
+    const aType = a.kind === "receipt" ? (a.receipt?.actionType ?? "") : "";
+    const bType = b.kind === "receipt" ? (b.receipt?.actionType ?? "") : "";
+    return (TYPE_ORDER[aType] ?? 5) - (TYPE_ORDER[bType] ?? 5);
+  });
 
   return (
     <div className="space-y-3">
@@ -407,7 +435,7 @@ function ChainTimeline({
           )}
           {intentStatus && (
             <span className={`ml-auto text-[10px] uppercase tracking-wider ${mutedClass}`}>
-              intent: {intentStatus.replace(/_/g, " ")}
+              {INTENT_STATUS_LABELS[intentStatus] ?? intentStatus.replace(/_/g, " ")}
             </span>
           )}
         </div>
@@ -472,6 +500,7 @@ function ChainTimeline({
                 isDark={isDark}
                 parentIntentId={intentId}
                 isTerminal={isTerminal}
+                alreadyApproved={alreadyApproved}
                 isRecommendationQueued={isRecommendationQueued}
                 childByName={childByName}
                 onChildSpawned={onAdvanced}
@@ -854,23 +883,28 @@ function ChildIntentActionRow({
 }
 
 /**
- * Approve & complete — lives ON the artifact_created receipt row.
- * Closes the loop the operator follows: open the doc, review it, come
- * back, approve it here, capsule turns fully green. Hits the same
- * /api/assistant/intent-advance(complete) endpoint as the chain-header
- * Mark complete button so receipts + intent status stay in sync.
+ * Approve doc — lives ON the artifact_created receipt row.
+ * Records approval of the specialist's doc via intent-advance(approve).
+ * Does NOT close/complete the parent intent — the operator can still
+ * queue follow-on actions from the recommendations after approving the doc.
+ * Use the "Mark complete" button in the chain header to explicitly close.
  */
 function ArtifactApproveButton({
   intentId,
   isDark,
+  alreadyApproved,
   onApproved,
 }: {
   intentId: string;
   isDark: boolean;
+  alreadyApproved: boolean;
   onApproved?: () => void;
 }) {
   const [pending, setPending] = React.useState(false);
+  const [localApproved, setLocalApproved] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const isApproved = alreadyApproved || localApproved;
 
   const fire = async () => {
     setPending(true);
@@ -880,12 +914,13 @@ function ArtifactApproveButton({
       const res = await personaFetch("/api/assistant/intent-advance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intentId, action: "complete" }),
+        body: JSON.stringify({ intentId, action: "approve" }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.detail || body?.error || `complete failed (${res.status})`);
+        throw new Error(body?.detail || body?.error || `approve failed (${res.status})`);
       }
+      setLocalApproved(true);
       onApproved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -893,6 +928,18 @@ function ArtifactApproveButton({
       setPending(false);
     }
   };
+
+  if (isApproved) {
+    return (
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] ${
+        isDark
+          ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200"
+          : "border-emerald-400 bg-emerald-50 text-emerald-700"
+      }`}>
+        <CheckCircle2 className="w-2.5 h-2.5" /> Doc approved
+      </span>
+    );
+  }
 
   return (
     <>
@@ -908,14 +955,14 @@ function ArtifactApproveButton({
             ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
             : "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
         }`}
-        title="Approve this artifact and mark the intent complete"
+        title="Approve this doc — the intent stays open so you can still queue follow-on actions"
       >
         {pending ? (
           <Loader2 className="w-2.5 h-2.5 animate-spin" />
         ) : (
           <CheckCircle2 className="w-2.5 h-2.5" />
         )}
-        {pending ? "Approving…" : "Approve & complete"}
+        {pending ? "Approving…" : "Approve doc"}
       </button>
       {error && (
         <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
@@ -980,6 +1027,7 @@ function ReceiptRow({
   isDark,
   parentIntentId,
   isTerminal,
+  alreadyApproved,
   isRecommendationQueued,
   childByName,
   onChildSpawned,
@@ -988,6 +1036,7 @@ function ReceiptRow({
   isDark: boolean;
   parentIntentId?: string;
   isTerminal: boolean;
+  alreadyApproved: boolean;
   isRecommendationQueued: (rec: string) => boolean;
   childByName?: Map<string, ChildIntentSummaryDto>;
   onChildSpawned?: () => void;
@@ -997,6 +1046,7 @@ function ReceiptRow({
   const [bodyOpen, setBodyOpen] = React.useState(r.actionType === "specialist_consulted");
   const label = ACTION_LABELS[r.actionType] ?? r.actionType.replace(/_/g, " ");
   const spec = specialistFromReceipt(r);
+  const specDisplay = spec ? specialistDisplay(spec) : null;
   const hasBody = !!r.specialistResponse;
 
   // For intent_queued rows: resolve the matching child intent by name.
@@ -1064,8 +1114,15 @@ function ReceiptRow({
             }`}
           >
             <ChevronDown className={`w-3 h-3 transition-transform ${bodyOpen ? "rotate-180" : ""}`} />
-            {bodyOpen ? "Hide specialist response" : "Show specialist response"}
+            {bodyOpen
+              ? "Hide recommendations"
+              : `Show ${specDisplay ? `${specDisplay}'s` : "specialist"} further recommendations`}
           </button>
+        )}
+        {hasBody && !bodyOpen && (
+          <p className={`text-[10px] mt-0.5 ${mutedClass}`}>
+            Select recommendations to queue as follow-on actions
+          </p>
         )}
         {bodyOpen && r.specialistResponse && (
           <div className={`mt-1.5 rounded-md border p-2 space-y-1.5 ${isDark ? "border-slate-700/60 bg-slate-950/40" : "border-slate-200 bg-white"}`}>
@@ -1073,20 +1130,25 @@ function ReceiptRow({
               {r.specialistResponse.summary}
             </p>
             {r.specialistResponse.recommendations.length > 0 && (
-              <ul className="space-y-1">
-                {r.specialistResponse.recommendations.map((rec, i) => (
-                  <RecommendationItem
-                    key={i}
-                    recommendation={rec}
-                    parentIntentId={parentIntentId ?? null}
-                    parentSpecialist={specialistFromReceipt(r)}
-                    isDark={isDark}
-                    isTerminal={isTerminal}
-                    alreadyQueued={isRecommendationQueued(rec)}
-                    onSpawned={onChildSpawned}
-                  />
-                ))}
-              </ul>
+              <>
+                <p className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+                  Follow-on actions — select to queue
+                </p>
+                <ul className="space-y-1">
+                  {r.specialistResponse.recommendations.map((rec, i) => (
+                    <RecommendationItem
+                      key={i}
+                      recommendation={rec}
+                      parentIntentId={parentIntentId ?? null}
+                      parentSpecialist={specialistFromReceipt(r)}
+                      isDark={isDark}
+                      isTerminal={isTerminal}
+                      alreadyQueued={isRecommendationQueued(rec)}
+                      onSpawned={onChildSpawned}
+                    />
+                  ))}
+                </ul>
+              </>
             )}
             {r.specialistResponse.suggestedArtifacts.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -1114,6 +1176,11 @@ function ReceiptRow({
             isDark={isDark}
             onActioned={onChildSpawned}
           />
+        )}
+        {r.actionType === "artifact_created" && !alreadyApproved && !isTerminal && (
+          <p className={`text-[10px] mt-1 ${mutedClass}`}>
+            Open the doc to review, then approve it above. The intent stays open — you can still queue follow-on actions from the recommendations.
+          </p>
         )}
         {r.artifactsCreated.length > 0 && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -1153,6 +1220,7 @@ function ReceiptRow({
               <ArtifactApproveButton
                 intentId={parentIntentId}
                 isDark={isDark}
+                alreadyApproved={alreadyApproved}
                 onApproved={onChildSpawned}
               />
             )}
