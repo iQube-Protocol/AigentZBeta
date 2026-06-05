@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-05T02:11:10.025Z",
+  "last_updated": "2026-06-05T18:03:30.532Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1d0f4c092eedf69d3cd8d930d709b49f0d641f33",
-  "latest_commit_short": "1d0f4c0",
-  "latest_commit_title": "feat(chain): auto-consult specialist on Queue — close the recursion loop",
+  "latest_commit": "337282fcbd7c1c5a6ca12d3a2f35c9aaff943ce1",
+  "latest_commit_short": "337282f",
+  "latest_commit_title": "add capsule containment golden rule to CLAUDE.md",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "337282f",
+      "full_sha": "337282fcbd7c1c5a6ca12d3a2f35c9aaff943ce1",
+      "title": "add capsule containment golden rule to CLAUDE.md",
+      "author": "Claude",
+      "timestamp": "2026-06-05T18:01:33Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-337282f.md"
+    },
     {
       "sha": "1d0f4c0",
       "full_sha": "1d0f4c092eedf69d3cd8d930d709b49f0d641f33",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T14:10:00Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f9cfb44.md"
-    },
-    {
-      "sha": "d8ea55d",
-      "full_sha": "d8ea55d3bf40b9c240ded9e464c4066b88ca3dcf",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T14:10:00Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d8ea55d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
