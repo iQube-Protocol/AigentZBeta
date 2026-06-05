@@ -2054,3 +2054,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-337282f.md](../build_/COMMITS/COMMIT-337282f.md)
 - Message: add capsule containment golden rule to CLAUDE.md
+
+## Commit `d314131` — 2026-06-05T18:14:15Z
+- Type: `fix`
+- Brief: [COMMIT-d314131.md](../build_/COMMITS/COMMIT-d314131.md)
+- Message: document capsule containment infraction pattern + fix in CLAUDE.md
