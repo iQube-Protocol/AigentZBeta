@@ -69,13 +69,13 @@ function intentStatusToStage(status: ActiveIntent['status']): IntentStage {
     case 'awaiting_approval': return 'specialist_consulted';
     case 'completed': return 'complete';
     case 'failed':
-    case 'cancelled': return 'complete';
+    case 'cancelled': return 'cancelled';
     default: return 'cta_issued';
   }
 }
 
 export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
-  const [activeSubTab, setActiveSubTab] = useState<WorkspaceSubTab>('drafts');
+  const [activeSubTab, setActiveSubTab] = useState<WorkspaceSubTab>('intents');
   const [intentsPage, setIntentsPage] = useState(0);
   const [uploadsPage, setUploadsPage] = useState(0);
   // When the operator hits "+ New", switch to drafts and tag a
@@ -256,7 +256,8 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
                         createdAt={i.createdAt}
                         currentStage={intentStatusToStage(i.status)}
                         isDark={theme !== 'light'}
-                        defaultCollapsed={false}
+                        defaultCollapsed={true}
+                        persistKey={`workspace:${i.intentId}`}
                         onExpandChange={(expanded) => {
                           if (expanded) requestChain(i.intentId);
                         }}
