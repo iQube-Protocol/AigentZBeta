@@ -27,13 +27,17 @@ interface ActivityReceipt {
   sessionId: string | null;
   intentId: string | null;
   /**
-   * Parent intentId when the receipt's intent is a child spawned from
-   * another intent's recommendation. Receipts API enriches this so
-   * child receipts can fold under the parent capsule instead of
-   * spawning an orphan top-level capsule. Required by the Content
-   * Capsule Containment golden rule (CLAUDE.md).
+   * Direct parent intentId when the receipt's intent is a child.
+   * Set by the receipts API enrichment.
    */
   parentIntentId?: string | null;
+  /**
+   * Root ancestor intentId — the origin intent at the top of the chain.
+   * Set by the receipts API enrichment. Used for grouping so grandchild
+   * receipts fold into the root capsule (Content Capsule Containment,
+   * CLAUDE.md).
+   */
+  rootIntentId?: string | null;
   activeCartridge: string;
   actionType: string;
   summary: string;
@@ -156,16 +160,16 @@ export function MyLedgerTab({ personaId }: Props) {
   }, [receipts, activeChip]);
 
   // Group receipts by EFFECTIVE intentId — `parentIntentId` when the
-  // receipt's intent is a child spawned from a recommendation, else
-  // `intentId`. This rolls every child intent's receipts up into the
-  // parent capsule so approvals/artifacts on child intents flip state
-  // inside the parent (Content Capsule Containment golden rule, CLAUDE.md)
-  // rather than spawning a new orphan top-level capsule.
+  // Group receipts by their ROOT ancestor intentId so all three
+  // generations (origin → child → grandchild) fold into one capsule.
+  // rootIntentId (set by the receipts API 2-level walk) takes priority;
+  // falls back to parentIntentId (child) then intentId (root receipt).
+  // Content Capsule Containment golden rule — CLAUDE.md.
   const { intentGroups, standalone } = useMemo(() => {
     const byIntent = new Map<string, ActivityReceipt[]>();
     const solo: ActivityReceipt[] = [];
     for (const r of filtered) {
-      const groupKey = r.parentIntentId || r.intentId;
+      const groupKey = r.rootIntentId || r.parentIntentId || r.intentId;
       if (groupKey) {
         const arr = byIntent.get(groupKey) ?? [];
         arr.push(r);
@@ -252,6 +256,7 @@ export function MyLedgerTab({ personaId }: Props) {
                   isDark={true}
                   defaultCollapsed={true}
                   persistKey={`ledger:${group.intentId}`}
+                  generationLabel="Origin"
                   onExpandChange={(expanded) => {
                     if (expanded) requestChain(group.intentId);
                   }}

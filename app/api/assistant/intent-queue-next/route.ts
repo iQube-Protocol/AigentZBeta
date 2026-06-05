@@ -106,6 +106,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
+  // Depth guard — max 3 generations: origin (0) → child (1) → grandchild (2).
+  // If the parent is already a grandchild (depth 2), spawning from it would
+  // create depth 3. Walk up at most 2 levels via getIntentQube to check.
+  if (parent.parentIntentId) {
+    // parent is at least depth 1 (child). Check if it is itself a child (depth 2).
+    const grandparent = await getIntentQube(parent.parentIntentId);
+    if (grandparent?.parentIntentId) {
+      // parent is depth 2 (grandchild); spawning would reach depth 3.
+      return NextResponse.json(
+        {
+          error: 'max-depth-reached',
+          message:
+            'Max 3 generations allowed (origin → child → grandchild). ' +
+            'Start a new origin intent chain instead of branching deeper.',
+          parentDepth: 2,
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   // Resolve target specialist. If caller supplied one, validate.
   // Otherwise inherit from parent's first non-aigent-me target.
   let specialist: SpecialistAgentId | null = null;

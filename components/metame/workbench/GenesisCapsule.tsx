@@ -147,6 +147,11 @@ export interface GenesisCapsuleProps {
   persistKey?: string;
   onExpandChange?: (expanded: boolean) => void;
   children: React.ReactNode;
+  /**
+   * Provenance generation label shown as a small chip in the header.
+   * Typical values: "Origin", "Child", "Grandchild".
+   */
+  generationLabel?: string;
 }
 
 export function GenesisCapsule({
@@ -159,6 +164,7 @@ export function GenesisCapsule({
   persistKey,
   onExpandChange,
   children,
+  generationLabel,
 }: GenesisCapsuleProps) {
   const [collapsed, setCollapsed] = React.useState(() => {
     if (persistKey && typeof window !== "undefined") {
@@ -222,6 +228,15 @@ export function GenesisCapsule({
             <span className={`text-xs font-medium truncate ${labelClass}`}>
               {label}
             </span>
+            {generationLabel && (
+              <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border flex-shrink-0 ${
+                isDark
+                  ? 'border-slate-600/60 text-slate-400 bg-slate-800/40'
+                  : 'border-slate-200 text-slate-500 bg-slate-50'
+              }`}>
+                {generationLabel}
+              </span>
+            )}
             {cartridge && (
               <span className={`text-[10px] uppercase tracking-wider ${metaClass}`}>
                 {cartridge}

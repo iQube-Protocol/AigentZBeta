@@ -66,6 +66,8 @@ export interface ChildIntentSummaryDto {
   intentId: string;
   intentName: string;
   status: string;
+  /** Generation depth relative to the root intent: 1 = child, 2 = grandchild. */
+  depth?: number;
 }
 
 export interface IntentChainDto {
@@ -845,9 +847,16 @@ function ChildIntentActionRow({
   const isTerminal = isApproved || isCancelled;
 
   const baseBtn = "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] transition disabled:opacity-50 disabled:cursor-not-allowed";
+  const generationLabel = child.depth === 2 ? "Grandchild" : "Child";
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1.5">
+      {/* Provenance generation badge */}
+      <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+        isDark ? "border-slate-600/60 text-slate-500 bg-slate-800/30" : "border-slate-200 text-slate-400 bg-slate-50"
+      }`}>
+        {generationLabel}
+      </span>
       {isApproved && (
         <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] ${
           isDark ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-emerald-400 bg-emerald-50 text-emerald-700"

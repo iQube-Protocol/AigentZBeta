@@ -78,6 +78,8 @@ interface ChildIntentSummary {
   intentId: string;
   intentName: string;
   status: string;
+  /** Generation depth relative to the queried root: 1 = child, 2 = grandchild */
+  depth: number;
 }
 
 interface IntentChainResponse {
@@ -129,6 +131,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Also fetch child intents spawned from this parent's recommendations.
   // Both queries are bounded; most intents have <20 events / receipts.
   const childIntentRecords = await getChildIntents(intentId, persona.personaId).catch(() => []);
+  // Fetch grandchildren (depth 2) so all 3 generations are visible in the chain panel.
+  const grandchildRecords = (
+    await Promise.all(
+      childIntentRecords.map((c) => getChildIntents(c.id, persona.personaId).catch(() => [])),
+    )
+  ).flat();
+
   const [eventsRes, receiptsRes] = await Promise.all([
     sb
       .from('orchestration_events')
@@ -216,11 +225,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const childIntents: ChildIntentSummary[] = childIntentRecords.map((c) => ({
-    intentId: c.id,
-    intentName: c.intentName,
-    status: c.status,
-  }));
+  const childIntents: ChildIntentSummary[] = [
+    ...childIntentRecords.map((c) => ({
+      intentId: c.id,
+      intentName: c.intentName,
+      status: c.status,
+      depth: 1,
+    })),
+    ...grandchildRecords.map((c) => ({
+      intentId: c.id,
+      intentName: c.intentName,
+      status: c.status,
+      depth: 2,
+    })),
+  ];
 
   const body: IntentChainResponse = {
     intent: {

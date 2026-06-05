@@ -53,10 +53,17 @@ export interface ActivityReceiptRecord {
   intentId: string | null;
   /**
    * When the receipt's intent is a child spawned from another intent's
-   * recommendation, this is the parent's intentId. Set by the receipts
-   * API after enrichment; null for receipts on root intents.
+   * recommendation, this is the direct parent's intentId. Set by the
+   * receipts API after enrichment; null for receipts on root intents.
    */
   parentIntentId?: string | null;
+  /**
+   * The root ancestor's intentId — the origin intent at the top of the
+   * generation chain (grandparent of grandchildren, parent of children,
+   * self for roots). Used by myLedger to fold all generations into one
+   * capsule. Set by the receipts API enrichment; null for root receipts.
+   */
+  rootIntentId?: string | null;
   activeCartridge: string;
   actionType: ActivityActionType;
   summary: string;

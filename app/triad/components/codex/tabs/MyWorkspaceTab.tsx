@@ -284,6 +284,7 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
                         isDark={theme !== 'light'}
                         defaultCollapsed={true}
                         persistKey={`workspace:${i.intentId}`}
+                        generationLabel="Origin"
                         onExpandChange={(expanded) => {
                           if (expanded) requestChain(i.intentId);
                         }}
