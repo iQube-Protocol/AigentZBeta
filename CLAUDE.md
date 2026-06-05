@@ -506,9 +506,43 @@ If a downstream action genuinely cannot be rendered inside the originating capsu
 - Queuing a specialist recommendation → a second `specialist_consulted` card appears at the top level of myLedger. **Wrong.**
 - Marking a child intent complete → a new standalone receipt card renders in the myWorkspace active intents list alongside the parent. **Wrong.**
 
-### Why this rule exists
+### Canonical infraction pattern — and how it was fixed (2026-06-05)
 
-The 2026-06-05 session demonstrated the failure mode: the inline chip Approve button was firing `intent-advance` on the child intent, which created a new `approval_granted` activity receipt at the top level (because the receipt's `intentId` matched the child, not the parent). The operator saw a new capsule appear in myLedger instead of the chip turning green. The fix: approval actions on child chips must update state in-place (optimistic local state + refetch of the parent chain) and the newly created receipt must be scoped to the child intent's own chain, not surfaced as a new top-level entry.
+**The infraction:** Per-chip Approve/Reject buttons were added to `intent_queued` rows in `IntentChainPanel`. Each button called `intent-advance(approve)` on the CHILD intentId. `intent-advance` creates an `approval_granted` activity receipt scoped to that child intentId. The `/api/assistant/receipts` endpoint returned ALL receipts for the persona, and `MyLedgerTab` grouped them by `intentId`. Since the new `approval_granted` receipt carried the CHILD intentId (not the parent's), it landed in its own group → a brand new capsule appeared at the top of myLedger while the parent capsule's chip stayed violet.
+
+**What the operator saw:** They clicked Approve on a chip inside an open capsule. The chip stayed violet. A new emerald capsule labelled "Approved: Create visual aids..." appeared at the top of myLedger outside the originating capsule.
+
+**The fix — three parts working together:**
+
+1. **`/api/assistant/receipts`** — enriches every receipt with `parentIntentId` by batch-looking up each intent's `nbe_plans` rationale in one query (the `parentIntentId` is packed into the rationale JSON by `createIntentQube`).
+
+2. **`MyLedgerTab` grouping** — groups receipts by `parentIntentId || intentId` instead of just `intentId`. Child receipt with `parentIntentId = "abc"` now folds into the `"abc"` capsule group, not a new group for the child's own id.
+
+3. **`/api/assistant/workbench-ledger`** — filters `pillEntries` to root intents only (`!p.parentIntentId`) so child intents don't also appear as standalone Active Intents pills in myWorkspace. Child artifact receipts roll up to the parent pill via a `parentByChild` map.
+
+**The pattern to follow for any future action that operates on a child intent:**
+
+```
+// ✅ CORRECT — child action folds into parent capsule
+// 1. Action fires on child intentId (correct — targets the right DB row)
+// 2. The receipt created by that action carries the child's intentId
+// 3. /api/assistant/receipts enriches the receipt with parentIntentId
+// 4. MyLedgerTab groups by parentIntentId → receipt renders inside parent capsule
+// 5. Chip updates optimistically in-place via ChildIntentActionRow local state
+
+// ❌ WRONG — the bug pattern
+// 1. Action fires on child intentId ← same
+// 2. Receipt carries child intentId ← same
+// 3. No enrichment → no parentIntentId on the receipt
+// 4. MyLedgerTab groups by intentId → new standalone capsule spawned
+// 5. Parent capsule chip stays unchanged; operator sees orphan output
+```
+
+**Files that implement the fix:**
+- `app/api/assistant/receipts/route.ts` — `enrichWithParentIntentIds()` helper
+- `app/triad/components/codex/tabs/MyLedgerTab.tsx` — `groupKey = r.parentIntentId || r.intentId`
+- `app/api/assistant/workbench-ledger/route.ts` — `rootIntents` filter + `parentByChild` artifact rollup
+- `components/metame/workbench/IntentChainPanel.tsx` — `ChildIntentActionRow` optimistic in-place flip
 
 ---
 
