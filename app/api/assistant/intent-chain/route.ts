@@ -64,6 +64,8 @@ interface AttachedSpecialistResponse {
 
 interface AttachedReceipt {
   receiptId: string;
+  /** intentId this receipt was filed against — root or a child/grandchild intent */
+  intentId: string;
   actionType: string;
   summary: string;
   agentsInvoked: string[];
@@ -138,6 +140,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     )
   ).flat();
 
+  // Collect all intentIds to query — root + every child/grandchild so their
+  // artifacts and specialist receipts appear in the unified timeline.
+  const allIntentIds = [
+    intentId,
+    ...childIntentRecords.map((c) => c.id),
+    ...grandchildRecords.map((c) => c.id),
+  ];
+
   const [eventsRes, receiptsRes] = await Promise.all([
     sb
       .from('orchestration_events')
@@ -150,9 +160,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     sb
       .from('activity_receipts')
       .select(
-        'id, action_type, summary, agents_invoked, tools_used, artifacts_created, receipt_status, specialist_response, created_at',
+        'id, intent_id, action_type, summary, agents_invoked, tools_used, artifacts_created, receipt_status, specialist_response, created_at',
       )
-      .eq('intent_id', intentId)
+      .in('intent_id', allIntentIds)
       .eq('persona_id', persona.personaId)
       .order('created_at', { ascending: true })
       .limit(200),
@@ -181,6 +191,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Treat error as empty rather than failing the whole expand.
   const receipts: AttachedReceipt[] = (receiptsRes.error ? [] : receiptsRes.data ?? []).map((r) => ({
     receiptId: String(r.id),
+    intentId: String(r.intent_id),
     actionType: String(r.action_type),
     summary: String(r.summary ?? ''),
     agentsInvoked: Array.isArray(r.agents_invoked) ? (r.agents_invoked as string[]) : [],

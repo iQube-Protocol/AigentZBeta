@@ -52,6 +52,8 @@ export interface AttachedSpecialistResponseDto {
 
 export interface AttachedReceiptDto {
   receiptId: string;
+  /** intentId the receipt was filed against — present for child/grandchild receipts */
+  intentId?: string;
   actionType: string;
   summary: string;
   agentsInvoked: string[];
@@ -343,6 +345,16 @@ function ChainTimeline({
     return m;
   }, [childIntents]);
 
+  // Map child intent id → child intent summary so ReceiptRow can look up
+  // provenance info for receipts that belong to child/grandchild intents.
+  const childIntentsById = React.useMemo(() => {
+    const m = new Map<string, ChildIntentSummaryDto>();
+    for (const c of childIntents) {
+      m.set(c.intentId, c);
+    }
+    return m;
+  }, [childIntents]);
+
   // Terminal state — resolves from explicit intentStatus prop first,
   // falls back to data.intent.status when the chain endpoint surfaced
   // it, then derives from receipts (session_completed / approval_rejected
@@ -520,6 +532,7 @@ function ChainTimeline({
                 alreadyApproved={alreadyApproved}
                 isRecommendationQueued={isRecommendationQueued}
                 childByName={childByName}
+                childIntentsById={childIntentsById}
                 onChildSpawned={onAdvanced}
               />
             );
@@ -1054,6 +1067,7 @@ function ReceiptRow({
   alreadyApproved,
   isRecommendationQueued,
   childByName,
+  childIntentsById,
   onChildSpawned,
 }: {
   r: AttachedReceiptDto;
@@ -1063,9 +1077,22 @@ function ReceiptRow({
   alreadyApproved: boolean;
   isRecommendationQueued: (rec: string) => boolean;
   childByName?: Map<string, ChildIntentSummaryDto>;
+  childIntentsById?: Map<string, ChildIntentSummaryDto>;
   onChildSpawned?: () => void;
 }) {
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
+
+  // Determine whether this receipt belongs to a child/grandchild intent.
+  // When present, use the receipt's own intentId for approval actions and
+  // derive terminal state from the child intent's status rather than the root.
+  const ownerChild = r.intentId && childIntentsById ? childIntentsById.get(r.intentId) : undefined;
+  const isChildReceipt = !!ownerChild;
+  // For child/grandchild receipts, terminal = the child intent itself is done.
+  const isReceiptTerminal = ownerChild
+    ? ['completed', 'cancelled', 'failed'].includes(ownerChild.status)
+    : isTerminal;
+  // intentId to target for approval/action on THIS receipt's row.
+  const receiptIntentId = r.intentId ?? parentIntentId;
   // Auto-expand specialist responses so recommendations are visible without an extra click.
   const [bodyOpen, setBodyOpen] = React.useState(r.actionType === "specialist_consulted");
   const label = ACTION_LABELS[r.actionType] ?? r.actionType.replace(/_/g, " ");
@@ -1110,6 +1137,13 @@ function ReceiptRow({
             <span className={mutedClass}>· Aigent Z → {specialistDisplay(spec)}</span>
           )}
           <span className={`text-[10px] uppercase tracking-wider ${isDark ? "text-emerald-300/80" : "text-emerald-700/80"}`}>· receipt</span>
+          {isChildReceipt && ownerChild && (
+            <span className={`text-[9px] uppercase tracking-wider px-1 py-0.5 rounded border ${
+              isDark ? "border-slate-700/60 text-slate-500 bg-transparent" : "border-slate-200 text-slate-400"
+            }`}>
+              {ownerChild.depth === 2 ? "grandchild" : "child"} intent
+            </span>
+          )}
           {r.specialistResponse?.source && (
             <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
               · {r.specialistResponse.source}
@@ -1163,10 +1197,10 @@ function ReceiptRow({
                     <RecommendationItem
                       key={i}
                       recommendation={rec}
-                      parentIntentId={parentIntentId ?? null}
+                      parentIntentId={receiptIntentId ?? null}
                       parentSpecialist={specialistFromReceipt(r)}
                       isDark={isDark}
-                      isTerminal={isTerminal}
+                      isTerminal={isReceiptTerminal}
                       alreadyQueued={isRecommendationQueued(rec)}
                       onSpawned={onChildSpawned}
                     />
@@ -1194,14 +1228,14 @@ function ReceiptRow({
           </div>
         )}
         {/* Per-chip approve/reject for queued child intents */}
-        {r.actionType === "intent_queued" && childIntent && !isTerminal && (
+        {r.actionType === "intent_queued" && childIntent && !isReceiptTerminal && (
           <ChildIntentActionRow
             child={childIntent}
             isDark={isDark}
             onActioned={onChildSpawned}
           />
         )}
-        {r.actionType === "artifact_created" && !alreadyApproved && !isTerminal && (
+        {r.actionType === "artifact_created" && !alreadyApproved && !isReceiptTerminal && !isChildReceipt && (
           <p className={`text-[10px] mt-1 ${mutedClass}`}>
             Open the doc to review, then approve it above. The intent stays open — you can still queue follow-on actions from the recommendations.
           </p>
@@ -1240,9 +1274,9 @@ function ReceiptRow({
                 </span>
               );
             })}
-            {r.actionType === "artifact_created" && parentIntentId && !isTerminal && (
+            {r.actionType === "artifact_created" && receiptIntentId && !isReceiptTerminal && (
               <ArtifactApproveButton
-                intentId={parentIntentId}
+                intentId={receiptIntentId}
                 isDark={isDark}
                 alreadyApproved={alreadyApproved}
                 onApproved={onChildSpawned}
