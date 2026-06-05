@@ -2064,3 +2064,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-46d4eeb.md](../build_/COMMITS/COMMIT-46d4eeb.md)
 - Message: improve chain panel legibility: copy, doc approval decoupling, timeline ordering
+
+## Commit `403c789` — 2026-06-05T22:04:04Z
+- Type: `fix`
+- Brief: [COMMIT-403c789.md](../build_/COMMITS/COMMIT-403c789.md)
+- Message: fix chain timeline ordering: doc before analysis, original queue before specialist
