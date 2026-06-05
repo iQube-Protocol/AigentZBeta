@@ -20,11 +20,9 @@ import {
   ChevronDown,
   Copy,
   Check,
-  CheckCircle2,
   ExternalLink,
   Link2,
   Loader2,
-  PlusCircle,
 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { IntentChainPanel, type IntentChainDto } from "@/components/metame/workbench/IntentChainPanel";
@@ -252,80 +250,9 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           id={`receipt-${data.id}-json`}
           className="space-y-2 mt-2"
         >
-          {/* (1) Specialist response body — when present. */}
-          {data.specialistResponse && (
-            <div
-              className={`rounded-md border p-3 space-y-1.5 ${
-                isDark ? "border-slate-700/60 bg-slate-900/60" : "border-slate-200 bg-slate-50"
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
-                  Specialist response
-                </span>
-                <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
-                  · {data.specialistResponse.source}
-                </span>
-                <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
-                  · {data.specialistResponse.confidence} confidence
-                </span>
-              </div>
-              <p className={`text-xs leading-snug ${isDark ? "text-slate-100" : "text-slate-900"} font-medium`}>
-                {data.specialistResponse.title}
-              </p>
-              <p className={`text-[11px] leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                {data.specialistResponse.summary}
-              </p>
-              {data.specialistResponse.recommendations.length > 0 && data.intentId && (
-                <ul className="space-y-1 pt-1">
-                  {data.specialistResponse.recommendations.map((rec, i) => (
-                    <RecommendationItemCard
-                      key={i}
-                      recommendation={rec}
-                      parentIntentId={data.intentId!}
-                      parentSpecialist={
-                        data.agentsInvoked.find((a) => a !== "aigent-me") ?? null
-                      }
-                      isDark={isDark}
-                      onSpawned={fetchChain}
-                    />
-                  ))}
-                </ul>
-              )}
-              {data.specialistResponse.recommendations.length > 0 && !data.intentId && (
-                // No intent_id on this receipt — can't spawn children
-                // (every child needs a parent). Render as plain bullets.
-                <ul className="list-disc pl-4 space-y-0.5">
-                  {data.specialistResponse.recommendations.map((rec, i) => (
-                    <li key={i} className={`text-[11px] leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                      {rec}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {data.specialistResponse.suggestedArtifacts.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>Suggested</span>
-                  {data.specialistResponse.suggestedArtifacts.map((a, i) => (
-                    <span
-                      key={i}
-                      className={`px-1.5 py-0.5 rounded border text-[10px] ${
-                        isDark
-                          ? "border-slate-700 bg-slate-800/60 text-slate-300"
-                          : "border-slate-200 bg-white text-slate-700"
-                      }`}
-                    >
-                      {a}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* (2) Chain of intent — lazy-fetched from /api/assistant/intent-chain
-              when this receipt is intent-attached. Shows the same merged
-              orchestration+receipts timeline as the workspace pill expand. */}
+          {/* (1) Chain of intent — lazy-fetched from /api/assistant/intent-chain.
+              Specialist response body + Queue buttons live inside the chain
+              timeline's ReceiptRow, not duplicated here. */}
           {data.intentId && (
             <div
               className={`rounded-md border overflow-hidden ${
@@ -355,7 +282,7 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
             </div>
           )}
 
-          {/* (3) Raw JSON — collapsed by default, toggled via Show JSON. */}
+          {/* (2) Raw JSON — collapsed by default, toggled via Show JSON. */}
           <div
             className={`rounded-md border ${
               isDark ? "border-slate-800/60 bg-slate-950/50" : "border-slate-200 bg-slate-50"
@@ -526,98 +453,6 @@ function ReceiptLine({ icon, label, items, chipClass, mutedClass }: ReceiptLineP
         ))}
       </div>
     </div>
-  );
-}
-
-/**
- * Per-recommendation "Queue as next action" button. Spawns a child
- * IntentQube via /api/assistant/intent-queue-next. Mirrors the
- * RecommendationItem inside IntentChainPanel so both surfaces give the
- * operator the same execution affordance.
- */
-function RecommendationItemCard({
-  recommendation,
-  parentIntentId,
-  parentSpecialist,
-  isDark,
-  onSpawned,
-}: {
-  recommendation: string;
-  parentIntentId: string;
-  parentSpecialist: string | null;
-  isDark: boolean;
-  onSpawned?: () => void | Promise<void>;
-}) {
-  const [state, setState] = useState<"idle" | "spawning" | "spawned" | "error">("idle");
-  const [errMsg, setErrMsg] = useState<string | null>(null);
-  const canSpawn = state !== "spawning" && state !== "spawned";
-
-  const queue = async () => {
-    setState("spawning");
-    setErrMsg(null);
-    try {
-      const res = await personaFetch("/api/assistant/intent-queue-next", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          parentIntentId,
-          recommendation,
-          specialist: parentSpecialist ?? undefined,
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.detail || body?.error || `queue failed (${res.status})`);
-      }
-      setState("spawned");
-      if (onSpawned) await onSpawned();
-    } catch (err) {
-      setState("error");
-      setErrMsg(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  return (
-    <li className="flex items-start gap-1.5">
-      <span className={`mt-0.5 text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>•</span>
-      <div className="flex-1 min-w-0">
-        <p className={`text-[11px] leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-          {recommendation}
-        </p>
-        <div className="mt-0.5 flex items-center gap-1.5">
-          <button
-            type="button"
-            disabled={!canSpawn}
-            onClick={(e) => {
-              e.stopPropagation();
-              void queue();
-            }}
-            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] transition disabled:opacity-50 disabled:cursor-not-allowed ${
-              state === "spawned"
-                ? isDark
-                  ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200"
-                  : "border-emerald-400 bg-emerald-50 text-emerald-700"
-                : isDark
-                  ? "border-violet-500/50 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
-                  : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100"
-            }`}
-            title="Spawn a child intent for this action — appears in Active Intents"
-          >
-            {state === "spawning" ? (
-              <Loader2 className="w-2.5 h-2.5 animate-spin" />
-            ) : state === "spawned" ? (
-              <CheckCircle2 className="w-2.5 h-2.5" />
-            ) : (
-              <PlusCircle className="w-2.5 h-2.5" />
-            )}
-            {state === "spawned" ? "Queued" : state === "spawning" ? "Queueing…" : "Queue as next action"}
-          </button>
-          {errMsg && (
-            <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{errMsg}</span>
-          )}
-        </div>
-      </div>
-    </li>
   );
 }
 

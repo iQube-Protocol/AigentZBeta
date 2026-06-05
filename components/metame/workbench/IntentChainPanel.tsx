@@ -615,6 +615,42 @@ function ChainActionRow({
   );
 }
 
+function receiptRowColors(actionType: string, isDark: boolean): { border: string; icon: string } {
+  switch (actionType) {
+    case "specialist_consulted":
+      return {
+        border: isDark ? "border-amber-500/30 bg-amber-950/20" : "border-amber-300 bg-amber-50",
+        icon: isDark ? "text-amber-300" : "text-amber-600",
+      };
+    case "artifact_created":
+    case "artifact_sent":
+      return {
+        border: isDark ? "border-cyan-500/30 bg-cyan-950/20" : "border-cyan-300 bg-cyan-50",
+        icon: isDark ? "text-cyan-300" : "text-cyan-600",
+      };
+    case "approval_granted":
+      return {
+        border: isDark ? "border-emerald-500/30 bg-emerald-950/20" : "border-emerald-300 bg-emerald-50",
+        icon: isDark ? "text-emerald-300" : "text-emerald-600",
+      };
+    case "approval_rejected":
+      return {
+        border: isDark ? "border-rose-500/30 bg-rose-950/20" : "border-rose-300 bg-rose-50",
+        icon: isDark ? "text-rose-300" : "text-rose-600",
+      };
+    case "intent_queued":
+      return {
+        border: isDark ? "border-violet-500/20 bg-violet-950/20" : "border-violet-200 bg-violet-50",
+        icon: isDark ? "text-violet-300" : "text-violet-700",
+      };
+    default:
+      return {
+        border: isDark ? "border-slate-700/60 bg-slate-900/40" : "border-slate-200 bg-slate-50",
+        icon: isDark ? "text-violet-300" : "text-violet-700",
+      };
+  }
+}
+
 function ReceiptRow({
   r,
   isDark,
@@ -627,14 +663,16 @@ function ReceiptRow({
   onChildSpawned?: () => void;
 }) {
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
-  const [bodyOpen, setBodyOpen] = React.useState(false);
+  // Auto-expand specialist responses so recommendations are visible without an extra click.
+  const [bodyOpen, setBodyOpen] = React.useState(r.actionType === "specialist_consulted");
   const label = ACTION_LABELS[r.actionType] ?? r.actionType.replace(/_/g, " ");
   const spec = specialistFromReceipt(r);
   const hasBody = !!r.specialistResponse;
+  const colors = receiptRowColors(r.actionType, isDark);
 
   return (
-    <li className={`flex items-start gap-2 text-xs rounded-md border p-2 ${isDark ? "border-slate-700/60 bg-slate-900/40" : "border-slate-200 bg-slate-50"}`}>
-      <Sparkles className={`w-3 h-3 mt-0.5 shrink-0 ${isDark ? "text-violet-300" : "text-violet-700"}`} />
+    <li className={`flex items-start gap-2 text-xs rounded-md border p-2 ${colors.border}`}>
+      <Sparkles className={`w-3 h-3 mt-0.5 shrink-0 ${colors.icon}`} />
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={`font-medium ${isDark ? "text-slate-100" : "text-slate-900"}`}>{label}</span>
