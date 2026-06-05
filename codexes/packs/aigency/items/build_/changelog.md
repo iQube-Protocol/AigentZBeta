@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d314131`](https://github.com/iQube-Protocol/AigentZBeta/commit/d3141314c710aabb1847219f2ebf17f38a1f5b8e) [fix] document capsule containment infraction pattern + fix in CLAUDE.md (Claude, 2026-06-05T18:14:15Z)
 - [`337282f`](https://github.com/iQube-Protocol/AigentZBeta/commit/337282fcbd7c1c5a6ca12d3a2f35c9aaff943ce1) [feat] add capsule containment golden rule to CLAUDE.md (Claude, 2026-06-05T18:01:33Z)
 - [`1d0f4c0`](https://github.com/iQube-Protocol/AigentZBeta/commit/1d0f4c092eedf69d3cd8d930d709b49f0d641f33) [feat] feat(chain): auto-consult specialist on Queue — close the recursion loop (Claude, 2026-06-05T02:09:28Z)
 - [`f4d58a0`](https://github.com/iQube-Protocol/AigentZBeta/commit/f4d58a06bdf043bc8f338ae37f39ab81eeee905d) [push] trigger deploy: auto-consult on queue closes execution loop (Claude, 2026-06-05T02:09:28Z)

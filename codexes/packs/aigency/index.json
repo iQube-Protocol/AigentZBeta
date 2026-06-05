@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-05T18:03:30.532Z",
+  "last_updated": "2026-06-05T18:16:07.549Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "337282fcbd7c1c5a6ca12d3a2f35c9aaff943ce1",
-  "latest_commit_short": "337282f",
-  "latest_commit_title": "add capsule containment golden rule to CLAUDE.md",
+  "latest_commit": "d3141314c710aabb1847219f2ebf17f38a1f5b8e",
+  "latest_commit_short": "d314131",
+  "latest_commit_title": "document capsule containment infraction pattern + fix in CLAUDE.md",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d314131",
+      "full_sha": "d3141314c710aabb1847219f2ebf17f38a1f5b8e",
+      "title": "document capsule containment infraction pattern + fix in CLAUDE.md",
+      "author": "Claude",
+      "timestamp": "2026-06-05T18:14:15Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d314131.md"
+    },
     {
       "sha": "337282f",
       "full_sha": "337282fcbd7c1c5a6ca12d3a2f35c9aaff943ce1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T14:20:39Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7306936.md"
-    },
-    {
-      "sha": "f9cfb44",
-      "full_sha": "f9cfb44edb9ca2441af7d0d9ef74c41606b71dd2",
-      "title": "metaMe: Cartesia TTS primary + myCanvas two-row header + metame.com iframe tab",
-      "author": "Claude",
-      "timestamp": "2026-05-29T14:10:00Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f9cfb44.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
