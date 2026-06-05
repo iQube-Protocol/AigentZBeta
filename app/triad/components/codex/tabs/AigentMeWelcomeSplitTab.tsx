@@ -46,8 +46,6 @@ import {
   PersonaSpineGate,
 } from "@/utils/personaSpine";
 import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
-import type { SmartTriadMessage } from "@/components/smarttriad/copilot";
-import { NBE_CATALOGUE } from "@/services/orchestration/nbeCatalog";
 import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
 // RequestAdminAccessButton now mounted inside WelcomeRightPane (right-
 // pane badge carousel). Import removed when the left-strip chip
@@ -358,54 +356,6 @@ function buildPromptForNbeAction(
   return lines.join('\n');
 }
 
-/**
- * Scan recent copilot messages for NBE keyword signals. Returns the top-
- * scoring catalog entries so the left pane can surface them as executable
- * chips instead of dead text. Keeps the threshold high enough to avoid
- * spurious matches on common words.
- */
-function matchNbesFromChat(
-  messages: SmartTriadMessage[],
-  activeCartridgeSlugs: string[],
-): NextBestActionData[] {
-  const recentText = messages
-    .slice(-8)
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => (typeof m.content === 'string' ? m.content : ''))
-    .join(' ')
-    .toLowerCase();
-  if (!recentText.trim()) return [];
-
-  const cartridgeSet = new Set<string>([...activeCartridgeSlugs, 'metame', 'marketa']);
-
-  const scored = NBE_CATALOGUE.filter((c) => cartridgeSet.has(c.cartridge))
-    .map((c) => {
-      let score = 0;
-      for (const word of c.label.toLowerCase().split(/\s+/)) {
-        if (word.length > 4 && recentText.includes(word)) score += 2;
-      }
-      for (const kw of c.goalKeywords ?? []) {
-        if (kw.length > 3 && recentText.includes(kw.toLowerCase())) score += 3;
-      }
-      return { candidate: c, score };
-    })
-    .filter(({ score }) => score >= 5)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
-
-  return scored.map(({ candidate: c }) => ({
-    id: c.id,
-    label: c.label,
-    rationale: c.rationale,
-    cartridge: c.cartridge,
-    effort: c.effort,
-    impact: c.impact,
-    approvalRequired: c.approvalRequired,
-    specialist: (c.specialist as NextBestActionData['specialist']) ?? null,
-    suggestedArtifact: c.suggestedArtifact ?? null,
-  }));
-}
-
 interface Props {
   theme?: 'light' | 'dark';
   isAdmin?: boolean;
@@ -556,16 +506,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [actedNbeRegistry, setActedNbeRegistry] = useState<
     Record<string, NextBestActionData>
   >({});
-
-  // Copilot message mirror — updated via onMessagesChange. Used for two
-  // things:
-  //   1. Handoff context: last assistant message is injected into the
-  //      composer seed prompt so left-pane edits (e.g. "use Lamina 1
-  //      instead of Metayé Media") flow through to the right-pane draft.
-  //   2. NBE suggestion chips: scanned after each exchange to surface
-  //      catalog-matched quick-action chips below the copilot.
-  const copilotMessagesRef = useRef<SmartTriadMessage[]>([]);
-  const [copilotSuggestedNbes, setCopilotSuggestedNbes] = useState<NextBestActionData[]>([]);
 
   // Active Capsule template — one engaged at a time. Each Capsule
   // (Brief, Move forward, Venture progress, Ask specialists) is its
@@ -1034,18 +974,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     // Foreground layout remains as-is; the approval overlay unmounts.
   }, []);
 
-  // Copilot message change handler — wired to SmartTriadCopilotLayer's
-  // onMessagesChange. Updates the mirror ref (used for handoff context
-  // propagation) and re-derives the NBE suggestion chip strip.
-  const handleCopilotMessagesChange = useCallback(
-    (messages: SmartTriadMessage[]) => {
-      copilotMessagesRef.current = messages;
-      const slugs = (data?.availableCartridges ?? []).map((c) => c.slug);
-      setCopilotSuggestedNbes(matchNbesFromChat(messages, slugs));
-    },
-    [data],
-  );
-
   const handleApprovalApprove = useCallback(async () => {
     if (!pendingApprovalNbe) return;
     const action = pendingApprovalNbe;
@@ -1068,24 +996,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         [action.id]: { intentId: intentData.intentId, status: intentData.status, queueMessage: intentData.queueMessage },
       }));
       const handoffHint = pendingApprovalHint;
-      // Chat context from the left-pane copilot — captures any entity
-      // names or scope changes the operator typed during the session
-      // (e.g. "use Lamina 1 instead of Metayé Media"). Prefer the LLM
-      // rerank hint when it exists (it's already context-aware); fall
-      // back to the most recent copilot assistant turn so the correct
-      // target propagates to the composer draft and chain seed.
-      const copilotChatContext = (() => {
-        const msgs = copilotMessagesRef.current;
-        for (let i = msgs.length - 1; i >= 0; i--) {
-          const m = msgs[i];
-          if (m.role === 'assistant' && typeof m.content === 'string' && m.content.trim()) {
-            return m.content.trim();
-          }
-        }
-        return null;
-      })();
-      const effectiveHint =
-        handoffHint && handoffHint.trim().length > 0 ? handoffHint : copilotChatContext;
 
       // Intent Chain Orchestrator (commit 7): if a chain template's
       // triggered_by_nbe includes this action's id, dispatch a chain
@@ -1101,11 +1011,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           body: JSON.stringify({
             initiating_nbe_id: action.id,
             cartridge: action.cartridge,
-            nbe_seed: {
-              handoffHint: effectiveHint ?? null,
-              label: action.label,
-              rationale: effectiveHint ?? action.rationale,
-            },
+            nbe_seed: { handoffHint: handoffHint ?? null, label: action.label, rationale: action.rationale },
             context_seed: { intent_id: intentData.intentId },
           }),
           personaIdHint: personaId,
@@ -1178,8 +1084,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           cls.kind === 'composer' ? cls.composeKind : composeKindForAction(action);
         if (composeKind) {
           const seedPrompt =
-            effectiveHint && effectiveHint.trim().length > 0
-              ? effectiveHint
+            handoffHint && handoffHint.trim().length > 0
+              ? handoffHint
               : buildPromptForNbeAction(artifactType, action);
           setComposerInitialPrompt(seedPrompt);
           setComposerKind(composeKind);
@@ -2554,7 +2460,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               copilot's getBoundingClientRect via the
               --metaavatar-copilot-w CSS variable so it rescales
               automatically when this changes). ─────────────────── */}
-          <div className="lg:w-1/2 w-full h-full min-h-0 flex flex-col overflow-hidden">
+          <div className="lg:w-1/2 w-full h-full min-h-0 flex flex-col">
             <SmartTriadCopilotLayer
               isOpen
               variant="panel"
@@ -2565,38 +2471,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               personaId={personaId}
               groundContext={copilotGroundContext}
               onClose={() => undefined}
-              onMessagesChange={handleCopilotMessagesChange}
             />
-            {/* NBE suggestion chips — surfaces when aigentMe infers an
-                actionable NBE from the conversation. Each chip fires the
-                full approval → intent flow, identical to clicking Act on
-                the right-pane card. Wired to NBE_CATALOGUE so every
-                suggestion is executable, not decorative text. */}
-            {copilotSuggestedNbes.length > 0 && (
-              <div className="flex-none border-t border-slate-700/60 bg-slate-900/80 px-3 py-2">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5">
-                  Suggested actions
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {copilotSuggestedNbes.map((nbe) => (
-                    <button
-                      key={nbe.id}
-                      onClick={() => handleNbeAct(nbe)}
-                      disabled={!!queuedIntents[nbe.id]}
-                      className={[
-                        'text-xs px-2.5 py-1 rounded-full border transition-colors',
-                        queuedIntents[nbe.id]
-                          ? 'border-emerald-600/40 text-emerald-400/60 bg-emerald-950/30 cursor-default'
-                          : 'border-cyan-700/60 text-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/50 hover:border-cyan-500/60',
-                      ].join(' ')}
-                    >
-                      {queuedIntents[nbe.id] ? '✓ ' : ''}
-                      {nbe.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* ── RIGHT: dynamic surface (50/50 with the copilot). ── */}
