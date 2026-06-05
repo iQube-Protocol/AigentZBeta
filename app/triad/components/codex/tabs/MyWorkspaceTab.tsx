@@ -36,6 +36,7 @@ import { MyCanvasTab } from "./MyCanvasTab";
 import { CohortMetricsCard } from "@/components/metame/workbench/CohortMetricsCard";
 import { ChainDetailDrawer } from "@/components/metame/chains/ChainDetailDrawer";
 import { IntentChainPanel, useIntentChainCache } from "@/components/metame/workbench/IntentChainPanel";
+import { GenesisCapsule, type IntentStage } from "@/components/metame/workbench/GenesisCapsule";
 
 interface Props {
   personaId?: string;
@@ -63,6 +64,16 @@ type WorkspaceSubTab = 'intents' | 'drafts' | 'uploads' | 'cohorts';
 
 const PAGE_SIZE = 20;
 
+function intentStatusToStage(status: ActiveIntent['status']): IntentStage {
+  switch (status) {
+    case 'awaiting_approval': return 'specialist_consulted';
+    case 'completed': return 'complete';
+    case 'failed':
+    case 'cancelled': return 'complete';
+    default: return 'cta_issued';
+  }
+}
+
 export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
   const [activeSubTab, setActiveSubTab] = useState<WorkspaceSubTab>('drafts');
   const [intentsPage, setIntentsPage] = useState(0);
@@ -86,26 +97,9 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
   // When the timeline payload reports an attached intent_chains row, the
   // "open full chain" affordance below the panel deep-links into the
   // existing ChainDetailDrawer.
-  const [expandedIntents, setExpandedIntents] = useState<Set<string>>(new Set());
   const { cache: chainCache, requestChain, invalidate: invalidateChain } = useIntentChainCache(personaId);
   const [drawerChainId, setDrawerChainId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const toggleIntentExpanded = useCallback(
-    (intentId: string) => {
-      setExpandedIntents((prev) => {
-        const next = new Set(prev);
-        if (next.has(intentId)) {
-          next.delete(intentId);
-        } else {
-          next.add(intentId);
-          requestChain(intentId);
-        }
-        return next;
-      });
-    },
-    [requestChain],
-  );
 
   const openChainDrawer = (chainId: string) => {
     setDrawerChainId(chainId);
@@ -250,77 +244,62 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
               </div>
             ) : (
               <>
-                <ul className="space-y-1.5">
+                <div className="space-y-3">
                   {intentsPaged.map((i) => {
-                    const isOpen = expandedIntents.has(i.intentId);
                     const chainState = chainCache[i.intentId];
                     const attachedChain = chainState?.data?.chain ?? null;
                     return (
-                      <li
+                      <GenesisCapsule
                         key={i.intentId}
-                        className={`rounded-md border overflow-hidden transition-colors ${
-                          isOpen
-                            ? 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/20 shadow-[0_0_0_1px_rgba(16,185,129,0.08)]'
-                            : 'border-slate-700/50 bg-slate-900/40'
-                        }`}
+                        label={i.intentName}
+                        cartridge={i.cartridge}
+                        createdAt={i.createdAt}
+                        currentStage={intentStatusToStage(i.status)}
+                        isDark={theme !== 'light'}
+                        defaultCollapsed={false}
+                        onExpandChange={(expanded) => {
+                          if (expanded) requestChain(i.intentId);
+                        }}
                       >
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => toggleIntentExpanded(i.intentId)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              toggleIntentExpanded(i.intentId);
-                            }
-                          }}
-                          aria-expanded={isOpen}
-                          className={`w-full text-left px-3 py-2 cursor-pointer transition-colors ${
-                            isOpen
-                              ? 'hover:bg-emerald-500/10'
-                              : 'hover:border-violet-500/50 hover:bg-violet-500/5'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <ChevronRight
-                              className={`w-3 h-3 text-slate-500 transition-transform ${isOpen ? 'rotate-90' : ''}`}
-                            />
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusChip(i.status)}`}>
-                              {i.status.replace(/_/g, ' ')}
-                            </span>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-500">{i.cartridge}</span>
-                            <span className="text-[10px] text-slate-500 ml-auto">
-                              {new Date(i.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <div className="text-xs text-white mt-1 truncate pl-5">{i.intentName}</div>
+                        {/* Status chip row */}
+                        <div className="flex items-center gap-2 px-0.5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusChip(i.status)}`}>
+                            {i.status.replace(/_/g, ' ')}
+                          </span>
                         </div>
-                        {isOpen && (
-                          <div className="border-t border-emerald-500/30">
-                            <IntentChainPanel
-                              chainState={chainState}
-                              isDark={theme !== 'light'}
-                              intentId={i.intentId}
-                              intentStatus={i.status}
-                              onAdvanced={() => handleIntentAdvanced(i.intentId)}
-                            />
-                            {attachedChain && (
-                              <div className="border-t border-emerald-500/30 bg-emerald-950/20 px-3 py-2">
-                                <button
-                                  type="button"
-                                  onClick={() => openChainDrawer(attachedChain.chainId)}
-                                  className="text-[11px] inline-flex items-center gap-1 text-emerald-300 hover:text-emerald-200"
-                                >
-                                  <ExternalLink className="w-3 h-3" /> Open full chain
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </li>
+                        {/* Chain of intent timeline */}
+                        <div className={`rounded-md border overflow-hidden ${
+                          theme !== 'light'
+                            ? 'border-slate-700/50'
+                            : 'border-slate-200'
+                        }`}>
+                          <IntentChainPanel
+                            chainState={chainState}
+                            isDark={theme !== 'light'}
+                            intentId={i.intentId}
+                            intentStatus={i.status}
+                            onAdvanced={() => handleIntentAdvanced(i.intentId)}
+                          />
+                          {attachedChain && (
+                            <div className={`border-t px-3 py-2 ${
+                              theme !== 'light'
+                                ? 'border-emerald-500/30 bg-emerald-950/20'
+                                : 'border-emerald-200 bg-emerald-50'
+                            }`}>
+                              <button
+                                type="button"
+                                onClick={() => openChainDrawer(attachedChain.chainId)}
+                                className="text-[11px] inline-flex items-center gap-1 text-emerald-300 hover:text-emerald-200"
+                              >
+                                <ExternalLink className="w-3 h-3" /> Open full chain
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </GenesisCapsule>
                     );
                   })}
-                </ul>
+                </div>
                 {intentsPageCount > 1 && (
                   <Pager page={intentsPage} pageCount={intentsPageCount} onChange={setIntentsPage} />
                 )}

@@ -3,35 +3,19 @@
 /**
  * MyLedgerTab — the persona's personal DVN-receipted activity ledger.
  *
- * Source of truth: activity_receipts table, scoped to the active
- * persona via the spine. Surfaces only events that emitted a receipt
- * — anything in-flight (draft entries on myCanvas, queued intents on
- * myWorkspace) is excluded until it hits DVN.
- *
- * Filter chips at the top let the operator scope the audit view:
- *
- *   All         — no filter
- *   myCanvas    — receipts originating from canvas publishes / remixes
- *                 (action_type heuristic: artifact_sent or
- *                 artifact_created where activeCartridge isn't a
- *                 specialist-owned cartridge)
- *   myWorkspace — receipts originating from workspace flows (intent
- *                 lifecycle, ingestion, executed CTAs)
- *   aigentMe    — receipts where agents_invoked includes 'aigent-me'
- *   Specialists — receipts where agents_invoked includes any specialist
- *                 id (marketa, quill, kn0w1, aigent-c, aigent-z,
- *                 aigent-nakamoto, moneypenny, metaye)
- *
- * Mental model demarcation:
- *   - myCanvas    — social / creative content (remixes + public ideas)
- *   - myWorkspace — private work artifacts (intents, drafts, uploads)
- *   - myLedger    — THIS — DVN-receipted activities cross-surface
+ * Receipts are grouped by intentId so that all activity tied to a
+ * single CTA lands in one GenesisCapsule, showing the IntentChainPanel
+ * (which contains the specialist response + Queue buttons) rather than
+ * a flat list of disconnected cards. Receipts with no intentId remain
+ * as standalone ActivityReceiptCards.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { BookMarked, Loader2, RefreshCw } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
+import { GenesisCapsule, type IntentStage } from "@/components/metame/workbench/GenesisCapsule";
+import { IntentChainPanel, useIntentChainCache } from "@/components/metame/workbench/IntentChainPanel";
 
 interface Props {
   personaId?: string;
@@ -86,11 +70,38 @@ const CANVAS_ACTION_HINTS = new Set([
   'artifact_sent',
 ]);
 
+function deriveGenesisLabel(receipts: ActivityReceipt[]): string {
+  // Prefer the specialist_consulted receipt — its summary is the most
+  // descriptive ("Consulted Marketa: <topic>").
+  const consulted = receipts.find((r) => r.actionType === 'specialist_consulted');
+  if (consulted) return consulted.summary;
+  // Fall back to intent_queued, stripping the "Queued: " prefix.
+  const queued = receipts.find((r) => r.actionType === 'intent_queued');
+  if (queued) return queued.summary.replace(/^Queued:\s*/i, '');
+  return receipts[0]?.summary ?? 'Intent';
+}
+
+function deriveStageFromReceipts(receipts: ActivityReceipt[]): IntentStage {
+  const types = new Set(receipts.map((r) => r.actionType));
+  if (types.has('artifact_sent')) return 'complete';
+  if (types.has('artifact_created')) return 'acted';
+  if (types.has('approval_granted')) return 'approved';
+  // Child intents queued from recommendations have recommendation-spawn in contextShared.
+  const hasChildQueued = receipts.some(
+    (r) => r.actionType === 'intent_queued' && (r.contextShared ?? []).includes('recommendation-spawn'),
+  );
+  if (hasChildQueued) return 'queued';
+  if (types.has('specialist_consulted')) return 'specialist_consulted';
+  return 'cta_issued';
+}
+
 export function MyLedgerTab({ personaId }: Props) {
   const [receipts, setReceipts] = useState<ActivityReceipt[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeChip, setActiveChip] = useState<FilterChip>('all');
+
+  const { cache: chainCache, requestChain, invalidate: invalidateChain } = useIntentChainCache(personaId);
 
   const load = useCallback(async () => {
     if (!personaId) return;
@@ -116,19 +127,38 @@ export function MyLedgerTab({ personaId }: Props) {
       const agents = r.agentsInvoked ?? [];
       if (activeChip === 'aigentme') return agents.includes('aigent-me');
       if (activeChip === 'specialists') return agents.some((a) => SPECIALIST_AGENT_IDS.has(a));
-      if (activeChip === 'mycanvas') {
-        // Canvas publishes — heuristic: artifact_sent on metame, or any
-        // community-content action.
-        return CANVAS_ACTION_HINTS.has(r.actionType);
-      }
+      if (activeChip === 'mycanvas') return CANVAS_ACTION_HINTS.has(r.actionType);
       if (activeChip === 'myworkspace') {
-        // Workspace flows — anything with an intentId (queued/executed
-        // CTAs) or action types that are workspace-side.
         return Boolean(r.intentId) || ['intent_queued', 'artifact_created', 'approval_granted', 'approval_rejected', 'experience_model_updated'].includes(r.actionType);
       }
       return true;
     });
   }, [receipts, activeChip]);
+
+  // Group receipts by intentId. Receipts without intentId stay standalone.
+  const { intentGroups, standalone } = useMemo(() => {
+    const byIntent = new Map<string, ActivityReceipt[]>();
+    const solo: ActivityReceipt[] = [];
+    for (const r of filtered) {
+      if (r.intentId) {
+        const arr = byIntent.get(r.intentId) ?? [];
+        arr.push(r);
+        byIntent.set(r.intentId, arr);
+      } else {
+        solo.push(r);
+      }
+    }
+    // Sort groups by most-recent receipt timestamp descending.
+    const groups = Array.from(byIntent.entries())
+      .map(([intentId, recs]) => ({
+        intentId,
+        receipts: recs.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+        latestAt: Math.max(...recs.map((r) => Date.parse(r.createdAt))),
+        cartridge: recs[0]?.activeCartridge,
+      }))
+      .sort((a, b) => b.latestAt - a.latestAt);
+    return { intentGroups: groups, standalone: solo };
+  }, [filtered]);
 
   return (
     <div className="flex flex-col h-full bg-slate-950 text-slate-100">
@@ -181,12 +211,35 @@ export function MyLedgerTab({ personaId }: Props) {
               : `No receipts matching "${CHIP_LABELS[activeChip]}" filter.`}
           </div>
         ) : (
-          <ul className="space-y-2">
-            {filtered.map((r) => {
-              // Adapt MyLedgerTab's lightweight ActivityReceipt shape to
-              // the canonical ActivityReceiptData the card expects. The
-              // receipt status enum defaults to 'local' when the receipts
-              // endpoint hasn't set it.
+          <div className="space-y-3">
+            {/* Intent-grouped capsules — one per unique intentId */}
+            {intentGroups.map((group) => (
+              <GenesisCapsule
+                key={group.intentId}
+                label={deriveGenesisLabel(group.receipts)}
+                cartridge={group.cartridge}
+                createdAt={new Date(group.latestAt).toISOString()}
+                currentStage={deriveStageFromReceipts(group.receipts)}
+                isDark={true}
+                defaultCollapsed={true}
+                onExpandChange={(expanded) => {
+                  if (expanded) requestChain(group.intentId);
+                }}
+              >
+                <IntentChainPanel
+                  chainState={chainCache[group.intentId]}
+                  isDark={true}
+                  intentId={group.intentId}
+                  onAdvanced={() => {
+                    invalidateChain(group.intentId);
+                    void load();
+                  }}
+                />
+              </GenesisCapsule>
+            ))}
+
+            {/* Standalone receipts — no intentId (e.g. canvas publishes) */}
+            {standalone.map((r) => {
               const cardData: ActivityReceiptData = {
                 id: r.id,
                 sessionId: r.sessionId,
@@ -206,13 +259,9 @@ export function MyLedgerTab({ personaId }: Props) {
                 specialistResponse: r.specialistResponse ?? null,
                 createdAt: r.createdAt,
               };
-              return (
-                <li key={r.id}>
-                  <ActivityReceiptCard data={cardData} theme="dark" />
-                </li>
-              );
+              return <ActivityReceiptCard key={r.id} data={cardData} theme="dark" />;
             })}
-          </ul>
+          </div>
         )}
       </div>
     </div>
