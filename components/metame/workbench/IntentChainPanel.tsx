@@ -391,12 +391,15 @@ function ChainTimeline({
   // timeline. Receipts carry the human-readable consultation summary +
   // artifact references; events carry the spine attribution.
   //
-  // Secondary sort key ensures artifact_created always appears before
-  // intent_queued chips even if sub-second timestamps are equal — this
-  // gives the natural reading order: analysis → doc → follow-on actions.
+  // Secondary sort key ensures consistent reading order when sub-second
+  // timestamps tie. The doc is Marketa's first work product — it should
+  // render BEFORE the cyan analysis modal that lists follow-on
+  // recommendations. Natural reading order:
+  //   parent intent_queued → specialist_invoked → doc created →
+  //   specialist analysis (with recommendations) → child intent_queueds
   const TYPE_ORDER: Record<string, number> = {
-    specialist_consulted: 0,
-    artifact_created: 1,
+    artifact_created: 0,
+    specialist_consulted: 1,
     artifact_sent: 2,
     approval_granted: 3,
     approval_rejected: 3,
