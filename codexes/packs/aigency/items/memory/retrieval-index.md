@@ -2049,3 +2049,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-1d0f4c0.md](../build_/COMMITS/COMMIT-1d0f4c0.md)
 - Message: feat(chain): auto-consult specialist on Queue — close the recursion loop
+
+## Commit `337282f` — 2026-06-05T18:01:33Z
+- Type: `feat`
+- Brief: [COMMIT-337282f.md](../build_/COMMITS/COMMIT-337282f.md)
+- Message: add capsule containment golden rule to CLAUDE.md
