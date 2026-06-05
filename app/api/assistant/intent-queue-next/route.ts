@@ -43,11 +43,13 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import {
   createIntentQube,
   getIntentQube,
+  setIntentQubeStatus,
   type IntentType,
   type SpecialistAgentId,
 } from '@/services/iqube/intentQube';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
+import { askSpecialist } from '@/services/agents/specialistRouter';
 
 export const dynamic = 'force-dynamic';
 
@@ -195,11 +197,63 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // Auto-fire the specialist consultation so the queued recommendation
+    // immediately produces actionable output instead of waiting for the
+    // operator to expand + Approve the child. Best-effort: failure
+    // leaves the child intent in_progress so the operator can still
+    // drive it manually via the existing chain action row.
+    let autoConsultedTitle: string | null = null;
+    if (specialist && specialist !== 'aigent-me') {
+      try {
+        const response = await askSpecialist({
+          specialistId: specialist,
+          context: {
+            activeCartridge: child.activeCartridge,
+            experienceName: null,
+            experienceType: 'unknown',
+            primaryGoal: null,
+            currentStage: 'in_progress',
+            activeCartridges: [child.activeCartridge],
+            intentName: child.intentName,
+            intentRationale: rationale,
+          },
+        });
+        await createActivityReceipt({
+          personaId: persona.personaId,
+          intentId: child.id,
+          activeCartridge: child.activeCartridge,
+          actionType: 'specialist_consulted',
+          summary: `Consulted ${response.specialistLabel}: ${response.title}`,
+          agentsInvoked: ['aigent-me', specialist],
+          toolsUsed: [response.source === 'llm' ? 'openai' : 'template'],
+          iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+          contextShared: ['recommendation-spawn', 'parent-intent', 'auto-consult'],
+          specialistResponse: {
+            title: response.title,
+            summary: response.summary,
+            recommendations: response.recommendations,
+            suggestedArtifacts: response.suggestedArtifacts,
+            confidence: response.confidence,
+            source: response.source,
+          },
+        });
+        // Flip to awaiting_approval so the operator sees the consultation
+        // landed and just needs to approve/refine the next move.
+        await setIntentQubeStatus(child.id, 'awaiting_approval');
+        autoConsultedTitle = response.title;
+      } catch {
+        // Auto-consult failure is non-fatal — child intent stays in
+        // in_progress and the operator can still consult manually.
+      }
+    }
+
     return NextResponse.json({
       intentId: child.id,
       parentIntentId,
-      status: child.status,
+      status: autoConsultedTitle ? 'awaiting_approval' : child.status,
       specialist,
+      autoConsulted: !!autoConsultedTitle,
+      autoConsultedTitle,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
