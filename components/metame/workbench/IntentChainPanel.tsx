@@ -391,30 +391,42 @@ function ChainTimeline({
   // timeline. Receipts carry the human-readable consultation summary +
   // artifact references; events carry the spine attribution.
   //
-  // Secondary sort key ensures consistent reading order when sub-second
-  // timestamps tie. The doc is Marketa's first work product — it should
-  // render BEFORE the cyan analysis modal that lists follow-on
-  // recommendations. Natural reading order:
-  //   parent intent_queued → specialist_invoked → doc created →
-  //   specialist analysis (with recommendations) → child intent_queueds
-  const TYPE_ORDER: Record<string, number> = {
-    artifact_created: 0,
-    specialist_consulted: 1,
-    artifact_sent: 2,
-    approval_granted: 3,
-    approval_rejected: 3,
-    intent_queued: 10,
-    session_completed: 20,
-  };
+  // Secondary sort key for equal timestamps. Computes per-row so we can
+  // distinguish the ORIGINAL intent_queued receipt ("Queued: …") from
+  // RECOMMENDATION-SPAWN intent_queueds ("Queued next action: …").
+  //
+  // Desired visual order:
+  //   specialist_invoked event  ← sorts by timestamp (earliest)
+  //   artifact_created          → 1
+  //   original intent_queued    → 2  ("Queued: <CTA name>")
+  //   specialist_consulted      → 3
+  //   artifact_sent             → 4
+  //   approval_granted/rejected → 5
+  //   recommendation-spawn
+  //     intent_queueds          → 10  ("Queued next action: …")
+  //   session_completed         → 20
+  function rowTypeOrder(row: UnifiedRow): number {
+    if (row.kind === "event") return 0;
+    const r = row.receipt!;
+    if (r.actionType === "artifact_created") return 1;
+    if (r.actionType === "intent_queued") {
+      // Recommendation-spawned child intents use "Queued next action:" prefix.
+      // The original CTA queue receipt uses plain "Queued:" prefix.
+      return /^queued next action:/i.test(r.summary) ? 10 : 2;
+    }
+    if (r.actionType === "specialist_consulted") return 3;
+    if (r.actionType === "artifact_sent") return 4;
+    if (r.actionType === "approval_granted" || r.actionType === "approval_rejected") return 5;
+    if (r.actionType === "session_completed") return 20;
+    return 6;
+  }
   const merged: UnifiedRow[] = [
     ...events.map<UnifiedRow>((e) => ({ key: `e:${e.eventId}`, recordedAt: e.recordedAt, kind: "event", event: e })),
     ...receipts.map<UnifiedRow>((r) => ({ key: `r:${r.receiptId}`, recordedAt: r.createdAt, kind: "receipt", receipt: r })),
   ].sort((a, b) => {
     const tDiff = Date.parse(a.recordedAt) - Date.parse(b.recordedAt);
     if (tDiff !== 0) return tDiff;
-    const aType = a.kind === "receipt" ? (a.receipt?.actionType ?? "") : "";
-    const bType = b.kind === "receipt" ? (b.receipt?.actionType ?? "") : "";
-    return (TYPE_ORDER[aType] ?? 5) - (TYPE_ORDER[bType] ?? 5);
+    return rowTypeOrder(a) - rowTypeOrder(b);
   });
 
   return (
