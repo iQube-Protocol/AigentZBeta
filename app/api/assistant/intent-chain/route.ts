@@ -23,7 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { getIntentQube } from '@/services/iqube/intentQube';
+import { getIntentQube, getChildIntents } from '@/services/iqube/intentQube';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
@@ -74,6 +74,12 @@ interface AttachedReceipt {
   createdAt: string;
 }
 
+interface ChildIntentSummary {
+  intentId: string;
+  intentName: string;
+  status: string;
+}
+
 interface IntentChainResponse {
   intent: {
     intentId: string;
@@ -87,6 +93,7 @@ interface IntentChainResponse {
   events: TimelineEvent[];
   receipts: AttachedReceipt[];
   chain: AttachedChain | null;
+  childIntents: ChildIntentSummary[];
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -119,7 +126,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // carry the specialist consultation outputs (summary text, artifact
   // refs) that the operator wants to see when expanding a pill — the
   // orchestration_events alone don't show "Marketa drafted X".
+  // Also fetch child intents spawned from this parent's recommendations.
   // Both queries are bounded; most intents have <20 events / receipts.
+  const childIntentRecords = await getChildIntents(intentId, persona.personaId).catch(() => []);
   const [eventsRes, receiptsRes] = await Promise.all([
     sb
       .from('orchestration_events')
@@ -207,6 +216,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  const childIntents: ChildIntentSummary[] = childIntentRecords.map((c) => ({
+    intentId: c.id,
+    intentName: c.intentName,
+    status: c.status,
+  }));
+
   const body: IntentChainResponse = {
     intent: {
       intentId: intent.id,
@@ -220,6 +235,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     events,
     receipts,
     chain,
+    childIntents,
   };
 
   return NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });

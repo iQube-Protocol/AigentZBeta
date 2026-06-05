@@ -290,6 +290,30 @@ export async function setIntentQubeStatus(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Children — IntentQubes spawned from a parent recommendation.
+//
+// Matches on rationale JSON containing parentIntentId. UUIDs only contain
+// hex digits + hyphens so the LIKE pattern is injection-safe.
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function getChildIntents(
+  parentIntentId: string,
+  personaId: string,
+): Promise<IntentQubeRecord[]> {
+  if (!parentIntentId || !personaId) return [];
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('nbe_plans')
+    .select('*')
+    .eq('persona_id', personaId)
+    .like('rationale', `%"parentIntentId":"${parentIntentId}"%`)
+    .order('created_at', { ascending: true })
+    .limit(50);
+  if (error || !data) return [];
+  return (data as NbePlanRow[]).map(rowToRecord).filter((r) => r.parentIntentId === parentIntentId);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // List — recent IntentQubes for a persona.
 //
 // Used by the Venture Progress builder (Phase 4) to surface "recent

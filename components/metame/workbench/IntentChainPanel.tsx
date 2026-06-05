@@ -62,10 +62,17 @@ export interface AttachedReceiptDto {
   createdAt: string;
 }
 
+export interface ChildIntentSummaryDto {
+  intentId: string;
+  intentName: string;
+  status: string;
+}
+
 export interface IntentChainDto {
   events: TimelineEventDto[];
   receipts?: AttachedReceiptDto[];
   chain: AttachedChainDto | null;
+  childIntents?: ChildIntentSummaryDto[];
 }
 
 export interface ChainCacheEntry {
@@ -292,6 +299,12 @@ function deriveChainStatus(data: IntentChainDto): {
   return { badgeLabel: "queued", badgeClass: "border-slate-600 text-slate-300 bg-slate-500/10", flow: null };
 }
 
+// Extract recommendation name from an intent_queued receipt summary.
+// "Queued next action: Create visual aids…" → "Create visual aids…"
+function extractQueuedName(summary: string): string {
+  return summary.replace(/^Queued( next action)?:\s*/i, "").trim();
+}
+
 function ChainTimeline({
   data,
   isDark,
@@ -306,8 +319,18 @@ function ChainTimeline({
   onAdvanced?: () => void;
 }) {
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
-  const { events, receipts = [], chain } = data;
+  const { events, receipts = [], chain, childIntents = [] } = data;
   const status = deriveChainStatus(data);
+
+  // Map child intent name → child intent summary so ReceiptRow can find
+  // the matching child for each intent_queued receipt.
+  const childByName = React.useMemo(() => {
+    const m = new Map<string, ChildIntentSummaryDto>();
+    for (const c of childIntents) {
+      m.set(c.intentName.trim(), c);
+    }
+    return m;
+  }, [childIntents]);
 
   // Terminal state — resolves from explicit intentStatus prop first,
   // falls back to data.intent.status when the chain endpoint surfaced
@@ -393,6 +416,9 @@ function ChainTimeline({
             intentId={intentId!}
             isDark={isDark}
             alreadyApproved={alreadyApproved}
+            pendingChildren={childIntents.filter(
+              (c) => c.status === "awaiting_approval" || c.status === "in_progress",
+            )}
             onAdvanced={onAdvanced!}
           />
         )}
@@ -447,6 +473,7 @@ function ChainTimeline({
                 parentIntentId={intentId}
                 isTerminal={isTerminal}
                 isRecommendationQueued={isRecommendationQueued}
+                childByName={childByName}
                 onChildSpawned={onAdvanced}
               />
             );
@@ -584,14 +611,16 @@ function ChainActionRow({
   intentId,
   isDark,
   alreadyApproved,
+  pendingChildren,
   onAdvanced,
 }: {
   intentId: string;
   isDark: boolean;
   alreadyApproved: boolean;
+  pendingChildren: ChildIntentSummaryDto[];
   onAdvanced: () => void;
 }) {
-  const [pending, setPending] = React.useState<"approve" | "complete" | "cancel" | null>(null);
+  const [pending, setPending] = React.useState<"approve" | "approveAll" | "complete" | "cancel" | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const fire = async (action: "approve" | "complete" | "cancel") => {
@@ -616,10 +645,39 @@ function ChainActionRow({
     }
   };
 
+  // Approve all pending child intents in sequence.
+  const approveAll = async () => {
+    if (pendingChildren.length === 0) return;
+    setPending("approveAll");
+    setError(null);
+    try {
+      const { personaFetch } = await import("@/utils/personaSpine");
+      for (const child of pendingChildren) {
+        const res = await personaFetch("/api/assistant/intent-advance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ intentId: child.intentId, action: "approve" }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.detail || body?.error || `approve-all failed on child (${res.status})`);
+        }
+      }
+      onAdvanced();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPending(null);
+    }
+  };
+
   const baseBtn = "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] transition disabled:opacity-50 disabled:cursor-not-allowed";
   const approveBtn = isDark
     ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
     : "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
+  const approveAllBtn = isDark
+    ? "border-emerald-500/70 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30"
+    : "border-emerald-500 bg-emerald-100 text-emerald-800 hover:bg-emerald-200";
   const completeBtn = isDark
     ? "border-sky-500/50 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20"
     : "border-sky-400 bg-sky-50 text-sky-700 hover:bg-sky-100";
@@ -629,6 +687,22 @@ function ChainActionRow({
 
   return (
     <div className="mt-2 pt-2 border-t border-slate-700/40 flex flex-wrap items-center gap-1.5">
+      {/* Approve All — only when pending children exist */}
+      {pendingChildren.length > 0 && (
+        <button
+          type="button"
+          disabled={!!pending}
+          onClick={(e) => {
+            e.stopPropagation();
+            void approveAll();
+          }}
+          className={`${baseBtn} ${approveAllBtn}`}
+          title={`Approve all ${pendingChildren.length} pending action${pendingChildren.length === 1 ? "" : "s"}`}
+        >
+          {pending === "approveAll" ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+          Approve All ({pendingChildren.length})
+        </button>
+      )}
       <button
         type="button"
         disabled={!!pending}
@@ -637,6 +711,7 @@ function ChainActionRow({
           void fire("approve");
         }}
         className={`${baseBtn} ${approveBtn}`}
+        title="Approve this intent (plan approved — individual actions still need per-chip approval)"
       >
         {pending === "approve" ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
         {alreadyApproved ? "Re-approve" : "Approve"}
@@ -665,6 +740,112 @@ function ChainActionRow({
         {pending === "cancel" ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
         Cancel
       </button>
+      {error && (
+        <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Per-chip Approve / Reject for a CHILD intent spawned from a queued
+ * recommendation. Targets the child intentId — independent from the
+ * parent intent's approval. Approve → chip turns emerald.
+ * Reject → chip turns rose.
+ */
+function ChildIntentActionRow({
+  child,
+  isDark,
+  onActioned,
+}: {
+  child: ChildIntentSummaryDto;
+  isDark: boolean;
+  onActioned?: () => void;
+}) {
+  const [localStatus, setLocalStatus] = React.useState(child.status);
+  const [pending, setPending] = React.useState<"approve" | "reject" | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Sync if parent refetches with a new status
+  React.useEffect(() => {
+    setLocalStatus(child.status);
+  }, [child.status]);
+
+  const fire = async (action: "approve" | "cancel") => {
+    const uiKey = action === "approve" ? "approve" : "reject";
+    setPending(uiKey);
+    setError(null);
+    try {
+      const { personaFetch } = await import("@/utils/personaSpine");
+      const res = await personaFetch("/api/assistant/intent-advance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentId: child.intentId, action }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `action failed (${res.status})`);
+      }
+      setLocalStatus(action === "approve" ? "approved" : "cancelled");
+      onActioned?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPending(null);
+    }
+  };
+
+  // Derive display state from local optimistic status OR child.status
+  const isApproved = localStatus === "approved" || localStatus === "completed" || child.status === "completed";
+  const isCancelled = localStatus === "cancelled" || child.status === "cancelled";
+  const isTerminal = isApproved || isCancelled;
+
+  const baseBtn = "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] transition disabled:opacity-50 disabled:cursor-not-allowed";
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+      {isApproved && (
+        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] ${
+          isDark ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-emerald-400 bg-emerald-50 text-emerald-700"
+        }`}>
+          <CheckCircle2 className="w-2.5 h-2.5" /> Approved
+        </span>
+      )}
+      {isCancelled && (
+        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] ${
+          isDark ? "border-rose-500/40 bg-rose-500/10 text-rose-300" : "border-rose-400 bg-rose-50 text-rose-700"
+        }`}>
+          × Rejected
+        </span>
+      )}
+      {!isTerminal && (
+        <>
+          <button
+            type="button"
+            disabled={!!pending}
+            onClick={(e) => { e.stopPropagation(); void fire("approve"); }}
+            className={`${baseBtn} ${isDark
+              ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
+              : "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+            }`}
+          >
+            {pending === "approve" ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
+            Approve
+          </button>
+          <button
+            type="button"
+            disabled={!!pending}
+            onClick={(e) => { e.stopPropagation(); void fire("cancel"); }}
+            className={`${baseBtn} ${isDark
+              ? "border-rose-500/40 text-rose-300 hover:bg-rose-500/10"
+              : "border-rose-400 text-rose-700 hover:bg-rose-50"
+            }`}
+          >
+            {pending === "reject" ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : null}
+            Reject
+          </button>
+        </>
+      )}
       {error && (
         <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
       )}
@@ -771,6 +952,16 @@ function receiptRowColors(actionType: string, isDark: boolean): { border: string
         border: isDark ? "border-violet-500/30 bg-violet-950/20" : "border-violet-300 bg-violet-50",
         icon: isDark ? "text-violet-300" : "text-violet-700",
       };
+    case "_child_done":
+      return {
+        border: isDark ? "border-emerald-500/30 bg-emerald-950/20" : "border-emerald-300 bg-emerald-50",
+        icon: isDark ? "text-emerald-300" : "text-emerald-600",
+      };
+    case "_child_cancelled":
+      return {
+        border: isDark ? "border-rose-500/20 bg-rose-950/10" : "border-rose-200 bg-rose-50/60",
+        icon: isDark ? "text-rose-400" : "text-rose-500",
+      };
     case "session_completed":
       return {
         border: isDark ? "border-slate-600/40 bg-slate-800/30" : "border-slate-300 bg-slate-100",
@@ -790,6 +981,7 @@ function ReceiptRow({
   parentIntentId,
   isTerminal,
   isRecommendationQueued,
+  childByName,
   onChildSpawned,
 }: {
   r: AttachedReceiptDto;
@@ -797,6 +989,7 @@ function ReceiptRow({
   parentIntentId?: string;
   isTerminal: boolean;
   isRecommendationQueued: (rec: string) => boolean;
+  childByName?: Map<string, ChildIntentSummaryDto>;
   onChildSpawned?: () => void;
 }) {
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
@@ -805,7 +998,33 @@ function ReceiptRow({
   const label = ACTION_LABELS[r.actionType] ?? r.actionType.replace(/_/g, " ");
   const spec = specialistFromReceipt(r);
   const hasBody = !!r.specialistResponse;
-  const colors = receiptRowColors(r.actionType, isDark);
+
+  // For intent_queued rows: resolve the matching child intent by name.
+  // The receipt summary is "Queued next action: <intentName>"; the child's
+  // intentName is that same string (both truncated to 160 chars identically).
+  const childIntent = React.useMemo(() => {
+    if (r.actionType !== "intent_queued" || !childByName) return undefined;
+    const queuedName = extractQueuedName(r.summary);
+    // Exact match first; then try prefix (truncation may add '…')
+    if (childByName.has(queuedName)) return childByName.get(queuedName);
+    for (const [key, val] of childByName) {
+      if (queuedName.startsWith(key.replace(/…$/, "")) || key.startsWith(queuedName.replace(/…$/, ""))) {
+        return val;
+      }
+    }
+    return undefined;
+  }, [r.actionType, r.summary, childByName]);
+
+  // Color intent_queued rows based on child intent status.
+  const effectiveActionType =
+    r.actionType === "intent_queued" && childIntent
+      ? childIntent.status === "completed" || childIntent.status === "approved"
+        ? "_child_done"
+        : childIntent.status === "cancelled"
+        ? "_child_cancelled"
+        : "intent_queued"
+      : r.actionType;
+  const colors = receiptRowColors(effectiveActionType, isDark);
 
   return (
     <li className={`flex items-start gap-2 text-xs rounded-md border p-2 ${colors.border}`}>
@@ -887,6 +1106,14 @@ function ReceiptRow({
               </div>
             )}
           </div>
+        )}
+        {/* Per-chip approve/reject for queued child intents */}
+        {r.actionType === "intent_queued" && childIntent && !isTerminal && (
+          <ChildIntentActionRow
+            child={childIntent}
+            isDark={isDark}
+            onActioned={onChildSpawned}
+          />
         )}
         {r.artifactsCreated.length > 0 && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
