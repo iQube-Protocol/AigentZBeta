@@ -2059,3 +2059,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-d314131.md](../build_/COMMITS/COMMIT-d314131.md)
 - Message: document capsule containment infraction pattern + fix in CLAUDE.md
+
+## Commit `46d4eeb` — 2026-06-05T20:28:31Z
+- Type: `push`
+- Brief: [COMMIT-46d4eeb.md](../build_/COMMITS/COMMIT-46d4eeb.md)
+- Message: improve chain panel legibility: copy, doc approval decoupling, timeline ordering
