@@ -158,9 +158,18 @@ export function ArtifactCard({
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
-  const surfaceClass = isDark
-    ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
-    : "bg-white border-slate-200 text-slate-900";
+  // Sent/published artifacts get an emerald border so the operator can
+  // tell at a glance that the externalisation completed — without this
+  // the card looks identical pre- and post-send except for the small
+  // status chip.
+  const isSent = data.status === "sent" || data.status === "published";
+  const surfaceClass = isSent
+    ? isDark
+      ? "bg-emerald-500/5 border-emerald-500/60 text-slate-100"
+      : "bg-emerald-50 border-emerald-400 text-slate-900"
+    : isDark
+      ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
+      : "bg-white border-slate-200 text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const accentClass = isDark ? "text-violet-300" : "text-violet-700";
   const actionBtnClass = isDark
