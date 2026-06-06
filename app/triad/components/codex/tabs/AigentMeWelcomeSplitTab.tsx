@@ -1568,16 +1568,29 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         & { preflightContext?: import("@/services/capabilities/preflight").PreflightContext };
       setSpecialistRecommendation(payload);
       setSpecialistRecommendationPreflight(payload.preflightContext);
-      // Auto-select the recommended specialist if none is selected yet,
-      // so the operator lands on a primed composer instead of an empty
-      // canvas. They can still pick another from the roster.
+      // Auto-select the top specialist so the operator lands on the right
+      // consultation card immediately. Only advances if nothing is selected yet.
       setSelectedSpecialistId((prev) => prev ?? payload.topSpecialistId);
+      // Auto-ask the specialist with the seed query so the response card
+      // populates immediately — with it come the suggested artifact chips
+      // (gmail-draft, marketa-email, etc.) the operator actually needs to act.
+      // Only fires on the initial chip-click invocation when a query is present
+      // and no response exists yet for this specialist.
+      if (query && payload.topSpecialistId) {
+        setAskSpecialistResponses((prev) => {
+          if (prev[payload.topSpecialistId]) return prev; // already has a response
+          // Fire the ask — deliberately not awaited so the recommendation
+          // state update lands first and the spinner shows immediately.
+          void handleAskSpecialist(payload.topSpecialistId, query);
+          return prev;
+        });
+      }
     } catch (err) {
       setSpecialistRecommendationError(err instanceof Error ? err.message : String(err));
     } finally {
       setSpecialistRecommendationLoading(false);
     }
-  }, [personaId]);
+  }, [personaId, handleAskSpecialist]);
 
   const fetchSpecialistThread = useCallback(async (
     specialistId: import("@/services/agents/specialistRouter").SpecialistId,
