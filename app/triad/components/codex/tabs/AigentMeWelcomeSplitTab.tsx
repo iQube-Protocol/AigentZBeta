@@ -2420,6 +2420,26 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
   }, [activeCapsuleId, specialistRecommendation, specialistRecommendationLoading, fetchSpecialistRecommendation, implicitSpecialistQuery]);
 
+  // Same capsule-mount seed for Move forward and Venture progress so
+  // restoring those Capsules from history (or arriving via a quick
+  // prompt) repopulates the right pane the same way the left-pane
+  // chip click does. Without these, navigating back to a previously
+  // engaged Capsule shows whatever stale state happened to be in
+  // memory — or nothing at all on a fresh mount.
+  useEffect(() => {
+    if (activeCapsuleId !== 'move-forward') return;
+    if (moveForwardResult) return;
+    if (moveForwardLoading) return;
+    void fetchMoveForward();
+  }, [activeCapsuleId, moveForwardResult, moveForwardLoading, fetchMoveForward]);
+
+  useEffect(() => {
+    if (activeCapsuleId !== 'venture-progress') return;
+    if (ventureProgress) return;
+    if (ventureProgressLoading) return;
+    void fetchVentureProgress();
+  }, [activeCapsuleId, ventureProgress, ventureProgressLoading, fetchVentureProgress]);
+
   const copilotQuickPrompts = useMemo(() => {
     const layoutDispatchFor = (chip: NbeQuickChip) => () => {
       if (!chip.layoutDispatch) return;
