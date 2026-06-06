@@ -152,6 +152,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ...grandchildRecords.map((c) => c.id),
   ];
 
+  // Select all columns so the query works whether or not the optional
+  // connector-metadata columns (action_connector_id etc.) have been
+  // migrated yet. Avoids a 500 when the schema is one migration behind.
   const [eventsRes, receiptsRes] = await Promise.all([
     sb
       .from('orchestration_events')
@@ -163,9 +166,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .limit(200),
     sb
       .from('activity_receipts')
-      .select(
-        'id, intent_id, action_type, summary, agents_invoked, tools_used, artifacts_created, receipt_status, specialist_response, action_connector_id, action_connector_label, action_input, created_at',
-      )
+      .select('*')
       .in('intent_id', allIntentIds)
       .eq('persona_id', persona.personaId)
       .order('created_at', { ascending: true })
