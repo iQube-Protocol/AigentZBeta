@@ -61,6 +61,10 @@ export interface AttachedReceiptDto {
   artifactsCreated: string[];
   receiptStatus: string;
   specialistResponse?: AttachedSpecialistResponseDto | null;
+  /** Connector to execute when operator dispatches this artifact. Null for runtime-only artifacts. */
+  actionConnectorId?: string | null;
+  actionConnectorLabel?: string | null;
+  actionInput?: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -920,6 +924,152 @@ function ChildIntentActionRow({
 }
 
 /**
+ * Send button — lives on artifact_created receipt rows that carry a real
+ * dispatch connector (Gmail, Marketa, Calendar invite, Drive share).
+ * Fires /api/connectors/execute with second-tier approval handling inline.
+ * This is the terminal action that actually sends the email / shares the doc.
+ */
+function ArtifactSendButton({
+  connectorId,
+  connectorLabel,
+  actionInput,
+  sourceIntentId,
+  isDark,
+  alreadySent,
+  onSent,
+}: {
+  connectorId: string;
+  connectorLabel: string;
+  actionInput: Record<string, unknown>;
+  sourceIntentId: string;
+  isDark: boolean;
+  alreadySent: boolean;
+  onSent?: () => void;
+}) {
+  const [phase, setPhase] = React.useState<'idle' | 'pending' | 'approving' | 'sent' | 'error'>('idle');
+  const [approvalToken, setApprovalToken] = React.useState<string | null>(null);
+  const [approvalDetail, setApprovalDetail] = React.useState<string>('');
+  const [error, setError] = React.useState<string | null>(null);
+
+  const execute = React.useCallback(async (token?: string) => {
+    setPhase('pending');
+    setError(null);
+    try {
+      const { personaFetch } = await import("@/utils/personaSpine");
+      const res = await personaFetch('/api/connectors/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectorId,
+          input: actionInput,
+          sourceIntentId,
+          cartridge: 'metame',
+          ...(token ? { approvalToken: token } : {}),
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 403 && body?.code === 'requires-approval') {
+        setApprovalDetail(body.reason || '');
+        setPhase('approving');
+        return;
+      }
+      if (!res.ok || body?.ok === false) {
+        throw new Error(body?.reason || body?.detail || body?.error || `execute failed (${res.status})`);
+      }
+      setPhase('sent');
+      onSent?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPhase('error');
+    }
+  }, [connectorId, actionInput, sourceIntentId, onSent]);
+
+  const confirmApproval = React.useCallback(async () => {
+    setPhase('pending');
+    setError(null);
+    try {
+      const { personaFetch } = await import("@/utils/personaSpine");
+      const res = await personaFetch('/api/assistant/approve-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectorId, sourceIntentId, cartridge: 'metame' }),
+      });
+      const json = await res.json().catch(() => ({} as { approvalToken?: string; detail?: string; error?: string }));
+      if (!res.ok || !json.approvalToken) {
+        throw new Error(json.detail || json.error || `approve failed (${res.status})`);
+      }
+      setApprovalToken(json.approvalToken);
+      await execute(json.approvalToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPhase('error');
+    }
+  }, [connectorId, sourceIntentId, execute]);
+
+  if (alreadySent || phase === 'sent') {
+    return (
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] ${
+        isDark ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-emerald-400 bg-emerald-50 text-emerald-700"
+      }`}>
+        <CheckCircle2 className="w-2.5 h-2.5" /> Sent
+      </span>
+    );
+  }
+
+  if (phase === 'approving') {
+    return (
+      <span className={`inline-flex flex-col gap-1 text-[11px] ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+        <span className={`px-1.5 py-0.5 rounded border ${isDark ? "border-amber-500/40 bg-amber-500/10 text-amber-200" : "border-amber-400 bg-amber-50 text-amber-700"}`}>
+          {approvalDetail || `Confirm: this will send an external message via ${connectorId.split('.')[0]}.`}
+        </span>
+        <span className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => void confirmApproval()}
+            className={`px-1.5 py-0.5 rounded border text-[11px] ${isDark ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25" : "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
+          >
+            Confirm & send
+          </button>
+          <button
+            type="button"
+            onClick={() => setPhase('idle')}
+            className={`px-1.5 py-0.5 rounded border text-[11px] ${isDark ? "border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700" : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"}`}
+          >
+            Cancel
+          </button>
+        </span>
+        {error && <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>}
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={phase === 'pending'}
+        onClick={(e) => { e.stopPropagation(); void execute(); }}
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] transition disabled:opacity-50 disabled:cursor-not-allowed ${
+          isDark
+            ? "border-violet-500/50 bg-violet-500/15 text-violet-200 hover:bg-violet-500/25"
+            : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100"
+        }`}
+      >
+        {phase === 'pending' ? (
+          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+        ) : (
+          <ArrowRight className="w-2.5 h-2.5" />
+        )}
+        {phase === 'pending' ? 'Sending…' : connectorLabel}
+      </button>
+      {phase === 'error' && error && (
+        <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
+      )}
+    </>
+  );
+}
+
+/**
  * Approve doc — lives ON the artifact_created receipt row.
  * Records approval of the specialist's doc via intent-advance(approve).
  * Does NOT close/complete the parent intent — the operator can still
@@ -1275,12 +1425,22 @@ function ReceiptRow({
               );
             })}
             {r.actionType === "artifact_created" && receiptIntentId && !isReceiptTerminal && (
-              <ArtifactApproveButton
-                intentId={receiptIntentId}
-                isDark={isDark}
-                alreadyApproved={alreadyApproved}
-                onApproved={onChildSpawned}
-              />
+              r.actionConnectorId
+                ? <ArtifactSendButton
+                    connectorId={r.actionConnectorId}
+                    connectorLabel={r.actionConnectorLabel ?? 'Send'}
+                    actionInput={r.actionInput ?? {}}
+                    sourceIntentId={receiptIntentId}
+                    isDark={isDark}
+                    alreadySent={alreadyApproved}
+                    onSent={onChildSpawned}
+                  />
+                : <ArtifactApproveButton
+                    intentId={receiptIntentId}
+                    isDark={isDark}
+                    alreadyApproved={alreadyApproved}
+                    onApproved={onChildSpawned}
+                  />
             )}
           </div>
         )}

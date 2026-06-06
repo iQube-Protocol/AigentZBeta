@@ -82,6 +82,10 @@ export interface ActivityReceiptRecord {
    * specialist_consulted receipts; null elsewhere.
    */
   specialistResponse: SpecialistResponsePayload | null;
+  /** Connector to call when the operator clicks Send on this artifact. */
+  actionConnectorId: string | null;
+  actionConnectorLabel: string | null;
+  actionInput: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -103,6 +107,9 @@ interface DbRow {
   receipt_status: ReceiptStatus;
   dvn_receipt_id: string | null;
   specialist_response: SpecialistResponsePayload | null;
+  action_connector_id: string | null;
+  action_connector_label: string | null;
+  action_input: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -124,6 +131,9 @@ function rowToRecord(row: DbRow): ActivityReceiptRecord {
     receiptStatus: row.receipt_status,
     dvnReceiptId: row.dvn_receipt_id,
     specialistResponse: row.specialist_response ?? null,
+    actionConnectorId: row.action_connector_id ?? null,
+    actionConnectorLabel: row.action_connector_label ?? null,
+    actionInput: row.action_input ?? null,
     createdAt: row.created_at,
   };
 }
@@ -153,6 +163,9 @@ export interface CreateActivityReceiptInput {
   approvalsGranted?: string[];
   policyEnvelopeId?: string | null;
   specialistResponse?: SpecialistResponsePayload | null;
+  actionConnectorId?: string | null;
+  actionConnectorLabel?: string | null;
+  actionInput?: Record<string, unknown> | null;
 }
 
 const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST205']);
@@ -187,6 +200,9 @@ export async function createActivityReceipt(
     policy_envelope_id: input.policyEnvelopeId ?? null,
     receipt_status: 'local' as ReceiptStatus,
     specialist_response: input.specialistResponse ?? null,
+    action_connector_id: input.actionConnectorId ?? null,
+    action_connector_label: input.actionConnectorLabel ?? null,
+    action_input: input.actionInput ?? null,
   };
 
   const { data, error } = await admin

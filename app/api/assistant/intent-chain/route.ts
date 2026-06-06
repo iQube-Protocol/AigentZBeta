@@ -73,6 +73,10 @@ interface AttachedReceipt {
   artifactsCreated: string[];
   receiptStatus: string;
   specialistResponse: AttachedSpecialistResponse | null;
+  /** Connector to call when the operator dispatches this artifact. Null for runtime-only artifacts. */
+  actionConnectorId: string | null;
+  actionConnectorLabel: string | null;
+  actionInput: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -160,7 +164,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     sb
       .from('activity_receipts')
       .select(
-        'id, intent_id, action_type, summary, agents_invoked, tools_used, artifacts_created, receipt_status, specialist_response, created_at',
+        'id, intent_id, action_type, summary, agents_invoked, tools_used, artifacts_created, receipt_status, specialist_response, action_connector_id, action_connector_label, action_input, created_at',
       )
       .in('intent_id', allIntentIds)
       .eq('persona_id', persona.personaId)
@@ -199,6 +203,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     artifactsCreated: Array.isArray(r.artifacts_created) ? (r.artifacts_created as string[]) : [],
     receiptStatus: String(r.receipt_status ?? 'local'),
     specialistResponse: (r.specialist_response as AttachedSpecialistResponse | null) ?? null,
+    actionConnectorId: typeof r.action_connector_id === 'string' ? r.action_connector_id : null,
+    actionConnectorLabel: typeof r.action_connector_label === 'string' ? r.action_connector_label : null,
+    actionInput: (r.action_input as Record<string, unknown> | null) ?? null,
     createdAt: String(r.created_at),
   }));
 
