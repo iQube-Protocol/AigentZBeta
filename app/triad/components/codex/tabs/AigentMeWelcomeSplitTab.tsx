@@ -1576,21 +1576,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       // (gmail-draft, marketa-email, etc.) the operator actually needs to act.
       // Only fires on the initial chip-click invocation when a query is present
       // and no response exists yet for this specialist.
-      if (query && payload.topSpecialistId) {
-        setAskSpecialistResponses((prev) => {
-          if (prev[payload.topSpecialistId]) return prev; // already has a response
-          // Fire the ask — deliberately not awaited so the recommendation
-          // state update lands first and the spinner shows immediately.
-          void handleAskSpecialist(payload.topSpecialistId, query);
-          return prev;
-        });
+      if (query && payload.topSpecialistId && !askSpecialistResponses[payload.topSpecialistId]) {
+        void handleAskSpecialist(payload.topSpecialistId, query);
       }
     } catch (err) {
       setSpecialistRecommendationError(err instanceof Error ? err.message : String(err));
     } finally {
       setSpecialistRecommendationLoading(false);
     }
-  }, [personaId, handleAskSpecialist]);
+  }, [personaId, handleAskSpecialist, askSpecialistResponses]);
 
   const fetchSpecialistThread = useCallback(async (
     specialistId: import("@/services/agents/specialistRouter").SpecialistId,
