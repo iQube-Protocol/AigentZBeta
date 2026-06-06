@@ -14,7 +14,7 @@
  */
 
 import React from "react";
-import { Loader2, ArrowRight, ExternalLink, FileText, Sparkles, Link2, ChevronDown, PlusCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowRight, ExternalLink, FileText, Sparkles, Link2, ChevronDown, PlusCircle, CheckCircle2, Mail, X as XIcon } from "lucide-react";
 
 export interface TimelineEventDto {
   eventId: string;
@@ -816,6 +816,172 @@ function ChainActionRow({
  * parent intent's approval. Approve → chip turns emerald.
  * Reject → chip turns rose.
  */
+
+/**
+ * After a child intent is approved, offer an inline draft-and-send
+ * affordance so the operator can execute the artifact without leaving
+ * the chain panel.
+ *
+ * Flow: "Draft email" → mini inline form → create-artifact(gmail-draft)
+ * → ArtifactSendButton appears inline → connectors/execute → approval
+ * popup → sent. Self-contained; no cross-tab communication needed.
+ *
+ * Destination is inferred from the child intent name. Falls back to
+ * destination=runtime (Marketa) when the Gmail connector is unavailable.
+ */
+function PostApprovalDraftButton({
+  child,
+  isDark,
+}: {
+  child: ChildIntentSummaryDto;
+  isDark: boolean;
+}) {
+  type Phase = 'idle' | 'form' | 'creating' | 'done' | 'error';
+  const [phase, setPhase] = React.useState<Phase>('idle');
+  const [to, setTo] = React.useState('');
+  const [subject, setSubject] = React.useState(child.intentName);
+  const [body, setBody] = React.useState('');
+  const [errMsg, setErrMsg] = React.useState<string | null>(null);
+  // After creation, hold the artifact data so ArtifactSendButton can render.
+  const [artifact, setArtifact] = React.useState<{
+    connectorId: string; connectorLabel: string;
+    actionInput: Record<string, unknown>; intentId: string;
+  } | null>(null);
+
+  const baseBtn = "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] transition disabled:opacity-50";
+  const inputCls = `w-full rounded border px-2 py-1 text-[11px] bg-transparent outline-none ${
+    isDark
+      ? "border-slate-600 text-slate-200 placeholder:text-slate-500 focus:border-violet-500/60"
+      : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-violet-400"
+  }`;
+
+  const create = async () => {
+    setPhase('creating');
+    setErrMsg(null);
+    try {
+      const { personaFetch } = await import("@/utils/personaSpine");
+      const res = await personaFetch('/api/assistant/create-artifact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          artifactType: 'gmail-draft',
+          destination: 'gmail',
+          title: subject || child.intentName,
+          sourceIntentId: child.intentId,
+          connectorInput: { to: to.trim(), subject: subject || child.intentName, bodyText: body },
+        }),
+      });
+      const data = await res.json().catch(() => ({})) as {
+        actionConnectorId?: string; actionConnectorLabel?: string;
+        actionInput?: Record<string, unknown>; intentId?: string;
+        error?: string; detail?: string; hint?: string;
+      };
+      if (!res.ok || !data.actionConnectorId) {
+        throw new Error(data.hint || data.detail || data.error || `create-artifact failed (${res.status})`);
+      }
+      setArtifact({
+        connectorId: data.actionConnectorId,
+        connectorLabel: data.actionConnectorLabel ?? 'Send draft',
+        actionInput: data.actionInput ?? { to: to.trim(), subject, bodyText: body },
+        intentId: child.intentId,
+      });
+      setPhase('done');
+    } catch (err) {
+      setErrMsg(err instanceof Error ? err.message : String(err));
+      setPhase('error');
+    }
+  };
+
+  if (phase === 'done' && artifact) {
+    return (
+      <ArtifactSendButton
+        connectorId={artifact.connectorId}
+        connectorLabel={artifact.connectorLabel}
+        actionInput={artifact.actionInput}
+        sourceIntentId={artifact.intentId}
+        isDark={isDark}
+        alreadySent={false}
+      />
+    );
+  }
+
+  if (phase === 'form' || phase === 'creating' || phase === 'error') {
+    return (
+      <div className={`mt-2 rounded border p-2 space-y-1.5 ${
+        isDark ? "border-slate-700/60 bg-slate-900/40" : "border-slate-200 bg-slate-50"
+      }`}>
+        <div className="flex items-center justify-between">
+          <span className={`text-[10px] uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            Draft email
+          </span>
+          <button type="button" onClick={() => setPhase('idle')} className={`p-0.5 rounded hover:opacity-70 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+            <XIcon className="w-3 h-3" />
+          </button>
+        </div>
+        <input
+          className={inputCls}
+          placeholder="To (email address)"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          disabled={phase === 'creating'}
+          autoFocus
+        />
+        <input
+          className={inputCls}
+          placeholder="Subject"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          disabled={phase === 'creating'}
+        />
+        <textarea
+          className={`${inputCls} resize-none`}
+          rows={3}
+          placeholder="Body (optional — you can fill it in Gmail)"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          disabled={phase === 'creating'}
+        />
+        {errMsg && (
+          <p className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{errMsg}</p>
+        )}
+        <div className="flex gap-1">
+          <button
+            type="button"
+            disabled={phase === 'creating' || !to.trim()}
+            onClick={() => void create()}
+            className={`${baseBtn} ${isDark
+              ? "border-violet-500/50 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+              : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100"
+            }`}
+          >
+            {phase === 'creating'
+              ? <><Loader2 className="w-3 h-3 animate-spin" /> Creating…</>
+              : <><Mail className="w-3 h-3" /> Create draft</>}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // idle — show the "Draft email" affordance only when the intent name
+  // suggests an email task. For other intent types, omit to keep the UI clean.
+  const isEmailIntent = /email|gmail|outreach|message|draft/i.test(child.intentName);
+  if (!isEmailIntent) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => setPhase('form')}
+      className={`${baseBtn} ${isDark
+        ? "border-slate-600 text-slate-400 hover:border-violet-500/40 hover:text-violet-300"
+        : "border-slate-300 text-slate-500 hover:border-violet-400 hover:text-violet-700"
+      }`}
+    >
+      <Mail className="w-3 h-3" /> Draft email
+    </button>
+  );
+}
+
 function ChildIntentActionRow({
   child,
   isDark,
@@ -867,57 +1033,65 @@ function ChildIntentActionRow({
   const generationLabel = child.depth === 2 ? "Grandchild" : "Child";
 
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-      {/* Provenance generation badge */}
-      <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-        isDark ? "border-slate-600/60 text-slate-500 bg-slate-800/30" : "border-slate-200 text-slate-400 bg-slate-50"
-      }`}>
-        {generationLabel}
-      </span>
+    <div className="mt-1 space-y-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {/* Provenance generation badge */}
+        <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+          isDark ? "border-slate-600/60 text-slate-500 bg-slate-800/30" : "border-slate-200 text-slate-400 bg-slate-50"
+        }`}>
+          {generationLabel}
+        </span>
+        {isApproved && (
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] ${
+            isDark ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-emerald-400 bg-emerald-50 text-emerald-700"
+          }`}>
+            <CheckCircle2 className="w-2.5 h-2.5" /> Approved
+          </span>
+        )}
+        {isCancelled && (
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] ${
+            isDark ? "border-rose-500/40 bg-rose-500/10 text-rose-300" : "border-rose-400 bg-rose-50 text-rose-700"
+          }`}>
+            × Rejected
+          </span>
+        )}
+        {!isTerminal && (
+          <>
+            <button
+              type="button"
+              disabled={!!pending}
+              onClick={(e) => { e.stopPropagation(); void fire("approve"); }}
+              className={`${baseBtn} ${isDark
+                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
+                : "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              }`}
+            >
+              {pending === "approve" ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
+              Approve
+            </button>
+            <button
+              type="button"
+              disabled={!!pending}
+              onClick={(e) => { e.stopPropagation(); void fire("cancel"); }}
+              className={`${baseBtn} ${isDark
+                ? "border-rose-500/40 text-rose-300 hover:bg-rose-500/10"
+                : "border-rose-400 text-rose-700 hover:bg-rose-50"
+              }`}
+            >
+              {pending === "reject" ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : null}
+              Reject
+            </button>
+          </>
+        )}
+        {error && (
+          <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
+        )}
+      </div>
+      {/* Post-approval draft affordance — lets the operator execute the
+          artifact without leaving the chain panel. Only appears when the
+          child intent is approved and has an email-shaped name. */}
       {isApproved && (
-        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] ${
-          isDark ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-emerald-400 bg-emerald-50 text-emerald-700"
-        }`}>
-          <CheckCircle2 className="w-2.5 h-2.5" /> Approved
-        </span>
-      )}
-      {isCancelled && (
-        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] ${
-          isDark ? "border-rose-500/40 bg-rose-500/10 text-rose-300" : "border-rose-400 bg-rose-50 text-rose-700"
-        }`}>
-          × Rejected
-        </span>
-      )}
-      {!isTerminal && (
-        <>
-          <button
-            type="button"
-            disabled={!!pending}
-            onClick={(e) => { e.stopPropagation(); void fire("approve"); }}
-            className={`${baseBtn} ${isDark
-              ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
-              : "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            }`}
-          >
-            {pending === "approve" ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
-            Approve
-          </button>
-          <button
-            type="button"
-            disabled={!!pending}
-            onClick={(e) => { e.stopPropagation(); void fire("cancel"); }}
-            className={`${baseBtn} ${isDark
-              ? "border-rose-500/40 text-rose-300 hover:bg-rose-500/10"
-              : "border-rose-400 text-rose-700 hover:bg-rose-50"
-            }`}
-          >
-            {pending === "reject" ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : null}
-            Reject
-          </button>
-        </>
-      )}
-      {error && (
-        <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
+        <PostApprovalDraftButton child={child} isDark={isDark} />
       )}
     </div>
   );
