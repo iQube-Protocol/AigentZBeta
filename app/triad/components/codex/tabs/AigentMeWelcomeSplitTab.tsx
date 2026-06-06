@@ -2446,7 +2446,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         // SpecialistsLayout and fires the server-side recommender so
         // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
-        onSelect: () => engageCapsuleAndMount('ask-specialists'),
+        onSelect: () => {
+          engageCapsuleAndMount('ask-specialists');
+          // Prime the right pane immediately so the operator lands on a
+          // populated SpecialistsLayout instead of an empty canvas. Sticky
+          // dispatch still re-fires on every subsequent chat send.
+          void fetchSpecialistRecommendation();
+        },
         // Sticky: every chat send while this chip is active re-fires the
         // recommender with the latest input, so the right pane tracks
         // the conversation instead of freezing on the first response.
@@ -2508,10 +2514,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         // Sticky: subsequent chat turns refine Marketa's recommendation
         // as the operator adds detail (specific partner, deal size, etc.).
         stickyOnSend: true,
-        onSelect: () => engageCapsuleAndMount('ask-specialists'),
+        onSelect: () => {
+          engageCapsuleAndMount('ask-specialists');
+          // Fire the recommendation fetch with the seed prompt on click so
+          // Marketa is already surfaced in the right pane the moment the
+          // operator lands there — no need to hit Send first.
+          void fetchSpecialistRecommendation(marketaSeed || undefined);
+        },
         onDispatchOnSend: async (editedPrompt: string) => {
-          // Pass the edited seed as the specialist-recommend query so
-          // Marketa surfaces as the top recommendation for outreach.
+          // Re-fire with the edited prompt on Send so the recommendation
+          // tracks the operator's refined ask (specific partner, etc.).
           await fetchSpecialistRecommendation(editedPrompt || marketaSeed || undefined);
         },
       });
