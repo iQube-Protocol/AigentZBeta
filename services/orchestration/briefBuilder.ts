@@ -23,6 +23,58 @@ import {
   selectTopNbeForCartridge,
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
+
+/**
+ * Deterministic backstop for `nbaContextualTitles` — fills any slot
+ * the LLM rerank left empty when we have actionable persona context
+ * (experienceName or primaryGoal). LLM-emitted titles are NEVER
+ * overwritten; this only addresses the silent-fallback case where the
+ * LLM didn't run, timed out, or skipped a title.
+ *
+ * Templates are verb-first imperative to match the catalogue label
+ * voice and stay under the 140-char card budget. Candidates without
+ * a `suggestedArtifact` route are left alone (their static label is
+ * usually action-specific already — "Ask Marketa for a partner
+ * proposal" doesn't need a generic fill).
+ *
+ * Surgical: only fills missing slots; trivial to remove if the LLM
+ * later starts emitting titles for these ids.
+ */
+function applyContextualTitleBackstop(
+  rerankTitles: Record<string, string>,
+  candidates: NbeCandidate[],
+  ctx: { experienceName: string | null; primaryGoal: string | null },
+): Record<string, string> {
+  const focus =
+    (ctx.experienceName && ctx.experienceName.trim().length > 0
+      ? ctx.experienceName.trim()
+      : null) ??
+    (ctx.primaryGoal && ctx.primaryGoal.trim().length > 0
+      ? ctx.primaryGoal.trim().replace(/\.$/, '').slice(0, 80)
+      : null);
+  if (!focus) return rerankTitles;
+  // Template per suggestedArtifact — verb-first, ≤140 chars after fill.
+  const tmpl: Partial<Record<NonNullable<NbeCandidate['suggestedArtifact']>, string>> = {
+    'gmail-draft':     `Draft a Gmail outreach for ${focus}`,
+    'google-doc':      `Create a working doc for ${focus}`,
+    'calendar-block':  `Block focus time for ${focus}`,
+    'venture-report':  `Generate a venture progress report on ${focus}`,
+    'brief':           `Compose a brief for ${focus}`,
+    'post-set':        `Draft a post set for ${focus}`,
+    'image-prompt':    `Prepare an image prompt for ${focus}`,
+    'video-script':    `Outline a video script for ${focus}`,
+    'slide-outline':   `Outline a slide deck for ${focus}`,
+  };
+  const filled = { ...rerankTitles };
+  for (const c of candidates) {
+    if (filled[c.id]) continue;                  // LLM wins
+    if (!c.suggestedArtifact) continue;          // No clean template
+    const candidate = tmpl[c.suggestedArtifact];
+    if (!candidate) continue;
+    filled[c.id] = candidate.slice(0, 140);
+  }
+  return filled;
+}
 import { getConnectionStatuses, type GoogleSource } from '@/services/google/oauth';
 import { inferStrategy } from '@/services/strategy/strategyInference';
 import { evaluateStageProgression } from '@/services/strategy/stageProgression';
@@ -244,7 +296,11 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   nbeCandidates = rerank.ranked;
   const topNbeReason = rerank.topReason;
   const nbaPromptHints = rerank.nbaPromptHints;
-  const nbaContextualTitles = rerank.nbaContextualTitles;
+  const nbaContextualTitles = applyContextualTitleBackstop(
+    rerank.nbaContextualTitles,
+    nbeCandidates,
+    { experienceName, primaryGoal },
+  );
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
     id: c.id,
@@ -400,7 +456,11 @@ export async function buildMoveForward(input: {
     altsRaw = rerank.ranked.slice(1);
     topActionReason = rerank.topReason;
     nbaPromptHints = rerank.nbaPromptHints;
-    nbaContextualTitles = rerank.nbaContextualTitles;
+    nbaContextualTitles = applyContextualTitleBackstop(
+      rerank.nbaContextualTitles,
+      [...(topCandidate ? [topCandidate] : []), ...altsRaw],
+      { experienceName, primaryGoal },
+    );
   }
 
   const resolvedCartridge: ActiveCartridgeSlug =
