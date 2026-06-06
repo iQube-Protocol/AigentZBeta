@@ -2649,11 +2649,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               // capsule) and every NBE approval.
               const secondTierInCapsule = (() => {
                 if (!secondTierApproval) return false;
-                const queuedIntentIds = new Set(
-                  Object.values(queuedIntents).map((q) => q.intentId),
-                );
                 const artifact = artifacts.find(
                   (a) => a.artifactId === secondTierApproval.artifactId,
+                );
+                // Specialists capsule renders the inline SecondTierApprovalCard
+                // for any of its drafted artifacts (which carry no intentId
+                // because composerSourceIntentId is unset on the chip path).
+                // Suppress the overlay so the operator doesn't see a popup
+                // AND an inline card competing for the same approval.
+                if (activeLayoutId === 'specialists' && !artifact?.intentId) {
+                  return true;
+                }
+                const queuedIntentIds = new Set(
+                  Object.values(queuedIntents).map((q) => q.intentId),
                 );
                 return !!(artifact?.intentId && queuedIntentIds.has(artifact.intentId));
               })();
