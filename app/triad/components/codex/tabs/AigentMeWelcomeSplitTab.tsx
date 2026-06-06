@@ -2447,6 +2447,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
         onSelect: () => engageCapsuleAndMount('ask-specialists'),
+        // Sticky: every chat send while this chip is active re-fires the
+        // recommender with the latest input, so the right pane tracks
+        // the conversation instead of freezing on the first response.
+        stickyOnSend: true,
         // Pass the operator's (possibly edited) input as the recommendation
         // query so the recommender surfaces the right specialist for the
         // stated need. Falls back to generic recommendation when empty.
@@ -2471,6 +2475,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       label: string;
       prompt: string;
       seedPrompt: string;
+      stickyOnSend: boolean;
       onSelect: () => void;
       onDispatchOnSend: (editedPrompt: string) => Promise<void>;
     }> = [];
@@ -2500,6 +2505,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         // the same intent the right-pane recommender is acting on.
         prompt: marketaSeed,
         seedPrompt: marketaSeed,
+        // Sticky: subsequent chat turns refine Marketa's recommendation
+        // as the operator adds detail (specific partner, deal size, etc.).
+        stickyOnSend: true,
         onSelect: () => engageCapsuleAndMount('ask-specialists'),
         onDispatchOnSend: async (editedPrompt: string) => {
           // Pass the edited seed as the specialist-recommend query so

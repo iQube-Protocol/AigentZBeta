@@ -134,6 +134,15 @@ type QuickPrompt =
        */
       onDispatchOnSend?: (editedPrompt: string) => Promise<void> | void;
       /**
+       * When true, the chip's onDispatchOnSend re-fires on EVERY
+       * subsequent Send until a different chip is clicked or the
+       * dispatch is explicitly cleared. Used for capsules where the
+       * right pane should track the ongoing conversation (e.g.
+       * Ask Specialists — re-rank as the operator refines their
+       * question) versus one-shot fetches (brief / move / venture).
+       */
+      stickyOnSend?: boolean;
+      /**
        * Optional pre-filled text that populates the copilot input when
        * the chip is clicked, instead of the chip's generic `prompt`.
        * Lets the operator see — and edit — a context-specific seed
@@ -347,7 +356,10 @@ export function SmartTriadCopilotLayer({
   // `onDispatchOnSend` callback. The dispatch fires inside handleSend
   // BEFORE the chat POST so the right-pane fetch lands first and the
   // chat sees the fresh groundContext. Cleared after dispatch.
-  const pendingDispatchRef = useRef<((editedPrompt: string) => Promise<void> | void) | null>(null);
+  const pendingDispatchRef = useRef<{
+    fn: (editedPrompt: string) => Promise<void> | void;
+    sticky: boolean;
+  } | null>(null);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -403,13 +415,18 @@ export function SmartTriadCopilotLayer({
       // chat POST captures the freshest groundContext. Errors swallow:
       // a failed dispatch shouldn't block the chat send.
       const dispatch = pendingDispatchRef.current;
-      pendingDispatchRef.current = null;
+      // Clear non-sticky dispatchers immediately; sticky ones survive
+      // so subsequent Sends keep refining the right pane (e.g. the
+      // specialists capsule re-ranks against the new chat input).
+      if (dispatch && !dispatch.sticky) {
+        pendingDispatchRef.current = null;
+      }
       if (dispatch) {
         try {
           // Pass the operator's (possibly edited) input so right-pane
           // fetchers can use it as a context seed (e.g. Marketa outreach
           // target). Fetchers that don't need it can ignore the arg.
-          await dispatch(sentInput);
+          await dispatch.fn(sentInput);
         } catch (err) {
           console.error('[copilot] pending dispatch failed', err);
         }
@@ -541,7 +558,15 @@ export function SmartTriadCopilotLayer({
     }
 
     if (typeof prompt !== 'string' && prompt.onDispatchOnSend) {
-      pendingDispatchRef.current = prompt.onDispatchOnSend;
+      pendingDispatchRef.current = {
+        fn: prompt.onDispatchOnSend,
+        sticky: !!prompt.stickyOnSend,
+      };
+    } else if (typeof prompt !== 'string') {
+      // A chip without a dispatcher (e.g. pure layout chip) overrides
+      // any previously-set sticky dispatcher so the right pane stops
+      // re-firing when the operator switches context.
+      pendingDispatchRef.current = null;
     }
 
     // Focus the input so the operator can immediately edit / press Enter.

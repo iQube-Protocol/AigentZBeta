@@ -146,13 +146,21 @@ function deterministicPick(
   primaryGoal: string | null,
   roster: SpecialistRosterEntry[],
   recentSpecialistsConsulted: SpecialistId[],
+  query: string | null,
 ): DeterministicPick {
+  // Lowercased query for the explicit-mention + keyword scan. When the
+  // operator types "Draft Marketa partner outreach for Lamina 1" we
+  // want Marketa to decisively win over the cartridge-bias default
+  // (e.g. Kn0w1 from an active knyt cartridge).
+  const q = query ? query.toLowerCase() : '';
+
   // Score every specialist deterministically. The score is the
   // composition of: cartridge fit, availability, recency penalty
   // (avoid suggesting the one we just consulted unless nothing else
   // fits), and a gentle "always-available" tiebreaker so platform
   // specialists don't dominate when no cartridge is active.
   const scoreById = new Map<SpecialistId, number>();
+  let queryDrivenPick: SpecialistId | null = null;
   for (const entry of roster) {
     let score = 0;
     if (entry.availability.status === 'active') score += 50;
@@ -178,6 +186,23 @@ function deterministicPick(
       if (entry.id === 'aigent-nakamoto' && /(decentral|protocol|qripto|ecosystem)/.test(g)) score += 25;
     }
 
+    // Query text match — heaviest weight when the operator's typed
+    // request names the specialist directly or carries clear domain
+    // keywords. Overrides cartridge bias so "Marketa outreach for X"
+    // on a KNYT cartridge picks Marketa, not Kn0w1.
+    if (q) {
+      if (q.includes(entry.label.toLowerCase())) {
+        score += 120;
+        queryDrivenPick = entry.id;
+      }
+      if (entry.id === 'marketa' && /(partner|campaign|sponsor|outreach|deal|proposal)/.test(q)) score += 70;
+      if (entry.id === 'quill' && /(article|editorial|story|issue|publish|draft)/.test(q)) score += 50;
+      if (entry.id === 'kn0w1' && /(knyt|knowledge|mission|pcs|world|character)/.test(q)) score += 50;
+      if (entry.id === 'metaye' && /(govern|policy|civic|sovereign|polity)/.test(q)) score += 50;
+      if (entry.id === 'moneypenny' && /(payment|price|q¢|qcent|micro)/.test(q)) score += 50;
+      if (entry.id === 'aigent-nakamoto' && /(decentral|protocol|qripto|ecosystem)/.test(q)) score += 50;
+    }
+
     // Recency penalty — small nudge away from the one the persona just
     // talked to, so the recommendation feels alive rather than stuck.
     if (recentSpecialistsConsulted[0] === entry.id) score -= 8;
@@ -190,6 +215,11 @@ function deterministicPick(
 
   const top = ranked[0];
   const reasonParts: string[] = [];
+  // Query-driven picks get a query-first reason so the operator sees
+  // why their typed request — not the cartridge — drove the pick.
+  if (queryDrivenPick && queryDrivenPick === top.id) {
+    reasonParts.push(`your request mentions ${top.label}`);
+  }
   const topMatchesCartridge = activeCartridges.find(
     (c) => CARTRIDGE_PRIMARY_SPECIALIST[c] === top.id,
   );
@@ -319,6 +349,7 @@ export async function recommendSpecialist(
     primaryGoal,
     roster,
     recentSpecialists,
+    input.query ?? null,
   );
 
   // LLM rerank — gated on key + query (no point burning a call when
