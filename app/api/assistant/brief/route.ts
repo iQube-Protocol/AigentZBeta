@@ -48,11 +48,14 @@ const VALID_CARTRIDGES: ActiveCartridgeSlug[] = [
 interface PostBody {
   briefType?: BriefType;
   scopedCartridge?: ActiveCartridgeSlug;
+  /** Optional operator chat input — feeds the contextual-title backstop. */
+  chatContext?: string;
 }
 
 function sanitiseBody(raw: unknown): {
   briefType: BriefType;
   scopedCartridge?: ActiveCartridgeSlug;
+  chatContext?: string;
 } {
   if (!raw || typeof raw !== 'object') return { briefType: 'daily' };
   const body = raw as PostBody;
@@ -64,7 +67,11 @@ function sanitiseBody(raw: unknown): {
     body.scopedCartridge && VALID_CARTRIDGES.includes(body.scopedCartridge)
       ? body.scopedCartridge
       : undefined;
-  return { briefType, scopedCartridge };
+  const chatContext =
+    typeof body.chatContext === 'string' && body.chatContext.trim().length > 0
+      ? body.chatContext.trim().slice(0, 240)
+      : undefined;
+  return { briefType, scopedCartridge, chatContext };
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -83,7 +90,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch {
     /* no body / invalid json — default to daily brief */
   }
-  const { briefType, scopedCartridge } = sanitiseBody(raw);
+  const { briefType, scopedCartridge, chatContext } = sanitiseBody(raw);
 
   try {
     // Capability Gateway — Pattern A pre-flight gather. Surface id is
@@ -116,6 +123,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       briefType,
       scopedCartridge,
       liveContext,
+      chatContext,
     });
     return NextResponse.json(
       preflight ? { ...brief, preflightContext: preflight } : brief,

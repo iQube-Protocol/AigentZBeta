@@ -27,9 +27,18 @@ import {
 /**
  * Deterministic backstop for `nbaContextualTitles` — fills any slot
  * the LLM rerank left empty when we have actionable persona context
- * (experienceName or primaryGoal). LLM-emitted titles are NEVER
- * overwritten; this only addresses the silent-fallback case where the
- * LLM didn't run, timed out, or skipped a title.
+ * (chatContext, experienceName, or primaryGoal). LLM-emitted titles
+ * are NEVER overwritten; this only addresses the silent-fallback case
+ * where the LLM didn't run, timed out, or skipped a title.
+ *
+ * Focus priority — freshest signal wins:
+ *   1. chatContext  — the operator's last input from the copilot, plumbed
+ *      through from the chip dispatcher (Brief me / Move forward chips
+ *      pass editedPrompt). Reflects the most current intent ("partner
+ *      with Lamina 1") so the NBA title reads against what the operator
+ *      JUST said, not against the static experience.
+ *   2. experienceName — the ExperienceQube's labelled venture/project.
+ *   3. primaryGoal   — the experience's primaryGoal field, truncated.
  *
  * Templates are verb-first imperative to match the catalogue label
  * voice and stay under the 140-char card budget. Candidates without
@@ -43,9 +52,28 @@ import {
 function applyContextualTitleBackstop(
   rerankTitles: Record<string, string>,
   candidates: NbeCandidate[],
-  ctx: { experienceName: string | null; primaryGoal: string | null },
+  ctx: {
+    experienceName: string | null;
+    primaryGoal: string | null;
+    /** Freshest signal — operator's most recent chip-dispatched prompt. */
+    chatContext?: string | null;
+  },
 ): Record<string, string> {
+  // Sanitise the chat phrase — strip common conversational prefixes
+  // ("I want to…", "Can you…") so the template substitution reads
+  // cleanly. Cap at 60 chars; longer phrases drop to experience focus.
+  const cleanedChat = (() => {
+    const raw = (ctx.chatContext ?? '').trim();
+    if (raw.length === 0) return null;
+    const stripped = raw
+      .replace(/^(i (want|need|would like) to|can you|please|let'?s|help me)\s+/i, '')
+      .replace(/[.!?]+$/, '')
+      .trim();
+    if (stripped.length === 0 || stripped.length > 80) return null;
+    return stripped;
+  })();
   const focus =
+    cleanedChat ??
     (ctx.experienceName && ctx.experienceName.trim().length > 0
       ? ctx.experienceName.trim()
       : null) ??
@@ -206,6 +234,13 @@ export interface BuildBriefInput {
    * the LLM rerank pass is off or the value is empty.
    */
   liveContext?: string | null;
+  /**
+   * Fresh operator signal from the copilot — the message they typed before
+   * clicking the chip that triggered this build. Feeds the contextual-title
+   * backstop so the NBA card reads against what the operator JUST asked
+   * for ("partner with Lamina 1") rather than the static experience name.
+   */
+  chatContext?: string | null;
 }
 
 const PRIORITY_LABELS_BY_CARTRIDGE: Record<ActiveCartridgeSlug, string> = {
@@ -299,7 +334,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   const nbaContextualTitles = applyContextualTitleBackstop(
     rerank.nbaContextualTitles,
     nbeCandidates,
-    { experienceName, primaryGoal },
+    { experienceName, primaryGoal, chatContext: input.chatContext ?? null },
   );
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
@@ -391,6 +426,8 @@ export async function buildMoveForward(input: {
   cartridge?: ActiveCartridgeSlug;
   /** See `BuildBriefInput.liveContext` — same meaning. */
   liveContext?: string | null;
+  /** See `BuildBriefInput.chatContext` — same meaning. */
+  chatContext?: string | null;
 }): Promise<MoveForwardShape> {
   const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
     getExperienceQube(input.personaId),
@@ -459,7 +496,7 @@ export async function buildMoveForward(input: {
     nbaContextualTitles = applyContextualTitleBackstop(
       rerank.nbaContextualTitles,
       [...(topCandidate ? [topCandidate] : []), ...altsRaw],
-      { experienceName, primaryGoal },
+      { experienceName, primaryGoal, chatContext: input.chatContext ?? null },
     );
   }
 

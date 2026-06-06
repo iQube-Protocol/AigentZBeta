@@ -734,7 +734,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   }, [spine.status, personaId]);
 
   // ── Fetchers ────────────────────────────────────────────────────────
-  const fetchBrief = useCallback(async (briefType: 'daily' | 'project' | 'cartridge' = 'daily') => {
+  const fetchBrief = useCallback(async (
+    briefType: 'daily' | 'project' | 'cartridge' = 'daily',
+    chatContext?: string | null,
+  ) => {
     setBriefLoading(true);
     setBriefError(null);
     setBrief(null);
@@ -742,7 +745,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const res = await personaFetch('/api/assistant/brief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ briefType }),
+        body: JSON.stringify({
+          briefType,
+          ...(chatContext && chatContext.trim().length > 0 ? { chatContext: chatContext.trim() } : {}),
+        }),
         personaIdHint: personaId,
       });
       if (!res.ok) {
@@ -761,14 +767,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [personaId]);
 
-  const fetchMoveForward = useCallback(async (cartridge?: string) => {
+  const fetchMoveForward = useCallback(async (cartridge?: string, chatContext?: string | null) => {
     setMoveForwardLoading(true);
     setMoveForwardResult(null);
     try {
       const res = await personaFetch('/api/assistant/move-forward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cartridge ? { cartridge } : {}),
+        body: JSON.stringify({
+          ...(cartridge ? { cartridge } : {}),
+          ...(chatContext && chatContext.trim().length > 0 ? { chatContext: chatContext.trim() } : {}),
+        }),
         personaIdHint: personaId,
       });
       if (!res.ok) {
@@ -2529,7 +2538,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           engageCapsuleAndMount('brief');
           consumeSuggestion('brief');
         },
-        onDispatchOnSend: async (_editedPrompt: string) => { await fetchBrief(); },
+        // editedPrompt = operator's current copilot input. Piped to the
+        // brief route so the contextual-title backstop reads against
+        // what the operator just asked for (e.g. "partner with Lamina 1"
+        // → "Draft a Gmail outreach for partner with Lamina 1") rather
+        // than the static experienceName / primaryGoal.
+        onDispatchOnSend: async (editedPrompt: string) => { await fetchBrief('daily', editedPrompt); },
       },
       {
         id: 'move',
@@ -2540,7 +2554,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           engageCapsuleAndMount('move-forward');
           consumeSuggestion('decision-board');
         },
-        onDispatchOnSend: async (_editedPrompt: string) => { await fetchMoveForward(); },
+        onDispatchOnSend: async (editedPrompt: string) => { await fetchMoveForward(undefined, editedPrompt); },
       },
       {
         id: 'venture',
