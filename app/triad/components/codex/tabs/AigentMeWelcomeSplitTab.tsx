@@ -345,11 +345,22 @@ function buildPromptForSuggestedArtifact(
 function buildPromptForNbeAction(
   artifactType: string,
   action: NextBestActionData,
+  liveContext?: { experienceName?: string | null; primaryGoal?: string | null } | null,
 ): string {
   const kind = artifactType.toLowerCase() || 'doc';
   const lines: string[] = [];
   lines.push(`Draft a ${kind} that operationalises this next-best action: "${action.label}".`);
-  if (action.rationale) lines.push(`Context: ${action.rationale}`);
+  // Prefer live context (experience name / primary goal from the brief) over the
+  // static catalog rationale so the draft is specific to what the operator is
+  // actually working on rather than a generic template.
+  const contextLine = liveContext?.experienceName
+    ? `Context: Tailored for "${liveContext.experienceName}". ${action.rationale || ''}`
+    : liveContext?.primaryGoal
+    ? `Context: Focused on goal — "${liveContext.primaryGoal}". ${action.rationale || ''}`
+    : action.rationale
+    ? `Context: ${action.rationale}`
+    : null;
+  if (contextLine) lines.push(contextLine.trim());
   if (action.cartridge) lines.push(`Cartridge: ${action.cartridge}.`);
   if (action.suggestedArtifact) lines.push(`Artifact type requested: ${action.suggestedArtifact}.`);
   lines.push(`Keep it concrete, action-oriented, and ready for the operator to review, edit, and send.`);
@@ -1086,7 +1097,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           const seedPrompt =
             handoffHint && handoffHint.trim().length > 0
               ? handoffHint
-              : buildPromptForNbeAction(artifactType, action);
+              : buildPromptForNbeAction(artifactType, action, brief?.context);
           setComposerInitialPrompt(seedPrompt);
           setComposerKind(composeKind);
           // Bind the composer to this queued intent so the drafted
@@ -2370,6 +2381,18 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // Effect: clicking "Brief me" no longer races the chat ahead of the
   // brief — the prompt loads into the input, the right pane shows a
   // skeleton, the user can edit, and Send fires both panes in sync.
+  // Derived context query for specialist recommendation — used as the implicit
+  // query when the operator clicks a specialist chip without having typed
+  // anything yet. Derived from the most specific available piece of context
+  // so the right pane lands on the right specialist rather than a generic pick.
+  const implicitSpecialistQuery = useMemo(() => {
+    const name = brief?.context?.experienceName;
+    if (name && name.length <= 80) return name;
+    const goal = brief?.context?.primaryGoal ?? (expModel?.meta?.primaryGoal as string | undefined);
+    if (goal && typeof goal === 'string' && goal.length <= 100) return goal;
+    return activeCartridges[0] ?? null;
+  }, [brief, expModel, activeCartridges]);
+
   const copilotQuickPrompts = useMemo(() => {
     const layoutDispatchFor = (chip: NbeQuickChip) => () => {
       if (!chip.layoutDispatch) return;
@@ -2448,10 +2471,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
         onSelect: () => {
           engageCapsuleAndMount('ask-specialists');
-          // Prime the right pane immediately so the operator lands on a
-          // populated SpecialistsLayout instead of an empty canvas. Sticky
-          // dispatch still re-fires on every subsequent chat send.
-          void fetchSpecialistRecommendation();
+          // Prime right pane immediately. Use the implicit context query
+          // (experience name / primary goal / cartridge) so the recommender
+          // picks the right specialist rather than a generic fallback.
+          void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
         },
         // Sticky: every chat send while this chip is active re-fires the
         // recommender with the latest input, so the right pane tracks
@@ -2465,7 +2488,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount]);
+  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);
 
   // Context-inferred quick chips — derived from live brief/experience data.
   // Each chip routes through the canonical engageCapsuleAndMount gateway and
@@ -2530,7 +2553,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
 
     return chips;
-  }, [serverChips, brief, expModel, activeCartridges, engageCapsuleAndMount, fetchSpecialistRecommendation]);
+  }, [serverChips, brief, expModel, activeCartridges, engageCapsuleAndMount, fetchSpecialistRecommendation, implicitSpecialistQuery]);
 
   return (
     <>
