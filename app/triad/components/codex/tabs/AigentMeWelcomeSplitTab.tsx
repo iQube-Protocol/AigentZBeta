@@ -865,16 +865,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setVentureProgressLoading(false);
       setMoveForwardResult(null);
       setMoveForwardLoading(false);
-      // Seed the right pane the same way the chat-copilot quick prompt
-      // does: fire fetchSpecialistRecommendation with the implicit query
-      // so Marketa (or whoever the recommender picks) auto-populates with
-      // recommendations + suggested-artifact chips. Without this, the
-      // Specialists capsule mounts empty and the operator has no path
-      // from the chip into a real consultation.
-      void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
+      // Recommendation fetch is fired by the effect below that watches
+      // activeCapsuleId. We can't call fetchSpecialistRecommendation
+      // directly here because it's declared further down the component
+      // body and would TDZ-error this useCallback's dep array.
       return;
     }
-  }, [fetchBrief, fetchMoveForward, fetchVentureProgress, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);
+  }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsuleAndMount]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
@@ -2406,6 +2403,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     if (goal && typeof goal === 'string' && goal.length <= 100) return goal;
     return activeCartridges[0] ?? null;
   }, [brief, expModel, activeCartridges]);
+
+  // When the Ask Specialists capsule becomes active and no specialist
+  // response has loaded yet, seed the right pane with a recommendation
+  // fetch. This used to live inside handleCtaClick but referencing
+  // fetchSpecialistRecommendation there caused a TDZ error (it's a const
+  // declared further down the component). Effect-based seeding keeps
+  // the declaration order legal and still fires on chip click.
+  useEffect(() => {
+    if (activeCapsuleId !== 'ask-specialists') return;
+    if (specialistRecommendation) return;
+    if (specialistRecommendationLoading) return;
+    void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
+  }, [activeCapsuleId, specialistRecommendation, specialistRecommendationLoading, fetchSpecialistRecommendation, implicitSpecialistQuery]);
 
   const copilotQuickPrompts = useMemo(() => {
     const layoutDispatchFor = (chip: NbeQuickChip) => () => {
