@@ -616,16 +616,14 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     [],
   );
   // After the operator engages a Capsule (or opens a composer / drawer)
-  // the highlight on the matching chip clears so the strip returns to
-  // neutral. Without this the pulse stays on after the click and looks
-  // like the suggestion is still pending.
-  const consumeSuggestion = useCallback((id: ChipTargetId) => {
-    setSuggestedLayoutHints((prev) => {
-      if (!(id in prev)) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+  // every pending highlight clears so the strip returns to neutral. We
+  // reset the whole map rather than just the clicked chip — a single
+  // operator action resolves the suggestion turn. Without this, an
+  // un-clicked chip from the same turn (e.g. Email when the operator
+  // chose Specialists instead) keeps pulsing forever until the next
+  // chat send wipes it.
+  const consumeSuggestion = useCallback((_id: ChipTargetId) => {
+    setSuggestedLayoutHints((prev) => (Object.keys(prev).length === 0 ? prev : {}));
   }, []);
 
   // Phase 2 Slice 5: ApprovalLayout is INTERRUPT class — when a pending
