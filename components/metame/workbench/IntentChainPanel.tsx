@@ -1423,8 +1423,7 @@ function ReceiptRow({
     : isTerminal;
   // intentId to target for approval/action on THIS receipt's row.
   const receiptIntentId = r.intentId ?? parentIntentId;
-  // Auto-expand specialist responses so recommendations are visible without an extra click.
-  const [bodyOpen, setBodyOpen] = React.useState(r.actionType === "specialist_consulted");
+  const [bodyOpen, setBodyOpen] = React.useState(false);
   const label = ACTION_LABELS[r.actionType] ?? r.actionType.replace(/_/g, " ");
   const spec = specialistFromReceipt(r);
   const specDisplay = spec ? specialistDisplay(spec) : null;

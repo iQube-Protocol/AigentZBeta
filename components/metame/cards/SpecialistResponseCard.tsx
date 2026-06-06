@@ -131,7 +131,7 @@ export function SpecialistResponseCard({
 
   const conf = CONFIDENCE_META[data.confidence];
   const requestLabel = REQUEST_TYPE_LABELS[data.requestType] ?? data.requestType;
-  const hasDetails = data.recommendations.length > 0 || data.suggestedArtifacts.length > 0;
+  const hasDetails = data.recommendations.length > 0;
 
   return (
     <div className={`rounded-lg border p-5 ${surfaceClass} space-y-4`}>
@@ -182,43 +182,12 @@ export function SpecialistResponseCard({
       {/* iQube disclosure */}
       <IqubeContextDisclosure using={using} theme={theme} />
 
-      {/* Expand toggle — show recommendations + suggested artifacts on demand */}
-      {hasDetails && (
-        <button
-          type="button"
-          onClick={() => setDetailsOpen((v) => !v)}
-          className={`flex items-center gap-1 text-xs uppercase tracking-wider ${accentClass} hover:opacity-80 transition`}
-          aria-expanded={detailsOpen}
-        >
-          <ChevronDown
-            className={`w-3.5 h-3.5 transition-transform ${detailsOpen ? "" : "-rotate-90"}`}
-          />
-          {detailsOpen ? "Hide details" : "Show recommendations + suggested artifacts"}
-        </button>
-      )}
-
-      {/* Recommendations */}
-      {detailsOpen && data.recommendations.length > 0 && (
+      {/* Suggested artifacts — always-visible primary CTAs so operator
+          never has to expand to find the action. */}
+      {data.suggestedArtifacts.length > 0 && (
         <section>
           <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Recommendations
-          </h4>
-          <ul className="space-y-1.5 text-sm">
-            {data.recommendations.map((r, i) => (
-              <li key={i} className="flex gap-2 items-start">
-                <ChevronRight className={`w-4 h-4 mt-0.5 shrink-0 ${accentClass}`} />
-                <span>{r}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Suggested artifacts */}
-      {detailsOpen && data.suggestedArtifacts.length > 0 && (
-        <section>
-          <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Suggested artifacts
+            Suggested next steps
           </h4>
           <div className="flex flex-wrap gap-1.5">
             {data.suggestedArtifacts.map((a) => (
@@ -236,6 +205,35 @@ export function SpecialistResponseCard({
               </button>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Expand toggle — text recommendations only, collapsed by default */}
+      {hasDetails && (
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((v) => !v)}
+          className={`flex items-center gap-1 text-xs uppercase tracking-wider ${accentClass} hover:opacity-80 transition`}
+          aria-expanded={detailsOpen}
+        >
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform ${detailsOpen ? "" : "-rotate-90"}`}
+          />
+          {detailsOpen ? "Hide further recommendations" : "Show further recommendations"}
+        </button>
+      )}
+
+      {/* Recommendations — behind toggle */}
+      {detailsOpen && data.recommendations.length > 0 && (
+        <section>
+          <ul className="space-y-1.5 text-sm">
+            {data.recommendations.map((r, i) => (
+              <li key={i} className="flex gap-2 items-start">
+                <ChevronRight className={`w-4 h-4 mt-0.5 shrink-0 ${accentClass}`} />
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

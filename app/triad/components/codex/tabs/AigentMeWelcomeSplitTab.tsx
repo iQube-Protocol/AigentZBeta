@@ -1578,9 +1578,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       // Auto-ask the specialist with the seed query so the response card
       // populates immediately — with it come the suggested artifact chips
       // (gmail-draft, marketa-email, etc.) the operator actually needs to act.
+      // Pre-populate the textarea with the query so the operator sees what
+      // was asked on their behalf rather than landing on an empty input.
       // Only fires on the initial chip-click invocation when a query is present
       // and no response exists yet for this specialist.
       if (query && payload.topSpecialistId && !askSpecialistResponses[payload.topSpecialistId]) {
+        setAskSpecialistPrompt(query);
         void handleAskSpecialist(payload.topSpecialistId, query);
       }
     } catch (err) {
