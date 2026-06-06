@@ -2401,7 +2401,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         prompt: chip.copilotPrompt ?? "",
         skipInference: !chip.copilotPrompt,
         onSelect: layoutDispatchFor(chip),
-        onDispatchOnSend: fetchDispatchFor(chip),
+        // fetchDispatchFor ignores editedPrompt for server chips (the
+        // fetch kind drives what to load, not the input text).
+        onDispatchOnSend: (_editedPrompt: string) => fetchDispatchFor(chip)(),
       }));
     }
 
@@ -2420,21 +2422,21 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         label: 'Brief me',
         prompt: 'Give me my daily brief.',
         onSelect: () => engageCapsuleAndMount('brief'),
-        onDispatchOnSend: async () => { await fetchBrief(); },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchBrief(); },
       },
       {
         id: 'move',
         label: 'Move forward',
         prompt: 'What is the next best action I should take right now?',
         onSelect: () => engageCapsuleAndMount('move-forward'),
-        onDispatchOnSend: async () => { await fetchMoveForward(); },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchMoveForward(); },
       },
       {
         id: 'venture',
         label: 'Venture progress',
         prompt: 'Where am I on my venture progress?',
         onSelect: () => engageCapsuleAndMount('venture-progress'),
-        onDispatchOnSend: async () => { await fetchVentureProgress(); },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchVentureProgress(); },
       },
       {
         id: 'ask-specialists',
@@ -2445,10 +2447,70 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
         onSelect: () => engageCapsuleAndMount('ask-specialists'),
-        onDispatchOnSend: async () => { await fetchSpecialistRecommendation(); },
+        // Pass the operator's (possibly edited) input as the recommendation
+        // query so the recommender surfaces the right specialist for the
+        // stated need. Falls back to generic recommendation when empty.
+        onDispatchOnSend: async (editedPrompt: string) => {
+          await fetchSpecialistRecommendation(editedPrompt || undefined);
+        },
       },
     ];
   }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount]);
+
+  // Context-inferred quick chips — derived from live brief/experience data.
+  // Each chip routes through the canonical engageCapsuleAndMount gateway and
+  // carries a context-specific seedPrompt the operator can edit before Send.
+  // Only produced when there's enough context to make the chip specific
+  // (experience name or primary goal) — cold/empty state shows nothing here.
+  const inferredQuickPrompts = useMemo(() => {
+    // Don't double-up when server chips are already driving the strip.
+    if (serverChips && serverChips.length > 0) return [];
+
+    const chips: Array<{
+      id: string;
+      label: string;
+      prompt: string;
+      seedPrompt: string;
+      onSelect: () => void;
+      onDispatchOnSend: (editedPrompt: string) => Promise<void>;
+    }> = [];
+
+    // Derive the most specific entity name available so the seed reads
+    // "Draft Marketa outreach for Lamina 1" rather than something generic.
+    const experienceName = brief?.context?.experienceName ?? null;
+    const primaryGoal = brief?.context?.primaryGoal ?? (expModel?.meta?.primaryGoal as string | null ?? null);
+    const cartridge = activeCartridges[0] ?? null;
+
+    // Build Marketa seed — preference order: experience name > primary goal > cartridge name.
+    // Skip if none available (cold state shows no inferred chip).
+    let marketaSeed: string | null = null;
+    if (experienceName && experienceName.length <= 60) {
+      marketaSeed = `Draft Marketa partner outreach for ${experienceName}`;
+    } else if (primaryGoal && primaryGoal.length <= 80) {
+      marketaSeed = `Draft Marketa outreach: ${primaryGoal}`;
+    } else if (cartridge) {
+      marketaSeed = `Draft Marketa partner outreach for ${cartridge}`;
+    }
+
+    if (marketaSeed) {
+      chips.push({
+        id: 'marketa-inferred',
+        label: 'Draft with Marketa',
+        // prompt (sent as chat turn) mirrors the seed so the LLM narrates
+        // the same intent the right-pane recommender is acting on.
+        prompt: marketaSeed,
+        seedPrompt: marketaSeed,
+        onSelect: () => engageCapsuleAndMount('ask-specialists'),
+        onDispatchOnSend: async (editedPrompt: string) => {
+          // Pass the edited seed as the specialist-recommend query so
+          // Marketa surfaces as the top recommendation for outreach.
+          await fetchSpecialistRecommendation(editedPrompt || marketaSeed || undefined);
+        },
+      });
+    }
+
+    return chips;
+  }, [serverChips, brief, expModel, activeCartridges, engageCapsuleAndMount, fetchSpecialistRecommendation]);
 
   return (
     <>
@@ -2464,7 +2526,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             <SmartTriadCopilotLayer
               isOpen
               variant="panel"
-              quickPrompts={copilotQuickPrompts}
+              quickPrompts={[...copilotQuickPrompts, ...inferredQuickPrompts]}
               promptPlaceholder="Ask aigentMe — brief, move forward, draft an email…"
               agent={{ id: 'aigent-me', name: 'aigentMe' }}
               agentSubtitle="metaMe · personal assistant"

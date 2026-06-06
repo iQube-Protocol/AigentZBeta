@@ -132,7 +132,15 @@ type QuickPrompt =
        * the alpha sequencing where chip click fired the fetch and
        * the chat 100ms later — leaving the LLM with no ground truth.
        */
-      onDispatchOnSend?: () => Promise<void> | void;
+      onDispatchOnSend?: (editedPrompt: string) => Promise<void> | void;
+      /**
+       * Optional pre-filled text that populates the copilot input when
+       * the chip is clicked, instead of the chip's generic `prompt`.
+       * Lets the operator see — and edit — a context-specific seed
+       * (e.g. "Draft Marketa outreach for Lamina 1") before pressing
+       * Send. If absent, `prompt ?? label` is used as before.
+       */
+      seedPrompt?: string;
       /**
        * Render the chip with a subtle pulse highlight to draw the
        * operator's attention. Used by the "Request access" chip when
@@ -339,7 +347,7 @@ export function SmartTriadCopilotLayer({
   // `onDispatchOnSend` callback. The dispatch fires inside handleSend
   // BEFORE the chat POST so the right-pane fetch lands first and the
   // chat sees the fresh groundContext. Cleared after dispatch.
-  const pendingDispatchRef = useRef<(() => Promise<void> | void) | null>(null);
+  const pendingDispatchRef = useRef<((editedPrompt: string) => Promise<void> | void) | null>(null);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -398,7 +406,10 @@ export function SmartTriadCopilotLayer({
       pendingDispatchRef.current = null;
       if (dispatch) {
         try {
-          await dispatch();
+          // Pass the operator's (possibly edited) input so right-pane
+          // fetchers can use it as a context seed (e.g. Marketa outreach
+          // target). Fetchers that don't need it can ignore the arg.
+          await dispatch(sentInput);
         } catch (err) {
           console.error('[copilot] pending dispatch failed', err);
         }
@@ -518,8 +529,12 @@ export function SmartTriadCopilotLayer({
   //     just switch the layout and stop — same as before.
   const handleQuickPrompt = useCallback((prompt: QuickPrompt) => {
     const promptText = typeof prompt === 'string' ? prompt : prompt.prompt || prompt.label;
-    setInput(promptText);
-    onPrompt?.(promptText);
+    // seedPrompt, when present, is what goes into the input — the operator
+    // sees and can edit it before pressing Send. promptText remains what
+    // the chat POST submits as the user turn.
+    const inputSeed = typeof prompt === 'string' ? promptText : (prompt.seedPrompt ?? promptText);
+    setInput(inputSeed);
+    onPrompt?.(inputSeed);
 
     if (typeof prompt !== 'string' && prompt.onSelect) {
       prompt.onSelect();
