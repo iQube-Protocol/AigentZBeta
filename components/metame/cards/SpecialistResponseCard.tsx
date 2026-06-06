@@ -102,6 +102,9 @@ export function SpecialistResponseCard({
     ? "border-slate-700 text-slate-300 hover:border-violet-500/60"
     : "border-slate-300 text-slate-700 hover:border-violet-400";
 
+  // Must be declared before any early returns (Rules of Hooks).
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
+
   if (loading) {
     return (
       <div className={`rounded-lg border p-5 ${surfaceClass}`}>
@@ -128,13 +131,6 @@ export function SpecialistResponseCard({
 
   const conf = CONFIDENCE_META[data.confidence];
   const requestLabel = REQUEST_TYPE_LABELS[data.requestType] ?? data.requestType;
-  // Recommendations + suggested artifacts default to collapsed so the card
-  // reads as a summary first (title + summary + iqube disclosure + footer).
-  // The operator expands the detail section when they want to act on it.
-  // This keeps the visual centre of gravity on the title / summary and
-  // avoids burying the SUGGESTED ARTIFACTS chips below a long list of
-  // recommendations on first view.
-  const [detailsOpen, setDetailsOpen] = React.useState(false);
   const hasDetails = data.recommendations.length > 0 || data.suggestedArtifacts.length > 0;
 
   return (
