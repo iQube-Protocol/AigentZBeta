@@ -865,9 +865,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setVentureProgressLoading(false);
       setMoveForwardResult(null);
       setMoveForwardLoading(false);
+      // Seed the right pane the same way the chat-copilot quick prompt
+      // does: fire fetchSpecialistRecommendation with the implicit query
+      // so Marketa (or whoever the recommender picks) auto-populates with
+      // recommendations + suggested-artifact chips. Without this, the
+      // Specialists capsule mounts empty and the operator has no path
+      // from the chip into a real consultation.
+      void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
       return;
     }
-  }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsuleAndMount]);
+  }, [fetchBrief, fetchMoveForward, fetchVentureProgress, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);

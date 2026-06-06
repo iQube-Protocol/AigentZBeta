@@ -18,6 +18,7 @@ import React from "react";
 import {
   Sparkles,
   ChevronRight,
+  ChevronDown,
   Pencil,
   Loader2,
   X,
@@ -127,6 +128,14 @@ export function SpecialistResponseCard({
 
   const conf = CONFIDENCE_META[data.confidence];
   const requestLabel = REQUEST_TYPE_LABELS[data.requestType] ?? data.requestType;
+  // Recommendations + suggested artifacts default to collapsed so the card
+  // reads as a summary first (title + summary + iqube disclosure + footer).
+  // The operator expands the detail section when they want to act on it.
+  // This keeps the visual centre of gravity on the title / summary and
+  // avoids burying the SUGGESTED ARTIFACTS chips below a long list of
+  // recommendations on first view.
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const hasDetails = data.recommendations.length > 0 || data.suggestedArtifacts.length > 0;
 
   return (
     <div className={`rounded-lg border p-5 ${surfaceClass} space-y-4`}>
@@ -177,8 +186,23 @@ export function SpecialistResponseCard({
       {/* iQube disclosure */}
       <IqubeContextDisclosure using={using} theme={theme} />
 
+      {/* Expand toggle — show recommendations + suggested artifacts on demand */}
+      {hasDetails && (
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((v) => !v)}
+          className={`flex items-center gap-1 text-xs uppercase tracking-wider ${accentClass} hover:opacity-80 transition`}
+          aria-expanded={detailsOpen}
+        >
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform ${detailsOpen ? "" : "-rotate-90"}`}
+          />
+          {detailsOpen ? "Hide details" : "Show recommendations + suggested artifacts"}
+        </button>
+      )}
+
       {/* Recommendations */}
-      {data.recommendations.length > 0 && (
+      {detailsOpen && data.recommendations.length > 0 && (
         <section>
           <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
             Recommendations
@@ -195,7 +219,7 @@ export function SpecialistResponseCard({
       )}
 
       {/* Suggested artifacts */}
-      {data.suggestedArtifacts.length > 0 && (
+      {detailsOpen && data.suggestedArtifacts.length > 0 && (
         <section>
           <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
             Suggested artifacts
