@@ -96,7 +96,24 @@ interface SmartTriadCopilotLayerProps {
    * asynchronously after a chip click.
    */
   groundContext?: Record<string, unknown> | null;
+  /**
+   * Fired after each successful chat POST with the server-classified
+   * layout suggestions for the latest turn. The parent maps each hint
+   * to a left-pane chip (capsule or composer/upload/download) and
+   * pulses + scrolls the matching chip so the operator can click to
+   * open the right-pane layout with the prompt context attached.
+   */
+  onSuggestedLayouts?: (hints: SuggestedLayoutHint[]) => void;
 }
+
+export type SuggestedLayoutHint = {
+  layoutId:
+    | 'brief' | 'decision-board' | 'venture-cockpit' | 'specialists'
+    | 'gmail' | 'event' | 'doc' | 'sheet' | 'slides' | 'marketa'
+    | 'upload' | 'download';
+  reason: string;
+  promptHint: string;
+};
 
 type CopilotMode = "chat" | "avatar";
 type QuickPrompt =
@@ -199,6 +216,7 @@ export function SmartTriadCopilotLayer({
   tenantConfig,
   enableAdvancedRendering = true,
   groundContext,
+  onSuggestedLayouts,
 }: SmartTriadCopilotLayerProps) {
   
   // Core state
@@ -507,6 +525,16 @@ export function SmartTriadCopilotLayer({
       };
 
       updateMessages((prev) => [...prev, assistantMessage]);
+
+      // Fire layout suggestions to the parent so the chip strip can
+      // pulse the matching chip. Server returns an empty array when no
+      // pattern matched, so the parent should treat this as the authoritative
+      // "no suggestion this turn" signal too (clears prior highlights).
+      if (Array.isArray(data?.suggested_layouts)) {
+        onSuggestedLayouts?.(data.suggested_layouts as SuggestedLayoutHint[]);
+      } else {
+        onSuggestedLayouts?.([]);
+      }
     } catch (error) {
       console.error('Failed to get response:', error);
 

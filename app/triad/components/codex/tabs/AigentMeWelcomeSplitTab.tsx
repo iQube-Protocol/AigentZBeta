@@ -595,6 +595,39 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // follow-on slice — this slot makes the swap point ready.
   const [serverChips, setServerChips] = useState<NbeQuickChip[] | null>(null);
 
+  // LLM-suggested layouts from the most recent chat turn. Keyed by the
+  // 12 chip target ids; value is the promptHint to seed the layout
+  // with when the operator clicks the highlighted chip. Cleared on the
+  // next chat turn (the copilot fires onSuggestedLayouts([]) when no
+  // pattern matched, which we treat as authoritative).
+  type ChipTargetId =
+    | 'brief' | 'decision-board' | 'venture-cockpit' | 'specialists'
+    | 'gmail' | 'event' | 'doc' | 'sheet' | 'slides' | 'marketa'
+    | 'upload' | 'download';
+  const [suggestedLayoutHints, setSuggestedLayoutHints] = useState<
+    Partial<Record<ChipTargetId, string>>
+  >({});
+  const handleSuggestedLayouts = useCallback(
+    (hints: Array<{ layoutId: ChipTargetId; promptHint: string }>) => {
+      const next: Partial<Record<ChipTargetId, string>> = {};
+      for (const h of hints) next[h.layoutId] = h.promptHint;
+      setSuggestedLayoutHints(next);
+    },
+    [],
+  );
+  // After the operator engages a Capsule (or opens a composer / drawer)
+  // the highlight on the matching chip clears so the strip returns to
+  // neutral. Without this the pulse stays on after the click and looks
+  // like the suggestion is still pending.
+  const consumeSuggestion = useCallback((id: ChipTargetId) => {
+    setSuggestedLayoutHints((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
   // Phase 2 Slice 5: ApprovalLayout is INTERRUPT class — when a pending
   // approval arrives it overlays whatever layout is foreground. The
   // foreground layout stays mounted underneath so user context is
@@ -1751,10 +1784,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // the overlay; submit creates the artifact + clears composerKind so
   // the overlay unmounts and the active Capsule remains visible
   // underneath (Brief / Move forward / Venture).
-  const openComposeByKind = useCallback((kind: ComposeKind) => {
-    // Clear any prior auto-draft prompt — manual chip-fired composer
-    // opens should land on an empty form, not re-run a previous draft.
-    setComposerInitialPrompt(null);
+  const openComposeByKind = useCallback((kind: ComposeKind, promptHint?: string | null) => {
+    // Chat-suggested composer chips carry a promptHint derived from the
+    // operator's last message; when present we pre-fill the inline form
+    // (composerInitialPrompt) so the LLM-draft fires immediately on
+    // mount. Manual chip clicks pass no hint → empty form.
+    setComposerInitialPrompt(promptHint && promptHint.trim().length > 0 ? promptHint.trim() : null);
     setComposerKind(kind);
     // No more setActiveLayoutId('composer') — the overlay handles
     // rendering on top of whatever foreground layout is active. The
@@ -2491,51 +2526,56 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'brief',
         label: 'Brief me',
         prompt: 'Give me my daily brief.',
-        onSelect: () => engageCapsuleAndMount('brief'),
+        highlight: 'brief' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('brief');
+          consumeSuggestion('brief');
+        },
         onDispatchOnSend: async (_editedPrompt: string) => { await fetchBrief(); },
       },
       {
         id: 'move',
         label: 'Move forward',
         prompt: 'What is the next best action I should take right now?',
-        onSelect: () => engageCapsuleAndMount('move-forward'),
+        highlight: 'decision-board' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('move-forward');
+          consumeSuggestion('decision-board');
+        },
         onDispatchOnSend: async (_editedPrompt: string) => { await fetchMoveForward(); },
       },
       {
         id: 'venture',
         label: 'Venture progress',
         prompt: 'Where am I on my venture progress?',
-        onSelect: () => engageCapsuleAndMount('venture-progress'),
+        highlight: 'venture-cockpit' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('venture-progress');
+          consumeSuggestion('venture-cockpit');
+        },
         onDispatchOnSend: async (_editedPrompt: string) => { await fetchVentureProgress(); },
       },
       {
         id: 'ask-specialists',
         label: 'Ask specialists',
-        // The copilot prompt frames the specialist roster so the LLM
-        // knows what's available; the right pane mounts the Phase 2
-        // SpecialistsLayout and fires the server-side recommender so
-        // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
+        highlight: 'specialists' in suggestedLayoutHints,
         onSelect: () => {
           engageCapsuleAndMount('ask-specialists');
-          // Prime right pane immediately. Use the implicit context query
-          // (experience name / primary goal / cartridge) so the recommender
-          // picks the right specialist rather than a generic fallback.
-          void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
+          // When a chat-driven hint exists, prefer it over the implicit
+          // experience query so the right pane focuses on what the
+          // operator actually just said.
+          const hinted = suggestedLayoutHints.specialists;
+          void fetchSpecialistRecommendation(hinted || implicitSpecialistQuery || undefined);
+          consumeSuggestion('specialists');
         },
-        // Sticky: every chat send while this chip is active re-fires the
-        // recommender with the latest input, so the right pane tracks
-        // the conversation instead of freezing on the first response.
         stickyOnSend: true,
-        // Pass the operator's (possibly edited) input as the recommendation
-        // query so the recommender surfaces the right specialist for the
-        // stated need. Falls back to generic recommendation when empty.
         onDispatchOnSend: async (editedPrompt: string) => {
           await fetchSpecialistRecommendation(editedPrompt || undefined);
         },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);
+  }, [serverChips, suggestedLayoutHints, consumeSuggestion, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);
 
   // Context-inferred quick chips — derived from live brief/experience data.
   // Each chip routes through the canonical engageCapsuleAndMount gateway and
@@ -2622,6 +2662,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               agentSubtitle="metaMe · personal assistant"
               personaId={personaId}
               groundContext={copilotGroundContext}
+              onSuggestedLayouts={handleSuggestedLayouts}
               onClose={() => undefined}
             />
           </div>
@@ -2899,9 +2940,33 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-30">
               <div className="pointer-events-auto">
                 <ComposeQuickActionsStrip
-                  onOpen={openComposeByKind}
-                  onUploadOpen={() => setUploadDrawerOpen(true)}
-                  onDownloadsOpen={() => setDownloadsOpen(true)}
+                  onOpen={(kind) => {
+                    // When the chat copilot suggested this compose kind on the
+                    // last turn, ride the captured promptHint into the inline
+                    // composer form so the operator's intent (e.g. "draft an
+                    // outreach email to Lamina 1") drives the auto-draft.
+                    const hint = suggestedLayoutHints[kind];
+                    openComposeByKind(kind, hint ?? null);
+                    consumeSuggestion(kind);
+                  }}
+                  onUploadOpen={() => {
+                    setUploadDrawerOpen(true);
+                    consumeSuggestion('upload');
+                  }}
+                  onDownloadsOpen={() => {
+                    setDownloadsOpen(true);
+                    consumeSuggestion('download');
+                  }}
+                  suggested={{
+                    gmail:    'gmail'    in suggestedLayoutHints,
+                    event:    'event'    in suggestedLayoutHints,
+                    doc:      'doc'      in suggestedLayoutHints,
+                    sheet:    'sheet'    in suggestedLayoutHints,
+                    slides:   'slides'   in suggestedLayoutHints,
+                    marketa:  'marketa'  in suggestedLayoutHints,
+                    upload:   'upload'   in suggestedLayoutHints,
+                    download: 'download' in suggestedLayoutHints,
+                  }}
                   theme={theme}
                 />
               </div>
