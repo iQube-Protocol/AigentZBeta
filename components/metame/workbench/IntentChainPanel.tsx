@@ -976,6 +976,12 @@ function ArtifactSendButton({
       if (!res.ok || body?.ok === false) {
         throw new Error(body?.reason || body?.detail || body?.error || `execute failed (${res.status})`);
       }
+      // Auto-complete the intent now that the terminal action dispatched.
+      void personaFetch('/api/assistant/intent-advance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intentId: sourceIntentId, action: 'complete', note: `Dispatched via ${connectorId}` }),
+      }).catch(() => undefined);
       setPhase('sent');
       onSent?.();
     } catch (err) {
