@@ -338,13 +338,13 @@ const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string
   { id: 'decision-board',   pattern: /(next best action|move (this )?forward|what's next|next step|decision board|move my goals forward)/i, reason: 'Operator wants the next-action decision board' },
   { id: 'venture-cockpit',  pattern: /(venture progress|venture cockpit|kpi|metrics dashboard|where am i (on|with) my venture|venture status)/i, reason: 'Operator wants the venture progress cockpit' },
   { id: 'specialists',      pattern: /(specialist|consult marketa|consult quill|consult kn0w1|ask the team|ask marketa|ask quill|ask kn0w1|partner proposal|outreach play)/i, reason: 'Operator wants to consult a specialist' },
-  { id: 'gmail',            pattern: /(draft (an? )?email|gmail|send (an? )?email|outreach email|email draft|reply to)/i, reason: 'Operator wants to draft an email' },
-  { id: 'event',            pattern: /(schedule (a )?meeting|book (a )?call|calendar (event|invite)|set up (a )?meeting|set up (a )?call|create (a )?calendar)/i, reason: 'Operator wants to schedule a calendar event' },
-  { id: 'doc',              pattern: /(google doc|create (a )?doc|write (up )?(a )?doc|memo|write (up )?(a )?memo|working doc|long-?form (write|document))/i, reason: 'Operator wants to create a Google Doc' },
-  { id: 'sheet',            pattern: /(spreadsheet|google sheet|create (a )?sheet|tracking sheet|cohort sheet|kpi sheet)/i, reason: 'Operator wants to create a sheet' },
-  { id: 'slides',           pattern: /(slide deck|presentation|create (a )?deck|pitch deck|slides outline|google slides)/i, reason: 'Operator wants to create a slide deck' },
-  { id: 'marketa',          pattern: /(marketa (campaign|send|cohort)|send to cohort|campaign blast|cohort email|marketa email)/i, reason: 'Operator wants a Marketa campaign send' },
-  { id: 'upload',           pattern: /(upload (a |my )?(file|document|pdf|doc|image)|attach (a |my )?(file|doc|pdf|image)|drop (a |my )?file)/i, reason: 'Operator wants to upload a file' },
+  { id: 'gmail',            pattern: /(draft (an? )?email|gmail|send (an? )?email|outreach email|email draft|reply to|send (?:it|the (?:doc|deck|brief|file|presentation|proposal|report|link))\s+to\b|email (?:it|them|him|her|the team)\b)/i, reason: 'Operator wants to draft an email' },
+  { id: 'event',            pattern: /(schedule (a )?meeting|book (a )?call|calendar (event|invite)|set up (a )?meeting|set up (a )?call|create (a )?calendar|arrange (a )?meeting|find (a )?time|block (out )?(time|my calendar)|send (a )?invite)/i, reason: 'Operator wants to schedule a calendar event' },
+  { id: 'doc',              pattern: /(google doc|create (a )?doc|write (up )?(a )?doc|memo|write (up )?(a )?memo|working doc|long-?form (write|document)|write (up )?(a )?(report|summary|proposal|write-up|writeup|brief|plan|strategy|roadmap))/i, reason: 'Operator wants to create a Google Doc' },
+  { id: 'sheet',            pattern: /(spreadsheet|google sheet|create (a )?sheet|tracking sheet|cohort sheet|kpi sheet|tracker|build (a )?(table|tracker|list|grid))/i, reason: 'Operator wants to create a sheet' },
+  { id: 'slides',           pattern: /(slide deck|presentation|create (a )?deck|pitch deck|slides outline|google slides|(?:proposal|partner|launch|investor|go-to-market|partnership|sales|marketing|strategy)\s+deck|build (a )?(deck|presentation|slides))/i, reason: 'Operator wants to create a slide deck' },
+  { id: 'marketa',          pattern: /(marketa (campaign|send|cohort)|send to cohort|campaign blast|cohort email|marketa email|email (the )?(cohort|list|subscribers|audience|community))/i, reason: 'Operator wants a Marketa campaign send' },
+  { id: 'upload',           pattern: /(upload (a |my )?(file|document|pdf|doc|image)|attach (a |my )?(file|doc|pdf|image)|drop (a |my )?file|share (a |my )?(file|document|pdf))/i, reason: 'Operator wants to upload a file' },
   { id: 'download',         pattern: /(download|export (my )?(ledger|receipts|history|brief)|save (a )?(copy|pdf)|export the)/i, reason: 'Operator wants to download/export something' },
 ];
 
@@ -356,19 +356,18 @@ function inferSuggestedLayouts(
   const seen = new Set<ChipTargetId>();
   const MAX = 4;
 
-  // Trim message → use as a default promptHint so the layout auto-seed
-  // has something useful even when the keyword pattern wins (no LLM tag).
-  const baseHint = message.trim().slice(0, 240);
-
+  // Hints are EMPTY by default — the LLM carries substance in a
+  // [layout:<id>|<substance>] tag; keyword matches light the chip but
+  // leave promptHint empty so downstream surfaces keep their own inference.
   const register = (id: ChipTargetId, reason: string, promptHint: string) => {
     if (seen.has(id) || hints.length >= MAX) return;
     seen.add(id);
-    hints.push({ layoutId: id, reason, promptHint: promptHint || baseHint });
+    hints.push({ layoutId: id, reason, promptHint: promptHint.trim() });
   };
 
-  // Explicit tags — `[layout:<id>]` or `[layout:<id>|<hint>]`. The LLM
-  // can be steered to emit these later via system-prompt update; today
-  // they're a forward-compatible no-op when no tag is emitted.
+  // Explicit tags — `[layout:<id>|<substance>]`. The system prompt
+  // instructs the LLM to emit these whenever it proposes a concrete
+  // action, with substance = WHAT to do (distilled from conversation).
   const tagMatches = Array.from(
     assistantMessage.matchAll(/\[layout:([a-z-]+)(?:\|([^\]]+))?\]/gi),
   );
@@ -379,15 +378,26 @@ function inferSuggestedLayouts(
     register(raw, 'LLM-tagged layout suggestion', hint);
   }
 
-  // Keyword sweep over user message + assistant response — same shape
-  // as inferWalletActions. The LLM doesn't have to know about the
-  // contract; the classifier rides on natural language.
+  // Keyword sweep over user message + assistant response — lights the
+  // chip even when the LLM didn't emit a tag; promptHint stays empty.
   const combined = `${message}\n${assistantMessage}`;
   for (const k of LAYOUT_KEYWORDS) {
-    if (k.pattern.test(combined)) register(k.id, k.reason, baseHint);
+    if (k.pattern.test(combined)) register(k.id, k.reason, '');
   }
 
   return hints;
+}
+
+/**
+ * Strip `[layout:<id>|<substance>]` control tags from the user-facing
+ * assistant text so the operator never sees the chip-strip control codes.
+ */
+function stripLayoutTags(assistantMessage: string): string {
+  return assistantMessage
+    .replace(/\s*\[layout:[a-z-]+(?:\|[^\]]+)?\]\s*/gi, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function createEventMeta(source: string) {
@@ -2003,7 +2013,15 @@ After your response, add:
       ? userContext.attachedUploadsBlock
       : '';
 
-  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${attachedUploadsBlock}${kbSection}`;
+  // Layout-suggestion control block — aigent-me only. Instructs the LLM
+  // to emit a [layout:<id>|<substance>] tag whenever it proposes a concrete
+  // action. Tags are stripped from the user-facing response before render.
+  const layoutSuggestionsBlock =
+    resolvedPersonaId === 'aigent-me'
+      ? `\n\n## Right-pane chip-strip control — append a layout tag when you propose an action\n\nThe operator's left pane (where you live) has a chip strip — and the right pane has matching surfaces. When YOU propose a concrete action in your reply, append a control tag at the end of your message in this exact form:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. Its only role is to make the matching chip pulse so the operator can one-click into the right-pane surface with the action substance already seeded.\n\nValid <id> values (12 total):\n- brief, decision-board, venture-cockpit, specialists  (Capsule chips, left strip)\n- gmail, event, doc, sheet, slides, marketa            (Composer chips, right strip)\n- upload, download                                     (Drawer chips, right strip)\n\n<substance> rules (NON-NEGOTIABLE):\n- ≤180 chars.\n- Describe WHAT to do, distilled from the conversation. Example: "Draft a partnership outreach to Lamina 1 framing the three-lane metaProof campaign and offering co-marketing on the KNYT Wheel launch".\n- NEVER restate the user's meta-instruction. "Ask Marketa to draft a plan" is WRONG — that's the request, not the substance. The substance is what the plan IS ABOUT.\n- NEVER use placeholder strings like "[partner name]" or "[your goal]" — if you don't have grounded content, omit the tag entirely.\n- One tag per action you propose. Maximum 2 tags per reply (the chip strip caps suggestions at 4 total; we leave headroom for the keyword classifier).\n- Tag goes at the END of your reply, on its own line.\n\nWhen NOT to emit a tag:\n- You're answering a question, not proposing an action.\n- You don't have enough conversation context to write a real substance (≥10 words of actual content).\n- The user is in mid-clarification ("yes", "ok", "go ahead") — wait until the next turn when you have something concrete to propose.`
+      : '';
+
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -2319,8 +2337,9 @@ export async function POST(request: NextRequest) {
         : generateFallbackResponse(message, metadata as CodexMetadata, persona);
       const walletActions = inferWalletActions(message, fallbackResponse);
       const suggestedLayouts = inferSuggestedLayouts(message, fallbackResponse);
+      const responseForClient = stripLayoutTags(fallbackResponse);
       return NextResponse.json({
-        response: fallbackResponse,
+        response: responseForClient,
         persona,
         wallet_actions: walletActions,
         suggested_layouts: suggestedLayouts,
@@ -2336,13 +2355,14 @@ export async function POST(request: NextRequest) {
     const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
     const walletActions = inferWalletActions(message, assistantMessage);
     const suggestedLayouts = inferSuggestedLayouts(message, assistantMessage);
+    const responseForClient = stripLayoutTags(assistantMessage);
 
-    console.log('[CodexChat] Response length:', assistantMessage.length);
-    console.log('[CodexChat] Response preview:', assistantMessage.substring(0, 200) + '...');
-    console.log('[CodexChat] Response ending:', assistantMessage.substring(assistantMessage.length - 200));
+    console.log('[CodexChat] Response length:', responseForClient.length);
+    console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');
+    console.log('[CodexChat] Response ending:', responseForClient.substring(responseForClient.length - 200));
 
     return NextResponse.json({
-      response: assistantMessage,
+      response: responseForClient,
       persona,
       wallet_actions: walletActions,
       suggested_layouts: suggestedLayouts,
