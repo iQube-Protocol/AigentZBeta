@@ -2501,7 +2501,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       activationId: 'mycanvas',
       group: 'mycluster',
-      order: 2,
+      order: 3,
       type: 'static',
       config: { component: 'MyCartridgeTab', props: {} },
       metadata: {
@@ -2517,7 +2517,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       activationId: 'mycanvas',
       group: 'mycluster',
-      order: 3,
+      order: 2,
       type: 'static',
       config: { component: 'MyLedgerTab', props: {} },
       metadata: {
@@ -2931,6 +2931,22 @@ export const METAME_CODEX: CodexConfig = {
         icon: 'User',
         description: 'Look up any persona and inspect the full identity / asset graph',
         color: 'violet'
+      }
+    },
+    {
+      id: 'admin-cartridge-catalogue',
+      label: 'Catalogue Requests',
+      slug: 'cartridge-catalogue-requests',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62.5,
+      type: 'static',
+      config: { component: 'CartridgeCatalogueAdminTab', props: {} },
+      metadata: {
+        icon: 'PackageCheck',
+        description: 'Review persona-submitted requests to publish their cartridge to the metaMe activations catalogue',
+        color: 'emerald'
       }
     },
     {

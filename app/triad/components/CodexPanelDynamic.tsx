@@ -211,9 +211,76 @@ export default function CodexPanelDynamic({
   // non-admin personas.
   const cartridgeAdminGrants = useCartridgeAdminGrants();
 
+  // Published personal cartridges — only fetched when rendering metame-codex.
+  // Each published cartridge surfaces as a dynamic sub-tab in the mycluster
+  // group strip (e.g. "metaWill" alongside myCanvas / myWorkspace / etc.).
+  // The mycluster group is activation-gated ('mycanvas'), so we apply the
+  // same gate before merging — tabs don't appear until the activation is on.
+  const isMetaMe = codexId === 'metame-codex';
+  const [publishedCartridgeTabs, setPublishedCartridgeTabs] = useState<CodexTab[]>([]);
+  // Bump this to force a refetch — MyCartridgeTab dispatches a window
+  // event ('mycluster:published-changed') after a successful publish/
+  // unpublish toggle so the new tab appears in the strip without a page
+  // reload.
+  const [publishedRefetchToken, setPublishedRefetchToken] = useState(0);
+
+  useEffect(() => {
+    if (!isMetaMe) return;
+    if (typeof window === 'undefined') return;
+    const handler = () => setPublishedRefetchToken((t) => t + 1);
+    window.addEventListener('mycluster:published-changed', handler);
+    return () => window.removeEventListener('mycluster:published-changed', handler);
+  }, [isMetaMe]);
+
+  useEffect(() => {
+    if (!isMetaMe) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/cartridge/published-for-cluster');
+        if (!res.ok) return;
+        const body = (await res.json()) as {
+          ok: boolean;
+          cartridges: Array<{ id: string; slug: string; title: string }>;
+        };
+        if (!body.ok || !Array.isArray(body.cartridges)) return;
+        if (cancelled) return;
+        setPublishedCartridgeTabs(
+          body.cartridges.map((c, idx) => ({
+            id: `personal-cluster-${c.slug}`,
+            slug: c.slug,
+            label: c.title,
+            enabled: true,
+            // After the 2026-06-07 swap, myLedger is at order 2 and
+            // myCartridge at order 3 — published cartridges land after
+            // both at order 10+.
+            order: 10 + idx,
+            type: 'static' as const,
+            group: 'mycluster',
+            config: {
+              component: 'PersonalCartridgeTab',
+              props: { cartridgeSlug: c.slug },
+            },
+            metadata: { icon: 'Boxes', color: 'violet' },
+          })),
+        );
+      } catch {
+        // best-effort — published tabs simply don't appear
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isMetaMe, publishedRefetchToken]);
+
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, hiddenTabSet]
+    () => [
+      ...getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+      // Inject published personal cartridge tabs into the mycluster group.
+      // Gated on 'mycanvas' activation to match the group's own activationId.
+      ...(activeActivations.has('mycanvas')
+        ? publishedCartridgeTabs.filter((t) => !hiddenTabSet.has(t.slug.toLowerCase()))
+        : []),
+    ],
+    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, hiddenTabSet, publishedCartridgeTabs]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
