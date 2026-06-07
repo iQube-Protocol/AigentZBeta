@@ -356,25 +356,19 @@ function inferSuggestedLayouts(
   const seen = new Set<ChipTargetId>();
   const MAX = 4;
 
-  // Hints are EMPTY by default — the LLM must explicitly carry the
-  // action substance in a [layout:<id>|<substance>] tag for the chip
-  // to seed downstream surfaces (composer "What's the email for?",
-  // recommender query, etc.). Falling back to the raw user message
-  // is what produced the "yes" → composer "yes" regression; the user
-  // message is a meta-instruction, not the inferred content.
+  // Trim message → use as a default promptHint so the layout auto-seed
+  // has something useful even when the keyword pattern wins (no LLM tag).
+  const baseHint = message.trim().slice(0, 240);
+
   const register = (id: ChipTargetId, reason: string, promptHint: string) => {
     if (seen.has(id) || hints.length >= MAX) return;
     seen.add(id);
-    hints.push({ layoutId: id, reason, promptHint: promptHint.trim() });
+    hints.push({ layoutId: id, reason, promptHint: promptHint || baseHint });
   };
 
-  // Explicit tags — `[layout:<id>]` or `[layout:<id>|<substance>]`. The
-  // system prompt instructs the LLM to emit these whenever it proposes
-  // a concrete action, with the substance summarising WHAT to do (e.g.
-  // "Draft a partnership outreach to Lamina 1 framing the metaProof
-  // three-lane campaign") rather than the meta-instruction the user
-  // typed ("ask Marketa to draft something"). The chat route strips
-  // the tags from the user-facing response before returning.
+  // Explicit tags — `[layout:<id>]` or `[layout:<id>|<hint>]`. The LLM
+  // can be steered to emit these later via system-prompt update; today
+  // they're a forward-compatible no-op when no tag is emitted.
   const tagMatches = Array.from(
     assistantMessage.matchAll(/\[layout:([a-z-]+)(?:\|([^\]]+))?\]/gi),
   );
@@ -386,29 +380,14 @@ function inferSuggestedLayouts(
   }
 
   // Keyword sweep over user message + assistant response — same shape
-  // as inferWalletActions. Highlights the chip on natural-language
-  // mention even when the LLM didn't emit a tag; promptHint stays
-  // empty so downstream surfaces keep their existing inference.
+  // as inferWalletActions. The LLM doesn't have to know about the
+  // contract; the classifier rides on natural language.
   const combined = `${message}\n${assistantMessage}`;
   for (const k of LAYOUT_KEYWORDS) {
-    if (k.pattern.test(combined)) register(k.id, k.reason, '');
+    if (k.pattern.test(combined)) register(k.id, k.reason, baseHint);
   }
 
   return hints;
-}
-
-/**
- * Strip `[layout:<id>|<substance>]` tags from the user-facing assistant
- * text so the operator doesn't see the structured control codes in the
- * chat bubble. Kept separate from inferSuggestedLayouts so the parser
- * can run first and the cleaned text is what we return to the client.
- */
-function stripLayoutTags(assistantMessage: string): string {
-  return assistantMessage
-    .replace(/\s*\[layout:[a-z-]+(?:\|[^\]]+)?\]\s*/gi, ' ')
-    .replace(/[ \t]{2,}/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }
 
 function createEventMeta(source: string) {
@@ -2024,21 +2003,7 @@ After your response, add:
       ? userContext.attachedUploadsBlock
       : '';
 
-  // Layout-suggestion control block — only emitted for aigent-me, the
-  // surface that owns the chip strip. Instructs the LLM to emit a
-  // structured tag whenever it proposes a concrete action that maps to
-  // one of the 12 right-pane chip targets. The tag's <substance> is
-  // the WHAT (action content distilled from the conversation), never
-  // the WHAT-THE-USER-ASKED meta-instruction. Tags are stripped from
-  // the user-facing response before render; their only role is to
-  // pulse the matching chip and seed the right-pane surface when
-  // clicked.
-  const layoutSuggestionsBlock =
-    resolvedPersonaId === 'aigent-me'
-      ? `\n\n## Right-pane chip-strip control — append a layout tag when you propose an action\n\nThe operator's left pane (where you live) has a chip strip — and the right pane has matching surfaces. When YOU propose a concrete action in your reply, append a control tag at the end of your message in this exact form:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. Its only role is to make the matching chip pulse so the operator can one-click into the right-pane surface with the action substance already seeded.\n\nValid <id> values (12 total):\n- brief, decision-board, venture-cockpit, specialists  (Capsule chips, left strip)\n- gmail, event, doc, sheet, slides, marketa            (Composer chips, right strip)\n- upload, download                                     (Drawer chips, right strip)\n\n<substance> rules (NON-NEGOTIABLE):\n- ≤180 chars.\n- Describe WHAT to do, distilled from the conversation. Example: "Draft a partnership outreach to Lamina 1 framing the three-lane metaProof campaign and offering co-marketing on the KNYT Wheel launch".\n- NEVER restate the user's meta-instruction. "Ask Marketa to draft a plan" is WRONG — that's the request, not the substance. The substance is what the plan IS ABOUT.\n- NEVER use placeholder strings like "[partner name]" or "[your goal]" — if you don't have grounded content, omit the tag entirely.\n- One tag per action you propose. Maximum 2 tags per reply (the chip strip caps suggestions at 4 total; we leave headroom for the keyword classifier).\n- Tag goes at the END of your reply, on its own line.\n\nWhen NOT to emit a tag:\n- You're answering a question, not proposing an action.\n- You don't have enough conversation context to write a real substance (≥10 words of actual content).\n- The user is in mid-clarification ("yes", "ok", "go ahead") — wait until the next turn when you have something concrete to propose.`
-      : '';
-
-  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}`;
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${attachedUploadsBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -2354,12 +2319,8 @@ export async function POST(request: NextRequest) {
         : generateFallbackResponse(message, metadata as CodexMetadata, persona);
       const walletActions = inferWalletActions(message, fallbackResponse);
       const suggestedLayouts = inferSuggestedLayouts(message, fallbackResponse);
-      // Strip layout-tags from the response BEFORE serialising — the
-      // tags are control codes for the chip-strip suggestion mechanism,
-      // not content the operator should see.
-      const responseForClient = stripLayoutTags(fallbackResponse);
       return NextResponse.json({
-        response: responseForClient,
+        response: fallbackResponse,
         persona,
         wallet_actions: walletActions,
         suggested_layouts: suggestedLayouts,
@@ -2375,17 +2336,13 @@ export async function POST(request: NextRequest) {
     const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
     const walletActions = inferWalletActions(message, assistantMessage);
     const suggestedLayouts = inferSuggestedLayouts(message, assistantMessage);
-    // Strip layout-tags from the response BEFORE serialising — the
-    // tags are control codes for the chip-strip suggestion mechanism,
-    // not content the operator should see.
-    const responseForClient = stripLayoutTags(assistantMessage);
 
-    console.log('[CodexChat] Response length:', responseForClient.length);
-    console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');
-    console.log('[CodexChat] Response ending:', responseForClient.substring(responseForClient.length - 200));
+    console.log('[CodexChat] Response length:', assistantMessage.length);
+    console.log('[CodexChat] Response preview:', assistantMessage.substring(0, 200) + '...');
+    console.log('[CodexChat] Response ending:', assistantMessage.substring(assistantMessage.length - 200));
 
     return NextResponse.json({
-      response: responseForClient,
+      response: assistantMessage,
       persona,
       wallet_actions: walletActions,
       suggested_layouts: suggestedLayouts,
