@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-05T22:06:03.399Z",
+  "last_updated": "2026-06-07T01:24:03.140Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "403c7899e552a5bb943795e709a13e82f6dcbdb4",
-  "latest_commit_short": "403c789",
-  "latest_commit_title": "fix chain timeline ordering: doc before analysis, original queue before specialist",
+  "latest_commit": "fc9f447ac38f31e16199df9751e8454565cade89",
+  "latest_commit_short": "fc9f447",
+  "latest_commit_title": "revert: drop CTA-title backstop work (8fc51aea + 69c75d81 + 14428e1d)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fc9f447",
+      "full_sha": "fc9f447ac38f31e16199df9751e8454565cade89",
+      "title": "revert: drop CTA-title backstop work (8fc51aea + 69c75d81 + 14428e1d)",
+      "author": "Claude",
+      "timestamp": "2026-06-07T01:22:06Z",
+      "type": "revert",
+      "brief": "items/build_/COMMITS/COMMIT-fc9f447.md"
+    },
     {
       "sha": "403c789",
       "full_sha": "403c7899e552a5bb943795e709a13e82f6dcbdb4",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T14:34:59Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-86d150a.md"
-    },
-    {
-      "sha": "bee1d11",
-      "full_sha": "bee1d11bdb79cfd2f4f7b02f7a4267e944058484",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T14:34:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bee1d11.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
