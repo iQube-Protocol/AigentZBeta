@@ -35,7 +35,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Boxes, Globe, Loader2, PackageCheck, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
+import { AlertTriangle, Boxes, Globe, GlobeLock, Loader2, PackageCheck, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { CartridgeSetupWizard } from "@/components/metame/setup/CartridgeSetupWizard";
 
@@ -525,32 +525,64 @@ function ManagerDetail({
           </div>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          {/* Publish — lightweight emerald text/border, no fill. */}
-          <button
-            type="button"
-            disabled={!canEdit || savingId === "publish"}
-            onClick={() => void doTogglePublish()}
-            title={
-              c.publishedToCluster
-                ? "Remove from myCluster — the tab will disappear from your myCluster group"
-                : "Publish to myCluster — adds a tab with your cartridge name in the myCluster group"
-            }
-            className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition disabled:opacity-40 border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:border-emerald-500/60 ${
-              c.publishedToCluster ? "ring-1 ring-emerald-500/30" : ""
-            }`}
-          >
-            {savingId === "publish" ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {c.publishedToCluster ? "Removing…" : "Publishing…"}
-              </>
-            ) : (
-              <>
+          {/* Publish — only shown when the cartridge is NOT live in
+              myCluster. Emerald text/border accent only. */}
+          {!c.publishedToCluster && (
+            <button
+              type="button"
+              disabled={!canEdit || savingId === "publish"}
+              onClick={() => void doTogglePublish()}
+              title="Publish to myCluster — adds a tab with your cartridge name in the myCluster group"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition disabled:opacity-40 border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:border-emerald-500/60"
+            >
+              {savingId === "publish" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Publishing…
+                </>
+              ) : (
+                <>
+                  <Globe className="w-4 h-4" />
+                  Publish to myCluster
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Status pill + Unpublish — only shown when the cartridge IS
+              live. Status is a non-interactive emerald chip; Unpublish
+              is the explicit removal affordance (amber so it's visibly
+              distinct from Publish and from Delete). */}
+          {c.publishedToCluster && (
+            <>
+              <span
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border border-emerald-500/30 text-emerald-400 ring-1 ring-emerald-500/30"
+                title="Your cartridge is currently live as a tab in your myCluster group."
+              >
                 <Globe className="w-4 h-4" />
-                {c.publishedToCluster ? "Published to myCluster" : "Publish to myCluster"}
-              </>
-            )}
-          </button>
+                Published to myCluster
+              </span>
+              <button
+                type="button"
+                disabled={!canEdit || savingId === "publish"}
+                onClick={() => void doTogglePublish()}
+                title="Unpublish — remove the cartridge tab from your myCluster group. The cartridge itself is preserved."
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition disabled:opacity-40 border-amber-500/30 text-amber-400 hover:text-amber-300 hover:border-amber-500/60"
+              >
+                {savingId === "publish" ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Unpublishing…
+                  </>
+                ) : (
+                  <>
+                    <GlobeLock className="w-4 h-4" />
+                    Unpublish from myCluster
+                  </>
+                )}
+              </button>
+            </>
+          )}
 
           {/* Apply to metaMe Catalogue — sends a request for admin review. */}
           {(() => {
@@ -593,11 +625,6 @@ function ManagerDetail({
             );
           })()}
 
-          {c.publishedToCluster && (
-            <span className="text-xs text-slate-500">
-              Visible as a tab in your myCluster group.
-            </span>
-          )}
           <div className="flex-1" />
           {/* Delete — lightweight rose text/border, no fill. */}
           {canDelete && (
