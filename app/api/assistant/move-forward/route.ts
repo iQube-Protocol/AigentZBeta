@@ -40,8 +40,6 @@ const VALID_CARTRIDGES: ActiveCartridgeSlug[] = [
 
 interface PostBody {
   cartridge?: ActiveCartridgeSlug;
-  /** Optional operator chat input — feeds the contextual-title backstop. */
-  chatContext?: string;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -66,10 +64,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const scoped: ActiveCartridgeSlug | undefined =
     body.cartridge && VALID_CARTRIDGES.includes(body.cartridge)
       ? body.cartridge
-      : undefined;
-  const chatContext =
-    typeof body.chatContext === 'string' && body.chatContext.trim().length > 0
-      ? body.chatContext.trim().slice(0, 240)
       : undefined;
 
   try {
@@ -99,7 +93,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       personaId: context.personaId,
       ...(scoped ? { cartridge: scoped } : {}),
       liveContext,
-      chatContext,
     });
     return NextResponse.json(
       preflight ? { ...result, preflightContext: preflight } : result,

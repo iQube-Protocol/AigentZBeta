@@ -26,63 +26,59 @@ import {
 
 /**
  * Deterministic backstop for `nbaContextualTitles` — fills any slot
- * the LLM rerank left empty when we have actionable persona context
- * (chatContext, experienceName, or primaryGoal). LLM-emitted titles
- * are NEVER overwritten; this only addresses the silent-fallback case
- * where the LLM didn't run, timed out, or skipped a title.
+ * the LLM rerank left empty. LLM-emitted titles are NEVER overwritten;
+ * this only addresses the silent-fallback case where the LLM didn't run,
+ * timed out, or skipped a title for this id.
  *
- * Focus priority — freshest signal wins:
- *   1. chatContext  — the operator's last input from the copilot, plumbed
- *      through from the chip dispatcher (Brief me / Move forward chips
- *      pass editedPrompt). Reflects the most current intent ("partner
- *      with Lamina 1") so the NBA title reads against what the operator
- *      JUST said, not against the static experience.
- *   2. experienceName — the ExperienceQube's labelled venture/project.
- *   3. primaryGoal   — the experience's primaryGoal field, truncated.
+ * Focus source priority (most-grounded wins):
+ *   1. nbaPromptHints[id] — the LLM rerank's per-NBA compose / action
+ *      prompt for THIS candidate. Same field that already seeds the
+ *      composer when the operator clicks Act on an NBA. Reusing it for
+ *      the title means both surfaces (CTA title + composer "What's the
+ *      email for?") draw from the same inference — single source of
+ *      truth, no new external input. We extract a short focus phrase
+ *      by stripping the verb-prefix ("Draft an outreach to X" → "X").
+ *   2. experienceName — ExperienceQube's labelled venture/project.
+ *   3. primaryGoal — experience's primaryGoal field, truncated.
  *
  * Templates are verb-first imperative to match the catalogue label
  * voice and stay under the 140-char card budget. Candidates without
  * a `suggestedArtifact` route are left alone (their static label is
  * usually action-specific already — "Ask Marketa for a partner
  * proposal" doesn't need a generic fill).
- *
- * Surgical: only fills missing slots; trivial to remove if the LLM
- * later starts emitting titles for these ids.
  */
 function applyContextualTitleBackstop(
   rerankTitles: Record<string, string>,
+  rerankPromptHints: Record<string, string>,
   candidates: NbeCandidate[],
-  ctx: {
-    experienceName: string | null;
-    primaryGoal: string | null;
-    /** Freshest signal — operator's most recent chip-dispatched prompt. */
-    chatContext?: string | null;
-  },
+  ctx: { experienceName: string | null; primaryGoal: string | null },
 ): Record<string, string> {
-  // Sanitise the chat phrase — strip common conversational prefixes
-  // ("I want to…", "Can you…") so the template substitution reads
-  // cleanly. Cap at 60 chars; longer phrases drop to experience focus.
-  const cleanedChat = (() => {
-    const raw = (ctx.chatContext ?? '').trim();
-    if (raw.length === 0) return null;
-    const stripped = raw
-      .replace(/^(i (want|need|would like) to|can you|please|let'?s|help me)\s+/i, '')
-      .replace(/[.!?]+$/, '')
-      .trim();
-    if (stripped.length === 0 || stripped.length > 80) return null;
-    return stripped;
-  })();
-  const focus =
-    cleanedChat ??
+  // Per-NBA hint → short focus phrase. Strip the imperative verb-prefix
+  // so the focus doesn't double up the template's own verb ("Draft a
+  // Gmail outreach for Draft outreach to…" → "Draft a Gmail outreach
+  // for Lamina 1 partnership talks"). We snip after the first "to/about/
+  // for/on" preposition; if none present, take the trailing noun phrase.
+  const focusFromHint = (hint: string): string | null => {
+    const trimmed = hint.trim().replace(/[.!?]+$/, '');
+    if (trimmed.length === 0 || trimmed.length > 200) return null;
+    const m =
+      trimmed.match(/^[A-Z]\w*\s+(?:a\s+|an\s+|the\s+)?[^\s,]+\s+(?:to|about|for|on)\s+(.+)$/i) ??
+      trimmed.match(/(?:to|about|for|on)\s+(.+)$/i);
+    const tail = (m?.[1] ?? trimmed).trim();
+    if (tail.length === 0 || tail.length > 80) return null;
+    return tail;
+  };
+
+  const experienceFocus =
     (ctx.experienceName && ctx.experienceName.trim().length > 0
       ? ctx.experienceName.trim()
       : null) ??
     (ctx.primaryGoal && ctx.primaryGoal.trim().length > 0
       ? ctx.primaryGoal.trim().replace(/\.$/, '').slice(0, 80)
       : null);
-  if (!focus) return rerankTitles;
+
   // Template per suggestedArtifact — verb-first, ≤140 chars after fill.
-  const tmpl: Partial<Record<NonNullable<NbeCandidate['suggestedArtifact']>, string>> = {
+  const tmpl = (focus: string): Partial<Record<NonNullable<NbeCandidate['suggestedArtifact']>, string>> => ({
     'gmail-draft':     `Draft a Gmail outreach for ${focus}`,
     'google-doc':      `Create a working doc for ${focus}`,
     'calendar-block':  `Block focus time for ${focus}`,
@@ -92,12 +88,18 @@ function applyContextualTitleBackstop(
     'image-prompt':    `Prepare an image prompt for ${focus}`,
     'video-script':    `Outline a video script for ${focus}`,
     'slide-outline':   `Outline a slide deck for ${focus}`,
-  };
+  });
+
   const filled = { ...rerankTitles };
   for (const c of candidates) {
-    if (filled[c.id]) continue;                  // LLM wins
-    if (!c.suggestedArtifact) continue;          // No clean template
-    const candidate = tmpl[c.suggestedArtifact];
+    if (filled[c.id]) continue;                 // LLM-emitted title wins
+    if (!c.suggestedArtifact) continue;         // No clean template
+    const hint = rerankPromptHints[c.id];
+    const focus =
+      (hint ? focusFromHint(hint) : null) ??
+      experienceFocus;
+    if (!focus) continue;
+    const candidate = tmpl(focus)[c.suggestedArtifact];
     if (!candidate) continue;
     filled[c.id] = candidate.slice(0, 140);
   }
@@ -234,13 +236,6 @@ export interface BuildBriefInput {
    * the LLM rerank pass is off or the value is empty.
    */
   liveContext?: string | null;
-  /**
-   * Fresh operator signal from the copilot — the message they typed before
-   * clicking the chip that triggered this build. Feeds the contextual-title
-   * backstop so the NBA card reads against what the operator JUST asked
-   * for ("partner with Lamina 1") rather than the static experience name.
-   */
-  chatContext?: string | null;
 }
 
 const PRIORITY_LABELS_BY_CARTRIDGE: Record<ActiveCartridgeSlug, string> = {
@@ -333,8 +328,9 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   const nbaPromptHints = rerank.nbaPromptHints;
   const nbaContextualTitles = applyContextualTitleBackstop(
     rerank.nbaContextualTitles,
+    rerank.nbaPromptHints,
     nbeCandidates,
-    { experienceName, primaryGoal, chatContext: input.chatContext ?? null },
+    { experienceName, primaryGoal },
   );
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
@@ -426,8 +422,6 @@ export async function buildMoveForward(input: {
   cartridge?: ActiveCartridgeSlug;
   /** See `BuildBriefInput.liveContext` — same meaning. */
   liveContext?: string | null;
-  /** See `BuildBriefInput.chatContext` — same meaning. */
-  chatContext?: string | null;
 }): Promise<MoveForwardShape> {
   const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
     getExperienceQube(input.personaId),
@@ -495,8 +489,9 @@ export async function buildMoveForward(input: {
     nbaPromptHints = rerank.nbaPromptHints;
     nbaContextualTitles = applyContextualTitleBackstop(
       rerank.nbaContextualTitles,
+      rerank.nbaPromptHints,
       [...(topCandidate ? [topCandidate] : []), ...altsRaw],
-      { experienceName, primaryGoal, chatContext: input.chatContext ?? null },
+      { experienceName, primaryGoal },
     );
   }
 

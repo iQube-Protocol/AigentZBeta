@@ -736,7 +736,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // ── Fetchers ────────────────────────────────────────────────────────
   const fetchBrief = useCallback(async (
     briefType: 'daily' | 'project' | 'cartridge' = 'daily',
-    chatContext?: string | null,
   ) => {
     setBriefLoading(true);
     setBriefError(null);
@@ -745,10 +744,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const res = await personaFetch('/api/assistant/brief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          briefType,
-          ...(chatContext && chatContext.trim().length > 0 ? { chatContext: chatContext.trim() } : {}),
-        }),
+        body: JSON.stringify({ briefType }),
         personaIdHint: personaId,
       });
       if (!res.ok) {
@@ -767,17 +763,14 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [personaId]);
 
-  const fetchMoveForward = useCallback(async (cartridge?: string, chatContext?: string | null) => {
+  const fetchMoveForward = useCallback(async (cartridge?: string) => {
     setMoveForwardLoading(true);
     setMoveForwardResult(null);
     try {
       const res = await personaFetch('/api/assistant/move-forward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(cartridge ? { cartridge } : {}),
-          ...(chatContext && chatContext.trim().length > 0 ? { chatContext: chatContext.trim() } : {}),
-        }),
+        body: JSON.stringify(cartridge ? { cartridge } : {}),
         personaIdHint: personaId,
       });
       if (!res.ok) {
@@ -1791,18 +1784,18 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // the overlay; submit creates the artifact + clears composerKind so
   // the overlay unmounts and the active Capsule remains visible
   // underneath (Brief / Move forward / Venture).
-  const openComposeByKind = useCallback((kind: ComposeKind, promptHint?: string | null) => {
-    // Chat-suggested composer chips carry a promptHint derived from the
-    // operator's last message; when present we pre-fill the inline form
-    // (composerInitialPrompt) so the LLM-draft fires immediately on
-    // mount. Manual chip clicks pass no hint → empty form.
-    setComposerInitialPrompt(promptHint && promptHint.trim().length > 0 ? promptHint.trim() : null);
+  const openComposeByKind = useCallback((kind: ComposeKind) => {
+    // Clear any prior auto-draft prompt — manual chip-fired composer
+    // opens should land on an empty form, not re-run a previous draft.
+    // Chat-suggested chips don't carry a hint either; the existing
+    // NBA-Act / suggested-artifact paths remain the only seeders of
+    // composerInitialPrompt. (Previous chat-hint plumbing injected the
+    // raw user reply — e.g. "yes" — into "What's the email for?",
+    // which broke the working inference; reverted.)
+    setComposerInitialPrompt(null);
     setComposerKind(kind);
     // No more setActiveLayoutId('composer') — the overlay handles
-    // rendering on top of whatever foreground layout is active. The
-    // previous double-call mounted the composer twice (once via the
-    // foreground swap, once via the overlay), leaving an unresponsive
-    // second modal stuck behind the first when the operator closed it.
+    // rendering on top of whatever foreground layout is active.
   }, []);
 
   // SpecialistsLayout suggested-artifact button → open ComposerLayout
@@ -2538,12 +2531,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           engageCapsuleAndMount('brief');
           consumeSuggestion('brief');
         },
-        // editedPrompt = operator's current copilot input. Piped to the
-        // brief route so the contextual-title backstop reads against
-        // what the operator just asked for (e.g. "partner with Lamina 1"
-        // → "Draft a Gmail outreach for partner with Lamina 1") rather
-        // than the static experienceName / primaryGoal.
-        onDispatchOnSend: async (editedPrompt: string) => { await fetchBrief('daily', editedPrompt); },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchBrief(); },
       },
       {
         id: 'move',
@@ -2554,7 +2542,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           engageCapsuleAndMount('move-forward');
           consumeSuggestion('decision-board');
         },
-        onDispatchOnSend: async (editedPrompt: string) => { await fetchMoveForward(undefined, editedPrompt); },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchMoveForward(); },
       },
       {
         id: 'venture',
@@ -2574,11 +2562,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         highlight: 'specialists' in suggestedLayoutHints,
         onSelect: () => {
           engageCapsuleAndMount('ask-specialists');
-          // When a chat-driven hint exists, prefer it over the implicit
-          // experience query so the right pane focuses on what the
-          // operator actually just said.
-          const hinted = suggestedLayoutHints.specialists;
-          void fetchSpecialistRecommendation(hinted || implicitSpecialistQuery || undefined);
+          // Implicit context query (experience name / primary goal /
+          // cartridge) drives the initial recommendation. The sticky
+          // onDispatchOnSend below re-runs the recommender with the
+          // operator's actual edited input on every subsequent Send.
+          void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
           consumeSuggestion('specialists');
         },
         stickyOnSend: true,
@@ -2953,12 +2941,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               <div className="pointer-events-auto">
                 <ComposeQuickActionsStrip
                   onOpen={(kind) => {
-                    // When the chat copilot suggested this compose kind on the
-                    // last turn, ride the captured promptHint into the inline
-                    // composer form so the operator's intent (e.g. "draft an
-                    // outreach email to Lamina 1") drives the auto-draft.
-                    const hint = suggestedLayoutHints[kind];
-                    openComposeByKind(kind, hint ?? null);
+                    openComposeByKind(kind);
                     consumeSuggestion(kind);
                   }}
                   onUploadOpen={() => {
