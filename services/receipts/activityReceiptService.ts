@@ -38,10 +38,32 @@ export type ActivityActionType =
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
+export interface SpecialistResponsePayload {
+  title: string;
+  summary: string;
+  recommendations: string[];
+  suggestedArtifacts: string[];
+  confidence: 'low' | 'medium' | 'high';
+  source: 'llm' | 'template';
+}
+
 export interface ActivityReceiptRecord {
   id: string;
   sessionId: string | null;
   intentId: string | null;
+  /**
+   * When the receipt's intent is a child spawned from another intent's
+   * recommendation, this is the direct parent's intentId. Set by the
+   * receipts API after enrichment; null for receipts on root intents.
+   */
+  parentIntentId?: string | null;
+  /**
+   * The root ancestor's intentId — the origin intent at the top of the
+   * generation chain (grandparent of grandchildren, parent of children,
+   * self for roots). Used by myLedger to fold all generations into one
+   * capsule. Set by the receipts API enrichment; null for root receipts.
+   */
+  rootIntentId?: string | null;
   activeCartridge: string;
   actionType: ActivityActionType;
   summary: string;
@@ -54,6 +76,16 @@ export interface ActivityReceiptRecord {
   policyEnvelopeId: string | null;
   receiptStatus: ReceiptStatus;
   dvnReceiptId: string | null;
+  /**
+   * SpecialistResponse body persisted on the receipt — title, summary,
+   * recommendations, suggestedArtifacts, confidence, source. Present on
+   * specialist_consulted receipts; null elsewhere.
+   */
+  specialistResponse: SpecialistResponsePayload | null;
+  /** Connector to call when the operator clicks Send on this artifact. */
+  actionConnectorId: string | null;
+  actionConnectorLabel: string | null;
+  actionInput: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -74,26 +106,34 @@ interface DbRow {
   policy_envelope_id: string | null;
   receipt_status: ReceiptStatus;
   dvn_receipt_id: string | null;
+  specialist_response: SpecialistResponsePayload | null;
+  action_connector_id: string | null;
+  action_connector_label: string | null;
+  action_input: Record<string, unknown> | null;
   created_at: string;
 }
 
-function rowToRecord(row: DbRow): ActivityReceiptRecord {
+function rowToRecord(row: Partial<DbRow> & { id: string; created_at: string }): ActivityReceiptRecord {
   return {
     id: row.id,
-    sessionId: row.session_id,
-    intentId: row.intent_id,
-    activeCartridge: row.active_cartridge,
-    actionType: row.action_type,
-    summary: row.summary,
+    sessionId: row.session_id ?? null,
+    intentId: row.intent_id ?? null,
+    activeCartridge: row.active_cartridge ?? 'metame',
+    actionType: row.action_type as ActivityActionType,
+    summary: row.summary ?? '',
     agentsInvoked: row.agents_invoked ?? [],
     toolsUsed: row.tools_used ?? [],
     iqubesUsed: row.iqubes_used ?? [],
     contextShared: row.context_shared ?? [],
     artifactsCreated: row.artifacts_created ?? [],
     approvalsGranted: row.approvals_granted ?? [],
-    policyEnvelopeId: row.policy_envelope_id,
-    receiptStatus: row.receipt_status,
-    dvnReceiptId: row.dvn_receipt_id,
+    policyEnvelopeId: row.policy_envelope_id ?? null,
+    receiptStatus: (row.receipt_status as ReceiptStatus) ?? 'local',
+    dvnReceiptId: row.dvn_receipt_id ?? null,
+    specialistResponse: row.specialist_response ?? null,
+    actionConnectorId: row.action_connector_id ?? null,
+    actionConnectorLabel: row.action_connector_label ?? null,
+    actionInput: row.action_input ?? null,
     createdAt: row.created_at,
   };
 }
@@ -122,14 +162,25 @@ export interface CreateActivityReceiptInput {
   artifactsCreated?: string[];
   approvalsGranted?: string[];
   policyEnvelopeId?: string | null;
+  specialistResponse?: SpecialistResponsePayload | null;
+  actionConnectorId?: string | null;
+  actionConnectorLabel?: string | null;
+  actionInput?: Record<string, unknown> | null;
 }
 
 const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST205']);
+const COLUMN_MISSING_CODES = new Set(['42703', 'PGRST204']);
 
 function isMissingTable(err: { code?: string; message?: string } | null | undefined): boolean {
   if (!err) return false;
   if (err.code && TABLE_MISSING_CODES.has(err.code)) return true;
   return typeof err.message === 'string' && /relation .* does not exist/i.test(err.message);
+}
+
+function isMissingColumn(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code && COLUMN_MISSING_CODES.has(err.code)) return true;
+  return typeof err.message === 'string' && /column .* does not exist|could not find the .* column/i.test(err.message);
 }
 
 export async function createActivityReceipt(
@@ -140,7 +191,8 @@ export async function createActivityReceipt(
   if (!input.summary) throw new Error('createActivityReceipt: summary required');
 
   const admin = getAdminClient();
-  const row = {
+  // Base row — present on every install since the original migration.
+  const baseRow = {
     persona_id: input.personaId,
     session_id: input.sessionId ?? null,
     intent_id: input.intentId ?? null,
@@ -156,12 +208,29 @@ export async function createActivityReceipt(
     policy_envelope_id: input.policyEnvelopeId ?? null,
     receipt_status: 'local' as ReceiptStatus,
   };
+  // Optional columns — only included when caller passed a value AND only
+  // attempted on first try. If the schema migration hasn't been applied
+  // yet, the insert is retried with just the base row so receipt writes
+  // never go down system-wide due to a pending migration.
+  const optionalRow: Record<string, unknown> = {};
+  if (input.specialistResponse !== undefined) optionalRow.specialist_response = input.specialistResponse;
+  if (input.actionConnectorId !== undefined) optionalRow.action_connector_id = input.actionConnectorId;
+  if (input.actionConnectorLabel !== undefined) optionalRow.action_connector_label = input.actionConnectorLabel;
+  if (input.actionInput !== undefined) optionalRow.action_input = input.actionInput;
 
-  const { data, error } = await admin
-    .from('activity_receipts')
-    .insert(row)
-    .select('*')
-    .single();
+  async function insertWith(row: Record<string, unknown>) {
+    return admin.from('activity_receipts').insert(row).select('*').single();
+  }
+
+  let { data, error } = await insertWith({ ...baseRow, ...optionalRow });
+
+  if (error && isMissingColumn(error) && Object.keys(optionalRow).length > 0) {
+    console.warn(
+      '[ActivityReceipts] optional column missing — retrying without it. ' +
+        'Apply supabase/migrations/20260606120000_activity_receipts_connector_fields.sql to enable dispatch persistence.',
+    );
+    ({ data, error } = await insertWith(baseRow));
+  }
 
   if (error) {
     if (isMissingTable(error)) {

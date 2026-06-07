@@ -96,7 +96,24 @@ interface SmartTriadCopilotLayerProps {
    * asynchronously after a chip click.
    */
   groundContext?: Record<string, unknown> | null;
+  /**
+   * Fired after each successful chat POST with the server-classified
+   * layout suggestions for the latest turn. The parent maps each hint
+   * to a left-pane chip (capsule or composer/upload/download) and
+   * pulses + scrolls the matching chip so the operator can click to
+   * open the right-pane layout with the prompt context attached.
+   */
+  onSuggestedLayouts?: (hints: SuggestedLayoutHint[]) => void;
 }
+
+export type SuggestedLayoutHint = {
+  layoutId:
+    | 'brief' | 'decision-board' | 'venture-cockpit' | 'specialists'
+    | 'gmail' | 'event' | 'doc' | 'sheet' | 'slides' | 'marketa'
+    | 'upload' | 'download';
+  reason: string;
+  promptHint: string;
+};
 
 type CopilotMode = "chat" | "avatar";
 type QuickPrompt =
@@ -132,7 +149,24 @@ type QuickPrompt =
        * the alpha sequencing where chip click fired the fetch and
        * the chat 100ms later — leaving the LLM with no ground truth.
        */
-      onDispatchOnSend?: () => Promise<void> | void;
+      onDispatchOnSend?: (editedPrompt: string) => Promise<void> | void;
+      /**
+       * When true, the chip's onDispatchOnSend re-fires on EVERY
+       * subsequent Send until a different chip is clicked or the
+       * dispatch is explicitly cleared. Used for capsules where the
+       * right pane should track the ongoing conversation (e.g.
+       * Ask Specialists — re-rank as the operator refines their
+       * question) versus one-shot fetches (brief / move / venture).
+       */
+      stickyOnSend?: boolean;
+      /**
+       * Optional pre-filled text that populates the copilot input when
+       * the chip is clicked, instead of the chip's generic `prompt`.
+       * Lets the operator see — and edit — a context-specific seed
+       * (e.g. "Draft Marketa outreach for Lamina 1") before pressing
+       * Send. If absent, `prompt ?? label` is used as before.
+       */
+      seedPrompt?: string;
       /**
        * Render the chip with a subtle pulse highlight to draw the
        * operator's attention. Used by the "Request access" chip when
@@ -182,6 +216,7 @@ export function SmartTriadCopilotLayer({
   tenantConfig,
   enableAdvancedRendering = true,
   groundContext,
+  onSuggestedLayouts,
 }: SmartTriadCopilotLayerProps) {
   
   // Core state
@@ -339,7 +374,10 @@ export function SmartTriadCopilotLayer({
   // `onDispatchOnSend` callback. The dispatch fires inside handleSend
   // BEFORE the chat POST so the right-pane fetch lands first and the
   // chat sees the fresh groundContext. Cleared after dispatch.
-  const pendingDispatchRef = useRef<(() => Promise<void> | void) | null>(null);
+  const pendingDispatchRef = useRef<{
+    fn: (editedPrompt: string) => Promise<void> | void;
+    sticky: boolean;
+  } | null>(null);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -395,10 +433,18 @@ export function SmartTriadCopilotLayer({
       // chat POST captures the freshest groundContext. Errors swallow:
       // a failed dispatch shouldn't block the chat send.
       const dispatch = pendingDispatchRef.current;
-      pendingDispatchRef.current = null;
+      // Clear non-sticky dispatchers immediately; sticky ones survive
+      // so subsequent Sends keep refining the right pane (e.g. the
+      // specialists capsule re-ranks against the new chat input).
+      if (dispatch && !dispatch.sticky) {
+        pendingDispatchRef.current = null;
+      }
       if (dispatch) {
         try {
-          await dispatch();
+          // Pass the operator's (possibly edited) input so right-pane
+          // fetchers can use it as a context seed (e.g. Marketa outreach
+          // target). Fetchers that don't need it can ignore the arg.
+          await dispatch.fn(sentInput);
         } catch (err) {
           console.error('[copilot] pending dispatch failed', err);
         }
@@ -479,6 +525,16 @@ export function SmartTriadCopilotLayer({
       };
 
       updateMessages((prev) => [...prev, assistantMessage]);
+
+      // Fire layout suggestions to the parent so the chip strip can
+      // pulse the matching chip. Server returns an empty array when no
+      // pattern matched, so the parent should treat this as the authoritative
+      // "no suggestion this turn" signal too (clears prior highlights).
+      if (Array.isArray(data?.suggested_layouts)) {
+        onSuggestedLayouts?.(data.suggested_layouts as SuggestedLayoutHint[]);
+      } else {
+        onSuggestedLayouts?.([]);
+      }
     } catch (error) {
       console.error('Failed to get response:', error);
 
@@ -518,15 +574,27 @@ export function SmartTriadCopilotLayer({
   //     just switch the layout and stop — same as before.
   const handleQuickPrompt = useCallback((prompt: QuickPrompt) => {
     const promptText = typeof prompt === 'string' ? prompt : prompt.prompt || prompt.label;
-    setInput(promptText);
-    onPrompt?.(promptText);
+    // seedPrompt, when present, is what goes into the input — the operator
+    // sees and can edit it before pressing Send. promptText remains what
+    // the chat POST submits as the user turn.
+    const inputSeed = typeof prompt === 'string' ? promptText : (prompt.seedPrompt ?? promptText);
+    setInput(inputSeed);
+    onPrompt?.(inputSeed);
 
     if (typeof prompt !== 'string' && prompt.onSelect) {
       prompt.onSelect();
     }
 
     if (typeof prompt !== 'string' && prompt.onDispatchOnSend) {
-      pendingDispatchRef.current = prompt.onDispatchOnSend;
+      pendingDispatchRef.current = {
+        fn: prompt.onDispatchOnSend,
+        sticky: !!prompt.stickyOnSend,
+      };
+    } else if (typeof prompt !== 'string') {
+      // A chip without a dispatcher (e.g. pure layout chip) overrides
+      // any previously-set sticky dispatcher so the right pane stops
+      // re-firing when the operator switches context.
+      pendingDispatchRef.current = null;
     }
 
     // Focus the input so the operator can immediately edit / press Enter.

@@ -53,6 +53,7 @@
         "updates/2026-06-01_venture-iqube-schema-v0.4.md",
         "updates/2026-06-01_mycartridge-prd-draft.md",
         "updates/2026-06-01_mobile-landscape-iframe-truncation-backlog.md",
+        "updates/2026-05-31_thin-client-wallet-persona-deep-link-spec.md",
         "updates/2026-05-29_venture-iqube-schema-v0.3.md",
         "updates/2026-05-29_venture-iqube-schema-v0.2.md",
         "updates/2026-05-29_venture-iqube-schema-v0.1.md",
@@ -176,6 +177,7 @@
                 "updates/2026-05-31_resolver-skipped-inventory-and-id-map-cleanup-backlog.md",
                 "updates/2026-05-31_iqube-trinity-naming-convention.md",
                 "updates/2026-06-01_auto-merge-workflow-and-cron-scheduler-backlog.md",
+                "updates/2026-06-02_intent-chain-orchestrator-v1-close.md",
                 "updates/2026-06-03_mycartridge-phase-10-publish-to-cluster.md"
       ]
     },
@@ -272,6 +274,14 @@
       "description": "Canonical reference for what it costs to run the AgentiQ network — anchor + cross-chain cost model, K/T policy, calibration knobs, and cost-per-receipt projections at mainnet cutover.",
       "items": [
         "items/AGENTIQ_NETWORK_COSTS.md"
+      ]
+    },
+    {
+      "id": "col_intent_chains",
+      "title": "Intent Chains",
+      "description": "Spec + reference for the metaMe/aigentMe intent-chain orchestrator — turns CTAs into stateful multi-step workflows with DVN-receipt-anchored provenance. Draft spec awaiting operator confirmation before build.",
+      "items": [
+        "items/AGENTIQ_INTENT_CHAINS_SPEC.md"
       ]
     }
   ]

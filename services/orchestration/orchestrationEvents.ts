@@ -116,6 +116,21 @@ export async function emitOrchestrationEvent(event: OrchestrationEvent): Promise
         console.warn('[orchestrationEvents] block append failed', (blockErr as Error).message);
       }
     }
+
+    // Intent Chain Orchestrator (2026-06-02) — synchronous outcome listener.
+    // Any event carrying metadata.chain_id may match an active chain's
+    // current step; the advancer correlates + advances the chain state.
+    // Best-effort: never throws out of here (advancer wraps in try/catch).
+    // Internal chain events (intent_chain_*) are filtered inside the
+    // advancer so they don't re-trigger advancement loops.
+    if (typeof (event.metadata as { chain_id?: unknown })?.chain_id === 'string') {
+      try {
+        const { advanceChainIfNeeded } = await import('@/services/intentChains/advancer');
+        await advanceChainIfNeeded(event);
+      } catch (chainErr) {
+        console.warn('[orchestrationEvents] chain advance failed', (chainErr as Error).message);
+      }
+    }
   } catch (e) {
     console.error('[orchestrationEvents] threw', e);
   }

@@ -109,23 +109,40 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }),
   ]);
 
-  // Group artifact receipts by their parent intent_id (when present).
-  // Receipts without an intent_id become orphan_artifact entries.
+  // Build childIntentId → parentIntentId so artifacts on child intents
+  // roll up to the parent pill (Content Capsule Containment golden
+  // rule, CLAUDE.md).
+  const parentByChild = new Map<string, string>();
+  for (const p of intents) {
+    if (p.parentIntentId) parentByChild.set(p.id, p.parentIntentId);
+  }
+
+  // Group artifact receipts by their effective root intent_id (parent
+  // when present, else self). Receipts without an intent_id become
+  // orphan_artifact entries.
   const artifactsByIntent = new Map<string, LedgerArtifactEntry[]>();
   const orphanReceipts: ActivityReceiptRecord[] = [];
   for (const r of receipts) {
     const refs = r.artifactsCreated ?? [];
     if (refs.length === 0) continue;
     if (r.intentId) {
-      const list = artifactsByIntent.get(r.intentId) ?? [];
+      const rootId = parentByChild.get(r.intentId) ?? r.intentId;
+      const list = artifactsByIntent.get(rootId) ?? [];
       for (const ref of refs) list.push(parseArtifactReference(ref, r));
-      artifactsByIntent.set(r.intentId, list);
+      artifactsByIntent.set(rootId, list);
     } else {
       orphanReceipts.push(r);
     }
   }
 
-  const pillEntries: LedgerPillEntry[] = intents.map((p) => ({
+  // Filter out child intents — they live inside their parent capsule's
+  // chain panel, not as standalone Active Intents pills. Surfacing them
+  // here would violate the Content Capsule Containment golden rule
+  // (CLAUDE.md): derivative content from a parent capsule must render
+  // inside that parent, not as orphan top-level pills.
+  const rootIntents = intents.filter((p) => !p.parentIntentId);
+
+  const pillEntries: LedgerPillEntry[] = rootIntents.map((p) => ({
     kind: 'pill' as const,
     intentId: p.id,
     intentName: p.intentName,

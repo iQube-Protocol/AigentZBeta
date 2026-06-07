@@ -26,6 +26,8 @@
  *   - Response surfaces only T1 fields from the IntentQube record.
  */
 
+import { randomUUID } from 'crypto';
+
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
@@ -35,6 +37,7 @@ import {
   type SpecialistAgentId,
 } from '@/services/iqube/intentQube';
 import { NBE_CATALOGUE } from '@/services/orchestration/nbeCatalog';
+import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import {
   ACTIVATION_CATALOG,
@@ -187,6 +190,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       approvalRequired: candidate.approvalRequired,
       rationale: body.rationale || candidate.rationale,
     });
+
+    // Emit one specialist_invoked event per non-aigentMe target agent.
+    // Makes "Aigent Z will liaise with Marketa" pill copy backed by a
+    // real orchestration_events row that the workbench timeline can
+    // surface. Fire-and-forget — never blocks intent creation latency.
+    // T0 fields (persona_id, etc.) intentionally not in metadata.
+    const specialists = intent.targetAgents.filter((a) => a !== 'aigent-me');
+    for (const specialist of specialists) {
+      void emitOrchestrationEvent({
+        event_id: randomUUID(),
+        event_type: 'specialist_invoked',
+        from_role: 'aigent-z',
+        to_role: 'guide-agent',
+        reason: intent.intentName,
+        journey_stage: 'first',
+        active_cartridge: intent.activeCartridge,
+        active_codex: null,
+        receipt_eligible: true,
+        timestamp: intent.createdAt,
+        metadata: {
+          intent_id: intent.id,
+          intent_name: intent.intentName,
+          intent_type: intent.intentType,
+          specialist,
+          target_agents: intent.targetAgents,
+          nbe_id: body.nbeId,
+        },
+      });
+    }
 
     // Emit an activity receipt. Best-effort — if the migration hasn't run
     // yet, the helper logs and returns null without breaking the route.

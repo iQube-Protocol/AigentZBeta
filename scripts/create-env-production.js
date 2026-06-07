@@ -137,6 +137,11 @@ const envVars = [
   // Server-side cron + K/T policy (2026-05-31). Generate with:
   //   openssl rand -hex 32
   'CRON_TRIGGER_TOKEN',
+  // Intent Chain Orchestrator — server-to-server auth for the advancer's
+  // dispatched RPC calls (advanceRpcStep → /api/marketa/propose + future
+  // actor intakes). Same generation pattern as CRON_TRIGGER_TOKEN.
+  // Spec: AGENTIQ_INTENT_CHAINS_SPEC.md §7 + advancer.ts.
+  'ORCHESTRATOR_SERVICE_TOKEN',
 ];
 
 let content = '';

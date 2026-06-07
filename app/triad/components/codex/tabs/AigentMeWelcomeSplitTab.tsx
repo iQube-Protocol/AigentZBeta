@@ -73,8 +73,8 @@ import type { StageEvaluation } from "@/services/strategy/stageProgression";
 // All six now mounted inline by ComposerLayout, not by this tab.
 
 import { ComposeQuickActionsStrip, type ComposeKind } from "@/components/metame/copilot/ComposeQuickActionsStrip";
-import AgentWalletDrawer from "@/components/AgentWalletDrawer";
 import { UploadDrawer } from "@/components/metame/uploads/UploadDrawer";
+import { DownloadsMenu } from "@/components/metame/downloads/DownloadsMenu";
 // WelcomeRightPane is composed by the layout registry now — `StackLayout`
 // wraps it identically so Phase 1 behavior is preserved while Phase 2
 // slices add intent-specific layouts alongside.
@@ -345,11 +345,22 @@ function buildPromptForSuggestedArtifact(
 function buildPromptForNbeAction(
   artifactType: string,
   action: NextBestActionData,
+  liveContext?: { experienceName?: string | null; primaryGoal?: string | null } | null,
 ): string {
   const kind = artifactType.toLowerCase() || 'doc';
   const lines: string[] = [];
   lines.push(`Draft a ${kind} that operationalises this next-best action: "${action.label}".`);
-  if (action.rationale) lines.push(`Context: ${action.rationale}`);
+  // Prefer live context (experience name / primary goal from the brief) over the
+  // static catalog rationale so the draft is specific to what the operator is
+  // actually working on rather than a generic template.
+  const contextLine = liveContext?.experienceName
+    ? `Context: Tailored for "${liveContext.experienceName}". ${action.rationale || ''}`
+    : liveContext?.primaryGoal
+    ? `Context: Focused on goal — "${liveContext.primaryGoal}". ${action.rationale || ''}`
+    : action.rationale
+    ? `Context: ${action.rationale}`
+    : null;
+  if (contextLine) lines.push(contextLine.trim());
   if (action.cartridge) lines.push(`Cartridge: ${action.cartridge}.`);
   if (action.suggestedArtifact) lines.push(`Artifact type requested: ${action.suggestedArtifact}.`);
   lines.push(`Keep it concrete, action-oriented, and ready for the operator to review, edit, and send.`);
@@ -438,13 +449,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     error: string | null;
   } | null>(null);
 
-  // Wallet drawer.
-  const [walletOpen, setWalletOpen] = useState(false);
   // Upload drawer — opens via the Upload icon in the compose strip.
   // Drives /api/uploads (persona_uploads + Supabase Storage) and the
   // parse-on-upload indexer that backs chat-context attach + email
   // attachment + iqube embed flows.
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+  // Downloads menu — opens via the Download icon in the compose strip.
+  // Lets the operator grab the VentureQube JSON schema (+ runbooks) to
+  // share with their off-platform agent. The agent prepares content
+  // that uploads cleanly back through the Upload icon next to it.
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   // Compose modal open/close booleans.
   // Phase 2 Slice 4: compose-modal open booleans removed. The single
@@ -580,6 +594,62 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // the envelope and call setServerChips(). Server emission is the
   // follow-on slice — this slot makes the swap point ready.
   const [serverChips, setServerChips] = useState<NbeQuickChip[] | null>(null);
+
+  // LLM-suggested layouts from the most recent chat turn. Keyed by the
+  // 12 chip target ids; value is the promptHint to seed the layout
+  // with when the operator clicks the highlighted chip. Cleared on the
+  // next chat turn (the copilot fires onSuggestedLayouts([]) when no
+  // pattern matched, which we treat as authoritative).
+  type ChipTargetId =
+    | 'brief' | 'decision-board' | 'venture-cockpit' | 'specialists'
+    | 'gmail' | 'event' | 'doc' | 'sheet' | 'slides' | 'marketa'
+    | 'upload' | 'download';
+  const [suggestedLayoutHints, setSuggestedLayoutHints] = useState<
+    Partial<Record<ChipTargetId, string>>
+  >({});
+  const handleSuggestedLayouts = useCallback(
+    (hints: Array<{ layoutId: ChipTargetId; promptHint: string }>) => {
+      const next: Partial<Record<ChipTargetId, string>> = {};
+      for (const h of hints) next[h.layoutId] = h.promptHint;
+      setSuggestedLayoutHints(next);
+    },
+    [],
+  );
+  // After the operator engages a Capsule (or opens a composer / drawer)
+  // the matching chip's highlight clears so the strip returns to neutral
+  // FOR THAT CHIP. Other un-clicked suggestions stay pulsing — the
+  // operator may have intended to act on more than one (e.g. draft an
+  // email AND consult Marketa). They clear via: clicking the chip,
+  // clicking the Clear button on the compose strip, or the next chat
+  // turn replacing the whole map.
+  const consumeSuggestion = useCallback((id: ChipTargetId) => {
+    setSuggestedLayoutHints((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  // Manual clear for the compose strip's "Clear" button — wipes every
+  // compose-class suggestion (Email / Event / Doc / Sheet / Slides /
+  // Marketa + Upload / Download) so the strip can return to its idle
+  // COMPOSE badge. Capsule-class suggestions (Brief / Move / Venture /
+  // Specialists) are left intact since they live on a different strip
+  // with its own affordances.
+  const clearComposeSuggestions = useCallback(() => {
+    setSuggestedLayoutHints((prev) => {
+      const composeIds: ChipTargetId[] = [
+        'gmail', 'event', 'doc', 'sheet', 'slides', 'marketa', 'upload', 'download',
+      ];
+      const next = { ...prev };
+      let mutated = false;
+      for (const id of composeIds) {
+        if (id in next) { delete next[id]; mutated = true; }
+      }
+      return mutated ? next : prev;
+    });
+  }, []);
 
   // Phase 2 Slice 5: ApprovalLayout is INTERRUPT class — when a pending
   // approval arrives it overlays whatever layout is foreground. The
@@ -851,6 +921,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setVentureProgressLoading(false);
       setMoveForwardResult(null);
       setMoveForwardLoading(false);
+      // Recommendation fetch is fired by the effect below that watches
+      // activeCapsuleId. We can't call fetchSpecialistRecommendation
+      // directly here because it's declared further down the component
+      // body and would TDZ-error this useCallback's dep array.
       return;
     }
   }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsuleAndMount]);
@@ -993,6 +1067,35 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         [action.id]: { intentId: intentData.intentId, status: intentData.status, queueMessage: intentData.queueMessage },
       }));
       const handoffHint = pendingApprovalHint;
+
+      // Intent Chain Orchestrator (commit 7): if a chain template's
+      // triggered_by_nbe includes this action's id, dispatch a chain
+      // instance now so the rest of the flow (compose → submit →
+      // review → send → follow-up) carries chain_id through to
+      // completion. Best-effort — 404 (no matching template) is
+      // expected for NBEs without a chain authored, and we don't
+      // want to interrupt the existing intent flow.
+      try {
+        const chainRes = await personaFetch('/api/intent-chains/dispatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            initiating_nbe_id: action.id,
+            cartridge: action.cartridge,
+            nbe_seed: { handoffHint: handoffHint ?? null, label: action.label, rationale: action.rationale },
+            context_seed: { intent_id: intentData.intentId },
+          }),
+          personaIdHint: personaId,
+        });
+        if (chainRes.ok) {
+          const chainBody = (await chainRes.json()) as { chain_id?: string };
+          if (chainBody.chain_id) {
+            setChainsByIntent((prev) => ({ ...prev, [intentData.intentId]: chainBody.chain_id! }));
+          }
+        }
+      } catch {
+        // Best-effort — chain dispatch failure must not break the intent flow.
+      }
       setPendingApprovalNbe(null);
       // Foreground layout remains as-is; approval overlay unmounts.
       void fetchReceipts();
@@ -1054,7 +1157,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           const seedPrompt =
             handoffHint && handoffHint.trim().length > 0
               ? handoffHint
-              : buildPromptForNbeAction(artifactType, action);
+              : buildPromptForNbeAction(artifactType, action, brief?.context);
           setComposerInitialPrompt(seedPrompt);
           setComposerKind(composeKind);
           // Bind the composer to this queued intent so the drafted
@@ -1144,6 +1247,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       return raw ? (JSON.parse(raw) as string | null) : null;
     } catch { return null; }
   });
+
+  // Intent Chain Orchestrator (spec §7, commit 7) — track dispatched
+  // chain_id per intent_id so when a compose/approve step completes
+  // we can advance the right chain. Best-effort; map is empty when no
+  // chain template matched the NBE at dispatch time.
+  const [chainsByIntent, setChainsByIntent] = useState<Record<string, string>>({});
   useEffect(() => {
     if (typeof window === 'undefined' || !personaId) return;
     try {
@@ -1235,7 +1344,34 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts, composerSourceIntentId]);
+
+    // Intent Chain Orchestrator (commit 7): advance the chain's
+    // compose step. The advancer transitions to the next RPC step
+    // (typically /api/marketa/propose) which emits proposal_drafted
+    // and progresses the chain via the inline listener hook. The
+    // brief artifact now exists; the chain submits it on the user's
+    // behalf, then surfaces the review step as a queued pill.
+    // Best-effort — never blocks the artifact flow.
+    if (composerSourceIntentId) {
+      const chainId = chainsByIntent[composerSourceIntentId];
+      if (chainId) {
+        try {
+          await personaFetch(`/api/intent-chains/${chainId}/complete-step`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              artifact_id: (data as ArtifactCardData & { id?: string }).id,
+              title: input.title,
+            }),
+            personaIdHint: personaId,
+          });
+        } catch {
+          // Chain advance failure surfaces in orchestration_events;
+          // the artifact already created so we don't reflect here.
+        }
+      }
+    }
+  }, [personaId, fetchReceipts, composerSourceIntentId, chainsByIntent]);
 
   const handleDraftSlides = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-slides', {
@@ -1492,16 +1628,26 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         & { preflightContext?: import("@/services/capabilities/preflight").PreflightContext };
       setSpecialistRecommendation(payload);
       setSpecialistRecommendationPreflight(payload.preflightContext);
-      // Auto-select the recommended specialist if none is selected yet,
-      // so the operator lands on a primed composer instead of an empty
-      // canvas. They can still pick another from the roster.
+      // Auto-select the top specialist so the operator lands on the right
+      // consultation card immediately. Only advances if nothing is selected yet.
       setSelectedSpecialistId((prev) => prev ?? payload.topSpecialistId);
+      // Auto-ask the specialist with the seed query so the response card
+      // populates immediately — with it come the suggested artifact chips
+      // (gmail-draft, marketa-email, etc.) the operator actually needs to act.
+      // Pre-populate the textarea with the query so the operator sees what
+      // was asked on their behalf rather than landing on an empty input.
+      // Only fires on the initial chip-click invocation when a query is present
+      // and no response exists yet for this specialist.
+      if (query && payload.topSpecialistId && !askSpecialistResponses[payload.topSpecialistId]) {
+        setAskSpecialistPrompt(query);
+        void handleAskSpecialist(payload.topSpecialistId, query);
+      }
     } catch (err) {
       setSpecialistRecommendationError(err instanceof Error ? err.message : String(err));
     } finally {
       setSpecialistRecommendationLoading(false);
     }
-  }, [personaId]);
+  }, [personaId, handleAskSpecialist, askSpecialistResponses]);
 
   const fetchSpecialistThread = useCallback(async (
     specialistId: import("@/services/agents/specialistRouter").SpecialistId,
@@ -1661,10 +1807,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // the overlay; submit creates the artifact + clears composerKind so
   // the overlay unmounts and the active Capsule remains visible
   // underneath (Brief / Move forward / Venture).
-  const openComposeByKind = useCallback((kind: ComposeKind) => {
-    // Clear any prior auto-draft prompt — manual chip-fired composer
-    // opens should land on an empty form, not re-run a previous draft.
-    setComposerInitialPrompt(null);
+  const openComposeByKind = useCallback((kind: ComposeKind, promptHint?: string | null) => {
+    // Chat-suggested composer chips carry a promptHint derived from the
+    // operator's last message; when present we pre-fill the inline form
+    // (composerInitialPrompt) so the LLM-draft fires immediately on
+    // mount. Manual chip clicks pass no hint → empty form.
+    setComposerInitialPrompt(promptHint && promptHint.trim().length > 0 ? promptHint.trim() : null);
     setComposerKind(kind);
     // No more setActiveLayoutId('composer') — the overlay handles
     // rendering on top of whatever foreground layout is active. The
@@ -2305,6 +2453,51 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // Effect: clicking "Brief me" no longer races the chat ahead of the
   // brief — the prompt loads into the input, the right pane shows a
   // skeleton, the user can edit, and Send fires both panes in sync.
+  // Derived context query for specialist recommendation — used as the implicit
+  // query when the operator clicks a specialist chip without having typed
+  // anything yet. Derived from the most specific available piece of context
+  // so the right pane lands on the right specialist rather than a generic pick.
+  const implicitSpecialistQuery = useMemo(() => {
+    const name = brief?.context?.experienceName;
+    if (name && name.length <= 80) return name;
+    const goal = brief?.context?.primaryGoal ?? (expModel?.meta?.primaryGoal as string | undefined);
+    if (goal && typeof goal === 'string' && goal.length <= 100) return goal;
+    return activeCartridges[0] ?? null;
+  }, [brief, expModel, activeCartridges]);
+
+  // When the Ask Specialists capsule becomes active and no specialist
+  // response has loaded yet, seed the right pane with a recommendation
+  // fetch. This used to live inside handleCtaClick but referencing
+  // fetchSpecialistRecommendation there caused a TDZ error (it's a const
+  // declared further down the component). Effect-based seeding keeps
+  // the declaration order legal and still fires on chip click.
+  useEffect(() => {
+    if (activeCapsuleId !== 'ask-specialists') return;
+    if (specialistRecommendation) return;
+    if (specialistRecommendationLoading) return;
+    void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
+  }, [activeCapsuleId, specialistRecommendation, specialistRecommendationLoading, fetchSpecialistRecommendation, implicitSpecialistQuery]);
+
+  // Same capsule-mount seed for Move forward and Venture progress so
+  // restoring those Capsules from history (or arriving via a quick
+  // prompt) repopulates the right pane the same way the left-pane
+  // chip click does. Without these, navigating back to a previously
+  // engaged Capsule shows whatever stale state happened to be in
+  // memory — or nothing at all on a fresh mount.
+  useEffect(() => {
+    if (activeCapsuleId !== 'move-forward') return;
+    if (moveForwardResult) return;
+    if (moveForwardLoading) return;
+    void fetchMoveForward();
+  }, [activeCapsuleId, moveForwardResult, moveForwardLoading, fetchMoveForward]);
+
+  useEffect(() => {
+    if (activeCapsuleId !== 'venture-progress') return;
+    if (ventureProgress) return;
+    if (ventureProgressLoading) return;
+    void fetchVentureProgress();
+  }, [activeCapsuleId, ventureProgress, ventureProgressLoading, fetchVentureProgress]);
+
   const copilotQuickPrompts = useMemo(() => {
     const layoutDispatchFor = (chip: NbeQuickChip) => () => {
       if (!chip.layoutDispatch) return;
@@ -2336,7 +2529,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         prompt: chip.copilotPrompt ?? "",
         skipInference: !chip.copilotPrompt,
         onSelect: layoutDispatchFor(chip),
-        onDispatchOnSend: fetchDispatchFor(chip),
+        // fetchDispatchFor ignores editedPrompt for server chips (the
+        // fetch kind drives what to load, not the input text).
+        onDispatchOnSend: (_editedPrompt: string) => fetchDispatchFor(chip)(),
       }));
     }
 
@@ -2354,36 +2549,121 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'brief',
         label: 'Brief me',
         prompt: 'Give me my daily brief.',
-        onSelect: () => engageCapsuleAndMount('brief'),
-        onDispatchOnSend: async () => { await fetchBrief(); },
+        highlight: 'brief' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('brief');
+          consumeSuggestion('brief');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchBrief(); },
       },
       {
         id: 'move',
         label: 'Move forward',
         prompt: 'What is the next best action I should take right now?',
-        onSelect: () => engageCapsuleAndMount('move-forward'),
-        onDispatchOnSend: async () => { await fetchMoveForward(); },
+        highlight: 'decision-board' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('move-forward');
+          consumeSuggestion('decision-board');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchMoveForward(); },
       },
       {
         id: 'venture',
         label: 'Venture progress',
         prompt: 'Where am I on my venture progress?',
-        onSelect: () => engageCapsuleAndMount('venture-progress'),
-        onDispatchOnSend: async () => { await fetchVentureProgress(); },
+        highlight: 'venture-cockpit' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('venture-progress');
+          consumeSuggestion('venture-cockpit');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchVentureProgress(); },
       },
       {
         id: 'ask-specialists',
         label: 'Ask specialists',
-        // The copilot prompt frames the specialist roster so the LLM
-        // knows what's available; the right pane mounts the Phase 2
-        // SpecialistsLayout and fires the server-side recommender so
-        // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
-        onSelect: () => engageCapsuleAndMount('ask-specialists'),
-        onDispatchOnSend: async () => { await fetchSpecialistRecommendation(); },
+        highlight: 'specialists' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('ask-specialists');
+          // When a chat-driven hint exists, prefer it over the implicit
+          // experience query so the right pane focuses on what the
+          // operator actually just said.
+          const hinted = suggestedLayoutHints.specialists;
+          void fetchSpecialistRecommendation(hinted || implicitSpecialistQuery || undefined);
+          consumeSuggestion('specialists');
+        },
+        stickyOnSend: true,
+        onDispatchOnSend: async (editedPrompt: string) => {
+          await fetchSpecialistRecommendation(editedPrompt || undefined);
+        },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount]);
+  }, [serverChips, suggestedLayoutHints, consumeSuggestion, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);
+
+  // Context-inferred quick chips — derived from live brief/experience data.
+  // Each chip routes through the canonical engageCapsuleAndMount gateway and
+  // carries a context-specific seedPrompt the operator can edit before Send.
+  // Only produced when there's enough context to make the chip specific
+  // (experience name or primary goal) — cold/empty state shows nothing here.
+  const inferredQuickPrompts = useMemo(() => {
+    // Don't double-up when server chips are already driving the strip.
+    if (serverChips && serverChips.length > 0) return [];
+
+    const chips: Array<{
+      id: string;
+      label: string;
+      prompt: string;
+      seedPrompt: string;
+      stickyOnSend: boolean;
+      onSelect: () => void;
+      onDispatchOnSend: (editedPrompt: string) => Promise<void>;
+    }> = [];
+
+    // Derive the most specific entity name available so the seed reads
+    // "Draft Marketa outreach for Lamina 1" rather than something generic.
+    const experienceName = brief?.context?.experienceName ?? null;
+    const primaryGoal = brief?.context?.primaryGoal ?? (expModel?.meta?.primaryGoal as string | null ?? null);
+    const cartridge = activeCartridges[0] ?? null;
+
+    // Build Marketa seed — preference order: experience name > primary goal > cartridge name.
+    // Skip if none available (cold state shows no inferred chip).
+    let marketaSeed: string | null = null;
+    if (experienceName && experienceName.length <= 60) {
+      marketaSeed = `Draft Marketa partner outreach for ${experienceName}`;
+    } else if (primaryGoal && primaryGoal.length <= 80) {
+      marketaSeed = `Draft Marketa outreach: ${primaryGoal}`;
+    } else if (cartridge) {
+      marketaSeed = `Draft Marketa partner outreach for ${cartridge}`;
+    }
+
+    if (marketaSeed) {
+      chips.push({
+        id: 'marketa-inferred',
+        label: 'Draft with Marketa',
+        // prompt (sent as chat turn) mirrors the seed so the LLM narrates
+        // the same intent the right-pane recommender is acting on.
+        prompt: marketaSeed,
+        seedPrompt: marketaSeed,
+        // Sticky: subsequent chat turns refine Marketa's recommendation
+        // as the operator adds detail (specific partner, deal size, etc.).
+        stickyOnSend: true,
+        onSelect: () => {
+          engageCapsuleAndMount('ask-specialists');
+          // Fire the recommendation fetch with the seed prompt on click so
+          // Marketa is already surfaced in the right pane the moment the
+          // operator lands there — no need to hit Send first.
+          void fetchSpecialistRecommendation(marketaSeed || undefined);
+        },
+        onDispatchOnSend: async (editedPrompt: string) => {
+          // Re-fire with the edited prompt on Send so the recommendation
+          // tracks the operator's refined ask (specific partner, etc.).
+          await fetchSpecialistRecommendation(editedPrompt || marketaSeed || undefined);
+        },
+      });
+    }
+
+    return chips;
+  }, [serverChips, brief, expModel, activeCartridges, engageCapsuleAndMount, fetchSpecialistRecommendation, implicitSpecialistQuery]);
 
   return (
     <>
@@ -2399,12 +2679,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             <SmartTriadCopilotLayer
               isOpen
               variant="panel"
-              quickPrompts={copilotQuickPrompts}
+              quickPrompts={[...copilotQuickPrompts, ...inferredQuickPrompts]}
               promptPlaceholder="Ask aigentMe — brief, move forward, draft an email…"
               agent={{ id: 'aigent-me', name: 'aigentMe' }}
               agentSubtitle="metaMe · personal assistant"
               personaId={personaId}
               groundContext={copilotGroundContext}
+              onSuggestedLayouts={handleSuggestedLayouts}
               onClose={() => undefined}
             />
           </div>
@@ -2452,11 +2733,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               // capsule) and every NBE approval.
               const secondTierInCapsule = (() => {
                 if (!secondTierApproval) return false;
-                const queuedIntentIds = new Set(
-                  Object.values(queuedIntents).map((q) => q.intentId),
-                );
                 const artifact = artifacts.find(
                   (a) => a.artifactId === secondTierApproval.artifactId,
+                );
+                // Specialists capsule renders the inline SecondTierApprovalCard
+                // for any of its drafted artifacts (which carry no intentId
+                // because composerSourceIntentId is unset on the chip path).
+                // Suppress the overlay so the operator doesn't see a popup
+                // AND an inline card competing for the same approval.
+                if (activeLayoutId === 'specialists' && !artifact?.intentId) {
+                  return true;
+                }
+                const queuedIntentIds = new Set(
+                  Object.values(queuedIntents).map((q) => q.intentId),
                 );
                 return !!(artifact?.intentId && queuedIntentIds.has(artifact.intentId));
               })();
@@ -2674,9 +2963,34 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-30">
               <div className="pointer-events-auto">
                 <ComposeQuickActionsStrip
-                  onOpen={openComposeByKind}
-                  onWalletOpen={() => setWalletOpen(true)}
-                  onUploadOpen={() => setUploadDrawerOpen(true)}
+                  onOpen={(kind) => {
+                    // When the chat copilot suggested this compose kind on the
+                    // last turn, ride the captured promptHint into the inline
+                    // composer form so the operator's intent (e.g. "draft an
+                    // outreach email to Lamina 1") drives the auto-draft.
+                    const hint = suggestedLayoutHints[kind];
+                    openComposeByKind(kind, hint ?? null);
+                    consumeSuggestion(kind);
+                  }}
+                  onUploadOpen={() => {
+                    setUploadDrawerOpen(true);
+                    consumeSuggestion('upload');
+                  }}
+                  onDownloadsOpen={() => {
+                    setDownloadsOpen(true);
+                    consumeSuggestion('download');
+                  }}
+                  onClearSuggestions={clearComposeSuggestions}
+                  suggested={{
+                    gmail:    'gmail'    in suggestedLayoutHints,
+                    event:    'event'    in suggestedLayoutHints,
+                    doc:      'doc'      in suggestedLayoutHints,
+                    sheet:    'sheet'    in suggestedLayoutHints,
+                    slides:   'slides'   in suggestedLayoutHints,
+                    marketa:  'marketa'  in suggestedLayoutHints,
+                    upload:   'upload'   in suggestedLayoutHints,
+                    download: 'download' in suggestedLayoutHints,
+                  }}
                   theme={theme}
                 />
               </div>
@@ -2753,15 +3067,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           the matching form, submit creates the artifact then flips
           composerKind→null so the same layout shows the draft
           preview with Send draft → unified ApprovalLayout overlay. */}
-      <AgentWalletDrawer
-        open={walletOpen}
-        onClose={() => setWalletOpen(false)}
-        agent={{ id: 'aigent-me', name: 'aigentMe' }}
-      />
       <UploadDrawer
         open={uploadDrawerOpen}
         onClose={() => setUploadDrawerOpen(false)}
         personaId={personaId}
+        theme={theme}
+      />
+      <DownloadsMenu
+        open={downloadsOpen}
+        onClose={() => setDownloadsOpen(false)}
         theme={theme}
       />
     </>

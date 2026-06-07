@@ -24,8 +24,9 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Loader2, ExternalLink, FileText, Mail, Calendar, Sparkles, CheckCircle2, Check, AlertCircle } from "lucide-react";
+import { Loader2, ExternalLink, FileText, Mail, Calendar, Sparkles, CheckCircle2, Check, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { IntentChainPanel, useIntentChainCache } from "./IntentChainPanel";
 
 interface LedgerArtifact {
   reference: string;
@@ -169,6 +170,21 @@ export function WorkbenchLedger({ personaId, theme = "dark" }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterId>("all");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const { cache: chainCache, requestChain } = useIntentChainCache(personaId);
+
+  const toggleExpanded = (intentId: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(intentId)) {
+        next.delete(intentId);
+      } else {
+        next.add(intentId);
+        requestChain(intentId);
+      }
+      return next;
+    });
+  };
 
   const isDark = theme === "dark";
   const surfaceClass = isDark
@@ -302,37 +318,67 @@ export function WorkbenchLedger({ personaId, theme = "dark" }: Props) {
           if (entry.kind === "pill") {
             const meta = STATUS_META[entry.status];
             const StatusIcon = meta.icon;
+            const isOpen = expanded.has(entry.intentId);
+            const chainState = chainCache[entry.intentId];
             return (
-              <article key={entry.intentId} className={`rounded-lg border p-3 ${cardClass} space-y-2`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-wider ${meta.ring}`}>
-                        <StatusIcon className="w-3 h-3" />
-                        {meta.label}
-                      </span>
-                      <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
-                        {CARTRIDGE_LABELS[entry.cartridge] ?? entry.cartridge}
-                      </span>
-                      {entry.approvalRequired && entry.status !== "completed" && (
-                        <span className="text-[10px] uppercase tracking-wider text-amber-300/80">
-                          · external action
+              <article key={entry.intentId} className={`rounded-lg border ${cardClass} overflow-hidden`}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleExpanded(entry.intentId)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleExpanded(entry.intentId);
+                    }
+                  }}
+                  aria-expanded={isOpen}
+                  className={`w-full text-left p-3 space-y-2 transition cursor-pointer ${
+                    isDark ? "hover:bg-slate-900/60" : "hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-wider ${meta.ring}`}>
+                          <StatusIcon className="w-3 h-3" />
+                          {meta.label}
                         </span>
+                        <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+                          {CARTRIDGE_LABELS[entry.cartridge] ?? entry.cartridge}
+                        </span>
+                        {entry.approvalRequired && entry.status !== "completed" && (
+                          <span className="text-[10px] uppercase tracking-wider text-amber-300/80">
+                            · external action
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-semibold leading-tight flex items-center gap-1.5">
+                        {isOpen ? (
+                          <ChevronDown className={`w-3.5 h-3.5 shrink-0 ${mutedClass}`} />
+                        ) : (
+                          <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${mutedClass}`} />
+                        )}
+                        <span className="truncate">{entry.intentName}</span>
+                      </h4>
+                      {entry.agents.length > 0 && (
+                        <p className={`text-[11px] mt-1 pl-5 ${mutedClass}`}>
+                          with {entry.agents.join(", ")}
+                        </p>
                       )}
                     </div>
-                    <h4 className="text-sm font-semibold leading-tight">{entry.intentName}</h4>
-                    {entry.agents.length > 0 && (
-                      <p className={`text-[11px] mt-1 ${mutedClass}`}>
-                        with {entry.agents.join(", ")}
-                      </p>
-                    )}
+                    <span className={`text-[11px] shrink-0 ${mutedClass}`} title={entry.createdAt}>
+                      {formatTimeAgo(entry.createdAt)}
+                    </span>
                   </div>
-                  <span className={`text-[11px] shrink-0 ${mutedClass}`} title={entry.createdAt}>
-                    {formatTimeAgo(entry.createdAt)}
-                  </span>
+                  {entry.artifacts.length > 0 && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <ArtifactList artifacts={entry.artifacts} isDark={isDark} mutedClass={mutedClass} />
+                    </div>
+                  )}
                 </div>
-                {entry.artifacts.length > 0 && (
-                  <ArtifactList artifacts={entry.artifacts} isDark={isDark} mutedClass={mutedClass} />
+                {isOpen && (
+                  <IntentChainPanel chainState={chainState} isDark={isDark} />
                 )}
               </article>
             );

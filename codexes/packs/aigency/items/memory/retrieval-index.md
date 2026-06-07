@@ -1899,3 +1899,178 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-336eacc.md](../build_/COMMITS/COMMIT-336eacc.md)
 - Message: backlog: auto-merge workflow repair + anchor cron scheduler wiring
+
+## Commit `7ccb102` — 2026-06-02T00:14:35Z
+- Type: `push`
+- Brief: [COMMIT-7ccb102.md](../build_/COMMITS/COMMIT-7ccb102.md)
+- Message: spec: intent chain orchestrator — draft v1 + reference template
+
+## Commit `927f459` — 2026-06-02T00:38:30Z
+- Type: `push`
+- Brief: [COMMIT-927f459.md](../build_/COMMITS/COMMIT-927f459.md)
+- Message: intent chains commit 1: schema + types + template registry + reference
+
+## Commit `b065860` — 2026-06-02T00:44:01Z
+- Type: `push`
+- Brief: [COMMIT-b065860.md](../build_/COMMITS/COMMIT-b065860.md)
+- Message: intent chains: feedback table + spec §6.7 — like/dislike learning loop
+
+## Commit `375df58` — 2026-06-02T00:49:58Z
+- Type: `push`
+- Brief: [COMMIT-375df58.md](../build_/COMMITS/COMMIT-375df58.md)
+- Message: intent chains commit 2: sanitizeReceiptMetadata + canary tests
+
+## Commit `4312058` — 2026-06-02T01:10:14Z
+- Type: `push`
+- Brief: [COMMIT-4312058.md](../build_/COMMITS/COMMIT-4312058.md)
+- Message: intent chains commit 3: dispatcher + advancer + refs + listener hook
+
+## Commit `8b7f98f` — 2026-06-02T01:13:27Z
+- Type: `push`
+- Brief: [COMMIT-8b7f98f.md](../build_/COMMITS/COMMIT-8b7f98f.md)
+- Message: intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback
+
+## Commit `9db46a1` — 2026-06-02T01:15:29Z
+- Type: `push`
+- Brief: [COMMIT-9db46a1.md](../build_/COMMITS/COMMIT-9db46a1.md)
+- Message: intent chains commit 5: Marketa propose intake + Factory Ingestion stub
+
+## Commit `a905e0e` — 2026-06-02T01:17:54Z
+- Type: `push`
+- Brief: [COMMIT-a905e0e.md](../build_/COMMITS/COMMIT-a905e0e.md)
+- Message: intent chains commit 6: cron extension for scheduled steps + wait timeouts
+
+## Commit `9c15b5d` — 2026-06-02T01:21:03Z
+- Type: `feat`
+- Brief: [COMMIT-9c15b5d.md](../build_/COMMITS/COMMIT-9c15b5d.md)
+- Message: intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete
+
+## Commit `5a33625` — 2026-06-02T01:24:02Z
+- Type: `push`
+- Brief: [COMMIT-5a33625.md](../build_/COMMITS/COMMIT-5a33625.md)
+- Message: intent chains commit 8: ExpandedNBEPill chain breadcrumb + ChainDetailDrawer
+
+## Commit `0077105` — 2026-06-02T01:26:12Z
+- Type: `push`
+- Brief: [COMMIT-0077105.md](../build_/COMMITS/COMMIT-0077105.md)
+- Message: intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer
+
+## Commit `4148830` — 2026-06-02T01:28:30Z
+- Type: `push`
+- Brief: [COMMIT-4148830.md](../build_/COMMITS/COMMIT-4148830.md)
+- Message: intent chains commit 10: v1 close report
+
+## Commit `cab9fb4` — 2026-06-02T03:05:07Z
+- Type: `fix`
+- Brief: [COMMIT-cab9fb4.md](../build_/COMMITS/COMMIT-cab9fb4.md)
+- Message: trigger deploy: backfill VALID_SOURCES allowlist fix
+
+## Commit `b45d9a0` — 2026-06-02T03:04:51Z
+- Type: `fix`
+- Brief: [COMMIT-b45d9a0.md](../build_/COMMITS/COMMIT-b45d9a0.md)
+- Message: fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES
+
+## Commit `2e9022f` — 2026-06-02T23:21:57Z
+- Type: `push`
+- Brief: [COMMIT-2e9022f.md](../build_/COMMITS/COMMIT-2e9022f.md)
+- Message: MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable
+
+## Commit `710fd94` — 2026-06-02T23:26:34Z
+- Type: `feat`
+- Brief: [COMMIT-710fd94.md](../build_/COMMITS/COMMIT-710fd94.md)
+- Message: Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union
+
+## Commit `b6b73af` — 2026-06-03T05:47:09Z
+- Type: `push`
+- Brief: [COMMIT-b6b73af.md](../build_/COMMITS/COMMIT-b6b73af.md)
+- Message: trigger deploy: chain-of-intent (specialist_invoked + clickable pills)
+
+## Commit `76a1012` — 2026-06-03T05:47:06Z
+- Type: `feat`
+- Brief: [COMMIT-76a1012.md](../build_/COMMITS/COMMIT-76a1012.md)
+- Message: feat(intent chain): emit specialist_invoked + clickable workbench pills
+
+## Commit `abb7d55` — 2026-06-03T06:16:43Z
+- Type: `feat`
+- Brief: [COMMIT-abb7d55.md](../build_/COMMITS/COMMIT-abb7d55.md)
+- Message: Wire initialAuthMode + initialPersonaFlow through SmartWalletDrawer — closes deep-link backlog #1 + #2 from Lovable Part 1
+
+## Commit `cf928c7` — 2026-06-03T14:56:18Z
+- Type: `push`
+- Brief: [COMMIT-cf928c7.md](../build_/COMMITS/COMMIT-cf928c7.md)
+- Message: Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec
+
+## Commit `f1cd8a8` — 2026-06-03T14:59:05Z
+- Type: `push`
+- Brief: [COMMIT-f1cd8a8.md](../build_/COMMITS/COMMIT-f1cd8a8.md)
+- Message: trigger deploy: pills expand inline on both ledger + workspace (bd1bc83)
+
+## Commit `42ef1c9` — 2026-06-03T16:23:12Z
+- Type: `push`
+- Brief: [COMMIT-42ef1c9.md](../build_/COMMITS/COMMIT-42ef1c9.md)
+- Message: trigger deploy: aigentMe downloads menu + VentureQube schema (3ea9f0fb)
+
+## Commit `83fa3de` — 2026-06-03T16:39:22Z
+- Type: `push`
+- Brief: [COMMIT-83fa3de.md](../build_/COMMITS/COMMIT-83fa3de.md)
+- Message: trigger deploy: Agent Runbook now downloadable (1ae9df03)
+
+## Commit `2a2e9a4` — 2026-06-04T03:28:46Z
+- Type: `push`
+- Brief: [COMMIT-2a2e9a4.md](../build_/COMMITS/COMMIT-2a2e9a4.md)
+- Message: trigger deploy: Operator Manual + chain status header + inline receipts (bb7723ff)
+
+## Commit `93efc7e` — 2026-06-04T03:43:55Z
+- Type: `push`
+- Brief: [COMMIT-93efc7e.md](../build_/COMMITS/COMMIT-93efc7e.md)
+- Message: trigger deploy: specialist_response + myLedger chain section (fc884603)
+
+## Commit `1ca89bf` — 2026-06-04T04:06:53Z
+- Type: `push`
+- Brief: [COMMIT-1ca89bf.md](../build_/COMMITS/COMMIT-1ca89bf.md)
+- Message: trigger deploy: emerald container around expanded intents (2dcff5ed)
+
+## Commit `1f160a2` — 2026-06-04T18:32:48Z
+- Type: `push`
+- Brief: [COMMIT-1f160a2.md](../build_/COMMITS/COMMIT-1f160a2.md)
+- Message: trigger deploy: operator-driven intent advance buttons (5caee4af)
+
+## Commit `1ddb87c` — 2026-06-04T19:43:28Z
+- Type: `push`
+- Brief: [COMMIT-1ddb87c.md](../build_/COMMITS/COMMIT-1ddb87c.md)
+- Message: trigger deploy: queueable recommendations close execution loop (f2824ee7)
+
+## Commit `f4d58a0` — 2026-06-05T02:09:28Z
+- Type: `push`
+- Brief: [COMMIT-f4d58a0.md](../build_/COMMITS/COMMIT-f4d58a0.md)
+- Message: trigger deploy: auto-consult on queue closes execution loop
+
+## Commit `1d0f4c0` — 2026-06-05T02:09:28Z
+- Type: `feat`
+- Brief: [COMMIT-1d0f4c0.md](../build_/COMMITS/COMMIT-1d0f4c0.md)
+- Message: feat(chain): auto-consult specialist on Queue — close the recursion loop
+
+## Commit `337282f` — 2026-06-05T18:01:33Z
+- Type: `feat`
+- Brief: [COMMIT-337282f.md](../build_/COMMITS/COMMIT-337282f.md)
+- Message: add capsule containment golden rule to CLAUDE.md
+
+## Commit `d314131` — 2026-06-05T18:14:15Z
+- Type: `fix`
+- Brief: [COMMIT-d314131.md](../build_/COMMITS/COMMIT-d314131.md)
+- Message: document capsule containment infraction pattern + fix in CLAUDE.md
+
+## Commit `46d4eeb` — 2026-06-05T20:28:31Z
+- Type: `push`
+- Brief: [COMMIT-46d4eeb.md](../build_/COMMITS/COMMIT-46d4eeb.md)
+- Message: improve chain panel legibility: copy, doc approval decoupling, timeline ordering
+
+## Commit `403c789` — 2026-06-05T22:04:04Z
+- Type: `fix`
+- Brief: [COMMIT-403c789.md](../build_/COMMITS/COMMIT-403c789.md)
+- Message: fix chain timeline ordering: doc before analysis, original queue before specialist
+
+## Commit `fc9f447` — 2026-06-07T01:22:06Z
+- Type: `revert`
+- Brief: [COMMIT-fc9f447.md](../build_/COMMITS/COMMIT-fc9f447.md)
+- Message: revert: drop CTA-title backstop work (8fc51aea + 69c75d81 + 14428e1d)

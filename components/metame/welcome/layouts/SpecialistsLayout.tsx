@@ -34,6 +34,8 @@ import { accent } from "./accentTokens";
 import { SpecialistResponseCard } from "@/components/metame/cards/SpecialistResponseCard";
 import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
 import { MicButton } from "@/components/ui/MicButton";
+import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
+import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierApprovalCard";
 import type {
   RightPaneLayoutDefinition,
   RightPaneLayoutProps,
@@ -88,9 +90,34 @@ const PROMPT_TEMPLATES_BY_SPECIALIST: Partial<Record<SpecialistId, string[]>> = 
 };
 
 function SpecialistsLayoutComponent(props: RightPaneLayoutProps) {
-  const { theme = "dark", specialistsLayout: state, onRequestLayout } = props;
+  const {
+    theme = "dark",
+    specialistsLayout: state,
+    onRequestLayout,
+    // Pill-lifecycle plumbing — mirrors BriefLayout so suggested-artifact
+    // drafts (Marketa partner email, etc.) land inside this Capsule instead
+    // of being orphaned in the stack pane behind the modal.
+    artifacts,
+    actionPendingArtifactId,
+    actionErrors,
+    secondTierApproval,
+    onSendArtifact,
+    onDismissArtifact,
+    onApproveSecondTier,
+    onCancelSecondTier,
+  } = props;
   const isDark = theme === "dark";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
+
+  // Specialist-path artifacts carry no intentId (composerSourceIntentId is
+  // not set when the operator clicks a suggested-artifact chip), so they
+  // are exactly the same `standalone` set WelcomeRightPane would render
+  // in the stack pane. Folding them in here keeps them visually attached
+  // to the Marketa consultation they were drafted from.
+  const specialistArtifacts = React.useMemo<ArtifactCardData[]>(
+    () => (artifacts ?? []).filter((a) => !a.intentId),
+    [artifacts],
+  );
 
   // The tab owns all state; the layout is a controlled render. When
   // state isn't wired (during the brief window before bootstrap), we
@@ -201,6 +228,55 @@ function SpecialistsLayoutComponent(props: RightPaneLayoutProps) {
                 props.onUseSuggestedArtifact?.(artifactType, activeSpecialistResponse)
               }
             />
+          )}
+
+          {/* 4b — Drafted artifacts produced from this Capsule. The
+              suggested-artifact chip click opens the inline composer
+              overlay; once the operator hits Create draft, an
+              ArtifactCard lands here with the Send draft button + the
+              amber second-tier approval. Mirrors the BriefLayout
+              capsule-containment contract — without this block the
+              artifact rendered behind the modal as an orphan. */}
+          {specialistArtifacts.length > 0 && (
+            <section className="space-y-2">
+              <h4 className={`text-[10px] uppercase tracking-[0.16em] mb-1 font-medium ${
+                isDark ? "text-emerald-300/90" : "text-emerald-700"
+              }`}>
+                Drafted from this consultation
+              </h4>
+              {specialistArtifacts.map((artifact) => {
+                const showSecondTier =
+                  secondTierApproval?.artifactId === artifact.artifactId;
+                return (
+                  <div
+                    key={artifact.artifactId}
+                    data-artifact-id={artifact.artifactId}
+                    className="space-y-2"
+                  >
+                    <ArtifactCard
+                      data={artifact}
+                      onAction={() => onSendArtifact?.(artifact.artifactId)}
+                      onDismiss={() => onDismissArtifact?.(artifact.artifactId)}
+                      actionPending={actionPendingArtifactId === artifact.artifactId}
+                      actionError={actionErrors?.[artifact.artifactId]}
+                      theme={theme}
+                    />
+                    {showSecondTier && secondTierApproval && (
+                      <SecondTierApprovalCard
+                        connectorLabel={secondTierApproval.connectorLabel}
+                        summary={secondTierApproval.summary}
+                        detail={secondTierApproval.detail}
+                        submitting={secondTierApproval.submitting}
+                        error={secondTierApproval.error}
+                        onApprove={onApproveSecondTier ?? (() => {})}
+                        onCancel={onCancelSecondTier ?? (() => {})}
+                        theme={theme}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </section>
           )}
 
           {/* 5 — Prior consultations (receipts) */}
