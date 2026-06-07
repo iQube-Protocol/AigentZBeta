@@ -36,6 +36,14 @@ interface Props {
    * view on mount-change.
    */
   suggested?: ComposeSuggestionMap;
+  /**
+   * Fired when the operator clicks the "Clear" badge that replaces the
+   * idle "COMPOSE" eyebrow whenever any chip in this strip is pulsing.
+   * Parent should wipe every compose-class suggestion so the strip
+   * returns to neutral. Other suggestion classes (capsule chips on the
+   * left strip) are left alone — they have their own affordances.
+   */
+  onClearSuggestions?: () => void;
 }
 
 const ACTIONS: Array<{ kind: ComposeKind; label: string; Icon: React.ComponentType<{ className?: string }> }> = [
@@ -59,6 +67,7 @@ export function ComposeQuickActionsStrip({
   onUploadOpen,
   theme = "dark",
   suggested,
+  onClearSuggestions,
 }: Props) {
   const isDark = theme === "dark";
   const baseBtn = isDark
@@ -86,9 +95,37 @@ export function ComposeQuickActionsStrip({
 
   return (
     <div className={`flex flex-nowrap items-center gap-1.5 px-3 py-2 rounded-xl overflow-x-auto no-scrollbar ${isDark ? "bg-slate-950/60 ring-1 ring-white/10" : "bg-white/70 ring-1 ring-slate-200"} backdrop-blur-md shadow-lg`}>
-      <span className="text-[10px] uppercase tracking-wider mr-1 text-slate-500 shrink-0">
-        Compose
-      </span>
+      {/* Eyebrow badge — flips to a clickable Clear when any chip in
+          this strip is pulsing a chat-driven suggestion. Lets the
+          operator dismiss compose-class suggestions in one click
+          without having to fire each chip just to silence its pulse.
+          Reverts to the static "COMPOSE" label as soon as the
+          suggestion map drains. */}
+      {(() => {
+        const anySuggested = !!suggested && (Object.values(suggested) as Array<boolean | undefined>).some(Boolean);
+        if (anySuggested && onClearSuggestions) {
+          return (
+            <button
+              type="button"
+              onClick={onClearSuggestions}
+              title="Clear pulsing compose suggestions"
+              aria-label="Clear pulsing compose suggestions"
+              className={`text-[10px] uppercase tracking-wider mr-1 shrink-0 rounded px-1 py-0.5 transition-colors ${
+                isDark
+                  ? "text-emerald-300 hover:text-emerald-100 hover:bg-emerald-500/10"
+                  : "text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100"
+              }`}
+            >
+              Clear
+            </button>
+          );
+        }
+        return (
+          <span className="text-[10px] uppercase tracking-wider mr-1 text-slate-500 shrink-0">
+            Compose
+          </span>
+        );
+      })()}
       {ACTIONS.map(({ kind, label, Icon }) => {
         const isSuggested = suggested?.[kind] === true;
         return (

@@ -616,14 +616,39 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     [],
   );
   // After the operator engages a Capsule (or opens a composer / drawer)
-  // every pending highlight clears so the strip returns to neutral. We
-  // reset the whole map rather than just the clicked chip — a single
-  // operator action resolves the suggestion turn. Without this, an
-  // un-clicked chip from the same turn (e.g. Email when the operator
-  // chose Specialists instead) keeps pulsing forever until the next
-  // chat send wipes it.
-  const consumeSuggestion = useCallback((_id: ChipTargetId) => {
-    setSuggestedLayoutHints((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+  // the matching chip's highlight clears so the strip returns to neutral
+  // FOR THAT CHIP. Other un-clicked suggestions stay pulsing — the
+  // operator may have intended to act on more than one (e.g. draft an
+  // email AND consult Marketa). They clear via: clicking the chip,
+  // clicking the Clear button on the compose strip, or the next chat
+  // turn replacing the whole map.
+  const consumeSuggestion = useCallback((id: ChipTargetId) => {
+    setSuggestedLayoutHints((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  // Manual clear for the compose strip's "Clear" button — wipes every
+  // compose-class suggestion (Email / Event / Doc / Sheet / Slides /
+  // Marketa + Upload / Download) so the strip can return to its idle
+  // COMPOSE badge. Capsule-class suggestions (Brief / Move / Venture /
+  // Specialists) are left intact since they live on a different strip
+  // with its own affordances.
+  const clearComposeSuggestions = useCallback(() => {
+    setSuggestedLayoutHints((prev) => {
+      const composeIds: ChipTargetId[] = [
+        'gmail', 'event', 'doc', 'sheet', 'slides', 'marketa', 'upload', 'download',
+      ];
+      const next = { ...prev };
+      let mutated = false;
+      for (const id of composeIds) {
+        if (id in next) { delete next[id]; mutated = true; }
+      }
+      return mutated ? next : prev;
+    });
   }, []);
 
   // Phase 2 Slice 5: ApprovalLayout is INTERRUPT class — when a pending
@@ -2955,6 +2980,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                     setDownloadsOpen(true);
                     consumeSuggestion('download');
                   }}
+                  onClearSuggestions={clearComposeSuggestions}
                   suggested={{
                     gmail:    'gmail'    in suggestedLayoutHints,
                     event:    'event'    in suggestedLayoutHints,
