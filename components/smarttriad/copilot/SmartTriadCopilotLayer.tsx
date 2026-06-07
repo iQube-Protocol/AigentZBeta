@@ -356,14 +356,29 @@ export function SmartTriadCopilotLayer({
     if (onMessagesChange) onMessagesChange([...seedMessages]);
   }, [persistKey, seedMessages, onMessagesChange]);
 
+  // IMPORTANT: stale-closure trap.
+  //
+  // The previous implementation read `messages` from the useCallback
+  // dependency array, which captures the value at the moment the
+  // callback was created. handleSend invokes updateMessages TWICE in
+  // sequence (append user message, then append assistant message). The
+  // second invocation runs inside the same async closure as the first
+  // — it still holds the original `messages` snapshot. Result: the
+  // user message gets overwritten by the assistant message because
+  // both updaters operate on the same pre-send state.
+  //
+  // For the internal-state path we use the functional setState form so
+  // each update sees the freshest queued state from React. For the
+  // controlled (parent-driven) path we still rely on `messages` from
+  // the closure — that's the parent's contract, but no current caller
+  // uses it.
   const updateMessages = useCallback(
     (updater: (prev: SmartTriadMessage[]) => SmartTriadMessage[]) => {
-      const next = updater([...messages]);
       if (onMessagesChange) {
-        onMessagesChange(next);
+        onMessagesChange(updater(messages));
         return;
       }
-      setInternalMessages(next);
+      setInternalMessages((prev) => updater(prev));
     },
     [messages, onMessagesChange]
   );
