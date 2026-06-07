@@ -86,6 +86,9 @@ export function CartridgeCatalogueAdminTab() {
         if (!res.ok || !body.ok) {
           throw new Error(body.detail || body.error || `decision failed (${res.status})`);
         }
+        // Optimistically remove the row immediately so the pending tab clears
+        // without waiting for the re-fetch round-trip.
+        setList(prev => prev ? prev.filter(r => r.id !== id) : prev);
         await load();
       } catch (e) {
         setActionError(e instanceof Error ? e.message : String(e));
