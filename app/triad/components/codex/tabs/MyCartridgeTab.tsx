@@ -35,7 +35,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Boxes, Globe, Loader2, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
+import { AlertTriangle, Boxes, Globe, Loader2, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { CartridgeSetupWizard } from "@/components/metame/setup/CartridgeSetupWizard";
 
@@ -325,6 +325,11 @@ export function MyCartridgeTab({ personaId: _personaId, theme: _theme }: Props) 
                 void refreshDetail(detail.cartridge.slug);
                 void refreshList();
               }}
+              onDeleted={() => {
+                setDetail(null);
+                setSelectedSlug(null);
+                void refreshList();
+              }}
             />
           )}
         </div>
@@ -345,15 +350,44 @@ export default MyCartridgeTab;
 function ManagerDetail({
   detail,
   onChanged,
+  onDeleted,
 }: {
   detail: DetailResponse;
   onChanged: () => void;
+  onDeleted: () => void;
 }) {
   const c = detail.cartridge;
   const canEdit = detail.caller.canEdit;
+  // Only the owner persona can delete — even uber-admins go through
+  // /admin/codex for cross-persona ops.
+  const canDelete = c.isOwnerCaller;
 
   const [savingId, setSavingId] = useState<string | null>(null);
   const [opError, setOpError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  async function doDelete() {
+    setDeleting(true);
+    setOpError(null);
+    try {
+      const res = await personaFetch(`/api/cartridge/${encodeURIComponent(c.slug)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmSlug: c.slug }),
+      });
+      const j = (await res.json()) as { ok: boolean; error?: string; detail?: string };
+      if (!res.ok || !j.ok) throw new Error(j.detail || j.error || `delete failed (${res.status})`);
+      setDeleteOpen(false);
+      setDeleteConfirmText("");
+      onDeleted();
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function doTogglePublish() {
     setSavingId("publish");
@@ -418,18 +452,35 @@ function ManagerDetail({
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <header>
-        <div className="flex items-start justify-between gap-4">
+        <h2 className="text-xl font-semibold text-slate-100">{c.title}</h2>
+        <div className="mt-1 text-xs text-slate-500 font-mono">/{c.slug}</div>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+          {c.category && <Chip>{c.category}</Chip>}
+          {c.visibility && <Chip>{c.visibility}</Chip>}
+          <Chip>caller: {detail.caller.reason}</Chip>
+          {!canEdit && <Chip className="text-amber-300">read-only</Chip>}
+          {c.publishedToCluster && (
+            <Chip className="text-emerald-300 bg-emerald-500/10 border-emerald-500/40">
+              live in myCluster
+            </Chip>
+          )}
+        </div>
+      </header>
+
+      {/* Cartridge actions — publish + delete. Sits at the top so the
+          operator can see at a glance whether the cartridge is live in
+          their myCluster, and how to remove or destroy it. */}
+      <section className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-slate-100">{c.title}</h2>
-            <div className="mt-1 text-xs text-slate-500 font-mono">/{c.slug}</div>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              {c.category && <Chip>{c.category}</Chip>}
-              {c.visibility && <Chip>{c.visibility}</Chip>}
-              <Chip>caller: {detail.caller.reason}</Chip>
-              {!canEdit && <Chip className="text-amber-300">read-only</Chip>}
-            </div>
+            <h3 className="text-sm font-medium text-slate-200">Cartridge actions</h3>
+            <p className="text-xs text-slate-500">
+              Publish your cartridge to myCluster, or remove it entirely.
+            </p>
           </div>
-          {/* Publish to myCluster toggle */}
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Publish */}
           <button
             type="button"
             disabled={!canEdit || savingId === "publish"}
@@ -439,26 +490,121 @@ function ManagerDetail({
                 ? "Remove from myCluster — the tab will disappear from your myCluster group"
                 : "Publish to myCluster — adds a tab with your cartridge name in the myCluster group"
             }
-            className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border transition disabled:opacity-40 ${
+            className={`inline-flex items-center gap-2 px-3 py-2 text-sm rounded border transition disabled:opacity-40 ${
               c.publishedToCluster
-                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-red-500/20 hover:border-red-500/40 hover:text-red-300"
-                : "bg-slate-700/40 border-slate-600 text-slate-300 hover:bg-violet-500/20 hover:border-violet-500/40 hover:text-violet-200"
+                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30"
+                : "bg-violet-500/20 border-violet-500/40 text-violet-200 hover:bg-violet-500/30"
             }`}
           >
             {savingId === "publish" ? (
               <>
-                <Loader2 className="w-3 h-3 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
                 {c.publishedToCluster ? "Removing…" : "Publishing…"}
               </>
             ) : (
               <>
-                <Globe className="w-3 h-3" />
+                <Globe className="w-4 h-4" />
                 {c.publishedToCluster ? "Published to myCluster" : "Publish to myCluster"}
               </>
             )}
           </button>
+          {c.publishedToCluster && (
+            <span className="text-xs text-slate-500">
+              Visible as a tab in your myCluster group.
+            </span>
+          )}
+          <div className="flex-1" />
+          {/* Delete */}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(true)}
+              title="Delete this cartridge — permanent, owner-only"
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded border border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete cartridge
+            </button>
+          )}
         </div>
-      </header>
+      </section>
+
+      {/* Delete confirmation modal — typed-slug confirmation. */}
+      {deleteOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-lg border border-red-500/40 bg-slate-900 p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <h3 className="text-base font-semibold text-slate-100">
+                  Delete &ldquo;{c.title}&rdquo;?
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  This permanently deletes the cartridge, all its tabs, members,
+                  and activations. Receipts and audit trails are preserved.
+                  This cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">
+                Type the cartridge slug{" "}
+                <span className="font-mono text-red-300">{c.slug}</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={c.slug}
+                autoFocus
+                disabled={deleting}
+                className="w-full px-3 py-2 rounded bg-slate-800/60 border border-slate-700 text-sm font-mono"
+              />
+            </div>
+            {opError && (
+              <div className="px-3 py-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded">
+                {opError}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => {
+                  setDeleteOpen(false);
+                  setDeleteConfirmText("");
+                  setOpError(null);
+                }}
+                className="px-3 py-1.5 text-sm rounded border border-slate-600 text-slate-300 hover:bg-slate-700/40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting || deleteConfirmText !== c.slug}
+                onClick={() => void doDelete()}
+                className="px-3 py-1.5 text-sm rounded bg-red-500 text-white hover:bg-red-400 disabled:opacity-40 inline-flex items-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Deleting…
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete permanently
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {opError && (
         <div className="px-3 py-2 text-sm text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded">

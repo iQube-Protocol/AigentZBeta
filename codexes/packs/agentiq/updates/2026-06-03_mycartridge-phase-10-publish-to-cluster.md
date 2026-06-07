@@ -22,6 +22,7 @@ Idempotent (`ADD COLUMN IF NOT EXISTS`). One paste in the Supabase SQL editor.
 |---|---|---|
 | `/api/cartridge/[slug]/publish-to-cluster` | POST | Toggle `published_to_cluster`. Body `{ published: boolean }`. Gate: `cartridgeManageGuard requireWrite=true` — owner / admin / uber only. |
 | `/api/cartridge/published-for-cluster` | GET | Returns `{ ok, cartridges: [{id, slug, title}] }` for the calling persona's published personal cartridges. Spine-gated via `getActivePersona`. T1-safe (no T0 fields in response). Silently returns `[]` on auth/DB failure so the metaMe render is never blocked. |
+| `/api/cartridge/[slug]` | DELETE | Safe owner-only delete. Body `{ confirmSlug: "<slug>" }` required — typed confirmation. Guardrails: system cartridges (owner_persona_id IS NULL) cannot be deleted via this route; only the owner persona can delete (uber-admins use /admin/codex). Cascades cartridge_memberships + cartridge_activations explicitly (slug-keyed, no FK); codex_tabs cascades via FK. Receipts and orchestration_events are preserved as append-only audit trails. |
 
 `GET /api/cartridge/[slug]` now includes `publishedToCluster: boolean` in its response.
 
@@ -46,9 +47,20 @@ via `personaFetch` and injects the result as extra `CodexTab[]` into
 gate that the static mycluster tabs use, so published cartridge tabs only appear
 when the mycanvas activation is active. No change to the generic panel logic.
 
-**`MyCartridgeTab.tsx`** — Adds a "Publish to myCluster" / "Published to myCluster" toggle
-button in the cartridge detail header. When green (published), hovering shows a
-"remove" affordance. Disabled when the caller doesn't have write permission.
+**`MyCartridgeTab.tsx`** — Adds a dedicated "Cartridge actions" panel at the top
+of the detail view with:
+- "Publish to myCluster" / "Published to myCluster" toggle (green when live)
+- "Delete cartridge" button (owner-only; opens a typed-slug confirmation modal)
+
+The action panel is a bordered card so the publish and delete affordances are
+immediately visible — not buried in the header chrome. A "live in myCluster"
+status chip also appears in the header when the cartridge is published, so the
+operator can see at a glance whether their cartridge is currently surfacing.
+
+**Delete confirmation modal** — requires the operator to type the cartridge slug
+verbatim before the "Delete permanently" button activates. Server-side, the
+DELETE endpoint also requires `confirmSlug` in the body matching the path
+parameter, so a stray fetch can't wipe out a cartridge accidentally.
 
 ## UX flow
 

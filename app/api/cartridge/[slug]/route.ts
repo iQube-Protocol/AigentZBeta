@@ -264,3 +264,129 @@ export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<NextRes
     { headers: { "Cache-Control": "no-store" } },
   );
 }
+
+/**
+ * DELETE /api/cartridge/[slug]
+ *
+ * Safely deletes a personal cartridge. Guardrails:
+ *   - Only personal cartridges (owner_persona_id IS NOT NULL) can be deleted.
+ *     System cartridges are managed via /admin/codex, NEVER this endpoint.
+ *   - Caller must be the owner. Even uber-admins must use the explicit
+ *     admin surface — accidental deletes of someone else's personal
+ *     cartridge would be unrecoverable.
+ *   - Caller must include `confirmSlug: "<slug>"` in the body matching
+ *     the cartridge slug — typed-confirmation pattern so a stray fetch
+ *     can't wipe out a cartridge.
+ *
+ * Cascade behaviour:
+ *   - codex_tabs rows delete via FK ON DELETE CASCADE (from the
+ *     2025-01-01 registry migration).
+ *   - cartridge_memberships and cartridge_activations are keyed by slug
+ *     (no FK) so we delete them explicitly before the parent row.
+ *   - orchestration_events / persona_artifacts / receipts are preserved
+ *     intentionally — they are append-only audit trails that survive
+ *     cartridge deletion.
+ */
+export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
+  const { getActivePersona } = await import("@/services/identity/getActivePersona");
+  const personaCtx = await getActivePersona(req);
+  if (!personaCtx) {
+    return NextResponse.json(
+      { ok: false, error: "unauthenticated" },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  let body: { confirmSlug?: unknown } = {};
+  try {
+    body = await req.json();
+  } catch {
+    // empty body → confirmation will fail below
+  }
+  if (body.confirmSlug !== ctx.params.slug) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "confirmation-mismatch",
+        detail: "Body must include `confirmSlug` matching the slug parameter.",
+      },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const db = getDb();
+  const { data: cfg, error: readErr } = await db
+    .from("codex_configs")
+    .select("id, owner_persona_id, name")
+    .eq("slug", ctx.params.slug)
+    .maybeSingle();
+  if (readErr) {
+    return NextResponse.json(
+      { ok: false, error: "lookup-failed", detail: readErr.message },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  if (!cfg) {
+    return NextResponse.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+  const row = cfg as { id: string; owner_persona_id: string | null; name: string };
+
+  if (!row.owner_persona_id) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "system-cartridge-protected",
+        detail: "System cartridges are managed via /admin/codex, never deleted via this endpoint.",
+      },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  if (row.owner_persona_id !== personaCtx.personaId) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "forbidden",
+        detail: "Only the owner persona can delete a personal cartridge.",
+      },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const { error: memErr } = await db
+    .from("cartridge_memberships")
+    .delete()
+    .eq("cartridge_slug", ctx.params.slug);
+  if (memErr) {
+    return NextResponse.json(
+      { ok: false, error: "memberships-delete-failed", detail: memErr.message },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  const { error: actErr } = await db
+    .from("cartridge_activations")
+    .delete()
+    .eq("cartridge_slug", ctx.params.slug);
+  if (actErr) {
+    return NextResponse.json(
+      { ok: false, error: "activations-delete-failed", detail: actErr.message },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const { error: cfgErr } = await db
+    .from("codex_configs")
+    .delete()
+    .eq("id", row.id);
+  if (cfgErr) {
+    return NextResponse.json(
+      { ok: false, error: "config-delete-failed", detail: cfgErr.message },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  return NextResponse.json(
+    { ok: true, slug: ctx.params.slug, deletedTitle: row.name },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
