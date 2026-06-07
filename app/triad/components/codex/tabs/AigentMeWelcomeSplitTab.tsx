@@ -651,6 +651,26 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     });
   }, []);
 
+  // Mirror Clear for the left strip's capsule chips — wipes only the
+  // 4 capsule-class suggestions (Brief / Decision Board / Venture
+  // Cockpit / Specialists). Surfaces in the copilot quick-prompt strip
+  // as a "Clear" pill that appears only while any capsule chip is
+  // pulsing. Leaves compose suggestions intact (they have their own
+  // Clear affordance on the right strip).
+  const clearCapsuleSuggestions = useCallback(() => {
+    setSuggestedLayoutHints((prev) => {
+      const capsuleIds: ChipTargetId[] = [
+        'brief', 'decision-board', 'venture-cockpit', 'specialists',
+      ];
+      const next = { ...prev };
+      let mutated = false;
+      for (const id of capsuleIds) {
+        if (id in next) { delete next[id]; mutated = true; }
+      }
+      return mutated ? next : prev;
+    });
+  }, []);
+
   // Phase 2 Slice 5: ApprovalLayout is INTERRUPT class — when a pending
   // approval arrives it overlays whatever layout is foreground. The
   // foreground layout stays mounted underneath so user context is
@@ -2471,10 +2491,30 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // fetchSpecialistRecommendation there caused a TDZ error (it's a const
   // declared further down the component). Effect-based seeding keeps
   // the declaration order legal and still fires on chip click.
+  // Per-activation seed gate. Without this, dismissing a capsule's data
+  // (e.g. closing the Move forward NBAs via onDismissMoveForward, which
+  // nulls moveForwardResult) re-triggers the auto-seed effects below
+  // because their guards rely on `<result> === null` to decide whether
+  // to fetch. Result: the dismissed CTAs re-appear instantly — a loop
+  // the operator can't escape without leaving the capsule entirely.
+  //
+  // The ref tracks the capsuleId we last seeded for. When activeCapsuleId
+  // changes (capsule swap or close), the ref clears so the next activation
+  // gets one fresh seed. Within a single activation, the effect runs at
+  // most once even if the data state oscillates.
+  const seededCapsuleRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (seededCapsuleRef.current !== null && seededCapsuleRef.current !== activeCapsuleId) {
+      seededCapsuleRef.current = null;
+    }
+  }, [activeCapsuleId]);
+
   useEffect(() => {
     if (activeCapsuleId !== 'ask-specialists') return;
+    if (seededCapsuleRef.current === 'ask-specialists') return;
     if (specialistRecommendation) return;
     if (specialistRecommendationLoading) return;
+    seededCapsuleRef.current = 'ask-specialists';
     void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
   }, [activeCapsuleId, specialistRecommendation, specialistRecommendationLoading, fetchSpecialistRecommendation, implicitSpecialistQuery]);
 
@@ -2486,15 +2526,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // memory — or nothing at all on a fresh mount.
   useEffect(() => {
     if (activeCapsuleId !== 'move-forward') return;
+    if (seededCapsuleRef.current === 'move-forward') return;
     if (moveForwardResult) return;
     if (moveForwardLoading) return;
+    seededCapsuleRef.current = 'move-forward';
     void fetchMoveForward();
   }, [activeCapsuleId, moveForwardResult, moveForwardLoading, fetchMoveForward]);
 
   useEffect(() => {
     if (activeCapsuleId !== 'venture-progress') return;
+    if (seededCapsuleRef.current === 'venture-progress') return;
     if (ventureProgress) return;
     if (ventureProgressLoading) return;
+    seededCapsuleRef.current = 'venture-progress';
     void fetchVentureProgress();
   }, [activeCapsuleId, ventureProgress, ventureProgressLoading, fetchVentureProgress]);
 
@@ -2686,6 +2730,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               personaId={personaId}
               groundContext={copilotGroundContext}
               onSuggestedLayouts={handleSuggestedLayouts}
+              onClearHighlights={clearCapsuleSuggestions}
               onClose={() => undefined}
             />
           </div>
