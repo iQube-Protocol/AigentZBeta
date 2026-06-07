@@ -22,6 +22,8 @@ import {
   Check,
   ExternalLink,
   Link2,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { IntentChainPanel, type IntentChainDto } from "@/components/metame/workbench/IntentChainPanel";
@@ -110,10 +112,44 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
     ? "bg-slate-800/60 border-slate-700 text-slate-300"
     : "bg-slate-100 border-slate-200 text-slate-700";
 
-  const status = STATUS_META[data.receiptStatus];
+  // Local override of the receipt status so a successful retry flips the
+  // badge from dvn_failed → dvn_pending without needing a parent refetch.
+  const [statusOverride, setStatusOverride] = useState<ActivityReceiptData["receiptStatus"] | null>(null);
+  const effectiveStatus = statusOverride ?? data.receiptStatus;
+  const status = STATUS_META[effectiveStatus];
 
   const [copied, setCopied] = useState(false);
   const [showJson, setShowJson] = useState(false);
+  const [retryState, setRetryState] = useState<{ loading: boolean; error: string | null }>({
+    loading: false,
+    error: null,
+  });
+
+  const handleRetryDvn = useCallback(async () => {
+    setRetryState({ loading: true, error: null });
+    try {
+      const res = await personaFetch(
+        `/api/assistant/receipts/${encodeURIComponent(data.id)}/retry-dvn`,
+        { method: "POST" },
+      );
+      const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        receiptStatus?: ActivityReceiptData["receiptStatus"];
+        detail?: string;
+        error?: string;
+      };
+      if (!res.ok || !body.ok) {
+        throw new Error(body.detail || body.error || `Retry failed (${res.status})`);
+      }
+      setStatusOverride(body.receiptStatus ?? "dvn_pending");
+      setRetryState({ loading: false, error: null });
+    } catch (err) {
+      setRetryState({
+        loading: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }, [data.id]);
   const [chainState, setChainState] = useState<{
     loading: boolean;
     error: string | null;
@@ -183,8 +219,40 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border ${status.ring}`}>
             {status.label}
           </span>
+          {effectiveStatus === "dvn_failed" && (
+            <button
+              type="button"
+              onClick={handleRetryDvn}
+              disabled={retryState.loading}
+              title="Resubmit this receipt to the DVN"
+              className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                isDark
+                  ? "border-violet-500/40 text-violet-200 hover:bg-violet-500/15"
+                  : "border-violet-400 text-violet-700 hover:bg-violet-50"
+              }`}
+            >
+              {retryState.loading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              {retryState.loading ? "Retrying" : "Retry"}
+            </button>
+          )}
         </div>
       </div>
+
+      {retryState.error && (
+        <div
+          className={`text-[11px] rounded-md border px-2 py-1 ${
+            isDark
+              ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+              : "border-rose-300 bg-rose-50 text-rose-700"
+          }`}
+        >
+          DVN retry failed: {retryState.error}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 text-[11px]">
         {data.agentsInvoked.length > 0 && (
