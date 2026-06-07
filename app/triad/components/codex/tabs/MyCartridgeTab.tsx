@@ -490,10 +490,8 @@ function ManagerDetail({
                 ? "Remove from myCluster — the tab will disappear from your myCluster group"
                 : "Publish to myCluster — adds a tab with your cartridge name in the myCluster group"
             }
-            className={`inline-flex items-center gap-2 px-3 py-2 text-sm rounded border transition disabled:opacity-40 ${
-              c.publishedToCluster
-                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30"
-                : "bg-violet-500/20 border-violet-500/40 text-violet-200 hover:bg-violet-500/30"
+            className={`inline-flex items-center gap-2 px-3 py-2 text-sm rounded border transition disabled:opacity-40 bg-green-500/20 border-green-500/40 text-green-300 hover:bg-green-500/30 ${
+              c.publishedToCluster ? "ring-1 ring-green-400/60" : ""
             }`}
           >
             {savingId === "publish" ? (
@@ -520,7 +518,7 @@ function ManagerDetail({
               type="button"
               onClick={() => setDeleteOpen(true)}
               title="Delete this cartridge — permanent, owner-only"
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded border border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50"
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded border bg-rose-500/20 border-rose-500/40 text-rose-300 hover:bg-rose-500/30"
             >
               <Trash2 className="w-4 h-4" />
               Delete cartridge
