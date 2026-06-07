@@ -56,25 +56,6 @@
 }
 
 /* ========================================
-   Copilot Layer Scope — Dark-Mode Overrides
-   ========================================
-   The SmartTriadCopilotLayer always renders on a dark backdrop
-   (bg-black/30 backdrop-blur). The :root defaults above target
-   the light-mode reference theme, which left user-message paragraph
-   text rendering near-black on near-black — invisible. Overriding the
-   foreground tokens inside the layer scope keeps every component that
-   reads var(--smarttriad-foreground{,-muted}) (most notably
-   .smarttriad-paragraph, used for plain-text USER messages with no
-   markdown to trigger the cyan ConversationalIntro / BulletPoint
-   renderers) visible against the dark panel.
-*/
-.smarttriad-copilot-layer {
-  --smarttriad-foreground: hsla(0, 0%, 100%, 0.88);
-  --smarttriad-foreground-muted: hsla(0, 0%, 100%, 0.65);
-  --smarttriad-foreground-muted-foreground: hsla(0, 0%, 100%, 0.5);
-}
-
-/* ========================================
    Message Container Structure
    ======================================== */
 .smarttriad-message-container {
