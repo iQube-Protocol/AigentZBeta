@@ -356,17 +356,14 @@ function inferSuggestedLayouts(
   const seen = new Set<ChipTargetId>();
   const MAX = 4;
 
-  // We no longer default promptHint to the raw user message — that
-  // injected confirmation replies like "yes" into downstream seeders
-  // (composer "What's the email for?" + the title backstop), breaking
-  // the existing inference. Hints stay empty unless a future LLM tag
-  // explicitly carries one. The chip pulse + scroll still fire on
-  // pattern match; the downstream surfaces fall back to their own
-  // inference (nbaPromptHints / nbaContextualTitles) for content.
+  // Trim message → use as a default promptHint so the layout auto-seed
+  // has something useful even when the keyword pattern wins (no LLM tag).
+  const baseHint = message.trim().slice(0, 240);
+
   const register = (id: ChipTargetId, reason: string, promptHint: string) => {
     if (seen.has(id) || hints.length >= MAX) return;
     seen.add(id);
-    hints.push({ layoutId: id, reason, promptHint });
+    hints.push({ layoutId: id, reason, promptHint: promptHint || baseHint });
   };
 
   // Explicit tags — `[layout:<id>]` or `[layout:<id>|<hint>]`. The LLM
@@ -384,12 +381,10 @@ function inferSuggestedLayouts(
 
   // Keyword sweep over user message + assistant response — same shape
   // as inferWalletActions. The LLM doesn't have to know about the
-  // contract; the classifier rides on natural language. promptHint
-  // stays empty (see comment in register) — downstream surfaces own
-  // their own inference.
+  // contract; the classifier rides on natural language.
   const combined = `${message}\n${assistantMessage}`;
   for (const k of LAYOUT_KEYWORDS) {
-    if (k.pattern.test(combined)) register(k.id, k.reason, '');
+    if (k.pattern.test(combined)) register(k.id, k.reason, baseHint);
   }
 
   return hints;
