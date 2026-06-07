@@ -104,6 +104,14 @@ interface SmartTriadCopilotLayerProps {
    * open the right-pane layout with the prompt context attached.
    */
   onSuggestedLayouts?: (hints: SuggestedLayoutHint[]) => void;
+  /**
+   * Fired when the operator clicks the "Clear" pill that prepends the
+   * quick-prompts strip whenever any chip is pulsing a chat-driven
+   * suggestion. Parent should wipe the relevant suggestion slots so
+   * the strip's pulse stops. Mirrors the right-pane compose strip's
+   * COMPOSE → Clear toggle.
+   */
+  onClearHighlights?: () => void;
 }
 
 export type SuggestedLayoutHint = {
@@ -217,6 +225,7 @@ export function SmartTriadCopilotLayer({
   enableAdvancedRendering = true,
   groundContext,
   onSuggestedLayouts,
+  onClearHighlights,
 }: SmartTriadCopilotLayerProps) {
   
   // Core state
@@ -653,6 +662,7 @@ export function SmartTriadCopilotLayer({
           showQuickPrompts={showQuickPrompts}
           setShowQuickPrompts={setShowQuickPrompts}
           onQuickPrompt={handleQuickPrompt}
+          onClearHighlights={onClearHighlights}
           onClose={onClose}
           mode={mode}
           setMode={setMode}
@@ -691,6 +701,7 @@ export function SmartTriadCopilotLayer({
           showQuickPrompts={showQuickPrompts}
           setShowQuickPrompts={setShowQuickPrompts}
           onQuickPrompt={handleQuickPrompt}
+          onClearHighlights={onClearHighlights}
           mode={mode}
           setMode={setMode}
           isAvatarActive={isAvatarActive}
@@ -735,6 +746,7 @@ function FloatingCopilot({
   showQuickPrompts,
   setShowQuickPrompts,
   onQuickPrompt,
+  onClearHighlights,
   onClose,
   mode,
   setMode,
@@ -805,6 +817,10 @@ function FloatingCopilot({
    *  open (or when there are selected chips to surface). */
   attachmentsPickerOpen: boolean;
   setAttachmentsPickerOpen: (next: boolean) => void;
+  /** When set, a Clear pill prepends the quick-prompts strip whenever
+   *  any chip is pulsing (highlight=true) and clicking it fires the
+   *  callback. Parent decides which suggestion slots to wipe. */
+  onClearHighlights?: () => void;
 }) {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
 
@@ -998,6 +1014,24 @@ function FloatingCopilot({
           {/* Quick prompts strip — above input, below messages */}
           {visibleQuickPrompts && (
             <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-wrap flex-shrink-0">
+              {/* Clear pill — only renders when any chip is pulsing a
+                  chat-driven suggestion AND the parent wired an
+                  onClearHighlights callback. Mirrors the right-pane
+                  compose strip's COMPOSE → Clear toggle so the
+                  operator can dismiss capsule suggestions without
+                  having to engage them. */}
+              {onClearHighlights &&
+                quickPrompts.some((qp) => typeof qp !== "string" && qp.highlight === true) && (
+                <button
+                  type="button"
+                  onClick={onClearHighlights}
+                  title="Clear pulsing capsule suggestions"
+                  aria-label="Clear pulsing capsule suggestions"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/40 hover:bg-emerald-500/20 hover:text-white"
+                >
+                  Clear
+                </button>
+              )}
               {quickPrompts.slice(0, 5).map((qp, i) => {
                 const label = typeof qp === "string" ? qp : qp.label;
                 const highlight = typeof qp !== "string" && qp.highlight === true;
