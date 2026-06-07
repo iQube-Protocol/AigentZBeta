@@ -56,9 +56,17 @@ interface Props {
    *  the operator's uploads (not the spine's default persona). See
    *  ComposeGmailDraftModal Props for the failure mode. */
   personaId?: string;
+  /**
+   * Case A — seed the local attachmentUploadIds on first mount from
+   * the parent's chat-attachment escrow (what the operator paperclip-
+   * attached to the chat copilot's last successful turn). Only seeds
+   * when the current state is empty — the picker UI remains the
+   * source of truth once the operator interacts with it. Optional.
+   */
+  initialAttachmentUploadIds?: string[];
 }
 
-export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false, initialPrompt, personaId }: Props) {
+export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false, initialPrompt, personaId, initialAttachmentUploadIds }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
   const [aiRationale, setAiRationale] = useState<string | null>(null);
@@ -78,7 +86,16 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
   // Persona upload ids selected as attachments. UploadPicker mounts
   // inline below the campaign/cohort row; selected ids ride through
   // to onCreate → create-artifact → marketa connector at send time.
-  const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>([]);
+  // Case A — seed from chat-attachment escrow on first mount when
+  // present, and re-seed only if the local picker is still empty
+  // (operator edits always win).
+  const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>(
+    () => (Array.isArray(initialAttachmentUploadIds) ? [...initialAttachmentUploadIds] : []),
+  );
+  useEffect(() => {
+    if (!Array.isArray(initialAttachmentUploadIds) || initialAttachmentUploadIds.length === 0) return;
+    setAttachmentUploadIds((prev) => (prev.length > 0 ? prev : [...initialAttachmentUploadIds]));
+  }, [initialAttachmentUploadIds]);
 
   // Fetch campaigns + their cohorts when the modal opens. Live shape comes
   // from /api/marketa/campaigns (KS Prospects, KNYT Codex, Partners).

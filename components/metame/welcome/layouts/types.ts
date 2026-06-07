@@ -97,6 +97,16 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
    */
   composerInitialPrompt?: string | null;
   /**
+   * Case A — operator-attached upload ids escrowed from the chat
+   * copilot's last successful turn. When the composer opens for an
+   * email-class surface (Gmail / Marketa), the modal seeds its
+   * attachment picker from this list so the files the operator
+   * intended to ride with the email actually ride through to the
+   * outbound multipart MIME envelope. Optional; null / empty leaves
+   * the picker empty (existing behaviour).
+   */
+  composerInitialAttachmentUploadIds?: string[] | null;
+  /**
    * B.1: selected KPI id for the KpiDetailLayout. The cockpit chip
    * onClick sets this + activates 'kpi-detail'.
    */
