@@ -35,7 +35,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Boxes, Globe, Loader2, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
+import { AlertTriangle, Boxes, Globe, Loader2, PackageCheck, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { CartridgeSetupWizard } from "@/components/metame/setup/CartridgeSetupWizard";
 
@@ -84,6 +84,13 @@ interface CartridgeDetail {
   tokenWhitelist: string[];
   smartTriadConfig: Record<string, unknown> | null;
   publishedToCluster: boolean;
+  catalogueRequest: {
+    id: string;
+    status: "pending" | "approved" | "rejected" | "cancelled";
+    requestedAt: string;
+    decidedAt: string | null;
+    decisionReason: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
   isOwnerCaller: boolean;
@@ -403,6 +410,33 @@ function ManagerDetail({
       );
       const j = (await res.json()) as { ok: boolean; error?: string; detail?: string };
       if (!res.ok || !j.ok) throw new Error(j.detail || j.error || `save failed (${res.status})`);
+      // Broadcast so CodexPanelDynamic re-fetches its published list and
+      // the new tab appears in the myCluster strip without a page reload.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("mycluster:published-changed"));
+      }
+      onChanged();
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function doApplyToCatalogue() {
+    setSavingId("catalogue");
+    setOpError(null);
+    try {
+      const res = await personaFetch(
+        `/api/cartridge/${encodeURIComponent(c.slug)}/request-catalogue`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      const j = (await res.json()) as { ok: boolean; error?: string; detail?: string };
+      if (!res.ok || !j.ok) throw new Error(j.detail || j.error || `apply failed (${res.status})`);
       onChanged();
     } catch (err) {
       setOpError(err instanceof Error ? err.message : String(err));
@@ -460,27 +494,38 @@ function ManagerDetail({
           <Chip>caller: {detail.caller.reason}</Chip>
           {!canEdit && <Chip className="text-amber-300">read-only</Chip>}
           {c.publishedToCluster && (
-            <Chip className="text-emerald-300 bg-emerald-500/10 border-emerald-500/40">
+            <Chip className="text-emerald-400 border-emerald-500/30 bg-transparent">
               live in myCluster
+            </Chip>
+          )}
+          {c.catalogueRequest?.status === "approved" && (
+            <Chip className="text-sky-400 border-sky-500/30 bg-transparent">
+              in metaMe catalogue
+            </Chip>
+          )}
+          {c.catalogueRequest?.status === "pending" && (
+            <Chip className="text-amber-400 border-amber-500/30 bg-transparent">
+              catalogue review pending
             </Chip>
           )}
         </div>
       </header>
 
-      {/* Cartridge actions — publish + delete. Sits at the top so the
-          operator can see at a glance whether the cartridge is live in
-          their myCluster, and how to remove or destroy it. */}
+      {/* Cartridge actions — publish + apply to catalogue + delete. Sits
+          at the top so the operator can see at a glance whether the
+          cartridge is live in their myCluster, whether it's in the
+          catalogue review queue, and how to remove or destroy it. */}
       <section className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-medium text-slate-200">Cartridge actions</h3>
             <p className="text-xs text-slate-500">
-              Publish your cartridge to myCluster, or remove it entirely.
+              Publish to myCluster, apply to the metaMe catalogue, or remove the cartridge entirely.
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          {/* Publish */}
+          {/* Publish — lightweight emerald text/border, no fill. */}
           <button
             type="button"
             disabled={!canEdit || savingId === "publish"}
@@ -490,8 +535,8 @@ function ManagerDetail({
                 ? "Remove from myCluster — the tab will disappear from your myCluster group"
                 : "Publish to myCluster — adds a tab with your cartridge name in the myCluster group"
             }
-            className={`inline-flex items-center gap-2 px-3 py-2 text-sm rounded border transition disabled:opacity-40 bg-green-500/20 border-green-500/40 text-green-300 hover:bg-green-500/30 ${
-              c.publishedToCluster ? "ring-1 ring-green-400/60" : ""
+            className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition disabled:opacity-40 border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:border-emerald-500/60 ${
+              c.publishedToCluster ? "ring-1 ring-emerald-500/30" : ""
             }`}
           >
             {savingId === "publish" ? (
@@ -506,19 +551,61 @@ function ManagerDetail({
               </>
             )}
           </button>
+
+          {/* Apply to metaMe Catalogue — sends a request for admin review. */}
+          {(() => {
+            const reqStatus = c.catalogueRequest?.status;
+            const isPending = reqStatus === "pending";
+            const isApproved = reqStatus === "approved";
+            const isRejected = reqStatus === "rejected" || reqStatus === "cancelled";
+            const disabled = !canEdit || savingId === "catalogue" || isPending || isApproved;
+            const label = (() => {
+              if (savingId === "catalogue") return "Submitting…";
+              if (isApproved) return "Listed in Catalogue";
+              if (isPending) return "Pending review";
+              if (isRejected) return "Re-apply to metaMe Catalogue";
+              return "Apply to Publish to metaMe Catalogue";
+            })();
+            const title = (() => {
+              if (isApproved) return "Your cartridge is live in the metaMe activations catalogue.";
+              if (isPending) return "A metaMe admin will review your application.";
+              if (isRejected && c.catalogueRequest?.decisionReason)
+                return `Previous decision: rejected — ${c.catalogueRequest.decisionReason}`;
+              return "Send a request to the metaMe admins to list this cartridge in the activations catalogue.";
+            })();
+            return (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => void doApplyToCatalogue()}
+                title={title}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition disabled:opacity-60 border-sky-500/30 text-sky-400 hover:text-sky-300 hover:border-sky-500/60 ${
+                  isApproved ? "ring-1 ring-sky-500/30" : ""
+                }`}
+              >
+                {savingId === "catalogue" ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <PackageCheck className="w-4 h-4" />
+                )}
+                {label}
+              </button>
+            );
+          })()}
+
           {c.publishedToCluster && (
             <span className="text-xs text-slate-500">
               Visible as a tab in your myCluster group.
             </span>
           )}
           <div className="flex-1" />
-          {/* Delete */}
+          {/* Delete — lightweight rose text/border, no fill. */}
           {canDelete && (
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}
               title="Delete this cartridge — permanent, owner-only"
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded border bg-rose-500/20 border-rose-500/40 text-rose-300 hover:bg-rose-500/30"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition border-rose-500/30 text-rose-400 hover:text-rose-300 hover:border-rose-500/60"
             >
               <Trash2 className="w-4 h-4" />
               Delete cartridge

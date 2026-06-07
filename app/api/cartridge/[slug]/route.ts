@@ -106,6 +106,46 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
       { status: 500 },
     );
   }
+  // Latest catalogue request by the calling persona — surfaced in
+  // MyCartridgeTab so the operator sees whether they have a pending or
+  // decided application without leaving the action panel. Best-effort:
+  // a missing table (pre-migration) yields a null status.
+  let catalogueRequest: {
+    id: string;
+    status: string;
+    requestedAt: string;
+    decidedAt: string | null;
+    decisionReason: string | null;
+  } | null = null;
+  try {
+    const { data: cReqRow } = await db
+      .from("cartridge_catalogue_requests")
+      .select("id, status, requested_at, decided_at, decision_reason")
+      .eq("cartridge_slug", slug)
+      .eq("persona_id", guard.persona.personaId)
+      .order("requested_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (cReqRow) {
+      const row = cReqRow as {
+        id: string;
+        status: string;
+        requested_at: string;
+        decided_at: string | null;
+        decision_reason: string | null;
+      };
+      catalogueRequest = {
+        id: row.id,
+        status: row.status,
+        requestedAt: row.requested_at,
+        decidedAt: row.decided_at,
+        decisionReason: row.decision_reason,
+      };
+    }
+  } catch {
+    catalogueRequest = null;
+  }
+
   const memberships = ((memRowsRaw ?? []) as Array<{
     persona_id?: string;
     role?: string;
@@ -154,6 +194,7 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
         tokenWhitelist: cfgTyped.token_whitelist ?? [],
         smartTriadConfig: cfgTyped.smart_triad_config ?? null,
         publishedToCluster: cfgTyped.published_to_cluster ?? false,
+        catalogueRequest,
         createdAt: cfgTyped.created_at,
         updatedAt: cfgTyped.updated_at,
         // T0 owner_persona_id intentionally NOT echoed.

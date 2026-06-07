@@ -218,6 +218,19 @@ export default function CodexPanelDynamic({
   // same gate before merging — tabs don't appear until the activation is on.
   const isMetaMe = codexId === 'metame-codex';
   const [publishedCartridgeTabs, setPublishedCartridgeTabs] = useState<CodexTab[]>([]);
+  // Bump this to force a refetch — MyCartridgeTab dispatches a window
+  // event ('mycluster:published-changed') after a successful publish/
+  // unpublish toggle so the new tab appears in the strip without a page
+  // reload.
+  const [publishedRefetchToken, setPublishedRefetchToken] = useState(0);
+
+  useEffect(() => {
+    if (!isMetaMe) return;
+    if (typeof window === 'undefined') return;
+    const handler = () => setPublishedRefetchToken((t) => t + 1);
+    window.addEventListener('mycluster:published-changed', handler);
+    return () => window.removeEventListener('mycluster:published-changed', handler);
+  }, [isMetaMe]);
 
   useEffect(() => {
     if (!isMetaMe) return;
@@ -238,6 +251,9 @@ export default function CodexPanelDynamic({
             slug: c.slug,
             label: c.title,
             enabled: true,
+            // After the 2026-06-07 swap, myLedger is at order 2 and
+            // myCartridge at order 3 — published cartridges land after
+            // both at order 10+.
             order: 10 + idx,
             type: 'static' as const,
             group: 'mycluster',
@@ -253,7 +269,7 @@ export default function CodexPanelDynamic({
       }
     })();
     return () => { cancelled = true; };
-  }, [isMetaMe]);
+  }, [isMetaMe, publishedRefetchToken]);
 
   const enabledTabs = useMemo(
     () => [
