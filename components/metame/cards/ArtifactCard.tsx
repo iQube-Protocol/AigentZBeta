@@ -158,11 +158,28 @@ export function ArtifactCard({
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
-  // Sent/published artifacts get an emerald border so the operator can
-  // tell at a glance that the externalisation completed — without this
-  // the card looks identical pre- and post-send except for the small
-  // status chip.
-  const isSent = data.status === "sent" || data.status === "published";
+  // Emerald-bordered "complete" state.
+  //
+  // 1. status='sent' / 'published' — the existing rule. Applies after the
+  //    operator clicks Send on Gmail / Marketa drafts, Send-invites on
+  //    Calendar events with external attendees, or Share on Doc / Sheet
+  //    / Slides with pending share suggestions.
+  //
+  // 2. completedOnCreation — destination-agnostic semantic rule that
+  //    covers compose surfaces with no follow-up action: the artifact
+  //    exists at an external locationUrl AND there is no pending
+  //    actionConnectorId waiting on the operator. This is exactly the
+  //    state Calendar (private) / Doc / Sheet / Slides / etc. land in
+  //    when created with no share suggestions or external attendees —
+  //    the act of creation IS the completion. Without this rule those
+  //    artifacts would stay grey forever despite being fully done.
+  //    Gmail and Marketa drafts always carry an actionConnectorId until
+  //    sent, so this branch correctly leaves them grey pre-Send.
+  const completedOnCreation =
+    data.status === "draft" &&
+    !!data.locationUrl &&
+    !data.actionConnectorId;
+  const isSent = data.status === "sent" || data.status === "published" || completedOnCreation;
   const surfaceClass = isSent
     ? isDark
       ? "bg-emerald-500/5 border-emerald-500/60 text-slate-100"
