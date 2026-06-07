@@ -162,7 +162,18 @@ export function ArtifactCard({
   // tell at a glance that the externalisation completed — without this
   // the card looks identical pre- and post-send except for the small
   // status chip.
-  const isSent = data.status === "sent" || data.status === "published";
+  //
+  // Calendar events and Drive artifacts (Doc / Sheet / Slides) finish
+  // ON CREATION — there's no separate "Send" step like Gmail/Marketa.
+  // Once a locationUrl is attached, the artifact lives in the operator's
+  // calendar / drive and IS the completion. Treating these as "sent"
+  // for the green-border glance keeps parity across all 6 composer CTAs
+  // (Gmail, Event, Doc, Sheet, Slides, Marketa).
+  const completedOnCreation =
+    data.status === "draft" &&
+    !!data.locationUrl &&
+    (data.destination === "calendar" || data.destination === "drive");
+  const isSent = data.status === "sent" || data.status === "published" || completedOnCreation;
   const surfaceClass = isSent
     ? isDark
       ? "bg-emerald-500/5 border-emerald-500/60 text-slate-100"
