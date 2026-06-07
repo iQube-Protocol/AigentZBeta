@@ -2069,3 +2069,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-403c789.md](../build_/COMMITS/COMMIT-403c789.md)
 - Message: fix chain timeline ordering: doc before analysis, original queue before specialist
+
+## Commit `fc9f447` — 2026-06-07T01:22:06Z
+- Type: `revert`
+- Brief: [COMMIT-fc9f447.md](../build_/COMMITS/COMMIT-fc9f447.md)
+- Message: revert: drop CTA-title backstop work (8fc51aea + 69c75d81 + 14428e1d)

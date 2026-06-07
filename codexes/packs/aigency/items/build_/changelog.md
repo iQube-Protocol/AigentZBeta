@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`fc9f447`](https://github.com/iQube-Protocol/AigentZBeta/commit/fc9f447ac38f31e16199df9751e8454565cade89) [revert] revert: drop CTA-title backstop work (8fc51aea + 69c75d81 + 14428e1d) (Claude, 2026-06-07T01:22:06Z)
 - [`403c789`](https://github.com/iQube-Protocol/AigentZBeta/commit/403c7899e552a5bb943795e709a13e82f6dcbdb4) [fix] fix chain timeline ordering: doc before analysis, original queue before specialist (Claude, 2026-06-05T22:04:04Z)
 - [`46d4eeb`](https://github.com/iQube-Protocol/AigentZBeta/commit/46d4eeb4de65d72c664b96b42beca7c439d39057) [push] improve chain panel legibility: copy, doc approval decoupling, timeline ordering (Claude, 2026-06-05T20:28:31Z)
 - [`d314131`](https://github.com/iQube-Protocol/AigentZBeta/commit/d3141314c710aabb1847219f2ebf17f38a1f5b8e) [fix] document capsule containment infraction pattern + fix in CLAUDE.md (Claude, 2026-06-05T18:14:15Z)
