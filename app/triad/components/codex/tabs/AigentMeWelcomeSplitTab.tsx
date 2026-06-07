@@ -1829,6 +1829,28 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } catch { /* quota — silently degrade */ }
   }, [composerInitialPrompt, personaId]);
 
+  // Case A — chat-attachment escrow.
+  //
+  // Holds the upload ids the operator paperclip-attached to the most
+  // recent CHAT turn that actually carried attachments. Threaded into
+  // ComposerLayout → email-class compose modals (Gmail + Marketa) so
+  // the attachment picker seeds itself with the file the operator
+  // intended to send. Modal local state owns the truth once the
+  // operator interacts with the picker; the escrow only seeds an
+  // empty picker on first mount.
+  //
+  // Lifecycle (sticky-on-non-empty):
+  //   - Replaced when SmartTriadCopilotLayer fires onSentAttachments
+  //     after a successful chat turn THAT CARRIED ATTACHMENTS. Turns
+  //     with no paperclip attachments leave the escrow alone — the
+  //     operator may be refining the email body across multiple
+  //     turns without re-attaching, and we don't want to clobber
+  //     their intent.
+  //   - Not persisted across page refresh — escrow is a transient
+  //     channel scoped to the current chat session. Refresh = fresh
+  //     workflow; operator re-attaches if they want to compose.
+  const [composerEscrowAttachments, setComposerEscrowAttachments] = useState<string[]>([]);
+
   // Clear the composer's parent-intent binding whenever the composer
   // is dismissed (composerKind flips to null on backdrop click,
   // onCreate success, overlay X). Without this, a subsequent
@@ -2761,6 +2783,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               groundContext={copilotGroundContext}
               onSuggestedLayouts={handleSuggestedLayouts}
               onClearHighlights={clearCapsuleSuggestions}
+              onSentAttachments={setComposerEscrowAttachments}
               onClose={() => undefined}
             />
           </div>
@@ -2977,6 +3000,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 // path so the next composer mount starts empty unless a
                 // suggested-artifact explicitly seeded a prompt.
                 composerInitialPrompt,
+                // Case A — chat-attachment escrow. Threaded into the
+                // email-class compose modals (Gmail + Marketa) so the
+                // attachment picker seeds with the file the operator
+                // paperclip-attached to their last chat turn. The
+                // modals' useEffect only re-seeds when their local
+                // state is empty, so operator picker edits always win.
+                composerInitialAttachmentUploadIds: composerEscrowAttachments,
                 // ComposerLayout's X / Cancel calls this to clear the
                 // overlay state so the composer unmounts. Without it,
                 // the dismiss only swapped foreground layouts — a

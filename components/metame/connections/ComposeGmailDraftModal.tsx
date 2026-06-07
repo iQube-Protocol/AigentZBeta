@@ -75,6 +75,15 @@ interface Props {
    *  resolution and can render an empty / wrong-persona list, leaving
    *  attachmentUploadIds silently empty at submit time. */
   personaId?: string;
+  /**
+   * Case A — seed the local attachmentUploadIds on first mount from
+   * the parent's chat-attachment escrow (what the operator paperclip-
+   * attached to the chat copilot's last successful turn). Only seeds
+   * when the current state is empty — the picker UI remains the
+   * source of truth once the operator interacts with it. Optional;
+   * omitting it preserves the legacy empty-init behaviour.
+   */
+  initialAttachmentUploadIds?: string[];
 }
 
 export function ComposeGmailDraftModal({
@@ -86,6 +95,7 @@ export function ComposeGmailDraftModal({
   inline = false,
   initialPrompt,
   personaId,
+  initialAttachmentUploadIds,
 }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
@@ -94,7 +104,17 @@ export function ComposeGmailDraftModal({
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [bodyText, setBodyText] = useState("");
-  const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>([]);
+  const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>(
+    () => (Array.isArray(initialAttachmentUploadIds) ? [...initialAttachmentUploadIds] : []),
+  );
+  // Case A — re-seed from the parent's chat-attachment escrow ONLY
+  // when the local picker is still empty. After the operator touches
+  // the picker, the local state owns the truth; escrow changes from
+  // the parent never overwrite operator edits.
+  useEffect(() => {
+    if (!Array.isArray(initialAttachmentUploadIds) || initialAttachmentUploadIds.length === 0) return;
+    setAttachmentUploadIds((prev) => (prev.length > 0 ? prev : [...initialAttachmentUploadIds]));
+  }, [initialAttachmentUploadIds]);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
   const [submitting, setSubmitting] = useState(false);

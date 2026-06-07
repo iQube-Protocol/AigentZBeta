@@ -112,6 +112,17 @@ interface SmartTriadCopilotLayerProps {
    * COMPOSE → Clear toggle.
    */
   onClearHighlights?: () => void;
+  /**
+   * Fired AFTER a successful chat POST with the snapshot of upload ids
+   * that rode with the turn (operator-attached files via the paperclip
+   * picker). Parent escrows the snapshot so a subsequent compose chip
+   * (e.g. Email / Marketa) can seed its attachment picker — keeping
+   * the operator's intended attachment riding through to the outbound
+   * MIME multipart envelope. No-op when the operator didn't attach
+   * anything (empty array → callback skipped). Optional; existing
+   * callers that don't wire it stay unchanged.
+   */
+  onSentAttachments?: (uploadIds: string[]) => void;
 }
 
 export type SuggestedLayoutHint = {
@@ -226,6 +237,7 @@ export function SmartTriadCopilotLayer({
   groundContext,
   onSuggestedLayouts,
   onClearHighlights,
+  onSentAttachments,
 }: SmartTriadCopilotLayerProps) {
   
   // Core state
@@ -448,6 +460,10 @@ export function SmartTriadCopilotLayer({
     // Snapshot attachments for this turn THEN clear them so the next
     // turn starts fresh. The chat POST below uses the dependency-closure
     // snapshot; actual ids are already serialised into the request body.
+    // The explicit array copy is also what we hand to onSentAttachments
+    // below so the parent can escrow it for the composer pickers
+    // (Case A — operator-attached files riding through to outbound MIME).
+    const sentAttachmentSnapshot = [...attachedUploadIds];
     setAttachedUploadIds([]);
     setIsProcessing(true);
 
@@ -558,6 +574,15 @@ export function SmartTriadCopilotLayer({
         onSuggestedLayouts?.(data.suggested_layouts as SuggestedLayoutHint[]);
       } else {
         onSuggestedLayouts?.([]);
+      }
+
+      // Case A — escrow the operator-attached uploads for the next
+      // composer chip click. Only fires when the operator actually
+      // attached something this turn; otherwise we skip the callback
+      // entirely so no spurious empty-array signal can clobber a
+      // prior escrow.
+      if (sentAttachmentSnapshot.length > 0) {
+        onSentAttachments?.(sentAttachmentSnapshot);
       }
     } catch (error) {
       console.error('Failed to get response:', error);
