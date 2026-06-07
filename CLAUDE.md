@@ -63,6 +63,39 @@ Guessing critical values (especially URLs) wastes the operator's time, breaks in
 
 ---
 
+## Outbound Email Attachments — MUST INCLUDE URL (NON-NEGOTIABLE)
+
+**Any outbound email (Gmail draft, Marketa send, cohort blast, transactional reply, any other email surface) that references an attached artifact, document, deck, doc, sheet, PDF, image, or any other file MUST include the URL to that artifact in the email body. If the body says "attached" / "see attached" / "find attached" / "I've attached" / "please review the attached" / any equivalent phrase, the URL MUST be in the body next to the reference. There are no exceptions.**
+
+This rule applies to every code path that drafts or sends email on the platform — `services/google/gmail/*`, `services/marketa/*`, `services/connectors/gmail*`, `services/connectors/marketa*`, the campaign send scripts, the LLM email-drafter prompts, and any future surface that produces email body text.
+
+### Forbidden — never produce these:
+
+- A body that says "Please find the brief attached" with no link.
+- A body that lists "Attached: Strategic plan" with no link.
+- A body that says "I've attached the deck for your review" with no link.
+- A body that references a Google Doc / Sheet / Slides / PDF by name without the corresponding view link.
+
+### Required — every email body that references an attachment MUST:
+
+1. Include the artifact's accessible URL (the `locationUrl` field on `ArtifactCardData`, the Google Drive share URL, the Supabase Storage URL for gated content via the signed-redirect route, etc.) inline with the reference.
+2. Format the reference so a human reading the email knows what to click — e.g. "Please review the [Strategic Plan](https://docs.google.com/document/d/.../edit)" or "Strategic plan: https://docs.google.com/...".
+3. Never refer to an attachment that isn't actually attached AND doesn't have a URL. If neither is true, rewrite the body to not mention an attachment at all.
+
+### Enforcement layer in LLM email-drafters
+
+When the email body is drafted by an LLM (the `handleDraftEmail` / `handleDraftMarketa` paths), the system prompt MUST instruct the LLM that if it references an attached artifact in the body, it MUST also include the URL inline. If the LLM doesn't have a URL for what it's about to reference, it MUST omit the reference entirely — never write "attached" without a link.
+
+Server-side validation should reject any drafted body that contains an "attached"-class phrase but no URL in the body, and require a regeneration. This sanity-check belongs in the draft endpoint, not just the LLM prompt.
+
+### Why this is non-negotiable
+
+A recipient who reads "Please find the brief attached" and sees no attachment + no link experiences immediate trust erosion in the sender, the platform, and the underlying agent. It looks like a bot mistake or a phishing failure. Every email that ships with this defect costs the operator credibility we can't easily recover.
+
+This rule applies to every agent working on this repo (Claude Code, Codex, Lovable, any future agent) and every email-producing surface. There are no exceptions, no "alpha-phase" carve-outs, no "we'll add the link later" deferrals.
+
+---
+
 ## Q¢ (Q-cent) Pricing — Canonical Conversion
 
 **$1 = 100 Q¢. One Q¢ is worth $0.01.**
