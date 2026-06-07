@@ -100,10 +100,20 @@ export async function submitActivityReceiptToDvn(
     const messageId = `aigentme_receipt_${record.id}_${Date.now()}`;
 
     const response = await dvn.submit_dvn_message(0, 0, payloadBytes, messageId);
+    // Canister may return a plain string OR a Candid Variant: { Ok: string } / { Err: string }
     if (typeof response === 'string') {
       return { ok: true, messageId: response };
     }
-    return { ok: false, error: 'submit_dvn_message returned unexpected result' };
+    const resp = response as Record<string, unknown> | null | undefined;
+    if (resp && typeof resp === 'object') {
+      if ('Ok' in resp && typeof resp.Ok === 'string') {
+        return { ok: true, messageId: resp.Ok };
+      }
+      if ('Err' in resp && typeof resp.Err === 'string') {
+        return { ok: false, error: `Canister Err variant: ${resp.Err}` };
+      }
+    }
+    return { ok: false, error: `submit_dvn_message returned unexpected shape: ${JSON.stringify(response)}` };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: false, error: msg };
@@ -140,6 +150,9 @@ export function enqueueActivityReceiptAnchor(
       // dvn_failed when the canister is reachable and returned an error.
       const isUnreachable = !!result.error?.includes('not configured');
       if (!isUnreachable) {
+        console.warn(
+          `[DVN] Activity receipt ${record.id} submission failed: ${result.error ?? 'unknown'}`,
+        );
         await supabase
           .from('activity_receipts')
           .update({ receipt_status: 'dvn_failed' })
