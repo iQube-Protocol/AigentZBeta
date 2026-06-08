@@ -1287,18 +1287,43 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } catch { /* quota — silently degrade */ }
   }, [composerSourceIntentId, personaId]);
 
+  // Derive the workflow-scoped artifacts payload the email drafters
+  // (draft-email + draft-marketa-email) thread into the LLM prompt so
+  // body text that says "attached" can carry the artifact's URL inline.
+  // Source of truth is the existing `artifacts` state (sessionStorage-
+  // backed, slice(0,10) ordered newest-first). We only include entries
+  // with a real http(s) locationUrl — runtime-destination artifacts
+  // (status='draft' Gmail / Marketa) won't appear here because they
+  // have no public URL, which is the right behaviour: an email never
+  // links back to a draft email.
+  const buildRelatedArtifactsPayload = useCallback(() => {
+    return artifacts
+      .filter((a) => typeof a.locationUrl === 'string' && /^https?:\/\//i.test(a.locationUrl))
+      .slice(0, 5)
+      .map((a) => ({
+        artifactType: a.artifactType,
+        title: a.title,
+        locationUrl: a.locationUrl as string,
+      }));
+  }, [artifacts]);
+
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
   const handleDraftEmail = useCallback(async (prompt: string) => {
+    const relatedArtifacts = buildRelatedArtifactsPayload();
     const res = await personaFetch('/api/assistant/draft-email', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }), personaIdHint: personaId,
+      body: JSON.stringify({
+        prompt,
+        ...(relatedArtifacts.length > 0 ? { relatedArtifacts } : {}),
+      }),
+      personaIdHint: personaId,
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.error || `draft-email failed (${res.status})`);
     }
     return (await res.json()) as { to: string; cc: string; bcc: string; subject: string; bodyText: string; rationale: string; source: 'llm' | 'template' };
-  }, [personaId]);
+  }, [personaId, buildRelatedArtifactsPayload]);
 
   const handleComposeGmailDraft = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; attachmentUploadIds?: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
@@ -1446,16 +1471,21 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftMarketa = useCallback(async (prompt: string) => {
+    const relatedArtifacts = buildRelatedArtifactsPayload();
     const res = await personaFetch('/api/assistant/draft-marketa-email', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }), personaIdHint: personaId,
+      body: JSON.stringify({
+        prompt,
+        ...(relatedArtifacts.length > 0 ? { relatedArtifacts } : {}),
+      }),
+      personaIdHint: personaId,
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.error || `draft-marketa-email failed (${res.status})`);
     }
     return (await res.json()) as { to: string; cc: string; bcc: string; subject: string; bodyText: string; rationale: string; source: 'llm' | 'template' };
-  }, [personaId]);
+  }, [personaId, buildRelatedArtifactsPayload]);
 
   const handleComposeMarketa = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; fromName?: string; campaignId?: string; cohortId?: string; attachmentUploadIds?: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
@@ -1798,6 +1828,28 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       }
     } catch { /* quota — silently degrade */ }
   }, [composerInitialPrompt, personaId]);
+
+  // Case A — chat-attachment escrow.
+  //
+  // Holds the upload ids the operator paperclip-attached to the most
+  // recent CHAT turn that actually carried attachments. Threaded into
+  // ComposerLayout → email-class compose modals (Gmail + Marketa) so
+  // the attachment picker seeds itself with the file the operator
+  // intended to send. Modal local state owns the truth once the
+  // operator interacts with the picker; the escrow only seeds an
+  // empty picker on first mount.
+  //
+  // Lifecycle (sticky-on-non-empty):
+  //   - Replaced when SmartTriadCopilotLayer fires onSentAttachments
+  //     after a successful chat turn THAT CARRIED ATTACHMENTS. Turns
+  //     with no paperclip attachments leave the escrow alone — the
+  //     operator may be refining the email body across multiple
+  //     turns without re-attaching, and we don't want to clobber
+  //     their intent.
+  //   - Not persisted across page refresh — escrow is a transient
+  //     channel scoped to the current chat session. Refresh = fresh
+  //     workflow; operator re-attaches if they want to compose.
+  const [composerEscrowAttachments, setComposerEscrowAttachments] = useState<string[]>([]);
 
   // Clear the composer's parent-intent binding whenever the composer
   // is dismissed (composerKind flips to null on backdrop click,
@@ -2731,6 +2783,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               groundContext={copilotGroundContext}
               onSuggestedLayouts={handleSuggestedLayouts}
               onClearHighlights={clearCapsuleSuggestions}
+              onSentAttachments={setComposerEscrowAttachments}
               onClose={() => undefined}
             />
           </div>
@@ -2947,6 +3000,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 // path so the next composer mount starts empty unless a
                 // suggested-artifact explicitly seeded a prompt.
                 composerInitialPrompt,
+                // Case A — chat-attachment escrow. Threaded into the
+                // email-class compose modals (Gmail + Marketa) so the
+                // attachment picker seeds with the file the operator
+                // paperclip-attached to their last chat turn. The
+                // modals' useEffect only re-seeds when their local
+                // state is empty, so operator picker edits always win.
+                composerInitialAttachmentUploadIds: composerEscrowAttachments,
                 // ComposerLayout's X / Cancel calls this to clear the
                 // overlay state so the composer unmounts. Without it,
                 // the dismiss only swapped foreground layouts — a

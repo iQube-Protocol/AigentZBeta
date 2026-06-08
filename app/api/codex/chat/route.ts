@@ -356,13 +356,21 @@ function inferSuggestedLayouts(
   const seen = new Set<ChipTargetId>();
   const MAX = 4;
 
-  // Hints are EMPTY by default — the LLM carries substance in a
-  // [layout:<id>|<substance>] tag; keyword matches light the chip but
-  // leave promptHint empty so downstream surfaces keep their own inference.
+  // baseHint — the user's prompt, used as a seed for downstream surfaces
+  // (composer "What's the deck for?", etc.) when the LLM didn't emit a
+  // [layout:<id>|<substance>] tag. Empty for trivial acknowledgements
+  // ("yes", "ok") so the composer doesn't end up pre-filled with a
+  // meta-instruction the user didn't intend as content.
+  const trimmedMessage = message.trim();
+  const TRIVIAL_ACK = /^(yes|yep|yeah|ok|okay|sure|go|do it|let'?s go|please|cool|thx|thanks?|go ahead|y|n|no)[!.?]*$/i;
+  const baseHint = TRIVIAL_ACK.test(trimmedMessage) ? '' : trimmedMessage.slice(0, 240);
+
   const register = (id: ChipTargetId, reason: string, promptHint: string) => {
     if (seen.has(id) || hints.length >= MAX) return;
     seen.add(id);
-    hints.push({ layoutId: id, reason, promptHint: promptHint.trim() });
+    // LLM-tag substance wins; fall back to baseHint when the tag wasn't
+    // emitted (keyword sweep) or the tag had no substance.
+    hints.push({ layoutId: id, reason, promptHint: promptHint.trim() || baseHint });
   };
 
   // Explicit tags — `[layout:<id>|<substance>]`. The system prompt
@@ -379,7 +387,8 @@ function inferSuggestedLayouts(
   }
 
   // Keyword sweep over user message + assistant response — lights the
-  // chip even when the LLM didn't emit a tag; promptHint stays empty.
+  // chip even when the LLM didn't emit a tag; promptHint falls back to
+  // baseHint inside register() so the composer still gets a seed.
   const combined = `${message}\n${assistantMessage}`;
   for (const k of LAYOUT_KEYWORDS) {
     if (k.pattern.test(combined)) register(k.id, k.reason, '');

@@ -72,6 +72,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
     composerKind,
     composerHandlers,
     composerInitialPrompt,
+    composerInitialAttachmentUploadIds,
     onComposerClose,
     personaId,
   } = props;
@@ -121,6 +122,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             onDraftWithAigentMe={composerHandlers.onDraftGmail}
             theme={theme}
             initialPrompt={composerInitialPrompt ?? undefined}
+            initialAttachmentUploadIds={composerInitialAttachmentUploadIds ?? undefined}
             personaId={personaId}
           />
         );
@@ -197,6 +199,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             onDraftWithAigentMe={composerHandlers.onDraftMarketa as any}
             theme={theme}
             initialPrompt={composerInitialPrompt ?? undefined}
+            initialAttachmentUploadIds={composerInitialAttachmentUploadIds ?? undefined}
             personaId={personaId}
           />
         );

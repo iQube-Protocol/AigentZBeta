@@ -281,6 +281,46 @@ Supporting docs (in order):
 
 ---
 
+## DVN Pipeline Protection — CRITICAL INFRASTRUCTURE (PARAMOUNT)
+
+**The DVN (Decentralised Verification Network) anchoring pipeline is critical infrastructure. Any DVN failure represents a break in the chain-of-provenance for operator actions. Failures MUST be escalated to the operator immediately — they are never silent or acceptable as "transient".**
+
+### Files you MUST NOT modify without explicit operator approval
+
+- `services/dvn/activityReceiptDvnPipeline.ts` — the core submission + finalizer logic
+- `services/ops/icAgent.ts` — the IC actor factory (shared by DVN + other canister calls)
+- `services/ops/idl/cross_chain_service.ts` — the Candid IDL binding
+
+### The ONLY permitted unilateral change
+
+Adding a new action type to `ANCHORABLE_ACTION_TYPES` in `activityReceiptDvnPipeline.ts`. This extends which receipt types get anchored on-chain. It does not modify the submission mechanism, state machine, or canister interaction.
+
+### Everything else requires operator approval BEFORE coding
+
+This includes but is not limited to:
+- Changing the state machine (`local → dvn_pending → dvn_recorded / dvn_failed`)
+- Modifying the payload shape sent to the canister
+- Changing the `hashPersonaRef` hashing logic (privacy-critical)
+- Modifying the canister call mechanism (actor, IDL, timeout)
+- Changing error handling paths or when `dvn_failed` is written
+- Modifying the finalizer (`finalizeReadyActivityReceipts`)
+- Changing the `shouldAnchorActionType` gate logic (beyond adding types)
+- Adding, removing, or reordering fields in the DVN JSON payload
+
+### DVN failure escalation contract
+
+When a DVN submission fails (canister returns an error, times out, or returns an unexpected shape):
+1. The pipeline logs at `console.error` level with prefix `[DVN ESCALATION]` — this surfaces in CloudWatch/Amplify error-level monitoring.
+2. The receipt row flips to `dvn_failed` so the operator can see it in the UI and trigger a retry.
+3. The retry route (`/api/assistant/receipts/[receiptId]/retry-dvn`) allows the operator to re-attempt submission from the receipts view.
+4. If failures are systemic (multiple receipts failing), the operator should check: canister health, DFX identity PEM validity, network reachability to ic0.app.
+
+### Why this is paramount
+
+Every `dvn_failed` receipt is a gap in the on-chain provenance trail. The DVN anchoring is what makes activity receipts auditable and tamper-evident — without it, receipts are local database rows with no cryptographic backing. A silent regression in this pipeline undermines the trust model of the entire metaMe system.
+
+---
+
 ## Core Principle: Extend, Don't Duplicate
 
 This is a mature, actively evolving codebase. Before writing any new code:

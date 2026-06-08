@@ -32,6 +32,18 @@ export const dynamic = 'force-dynamic';
 interface PostBody {
   prompt?: string;
   intentId?: string;
+  /**
+   * Optional list of artifacts already produced in the current workflow
+   * (e.g. a Slides deck created by the operator moments before clicking
+   * "Draft for me" on the Gmail composer). The drafter weaves their
+   * URLs inline when the body references them — see the ATTACHMENT URL
+   * RULE in services/agents/draftEmail.ts.
+   */
+  relatedArtifacts?: Array<{
+    artifactType?: unknown;
+    title?: unknown;
+    locationUrl?: unknown;
+  }>;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -90,6 +102,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } catch {
       // Soft-fail.
     }
+  }
+
+  // Sanitise relatedArtifacts — only carry forward entries where all
+  // three fields are present and locationUrl is a real http(s) URL.
+  // Anything else is dropped silently so a malformed entry can't
+  // poison the LLM prompt.
+  if (Array.isArray(body.relatedArtifacts) && body.relatedArtifacts.length > 0) {
+    const cleaned = body.relatedArtifacts
+      .map((a) => ({
+        artifactType: typeof a?.artifactType === 'string' ? a.artifactType.trim() : '',
+        title: typeof a?.title === 'string' ? a.title.trim() : '',
+        locationUrl: typeof a?.locationUrl === 'string' ? a.locationUrl.trim() : '',
+      }))
+      .filter(
+        (a) =>
+          a.artifactType.length > 0 &&
+          a.title.length > 0 &&
+          /^https?:\/\//i.test(a.locationUrl),
+      )
+      .slice(0, 5);
+    if (cleaned.length > 0) draftCtx.relatedArtifacts = cleaned;
   }
 
   const draft = await draftEmail({ prompt, context: draftCtx });
