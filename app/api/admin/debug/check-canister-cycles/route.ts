@@ -269,15 +269,12 @@ export async function GET(req: NextRequest) {
         ok: true,
         canisterId,
         name: canisterName,
-        cycles: 'Operational',
-        status: 'good',
-        canisterStatus: 'running',
+        cycles: 'Unable to verify',
+        status: 'unknown',
+        canisterStatus: 'unknown',
         lastChecked: new Date().toISOString(),
-        note: `Canister operational. ${identityNote}. Last top-up: ` + 
-              (canisterId === 'sp5ye-2qaaa-aaaao-qkqla-cai' ? '+5T cycles @ block 12,241,814' : 
-               canisterId === 'zdjf3-2qaaa-aaaas-qck4q-cai' ? '+3T cycles @ block 12,241,818' : 
-               canisterId === 'lvo2w-jqaaa-aaaas-qc2wa-cai' ? 'Deployed 2025-11-29' : 'See dfx canister status')
-      }), { 
+        note: `Cycle balance cannot be read — ${identityNote}. The canister may be running but update calls (DVN submissions) require cycles. Use dfx canister status ${canisterId} --network ic from a controller identity to check.`
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });

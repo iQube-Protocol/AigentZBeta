@@ -15,7 +15,7 @@ interface CanisterStatus {
   canisterId: string;
   name: string;
   cycles: string;
-  status: 'good' | 'low' | 'critical';
+  status: 'good' | 'low' | 'critical' | 'unknown';
   error?: string;
 }
 
@@ -36,7 +36,7 @@ function Card({ title, children, actions, className }: {
   );
 }
 
-function StatusIndicator({ status, size = 12 }: { status: 'good' | 'low' | 'critical'; size?: number }) {
+function StatusIndicator({ status, size = 12 }: { status: 'good' | 'low' | 'critical' | 'unknown'; size?: number }) {
   switch (status) {
     case 'good':
       return <CheckCircle size={size} className="text-emerald-400" />;
@@ -44,14 +44,17 @@ function StatusIndicator({ status, size = 12 }: { status: 'good' | 'low' | 'crit
       return <AlertTriangle size={size} className="text-amber-400" />;
     case 'critical':
       return <XCircle size={size} className="text-red-400" />;
+    case 'unknown':
+      return <AlertTriangle size={size} className="text-blue-400" />;
   }
 }
 
-function getStatusColor(status: 'good' | 'low' | 'critical'): string {
+function getStatusColor(status: 'good' | 'low' | 'critical' | 'unknown'): string {
   switch (status) {
     case 'good': return 'text-emerald-400';
     case 'low': return 'text-amber-400';
     case 'critical': return 'text-red-400';
+    case 'unknown': return 'text-blue-400';
   }
 }
 
@@ -288,9 +291,10 @@ export function FundingStatusCard({ title }: { title: string }) {
     chainBalances.some(c => c.status === 'critical') ? 'critical' :
     chainBalances.some(c => c.status === 'low') ? 'low' : 'good' : 'good';
 
-  const overallCanisterStatus = canisterStatuses.length > 0 ?
+  const overallCanisterStatus: 'good' | 'low' | 'critical' | 'unknown' = canisterStatuses.length > 0 ?
     canisterStatuses.some(c => c.status === 'critical') ? 'critical' :
-    canisterStatuses.some(c => c.status === 'low') ? 'low' : 'good' : 'good';
+    canisterStatuses.some(c => c.status === 'low') ? 'low' :
+    canisterStatuses.some(c => c.status === 'unknown') ? 'unknown' : 'good' : 'good';
 
   return (
     <Card 
@@ -409,6 +413,7 @@ export function FundingStatusCard({ title }: { title: string }) {
                   className={`p-1.5 rounded border text-center ${
                     canister.status === 'critical' ? 'border-red-500/30 bg-red-500/5' :
                     canister.status === 'low' ? 'border-amber-500/30 bg-amber-500/5' :
+                    canister.status === 'unknown' ? 'border-blue-500/30 bg-blue-500/5' :
                     'border-emerald-500/30 bg-emerald-500/5'
                   }`}
                 >
