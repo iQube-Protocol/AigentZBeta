@@ -30,7 +30,11 @@
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import type { PersonalGuideData } from '@/types/experienceGuide';
+import {
+  backfillSphereAlignment,
+  deriveOverallAlignment,
+  type PersonalGuideData,
+} from '@/types/experienceGuide';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types — meta (T1) vs blak (T0).
@@ -474,6 +478,15 @@ export async function getPersonalGuide(
   if (!record) return null;
   const guide = record.blak.personalGuide;
   if (!guide || typeof guide !== 'object') return null;
+  // Backfill `sphereAlignment` on read for legacy rows that only have the
+  // single overall `alignmentState`. Fans the global value out to every
+  // sphere so consumers can rely on the per-sphere map being present.
+  // Also re-derives the overall from the per-sphere map so the headline
+  // is always coherent with the parts.
+  if (!guide.sphereAlignment) {
+    guide.sphereAlignment = backfillSphereAlignment(guide.alignmentState);
+  }
+  guide.alignmentState = deriveOverallAlignment(guide.sphereAlignment);
   return guide;
 }
 

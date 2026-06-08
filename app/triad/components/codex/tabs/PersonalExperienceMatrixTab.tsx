@@ -103,8 +103,8 @@ function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
     );
   }
 
-  const alignment = guide.alignmentState;
-  const cellBg = ALIGNMENT_CELL_BG[alignment];
+  const overall = guide.alignmentState;
+  const sphereAlignment = guide.sphereAlignment;
 
   return (
     <div className="p-4 sm:p-6 w-full text-slate-100">
@@ -113,11 +113,11 @@ function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
         <div>
           <h2 className="text-lg font-semibold">Personal Experience Matrix</h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Sphere of Agency (Legacy → Energy) × Experience Maturity. Progress moves toward the top-right. Highlighted cell is your current position on each sphere.
+            Sphere of Agency (Legacy → Energy) × Experience Maturity. Each row is tinted by your alignment for that sphere — so you can see at a glance which spheres are aligned, drifting, at risk, or in repair. Highlighted cell is your current maturity on each sphere.
           </p>
         </div>
-        <span className={`text-xs px-2 py-1 rounded-full border ${ALIGNMENT_BADGE_BG[alignment]}`}>
-          Alignment: {ALIGNMENT_LABEL[alignment]}
+        <span className={`text-xs px-2 py-1 rounded-full border ${ALIGNMENT_BADGE_BG[overall]}`} title="Worst per-sphere alignment — the nudge engine reacts to the weakest link.">
+          Overall: {ALIGNMENT_LABEL[overall]}
         </span>
       </div>
 
@@ -135,31 +135,43 @@ function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
             </tr>
           </thead>
           <tbody>
-            {[...SPHERE_AXES].reverse().map((sphere) => (
-              <tr key={sphere}>
-                <td className="text-slate-300 font-medium pr-2 align-top whitespace-nowrap">
-                  {SPHERE_LABEL[sphere]}
-                </td>
-                {MATURITY_LEVELS.map((level) => {
-                  const isCurrent = guide.sphereMaturity[sphere] === level;
-                  const cell = EXPERIENCE_MATRIX[sphere][level];
-                  const ring = isCurrent ? "ring-2 ring-violet-400 ring-offset-1 ring-offset-slate-900" : "";
-                  return (
-                    <td
-                      key={level}
-                      onMouseEnter={() => setHoveredCell({ sphere, level })}
-                      onMouseLeave={() => setHoveredCell(null)}
-                      className={`min-w-[90px] max-w-[140px] align-top px-2 py-1.5 rounded border cursor-default transition ${
-                        isCurrent ? "bg-violet-500/20 border-violet-500/60" : cellBg
-                      } ${ring}`}
-                      title={cell.prescription}
-                    >
-                      <span className="block leading-tight text-[11px] text-slate-100">{cell.label}</span>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {[...SPHERE_AXES].reverse().map((sphere) => {
+              const rowAlignment = sphereAlignment[sphere];
+              const rowCellBg = ALIGNMENT_CELL_BG[rowAlignment];
+              return (
+                <tr key={sphere}>
+                  <td className="text-slate-300 font-medium pr-2 align-top whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <span>{SPHERE_LABEL[sphere]}</span>
+                      <span
+                        className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${ALIGNMENT_BADGE_BG[rowAlignment]}`}
+                        title={`${SPHERE_LABEL[sphere]} alignment — ${ALIGNMENT_LABEL[rowAlignment]}`}
+                      >
+                        {ALIGNMENT_LABEL[rowAlignment]}
+                      </span>
+                    </div>
+                  </td>
+                  {MATURITY_LEVELS.map((level) => {
+                    const isCurrent = guide.sphereMaturity[sphere] === level;
+                    const cell = EXPERIENCE_MATRIX[sphere][level];
+                    const ring = isCurrent ? "ring-2 ring-violet-400 ring-offset-1 ring-offset-slate-900" : "";
+                    return (
+                      <td
+                        key={level}
+                        onMouseEnter={() => setHoveredCell({ sphere, level })}
+                        onMouseLeave={() => setHoveredCell(null)}
+                        className={`min-w-[90px] max-w-[140px] align-top px-2 py-1.5 rounded border cursor-default transition ${
+                          isCurrent ? "bg-violet-500/20 border-violet-500/60" : rowCellBg
+                        } ${ring}`}
+                        title={`${SPHERE_LABEL[sphere]} · ${ALIGNMENT_LABEL[rowAlignment]} · ${cell.prescription}`}
+                      >
+                        <span className="block leading-tight text-[11px] text-slate-100">{cell.label}</span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

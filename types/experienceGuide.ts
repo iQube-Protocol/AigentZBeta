@@ -66,6 +66,14 @@ export const SPHERE_ORDINAL: Record<SphereAxis, number> = {
 
 export type AlignmentState = 'aligned' | 'drifting' | 'at_risk' | 'repair';
 
+/** 1..4 ordinal — higher = more concerning. Used to derive the overall. */
+export const ALIGNMENT_ORDINAL: Record<AlignmentState, number> = {
+  aligned: 1,
+  drifting: 2,
+  at_risk: 3,
+  repair: 4,
+};
+
 /** Per-sphere repair signal — what's pulling the user out of alignment. */
 export interface RepairRisk {
   sphere: SphereAxis;
@@ -97,6 +105,13 @@ export type PrecedenceMode =
 export interface PersonalGuideData {
   /** Per-sphere maturity self-assessment. */
   sphereMaturity: Record<SphereAxis, MaturityLevel>;
+  /** Per-sphere alignment self-assessment. Added 2026-06-08. */
+  sphereAlignment: Record<SphereAxis, AlignmentState>;
+  /**
+   * Overall alignment — derived from `sphereAlignment` by taking the worst
+   * (highest-ordinal) state across spheres. Persisted for fast read on the
+   * surfaces that still want a single roll-up (welcome chip, brief card).
+   */
   alignmentState: AlignmentState;
   repairRisks: RepairRisk[];
   precedenceMode: PrecedenceMode;
@@ -104,6 +119,27 @@ export interface PersonalGuideData {
   lastAssessedAt: string;
   /** Optional free-text intent that frames the user's current focus. */
   focusIntent?: string;
+  /**
+   * Stub — pattern that maps the user's stated goals to which sphere
+   * alignment posture matters most for them. Worked out down the road; the
+   * field is reserved so we can write it without a migration.
+   */
+  goalAlignmentPattern?: GoalAlignmentPattern;
+}
+
+/**
+ * Stub for the goal → alignment-pattern mapping. Different goal classes
+ * weight spheres differently — e.g. an athletic-performance goal weights
+ * body + energy more heavily, a creative-output goal weights mind + emotion.
+ * Filled in when we work out the canonical pattern catalogue.
+ */
+export interface GoalAlignmentPattern {
+  /** Free-form pattern id once we name the canonical patterns. */
+  patternId?: string;
+  /** Optional per-sphere weight 0..1 — interpretation TBD. */
+  weights?: Partial<Record<SphereAxis, number>>;
+  /** Optional notes captured during inference. */
+  notes?: string;
 }
 
 /** Default sphere positions for a freshly-onboarded user — all noticing. */
@@ -116,6 +152,56 @@ export function defaultSphereMaturity(): Record<SphereAxis, MaturityLevel> {
     relationship: 'noticing',
     community: 'noticing',
     legacy: 'noticing',
+  };
+}
+
+/** Default per-sphere alignment for a freshly-onboarded user — drifting. */
+export function defaultSphereAlignment(): Record<SphereAxis, AlignmentState> {
+  return {
+    energy: 'drifting',
+    body: 'drifting',
+    mind: 'drifting',
+    emotion: 'drifting',
+    relationship: 'drifting',
+    community: 'drifting',
+    legacy: 'drifting',
+  };
+}
+
+/**
+ * Roll-up rule: the overall alignment is the worst (highest-ordinal) state
+ * across any sphere. One sphere in repair forces the overall to repair —
+ * the nudge engine should react to the weakest link, not the average.
+ */
+export function deriveOverallAlignment(
+  sphereAlignment: Record<SphereAxis, AlignmentState>,
+): AlignmentState {
+  let worst: AlignmentState = 'aligned';
+  for (const sphere of SPHERE_AXES) {
+    const v = sphereAlignment[sphere];
+    if (v && ALIGNMENT_ORDINAL[v] > ALIGNMENT_ORDINAL[worst]) worst = v;
+  }
+  return worst;
+}
+
+/**
+ * Backfill `sphereAlignment` from a legacy guide payload that only carries
+ * the global `alignmentState`. Fans the single value out to every sphere
+ * so the user's previous snapshot is mirrored seven times — they can then
+ * adjust per sphere on their next assessment.
+ */
+export function backfillSphereAlignment(
+  overall: AlignmentState | undefined,
+): Record<SphereAxis, AlignmentState> {
+  const seed: AlignmentState = overall ?? 'drifting';
+  return {
+    energy: seed,
+    body: seed,
+    mind: seed,
+    emotion: seed,
+    relationship: seed,
+    community: seed,
+    legacy: seed,
   };
 }
 
@@ -164,19 +250,19 @@ export const MATURITY_DESCRIPTION: Record<MaturityLevel, string> = {
 
 export const SPHERE_DESCRIPTION: Record<SphereAxis, string> = {
   energy:
-    'How you generate, conserve, and spend the underlying drive that powers everything else.',
+    'How you generate, conserve, and spend the underlying drive that powers everything else. Assess your stamina and pace — do you have the fuel for what you have committed to, and does it recover between pushes?',
   body:
-    'Physical health, sleep, nutrition, movement — the substrate of all other agency.',
+    'Physical health, sleep, nutrition, movement — the substrate of all other agency. Assess your physical practice and the condition of the vessel you carry every commitment in.',
   mind:
-    'Thinking, focus, learning, decision quality — the cognitive layer.',
+    'Thinking, focus, learning, decision quality — the cognitive layer. Assess how clear and sharp your reasoning feels, and how often distraction or rumination is winning.',
   emotion:
-    'Feeling vocabulary, regulation, self-honesty about emotional state.',
+    'Feeling vocabulary, regulation, self-honesty about emotional state. Assess how cleanly emotion moves through you — are feelings acknowledged and processed, or stuck and acted out?',
   relationship:
-    'One-to-one ties — partner, family, close friends, business co-founders.',
+    'One-to-one ties — partner, family, close friends, business co-founders. Assess the health and honesty of the small number of relationships that matter most to your life.',
   community:
-    'The wider circles you belong to and contribute to — local, professional, identity-based.',
+    'The wider circles you belong to and contribute to — local, professional, identity-based. Assess your sense of belonging, contribution, and reciprocity with the groups you are part of.',
   legacy:
-    'The long horizon — what you build to outlast you, the imprint you leave.',
+    'The long horizon — what you build to outlast you, the imprint you leave. Assess whether your daily work is compounding into something that matches the contribution you mean to make.',
 };
 
 export const ALIGNMENT_LABEL: Record<AlignmentState, string> = {
@@ -184,4 +270,20 @@ export const ALIGNMENT_LABEL: Record<AlignmentState, string> = {
   drifting: 'Drifting',
   at_risk: 'At risk',
   repair: 'Repair',
+};
+
+/**
+ * Plain-language descriptions of each alignment state. Surfaced as tooltips
+ * on the wizard buttons so a new operator can self-assess each sphere
+ * without guessing.
+ */
+export const ALIGNMENT_DESCRIPTION: Record<AlignmentState, string> = {
+  aligned:
+    'This sphere feels coherent — your attention, energy, and commitments here are in step. Nothing pulling.',
+  drifting:
+    'Quietly slipping. No crisis, but you can feel that this sphere is not getting what it needs.',
+  at_risk:
+    'Real friction is building here. If you do not intervene soon, something is going to break.',
+  repair:
+    'Active rupture in this sphere. You need to repair before you can move forward — keep pushing and the cost compounds.',
 };
