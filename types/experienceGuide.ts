@@ -108,9 +108,11 @@ export interface PersonalGuideData {
   /** Per-sphere alignment self-assessment. Added 2026-06-08. */
   sphereAlignment: Record<SphereAxis, AlignmentState>;
   /**
-   * Overall alignment — derived from `sphereAlignment` by taking the worst
-   * (highest-ordinal) state across spheres. Persisted for fast read on the
-   * surfaces that still want a single roll-up (welcome chip, brief card).
+   * Overall alignment — derived from `sphereAlignment` as the rounded
+   * average of the per-sphere ordinals, so the headline reflects the
+   * user's whole posture across spheres rather than collapsing to the
+   * most acute one. Persisted for fast read on the surfaces that still
+   * want a single roll-up (welcome chip, brief card).
    */
   alignmentState: AlignmentState;
   repairRisks: RepairRisk[];
@@ -169,19 +171,66 @@ export function defaultSphereAlignment(): Record<SphereAxis, AlignmentState> {
 }
 
 /**
- * Roll-up rule: the overall alignment is the worst (highest-ordinal) state
- * across any sphere. One sphere in repair forces the overall to repair —
- * the nudge engine should react to the weakest link, not the average.
+ * Roll-up rule: the overall alignment is the rounded **average** of the
+ * per-sphere ordinals — so the headline reflects the user's whole posture
+ * across all seven spheres, not just the worst one. A single sphere in
+ * repair will not collapse the headline to repair on its own; consistent
+ * drift will move it. The matrix tab still shows per-sphere status so an
+ * acute sphere is never hidden — just not allowed to dominate the average.
  */
 export function deriveOverallAlignment(
   sphereAlignment: Record<SphereAxis, AlignmentState>,
 ): AlignmentState {
-  let worst: AlignmentState = 'aligned';
+  let sum = 0;
+  let count = 0;
   for (const sphere of SPHERE_AXES) {
     const v = sphereAlignment[sphere];
-    if (v && ALIGNMENT_ORDINAL[v] > ALIGNMENT_ORDINAL[worst]) worst = v;
+    if (v && ALIGNMENT_ORDINAL[v]) {
+      sum += ALIGNMENT_ORDINAL[v];
+      count += 1;
+    }
   }
-  return worst;
+  if (count === 0) return 'aligned';
+  const avg = sum / count;
+  // Banded mapping with 0.5 thresholds, so the boundary sits at the
+  // midpoint between adjacent states.
+  if (avg <= 1.5) return 'aligned';
+  if (avg <= 2.5) return 'drifting';
+  if (avg <= 3.5) return 'at_risk';
+  return 'repair';
+}
+
+/**
+ * Short one-line explainer for the derived overall — surfaced as the
+ * tooltip / helper copy on the status banner, matrix header, and wizard
+ * preview so the operator can see exactly *why* the headline reads the
+ * way it does (e.g. "Average across 7 spheres = drifting · 2 aligned,
+ * 4 drifting, 1 at risk").
+ */
+export function explainOverallAlignment(
+  sphereAlignment: Record<SphereAxis, AlignmentState>,
+): string {
+  const counts: Record<AlignmentState, number> = {
+    aligned: 0, drifting: 0, at_risk: 0, repair: 0,
+  };
+  let sum = 0;
+  let count = 0;
+  for (const sphere of SPHERE_AXES) {
+    const v = sphereAlignment[sphere];
+    if (v && ALIGNMENT_ORDINAL[v]) {
+      counts[v] += 1;
+      sum += ALIGNMENT_ORDINAL[v];
+      count += 1;
+    }
+  }
+  if (count === 0) return 'No per-sphere alignment recorded yet.';
+  const avg = sum / count;
+  const overall = deriveOverallAlignment(sphereAlignment);
+  const breakdown = (['aligned', 'drifting', 'at_risk', 'repair'] as AlignmentState[])
+    .filter(s => counts[s] > 0)
+    .map(s => `${counts[s]} ${ALIGNMENT_LABEL[s].toLowerCase()}`)
+    .join(', ');
+  return `Average across ${count} spheres → ${ALIGNMENT_LABEL[overall].toLowerCase()} (avg ${avg.toFixed(1)} · ${breakdown}).`;
 }
 
 /**

@@ -6,9 +6,22 @@
 The ExperienceGuide setup wizard now collects an alignment state (`aligned` /
 `drifting` / `at_risk` / `repair`) **per sphere** — not just as a single
 overall headline. The overall alignment is derived from the per-sphere
-states by taking the worst (highest-ordinal) value: one sphere in repair
-forces the headline to repair, so the nudge engine reacts to the weakest
-link rather than the average.
+states as the **rounded average** of the per-sphere ordinals, so the
+headline reflects the user's whole posture across spheres rather than
+collapsing to the most acute one. The matrix tab still surfaces every
+sphere individually, so an acute sphere is never hidden — just not allowed
+to dominate the headline.
+
+## Derivation rule
+
+Ordinals: `aligned: 1`, `drifting: 2`, `at_risk: 3`, `repair: 4`. Average
+across all spheres with a recorded state, then band-map back to a state:
+`avg ≤ 1.5 → aligned`, `≤ 2.5 → drifting`, `≤ 3.5 → at_risk`, `> 3.5 →
+repair`. The `explainOverallAlignment(sphereAlignment)` helper returns a
+one-liner like `"Average across 7 spheres → drifting (avg 2.3 · 2 aligned,
+4 drifting, 1 at risk)."` and is surfaced as both the tooltip and an
+inline caption on the Matrix, Wizard, Status, and Alignment surfaces so
+the user can see exactly why the headline reads the way it does.
 
 Each sphere section now carries a fuller paragraph describing what is being
 assessed, and every maturity / alignment / precedence chip has a tooltip

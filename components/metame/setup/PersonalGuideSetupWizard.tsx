@@ -50,6 +50,7 @@ import {
   defaultSphereAlignment,
   defaultSphereMaturity,
   deriveOverallAlignment,
+  explainOverallAlignment,
   type AlignmentState,
   type MaturityLevel,
   type PersonalGuideData,
@@ -249,8 +250,11 @@ export function PersonalGuideSetupWizard({ open, onOpenChange, initial, onSaved 
           {step === 5 && (
             <>
               <div className="rounded border border-slate-700 bg-slate-800/40 p-3 mb-3">
-                <p className="text-xs text-slate-400 mb-1">Your overall alignment will be derived from your per-sphere assessments — taking the most concerning state as the headline so the guide reacts to the weakest link, not the average.</p>
+                <p className="text-xs text-slate-400 mb-1">
+                  Your overall alignment is derived as the <span className="text-slate-200">average</span> of your seven per-sphere assessments — so the headline reflects your whole posture, not just the most acute sphere. The matrix tab still surfaces every sphere individually, so a single acute sphere is never hidden — just not allowed to dominate the average.
+                </p>
                 <Row label="Derived overall" value={ALIGNMENT_LABEL[deriveOverallAlignment(form.sphereAlignment)]} />
+                <p className="text-[11px] text-slate-500 mt-1">{explainOverallAlignment(form.sphereAlignment)}</p>
               </div>
               <Field label="When the guide must choose between spheres, which one leads?">
                 <p className="text-xs text-slate-400 mb-2 -mt-1">
@@ -273,6 +277,7 @@ export function PersonalGuideSetupWizard({ open, onOpenChange, initial, onSaved 
               <div className="rounded border border-slate-700 bg-slate-800/40 p-3 space-y-1.5">
                 <Row label="Focus" value={form.focusIntent.trim() || "—"} />
                 <Row label="Overall alignment" value={ALIGNMENT_LABEL[deriveOverallAlignment(form.sphereAlignment)]} />
+                <p className="text-[11px] text-slate-500 -mt-0.5">{explainOverallAlignment(form.sphereAlignment)}</p>
                 <Row
                   label="Precedence"
                   value={

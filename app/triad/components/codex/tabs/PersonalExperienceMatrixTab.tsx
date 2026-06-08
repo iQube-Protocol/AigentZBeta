@@ -26,6 +26,7 @@ import {
   MATURITY_LEVELS,
   SPHERE_AXES,
   SPHERE_LABEL,
+  explainOverallAlignment,
   type AlignmentState,
   type MaturityLevel,
   type PersonalGuideData,
@@ -105,20 +106,24 @@ function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
 
   const overall = guide.alignmentState;
   const sphereAlignment = guide.sphereAlignment;
+  const overallExplainer = explainOverallAlignment(sphereAlignment);
 
   return (
     <div className="p-4 sm:p-6 w-full text-slate-100">
       {/* Header */}
-      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
           <h2 className="text-lg font-semibold">Personal Experience Matrix</h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Sphere of Agency (Legacy → Energy) × Experience Maturity. Each row is tinted by your alignment for that sphere — so you can see at a glance which spheres are aligned, drifting, at risk, or in repair. Highlighted cell is your current maturity on each sphere.
           </p>
         </div>
-        <span className={`text-xs px-2 py-1 rounded-full border ${ALIGNMENT_BADGE_BG[overall]}`} title="Worst per-sphere alignment — the nudge engine reacts to the weakest link.">
-          Overall: {ALIGNMENT_LABEL[overall]}
-        </span>
+        <div className="text-right">
+          <span className={`inline-block text-xs px-2 py-1 rounded-full border ${ALIGNMENT_BADGE_BG[overall]}`} title={overallExplainer}>
+            Overall: {ALIGNMENT_LABEL[overall]}
+          </span>
+          <p className="text-[10px] text-slate-500 mt-1 max-w-[280px]">{overallExplainer}</p>
+        </div>
       </div>
 
       {/* Matrix grid */}
@@ -140,9 +145,9 @@ function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
               const rowCellBg = ALIGNMENT_CELL_BG[rowAlignment];
               return (
                 <tr key={sphere}>
-                  <td className="text-slate-300 font-medium pr-2 align-top whitespace-nowrap">
-                    <div className="flex items-center gap-1.5">
-                      <span>{SPHERE_LABEL[sphere]}</span>
+                  <td className="text-slate-300 font-medium pr-3 align-top whitespace-nowrap">
+                    <div className="flex items-center justify-between gap-3 min-w-[170px]">
+                      <span className="text-left">{SPHERE_LABEL[sphere]}</span>
                       <span
                         className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${ALIGNMENT_BADGE_BG[rowAlignment]}`}
                         title={`${SPHERE_LABEL[sphere]} alignment — ${ALIGNMENT_LABEL[rowAlignment]}`}
