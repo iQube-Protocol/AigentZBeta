@@ -37,6 +37,7 @@ import { DiDQubeIdentityCard } from "@/components/ops/DiDQubeIdentityCard";
 import { DiDQubeReputationCard } from "@/components/ops/DiDQubeReputationCard";
 import { FundingStatusCard } from "@/components/ops/FundingStatusCard";
 import { AnchorCalibrationCard } from "@/components/ops/AnchorCalibrationCard";
+import { CyclesManagementCard } from "@/components/ops/CyclesManagementCard";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -573,6 +574,7 @@ export default function OpsPage() {
     { key: "a2a_tests", title: "A2A Tx Tests" },
     { key: "a2a_dvn", title: "A2A DVN Integration" },
     { key: "anchor_calibration", title: "Anchor Calibration (K / T / cron)" },
+    { key: "cycles_management", title: "ICP Cycles Management" },
     { key: "base_mainnet", title: "Base Mainnet" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
@@ -636,6 +638,9 @@ export default function OpsPage() {
           }
           if (key === "anchor_calibration") {
             return <AnchorCalibrationCard key={key} title={title} />;
+          }
+          if (key === "cycles_management") {
+            return <CyclesManagementCard key={key} title={title} />;
           }
           if (key === "a2a_tests") {
             return <A2ATestCard key={key} title={title} />;
