@@ -5,6 +5,7 @@ import { HttpAgent, Actor } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import fetch from 'cross-fetch';
 import { exec } from 'child_process';
+import { normalizePem, isPemLike } from '@/services/ops/pemNormalizer';
 
 /**
  * Check ICP canister cycles balance via IC Management Canister
@@ -171,17 +172,17 @@ export async function GET(req: NextRequest) {
     let host = isLocal ? 'http://127.0.0.1:4943' : (isMainnet ? 'https://ic0.app' : 'https://icp-api.io');
 
     let identity: any = undefined;
-    let pem: string | undefined = process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM;
+    let pem: string | null = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
     const pemPath = process.env.DFX_IDENTITY_PEM_PATH;
     if (!pem && pemPath) {
       try {
         const { readFileSync } = await import('fs');
-        pem = readFileSync(pemPath, 'utf8');
+        pem = normalizePem(readFileSync(pemPath, 'utf8'));
       } catch {
         // ignore file read errors and fall back to anonymous
       }
     }
-    if (pem && typeof pem === 'string' && pem.includes('BEGIN') && pem.includes('KEY')) {
+    if (isPemLike(pem)) {
       try {
         const idMod: any = await import('@dfinity/identity');
         if (idMod?.Ed25519KeyIdentity?.fromPem) {

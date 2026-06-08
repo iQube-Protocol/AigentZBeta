@@ -13,6 +13,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { HttpAgent, Actor } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import fetch from 'cross-fetch';
+import { normalizePem, isPemLike } from '@/services/ops/pemNormalizer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -98,8 +99,8 @@ function cycleAlert(name: string, display: string, status: 'good' | 'low' | 'cri
 }
 
 async function detectIdentity(): Promise<CyclesStatusResponse['identity']> {
-  const pem = process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM;
-  if (!pem || !pem.includes('BEGIN') || !pem.includes('KEY')) {
+  const pem = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
+  if (!isPemLike(pem)) {
     return { configured: false, type: 'anonymous', principal: null };
   }
   try {
@@ -144,15 +145,15 @@ async function buildAgent(): Promise<{ agent: HttpAgent; identity: any }> {
   }
 
   let identity: any = undefined;
-  let pem: string | undefined = process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM;
+  let pem: string | null = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
   const pemPath = process.env.DFX_IDENTITY_PEM_PATH;
   if (!pem && pemPath && typeof window === 'undefined') {
     try {
       const { readFileSync } = await import('fs');
-      pem = readFileSync(pemPath, 'utf8');
+      pem = normalizePem(readFileSync(pemPath, 'utf8'));
     } catch { /* ignore */ }
   }
-  if (pem && typeof pem === 'string' && pem.includes('BEGIN') && pem.includes('KEY')) {
+  if (isPemLike(pem)) {
     try {
       const idMod: any = await import('@dfinity/identity');
       if (idMod?.Ed25519KeyIdentity?.fromPem) {

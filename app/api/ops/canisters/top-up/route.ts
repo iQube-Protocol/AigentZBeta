@@ -21,6 +21,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { HttpAgent, Actor } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import fetch from 'cross-fetch';
+import { normalizePem, isPemLike } from '@/services/ops/pemNormalizer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -91,8 +92,8 @@ export async function POST(request: NextRequest) {
     }, { status: 400 });
   }
 
-  const pem = process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM;
-  if (!pem || typeof pem !== 'string' || !pem.includes('BEGIN') || !pem.includes('KEY')) {
+  const pem = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
+  if (!isPemLike(pem)) {
     return NextResponse.json({
       error: 'identity_not_configured',
       detail: 'DFX_IDENTITY_PEM must be set on the server to execute top-ups',

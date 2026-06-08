@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
+import { normalizePem, isPemLike } from '@/services/ops/pemNormalizer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,8 +53,8 @@ interface DvnDiagnostic {
 const DVN_CALL_TIMEOUT_MS = 15_000;
 
 async function detectIdentity(): Promise<DvnDiagnostic['identity']> {
-  const pem = process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM;
-  if (!pem || !pem.includes('BEGIN') || !pem.includes('KEY')) {
+  const pem = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
+  if (!isPemLike(pem)) {
     return { type: 'anonymous', principalHint: null };
   }
   try {
