@@ -2079,3 +2079,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-f13d150.md](../build_/COMMITS/COMMIT-f13d150.md)
 - Message: fix LayerZero 504 timeout: parallelize attestation calls + cap batch size
+
+## Commit `5b7add3` — 2026-06-08T21:52:41Z
+- Type: `push`
+- Brief: [COMMIT-5b7add3.md](../build_/COMMITS/COMMIT-5b7add3.md)
+- Message: normalize DFX_IDENTITY_PEM to handle Amplify env-var whitespace mangling

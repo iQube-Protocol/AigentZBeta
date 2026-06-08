@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-08T21:22:26.366Z",
+  "last_updated": "2026-06-08T21:54:45.072Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f13d150e51332a54be3a307e0b70fa8f1a739002",
-  "latest_commit_short": "f13d150",
-  "latest_commit_title": "fix LayerZero 504 timeout: parallelize attestation calls + cap batch size",
+  "latest_commit": "5b7add3411e079ff7738331089f3a56aa113acc0",
+  "latest_commit_short": "5b7add3",
+  "latest_commit_title": "normalize DFX_IDENTITY_PEM to handle Amplify env-var whitespace mangling",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5b7add3",
+      "full_sha": "5b7add3411e079ff7738331089f3a56aa113acc0",
+      "title": "normalize DFX_IDENTITY_PEM to handle Amplify env-var whitespace mangling",
+      "author": "Claude",
+      "timestamp": "2026-06-08T21:52:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5b7add3.md"
+    },
     {
       "sha": "f13d150",
       "full_sha": "f13d150e51332a54be3a307e0b70fa8f1a739002",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T14:49:44Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e5c5a1b.md"
-    },
-    {
-      "sha": "03c66b8",
-      "full_sha": "03c66b83cc5d9776a6de31e0c57e7b28c8b5cbcb",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T14:49:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-03c66b8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
