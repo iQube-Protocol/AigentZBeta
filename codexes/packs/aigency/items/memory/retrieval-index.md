@@ -2074,3 +2074,8 @@ Top-level retrieval anchors for this pack.
 - Type: `revert`
 - Brief: [COMMIT-fc9f447.md](../build_/COMMITS/COMMIT-fc9f447.md)
 - Message: revert: drop CTA-title backstop work (8fc51aea + 69c75d81 + 14428e1d)
+
+## Commit `f13d150` — 2026-06-08T21:20:31Z
+- Type: `fix`
+- Brief: [COMMIT-f13d150.md](../build_/COMMITS/COMMIT-f13d150.md)
+- Message: fix LayerZero 504 timeout: parallelize attestation calls + cap batch size
