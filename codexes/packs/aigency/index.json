@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-07T01:24:03.140Z",
+  "last_updated": "2026-06-08T21:22:26.366Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fc9f447ac38f31e16199df9751e8454565cade89",
-  "latest_commit_short": "fc9f447",
-  "latest_commit_title": "revert: drop CTA-title backstop work (8fc51aea + 69c75d81 + 14428e1d)",
+  "latest_commit": "f13d150e51332a54be3a307e0b70fa8f1a739002",
+  "latest_commit_short": "f13d150",
+  "latest_commit_title": "fix LayerZero 504 timeout: parallelize attestation calls + cap batch size",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f13d150",
+      "full_sha": "f13d150e51332a54be3a307e0b70fa8f1a739002",
+      "title": "fix LayerZero 504 timeout: parallelize attestation calls + cap batch size",
+      "author": "Claude",
+      "timestamp": "2026-06-08T21:20:31Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-f13d150.md"
+    },
     {
       "sha": "fc9f447",
       "full_sha": "fc9f447ac38f31e16199df9751e8454565cade89",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T14:49:44Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-03c66b8.md"
-    },
-    {
-      "sha": "86d150a",
-      "full_sha": "86d150a417b33b2a91ec52bd177b27d0939894aa",
-      "title": "Qriptopian cartridge: add qriptopia.com iframe tab (mirrors metaMe)",
-      "author": "Claude",
-      "timestamp": "2026-05-29T14:34:59Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-86d150a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
