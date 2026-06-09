@@ -123,6 +123,15 @@ const envVars = [
   'WALLET_ALIAS_CHALLENGE_DOMAIN',
   'ESCROW_CANISTER_ID',
   'ALLOW_LEGACY_PLAINTEXT_WALLET_WRITE',
+  // ICP canister ops — DFX identity PEM for cycle checks + top-ups,
+  // wallet canister for sending cycles, canister IDs for cross-chain service
+  'DFX_IDENTITY_PEM',
+  'DFX_IDENTITY_PEM_PATH',
+  'DFX_NETWORK',
+  'WALLET_CANISTER_ID',
+  'CROSS_CHAIN_SERVICE_CANISTER_ID',
+  'CYCLES_PROXY_URL',
+  'CYCLES_PROXY_KEY',
   // Operator ops bearer for backstop tools (paypal/recover, etc.).
   // Set to any random ≥32-char string. Generate locally with:
   //   openssl rand -hex 32
@@ -146,16 +155,25 @@ const envVars = [
 
 let content = '';
 
-// Write explicit vars
+// Write explicit vars — double-quote values that contain newlines,
+// quotes, or PEM markers so dotenv parses them correctly.
+function dotenvLine(key, value) {
+  if (value.includes('\n') || value.includes('"') || value.includes('-----')) {
+    const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    return `${key}="${escaped}"\n`;
+  }
+  return `${key}=${value}\n`;
+}
+
 for (const key of envVars) {
   const value = process.env[key] || '';
-  content += `${key}=${value}\n`;
+  content += dotenvLine(key, value);
 }
 
 // Add all NEXT_PUBLIC_ vars
 for (const key in process.env) {
   if (key.startsWith('NEXT_PUBLIC_')) {
-    content += `${key}=${process.env[key]}\n`;
+    content += dotenvLine(key, process.env[key]);
   }
 }
 
