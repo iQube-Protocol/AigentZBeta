@@ -250,26 +250,11 @@ export function CyclesManagementCard({ title }: { title: string }) {
                 key={c.canisterId}
                 className={`rounded-md border p-3 ${statusBorder(c.status)}`}
               >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    {statusIcon(c.status)}
-                    <span className="text-sm font-medium text-slate-100">
-                      {c.name}
-                    </span>
-                  </div>
-                  {identityConfigured && (
-                    <button
-                      onClick={() => {
-                        setTopUpTarget(c.canisterId);
-                        setTopUpAmount("");
-                        setTopUpResult(null);
-                      }}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded border border-slate-600 bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-slate-100 transition-colors"
-                    >
-                      <Zap size={10} />
-                      Top up
-                    </button>
-                  )}
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  {statusIcon(c.status)}
+                  <span className="text-sm font-medium text-slate-100">
+                    {c.name}
+                  </span>
                 </div>
                 <div
                   className={`text-lg font-semibold tabular-nums ${statusTextColor(c.status)}`}
@@ -279,6 +264,19 @@ export function CyclesManagementCard({ title }: { title: string }) {
                 <div className="text-[11px] text-slate-500 mt-0.5">
                   {c.role}
                 </div>
+                {identityConfigured && (
+                  <button
+                    onClick={() => {
+                      setTopUpTarget(c.canisterId);
+                      setTopUpAmount("");
+                      setTopUpResult(null);
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-1 mt-2 text-[11px] rounded border border-slate-600 bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-slate-100 transition-colors"
+                  >
+                    <Zap size={10} />
+                    Top up
+                  </button>
+                )}
                 {c.alert && (
                   <div
                     className={`mt-2 text-[11px] ${c.status === "critical" ? "text-red-300" : "text-amber-300"}`}

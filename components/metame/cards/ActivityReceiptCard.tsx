@@ -119,7 +119,7 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
   const status = STATUS_META[effectiveStatus];
 
   const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [showJson, setShowJson] = useState(false);
   const [retryState, setRetryState] = useState<{ loading: boolean; error: string | null }>({
     loading: false,
@@ -205,30 +205,17 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
 
   return (
     <div className={`rounded-lg border p-4 ${surfaceClass} space-y-2`}>
-      {/* Header — chevron toggles full expand/collapse of body sections. */}
+      {/* Header — action label, summary, status badge, retry. */}
       <div className="flex items-start justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="flex-1 min-w-0 text-left flex items-start gap-2 group"
-          aria-expanded={expanded}
-          aria-label={expanded ? "Collapse receipt" : "Expand receipt"}
-        >
-          <ChevronDown
-            className={`w-3.5 h-3.5 mt-1 shrink-0 ${mutedClass} transition-transform group-hover:opacity-80 ${
-              expanded ? "" : "-rotate-90"
-            }`}
-          />
-          <div className="flex-1 min-w-0">
-            <div className={`flex items-center gap-2 text-xs uppercase tracking-wider ${mutedClass}`}>
-              <Receipt className={`w-3.5 h-3.5 ${accentClass}`} />
-              {ACTION_LABELS[data.actionType] ?? data.actionType}
-              <span>·</span>
-              <span>{CARTRIDGE_LABELS[data.activeCartridge] ?? data.activeCartridge}</span>
-            </div>
-            <h4 className="font-medium mt-0.5">{data.summary}</h4>
+        <div className="flex-1 min-w-0">
+          <div className={`flex items-center gap-2 text-xs uppercase tracking-wider ${mutedClass}`}>
+            <Receipt className={`w-3.5 h-3.5 ${accentClass}`} />
+            {ACTION_LABELS[data.actionType] ?? data.actionType}
+            <span>·</span>
+            <span>{CARTRIDGE_LABELS[data.activeCartridge] ?? data.activeCartridge}</span>
           </div>
-        </button>
+          <h4 className="font-medium mt-0.5">{data.summary}</h4>
+        </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border ${status.ring}`}>
             {status.label}
@@ -268,8 +255,7 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
         </div>
       )}
 
-      {expanded && (
-      <>
+      {/* Chips: agents, tools, iQubes, context, artifacts, approvals. */}
       <div className="flex flex-wrap gap-2 text-[11px]">
         {data.agentsInvoked.length > 0 && (
           <ReceiptLine icon={<Users className="w-3 h-3" />} label="Agents" items={data.agentsInvoked} chipClass={chipClass} mutedClass={mutedClass} />
@@ -291,11 +277,10 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
         )}
       </div>
 
+      {/* Footer: timestamp, persona, DVN receipt id. */}
       <div className={`text-[11px] ${mutedClass} flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/40`}>
         <span>{new Date(data.createdAt).toLocaleString()}</span>
         {personaDisplayLabel && (
-          // T1 persona display label only — never the persona id, root
-          // DiD, or auth profile. Per PersonaSpine / DiDQube contract.
           <span className="ml-2">
             Acting persona:{" "}
             <span className={accentClass}>{personaDisplayLabel}</span>
@@ -306,9 +291,26 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
         )}
       </div>
 
-      {/* Chain of intent + JSON bar — always visible (no expand gate). */}
-      <div className="space-y-2 mt-2">
-        {/* Chain of intent — fetched on mount when intent-attached. */}
+      {/* Expand chevron — toggles chain of intent + JSON viewer. */}
+      {data.intentId && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className={`w-full flex items-center justify-end gap-1 pt-1 text-[10px] uppercase tracking-wider ${mutedClass} ${
+            isDark ? "hover:text-slate-200" : "hover:text-slate-900"
+          }`}
+          aria-expanded={expanded}
+          aria-label={expanded ? "Collapse chain of intent" : "Expand chain of intent"}
+        >
+          {expanded ? "Hide chain" : "Show chain"}
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+          />
+        </button>
+      )}
+
+      {expanded && (
+      <div className="space-y-2">
         {data.intentId && (
           <div
             className={`rounded-md border overflow-hidden ${
@@ -390,7 +392,6 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           )}
         </div>
       </div>
-      </>
       )}
     </div>
   );

@@ -201,11 +201,36 @@ export async function GET(request: NextRequest): Promise<NextResponse<CyclesStat
 
   const { agent } = agentResult;
 
+  const proxyUrl = process.env.CYCLES_PROXY_URL;
+  const proxyKey = process.env.CYCLES_PROXY_KEY;
+
   const canisterResults = await Promise.all(
     MONITORED_CANISTERS.map(async (c): Promise<CanisterCyclesInfo> => {
+      // 1) Try external dfx proxy if configured (Amplify/cloud)
+      if (proxyUrl && proxyKey) {
+        try {
+          const url = `${proxyUrl.replace(/\/$/, '')}/ic/cycles?canisterId=${encodeURIComponent(c.id)}`;
+          const resp = await fetch(url, { headers: { 'x-api-key': proxyKey } });
+          if (resp.ok) {
+            const pd: any = await resp.json();
+            if (pd?.ok && typeof pd.cyclesRaw === 'number') {
+              const st = cycleStatus(pd.cyclesRaw);
+              const disp = formatCycles(pd.cyclesRaw);
+              return {
+                canisterId: c.id, name: c.name, role: c.role,
+                cycles: pd.cyclesRaw, cyclesDisplay: disp, status: st,
+                alert: cycleAlert(c.name, disp, st),
+              };
+            }
+          }
+        } catch { /* proxy failed — fall through to Management Canister */ }
+      }
+
+      // 2) IC Management Canister (requires controller identity)
       const result = await queryCycles(agent, c.id);
 
       if ('error' in result) {
+        console.error(`[Cycles] ${c.name} (${c.id}): ${result.error}`);
         return {
           canisterId: c.id,
           name: c.name,
@@ -213,7 +238,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<CyclesStat
           cycles: null,
           cyclesDisplay: 'unknown',
           status: 'unknown',
-          alert: `${c.name}: cycle balance could not be verified`,
+          alert: `${c.name}: ${result.error}`,
         };
       }
 
