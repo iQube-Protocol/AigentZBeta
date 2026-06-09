@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-08T21:54:45.072Z",
+  "last_updated": "2026-06-09T01:15:53.922Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5b7add3411e079ff7738331089f3a56aa113acc0",
-  "latest_commit_short": "5b7add3",
-  "latest_commit_title": "normalize DFX_IDENTITY_PEM to handle Amplify env-var whitespace mangling",
+  "latest_commit": "8ae23a46e20ab98271b467bae5b5fb3a5cd9370f",
+  "latest_commit_short": "8ae23a4",
+  "latest_commit_title": "add /api/admin/debug/pem-status diagnostic for PEM parse failures",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8ae23a4",
+      "full_sha": "8ae23a46e20ab98271b467bae5b5fb3a5cd9370f",
+      "title": "add /api/admin/debug/pem-status diagnostic for PEM parse failures",
+      "author": "Claude",
+      "timestamp": "2026-06-09T01:13:50Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8ae23a4.md"
+    },
     {
       "sha": "5b7add3",
       "full_sha": "5b7add3411e079ff7738331089f3a56aa113acc0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T15:03:03Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5088f07.md"
-    },
-    {
-      "sha": "e5c5a1b",
-      "full_sha": "e5c5a1b719d1669665288482f1b10c5f9cf266f1",
-      "title": "copilot speaker icon: swap browser-native TTS → /api/skills/tts (Cartesia)",
-      "author": "Claude",
-      "timestamp": "2026-05-29T14:49:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e5c5a1b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
