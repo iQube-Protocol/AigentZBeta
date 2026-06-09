@@ -2084,3 +2084,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5b7add3.md](../build_/COMMITS/COMMIT-5b7add3.md)
 - Message: normalize DFX_IDENTITY_PEM to handle Amplify env-var whitespace mangling
+
+## Commit `8ae23a4` — 2026-06-09T01:13:50Z
+- Type: `feat`
+- Brief: [COMMIT-8ae23a4.md](../build_/COMMITS/COMMIT-8ae23a4.md)
+- Message: add /api/admin/debug/pem-status diagnostic for PEM parse failures

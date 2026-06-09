@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`8ae23a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/8ae23a46e20ab98271b467bae5b5fb3a5cd9370f) [feat] add /api/admin/debug/pem-status diagnostic for PEM parse failures (Claude, 2026-06-09T01:13:50Z)
 - [`5b7add3`](https://github.com/iQube-Protocol/AigentZBeta/commit/5b7add3411e079ff7738331089f3a56aa113acc0) [push] normalize DFX_IDENTITY_PEM to handle Amplify env-var whitespace mangling (Claude, 2026-06-08T21:52:41Z)
 - [`f13d150`](https://github.com/iQube-Protocol/AigentZBeta/commit/f13d150e51332a54be3a307e0b70fa8f1a739002) [fix] fix LayerZero 504 timeout: parallelize attestation calls + cap batch size (Claude, 2026-06-08T21:20:31Z)
 - [`fc9f447`](https://github.com/iQube-Protocol/AigentZBeta/commit/fc9f447ac38f31e16199df9751e8454565cade89) [revert] revert: drop CTA-title backstop work (8fc51aea + 69c75d81 + 14428e1d) (Claude, 2026-06-07T01:22:06Z)
