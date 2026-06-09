@@ -2089,3 +2089,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8ae23a4.md](../build_/COMMITS/COMMIT-8ae23a4.md)
 - Message: add /api/admin/debug/pem-status diagnostic for PEM parse failures
+
+## Commit `14e72e9` — 2026-06-09T02:27:33Z
+- Type: `fix`
+- Brief: [COMMIT-14e72e9.md](../build_/COMMITS/COMMIT-14e72e9.md)
+- Message: fix PEM parsing: install @dfinity/identity-secp256k1 and route all callers through it
