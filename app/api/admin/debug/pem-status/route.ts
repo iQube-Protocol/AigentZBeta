@@ -64,6 +64,35 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     : null;
 
   const normalised = normalizePem(raw);
+
+  // Validate base64 body between PEM markers
+  let base64Diag: any = null;
+  if (normalised && normalised.includes('-----BEGIN')) {
+    const bodyLines = normalised
+      .split('\n')
+      .filter((l) => !l.startsWith('-----') && l.trim().length > 0);
+    const body = bodyLines.join('');
+    const validBase64 = /^[A-Za-z0-9+/=]+$/;
+    const invalidChars: Array<{ char: string; code: number; pos: number }> = [];
+    for (let i = 0; i < body.length; i++) {
+      if (!validBase64.test(body[i])) {
+        invalidChars.push({
+          char: body[i] === '\\' ? '\\\\' : (body.charCodeAt(i) < 32 ? `\\x${body.charCodeAt(i).toString(16).padStart(2, '0')}` : body[i]),
+          code: body.charCodeAt(i),
+          pos: i,
+        });
+      }
+    }
+    base64Diag = {
+      bodyLength: body.length,
+      bodyLineCount: bodyLines.length,
+      bodyLineLengths: bodyLines.map((l) => l.length),
+      isValidBase64: invalidChars.length === 0,
+      invalidChars: invalidChars.slice(0, 10),
+      bodyPreview: body.length > 20 ? `${body.slice(0, 10)}…${body.slice(-10)}` : body,
+    };
+  }
+
   const normDiag = normalised
     ? {
         length: normalised.length,
@@ -119,6 +148,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       },
       raw: rawDiag,
       normalised: normDiag,
+      base64: base64Diag,
       attempts,
       verdict: attempts.find((a) => a.ok)?.principal
         ? `OK — parsed as ${attempts.find((a) => a.ok)?.method}, principal ${attempts.find((a) => a.ok)?.principal}`
