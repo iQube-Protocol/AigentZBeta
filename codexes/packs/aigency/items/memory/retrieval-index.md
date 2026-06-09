@@ -2094,3 +2094,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-14e72e9.md](../build_/COMMITS/COMMIT-14e72e9.md)
 - Message: fix PEM parsing: install @dfinity/identity-secp256k1 and route all callers through it
+
+## Commit `dc6a5b2` — 2026-06-09T03:54:22Z
+- Type: `fix`
+- Brief: [COMMIT-dc6a5b2.md](../build_/COMMITS/COMMIT-dc6a5b2.md)
+- Message: fix PEM normalizer: strip all non-base64 chars from body lines
