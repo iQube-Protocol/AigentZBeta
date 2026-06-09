@@ -33,7 +33,7 @@ export function normalizePem(raw: string | undefined | null): string | null {
       restored.push(cleaned);
       continue;
     }
-    const compact = line.replace(/\s+/g, '');
+    const compact = line.replace(/[^A-Za-z0-9+/=]/g, '');
     if (!compact) continue;
     for (let i = 0; i < compact.length; i += 64) {
       restored.push(compact.slice(i, i + 64));
