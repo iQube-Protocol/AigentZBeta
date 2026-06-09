@@ -5,7 +5,7 @@ import { HttpAgent, Actor } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import fetch from 'cross-fetch';
 import { exec } from 'child_process';
-import { normalizePem, isPemLike } from '@/services/ops/pemNormalizer';
+import { normalizePem, parsePemToIdentity } from '@/services/ops/pemNormalizer';
 
 /**
  * Check ICP canister cycles balance via IC Management Canister
@@ -171,7 +171,6 @@ export async function GET(req: NextRequest) {
     const isMainnet = (process.env.DFX_NETWORK || 'ic').toLowerCase() === 'ic';
     let host = isLocal ? 'http://127.0.0.1:4943' : (isMainnet ? 'https://ic0.app' : 'https://icp-api.io');
 
-    let identity: any = undefined;
     let pem: string | null = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
     const pemPath = process.env.DFX_IDENTITY_PEM_PATH;
     if (!pem && pemPath) {
@@ -182,19 +181,7 @@ export async function GET(req: NextRequest) {
         // ignore file read errors and fall back to anonymous
       }
     }
-    if (isPemLike(pem)) {
-      try {
-        const idMod: any = await import('@dfinity/identity');
-        if (idMod?.Ed25519KeyIdentity?.fromPem) {
-          try { identity = idMod.Ed25519KeyIdentity.fromPem(pem); } catch {}
-        }
-        if (!identity && idMod?.Secp256k1KeyIdentity?.fromPem) {
-          try { identity = idMod.Secp256k1KeyIdentity.fromPem(pem); } catch {}
-        }
-      } catch {
-        // identity module not available; continue anonymously
-      }
-    }
+    const identity = await parsePemToIdentity(pem);
 
     const agent = new HttpAgent({ host, ...(identity ? { identity } : {}), fetch: fetch as any });
 

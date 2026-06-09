@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
-import { normalizePem, isPemLike } from '@/services/ops/pemNormalizer';
+import { normalizePem, detectIdentityFromPem } from '@/services/ops/pemNormalizer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,31 +54,8 @@ const DVN_CALL_TIMEOUT_MS = 15_000;
 
 async function detectIdentity(): Promise<DvnDiagnostic['identity']> {
   const pem = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
-  if (!isPemLike(pem)) {
-    return { type: 'anonymous', principalHint: null };
-  }
-  try {
-    const idMod = await import('@dfinity/identity');
-    const ed = idMod.Ed25519KeyIdentity?.fromPem;
-    if (ed) {
-      try {
-        const id = ed(pem);
-        const principal = id.getPrincipal().toText();
-        return { type: 'ed25519', principalHint: principal };
-      } catch { /* try next */ }
-    }
-    const sk = idMod.Secp256k1KeyIdentity?.fromPem;
-    if (sk) {
-      try {
-        const id = sk(pem);
-        const principal = id.getPrincipal().toText();
-        return { type: 'secp256k1', principalHint: principal };
-      } catch { /* fallthrough */ }
-    }
-  } catch {
-    /* identity module unavailable */
-  }
-  return { type: 'anonymous', principalHint: null };
+  const detected = await detectIdentityFromPem(pem);
+  return { type: detected.type, principalHint: detected.principal };
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {

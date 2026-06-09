@@ -77,8 +77,23 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   if (isPemLike(normalised)) {
     try {
-      const idMod: any = await import('@dfinity/identity');
+      const skMod: any = await import('@dfinity/identity-secp256k1');
+      if (skMod?.Secp256k1KeyIdentity?.fromPem) {
+        try {
+          const id = skMod.Secp256k1KeyIdentity.fromPem(normalised);
+          attempts.push({ method: '@dfinity/identity-secp256k1 Secp256k1KeyIdentity.fromPem', ok: true, principal: id.getPrincipal().toText(), error: null });
+        } catch (err) {
+          attempts.push({ method: '@dfinity/identity-secp256k1 Secp256k1KeyIdentity.fromPem', ok: false, principal: null, error: err instanceof Error ? err.message : String(err) });
+        }
+      } else {
+        attempts.push({ method: '@dfinity/identity-secp256k1 Secp256k1KeyIdentity.fromPem', ok: false, principal: null, error: 'fromPem not exported' });
+      }
+    } catch (err) {
+      attempts.push({ method: 'import @dfinity/identity-secp256k1', ok: false, principal: null, error: err instanceof Error ? err.message : String(err) });
+    }
 
+    try {
+      const idMod: any = await import('@dfinity/identity');
       if (idMod?.Ed25519KeyIdentity?.fromPem) {
         try {
           const id = idMod.Ed25519KeyIdentity.fromPem(normalised);
@@ -87,18 +102,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           attempts.push({ method: 'Ed25519KeyIdentity.fromPem', ok: false, principal: null, error: err instanceof Error ? err.message : String(err) });
         }
       } else {
-        attempts.push({ method: 'Ed25519KeyIdentity.fromPem', ok: false, principal: null, error: 'fromPem not exported' });
-      }
-
-      if (idMod?.Secp256k1KeyIdentity?.fromPem) {
-        try {
-          const id = idMod.Secp256k1KeyIdentity.fromPem(normalised);
-          attempts.push({ method: 'Secp256k1KeyIdentity.fromPem', ok: true, principal: id.getPrincipal().toText(), error: null });
-        } catch (err) {
-          attempts.push({ method: 'Secp256k1KeyIdentity.fromPem', ok: false, principal: null, error: err instanceof Error ? err.message : String(err) });
-        }
-      } else {
-        attempts.push({ method: 'Secp256k1KeyIdentity.fromPem', ok: false, principal: null, error: 'fromPem not exported' });
+        attempts.push({ method: 'Ed25519KeyIdentity.fromPem', ok: false, principal: null, error: 'fromPem not exported (use @dfinity/identity-secp256k1 for EC keys)' });
       }
     } catch (err) {
       attempts.push({ method: 'import @dfinity/identity', ok: false, principal: null, error: err instanceof Error ? err.message : String(err) });

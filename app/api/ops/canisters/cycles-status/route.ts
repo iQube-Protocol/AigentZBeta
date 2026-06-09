@@ -13,7 +13,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { HttpAgent, Actor } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import fetch from 'cross-fetch';
-import { normalizePem, isPemLike } from '@/services/ops/pemNormalizer';
+import { normalizePem, parsePemToIdentity, detectIdentityFromPem } from '@/services/ops/pemNormalizer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -100,31 +100,12 @@ function cycleAlert(name: string, display: string, status: 'good' | 'low' | 'cri
 
 async function detectIdentity(): Promise<CyclesStatusResponse['identity']> {
   const pem = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
-  if (!isPemLike(pem)) {
-    return { configured: false, type: 'anonymous', principal: null };
-  }
-  try {
-    const idMod = await import('@dfinity/identity');
-    const ed = idMod.Ed25519KeyIdentity?.fromPem;
-    if (ed) {
-      try {
-        const id = ed(pem);
-        const principal = id.getPrincipal().toText();
-        return { configured: true, type: 'ed25519', principal };
-      } catch { /* try next */ }
-    }
-    const sk = idMod.Secp256k1KeyIdentity?.fromPem;
-    if (sk) {
-      try {
-        const id = sk(pem);
-        const principal = id.getPrincipal().toText();
-        return { configured: true, type: 'secp256k1', principal };
-      } catch { /* fallthrough */ }
-    }
-  } catch {
-    /* identity module unavailable */
-  }
-  return { configured: false, type: 'anonymous', principal: null };
+  const detected = await detectIdentityFromPem(pem);
+  return {
+    configured: detected.type !== 'anonymous',
+    type: detected.type,
+    principal: detected.principal,
+  };
 }
 
 async function buildAgent(): Promise<{ agent: HttpAgent; identity: any }> {
@@ -144,7 +125,6 @@ async function buildAgent(): Promise<{ agent: HttpAgent; identity: any }> {
     }
   }
 
-  let identity: any = undefined;
   let pem: string | null = normalizePem(process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM);
   const pemPath = process.env.DFX_IDENTITY_PEM_PATH;
   if (!pem && pemPath && typeof window === 'undefined') {
@@ -153,17 +133,7 @@ async function buildAgent(): Promise<{ agent: HttpAgent; identity: any }> {
       pem = normalizePem(readFileSync(pemPath, 'utf8'));
     } catch { /* ignore */ }
   }
-  if (isPemLike(pem)) {
-    try {
-      const idMod: any = await import('@dfinity/identity');
-      if (idMod?.Ed25519KeyIdentity?.fromPem) {
-        try { identity = idMod.Ed25519KeyIdentity.fromPem(pem); } catch { /* try next */ }
-      }
-      if (!identity && idMod?.Secp256k1KeyIdentity?.fromPem) {
-        try { identity = idMod.Secp256k1KeyIdentity.fromPem(pem); } catch { /* fallthrough */ }
-      }
-    } catch { /* identity module not available */ }
-  }
+  const identity = await parsePemToIdentity(pem);
 
   const agent = new HttpAgent({ host, ...(identity ? { identity } : {}), fetch: fetch as any });
 

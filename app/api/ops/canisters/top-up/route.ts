@@ -21,7 +21,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { HttpAgent, Actor } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import fetch from 'cross-fetch';
-import { normalizePem, isPemLike } from '@/services/ops/pemNormalizer';
+import { normalizePem, isPemLike, parsePemToIdentity } from '@/services/ops/pemNormalizer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -100,26 +100,11 @@ export async function POST(request: NextRequest) {
     }, { status: 503 });
   }
 
-  let identity: any;
-  try {
-    const idMod: any = await import('@dfinity/identity');
-    if (idMod?.Ed25519KeyIdentity?.fromPem) {
-      try { identity = idMod.Ed25519KeyIdentity.fromPem(pem); } catch {}
-    }
-    if (!identity && idMod?.Secp256k1KeyIdentity?.fromPem) {
-      try { identity = idMod.Secp256k1KeyIdentity.fromPem(pem); } catch {}
-    }
-  } catch {
-    return NextResponse.json({
-      error: 'identity_load_failed',
-      detail: 'Failed to import @dfinity/identity module',
-    }, { status: 500 });
-  }
-
+  const identity = await parsePemToIdentity(pem);
   if (!identity) {
     return NextResponse.json({
       error: 'identity_load_failed',
-      detail: 'Could not parse PEM as Ed25519 or Secp256k1 key',
+      detail: 'Could not parse PEM as Ed25519 or Secp256k1 key (install @dfinity/identity-secp256k1 if missing)',
     }, { status: 500 });
   }
 
