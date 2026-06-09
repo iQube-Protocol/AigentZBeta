@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`a0a21f3`](https://github.com/iQube-Protocol/AigentZBeta/commit/a0a21f3c96e305e1fadd15295a582536863af2fc) [fix] receipt card: show full card collapsed, gate only chain-of-intent; fix cycles card layout + error surfacing (Claude, 2026-06-09T04:21:40Z)
 - [`dc6a5b2`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc6a5b2fa45b4672d889bb8487f2fef157421cf0) [fix] fix PEM normalizer: strip all non-base64 chars from body lines (Claude, 2026-06-09T03:54:22Z)
 - [`14e72e9`](https://github.com/iQube-Protocol/AigentZBeta/commit/14e72e9169f972e585e6d522ce88264386641faa) [fix] fix PEM parsing: install @dfinity/identity-secp256k1 and route all callers through it (Claude, 2026-06-09T02:27:33Z)
 - [`8ae23a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/8ae23a46e20ab98271b467bae5b5fb3a5cd9370f) [feat] add /api/admin/debug/pem-status diagnostic for PEM parse failures (Claude, 2026-06-09T01:13:50Z)
