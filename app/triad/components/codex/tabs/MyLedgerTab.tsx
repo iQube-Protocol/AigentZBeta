@@ -11,7 +11,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { BookMarked, Loader2, RefreshCw } from "lucide-react";
+import { BookMarked, Loader2, RefreshCw, Anchor, CheckCircle } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import { GenesisCapsule, type IntentStage } from "@/components/metame/workbench/GenesisCapsule";
@@ -20,6 +20,7 @@ import { IntentChainPanel, useIntentChainCache } from "@/components/metame/workb
 interface Props {
   personaId?: string;
   theme?: "light" | "dark";
+  isAdmin?: boolean;
 }
 
 interface ActivityReceipt {
@@ -119,11 +120,12 @@ function deriveStageFromReceipts(receipts: ActivityReceipt[]): IntentStage {
   return 'cta_issued';
 }
 
-export function MyLedgerTab({ personaId }: Props) {
+export function MyLedgerTab({ personaId, isAdmin }: Props) {
   const [receipts, setReceipts] = useState<ActivityReceipt[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeChip, setActiveChip] = useState<FilterChip>('all');
+  const [dvnOp, setDvnOp] = useState<{ running: boolean; result: string | null }>({ running: false, result: null });
 
   const { cache: chainCache, requestChain, invalidate: invalidateChain } = useIntentChainCache(personaId);
 
@@ -144,6 +146,34 @@ export function MyLedgerTab({ personaId }: Props) {
   }, [personaId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const handleAnchorLocal = useCallback(async () => {
+    setDvnOp({ running: true, result: null });
+    try {
+      const res = await personaFetch('/api/admin/dvn-retry-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 200, includeLocal: true }),
+      });
+      const json = await res.json() as { ok?: boolean; succeeded?: number; failed?: number; total?: number; message?: string };
+      setDvnOp({ running: false, result: `Anchored ${json.succeeded ?? 0}/${json.total ?? 0} receipts` });
+      if (json.succeeded) void load();
+    } catch (err) {
+      setDvnOp({ running: false, result: `Error: ${err instanceof Error ? err.message : String(err)}` });
+    }
+  }, [load]);
+
+  const handleFinalizePending = useCallback(async () => {
+    setDvnOp({ running: true, result: null });
+    try {
+      const res = await personaFetch('/api/admin/activity-receipts/finalize', { method: 'POST' });
+      const json = await res.json() as { ok?: boolean; receiptsFinalized?: number; readyMessageCount?: number; error?: string };
+      setDvnOp({ running: false, result: json.ok ? `Finalized ${json.receiptsFinalized ?? 0} of ${json.readyMessageCount ?? 0} ready` : `Error: ${json.error ?? 'unknown'}` });
+      if (json.receiptsFinalized) void load();
+    } catch (err) {
+      setDvnOp({ running: false, result: `Error: ${err instanceof Error ? err.message : String(err)}` });
+    }
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (activeChip === 'all') return receipts;
@@ -208,6 +238,33 @@ export function MyLedgerTab({ personaId }: Props) {
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
           </button>
         </div>
+        {isAdmin && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleAnchorLocal}
+              disabled={dvnOp.running}
+              title="Submit local anchorable receipts to DVN"
+              className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-violet-500/40 text-violet-200 hover:bg-violet-500/15 disabled:opacity-50 transition-colors"
+            >
+              {dvnOp.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Anchor className="w-3 h-3" />}
+              Anchor local to DVN
+            </button>
+            <button
+              type="button"
+              onClick={handleFinalizePending}
+              disabled={dvnOp.running}
+              title="Finalize dvn_pending receipts to dvn_recorded"
+              className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-50 transition-colors"
+            >
+              {dvnOp.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+              Finalize pending
+            </button>
+            {dvnOp.result && (
+              <span className="text-[10px] text-slate-400">{dvnOp.result}</span>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(CHIP_LABELS) as FilterChip[]).map((chip) => (
             <button

@@ -10,9 +10,12 @@
  * concurrent update calls — each call is ~2-3s so 100 receipts takes
  * ~4-5 minutes worst case.
  *
- * Body (optional): { limit?: number, dryRun?: boolean }
+ * Body (optional): { limit?: number, dryRun?: boolean, includeLocal?: boolean }
  *   - limit: max receipts to process (1-500, default 100)
  *   - dryRun: if true, loads and counts but doesn't submit (for previewing)
+ *   - includeLocal: if true, also submits `local` receipts with anchorable
+ *     action types that were never sent to the DVN (e.g. because the canister
+ *     ID was not configured when they were created)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -99,12 +102,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   let limit = 100;
   let dryRun = false;
+  let includeLocal = false;
   try {
     const body = await request.json();
     if (typeof body.limit === 'number' && Number.isFinite(body.limit)) {
       limit = Math.max(1, Math.min(500, Math.round(body.limit)));
     }
     if (body.dryRun === true) dryRun = true;
+    if (body.includeLocal === true) includeLocal = true;
   } catch {
     // No body or invalid JSON — use defaults
   }
@@ -117,10 +122,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const anchorableTypes = [
+    'approval_granted', 'approval_rejected', 'artifact_sent', 'experience_model_updated',
+  ];
+
+  const statuses = includeLocal ? ['dvn_failed', 'local'] : ['dvn_failed'];
   const { data: rows, error: queryErr } = await supabase
     .from('activity_receipts')
     .select('*')
-    .eq('receipt_status', 'dvn_failed')
+    .in('receipt_status', statuses)
+    .in('action_type', anchorableTypes)
     .order('created_at', { ascending: true })
     .limit(limit);
 
@@ -153,7 +164,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       succeeded: 0,
       failed: 0,
       results: [],
-      message: 'No dvn_failed receipts found.',
+      message: includeLocal
+        ? 'No dvn_failed or local anchorable receipts found.'
+        : 'No dvn_failed receipts found.',
     }, { headers: { 'Cache-Control': 'no-store' } });
   }
 
