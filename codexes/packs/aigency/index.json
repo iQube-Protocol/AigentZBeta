@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-09T02:29:30.970Z",
+  "last_updated": "2026-06-09T03:56:16.247Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "14e72e9169f972e585e6d522ce88264386641faa",
-  "latest_commit_short": "14e72e9",
-  "latest_commit_title": "fix PEM parsing: install @dfinity/identity-secp256k1 and route all callers through it",
+  "latest_commit": "dc6a5b2fa45b4672d889bb8487f2fef157421cf0",
+  "latest_commit_short": "dc6a5b2",
+  "latest_commit_title": "fix PEM normalizer: strip all non-base64 chars from body lines",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "dc6a5b2",
+      "full_sha": "dc6a5b2fa45b4672d889bb8487f2fef157421cf0",
+      "title": "fix PEM normalizer: strip all non-base64 chars from body lines",
+      "author": "Claude",
+      "timestamp": "2026-06-09T03:54:22Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-dc6a5b2.md"
+    },
     {
       "sha": "14e72e9",
       "full_sha": "14e72e9169f972e585e6d522ce88264386641faa",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T15:48:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-88d41a1.md"
-    },
-    {
-      "sha": "3dd18ed",
-      "full_sha": "3dd18edd85219013742d0bbfa5667a65efbc9298",
-      "title": "IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip",
-      "author": "Claude",
-      "timestamp": "2026-05-29T15:03:03Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-3dd18ed.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
