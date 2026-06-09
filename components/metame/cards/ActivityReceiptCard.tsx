@@ -119,6 +119,7 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
   const status = STATUS_META[effectiveStatus];
 
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [showJson, setShowJson] = useState(false);
   const [retryState, setRetryState] = useState<{ loading: boolean; error: string | null }>({
     loading: false,
@@ -204,17 +205,30 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
 
   return (
     <div className={`rounded-lg border p-4 ${surfaceClass} space-y-2`}>
-      {/* Header — non-interactive; chain + JSON bar are always visible below. */}
+      {/* Header — chevron toggles full expand/collapse of body sections. */}
       <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className={`flex items-center gap-2 text-xs uppercase tracking-wider ${mutedClass}`}>
-            <Receipt className={`w-3.5 h-3.5 ${accentClass}`} />
-            {ACTION_LABELS[data.actionType] ?? data.actionType}
-            <span>·</span>
-            <span>{CARTRIDGE_LABELS[data.activeCartridge] ?? data.activeCartridge}</span>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex-1 min-w-0 text-left flex items-start gap-2 group"
+          aria-expanded={expanded}
+          aria-label={expanded ? "Collapse receipt" : "Expand receipt"}
+        >
+          <ChevronDown
+            className={`w-3.5 h-3.5 mt-1 shrink-0 ${mutedClass} transition-transform group-hover:opacity-80 ${
+              expanded ? "" : "-rotate-90"
+            }`}
+          />
+          <div className="flex-1 min-w-0">
+            <div className={`flex items-center gap-2 text-xs uppercase tracking-wider ${mutedClass}`}>
+              <Receipt className={`w-3.5 h-3.5 ${accentClass}`} />
+              {ACTION_LABELS[data.actionType] ?? data.actionType}
+              <span>·</span>
+              <span>{CARTRIDGE_LABELS[data.activeCartridge] ?? data.activeCartridge}</span>
+            </div>
+            <h4 className="font-medium mt-0.5">{data.summary}</h4>
           </div>
-          <h4 className="font-medium mt-0.5">{data.summary}</h4>
-        </div>
+        </button>
         <div className="flex items-center gap-1.5 shrink-0">
           <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border ${status.ring}`}>
             {status.label}
@@ -254,6 +268,8 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
         </div>
       )}
 
+      {expanded && (
+      <>
       <div className="flex flex-wrap gap-2 text-[11px]">
         {data.agentsInvoked.length > 0 && (
           <ReceiptLine icon={<Users className="w-3 h-3" />} label="Agents" items={data.agentsInvoked} chipClass={chipClass} mutedClass={mutedClass} />
@@ -374,6 +390,8 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
