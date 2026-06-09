@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`14e72e9`](https://github.com/iQube-Protocol/AigentZBeta/commit/14e72e9169f972e585e6d522ce88264386641faa) [fix] fix PEM parsing: install @dfinity/identity-secp256k1 and route all callers through it (Claude, 2026-06-09T02:27:33Z)
 - [`8ae23a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/8ae23a46e20ab98271b467bae5b5fb3a5cd9370f) [feat] add /api/admin/debug/pem-status diagnostic for PEM parse failures (Claude, 2026-06-09T01:13:50Z)
 - [`5b7add3`](https://github.com/iQube-Protocol/AigentZBeta/commit/5b7add3411e079ff7738331089f3a56aa113acc0) [push] normalize DFX_IDENTITY_PEM to handle Amplify env-var whitespace mangling (Claude, 2026-06-08T21:52:41Z)
 - [`f13d150`](https://github.com/iQube-Protocol/AigentZBeta/commit/f13d150e51332a54be3a307e0b70fa8f1a739002) [fix] fix LayerZero 504 timeout: parallelize attestation calls + cap batch size (Claude, 2026-06-08T21:20:31Z)
