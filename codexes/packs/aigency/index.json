@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-09T03:56:16.247Z",
+  "last_updated": "2026-06-09T04:23:45.243Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "dc6a5b2fa45b4672d889bb8487f2fef157421cf0",
-  "latest_commit_short": "dc6a5b2",
-  "latest_commit_title": "fix PEM normalizer: strip all non-base64 chars from body lines",
+  "latest_commit": "a0a21f3c96e305e1fadd15295a582536863af2fc",
+  "latest_commit_short": "a0a21f3",
+  "latest_commit_title": "receipt card: show full card collapsed, gate only chain-of-intent; fix cycles card layout + error surfacing",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a0a21f3",
+      "full_sha": "a0a21f3c96e305e1fadd15295a582536863af2fc",
+      "title": "receipt card: show full card collapsed, gate only chain-of-intent; fix cycles card layout + error surfacing",
+      "author": "Claude",
+      "timestamp": "2026-06-09T04:21:40Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a0a21f3.md"
+    },
     {
       "sha": "dc6a5b2",
       "full_sha": "dc6a5b2fa45b4672d889bb8487f2fef157421cf0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T15:48:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-da0c735.md"
-    },
-    {
-      "sha": "88d41a1",
-      "full_sha": "88d41a11c96b8b681dfdfe96f6509e650bc1ade1",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T15:48:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-88d41a1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
