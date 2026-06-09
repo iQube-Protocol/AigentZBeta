@@ -2099,3 +2099,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-dc6a5b2.md](../build_/COMMITS/COMMIT-dc6a5b2.md)
 - Message: fix PEM normalizer: strip all non-base64 chars from body lines
+
+## Commit `a0a21f3` — 2026-06-09T04:21:40Z
+- Type: `fix`
+- Brief: [COMMIT-a0a21f3.md](../build_/COMMITS/COMMIT-a0a21f3.md)
+- Message: receipt card: show full card collapsed, gate only chain-of-intent; fix cycles card layout + error surfacing
