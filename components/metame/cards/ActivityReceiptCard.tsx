@@ -291,23 +291,25 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
         )}
       </div>
 
-      {/* Expand chevron — toggles chain of intent + JSON viewer. */}
-      {data.intentId && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className={`w-full flex items-center justify-end gap-1 pt-1 text-[10px] uppercase tracking-wider ${mutedClass} ${
-            isDark ? "hover:text-slate-200" : "hover:text-slate-900"
-          }`}
-          aria-expanded={expanded}
-          aria-label={expanded ? "Collapse chain of intent" : "Expand chain of intent"}
-        >
-          {expanded ? "Hide chain" : "Show chain"}
-          <ChevronDown
-            className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
-          />
-        </button>
-      )}
+      {/* Expand bar — always shown; toggles chain (if any) + JSON viewer. */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className={`w-full flex items-center justify-between gap-1 pt-1 text-[10px] uppercase tracking-wider ${mutedClass} ${
+          isDark ? "hover:text-slate-200" : "hover:text-slate-900"
+        } transition-colors`}
+        aria-expanded={expanded}
+        aria-label={expanded ? "Collapse receipt details" : "Expand receipt details"}
+      >
+        <span>
+          {expanded
+            ? data.intentId ? "Hide chain & receipt JSON" : "Hide receipt JSON"
+            : data.intentId ? "Show chain & receipt JSON" : "Show receipt JSON"}
+        </span>
+        <ChevronDown
+          className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
 
       {expanded && (
       <div className="space-y-2">
@@ -340,37 +342,39 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           </div>
         )}
 
-        {/* Raw JSON — collapsed by default, toggled via chevron bar. */}
+        {/* Raw JSON — whole bar clickable, copy nested inside. */}
         <div
           className={`rounded-md border ${
             isDark ? "border-slate-800/60 bg-slate-950/50" : "border-slate-200 bg-slate-50"
           }`}
         >
-          <div
-            className={`flex items-center justify-between px-3 py-1.5 ${
+          <button
+            type="button"
+            onClick={() => setShowJson((v) => !v)}
+            className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left ${
               showJson ? `border-b ${isDark ? "border-slate-800/60" : "border-slate-200"}` : ""
-            }`}
+            } ${isDark ? "hover:bg-slate-900/40" : "hover:bg-slate-100"} transition-colors`}
+            aria-expanded={showJson}
           >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowJson((v) => !v);
-              }}
-              className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.16em] ${mutedClass} ${
-                isDark ? "hover:text-slate-200" : "hover:text-slate-900"
-              }`}
-            >
+            <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.16em] ${mutedClass}`}>
               <ChevronDown className={`w-3 h-3 transition-transform ${showJson ? "rotate-180" : ""}`} />
               {showJson ? "Hide receipt JSON" : "Show receipt JSON"}
-            </button>
+            </span>
             {showJson && (
-              <button
-                type="button"
-                onClick={handleCopy}
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); void handleCopy(e); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void handleCopy(e as unknown as React.MouseEvent);
+                  }
+                }}
                 aria-label={copied ? "Copied" : "Copy receipt JSON"}
                 title={copied ? "Copied" : "Copy JSON"}
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] ${
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] cursor-pointer ${
                   isDark
                     ? "text-slate-300 hover:bg-slate-800/60"
                     : "text-slate-600 hover:bg-slate-100"
@@ -378,9 +382,9 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
               >
                 {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                 {copied ? "Copied" : "Copy"}
-              </button>
+              </span>
             )}
-          </div>
+          </button>
           {showJson && (
             <pre
               className={`overflow-auto max-h-72 text-[11px] leading-snug p-3 font-mono ${
