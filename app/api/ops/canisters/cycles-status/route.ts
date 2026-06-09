@@ -153,13 +153,15 @@ async function queryCycles(
   canisterId: string,
 ): Promise<{ cycles: number } | { error: string }> {
   try {
+    const targetPrincipal = Principal.fromText(canisterId);
     const mgmt = Actor.createActor(managementCanisterIdl, {
       agent,
       canisterId: 'aaaaa-aa',
+      effectiveCanisterId: targetPrincipal,
     });
 
     const result: any = await Promise.race([
-      (mgmt as any).canister_status({ canister_id: Principal.fromText(canisterId) }),
+      (mgmt as any).canister_status({ canister_id: targetPrincipal }),
       new Promise<never>((_, reject) =>
         setTimeout(
           () => reject(new Error(`canister_status timed out after ${CANISTER_STATUS_TIMEOUT_MS}ms`)),
