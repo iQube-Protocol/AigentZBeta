@@ -2104,3 +2104,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-a0a21f3.md](../build_/COMMITS/COMMIT-a0a21f3.md)
 - Message: receipt card: show full card collapsed, gate only chain-of-intent; fix cycles card layout + error surfacing
+
+## Commit `6456e27` — 2026-06-10T17:02:38Z
+- Type: `feat`
+- Brief: [COMMIT-6456e27.md](../build_/COMMITS/COMMIT-6456e27.md)
+- Message: add polity passport bureau PRD v1 + reuse/extend/new implementation plan docs

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-09T04:23:45.243Z",
+  "last_updated": "2026-06-10T17:04:47.968Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a0a21f3c96e305e1fadd15295a582536863af2fc",
-  "latest_commit_short": "a0a21f3",
-  "latest_commit_title": "receipt card: show full card collapsed, gate only chain-of-intent; fix cycles card layout + error surfacing",
+  "latest_commit": "6456e2713b320550dcb2d949485cf3126913c9a0",
+  "latest_commit_short": "6456e27",
+  "latest_commit_title": "add polity passport bureau PRD v1 + reuse/extend/new implementation plan docs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6456e27",
+      "full_sha": "6456e2713b320550dcb2d949485cf3126913c9a0",
+      "title": "add polity passport bureau PRD v1 + reuse/extend/new implementation plan docs",
+      "author": "Claude",
+      "timestamp": "2026-06-10T17:02:38Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6456e27.md"
+    },
     {
       "sha": "a0a21f3",
       "full_sha": "a0a21f3c96e305e1fadd15295a582536863af2fc",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T17:06:24Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1cfe1c1.md"
-    },
-    {
-      "sha": "da0c735",
-      "full_sha": "da0c735747325c937786704a32ed138ae41bde55",
-      "title": "TTS: expose Cartesia error in response header + pulse R/T dots during loading",
-      "author": "Claude",
-      "timestamp": "2026-05-29T15:48:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-da0c735.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
