@@ -708,6 +708,8 @@ Supabase must not store:
 
 > **AMENDED BY ADDENDUM D (Citizen Passport irrevocability).** Where this addendum implies citizen passports may be `revoked` (even at a higher threshold), Addendum D supersedes it: citizen *privileges* are reputation-conditional; citizen *passports* (personhood recognition) are irrevocable. Agent participant revocability is unchanged.
 
+> **REFINED BY ADDENDUM E (identity-surface separation).** Reputation is managed at the RootDID / DiDQube level, not at the KybeDID level and not on the Citizen Passport. Where this addendum links a citizen passport record to reputation infrastructure, the binding attaches through the holder's RootDID-layer identity (persona → RootDID → ReputationQube) and acts on privilege standing — the Citizen Passport credential itself carries no reputation binding.
+
 **Purpose:** integrate passport status with the Polity reputation system so Citizen and Participant Passports are living standing credentials, not static credentials. A Polity Passport represents: identity continuity; current standing; rights and permissions; constraints and obligations; reputation-linked participation status; review, suspension, and revocation state. For agents in particular, participant rights must be conditional on reputation standing.
 
 **Core requirement:** the Bureau links each passport record to reputation infrastructure through the holder's identity structure.
@@ -999,3 +1001,33 @@ This correction is implemented when:
 10. The PRD explicitly states that personhood is not conditional on reputation.
 
 **Moral force:** agents participate by permission and standing; humans belong by personhood.
+
+---
+
+## Addendum E: Identity-Surface Separation — Where Reputation Lives (operator note, 2026-06-10)
+
+**Reputation is primarily managed at the RootDID level.** The Citizen Passport in particular is a **KybeDID-level primitive**, so reputation is not managed at the KybeDID level.
+
+Certain reputational activities CAN be KybeDID-bound — these form a unique class of **KybeDID-bound reputational classes**, such as presence on terrorist or AML lists. These, however, are **not bound to a citizen's passport**.
+
+The passport is **proof of personhood solely** and grants access to **inalienable human rights**.
+
+Reputation controls are bound to **DiDQubes**, which are ultimately anchored to KybeDIDs but serve a different function — as do Citizenship passports.
+
+### Canonical three-surface model
+
+| Identity surface | Function |
+|---|---|
+| **DiDQubes (RootDID layer)** | Manage reputation |
+| **KybeDID** | Proves unique personhood |
+| **Citizen Passport** | Anonymous KybeDID proxy for proof of Polity citizenship |
+
+**Different identity surfaces for different identity purposes.**
+
+### Implementation consequences
+
+1. **Citizen Passport credentials carry no reputation binding.** `reputation_binding_ref` is participant-class only; the credential schema forbids it on citizen / verified_citizen credentials (enforced in `polity-passport.credential.schema.json` per-class conditional).
+2. **Citizen privilege standing consults RootDID-level reputation through the persona** (persona → RootDID → ReputationQube), never through the passport. The `polity-passport.reputation-binding` record for a citizen holder attaches at that layer and feeds the privilege-standing object only.
+3. **`kybe_did_continuity_ref` remains valid** as the continuity anchor for reputation *inheritance* across RootDID rotation (Addendum C) — that is continuity plumbing, not reputation management at the KybeDID level.
+4. **KybeDID-bound reputational classes** (sanctions/AML-list flags and similar) are a **future, separate primitive** — outside Passport Bureau scope, never bound to the Citizen Passport, and never a citizen passport status input.
+5. **Passport status machines:** no citizen lifecycle transition is reputation-triggered (continuity, renewal, death evidence, and reissue only). Participant standing transitions may be reputation-triggered, per Addendum C.

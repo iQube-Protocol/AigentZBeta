@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.reputation-binding.schema.json",
   "title": "Polity Passport Reputation Binding",
+  "description": "PRD Addendum E layering: reputation is managed at the RootDID / DiDQube level. For citizen holders, this binding attaches through the holder's RootDID-layer identity (persona → RootDID → ReputationQube) and feeds the citizen privilege-standing object ONLY — it is never bound to the Citizen Passport credential itself, which is a KybeDID-level proof-of-personhood primitive. kybe_did_continuity_ref is continuity plumbing for reputation inheritance across RootDID rotation, not reputation management at the KybeDID level. KybeDID-bound reputational classes (e.g. sanctions/AML flags) are a separate future primitive outside this schema's scope.",
   "type": "object",
   "required": [
     "schema_version",

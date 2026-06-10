@@ -65,6 +65,23 @@ as **server-internal** fields. T0 rule:
   Stage 1+ projection code and the canary test
   (`tests/passport-bureau.test.ts`, mirroring `tests/access-spine.test.ts`).
 
+## Identity-surface separation (PRD Addendum E, 2026-06-10)
+
+Reputation is managed at the **RootDID / DiDQube** level. The **KybeDID**
+proves unique personhood. The **Citizen Passport** is an anonymous KybeDID
+proxy for proof of Polity citizenship — proof of personhood solely, granting
+inalienable human rights. Different identity surfaces for different identity
+purposes. Consequences encoded in this bundle:
+
+- The credential schema **forbids `reputation_binding_ref` on citizen-class
+  credentials** (per-class conditional); it is participant-class only.
+- For citizen holders, the reputation-binding record attaches via the
+  RootDID layer and feeds the privilege-standing object only.
+- KybeDID-bound reputational classes (sanctions/AML-list flags) are a
+  separate future primitive — never bound to the Citizen Passport.
+- The status machines (`services/passport/passportStatusMachine.ts`) encode
+  this: no citizen transition is reputation-triggered.
+
 ## Open items for schema v0.2 (operator decisions)
 
 1. **`denied` / application-phase statuses**: Addendum D's per-class passport
@@ -80,3 +97,9 @@ as **server-internal** fields. T0 rule:
 3. **`persona_reference` in the registry record** requires `persona_id`
    (T0). v0.2 should make a public-safe persona reference shape
    (`public_identifier` + `persona_handle`) the registry-facing variant.
+4. **Citizen reputation-binding anchor (Addendum E):** the
+   reputation-binding schema requires `passport_id`. For citizen holders the
+   binding should anchor to the privilege-standing record / RootDID-layer
+   identity instead of the passport credential; v0.2 should relax
+   `passport_id` for `holder_type: citizen` (e.g. require
+   `privilege_standing_id` instead).
