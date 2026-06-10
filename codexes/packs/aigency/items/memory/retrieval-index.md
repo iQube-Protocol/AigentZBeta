@@ -2129,3 +2129,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-45137ac.md](../build_/COMMITS/COMMIT-45137ac.md)
 - Message: stage 2 identity & auth: bureau synthetic-email sign-on + persona/KybeDID bind flow
+
+## Commit `5ffd3a5` — 2026-06-10T21:30:54Z
+- Type: `push`
+- Brief: [COMMIT-5ffd3a5.md](../build_/COMMITS/COMMIT-5ffd3a5.md)
+- Message: stage 3 citizen flow server-side: self-custody vault, weak proof, application submit pipeline

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-10T21:27:33.628Z",
+  "last_updated": "2026-06-10T21:33:04.737Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "45137acb998c3937b46b6e83f142720565895ff1",
-  "latest_commit_short": "45137ac",
-  "latest_commit_title": "stage 2 identity & auth: bureau synthetic-email sign-on + persona/KybeDID bind flow",
+  "latest_commit": "5ffd3a5ba09b5e0b158f419ed4968e2b84f4d0f6",
+  "latest_commit_short": "5ffd3a5",
+  "latest_commit_title": "stage 3 citizen flow server-side: self-custody vault, weak proof, application submit pipeline",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5ffd3a5",
+      "full_sha": "5ffd3a5ba09b5e0b158f419ed4968e2b84f4d0f6",
+      "title": "stage 3 citizen flow server-side: self-custody vault, weak proof, application submit pipeline",
+      "author": "Claude",
+      "timestamp": "2026-06-10T21:30:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5ffd3a5.md"
+    },
     {
       "sha": "45137ac",
       "full_sha": "45137acb998c3937b46b6e83f142720565895ff1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-30T00:58:08Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-8c91108.md"
-    },
-    {
-      "sha": "1994a91",
-      "full_sha": "1994a919eee61ca0b8be48bbaa4a5934d3cdd378",
-      "title": "docs: aigentMe voice-loop Phase 2 backlog + Venture iQube schema v0.1",
-      "author": "Claude",
-      "timestamp": "2026-05-30T00:37:00Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-1994a91.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

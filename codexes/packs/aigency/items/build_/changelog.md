@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`5ffd3a5`](https://github.com/iQube-Protocol/AigentZBeta/commit/5ffd3a5ba09b5e0b158f419ed4968e2b84f4d0f6) [push] stage 3 citizen flow server-side: self-custody vault, weak proof, application submit pipeline (Claude, 2026-06-10T21:30:54Z)
 - [`45137ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/45137acb998c3937b46b6e83f142720565895ff1) [push] stage 2 identity & auth: bureau synthetic-email sign-on + persona/KybeDID bind flow (Claude, 2026-06-10T21:25:30Z)
 - [`2312d95`](https://github.com/iQube-Protocol/AigentZBeta/commit/2312d950523d3ac552b17c3ad7c255b7e249d5ba) [feat] add per-class polity passport status machines with addendum D invariant tests (Claude, 2026-06-10T17:56:11Z)
 - [`78516b6`](https://github.com/iQube-Protocol/AigentZBeta/commit/78516b608a7a73b571029cdd02a6f58f9d590912) [feat] add PRD addendum E: identity-surface separation — reputation at RootDID level, citizen credential forbids reputation binding (Claude, 2026-06-10T17:56:12Z)
