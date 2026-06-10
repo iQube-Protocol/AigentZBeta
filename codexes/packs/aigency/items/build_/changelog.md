@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`45137ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/45137acb998c3937b46b6e83f142720565895ff1) [push] stage 2 identity & auth: bureau synthetic-email sign-on + persona/KybeDID bind flow (Claude, 2026-06-10T21:25:30Z)
 - [`2312d95`](https://github.com/iQube-Protocol/AigentZBeta/commit/2312d950523d3ac552b17c3ad7c255b7e249d5ba) [feat] add per-class polity passport status machines with addendum D invariant tests (Claude, 2026-06-10T17:56:11Z)
 - [`78516b6`](https://github.com/iQube-Protocol/AigentZBeta/commit/78516b608a7a73b571029cdd02a6f58f9d590912) [feat] add PRD addendum E: identity-surface separation — reputation at RootDID level, citizen credential forbids reputation binding (Claude, 2026-06-10T17:56:12Z)
 - [`fec591f`](https://github.com/iQube-Protocol/AigentZBeta/commit/fec591fd253084417752c8145e624eedc4ccb274) [push] land polity passport schema bundle v0.1 with vault, irrevocability + reputation addenda applied (Claude, 2026-06-10T17:19:25Z)
