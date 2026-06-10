@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-10T21:36:33.771Z",
+  "last_updated": "2026-06-10T22:45:49.691Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "98f76cf328da4920f634e2fbad2cc1afb3b415ec",
-  "latest_commit_short": "98f76cf",
-  "latest_commit_title": "stage 4 agent flow HTTP-first: schema serving, validate/submit/status machine surfaces",
+  "latest_commit": "bc20c54a4b9fc039fa504ae7d7ef629c54fffe8f",
+  "latest_commit_short": "bc20c54",
+  "latest_commit_title": "stage 7 discovery surfaces: .well-known bureau document + llms.txt orientation",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bc20c54",
+      "full_sha": "bc20c54a4b9fc039fa504ae7d7ef629c54fffe8f",
+      "title": "stage 7 discovery surfaces: .well-known bureau document + llms.txt orientation",
+      "author": "Claude",
+      "timestamp": "2026-06-10T22:44:04Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bc20c54.md"
+    },
     {
       "sha": "98f76cf",
       "full_sha": "98f76cf328da4920f634e2fbad2cc1afb3b415ec",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-30T01:10:21Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-2af7d43.md"
-    },
-    {
-      "sha": "71e8a39",
-      "full_sha": "71e8a395d0c15020ed8ed594c67a9a3748ac4623",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-30T01:10:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-71e8a39.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

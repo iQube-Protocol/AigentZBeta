@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`bc20c54`](https://github.com/iQube-Protocol/AigentZBeta/commit/bc20c54a4b9fc039fa504ae7d7ef629c54fffe8f) [push] stage 7 discovery surfaces: .well-known bureau document + llms.txt orientation (Claude, 2026-06-10T22:44:04Z)
 - [`98f76cf`](https://github.com/iQube-Protocol/AigentZBeta/commit/98f76cf328da4920f634e2fbad2cc1afb3b415ec) [push] stage 4 agent flow HTTP-first: schema serving, validate/submit/status machine surfaces (Claude, 2026-06-10T21:34:37Z)
 - [`5ffd3a5`](https://github.com/iQube-Protocol/AigentZBeta/commit/5ffd3a5ba09b5e0b158f419ed4968e2b84f4d0f6) [push] stage 3 citizen flow server-side: self-custody vault, weak proof, application submit pipeline (Claude, 2026-06-10T21:30:54Z)
 - [`45137ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/45137acb998c3937b46b6e83f142720565895ff1) [push] stage 2 identity & auth: bureau synthetic-email sign-on + persona/KybeDID bind flow (Claude, 2026-06-10T21:25:30Z)

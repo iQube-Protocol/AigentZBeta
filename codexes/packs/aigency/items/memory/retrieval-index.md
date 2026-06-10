@@ -2139,3 +2139,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-98f76cf.md](../build_/COMMITS/COMMIT-98f76cf.md)
 - Message: stage 4 agent flow HTTP-first: schema serving, validate/submit/status machine surfaces
+
+## Commit `bc20c54` — 2026-06-10T22:44:04Z
+- Type: `push`
+- Brief: [COMMIT-bc20c54.md](../build_/COMMITS/COMMIT-bc20c54.md)
+- Message: stage 7 discovery surfaces: .well-known bureau document + llms.txt orientation
