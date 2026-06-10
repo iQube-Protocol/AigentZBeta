@@ -110,6 +110,9 @@ import { IQubeRegistryReceiptsTab } from "./tabs/IQubeRegistryReceiptsTab";
 import { IQubeRegistryVocabularyTab } from "./tabs/IQubeRegistryVocabularyTab";
 import { IQubeRegistryDocsTab } from "./tabs/IQubeRegistryDocsTab";
 import { IQubeRegistryIntakeTab } from "./tabs/IQubeRegistryIntakeTab";
+import { PassportBureauApplyTab } from "./tabs/PassportBureauApplyTab";
+import { PassportBureauStewardTab } from "./tabs/PassportBureauStewardTab";
+import { PassportRegistryTab } from "./tabs/PassportRegistryTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
@@ -254,6 +257,9 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IQubeRegistryVocabularyTab,
   IQubeRegistryDocsTab,
   IQubeRegistryIntakeTab,
+  PassportBureauApplyTab,
+  PassportBureauStewardTab,
+  PassportRegistryTab,
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,

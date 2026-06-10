@@ -3322,6 +3322,17 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Activity', description: 'Registry operational health', color: 'violet' },
     },
     {
+      id: 'iqube-registry-passports',
+      label: 'Passports',
+      slug: 'passports',
+      enabled: true,
+      group: 'browse',
+      order: 2,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public Polity Passport registry — issued citizen + participant passports', color: 'violet' },
+    },
+    {
       id: 'iqube-registry-docs',
       label: 'PRD + Docs',
       slug: 'docs',
@@ -3331,6 +3342,79 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'IQubeRegistryDocsTab' },
       metadata: { icon: 'FileText', description: 'Registry PRDs + reference docs', color: 'violet' },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z', 'admin'],
+    admin: ['aigent-z', 'admin'],
+  },
+  liquidUI: { enabled: false },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// POLITY_PASSPORT_BUREAU_CARTRIDGE — Stage 3/5/6 UI surface
+// PRD: codexes/packs/agentiq/updates/2026-06-10_polity-passport-bureau-prd-v1.md
+// The canonical application, registration, and issuance surface for Polity
+// Passports. Citizen apply flow + public registry + steward review queue.
+// Steward gate resolves server-side via admin-cartridge:polity-passport-bureau
+// (operator decision 3); adminOnly here is the optimistic client-side gate.
+// ───────────────────────────────────────────────────────────────────────────
+export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
+  id: 'polity-passport-bureau-cartridge',
+  name: 'Polity Passport Bureau',
+  slug: 'polity-passport-bureau',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'Apply for, issue, and steward Polity Passports — anonymous citizen personhood + conditional participant standing.',
+    icon: 'ShieldCheck',
+    color: 'violet',
+    category: 'platform',
+    tags: ['passport', 'identity', 'kybe', 'polity', 'registry'],
+  },
+  tabGroups: [
+    { id: 'apply',   label: 'Apply',   icon: 'FileCheck2', order: 0 },
+    { id: 'registry', label: 'Registry', icon: 'BookOpenCheck', order: 1 },
+    { id: 'steward', label: 'Steward', icon: 'Gavel', order: 2, adminOnly: true },
+  ],
+  tabs: [
+    {
+      id: 'passport-bureau-apply',
+      label: 'Citizen Application',
+      slug: 'apply',
+      enabled: true,
+      group: 'apply',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'ShieldCheck', description: 'Apply for an anonymous Citizen Passport — proof of personhood with self-custody privacy', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-registry',
+      label: 'Passport Registry',
+      slug: 'registry',
+      enabled: true,
+      group: 'registry',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-steward',
+      label: 'Review Queue',
+      slug: 'steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'steward',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — approve, deny, request info', color: 'violet' },
     },
   ],
   permissions: {
@@ -3362,6 +3446,7 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   METAME_CODEX,
   MARKETA_CARTRIDGE,
   IQUBE_REGISTRY_CARTRIDGE,
+  POLITY_PASSPORT_BUREAU_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {
