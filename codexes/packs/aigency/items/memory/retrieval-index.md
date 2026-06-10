@@ -2109,3 +2109,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-6456e27.md](../build_/COMMITS/COMMIT-6456e27.md)
 - Message: add polity passport bureau PRD v1 + reuse/extend/new implementation plan docs
+
+## Commit `fec591f` — 2026-06-10T17:19:25Z
+- Type: `push`
+- Brief: [COMMIT-fec591f.md](../build_/COMMITS/COMMIT-fec591f.md)
+- Message: land polity passport schema bundle v0.1 with vault, irrevocability + reputation addenda applied
