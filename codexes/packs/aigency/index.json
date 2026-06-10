@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-10T17:04:47.968Z",
+  "last_updated": "2026-06-10T17:21:18.791Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6456e2713b320550dcb2d949485cf3126913c9a0",
-  "latest_commit_short": "6456e27",
-  "latest_commit_title": "add polity passport bureau PRD v1 + reuse/extend/new implementation plan docs",
+  "latest_commit": "fec591fd253084417752c8145e624eedc4ccb274",
+  "latest_commit_short": "fec591f",
+  "latest_commit_title": "land polity passport schema bundle v0.1 with vault, irrevocability + reputation addenda applied",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fec591f",
+      "full_sha": "fec591fd253084417752c8145e624eedc4ccb274",
+      "title": "land polity passport schema bundle v0.1 with vault, irrevocability + reputation addenda applied",
+      "author": "Claude",
+      "timestamp": "2026-06-10T17:19:25Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fec591f.md"
+    },
     {
       "sha": "6456e27",
       "full_sha": "6456e2713b320550dcb2d949485cf3126913c9a0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-29T17:06:24Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5cbbec3.md"
-    },
-    {
-      "sha": "1cfe1c1",
-      "full_sha": "1cfe1c156ae191bc88157f20c74ad78f30ac1d33",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T17:06:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1cfe1c1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
