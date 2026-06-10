@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-10
 **PRD:** `2026-06-10_polity-passport-bureau-prd-v1.md` (operator-authored, authoritative)
-**Status:** Plan reviewed in-session with operator. Stage 0/1 gated on operator guidance schemas (to follow) + the three decisions in §3. Stage 2 design and doctrine pack scaffolding are schema-independent.
+**Status:** Plan reviewed in-session with operator. **Stage 0 delivered 2026-06-10:** the operator's v0.1 JSON Schema bundle is landed at `polity-passport-bureau/schemas/` (11 schemas + manifest + examples + README) with the vault, irrevocability, and reputation amendments applied cumulatively; per-class status enforcement is encoded in the credential schema and verified. T0 projection rules and v0.2 open items are documented in `polity-passport-bureau/README.md`. Stage 1 remains gated on the three decisions in §3.
 **Golden Rule compliance:** every layer below is classified as REUSED, EXTENDED, or NEW.
 
 The most important grounding fact: the **iQube Registry operating plane** (PRD v1.0/v1.1, Stages 0–9 closed 2026-05-31) already provides most of the Bureau's chassis — intake pipeline, lifecycle state machine, mint saga, agent-legibility cards, `.well-known` discovery, DVN receipt blocks, trust scoring, and the standalone `iqube-registry` cartridge.

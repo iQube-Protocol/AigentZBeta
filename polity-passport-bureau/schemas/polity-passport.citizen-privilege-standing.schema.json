@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.citizen-privilege-standing.schema.json",
+  "title": "Polity Citizen Privilege Standing",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "privilege_standing_id",
+    "citizen_passport_id",
+    "passport_remains_valid",
+    "citizen_privilege_status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "privilege_standing_id": {
+      "type": "string"
+    },
+    "citizen_passport_id": {
+      "type": "string"
+    },
+    "registry_record_id": {
+      "type": "string"
+    },
+    "passport_remains_valid": {
+      "const": true,
+      "description": "Citizen Passport remains valid as proof of personhood even if privileges are restricted."
+    },
+    "citizen_privilege_status": {
+      "type": "string",
+      "enum": [
+        "full",
+        "limited",
+        "restricted",
+        "suspended",
+        "under_review"
+      ]
+    },
+    "reputation_binding_id": {
+      "type": "string"
+    },
+    "affected_privileges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "privilege_id",
+          "privilege_type",
+          "status"
+        ],
+        "properties": {
+          "privilege_id": {
+            "type": "string"
+          },
+          "privilege_type": {
+            "type": "string",
+            "enum": [
+              "cartridge_access",
+              "resource_access",
+              "governance_participation",
+              "steward_role",
+              "guardian_role",
+              "application_specific_benefit",
+              "being_service_access",
+              "legal_information_routing",
+              "housing_assistance_routing",
+              "immigration_assistance_routing",
+              "other"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "limited",
+              "restricted",
+              "suspended",
+              "revoked"
+            ]
+          },
+          "reason_code": {
+            "type": "string",
+            "enum": [
+              "policy_violation",
+              "reputation_threshold",
+              "safety_risk",
+              "misuse",
+              "fraud",
+              "dispute",
+              "resource_specific_rule",
+              "application_specific_rule",
+              "other"
+            ]
+          },
+          "scope": {
+            "type": "string"
+          },
+          "effective_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "appeal_available": {
+            "type": "boolean",
+            "default": true
+          },
+          "review_receipt_ref": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "constitutional_notes": {
+      "type": "object",
+      "properties": {
+        "personhood_not_revoked": {
+          "const": true
+        },
+        "passport_not_revoked_for_reputation": {
+          "const": true
+        },
+        "restrictions_apply_only_to_privileges": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}
