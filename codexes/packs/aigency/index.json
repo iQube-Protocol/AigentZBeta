@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-10T17:58:09.250Z",
+  "last_updated": "2026-06-10T21:27:33.628Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2312d950523d3ac552b17c3ad7c255b7e249d5ba",
-  "latest_commit_short": "2312d95",
-  "latest_commit_title": "add per-class polity passport status machines with addendum D invariant tests",
+  "latest_commit": "45137acb998c3937b46b6e83f142720565895ff1",
+  "latest_commit_short": "45137ac",
+  "latest_commit_title": "stage 2 identity & auth: bureau synthetic-email sign-on + persona/KybeDID bind flow",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "45137ac",
+      "full_sha": "45137acb998c3937b46b6e83f142720565895ff1",
+      "title": "stage 2 identity & auth: bureau synthetic-email sign-on + persona/KybeDID bind flow",
+      "author": "Claude",
+      "timestamp": "2026-06-10T21:25:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-45137ac.md"
+    },
     {
       "sha": "2312d95",
       "full_sha": "2312d950523d3ac552b17c3ad7c255b7e249d5ba",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-30T00:37:00Z",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-1994a91.md"
-    },
-    {
-      "sha": "3af9161",
-      "full_sha": "3af916191e0dd308f952bf9f879c2046713afd9a",
-      "title": "TTS: 8s Cartesia abort + 18s OpenAI ceiling + per-provider error JSON",
-      "author": "Claude",
-      "timestamp": "2026-05-29T20:43:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3af9161.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

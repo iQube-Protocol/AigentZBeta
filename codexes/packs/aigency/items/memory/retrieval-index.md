@@ -2124,3 +2124,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-2312d95.md](../build_/COMMITS/COMMIT-2312d95.md)
 - Message: add per-class polity passport status machines with addendum D invariant tests
+
+## Commit `45137ac` — 2026-06-10T21:25:30Z
+- Type: `push`
+- Brief: [COMMIT-45137ac.md](../build_/COMMITS/COMMIT-45137ac.md)
+- Message: stage 2 identity & auth: bureau synthetic-email sign-on + persona/KybeDID bind flow
