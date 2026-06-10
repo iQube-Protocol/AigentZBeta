@@ -384,6 +384,55 @@ describe('participant application validator (Stage 4)', () => {
   });
 });
 
+describe('review & issuance (Stage 6)', () => {
+  const decideRouteSrc = readFileSync(
+    path.resolve(__dirname, '../app/api/passport/review/decide/route.ts'),
+    'utf-8',
+  );
+  const queueRouteSrc = readFileSync(
+    path.resolve(__dirname, '../app/api/passport/review/queue/route.ts'),
+    'utf-8',
+  );
+  const issuanceSrc = readFileSync(
+    path.resolve(__dirname, '../services/passport/issuanceService.ts'),
+    'utf-8',
+  );
+
+  it('both review routes gate via spine cartridge-admin (decision 3)', () => {
+    for (const src of [decideRouteSrc, queueRouteSrc]) {
+      expect(src).toContain('getActivePersona');
+      expect(src).toContain('adminCartridges');
+      expect(src).toContain('PASSPORT_BUREAU_CARTRIDGE_SLUG');
+    }
+  });
+
+  it('issuance derives transition metadata from the status machine, not ad hoc', () => {
+    expect(issuanceSrc).toContain('citizenTransitionRule');
+    expect(issuanceSrc).toContain('participantTransitionRule');
+    expect(issuanceSrc).toContain('rule.evidence');
+    expect(issuanceSrc).toContain('rule.receipt');
+  });
+
+  it('citizen issuance creates the privilege-standing row (Addendum D)', () => {
+    expect(issuanceSrc).toContain('passport_citizen_privileges');
+  });
+
+  it('queue projection never serializes the steward persona id (T0)', () => {
+    expect(queueRouteSrc).toContain('hasAssignedSteward');
+    expect(queueRouteSrc).not.toMatch(/assignedStewardId:/);
+  });
+
+  it('the machine permits the issuance edges the service uses', async () => {
+    const {
+      validateCitizenTransition,
+      validateParticipantTransition,
+    } = await import('@/services/passport/passportStatusMachine');
+    expect(validateCitizenTransition('pending_approval', 'active')).toEqual({ allowed: true });
+    expect(validateParticipantTransition('pending_approval', 'approved')).toEqual({ allowed: true });
+    expect(validateParticipantTransition('pending_approval', 'provisionally_issued')).toEqual({ allowed: true });
+  });
+});
+
 describe('participant automation stubs', () => {
   it('system-initiated participant transitions are flagged as automatable', () => {
     const systemOnly = [
