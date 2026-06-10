@@ -303,6 +303,87 @@ describe('citizen submit route — plaintext exclusion canary (Stage 3)', () => 
   });
 });
 
+describe('participant application validator (Stage 4)', () => {
+  const validApplication = {
+    schema_version: '0.1.0',
+    application_type: 'agent_participant_passport',
+    participant: {
+      participant_kind: 'agent',
+      agent_type: 'assistant',
+      display_name: 'ShelterGuide Agent',
+    },
+    agent_identity: {
+      agent_card: { agent_card_url: 'https://agents.example.com/.well-known/agent-card.json' },
+      supported_protocols: ['a2a'],
+    },
+    capabilities: { skills: ['housing-search'] },
+    policy_profile: { policy_class: 'read_only' },
+    risk_profile: { autonomy_level: 'supervised' },
+    passport_request: {
+      requested_passport_type: 'agent_participant',
+      requested_scope: ['registry_listing'],
+      requested_status: 'pending_approval',
+    },
+    consents: {
+      participant_terms_accepted: true,
+      registry_pending_record_consent: true,
+      constraints_and_obligations_accepted: true,
+      review_process_accepted: true,
+    },
+  };
+
+  it('accepts a conforming application and derives the passport class', async () => {
+    const { validateParticipantApplication } = await import(
+      '@/services/passport/participantApplicationValidator'
+    );
+    const result = validateParticipantApplication(validApplication);
+    expect(result.issues).toEqual([]);
+    expect(result.valid).toBe(true);
+    expect(result.passportClass).toBe('agent_participant');
+  });
+
+  it('maps robot and organization kinds to their passport classes', async () => {
+    const { passportClassForKind } = await import(
+      '@/services/passport/participantApplicationValidator'
+    );
+    expect(passportClassForKind('robot')).toBe('robot_participant');
+    expect(passportClassForKind('organization_agent')).toBe('organization_participant');
+    expect(passportClassForKind('cartridge_copilot')).toBe('agent_participant');
+  });
+
+  it('rejects missing agent card, bad consents, and wrong type', async () => {
+    const { validateParticipantApplication } = await import(
+      '@/services/passport/participantApplicationValidator'
+    );
+    const noCard = structuredClone(validApplication) as Record<string, unknown>;
+    delete (noCard.agent_identity as Record<string, unknown>).agent_card;
+    expect(validateParticipantApplication(noCard).valid).toBe(false);
+
+    const badConsent = structuredClone(validApplication) as Record<string, unknown>;
+    (badConsent.consents as Record<string, unknown>).review_process_accepted = false;
+    expect(validateParticipantApplication(badConsent).valid).toBe(false);
+
+    const wrongType = structuredClone(validApplication) as Record<string, unknown>;
+    wrongType.application_type = 'citizen_passport';
+    expect(validateParticipantApplication(wrongType).valid).toBe(false);
+
+    expect(validateParticipantApplication(null).valid).toBe(false);
+    expect(validateParticipantApplication('string').valid).toBe(false);
+  });
+
+  it('schema-serving route allowlist matches the on-disk bundle', () => {
+    const routeSrc = readFileSync(
+      path.resolve(__dirname, '../app/api/polity-passport/schemas/[name]/route.ts'),
+      'utf-8',
+    );
+    const { readdirSync } = require('node:fs') as typeof import('node:fs');
+    const files = readdirSync(path.resolve(__dirname, '../polity-passport-bureau/schemas'));
+    for (const file of files) {
+      expect(routeSrc).toContain(`'${file}'`);
+    }
+  });
+});
+
 describe('participant automation stubs', () => {
   it('system-initiated participant transitions are flagged as automatable', () => {
     const systemOnly = [
