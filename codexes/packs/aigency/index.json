@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-10T21:33:04.737Z",
+  "last_updated": "2026-06-10T21:36:33.771Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5ffd3a5ba09b5e0b158f419ed4968e2b84f4d0f6",
-  "latest_commit_short": "5ffd3a5",
-  "latest_commit_title": "stage 3 citizen flow server-side: self-custody vault, weak proof, application submit pipeline",
+  "latest_commit": "98f76cf328da4920f634e2fbad2cc1afb3b415ec",
+  "latest_commit_short": "98f76cf",
+  "latest_commit_title": "stage 4 agent flow HTTP-first: schema serving, validate/submit/status machine surfaces",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "98f76cf",
+      "full_sha": "98f76cf328da4920f634e2fbad2cc1afb3b415ec",
+      "title": "stage 4 agent flow HTTP-first: schema serving, validate/submit/status machine surfaces",
+      "author": "Claude",
+      "timestamp": "2026-06-10T21:34:37Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-98f76cf.md"
+    },
     {
       "sha": "5ffd3a5",
       "full_sha": "5ffd3a5ba09b5e0b158f419ed4968e2b84f4d0f6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-30T01:10:21Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-71e8a39.md"
-    },
-    {
-      "sha": "8c91108",
-      "full_sha": "8c911082f70991a7aa9f4d91036a89ed26e5920f",
-      "title": "Venture iQube v0.2: add studio / iqube-registry / moneypenny / legal-metacommons to cartridgeSlug enum",
-      "author": "Claude",
-      "timestamp": "2026-05-30T00:58:08Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8c91108.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
