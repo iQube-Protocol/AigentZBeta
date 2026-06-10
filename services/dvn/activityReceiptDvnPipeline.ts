@@ -49,6 +49,12 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'approval_rejected',
   'artifact_sent',
   'experience_model_updated',
+  'passport_application_submitted',
+  'passport_issued',
+  'passport_status_changed',
+  'passport_revoked',
+  'passport_privilege_changed',
+  'passport_infraction_recorded',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

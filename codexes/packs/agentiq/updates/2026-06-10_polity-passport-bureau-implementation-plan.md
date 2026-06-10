@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-10
 **PRD:** `2026-06-10_polity-passport-bureau-prd-v1.md` (operator-authored, authoritative)
-**Status:** Plan reviewed in-session with operator. **Stage 0 delivered 2026-06-10:** the operator's v0.1 JSON Schema bundle is landed at `polity-passport-bureau/schemas/` (11 schemas + manifest + examples + README) with the vault, irrevocability, and reputation amendments applied cumulatively; per-class status enforcement is encoded in the credential schema and verified. T0 projection rules and v0.2 open items are documented in `polity-passport-bureau/README.md`. Stage 1 remains gated on the three decisions in §3.
+**Status:** Plan reviewed in-session with operator. **Stage 0 delivered 2026-06-10:** the operator's v0.1 JSON Schema bundle is landed at `polity-passport-bureau/schemas/` (11 schemas + manifest + examples + README) with the vault, irrevocability, and reputation amendments applied cumulatively; per-class status enforcement is encoded in the credential schema and verified. T0 projection rules and v0.2 open items are documented in `polity-passport-bureau/README.md`. **Stage 1 delivered 2026-06-10:** operator approved all three §3 decisions as recommended; migration SQL (`20260610000000_polity_passport_bureau.sql`) landed with 6 tables, citizen irrevocability CHECK constraints, self-custody vault enforcement (no PII columns), per-class status machine enums, RLS policies; `ANCHORABLE_ACTION_TYPES` extended with 6 passport receipt types; status machine amended with `renewal_proof_of_aliveness` evidence type, `automatable` flag on participant transitions, and death-threshold/proof-of-aliveness/automation stubs; canary test suite (`tests/passport-bureau.test.ts`, 11 tests) + status machine suite (16 tests) all passing. Stage 2 is next.
 **Golden Rule compliance:** every layer below is classified as REUSED, EXTENDED, or NEW.
 
 The most important grounding fact: the **iQube Registry operating plane** (PRD v1.0/v1.1, Stages 0–9 closed 2026-05-31) already provides most of the Bureau's chassis — intake pipeline, lifecycle state machine, mint saga, agent-legibility cards, `.well-known` discovery, DVN receipt blocks, trust scoring, and the standalone `iqube-registry` cartridge.
@@ -67,11 +67,11 @@ The most important grounding fact: the **iQube Registry operating plane** (PRD v
 
 ---
 
-## 3. Operator decisions (blocking specific stages)
+## 3. Operator decisions (all resolved 2026-06-10)
 
-1. **Bureau localized auth mechanism.** The spine authenticates via Supabase Bearer tokens (`personaFetch`). Recommended: real Supabase auth user with a **synthetic email** (`<username>@passport.metame.internal`) + password, so Bureau personas flow through `getActivePersona` unchanged and no parallel auth gate exists; optional real email simply replaces the synthetic one for recovery. Alternative (true parallel credential table) violates the no-parallel-resolvers rule unless explicitly authorized. *(Blocks Stage 2.)*
-2. **Passport primitive typing.** Registry PRD v1.1 removed a primitive type and gated vocabulary additions behind operator approval. Recommended: no new `IQubeType` — applications are DataQubes, agents are AigentQubes, with `registry_record_type: 'polity_passport'` carried as record metadata. *(Blocks Stage 1; guidance schemas may settle this.)*
-3. **Steward role source.** Recommended: `admin-cartridge:polity-passport-bureau` grants via the existing per-cartridge admin credential class, with a distinct `passport-steward` class only if non-admin stewards are needed. *(Blocks Stage 6.)*
+1. **Bureau localized auth mechanism — APPROVED AS RECOMMENDED.** Real Supabase auth user with a **synthetic email** (`<username>@passport.metame.internal`) + password, so Bureau personas flow through `getActivePersona` unchanged and no parallel auth gate exists; optional real email simply replaces the synthetic one for recovery.
+2. **Passport primitive typing — APPROVED AS RECOMMENDED.** No new `IQubeType` — applications are DataQubes, agents are AigentQubes, with `registry_record_type: 'polity_passport'` carried as record metadata.
+3. **Steward role source — APPROVED AS RECOMMENDED.** `admin-cartridge:polity-passport-bureau` grants via the existing per-cartridge admin credential class, with a distinct `passport-steward` class only if non-admin stewards are needed.
 
 ---
 

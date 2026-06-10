@@ -109,6 +109,8 @@ export type PassportReceiptAction =
   | 'passport_issued'
   | 'passport_status_changed'
   | 'passport_revoked'
+  | 'passport_privilege_changed'
+  | 'passport_infraction_recorded'
   | 'none';
 
 export interface PassportTransitionRule<S extends string> {
@@ -123,15 +125,29 @@ export interface PassportTransitionRule<S extends string> {
    * Addendum D: death is never declared solely from non-renewal — a
    * ceased_death_confirmed transition requires confirmed death evidence and
    * a human (steward/committee) initiator, never 'system'.
+   *
+   * STUB: upper thresholds and determination methods for death evidence are
+   * deferred — for now the evidence type gates the transition, but the
+   * threshold policy (e.g. duration of inactivity + corroborating signals
+   * before a steward may initiate death proceedings) is not encoded here.
    */
   evidence:
     | 'none'
     | 'renewal_proof_of_control'
+    | 'renewal_proof_of_aliveness'
     | 'continuity_proof'
     | 'death_evidence'
     | 'review_decision'
     | 'reissue_continuity_binding';
   reversibility: 'one_way' | 'two_way';
+  /**
+   * STUB: automation eligibility. When true, this transition may eventually
+   * be triggered by an automated agent or scheduled job rather than requiring
+   * a human initiator. For now all transitions with automatable = true still
+   * require a human-in-the-loop; the flag marks where automation will slot in.
+   * Participant standing transitions are the primary candidates.
+   */
+  automatable?: boolean;
 }
 
 // ── Citizen lifecycle graph (continuity semantics — never punitive) ───────
@@ -150,7 +166,7 @@ const CITIZEN_RULES: ReadonlyArray<PassportTransitionRule<CitizenPassportStatus>
   { from: 'submitted', to: 'pending_approval', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'one_way' },
   { from: 'pending_approval', to: 'active', initiators: ['system', 'steward'], receipt: 'passport_issued', evidence: 'review_decision', reversibility: 'one_way' },
   { from: 'active', to: 'renewal_due', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way' },
-  { from: 'renewal_due', to: 'active', initiators: ['applicant', 'system'], receipt: 'passport_status_changed', evidence: 'renewal_proof_of_control', reversibility: 'two_way' },
+  { from: 'renewal_due', to: 'active', initiators: ['applicant', 'system'], receipt: 'passport_status_changed', evidence: 'renewal_proof_of_aliveness', reversibility: 'two_way' },
   { from: 'renewal_due', to: 'expired_non_renewal', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way' },
   { from: 'expired_non_renewal', to: 'active', initiators: ['applicant', 'steward'], receipt: 'passport_status_changed', evidence: 'continuity_proof', reversibility: 'two_way' },
   { from: 'expired_non_renewal', to: 'dormant', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way' },
@@ -178,35 +194,39 @@ const CITIZEN_RULES: ReadonlyArray<PassportTransitionRule<CitizenPassportStatus>
 // revoked → delisted (terminal after delist)
 // Appeal-driven reinstatement is a review-decision concern (deferred per
 // PRD §16); the graph deliberately has no revoked → approved edge in v0.1.
+//
+// STUB: automatable transitions are flagged for future agent/scheduled-job
+// management. For now all transitions require human-in-the-loop; the
+// automatable flag marks where agent-driven management will slot in.
 
 const PARTICIPANT_RULES: ReadonlyArray<PassportTransitionRule<ParticipantPassportStatus>> = [
   { from: 'draft', to: 'submitted', initiators: ['agent', 'applicant'], receipt: 'passport_application_submitted', evidence: 'none', reversibility: 'one_way' },
-  { from: 'submitted', to: 'pending_approval', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'one_way' },
-  { from: 'pending_approval', to: 'provisionally_issued', initiators: ['system', 'steward'], receipt: 'passport_issued', evidence: 'review_decision', reversibility: 'one_way' },
+  { from: 'submitted', to: 'pending_approval', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'one_way', automatable: true },
+  { from: 'pending_approval', to: 'provisionally_issued', initiators: ['system', 'steward'], receipt: 'passport_issued', evidence: 'review_decision', reversibility: 'one_way', automatable: true },
   { from: 'pending_approval', to: 'approved', initiators: ['steward', 'committee'], receipt: 'passport_issued', evidence: 'review_decision', reversibility: 'one_way' },
   { from: 'pending_approval', to: 'restricted', initiators: ['steward', 'committee'], receipt: 'passport_issued', evidence: 'review_decision', reversibility: 'one_way' },
-  { from: 'pending_approval', to: 'needs_more_information', initiators: ['system', 'steward'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way' },
+  { from: 'pending_approval', to: 'needs_more_information', initiators: ['system', 'steward'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way', automatable: true },
   { from: 'needs_more_information', to: 'pending_approval', initiators: ['agent', 'applicant'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way' },
   { from: 'provisionally_issued', to: 'approved', initiators: ['steward', 'committee'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'one_way' },
   { from: 'provisionally_issued', to: 'restricted', initiators: ['steward', 'committee'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'one_way' },
-  { from: 'provisionally_issued', to: 'suspended', initiators: ['steward', 'committee', 'system'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way' },
+  { from: 'provisionally_issued', to: 'suspended', initiators: ['steward', 'committee', 'system'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way', automatable: true },
   { from: 'provisionally_issued', to: 'revoked', initiators: ['steward', 'committee'], receipt: 'passport_revoked', evidence: 'review_decision', reversibility: 'one_way' },
-  { from: 'provisionally_issued', to: 'expired', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way' },
-  { from: 'approved', to: 'restricted', initiators: ['steward', 'committee', 'system'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way' },
-  { from: 'approved', to: 'suspended', initiators: ['steward', 'committee', 'system'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way' },
+  { from: 'provisionally_issued', to: 'expired', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way', automatable: true },
+  { from: 'approved', to: 'restricted', initiators: ['steward', 'committee', 'system'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way', automatable: true },
+  { from: 'approved', to: 'suspended', initiators: ['steward', 'committee', 'system'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way', automatable: true },
   { from: 'approved', to: 'revoked', initiators: ['steward', 'committee'], receipt: 'passport_revoked', evidence: 'review_decision', reversibility: 'one_way' },
-  { from: 'approved', to: 'expired', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way' },
-  { from: 'approved', to: 'renewed', initiators: ['agent', 'applicant', 'system'], receipt: 'passport_status_changed', evidence: 'renewal_proof_of_control', reversibility: 'two_way' },
+  { from: 'approved', to: 'expired', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way', automatable: true },
+  { from: 'approved', to: 'renewed', initiators: ['agent', 'applicant', 'system'], receipt: 'passport_status_changed', evidence: 'renewal_proof_of_control', reversibility: 'two_way', automatable: true },
   { from: 'restricted', to: 'approved', initiators: ['steward', 'committee'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way' },
-  { from: 'restricted', to: 'suspended', initiators: ['steward', 'committee', 'system'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way' },
+  { from: 'restricted', to: 'suspended', initiators: ['steward', 'committee', 'system'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way', automatable: true },
   { from: 'restricted', to: 'revoked', initiators: ['steward', 'committee'], receipt: 'passport_revoked', evidence: 'review_decision', reversibility: 'one_way' },
-  { from: 'restricted', to: 'expired', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way' },
+  { from: 'restricted', to: 'expired', initiators: ['system'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'two_way', automatable: true },
   { from: 'suspended', to: 'approved', initiators: ['steward', 'committee'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way' },
   { from: 'suspended', to: 'restricted', initiators: ['steward', 'committee'], receipt: 'passport_status_changed', evidence: 'review_decision', reversibility: 'two_way' },
   { from: 'suspended', to: 'revoked', initiators: ['steward', 'committee'], receipt: 'passport_revoked', evidence: 'review_decision', reversibility: 'one_way' },
-  { from: 'expired', to: 'renewed', initiators: ['agent', 'applicant', 'steward'], receipt: 'passport_status_changed', evidence: 'renewal_proof_of_control', reversibility: 'two_way' },
-  { from: 'renewed', to: 'approved', initiators: ['system', 'steward'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'one_way' },
-  { from: 'revoked', to: 'delisted', initiators: ['system', 'steward', 'admin'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'one_way' },
+  { from: 'expired', to: 'renewed', initiators: ['agent', 'applicant', 'steward'], receipt: 'passport_status_changed', evidence: 'renewal_proof_of_control', reversibility: 'two_way', automatable: true },
+  { from: 'renewed', to: 'approved', initiators: ['system', 'steward'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'one_way', automatable: true },
+  { from: 'revoked', to: 'delisted', initiators: ['system', 'steward', 'admin'], receipt: 'passport_status_changed', evidence: 'none', reversibility: 'one_way', automatable: true },
 ];
 
 // ── Shared validate/describe surface ──────────────────────────────────────
