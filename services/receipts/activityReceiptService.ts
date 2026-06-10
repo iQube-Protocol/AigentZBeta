@@ -34,7 +34,14 @@ export type ActivityActionType =
   | 'approval_rejected'
   | 'experience_model_updated'
   | 'session_started'
-  | 'session_completed';
+  | 'session_completed'
+  // Polity Passport Bureau (DVN-anchorable; see activityReceiptDvnPipeline)
+  | 'passport_application_submitted'
+  | 'passport_issued'
+  | 'passport_status_changed'
+  | 'passport_revoked'
+  | 'passport_privilege_changed'
+  | 'passport_infraction_recorded';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

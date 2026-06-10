@@ -212,6 +212,97 @@ describe('bureau identity — T0 leak canaries (Stage 2)', () => {
   });
 });
 
+describe('self-custody vault — client-side encryption (Stage 3, Addendum A)', () => {
+  it('encrypt → decrypt round-trips the payload', async () => {
+    const { encryptVaultPayload, decryptVaultPayload } = await import(
+      '@/services/passport/selfCustodyVault'
+    );
+    const payload = { legal_name: 'Test Citizen', jurisdiction: 'Polity' };
+    const { envelope, contentHash } = await encryptVaultPayload(payload, 'correct horse battery');
+    expect(contentHash).toMatch(/^[0-9a-f]{64}$/);
+    const decrypted = await decryptVaultPayload(envelope, 'correct horse battery');
+    expect(decrypted).toEqual(payload);
+  });
+
+  it('wrong passphrase fails to decrypt', async () => {
+    const { encryptVaultPayload, decryptVaultPayload } = await import(
+      '@/services/passport/selfCustodyVault'
+    );
+    const { envelope } = await encryptVaultPayload({ a: 1 }, 'correct horse battery');
+    await expect(decryptVaultPayload(envelope, 'wrong passphrase!')).rejects.toThrow();
+  });
+
+  it('envelope carries the magic header; plaintext shapes are refused', async () => {
+    const { encryptVaultPayload, isVaultEnvelope } = await import(
+      '@/services/passport/selfCustodyVault'
+    );
+    const { envelope } = await encryptVaultPayload({ a: 1 }, 'correct horse battery');
+    expect(isVaultEnvelope(envelope)).toBe(true);
+    expect(isVaultEnvelope(new TextEncoder().encode(JSON.stringify({ name: 'plain' })))).toBe(false);
+    expect(isVaultEnvelope(new Uint8Array(0))).toBe(false);
+  });
+
+  it('ciphertext is never the plaintext; hash is of ciphertext', async () => {
+    const { encryptVaultPayload, sha256Hex } = await import(
+      '@/services/passport/selfCustodyVault'
+    );
+    const payload = { secret: 'do-not-leak-me' };
+    const { envelope, contentHash } = await encryptVaultPayload(payload, 'correct horse battery');
+    const envText = new TextDecoder('utf-8', { fatal: false }).decode(envelope);
+    expect(envText).not.toContain('do-not-leak-me');
+    expect(contentHash).toBe(await sha256Hex(envelope));
+  });
+
+  it('buildSelfCustodyRef pins the constitutional custody consts', async () => {
+    const { buildSelfCustodyRef } = await import('@/services/passport/selfCustodyVault');
+    const ref = buildSelfCustodyRef({ contentId: 'cid-x', contentHash: 'h'.repeat(64) });
+    expect(ref.storage_model).toBe('self_custody_encrypted_file');
+    expect(ref.storage_provider).toBe('autodrive');
+    expect(ref.encryption_profile.encryption_location).toBe('client_side_before_upload');
+    expect(ref.encryption_profile.key_custody).toBe('holder_controlled');
+    expect(ref.holder_key_control.holder_controls_decryption_key).toBe(true);
+    expect(ref.holder_key_control.bureau_controls_decryption_key).toBe(false);
+    expect(ref.system_plaintext_access.passport_bureau_access).toBe(false);
+    expect(ref.system_plaintext_access.supabase_access).toBe(false);
+    expect(ref.system_plaintext_access.sysadmin_access).toBe(false);
+  });
+});
+
+describe('citizen submit route — plaintext exclusion canary (Stage 3)', () => {
+  const submitRouteSrc = readFileSync(
+    path.resolve(__dirname, '../app/api/passport/applications/submit/route.ts'),
+    'utf-8',
+  );
+  const vaultRouteSrc = readFileSync(
+    path.resolve(__dirname, '../app/api/passport/vault/upload/route.ts'),
+    'utf-8',
+  );
+
+  it('submit route stores only vault refs — no plaintext payload columns', () => {
+    expect(submitRouteSrc).toContain('vault_content_id');
+    expect(submitRouteSrc).toContain('vault_content_hash');
+    for (const pii of ['legal_name', 'home_address', 'date_of_birth', 'plaintext']) {
+      expect(submitRouteSrc).not.toContain(pii);
+    }
+  });
+
+  it('submit route enforces all four mandatory self-custody acknowledgements', () => {
+    for (const ack of [
+      'private_data_not_stored_in_supabase_acknowledged',
+      'bureau_cannot_decrypt_private_payload_acknowledged',
+      'sysadmins_cannot_recover_private_payload_acknowledged',
+      'loss_of_key_risk_acknowledged',
+    ]) {
+      expect(submitRouteSrc).toContain(ack);
+    }
+  });
+
+  it('vault upload route refuses non-envelope bytes (no plaintext path)', () => {
+    expect(vaultRouteSrc).toContain('isVaultEnvelope');
+    expect(vaultRouteSrc).toContain('422');
+  });
+});
+
 describe('participant automation stubs', () => {
   it('system-initiated participant transitions are flagged as automatable', () => {
     const systemOnly = [
