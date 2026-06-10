@@ -1,0 +1,99 @@
+# Polity Passport Bureau — Implementation Plan (reuse / extend / new)
+
+**Date:** 2026-06-10
+**PRD:** `2026-06-10_polity-passport-bureau-prd-v1.md` (operator-authored, authoritative)
+**Status:** Plan reviewed in-session with operator. Stage 0/1 gated on operator guidance schemas (to follow) + the three decisions in §3. Stage 2 design and doctrine pack scaffolding are schema-independent.
+**Golden Rule compliance:** every layer below is classified as REUSED, EXTENDED, or NEW.
+
+The most important grounding fact: the **iQube Registry operating plane** (PRD v1.0/v1.1, Stages 0–9 closed 2026-05-31) already provides most of the Bureau's chassis — intake pipeline, lifecycle state machine, mint saga, agent-legibility cards, `.well-known` discovery, DVN receipt blocks, trust scoring, and the standalone `iqube-registry` cartridge.
+
+---
+
+## 1. Reuse / Extend / New inventory
+
+### REUSED as-is (no modification)
+
+| Existing asset | Role in the Bureau |
+|---|---|
+| `services/registry/intakeService.ts`, `mintSaga.ts`, `persistence.ts`, `receiptEmitter.ts` | Registry write-through: application → pending registry record rides the existing intake → mint pipeline |
+| `services/registry/lifecycle.ts` | State-machine *pattern* (validate/describe, side-effects in caller) — the passport status machine mirrors this design; it does not overload the 9-state iQube lifecycle |
+| Identity spine: `getActivePersona`, `evaluateAccess`, `userOwnsAsset`, `personaFetch` | All Bureau auth/gating decisions; zero parallel resolvers |
+| `app/api/persona/create` + `services/identity/personaService.ts` | Persona creation in the citizen flow (PRD §9 step 2) |
+| `kybe_identity` table + `20260427000000_root_did_persona_binding.sql` | Schema anchor for KybeDID creation/binding — already joined into the persona view |
+| DVN pipeline (`services/dvn/activityReceiptDvnPipeline.ts`) | Receipts for submission, registry writes, review decisions, status transitions — only the permitted `ANCHORABLE_ACTION_TYPES` extension |
+| `app/.well-known/iqube-catalog/route.ts` pattern | Template for `/.well-known/polity-passport.json` and `/.well-known/agent-card.json` |
+| `types/iqube/legibility.ts` + `services/iqube/legibility/` + `docs/iqube-agent-legibility-profile.md` | The agent-facing card/discovery layer the Bureau's Agent Card surfaces extend |
+| RQH canister + `services/ops/idl/rqh.ts` + `services/identity/reputationService.ts` | Reputation reads for standing checks |
+| Registry cartridge admin-tab queue pattern (canonization approval queue, registry PRD v1.1 §A.7) | The steward review dashboard is the same workflow shape |
+| `buildCodexUrl()` + subTabs mirror pattern (cf. `knytOrderTabs()`) | Registry-tab-in-Bureau and Bureau-tab-in-AgentiQ-OS cross-surfacing |
+| Storage adapters (`services/content/storageAdapter.ts`) — AutoDrive/Autonomys adapter | Transport for encrypted vault blobs (bytes only; encryption happens client-side before it ever sees them) |
+
+### EXTENDED (existing file, new capability)
+
+| Existing asset | Extension |
+|---|---|
+| `ANCHORABLE_ACTION_TYPES` | Add `passport_application_submitted`, `passport_issued`, `passport_status_changed`, `passport_revoked`, `passport_infraction_recorded` (the one permitted unilateral DVN change) |
+| `ReputationService.checkTokenQubePolicy` | The stub says "World ID not integrated yet / Agent declaration not integrated yet" — this is the designed extension point for strong proof + agent declaration |
+| Registry record types / projections (`services/registry/projections/public.ts`) | New `polity_passport` registry record type + public projection (public metadata only) |
+| `data/codex-configs.ts` | New `polity-passport-bureau` cartridge definition (hand-curated, `-cartridge` pattern); new "Passports" tab on `iqube-registry`; deep-link tab in AgentiQ OS (V1) |
+| `evaluateAccess` policy resolvers | New credential classes by **composition** (`polity-passport:<grade>`, `passport-steward`) — protected spine files untouched, extension-point pattern per CLAUDE.md |
+| Persona/kybe flow | KybeDID issuance + duplicate-check + RootDID→KybeDID mapping flow on top of the existing dev-stub schema (PRD §9 step 3 note — first real `kybe_identity` application logic) |
+| Test canaries (`tests/access-spine.test.ts` pattern) | New `tests/passport-bureau.test.ts` mirroring the T0-leak canary |
+
+### NEW (no existing home)
+
+| New build | Notes |
+|---|---|
+| **Self-custody blakQube vault client module** | Client-side WebCrypto (AES-256-GCM) encrypt-before-upload; holder-derived key; AutoDrive-only payload. `services/content/encryption.ts` is server-side envelope encryption and a protected file — explicitly NOT reused, by design. New module, e.g. `services/passport/selfCustodyVault.ts` + client util |
+| **Bureau localized auth** | Username/password without mandatory email, isolated from metaMe sign-on (decision 1, §3) |
+| **Passport status machine** | The 12-status model (`draft`→…→`renewed`) as its own validate/describe module mirroring `lifecycle.ts`; per-applicant-class transition graphs |
+| **Citizen application flow UI** (tab components) | Guided steps 1–9; reuses `ConfirmDialog`, form primitives, design tokens |
+| **Agent application machine surfaces** | `/polity-passport/submit\|validate\|status/{id}` API routes, JSON schemas, doctrine bundle endpoint, signed-JSON verification |
+| **Steward review dashboard tab** | New tab; queue UI pattern copied from registry admin tab |
+| **CAPTCHA weak-proof integration** | Nothing exists; smallest viable provider (e.g. Turnstile) behind an interface so strong-proof slots in later |
+| **Doctrine layer content** | New pack `codexes/packs/polity-passport/` (markdown + JSON bundles); Bureau tabs render via existing markdown-tab machinery |
+| **Reputation binding + infraction event records** | New tables + standing-status mapping; writes flow through receipt pipeline; RQH integration read-side first |
+| **MCP server + A2A skills** (MVP-should) | No MCP server exists in this repo — net-new surface, sequenced after the plain HTTP API works |
+
+---
+
+## 2. Hard constraints (CLAUDE.md PARAMOUNT rules threading the PRD)
+
+1. **T0 tier vs the PRD's draft schemas.** The application iQube drafts include `kybe_did_anchor` and `root_did_reference`. `rootDid` is T0 (server-only, never in browser JSON or receipts), and kybe is *more* confidential than Root DiD (DiDQube note §15.4). Amendment to propose against the guidance schemas: browser-bound and registry-bound objects carry **commitment hashes / opaque references** (the `hashPersonaRef` pattern); raw DIDs live only server-side. The registry record's `persona_reference` must be a T1/T2 derivative.
+2. **Self-custody vault enforcement.** Supabase columns for passport tables only ever hold `content_id`, `content_hash`, flags, and refs; a CI/test gate (canary-style) asserts no PII-shaped fields exist in passport-table inserts.
+3. **Spine-only gating.** Passport grade and steward role resolve via `cartridgeFlags`/credential classes through `evaluateAccess`; protected spine files extended by composition only.
+4. **DVN receipts.** Every acceptance-criteria receipt rides the existing pipeline; no parallel receipt writer (registry PRD v1.1 §A.4 just deprecated parallel writers — none added back).
+
+---
+
+## 3. Operator decisions (blocking specific stages)
+
+1. **Bureau localized auth mechanism.** The spine authenticates via Supabase Bearer tokens (`personaFetch`). Recommended: real Supabase auth user with a **synthetic email** (`<username>@passport.metame.internal`) + password, so Bureau personas flow through `getActivePersona` unchanged and no parallel auth gate exists; optional real email simply replaces the synthetic one for recovery. Alternative (true parallel credential table) violates the no-parallel-resolvers rule unless explicitly authorized. *(Blocks Stage 2.)*
+2. **Passport primitive typing.** Registry PRD v1.1 removed a primitive type and gated vocabulary additions behind operator approval. Recommended: no new `IQubeType` — applications are DataQubes, agents are AigentQubes, with `registry_record_type: 'polity_passport'` carried as record metadata. *(Blocks Stage 1; guidance schemas may settle this.)*
+3. **Steward role source.** Recommended: `admin-cartridge:polity-passport-bureau` grants via the existing per-cartridge admin credential class, with a distinct `passport-steward` class only if non-admin stewards are needed. *(Blocks Stage 6.)*
+
+---
+
+## 4. Stage plan (MVP = PRD §16 must-include)
+
+| Stage | Delivers | PRD refs |
+|---|---|---|
+| **0 — Schema alignment** (gated on guidance schemas) | Reconcile operator schemas with registry-canonical types + T0 amendments; passport status machine spec | §11, §12, addenda |
+| **1 — Data layer** | Migrations: `polity_passport_applications`, `polity_passport_records` (registry-linked), `passport_reputation_bindings`, `passport_infractions` (schema only for MVP); status machine module; anchorable action types | §11, §12, Addendum C (schema only) |
+| **2 — Identity & auth** | Bureau sign-on (per decision 1); persona + KybeDID create/bind flow incl. duplicate-check + existing-RootDID mapping; recovery-scope warnings | §5.1, §7.1, §8.1, §9 steps 2–3 |
+| **3 — Citizen flow** | Application tab UI (steps 1–9), CAPTCHA weak proof, self-custody vault module (client-side encrypt → AutoDrive), application iQube + pending registry record + receipts; self-custody acknowledgements; recovery-policy metadata stub | §6.1, §9, §16, Addenda A–B |
+| **4 — Agent flow (HTTP-first)** | JSON schemas served, `/polity-passport/submit\|validate\|status`, signed-JSON verification, agent iQube + application iQube + pending record, automated review checks | §6.3–6.5, §10 steps 1–6, §12.2 |
+| **5 — Registry integration** | "Passports" tab on `iqube-registry` cartridge + mirrored into Bureau cartridge (subTabs pattern); public status page; public projection with zero private fields | §4.4, §11, §12.3 |
+| **6 — Review & issuance** | Steward dashboard (queue pattern), status transitions with receipts, mandatory-steward-review categories, decision outcomes | §4.5, §10 steps 7–9, §14 |
+| **7 — MVP-should** | `/llms.txt`, OpenAPI spec, `/.well-known/agent-card.json` + `polity-passport.json`, doctrine bundle download, World ID stub behind the `ReputationService` extension point, MCP read-only + submit tools | §13, §16 should |
+| **Deferred** | Per PRD §16 can-defer + §17 V1 list; recovery V1–V4 path preserved by storing recovery-policy metadata from Stage 3 | §17, Addendum B |
+
+"Being" services get a stubbed tab (own component, own route namespace) so extraction to a separate cartridge later is a config move, not a refactor (§15).
+
+---
+
+## 5. PRD review notes (flagged to operator)
+
+- **Citizen irrevocability vs status model:** PRD §2 says citizen eligibility is irrevocable (expire/renew only) but §11's statuses include `revoked` for all types, and Addendum C allows citizen revocation at a higher threshold. Implementation approach: citizen transitions to `suspended`/`revoked` require a distinct steward action class + receipt, and the status machine encodes different legal transitions per applicant class. Open: confirm whether citizen `revoked` should exist at all, or whether `expired` + `suspended` is the citizen ceiling.
+- **Email as passport data vs account data:** optional recovery email belongs to the *account* (Supabase auth), not the passport payload — so it never violates the "no personal email in Supabase as passport data" rule. UI copy makes that boundary explicit, matching the acknowledgement block.
+- **Agent endpoint reachability checks** (§14.1) run server-side from Lambda; outbound network from the dev sandbox is blocked, so these get integration-tested on dev, not locally.
