@@ -24,6 +24,16 @@ import {
 
 import { shouldAnchorActionType } from '@/services/dvn/activityReceiptDvnPipeline';
 
+import {
+  BUREAU_SYNTHETIC_EMAIL_DOMAIN,
+  validateBureauUsername,
+  syntheticEmailForUsername,
+  isBureauSyntheticEmail,
+  didPublicRef,
+  mintKybeDid,
+  recoveryPolicyStub,
+} from '@/services/passport/bureauIdentityService';
+
 const migrationSql = readFileSync(
   path.resolve(__dirname, '../supabase/migrations/20260610000000_polity_passport_bureau.sql'),
   'utf-8',
@@ -128,6 +138,77 @@ describe('citizen renewal — proof-of-aliveness', () => {
       expect(rule).toBeDefined();
       expect(rule!.evidence).toBe('continuity_proof');
     }
+  });
+});
+
+describe('bureau identity — synthetic-email auth helpers (Stage 2)', () => {
+  it('synthetic email uses the canonical internal domain', () => {
+    expect(BUREAU_SYNTHETIC_EMAIL_DOMAIN).toBe('passport.metame.internal');
+    expect(syntheticEmailForUsername('Ada-Lovelace')).toBe(
+      'ada-lovelace@passport.metame.internal',
+    );
+    expect(isBureauSyntheticEmail('x@passport.metame.internal')).toBe(true);
+    expect(isBureauSyntheticEmail('x@gmail.com')).toBe(false);
+  });
+
+  it('username validation: 3–32 lowercase alphanumeric + hyphens', () => {
+    expect(validateBureauUsername('ada').ok).toBe(true);
+    expect(validateBureauUsername('ada-lovelace-42').ok).toBe(true);
+    expect(validateBureauUsername('ab').ok).toBe(false);
+    expect(validateBureauUsername('Ada').ok).toBe(false);
+    expect(validateBureauUsername('-ada').ok).toBe(false);
+    expect(validateBureauUsername('ada-').ok).toBe(false);
+    expect(validateBureauUsername('ada lovelace').ok).toBe(false);
+    expect(validateBureauUsername('a'.repeat(33)).ok).toBe(false);
+  });
+
+  it('didPublicRef is a 16-hex commitment, deterministic, non-reversing', () => {
+    const ref = didPublicRef('did:kybe:ppb:abc');
+    expect(ref).toMatch(/^[0-9a-f]{16}$/);
+    expect(didPublicRef('did:kybe:ppb:abc')).toBe(ref);
+    expect(ref).not.toContain('did:');
+  });
+
+  it('minted kybe DIDs use the ppb namespace and are unique', () => {
+    const a = mintKybeDid();
+    const b = mintKybeDid();
+    expect(a).toMatch(/^did:kybe:ppb:[0-9a-f]{32}$/);
+    expect(a).not.toBe(b);
+  });
+
+  it('recovery policy stub is account-scope only and warns on self-custody', () => {
+    const withEmail = recoveryPolicyStub(true);
+    const without = recoveryPolicyStub(false);
+    expect(withEmail.scope).toBe('account_recovery_only');
+    expect(without.scope).toBe('account_recovery_only');
+    expect(without.warning).toContain('self-custodied');
+    expect(withEmail.warning).toContain('ACCOUNT access only');
+  });
+});
+
+describe('bureau identity — T0 leak canaries (Stage 2)', () => {
+  const bindRouteSrc = readFileSync(
+    path.resolve(__dirname, '../app/api/passport/identity/bind/route.ts'),
+    'utf-8',
+  );
+  const serviceSrc = readFileSync(
+    path.resolve(__dirname, '../services/passport/bureauIdentityService.ts'),
+    'utf-8',
+  );
+
+  it('bind route never serializes personaId, kybe_did, or root did_uri', () => {
+    // The response object must not carry T0 fields. We assert the route only
+    // serializes the commitment-ref fields.
+    expect(bindRouteSrc).toContain('kybePublicRef');
+    expect(bindRouteSrc).toContain('rootDidPublicRef');
+    expect(bindRouteSrc).not.toMatch(/personaId:\s*result\.personaId/);
+    expect(bindRouteSrc).not.toMatch(/kybeDid:\s*/);
+    expect(bindRouteSrc).not.toMatch(/rootDid:\s*(?!PublicRef)/);
+  });
+
+  it('bureau service routes caller auth through the spine, not a parallel resolver', () => {
+    expect(bindRouteSrc).toContain('getCallerIdentityContext');
+    expect(serviceSrc).not.toContain('getCurrentPersona');
   });
 });
 
