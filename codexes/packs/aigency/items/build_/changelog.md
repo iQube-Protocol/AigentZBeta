@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`6456e27`](https://github.com/iQube-Protocol/AigentZBeta/commit/6456e2713b320550dcb2d949485cf3126913c9a0) [feat] add polity passport bureau PRD v1 + reuse/extend/new implementation plan docs (Claude, 2026-06-10T17:02:38Z)
 - [`a0a21f3`](https://github.com/iQube-Protocol/AigentZBeta/commit/a0a21f3c96e305e1fadd15295a582536863af2fc) [fix] receipt card: show full card collapsed, gate only chain-of-intent; fix cycles card layout + error surfacing (Claude, 2026-06-09T04:21:40Z)
 - [`dc6a5b2`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc6a5b2fa45b4672d889bb8487f2fef157421cf0) [fix] fix PEM normalizer: strip all non-base64 chars from body lines (Claude, 2026-06-09T03:54:22Z)
 - [`14e72e9`](https://github.com/iQube-Protocol/AigentZBeta/commit/14e72e9169f972e585e6d522ce88264386641faa) [fix] fix PEM parsing: install @dfinity/identity-secp256k1 and route all callers through it (Claude, 2026-06-09T02:27:33Z)
