@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-10T17:21:18.791Z",
+  "last_updated": "2026-06-10T17:58:09.250Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fec591fd253084417752c8145e624eedc4ccb274",
-  "latest_commit_short": "fec591f",
-  "latest_commit_title": "land polity passport schema bundle v0.1 with vault, irrevocability + reputation addenda applied",
+  "latest_commit": "2312d950523d3ac552b17c3ad7c255b7e249d5ba",
+  "latest_commit_short": "2312d95",
+  "latest_commit_title": "add per-class polity passport status machines with addendum D invariant tests",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2312d95",
+      "full_sha": "2312d950523d3ac552b17c3ad7c255b7e249d5ba",
+      "title": "add per-class polity passport status machines with addendum D invariant tests",
+      "author": "Claude",
+      "timestamp": "2026-06-10T17:56:11Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2312d95.md"
+    },
+    {
+      "sha": "78516b6",
+      "full_sha": "78516b608a7a73b571029cdd02a6f58f9d590912",
+      "title": "add PRD addendum E: identity-surface separation — reputation at RootDID level, citizen credential forbids reputation binding",
+      "author": "Claude",
+      "timestamp": "2026-06-10T17:56:12Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-78516b6.md"
+    },
     {
       "sha": "fec591f",
       "full_sha": "fec591fd253084417752c8145e624eedc4ccb274",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-29T20:43:39Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3af9161.md"
-    },
-    {
-      "sha": "3a155b8",
-      "full_sha": "3a155b825cb8f31b41e754b2f663676a29e31072",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-29T20:43:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3a155b8.md"
-    },
-    {
-      "sha": "5cbbec3",
-      "full_sha": "5cbbec335bace62a43c314be9d7fa044fd27d27b",
-      "title": "metaMe protocol primitive: R/T dots spec + TTS console diagnostics + iframe Open removal",
-      "author": "Claude",
-      "timestamp": "2026-05-29T17:06:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5cbbec3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

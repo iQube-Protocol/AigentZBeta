@@ -2114,3 +2114,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-fec591f.md](../build_/COMMITS/COMMIT-fec591f.md)
 - Message: land polity passport schema bundle v0.1 with vault, irrevocability + reputation addenda applied
+
+## Commit `78516b6` — 2026-06-10T17:56:12Z
+- Type: `feat`
+- Brief: [COMMIT-78516b6.md](../build_/COMMITS/COMMIT-78516b6.md)
+- Message: add PRD addendum E: identity-surface separation — reputation at RootDID level, citizen credential forbids reputation binding
+
+## Commit `2312d95` — 2026-06-10T17:56:11Z
+- Type: `feat`
+- Brief: [COMMIT-2312d95.md](../build_/COMMITS/COMMIT-2312d95.md)
+- Message: add per-class polity passport status machines with addendum D invariant tests
