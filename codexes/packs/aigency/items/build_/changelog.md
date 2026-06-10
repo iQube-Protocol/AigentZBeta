@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`2312d95`](https://github.com/iQube-Protocol/AigentZBeta/commit/2312d950523d3ac552b17c3ad7c255b7e249d5ba) [feat] add per-class polity passport status machines with addendum D invariant tests (Claude, 2026-06-10T17:56:11Z)
+- [`78516b6`](https://github.com/iQube-Protocol/AigentZBeta/commit/78516b608a7a73b571029cdd02a6f58f9d590912) [feat] add PRD addendum E: identity-surface separation — reputation at RootDID level, citizen credential forbids reputation binding (Claude, 2026-06-10T17:56:12Z)
 - [`fec591f`](https://github.com/iQube-Protocol/AigentZBeta/commit/fec591fd253084417752c8145e624eedc4ccb274) [push] land polity passport schema bundle v0.1 with vault, irrevocability + reputation addenda applied (Claude, 2026-06-10T17:19:25Z)
 - [`6456e27`](https://github.com/iQube-Protocol/AigentZBeta/commit/6456e2713b320550dcb2d949485cf3126913c9a0) [feat] add polity passport bureau PRD v1 + reuse/extend/new implementation plan docs (Claude, 2026-06-10T17:02:38Z)
 - [`a0a21f3`](https://github.com/iQube-Protocol/AigentZBeta/commit/a0a21f3c96e305e1fadd15295a582536863af2fc) [fix] receipt card: show full card collapsed, gate only chain-of-intent; fix cycles card layout + error surfacing (Claude, 2026-06-09T04:21:40Z)
