@@ -2134,3 +2134,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5ffd3a5.md](../build_/COMMITS/COMMIT-5ffd3a5.md)
 - Message: stage 3 citizen flow server-side: self-custody vault, weak proof, application submit pipeline
+
+## Commit `98f76cf` — 2026-06-10T21:34:37Z
+- Type: `push`
+- Brief: [COMMIT-98f76cf.md](../build_/COMMITS/COMMIT-98f76cf.md)
+- Message: stage 4 agent flow HTTP-first: schema serving, validate/submit/status machine surfaces
