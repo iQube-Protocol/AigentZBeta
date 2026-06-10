@@ -213,6 +213,8 @@ Agent applicants should not need a human-style login. They should be able to app
 
 ## 11. Registry Status Model
 
+> **SUPERSEDED BY ADDENDUM D:** the single status list below is replaced by two per-class enums — Citizen Passport statuses (no `revoked`; lifecycle/continuity states) and Agent Participant Passport statuses (revocable standing, plus `delisted`). See Addendum D "Required Schema Change".
+
 ```json
 [
   "draft", "submitted", "pending_approval", "provisionally_issued",
@@ -704,6 +706,8 @@ Supabase must not store:
 
 ## Addendum C: Passport, RootDID, Agent ID, and Reputation Entanglement
 
+> **AMENDED BY ADDENDUM D (Citizen Passport irrevocability).** Where this addendum implies citizen passports may be `revoked` (even at a higher threshold), Addendum D supersedes it: citizen *privileges* are reputation-conditional; citizen *passports* (personhood recognition) are irrevocable. Agent participant revocability is unchanged.
+
 **Purpose:** integrate passport status with the Polity reputation system so Citizen and Participant Passports are living standing credentials, not static credentials. A Polity Passport represents: identity continuity; current standing; rights and permissions; constraints and obligations; reputation-linked participation status; review, suspension, and revocation state. For agents in particular, participant rights must be conditional on reputation standing.
 
 **Core requirement:** the Bureau links each passport record to reputation infrastructure through the holder's identity structure.
@@ -842,5 +846,156 @@ Supabase must not store:
 6. RootDID reputation can be linked to passport standing.
 7. KybeDID continuity can support reputation inheritance across RootDID rotation.
 8. Private blakQube passport payloads remain inaccessible to the reputation system.
-9. Citizen passport revocation uses a higher due-process threshold than agent participant revocation.
+9. ~~Citizen passport revocation uses a higher due-process threshold than agent participant revocation.~~ *(Superseded by Addendum D: citizen passports are not revocable; reputation affects citizen privileges only.)*
 10. Registry status reflects current passport standing.
+
+---
+
+## Addendum D: Correction — Irrevocability of Citizen Passports
+
+**The clean distinction:**
+
+- **Citizen Passport** = irrevocable recognition of personhood.
+- **Citizen privileges** = conditional access rights.
+- **Agent Participant Passport** = revocable standing.
+
+Addendum C is amended accordingly: reputation can affect what a citizen may access, but not whether they are recognized as a human person within the Polity.
+
+### Constitutional Principle
+
+A Citizen Polity Passport is proof of personhood and recognition of human standing within the Polity. Because personhood is not a privilege granted by the system, the Citizen Passport itself must not be revocable for misconduct, reputation damage, criminality, political status, economic status, social standing, or loss of access to particular services.
+
+The Polity may restrict privileges, services, cartridge access, or application-specific rights, but it must not revoke recognition of a human being as a person.
+
+### Corrected Passport Standing Model
+
+The Passport Bureau must distinguish between:
+
+1. **Citizen Passport standing** — recognition of personhood, individuality, continuity, and human membership.
+2. **Citizen privilege standing** — conditional access to particular resources, cartridges, workflows, applications, or governance functions.
+3. **Agent Participant standing** — conditional non-human participation status based on reputation, compliance, constraints, obligations, and auditability.
+
+### Citizen Passport Rule
+
+Citizen Passports are irrevocable while the person exists.
+
+A Citizen Passport may be:
+
+```json
+["active", "pending_renewal", "expired_non_renewal", "inactive_presumed", "ceased_death_confirmed", "superseded_by_reissue"]
+```
+
+A Citizen Passport must not be:
+
+```json
+["revoked_for_reputation", "revoked_for_crime", "revoked_for_policy_violation", "revoked_for_low_score", "revoked_for_political_reason", "revoked_for_resource_misuse"]
+```
+
+### Expiry and Renewal
+
+Citizen Passports may expire by time or non-renewal. **Expiry is not punishment. It is a continuity check.**
+
+The renewal process should be lightweight and privacy-preserving. Its purpose is to confirm that the passport holder still exists, still controls the persona or recovery quorum, and still wishes to maintain active passport status.
+
+Possible renewal methods: persona proof-of-control; KybeDID proof-of-control; RootDID proof-of-control; CAPTCHA or weak human presence proof; World ID or strong proof-of-personhood refresh; multi-modal recovery quorum; steward-assisted continuity review where required.
+
+### Death or Cessation
+
+A Citizen Passport may move to a ceased or inactive state if: death is confirmed; legally sufficient death evidence is provided; a trusted proof-of-death process is later implemented; or the passport expires and remains unrenewed beyond a defined dormancy period.
+
+Suggested states:
+
+```json
+{
+  "citizen_passport_life_status": [
+    "active", "renewal_due", "expired_non_renewal",
+    "dormant", "inactive_presumed", "ceased_death_confirmed"
+  ]
+}
+```
+
+The system should avoid declaring death solely from non-renewal. Non-renewal should first create `expired_non_renewal` or `inactive_presumed`, not `ceased_death_confirmed`.
+
+### Citizen Reputation Rule
+
+Citizen reputation may affect privileges, but not personhood.
+
+**Reputation may influence:** access to specific cartridges; access to specific resources; governance participation privileges; ability to receive certain forms of assistance; access to high-trust workflows; ability to act as guardian, steward, reviewer, or agent operator; rate limits; moderation status; dispute requirements; application-specific eligibility.
+
+**Reputation must not affect:** recognition as a human person; existence of the Citizen Passport; KybeDID continuity; basic personhood status; the right to maintain an anonymous or pseudonymous identity; the right to preserve reputation history subject to policy; the right to apply for restoration of privileges.
+
+### Citizen Privilege Restriction Model
+
+A separate object for conditional privileges:
+
+```json
+{
+  "schema": "polity.passport.citizen-privilege-standing.v0.1",
+  "passport_id": "",
+  "citizen_privilege_status": "full | limited | restricted | suspended | under_review",
+  "affected_privileges": [
+    {
+      "privilege_id": "",
+      "privilege_type": "cartridge_access | resource_access | governance_participation | steward_role | guardian_role | application_specific_benefit | other",
+      "status": "active | restricted | suspended | revoked",
+      "reason_code": "policy_violation | reputation_threshold | safety_risk | misuse | fraud | dispute | other",
+      "scope": "",
+      "effective_at": "",
+      "expires_at": "",
+      "appeal_available": true
+    }
+  ],
+  "passport_remains_valid": true
+}
+```
+
+### Agent Participant Contrast
+
+Agent Participant Passports remain revocable. Agents do not hold human personhood rights. Their participation is conditional on: reputation standing; compliance with obligations; declared constraints; auditability; receipt production; policy compliance; safe operation; respect for human sovereignty; respect for blakQube boundaries.
+
+An Agent Participant Passport may be restricted, suspended, revoked, expired, or delisted based on reputation infractions.
+
+### Corrected Policy Statement (canonical PRD language)
+
+> Citizen Passports are irrevocable recognitions of human personhood and continuity. A citizen may lose access to specific privileges, resources, cartridges, or roles, but the Polity must not revoke the citizen's passport as punishment or reputation consequence. Agent Participant Passports are different: agents hold conditional participant standing, and that standing may be restricted, suspended, or revoked based on reputation, safety, compliance, or auditability failures.
+
+### Required Schema Change
+
+`revoked` is removed from the Citizen Passport status path. The single §11 status model is replaced by two per-class status enums:
+
+**Citizen Passport statuses:**
+
+```json
+[
+  "draft", "submitted", "pending_approval", "active", "renewal_due",
+  "expired_non_renewal", "dormant", "inactive_presumed",
+  "ceased_death_confirmed", "superseded_by_reissue"
+]
+```
+
+**Agent Participant Passport statuses:**
+
+```json
+[
+  "draft", "submitted", "pending_approval", "provisionally_issued",
+  "approved", "restricted", "needs_more_information", "suspended",
+  "revoked", "expired", "renewed", "delisted"
+]
+```
+
+### Acceptance Criteria (correction)
+
+This correction is implemented when:
+
+1. Citizen Passports cannot be revoked for reputation, crime, misconduct, or policy violations.
+2. Citizen privilege access is modeled separately from passport existence.
+3. Citizen Passport expiration is treated as a continuity/renewal matter, not punishment.
+4. Death or cessation is the only basis for final ceased status.
+5. Non-renewal produces inactive or expired states, not revocation.
+6. Agent Participant Passports remain revocable.
+7. Reputation infractions can restrict citizen privileges but not citizen personhood recognition.
+8. Registry records clearly distinguish passport status from privilege status.
+9. The schema separates Citizen Passport statuses from Agent Participant Passport statuses.
+10. The PRD explicitly states that personhood is not conditional on reputation.
+
+**Moral force:** agents participate by permission and standing; humans belong by personhood.

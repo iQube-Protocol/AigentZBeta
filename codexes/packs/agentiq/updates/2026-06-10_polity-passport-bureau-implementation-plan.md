@@ -32,7 +32,7 @@ The most important grounding fact: the **iQube Registry operating plane** (PRD v
 
 | Existing asset | Extension |
 |---|---|
-| `ANCHORABLE_ACTION_TYPES` | Add `passport_application_submitted`, `passport_issued`, `passport_status_changed`, `passport_revoked`, `passport_infraction_recorded` (the one permitted unilateral DVN change) |
+| `ANCHORABLE_ACTION_TYPES` | Add `passport_application_submitted`, `passport_issued`, `passport_status_changed`, `passport_revoked` (participant class only, per Addendum D), `passport_privilege_changed`, `passport_infraction_recorded` (the one permitted unilateral DVN change) |
 | `ReputationService.checkTokenQubePolicy` | The stub says "World ID not integrated yet / Agent declaration not integrated yet" — this is the designed extension point for strong proof + agent declaration |
 | Registry record types / projections (`services/registry/projections/public.ts`) | New `polity_passport` registry record type + public projection (public metadata only) |
 | `data/codex-configs.ts` | New `polity-passport-bureau` cartridge definition (hand-curated, `-cartridge` pattern); new "Passports" tab on `iqube-registry`; deep-link tab in AgentiQ OS (V1) |
@@ -46,7 +46,8 @@ The most important grounding fact: the **iQube Registry operating plane** (PRD v
 |---|---|
 | **Self-custody blakQube vault client module** | Client-side WebCrypto (AES-256-GCM) encrypt-before-upload; holder-derived key; AutoDrive-only payload. `services/content/encryption.ts` is server-side envelope encryption and a protected file — explicitly NOT reused, by design. New module, e.g. `services/passport/selfCustodyVault.ts` + client util |
 | **Bureau localized auth** | Username/password without mandatory email, isolated from metaMe sign-on (decision 1, §3) |
-| **Passport status machine** | The 12-status model (`draft`→…→`renewed`) as its own validate/describe module mirroring `lifecycle.ts`; per-applicant-class transition graphs |
+| **Passport status machines (two, per class)** | Per PRD Addendum D: a **citizen lifecycle machine** (`draft`→`active`→`renewal_due`→`expired_non_renewal`/`dormant`/`inactive_presumed`→`ceased_death_confirmed`/`superseded_by_reissue`; NO `revoked` state) and a separate **participant standing machine** (`draft`→…→`revoked`/`delisted`). Both as validate/describe modules mirroring `lifecycle.ts` |
+| **Citizen privilege standing model** | Per Addendum D: `polity.passport.citizen-privilege-standing.v0.1` — privileges are restrictable/revocable while `passport_remains_valid: true`. Enforcement composes with `evaluateAccess` (privilege restriction = access-policy input, never passport-state change) |
 | **Citizen application flow UI** (tab components) | Guided steps 1–9; reuses `ConfirmDialog`, form primitives, design tokens |
 | **Agent application machine surfaces** | `/polity-passport/submit\|validate\|status/{id}` API routes, JSON schemas, doctrine bundle endpoint, signed-JSON verification |
 | **Steward review dashboard tab** | New tab; queue UI pattern copied from registry admin tab |
@@ -79,7 +80,7 @@ The most important grounding fact: the **iQube Registry operating plane** (PRD v
 | Stage | Delivers | PRD refs |
 |---|---|---|
 | **0 — Schema alignment** (gated on guidance schemas) | Reconcile operator schemas with registry-canonical types + T0 amendments; passport status machine spec | §11, §12, addenda |
-| **1 — Data layer** | Migrations: `polity_passport_applications`, `polity_passport_records` (registry-linked), `passport_reputation_bindings`, `passport_infractions` (schema only for MVP); status machine module; anchorable action types | §11, §12, Addendum C (schema only) |
+| **1 — Data layer** | Migrations: `polity_passport_applications`, `polity_passport_records` (registry-linked; per-class status columns), `passport_citizen_privileges` (Addendum D privilege-standing), `passport_reputation_bindings`, `passport_infractions` (schema only for MVP); the two per-class status machine modules; anchorable action types (incl. `passport_privilege_changed`) | §11 + Addendum D, §12, Addendum C (schema only) |
 | **2 — Identity & auth** | Bureau sign-on (per decision 1); persona + KybeDID create/bind flow incl. duplicate-check + existing-RootDID mapping; recovery-scope warnings | §5.1, §7.1, §8.1, §9 steps 2–3 |
 | **3 — Citizen flow** | Application tab UI (steps 1–9), CAPTCHA weak proof, self-custody vault module (client-side encrypt → AutoDrive), application iQube + pending registry record + receipts; self-custody acknowledgements; recovery-policy metadata stub | §6.1, §9, §16, Addenda A–B |
 | **4 — Agent flow (HTTP-first)** | JSON schemas served, `/polity-passport/submit\|validate\|status`, signed-JSON verification, agent iQube + application iQube + pending record, automated review checks | §6.3–6.5, §10 steps 1–6, §12.2 |
@@ -94,6 +95,6 @@ The most important grounding fact: the **iQube Registry operating plane** (PRD v
 
 ## 5. PRD review notes (flagged to operator)
 
-- **Citizen irrevocability vs status model:** PRD §2 says citizen eligibility is irrevocable (expire/renew only) but §11's statuses include `revoked` for all types, and Addendum C allows citizen revocation at a higher threshold. Implementation approach: citizen transitions to `suspended`/`revoked` require a distinct steward action class + receipt, and the status machine encodes different legal transitions per applicant class. Open: confirm whether citizen `revoked` should exist at all, or whether `expired` + `suspended` is the citizen ceiling.
+- **Citizen irrevocability vs status model: RESOLVED by PRD Addendum D (2026-06-10).** Citizen passports have NO `revoked` state — they are irrevocable personhood recognition with lifecycle/continuity states only (`expired_non_renewal`, `dormant`, `inactive_presumed`, `ceased_death_confirmed`, `superseded_by_reissue`). Reputation consequences for citizens act exclusively on the separate privilege-standing object (`passport_citizen_privileges`), never on passport existence. Agent participant passports remain revocable (+ `delisted`). Two separate status enums, two separate state machines.
 - **Email as passport data vs account data:** optional recovery email belongs to the *account* (Supabase auth), not the passport payload — so it never violates the "no personal email in Supabase as passport data" rule. UI copy makes that boundary explicit, matching the acknowledgement block.
 - **Agent endpoint reachability checks** (§14.1) run server-side from Lambda; outbound network from the dev sandbox is blocked, so these get integration-tested on dev, not locally.
