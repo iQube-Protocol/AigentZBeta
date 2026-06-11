@@ -26,10 +26,10 @@ the operator can read off the cartridge.
 | Outreach **drafted** | shipped |
 | Outreach **sent** | NOT BUILT — by design Marketa never auto-sends; operator must approve |
 | Outreach **reply tracked** | NOT BUILT |
-| Opportunity logged (`marketa_candidate_opportunities` table) | schema exists; no API, no UI |
-| Revenue closed | revenueTracking JSONB lives on candidate; no read/write surface |
-| Revenue attributed (per source, per lane) | NOT BUILT |
-| Activation events audit | shipped end-to-end |
+| Opportunity logged (`marketa_candidate_opportunities` table) | **shipped 2026-06-11** — GET/POST/PATCH at `/api/marketa/activation/candidates/[id]/opportunities` + scorecard panel (add / advance / reject through proposed→approved→active→completed) |
+| Revenue closed | **shipped 2026-06-11** — mechanical roll-up on every opportunity change: open opps → `estimatedPipelineValue`, completed → `closedCleanRevenue`; rejected counts nowhere |
+| Revenue attributed (per source, per lane) | partial — cartridge top metrics show Pipeline value + Closed revenue across all candidates; per-source/per-lane attribution NOT BUILT |
+| Activation events audit | shipped end-to-end (opportunity_created / opportunity_updated included) |
 
 ## Gap analysis — what blocks "operational" today
 
@@ -65,7 +65,7 @@ In rough order of value to the golden path:
 
 ## Recommended attack order
 
-1. Opportunity CRUD + scorecard panel (the missing half of the funnel)
+1. ~~Opportunity CRUD + scorecard panel~~ — **DONE 2026-06-11**
 2. Outreach send via existing Marketa send path + reply-flip hook
 3. Revenue roll-up + dashboard metrics
 4. Discovery automation
