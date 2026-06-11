@@ -76,6 +76,7 @@ export function MarketaActivationEngineTab() {
   const [lastDraft, setLastDraft] = useState<{ subject: string; body: string; cta: string } | null>(
     null,
   );
+  const [lastActionNote, setLastActionNote] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "needs_review" | "exec" | "vulnerable" | "legal">(
@@ -189,10 +190,11 @@ export function MarketaActivationEngineTab() {
 
   const runCandidateAction = async (
     candidateId: string,
-    action: "registry" | "reputation" | "outreach",
+    action: "registry" | "reputation" | "outreach" | "passport",
   ) => {
     setActionId(`${action}:${candidateId}`);
     setError(null);
+    setLastActionNote(null);
     if (action !== "outreach") setLastDraft(null);
     try {
       const res = await fetch(`/api/marketa/activation/candidates/${candidateId}/${action}`, {
@@ -204,6 +206,7 @@ export function MarketaActivationEngineTab() {
         ok: boolean;
         candidate?: CandidateAgent;
         draft?: { subject: string; body: string; cta: string };
+        note?: string;
         error?: string;
         detail?: string;
       };
@@ -214,6 +217,7 @@ export function MarketaActivationEngineTab() {
       );
       setSelectedId(candidateId);
       if (json.draft) setLastDraft(json.draft);
+      if (json.note) setLastActionNote(json.note);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -475,6 +479,20 @@ export function MarketaActivationEngineTab() {
                   size="sm"
                   variant="outline"
                   className="bg-slate-800/50 border-white/20 text-slate-200"
+                  onClick={() => runCandidateAction(selected.id, "passport")}
+                  disabled={actionId === `passport:${selected.id}`}
+                >
+                  {actionId === `passport:${selected.id}` ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-3 h-3 mr-1" />
+                  )}{" "}
+                  Passport
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-slate-800/50 border-white/20 text-slate-200"
                   onClick={() => runCandidateAction(selected.id, "outreach")}
                   disabled={actionId === `outreach:${selected.id}`}
                 >
@@ -583,6 +601,11 @@ export function MarketaActivationEngineTab() {
                     <span className="text-slate-500">{formatLabel(selected.outreachStatus)}</span>
                   </p>
                 </div>
+                {lastActionNote && (
+                  <p className="mt-2 rounded bg-slate-900/60 border border-slate-800 p-2 text-[11px] text-amber-300/90">
+                    {lastActionNote}
+                  </p>
+                )}
               </section>
               {lastDraft && (
                 <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
