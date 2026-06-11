@@ -19,6 +19,7 @@ export {
   type EscalationPath,
   type AigentStanding,
   type AigentClassification,
+  type ConstitutionalEntity,
   CONSTITUTIONAL_PRINCIPLES,
   METAME_GUARDIAN,
   AIGENT_ME,
@@ -26,20 +27,30 @@ export {
   AIGENT_Z,
   SOVEREIGN_ROLES,
   ESCALATION_MATRIX,
+  CONSTITUTIONAL_ENTITIES,
   getSovereignRole,
   getRoleByRuntimeId,
   getEscalationPaths,
   hasAuthority,
   classifyAgent,
+  getConstitutionalEntity,
 } from './sovereignAgentRoles';
 
 export {
   type DecisionStatus,
   type DecisionDomain,
   type GovernanceDecision,
+  type SovereigntyImpact,
+  type SovereigntyImpactLevel,
   GOVERNANCE_DECISIONS,
   getDecision,
   getDecisionsByDomain,
   getDecisionsByInitiative,
   getActiveDecisions,
 } from './governanceDecisionLog';
+
+export {
+  type GovernanceActionType,
+  type GovernanceReceiptInput,
+  createGovernanceReceipt,
+} from './governanceReceiptHelper';

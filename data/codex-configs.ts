@@ -1991,6 +1991,28 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'GovernanceDecisionLogTab', props: {} },
       metadata: { icon: 'FileText', description: 'Ratified governance decisions and constitutional amendments' },
     },
+    {
+      id: 'agentiq-os-authority-matrix',
+      label: 'Authority Matrix',
+      slug: 'authority-matrix',
+      enabled: true,
+      group: 'governance',
+      order: 3,
+      type: 'static',
+      config: { component: 'GovernanceAuthorityMatrixTab', props: {} },
+      metadata: { icon: 'Grid3X3', description: 'Cross-reference: roles × authority domains' },
+    },
+    {
+      id: 'agentiq-os-governance-receipts',
+      label: 'Receipts',
+      slug: 'governance-receipts',
+      enabled: true,
+      group: 'governance',
+      order: 4,
+      type: 'static',
+      config: { component: 'GovernanceReceiptsTab', props: {} },
+      metadata: { icon: 'Receipt', description: 'DVN-anchored governance decision receipts' },
+    },
 
     // ── Community group ────────────────────────────────────────
     {

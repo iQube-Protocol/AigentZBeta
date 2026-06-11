@@ -295,6 +295,67 @@ export interface AigentClassification {
   handle: AigentHandleId | null;
 }
 
+// ─── Constitutional Registry Integration Stub ─────────────────────────────
+// Schema only — no implementation, no DB, no API. Future-proofs the registry
+// integration by defining the shape of constitutional entities.
+
+export interface ConstitutionalEntity {
+  constitutionalId: ConstitutionalRoleId;
+  constitutionalRole: string;
+  aigentHandle: AigentHandleId | null;
+  passportRequired: boolean;
+  registryRegistered: boolean;
+  rootDid: string | null;
+  passportId: string | null;
+}
+
+export const CONSTITUTIONAL_ENTITIES: ConstitutionalEntity[] = [
+  {
+    constitutionalId: 'metame_guardian',
+    constitutionalRole: 'sovereignty_layer',
+    aigentHandle: '@myguard.aigent',
+    passportRequired: false,
+    registryRegistered: true,
+    rootDid: null,
+    passportId: null,
+  },
+  {
+    constitutionalId: 'aigentMe',
+    constitutionalRole: 'individual_agency',
+    aigentHandle: '@metame.aigent',
+    passportRequired: false,
+    registryRegistered: true,
+    rootDid: null,
+    passportId: null,
+  },
+  {
+    constitutionalId: 'aigentC',
+    constitutionalRole: 'collective_agency',
+    aigentHandle: '@aigentc.aigent',
+    passportRequired: false,
+    registryRegistered: true,
+    rootDid: null,
+    passportId: null,
+  },
+  {
+    constitutionalId: 'aigentZ',
+    constitutionalRole: 'platform_agency',
+    aigentHandle: '@agentz.aigent',
+    passportRequired: false,
+    registryRegistered: true,
+    rootDid: null,
+    passportId: null,
+  },
+];
+
+export function getConstitutionalEntity(
+  id: ConstitutionalRoleId,
+): ConstitutionalEntity | undefined {
+  return CONSTITUTIONAL_ENTITIES.find(e => e.constitutionalId === id);
+}
+
+// ─── Aigent classification ──────────────────────────────────────────────────
+
 export function classifyAgent(params: {
   hasPassport: boolean;
   hasRootDid: boolean;
