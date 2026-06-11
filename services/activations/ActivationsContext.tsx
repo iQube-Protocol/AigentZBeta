@@ -122,6 +122,14 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        // 401 = the spine rejected the call because no valid Supabase Bearer
+        // token reached it from this browsing context (personaFetch found no
+        // session). Surface an actionable message instead of a bare status.
+        if (res.status === 401) {
+          throw new Error(
+            'Not signed in for this window — the activations API needs your Supabase session. Sign in at dev-beta (or reload after signing in) and try again.',
+          );
+        }
         throw new Error((body as { detail?: string }).detail ?? `activations fetch failed (${res.status})`);
       }
       const data = (await res.json()) as { activations: ActivationSurface[] };
@@ -180,6 +188,11 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
+          if (res.status === 401) {
+            throw new Error(
+              'Not signed in for this window — the activations API needs your Supabase session. Sign in at dev-beta (or reload after signing in) and try again.',
+            );
+          }
           throw new Error((body as { detail?: string }).detail ?? `mutation failed (${res.status})`);
         }
         // Server confirms — re-sync from /api/assistant/activations.

@@ -71,6 +71,7 @@ import { MarketaCampaignOpsTab } from "@/app/(shell)/marketa/components/MarketaC
 import { MarketaMyPacksTab } from "@/app/(shell)/marketa/components/MarketaMyPacksTab";
 import { MarketaMyReportsTab } from "@/app/(shell)/marketa/components/MarketaMyReportsTab";
 import MarketaLaunchOpsTab from "@/app/(shell)/marketa/components/MarketaLaunchOpsTab";
+import MarketaActivationEngineTab from "@/app/(shell)/marketa/components/activation/MarketaActivationEngineTab";
 import MarketaQubeTalk from "@/app/(shell)/marketa/components/MarketaQubeTalk";
 import { MarketaReportsTab } from "@/app/(shell)/marketa/components/MarketaReportsTab";
 import { MarketaPublishTab } from "@/app/(shell)/marketa/components/MarketaPublishTab";
@@ -218,6 +219,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MarketaMyPacksTab,
   MarketaMyReportsTab,
   MarketaLaunchOpsTab,
+  MarketaActivationEngineTab,
   MarketaQubeTalk,
   MarketaReportsTab,
   MarketaPublishTab,

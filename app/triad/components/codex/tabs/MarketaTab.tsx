@@ -13,7 +13,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Sun, Moon, LayoutDashboard, Target, Users, ClipboardList,
   MessageSquare, Megaphone, Sparkles, Package, BarChart3,
-  TrendingUp, FileEdit,
+  TrendingUp, FileEdit, Bot,
 } from 'lucide-react';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 
@@ -28,6 +28,7 @@ import { MarketaMyPacksTab }           from '@/app/(shell)/marketa/components/Ma
 import { MarketaMyReportsTab }         from '@/app/(shell)/marketa/components/MarketaMyReportsTab';
 import MarketaQubeTalk                 from '@/app/(shell)/marketa/components/MarketaQubeTalk';
 import { MarketaPublishTab }           from '@/app/(shell)/marketa/components/MarketaPublishTab';
+import MarketaActivationEngineTab      from '@/app/(shell)/marketa/components/activation/MarketaActivationEngineTab';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ const ADMIN_TABS: SubTab[] = [
   { id: 'dashboard',  label: 'Dashboard',     Icon: LayoutDashboard, Component: MarketaCampaignDashboardTab },
   { id: 'campaigns',  label: 'Campaign Ops',  Icon: Target,          Component: MarketaCampaignOpsTab },
   { id: 'op-propose', label: 'Propose',       Icon: Sparkles,        Component: MarketaOperatorProposeTab },
+  { id: 'activation', label: 'Activation Engine', Icon: Bot,         Component: MarketaActivationEngineTab },
   { id: 'partners',   label: 'Partners',      Icon: Users,           Component: MarketaPartnersAdminTab },
   { id: 'approvals',  label: 'Queue',         Icon: ClipboardList,   Component: MarketaApprovalQueueTab },
   { id: 'publish',    label: 'Publish',       Icon: FileEdit,        Component: MarketaPublishTab },
