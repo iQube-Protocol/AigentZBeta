@@ -1393,13 +1393,22 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     category: 'cartridge',
     tags: ['agentiq', 'cartridge', 'platform', 'decisions', 'pr-briefs', 'architecture', 'knowledge']
   },
+  tabGroups: [
+    { id: 'agentz',      label: 'aigentZ',      icon: 'Cpu',      order: 0 },
+    { id: 'projects',    label: 'Projects',     icon: 'Target',   order: 1, adminOnly: true },
+    { id: 'development', label: 'Development',  icon: 'Code',     order: 2 },
+    { id: 'memory',      label: 'Memory',       icon: 'Brain',    order: 3 },
+    { id: 'registry',    label: 'Registry',     icon: 'Database', order: 4 },
+    { id: 'operations',  label: 'Operations',   icon: 'Settings', order: 5, adminOnly: true },
+  ],
   tabs: [
-    // ─── aigency pack — canonical engineering KB ──────────────────────────
+    // ── aigentZ group (front door) ─────────────────────────────
     {
       id: 'start',
       label: 'Start Here',
       slug: 'start',
       enabled: true,
+      group: 'agentz',
       order: 0,
       type: 'static',
       config: {
@@ -1416,149 +1425,16 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         color: 'blue'
       }
     },
-    {
-      id: 'architecture',
-      label: 'Architecture',
-      slug: 'architecture',
-      enabled: true,
-      order: 1,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_architecture'
-        }
-      },
-      metadata: {
-        icon: 'Layers',
-        description: 'System architecture: topology, data/identity, payments, protocols'
-      }
-    },
-    {
-      id: 'codebase',
-      label: 'Codebase',
-      slug: 'codebase',
-      enabled: true,
-      order: 2,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_codebase'
-        }
-      },
-      metadata: {
-        icon: 'Code',
-        description: 'Repo map, modules, conventions, release tracks'
-      }
-    },
-    {
-      id: 'knowledge',
-      label: 'Knowledge',
-      slug: 'knowledge',
-      enabled: true,
-      order: 3,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_knowledge'
-        }
-      },
-      metadata: {
-        icon: 'BookMarked',
-        description: 'API reference, schemas, docs, snippets, DVN, ICP, identity, operators manual'
-      }
-    },
-    {
-      id: 'decisions',
-      label: 'Decisions',
-      slug: 'decisions',
-      enabled: true,
-      order: 4,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_decisions'
-        }
-      },
-      metadata: {
-        icon: 'GitBranch',
-        description: 'Decision briefs, backlog, work allocation'
-      }
-    },
-    {
-      id: 'changelog',
-      label: 'Changelog',
-      slug: 'changelog',
-      enabled: true,
-      order: 5,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_changelog'
-        }
-      },
-      metadata: {
-        icon: 'GitCommit',
-        description: 'Release history and changelog'
-      }
-    },
-    {
-      id: 'pr-briefs',
-      label: 'PR Briefs',
-      slug: 'pr-briefs',
-      enabled: true,
-      order: 6,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_pr_briefs'
-        }
-      },
-      metadata: {
-        icon: 'FileText',
-        description: 'PR summaries and impact (PR-78 through PR-1)'
-      }
-    },
-    {
-      id: 'recent-commits',
-      label: 'Recent Commits',
-      slug: 'recent-commits',
-      enabled: true,
-      order: 7,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_recent_commits'
-        }
-      },
-      metadata: {
-        icon: 'GitBranch',
-        description: 'Latest direct-push commits with context'
-      }
-    },
-    // ─── Venture Lab α group — build-layer docs ───────────────────────────
-    // All three tabs live together: Venture Lab α (planning corpus), AgentiQ α
-    // (platform build programme), AgentiQ OS (builder layer).
+
+    // ── Projects group (Venture Lab, Alpha) ────────────────────
     {
       id: 'agentiq-knyt',
       label: 'Venture Lab α',
       slug: 'agentiq-knyt',
       enabled: true,
       adminOnly: true,
-      order: 8,
+      group: 'projects',
+      order: 0,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1580,7 +1456,8 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       slug: 'alpha-program',
       enabled: true,
       adminOnly: true,
-      order: 9,
+      group: 'projects',
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1602,7 +1479,8 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       slug: 'agentiq-os',
       enabled: true,
       adminOnly: true,
-      order: 10,
+      group: 'projects',
+      order: 2,
       type: 'static',
       config: {
         component: 'AgentiQOSTab',
@@ -1610,8 +1488,152 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       },
       metadata: {
         icon: 'Code',
-        description: 'AgentiQ OS — live builder substrate dashboard: agent registry, skill catalog, factory pipeline, contribution types',
+        description: 'AgentiQ OS — live builder substrate dashboard',
         color: 'green'
+      }
+    },
+
+    // ── Development group (architecture, codebase, commits) ────
+    {
+      id: 'architecture',
+      label: 'Architecture',
+      slug: 'architecture',
+      enabled: true,
+      group: 'development',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_architecture'
+        }
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'System architecture: topology, data/identity, payments, protocols'
+      }
+    },
+    {
+      id: 'codebase',
+      label: 'Codebase',
+      slug: 'codebase',
+      enabled: true,
+      group: 'development',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_codebase'
+        }
+      },
+      metadata: {
+        icon: 'Code',
+        description: 'Repo map, modules, conventions, release tracks'
+      }
+    },
+    {
+      id: 'changelog',
+      label: 'Changelog',
+      slug: 'changelog',
+      enabled: true,
+      group: 'development',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_changelog'
+        }
+      },
+      metadata: {
+        icon: 'GitCommit',
+        description: 'Release history and changelog'
+      }
+    },
+    {
+      id: 'pr-briefs',
+      label: 'PR Briefs',
+      slug: 'pr-briefs',
+      enabled: true,
+      group: 'development',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_pr_briefs'
+        }
+      },
+      metadata: {
+        icon: 'FileText',
+        description: 'PR summaries and impact (PR-78 through PR-1)'
+      }
+    },
+    {
+      id: 'recent-commits',
+      label: 'Recent Commits',
+      slug: 'recent-commits',
+      enabled: true,
+      group: 'development',
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_recent_commits'
+        }
+      },
+      metadata: {
+        icon: 'GitBranch',
+        description: 'Latest direct-push commits with context'
+      }
+    },
+
+    // ── Memory group (knowledge, decisions, updates) ───────────
+    {
+      id: 'knowledge',
+      label: 'Knowledge',
+      slug: 'knowledge',
+      enabled: true,
+      group: 'memory',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_knowledge'
+        }
+      },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'API reference, schemas, docs, snippets, DVN, ICP, identity, operators manual'
+      }
+    },
+    {
+      id: 'decisions',
+      label: 'Decisions',
+      slug: 'decisions',
+      enabled: true,
+      group: 'memory',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_decisions'
+        }
+      },
+      metadata: {
+        icon: 'GitBranch',
+        description: 'Decision briefs, backlog, work allocation'
       }
     },
     {
@@ -1619,7 +1641,8 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Updates',
       slug: 'updates',
       enabled: true,
-      order: 11,
+      group: 'memory',
+      order: 2,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1638,7 +1661,8 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Retrieval Index',
       slug: 'retrieval-index',
       enabled: true,
-      order: 12,
+      group: 'memory',
+      order: 3,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1652,14 +1676,16 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         description: 'Index schema and lookup'
       }
     },
-    // ─── static component tabs — Phase C ─────────────────────────────────
+
+    // ── Registry group (factory, supply) ───────────────────────
     {
       id: 'factory-intake',
       label: 'Factory',
       slug: 'factory-intake',
       enabled: true,
       adminOnly: true,
-      order: 13,
+      group: 'registry',
+      order: 0,
       type: 'static',
       config: {
         component: 'FactoryIntakeTab',
@@ -1676,7 +1702,8 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Registry',
       slug: 'registry-supply',
       enabled: true,
-      order: 14,
+      group: 'registry',
+      order: 1,
       type: 'static',
       config: {
         component: 'RegistrySupplyTab',
@@ -1688,13 +1715,16 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         color: 'emerald'
       }
     },
+
+    // ── Operations group (admin) ───────────────────────────────
     {
       id: 'operators-manual',
       label: 'Operators',
       slug: 'operators-manual',
       enabled: true,
       adminOnly: true,
-      order: 15,
+      group: 'operations',
+      order: 0,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
