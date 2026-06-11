@@ -688,6 +688,23 @@ export function MarketaActivationEngineTab() {
                     <span className="text-slate-500">
                       {formatLabel(selected.passportIntegration.passportApplicationStatus)}
                     </span>
+                    {selected.passportIntegration.participantPassportId ? (
+                      <>
+                        <span className="text-slate-600">
+                          {" "}
+                          · {selected.passportIntegration.participantPassportId}
+                        </span>{" "}
+                        <a
+                          href={`/api/polity-passport/credential/${selected.passportIntegration.participantPassportId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Download the signed passport credential envelope — this is the artifact the agent holds"
+                          className="text-pink-300 underline decoration-pink-400/40 hover:text-pink-200"
+                        >
+                          claim credential
+                        </a>
+                      </>
+                    ) : null}
                   </p>
                   <p>
                     iQube Registry:{" "}

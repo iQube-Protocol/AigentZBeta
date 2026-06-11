@@ -346,6 +346,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         applicationId: existingApp?.id ?? submittedApplicationId,
         applicationStatus: existingApp?.application_status ?? (submittedApplicationId ? "submitted" : null),
         issuedPassportId: issuedPassportId || null,
+        credentialUrl: issuedPassportId
+          ? `${host}/api/polity-passport/credential/${issuedPassportId}`
+          : null,
         submitUrl: `${host}/api/polity-passport/submit`,
         validateUrl: `${host}/api/polity-passport/validate`,
         schemaUrl: `${host}/api/polity-passport/schemas/participant-passport.application.schema.json`,
