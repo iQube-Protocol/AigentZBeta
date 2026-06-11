@@ -17,7 +17,7 @@ import {
   Send,
   Upload,
 } from "lucide-react";
-import type { CandidateAgent } from "@/services/marketa/activation/types";
+import type { CandidateAgent, CandidateOpportunity } from "@/services/marketa/activation/types";
 
 interface CandidateListResponse {
   ok: boolean;
@@ -46,7 +46,7 @@ function statusClass(status: string) {
   if (["rejected", "deferred", "do_not_contact"].includes(status)) {
     return "bg-red-500/15 text-red-300 border-red-500/30";
   }
-  return "bg-slate-700/50 text-slate-300 border-slate-600";
+  return "bg-slate-400/10 text-slate-300 border-slate-500/30";
 }
 
 function formatLabel(value: string) {
@@ -87,6 +87,10 @@ export function MarketaActivationEngineTab() {
   const [bureauConsents, setBureauConsents] = useState<Record<string, boolean>>({});
   const [agentCardInput, setAgentCardInput] = useState("");
   const [savingAgentCard, setSavingAgentCard] = useState(false);
+  const [opportunities, setOpportunities] = useState<CandidateOpportunity[]>([]);
+  const [oppDescription, setOppDescription] = useState("");
+  const [oppValue, setOppValue] = useState("");
+  const [oppBusy, setOppBusy] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "needs_review" | "exec" | "vulnerable" | "legal">(
@@ -116,6 +120,31 @@ export function MarketaActivationEngineTab() {
   useEffect(() => {
     setBureauConsents({});
     setAgentCardInput("");
+    setOppDescription("");
+    setOppValue("");
+  }, [selectedId]);
+
+  // Opportunities belong to the selected candidate — load on selection change.
+  useEffect(() => {
+    if (!selectedId) {
+      setOpportunities([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/marketa/activation/candidates/${selectedId}/opportunities`, {
+          cache: "no-store",
+        });
+        const json = (await res.json()) as { ok: boolean; opportunities?: CandidateOpportunity[] };
+        if (!cancelled) setOpportunities(json.ok ? (json.opportunities ?? []) : []);
+      } catch {
+        if (!cancelled) setOpportunities([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedId]);
 
   const saveAgentCardUrl = async (candidateId: string) => {
@@ -279,6 +308,78 @@ export function MarketaActivationEngineTab() {
     }
   };
 
+  const applyOpportunityResponse = (json: {
+    candidate?: CandidateAgent;
+    opportunities?: CandidateOpportunity[];
+  }) => {
+    if (json.opportunities) setOpportunities(json.opportunities);
+    if (json.candidate) {
+      setCandidates(prev =>
+        prev.map(candidate => (candidate.id === json.candidate!.id ? json.candidate! : candidate)),
+      );
+    }
+  };
+
+  const addOpportunity = async (candidateId: string) => {
+    setOppBusy("create");
+    setError(null);
+    try {
+      const res = await fetch(`/api/marketa/activation/candidates/${candidateId}/opportunities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: oppDescription.trim(),
+          estimatedValue: Number(oppValue) || 0,
+          actorId: "marketa-operator",
+        }),
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        candidate?: CandidateAgent;
+        opportunities?: CandidateOpportunity[];
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok || !json.ok) throw new Error(json.detail || json.error || `HTTP ${res.status}`);
+      applyOpportunityResponse(json);
+      setOppDescription("");
+      setOppValue("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setOppBusy(null);
+    }
+  };
+
+  const updateOpportunity = async (
+    candidateId: string,
+    opportunityId: string,
+    activationStatus: CandidateOpportunity["activationStatus"],
+  ) => {
+    setOppBusy(opportunityId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/marketa/activation/candidates/${candidateId}/opportunities`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ opportunityId, activationStatus, actorId: "marketa-operator" }),
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        candidate?: CandidateAgent;
+        opportunities?: CandidateOpportunity[];
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok || !json.ok) throw new Error(json.detail || json.error || `HTTP ${res.status}`);
+      applyOpportunityResponse(json);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setOppBusy(null);
+    }
+  };
+
   const importCandidates = async (file: File | null) => {
     if (!file) return;
     setImporting(true);
@@ -323,11 +424,11 @@ export function MarketaActivationEngineTab() {
               systems as integration targets.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
             <Button
               variant="outline"
               size="sm"
-              className="bg-slate-800/50 border-white/20 text-slate-200"
+              className="bg-slate-800/50 border-white/20 text-slate-200 shrink-0"
               title="Reload the candidate list from the server"
               onClick={loadCandidates}
               disabled={loading}
@@ -337,7 +438,7 @@ export function MarketaActivationEngineTab() {
             <Button
               variant="outline"
               size="sm"
-              className="bg-slate-800/50 border-white/20 text-slate-200"
+              className="bg-slate-800/50 border-white/20 text-slate-200 shrink-0"
               title="Download all candidates as JSON (re-importable)"
               asChild
             >
@@ -348,7 +449,7 @@ export function MarketaActivationEngineTab() {
             <Button
               variant="outline"
               size="sm"
-              className="bg-slate-800/50 border-white/20 text-slate-200"
+              className="bg-slate-800/50 border-white/20 text-slate-200 shrink-0"
               title="Download all candidates as a CSV spreadsheet"
               asChild
             >
@@ -366,7 +467,7 @@ export function MarketaActivationEngineTab() {
             <Button
               variant="outline"
               size="sm"
-              className="bg-slate-800/50 border-white/20 text-slate-200"
+              className="bg-slate-800/50 border-white/20 text-slate-200 shrink-0"
               title="Import candidates from a JSON or CSV file"
               onClick={() => importInputRef.current?.click()}
               disabled={importing}
@@ -380,7 +481,7 @@ export function MarketaActivationEngineTab() {
             </Button>
             <Button
               size="sm"
-              className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm"
+              className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm shrink-0"
               title="Create a sample candidate pre-filled with demo data (including an example agent card URL) so you can walk the full pipeline"
               onClick={createDemoCandidate}
               disabled={creating}
@@ -449,13 +550,13 @@ export function MarketaActivationEngineTab() {
                 className={`w-full rounded-lg border p-3 text-left transition ${selected?.id === candidate.id ? "border-pink-400/50 bg-pink-400/10" : "border-slate-800 bg-slate-900/50 hover:border-slate-700"}`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium text-white">{candidate.name}</p>
                     <p className="text-xs text-slate-400 line-clamp-2 mt-0.5">
                       {candidate.description || "No description yet."}
                     </p>
                   </div>
-                  <Badge className={statusClass(candidate.activationStatus)}>
+                  <Badge className={`${statusClass(candidate.activationStatus)} shrink-0 backdrop-blur-sm`}>
                     {formatLabel(candidate.activationStatus)}
                   </Badge>
                 </div>
@@ -463,7 +564,7 @@ export function MarketaActivationEngineTab() {
                   {candidate.strategicLanes.slice(0, 2).map(lane => (
                     <Badge
                       key={lane}
-                      className="bg-slate-800 text-slate-300 border-slate-700 text-[10px]"
+                      className="bg-slate-400/10 text-slate-300 border-slate-500/30 text-[10px]"
                     >
                       {formatLabel(lane)}
                     </Badge>
@@ -486,16 +587,19 @@ export function MarketaActivationEngineTab() {
         </div>
 
         <div className={`${GLASS_CARD} p-4 space-y-4`}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h4 className="font-semibold text-white">Scorecard</h4>
-              <p className="text-xs text-slate-500">Clean revenue + Passport readiness</p>
-            </div>
-            {selected && (
-              <div className="flex flex-wrap gap-1 justify-end">
+          <div className="flex items-baseline gap-2">
+            <h4 className="font-semibold text-white">Scorecard</h4>
+            <p className="text-xs text-slate-500">Clean revenue + Passport readiness</p>
+          </div>
+
+          {!selected ? (
+            <p className="text-sm text-slate-400">Select a candidate to inspect the scorecard.</p>
+          ) : (
+            <>
+              <div className="flex flex-nowrap gap-1 overflow-x-auto pb-1">
                 <Button
                   size="sm"
-                  className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm"
+                  className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm shrink-0"
                   title="Run classification (lanes, verticals, legal track, mobility) + clean-revenue screen + priority scoring"
                   onClick={() => scoreCandidate(selected.id)}
                   disabled={scoringId === selected.id}
@@ -510,7 +614,7 @@ export function MarketaActivationEngineTab() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="bg-slate-800/50 border-white/20 text-slate-200"
+                  className="bg-slate-800/50 border-white/20 text-slate-200 shrink-0"
                   title="Create/link this candidate's Agent iQube in the iQube Registry — required before the Passport handoff"
                   onClick={() => runCandidateAction(selected.id, "registry")}
                   disabled={actionId === `registry:${selected.id}`}
@@ -525,7 +629,7 @@ export function MarketaActivationEngineTab() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="bg-slate-800/50 border-white/20 text-slate-200"
+                  className="bg-slate-800/50 border-white/20 text-slate-200 shrink-0"
                   title="Read reputation standing from the RQH canister (authoritative), with mirror/score fallback"
                   onClick={() => runCandidateAction(selected.id, "reputation")}
                   disabled={actionId === `reputation:${selected.id}`}
@@ -540,7 +644,7 @@ export function MarketaActivationEngineTab() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="bg-slate-800/50 border-white/20 text-slate-200"
+                  className="bg-slate-800/50 border-white/20 text-slate-200 shrink-0"
                   title="Prepare a Polity Passport Bureau application draft (or re-sync Bureau status). Submission happens below after you give the four operator consents"
                   onClick={() => runCandidateAction(selected.id, "passport")}
                   disabled={actionId === `passport:${selected.id}`}
@@ -555,7 +659,7 @@ export function MarketaActivationEngineTab() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="bg-slate-800/50 border-white/20 text-slate-200"
+                  className="bg-slate-800/50 border-white/20 text-slate-200 shrink-0"
                   title="Draft a human-approved outreach email — nothing is ever sent automatically"
                   onClick={() => runCandidateAction(selected.id, "outreach")}
                   disabled={actionId === `outreach:${selected.id}`}
@@ -568,13 +672,6 @@ export function MarketaActivationEngineTab() {
                   Draft
                 </Button>
               </div>
-            )}
-          </div>
-
-          {!selected ? (
-            <p className="text-sm text-slate-400">Select a candidate to inspect the scorecard.</p>
-          ) : (
-            <>
               <div>
                 <p className="text-lg font-semibold text-white">{selected.name}</p>
                 <p className="text-xs text-slate-400 mt-1">
@@ -737,6 +834,117 @@ export function MarketaActivationEngineTab() {
                     {lastActionNote}
                   </p>
                 )}
+              </section>
+              <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h5 className="text-xs uppercase tracking-wider text-slate-500">
+                    Opportunities &amp; revenue
+                  </h5>
+                  <p className="text-[11px] text-slate-400 whitespace-nowrap">
+                    Pipeline ${selected.revenueTracking.estimatedPipelineValue} · Closed $
+                    {selected.revenueTracking.closedCleanRevenue}
+                  </p>
+                </div>
+                {opportunities.length === 0 && (
+                  <p className="text-[11px] text-slate-500">
+                    No opportunities logged yet — this is the revenue half of the funnel.
+                  </p>
+                )}
+                {opportunities.map(opp => {
+                  const nextStatus: Record<string, CandidateOpportunity["activationStatus"] | undefined> = {
+                    proposed: "approved",
+                    approved: "active",
+                    active: "completed",
+                    paused: "active",
+                  };
+                  const next = nextStatus[opp.activationStatus];
+                  const terminal = ["completed", "rejected"].includes(opp.activationStatus);
+                  return (
+                    <div
+                      key={opp.id}
+                      className="rounded border border-slate-800 bg-slate-950/40 p-2 space-y-1.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs text-slate-200 min-w-0">{opp.description}</p>
+                        <span className="text-xs font-semibold text-slate-100 whitespace-nowrap shrink-0">
+                          ${opp.estimatedValue}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto">
+                        <Badge
+                          className={`${
+                            opp.activationStatus === "completed"
+                              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                              : opp.activationStatus === "rejected"
+                                ? "bg-red-500/15 text-red-300 border-red-500/30"
+                                : "bg-sky-500/15 text-sky-300 border-sky-500/30"
+                          } text-[10px] shrink-0`}
+                        >
+                          {formatLabel(opp.activationStatus)}
+                        </Badge>
+                        {next && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-slate-800/50 border-white/20 text-slate-200 h-6 px-2 text-[11px] shrink-0"
+                            title={`Advance this opportunity to ${formatLabel(next)} — completed opportunities roll into closed clean revenue`}
+                            disabled={oppBusy === opp.id}
+                            onClick={() => updateOpportunity(selected.id, opp.id, next)}
+                          >
+                            {oppBusy === opp.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <>→ {formatLabel(next)}</>
+                            )}
+                          </Button>
+                        )}
+                        {!terminal && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-slate-800/50 border-red-400/30 text-red-300 h-6 px-2 text-[11px] shrink-0"
+                            title="Reject this opportunity — it drops out of the pipeline and revenue roll-up"
+                            disabled={oppBusy === opp.id}
+                            onClick={() => updateOpportunity(selected.id, opp.id, "rejected")}
+                          >
+                            Reject
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={oppDescription}
+                    onChange={event => setOppDescription(event.target.value)}
+                    placeholder="New opportunity description…"
+                    title="What revenue opportunity does this candidate represent?"
+                    className="flex-1 min-w-0 rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
+                  />
+                  <input
+                    type="number"
+                    value={oppValue}
+                    onChange={event => setOppValue(event.target.value)}
+                    placeholder="$"
+                    title="Estimated value in USD"
+                    className="w-20 rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
+                  />
+                  <Button
+                    size="sm"
+                    className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm shrink-0"
+                    title="Log a revenue opportunity for this candidate — it sums into the pipeline value until completed or rejected"
+                    disabled={oppBusy === "create" || !oppDescription.trim()}
+                    onClick={() => addOpportunity(selected.id)}
+                  >
+                    {oppBusy === "create" ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Plus className="w-3 h-3" />
+                    )}
+                  </Button>
+                </div>
               </section>
               {selected.passportIntegration.passportApplicationStatus === "draft" && (
                 <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 space-y-2">

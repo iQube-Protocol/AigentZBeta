@@ -14,6 +14,7 @@ import type {
   ActivationStatus,
   CandidateAgent,
   CandidateAgentInput,
+  CandidateOpportunity,
   CandidateSourceType,
   CandidateVertical,
   LegalTrack,
@@ -175,6 +176,89 @@ export function candidatePatchToDb(raw: unknown) {
   }
   patch.updated_at = new Date().toISOString();
   return patch;
+}
+
+const OPPORTUNITY_STATUSES = ['proposed', 'approved', 'active', 'paused', 'completed', 'rejected'] as const;
+const CLEAN_REVENUE_STATUSES = ['unknown', 'likely_clean', 'needs_review', 'rejected'] as const;
+const POLICY_RISKS = ['low', 'medium', 'high', 'critical'] as const;
+
+function asEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  const raw = asString(value, fallback);
+  return (allowed as readonly string[]).includes(raw) ? (raw as T) : fallback;
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+export function dbToOpportunity(row: Record<string, unknown>): CandidateOpportunity {
+  return {
+    id: asString(row.id),
+    candidateAgentId: asString(row.candidate_agent_id),
+    opportunityType: asString(row.opportunity_type, 'other'),
+    targetUser: asString(row.target_user, 'other'),
+    description: asString(row.description),
+    estimatedValue: asNumber(row.estimated_value),
+    cleanRevenueStatus: asEnum(row.clean_revenue_status, CLEAN_REVENUE_STATUSES, 'unknown'),
+    policyRisk: asEnum(row.policy_risk, POLICY_RISKS, 'low'),
+    requiresPassport: row.requires_passport !== false,
+    requiresStewardReview: row.requires_steward_review === true,
+    requiresHumanSignoff: row.requires_human_signoff !== false,
+    activationStatus: asEnum(row.activation_status, OPPORTUNITY_STATUSES, 'proposed'),
+    createdAt: asString(row.created_at),
+    updatedAt: asString(row.updated_at),
+  };
+}
+
+/** Create payload → DB row. Description is the only required field. */
+export function opportunityInputToDb(raw: unknown, candidateAgentId: string) {
+  const body = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const description = asString(body.description).trim();
+  if (!description) throw new Error('Opportunity description is required');
+  return {
+    candidate_agent_id: candidateAgentId,
+    opportunity_type: asString(body.opportunityType ?? body.opportunity_type, 'other'),
+    target_user: asString(body.targetUser ?? body.target_user, 'other'),
+    description,
+    estimated_value: asNumber(body.estimatedValue ?? body.estimated_value),
+    clean_revenue_status: asEnum(body.cleanRevenueStatus ?? body.clean_revenue_status, CLEAN_REVENUE_STATUSES, 'unknown'),
+    policy_risk: asEnum(body.policyRisk ?? body.policy_risk, POLICY_RISKS, 'low'),
+    activation_status: asEnum(body.activationStatus ?? body.activation_status, OPPORTUNITY_STATUSES, 'proposed'),
+  };
+}
+
+export function opportunityPatchToDb(raw: unknown) {
+  const body = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const patch: Record<string, unknown> = {};
+  if (body.opportunityType !== undefined) patch.opportunity_type = asString(body.opportunityType, 'other');
+  if (body.targetUser !== undefined) patch.target_user = asString(body.targetUser, 'other');
+  if (body.description !== undefined) patch.description = asString(body.description);
+  if (body.estimatedValue !== undefined) patch.estimated_value = asNumber(body.estimatedValue);
+  if (body.cleanRevenueStatus !== undefined)
+    patch.clean_revenue_status = asEnum(body.cleanRevenueStatus, CLEAN_REVENUE_STATUSES, 'unknown');
+  if (body.policyRisk !== undefined) patch.policy_risk = asEnum(body.policyRisk, POLICY_RISKS, 'low');
+  if (body.activationStatus !== undefined)
+    patch.activation_status = asEnum(body.activationStatus, OPPORTUNITY_STATUSES, 'proposed');
+  patch.updated_at = new Date().toISOString();
+  return patch;
+}
+
+/**
+ * Mechanical revenue roll-up: open opportunities (proposed/approved/active/
+ * paused) sum into the pipeline; completed ones sum into closed clean
+ * revenue. Rejected opportunities count nowhere.
+ */
+export function rollUpRevenue(opportunities: CandidateOpportunity[]) {
+  const open = opportunities.filter((o) =>
+    ['proposed', 'approved', 'active', 'paused'].includes(o.activationStatus),
+  );
+  const completed = opportunities.filter((o) => o.activationStatus === 'completed');
+  return {
+    opportunityCount: open.length + completed.length,
+    estimatedPipelineValue: open.reduce((sum, o) => sum + o.estimatedValue, 0),
+    closedCleanRevenue: completed.reduce((sum, o) => sum + o.estimatedValue, 0),
+  };
 }
 
 export function dbToCandidate(row: Record<string, unknown>): CandidateAgent {
