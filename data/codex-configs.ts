@@ -1748,13 +1748,14 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
     { id: 'bind',      label: 'Bind',      icon: 'Link',     order: 3 },
     { id: 'deploy',    label: 'Deploy',    icon: 'Rocket',   order: 4 },
     { id: 'missions',  label: 'Missions',  icon: 'Target',   order: 5 },
-    { id: 'community', label: 'Community', icon: 'Users',    order: 6 },
+    { id: 'governance', label: 'Governance', icon: 'Scale',  order: 6 },
+    { id: 'community', label: 'Community', icon: 'Users',    order: 7 },
     // Admin group — stubbed 2026-05-26 so the chief-of-staff
     // unlock has a real surface to mirror into metaMe's agentiqos
     // group. Hidden from non-admins via the standard adminOnly gate;
     // when AgentiQ OS grows real admin content, populate the existing
     // 'aiqos-admin-home' stub with the proper tabs.
-    { id: 'admin',     label: 'Admin',     icon: 'Settings', order: 7, adminOnly: true },
+    { id: 'admin',     label: 'Admin',     icon: 'Settings', order: 8, adminOnly: true },
   ],
   tabs: [
     // ── Home group ─────────────────────────────────────────────
@@ -1954,6 +1955,41 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'DevMissionBoardTab', props: { panel: 'knyt-reference' } },
       metadata: { icon: 'Award', description: 'KNYT Wheel — live reference cartridge' },
+    },
+
+    // ── Governance group (Operation Chrysalis Phase 0) ─────────
+    {
+      id: 'agentiq-os-constitution',
+      label: 'Constitution',
+      slug: 'constitution',
+      enabled: true,
+      group: 'governance',
+      order: 0,
+      type: 'static',
+      config: { component: 'GovernanceConstitutionTab', props: {} },
+      metadata: { icon: 'Scale', description: 'AgentiQ Constitution of Aigents — sovereign roles, authority matrix, and constitutional principles' },
+    },
+    {
+      id: 'agentiq-os-governance-roles',
+      label: 'Roles',
+      slug: 'governance-roles',
+      enabled: true,
+      group: 'governance',
+      order: 1,
+      type: 'static',
+      config: { component: 'GovernanceRolesTab', props: {} },
+      metadata: { icon: 'Shield', description: 'Sovereign agent roles, authority domains, and escalation paths' },
+    },
+    {
+      id: 'agentiq-os-governance-decisions',
+      label: 'Decision Log',
+      slug: 'governance-decisions',
+      enabled: true,
+      group: 'governance',
+      order: 2,
+      type: 'static',
+      config: { component: 'GovernanceDecisionLogTab', props: {} },
+      metadata: { icon: 'FileText', description: 'Ratified governance decisions and constitutional amendments' },
     },
 
     // ── Community group ────────────────────────────────────────
