@@ -1,4 +1,5 @@
 import {
+  EMPTY_HUMAN_MOBILITY,
   EMPTY_IQUBE_REGISTRY_STUB,
   EMPTY_PASSPORT_STUB,
   EMPTY_REPUTATION_STUB,
@@ -52,6 +53,13 @@ function asOutreachStatus(value: unknown): OutreachStatus {
     : 'not_started';
 }
 
+/** Human Mobility Services amendment: map the legacy lane id on any read path. */
+function asLanes(value: unknown): StrategicLane[] {
+  return asStringArray(value).map((lane) =>
+    lane === 'mobility_residency_being' ? 'human_mobility_services' : lane,
+  ) as StrategicLane[];
+}
+
 function camelToSnake(input: CandidateAgentInput) {
   const classification = classifyCandidate(input);
   const screen = cleanRevenueScreen(input);
@@ -75,6 +83,10 @@ function camelToSnake(input: CandidateAgentInput) {
     top_bottom_relevance: {
       ...classification.topBottomRelevance,
       ...(input.topBottomRelevance ?? {}),
+    },
+    human_mobility: {
+      ...classification.humanMobility,
+      ...(input.humanMobility ?? {}),
     },
     legal_track: input.legalTrack ?? classification.legalTrack,
     scores,
@@ -108,7 +120,7 @@ export function normalizeCandidateInput(raw: unknown): CandidateAgentInput {
     operatorType: asString(body.operatorType ?? body.operator_type, 'unknown'),
     capabilities: asStringArray(body.capabilities),
     targetUsers: asStringArray(body.targetUsers ?? body.target_users),
-    strategicLanes: asStringArray(body.strategicLanes ?? body.strategic_lanes) as StrategicLane[],
+    strategicLanes: asLanes(body.strategicLanes ?? body.strategic_lanes),
     verticals: asStringArray(body.verticals) as CandidateVertical[],
     legalTrack: asString(body.legalTrack ?? body.legal_track, 'none') as LegalTrack,
     activationStatus: asActivationStatus(body.activationStatus ?? body.activation_status),
@@ -151,6 +163,7 @@ export function candidatePatchToDb(raw: unknown) {
     capabilities: 'capabilities',
     targetUsers: 'target_users',
     topBottomRelevance: 'top_bottom_relevance',
+    humanMobility: 'human_mobility',
     passportIntegration: 'passport_integration',
     iqubeRegistry: 'iqube_registry',
     reputation: 'reputation',
@@ -180,10 +193,11 @@ export function dbToCandidate(row: Record<string, unknown>): CandidateAgent {
     operatorType: asString(row.operator_type, 'unknown'),
     capabilities: asStringArray(row.capabilities),
     targetUsers: asStringArray(row.target_users),
-    strategicLanes: asStringArray(row.strategic_lanes) as StrategicLane[],
+    strategicLanes: asLanes(row.strategic_lanes),
     verticals: asStringArray(row.verticals) as CandidateVertical[],
     legalTrack: asString(row.legal_track, 'none') as LegalTrack,
     topBottomRelevance: { ...EMPTY_TOP_BOTTOM_RELEVANCE, ...(row.top_bottom_relevance as object) },
+    humanMobility: { ...EMPTY_HUMAN_MOBILITY, ...(row.human_mobility as object) },
     scores: { ...EMPTY_SCORES, ...(row.scores as object) },
     riskFlags: asStringArray(row.risk_flags),
     policyFlags: asStringArray(row.policy_flags),

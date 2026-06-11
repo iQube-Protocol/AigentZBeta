@@ -1,13 +1,15 @@
 import {
   type CandidateAgentInput,
   type CandidateVertical,
+  type HumanMobility,
+  type HumanMobilityDomain,
   type LegalTrack,
   type MobilityReferenceTag,
   type MobilitySpineTag,
   type StrategicLane,
 } from './types';
 import { includesAny, textBlob } from './text';
-import { EMPTY_TOP_BOTTOM_RELEVANCE } from './defaults';
+import { EMPTY_HUMAN_MOBILITY, EMPTY_TOP_BOTTOM_RELEVANCE } from './defaults';
 
 const CHIEF_OF_STAFF_TERMS = [
   'scheduling', 'calendar', 'inbox', 'crm', 'investor', 'research', 'document',
@@ -28,6 +30,8 @@ const POLITY_LEGAL_AID_TERMS = [
 const MOBILITY_TERMS = [
   'immigration', 'residency', 'housing', 'relocation', 'lawful presence',
   'visa', 'work authorization', 'jurisdiction', 'renewal', 'shelter',
+  // Human Mobility Services amendment — travel/accommodation/ops categories.
+  'travel', 'flight', 'hotel', 'accommodation', 'mobility',
 ];
 
 const EXEC_MOBILITY_TERMS = [
@@ -63,7 +67,7 @@ export function classifyLane(input: CandidateAgentInput): StrategicLane[] {
   const lanes = new Set<StrategicLane>(input.strategicLanes ?? []);
   if (includesAny(text, CHIEF_OF_STAFF_TERMS)) lanes.add('aigentme_chief_of_staff');
   if (includesAny(text, LEGAL_TERMS)) lanes.add('high_yield_legal');
-  if (includesAny(text, MOBILITY_TERMS)) lanes.add('mobility_residency_being');
+  if (includesAny(text, MOBILITY_TERMS)) lanes.add('human_mobility_services');
   if (includesAny(text, MEDIA_TERMS)) lanes.add('media_communications_public_affairs');
   if (includesAny(text, BLOCKCHAIN_AGENT_TERMS)) lanes.add('agentic_ai_blockchain_infrastructure');
   return Array.from(lanes);
@@ -123,6 +127,12 @@ export function classifyMobilitySpine(input: CandidateAgentInput) {
     ['renewal_tracking', ['renewal', 'deadline', 'reminder']],
     ['compliance_tracking', ['compliance', 'regulatory', 'audit']],
     ['escalation', ['escalation', 'licensed partner', 'human review']],
+    // Human Mobility Services amendment — extended shared spine stages.
+    ['destination_assessment', ['destination', 'country comparison', 'city comparison']],
+    ['travel_coordination', ['travel', 'flight', 'itinerary', 'trip']],
+    ['accommodation_coordination', ['hotel', 'accommodation', 'corporate housing', 'lodging']],
+    ['lawful_presence_support', ['lawful presence', 'work authorization', 'visa']],
+    ['continuity_planning', ['continuity', 'citizenship', 'long-term', 'permanent residency']],
   ];
   for (const [tag, terms] of tagTerms) {
     if (includesAny(text, terms)) tags.add(tag);
@@ -138,11 +148,75 @@ export function classifyMobilitySpine(input: CandidateAgentInput) {
   };
 }
 
+const SHORT_TERM_TERMS = [
+  'business travel', 'executive travel', 'flight', 'travel planning',
+  'travel compliance', 'travel risk', 'conference', 'roadshow', 'hotel',
+  'itinerary', 'emergency relocation', 'evacuation', 'crisis', 'temporary shelter',
+];
+
+const MEDIUM_TERM_TERMS = [
+  'project assignment', 'secondment', 'temporary placement', 'consulting engagement',
+  'transitional housing', 'temporary residency', 'temporary work authorization',
+  'temporary accommodation', 'aid placement',
+];
+
+const LONG_TERM_TERMS = [
+  'relocation', 'immigration', 'residency', 'citizenship', 'permanent',
+  'asylum pathway', 'long-term housing', 'family relocation',
+];
+
+const MOBILITY_DOMAIN_TERMS: Array<[HumanMobilityDomain, string[]]> = [
+  ['business_travel', ['business travel', 'travel planning', 'travel compliance', 'flight']],
+  ['executive_travel', ['executive travel', 'roadshow', 'travel logistics']],
+  ['corporate_mobility', ['corporate mobility', 'global mobility', 'mobility team']],
+  ['executive_relocation', ['executive relocation', 'relocation service', 'senior executive']],
+  ['immigration', ['immigration', 'visa', 'work authorization']],
+  ['residency', ['residency', 'lawful presence', 'citizenship']],
+  ['housing', ['housing', 'relocation housing']],
+  ['temporary_accommodation', ['hotel', 'temporary accommodation', 'corporate housing', 'lodging']],
+  ['aid_routing', ['aid routing', 'aid placement', 'refugee support']],
+  ['shelter_routing', ['shelter routing', 'shelter', 'temporary shelter']],
+  ['crisis_mobility', ['crisis', 'evacuation', 'emergency relocation']],
+];
+
+/**
+ * Human Mobility Services classifier (PRD amendment): maps a candidate onto
+ * the two-dimensional model — user context (top corporate / bottom vulnerable
+ * reference case) x time horizon (short/medium/long) — plus mobility domains
+ * and shared process-spine coverage.
+ */
+export function classifyHumanMobility(input: CandidateAgentInput): HumanMobility {
+  const text = sourceText(input);
+  const explicit = input.humanMobility;
+  const spine = classifyMobilitySpine(input);
+
+  const domains = new Set<HumanMobilityDomain>(explicit?.mobilityDomains ?? []);
+  for (const [domain, terms] of MOBILITY_DOMAIN_TERMS) {
+    if (includesAny(text, terms)) domains.add(domain);
+  }
+
+  return {
+    ...EMPTY_HUMAN_MOBILITY,
+    ...explicit,
+    supportsShortTerm: explicit?.supportsShortTerm ?? includesAny(text, SHORT_TERM_TERMS),
+    supportsMediumTerm: explicit?.supportsMediumTerm ?? includesAny(text, MEDIUM_TERM_TERMS),
+    supportsLongTerm: explicit?.supportsLongTerm ?? includesAny(text, LONG_TERM_TERMS),
+    // Reference cases reuse the Exec/Vulnerable detection so the user-facing
+    // tagging and the amendment's top/bottom model can never disagree.
+    supportsTopReferenceCase: explicit?.supportsTopReferenceCase ?? spine.supportsExecMobility,
+    supportsBottomReferenceCase:
+      explicit?.supportsBottomReferenceCase ?? spine.supportsVulnerablePersonsMobility,
+    mobilityDomains: Array.from(domains),
+    processSpineSupport: spine.sharedProcessSpine,
+  };
+}
+
 export function classifyCandidate(input: CandidateAgentInput) {
   return {
     strategicLanes: classifyLane(input),
     verticals: classifyVertical(input),
     legalTrack: classifyLegalTrack(input),
     topBottomRelevance: classifyMobilitySpine(input),
+    humanMobility: classifyHumanMobility(input),
   };
 }

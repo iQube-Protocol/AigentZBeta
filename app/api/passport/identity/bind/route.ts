@@ -70,10 +70,19 @@ export async function POST(req: NextRequest) {
         ? body.displayName.trim()
         : null;
 
+    const meta = userData.user.user_metadata as Record<string, unknown> | null;
+    const bureauUsername =
+      typeof meta?.bureau_username === 'string' && meta.bureau_username.trim()
+        ? meta.bureau_username
+        : typeof userData.user.email === 'string'
+          ? userData.user.email.split('@')[0]
+          : null;
+
     const result = await bindBureauIdentity({
       authProfileId: caller.authProfileId,
       authUserId: userData.user.id,
       displayName,
+      bureauUsername,
     });
 
     if (!result.ok) {

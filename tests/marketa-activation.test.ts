@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { classifyCandidate, classifyLegalTrack, classifyMobilitySpine } from '@/services/marketa/activation/classification';
+import { classifyCandidate, classifyHumanMobility, classifyLegalTrack, classifyMobilitySpine } from '@/services/marketa/activation/classification';
 import { cleanRevenueScreen } from '@/services/marketa/activation/policy';
 import { scoreCandidate } from '@/services/marketa/activation/scoring';
 
@@ -70,5 +70,56 @@ describe('Marketa Activation Engine scoring and policy', () => {
     expect(screen.status).toBe('needs_review');
     expect(screen.riskFlags).toContain('vulnerable_person_interaction');
     expect(screen.policyFlags).toContain('needs_licensed_partner_escalation');
+  });
+});
+
+describe('Human Mobility Services amendment', () => {
+  const execTravelCandidate = {
+    name: 'Executive Travel Coordinator',
+    description: 'Coordinates executive travel, flight booking, hotel accommodation, itinerary planning and travel compliance for corporate roadshows.',
+    capabilities: ['flight booking', 'hotel accommodation', 'itinerary planning', 'travel compliance'],
+    targetUsers: ['executive operations teams', 'corporate mobility teams'],
+  };
+
+  const crisisShelterCandidate = {
+    name: 'Crisis Shelter Router',
+    description: 'Routes refugees to temporary shelter during evacuation and emergency relocation, with aid placement follow-up.',
+    capabilities: ['shelter routing', 'aid placement', 'evacuation support'],
+    targetUsers: ['NGOs', 'aid organizations'],
+  };
+
+  it('classifies executive travel as short-term top-reference human mobility', () => {
+    const mobility = classifyHumanMobility(execTravelCandidate);
+    expect(mobility.supportsShortTerm).toBe(true);
+    expect(mobility.supportsTopReferenceCase).toBe(true);
+    expect(mobility.mobilityDomains).toContain('executive_travel');
+    expect(mobility.mobilityDomains).toContain('temporary_accommodation');
+    expect(mobility.processSpineSupport).toContain('travel_coordination');
+    expect(mobility.processSpineSupport).toContain('accommodation_coordination');
+  });
+
+  it('classifies crisis shelter routing as short-term bottom-reference human mobility', () => {
+    const mobility = classifyHumanMobility(crisisShelterCandidate);
+    expect(mobility.supportsShortTerm).toBe(true);
+    expect(mobility.supportsBottomReferenceCase).toBe(true);
+    expect(mobility.mobilityDomains).toContain('crisis_mobility');
+    expect(mobility.mobilityDomains).toContain('shelter_routing');
+  });
+
+  it('uses the renamed human_mobility_services lane', () => {
+    const classification = classifyCandidate(execTravelCandidate);
+    expect(classification.strategicLanes).toContain('human_mobility_services');
+    expect(classification.strategicLanes).not.toContain('mobility_residency_being');
+  });
+
+  it('scores mobility frequency, leverage and continuity dimensions', () => {
+    const scores = scoreCandidate(execTravelCandidate);
+    expect(scores.mobilityFrequencyScore).toBeGreaterThanOrEqual(70);
+    expect(scores.mobilityLeverageScore).toBeGreaterThan(0);
+    const continuityFull = scoreCandidate({
+      name: 'Full Lifecycle Mobility Agent',
+      description: 'Supports business travel, secondment placements with temporary accommodation, and long-term executive relocation with permanent residency planning.',
+    });
+    expect(continuityFull.mobilityContinuityScore).toBe(100);
   });
 });

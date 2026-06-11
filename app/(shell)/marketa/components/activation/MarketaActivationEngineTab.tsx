@@ -515,6 +515,9 @@ export function MarketaActivationEngineTab() {
                   ["Passport ready", selected.scores.passportReadinessScore],
                   ["Technical", selected.scores.technicalIntegrationScore],
                   ["Risk", selected.scores.riskScore],
+                  ["Mobility freq.", selected.scores.mobilityFrequencyScore],
+                  ["Mobility leverage", selected.scores.mobilityLeverageScore],
+                  ["Mobility continuity", selected.scores.mobilityContinuityScore],
                 ].map(([label, value]) => (
                   <div key={String(label)} className="rounded bg-slate-900/60 p-2">
                     <p className="text-slate-500">{label}</p>

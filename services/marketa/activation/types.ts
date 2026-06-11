@@ -1,7 +1,9 @@
 export const STRATEGIC_LANES = [
   'aigentme_chief_of_staff',
   'high_yield_legal',
-  'mobility_residency_being',
+  // Human Mobility Services (PRD amendment) — formerly mobility_residency_being.
+  // Normalizers map the legacy value on read so old rows/imports keep working.
+  'human_mobility_services',
   'media_communications_public_affairs',
   'agentic_ai_blockchain_infrastructure',
 ] as const;
@@ -42,19 +44,57 @@ export type MobilityReferenceTag = (typeof MOBILITY_REFERENCE_TAGS)[number];
 export const MOBILITY_SPINE_TAGS = [
   'intake',
   'identity_profile',
+  'destination_assessment',
   'jurisdiction_matching',
   'eligibility_orientation',
   'document_checklist',
+  'travel_coordination',
+  'accommodation_coordination',
   'housing_workflow',
   'residency_workflow',
+  'lawful_presence_support',
   'partner_routing',
   'status_tracking',
   'renewal_tracking',
   'compliance_tracking',
+  'continuity_planning',
   'escalation',
 ] as const;
 
 export type MobilitySpineTag = (typeof MOBILITY_SPINE_TAGS)[number];
+
+export const HUMAN_MOBILITY_DOMAINS = [
+  'business_travel',
+  'executive_travel',
+  'corporate_mobility',
+  'executive_relocation',
+  'immigration',
+  'residency',
+  'housing',
+  'temporary_accommodation',
+  'aid_routing',
+  'shelter_routing',
+  'crisis_mobility',
+] as const;
+
+export type HumanMobilityDomain = (typeof HUMAN_MOBILITY_DOMAINS)[number];
+
+/**
+ * Human Mobility Services model (PRD amendment): one capability stack spanning
+ * executive travel through stateless-citizen support, mapped across user
+ * context (top/bottom reference case) and time horizon (short/medium/long).
+ * The user-facing labels for the reference cases remain Exec / Vulnerable
+ * persons mobility per the operator's UI mandate.
+ */
+export interface HumanMobility {
+  supportsShortTerm: boolean;
+  supportsMediumTerm: boolean;
+  supportsLongTerm: boolean;
+  supportsTopReferenceCase: boolean;
+  supportsBottomReferenceCase: boolean;
+  mobilityDomains: HumanMobilityDomain[];
+  processSpineSupport: MobilitySpineTag[];
+}
 
 export const ACTIVATION_STATUSES = [
   'discovered',
@@ -123,6 +163,12 @@ export interface CandidateScores {
   technicalIntegrationScore: number;
   policyAlignmentScore: number;
   riskScore: number;
+  // Human Mobility dimensions (PRD amendment §6). Informational for now —
+  // the amendment defines no weights, so they do not feed overallPriorityScore
+  // until calibration assigns them weights.
+  mobilityFrequencyScore: number;
+  mobilityLeverageScore: number;
+  mobilityContinuityScore: number;
   overallPriorityScore: number;
 }
 
@@ -204,6 +250,7 @@ export interface CandidateAgentInput {
   verticals?: CandidateVertical[];
   legalTrack?: LegalTrack;
   topBottomRelevance?: Partial<TopBottomRelevance>;
+  humanMobility?: Partial<HumanMobility>;
   activationStatus?: ActivationStatus;
   outreachStatus?: OutreachStatus;
   revenueTracking?: Partial<RevenueTrackingSummary>;
@@ -227,6 +274,7 @@ export interface CandidateAgent extends Required<Omit<CandidateAgentInput,
   'verticals' |
   'legalTrack' |
   'topBottomRelevance' |
+  'humanMobility' |
   'activationStatus' |
   'outreachStatus' |
   'revenueTracking' |
@@ -249,6 +297,7 @@ export interface CandidateAgent extends Required<Omit<CandidateAgentInput,
   verticals: CandidateVertical[];
   legalTrack: LegalTrack;
   topBottomRelevance: TopBottomRelevance;
+  humanMobility: HumanMobility;
   scores: CandidateScores;
   riskFlags: string[];
   policyFlags: string[];

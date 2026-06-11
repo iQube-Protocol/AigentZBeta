@@ -1,5 +1,6 @@
 import type {
   CandidateScores,
+  HumanMobility,
   IqubeRegistryStub,
   PassportIntegrationStub,
   ReputationStub,
@@ -28,6 +29,9 @@ export const EMPTY_SCORES: CandidateScores = {
   technicalIntegrationScore: 0,
   policyAlignmentScore: 0,
   riskScore: 0,
+  mobilityFrequencyScore: 0,
+  mobilityLeverageScore: 0,
+  mobilityContinuityScore: 0,
   overallPriorityScore: 0,
 };
 
@@ -36,6 +40,16 @@ export const EMPTY_TOP_BOTTOM_RELEVANCE: TopBottomRelevance = {
   supportsVulnerablePersonsMobility: false,
   mobilityReferenceTag: 'none',
   sharedProcessSpine: [],
+};
+
+export const EMPTY_HUMAN_MOBILITY: HumanMobility = {
+  supportsShortTerm: false,
+  supportsMediumTerm: false,
+  supportsLongTerm: false,
+  supportsTopReferenceCase: false,
+  supportsBottomReferenceCase: false,
+  mobilityDomains: [],
+  processSpineSupport: [],
 };
 
 export const EMPTY_PASSPORT_STUB: PassportIntegrationStub = {

@@ -78,6 +78,29 @@ export function scoreCandidate(
       : 20;
   const riskScore = clampScore(screen.riskFlags.length * 18 + screen.policyFlags.length * 8);
 
+  // Human Mobility Services dimensions (PRD amendment §6). Informational —
+  // not weighted into overallPriorityScore until calibration assigns weights.
+  const mobility = classification.humanMobility;
+  const HIGH_FREQUENCY_DOMAINS = ['business_travel', 'executive_travel', 'temporary_accommodation'];
+  const mobilityFrequencyScore = clampScore(
+    (mobility.supportsShortTerm ? 50 : 0) +
+    (mobility.supportsMediumTerm ? 20 : 0) +
+    (mobility.mobilityDomains.some((domain) => HIGH_FREQUENCY_DOMAINS.includes(domain)) ? 25 : 0),
+  );
+  const mobilityLeverageScore = clampScore(
+    (mobility.supportsTopReferenceCase && mobility.supportsBottomReferenceCase
+      ? 60
+      : mobility.supportsTopReferenceCase || mobility.supportsBottomReferenceCase
+        ? 25
+        : 0) +
+    mobility.mobilityDomains.length * 5,
+  );
+  const horizonCount =
+    Number(mobility.supportsShortTerm) +
+    Number(mobility.supportsMediumTerm) +
+    Number(mobility.supportsLongTerm);
+  const mobilityContinuityScore = clampScore(horizonCount * 33 + (horizonCount === 3 ? 1 : 0));
+
   const partial = {
     strategicFitScore,
     aigentmeFitScore,
@@ -88,6 +111,9 @@ export function scoreCandidate(
     technicalIntegrationScore,
     policyAlignmentScore,
     riskScore,
+    mobilityFrequencyScore,
+    mobilityLeverageScore,
+    mobilityContinuityScore,
   };
 
   return {

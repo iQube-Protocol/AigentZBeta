@@ -213,6 +213,13 @@ export async function bindBureauIdentity(input: {
   /** Raw Supabase auth.users id (JWT sub) — anchors root_identity. */
   authUserId: string;
   displayName?: string | null;
+  /**
+   * Bureau username (from signup user_metadata). Used to derive a synthetic
+   * `<username>@polity` fio_handle — personas.fio_handle is NOT NULL in the
+   * live schema, so anonymous Bureau personas carry a unique synthetic handle
+   * in the polity domain rather than null. T0 either way; never serialized.
+   */
+  bureauUsername?: string | null;
 }): Promise<BureauBindResult> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase configuration missing' };
@@ -298,12 +305,18 @@ export async function bindBureauIdentity(input: {
   }
 
   // 4) Bureau persona — owned by the caller via auth_profile_id so
-  //    getActivePersona resolves it with no spine change.
+  //    getActivePersona resolves it with no spine change. fio_handle is
+  //    NOT NULL in the live schema: derive a unique synthetic handle from
+  //    the bureau username, falling back to the KybeDID commitment ref so
+  //    the handle is always unique and never null.
+  const syntheticHandle = input.bureauUsername?.trim()
+    ? `${input.bureauUsername.trim().toLowerCase()}@polity`
+    : `anon-${didPublicRef(kybeDid)}@polity`;
   const { data: personaRow, error: personaError } = await admin
     .from('personas')
     .insert({
       type: 'PersonaQube',
-      fio_handle: null,
+      fio_handle: syntheticHandle,
       fio_domain: 'polity',
       root_did: rootRow!.did_uri,
       display_name: input.displayName?.trim() || 'Polity Citizen',
