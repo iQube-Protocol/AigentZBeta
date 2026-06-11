@@ -205,6 +205,14 @@ export function MarketaActivationEngineTab() {
         candidate => candidate.topBottomRelevance.supportsVulnerablePersonsMobility,
       ).length,
       legal: candidates.filter(candidate => candidate.legalTrack !== "none").length,
+      pipeline: candidates.reduce(
+        (sum, candidate) => sum + candidate.revenueTracking.estimatedPipelineValue,
+        0,
+      ),
+      closed: candidates.reduce(
+        (sum, candidate) => sum + candidate.revenueTracking.closedCleanRevenue,
+        0,
+      ),
     }),
     [candidates],
   );
@@ -503,7 +511,7 @@ export function MarketaActivationEngineTab() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         {[
           ["All candidates", metrics.total, "all"],
           ["Needs review", metrics.needsReview, "needs_review"],
@@ -520,6 +528,14 @@ export function MarketaActivationEngineTab() {
             <p className="text-2xl font-bold text-white">{value}</p>
           </button>
         ))}
+        <div className={`${GLASS_CARD} p-4`} title="Sum of open opportunity values (proposed/approved/active/paused) across all candidates">
+          <p className="text-xs text-slate-400 whitespace-nowrap">Pipeline value</p>
+          <p className="text-2xl font-bold text-pink-200">${metrics.pipeline}</p>
+        </div>
+        <div className={`${GLASS_CARD} p-4`} title="Sum of completed opportunity values across all candidates — what Marketa has earned">
+          <p className="text-xs text-slate-400 whitespace-nowrap">Closed revenue</p>
+          <p className="text-2xl font-bold text-emerald-300">${metrics.closed}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">

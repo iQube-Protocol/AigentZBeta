@@ -185,7 +185,8 @@
                 "updates/2026-06-10_polity-passport-bureau-prd-v1.md",
                 "updates/2026-06-10_polity-passport-bureau-implementation-plan.md",
                 "updates/2026-06-11_marketa-activation-engine-deployed.md",
-                "updates/2026-06-11_marketa-bureau-advance-signin-resilience-ui-polish.md"
+                "updates/2026-06-11_marketa-bureau-advance-signin-resilience-ui-polish.md",
+                "updates/2026-06-11_marketa-opportunities-crud-passport-resync-diagnostics.md"
       ]
     },
     {
