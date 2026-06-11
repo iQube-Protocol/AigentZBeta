@@ -627,23 +627,27 @@ export function MarketaActivationEngineTab() {
                   Integration state
                 </h5>
                 <div className="space-y-2 text-xs text-slate-300">
-                  <p>
-                    Agent card:{" "}
-                    {selected.agentCardUrl ? (
-                      <span className="text-slate-500 break-all">{selected.agentCardUrl}</span>
-                    ) : (
-                      <span className="text-amber-400/80">
-                        missing — required before Registry/Passport handoffs
-                      </span>
-                    )}
-                  </p>
-                  {!selected.agentCardUrl && (
+                  <div className="space-y-1">
+                    <p>
+                      Agent card:{" "}
+                      {selected.agentCardUrl ? (
+                        <span className="text-slate-500 break-all">{selected.agentCardUrl}</span>
+                      ) : (
+                        <span className="text-amber-400/80">
+                          missing — required before Registry/Passport handoffs
+                        </span>
+                      )}
+                    </p>
                     <div className="flex gap-1.5">
                       <input
                         type="url"
                         value={agentCardInput}
                         onChange={event => setAgentCardInput(event.target.value)}
-                        placeholder="https://… agent card URL"
+                        placeholder={
+                          selected.agentCardUrl
+                            ? "Replace agent card URL…"
+                            : "https://… agent card URL"
+                        }
                         title="The Bureau anchors participant identity on this URL — the agent's public Agent Card (A2A) JSON"
                         className="flex-1 rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
                       />
@@ -651,18 +655,28 @@ export function MarketaActivationEngineTab() {
                         size="sm"
                         variant="outline"
                         className="bg-slate-800/50 border-white/20 text-slate-200"
-                        title="Save the agent card URL onto this candidate"
-                        disabled={savingAgentCard || !agentCardInput.trim().startsWith("http")}
+                        title={
+                          selected.agentCardUrl
+                            ? "Replace the agent card URL on this candidate"
+                            : "Save the agent card URL onto this candidate"
+                        }
+                        disabled={
+                          savingAgentCard ||
+                          !agentCardInput.trim().startsWith("http") ||
+                          agentCardInput.trim() === selected.agentCardUrl
+                        }
                         onClick={() => saveAgentCardUrl(selected.id)}
                       >
                         {savingAgentCard ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : selected.agentCardUrl ? (
+                          "Replace"
                         ) : (
                           "Save"
                         )}
                       </Button>
                     </div>
-                  )}
+                  </div>
                   <p>
                     Passport:{" "}
                     <span className="text-slate-500">
