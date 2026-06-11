@@ -7,9 +7,9 @@ type RoleKey = "metame_guardian" | "aigentMe" | "aigentC" | "aigentZ";
 
 const ROLES: { id: RoleKey; brand: string; color: string; icon: typeof Shield }[] = [
   { id: "metame_guardian", brand: "myGuard", color: "text-amber-400", icon: Shield },
-  { id: "aigentMe", brand: "metaMe", color: "text-purple-400", icon: Heart },
+  { id: "aigentMe", brand: "aigentMe", color: "text-purple-400", icon: Heart },
   { id: "aigentC", brand: "aigentC", color: "text-blue-400", icon: Users },
-  { id: "aigentZ", brand: "AgentiQ", color: "text-green-400", icon: Cpu },
+  { id: "aigentZ", brand: "aigentZ", color: "text-green-400", icon: Cpu },
 ];
 
 interface DomainGrant {
@@ -121,8 +121,8 @@ export function GovernanceAuthorityMatrixTab() {
         <h4 className="text-sm font-semibold text-white">Reading the Matrix</h4>
         <ul className="text-xs text-slate-400 space-y-1">
           <li>myGuard holds absolute authority over sovereignty domains. No other role can override.</li>
-          <li>metaMe, aigentC, and AgentiQ hold bounded authority within their respective agency domains.</li>
-          <li>Infrastructure Continuity requires Guardian approval — AgentiQ cannot act unilaterally on infrastructure.</li>
+          <li>aigentMe, aigentC, and aigentZ hold bounded authority within their respective agency domains.</li>
+          <li>Infrastructure Continuity requires Guardian approval — aigentZ cannot act unilaterally on infrastructure.</li>
           <li>No role holds authority outside its constitutional mandate. Cross-domain actions trigger escalation.</li>
         </ul>
       </div>
