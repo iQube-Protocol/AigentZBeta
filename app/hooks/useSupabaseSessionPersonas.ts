@@ -55,12 +55,16 @@ async function linkDeviceProfile(accessToken: string): Promise<void> {
  */
 async function consolidateIdentity(accessToken: string): Promise<void> {
   try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8_000);
     await fetch("/api/wallet/identity/consolidate", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
+      signal: ctrl.signal,
     });
-  } catch {
-    // non-fatal
+    clearTimeout(timer);
+  } catch (err) {
+    console.warn('[useSupabaseSessionPersonas] consolidateIdentity failed (non-fatal):', err instanceof Error ? err.message : err);
   }
 }
 
@@ -129,10 +133,19 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string): Promise<{ error: string | null }> => {
-    const supabase = getSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-    return { error: null };
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error('[useSupabaseSessionPersonas] signIn returned error:', error.message, error);
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[useSupabaseSessionPersonas] signIn threw:', msg, err);
+      return { error: `Auth service unreachable — ${msg}` };
+    }
   }, []);
 
   const signUp = useCallback(async (
@@ -177,10 +190,17 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
         // mode only and must be an explicit user action to preserve identity sovereignty.
         await consolidateIdentity(accessToken);
       }
+      const personaCtrl = new AbortController();
+      const personaTimer = setTimeout(() => personaCtrl.abort(), 12_000);
       const res = await fetch("/api/wallet/personas", {
         headers: { Authorization: `Bearer ${accessToken}` },
+        signal: personaCtrl.signal,
       });
-      if (!res.ok) return;
+      clearTimeout(personaTimer);
+      if (!res.ok) {
+        console.warn('[useSupabaseSessionPersonas] /api/wallet/personas returned', res.status);
+        return;
+      }
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
 

@@ -1991,48 +1991,7 @@ export default function SmartWalletDrawer({
                             if (e.key !== "Enter") return;
                             setSignInPending(true);
                             setSignInError(null);
-                            if (authMode === "signin") {
-                              const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
-                              setSignInPending(false);
-                              if (error) {
-                                setSignInError(error);
-                              } else {
-                                setSigningIn(false);
-                                setSignInEmailInput("");
-                                setSignInPasswordInput("");
-                                setPersonaMenuOpen(false);
-                              }
-                            } else {
-                              const { error, requiresEmailConfirmation } = await signUpWithEmail(signInEmailInput, signInPasswordInput);
-                              setSignInPending(false);
-                              if (error) {
-                                setSignInError(error);
-                              } else if (requiresEmailConfirmation) {
-                                setSignUpConfirmationSent(true);
-                              } else {
-                                // session already populated — onAuthStateChange will close panel
-                                setSigningIn(false);
-                                setSignInPasswordInput("");
-                                setPersonaMenuOpen(false);
-                              }
-                            }
-                          }}
-                          className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
-                          autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                        />
-                        {authMode === "signup" && (
-                          <p className="text-[10px] text-white/40 mb-2">
-                            FIO handle is optional and can be added later from your wallet. Required only for transactions.
-                          </p>
-                        )}
-                        {signInError && (
-                          <p className="text-xs text-red-400 mb-2">{signInError}</p>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={async () => {
-                              setSignInPending(true);
-                              setSignInError(null);
+                            try {
                               if (authMode === "signin") {
                                 const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
                                 setSignInPending(false);
@@ -2056,6 +2015,62 @@ export default function SmartWalletDrawer({
                                   setSignInPasswordInput("");
                                   setPersonaMenuOpen(false);
                                 }
+                              }
+                            } catch (err) {
+                              console.error('[SmartWallet] auth error:', err);
+                              setSignInPending(false);
+                              setSignInError(
+                                err instanceof Error ? err.message : 'Sign-in failed — check your connection and try again.',
+                              );
+                            }
+                          }}
+                          className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
+                          autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                        />
+                        {authMode === "signup" && (
+                          <p className="text-[10px] text-white/40 mb-2">
+                            FIO handle is optional and can be added later from your wallet. Required only for transactions.
+                          </p>
+                        )}
+                        {signInError && (
+                          <p className="text-xs text-red-400 mb-2">{signInError}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              setSignInPending(true);
+                              setSignInError(null);
+                              try {
+                                if (authMode === "signin") {
+                                  const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
+                                  setSignInPending(false);
+                                  if (error) {
+                                    setSignInError(error);
+                                  } else {
+                                    setSigningIn(false);
+                                    setSignInEmailInput("");
+                                    setSignInPasswordInput("");
+                                    setPersonaMenuOpen(false);
+                                  }
+                                } else {
+                                  const { error, requiresEmailConfirmation } = await signUpWithEmail(signInEmailInput, signInPasswordInput);
+                                  setSignInPending(false);
+                                  if (error) {
+                                    setSignInError(error);
+                                  } else if (requiresEmailConfirmation) {
+                                    setSignUpConfirmationSent(true);
+                                  } else {
+                                    setSigningIn(false);
+                                    setSignInPasswordInput("");
+                                    setPersonaMenuOpen(false);
+                                  }
+                                }
+                              } catch (err) {
+                                console.error('[SmartWallet] auth error:', err);
+                                setSignInPending(false);
+                                setSignInError(
+                                  err instanceof Error ? err.message : 'Sign-in failed — check your connection and try again.',
+                                );
                               }
                             }}
                             disabled={signInPending}
