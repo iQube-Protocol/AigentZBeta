@@ -1,7 +1,13 @@
 "use client";
 
 import React from "react";
-import { FileText, CheckCircle } from "lucide-react";
+import { FileText, CheckCircle, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+
+interface SovereigntyImpact {
+  me: "benefits" | "neutral" | "constrains";
+  c: "benefits" | "neutral" | "constrains";
+  z: "benefits" | "neutral" | "constrains";
+}
 
 interface Decision {
   id: string;
@@ -12,6 +18,9 @@ interface Decision {
   initiative: string;
   summary: string;
   rationale: string;
+  sovereigntyImpact: SovereigntyImpact;
+  constitutionalBasis: string;
+  registryReady: boolean;
 }
 
 const DECISIONS: Decision[] = [
@@ -24,6 +33,9 @@ const DECISIONS: Decision[] = [
     initiative: "Operation Chrysalis",
     summary: "Agency represents the preservation and balancing of individual, collective, and platform agency. It shall not be implemented as a root runtime agent.",
     rationale: "Avoids introducing unnecessary authority layers while preserving balanced representation across the three agency domains.",
+    sovereigntyImpact: { me: "benefits", c: "benefits", z: "constrains" },
+    constitutionalBasis: "sovereignty_first, representation",
+    registryReady: true,
   },
   {
     id: "GD-002",
@@ -34,6 +46,9 @@ const DECISIONS: Decision[] = [
     initiative: "Operation Chrysalis",
     summary: "The constitutional hierarchy consists of metaMe Guardian (sovereignty layer), aigentMe (individual agency), aigentC (collective agency), and aigentZ (platform agency).",
     rationale: "Each domain of interest has explicit representation. No single agent may represent all interests.",
+    sovereigntyImpact: { me: "benefits", c: "benefits", z: "benefits" },
+    constitutionalBasis: "representation, dual_representation",
+    registryReady: true,
   },
   {
     id: "GD-003",
@@ -44,6 +59,9 @@ const DECISIONS: Decision[] = [
     initiative: "Operation Chrysalis",
     summary: "An aigent is a polity-compliant AI agent holding a valid Participant Passport. Generic AI agents have no polity standing.",
     rationale: "Distinguishes governed, accountable agents from arbitrary AI systems via passport requirement.",
+    sovereigntyImpact: { me: "benefits", c: "benefits", z: "constrains" },
+    constitutionalBasis: "bounded_delegation, constitutional_guardrails",
+    registryReady: true,
   },
   {
     id: "GD-004",
@@ -54,6 +72,9 @@ const DECISIONS: Decision[] = [
     initiative: "Operation Chrysalis",
     summary: "Passported aigents use @<name>.aigent handles. Identity stack: Passport → RootDID → PersonaID → @aigent Handle.",
     rationale: "Human-readable, discoverable identity layer with cryptographic and governance credentials beneath.",
+    sovereigntyImpact: { me: "benefits", c: "neutral", z: "benefits" },
+    constitutionalBasis: "bounded_delegation, individual_sovereignty",
+    registryReady: true,
   },
   {
     id: "GD-005",
@@ -64,6 +85,9 @@ const DECISIONS: Decision[] = [
     initiative: "Operation Chrysalis",
     summary: "Polity Participant Passports use W3C VC format. Phase A: HMAC stub signing. Phase C: asymmetric, publicly verifiable proofs.",
     rationale: "W3C VC provides interoperability, standard verification, and clear upgrade path.",
+    sovereigntyImpact: { me: "benefits", c: "neutral", z: "constrains" },
+    constitutionalBasis: "bounded_delegation, sovereignty_first",
+    registryReady: true,
   },
   {
     id: "GD-006",
@@ -74,6 +98,9 @@ const DECISIONS: Decision[] = [
     initiative: "Operation Chrysalis",
     summary: "The AgentiQ Constitution of Aigents governs the platform ecosystem. The broader Polity Constitution (future) governs the full polity.",
     rationale: "Clean separation of platform governance from societal governance, allowing independent evolution.",
+    sovereigntyImpact: { me: "neutral", c: "benefits", z: "benefits" },
+    constitutionalBasis: "constitutional_guardrails, dual_representation",
+    registryReady: true,
   },
   {
     id: "GD-007",
@@ -84,8 +111,27 @@ const DECISIONS: Decision[] = [
     initiative: "Operation Chrysalis",
     summary: "The existing ecosystem already contains most required architecture. Focus is clarification, consolidation, elevation, governance, and autonomy.",
     rationale: "Repository audits show the architecture is significantly more mature than assumed. The gap is organizational, not foundational.",
+    sovereigntyImpact: { me: "benefits", c: "benefits", z: "benefits" },
+    constitutionalBasis: "fulfillment, sovereignty_first",
+    registryReady: true,
   },
 ];
+
+const IMPACT_CONFIG = {
+  benefits: { icon: ArrowUpRight, color: "text-emerald-400" },
+  neutral: { icon: Minus, color: "text-slate-400" },
+  constrains: { icon: ArrowDownRight, color: "text-rose-400" },
+} as const;
+
+function ImpactBadge({ agency, level }: { agency: string; level: keyof typeof IMPACT_CONFIG }) {
+  const { icon: Icon, color } = IMPACT_CONFIG[level];
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <span className="text-[10px] text-slate-500">{agency}</span>
+      <Icon className={`w-3 h-3 ${color}`} />
+    </span>
+  );
+}
 
 const DOMAIN_COLORS: Record<string, string> = {
   constitutional: "bg-amber-500/20 text-amber-300 border-amber-500/30",
@@ -126,6 +172,16 @@ export function GovernanceDecisionLogTab() {
               </span>
               <span className="text-xs text-slate-500">{d.date}</span>
               <span className="text-xs text-slate-500">{d.initiative}</span>
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="text-[10px] text-slate-500 uppercase font-semibold">Impact</span>
+              <ImpactBadge agency="Me" level={d.sovereigntyImpact.me} />
+              <ImpactBadge agency="C" level={d.sovereigntyImpact.c} />
+              <ImpactBadge agency="Z" level={d.sovereigntyImpact.z} />
+              <span className="text-[10px] text-slate-500 ml-2">Basis: {d.constitutionalBasis}</span>
+              {d.registryReady && (
+                <span className="text-[10px] px-1 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20">Registry-ready</span>
+              )}
             </div>
             <div className="mt-2 text-xs text-slate-400">
               <span className="font-semibold">Rationale:</span> {d.rationale}

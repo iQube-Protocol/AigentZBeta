@@ -25,6 +25,16 @@ export type DecisionDomain =
   | 'registry'
   | 'operations';
 
+// ─── Sovereignty Impact Classification ────────────────────────────────────
+
+export type SovereigntyImpactLevel = 'benefits' | 'neutral' | 'constrains';
+
+export interface SovereigntyImpact {
+  me: SovereigntyImpactLevel;
+  c: SovereigntyImpactLevel;
+  z: SovereigntyImpactLevel;
+}
+
 export interface GovernanceDecision {
   id: string;
   title: string;
@@ -36,6 +46,9 @@ export interface GovernanceDecision {
   rationale: string;
   amends: string | null;
   superseded_by: string | null;
+  sovereigntyImpact: SovereigntyImpact;
+  constitutionalBasis: string;
+  registryReady: boolean;
 }
 
 // ─── Ratified decisions from Operation Chrysalis ────────────────────────────
@@ -52,6 +65,9 @@ export const GOVERNANCE_DECISIONS: GovernanceDecision[] = [
     rationale: 'Avoids introducing unnecessary authority layers while preserving balanced representation across the three agency domains.',
     amends: null,
     superseded_by: null,
+    sovereigntyImpact: { me: 'benefits', c: 'benefits', z: 'constrains' },
+    constitutionalBasis: 'sovereignty_first, representation',
+    registryReady: true,
   },
   {
     id: 'GD-002',
@@ -64,6 +80,9 @@ export const GOVERNANCE_DECISIONS: GovernanceDecision[] = [
     rationale: 'Each domain of interest (sovereignty, individual, collective, platform) has explicit representation. No single agent may represent all interests.',
     amends: null,
     superseded_by: null,
+    sovereigntyImpact: { me: 'benefits', c: 'benefits', z: 'benefits' },
+    constitutionalBasis: 'representation, dual_representation',
+    registryReady: true,
   },
   {
     id: 'GD-003',
@@ -76,6 +95,9 @@ export const GOVERNANCE_DECISIONS: GovernanceDecision[] = [
     rationale: 'Distinguishes governed, accountable agents from arbitrary AI systems. Passport requirement ensures provenance, bounded delegation, and constitutional compliance.',
     amends: null,
     superseded_by: null,
+    sovereigntyImpact: { me: 'benefits', c: 'benefits', z: 'constrains' },
+    constitutionalBasis: 'bounded_delegation, constitutional_guardrails',
+    registryReady: true,
   },
   {
     id: 'GD-004',
@@ -88,6 +110,9 @@ export const GOVERNANCE_DECISIONS: GovernanceDecision[] = [
     rationale: 'Provides a human-readable, discoverable identity layer while maintaining cryptographic identity (RootDID) and governance credential (Passport) beneath.',
     amends: null,
     superseded_by: null,
+    sovereigntyImpact: { me: 'benefits', c: 'neutral', z: 'benefits' },
+    constitutionalBasis: 'bounded_delegation, individual_sovereignty',
+    registryReady: true,
   },
   {
     id: 'GD-005',
@@ -100,6 +125,9 @@ export const GOVERNANCE_DECISIONS: GovernanceDecision[] = [
     rationale: 'W3C VC format provides interoperability, standard verification flows, and a clear upgrade path from stub to production signing.',
     amends: null,
     superseded_by: null,
+    sovereigntyImpact: { me: 'benefits', c: 'neutral', z: 'constrains' },
+    constitutionalBasis: 'bounded_delegation, sovereignty_first',
+    registryReady: true,
   },
   {
     id: 'GD-006',
@@ -112,6 +140,9 @@ export const GOVERNANCE_DECISIONS: GovernanceDecision[] = [
     rationale: 'Clean separation of platform governance from societal governance. The platform constitution can evolve independently while remaining subordinate to the eventual Polity Constitution.',
     amends: null,
     superseded_by: null,
+    sovereigntyImpact: { me: 'neutral', c: 'benefits', z: 'benefits' },
+    constitutionalBasis: 'constitutional_guardrails, dual_representation',
+    registryReady: true,
   },
   {
     id: 'GD-007',
@@ -124,6 +155,9 @@ export const GOVERNANCE_DECISIONS: GovernanceDecision[] = [
     rationale: 'Repository audits show aigentZ is already highly mature. Governance, receipt, registry, and memory infrastructure already exists. The gap is organizational and constitutional, not foundational.',
     amends: null,
     superseded_by: null,
+    sovereigntyImpact: { me: 'benefits', c: 'benefits', z: 'benefits' },
+    constitutionalBasis: 'fulfillment, sovereignty_first',
+    registryReady: true,
   },
 ];
 

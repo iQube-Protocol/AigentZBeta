@@ -41,7 +41,12 @@ export type ActivityActionType =
   | 'passport_status_changed'
   | 'passport_revoked'
   | 'passport_privilege_changed'
-  | 'passport_infraction_recorded';
+  | 'passport_infraction_recorded'
+  // Governance (DVN-anchorable; Operation Chrysalis Phase 0A)
+  | 'governance_decision_ratified'
+  | 'governance_decision_amended'
+  | 'governance_authority_exercised'
+  | 'governance_escalation_triggered';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

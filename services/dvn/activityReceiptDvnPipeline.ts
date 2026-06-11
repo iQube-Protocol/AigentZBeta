@@ -55,6 +55,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'passport_revoked',
   'passport_privilege_changed',
   'passport_infraction_recorded',
+  // Governance (Operation Chrysalis Phase 0A)
+  'governance_decision_ratified',
+  'governance_decision_amended',
+  'governance_authority_exercised',
+  'governance_escalation_triggered',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

@@ -23,14 +23,12 @@ import {
   getEscalationPaths,
   hasAuthority,
   classifyAgent,
-  type ConstitutionalRoleId,
-} from '@/services/governance';
-
-import {
   GOVERNANCE_DECISIONS,
   getDecision,
   getDecisionsByDomain,
   getActiveDecisions,
+  CONSTITUTIONAL_ENTITIES,
+  getConstitutionalEntity,
 } from '@/services/governance';
 
 // ─── Constitutional principles ──────────────────────────────────────────────
@@ -61,7 +59,7 @@ describe('Sovereign Agent Roles', () => {
     expect(Object.keys(SOVEREIGN_ROLES)).toHaveLength(4);
   });
 
-  const expectedRoles: ConstitutionalRoleId[] = ['metame_guardian', 'aigentMe', 'aigentC', 'aigentZ'];
+  const expectedRoles: string[] = ['metame_guardian', 'aigentMe', 'aigentC', 'aigentZ'];
 
   it.each(expectedRoles)('role %s exists in the registry', (roleId) => {
     const role = getSovereignRole(roleId);
@@ -291,5 +289,86 @@ describe('Governance Decision Log', () => {
   it('all founding decisions are active (ratified)', () => {
     const active = getActiveDecisions();
     expect(active.length).toBe(GOVERNANCE_DECISIONS.length);
+  });
+
+  it('all decisions have sovereignty impact classification', () => {
+    const validLevels = new Set(['benefits', 'neutral', 'constrains']);
+    for (const d of GOVERNANCE_DECISIONS) {
+      expect(d.sovereigntyImpact).toBeDefined();
+      expect(validLevels.has(d.sovereigntyImpact.me)).toBe(true);
+      expect(validLevels.has(d.sovereigntyImpact.c)).toBe(true);
+      expect(validLevels.has(d.sovereigntyImpact.z)).toBe(true);
+    }
+  });
+
+  it('all decisions have constitutional basis', () => {
+    for (const d of GOVERNANCE_DECISIONS) {
+      expect(d.constitutionalBasis).toBeTruthy();
+    }
+  });
+
+  it('all founding decisions are registry-ready', () => {
+    for (const d of GOVERNANCE_DECISIONS) {
+      expect(d.registryReady).toBe(true);
+    }
+  });
+});
+
+// ─── Sovereignty Impact Classification ────────────────────────────────────
+
+describe('Sovereignty Impact Classification', () => {
+  it('GD-001 constrains Z (prevents agency as runtime principal)', () => {
+    const d = getDecision('GD-001');
+    expect(d!.sovereigntyImpact.z).toBe('constrains');
+    expect(d!.sovereigntyImpact.me).toBe('benefits');
+  });
+
+  it('GD-002 benefits all agencies (establishes representation for each)', () => {
+    const d = getDecision('GD-002');
+    expect(d!.sovereigntyImpact.me).toBe('benefits');
+    expect(d!.sovereigntyImpact.c).toBe('benefits');
+    expect(d!.sovereigntyImpact.z).toBe('benefits');
+  });
+
+  it('GD-003 constrains Z (passport requirement on aigents)', () => {
+    const d = getDecision('GD-003');
+    expect(d!.sovereigntyImpact.z).toBe('constrains');
+  });
+});
+
+// ─── Constitutional Registry Integration Stub ─────────────────────────────
+
+describe('Constitutional Entity Registry', () => {
+  it('has exactly 4 constitutional entities', () => {
+    expect(CONSTITUTIONAL_ENTITIES).toHaveLength(4);
+  });
+
+  it('all constitutional roles have corresponding entities', () => {
+    const roleIds: string[] = ['metame_guardian', 'aigentMe', 'aigentC', 'aigentZ'];
+    for (const id of roleIds) {
+      const entity = getConstitutionalEntity(id);
+      expect(entity).toBeDefined();
+      expect(entity!.constitutionalId).toBe(id);
+      expect(entity!.registryRegistered).toBe(true);
+    }
+  });
+
+  it('all entities have @aigent handles', () => {
+    for (const entity of CONSTITUTIONAL_ENTITIES) {
+      expect(entity.aigentHandle).toMatch(/^@\w+\.aigent$/);
+    }
+  });
+
+  it('sovereign roles are not passport-required (they are foundational)', () => {
+    for (const entity of CONSTITUTIONAL_ENTITIES) {
+      expect(entity.passportRequired).toBe(false);
+    }
+  });
+
+  it('entity handles match expected values', () => {
+    expect(getConstitutionalEntity('metame_guardian')!.aigentHandle).toBe('@myguard.aigent');
+    expect(getConstitutionalEntity('aigentMe')!.aigentHandle).toBe('@metame.aigent');
+    expect(getConstitutionalEntity('aigentC')!.aigentHandle).toBe('@aigentc.aigent');
+    expect(getConstitutionalEntity('aigentZ')!.aigentHandle).toBe('@agentz.aigent');
   });
 });

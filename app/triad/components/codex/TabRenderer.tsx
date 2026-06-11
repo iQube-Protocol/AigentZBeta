@@ -120,6 +120,8 @@ import { RefAigentTab } from "./tabs/RefAigentTab";
 import { GovernanceConstitutionTab } from "./tabs/GovernanceConstitutionTab";
 import { GovernanceRolesTab } from "./tabs/GovernanceRolesTab";
 import { GovernanceDecisionLogTab } from "./tabs/GovernanceDecisionLogTab";
+import { GovernanceAuthorityMatrixTab } from "./tabs/GovernanceAuthorityMatrixTab";
+import { GovernanceReceiptsTab } from "./tabs/GovernanceReceiptsTab";
 import { ComposerStudio } from "@/components/composer/ComposerStudio";
 import { MetaMeStudioTab } from "./tabs/MetaMeStudioTab";
 import { PersonalExperienceMatrixTab } from "./tabs/PersonalExperienceMatrixTab";
@@ -271,6 +273,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   GovernanceConstitutionTab,
   GovernanceRolesTab,
   GovernanceDecisionLogTab,
+  GovernanceAuthorityMatrixTab,
+  GovernanceReceiptsTab,
   ComposerStudio,
   MetaMeStudioTab,
   PersonalExperienceMatrixTab,
