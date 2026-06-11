@@ -32,8 +32,8 @@ function t(dark: boolean) {
     sub:     dark ? "text-white/50"                           : "text-black/45",
     muted:   dark ? "text-white/30"                           : "text-black/30",
     card:    dark ? "bg-white/[0.03] border-white/[0.07]"     : "bg-white border-black/[0.08]",
-    infoCard:dark ? "bg-rose-500/[0.06] border-rose-500/20"   : "bg-rose-50 border-rose-200",
-    featured:dark ? "bg-rose-500/[0.05] border-rose-500/40"   : "bg-rose-50/80 border-rose-400",
+    infoCard:dark ? "bg-pink-400/[0.06] border-pink-400/20"   : "bg-pink-50 border-pink-200",
+    featured:dark ? "bg-pink-400/[0.05] border-pink-400/40"   : "bg-pink-50/80 border-pink-300",
     div:     dark ? "border-white/[0.07]"                     : "border-black/[0.07]",
     inp:     dark ? "bg-white/[0.04] border-white/10 text-white/80" : "bg-white border-black/10 text-black/80",
     tabOn:   dark ? "border-b-2 border-white/80 text-white/90 font-semibold" : "border-b-2 border-black/80 text-black/80 font-semibold",
@@ -48,7 +48,7 @@ function t(dark: boolean) {
 // ── Type badge ────────────────────────────────────────────────────────────────
 function TypeBadge({ type }: { type: string }) {
   return type === "sequence"
-    ? <span className="text-[11px] px-2.5 py-0.5 rounded-full border border-rose-500/50 bg-rose-500/20 text-rose-300 font-semibold backdrop-blur-sm">Sequence</span>
+    ? <span className="text-[11px] px-2.5 py-0.5 rounded-full border border-pink-400/50 bg-pink-400/20 text-pink-300 font-semibold backdrop-blur-sm">Sequence</span>
     : <span className="text-[11px] px-2.5 py-0.5 rounded-full border border-amber-500/50 bg-amber-500/20 text-amber-300 font-semibold backdrop-blur-sm">One-off</span>;
 }
 
@@ -67,7 +67,7 @@ function CampaignCard({ c, dark, onView, onJoin }: { c: CampaignCatalogItem; dar
     <div className={cn("rounded-2xl border p-5 space-y-4 transition-all", is21 ? s.featured : s.card)}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          {is21 && <Sparkles className="w-5 h-5 text-rose-400 flex-shrink-0" />}
+          {is21 && <Sparkles className="w-5 h-5 text-pink-300 flex-shrink-0" />}
           <h3 className={cn("font-bold text-base truncate", s.page)}>{c.name}</h3>
         </div>
         <TypeBadge type={c.campaign_type} />
@@ -98,7 +98,7 @@ function CampaignCard({ c, dark, onView, onJoin }: { c: CampaignCatalogItem; dar
           <button onClick={onView} className={cn("flex-1 text-sm py-2 rounded-xl border font-medium transition-colors", s.btnGhost)}>
             View Campaign
           </button>
-          <button onClick={onJoin} className="flex-1 text-sm py-2 rounded-xl border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-semibold transition-colors flex items-center justify-center gap-1.5 backdrop-blur-sm">
+          <button onClick={onJoin} className="flex-1 text-sm py-2 rounded-xl border border-pink-400/50 bg-pink-400/20 hover:bg-pink-400/30 text-pink-300 font-semibold transition-colors flex items-center justify-center gap-1.5 backdrop-blur-sm">
             Join Campaign <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -276,7 +276,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
           </div>
           <button
             onClick={() => navigateToTab("propose-campaign")}
-            className="flex-shrink-0 flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-semibold transition-colors backdrop-blur-sm"
+            className="flex-shrink-0 flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-pink-400/50 bg-pink-400/20 hover:bg-pink-400/30 text-pink-300 font-semibold transition-colors backdrop-blur-sm"
           >
             + Propose Campaign
           </button>
@@ -291,7 +291,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
         {/* Explainer card */}
         <div className={cn("rounded-2xl border p-4 space-y-2", dark ? "bg-white/[0.02] border-white/[0.07]" : "bg-white border-black/[0.07]")}>
           <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            <Info className="w-4 h-4 text-pink-300 flex-shrink-0" />
             <span className={cn("text-sm font-semibold", s.page)}>What you&apos;re looking at</span>
           </div>
           <p className={cn("text-xs", s.sub)}>Quick guide to &quot;Campaigns&quot; vs &quot;Content Packs&quot; so it&apos;s easy to navigate.</p>
@@ -299,7 +299,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
             <p><span className="font-semibold text-white/70">Available</span>: campaigns you can join (not active for you yet).</p>
             <p><span className="font-semibold text-white/70">Joined</span>: campaigns you&apos;ve joined (automation + reporting active).</p>
             <p><span className="font-semibold text-white/70">Sequences</span>: multi-day daily content (e.g. 21 Awakenings). <span className="font-semibold text-white/70">One-off</span>: single campaign with custom assets.</p>
-            <p><span className="font-semibold text-white/70">Content Packs</span>: your custom campaign content, built by Marketa AI around your brand. <button onClick={() => navigateToTab("my-packs")} className="text-rose-400 hover:underline">Go to Content Packs →</button></p>
+            <p><span className="font-semibold text-white/70">Content Packs</span>: your custom campaign content, built by Marketa AI around your brand. <button onClick={() => navigateToTab("my-packs")} className="text-pink-300 hover:underline">Go to Content Packs →</button></p>
           </div>
         </div>
 
@@ -357,8 +357,8 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                {is21 && <Sparkles className="w-5 h-5 text-rose-400 flex-shrink-0" />}
-                <Megaphone className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                {is21 && <Sparkles className="w-5 h-5 text-pink-300 flex-shrink-0" />}
+                <Megaphone className="w-4 h-4 text-pink-300 flex-shrink-0" />
                 <h2 className={cn("text-xl font-bold truncate", s.page)}>{detail?.name ?? "Loading…"}</h2>
               </div>
               {detail?.description && (
@@ -383,14 +383,14 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
               <div className="flex gap-6">
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-rose-400" />
+                    <Sparkles className="w-5 h-5 text-pink-300" />
                     <h3 className={cn("font-bold text-base", s.page)}>What is 21 Awakenings?</h3>
                   </div>
                   <ul className={cn("space-y-2 text-sm", s.sub)}>
-                    <li className="flex items-start gap-2"><Calendar className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />22-day journey with daily short video clips (Day 0–21)</li>
-                    <li className="flex items-start gap-2"><span className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0 text-base leading-none">▷</span>Day 0 &amp; Day 1 include special explainer videos</li>
-                    <li className="flex items-start gap-2"><span className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0 text-base leading-none">⇄</span>Share-to-earn CTAs with Qriptopian Smart Actions</li>
-                    <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />Earn KNYT &amp; Qc rewards for participation</li>
+                    <li className="flex items-start gap-2"><Calendar className="w-4 h-4 text-pink-300 mt-0.5 flex-shrink-0" />22-day journey with daily short video clips (Day 0–21)</li>
+                    <li className="flex items-start gap-2"><span className="w-4 h-4 text-pink-300 mt-0.5 flex-shrink-0 text-base leading-none">▷</span>Day 0 &amp; Day 1 include special explainer videos</li>
+                    <li className="flex items-start gap-2"><span className="w-4 h-4 text-pink-300 mt-0.5 flex-shrink-0 text-base leading-none">⇄</span>Share-to-earn CTAs with Qriptopian Smart Actions</li>
+                    <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-pink-300 mt-0.5 flex-shrink-0" />Earn KNYT &amp; Qc rewards for participation</li>
                   </ul>
                 </div>
                 {previewThumbs.length > 0 && (
@@ -434,10 +434,10 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
                   {CHANNELS.map((ch) => (
                     <label key={ch} className={cn("flex items-center gap-2.5 text-sm cursor-pointer rounded-xl border px-3 py-2.5 transition-colors",
                       selChannels.includes(ch)
-                        ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                        ? "border-pink-400/40 bg-pink-400/10 text-pink-300"
                         : cn("border", dark ? "border-white/[0.07]" : "border-black/[0.07]", s.sub)
                     )}>
-                      <input type="checkbox" className="accent-rose-500" checked={selChannels.includes(ch)}
+                      <input type="checkbox" className="accent-pink-400" checked={selChannels.includes(ch)}
                         onChange={(e) => setSelChannels((p) => e.target.checked ? [...p, ch] : p.filter((x) => x !== ch))}
                       />
                       {ch}
@@ -454,7 +454,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
               </div>
 
               <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" className="accent-rose-500 mt-0.5" checked={approved}
+                <input type="checkbox" className="accent-pink-400 mt-0.5" checked={approved}
                   onChange={(e) => setApproved(e.target.checked)}
                 />
                 <span className={cn("text-xs leading-relaxed", s.sub)}>
@@ -462,10 +462,10 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
                 </span>
               </label>
 
-              {joinErr && <p className="text-xs text-rose-400">{joinErr}</p>}
+              {joinErr && <p className="text-xs text-pink-300">{joinErr}</p>}
 
               <button onClick={handleJoin} disabled={joining || selChannels.length === 0 || !approved}
-                className="w-full py-3 rounded-xl border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-40 text-rose-300 font-semibold transition-colors backdrop-blur-sm">
+                className="w-full py-3 rounded-xl border border-pink-400/50 bg-pink-400/20 hover:bg-pink-400/30 disabled:opacity-40 text-pink-300 font-semibold transition-colors backdrop-blur-sm">
                 {joining ? "Joining…" : `Join ${detail.name}`}
               </button>
             </div>
@@ -487,7 +487,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
                   </span>
                 </div>
                 <div className={cn("h-2 rounded-full overflow-hidden", dark ? "bg-white/10" : "bg-black/10")}>
-                  <div className="h-full rounded-full bg-rose-500 transition-all"
+                  <div className="h-full rounded-full bg-pink-400/60 transition-all"
                     style={{ width: `${Math.round(((status?.current_day ?? 0) / (status?.total_days || 22)) * 100)}%` }}
                   />
                 </div>
@@ -497,7 +497,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
               {explainers.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <Info className="w-4 h-4 text-rose-400" />
+                    <Info className="w-4 h-4 text-pink-300" />
                     <span className={cn("text-xs font-bold uppercase tracking-widest", s.muted)}>Explainer Videos</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -516,7 +516,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
               {days.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-rose-400" />
+                    <Calendar className="w-4 h-4 text-pink-300" />
                     <span className={cn("text-xs font-bold uppercase tracking-widest", s.muted)}>Daily Sequence ({days.length} Days)</span>
                   </div>
                   <div className="space-y-3">
@@ -549,7 +549,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
                   {status.joined_at && <Row dark={dark} label="Joined" value={<span className={cn("text-xs font-mono", s.muted)}>{new Date(status.joined_at).toLocaleDateString()}</span>} />}
                   <Row dark={dark} label="Progress" value={<span className={cn("text-xs font-mono", s.sub)}>Day {status.current_day} / {status.total_days}</span>} />
                   <div className={cn("h-2 rounded-full overflow-hidden", dark ? "bg-white/10" : "bg-black/10")}>
-                    <div className="h-full rounded-full bg-rose-500" style={{ width: `${Math.round(((status.current_day ?? 0) / (status.total_days || 22)) * 100)}%` }} />
+                    <div className="h-full rounded-full bg-pink-400/60" style={{ width: `${Math.round(((status.current_day ?? 0) / (status.total_days || 22)) * 100)}%` }} />
                   </div>
                   {(status.delivery_receipts ?? []).length > 0 && (
                     <div className="pt-2 space-y-1.5">

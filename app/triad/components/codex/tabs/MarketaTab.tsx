@@ -81,15 +81,15 @@ function th(d: boolean) {
     content:     d ? 'bg-slate-950/30' : 'bg-[#f9f8f6]',
     // Parent pill
     parentActive: d
-      ? 'ring-1 ring-rose-500/30 bg-rose-500/[0.08] text-rose-300'
-      : 'ring-1 ring-rose-500/30 bg-rose-500/[0.06] text-rose-700',
+      ? 'ring-1 ring-pink-400/30 bg-pink-400/[0.08] text-pink-300'
+      : 'ring-1 ring-pink-400/30 bg-pink-400/[0.06] text-pink-600',
     parentInactive: d
       ? 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/60',
     // Sub-tab
     subActive: d
-      ? 'text-slate-100 border-b-2 border-rose-500/60'
-      : 'text-slate-900 border-b-2 border-rose-600/70',
+      ? 'text-slate-100 border-b-2 border-pink-400/60'
+      : 'text-slate-900 border-b-2 border-pink-500/70',
     subInactive: d
       ? 'text-slate-500 hover:text-slate-300 border-b-2 border-transparent'
       : 'text-slate-400 hover:text-slate-700 border-b-2 border-transparent',

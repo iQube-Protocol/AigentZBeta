@@ -19,7 +19,7 @@ export function MarketaReportsTab({ theme = 'dark' }: Props) {
   const textSubtle  = d ? 'text-slate-500' : 'text-slate-400';
 
   const tiles = [
-    { label: 'Total Orders', value: '—', icon: TrendingUp, color: 'text-rose-400' },
+    { label: 'Total Orders', value: '—', icon: TrendingUp, color: 'text-pink-300' },
     { label: 'Partners Active', value: '—', icon: Users,    color: 'text-violet-400' },
     { label: 'Emails Sent', value: '—', icon: Mail,         color: 'text-sky-400' },
     { label: 'Open Rate', value: '—',   icon: BarChart3,    color: 'text-amber-400' },
@@ -29,7 +29,7 @@ export function MarketaReportsTab({ theme = 'dark' }: Props) {
     <div className="space-y-4 p-3 sm:p-4 lg:p-5">
       <div className={`rounded-xl ${card} p-4`}>
         <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="w-4 h-4 text-rose-400" />
+          <BarChart3 className="w-4 h-4 text-pink-300" />
           <span className={`text-sm font-semibold ${textPrimary}`}>Aggregate Reports</span>
           <span className={`text-[10px] ${textSubtle}`}>· all partners + cohorts</span>
         </div>

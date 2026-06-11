@@ -2995,7 +2995,12 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
   metadata: {
     description: 'Venture Studio Partner OS — campaign management, partner co-design, and pack publishing',
     icon: 'TrendingUp',
-    color: 'rose',
+    // Tailwind JIT safelist for the dynamic `${accentColor}` chrome classes
+    // (only generated when the literal appears in scanned source):
+    // bg-pink-500/10 ring-pink-500/30 ring-pink-500/25 border-pink-500/30
+    // text-pink-200 text-pink-300 text-pink-400 text-pink-400/70 text-pink-600
+    // text-pink-700 border-pink-300 bg-pink-50
+    color: 'pink',
     category: 'campaign',
     tags: ['marketa', 'campaign', 'partners', 'packs'],
   },

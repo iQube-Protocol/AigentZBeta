@@ -44,7 +44,7 @@ function statusClass(status: string) {
     return "bg-amber-500/15 text-amber-300 border-amber-500/30";
   }
   if (["rejected", "deferred", "do_not_contact"].includes(status)) {
-    return "bg-rose-500/15 text-rose-300 border-rose-500/30";
+    return "bg-red-500/15 text-red-300 border-red-500/30";
   }
   return "bg-slate-700/50 text-slate-300 border-slate-600";
 }
@@ -307,9 +307,9 @@ export function MarketaActivationEngineTab() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Bot className="w-5 h-5 text-rose-300" />
+              <Bot className="w-5 h-5 text-pink-300" />
               <h3 className="text-xl font-semibold text-white">Activation Engine</h3>
-              <Badge className="bg-rose-500/15 text-rose-300 border-rose-500/30">Phase 2</Badge>
+              <Badge className="bg-pink-400/15 text-pink-300 border-pink-400/30">Phase 2</Badge>
             </div>
             <p className="text-sm text-slate-400 max-w-3xl">
               Candidate-agent recruitment spine for Marketa. Reuses the existing Marketa cartridge,
@@ -374,7 +374,7 @@ export function MarketaActivationEngineTab() {
             </Button>
             <Button
               size="sm"
-              className="bg-rose-500 hover:bg-rose-600 text-white"
+              className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm"
               title="Create a sample candidate pre-filled with demo data (including an example agent card URL) so you can walk the full pipeline"
               onClick={createDemoCandidate}
               disabled={creating}
@@ -391,7 +391,7 @@ export function MarketaActivationEngineTab() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200 flex items-start gap-2">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 mt-0.5" /> {error}
         </div>
       )}
@@ -407,7 +407,7 @@ export function MarketaActivationEngineTab() {
           <button
             key={String(key)}
             onClick={() => setFilter(key as typeof filter)}
-            className={`${GLASS_CARD} p-4 text-left ${filter === key ? "ring-rose-500/60" : ""}`}
+            className={`${GLASS_CARD} p-4 text-left ${filter === key ? "ring-pink-400/60" : ""}`}
           >
             <p className="text-xs text-slate-400">{label}</p>
             <p className="text-2xl font-bold text-white">{value}</p>
@@ -440,7 +440,7 @@ export function MarketaActivationEngineTab() {
               <button
                 key={candidate.id}
                 onClick={() => setSelectedId(candidate.id)}
-                className={`w-full rounded-lg border p-3 text-left transition ${selected?.id === candidate.id ? "border-rose-500/50 bg-rose-500/10" : "border-slate-800 bg-slate-900/50 hover:border-slate-700"}`}
+                className={`w-full rounded-lg border p-3 text-left transition ${selected?.id === candidate.id ? "border-pink-400/50 bg-pink-400/10" : "border-slate-800 bg-slate-900/50 hover:border-slate-700"}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -489,7 +489,7 @@ export function MarketaActivationEngineTab() {
               <div className="flex flex-wrap gap-1 justify-end">
                 <Button
                   size="sm"
-                  className="bg-rose-500 hover:bg-rose-600 text-white"
+                  className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm"
                   title="Run classification (lanes, verticals, legal track, mobility) + clean-revenue screen + priority scoring"
                   onClick={() => scoreCandidate(selected.id)}
                   disabled={scoringId === selected.id}
@@ -577,7 +577,7 @@ export function MarketaActivationEngineTab() {
               </div>
               <div className="rounded-lg bg-slate-900/70 p-4 text-center">
                 <p className="text-xs text-slate-400">Overall priority</p>
-                <p className="text-4xl font-bold text-rose-300">
+                <p className="text-4xl font-bold text-pink-300">
                   {selected.scores.overallPriorityScore}
                 </p>
               </div>

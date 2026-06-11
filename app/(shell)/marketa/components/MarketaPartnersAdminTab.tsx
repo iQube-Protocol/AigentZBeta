@@ -64,18 +64,18 @@ function useTheme(theme: 'light' | 'dark') {
     card:        d ? 'bg-slate-950/60 ring-1 ring-white/10 shadow-xl' : 'bg-white border border-slate-200 shadow-sm',
     innerCard:   d ? 'bg-slate-900/60 border border-white/[0.07]' : 'bg-slate-50 border border-slate-200',
     previewPanel: d ? 'bg-slate-900/80 border border-white/10' : 'bg-blue-50 border border-blue-200',
-    formCard:    d ? 'bg-slate-900/80 ring-1 ring-rose-500/20 border border-rose-500/10' : 'bg-rose-50 border border-rose-200',
+    formCard:    d ? 'bg-slate-900/80 ring-1 ring-pink-400/20 border border-pink-400/10' : 'bg-pink-50 border border-pink-200',
     textPrimary:   d ? 'text-slate-100'  : 'text-slate-900',
     textSecondary: d ? 'text-slate-300'  : 'text-slate-700',
     textMuted:     d ? 'text-slate-400'  : 'text-slate-600',
     textSubtle:    d ? 'text-slate-500'  : 'text-slate-400',
     inputCls: d
-      ? 'bg-slate-900/60 border border-white/10 text-slate-300 focus:outline-none focus:border-rose-500/50'
-      : 'bg-white border border-slate-300 text-slate-700 focus:outline-none focus:border-rose-500',
+      ? 'bg-slate-900/60 border border-white/10 text-slate-300 focus:outline-none focus:border-pink-400/50'
+      : 'bg-white border border-slate-300 text-slate-700 focus:outline-none focus:border-pink-400',
     selectCls: d
-      ? 'appearance-none bg-slate-900/60 border border-white/10 text-slate-300 focus:outline-none focus:border-rose-500/50'
-      : 'appearance-none bg-white border border-slate-300 text-slate-700 focus:outline-none focus:border-rose-500',
-    waveActive:   d ? 'bg-rose-500/10 text-rose-300 font-medium' : 'bg-rose-50 text-rose-700 font-medium',
+      ? 'appearance-none bg-slate-900/60 border border-white/10 text-slate-300 focus:outline-none focus:border-pink-400/50'
+      : 'appearance-none bg-white border border-slate-300 text-slate-700 focus:outline-none focus:border-pink-400',
+    waveActive:   d ? 'bg-pink-400/10 text-pink-300 font-medium' : 'bg-pink-50 text-pink-600 font-medium',
     waveInactive: d ? 'bg-slate-900/60 text-slate-400 hover:text-slate-200' : 'bg-white text-slate-600 hover:text-slate-800',
     waveBorder:   d ? 'border border-white/10' : 'border border-slate-200',
     statusColor: (s: string): string => {
@@ -315,15 +315,15 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
       <div className={`rounded-xl ${t.card} p-3 sm:p-4`}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-rose-400" />
+            <Users className="w-4 h-4 text-pink-300" />
             <span className={`text-sm font-semibold ${t.textPrimary}`}>MVL Partner Pipeline</span>
           </div>
           <button
             onClick={() => setShowAddForm((v) => !v)}
             className={`flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-colors ${
               t.isDark
-                ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10'
-                : 'border-rose-400 text-rose-600 hover:bg-rose-50'
+                ? 'border-pink-400/30 text-pink-300 hover:bg-pink-400/10'
+                : 'border-pink-300 text-pink-500 hover:bg-pink-50'
             }`}
           >
             {showAddForm ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
@@ -401,7 +401,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button type="submit" size="sm" disabled={addLoading}
-              className="h-7 text-xs bg-rose-500 hover:bg-rose-600 text-white border-0">
+              className="h-7 text-xs bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm">
               {addLoading ? 'Adding…' : 'Add Partner'}
             </Button>
           </div>
@@ -439,7 +439,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
                 <button key={i} onClick={() => setSubjectIndex(i)}
                   className={`w-5 h-5 rounded border transition-colors text-[10px] font-semibold ${
                     subjectIndex === i
-                      ? 'border-rose-500/50 text-rose-400 bg-rose-500/10'
+                      ? 'border-pink-400/50 text-pink-300 bg-pink-400/10'
                       : t.isDark ? 'border-white/10 text-slate-500 hover:text-slate-300' : 'border-slate-300 text-slate-400 hover:text-slate-600'
                   }`}>
                   {i + 1}
@@ -547,7 +547,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
                     className={`h-6 text-[10px] bg-transparent ${
                       state?.result
                         ? (t.isDark ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10' : 'border-emerald-500/40 text-emerald-700 hover:bg-emerald-50')
-                        : (t.isDark ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10' : 'border-rose-500/40 text-rose-700 hover:bg-rose-50')
+                        : (t.isDark ? 'border-pink-400/30 text-pink-300 hover:bg-pink-400/10' : 'border-pink-400/40 text-pink-600 hover:bg-pink-50')
                     }`}
                     onClick={() => handleSend(partner.id)} disabled={state?.loading || !!state?.result}>
                     {state?.result ? (

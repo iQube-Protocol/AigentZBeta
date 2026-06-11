@@ -39,7 +39,7 @@ export function PartnerJourneySteps({ currentStep, dark = true }: Props) {
               <div className={cn(
                 "w-6 h-6 rounded-full border flex items-center justify-center flex-shrink-0 text-[10px] font-bold transition-all",
                 done   ? (dark ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-400" : "border-emerald-500 bg-emerald-50 text-emerald-600") :
-                active ? (dark ? "border-rose-500/60 bg-rose-500/20 text-rose-300" : "border-rose-500 bg-rose-50 text-rose-600") :
+                active ? (dark ? "border-pink-400/60 bg-pink-400/20 text-pink-300" : "border-pink-400 bg-pink-50 text-pink-500") :
                          (dark ? "border-white/10 bg-transparent text-white/20" : "border-black/10 bg-transparent text-black/20"),
               )}>
                 {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : step.n}
@@ -74,7 +74,7 @@ export function PartnerJourneySteps({ currentStep, dark = true }: Props) {
                 <div className={cn(
                   "w-7 h-7 rounded-full border flex items-center justify-center text-[11px] font-bold transition-all",
                   done   ? (dark ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-400" : "border-emerald-500 bg-emerald-50 text-emerald-600") :
-                  active ? (dark ? "border-rose-500/60 bg-rose-500/20 text-rose-300 ring-2 ring-rose-500/20" : "border-rose-500 bg-rose-50 text-rose-600 ring-2 ring-rose-200") :
+                  active ? (dark ? "border-pink-400/60 bg-pink-400/20 text-pink-300 ring-2 ring-pink-400/20" : "border-pink-400 bg-pink-50 text-pink-500 ring-2 ring-pink-200") :
                            (dark ? "border-white/[0.08] bg-transparent text-white/20" : "border-black/[0.08] bg-transparent text-black/20"),
                 )}>
                   {done ? <CheckCircle2 className="w-4 h-4" /> : step.n}
