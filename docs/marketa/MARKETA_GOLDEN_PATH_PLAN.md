@@ -80,11 +80,14 @@ result visible to the operator. (4) and (5) scale it.
   Implemented via the `marketa.send-transactional` connector skill
   (`services/marketa/marketaConnector.ts`) — the one-off transactional
   send that already shares the campaign system's Mailjet account/env.
-- **Revenue model** — DECIDED: (a) per closed opportunity at recorded
-  value (what the roll-up does today), plus (b) subscription revenue
-  from activated agents. Subscription tracking (recurring rather than
-  one-shot) is the next roll-up increment — likely an
-  `opportunity_type = 'subscription'` with a monthly-value semantic.
+- **Revenue model** — DECIDED + SHIPPED 2026-06-11: (a) per closed
+  opportunity at recorded value, plus (b) activation/subscription fees
+  from activated agents. Implemented as `opportunity_type =
+  'subscription'` with monthly-value semantics: ACTIVE subscriptions sum
+  into `recurringMonthlyRevenue` (MRR metric on the cartridge), not the
+  one-shot pipeline; proposed/approved/paused subscriptions sit in the
+  pipeline at monthly value; completed (ended) subscriptions roll into
+  closed revenue.
 - **CRM bridge** — OPEN: opportunities probably want to mirror into the
   existing CRM (or its successor). Confirm target table / connector
 

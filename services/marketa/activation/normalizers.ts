@@ -245,19 +245,29 @@ export function opportunityPatchToDb(raw: unknown) {
 }
 
 /**
- * Mechanical revenue roll-up: open opportunities (proposed/approved/active/
- * paused) sum into the pipeline; completed ones sum into closed clean
- * revenue. Rejected opportunities count nowhere.
+ * Mechanical revenue roll-up (operator decisions 2026-06-11):
+ * - one-shot opportunities: open (proposed/approved/active/paused) sum into
+ *   the pipeline; completed sum into closed clean revenue.
+ * - subscription-type opportunities (activation/subscription fee model):
+ *   ACTIVE ones are recurring revenue — their estimatedValue is the monthly
+ *   fee and sums into recurringMonthlyRevenue, not the one-shot pipeline.
+ *   Proposed/approved/paused subscriptions still sit in the pipeline at
+ *   monthly value; completed (ended) subscriptions roll into closed.
+ * - rejected opportunities count nowhere.
  */
 export function rollUpRevenue(opportunities: CandidateOpportunity[]) {
+  const isSubscription = (o: CandidateOpportunity) => o.opportunityType === 'subscription';
   const open = opportunities.filter((o) =>
     ['proposed', 'approved', 'active', 'paused'].includes(o.activationStatus),
   );
+  const activeSubscriptions = open.filter((o) => isSubscription(o) && o.activationStatus === 'active');
+  const pipeline = open.filter((o) => !(isSubscription(o) && o.activationStatus === 'active'));
   const completed = opportunities.filter((o) => o.activationStatus === 'completed');
   return {
     opportunityCount: open.length + completed.length,
-    estimatedPipelineValue: open.reduce((sum, o) => sum + o.estimatedValue, 0),
+    estimatedPipelineValue: pipeline.reduce((sum, o) => sum + o.estimatedValue, 0),
     closedCleanRevenue: completed.reduce((sum, o) => sum + o.estimatedValue, 0),
+    recurringMonthlyRevenue: activeSubscriptions.reduce((sum, o) => sum + o.estimatedValue, 0),
   };
 }
 
