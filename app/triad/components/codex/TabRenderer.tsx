@@ -117,6 +117,9 @@ import { PassportRegistryTab } from "./tabs/PassportRegistryTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
+import { GovernanceConstitutionTab } from "./tabs/GovernanceConstitutionTab";
+import { GovernanceRolesTab } from "./tabs/GovernanceRolesTab";
+import { GovernanceDecisionLogTab } from "./tabs/GovernanceDecisionLogTab";
 import { ComposerStudio } from "@/components/composer/ComposerStudio";
 import { MetaMeStudioTab } from "./tabs/MetaMeStudioTab";
 import { PersonalExperienceMatrixTab } from "./tabs/PersonalExperienceMatrixTab";
@@ -265,6 +268,9 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,
+  GovernanceConstitutionTab,
+  GovernanceRolesTab,
+  GovernanceDecisionLogTab,
   ComposerStudio,
   MetaMeStudioTab,
   PersonalExperienceMatrixTab,
