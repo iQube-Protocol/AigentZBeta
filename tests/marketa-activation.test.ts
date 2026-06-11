@@ -123,3 +123,32 @@ describe('Human Mobility Services amendment', () => {
     expect(continuityFull.mobilityContinuityScore).toBe(100);
   });
 });
+
+describe('Opportunity revenue roll-up', () => {
+  const opp = (activationStatus: string, estimatedValue: number) => ({
+    id: 'opp', candidateAgentId: 'cand', opportunityType: 'other', targetUser: 'other',
+    description: 'x', estimatedValue, cleanRevenueStatus: 'unknown', policyRisk: 'low',
+    requiresPassport: true, requiresStewardReview: false, requiresHumanSignoff: true,
+    activationStatus, createdAt: '', updatedAt: '',
+  });
+
+  it('sums open opportunities into the pipeline and completed into closed revenue', async () => {
+    const { rollUpRevenue } = await import('@/services/marketa/activation/normalizers');
+    const rollUp = rollUpRevenue([
+      opp('proposed', 100), opp('approved', 200), opp('active', 300),
+      opp('paused', 50), opp('completed', 1000), opp('rejected', 9999),
+    ] as never);
+    expect(rollUp.estimatedPipelineValue).toBe(650);
+    expect(rollUp.closedCleanRevenue).toBe(1000);
+    expect(rollUp.opportunityCount).toBe(5); // rejected counts nowhere
+  });
+
+  it('normalizes opportunity create payloads and requires a description', async () => {
+    const { opportunityInputToDb } = await import('@/services/marketa/activation/normalizers');
+    const row = opportunityInputToDb({ description: 'Intro to founder', estimatedValue: '250' }, 'cand-1');
+    expect(row.candidate_agent_id).toBe('cand-1');
+    expect(row.estimated_value).toBe(250);
+    expect(row.activation_status).toBe('proposed');
+    expect(() => opportunityInputToDb({}, 'cand-1')).toThrow(/description/i);
+  });
+});
