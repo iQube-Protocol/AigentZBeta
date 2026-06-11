@@ -46,6 +46,8 @@ const SMOKE_CANDIDATE = {
     'Executive travel and relocation coordination agent with legal aid intake support for displaced persons. Agent Card and MCP server available.',
   sourceType: 'manual',
   sourceUrl: 'manual://smoke-test',
+  // Unique per run — the Bureau allows one open application per agent card URL.
+  agentCardUrl: `https://example.com/agent-cards/smoke-${Date.now()}.json`,
   operatorName: 'Smoke Test Operator',
   operatorType: 'organization',
   capabilities: ['travel coordination', 'relocation', 'legal aid intake', 'CRM'],
@@ -86,6 +88,21 @@ await step('5. reputation (RQH canister → mirror → fallback)', async () => {
 await step('6. passport handoff (Bureau dry-run, consents NOT faked)', async () => {
   const json = await call('POST', `/api/marketa/activation/candidates/${candidateId}/passport`);
   return json.candidate?.passportIntegration?.passportApplicationStatus ?? json.note ?? 'prepared';
+});
+
+await step('6b. passport submit (operator-consented → Bureau steward queue)', async () => {
+  const json = await call('POST', `/api/marketa/activation/candidates/${candidateId}/passport`, {
+    action: 'submit',
+    actorId: 'smoke-test-operator',
+    consents: {
+      participant_terms_accepted: true,
+      registry_pending_record_consent: true,
+      constraints_and_obligations_accepted: true,
+      review_process_accepted: true,
+    },
+  });
+  if (!json.bureau?.applicationId) throw new Error('no Bureau application id returned');
+  return `bureau app ${json.bureau.applicationId} status=${json.bureau.applicationStatus}`;
 });
 
 await step('7. outreach draft (never auto-sends)', async () => {

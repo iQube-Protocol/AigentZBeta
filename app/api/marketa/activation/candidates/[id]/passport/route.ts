@@ -18,6 +18,14 @@
  *          the Bureau's own validator (consents intentionally NOT faked), and
  *          connect the candidate to the Bureau's real submit/schema URLs.
  *
+ *   POST { action: "submit", consents } — operator-consented submission. The
+ *          HUMAN operator has checked the four mandatory Bureau consents in
+ *          the Activation Engine UI; this route forwards the prepared
+ *          application (with those operator-given consents) through the
+ *          Bureau's own machine surface POST /api/polity-passport/submit.
+ *          All four consents must be explicitly true in the request body —
+ *          Marketa still never consents on anyone's behalf.
+ *
  * Only public application/status/reference fields are stored back into
  * Marketa — never private Passport payloads or blakQube data.
  */
@@ -114,12 +122,35 @@ function buildDraftApplication(candidate: CandidateAgent) {
   };
 }
 
+const MANDATORY_CONSENTS = [
+  "participant_terms_accepted",
+  "registry_pending_record_consent",
+  "constraints_and_obligations_accepted",
+  "review_process_accepted",
+] as const;
+
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const supabase = getSupabaseServer();
   if (!supabase) return jsonError("DB unavailable", 503);
 
-  const body = (await request.json().catch(() => ({}))) as { actorId?: string };
+  const body = (await request.json().catch(() => ({}))) as {
+    actorId?: string;
+    action?: "prepare" | "submit";
+    consents?: Record<string, unknown>;
+  };
   const actor = body.actorId || "marketa";
+  const isSubmit = body.action === "submit";
+
+  if (isSubmit) {
+    const missing = MANDATORY_CONSENTS.filter(consent => body.consents?.[consent] !== true);
+    if (missing.length > 0) {
+      return jsonError(
+        "consents-required",
+        422,
+        `All four Bureau consents must be explicitly accepted by the operator: ${missing.join(", ")}`,
+      );
+    }
+  }
 
   const { data: row, error } = await supabase
     .schema("marketa")
@@ -169,6 +200,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   let issuedPassportId = "";
   let draftApplication: Record<string, unknown> | null = null;
   let outstandingIssues: Array<{ path: string; message: string }> = [];
+  let submittedApplicationId: string | null = null;
 
   if (existingApp) {
     // Sync: the Bureau already has an application for this agent card.
@@ -191,6 +223,59 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       lastSyncAt: now,
     };
     activationStatus = activationStatusFor(existingApp.application_status, activationStatus);
+  } else if (isSubmit) {
+    // Operator-consented submission: the human operator gave the four
+    // mandatory consents in the UI; forward the prepared application through
+    // the Bureau's own machine surface so its open-app check, insert, and
+    // receipt pipeline all apply unchanged.
+    draftApplication = {
+      ...buildDraftApplication(candidate),
+      consents: {
+        participant_terms_accepted: true,
+        registry_pending_record_consent: true,
+        constraints_and_obligations_accepted: true,
+        review_process_accepted: true,
+        consent_actor: actor,
+        consented_at: now,
+      },
+    };
+    const validation = validateParticipantApplication(draftApplication);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { ok: false, error: "application-invalid", issues: validation.issues },
+        { status: 422, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    const submitRes = await fetch(`${host}/api/polity-passport/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draftApplication),
+    });
+    const submitJson = (await submitRes.json().catch(() => ({}))) as {
+      ok?: boolean;
+      applicationId?: string;
+      applicationStatus?: string;
+      error?: string;
+    };
+    if (!submitRes.ok || !submitJson.ok || !submitJson.applicationId) {
+      return jsonError(
+        "bureau-submit-failed",
+        submitRes.status === 409 ? 409 : 502,
+        submitJson.error || `Bureau returned ${submitRes.status}`,
+      );
+    }
+    submittedApplicationId = submitJson.applicationId;
+
+    passportIntegration = {
+      ...candidate.passportIntegration,
+      integrationStatus: "connected",
+      participantPassportApplicationUrl: `${host}/api/polity-passport/status/${submitJson.applicationId}`,
+      participantPassportSchemaUrl: `${host}/api/polity-passport/schemas/participant-passport.application.schema.json`,
+      passportApplicationStatus: "submitted",
+      lastSyncAt: now,
+    };
+    activationStatus = activationStatusFor("submitted", activationStatus);
   } else {
     // Prepare: build the draft application + dry-run it through the Bureau's
     // own validator. Missing consents are EXPECTED issues at this stage.
@@ -232,15 +317,21 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     .from("marketa_activation_events")
     .insert({
       candidate_agent_id: candidate.id,
-      event_type: existingApp ? "passport_status_synced" : "passport_application_prepared",
+      event_type: existingApp
+        ? "passport_status_synced"
+        : submittedApplicationId
+          ? "passport_application_submitted"
+          : "passport_application_prepared",
       summary: existingApp
         ? `Passport Bureau status for ${candidate.name}: ${existingApp.application_status}`
-        : `Passport application prepared for ${candidate.name} (operator consents pending)`,
+        : submittedApplicationId
+          ? `Passport application submitted to the Bureau for ${candidate.name} (operator-consented by ${actor})`
+          : `Passport application prepared for ${candidate.name} (operator consents pending)`,
       actor,
       metadata: {
         agentCardUrl: candidate.agentCardUrl,
-        bureauApplicationId: existingApp?.id ?? null,
-        bureauStatus: existingApp?.application_status ?? null,
+        bureauApplicationId: existingApp?.id ?? submittedApplicationId,
+        bureauStatus: existingApp?.application_status ?? (submittedApplicationId ? "submitted" : null),
         issuedPassportId: issuedPassportId || null,
         outstandingIssueCount: outstandingIssues.length,
         source: "marketa_activation_engine",
@@ -252,8 +343,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       ok: true,
       candidate: dbToCandidate(updated as Record<string, unknown>),
       bureau: {
-        applicationId: existingApp?.id ?? null,
-        applicationStatus: existingApp?.application_status ?? null,
+        applicationId: existingApp?.id ?? submittedApplicationId,
+        applicationStatus: existingApp?.application_status ?? (submittedApplicationId ? "submitted" : null),
         issuedPassportId: issuedPassportId || null,
         submitUrl: `${host}/api/polity-passport/submit`,
         validateUrl: `${host}/api/polity-passport/validate`,
@@ -264,7 +355,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       outstandingIssues,
       note: existingApp
         ? "Synced from the Polity Passport Bureau. The Bureau owns approval; Marketa stores public status/reference fields only."
-        : "Draft prepared and dry-run validated against the Bureau's validator. The participant/operator must complete the four mandatory consents and submit via the Bureau — Marketa never consents or submits on their behalf.",
+        : submittedApplicationId
+          ? "Submitted to the Polity Passport Bureau with operator-given consents. The application is now in the Bureau steward queue; the Bureau owns approval from here."
+          : "Draft prepared and dry-run validated against the Bureau's validator. The participant/operator must complete the four mandatory consents and submit via the Bureau — Marketa never consents or submits on their behalf.",
     },
     { headers: { "Cache-Control": "no-store" } },
   );

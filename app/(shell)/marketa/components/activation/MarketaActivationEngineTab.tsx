@@ -59,11 +59,21 @@ const DEMO_CANDIDATE = {
     "Founder-operator research and outreach agent with Agent Card readiness, CRM support, and human-approved campaign drafting.",
   sourceType: "manual",
   sourceUrl: "manual://operator-entry",
+  // Placeholder card so the sample can travel the full pipeline — the Bureau
+  // anchors participant identity on agent_card_url and requires http(s).
+  agentCardUrl: "https://example.com/agent-cards/example-agent-candidate.json",
   operatorName: "Example Operator",
   operatorType: "organization",
   capabilities: ["research", "CRM", "outreach drafting", "agent card support"],
   targetUsers: ["founder operators", "media operators"],
 };
+
+const BUREAU_CONSENTS: Array<{ key: string; label: string }> = [
+  { key: "participant_terms_accepted", label: "Participant terms accepted" },
+  { key: "registry_pending_record_consent", label: "Public pending-registry record consent" },
+  { key: "constraints_and_obligations_accepted", label: "Constraints & obligations accepted" },
+  { key: "review_process_accepted", label: "Review process accepted" },
+];
 
 export function MarketaActivationEngineTab() {
   const [candidates, setCandidates] = useState<CandidateAgent[]>([]);
@@ -77,6 +87,9 @@ export function MarketaActivationEngineTab() {
     null,
   );
   const [lastActionNote, setLastActionNote] = useState<string | null>(null);
+  const [bureauConsents, setBureauConsents] = useState<Record<string, boolean>>({});
+  const [agentCardInput, setAgentCardInput] = useState("");
+  const [savingAgentCard, setSavingAgentCard] = useState(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "needs_review" | "exec" | "vulnerable" | "legal">(
@@ -101,6 +114,40 @@ export function MarketaActivationEngineTab() {
   useEffect(() => {
     void loadCandidates();
   }, [loadCandidates]);
+
+  // Consents are per-candidate decisions — clear them on selection change.
+  useEffect(() => {
+    setBureauConsents({});
+    setAgentCardInput("");
+  }, [selectedId]);
+
+  const saveAgentCardUrl = async (candidateId: string) => {
+    setSavingAgentCard(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/marketa/activation/candidates/${candidateId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentCardUrl: agentCardInput.trim() }),
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        candidate?: CandidateAgent;
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok || !json.ok || !json.candidate)
+        throw new Error(json.detail || json.error || `HTTP ${res.status}`);
+      setCandidates(prev =>
+        prev.map(candidate => (candidate.id === candidateId ? json.candidate! : candidate)),
+      );
+      setAgentCardInput("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingAgentCard(false);
+    }
+  };
 
   const selected =
     candidates.find(candidate => candidate.id === selectedId) ?? candidates[0] ?? null;
@@ -191,6 +238,7 @@ export function MarketaActivationEngineTab() {
   const runCandidateAction = async (
     candidateId: string,
     action: "registry" | "reputation" | "outreach" | "passport",
+    extraBody?: Record<string, unknown>,
   ) => {
     setActionId(`${action}:${candidateId}`);
     setError(null);
@@ -200,7 +248,7 @@ export function MarketaActivationEngineTab() {
       const res = await fetch(`/api/marketa/activation/candidates/${candidateId}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorId: "marketa" }),
+        body: JSON.stringify({ actorId: "marketa", ...extraBody }),
       });
       const json = (await res.json()) as {
         ok: boolean;
@@ -274,6 +322,7 @@ export function MarketaActivationEngineTab() {
               variant="outline"
               size="sm"
               className="bg-slate-800/50 border-white/20 text-slate-200"
+              title="Reload the candidate list from the server"
               onClick={loadCandidates}
               disabled={loading}
             >
@@ -283,6 +332,7 @@ export function MarketaActivationEngineTab() {
               variant="outline"
               size="sm"
               className="bg-slate-800/50 border-white/20 text-slate-200"
+              title="Download all candidates as JSON (re-importable)"
               asChild
             >
               <a href="/api/marketa/activation/export?format=json" download>
@@ -293,6 +343,7 @@ export function MarketaActivationEngineTab() {
               variant="outline"
               size="sm"
               className="bg-slate-800/50 border-white/20 text-slate-200"
+              title="Download all candidates as a CSV spreadsheet"
               asChild
             >
               <a href="/api/marketa/activation/export?format=csv" download>
@@ -310,6 +361,7 @@ export function MarketaActivationEngineTab() {
               variant="outline"
               size="sm"
               className="bg-slate-800/50 border-white/20 text-slate-200"
+              title="Import candidates from a JSON or CSV file"
               onClick={() => importInputRef.current?.click()}
               disabled={importing}
             >
@@ -323,6 +375,7 @@ export function MarketaActivationEngineTab() {
             <Button
               size="sm"
               className="bg-rose-500 hover:bg-rose-600 text-white"
+              title="Create a sample candidate pre-filled with demo data (including an example agent card URL) so you can walk the full pipeline"
               onClick={createDemoCandidate}
               disabled={creating}
             >
@@ -437,6 +490,7 @@ export function MarketaActivationEngineTab() {
                 <Button
                   size="sm"
                   className="bg-rose-500 hover:bg-rose-600 text-white"
+                  title="Run classification (lanes, verticals, legal track, mobility) + clean-revenue screen + priority scoring"
                   onClick={() => scoreCandidate(selected.id)}
                   disabled={scoringId === selected.id}
                 >
@@ -451,6 +505,7 @@ export function MarketaActivationEngineTab() {
                   size="sm"
                   variant="outline"
                   className="bg-slate-800/50 border-white/20 text-slate-200"
+                  title="Create/link this candidate's Agent iQube in the iQube Registry — required before the Passport handoff"
                   onClick={() => runCandidateAction(selected.id, "registry")}
                   disabled={actionId === `registry:${selected.id}`}
                 >
@@ -465,6 +520,7 @@ export function MarketaActivationEngineTab() {
                   size="sm"
                   variant="outline"
                   className="bg-slate-800/50 border-white/20 text-slate-200"
+                  title="Read reputation standing from the RQH canister (authoritative), with mirror/score fallback"
                   onClick={() => runCandidateAction(selected.id, "reputation")}
                   disabled={actionId === `reputation:${selected.id}`}
                 >
@@ -479,6 +535,7 @@ export function MarketaActivationEngineTab() {
                   size="sm"
                   variant="outline"
                   className="bg-slate-800/50 border-white/20 text-slate-200"
+                  title="Prepare a Polity Passport Bureau application draft (or re-sync Bureau status). Submission happens below after you give the four operator consents"
                   onClick={() => runCandidateAction(selected.id, "passport")}
                   disabled={actionId === `passport:${selected.id}`}
                 >
@@ -493,6 +550,7 @@ export function MarketaActivationEngineTab() {
                   size="sm"
                   variant="outline"
                   className="bg-slate-800/50 border-white/20 text-slate-200"
+                  title="Draft a human-approved outreach email — nothing is ever sent automatically"
                   onClick={() => runCandidateAction(selected.id, "outreach")}
                   disabled={actionId === `outreach:${selected.id}`}
                 >
@@ -570,6 +628,42 @@ export function MarketaActivationEngineTab() {
                 </h5>
                 <div className="space-y-2 text-xs text-slate-300">
                   <p>
+                    Agent card:{" "}
+                    {selected.agentCardUrl ? (
+                      <span className="text-slate-500 break-all">{selected.agentCardUrl}</span>
+                    ) : (
+                      <span className="text-amber-400/80">
+                        missing — required before Registry/Passport handoffs
+                      </span>
+                    )}
+                  </p>
+                  {!selected.agentCardUrl && (
+                    <div className="flex gap-1.5">
+                      <input
+                        type="url"
+                        value={agentCardInput}
+                        onChange={event => setAgentCardInput(event.target.value)}
+                        placeholder="https://… agent card URL"
+                        title="The Bureau anchors participant identity on this URL — the agent's public Agent Card (A2A) JSON"
+                        className="flex-1 rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-slate-800/50 border-white/20 text-slate-200"
+                        title="Save the agent card URL onto this candidate"
+                        disabled={savingAgentCard || !agentCardInput.trim().startsWith("http")}
+                        onClick={() => saveAgentCardUrl(selected.id)}
+                      >
+                        {savingAgentCard ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          "Save"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  <p>
                     Passport:{" "}
                     <span className="text-slate-500">
                       {formatLabel(selected.passportIntegration.passportApplicationStatus)}
@@ -607,6 +701,68 @@ export function MarketaActivationEngineTab() {
                   </p>
                 )}
               </section>
+              {selected.passportIntegration.passportApplicationStatus === "draft" && (
+                <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 space-y-2">
+                  <h5 className="text-xs uppercase tracking-wider text-slate-500">
+                    Advance to Bureau — operator consents
+                  </h5>
+                  <p className="text-[11px] text-slate-400">
+                    The Bureau requires all four consents from a human operator. Checking them here
+                    records you ({"marketa-operator"}) as the consenting actor; Marketa never
+                    consents on anyone&apos;s behalf.
+                  </p>
+                  {BUREAU_CONSENTS.map(({ key, label }) => (
+                    <label
+                      key={key}
+                      className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={bureauConsents[key] === true}
+                        onChange={event =>
+                          setBureauConsents(prev => ({ ...prev, [key]: event.target.checked }))
+                        }
+                        className="accent-current"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-slate-800/50 border-white/20 text-slate-200 w-full"
+                    title="Submit the prepared application to the Bureau with your operator consents — it will appear in the Bureau steward queue"
+                    disabled={
+                      actionId === `passport:${selected.id}` ||
+                      !BUREAU_CONSENTS.every(({ key }) => bureauConsents[key] === true)
+                    }
+                    onClick={() =>
+                      runCandidateAction(selected.id, "passport", {
+                        action: "submit",
+                        actorId: "marketa-operator",
+                        consents: bureauConsents,
+                      }).then(() => setBureauConsents({}))
+                    }
+                  >
+                    {actionId === `passport:${selected.id}` ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <Send className="w-3 h-3 mr-1" />
+                    )}{" "}
+                    Submit to Passport Bureau
+                  </Button>
+                </section>
+              )}
+              {["submitted", "pending_approval", "needs_more_information"].includes(
+                selected.passportIntegration.passportApplicationStatus,
+              ) && (
+                <p className="rounded bg-slate-900/60 border border-slate-800 p-2 text-[11px] text-sky-300/90">
+                  Application is with the Bureau ({formatLabel(
+                    selected.passportIntegration.passportApplicationStatus,
+                  )}) — review it in the Polity Passport Bureau cartridge, Steward queue tab. Click
+                  Passport again any time to re-sync status.
+                </p>
+              )}
               {lastDraft && (
                 <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
                   <h5 className="text-xs uppercase tracking-wider text-slate-500 mb-2">
