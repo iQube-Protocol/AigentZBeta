@@ -46,8 +46,9 @@ const SMOKE_CANDIDATE = {
     'Executive travel and relocation coordination agent with legal aid intake support for displaced persons. Agent Card and MCP server available.',
   sourceType: 'manual',
   sourceUrl: 'manual://smoke-test',
-  // Unique per run — the Bureau allows one open application per agent card URL.
-  agentCardUrl: `https://example.com/agent-cards/smoke-${Date.now()}.json`,
+  // Resolvable A2A card served by the host under test; unique per run — the
+  // Bureau allows one open application per agent card URL.
+  agentCardUrl: `${base}/api/marketa/activation/sample-agent-card?seed=smoke-${Date.now()}`,
   operatorName: 'Smoke Test Operator',
   operatorType: 'organization',
   capabilities: ['travel coordination', 'relocation', 'legal aid intake', 'CRM'],
@@ -66,6 +67,14 @@ await step('2. create candidate', async () => {
   candidateId = json.candidate?.id;
   if (!candidateId) throw new Error('no candidate id in response');
   return candidateId;
+});
+
+await step('2b. agent card resolves (A2A JSON)', async () => {
+  const res = await fetch(SMOKE_CANDIDATE.agentCardUrl);
+  if (!res.ok) throw new Error(`${res.status}`);
+  const card = await res.json();
+  if (!card.name || !Array.isArray(card.skills)) throw new Error('not a valid agent card shape');
+  return card.name;
 });
 
 await step('3. score (classification + clean-revenue + human mobility)', async () => {

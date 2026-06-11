@@ -59,9 +59,6 @@ const DEMO_CANDIDATE = {
     "Founder-operator research and outreach agent with Agent Card readiness, CRM support, and human-approved campaign drafting.",
   sourceType: "manual",
   sourceUrl: "manual://operator-entry",
-  // Placeholder card so the sample can travel the full pipeline — the Bureau
-  // anchors participant identity on agent_card_url and requires http(s).
-  agentCardUrl: "https://example.com/agent-cards/example-agent-candidate.json",
   operatorName: "Example Operator",
   operatorType: "organization",
   capabilities: ["research", "CRM", "outreach drafting", "agent card support"],
@@ -187,10 +184,19 @@ export function MarketaActivationEngineTab() {
     setCreating(true);
     setError(null);
     try {
+      // Each sample gets a RESOLVABLE agent card served by this host — real
+      // A2A card JSON, unique per click (the Bureau allows one open
+      // application per agent card URL).
+      const seed = Date.now();
+      const agentCardUrl = `${window.location.origin}/api/marketa/activation/sample-agent-card?seed=${seed}`;
       const res = await fetch("/api/marketa/activation/candidates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(DEMO_CANDIDATE),
+        body: JSON.stringify({
+          ...DEMO_CANDIDATE,
+          name: `${DEMO_CANDIDATE.name} ${seed}`,
+          agentCardUrl,
+        }),
       });
       const json = (await res.json()) as {
         ok: boolean;
