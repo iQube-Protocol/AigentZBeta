@@ -140,7 +140,25 @@ describe('Opportunity revenue roll-up', () => {
     ] as never);
     expect(rollUp.estimatedPipelineValue).toBe(650);
     expect(rollUp.closedCleanRevenue).toBe(1000);
+    expect(rollUp.recurringMonthlyRevenue).toBe(0);
     expect(rollUp.opportunityCount).toBe(5); // rejected counts nowhere
+  });
+
+  it('counts active subscriptions as MRR, not one-shot pipeline', async () => {
+    const { rollUpRevenue } = await import('@/services/marketa/activation/normalizers');
+    const sub = (activationStatus: string, estimatedValue: number) => ({
+      ...opp(activationStatus, estimatedValue),
+      opportunityType: 'subscription',
+    });
+    const rollUp = rollUpRevenue([
+      sub('proposed', 99),   // pipeline at monthly value
+      sub('active', 49),     // MRR — not pipeline
+      sub('completed', 500), // ended subscription rolls into closed
+      opp('active', 300),    // one-shot active stays in pipeline
+    ] as never);
+    expect(rollUp.estimatedPipelineValue).toBe(399); // 99 + 300
+    expect(rollUp.recurringMonthlyRevenue).toBe(49);
+    expect(rollUp.closedCleanRevenue).toBe(500);
   });
 
   it('normalizes opportunity create payloads and requires a description', async () => {

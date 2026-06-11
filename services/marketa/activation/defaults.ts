@@ -86,5 +86,6 @@ export const EMPTY_REVENUE_TRACKING: RevenueTrackingSummary = {
   opportunityCount: 0,
   estimatedPipelineValue: 0,
   closedCleanRevenue: 0,
+  recurringMonthlyRevenue: 0,
   revenueAttributionNotes: '',
 };

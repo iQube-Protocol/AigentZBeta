@@ -90,6 +90,7 @@ export function MarketaActivationEngineTab() {
   const [opportunities, setOpportunities] = useState<CandidateOpportunity[]>([]);
   const [oppDescription, setOppDescription] = useState("");
   const [oppValue, setOppValue] = useState("");
+  const [oppType, setOppType] = useState("other");
   const [oppBusy, setOppBusy] = useState<string | null>(null);
   const [outreachTo, setOutreachTo] = useState("");
   const [outreachSubject, setOutreachSubject] = useState("");
@@ -125,6 +126,7 @@ export function MarketaActivationEngineTab() {
     setAgentCardInput("");
     setOppDescription("");
     setOppValue("");
+    setOppType("other");
     setOutreachTo("");
     setOutreachSubject("");
     setOutreachBody("");
@@ -218,6 +220,10 @@ export function MarketaActivationEngineTab() {
       ),
       closed: candidates.reduce(
         (sum, candidate) => sum + candidate.revenueTracking.closedCleanRevenue,
+        0,
+      ),
+      mrr: candidates.reduce(
+        (sum, candidate) => sum + (candidate.revenueTracking.recurringMonthlyRevenue ?? 0),
         0,
       ),
     }),
@@ -349,6 +355,7 @@ export function MarketaActivationEngineTab() {
         body: JSON.stringify({
           description: oppDescription.trim(),
           estimatedValue: Number(oppValue) || 0,
+          opportunityType: oppType,
           actorId: "marketa-operator",
         }),
       });
@@ -363,6 +370,7 @@ export function MarketaActivationEngineTab() {
       applyOpportunityResponse(json);
       setOppDescription("");
       setOppValue("");
+      setOppType("other");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -522,7 +530,7 @@ export function MarketaActivationEngineTab() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
         {[
           ["All candidates", metrics.total, "all"],
           ["Needs review", metrics.needsReview, "needs_review"],
@@ -546,6 +554,10 @@ export function MarketaActivationEngineTab() {
         <div className={`${GLASS_CARD} p-4`} title="Sum of completed opportunity values across all candidates — what Marketa has earned">
           <p className="text-xs text-slate-400 whitespace-nowrap">Closed revenue</p>
           <p className="text-2xl font-bold text-emerald-300">${metrics.closed}</p>
+        </div>
+        <div className={`${GLASS_CARD} p-4`} title="Monthly recurring revenue — sum of active subscription-type opportunities (activation/subscription fees from activated agents)">
+          <p className="text-xs text-slate-400 whitespace-nowrap">MRR</p>
+          <p className="text-2xl font-bold text-sky-300">${metrics.mrr}/mo</p>
         </div>
       </div>
 
@@ -870,6 +882,9 @@ export function MarketaActivationEngineTab() {
                   <p className="text-[11px] text-slate-400 whitespace-nowrap">
                     Pipeline ${selected.revenueTracking.estimatedPipelineValue} · Closed $
                     {selected.revenueTracking.closedCleanRevenue}
+                    {(selected.revenueTracking.recurringMonthlyRevenue ?? 0) > 0
+                      ? ` · MRR $${selected.revenueTracking.recurringMonthlyRevenue}/mo`
+                      : ""}
                   </p>
                 </div>
                 {opportunities.length === 0 && (
@@ -895,6 +910,7 @@ export function MarketaActivationEngineTab() {
                         <p className="text-xs text-slate-200 min-w-0">{opp.description}</p>
                         <span className="text-xs font-semibold text-slate-100 whitespace-nowrap shrink-0">
                           ${opp.estimatedValue}
+                          {opp.opportunityType === "subscription" ? "/mo" : ""}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto">
@@ -950,12 +966,23 @@ export function MarketaActivationEngineTab() {
                     title="What revenue opportunity does this candidate represent?"
                     className="flex-1 min-w-0 rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
                   />
+                  <select
+                    value={oppType}
+                    onChange={event => setOppType(event.target.value)}
+                    title="Opportunity type — subscriptions count as monthly recurring revenue while active; everything else is one-shot pipeline/closed"
+                    className="rounded bg-slate-900/70 border border-slate-700 px-1.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-slate-500"
+                  >
+                    <option value="other">one-shot</option>
+                    <option value="subscription">subscription /mo</option>
+                    <option value="qualified_intro">qualified intro</option>
+                    <option value="integration">integration</option>
+                  </select>
                   <input
                     type="number"
                     value={oppValue}
                     onChange={event => setOppValue(event.target.value)}
                     placeholder="$"
-                    title="Estimated value in USD"
+                    title="Estimated value in USD — for subscriptions, the monthly fee"
                     className="w-20 rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
                   />
                   <Button

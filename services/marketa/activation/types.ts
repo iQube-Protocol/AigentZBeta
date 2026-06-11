@@ -229,6 +229,10 @@ export interface RevenueTrackingSummary {
   opportunityCount: number;
   estimatedPipelineValue: number;
   closedCleanRevenue: number;
+  /** Operator decision 2026-06-11: activation/subscription fees are Marketa
+   *  revenue. Active subscription-type opportunities sum here at their
+   *  monthly value instead of the one-shot pipeline. */
+  recurringMonthlyRevenue: number;
   revenueAttributionNotes: string;
 }
 
