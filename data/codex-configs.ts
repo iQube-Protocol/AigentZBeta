@@ -1399,7 +1399,9 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     { id: 'development', label: 'Development',  icon: 'Code',     order: 2 },
     { id: 'memory',      label: 'Memory',       icon: 'Brain',    order: 3 },
     { id: 'registry',    label: 'Registry',     icon: 'Database', order: 4 },
-    { id: 'operations',  label: 'Operations',   icon: 'Settings', order: 5, adminOnly: true },
+    { id: 'governance',  label: 'Governance',   icon: 'Scale',    order: 5 },
+    { id: 'operations',  label: 'Operations',   icon: 'Settings', order: 6, adminOnly: true },
+    { id: 'ecosystem',   label: 'Ecosystem',    icon: 'Users',    order: 7 },
   ],
   tabs: [
     // ── aigentZ group (front door) ─────────────────────────────
@@ -1716,6 +1718,63 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
 
+    // ── Governance group (Operation Chrysalis Phase 0) ────────
+    {
+      id: 'governance-constitution',
+      label: 'Constitution',
+      slug: 'governance-constitution',
+      enabled: true,
+      group: 'governance',
+      order: 0,
+      type: 'static',
+      config: { component: 'GovernanceConstitutionTab', props: {} },
+      metadata: { icon: 'Scale', description: 'AgentiQ Constitution of Aigents — sovereign roles, authority matrix, and constitutional principles' }
+    },
+    {
+      id: 'governance-roles',
+      label: 'Roles',
+      slug: 'governance-roles',
+      enabled: true,
+      group: 'governance',
+      order: 1,
+      type: 'static',
+      config: { component: 'GovernanceRolesTab', props: {} },
+      metadata: { icon: 'Shield', description: 'Sovereign agent roles, authority domains, and escalation paths' }
+    },
+    {
+      id: 'governance-decisions',
+      label: 'Decision Log',
+      slug: 'governance-decisions',
+      enabled: true,
+      group: 'governance',
+      order: 2,
+      type: 'static',
+      config: { component: 'GovernanceDecisionLogTab', props: {} },
+      metadata: { icon: 'FileText', description: 'Ratified governance decisions and constitutional amendments' }
+    },
+    {
+      id: 'governance-authority-matrix',
+      label: 'Authority Matrix',
+      slug: 'governance-authority-matrix',
+      enabled: true,
+      group: 'governance',
+      order: 3,
+      type: 'static',
+      config: { component: 'GovernanceAuthorityMatrixTab', props: {} },
+      metadata: { icon: 'Grid3X3', description: 'Cross-reference: roles × authority domains' }
+    },
+    {
+      id: 'governance-receipts',
+      label: 'Receipts',
+      slug: 'governance-receipts',
+      enabled: true,
+      group: 'governance',
+      order: 4,
+      type: 'static',
+      config: { component: 'GovernanceReceiptsTab', props: {} },
+      metadata: { icon: 'Receipt', description: 'DVN-anchored governance decision receipts' }
+    },
+
     // ── Operations group (admin) ───────────────────────────────
     {
       id: 'operators-manual',
@@ -1738,6 +1797,30 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         description: 'Operators manual — trust scoring, pipeline reference, Aigent roster',
         color: 'slate'
       }
+    },
+
+    // ── Ecosystem group ────────────────────────────────────────
+    {
+      id: 'dev-resources',
+      label: 'Dev Resources',
+      slug: 'dev-resources',
+      enabled: true,
+      group: 'ecosystem',
+      order: 0,
+      type: 'static',
+      config: { component: 'Kn0wdZTab', props: {} },
+      metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ' }
+    },
+    {
+      id: 'qriptopian',
+      label: 'Qriptopian',
+      slug: 'qriptopian',
+      enabled: true,
+      group: 'ecosystem',
+      order: 1,
+      type: 'static',
+      config: { component: 'FeaturesTab', props: {} },
+      metadata: { icon: 'Sparkles', description: 'Qriptopian editorial features' }
     }
   ],
   permissions: {
