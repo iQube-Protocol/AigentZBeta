@@ -10,8 +10,10 @@
  * never raw identity (T0 rule lives server-side in the projection).
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BookOpenCheck, RefreshCw, Loader2, AlertCircle, ShieldCheck, Bot } from 'lucide-react';
+import { SubHeaderSlotContext } from '../SubHeaderSlot';
 
 interface PublicPassport {
   passportId: string;
@@ -41,6 +43,7 @@ export function PassportRegistryTab() {
   const [classFilter, setClassFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const subHeaderSlotEl = useContext(SubHeaderSlotContext);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,8 +65,31 @@ export function PassportRegistryTab() {
     void load();
   }, [load]);
 
+  // Class filter chips — rendered into the cartridge sub-menu bar
+  // (left-justified on the breadcrumb row) per the cartridge template, with
+  // an inline fallback for surfaces that don't mount the slot.
+  const filterChips = (
+    <div className="flex gap-1 flex-wrap items-center">
+      {CLASS_FILTERS.map((f) => (
+        <button
+          key={f.value}
+          onClick={() => setClassFilter(f.value)}
+          className={cls(
+            'rounded-full px-2.5 py-0.5 text-[11px] transition-all duration-300',
+            classFilter === f.value
+              ? 'bg-violet-600 text-white'
+              : 'bg-slate-800 text-slate-400 hover:bg-slate-700',
+          )}
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4">
+      {subHeaderSlotEl ? createPortal(filterChips, subHeaderSlotEl) : filterChips}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <BookOpenCheck className="h-6 w-6 text-violet-400" />
@@ -82,23 +108,6 @@ export function PassportRegistryTab() {
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           Refresh
         </button>
-      </div>
-
-      <div className="flex gap-2">
-        {CLASS_FILTERS.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => setClassFilter(f.value)}
-            className={cls(
-              'rounded-full px-3 py-1.5 text-xs transition-all duration-300',
-              classFilter === f.value
-                ? 'bg-violet-600 text-white'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-700',
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
       </div>
 
       {error && (

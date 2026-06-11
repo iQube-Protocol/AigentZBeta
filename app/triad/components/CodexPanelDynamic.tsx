@@ -729,7 +729,7 @@ export default function CodexPanelDynamic({
                               onClick={() => handleGroupClick(group.id)}
                               title={group.iconOnly ? group.label : undefined}
                               aria-label={group.iconOnly ? group.label : undefined}
-                              className={`flex items-center ${group.iconOnly ? 'gap-0 px-2' : 'gap-1.5 px-3'} py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                              className={`flex items-center ${group.iconOnly ? 'gap-0 px-2' : 'gap-1.5 px-3'} py-1.5 text-[13px] font-medium transition-all whitespace-nowrap rounded-lg ${
                                 isActiveGroup
                                   ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                                   : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -749,7 +749,7 @@ export default function CodexPanelDynamic({
                           <button
                             key={tab.id}
                             onClick={() => setActiveTabSlug(tab.slug)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium transition-all whitespace-nowrap rounded-lg ${
                               isActive
                                 ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                                 : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -852,7 +852,7 @@ export default function CodexPanelDynamic({
                         <button
                           key={tab.id}
                           onClick={() => setActiveTabSlug(tab.slug)}
-                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
                             isActive
                               ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                               : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -877,7 +877,7 @@ export default function CodexPanelDynamic({
                         <button
                           key={sub.id}
                           onClick={() => setActiveSubSubTabSlug(sub.slug)}
-                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
                             isActive
                               ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                               : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -951,7 +951,7 @@ export default function CodexPanelDynamic({
                       <button
                         key={sub.id}
                         onClick={() => setActiveSubSubTabSlug(sub.slug)}
-                        className={`flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                        className={`flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
                           isActive
                             ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                             : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
