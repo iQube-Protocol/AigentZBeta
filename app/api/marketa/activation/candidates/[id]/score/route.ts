@@ -54,6 +54,7 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
     verticals: classification.verticals,
     legal_track: classification.legalTrack,
     top_bottom_relevance: classification.topBottomRelevance,
+    human_mobility: classification.humanMobility,
     scores,
     risk_flags: screen.riskFlags,
     policy_flags: screen.policyFlags,
