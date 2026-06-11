@@ -43,14 +43,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // FIO handle resolution — entitlements are stored by persona UUID.
+    // If caller passes a handle (e.g. arkagent@knyt), resolve it first so
+    // this endpoint matches /api/codex/owned behaviour.
+    let resolvedPersonaId = personaId;
+    if (personaId.includes('@')) {
+      const { data: personaRow } = await supabase
+        .from('personas')
+        .select('id')
+        .eq('fio_handle', personaId)
+        .single();
+      if (personaRow?.id) resolvedPersonaId = personaRow.id;
+    }
+
     // Pull all four sources in parallel. knyt_purchases captures direct
     // character/asset buys via the KNYT cartridge purchase modal — without
     // this, codex character owned badges miss directly-purchased posters.
     const [legacy, userDirect, expanded, knytDirect] = await Promise.all([
-      getSmartContentService().getEntitlementsByPersona(personaId).catch(() => []),
-      getEntitlementService().getPersonaEntitlements(personaId).catch(() => []),
-      getOwnedAssetIds(personaId, 'metaKnyts').catch(() => ({ direct: [], expanded: [], ownedSkus: [] })),
-      getKnytPurchaseAssetIds(personaId).catch(() => [] as string[]),
+      getSmartContentService().getEntitlementsByPersona(resolvedPersonaId).catch(() => []),
+      getEntitlementService().getPersonaEntitlements(resolvedPersonaId).catch(() => []),
+      getOwnedAssetIds(resolvedPersonaId, 'metaKnyts').catch(() => ({ direct: [], expanded: [], ownedSkus: [] })),
+      getKnytPurchaseAssetIds(resolvedPersonaId).catch(() => [] as string[]),
     ]);
 
     // Union by content/asset id. Legacy rows pass through as-is; user_entitlements

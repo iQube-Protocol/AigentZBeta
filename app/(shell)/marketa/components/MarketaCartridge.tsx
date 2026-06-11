@@ -27,6 +27,7 @@ import {
 import MarketaQubeTalk from './MarketaQubeTalk';
 import MarketaSmartTriad from './MarketaSmartTriad';
 import CRMIntegration from './CRMIntegration';
+import MarketaActivationEngineTab from './activation/MarketaActivationEngineTab';
 
 const GLASS_CARD = "bg-slate-950/60 backdrop-blur-xl ring-1 ring-white/10 shadow-xl";
 const GLASS_HOVER = "hover:bg-slate-900/80 hover:ring-white/20 transition-all duration-300";
@@ -304,7 +305,7 @@ export default function MarketaCartridge() {
       {/* Main Content */}
       <GlassCard className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8 bg-slate-800/50 border border-white/10">
+          <TabsList className="grid w-full grid-cols-9 bg-slate-800/50 border border-white/10">
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
               <BarChart3 className="w-4 h-4 mr-2" />
               Dashboard
@@ -316,6 +317,10 @@ export default function MarketaCartridge() {
             <TabsTrigger value="partners" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
               <Users className="w-4 h-4 mr-2" />
               Partners
+            </TabsTrigger>
+            <TabsTrigger value="activation" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+              <Bot className="w-4 h-4 mr-2" />
+              Activation Engine
             </TabsTrigger>
             <TabsTrigger value="publish" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
               <Package className="w-4 h-4 mr-2" />
@@ -553,6 +558,11 @@ export default function MarketaCartridge() {
           </TabsContent>
 
           {/* Publish Tab */}
+          {/* Activation Engine Tab */}
+          <TabsContent value="activation" className="space-y-4 mt-6">
+            <MarketaActivationEngineTab />
+          </TabsContent>
+
           <TabsContent value="publish" className="space-y-4 mt-6">
             <div className="text-center py-12">
               <Package className="w-12 h-12 mx-auto text-slate-500 mb-4" />
