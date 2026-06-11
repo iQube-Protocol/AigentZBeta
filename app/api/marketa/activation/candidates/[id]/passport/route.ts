@@ -184,12 +184,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const now = new Date().toISOString();
 
   // Does the Bureau already know this agent? (Bureau keys on agent_card_url.)
-  const { data: apps } = await supabase
+  const { data: apps, error: appsError } = await supabase
     .from("polity_passport_applications")
     .select("id, application_status, passport_class, submitted_at, decided_at")
     .eq("agent_card_url", candidate.agentCardUrl)
     .order("submitted_at", { ascending: false })
     .limit(1);
+  if (appsError) {
+    console.error("[marketa passport sync] Bureau application lookup failed:", appsError.message, "agent_card_url:", candidate.agentCardUrl);
+  }
 
   const existingApp = apps?.[0] as
     | { id: string; application_status: BureauApplicationStatus; passport_class: string }
@@ -203,7 +206,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   let submittedApplicationId: string | null = null;
 
   if (existingApp) {
-    // Sync: the Bureau already has an application for this agent card.
+    console.log("[marketa passport sync] Bureau app found:", existingApp.id, "status:", existingApp.application_status);
     if (existingApp.application_status === "approved") {
       const { data: record } = await supabase
         .from("polity_passport_records")
@@ -357,10 +360,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       draftApplication,
       outstandingIssues,
       note: existingApp
-        ? "Synced from the Polity Passport Bureau. The Bureau owns approval; Marketa stores public status/reference fields only."
+        ? `Synced from the Polity Passport Bureau — status: ${existingApp.application_status}${issuedPassportId ? `, passport: ${issuedPassportId}` : ""}. The Bureau owns approval; Marketa stores public status/reference fields only.`
         : submittedApplicationId
           ? "Submitted to the Polity Passport Bureau with operator-given consents. The application is now in the Bureau steward queue; the Bureau owns approval from here."
-          : "Draft prepared and dry-run validated against the Bureau's validator. The participant/operator must complete the four mandatory consents and submit via the Bureau — Marketa never consents or submits on their behalf.",
+          : appsError
+            ? `Bureau lookup failed (${appsError.message}) — showing last known status. Try again in a moment.`
+            : "Draft prepared and dry-run validated against the Bureau's validator. The participant/operator must complete the four mandatory consents and submit via the Bureau — Marketa never consents or submits on their behalf.",
     },
     { headers: { "Cache-Control": "no-store" } },
   );

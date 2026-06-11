@@ -733,7 +733,7 @@ export function MarketaActivationEngineTab() {
                   </p>
                 </div>
                 {lastActionNote && (
-                  <p className="mt-2 rounded bg-slate-900/60 border border-slate-800 p-2 text-[11px] text-amber-300/90">
+                  <p className="mt-2 rounded-lg bg-amber-950/40 border border-amber-700/40 p-2.5 text-xs text-amber-200 leading-relaxed">
                     {lastActionNote}
                   </p>
                 )}
