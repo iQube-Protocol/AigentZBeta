@@ -47,7 +47,7 @@ const ROLES: RoleData[] = [
   },
   {
     id: "aigentMe",
-    brand: "metaMe",
+    brand: "aigentMe",
     constitutionalRole: "Individual Agency",
     purpose: "Represent the interests of the individual.",
     primaryQuestion: "What is best for this individual?",
@@ -96,7 +96,7 @@ const ROLES: RoleData[] = [
   },
   {
     id: "aigentZ",
-    brand: "AgentiQ",
+    brand: "aigentZ",
     constitutionalRole: "Platform Agency",
     purpose: "Represent platform interests and sovereign fulfillment.",
     primaryQuestion: "What is best for the ecosystem?",

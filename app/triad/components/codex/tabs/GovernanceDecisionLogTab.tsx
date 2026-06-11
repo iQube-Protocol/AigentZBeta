@@ -44,7 +44,7 @@ const DECISIONS: Decision[] = [
     status: "ratified",
     date: "2026-06-11",
     initiative: "Operation Chrysalis",
-    summary: "The constitutional hierarchy consists of metaMe Guardian (sovereignty layer), aigentMe (individual agency), aigentC (collective agency), and aigentZ (platform agency).",
+    summary: "The constitutional hierarchy consists of myGuard (sovereignty layer), aigentMe (individual agency), aigentC (collective agency), and aigentZ (platform agency).",
     rationale: "Each domain of interest has explicit representation. No single agent may represent all interests.",
     sovereigntyImpact: { me: "benefits", c: "benefits", z: "benefits" },
     constitutionalBasis: "representation, dual_representation",

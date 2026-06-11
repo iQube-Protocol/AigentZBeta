@@ -26,7 +26,7 @@ const HIERARCHY = [
   },
   {
     id: "aigentMe",
-    brand: "metaMe",
+    brand: "aigentMe",
     role: "Individual Agency",
     purpose: "Represent the interests of the individual.",
     question: "What is best for this individual?",
@@ -46,7 +46,7 @@ const HIERARCHY = [
   },
   {
     id: "aigentZ",
-    brand: "AgentiQ",
+    brand: "aigentZ",
     role: "Platform Agency",
     purpose: "Represent platform interests and sovereign fulfillment.",
     question: "What is best for the ecosystem?",
@@ -57,9 +57,9 @@ const HIERARCHY = [
 ];
 
 const DOMAINS = [
-  { name: "metaMe", domain: "Intent", items: ["Experience sovereignty", "Personal agency", "Venture coordination", "Intent discovery"] },
+  { name: "aigentMe (metaMe)", domain: "Intent", items: ["Experience sovereignty", "Personal agency", "Venture coordination", "Intent discovery"] },
   { name: "Registry", domain: "Coordination", items: ["Provenance", "Attribution", "Governance", "Discovery", "Accountability"] },
-  { name: "AgentiQ", domain: "Fulfillment", items: ["Implementation", "Development", "Orchestration", "Platform operations"] },
+  { name: "aigentZ (AgentiQ)", domain: "Fulfillment", items: ["Implementation", "Development", "Orchestration", "Platform operations"] },
 ];
 
 export function GovernanceConstitutionTab() {
