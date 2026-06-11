@@ -91,6 +91,9 @@ export function MarketaActivationEngineTab() {
   const [oppDescription, setOppDescription] = useState("");
   const [oppValue, setOppValue] = useState("");
   const [oppBusy, setOppBusy] = useState<string | null>(null);
+  const [outreachTo, setOutreachTo] = useState("");
+  const [outreachSubject, setOutreachSubject] = useState("");
+  const [outreachBody, setOutreachBody] = useState("");
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "needs_review" | "exec" | "vulnerable" | "legal">(
@@ -122,6 +125,10 @@ export function MarketaActivationEngineTab() {
     setAgentCardInput("");
     setOppDescription("");
     setOppValue("");
+    setOutreachTo("");
+    setOutreachSubject("");
+    setOutreachBody("");
+    setLastDraft(null);
   }, [selectedId]);
 
   // Opportunities belong to the selected candidate — load on selection change.
@@ -307,7 +314,11 @@ export function MarketaActivationEngineTab() {
         prev.map(candidate => (candidate.id === candidateId ? json.candidate! : candidate)),
       );
       setSelectedId(candidateId);
-      if (json.draft) setLastDraft(json.draft);
+      if (json.draft) {
+        setLastDraft(json.draft);
+        setOutreachSubject(json.draft.subject);
+        setOutreachBody(json.draft.body);
+      }
       if (json.note) setLastActionNote(json.note);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1025,16 +1036,84 @@ export function MarketaActivationEngineTab() {
                 </p>
               )}
               {lastDraft && (
-                <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-                  <h5 className="text-xs uppercase tracking-wider text-slate-500 mb-2">
-                    Latest outreach draft
+                <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 space-y-2">
+                  <h5 className="text-xs uppercase tracking-wider text-slate-500">
+                    Outreach — review &amp; send
                   </h5>
-                  <p className="text-xs font-semibold text-slate-200">{lastDraft.subject}</p>
-                  <p className="text-xs text-slate-400 whitespace-pre-wrap mt-2 max-h-36 overflow-y-auto">
-                    {lastDraft.body}
+                  <p className="text-[11px] text-slate-400">
+                    Edit before sending. Sends via the Marketa Mailjet identity; you supply the
+                    recipient — nothing goes out without your review.
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-2">CTA: {lastDraft.cta}</p>
+                  <input
+                    type="email"
+                    value={outreachTo}
+                    onChange={event => setOutreachTo(event.target.value)}
+                    placeholder="Recipient email (agent operator)…"
+                    title="The agent operator's email address — Marketa never infers a recipient"
+                    className="w-full rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
+                  />
+                  <input
+                    type="text"
+                    value={outreachSubject}
+                    onChange={event => setOutreachSubject(event.target.value)}
+                    placeholder="Subject…"
+                    title="Email subject — prefilled from the draft, edit freely"
+                    className="w-full rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
+                  />
+                  <textarea
+                    value={outreachBody}
+                    onChange={event => setOutreachBody(event.target.value)}
+                    rows={6}
+                    placeholder="Body…"
+                    title="Email body — prefilled from the draft, edit freely"
+                    className="w-full rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500 resize-y"
+                  />
+                  <p className="text-[11px] text-slate-500">CTA: {lastDraft.cta}</p>
+                  <Button
+                    size="sm"
+                    className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm w-full"
+                    title="Send this reviewed email now via the Marketa Mailjet send path — flips outreach status to sent"
+                    disabled={
+                      actionId === `outreach:${selected.id}` ||
+                      !outreachTo.includes("@") ||
+                      !outreachSubject.trim() ||
+                      !outreachBody.trim()
+                    }
+                    onClick={() =>
+                      runCandidateAction(selected.id, "outreach", {
+                        action: "send",
+                        actorId: "marketa-operator",
+                        to: outreachTo.trim(),
+                        subject: outreachSubject.trim(),
+                        body: outreachBody.trim(),
+                      })
+                    }
+                  >
+                    {actionId === `outreach:${selected.id}` ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <Send className="w-3 h-3 mr-1" />
+                    )}{" "}
+                    Send approved outreach
+                  </Button>
                 </section>
+              )}
+              {selected.outreachStatus === "sent" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-slate-800/50 border-emerald-400/30 text-emerald-300 w-full"
+                  title="Record that the agent operator replied — moves the candidate toward qualification"
+                  disabled={actionId === `outreach:${selected.id}`}
+                  onClick={() =>
+                    runCandidateAction(selected.id, "outreach", {
+                      action: "mark_responded",
+                      actorId: "marketa-operator",
+                    })
+                  }
+                >
+                  Mark responded
+                </Button>
               )}
             </>
           )}
