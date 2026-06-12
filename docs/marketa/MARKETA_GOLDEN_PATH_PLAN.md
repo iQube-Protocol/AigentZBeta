@@ -122,8 +122,13 @@ Backlogged behind the golden path:
 - **Phase C** — keypair + self-custody blakQube envelope + on-chain FIO
   register; replaces the HMAC stub proof with an asymmetric, publicly
   verifiable proof
-- **Phase D** — "claim your passport" UI with bounded-delegation policy on
-  the persona_id ↔ passport_id binding
+- **Phase D** — PARTIALLY SHIPPED 2026-06-12: claim modal + PassportQube
+  wallet surface landed (`POST /api/polity-passport/credential/[passportId]`
+  marks `credential_claimed_at` and returns the VC; `GET
+  /api/polity-passport/wallet` lists the active persona's passports; claim
+  pill in the Registry tab; PassportQube section in the SmartWallet iQube
+  tab). Still backlogged: bounded-delegation policy enforcement on the
+  persona_id ↔ passport_id binding
 - "aigent" as a brand class for polity-compliant agents
   (`polity_passported_agent` badge gated via spine `evaluateAccess`)
 
