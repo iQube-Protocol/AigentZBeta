@@ -520,9 +520,9 @@ export function SmartTriadCopilotLayer({
         return 'aigent-z';
       })();
       const domainForPersona = (() => {
-        if (resolvedPersona === 'aigent-kn0w1' || resolvedPersona === 'aigent-marketa') return 'metaKnyts';
+        if (resolvedPersona === 'aigent-kn0w1') return 'metaKnyts';
         if (resolvedPersona === 'aigent-moneypenny') return 'qriptopian';
-        return 'agentiq'; // aigent-z, aigent-c, metaMe, etc.
+        return 'aigentMe';
       })();
 
       // Read the freshest groundContext at POST time — a chip click

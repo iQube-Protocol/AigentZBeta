@@ -1071,7 +1071,7 @@ export function MarketaActivationEngineTab() {
                   ) : (
                     <ShieldCheck className="w-3 h-3 mr-1" />
                   )}{" "}
-                  Rep
+                  Reputation
                 </Button>
                 <Button
                   size="sm"
@@ -1235,11 +1235,21 @@ export function MarketaActivationEngineTab() {
                       </Button>
                     </div>
                   </div>
-                  <p>
+                  <p className="flex flex-wrap items-center gap-1.5">
                     Passport:{" "}
-                    <span className="text-slate-500">
+                    <Badge
+                      className={
+                        ["approved", "provisionally_approved"].includes(
+                          selected.passportIntegration.passportApplicationStatus,
+                        )
+                          ? "bg-green-400/15 text-green-300 border-green-400/30 backdrop-blur-sm"
+                          : selected.passportIntegration.passportApplicationStatus === "not_started"
+                            ? "bg-slate-500/15 text-slate-400 border-slate-500/30"
+                            : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                      }
+                    >
                       {formatLabel(selected.passportIntegration.passportApplicationStatus)}
-                    </span>
+                    </Badge>
                     {selected.passportIntegration.participantPassportId ? (
                       <>
                         <span className="text-slate-600">

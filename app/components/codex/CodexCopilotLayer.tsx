@@ -260,6 +260,14 @@ export function CodexCopilotLayer({
       inputFocusBorder: 'focus:border-indigo-500',
       btnBg: 'bg-indigo-500', btnHoverBg: 'hover:bg-indigo-600',
     },
+    pink: {
+      hex: 'text-pink-400/90', bot: 'text-pink-300', bubble: 'bg-pink-500/20 text-pink-100 ring-pink-500/30',
+      pillBorder: 'border-pink-400/40', pillBg: 'bg-pink-500/15', pillText: 'text-pink-100', pillHoverBg: 'hover:bg-pink-500/25',
+      softBg: 'bg-pink-500/20', softText: 'text-pink-100', softHoverBg: 'hover:bg-pink-500/30',
+      highlightBg: 'bg-pink-500/15', highlightText: 'text-pink-200', highlightTextStrong: 'text-pink-400',
+      inputFocusBorder: 'focus:border-pink-500',
+      btnBg: 'bg-pink-500', btnHoverBg: 'hover:bg-pink-600',
+    },
   };
   const ACCENT: AccentPalette = ACCENT_PALETTES[accentColor] ?? ACCENT_PALETTES.cyan;
   // Pre-extract the ring-* class from the bubble token so nested template
