@@ -2474,6 +2474,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'mycluster',    label: 'myCluster',        icon: 'PenSquare',  order: 0.5, activationId: 'mycanvas' },
     { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.6 },
     { id: 'order',        label: 'KNYT',             icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
+    { id: 'agentz',       label: 'aigentZ',          icon: 'Cpu',        order: 0.8, activationId: 'aigent-z' },
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
@@ -2905,6 +2906,22 @@ export const METAME_CODEX: CodexConfig = {
       metadata: { icon: 'Settings', description: 'metaMe Studio admin surface — visible only to metaMe cartridge admins', color: 'indigo' },
     },
 
+    // ── aigentZ group (first-class, activation-gated) ────────────────────────
+    // The Development Command Center as a top-level metaMe menu item.
+    // Gated by the 'aigent-z' activation; single tab so the sub-menu row
+    // auto-hides — same screen-space treatment as the aigentMe tab.
+    {
+      id: 'metame-agentz-command-center',
+      label: 'Command Center',
+      slug: 'aigent-z',
+      enabled: true,
+      group: 'agentz',
+      order: 0,
+      type: 'static',
+      config: { component: 'DevCommandCenterTab', props: {} },
+      metadata: { icon: 'Cpu', description: 'aigentZ Development Command Center — consequence engineering workflow', color: 'green' },
+    },
+
     // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
     // metaMe mirror of AgentiQ OS — Operation Chrysalis target nav
     {
@@ -2915,9 +2932,13 @@ export const METAME_CODEX: CodexConfig = {
       group: 'agentiqos',
       order: 40,
       type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_start_here' } },
-      metadata: { icon: 'Cpu', description: 'AgentiQ OS — aigentZ front door', color: 'emerald' },
-      subTabs: aiqOsTabsByGroup('agentz'),
+      // Renders the Command Center directly — no subTabs. The aigentZ group
+      // in AgentiQ OS has a single tab, so mirroring it as a subTabs array
+      // forced the third-tier "Command Center" badge row to render even
+      // though there's nothing to switch between. Direct component mount
+      // keeps the row hidden (2026-06-12 operator report).
+      config: { component: 'DevCommandCenterTab', props: {} },
+      metadata: { icon: 'Cpu', description: 'AgentiQ OS — aigentZ Development Command Center', color: 'emerald' },
     },
     {
       id: 'agentiqos-projects',
