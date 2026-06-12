@@ -120,6 +120,9 @@ const envVars = [
   'BTC_NETWORK',
   'BTC_CUSTODIAN_KEY_REF',
   'BTC_SIGNER_CANISTER_ID',
+  // Polity Passport Bureau — CAPTCHA (Cloudflare Turnstile)
+  'TURNSTILE_SECRET_KEY',
+  'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
   // Wallet alias privacy refactor (2026-04-29)
   'WALLET_ALIAS_HMAC_KEY',
   'WALLET_ALIAS_CHALLENGE_DOMAIN',

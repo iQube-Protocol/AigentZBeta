@@ -655,7 +655,7 @@ export default function MarketaCartridge() {
         onClose={() => setCopilotOpen(false)}
         onOpen={() => setCopilotOpen(true)}
         variant="floating"
-        accentColor="rose"
+        accentColor="pink"
         agent={{ id: 'aigent-marketa', name: 'Marketa' }}
         personaId="aigent-marketa"
         onUserPrompt={handleMarketaPrompt}
