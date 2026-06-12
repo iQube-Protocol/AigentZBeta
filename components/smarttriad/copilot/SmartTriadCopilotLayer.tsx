@@ -129,7 +129,9 @@ export type SuggestedLayoutHint = {
   layoutId:
     | 'brief' | 'decision-board' | 'venture-cockpit' | 'specialists'
     | 'gmail' | 'event' | 'doc' | 'sheet' | 'slides' | 'marketa'
-    | 'upload' | 'download';
+    | 'upload' | 'download'
+    | 'terminal' | 'github' | 'devtools' | 'linear'
+    | 'intent' | 'context' | 'gap-analysis' | 'consequence-canvas' | 'validation' | 'project-overview';
   reason: string;
   promptHint: string;
 };
