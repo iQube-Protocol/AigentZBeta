@@ -32,6 +32,7 @@ import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experience
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
+import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1741,6 +1742,7 @@ function buildSystemPrompt(
   kbContext?: KBSearchResult[],
   liveContext?: KnytLiveContext,
   activeSkill?: Know1SkillId | null,
+  platformKnowledgeBlock?: string,
 ): string {
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
   const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
@@ -2098,7 +2100,12 @@ After your response, add:
       ? `\n\n## Right-pane chip-strip control — append a layout tag when you suggest a dev action\n\nYou are aigentZ in the Development Command Center. The operator's left pane (your copilot) has capability quick-prompt chips, and the right pane has the Dev Command Center with capability capsules + an explore strip. When YOU propose a concrete next step, append a control tag:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble. Its role is to pulse the matching chip/button so the operator can one-click into the right surface.\n\nValid <id> values for dev surfaces:\n- intent, context, gap-analysis, consequence-canvas, validation, project-overview  (Capability capsules)\n- terminal, github, devtools, linear  (Explore strip tools)\n- upload, download  (Explore strip drawers)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions.\n\nExamples:\n- [layout:intent|Distill the Executive Mobility Travel booking service into structured intent with users, constraints, and success criteria]\n- [layout:gap-analysis|Analyze which existing services (Passport Bureau, CRM, Marketa) can be reused for the travel workflow]\n- [layout:consequence-canvas|Model what should happen when a booking completes and what must never happen with travel data sovereignty]\n- [layout:terminal|Open a terminal to run the spine verification script against the dev environment]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply.`
       : '';
 
-  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}`;
+  // Platform knowledge (repo map + pack excerpts + registry/network
+  // snapshots) — built async in the POST handler, aigent-z only.
+  const platformBlock =
+    resolvedPersonaId === 'aigent-z' && platformKnowledgeBlock ? platformKnowledgeBlock : '';
+
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -2314,6 +2321,7 @@ export async function POST(request: NextRequest) {
       const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
       const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
       const isAigentMe = resolvedAgentForFetch === 'aigent-me';
+      const isAigentZ = resolvedAgentForFetch === 'aigent-z';
       const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
       const needsProtocolKB = isProtocolQuery(message);
 
@@ -2326,12 +2334,19 @@ export async function POST(request: NextRequest) {
         if (ctx) userContext.metameContext = ctx;
       }
 
-      // Fetch codex metadata, KB results, protocol KB (when relevant), and live KNYT state in parallel
-      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext] = await Promise.all([
+      // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
+      // state, and aigent-z platform knowledge in parallel
+      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, platformKnowledgeBlock] = await Promise.all([
         fetchCodexMetadata(domain),
         searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
         needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
+        isAigentZ
+          ? buildAigentZPlatformKnowledge(message, new URL(request.url).origin).catch((err) => {
+              console.warn('[CodexChat] aigent-z platform knowledge failed:', err);
+              return '';
+            })
+          : Promise.resolve(''),
       ]);
       metadata = resolvedMetadata;
       // Merge domain KB + protocol KB results, deduplicated by content prefix
@@ -2345,7 +2360,7 @@ export async function POST(request: NextRequest) {
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill);
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined);
     }
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);
