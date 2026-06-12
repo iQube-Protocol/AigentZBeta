@@ -168,6 +168,31 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     ],
   },
   {
+    id: 'aigent-z',
+    label: 'aigentZ',
+    description: 'Development Command Center — consequence-engineered building with aigentZ.',
+    longDescription:
+      'Activate the aigentZ Development Command Center — the consequence-engineering workflow that turns raw intent into validated builds. Distill intents, assemble context packs, analyze capability gaps, model consequences, and validate implementations against them, with aigentZ as your copilot through the full dev loop.',
+    gate: 'open',
+    tabSlug: 'aigent-z',
+    sourceCartridge: 'metame',
+    icon: 'Cpu',
+    color: 'green',
+    metrics: [
+      // Activity — dev loop motion
+      { metric: 'intents_distilled',    class: 'activity', label: 'Intents distilled',    defaultUnit: 'intents',     query: { kind: 'receipts', eventType: 'devloop.intent.distilled' } },
+      { metric: 'gap_analyses_run',     class: 'activity', label: 'Gap analyses run',     defaultUnit: 'analyses',    query: { kind: 'receipts', eventType: 'devloop.gap_analysis.completed' } },
+      { metric: 'canvases_modeled',     class: 'activity', label: 'Consequence canvases', defaultUnit: 'canvases',    query: { kind: 'receipts', eventType: 'devloop.canvas.modeled' } },
+      // Outcome — builds that landed
+      { metric: 'validations_passed',   class: 'outcome',  label: 'Validations passed',   defaultUnit: 'validations', query: { kind: 'receipts', eventType: 'devloop.validation.passed' } },
+      { metric: 'loops_completed',      class: 'outcome',  label: 'Dev loops completed',  defaultUnit: 'loops',       query: { kind: 'receipts', eventType: 'devloop.completed' } },
+    ],
+    actions: [
+      { action: 'start-dev-intent',   label: 'Start a development intent', rationale: 'aigentZ distills what you want to build into structured intent with users, constraints, and success criteria.', specialist: 'aigent-z' },
+      { action: 'validate-build',     label: 'Validate a build',           rationale: 'Run the post-prompt consequence validation against the active canvas.', specialist: 'aigent-z', approvalRequired: true },
+    ],
+  },
+  {
     id: 'qriptopian',
     label: 'Qriptopian',
     description: 'The editorial surface — frame moments, briefs, and angles with Quill.',
