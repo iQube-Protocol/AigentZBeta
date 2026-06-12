@@ -17,7 +17,7 @@
  * authedFetchHeaders.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ShieldCheck,
   KeyRound,
@@ -58,6 +58,31 @@ const DELEGATION_BAND_ACTIONS: Record<string, string[]> = {
   L3_PRODUCTION_CANDIDATE: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal'],
   L4_PRODUCTION_APPROVED: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal', 'registry_publish'],
 };
+
+// Cloudflare Turnstile — rendered in the citizen submit step when the
+// site key is configured; otherwise the manual dev-token input remains.
+// The secret-side verification lives in services/passport/personhoodProof.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '';
+const TURNSTILE_SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+interface TurnstileApi {
+  render: (
+    el: HTMLElement,
+    opts: {
+      sitekey: string;
+      theme?: string;
+      callback: (token: string) => void;
+      'expired-callback'?: () => void;
+      'error-callback'?: () => void;
+    },
+  ) => string;
+  remove: (widgetId: string) => void;
+}
+
+function getTurnstile(): TurnstileApi | null {
+  const t = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+  return t ?? null;
+}
 
 const PARTICIPANT_CONSENT_LABELS: Array<{ key: string; label: string }> = [
   { key: 'participant_terms_accepted', label: 'I accept the Participant Passport terms on behalf of this agent.' },
@@ -146,6 +171,45 @@ export function PassportBureauApplyTab() {
   // Step 5 — submit
   const [captchaToken, setCaptchaToken] = useState('');
   const [applications, setApplications] = useState<OwnApplication[]>([]);
+  const turnstileRef = useRef<HTMLDivElement | null>(null);
+
+  // Render the Turnstile challenge when the citizen submit panel mounts
+  // and a site key is configured. Loads the script once; cleans up the
+  // widget on unmount so re-entering the step re-renders a fresh one.
+  useEffect(() => {
+    if (step !== 'submit' || passportClass !== 'citizen' || !TURNSTILE_SITE_KEY) return;
+    let widgetId: string | null = null;
+    let disposed = false;
+    const renderWidget = () => {
+      const turnstile = getTurnstile();
+      if (disposed || !turnstile || !turnstileRef.current) return;
+      turnstileRef.current.innerHTML = '';
+      widgetId = turnstile.render(turnstileRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: 'dark',
+        callback: (token: string) => setCaptchaToken(token),
+        'expired-callback': () => setCaptchaToken(''),
+        'error-callback': () => setCaptchaToken(''),
+      });
+    };
+    if (getTurnstile()) {
+      renderWidget();
+    } else {
+      let script = document.querySelector<HTMLScriptElement>(`script[src="${TURNSTILE_SCRIPT_SRC}"]`);
+      if (!script) {
+        script = document.createElement('script');
+        script.src = TURNSTILE_SCRIPT_SRC;
+        script.async = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener('load', renderWidget);
+    }
+    return () => {
+      disposed = true;
+      const turnstile = getTurnstile();
+      if (turnstile && widgetId) turnstile.remove(widgetId);
+    };
+  }, [step, passportClass]);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -777,12 +841,23 @@ export function PassportBureauApplyTab() {
           <p className="text-sm text-slate-300">
             One last check that you are a person, then submit.
           </p>
-          <input
-            value={captchaToken}
-            onChange={(e) => setCaptchaToken(e.target.value)}
-            placeholder="Proof token (CAPTCHA — dev tokens start with 'dev-')"
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-          />
+          {TURNSTILE_SITE_KEY ? (
+            <>
+              <div ref={turnstileRef} />
+              {captchaToken && (
+                <p className="flex items-center gap-1.5 text-xs text-emerald-300">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Personhood check passed
+                </p>
+              )}
+            </>
+          ) : (
+            <input
+              value={captchaToken}
+              onChange={(e) => setCaptchaToken(e.target.value)}
+              placeholder="Proof token (CAPTCHA — dev tokens start with 'dev-')"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+            />
+          )}
           <button
             onClick={handleSubmit}
             disabled={busy || !allChecked || !captchaToken}
