@@ -1296,10 +1296,10 @@ export function MarketaActivationEngineTab() {
                           href={`/api/polity-passport/credential/${selected.passportIntegration.participantPassportId}`}
                           target="_blank"
                           rel="noreferrer"
-                          title="Download the signed passport credential envelope — this is the artifact the agent holds"
-                          className="text-pink-300 underline decoration-pink-400/40 hover:text-pink-200"
+                          title="Claim the signed W3C Verifiable Credential for this passport — the artifact the agent holds (FIO @aigent handle remains stubbed in Phase A)"
+                          className="inline-flex items-center gap-1 rounded-full border border-green-400/30 bg-green-400/15 px-2.5 py-0.5 text-[11px] font-medium text-green-300 backdrop-blur-sm hover:bg-green-400/25"
                         >
-                          claim credential
+                          <ShieldCheck className="w-3 h-3" /> Claim passport (W3C VC)
                         </a>
                       </>
                     ) : null}
@@ -1370,9 +1370,15 @@ export function MarketaActivationEngineTab() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-xs text-slate-200 min-w-0">{opp.description}</p>
-                        <span className="text-xs font-semibold text-slate-100 whitespace-nowrap shrink-0">
+                        <span
+                          className="text-xs font-semibold text-slate-100 whitespace-nowrap shrink-0"
+                          title={`${opp.estimatedValue * 100} Q¢ ($1 = 100 Q¢)`}
+                        >
                           ${opp.estimatedValue}
                           {opp.opportunityType === "subscription" ? "/mo" : ""}
+                          <span className="ml-1 font-normal text-slate-500">
+                            {(opp.estimatedValue * 100).toLocaleString()} Q¢
+                          </span>
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto">
