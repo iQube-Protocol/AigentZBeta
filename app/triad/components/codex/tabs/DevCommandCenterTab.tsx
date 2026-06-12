@@ -270,6 +270,11 @@ function StageStrip({ stage }: { stage: DevLoopStage }) {
           </React.Fragment>
         );
       })}
+      {/* Phase badges — right of Complete */}
+      <div className="flex items-center gap-1.5 ml-2 shrink-0">
+        <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30 font-semibold whitespace-nowrap">Phase 1 MVP</span>
+        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold whitespace-nowrap">Operation Chrysalis</span>
+      </div>
     </div>
   );
 }
