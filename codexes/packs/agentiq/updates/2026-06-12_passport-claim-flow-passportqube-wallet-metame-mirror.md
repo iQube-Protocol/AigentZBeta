@@ -1,7 +1,9 @@
 # 2026-06-12 — Passport claim flow, PassportQube wallet, registry filters in tier-3, metaMe mirror
 
 Session branch: `claude/optimistic-davinci-exiykx` (continuation batch)
-Commits: `30610ff3` (claim flow + wallet + registry filters), `9ef189b8` (metaMe mirror tab)
+Commits: `30610ff3` (claim flow + wallet + registry filters), `9ef189b8`
+(metaMe mirror tab), `04745f93` (claim POST ownership gate), `a3c6298b`
+(pre-migration graceful fallback)
 
 Operator requests addressed:
 
@@ -90,6 +92,36 @@ tab group, every mirror of that cartridge must be extended by hand —
 `aiqOsTabsByGroup` only fills subTabs of mirror entries that already exist.
 Mirrors of AgentiQ OS live in metaMe's `agentiqos` group; check there first
 when "tab shows in cartridge X but not in metaMe".
+
+---
+
+## 4. Self-audit follow-ups (same session)
+
+**Claim POST ownership gate (`04745f93`).** The claim POST shipped without
+caller verification — anyone knowing (or enumerating) a passportId could
+stamp another holder's `credential_claimed_at`. Now: 401 without an active
+persona; 403 when the record's `persona_id` binding doesn't match the
+caller. Records with no persona binding keep Phase A capability-URL
+semantics for authenticated callers (externally-held agent passports).
+`persona_id` is selected server-side for the gate only and never
+serialises (T0). The preview GET stays public by design — the envelope is
+public-safe. The wallet claim flow already used `personaFetch`, so the
+legitimate path is unaffected.
+
+**Pre-migration graceful fallback (`a3c6298b`).** The claim-flow commit
+made every credential/wallet SELECT reference `credential_claimed_at`,
+and Postgres fails the whole query on an unknown column — so the
+previously-working public credential GET (Marketa scorecard claim link,
+live since Phase A) and the wallet endpoint 500'd on dev until the
+migration ran. Both routes now retry with the legacy column set when the
+column is missing: GET serves the envelope with `claimed: false`, wallet
+lists passports as unclaimed (claim pills still render), and the claim
+POST returns 503 naming the migration file.
+
+**Deploy-order lesson:** when a route gains a column that ships in a
+migration the operator applies by hand, the route must degrade gracefully
+until the migration runs — a new column in a SELECT is a breaking change
+for every existing caller of that route, not just the new feature.
 
 ---
 
