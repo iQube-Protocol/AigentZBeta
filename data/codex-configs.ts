@@ -3080,6 +3080,21 @@ export const METAME_CODEX: CodexConfig = {
       metadata: { icon: 'Scale', description: 'Constitution, roles, authority matrix, receipts', color: 'emerald' },
       subTabs: aiqOsTabsByGroup('governance'),
     },
+    // Polity Passport — mirrored from AGENTIQ_OS_CARTRIDGE's passport group.
+    // Same pattern as the other agentiqos tabs: top-level tab in the metaMe
+    // agentiqos group with subTabs pulled from the source cartridge.
+    {
+      id: 'agentiqos-passport',
+      label: 'Polity Passport',
+      slug: 'agentiqos-passport',
+      enabled: true,
+      group: 'agentiqos',
+      order: 45.5,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'ShieldCheck', description: 'Polity Passport — apply, registry, steward', color: 'violet' },
+      subTabs: aiqOsTabsByGroup('passport'),
+    },
     // Chief-of-staff unlock: AgentiQ OS operations tabs mirrored into
     // metaMe. Visible only to personas admin of the agentiq-os cartridge.
     {
