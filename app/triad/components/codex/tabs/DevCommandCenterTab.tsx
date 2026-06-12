@@ -689,20 +689,66 @@ function StackLayout({ onCapabilityClick, activeStage, session }: {
 
       {/* Accordion sections */}
       <AccordionSection title="Experience Model" icon={Layers} defaultOpen={false}>
-        <div className="text-xs text-slate-400 py-2">
-          Experience model configuration inherited from aigentMe. Configure stages, goals, and progression.
+        <div className="space-y-2">
+          <div className="text-[10px] text-slate-500 uppercase font-semibold">Dev Loop Stages</div>
+          {STAGES.map((s, i) => {
+            const stageIdx = getStageIndex(activeStage);
+            const isCurrent = s.id === activeStage;
+            const isPast = i < stageIdx;
+            const Icon = s.icon;
+            return (
+              <div key={s.id} className="flex items-center gap-2 py-0.5">
+                <Icon className={`w-3 h-3 ${isCurrent ? "text-green-400" : isPast ? "text-emerald-400/60" : "text-slate-600"}`} />
+                <span className={`text-xs ${isCurrent ? "text-green-300 font-semibold" : isPast ? "text-emerald-300/60" : "text-slate-500"}`}>{s.label}</span>
+                {isCurrent && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300">Active</span>}
+                {isPast && <span className="text-[10px] text-emerald-400/50">✓</span>}
+              </div>
+            );
+          })}
+          <div className="pt-1 border-t border-slate-700/20">
+            <div className="text-[10px] text-slate-500">Implementation package: {session.intent && session.contextPack && session.gapAnalysis && session.consequenceCanvas ? <span className="text-emerald-300">ready to assemble</span> : <span className="text-amber-300">incomplete — fill remaining capabilities</span>}</div>
+          </div>
         </div>
       </AccordionSection>
 
       <AccordionSection title="Specialists" icon={Cpu} defaultOpen={false}>
-        <div className="text-xs text-slate-400 py-2">
-          aigentZ specialist agents — domain experts for architecture, security, governance review.
+        <div className="space-y-2">
+          {[
+            { name: "Architecture Reviewer", role: "Validates structural decisions against platform patterns", status: "available" },
+            { name: "Security Reviewer", role: "Checks for OWASP top 10, auth gate integrity, secret exposure", status: "available" },
+            { name: "Governance Reviewer", role: "Ensures DVN receipt compliance and sovereignty boundaries", status: "available" },
+            { name: "Spine Integrity Checker", role: "Validates identity spine contracts and tier exposure rules", status: "available" },
+          ].map(spec => (
+            <div key={spec.name} className="flex items-center justify-between py-1 border-b border-slate-700/20 last:border-0">
+              <div>
+                <div className="text-xs text-white">{spec.name}</div>
+                <div className="text-[10px] text-slate-500">{spec.role}</div>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{spec.status}</span>
+            </div>
+          ))}
+          <div className="text-[10px] text-slate-500 pt-1">Specialists are invoked by aigentZ during gap analysis and validation stages.</div>
         </div>
       </AccordionSection>
 
       <AccordionSection title="Dev Receipts" icon={CheckCircle} defaultOpen={false}>
-        <div className="text-xs text-slate-400 py-2">
-          DVN-anchored development receipts — intent captures, gap analyses, validation results.
+        <div className="space-y-2">
+          {session.receipts.length > 0 ? (
+            session.receipts.map((receiptId, i) => (
+              <div key={receiptId} className="flex items-center justify-between py-1 border-b border-slate-700/20 last:border-0">
+                <span className="text-xs text-white font-mono truncate">{receiptId}</span>
+                <span className="text-[10px] text-slate-500">#{i + 1}</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-slate-400 py-1">
+              No receipts yet. Receipts are created when capabilities complete — intent captures, gap analyses, validation results are DVN-anchored.
+            </div>
+          )}
+          <div className="flex items-center gap-3 text-[10px] text-slate-500 pt-1 border-t border-slate-700/20">
+            <span>Session: <span className="font-mono text-slate-400">{session.sessionId.slice(0, 16)}…</span></span>
+            <span>Started: {new Date(session.startedAt).toLocaleDateString()}</span>
+          </div>
         </div>
       </AccordionSection>
 
@@ -715,12 +761,33 @@ function StackLayout({ onCapabilityClick, activeStage, session }: {
           </p>
         </div>
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 text-xs">
-          {["User Intent", "Intent Distillation", "Context Pack", "Gap Analysis", "Consequence Canvas", "Claude Code", "Generated Code", "Consequence Validation", "Receipts", "Memory Update"].map((step, i, arr) => (
-            <React.Fragment key={step}>
-              <span className="px-2 py-1 rounded bg-slate-700/50 text-white whitespace-nowrap shrink-0">{step}</span>
-              {i < arr.length - 1 && <ArrowRight className="w-3 h-3 text-slate-600 shrink-0" />}
-            </React.Fragment>
-          ))}
+          {[
+            { label: "User Intent", stage: "intent_capture" },
+            { label: "Intent Distillation", stage: "intent_capture" },
+            { label: "Context Pack", stage: "context_assembly" },
+            { label: "Gap Analysis", stage: "gap_analysis" },
+            { label: "Consequence Canvas", stage: "consequence_modeling" },
+            { label: "Claude Code", stage: "implementation" },
+            { label: "Generated Code", stage: "implementation" },
+            { label: "Consequence Validation", stage: "consequence_validation" },
+            { label: "Receipts", stage: "complete" },
+            { label: "Memory Update", stage: "complete" },
+          ].map((step, i, arr) => {
+            const stageIdx = getStageIndex(activeStage);
+            const stepStageIdx = STAGES.findIndex(s => s.id === step.stage);
+            const isPast = stepStageIdx < stageIdx;
+            const isCurrent = step.stage === activeStage;
+            return (
+              <React.Fragment key={step.label}>
+                <span className={`px-2 py-1 rounded whitespace-nowrap shrink-0 ${
+                  isCurrent ? "bg-green-500/20 text-green-300 ring-1 ring-green-500/30"
+                  : isPast ? "bg-emerald-500/10 text-emerald-300/60"
+                  : "bg-slate-700/50 text-white"
+                }`}>{step.label}</span>
+                {i < arr.length - 1 && <ArrowRight className={`w-3 h-3 shrink-0 ${isPast || isCurrent ? "text-emerald-400/40" : "text-slate-600"}`} />}
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </div>
