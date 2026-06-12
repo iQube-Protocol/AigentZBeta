@@ -1,11 +1,45 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+/**
+ * DevCommandCenterTab — aigentZ Development Command Center
+ * Operation Chrysalis Phase 1
+ *
+ * Two-pane split mirroring AigentMeWelcomeSplitTab:
+ *
+ *   ┌─────────────────────────┬────────────────────────────┐
+ *   │                         │  Stage strip (carousel)    │
+ *   │   aigentZ Copilot       │  5 capability buttons      │
+ *   │   (embedded, persistent)│  Active layout (capsule)   │
+ *   │                         │  Experience Model           │
+ *   │   Quick-prompt chips:   │  Specialists               │
+ *   │   New intent · Where    │  Dev Receipts              │
+ *   │   are we? · Analyze     │                            │
+ *   │   gaps · Model          │  Quick links: Terminal ·   │
+ *   │   consequences ·        │  GitHub · DevTools ·       │
+ *   │   Validate build        │  Linear · Upload · Download│
+ *   │                         │                            │
+ *   │                         │  Dev loop diagram          │
+ *   └─────────────────────────┴────────────────────────────┘
+ *
+ * Two-tier copilot routing (stubbed for Claude Code integration):
+ *   Tier 1: aigentZ → LLM → drives right pane layouts
+ *   Tier 2: aigentZ → Claude Code → results → aigentZ → routing decision
+ */
+
+import React, { useState, useCallback, useMemo } from "react";
 import {
   Cpu, Target, FileSearch, AlertTriangle, CheckCircle,
-  ChevronDown, ChevronRight, Package, Layers, Shield,
-  ArrowRight, Circle, Minus,
+  ChevronDown, Package, Layers, ArrowRight,
+  Terminal, GitBranch, Wrench, BarChart3,
+  Upload, Download, RotateCcw,
 } from "lucide-react";
+import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+
+type QuickPrompt = string | {
+  label: string;
+  prompt?: string;
+  onSelect?: () => void;
+};
 
 // ─── Types (local mirrors — avoids server import in client component) ──────
 
@@ -17,6 +51,25 @@ type DevLoopStage =
   | "implementation"
   | "consequence_validation"
   | "complete";
+
+type DevCapsuleId =
+  | "intent"
+  | "context"
+  | "gap-analysis"
+  | "consequence-canvas"
+  | "validation";
+
+type DevLayoutId =
+  | "stack"
+  | "intent"
+  | "context"
+  | "gap-analysis"
+  | "consequence-canvas"
+  | "validation"
+  | "terminal"
+  | "github"
+  | "devtools"
+  | "linear";
 
 interface StructuredDevIntent {
   intentId: string;
@@ -60,6 +113,34 @@ interface ConsequenceEntry {
   severity: string;
 }
 
+// ─── Capsule → Layout mapping ─────────────────────────────────────────────
+
+const CAPSULE_LAYOUT: Record<DevCapsuleId, DevLayoutId> = {
+  "intent": "intent",
+  "context": "context",
+  "gap-analysis": "gap-analysis",
+  "consequence-canvas": "consequence-canvas",
+  "validation": "validation",
+};
+
+// ─── Two-tier routing stub ─────────────────────────────────────────────────
+
+type PromptTier = "llm" | "claude-code";
+
+interface RoutingDecision {
+  tier: PromptTier;
+  reason: string;
+}
+
+function classifyPromptTier(prompt: string): RoutingDecision {
+  const lower = prompt.toLowerCase();
+  const codePatterns = /\b(implement|code|build|create file|write code|refactor|fix bug|generate|scaffold|test)\b/;
+  if (codePatterns.test(lower)) {
+    return { tier: "claude-code", reason: "Code generation / implementation task" };
+  }
+  return { tier: "llm", reason: "Planning / analysis / right-pane update" };
+}
+
 // ─── Stage metadata ────────────────────────────────────────────────────────
 
 const STAGES: { id: DevLoopStage; label: string; icon: typeof Cpu }[] = [
@@ -75,6 +156,25 @@ const STAGES: { id: DevLoopStage; label: string; icon: typeof Cpu }[] = [
 function getStageIndex(stage: DevLoopStage): number {
   return STAGES.findIndex(s => s.id === stage);
 }
+
+// ─── Capability buttons ───────────────────────────────────────────────────
+
+const CAPABILITIES: { id: DevCapsuleId; label: string; icon: typeof Cpu; color: string; description: string }[] = [
+  { id: "intent", label: "Intent Distillation", icon: Target, color: "text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20", description: "Distill raw input into structured intent" },
+  { id: "context", label: "Context Pack", icon: Package, color: "text-purple-400 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20", description: "Assemble relevant codebase context" },
+  { id: "gap-analysis", label: "Gap Analysis", icon: FileSearch, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20", description: "Identify existing vs missing capabilities" },
+  { id: "consequence-canvas", label: "Consequence Canvas", icon: AlertTriangle, color: "text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20", description: "Model what should/shouldn't happen" },
+  { id: "validation", label: "Validation", icon: CheckCircle, color: "text-green-400 border-green-500/30 bg-green-500/10 hover:bg-green-500/20", description: "Validate build against consequences" },
+];
+
+// ─── Quick links for bottom strip ─────────────────────────────────────────
+
+const DEV_QUICK_LINKS: { id: string; label: string; icon: typeof Terminal }[] = [
+  { id: "terminal", label: "Terminal", icon: Terminal },
+  { id: "github", label: "GitHub", icon: GitBranch },
+  { id: "devtools", label: "DevTools", icon: Wrench },
+  { id: "linear", label: "Linear", icon: BarChart3 },
+];
 
 // ─── Demo data (Executive Mobility Travel validation use case) ─────────────
 
@@ -142,12 +242,12 @@ const DEMO_SHOULD_NOT_HAPPEN: ConsequenceEntry[] = [
   { id: "ce-8", description: "Booking without valid passport credential", category: "permission", severity: "critical" },
 ];
 
-// ─── Sub-components ────────────────────────────────────────────────────────
+// ─── Right-pane sub-components ────────────────────────────────────────────
 
 function StageStrip({ stage }: { stage: DevLoopStage }) {
   const currentIdx = getStageIndex(stage);
   return (
-    <div className="flex items-center gap-1 overflow-x-auto pb-1">
+    <div className="flex items-center gap-1 overflow-x-auto pb-1 px-1">
       {STAGES.map((s, i) => {
         const Icon = s.icon;
         const isCurrent = s.id === stage;
@@ -165,24 +265,6 @@ function StageStrip({ stage }: { stage: DevLoopStage }) {
           </React.Fragment>
         );
       })}
-    </div>
-  );
-}
-
-function ExpandableSection({ title, icon: Icon, color, defaultOpen, children }: {
-  title: string; icon: typeof Cpu; color: string; defaultOpen?: boolean; children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen ?? false);
-  return (
-    <div className="rounded-lg bg-slate-800/30 border border-slate-700/30 overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-3 text-left">
-        <div className="flex items-center gap-2">
-          <Icon className={`w-4 h-4 ${color}`} />
-          <span className="text-sm font-semibold text-white">{title}</span>
-        </div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && <div className="px-3 pb-3 border-t border-slate-700/30 pt-2">{children}</div>}
     </div>
   );
 }
@@ -348,84 +430,330 @@ function ConsequenceCanvasPanel({ shouldHappen, shouldNotHappen, successState }:
   );
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────
-
-export function DevCommandCenterTab() {
-  const [activeStage] = useState<DevLoopStage>("consequence_modeling");
-
+function ValidationPanel() {
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
+    <div className="text-xs text-slate-400 italic py-4 text-center">
+      Validation runs after Claude Code generates implementation. Pending implementation stage.
+    </div>
+  );
+}
+
+// ─── Right-pane layout components ─────────────────────────────────────────
+
+function StackLayout({ onCapabilityClick, activeStage }: {
+  onCapabilityClick: (id: DevCapsuleId) => void;
+  activeStage: DevLoopStage;
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Capability buttons */}
       <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <Cpu className="w-7 h-7 text-green-400" />
-          <div>
-            <h2 className="text-xl font-bold text-white">Development Command Center</h2>
-            <p className="text-sm text-slate-400">aigentZ consequence engineering — intent → context → gaps → consequences → validation</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30">Phase 1 MVP</span>
-          <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Operation Chrysalis</span>
-        </div>
-      </div>
-
-      {/* Stage strip */}
-      <StageStrip stage={activeStage} />
-
-      {/* Validation use case banner */}
-      <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-start gap-2">
-        <Layers className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
-        <div>
-          <p className="text-xs text-green-200 font-semibold">Validation Use Case: Executive Mobility Travel Service</p>
-          <p className="text-[10px] text-green-200/70">Demonstrating the complete consequence engineering workflow — reuse, extend, build new.</p>
+        <div className="text-[10px] text-slate-500 uppercase font-semibold px-1">Capabilities</div>
+        <div className="grid grid-cols-1 gap-2">
+          {CAPABILITIES.map(cap => (
+            <button
+              key={cap.id}
+              onClick={() => onCapabilityClick(cap.id)}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${cap.color}`}
+            >
+              <cap.icon className="w-5 h-5 shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-white">{cap.label}</div>
+                <div className="text-[10px] text-slate-400">{cap.description}</div>
+              </div>
+              <ArrowRight className="w-4 h-4 ml-auto shrink-0 text-slate-500" />
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Capability panels */}
-      <div className="space-y-3">
-        <ExpandableSection title="Intent Distillation" icon={Target} color="text-blue-400" defaultOpen>
-          <IntentPanel intent={DEMO_INTENT} />
-        </ExpandableSection>
+      {/* Accordion sections */}
+      <AccordionSection title="Experience Model" icon={Layers} defaultOpen={false}>
+        <div className="text-xs text-slate-400 py-2">
+          Experience model configuration inherited from aigentMe. Configure stages, goals, and progression.
+        </div>
+      </AccordionSection>
 
-        <ExpandableSection title="Context Pack" icon={Package} color="text-purple-400" defaultOpen>
-          <ContextPackPanel items={DEMO_CONTEXT_ITEMS} />
-        </ExpandableSection>
+      <AccordionSection title="Specialists" icon={Cpu} defaultOpen={false}>
+        <div className="text-xs text-slate-400 py-2">
+          aigentZ specialist agents — domain experts for architecture, security, governance review.
+        </div>
+      </AccordionSection>
 
-        <ExpandableSection title="Capability Gap Analysis" icon={FileSearch} color="text-emerald-400" defaultOpen>
-          <GapAnalysisPanel existing={DEMO_EXISTING} missing={DEMO_MISSING} />
-        </ExpandableSection>
+      <AccordionSection title="Dev Receipts" icon={CheckCircle} defaultOpen={false}>
+        <div className="text-xs text-slate-400 py-2">
+          DVN-anchored development receipts — intent captures, gap analyses, validation results.
+        </div>
+      </AccordionSection>
 
-        <ExpandableSection title="Consequence Canvas" icon={AlertTriangle} color="text-amber-400" defaultOpen>
-          <ConsequenceCanvasPanel
-            shouldHappen={DEMO_SHOULD_HAPPEN}
-            shouldNotHappen={DEMO_SHOULD_NOT_HAPPEN}
-            successState="Executive travel booking, accommodation, and residency workflows execute as a connected chain with full DVN receipt trail and CRM synchronization."
-          />
-        </ExpandableSection>
-
-        <ExpandableSection title="Consequence Validation" icon={CheckCircle} color="text-green-400">
-          <div className="text-xs text-slate-400 italic py-2">
-            Validation runs after Claude Code generates implementation. Pending implementation stage.
-          </div>
-        </ExpandableSection>
-      </div>
-
-      {/* Development loop diagram */}
-      <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/30">
-        <h4 className="text-sm font-semibold text-white mb-3">Development Loop</h4>
+      {/* Dev loop diagram */}
+      <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30">
+        <h4 className="text-xs font-semibold text-white mb-2">Development Loop</h4>
         <div className="flex items-center gap-1 flex-wrap text-[10px]">
           {["User Intent", "Intent Distillation", "Context Pack", "Gap Analysis", "Consequence Canvas", "Claude Code", "Generated Code", "Consequence Validation", "Receipts", "Memory Update"].map((step, i, arr) => (
             <React.Fragment key={step}>
-              <span className="px-2 py-1 rounded bg-slate-700/50 text-slate-300 whitespace-nowrap">{step}</span>
-              {i < arr.length - 1 && <ArrowRight className="w-3 h-3 text-slate-600 shrink-0" />}
+              <span className="px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300 whitespace-nowrap">{step}</span>
+              {i < arr.length - 1 && <ArrowRight className="w-2.5 h-2.5 text-slate-600 shrink-0" />}
             </React.Fragment>
           ))}
         </div>
         <p className="text-[10px] text-slate-500 mt-2">
-          Claude Code generates code. aigentZ generates and validates capability. The loop is cyclical — outputs feed back in.
+          Claude Code generates code. aigentZ generates and validates capability. The loop is cyclical.
         </p>
       </div>
     </div>
   );
 }
+
+function AccordionSection({ title, icon: Icon, defaultOpen, children }: {
+  title: string; icon: typeof Cpu; defaultOpen?: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  return (
+    <div className="rounded-lg bg-slate-800/30 border border-slate-700/30 overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-3 text-left">
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4 text-slate-400" />
+          <span className="text-xs font-semibold text-white">{title}</span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <div className="px-3 pb-3 border-t border-slate-700/30 pt-2">{children}</div>}
+    </div>
+  );
+}
+
+// Capability detail layouts (shown when a capability button is clicked)
+function CapabilityLayout({ capsuleId, onBack }: {
+  capsuleId: DevCapsuleId;
+  onBack: () => void;
+}) {
+  const cap = CAPABILITIES.find(c => c.id === capsuleId);
+  if (!cap) return null;
+
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+      >
+        <RotateCcw className="w-3 h-3" />
+        Back to overview
+      </button>
+
+      <div className="flex items-center gap-2">
+        <cap.icon className="w-5 h-5 text-green-400" />
+        <h3 className="text-sm font-bold text-white">{cap.label}</h3>
+      </div>
+
+      {capsuleId === "intent" && <IntentPanel intent={DEMO_INTENT} />}
+      {capsuleId === "context" && <ContextPackPanel items={DEMO_CONTEXT_ITEMS} />}
+      {capsuleId === "gap-analysis" && <GapAnalysisPanel existing={DEMO_EXISTING} missing={DEMO_MISSING} />}
+      {capsuleId === "consequence-canvas" && (
+        <ConsequenceCanvasPanel
+          shouldHappen={DEMO_SHOULD_HAPPEN}
+          shouldNotHappen={DEMO_SHOULD_NOT_HAPPEN}
+          successState="Executive travel booking, accommodation, and residency workflows execute as a connected chain with full DVN receipt trail and CRM synchronization."
+        />
+      )}
+      {capsuleId === "validation" && <ValidationPanel />}
+    </div>
+  );
+}
+
+// Stub layout for tool modals (Terminal, GitHub, DevTools, Linear)
+function ToolLayout({ toolId, onBack }: { toolId: string; onBack: () => void }) {
+  const tool = DEV_QUICK_LINKS.find(l => l.id === toolId);
+  const Icon = tool?.icon ?? Terminal;
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+      >
+        <RotateCcw className="w-3 h-3" />
+        Back to overview
+      </button>
+      <div className="flex items-center gap-2">
+        <Icon className="w-5 h-5 text-green-400" />
+        <h3 className="text-sm font-bold text-white">{tool?.label ?? toolId}</h3>
+      </div>
+      <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-700/30 min-h-[200px] flex items-center justify-center">
+        <div className="text-center">
+          <Icon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+          <p className="text-xs text-slate-500">{tool?.label} viewport — Phase 2</p>
+          <p className="text-[10px] text-slate-600 mt-1">
+            {toolId === "terminal" && "Claude Code terminal session will render here"}
+            {toolId === "github" && "Repository browser and PR activity will render here"}
+            {toolId === "devtools" && "Build logs, type errors, and diagnostics will render here"}
+            {toolId === "linear" && "Linear issue tracker integration will render here"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────
+
+interface DevCommandCenterTabProps {
+  personaId?: string;
+}
+
+export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
+  const [activeStage] = useState<DevLoopStage>("consequence_modeling");
+  const [activeLayoutId, setActiveLayoutId] = useState<DevLayoutId>("stack");
+  const [activeCapsuleId, setActiveCapsuleId] = useState<DevCapsuleId | null>(null);
+
+  const engageCapsuleAndMount = useCallback((next: DevCapsuleId) => {
+    setActiveCapsuleId(next);
+    setActiveLayoutId(CAPSULE_LAYOUT[next]);
+  }, []);
+
+  const returnToStack = useCallback(() => {
+    setActiveCapsuleId(null);
+    setActiveLayoutId("stack");
+  }, []);
+
+  const handleToolOpen = useCallback((toolId: string) => {
+    setActiveCapsuleId(null);
+    setActiveLayoutId(toolId as DevLayoutId);
+  }, []);
+
+  // Ground context for the copilot — feeds the LLM with current right-pane state
+  const copilotGroundContext = useMemo(() => ({
+    surface: "dev-command-center",
+    activeStage,
+    activeLayout: activeLayoutId,
+    activeCapsule: activeCapsuleId,
+    twoTierRouting: {
+      description: "aigentZ routes prompts either to the LLM (tier 1, planning/analysis) or to Claude Code (tier 2, code generation). Results from Claude Code flow back through aigentZ for disposition.",
+      currentTier: "llm",
+    },
+    capabilities: CAPABILITIES.map(c => c.id),
+    devLoopStages: STAGES.map(s => s.id),
+  }), [activeStage, activeLayoutId, activeCapsuleId]);
+
+  // Quick-prompt chips for the copilot left pane
+  const copilotQuickPrompts = useMemo((): QuickPrompt[] => [
+    {
+      label: "New intent",
+      prompt: "I want to start a new development intent. Help me distill what I'm trying to build.",
+      onSelect: () => engageCapsuleAndMount("intent"),
+    },
+    {
+      label: "Where are we?",
+      prompt: "Give me a status update on the current dev loop — what stage are we at and what's next?",
+    },
+    {
+      label: "Analyze gaps",
+      prompt: "Analyze capability gaps for the current intent. What can we reuse, extend, or build new?",
+      onSelect: () => engageCapsuleAndMount("gap-analysis"),
+    },
+    {
+      label: "Model consequences",
+      prompt: "Model the consequences for the current intent. What should happen and what must never happen?",
+      onSelect: () => engageCapsuleAndMount("consequence-canvas"),
+    },
+    {
+      label: "Validate build",
+      prompt: "Validate the implementation against the consequence canvas. Run the post-prompt validation.",
+      onSelect: () => engageCapsuleAndMount("validation"),
+    },
+  ], [engageCapsuleAndMount]);
+
+  // Two-tier routing: on each prompt, classify and log the routing decision
+  const handlePrompt = useCallback((prompt: string) => {
+    const decision = classifyPromptTier(prompt);
+    console.log(`[aigentZ routing] tier=${decision.tier} reason="${decision.reason}" prompt="${prompt.slice(0, 80)}…"`);
+    // Tier 1: handled by SmartTriadCopilotLayer's built-in chat POST
+    // Tier 2 (stub): would route to Claude Code session and await response
+    // For now both tiers flow through the LLM; Claude Code integration is Phase 2
+  }, []);
+
+  const isToolLayout = activeLayoutId === "terminal" || activeLayoutId === "github" || activeLayoutId === "devtools" || activeLayoutId === "linear";
+  const isCapsuleLayout = activeCapsuleId !== null && !isToolLayout && activeLayoutId !== "stack";
+
+  return (
+    <div className="h-[calc(100vh-96px)] flex flex-col lg:flex-row gap-2 px-2 pr-3 overflow-hidden">
+      {/* ── LEFT: aigentZ Copilot (50/50 split) ──────────────── */}
+      <div className="lg:w-1/2 w-full h-full min-h-0 flex flex-col">
+        <SmartTriadCopilotLayer
+          isOpen
+          variant="panel"
+          quickPrompts={copilotQuickPrompts}
+          promptPlaceholder="Ask aigentZ — new intent, analyze gaps, model consequences…"
+          agent={{ id: "aigent-z", name: "aigentZ" }}
+          agentSubtitle="Development Command Center · consequence engineering"
+          personaId={personaId}
+          groundContext={copilotGroundContext}
+          onPrompt={handlePrompt}
+          onClose={() => undefined}
+        />
+      </div>
+
+      {/* ── RIGHT: Development Command Center (50/50 split) ─── */}
+      <div className="lg:w-1/2 w-full h-full min-h-0 relative flex flex-col">
+        {/* Stage strip at top */}
+        <div className="shrink-0 py-2">
+          <StageStrip stage={activeStage} />
+        </div>
+
+        {/* Scrollable content area */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-16">
+          {activeLayoutId === "stack" && (
+            <StackLayout
+              onCapabilityClick={engageCapsuleAndMount}
+              activeStage={activeStage}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId && (
+            <CapabilityLayout capsuleId={activeCapsuleId} onBack={returnToStack} />
+          )}
+          {isToolLayout && (
+            <ToolLayout toolId={activeLayoutId} onBack={returnToStack} />
+          )}
+        </div>
+
+        {/* Bottom quick-links strip — pinned */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 px-3 z-30">
+          <div className="pointer-events-auto">
+            <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-slate-900/90 backdrop-blur-sm border border-slate-700/40">
+              {DEV_QUICK_LINKS.map(link => (
+                <button
+                  key={link.id}
+                  onClick={() => handleToolOpen(link.id)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-all ${
+                    activeLayoutId === link.id
+                      ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                  }`}
+                >
+                  <link.icon className="w-3 h-3" />
+                  {link.label}
+                </button>
+              ))}
+              <div className="w-px h-4 bg-slate-700/50 mx-1" />
+              <button
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
+                onClick={() => console.log("[dev-cmd] upload")}
+              >
+                <Upload className="w-3 h-3" />
+                Upload
+              </button>
+              <button
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
+                onClick={() => console.log("[dev-cmd] download")}
+              >
+                <Download className="w-3 h-3" />
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default DevCommandCenterTab;
