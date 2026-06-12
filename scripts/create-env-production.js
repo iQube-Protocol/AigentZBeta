@@ -101,6 +101,8 @@ const envVars = [
   // Marketa portal
   'MARKETA_CREATOR_DID',
   'MARKETA_SYSTEM_AGENT_ID',
+  // Activation engine scheduled discovery — JSON array of { kind, url } sources
+  'MARKETA_DISCOVERY_SOURCES',
   'SEQUENCE_DISPATCH_SECRET',
   'LVB_BRIDGE_DEFAULT_PERSONA_ID',
   // iQubeNFT — ERC721 on-chain anchor

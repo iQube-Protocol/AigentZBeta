@@ -12,6 +12,7 @@ import {
   Link2,
   Loader2,
   Plus,
+  Radar,
   RefreshCcw,
   ShieldCheck,
   Send,
@@ -96,6 +97,11 @@ export function MarketaActivationEngineTab() {
   const [outreachSubject, setOutreachSubject] = useState("");
   const [outreachBody, setOutreachBody] = useState("");
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [discoverKind, setDiscoverKind] = useState<"a2a_card" | "mcp_registry">("a2a_card");
+  const [discoverUrl, setDiscoverUrl] = useState("");
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverNote, setDiscoverNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "needs_review" | "exec" | "vulnerable" | "legal">(
     "all",
@@ -407,6 +413,49 @@ export function MarketaActivationEngineTab() {
     }
   };
 
+  const runDiscovery = async () => {
+    const url = discoverUrl.trim();
+    if (!url) return;
+    setDiscovering(true);
+    setDiscoverNote(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/marketa/activation/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sources: [{ kind: discoverKind, url }],
+          actorId: "marketa-operator",
+        }),
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        discovered?: number;
+        skippedExisting?: number;
+        errors?: Array<{ url: string; error: string }>;
+        candidates?: CandidateAgent[];
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok || !json.ok) throw new Error(json.detail || json.error || `HTTP ${res.status}`);
+      if (json.candidates?.length) {
+        setCandidates(prev => [...(json.candidates ?? []), ...prev]);
+        setSelectedId(json.candidates[0].id);
+      }
+      const fetchError = json.errors?.[0]?.error;
+      setDiscoverNote(
+        `Discovered ${json.discovered ?? 0} new` +
+          ((json.skippedExisting ?? 0) > 0 ? `, skipped ${json.skippedExisting} already known` : "") +
+          (fetchError ? ` — source error: ${fetchError}` : ""),
+      );
+      if ((json.discovered ?? 0) > 0) setDiscoverUrl("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
   const importCandidates = async (file: File | null) => {
     if (!file) return;
     setImporting(true);
@@ -507,6 +556,15 @@ export function MarketaActivationEngineTab() {
               Import
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              className={`bg-slate-800/50 border-white/20 text-slate-200 shrink-0 ${discoverOpen ? "border-pink-400/50 text-pink-200" : ""}`}
+              title="Discover candidates from an A2A agent card URL or an MCP-registry-style listing URL"
+              onClick={() => setDiscoverOpen(open => !open)}
+            >
+              <Radar className="w-4 h-4 mr-2" /> Discover
+            </Button>
+            <Button
               size="sm"
               className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm shrink-0"
               title="Create a sample candidate pre-filled with demo data (including an example agent card URL) so you can walk the full pipeline"
@@ -522,6 +580,47 @@ export function MarketaActivationEngineTab() {
             </Button>
           </div>
         </div>
+        {discoverOpen && (
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <select
+                value={discoverKind}
+                onChange={event => setDiscoverKind(event.target.value as typeof discoverKind)}
+                title="Source kind — agent card expects a single A2A agent-card JSON; MCP registry expects a server listing (array or { servers: [] })"
+                className="rounded bg-slate-900/70 border border-slate-700 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-slate-500"
+              >
+                <option value="a2a_card">A2A agent card</option>
+                <option value="mcp_registry">MCP registry listing</option>
+              </select>
+              <input
+                type="url"
+                value={discoverUrl}
+                onChange={event => setDiscoverUrl(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === "Enter") void runDiscovery();
+                }}
+                placeholder="https://… source URL (agent-card.json or registry servers endpoint)"
+                title="URL the server will fetch and parse — already-known candidates are skipped by URL/name"
+                className="flex-1 min-w-0 rounded bg-slate-900/70 border border-slate-700 px-2 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
+              />
+              <Button
+                size="sm"
+                className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm shrink-0"
+                title="Fetch the source, parse candidates, skip duplicates, add the rest"
+                onClick={() => void runDiscovery()}
+                disabled={discovering || !discoverUrl.trim()}
+              >
+                {discovering ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Radar className="w-4 h-4 mr-2" />
+                )}{" "}
+                Run discovery
+              </Button>
+            </div>
+            {discoverNote && <p className="mt-2 text-[11px] text-slate-400">{discoverNote}</p>}
+          </div>
+        )}
       </div>
 
       {error && (

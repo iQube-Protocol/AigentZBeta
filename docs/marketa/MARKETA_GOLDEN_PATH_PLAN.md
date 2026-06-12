@@ -53,11 +53,18 @@ In rough order of value to the golden path:
    Cartridge top metrics could surface: pipeline value (open
    opportunities), closed clean revenue (this month / total), top lanes.
 
-4. **Discovery automation.** Today the only inflows are manual / sample /
-   import. A scheduled discovery job (Agent Card crawl, MCP server
-   directory poll, OpenAPI repo scan) keeps the pipeline filling without
-   the operator clicking Add sample. Lower priority than send + opportunity
-   tracking — manual discovery is enough to validate revenue flow.
+4. **Discovery automation.** SHIPPED 2026-06-12: `POST
+   /api/marketa/activation/discover` fetches operator-supplied sources —
+   A2A agent cards and MCP-registry-style listings (`{ kind: 'a2a_card' |
+   'mcp_registry', url }`) — parses them via
+   `services/marketa/activation/discovery.ts`, dedupes against existing
+   candidates by normalized URL + name, inserts the new ones, and logs
+   `candidate_discovered` events. The cartridge header has a Discover
+   control (kind + URL + run). For scheduled polling, set
+   `MARKETA_DISCOVERY_SOURCES` (JSON array of the same source shape) and
+   hit the route with an empty body from a cron caller. No third-party
+   URLs are hardcoded — sources are always operator-configured. OpenAPI
+   repo scan deferred until a concrete source is chosen.
 
 5. **Outreach template library.** Currently every draft is hard-coded in
    `buildDraft`. A small set of operator-curated templates per lane is a
@@ -67,8 +74,8 @@ In rough order of value to the golden path:
 
 1. ~~Opportunity CRUD + scorecard panel~~ — **DONE 2026-06-11**
 2. ~~Outreach send via existing Marketa send path + reply-flip hook~~ — **DONE 2026-06-11** (manual reply flip; webhook ingestion later)
-3. Revenue roll-up + dashboard metrics
-4. Discovery automation
+3. ~~Revenue roll-up + dashboard metrics~~ — **DONE 2026-06-11** (pipeline/closed/MRR cartridge metrics)
+4. ~~Discovery automation~~ — **DONE 2026-06-12** (`POST /api/marketa/activation/discover` + Discover UI; scheduling via operator cron later)
 5. Template library
 
 (1) and (2) together produce the first real revenue path. (3) makes the
