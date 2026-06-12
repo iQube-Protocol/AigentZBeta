@@ -8,7 +8,7 @@
  *
  *   ┌─────────────────────────┬────────────────────────────┐
  *   │                         │  Stage strip (carousel)    │
- *   │   aigentZ Copilot       │  5 capability buttons      │
+ *   │   aigentZ Copilot       │  6 capability buttons (2×3)│
  *   │   (embedded, persistent)│  Active layout (capsule)   │
  *   │                         │  Experience Model           │
  *   │   Quick-prompt chips:   │  Specialists               │
@@ -53,6 +53,7 @@ type DevLoopStage =
   | "complete";
 
 type DevCapsuleId =
+  | "project-overview"
   | "intent"
   | "context"
   | "gap-analysis"
@@ -61,6 +62,7 @@ type DevCapsuleId =
 
 type DevLayoutId =
   | "stack"
+  | "project-overview"
   | "intent"
   | "context"
   | "gap-analysis"
@@ -116,6 +118,7 @@ interface ConsequenceEntry {
 // ─── Capsule → Layout mapping ─────────────────────────────────────────────
 
 const CAPSULE_LAYOUT: Record<DevCapsuleId, DevLayoutId> = {
+  "project-overview": "project-overview",
   "intent": "intent",
   "context": "context",
   "gap-analysis": "gap-analysis",
@@ -160,6 +163,7 @@ function getStageIndex(stage: DevLoopStage): number {
 // ─── Capability buttons ───────────────────────────────────────────────────
 
 const CAPABILITIES: { id: DevCapsuleId; label: string; icon: typeof Cpu; color: string; description: string }[] = [
+  { id: "project-overview", label: "Project Overview", icon: Layers, color: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20", description: "Active project, intent ID, and loop status" },
   { id: "intent", label: "Intent Distillation", icon: Target, color: "text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20", description: "Distill raw input into structured intent" },
   { id: "context", label: "Context Pack", icon: Package, color: "text-purple-400 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20", description: "Assemble relevant codebase context" },
   { id: "gap-analysis", label: "Gap Analysis", icon: FileSearch, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20", description: "Identify existing vs missing capabilities" },
@@ -252,14 +256,15 @@ function StageStrip({ stage }: { stage: DevLoopStage }) {
         const Icon = s.icon;
         const isCurrent = s.id === stage;
         const isPast = i < currentIdx;
-        const color = isCurrent ? "text-green-400 bg-green-500/20 border-green-500/30"
-          : isPast ? "text-emerald-400/60 bg-emerald-500/10 border-emerald-500/20"
-          : "text-slate-500 bg-slate-800/30 border-slate-700/30";
+        const box = isCurrent ? "bg-green-500/20 border-green-500/30"
+          : isPast ? "bg-emerald-500/10 border-emerald-500/20"
+          : "bg-slate-800/30 border-slate-700/30";
+        const iconColor = isCurrent ? "text-green-400" : isPast ? "text-emerald-400/60" : "text-slate-500";
         return (
           <React.Fragment key={s.id}>
             {i > 0 && <ArrowRight className={`w-3 h-3 shrink-0 ${isPast || isCurrent ? "text-emerald-400/40" : "text-slate-700"}`} />}
-            <div className={`flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-semibold whitespace-nowrap ${color}`}>
-              <Icon className="w-3 h-3" />
+            <div className={`flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-semibold whitespace-nowrap text-white ${box}`}>
+              <Icon className={`w-3 h-3 ${iconColor}`} />
               {s.label}
             </div>
           </React.Fragment>
@@ -430,6 +435,48 @@ function ConsequenceCanvasPanel({ shouldHappen, shouldNotHappen, successState }:
   );
 }
 
+function ProjectOverviewPanel({ intent, activeStage }: { intent: StructuredDevIntent; activeStage: DevLoopStage }) {
+  const stageIdx = getStageIndex(activeStage);
+  return (
+    <div className="space-y-3">
+      <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-white truncate">{intent.goal}</div>
+            <div className="text-[10px] text-slate-400 font-mono">{intent.intentId}</div>
+          </div>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
+            intent.status === "refined" ? "bg-blue-500/20 text-white border-blue-500/30"
+            : "bg-slate-500/20 text-white border-slate-500/30"
+          }`}>{intent.status}</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
+          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Loop Stage</div>
+          <div className="text-xs text-white">{STAGES[stageIdx]?.label} ({stageIdx + 1}/{STAGES.length})</div>
+        </div>
+        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
+          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Priority</div>
+          <div className="text-xs text-white">{intent.priority}</div>
+        </div>
+        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
+          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Ventures</div>
+          {intent.relatedVentures.map(v => <div key={v} className="text-xs text-white">{v}</div>)}
+        </div>
+        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
+          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Cartridges</div>
+          {intent.relatedCartridges.map(c => <div key={c} className="text-xs text-white font-mono">{c}</div>)}
+        </div>
+      </div>
+      <div>
+        <div className="text-xs text-slate-500 mb-1">Success Criteria</div>
+        {intent.successCriteria.map(c => <div key={c} className="text-xs text-emerald-300">✓ {c}</div>)}
+      </div>
+    </div>
+  );
+}
+
 function ValidationPanel() {
   return (
     <div className="text-xs text-slate-400 italic py-4 text-center">
@@ -449,7 +496,7 @@ function StackLayout({ onCapabilityClick, activeStage }: {
       {/* Capability buttons */}
       <div className="space-y-2">
         <div className="text-[10px] text-slate-500 uppercase font-semibold px-1">Capabilities</div>
-        <div className="grid grid-cols-1 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {CAPABILITIES.map(cap => (
             <button
               key={cap.id}
@@ -459,9 +506,8 @@ function StackLayout({ onCapabilityClick, activeStage }: {
               <cap.icon className="w-5 h-5 shrink-0" />
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-white">{cap.label}</div>
-                <div className="text-[10px] text-slate-400">{cap.description}</div>
+                <div className="text-[10px] text-slate-300">{cap.description}</div>
               </div>
-              <ArrowRight className="w-4 h-4 ml-auto shrink-0 text-slate-500" />
             </button>
           ))}
         </div>
@@ -488,18 +534,20 @@ function StackLayout({ onCapabilityClick, activeStage }: {
 
       {/* Dev loop diagram */}
       <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30">
-        <h4 className="text-xs font-semibold text-white mb-2">Development Loop</h4>
-        <div className="flex items-center gap-1 flex-wrap text-[10px]">
+        <div className="flex items-baseline gap-2 mb-2 min-w-0">
+          <h4 className="text-xs font-semibold text-white shrink-0">Development Loop</h4>
+          <p className="text-[10px] text-slate-400 truncate">
+            Claude Code generates code. aigentZ generates and validates capability. The loop is cyclical.
+          </p>
+        </div>
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 text-xs">
           {["User Intent", "Intent Distillation", "Context Pack", "Gap Analysis", "Consequence Canvas", "Claude Code", "Generated Code", "Consequence Validation", "Receipts", "Memory Update"].map((step, i, arr) => (
             <React.Fragment key={step}>
-              <span className="px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300 whitespace-nowrap">{step}</span>
-              {i < arr.length - 1 && <ArrowRight className="w-2.5 h-2.5 text-slate-600 shrink-0" />}
+              <span className="px-2 py-1 rounded bg-slate-700/50 text-white whitespace-nowrap shrink-0">{step}</span>
+              {i < arr.length - 1 && <ArrowRight className="w-3 h-3 text-slate-600 shrink-0" />}
             </React.Fragment>
           ))}
         </div>
-        <p className="text-[10px] text-slate-500 mt-2">
-          Claude Code generates code. aigentZ generates and validates capability. The loop is cyclical.
-        </p>
       </div>
     </div>
   );
@@ -524,28 +572,31 @@ function AccordionSection({ title, icon: Icon, defaultOpen, children }: {
 }
 
 // Capability detail layouts (shown when a capability button is clicked)
-function CapabilityLayout({ capsuleId, onBack }: {
+function CapabilityLayout({ capsuleId, onBack, activeStage }: {
   capsuleId: DevCapsuleId;
   onBack: () => void;
+  activeStage: DevLoopStage;
 }) {
   const cap = CAPABILITIES.find(c => c.id === capsuleId);
   if (!cap) return null;
 
   return (
     <div className="space-y-3">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
-      >
-        <RotateCcw className="w-3 h-3" />
-        Back to overview
-      </button>
-
-      <div className="flex items-center gap-2">
-        <cap.icon className="w-5 h-5 text-green-400" />
-        <h3 className="text-sm font-bold text-white">{cap.label}</h3>
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+        >
+          <RotateCcw className="w-3 h-3" />
+          Back to overview
+        </button>
+        <div className="flex items-center gap-2">
+          <cap.icon className="w-5 h-5 text-green-400" />
+          <h3 className="text-sm font-bold text-white">{cap.label}</h3>
+        </div>
       </div>
 
+      {capsuleId === "project-overview" && <ProjectOverviewPanel intent={DEMO_INTENT} activeStage={activeStage} />}
       {capsuleId === "intent" && <IntentPanel intent={DEMO_INTENT} />}
       {capsuleId === "context" && <ContextPackPanel items={DEMO_CONTEXT_ITEMS} />}
       {capsuleId === "gap-analysis" && <GapAnalysisPanel existing={DEMO_EXISTING} missing={DEMO_MISSING} />}
@@ -708,7 +759,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
             />
           )}
           {isCapsuleLayout && activeCapsuleId && (
-            <CapabilityLayout capsuleId={activeCapsuleId} onBack={returnToStack} />
+            <CapabilityLayout capsuleId={activeCapsuleId} onBack={returnToStack} activeStage={activeStage} />
           )}
           {isToolLayout && (
             <ToolLayout toolId={activeLayoutId} onBack={returnToStack} />
@@ -723,7 +774,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
                 <button
                   key={link.id}
                   onClick={() => handleToolOpen(link.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
                     activeLayoutId === link.id
                       ? "bg-green-500/20 text-green-300 border border-green-500/30"
                       : "text-slate-400 hover:text-white hover:bg-slate-700/50"
@@ -735,14 +786,14 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               ))}
               <div className="w-px h-4 bg-slate-700/50 mx-1" />
               <button
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
                 onClick={() => console.log("[dev-cmd] upload")}
               >
                 <Upload className="w-3 h-3" />
                 Upload
               </button>
               <button
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
                 onClick={() => console.log("[dev-cmd] download")}
               >
                 <Download className="w-3 h-3" />
