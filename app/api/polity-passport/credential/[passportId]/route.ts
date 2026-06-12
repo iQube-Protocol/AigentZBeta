@@ -1,11 +1,11 @@
 /**
- * GET /api/polity-passport/credential/[passportId] — claim the passport
- * credential envelope (Phase A).
+ * GET  /api/polity-passport/credential/[passportId] — preview the passport
+ *      credential envelope (Phase A). Does NOT mark as claimed.
+ * POST /api/polity-passport/credential/[passportId] — claim the passport
+ *      credential, mark credential_claimed_at, and return the VC.
  *
- * The first concrete answer to "what form does the passport take and where
- * does the agent store it": a W3C-VC-shaped JSON envelope the agent/operator
- * downloads and holds. Issued lazily from the passport record at claim time —
- * the steward decision pipeline is untouched. Public route: every field in
+ * W3C-VC-shaped JSON envelope the agent/operator holds. Issued lazily from the
+ * passport record — steward pipeline untouched. Public route: every field in
  * the envelope already appears in the public registry projection (commitment
  * refs only; T0 identifiers never serialise here).
  *
@@ -24,6 +24,26 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const SELECT_COLS =
+  'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at';
+
+async function loadAndBuild(passportId: string, admin: ReturnType<typeof getSupabaseServer>, host: string) {
+  const { data, error } = await admin!
+    .from('polity_passport_records')
+    .select(SELECT_COLS)
+    .eq('passport_id', passportId)
+    .maybeSingle();
+  if (error) return { err: NextResponse.json({ ok: false, error: error.message }, { status: 500 }) };
+  if (!data) return { err: NextResponse.json({ ok: false, error: 'Passport not found' }, { status: 404 }) };
+
+  const record = data as unknown as PassportRecordRow & { credential_claimed_at: string | null };
+  const claim = isClaimable(record);
+  if (!claim.claimable) {
+    return { err: NextResponse.json({ ok: false, error: 'Passport not claimable', reason: claim.reason }, { status: 409 }) };
+  }
+  return { record, credential: buildPassportCredential(record, host) };
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ passportId: string }> },
@@ -33,52 +53,58 @@ export async function GET(
     if (!/^[a-z0-9-]{4,80}$/i.test(passportId)) {
       return NextResponse.json({ ok: false, error: 'Invalid passport id' }, { status: 400 });
     }
-
     const admin = getSupabaseServer();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, error: 'Supabase configuration missing' },
-        { status: 500 },
-      );
-    }
+    if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
 
-    const { data, error } = await admin
-      .from('polity_passport_records')
-      .select(
-        'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked',
-      )
-      .eq('passport_id', passportId)
-      .maybeSingle();
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-    if (!data) {
-      return NextResponse.json({ ok: false, error: 'Passport not found' }, { status: 404 });
-    }
-
-    const record = data as unknown as PassportRecordRow;
-    const claim = isClaimable(record);
-    if (!claim.claimable) {
-      return NextResponse.json(
-        { ok: false, error: 'Passport not claimable', reason: claim.reason },
-        { status: 409 },
-      );
-    }
-
-    const host = req.nextUrl.origin;
-    const credential = buildPassportCredential(record, host);
+    const result = await loadAndBuild(passportId, admin, req.nextUrl.origin);
+    if (result.err) return result.err;
 
     return NextResponse.json(
       {
         ok: true,
-        credential,
-        note:
-          'Hold this envelope — it is your passport credential. Phase A proof is a Bureau HMAC stub; a publicly verifiable asymmetric proof ships in Phase C.',
+        credential: result.credential,
+        claimed: !!result.record!.credential_claimed_at,
+        note: 'Hold this envelope — it is your passport credential. Phase A proof is a Bureau HMAC stub; a publicly verifiable asymmetric proof ships in Phase C.',
       },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Credential claim failed';
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'Credential fetch failed' }, { status: 500 });
+  }
+}
+
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ passportId: string }> },
+) {
+  try {
+    const { passportId } = await context.params;
+    if (!/^[a-z0-9-]{4,80}$/i.test(passportId)) {
+      return NextResponse.json({ ok: false, error: 'Invalid passport id' }, { status: 400 });
+    }
+    const admin = getSupabaseServer();
+    if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
+
+    const result = await loadAndBuild(passportId, admin, req.nextUrl.origin);
+    if (result.err) return result.err;
+
+    if (!result.record!.credential_claimed_at) {
+      await admin
+        .from('polity_passport_records')
+        .update({ credential_claimed_at: new Date().toISOString() })
+        .eq('passport_id', passportId);
+    }
+
+    return NextResponse.json(
+      {
+        ok: true,
+        credential: result.credential,
+        claimed: true,
+        note: 'Passport credential claimed and stored as a PassportQube in your wallet.',
+      },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'Credential claim failed' }, { status: 500 });
   }
 }

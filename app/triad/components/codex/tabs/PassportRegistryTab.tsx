@@ -1,19 +1,25 @@
 'use client';
 
 /**
- * PassportRegistryTab — public listing of issued Polity Passports (Stage 5).
+ * PassportRegistryTab — public listing of issued Polity Passports (Stage 5)
+ * with per-persona claim flow.
  *
  * Surfaces the public projection from /api/polity-passport/registry. This
  * tab is mirrored on both the Bureau cartridge and the iQube Registry
  * cartridge ("Passports" tab) — same component, two homes, per the
  * subTabs-mirror pattern. Everything shown is public-safe: commitment refs,
  * never raw identity (T0 rule lives server-side in the projection).
+ *
+ * Class filter chips are portaled into the SubHeaderSlotContext so they
+ * render in the tier-3 sub-menu row (left side) of the cartridge chrome.
  */
 
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpenCheck, RefreshCw, Loader2, AlertCircle, ShieldCheck, Bot } from 'lucide-react';
+import { BookOpenCheck, RefreshCw, Loader2, AlertCircle, ShieldCheck, Bot, Wallet } from 'lucide-react';
 import { SubHeaderSlotContext } from '../SubHeaderSlot';
+import { PassportClaimModal } from './PassportClaimModal';
+import { personaFetch } from '@/utils/personaSpine';
 
 interface PublicPassport {
   passportId: string;
@@ -24,6 +30,13 @@ interface PublicPassport {
   issuedAt: string | null;
   citizenPassportIrrevocable?: boolean;
   revoked?: boolean;
+}
+
+interface OwnPassport {
+  passportId: string;
+  passportClass: string;
+  claimedAt: string | null;
+  claimable: boolean;
 }
 
 const CLASS_FILTERS = [
@@ -45,6 +58,9 @@ export function PassportRegistryTab() {
   const [error, setError] = useState<string | null>(null);
   const subHeaderSlotEl = useContext(SubHeaderSlotContext);
 
+  const [ownPassports, setOwnPassports] = useState<OwnPassport[]>([]);
+  const [claimTarget, setClaimTarget] = useState<{ passportId: string; passportClass: string } | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -61,13 +77,22 @@ export function PassportRegistryTab() {
     }
   }, [classFilter]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const loadOwn = useCallback(async () => {
+    try {
+      const res = await personaFetch('/api/polity-passport/wallet', { cache: 'no-store' });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.ok) setOwnPassports(json.passportQubes ?? []);
+    } catch {
+      // Silent — user may not be authenticated
+    }
+  }, []);
 
-  // Class filter chips — rendered into the cartridge sub-menu bar
-  // (left-justified on the breadcrumb row) per the cartridge template, with
-  // an inline fallback for surfaces that don't mount the slot.
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadOwn(); }, [loadOwn]);
+
+  const ownMap = new Map(ownPassports.map((p) => [p.passportId, p]));
+
   const filterChips = (
     <div className="flex gap-1 flex-wrap items-center">
       {CLASS_FILTERS.map((f) => (
@@ -126,6 +151,7 @@ export function PassportRegistryTab() {
       <div className="space-y-2">
         {passports.map((p) => {
           const isCitizen = p.passportClass === 'citizen';
+          const own = ownMap.get(p.passportId);
           return (
             <div
               key={p.passportId}
@@ -152,6 +178,23 @@ export function PassportRegistryTab() {
                     irrevocable
                   </span>
                 )}
+                {own?.claimedAt ? (
+                  <button
+                    onClick={() => setClaimTarget({ passportId: p.passportId, passportClass: p.passportClass })}
+                    className="flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-xs text-emerald-300 hover:bg-emerald-500/25 transition-colors"
+                  >
+                    <Wallet className="h-3 w-3" />
+                    In Wallet
+                  </button>
+                ) : own?.claimable ? (
+                  <button
+                    onClick={() => setClaimTarget({ passportId: p.passportId, passportClass: p.passportClass })}
+                    className="flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-500/30 px-2.5 py-0.5 text-xs text-violet-300 hover:bg-violet-500/25 transition-colors animate-pulse"
+                  >
+                    <Wallet className="h-3 w-3" />
+                    Claim
+                  </button>
+                ) : null}
                 <span
                   className={cls(
                     'rounded-full px-2 py-0.5 text-xs',
@@ -169,6 +212,14 @@ export function PassportRegistryTab() {
           );
         })}
       </div>
+
+      <PassportClaimModal
+        open={!!claimTarget}
+        onClose={() => setClaimTarget(null)}
+        passportId={claimTarget?.passportId ?? ''}
+        passportClass={claimTarget?.passportClass ?? ''}
+        onClaimed={() => void loadOwn()}
+      />
     </div>
   );
 }
