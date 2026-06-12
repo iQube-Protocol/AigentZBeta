@@ -8,22 +8,20 @@
  *
  *   ┌─────────────────────────┬────────────────────────────┐
  *   │                         │  Stage strip (carousel)    │
- *   │   aigentZ Copilot       │  6 capability buttons (2×3)│
- *   │   (embedded, persistent)│  Active layout (capsule)   │
- *   │                         │  Experience Model           │
- *   │   Quick-prompt chips:   │  Specialists               │
- *   │   New intent · Where    │  Dev Receipts              │
- *   │   are we? · Analyze     │                            │
- *   │   gaps · Model          │  Quick links: Terminal ·   │
- *   │   consequences ·        │  GitHub · DevTools ·       │
- *   │   Validate build        │  Linear · Upload · Download│
- *   │                         │                            │
- *   │                         │  Dev loop diagram          │
+ *   │   aigentZ Copilot       │  CTA chip row (capsule     │
+ *   │   (embedded, persistent)│   activators with advance) │
+ *   │                         │  Active layout (capsule)   │
+ *   │   Quick-prompt chips:   │                            │
+ *   │   New intent · Where    │  Quick links: Terminal ·   │
+ *   │   are we? · Analyze     │  GitHub · DevTools ·       │
+ *   │   gaps · Model          │  Linear · Upload · Download│
+ *   │   consequences ·        │                            │
+ *   │   Validate build        │                            │
  *   └─────────────────────────┴────────────────────────────┘
  *
- * Two-tier copilot routing (stubbed for Claude Code integration):
- *   Tier 1: aigentZ → LLM → drives right pane layouts
- *   Tier 2: aigentZ → Claude Code → results → aigentZ → routing decision
+ * Right-pane capsule layouts are standalone files under
+ * components/devcommandcenter/layouts/ — each uses LayoutShell for
+ * consistent chrome, in line with aigentMe's layout template pattern.
  */
 
 import React, { useState, useCallback, useMemo } from "react";
@@ -31,7 +29,7 @@ import {
   Cpu, Target, FileSearch, AlertTriangle, CheckCircle,
   ChevronDown, Package, Layers, ArrowRight,
   Terminal, GitBranch, Wrench, BarChart3,
-  RotateCcw, Play,
+  Play,
 } from "lucide-react";
 import { SmartTriadCopilotLayer, type SuggestedLayoutHint, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { ExploreQuickActionsStrip, type ExploreToolId, type ExploreSuggestionMap } from "@/components/metame/copilot/ExploreQuickActionsStrip";
@@ -39,11 +37,6 @@ import { ExploreQuickActionsStrip, type ExploreToolId, type ExploreSuggestionMap
 import type {
   DevLoopState,
   DevLoopStage,
-  StructuredDevIntent,
-  ContextPack,
-  CapabilityGapAnalysis,
-  ConsequenceCanvas,
-  ConsequenceValidationReport,
 } from "@/types/devCommandCenter";
 
 import {
@@ -63,45 +56,23 @@ import {
   type StageProposalKind,
 } from "@/services/devCommandCenter";
 
+import {
+  IntentLayout,
+  ContextLayout,
+  GapAnalysisLayout,
+  ConsequenceCanvasLayout,
+  ValidationLayout,
+  ProjectOverviewLayout,
+  CAPSULE_LAYOUT,
+  type DevCapsuleId,
+  type DevLayoutId,
+} from "@/components/devcommandcenter/layouts";
+
 type QuickPrompt = string | {
   label: string;
   prompt?: string;
   onSelect?: () => void;
   highlight?: boolean;
-};
-
-// ─── UI-local types (layout/capsule state machine — not in service layer) ──
-
-type DevCapsuleId =
-  | "project-overview"
-  | "intent"
-  | "context"
-  | "gap-analysis"
-  | "consequence-canvas"
-  | "validation";
-
-type DevLayoutId =
-  | "stack"
-  | "project-overview"
-  | "intent"
-  | "context"
-  | "gap-analysis"
-  | "consequence-canvas"
-  | "validation"
-  | "terminal"
-  | "github"
-  | "devtools"
-  | "linear";
-
-// ─── Capsule → Layout mapping ─────────────────────────────────────────────
-
-const CAPSULE_LAYOUT: Record<DevCapsuleId, DevLayoutId> = {
-  "project-overview": "project-overview",
-  "intent": "intent",
-  "context": "context",
-  "gap-analysis": "gap-analysis",
-  "consequence-canvas": "consequence-canvas",
-  "validation": "validation",
 };
 
 // ─── Two-tier routing stub ─────────────────────────────────────────────────
@@ -134,7 +105,6 @@ const STAGES: { id: DevLoopStage; label: string; icon: typeof Cpu }[] = [
   { id: "complete", label: "Complete", icon: CheckCircle },
 ];
 
-// Map stages to capsule IDs for click-to-navigate
 const STAGE_TO_CAPSULE: Partial<Record<DevLoopStage, DevCapsuleId>> = {
   intent_capture: "intent",
   context_assembly: "context",
@@ -147,15 +117,39 @@ function getStageIndex(stage: DevLoopStage): number {
   return STAGES.findIndex(s => s.id === stage);
 }
 
-// ─── Capability buttons ───────────────────────────────────────────────────
+// ─── Capability chip metadata ────────────────────────────────────────────
 
-const CAPABILITIES: { id: DevCapsuleId; label: string; icon: typeof Cpu; color: string; description: string }[] = [
-  { id: "project-overview", label: "Project Overview", icon: Layers, color: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20", description: "Active project, intent ID, and loop status" },
-  { id: "intent", label: "Intent Distillation", icon: Target, color: "text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20", description: "Distill raw input into structured intent" },
-  { id: "context", label: "Context Pack", icon: Package, color: "text-purple-400 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20", description: "Assemble relevant codebase context" },
-  { id: "gap-analysis", label: "Gap Analysis", icon: FileSearch, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20", description: "Identify existing vs missing capabilities" },
-  { id: "consequence-canvas", label: "Consequence Canvas", icon: AlertTriangle, color: "text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20", description: "Model what should/shouldn't happen" },
-  { id: "validation", label: "Validation", icon: CheckCircle, color: "text-green-400 border-green-500/30 bg-green-500/10 hover:bg-green-500/20", description: "Validate build against consequences" },
+const CAPABILITIES: { id: DevCapsuleId; label: string; shortLabel: string; icon: typeof Cpu; activeClass: string; hasDataClass: string; emptyClass: string; iconActiveClass: string; iconEmptyClass: string }[] = [
+  { id: "project-overview", label: "Project Overview", shortLabel: "Overview", icon: Layers,
+    activeClass: "bg-cyan-500/20 border-cyan-500/40 text-cyan-300 ring-1 ring-cyan-500/30",
+    hasDataClass: "bg-cyan-500/10 border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/15",
+    emptyClass: "bg-slate-800/40 border-slate-700/30 text-slate-400 hover:bg-slate-800/60 hover:text-white",
+    iconActiveClass: "text-cyan-400", iconEmptyClass: "text-slate-500" },
+  { id: "intent", label: "Intent Distillation", shortLabel: "Intent", icon: Target,
+    activeClass: "bg-blue-500/20 border-blue-500/40 text-blue-300 ring-1 ring-blue-500/30",
+    hasDataClass: "bg-blue-500/10 border-blue-500/20 text-blue-300 hover:bg-blue-500/15",
+    emptyClass: "bg-slate-800/40 border-slate-700/30 text-slate-400 hover:bg-slate-800/60 hover:text-white",
+    iconActiveClass: "text-blue-400", iconEmptyClass: "text-slate-500" },
+  { id: "context", label: "Context Pack", shortLabel: "Context", icon: Package,
+    activeClass: "bg-purple-500/20 border-purple-500/40 text-purple-300 ring-1 ring-purple-500/30",
+    hasDataClass: "bg-purple-500/10 border-purple-500/20 text-purple-300 hover:bg-purple-500/15",
+    emptyClass: "bg-slate-800/40 border-slate-700/30 text-slate-400 hover:bg-slate-800/60 hover:text-white",
+    iconActiveClass: "text-purple-400", iconEmptyClass: "text-slate-500" },
+  { id: "gap-analysis", label: "Gap Analysis", shortLabel: "Gaps", icon: FileSearch,
+    activeClass: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/30",
+    hasDataClass: "bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/15",
+    emptyClass: "bg-slate-800/40 border-slate-700/30 text-slate-400 hover:bg-slate-800/60 hover:text-white",
+    iconActiveClass: "text-emerald-400", iconEmptyClass: "text-slate-500" },
+  { id: "consequence-canvas", label: "Consequence Canvas", shortLabel: "Consequences", icon: AlertTriangle,
+    activeClass: "bg-amber-500/20 border-amber-500/40 text-amber-300 ring-1 ring-amber-500/30",
+    hasDataClass: "bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/15",
+    emptyClass: "bg-slate-800/40 border-slate-700/30 text-slate-400 hover:bg-slate-800/60 hover:text-white",
+    iconActiveClass: "text-amber-400", iconEmptyClass: "text-slate-500" },
+  { id: "validation", label: "Validation", shortLabel: "Validate", icon: CheckCircle,
+    activeClass: "bg-green-500/20 border-green-500/40 text-green-300 ring-1 ring-green-500/30",
+    hasDataClass: "bg-green-500/10 border-green-500/20 text-green-300 hover:bg-green-500/15",
+    emptyClass: "bg-slate-800/40 border-slate-700/30 text-slate-400 hover:bg-slate-800/60 hover:text-white",
+    iconActiveClass: "text-green-400", iconEmptyClass: "text-slate-500" },
 ];
 
 // ─── Quick links for bottom strip ─────────────────────────────────────────
@@ -198,7 +192,6 @@ function StageStrip({ stage, onStageClick }: { stage: DevLoopStage; onStageClick
           </React.Fragment>
         );
       })}
-      {/* Phase badges — right of Complete */}
       <div className="flex items-center gap-1.5 ml-2 shrink-0">
         <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30 font-semibold whitespace-nowrap">Phase 1 MVP</span>
         <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold whitespace-nowrap">Operation Chrysalis</span>
@@ -206,343 +199,6 @@ function StageStrip({ stage, onStageClick }: { stage: DevLoopStage; onStageClick
     </div>
   );
 }
-
-function IntentPanel({ intent }: { intent: StructuredDevIntent }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-          intent.status === "refined" ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-          : intent.status === "approved" ? "bg-green-500/20 text-green-300 border-green-500/30"
-          : "bg-slate-500/20 text-slate-300 border-slate-500/30"
-        }`}>{intent.status}</span>
-        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-          intent.priority === "critical" ? "bg-red-500/20 text-red-300 border-red-500/30"
-          : intent.priority === "high" ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
-          : "bg-slate-500/20 text-slate-300 border-slate-500/30"
-        }`}>{intent.priority}</span>
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-0.5">Goal</div>
-        <p className="text-sm text-white">{intent.goal}</p>
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-0.5">Raw input</div>
-        <p className="text-xs text-slate-400 italic">&ldquo;{intent.rawInput}&rdquo;</p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <div className="text-xs text-slate-500 mb-1">Users</div>
-          {intent.users.map(u => <div key={u} className="text-xs text-slate-300">· {u}</div>)}
-        </div>
-        <div>
-          <div className="text-xs text-slate-500 mb-1">Desired Outcomes</div>
-          {intent.desiredOutcomes.map(o => <div key={o} className="text-xs text-slate-300">· {o}</div>)}
-        </div>
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-1">Success Criteria</div>
-        {intent.successCriteria.map(c => <div key={c} className="text-xs text-emerald-300">✓ {c}</div>)}
-      </div>
-      {intent.constraints.length > 0 && (
-        <div>
-          <div className="text-xs text-slate-500 mb-1">Constraints</div>
-          {intent.constraints.map(c => <div key={c} className="text-xs text-amber-300">⚠ {c}</div>)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ContextPackPanel({ pack }: { pack: ContextPack }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3 text-xs flex-wrap">
-        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Reuse: {pack.reuseFirst.length}</span>
-        <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">Extend: {pack.extendSecond.length}</span>
-        <span className="px-1.5 py-0.5 rounded bg-slate-500/20 text-slate-300">Reference: {pack.buildNewLast.length}</span>
-        {pack.totalTokenEstimate > 0 && (
-          <span className="text-[10px] text-slate-500">{pack.totalTokenEstimate.toLocaleString()} est. tokens</span>
-        )}
-      </div>
-      {pack.items.map(item => (
-        <div key={item.sourcePath} className="py-1.5 border-b border-slate-700/20 last:border-0">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="text-xs text-white truncate">{item.title}</div>
-              <div className="text-[10px] text-slate-500 font-mono truncate">{item.sourcePath}</div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[10px] text-slate-500">{item.relevanceScore}%</span>
-              <span className={`text-[10px] px-1 py-0.5 rounded ${
-                item.reuseSignal === "reuse" ? "bg-emerald-500/20 text-emerald-300"
-                : item.reuseSignal === "extend" ? "bg-blue-500/20 text-blue-300"
-                : "bg-slate-500/20 text-slate-300"
-              }`}>{item.reuseSignal}</span>
-            </div>
-          </div>
-          {item.excerpt && <div className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{item.excerpt}</div>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function GapAnalysisPanel({ analysis }: { analysis: CapabilityGapAnalysis }) {
-  const ratio = Math.round(analysis.reuseRatio * 100);
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
-          <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${ratio}%` }} />
-        </div>
-        <span className="text-xs text-emerald-300 font-semibold">{ratio}% reuse</span>
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-1 uppercase font-semibold">Existing ({analysis.existing.length})</div>
-        {analysis.existing.map(c => (
-          <div key={c.name} className="py-1 border-b border-slate-700/20 last:border-0">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-emerald-300">{c.name}</div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-500 font-mono">{c.location}</span>
-                <span className="text-[10px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300">{c.reuseStrategy}</span>
-              </div>
-            </div>
-            {c.description && <div className="text-[10px] text-slate-400 mt-0.5">{c.description}</div>}
-          </div>
-        ))}
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-1 uppercase font-semibold">Missing ({analysis.missing.length})</div>
-        {analysis.missing.map(c => (
-          <div key={c.name} className="py-1.5 border-b border-slate-700/20 last:border-0">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-amber-300">{c.name}</span>
-              <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300">{c.estimatedComplexity}</span>
-            </div>
-            <div className="text-[10px] text-slate-400">{c.description}</div>
-            <div className="text-[10px] text-slate-500 font-mono">{c.suggestedLocation}</div>
-            {c.dependencies.length > 0 && (
-              <div className="text-[10px] text-slate-500 mt-0.5">Deps: {c.dependencies.join(", ")}</div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ConsequenceCanvasPanel({ canvas }: { canvas: ConsequenceCanvas }) {
-  return (
-    <div className="space-y-3">
-      <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
-        <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Success State</div>
-        <p className="text-xs text-green-300">{canvas.successState || "(not defined)"}</p>
-      </div>
-      {canvas.workflowsActivated.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] text-slate-500 uppercase font-semibold">Workflows:</span>
-          {canvas.workflowsActivated.map(w => (
-            <span key={w} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{w}</span>
-          ))}
-        </div>
-      )}
-      {canvas.systemsAffected.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] text-slate-500 uppercase font-semibold">Systems:</span>
-          {canvas.systemsAffected.map(s => (
-            <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300">{s}</span>
-          ))}
-        </div>
-      )}
-      {canvas.permissionsRequired.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] text-slate-500 uppercase font-semibold">Permissions:</span>
-          {canvas.permissionsRequired.map(p => (
-            <span key={p} className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">{p}</span>
-          ))}
-        </div>
-      )}
-      <div>
-        <div className="text-xs text-emerald-400 font-semibold mb-1">Should Happen ({canvas.shouldHappen.length})</div>
-        {canvas.shouldHappen.map(e => (
-          <div key={e.id} className="flex items-start gap-2 py-1 border-b border-slate-700/20 last:border-0">
-            <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
-            <div>
-              <div className="text-xs text-slate-300">{e.description}</div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] text-slate-500">{e.category}</span>
-                <span className={`text-[10px] ${e.severity === "critical" ? "text-red-400" : e.severity === "high" ? "text-amber-400" : "text-slate-400"}`}>{e.severity}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div>
-        <div className="text-xs text-rose-400 font-semibold mb-1">Should Never Happen ({canvas.shouldNeverHappen.length})</div>
-        {canvas.shouldNeverHappen.map(e => (
-          <div key={e.id} className="flex items-start gap-2 py-1 border-b border-slate-700/20 last:border-0">
-            <AlertTriangle className="w-3 h-3 text-rose-400 mt-0.5 shrink-0" />
-            <div>
-              <div className="text-xs text-slate-300">{e.description}</div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] text-slate-500">{e.category}</span>
-                <span className={`text-[10px] ${e.severity === "critical" ? "text-red-400" : e.severity === "high" ? "text-amber-400" : "text-slate-400"}`}>{e.severity}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ProjectOverviewPanel({ session }: { session: DevLoopState }) {
-  const { intent, stage, contextPack, gapAnalysis, consequenceCanvas, validationReport, sessionId } = session;
-  const stageIdx = getStageIndex(stage);
-  const canAdvanceNow = canAdvance(session);
-
-  return (
-    <div className="space-y-3">
-      {intent ? (
-        <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-white truncate">{intent.goal}</div>
-              <div className="text-[10px] text-slate-400 font-mono">{intent.intentId}</div>
-            </div>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
-              intent.status === "refined" ? "bg-blue-500/20 text-white border-blue-500/30"
-              : intent.status === "approved" ? "bg-green-500/20 text-white border-green-500/30"
-              : "bg-slate-500/20 text-white border-slate-500/30"
-            }`}>{intent.status}</span>
-          </div>
-        </div>
-      ) : (
-        <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30 text-center">
-          <div className="text-xs text-slate-400">No active intent — use &ldquo;New intent&rdquo; to start</div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Loop Stage</div>
-          <div className="text-xs text-white">{STAGES[stageIdx]?.label} ({stageIdx + 1}/{STAGES.length})</div>
-          {canAdvanceNow && <div className="text-[10px] text-emerald-400 mt-0.5">Ready to advance</div>}
-        </div>
-        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Priority</div>
-          <div className="text-xs text-white">{intent?.priority ?? "—"}</div>
-        </div>
-        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Session</div>
-          <div className="text-[10px] text-white font-mono truncate">{sessionId}</div>
-        </div>
-        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Artifacts</div>
-          <div className="text-xs text-white">
-            {[
-              contextPack && `${contextPack.items.length} ctx`,
-              gapAnalysis && `${gapAnalysis.existing.length}+${gapAnalysis.missing.length} gaps`,
-              consequenceCanvas && `${consequenceCanvas.shouldHappen.length + consequenceCanvas.shouldNeverHappen.length} cons`,
-              validationReport && validationReport.overallVerdict,
-            ].filter(Boolean).join(" · ") || "None yet"}
-          </div>
-        </div>
-      </div>
-
-      {intent && (
-        <>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-              <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Ventures</div>
-              {intent.relatedVentures.map(v => <div key={v} className="text-xs text-white">{v}</div>)}
-            </div>
-            <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-              <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Cartridges</div>
-              {intent.relatedCartridges.map(c => <div key={c} className="text-xs text-white font-mono">{c}</div>)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-500 mb-1">Success Criteria</div>
-            {intent.successCriteria.map(c => <div key={c} className="text-xs text-emerald-300">✓ {c}</div>)}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function ValidationPanel({ report }: { report: ConsequenceValidationReport | null }) {
-  if (!report) {
-    return (
-      <div className="text-xs text-slate-400 italic py-4 text-center">
-        Validation runs after Claude Code generates implementation. Pending implementation stage.
-      </div>
-    );
-  }
-  const verdictColor = report.overallVerdict === "pass" ? "text-green-400 bg-green-500/10 border-green-500/20"
-    : report.overallVerdict === "fail" ? "text-red-400 bg-red-500/10 border-red-500/20"
-    : "text-amber-400 bg-amber-500/10 border-amber-500/20";
-  return (
-    <div className="space-y-3">
-      <div className={`p-2 rounded border ${verdictColor}`}>
-        <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Overall Verdict</div>
-        <div className="text-sm font-bold uppercase">{report.overallVerdict}</div>
-      </div>
-      <div className="flex items-center gap-3 text-xs">
-        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Satisfied: {report.satisfied.length}</span>
-        <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">Unresolved: {report.unresolved.length}</span>
-        <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">Unintended: {report.unintended.length}</span>
-      </div>
-      {report.satisfied.length > 0 && (
-        <div>
-          <div className="text-xs text-emerald-400 font-semibold mb-1">Satisfied</div>
-          {report.satisfied.map(item => (
-            <div key={item.consequenceId} className="flex items-start gap-2 py-1 border-b border-slate-700/20 last:border-0">
-              <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
-              <div>
-                <div className="text-xs text-slate-300">{item.description}</div>
-                <div className="text-[10px] text-slate-500">{item.evidence}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {report.unresolved.length > 0 && (
-        <div>
-          <div className="text-xs text-amber-400 font-semibold mb-1">Unresolved</div>
-          {report.unresolved.map(item => (
-            <div key={item.consequenceId} className="flex items-start gap-2 py-1 border-b border-slate-700/20 last:border-0">
-              <AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 shrink-0" />
-              <div>
-                <div className="text-xs text-slate-300">{item.description}</div>
-                <div className="text-[10px] text-slate-500">{item.evidence}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {report.unintended.length > 0 && (
-        <div>
-          <div className="text-xs text-red-400 font-semibold mb-1">Unintended</div>
-          {report.unintended.map(item => (
-            <div key={item.consequenceId} className="flex items-start gap-2 py-1 border-b border-slate-700/20 last:border-0">
-              <AlertTriangle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <div className="text-xs text-slate-300">{item.description}</div>
-                <div className="text-[10px] text-slate-500">{item.evidence}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Right-pane layout components ─────────────────────────────────────────
 
 function capabilityHasData(id: DevCapsuleId, session: DevLoopState): boolean {
   switch (id) {
@@ -556,33 +212,114 @@ function capabilityHasData(id: DevCapsuleId, session: DevLoopState): boolean {
   }
 }
 
-function StackLayout({ onCapabilityClick, activeStage, session }: {
-  onCapabilityClick: (id: DevCapsuleId) => void;
-  activeStage: DevLoopStage;
+/**
+ * CTA chip row — mirrors aigentMe's capsule chip strip.
+ * Each chip activates its capsule layout; pulsing chips indicate
+ * copilot suggestions; a green dot indicates data is present.
+ */
+function CapabilityChipRow({ session, activeCapsuleId, pulsing, pending, onChipClick }: {
   session: DevLoopState;
+  activeCapsuleId: DevCapsuleId | null;
+  pulsing: Partial<Record<DevCapsuleId, boolean>>;
+  pending: Partial<Record<DevCapsuleId, StageProposal>>;
+  onChipClick: (id: DevCapsuleId) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 px-1">
+      {CAPABILITIES.map(cap => {
+        const Icon = cap.icon;
+        const isActive = activeCapsuleId === cap.id;
+        const hasData = capabilityHasData(cap.id, session);
+        const isPulsing = pulsing[cap.id] === true;
+        const hasPending = pending[cap.id] !== undefined;
+
+        return (
+          <button
+            key={cap.id}
+            type="button"
+            onClick={() => onChipClick(cap.id)}
+            className={`
+              relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold
+              whitespace-nowrap transition-all
+              ${isActive ? cap.activeClass : hasData ? cap.hasDataClass : cap.emptyClass}
+              ${isPulsing ? "animate-pulse" : ""}
+            `}
+          >
+            <Icon className={`w-3.5 h-3.5 shrink-0 ${hasData || isActive ? cap.iconActiveClass : cap.iconEmptyClass}`} />
+            <span>{cap.shortLabel}</span>
+            {hasData && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
+            {hasPending && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-slate-900 animate-pulse" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AccordionSection({ title, icon: Icon, defaultOpen, children }: {
+  title: string; icon: typeof Cpu; defaultOpen?: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  return (
+    <div className="rounded-lg bg-slate-800/30 border border-slate-700/30 overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-3 text-left">
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4 text-slate-400" />
+          <span className="text-xs font-semibold text-white">{title}</span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <div className="px-3 pb-3 border-t border-slate-700/30 pt-2">{children}</div>}
+    </div>
+  );
+}
+
+function StackLayout({ session, activeStage, onCapabilityClick, pending }: {
+  session: DevLoopState;
+  activeStage: DevLoopStage;
+  onCapabilityClick: (id: DevCapsuleId) => void;
+  pending: Partial<Record<DevCapsuleId, StageProposal>>;
 }) {
   return (
     <div className="space-y-4">
-      {/* Capability buttons */}
+      {/* Capability cards — larger, with summaries + pending indicators */}
       <div className="space-y-2">
         <div className="text-[10px] text-slate-500 uppercase font-semibold px-1">Capabilities</div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {CAPABILITIES.map(cap => {
+            const Icon = cap.icon;
             const hasData = capabilityHasData(cap.id, session);
+            const hasPending = pending[cap.id] !== undefined;
             return (
               <button
                 key={cap.id}
                 onClick={() => onCapabilityClick(cap.id)}
-                className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${cap.color}`}
+                className={`relative flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
+                  hasData ? cap.hasDataClass : cap.emptyClass
+                } ${hasPending ? "ring-1 ring-amber-500/40" : ""}`}
               >
-                <cap.icon className="w-5 h-5 shrink-0" />
+                <Icon className={`w-5 h-5 shrink-0 ${hasData ? cap.iconActiveClass : cap.iconEmptyClass}`} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-white">{cap.label}</span>
                     {hasData && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
                   </div>
-                  <div className="text-[10px] text-slate-300">{cap.description}</div>
+                  <div className="text-[10px] text-slate-400">
+                    {cap.id === "project-overview" && (session.intent ? session.intent.goal : "No active intent")}
+                    {cap.id === "intent" && (session.intent ? `${session.intent.status} — ${session.intent.goal}` : "Start a new intent")}
+                    {cap.id === "context" && (session.contextPack ? `${session.contextPack.items.length} items assembled` : "Pending intent")}
+                    {cap.id === "gap-analysis" && (session.gapAnalysis ? `${session.gapAnalysis.existing.length} existing · ${session.gapAnalysis.missing.length} missing` : "Pending context")}
+                    {cap.id === "consequence-canvas" && (session.consequenceCanvas ? `${session.consequenceCanvas.shouldHappen.length + session.consequenceCanvas.shouldNeverHappen.length} entries` : "Pending gaps")}
+                    {cap.id === "validation" && (session.validationReport ? session.validationReport.overallVerdict : "Pending implementation")}
+                  </div>
                 </div>
+                {hasPending && (
+                  <span className="absolute -top-1 -right-1 flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold animate-pulse">
+                    Pending
+                  </span>
+                )}
               </button>
             );
           })}
@@ -597,10 +334,10 @@ function StackLayout({ onCapabilityClick, activeStage, session }: {
             const stageIdx = getStageIndex(activeStage);
             const isCurrent = s.id === activeStage;
             const isPast = i < stageIdx;
-            const Icon = s.icon;
+            const SIcon = s.icon;
             return (
               <div key={s.id} className="flex items-center gap-2 py-0.5">
-                <Icon className={`w-3 h-3 ${isCurrent ? "text-green-400" : isPast ? "text-emerald-400/60" : "text-slate-600"}`} />
+                <SIcon className={`w-3 h-3 ${isCurrent ? "text-green-400" : isPast ? "text-emerald-400/60" : "text-slate-600"}`} />
                 <span className={`text-xs ${isCurrent ? "text-green-300 font-semibold" : isPast ? "text-emerald-300/60" : "text-slate-500"}`}>{s.label}</span>
                 {isCurrent && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300">Active</span>}
                 {isPast && <span className="text-[10px] text-emerald-400/50">✓</span>}
@@ -644,7 +381,7 @@ function StackLayout({ onCapabilityClick, activeStage, session }: {
             ))
           ) : (
             <div className="text-xs text-slate-400 py-1">
-              No receipts yet. Receipts are created when capabilities complete — intent captures, gap analyses, validation results are DVN-anchored.
+              No receipts yet. Receipts are created when capabilities complete.
             </div>
           )}
           <div className="flex items-center gap-3 text-[10px] text-slate-500 pt-1 border-t border-slate-700/20">
@@ -696,191 +433,6 @@ function StackLayout({ onCapabilityClick, activeStage, session }: {
   );
 }
 
-function AccordionSection({ title, icon: Icon, defaultOpen, children }: {
-  title: string; icon: typeof Cpu; defaultOpen?: boolean; children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen ?? false);
-  return (
-    <div className="rounded-lg bg-slate-800/30 border border-slate-700/30 overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-3 text-left">
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-semibold text-white">{title}</span>
-        </div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && <div className="px-3 pb-3 border-t border-slate-700/30 pt-2">{children}</div>}
-    </div>
-  );
-}
-
-// ── ICE engine: pending proposal approval card ─────────────────────────────
-// Mirrors aigentMe's artifact-pill approval pattern: the copilot's structured
-// stage proposal renders as an amber card inside the capability capsule it
-// belongs to. Approve commits it to the DevLoopState (and advances the strip
-// when it satisfies the waiting stage); Dismiss drops it — the operator can
-// ask aigentZ to refine and a fresh card replaces it.
-
-function proposalPreviewLines(p: StageProposal): string[] {
-  const d = p.data as Record<string, unknown>;
-  const count = (v: unknown) => (Array.isArray(v) ? v.length : 0);
-  switch (p.kind) {
-    case "intent":
-      return [
-        typeof d.goal === "string" ? `Goal: ${d.goal}` : "",
-        `${count(d.users)} user groups · ${count(d.desiredOutcomes)} outcomes · ${count(d.successCriteria)} success criteria · ${count(d.constraints)} constraints`,
-      ].filter(Boolean);
-    case "context_pack":
-      return [`${count(d.items)} context items proposed`];
-    case "gap_analysis":
-      return [`${count(d.existing)} existing capabilities (reuse/extend) · ${count(d.missing)} to create`];
-    case "consequence_canvas":
-      return [
-        `${count(d.shouldHappen)} should-happen · ${count(d.shouldNeverHappen)} must-never-happen`,
-        typeof d.successState === "string" && d.successState ? `Success state: ${d.successState.slice(0, 140)}${d.successState.length > 140 ? "…" : ""}` : "",
-      ].filter(Boolean);
-    case "implementation_brief":
-      return [typeof d.brief === "string" ? `Brief: ${d.brief.split("\n").find(l => l.trim()) ?? ""} (${d.brief.length.toLocaleString()} chars)` : ""];
-    case "validation_report":
-      return [`${count(d.items)} consequence checks · ${count(d.testingRequirements)} testing requirements`];
-    default:
-      return [];
-  }
-}
-
-const PROPOSAL_KIND_LABEL: Record<StageProposalKind, string> = {
-  intent: "Distilled Intent",
-  context_pack: "Context Pack",
-  gap_analysis: "Gap Report",
-  consequence_canvas: "Consequence Canvas",
-  implementation_brief: "Implementation Package",
-  validation_report: "Validation Report",
-};
-
-function PendingProposalCard({ proposal, onApprove, onDismiss }: {
-  proposal: StageProposal;
-  onApprove: () => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-        <span className="text-[10px] uppercase tracking-wide text-amber-300 font-semibold">
-          Proposed by aigentZ — awaiting your approval
-        </span>
-      </div>
-      <div className="text-xs font-semibold text-white">
-        {PROPOSAL_KIND_LABEL[proposal.kind]}: {proposal.summary}
-      </div>
-      <div className="space-y-0.5">
-        {proposalPreviewLines(proposal).map((line, i) => (
-          <div key={i} className="text-[11px] text-slate-300">{line}</div>
-        ))}
-      </div>
-      <div className="flex items-center gap-2 pt-1">
-        <button
-          onClick={onApprove}
-          className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors font-semibold"
-        >
-          <CheckCircle className="w-3 h-3" />
-          Approve
-        </button>
-        <button
-          onClick={onDismiss}
-          className="text-[10px] px-2.5 py-1 rounded bg-slate-700/40 text-slate-300 border border-slate-600/40 hover:bg-slate-700/70 transition-colors"
-        >
-          Dismiss
-        </button>
-        <span className="text-[10px] text-slate-500 ml-1">
-          or ask aigentZ to refine it — a fresh card replaces this one
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// Capability detail layouts (shown when a capability button is clicked)
-function CapabilityLayout({ capsuleId, onBack, session, onAdvanceStage, pendingProposal, onApproveProposal, onDismissProposal }: {
-  capsuleId: DevCapsuleId;
-  onBack: () => void;
-  session: DevLoopState;
-  onAdvanceStage: () => void;
-  pendingProposal?: StageProposal | null;
-  onApproveProposal?: (capsule: DevCapsuleId) => void;
-  onDismissProposal?: (capsule: DevCapsuleId) => void;
-}) {
-  const cap = CAPABILITIES.find(c => c.id === capsuleId);
-  if (!cap) return null;
-
-  const canAdvanceNow = canAdvance(session);
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
-        >
-          <RotateCcw className="w-3 h-3" />
-          Back to overview
-        </button>
-        <div className="flex items-center gap-2">
-          {canAdvanceNow && (
-            <button
-              onClick={onAdvanceStage}
-              className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
-            >
-              <Play className="w-3 h-3" />
-              Advance
-            </button>
-          )}
-          <cap.icon className="w-5 h-5 text-green-400" />
-          <h3 className="text-sm font-bold text-white">{cap.label}</h3>
-        </div>
-      </div>
-
-      {pendingProposal && onApproveProposal && onDismissProposal && (
-        <PendingProposalCard
-          proposal={pendingProposal}
-          onApprove={() => onApproveProposal(capsuleId)}
-          onDismiss={() => onDismissProposal(capsuleId)}
-        />
-      )}
-
-      {capsuleId === "project-overview" && <ProjectOverviewPanel session={session} />}
-      {capsuleId === "intent" && session.intent && <IntentPanel intent={session.intent} />}
-      {capsuleId === "intent" && !session.intent && (
-        <div className="text-xs text-slate-400 italic py-4 text-center">
-          No intent captured yet. Use the copilot to start a new intent.
-        </div>
-      )}
-      {capsuleId === "context" && session.contextPack && <ContextPackPanel pack={session.contextPack} />}
-      {capsuleId === "context" && !session.contextPack && (
-        <div className="text-xs text-slate-400 italic py-4 text-center">
-          Context pack assembles after intent is refined. Ask aigentZ to assemble context.
-        </div>
-      )}
-      {capsuleId === "gap-analysis" && session.gapAnalysis && <GapAnalysisPanel analysis={session.gapAnalysis} />}
-      {capsuleId === "gap-analysis" && !session.gapAnalysis && (
-        <div className="text-xs text-slate-400 italic py-4 text-center">
-          Gap analysis runs after context pack is assembled. Ask aigentZ to analyze gaps.
-        </div>
-      )}
-      {capsuleId === "consequence-canvas" && session.consequenceCanvas && (
-        <ConsequenceCanvasPanel canvas={session.consequenceCanvas} />
-      )}
-      {capsuleId === "consequence-canvas" && !session.consequenceCanvas && (
-        <div className="text-xs text-slate-400 italic py-4 text-center">
-          Consequence canvas models what should and shouldn&apos;t happen. Ask aigentZ to model consequences.
-        </div>
-      )}
-      {capsuleId === "validation" && <ValidationPanel report={session.validationReport} />}
-    </div>
-  );
-}
-
-// Stub layout for tool modals (Terminal, GitHub, DevTools, Linear)
 function ToolLayout({ toolId, onBack }: { toolId: string; onBack: () => void }) {
   const tool = DEV_QUICK_LINKS.find(l => l.id === toolId);
   const Icon = tool?.icon ?? Terminal;
@@ -890,7 +442,7 @@ function ToolLayout({ toolId, onBack }: { toolId: string; onBack: () => void }) 
         onClick={onBack}
         className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
       >
-        <RotateCcw className="w-3 h-3" />
+        <ArrowRight className="w-3 h-3 rotate-180" />
         Back to overview
       </button>
       <div className="flex items-center gap-2">
@@ -920,8 +472,6 @@ interface DevCommandCenterTabProps {
 }
 
 export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
-  // ICE engine: sessions start clean at intent_capture — the loop is
-  // populated by approving aigentZ's stage proposals, not demo data.
   const [session, setSession] = useState<DevLoopState>(() => createDevLoopSession());
   const [activeLayoutId, setActiveLayoutId] = useState<DevLayoutId>("stack");
   const [activeCapsuleId, setActiveCapsuleId] = useState<DevCapsuleId | null>(null);
@@ -956,11 +506,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     if (capsuleId) engageCapsuleAndMount(capsuleId);
   }, [engageCapsuleAndMount]);
 
-  // ── Copilot-driven suggestions (mirrors aigentMe's suggested-layout
-  // contract). The chat route classifies each turn; hints land here and
-  // pulse the matching chips — explore-strip tools on the right,
-  // capability quick-prompts on the left. Either side's Clear wipes its
-  // own class of suggestions, same as aigentMe.
+  // ── Copilot-driven suggestions
   const [exploreSuggestions, setExploreSuggestions] = useState<ExploreSuggestionMap>({});
   const [capsuleSuggestions, setCapsuleSuggestions] = useState<Partial<Record<DevCapsuleId, boolean>>>({});
 
@@ -969,13 +515,10 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     const caps: Partial<Record<DevCapsuleId, boolean>> = {};
     for (const h of hints) {
       const id = h.layoutId as string;
-      // Explore-strip targets
       if (id === "upload" || id === "download" || id === "terminal" || id === "github" || id === "devtools" || id === "linear") {
         explore[id as ExploreToolId | "upload" | "download"] = true;
-      // Direct dev capsule IDs (from aigent-z layout tags)
       } else if (id === "intent" || id === "context" || id === "gap-analysis" || id === "consequence-canvas" || id === "validation" || id === "project-overview") {
         caps[id as DevCapsuleId] = true;
-      // aigentMe-vocabulary hints translated to dev capabilities
       } else if (id === "brief" || id === "venture-cockpit") {
         caps["project-overview"] = true;
       } else if (id === "decision-board") {
@@ -997,12 +540,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     });
   }, []);
 
-  // ── ICE engine: pending stage proposals (mirrors aigentMe's artifact-
-  // approval pattern). The copilot's stage_data fences arrive here as
-  // structured proposals; each lands as a pending approval card inside
-  // its capability capsule. Pending cards persist across turns until
-  // approved, dismissed, or replaced by a fresh proposal of the same kind
-  // — an empty turn never clobbers an unreviewed artifact.
+  // ── ICE engine: pending stage proposals
   const [pendingProposals, setPendingProposals] = useState<Partial<Record<DevCapsuleId, StageProposal>>>({});
 
   const handleStageProposals = useCallback((proposals: CopilotStageProposal[]) => {
@@ -1018,9 +556,6 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
       }
       return next;
     });
-    // Surface the first proposal: pulse its chip and mount its capsule so
-    // the dev sees the card without hunting for it (containment rule —
-    // the artifact renders inside the capability that produced it).
     const capsule = PROPOSAL_KIND_TO_CAPSULE[typed[0].kind] as DevCapsuleId;
     setCapsuleSuggestions(prev => ({ ...prev, [capsule]: true }));
     engageCapsuleAndMount(capsule);
@@ -1031,9 +566,6 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     if (!proposal) return;
     setSession(s => {
       let next = applyStageProposal(s, proposal);
-      // Auto-advance only when the approved artifact is the one the current
-      // stage was waiting for — approving a cyclical revision of an earlier
-      // stage must not push the strip forward.
       if (STAGE_PROPOSAL_KIND[next.stage] === proposal.kind && canAdvance(next)) {
         next = advanceStage(next);
       }
@@ -1057,9 +589,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     consumeCapsuleSuggestion(capsule);
   }, [consumeCapsuleSuggestion]);
 
-  // Ground context for the copilot — feeds the LLM with current session state.
-  // Includes markdown summaries from the service layer so the LLM can reason
-  // about the full dev loop without needing a separate API call.
+  // Ground context for the copilot
   const copilotGroundContext = useMemo(() => ({
     surface: "dev-command-center",
     activeStage: session.stage,
@@ -1079,14 +609,10 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     consequenceCanvasSummary: session.consequenceCanvas ? buildConsequenceCanvasSummary(session.consequenceCanvas) : null,
     validationSummary: session.validationReport ? buildValidationSummary(session.validationReport) : null,
     implementationPackage: buildImplementationPackage(session) ? "ready" : "incomplete",
-    // Proposals awaiting operator approval — the LLM should remind the
-    // operator about unreviewed cards rather than emit duplicate fences.
     pendingApprovals: Object.values(pendingProposals).map(p => p?.kind).filter(Boolean),
   }), [session, activeLayoutId, activeCapsuleId, pendingProposals]);
 
-  // Quick-prompt chips for the copilot left pane. `highlight` pulses the
-  // chip when the copilot's last turn suggested the matching capability;
-  // clicking consumes that suggestion (mirrors aigentMe's chip contract).
+  // Quick-prompt chips for the copilot left pane
   const copilotQuickPrompts = useMemo((): QuickPrompt[] => [
     {
       label: "New intent",
@@ -1104,6 +630,15 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
       onSelect: () => {
         engageCapsuleAndMount("project-overview");
         consumeCapsuleSuggestion("project-overview");
+      },
+    },
+    {
+      label: "Assemble context",
+      prompt: "Assemble the context pack for the current intent. Identify files, services, and patterns to reuse.",
+      highlight: capsuleSuggestions["context"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("context");
+        consumeCapsuleSuggestion("context");
       },
     },
     {
@@ -1135,13 +670,9 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     },
   ], [engageCapsuleAndMount, capsuleSuggestions, consumeCapsuleSuggestion]);
 
-  // Two-tier routing: on each prompt, classify and log the routing decision
   const handlePrompt = useCallback((prompt: string) => {
     const decision = classifyPromptTier(prompt);
     console.log(`[aigentZ routing] tier=${decision.tier} reason="${decision.reason}" prompt="${prompt.slice(0, 80)}…"`);
-    // Tier 1: handled by SmartTriadCopilotLayer's built-in chat POST
-    // Tier 2 (stub): would route to Claude Code session and await response
-    // For now both tiers flow through the LLM; Claude Code integration is Phase 2
   }, []);
 
   const isToolLayout = activeLayoutId === "terminal" || activeLayoutId === "github" || activeLayoutId === "devtools" || activeLayoutId === "linear";
@@ -1175,33 +706,107 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           <StageStrip stage={session.stage} onStageClick={handleStageClick} />
         </div>
 
-        {/* Scrollable content area */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-16">
+        {/* CTA chip row — mirrors aigentMe's capsule chip strip */}
+        <div className="shrink-0 py-1">
+          <CapabilityChipRow
+            session={session}
+            activeCapsuleId={activeCapsuleId}
+            pulsing={capsuleSuggestions}
+            pending={pendingProposals}
+            onChipClick={(id) => {
+              if (activeCapsuleId === id) {
+                returnToStack();
+              } else {
+                engageCapsuleAndMount(id);
+              }
+              consumeCapsuleSuggestion(id);
+            }}
+          />
+        </div>
+
+        {/* Scrollable content area — capsule layouts or stack */}
+        <div className="flex-1 min-h-0 overflow-hidden">
           {activeLayoutId === "stack" && (
-            <StackLayout
-              onCapabilityClick={engageCapsuleAndMount}
-              activeStage={session.stage}
-              session={session}
-            />
+            <div className="h-full overflow-y-auto px-1 pb-16">
+              <StackLayout
+                session={session}
+                activeStage={session.stage}
+                onCapabilityClick={engageCapsuleAndMount}
+                pending={pendingProposals}
+              />
+            </div>
           )}
-          {isCapsuleLayout && activeCapsuleId && (
-            <CapabilityLayout
-              capsuleId={activeCapsuleId}
-              onBack={returnToStack}
+
+          {isCapsuleLayout && activeCapsuleId === "project-overview" && (
+            <ProjectOverviewLayout
               session={session}
+              onDismiss={returnToStack}
               onAdvanceStage={handleAdvanceStage}
-              pendingProposal={pendingProposals[activeCapsuleId] ?? null}
-              onApproveProposal={handleApproveProposal}
-              onDismissProposal={handleDismissProposal}
+              pendingProposal={pendingProposals["project-overview"] ?? null}
+              onApproveProposal={() => handleApproveProposal("project-overview")}
+              onDismissProposal={() => handleDismissProposal("project-overview")}
+              onNavigateCapsule={engageCapsuleAndMount}
             />
           )}
+          {isCapsuleLayout && activeCapsuleId === "intent" && (
+            <IntentLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["intent"] ?? null}
+              onApproveProposal={() => handleApproveProposal("intent")}
+              onDismissProposal={() => handleDismissProposal("intent")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "context" && (
+            <ContextLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["context"] ?? null}
+              onApproveProposal={() => handleApproveProposal("context")}
+              onDismissProposal={() => handleDismissProposal("context")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "gap-analysis" && (
+            <GapAnalysisLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["gap-analysis"] ?? null}
+              onApproveProposal={() => handleApproveProposal("gap-analysis")}
+              onDismissProposal={() => handleDismissProposal("gap-analysis")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "consequence-canvas" && (
+            <ConsequenceCanvasLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["consequence-canvas"] ?? null}
+              onApproveProposal={() => handleApproveProposal("consequence-canvas")}
+              onDismissProposal={() => handleDismissProposal("consequence-canvas")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "validation" && (
+            <ValidationLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["validation"] ?? null}
+              onApproveProposal={() => handleApproveProposal("validation")}
+              onDismissProposal={() => handleDismissProposal("validation")}
+            />
+          )}
+
           {isToolLayout && (
-            <ToolLayout toolId={activeLayoutId} onBack={returnToStack} />
+            <div className="h-full overflow-y-auto px-1 pb-16">
+              <ToolLayout toolId={activeLayoutId} onBack={returnToStack} />
+            </div>
           )}
         </div>
 
-        {/* Floating explore strip — pinned to bottom of right pane,
-            mirrors aigentMe's ComposeQuickActionsStrip placement. */}
+        {/* Floating explore strip */}
         <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-30">
           <div className="pointer-events-auto">
             <ExploreQuickActionsStrip
