@@ -1850,9 +1850,6 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'PassportRegistryTab' },
       metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
-      get subTabs() {
-        return polityPassportTabsByGroup('registry', 'agentiq-passport-registry');
-      },
     },
     {
       id: 'agentiq-passport-steward',
@@ -2248,9 +2245,6 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'PassportRegistryTab' },
       metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
-      get subTabs() {
-        return polityPassportTabsByGroup('registry', 'agentiq-os-passport-registry');
-      },
     },
     {
       id: 'agentiq-os-passport-steward',

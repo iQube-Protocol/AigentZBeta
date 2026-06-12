@@ -99,6 +99,8 @@ import {
   RotateCcw,
   Trash2,
   Loader2,
+  ShieldCheck,
+  Download,
 } from "lucide-react";
 
 
@@ -918,6 +920,53 @@ export default function SmartWalletDrawer({
       setMintError("Network error — please try again.");
       setMintStatus("error");
     }
+  }, []);
+
+  // PassportQube wallet state
+  interface PassportQubeItem {
+    passportId: string;
+    passportClass: string;
+    passportGrade: string | null;
+    passportStatus: string | null;
+    claimedAt: string | null;
+    claimable: boolean;
+    credential?: Record<string, unknown>;
+  }
+  const [passportQubes, setPassportQubes] = useState<PassportQubeItem[]>([]);
+  const [passportQubesLoading, setPassportQubesLoading] = useState(false);
+  const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== "iqube") return;
+    setPassportQubesLoading(true);
+    const fetchPassports = async () => {
+      try {
+        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+        if (!session?.access_token) { setPassportQubesLoading(false); return; }
+        const res = await fetch("/api/polity-passport/wallet", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const json = await res.json();
+        if (json.ok) setPassportQubes(json.passportQubes ?? []);
+      } catch {
+        // Silent — wallet load is non-blocking
+      } finally {
+        setPassportQubesLoading(false);
+      }
+    };
+    void fetchPassports();
+  }, [activeTab]);
+
+  const handleDownloadVc = useCallback((pq: PassportQubeItem) => {
+    if (!pq.credential) return;
+    const blob = new Blob([JSON.stringify(pq.credential, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `passport-${pq.passportId}.vc.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }, []);
 
   const hasPaidTier = useCallback((content?: SmartContentQube | null): boolean => {
@@ -4242,6 +4291,81 @@ export default function SmartWalletDrawer({
                     >
                       {mintStatus === "staging" ? "Staging…" : "Stage PersonaQube"}
                     </button>
+                  </div>
+                )}
+              </section>
+
+              {/* PassportQube — claimed passport credentials */}
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  PassportQube — Verifiable Credentials
+                </div>
+                {passportQubesLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
+                  </div>
+                ) : passportQubes.length === 0 ? (
+                  <p className="text-xs text-white/40 leading-relaxed">
+                    No passport credentials in your wallet. Claim an approved passport from the Polity Passport Registry.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {passportQubes.map((pq) => (
+                      <div
+                        key={pq.passportId}
+                        className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                            <span className="text-xs font-medium text-emerald-300">
+                              {pq.passportClass === "citizen" ? "Citizen" : "Participant"} Passport
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-white/40 font-mono">
+                            {pq.passportId.slice(0, 16)}…
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-white/50">
+                          <span>Status: <span className="text-emerald-300">{pq.passportStatus}</span></span>
+                          {pq.passportGrade && <span>· Grade: {pq.passportGrade}</span>}
+                          {pq.claimedAt && <span>· Claimed {new Date(pq.claimedAt).toLocaleDateString()}</span>}
+                        </div>
+                        {pq.credential && (
+                          <>
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => setPassportVcExpanded(passportVcExpanded === pq.passportId ? null : pq.passportId)}
+                                className="flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-[10px] text-white/50 hover:bg-white/10 transition-colors"
+                              >
+                                <Eye className="h-3 w-3" />
+                                {passportVcExpanded === pq.passportId ? "Hide VC" : "View VC"}
+                              </button>
+                              <button
+                                onClick={() => handleDownloadVc(pq)}
+                                className="flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-[10px] text-white/50 hover:bg-white/10 transition-colors"
+                              >
+                                <Download className="h-3 w-3" />
+                                Download
+                              </button>
+                            </div>
+                            {passportVcExpanded === pq.passportId && (
+                              <div className="rounded bg-black/30 p-2 max-h-32 overflow-y-auto">
+                                <pre className="text-[9px] text-white/40 leading-relaxed whitespace-pre-wrap">
+                                  {JSON.stringify(pq.credential, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {!pq.claimedAt && pq.claimable && (
+                          <p className="text-[10px] text-amber-300">
+                            Claimable — visit the Polity Passport Registry to claim this credential.
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </section>
