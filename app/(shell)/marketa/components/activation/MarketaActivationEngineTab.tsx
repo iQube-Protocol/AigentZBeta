@@ -8,6 +8,7 @@ import {
   Bot,
   Download,
   FileJson,
+  FileText,
   Gavel,
   Link2,
   Loader2,
@@ -19,6 +20,7 @@ import {
   Upload,
 } from "lucide-react";
 import type { CandidateAgent, CandidateOpportunity } from "@/services/marketa/activation/types";
+import { STRATEGIC_LANES } from "@/services/marketa/activation/types";
 import { attributeRevenue } from "@/services/marketa/activation/normalizers";
 
 interface CandidateListResponse {
@@ -104,9 +106,28 @@ export function MarketaActivationEngineTab() {
   const [discovering, setDiscovering] = useState(false);
   const [discoverNote, setDiscoverNote] = useState<string | null>(null);
   const [templates, setTemplates] = useState<
-    Array<{ id: string; name: string; strategicLane: string; enabled: boolean }>
+    Array<{
+      id: string;
+      name: string;
+      strategicLane: string;
+      subjectTemplate: string;
+      bodyTemplate: string;
+      cta: string;
+      enabled: boolean;
+    }>
   >([]);
   const [templateId, setTemplateId] = useState("");
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templateBusy, setTemplateBusy] = useState(false);
+  // "" = closed, "new" = create form, otherwise the template id being edited
+  const [editingTemplateId, setEditingTemplateId] = useState("");
+  const [tplForm, setTplForm] = useState({
+    name: "",
+    strategicLane: "any",
+    subjectTemplate: "",
+    bodyTemplate: "",
+    cta: "",
+  });
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "needs_review" | "exec" | "vulnerable" | "legal">(
     "all",
@@ -131,26 +152,21 @@ export function MarketaActivationEngineTab() {
     void loadCandidates();
   }, [loadCandidates]);
 
-  // Outreach template library — loaded once; empty list (table not yet
-  // migrated or nothing curated) means the built-in draft copy is used.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/marketa/activation/templates", { cache: "no-store" });
-        const json = (await res.json()) as {
-          ok: boolean;
-          templates?: Array<{ id: string; name: string; strategicLane: string; enabled: boolean }>;
-        };
-        if (!cancelled && json.ok) setTemplates((json.templates ?? []).filter(t => t.enabled));
-      } catch {
-        // built-in fallback covers drafting; no error surface needed
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  // Outreach template library — empty list (table not yet migrated or
+  // nothing curated) means the built-in draft copy is used.
+  const loadTemplates = useCallback(async () => {
+    try {
+      const res = await fetch("/api/marketa/activation/templates", { cache: "no-store" });
+      const json = (await res.json()) as { ok: boolean; templates?: typeof templates };
+      if (json.ok) setTemplates(json.templates ?? []);
+    } catch {
+      // built-in fallback covers drafting; no error surface needed
+    }
   }, []);
+
+  useEffect(() => {
+    void loadTemplates();
+  }, [loadTemplates]);
 
   // Consents are per-candidate decisions — clear them on selection change.
   useEffect(() => {
@@ -484,6 +500,69 @@ export function MarketaActivationEngineTab() {
     }
   };
 
+  const startTemplateEdit = (id: string) => {
+    if (id === "new") {
+      setTplForm({ name: "", strategicLane: "any", subjectTemplate: "", bodyTemplate: "", cta: "" });
+    } else {
+      const template = templates.find(t => t.id === id);
+      if (!template) return;
+      setTplForm({
+        name: template.name,
+        strategicLane: template.strategicLane,
+        subjectTemplate: template.subjectTemplate,
+        bodyTemplate: template.bodyTemplate,
+        cta: template.cta,
+      });
+    }
+    setEditingTemplateId(id);
+  };
+
+  const saveTemplate = async () => {
+    setTemplateBusy(true);
+    setError(null);
+    try {
+      const isNew = editingTemplateId === "new";
+      const res = await fetch(
+        isNew
+          ? "/api/marketa/activation/templates"
+          : `/api/marketa/activation/templates/${editingTemplateId}`,
+        {
+          method: isNew ? "POST" : "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(tplForm),
+        },
+      );
+      const json = (await res.json()) as { ok: boolean; error?: string; detail?: string };
+      if (!res.ok || !json.ok) throw new Error(json.detail || json.error || `HTTP ${res.status}`);
+      setEditingTemplateId("");
+      await loadTemplates();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
+
+  const toggleTemplate = async (id: string, enabled: boolean) => {
+    setTemplateBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/marketa/activation/templates/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const json = (await res.json()) as { ok: boolean; error?: string; detail?: string };
+      if (!res.ok || !json.ok) throw new Error(json.detail || json.error || `HTTP ${res.status}`);
+      if (!enabled && templateId === id) setTemplateId("");
+      await loadTemplates();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
+
   const importCandidates = async (file: File | null) => {
     if (!file) return;
     setImporting(true);
@@ -593,6 +672,15 @@ export function MarketaActivationEngineTab() {
               <Radar className="w-4 h-4 mr-2" /> Discover
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              className={`bg-slate-800/50 border-white/20 text-slate-200 shrink-0 ${templatesOpen ? "border-pink-400/50 text-pink-200" : ""}`}
+              title="Manage outreach templates — per-lane subject/body copy used by the Draft action"
+              onClick={() => setTemplatesOpen(open => !open)}
+            >
+              <FileText className="w-4 h-4 mr-2" /> Templates
+            </Button>
+            <Button
               size="sm"
               className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm shrink-0"
               title="Create a sample candidate pre-filled with demo data (including an example agent card URL) so you can walk the full pipeline"
@@ -647,6 +735,149 @@ export function MarketaActivationEngineTab() {
               </Button>
             </div>
             {discoverNote && <p className="mt-2 text-[11px] text-slate-400">{discoverNote}</p>}
+          </div>
+        )}
+        {templatesOpen && (
+          <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-slate-400">
+                Outreach templates per strategic lane — the Draft action auto-picks by the
+                candidate&apos;s lane, falling back to the built-in copy when nothing matches.
+              </p>
+              {editingTemplateId === "" && (
+                <Button
+                  size="sm"
+                  className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm shrink-0"
+                  title="Create a new outreach template"
+                  onClick={() => startTemplateEdit("new")}
+                  disabled={templateBusy}
+                >
+                  <Plus className="w-3 h-3 mr-1" /> New template
+                </Button>
+              )}
+            </div>
+            {templates.length === 0 && editingTemplateId === "" && (
+              <p className="text-[11px] text-slate-500">
+                No templates yet — drafts use the built-in copy. (If creating fails with a
+                table-missing error, the templates migration hasn&apos;t been run in Supabase.)
+              </p>
+            )}
+            {editingTemplateId === "" &&
+              templates.map(template => (
+                <div
+                  key={template.id}
+                  className="flex items-center gap-2 rounded bg-slate-900/50 border border-slate-700/60 px-2 py-1.5"
+                >
+                  <span className={`text-xs ${template.enabled ? "text-slate-200" : "text-slate-500 line-through"}`}>
+                    {template.name}
+                  </span>
+                  <Badge className="bg-slate-700/40 text-slate-300 border-slate-600/40 whitespace-nowrap">
+                    {formatLabel(template.strategicLane)}
+                  </Badge>
+                  <span className="flex-1" />
+                  <label className="flex items-center gap-1 text-[11px] text-slate-400 cursor-pointer" title="Disabled templates are excluded from the Draft picker and auto-selection">
+                    <input
+                      type="checkbox"
+                      checked={template.enabled}
+                      onChange={event => void toggleTemplate(template.id, event.target.checked)}
+                      disabled={templateBusy}
+                    />
+                    enabled
+                  </label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-slate-800/50 border-white/20 text-slate-200 h-6 px-2 text-[11px]"
+                    onClick={() => startTemplateEdit(template.id)}
+                    disabled={templateBusy}
+                  >
+                    Edit
+                  </Button>
+                </div>
+              ))}
+            {editingTemplateId !== "" && (
+              <div className="space-y-2 rounded bg-slate-900/50 border border-slate-700/60 p-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={tplForm.name}
+                    onChange={event => setTplForm(form => ({ ...form, name: event.target.value }))}
+                    placeholder="Template name"
+                    className="flex-1 min-w-0 rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
+                  />
+                  <select
+                    value={tplForm.strategicLane}
+                    onChange={event =>
+                      setTplForm(form => ({ ...form, strategicLane: event.target.value }))
+                    }
+                    title="Strategic lane this template targets — 'Any lane' is the catch-all"
+                    className="rounded bg-slate-900/70 border border-slate-700 px-1.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-slate-500"
+                  >
+                    <option value="any">Any lane</option>
+                    {STRATEGIC_LANES.map(lane => (
+                      <option key={lane} value={lane}>
+                        {formatLabel(lane)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  value={tplForm.subjectTemplate}
+                  onChange={event =>
+                    setTplForm(form => ({ ...form, subjectTemplate: event.target.value }))
+                  }
+                  placeholder="Subject — e.g. Explore Polity Participant activation for {{operator}}"
+                  className="w-full rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
+                />
+                <textarea
+                  value={tplForm.bodyTemplate}
+                  onChange={event =>
+                    setTplForm(form => ({ ...form, bodyTemplate: event.target.value }))
+                  }
+                  placeholder="Body — placeholders are substituted per candidate at draft time"
+                  rows={8}
+                  className="w-full rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500 font-mono"
+                />
+                <input
+                  type="text"
+                  value={tplForm.cta}
+                  onChange={event => setTplForm(form => ({ ...form, cta: event.target.value }))}
+                  placeholder="CTA (optional)"
+                  className="w-full rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Placeholders: {"{{operator}} {{candidate_name}} {{primary_lane}} {{capabilities_bullets}} {{legal_line}} {{mobility_line}} {{angle_note}}"}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm"
+                    onClick={() => void saveTemplate()}
+                    disabled={
+                      templateBusy ||
+                      !tplForm.name.trim() ||
+                      !tplForm.subjectTemplate.trim() ||
+                      !tplForm.bodyTemplate.trim()
+                    }
+                  >
+                    {templateBusy ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : null}
+                    {editingTemplateId === "new" ? "Create template" : "Save changes"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-slate-800/50 border-white/20 text-slate-200"
+                    onClick={() => setEditingTemplateId("")}
+                    disabled={templateBusy}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -857,7 +1088,7 @@ export function MarketaActivationEngineTab() {
                   )}{" "}
                   Passport
                 </Button>
-                {templates.length > 0 && (
+                {templates.some(template => template.enabled) && (
                   <select
                     value={templateId}
                     onChange={event => setTemplateId(event.target.value)}
@@ -865,11 +1096,13 @@ export function MarketaActivationEngineTab() {
                     className="rounded bg-slate-900/70 border border-slate-700 px-1.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-slate-500 shrink-0"
                   >
                     <option value="">Auto (lane / built-in)</option>
-                    {templates.map(template => (
-                      <option key={template.id} value={template.id}>
-                        {template.name} ({formatLabel(template.strategicLane)})
-                      </option>
-                    ))}
+                    {templates
+                      .filter(template => template.enabled)
+                      .map(template => (
+                        <option key={template.id} value={template.id}>
+                          {template.name} ({formatLabel(template.strategicLane)})
+                        </option>
+                      ))}
                   </select>
                 )}
                 <Button
