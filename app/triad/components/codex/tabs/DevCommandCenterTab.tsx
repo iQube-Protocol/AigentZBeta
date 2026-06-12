@@ -968,11 +968,13 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     const caps: Partial<Record<DevCapsuleId, boolean>> = {};
     for (const h of hints) {
       const id = h.layoutId as string;
-      // Direct explore-strip targets (upload/download today; terminal /
-      // github / devtools / linear once the chat route learns dev ids).
+      // Explore-strip targets
       if (id === "upload" || id === "download" || id === "terminal" || id === "github" || id === "devtools" || id === "linear") {
         explore[id as ExploreToolId | "upload" | "download"] = true;
-      // aigentMe-vocabulary hints translated to dev capabilities.
+      // Direct dev capsule IDs (from aigent-z layout tags)
+      } else if (id === "intent" || id === "context" || id === "gap-analysis" || id === "consequence-canvas" || id === "validation" || id === "project-overview") {
+        caps[id as DevCapsuleId] = true;
+      // aigentMe-vocabulary hints translated to dev capabilities
       } else if (id === "brief" || id === "venture-cockpit") {
         caps["project-overview"] = true;
       } else if (id === "decision-board") {
