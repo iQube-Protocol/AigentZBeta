@@ -137,6 +137,10 @@ export const PASSIVE_SURFACE_VERBS: ReadonlySet<IQubeAgentAction> = new Set([
  * `record_receipt` is mutating in the sense that it writes a passive log
  * entry, but is treated as passive at the surface (the meaningful mutation
  * already happened in the underlying handler).
+ *
+ * `audit_state` is mutating because its internal action (`disclosure`)
+ * routes through the discloseCredential path — auth-requiring and
+ * receipt-bearing — even though the card transport for the verb is GET.
  */
 export const MUTATING_SURFACE_VERBS: ReadonlySet<IQubeAgentAction> = new Set([
   'request_access',
@@ -148,6 +152,7 @@ export const MUTATING_SURFACE_VERBS: ReadonlySet<IQubeAgentAction> = new Set([
   'propose_update',
   'revoke_access',
   'record_receipt',
+  'audit_state',
 ]);
 
 // ── derived helpers ───────────────────────────────────────────────────────
