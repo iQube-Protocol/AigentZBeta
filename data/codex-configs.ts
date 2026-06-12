@@ -2894,8 +2894,8 @@ export const METAME_CODEX: CodexConfig = {
 
     // ── aigentZ group (first-class, activation-gated) ────────────────────────
     // The Development Command Center as a top-level metaMe menu item.
-    // Gated by the 'aigent-z' activation; single tab so the sub-menu row
-    // auto-hides — same screen-space treatment as the aigentMe tab.
+    // Gated by the 'aigent-z' activation. Multiple tabs so the sub-menu row
+    // renders, in line with aigentMe — additional tab content TBD.
     {
       id: 'metame-agentz-command-center',
       label: 'Command Center',
@@ -2906,6 +2906,23 @@ export const METAME_CODEX: CodexConfig = {
       type: 'static',
       config: { component: 'DevCommandCenterTab', props: {} },
       metadata: { icon: 'Cpu', description: 'aigentZ Development Command Center — consequence engineering workflow', color: 'green' },
+    },
+    {
+      id: 'metame-agentz-sessions',
+      label: 'Sessions',
+      slug: 'aigent-z-sessions',
+      enabled: true,
+      group: 'agentz',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'aigentZ Sessions',
+          description: 'Dev loop session history — stub. Persisted ICE sessions (intents, context packs, gap reports, consequence canvases, validation reports) land here when Phase 2 session persistence ships.',
+        },
+      },
+      metadata: { icon: 'History', description: 'Dev loop session history — placeholder until Phase 2 session persistence', color: 'green' },
     },
 
     // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
