@@ -103,12 +103,26 @@ function collectAllFiles(): Array<{ packName: string; relPath: string; absPath: 
   return entries;
 }
 
+// Common query words that would otherwise dominate the substring-count score
+// ("what are DiDQubes" must rank on "didqubes", not on "what"/"are").
+const STOPWORDS = new Set([
+  'the', 'and', 'are', 'for', 'with', 'that', 'this', 'what', 'when', 'where',
+  'which', 'who', 'how', 'why', 'does', 'can', 'you', 'your', 'about', 'tell',
+  'show', 'give', 'list', 'have', 'has', 'was', 'were', 'will', 'their', 'them',
+  'they', 'there', 'from', 'into', 'any', 'all', 'our', 'use', 'used', 'using',
+]);
+
 /** Keyword search across both packs. */
 export function searchCodex(query: string, limit = 6): SearchResult[] {
-  const terms = query
+  const rawTerms = query
     .toLowerCase()
-    .split(/\s+/)
-    .filter((t) => t.length > 2);
+    .split(/[^a-z0-9_-]+/)
+    .filter((t) => t.length > 2 && !STOPWORDS.has(t));
+
+  // Fold trailing plural 's' so "didqubes" also matches "didqube".
+  const terms = rawTerms.map((t) =>
+    t.length > 4 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t,
+  );
 
   if (terms.length === 0) return [];
 
@@ -131,7 +145,9 @@ export function searchCodex(query: string, limit = 6): SearchResult[] {
     if (f.relPath.includes('/COMMITS/') && isDeployCommit(content)) continue;
 
     const lower = content.toLowerCase();
-    const score = terms.reduce((acc, t) => acc + (lower.split(t).length - 1), 0);
+    // Weight occurrences by term length so distinctive terms ("didqube")
+    // outrank short generic ones that survive the stopword filter.
+    const score = terms.reduce((acc, t) => acc + (lower.split(t).length - 1) * t.length, 0);
     if (score === 0) continue;
 
     const lines = content.split('\n');

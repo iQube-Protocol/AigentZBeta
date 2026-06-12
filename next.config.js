@@ -30,6 +30,13 @@ const nextConfig = {
         "./docs/iqube-score-derivation.md",
         "./codexes/packs/agentiq/updates/**/*.md",
       ],
+      // Copilot chat routes read the aigency + agentiq packs at runtime via
+      // services/knowledge/agentiqPackSearch (aigent-z platform knowledge and
+      // the AgentiQ cartridge copilot). Without these entries the Lambda
+      // bundle ships without the pack files and searchCodex returns nothing —
+      // the copilot then answers "[NOT DOCUMENTED]" for documented topics.
+      "/api/codex/chat": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
+      "/api/codex/chat/aigentiq": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
     },
   },
   transpilePackages: [
