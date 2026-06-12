@@ -30,12 +30,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
     }
 
-    const { data, error } = await admin
+    // credential_claimed_at ships in migration 20260612100000 — fall back to
+    // the legacy column set (all passports read as unclaimed) until it runs.
+    let { data, error } = await admin
       .from('polity_passport_records')
       .select(
         'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at',
       )
       .eq('persona_id', persona.personaId);
+
+    if (error && error.message.includes('credential_claimed_at')) {
+      ({ data, error } = await admin
+        .from('polity_passport_records')
+        .select(
+          'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked',
+        )
+        .eq('persona_id', persona.personaId));
+    }
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -44,7 +55,7 @@ export async function GET(req: NextRequest) {
     const host = req.nextUrl.origin;
     const passportQubes = (data ?? []).map((row) => {
       const record = row as unknown as PassportRecordRow;
-      const claimedAt = (row as Record<string, unknown>).credential_claimed_at as string | null;
+      const claimedAt = ((row as Record<string, unknown>).credential_claimed_at as string | undefined) ?? null;
       const claimCheck = isClaimable(record);
       return {
         passportId: record.passport_id,

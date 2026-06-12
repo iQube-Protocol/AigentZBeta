@@ -27,24 +27,42 @@ export const dynamic = 'force-dynamic';
 
 // persona_id is T0 — selected for the server-side ownership gate on POST
 // only; it never serialises into the credential or any response body.
+// credential_claimed_at ships in migration 20260612100000 — until the
+// operator runs it, fall back to the legacy column set so the public
+// credential GET (live since Phase A) keeps working.
 const SELECT_COLS =
   'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at, persona_id';
+const SELECT_COLS_LEGACY =
+  'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, persona_id';
+
+function isMissingClaimColumn(message: string | undefined) {
+  return !!message && message.includes('credential_claimed_at');
+}
 
 async function loadAndBuild(passportId: string, admin: ReturnType<typeof getSupabaseServer>, host: string) {
-  const { data, error } = await admin!
+  let migrated = true;
+  let { data, error } = await admin!
     .from('polity_passport_records')
     .select(SELECT_COLS)
     .eq('passport_id', passportId)
     .maybeSingle();
+  if (error && isMissingClaimColumn(error.message)) {
+    migrated = false;
+    ({ data, error } = await admin!
+      .from('polity_passport_records')
+      .select(SELECT_COLS_LEGACY)
+      .eq('passport_id', passportId)
+      .maybeSingle());
+  }
   if (error) return { err: NextResponse.json({ ok: false, error: error.message }, { status: 500 }) };
   if (!data) return { err: NextResponse.json({ ok: false, error: 'Passport not found' }, { status: 404 }) };
 
-  const record = data as unknown as PassportRecordRow & { credential_claimed_at: string | null };
+  const record = data as unknown as PassportRecordRow & { credential_claimed_at?: string | null };
   const claim = isClaimable(record);
   if (!claim.claimable) {
     return { err: NextResponse.json({ ok: false, error: 'Passport not claimable', reason: claim.reason }, { status: 409 }) };
   }
-  return { record, credential: buildPassportCredential(record, host) };
+  return { record, migrated, credential: buildPassportCredential(record, host) };
 }
 
 export async function GET(
@@ -104,6 +122,17 @@ export async function POST(
       return NextResponse.json(
         { ok: false, error: 'Passport is not held by the active persona' },
         { status: 403 },
+      );
+    }
+
+    if (!result.migrated) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Claim storage not migrated',
+          detail: 'Run migration 20260612100000_passport_credential_claimed.sql in Supabase to enable passport claiming.',
+        },
+        { status: 503 },
       );
     }
 
