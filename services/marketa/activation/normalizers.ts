@@ -271,6 +271,44 @@ export function rollUpRevenue(opportunities: CandidateOpportunity[]) {
   };
 }
 
+export interface RevenueAttributionBucket {
+  key: string;
+  opportunityCount: number;
+  pipeline: number;
+  closed: number;
+  mrr: number;
+}
+
+/**
+ * Per-lane / per-source revenue attribution: groups each candidate's
+ * rolled-up revenueTracking by its primary strategic lane (first lane,
+ * 'unassigned' when none) and by its sourceType. Buckets with no revenue
+ * activity are dropped; results sort by total attributed value descending.
+ */
+export function attributeRevenue(
+  candidates: Array<Pick<CandidateAgent, 'strategicLanes' | 'sourceType' | 'revenueTracking'>>,
+): { byLane: RevenueAttributionBucket[]; bySource: RevenueAttributionBucket[] } {
+  const accumulate = (keyOf: (c: (typeof candidates)[number]) => string) => {
+    const buckets = new Map<string, RevenueAttributionBucket>();
+    for (const candidate of candidates) {
+      const key = keyOf(candidate);
+      const bucket = buckets.get(key) ?? { key, opportunityCount: 0, pipeline: 0, closed: 0, mrr: 0 };
+      bucket.opportunityCount += candidate.revenueTracking.opportunityCount;
+      bucket.pipeline += candidate.revenueTracking.estimatedPipelineValue;
+      bucket.closed += candidate.revenueTracking.closedCleanRevenue;
+      bucket.mrr += candidate.revenueTracking.recurringMonthlyRevenue ?? 0;
+      buckets.set(key, bucket);
+    }
+    return Array.from(buckets.values())
+      .filter((bucket) => bucket.opportunityCount > 0 || bucket.pipeline > 0 || bucket.closed > 0 || bucket.mrr > 0)
+      .sort((a, b) => (b.pipeline + b.closed + b.mrr) - (a.pipeline + a.closed + a.mrr));
+  };
+  return {
+    byLane: accumulate((candidate) => candidate.strategicLanes[0] ?? 'unassigned'),
+    bySource: accumulate((candidate) => candidate.sourceType || 'other'),
+  };
+}
+
 export function dbToCandidate(row: Record<string, unknown>): CandidateAgent {
   return {
     id: asString(row.id),

@@ -303,3 +303,25 @@ describe('outreach template library', () => {
     expect(() => outreachTemplateInputToDb({ name: 'n', subjectTemplate: 's' })).toThrow(/subject and body/i);
   });
 });
+
+describe('revenue attribution', () => {
+  it('groups candidate roll-ups by primary lane and source, dropping empty buckets', async () => {
+    const { attributeRevenue } = await import('@/services/marketa/activation/normalizers');
+    const cand = (
+      lanes: string[],
+      sourceType: string,
+      tracking: { opportunityCount: number; estimatedPipelineValue: number; closedCleanRevenue: number; recurringMonthlyRevenue: number },
+    ) => ({ strategicLanes: lanes, sourceType, revenueTracking: { ...tracking, revenueAttributionNotes: '' } });
+    const { byLane, bySource } = attributeRevenue([
+      cand(['founder_operator_enablement'], 'a2a_card', { opportunityCount: 2, estimatedPipelineValue: 500, closedCleanRevenue: 100, recurringMonthlyRevenue: 0 }),
+      cand(['founder_operator_enablement'], 'mcp_registry', { opportunityCount: 1, estimatedPipelineValue: 0, closedCleanRevenue: 0, recurringMonthlyRevenue: 49 }),
+      cand([], 'manual', { opportunityCount: 1, estimatedPipelineValue: 250, closedCleanRevenue: 0, recurringMonthlyRevenue: 0 }),
+      cand(['dormant_lane'], 'manual', { opportunityCount: 0, estimatedPipelineValue: 0, closedCleanRevenue: 0, recurringMonthlyRevenue: 0 }),
+    ] as never);
+
+    expect(byLane.map(b => b.key)).toEqual(['founder_operator_enablement', 'unassigned']); // dormant dropped, sorted by value
+    expect(byLane[0]).toMatchObject({ opportunityCount: 3, pipeline: 500, closed: 100, mrr: 49 });
+    expect(bySource.map(b => b.key)).toEqual(['a2a_card', 'manual', 'mcp_registry']);
+    expect(bySource.find(b => b.key === 'mcp_registry')).toMatchObject({ mrr: 49, pipeline: 0 });
+  });
+});

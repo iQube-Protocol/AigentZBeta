@@ -28,7 +28,7 @@ the operator can read off the cartridge.
 | Outreach **reply tracked** | **shipped 2026-06-11 (manual flip)** — `{ action: "mark_responded" }` + "Mark responded" button flips sent → responded. Automated inbound reply ingestion (webhook) NOT BUILT |
 | Opportunity logged (`marketa_candidate_opportunities` table) | **shipped 2026-06-11** — GET/POST/PATCH at `/api/marketa/activation/candidates/[id]/opportunities` + scorecard panel (add / advance / reject through proposed→approved→active→completed) |
 | Revenue closed | **shipped 2026-06-11** — mechanical roll-up on every opportunity change: open opps → `estimatedPipelineValue`, completed → `closedCleanRevenue`; rejected counts nowhere |
-| Revenue attributed (per source, per lane) | partial — cartridge top metrics show Pipeline value + Closed revenue across all candidates; per-source/per-lane attribution NOT BUILT |
+| Revenue attributed (per source, per lane) | **shipped 2026-06-12** — `attributeRevenue` groups each candidate's roll-up by primary strategic lane and by discovery source; two attribution tables (Pipeline / MRR / Closed) render under the cartridge metrics whenever there is revenue activity |
 | Activation events audit | shipped end-to-end (opportunity_created / opportunity_updated included) |
 
 ## Gap analysis — what blocks "operational" today
