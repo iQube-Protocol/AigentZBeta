@@ -1286,6 +1286,25 @@ export function MarketaActivationEngineTab() {
                     >
                       {formatLabel(selected.passportIntegration.passportApplicationStatus)}
                     </Badge>
+                    {["submitted", "pending_approval"].includes(
+                      selected.passportIntegration.passportApplicationStatus,
+                    ) && (
+                      <span
+                        className="text-[11px] text-amber-300/90"
+                        title="The application is in the Bureau queue — a human steward must approve it (Polity Passport → Steward, admin only). This card re-syncs automatically when you select it."
+                      >
+                        → awaiting steward approval
+                      </span>
+                    )}
+                    {selected.passportIntegration.passportApplicationStatus ===
+                      "needs_more_information" && (
+                      <span
+                        className="text-[11px] text-amber-300/90"
+                        title="A steward requested more information — review the application in the Steward queue"
+                      >
+                        → steward requested more info
+                      </span>
+                    )}
                     {selected.passportIntegration.participantPassportId ? (
                       <>
                         <span className="text-slate-600">
