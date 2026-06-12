@@ -22,6 +22,7 @@ import {
 import type { CandidateAgent, CandidateOpportunity } from "@/services/marketa/activation/types";
 import { STRATEGIC_LANES } from "@/services/marketa/activation/types";
 import { attributeRevenue } from "@/services/marketa/activation/normalizers";
+import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 
 interface CandidateListResponse {
   ok: boolean;
@@ -100,6 +101,11 @@ export function MarketaActivationEngineTab() {
   const [outreachSubject, setOutreachSubject] = useState("");
   const [outreachBody, setOutreachBody] = useState("");
   const [sendVia, setSendVia] = useState<"mailjet" | "gmail">("mailjet");
+  // Gmail 1:1 sends ride the operator's connected Google account — the
+  // route requires a personaId to resolve the OAuth token (same session
+  // persona source as BoundedDelegationTab).
+  const { sessionPersonas } = useSupabaseSessionPersonas();
+  const operatorPersonaId = sessionPersonas[0]?.id ?? "";
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [discoverKind, setDiscoverKind] = useState<"a2a_card" | "mcp_registry">("a2a_card");
@@ -1605,7 +1611,8 @@ export function MarketaActivationEngineTab() {
                         actionId === `outreach:${selected.id}` ||
                         !outreachTo.includes("@") ||
                         !outreachSubject.trim() ||
-                        !outreachBody.trim()
+                        !outreachBody.trim() ||
+                        (sendVia === "gmail" && !operatorPersonaId)
                       }
                       onClick={() =>
                         runCandidateAction(selected.id, "outreach", {
@@ -1615,6 +1622,7 @@ export function MarketaActivationEngineTab() {
                           subject: outreachSubject.trim(),
                           body: outreachBody.trim(),
                           sendVia,
+                          ...(sendVia === "gmail" ? { personaId: operatorPersonaId } : {}),
                         })
                       }
                     >
@@ -1626,6 +1634,12 @@ export function MarketaActivationEngineTab() {
                       Send via {sendVia === "gmail" ? "Gmail" : "Mailjet"}
                     </Button>
                   </div>
+                  {sendVia === "gmail" && !operatorPersonaId && (
+                    <p className="text-[11px] text-amber-300/90">
+                      Gmail send needs an active session persona with a connected Google account —
+                      none detected in this session.
+                    </p>
+                  )}
                 </section>
               )}
               {selected.outreachStatus === "sent" && (
