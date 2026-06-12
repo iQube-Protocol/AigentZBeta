@@ -325,3 +325,26 @@ describe('revenue attribution', () => {
     expect(bySource.find(b => b.key === 'mcp_registry')).toMatchObject({ mrr: 49, pipeline: 0 });
   });
 });
+
+describe('inbound reply parsing', () => {
+  it('extracts the human sender from From, preferring it over envelope Sender', async () => {
+    const { extractSenderEmail } = await import('@/services/marketa/activation/inboundReply');
+    expect(
+      extractSenderEmail({ From: 'Atlas Ops <Ops@AtlasLabs.example.com>', Sender: 'bounce@mailer.example.com' }),
+    ).toBe('ops@atlaslabs.example.com');
+    expect(extractSenderEmail({ Sender: 'person@example.com' })).toBe('person@example.com');
+    expect(extractSenderEmail({ From: 'no email here' })).toBeNull();
+    expect(extractSenderEmail(null)).toBeNull();
+  });
+
+  it('summarizes a reply from subject + first non-empty text line, capped', async () => {
+    const { summarizeReply } = await import('@/services/marketa/activation/inboundReply');
+    expect(
+      summarizeReply({ Subject: 'Re: Explore activation', 'Text-part': '\n\nYes, interested!\nSent from my phone' }),
+    ).toBe('Re: Explore activation — Yes, interested!');
+    expect(summarizeReply({})).toBe('');
+    const long = summarizeReply({ Subject: 'x'.repeat(300) });
+    expect(long.length).toBe(240);
+    expect(long.endsWith('...')).toBe(true);
+  });
+});
