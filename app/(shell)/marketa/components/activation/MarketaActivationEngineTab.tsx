@@ -102,6 +102,10 @@ export function MarketaActivationEngineTab() {
   const [discoverUrl, setDiscoverUrl] = useState("");
   const [discovering, setDiscovering] = useState(false);
   const [discoverNote, setDiscoverNote] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<
+    Array<{ id: string; name: string; strategicLane: string; enabled: boolean }>
+  >([]);
+  const [templateId, setTemplateId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "needs_review" | "exec" | "vulnerable" | "legal">(
     "all",
@@ -125,6 +129,27 @@ export function MarketaActivationEngineTab() {
   useEffect(() => {
     void loadCandidates();
   }, [loadCandidates]);
+
+  // Outreach template library — loaded once; empty list (table not yet
+  // migrated or nothing curated) means the built-in draft copy is used.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/marketa/activation/templates", { cache: "no-store" });
+        const json = (await res.json()) as {
+          ok: boolean;
+          templates?: Array<{ id: string; name: string; strategicLane: string; enabled: boolean }>;
+        };
+        if (!cancelled && json.ok) setTemplates((json.templates ?? []).filter(t => t.enabled));
+      } catch {
+        // built-in fallback covers drafting; no error surface needed
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Consents are per-candidate decisions — clear them on selection change.
   useEffect(() => {
@@ -794,12 +819,33 @@ export function MarketaActivationEngineTab() {
                   )}{" "}
                   Passport
                 </Button>
+                {templates.length > 0 && (
+                  <select
+                    value={templateId}
+                    onChange={event => setTemplateId(event.target.value)}
+                    title="Outreach template for Draft — Auto picks the first enabled template matching the candidate's lane, falling back to the built-in copy"
+                    className="rounded bg-slate-900/70 border border-slate-700 px-1.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-slate-500 shrink-0"
+                  >
+                    <option value="">Auto (lane / built-in)</option>
+                    {templates.map(template => (
+                      <option key={template.id} value={template.id}>
+                        {template.name} ({formatLabel(template.strategicLane)})
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
                   className="bg-slate-800/50 border-white/20 text-slate-200 shrink-0"
                   title="Draft a human-approved outreach email — nothing is ever sent automatically"
-                  onClick={() => runCandidateAction(selected.id, "outreach")}
+                  onClick={() =>
+                    runCandidateAction(
+                      selected.id,
+                      "outreach",
+                      templateId ? { templateId } : undefined,
+                    )
+                  }
                   disabled={actionId === `outreach:${selected.id}`}
                 >
                   {actionId === `outreach:${selected.id}` ? (
