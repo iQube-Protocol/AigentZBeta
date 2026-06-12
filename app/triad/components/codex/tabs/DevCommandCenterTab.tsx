@@ -31,14 +31,17 @@ import {
   Cpu, Target, FileSearch, AlertTriangle, CheckCircle,
   ChevronDown, Package, Layers, ArrowRight,
   Terminal, GitBranch, Wrench, BarChart3,
-  Upload, Download, RotateCcw,
+  RotateCcw,
 } from "lucide-react";
-import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+import { SmartTriadCopilotLayer, type SuggestedLayoutHint } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+import { ExploreQuickActionsStrip, type ExploreToolId, type ExploreSuggestionMap } from "@/components/metame/copilot/ExploreQuickActionsStrip";
 
 type QuickPrompt = string | {
   label: string;
   prompt?: string;
   onSelect?: () => void;
+  /** Pulse the chip — set when the copilot's last turn suggested this capability. */
+  highlight?: boolean;
 };
 
 // ─── Types (local mirrors — avoids server import in client component) ──────
@@ -676,6 +679,45 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     setActiveLayoutId(toolId as DevLayoutId);
   }, []);
 
+  // ── Copilot-driven suggestions (mirrors aigentMe's suggested-layout
+  // contract). The chat route classifies each turn; hints land here and
+  // pulse the matching chips — explore-strip tools on the right,
+  // capability quick-prompts on the left. Either side's Clear wipes its
+  // own class of suggestions, same as aigentMe.
+  const [exploreSuggestions, setExploreSuggestions] = useState<ExploreSuggestionMap>({});
+  const [capsuleSuggestions, setCapsuleSuggestions] = useState<Partial<Record<DevCapsuleId, boolean>>>({});
+
+  const handleSuggestedLayouts = useCallback((hints: SuggestedLayoutHint[]) => {
+    const explore: ExploreSuggestionMap = {};
+    const caps: Partial<Record<DevCapsuleId, boolean>> = {};
+    for (const h of hints) {
+      const id = h.layoutId as string;
+      // Direct explore-strip targets (upload/download today; terminal /
+      // github / devtools / linear once the chat route learns dev ids).
+      if (id === "upload" || id === "download" || id === "terminal" || id === "github" || id === "devtools" || id === "linear") {
+        explore[id as ExploreToolId | "upload" | "download"] = true;
+      // aigentMe-vocabulary hints translated to dev capabilities.
+      } else if (id === "brief" || id === "venture-cockpit") {
+        caps["project-overview"] = true;
+      } else if (id === "decision-board") {
+        caps["consequence-canvas"] = true;
+      }
+    }
+    setExploreSuggestions(explore);
+    setCapsuleSuggestions(caps);
+  }, []);
+
+  const clearExploreSuggestions = useCallback(() => setExploreSuggestions({}), []);
+  const clearCapsuleSuggestions = useCallback(() => setCapsuleSuggestions({}), []);
+  const consumeCapsuleSuggestion = useCallback((id: DevCapsuleId) => {
+    setCapsuleSuggestions(prev => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
   // Ground context for the copilot — feeds the LLM with current right-pane state
   const copilotGroundContext = useMemo(() => ({
     surface: "dev-command-center",
@@ -690,33 +732,56 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     devLoopStages: STAGES.map(s => s.id),
   }), [activeStage, activeLayoutId, activeCapsuleId]);
 
-  // Quick-prompt chips for the copilot left pane
+  // Quick-prompt chips for the copilot left pane. `highlight` pulses the
+  // chip when the copilot's last turn suggested the matching capability;
+  // clicking consumes that suggestion (mirrors aigentMe's chip contract).
   const copilotQuickPrompts = useMemo((): QuickPrompt[] => [
     {
       label: "New intent",
       prompt: "I want to start a new development intent. Help me distill what I'm trying to build.",
-      onSelect: () => engageCapsuleAndMount("intent"),
+      highlight: capsuleSuggestions["intent"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("intent");
+        consumeCapsuleSuggestion("intent");
+      },
     },
     {
       label: "Where are we?",
       prompt: "Give me a status update on the current dev loop — what stage are we at and what's next?",
+      highlight: capsuleSuggestions["project-overview"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("project-overview");
+        consumeCapsuleSuggestion("project-overview");
+      },
     },
     {
       label: "Analyze gaps",
       prompt: "Analyze capability gaps for the current intent. What can we reuse, extend, or build new?",
-      onSelect: () => engageCapsuleAndMount("gap-analysis"),
+      highlight: capsuleSuggestions["gap-analysis"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("gap-analysis");
+        consumeCapsuleSuggestion("gap-analysis");
+      },
     },
     {
       label: "Model consequences",
       prompt: "Model the consequences for the current intent. What should happen and what must never happen?",
-      onSelect: () => engageCapsuleAndMount("consequence-canvas"),
+      highlight: capsuleSuggestions["consequence-canvas"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("consequence-canvas");
+        consumeCapsuleSuggestion("consequence-canvas");
+      },
     },
     {
       label: "Validate build",
       prompt: "Validate the implementation against the consequence canvas. Run the post-prompt validation.",
-      onSelect: () => engageCapsuleAndMount("validation"),
+      highlight: capsuleSuggestions["validation"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("validation");
+        consumeCapsuleSuggestion("validation");
+      },
     },
-  ], [engageCapsuleAndMount]);
+  ], [engageCapsuleAndMount, capsuleSuggestions, consumeCapsuleSuggestion]);
 
   // Two-tier routing: on each prompt, classify and log the routing decision
   const handlePrompt = useCallback((prompt: string) => {
@@ -744,6 +809,8 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           personaId={personaId}
           groundContext={copilotGroundContext}
           onPrompt={handlePrompt}
+          onSuggestedLayouts={handleSuggestedLayouts}
+          onClearHighlights={clearCapsuleSuggestions}
           onClose={() => undefined}
         />
       </div>
@@ -771,40 +838,42 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           )}
         </div>
 
-        {/* Bottom quick-links strip — pinned */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-2 px-3 z-30">
+        {/* Floating explore strip — pinned to bottom of right pane,
+            mirrors aigentMe's ComposeQuickActionsStrip placement. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-30">
           <div className="pointer-events-auto">
-            <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-slate-900/90 backdrop-blur-sm border border-slate-700/40">
-              {DEV_QUICK_LINKS.map(link => (
-                <button
-                  key={link.id}
-                  onClick={() => handleToolOpen(link.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    activeLayoutId === link.id
-                      ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                  }`}
-                >
-                  <link.icon className="w-3 h-3" />
-                  {link.label}
-                </button>
-              ))}
-              <div className="w-px h-4 bg-slate-700/50 mx-1" />
-              <button
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
-                onClick={() => console.log("[dev-cmd] upload")}
-              >
-                <Upload className="w-3 h-3" />
-                Upload
-              </button>
-              <button
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
-                onClick={() => console.log("[dev-cmd] download")}
-              >
-                <Download className="w-3 h-3" />
-                Download
-              </button>
-            </div>
+            <ExploreQuickActionsStrip
+              onOpen={(tool) => {
+                handleToolOpen(tool);
+                setExploreSuggestions(prev => {
+                  if (!prev[tool]) return prev;
+                  const next = { ...prev };
+                  delete next[tool];
+                  return next;
+                });
+              }}
+              onUploadOpen={() => {
+                console.log("[dev-cmd] upload");
+                setExploreSuggestions(prev => {
+                  if (!prev.upload) return prev;
+                  const next = { ...prev };
+                  delete next.upload;
+                  return next;
+                });
+              }}
+              onDownloadsOpen={() => {
+                console.log("[dev-cmd] download");
+                setExploreSuggestions(prev => {
+                  if (!prev.download) return prev;
+                  const next = { ...prev };
+                  delete next.download;
+                  return next;
+                });
+              }}
+              activeToolId={isToolLayout ? activeLayoutId : null}
+              suggested={exploreSuggestions}
+              onClearSuggestions={clearExploreSuggestions}
+            />
           </div>
         </div>
       </div>
