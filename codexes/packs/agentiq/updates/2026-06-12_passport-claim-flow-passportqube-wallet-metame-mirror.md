@@ -3,7 +3,9 @@
 Session branch: `claude/optimistic-davinci-exiykx` (continuation batch)
 Commits: `30610ff3` (claim flow + wallet + registry filters), `9ef189b8`
 (metaMe mirror tab), `04745f93` (claim POST ownership gate), `a3c6298b`
-(pre-migration graceful fallback)
+(pre-migration graceful fallback), `28ac7fd3` (T0 canary hardening),
+`96306bc8` + `d0462be7` + content-encryption key fix (test-suite
+restoration — see §5)
 
 Operator requests addressed:
 
@@ -122,6 +124,46 @@ POST returns 503 naming the migration file.
 migration the operator applies by hand, the route must degrade gracefully
 until the migration runs — a new column in a SELECT is a breaking change
 for every existing caller of that route, not just the new feature.
+
+---
+
+## 5. Test-suite restoration — every deterministic test now green
+
+A full `vitest run` during session wrap-up surfaced four test files that
+had failed deterministically for weeks (unrelated to this session's
+features). All four are repaired; the only remaining suite failures are
+integration files that require network/Supabase/live-server access.
+
+- **`tests/passport-credential.test.ts`** (`28ac7fd3`) — T0 canary now
+  feeds `buildPassportCredential` a record carrying `persona_id` +
+  `credential_claimed_at` (the realistic post-gate input) and asserts
+  neither the value nor the column names serialise.
+- **`tests/access-spine.test.ts`** (`96306bc8`) — asserted the retired
+  hardcoded-ON debug bypass; `debugBypass.ts` is now env-gated
+  (`ACCESS_DEBUG_OPEN`), OFF by default. Test now asserts fail-closed
+  default and opens only on exactly `'1'`.
+- **`tests/pack-registry.test.ts`** (`96306bc8`) — asserted
+  `agentiq-codex` auto-generates, but the operator-approved skip list
+  (dual-source pattern, 2026-05-26) deliberately suppresses it. Mapping
+  test re-pointed at the `metame` pack; new test pins the suppression
+  contract for `agentiq-codex` + `agentiq-os-codex`.
+- **`tests/iqube-legibility-actionmap.test.ts`** (`d0462be7`) — the map
+  and its CI test shipped contradictory in the SAME commit (`176bbbc3`):
+  `audit_state` (surface of internal `disclosure`) was missing from
+  `MUTATING_SURFACE_VERBS`. Since `disclosure` routes through the
+  auth-requiring, receipt-bearing `discloseCredential` path, the
+  fail-closed fix adds `audit_state` to the set rather than weakening
+  the test. Runtime blast radius: admin action-vocabulary diagnostic
+  only (cardBuilder uses its own local verb list).
+- **`tests/content-encryption.test.ts`** (this commit) — the test's own
+  master-key constant was 62 hex chars (decodes to 46 bytes as base64,
+  31 as hex — both rejected). Fixed to 64 hex chars = the required 32
+  bytes.
+
+**Lesson:** permanently-red test files train every session to ignore
+failures. When a full-suite run shows failures, classify each as
+deterministic vs environment-dependent before dismissing — two of the
+four above were misfiled as "integration noise" on first pass.
 
 ---
 
