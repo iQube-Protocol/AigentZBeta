@@ -519,6 +519,12 @@ export function SmartTriadCopilotLayer({
         if (typeof personaId === 'string' && personaId.startsWith('aigent-')) return personaId;
         return 'aigent-z';
       })();
+      // KB domain resolution — cartridge-specific agents get their own
+      // content domain; everything else follows the global SmartTriad
+      // fallback chain: aigentMe → metaMe → aigentC → aigentZ.
+      // Today only metaKnyts and qriptopian have populated KB content;
+      // the default 'aigentMe' yields an empty content scaffold so the
+      // LLM relies on persona/cartridge context instead of lore.
       const domainForPersona = (() => {
         if (resolvedPersona === 'aigent-kn0w1') return 'metaKnyts';
         if (resolvedPersona === 'aigent-moneypenny') return 'qriptopian';
