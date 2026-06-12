@@ -170,3 +170,76 @@ describe('Opportunity revenue roll-up', () => {
     expect(() => opportunityInputToDb({}, 'cand-1')).toThrow(/description/i);
   });
 });
+
+describe('discovery parsers', () => {
+  it('maps an A2A agent card onto a candidate input', async () => {
+    const { parseAgentCard } = await import('@/services/marketa/activation/discovery');
+    const card = {
+      name: 'Atlas Research Agent',
+      description: 'Research briefs with cited sources.',
+      url: 'https://agents.example.com/atlas',
+      provider: { organization: 'Atlas Labs', url: 'https://atlaslabs.example.com' },
+      skills: [
+        { id: 'research', name: 'Research', tags: ['research', 'briefs'] },
+        { id: 'crm', name: 'CRM support', tags: ['crm'] },
+      ],
+    };
+    const input = parseAgentCard(card, 'https://agents.example.com/.well-known/agent-card.json');
+    expect(input.name).toBe('Atlas Research Agent');
+    expect(input.sourceType).toBe('a2a_card');
+    expect(input.agentCardUrl).toBe('https://agents.example.com/.well-known/agent-card.json');
+    expect(input.sourceUrl).toBe('https://agents.example.com/atlas');
+    expect(input.operatorName).toBe('Atlas Labs');
+    expect(input.websiteUrl).toBe('https://atlaslabs.example.com');
+    expect(input.capabilities).toEqual(['Research', 'research', 'briefs', 'CRM support', 'crm']);
+    expect(() => parseAgentCard({}, 'https://x.example.com')).toThrow(/name/i);
+  });
+
+  it('maps an MCP registry listing (array or { servers }) onto candidate inputs', async () => {
+    const { parseMcpRegistryListing } = await import('@/services/marketa/activation/discovery');
+    const listing = {
+      servers: [
+        {
+          name: 'weather-mcp',
+          description: 'Weather data MCP server.',
+          repository: { url: 'https://github.com/example/weather-mcp' },
+          remotes: [{ url: 'https://mcp.example.com/weather' }],
+        },
+        { description: 'nameless entry is skipped' },
+      ],
+    };
+    const inputs = parseMcpRegistryListing(listing, 'https://registry.example.com/v0/servers');
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0].name).toBe('weather-mcp');
+    expect(inputs[0].sourceType).toBe('mcp_registry');
+    expect(inputs[0].mcpServerUrl).toBe('https://mcp.example.com/weather');
+    expect(inputs[0].repositoryUrl).toBe('https://github.com/example/weather-mcp');
+    const bare = parseMcpRegistryListing([{ name: 'solo' }], 'https://r.example.com');
+    expect(bare).toHaveLength(1);
+  });
+
+  it('builds dedupe keys from URLs (normalized) and name', async () => {
+    const { candidateDedupeKeys, normalizeUrlKey } = await import('@/services/marketa/activation/discovery');
+    expect(normalizeUrlKey('https://Example.com/Path/')).toBe('https://example.com/path');
+    const keys = candidateDedupeKeys({
+      name: 'Atlas',
+      sourceUrl: 'https://agents.example.com/atlas/',
+      agentCardUrl: '',
+    });
+    expect(keys).toContain('url:https://agents.example.com/atlas');
+    expect(keys).toContain('name:atlas');
+    expect(keys).toHaveLength(2);
+  });
+
+  it('parses MARKETA_DISCOVERY_SOURCES env config, dropping invalid entries', async () => {
+    const { parseConfiguredSources } = await import('@/services/marketa/activation/discovery');
+    const sources = parseConfiguredSources(JSON.stringify([
+      { kind: 'a2a_card', url: 'https://a.example.com/card.json' },
+      { kind: 'bogus', url: 'https://b.example.com' },
+      { kind: 'mcp_registry' },
+    ]));
+    expect(sources).toEqual([{ kind: 'a2a_card', url: 'https://a.example.com/card.json' }]);
+    expect(parseConfiguredSources(undefined)).toEqual([]);
+    expect(parseConfiguredSources('not json')).toEqual([]);
+  });
+});
