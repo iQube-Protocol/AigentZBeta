@@ -78,7 +78,17 @@ describe('buildPassportCredential', () => {
   });
 
   it('T0 canary: envelope never serialises server-internal identifiers', () => {
-    const serialized = JSON.stringify(buildPassportCredential(participantRecord(), HOST));
+    // The credential/wallet routes select persona_id (ownership gate) and
+    // credential_claimed_at, so the builder receives records carrying them.
+    // The canary must exercise that realistic input: a refactor that spreads
+    // the record into the envelope would leak the T0 value.
+    const recordWithServerFields = {
+      ...participantRecord(),
+      persona_id: 'persona-T0-secret-0000-uuid',
+      credential_claimed_at: '2026-06-12T00:00:00Z',
+    } as PassportRecordRow;
+    const serialized = JSON.stringify(buildPassportCredential(recordWithServerFields, HOST));
+    expect(serialized).not.toContain('persona-T0-secret-0000-uuid');
     for (const forbidden of [
       'persona_id',
       'personaId"',
@@ -87,6 +97,7 @@ describe('buildPassportCredential', () => {
       'rootDid',
       'authProfileId',
       'vault_content',
+      'credential_claimed_at',
     ]) {
       expect(serialized).not.toContain(forbidden);
     }
