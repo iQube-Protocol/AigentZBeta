@@ -89,6 +89,8 @@ const envVars = [
   'MAILJET_BCC_EMAIL',
   // Mailjet webhooks (CRM event tracking + activation inbound replies)
   'MAILJET_WEBHOOK_SECRET',
+  // Activation outreach Reply-To — parse-routed inbox for reply auto-flip
+  'MARKETA_OUTREACH_REPLY_TO',
   // Campaign tracking
   'KICKSTARTER_CAMPAIGN_URL',
   'KNYT_WHEEL_TOTAL_SLOTS',
