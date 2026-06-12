@@ -87,6 +87,8 @@ const envVars = [
   'MAILJET_TEMPLATE_REACTIVATION',
   'MAILJET_TEMPLATE_GENERAL',
   'MAILJET_BCC_EMAIL',
+  // Mailjet webhooks (CRM event tracking + activation inbound replies)
+  'MAILJET_WEBHOOK_SECRET',
   // Campaign tracking
   'KICKSTARTER_CAMPAIGN_URL',
   'KNYT_WHEEL_TOTAL_SLOTS',
