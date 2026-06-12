@@ -15,6 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   buildPassportCredential,
@@ -24,8 +25,10 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+// persona_id is T0 — selected for the server-side ownership gate on POST
+// only; it never serialises into the credential or any response body.
 const SELECT_COLS =
-  'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at';
+  'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at, persona_id';
 
 async function loadAndBuild(passportId: string, admin: ReturnType<typeof getSupabaseServer>, host: string) {
   const { data, error } = await admin!
@@ -85,8 +88,24 @@ export async function POST(
     const admin = getSupabaseServer();
     if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
 
+    // Claiming mutates the record — gate on the holder. The preview GET
+    // stays public (capability of knowing the passportId; envelope is
+    // public-safe), but only the bound persona may flip the claimed flag.
+    const persona = await getActivePersona(req);
+    if (!persona?.personaId) {
+      return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
+    }
+
     const result = await loadAndBuild(passportId, admin, req.nextUrl.origin);
     if (result.err) return result.err;
+
+    const recordPersonaId = (result.record as unknown as { persona_id: string | null }).persona_id;
+    if (recordPersonaId && recordPersonaId !== persona.personaId) {
+      return NextResponse.json(
+        { ok: false, error: 'Passport is not held by the active persona' },
+        { status: 403 },
+      );
+    }
 
     if (!result.record!.credential_claimed_at) {
       await admin
