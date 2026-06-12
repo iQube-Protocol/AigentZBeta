@@ -47,6 +47,7 @@ const LLM_PROVIDERS = new Set<LlmProviderId>(["openai", "venice", "chaingpt", "t
 
 export const RUNTIME_AGENT_IDS = [
   "aigent-me",
+  "aigent-z",
   "aigent-kn0w1",
   "aigent-moneypenny",
   "aigent-nakamoto",
@@ -54,17 +55,17 @@ export const RUNTIME_AGENT_IDS = [
 ] as const;
 
 const AGENT_ALIASES: Record<string, (typeof RUNTIME_AGENT_IDS)[number]> = {
-  // aigentMe is the new canonical runtime agent (replaces the old
-  // "aigent-z" label). The previous id is kept as an alias so internal
-  // references (Sidebar links, AigentZSystemChat component, smartWallet
-  // metadata, etc.) continue to resolve through the orchestra.
+  // aigentMe — personal assistant / sovereign fulfillment agent
   "aigent-me": "aigent-me",
   "aigentme": "aigent-me",
   "aigent me": "aigent-me",
   "metame": "aigent-me",
-  "aigent-z": "aigent-me",
-  "aigent z": "aigent-me",
   copilot: "aigent-me",
+  // aigentZ — development command center agent (Operation Chrysalis).
+  // Re-established as a first-class agent distinct from aigentMe.
+  "aigent-z": "aigent-z",
+  "aigent z": "aigent-z",
+  "aigentz": "aigent-z",
   "aigent-kn0w1": "aigent-kn0w1",
   kn0w1: "aigent-kn0w1",
   know1: "aigent-kn0w1",

@@ -1829,8 +1829,8 @@ function buildSystemPrompt(
 
   // Right-pane ground truth — when the host surface tells us what's
   // currently on screen, the LLM MUST narrate that exact shape instead
-  // of inventing a generic template. Only emitted for aigent-me and
-  // only when groundContext carries usable structure. Skipped when the
+  // of inventing a generic template. Emitted for aigent-me (personal
+  // assistant) and aigent-z (dev command center). Skipped when the
   // payload is empty so we don't add noise.
   let groundContextBlock = '';
   if (resolvedPersonaId === 'aigent-me' && userContext?.groundContext) {
@@ -2077,8 +2077,8 @@ After your response, add:
   }
 
   // Platform/system agents: persona system prompt only, plus any KB hits.
-  // metameContextBlock + groundContextBlock are appended for aigent-me
-  // (empty strings for any other agent — adds nothing to their prompts).
+  // metameContextBlock is aigent-me only. groundContextBlock + layoutSuggestionsBlock
+  // are built for both aigent-me and aigent-z (empty strings for other agents).
   // Attached uploads block — only emitted for aigent-me (the only
   // surface that currently exposes the upload-attach UI). When the
   // POST handler resolved uploads against the persona, the block is
