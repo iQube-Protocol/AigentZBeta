@@ -99,6 +99,7 @@ export function MarketaActivationEngineTab() {
   const [outreachTo, setOutreachTo] = useState("");
   const [outreachSubject, setOutreachSubject] = useState("");
   const [outreachBody, setOutreachBody] = useState("");
+  const [sendVia, setSendVia] = useState<"mailjet" | "gmail">("mailjet");
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [discoverKind, setDiscoverKind] = useState<"a2a_card" | "mcp_registry">("a2a_card");
@@ -203,6 +204,41 @@ export function MarketaActivationEngineTab() {
       cancelled = true;
     };
   }, [selectedId]);
+
+  // Auto-sync passport status from the Bureau whenever we select a
+  // candidate whose passport is in-flight — so steward approvals show up
+  // without requiring the operator to re-click Passport.
+  useEffect(() => {
+    if (!selectedId) return;
+    const selected = candidates.find(c => c.id === selectedId);
+    if (!selected) return;
+    const inFlight = ["submitted", "pending_approval", "needs_more_information"];
+    if (!inFlight.includes(selected.passportIntegration.passportApplicationStatus)) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/marketa/activation/candidates/${selectedId}/passport`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ actorId: "marketa-auto-sync" }),
+          },
+        );
+        const json = (await res.json()) as { ok: boolean; candidate?: CandidateAgent };
+        if (!cancelled && json.ok && json.candidate) {
+          setCandidates(prev =>
+            prev.map(c => (c.id === selectedId ? json.candidate! : c)),
+          );
+        }
+      } catch {
+        // silent — manual re-click still works
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, candidates]);
 
   const saveAgentCardUrl = async (candidateId: string) => {
     setSavingAgentCard(true);
@@ -1522,33 +1558,49 @@ export function MarketaActivationEngineTab() {
                     className="w-full rounded bg-slate-900/70 border border-slate-700 px-2 py-1 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500 resize-y"
                   />
                   <p className="text-[11px] text-slate-500">CTA: {lastDraft.cta}</p>
-                  <Button
-                    size="sm"
-                    className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm w-full"
-                    title="Send this reviewed email now via the Marketa Mailjet send path — flips outreach status to sent"
-                    disabled={
-                      actionId === `outreach:${selected.id}` ||
-                      !outreachTo.includes("@") ||
-                      !outreachSubject.trim() ||
-                      !outreachBody.trim()
-                    }
-                    onClick={() =>
-                      runCandidateAction(selected.id, "outreach", {
-                        action: "send",
-                        actorId: "marketa-operator",
-                        to: outreachTo.trim(),
-                        subject: outreachSubject.trim(),
-                        body: outreachBody.trim(),
-                      })
-                    }
-                  >
-                    {actionId === `outreach:${selected.id}` ? (
-                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    ) : (
-                      <Send className="w-3 h-3 mr-1" />
-                    )}{" "}
-                    Send approved outreach
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={sendVia}
+                      onChange={event => setSendVia(event.target.value as typeof sendVia)}
+                      title="Send via Mailjet (platform identity, cohort-grade) or Gmail (aigentMe 1:1 personal comms — requires connected Gmail)"
+                      className="rounded bg-slate-900/70 border border-slate-700 px-1.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-slate-500"
+                    >
+                      <option value="mailjet">Mailjet</option>
+                      <option value="gmail">Gmail (1:1)</option>
+                    </select>
+                    <Button
+                      size="sm"
+                      className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm flex-1"
+                      title={
+                        sendVia === "gmail"
+                          ? "Send via aigentMe's Gmail — 1:1 personal outreach (requires the operator persona to have a connected Gmail account)"
+                          : "Send via the Marketa Mailjet platform identity — flips outreach status to sent"
+                      }
+                      disabled={
+                        actionId === `outreach:${selected.id}` ||
+                        !outreachTo.includes("@") ||
+                        !outreachSubject.trim() ||
+                        !outreachBody.trim()
+                      }
+                      onClick={() =>
+                        runCandidateAction(selected.id, "outreach", {
+                          action: "send",
+                          actorId: "marketa-operator",
+                          to: outreachTo.trim(),
+                          subject: outreachSubject.trim(),
+                          body: outreachBody.trim(),
+                          sendVia,
+                        })
+                      }
+                    >
+                      {actionId === `outreach:${selected.id}` ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <Send className="w-3 h-3 mr-1" />
+                      )}{" "}
+                      Send via {sendVia === "gmail" ? "Gmail" : "Mailjet"}
+                    </Button>
+                  </div>
                 </section>
               )}
               {selected.outreachStatus === "sent" && (

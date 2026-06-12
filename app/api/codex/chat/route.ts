@@ -1514,15 +1514,13 @@ async function fetchCodexMetadata(domain: ContentDomain = 'metaKnyts'): Promise<
     };
   }
 
-  // Default: ONLY return metaKnyts content when the caller explicitly
-  // asked for the metaKnyts domain. The previous behaviour dumped
-  // KNYT characters / cards / episodes into the LLM prompt for EVERY
-  // domain that wasn't 'qriptopian' — including 'agentiq' (aigentMe
-  // copilot) — which produced KNYT-flavoured narrative on briefs that
-  // had nothing to do with KNYT. Fix 2026-05-26: any unrecognised
-  // domain returns an empty content scaffold so the LLM falls back to
-  // its general / persona-prompt knowledge instead of being primed
-  // with lore that doesn't apply.
+  // Global SmartTriad KB fallback chain (operator decision 2026-06-12):
+  //   aigentMe → metaMe → aigentC → aigentZ
+  // Only metaKnyts and qriptopian have populated KB content today.
+  // Every other domain (including the default 'aigentMe') returns an
+  // empty content scaffold so the LLM uses persona/cartridge context
+  // instead of KNYT lore. When aigentMe/metaMe KBs are populated,
+  // add their branches above this gate.
   if (domain !== 'metaKnyts') {
     return {
       characters: [],

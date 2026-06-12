@@ -9,6 +9,7 @@ import {
   renderOutreachTemplate,
   type OutreachTemplate,
 } from "@/services/marketa/activation/outreachTemplates";
+import { getGoogleConnector } from "@/services/google/connectors";
 import { marketaSendTransactional } from "@/services/marketa/marketaConnector";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     subject?: string;
     body?: string;
     templateId?: string;
+    sendVia?: "mailjet" | "gmail";
+    personaId?: string;
   };
   const actor = body.actorId || "marketa";
 
@@ -54,10 +57,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
   const now = new Date().toISOString();
 
-  // ── Operator-approved send (operator decision 2026-06-11: reuse the
-  // existing Marketa Mailjet send path). The HUMAN operator supplies the
-  // recipient and reviewed subject/body in the UI — Marketa never sends
-  // unreviewed or without an explicit recipient.
+  // ── Operator-approved send. Mailjet (cohort/platform identity) is the
+  // default. Gmail (aigentMe 1:1 comms) is available when sendVia=gmail
+  // and a personaId with a connected Gmail account is supplied.
   if (body.action === "send") {
     const to = (body.to ?? "").trim();
     const subject = (body.subject ?? "").trim();
@@ -65,12 +67,34 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     if (!to || !/@/.test(to)) return jsonError("recipient-required", 422, "A recipient email is required — Marketa never infers one.");
     if (!subject || !bodyText) return jsonError("subject-body-required", 422, "Reviewed subject and body are required.");
 
-    const sendResult = await marketaSendTransactional.execute(
-      { to, subject, bodyText },
-      { personaId: "", cartridge: "marketa" },
-    );
-    if (!sendResult.ok) {
-      return jsonError("outreach-send-failed", 502, `${sendResult.code}: ${sendResult.reason}`);
+    const sendVia = body.sendVia ?? "mailjet";
+    let messageId = "";
+    let sendPath = "";
+
+    if (sendVia === "gmail") {
+      const gmailPersonaId = (body.personaId ?? "").trim();
+      if (!gmailPersonaId) return jsonError("persona-required-for-gmail", 422, "personaId with connected Gmail required for Gmail send.");
+      const gmailSend = getGoogleConnector("google.gmail.send");
+      if (!gmailSend) return jsonError("gmail-connector-unavailable", 500, "Gmail send connector not found.");
+      const gmailResult = await gmailSend.execute(
+        { to, subject, bodyText } as never,
+        { personaId: gmailPersonaId, cartridge: "marketa" },
+      );
+      if (!gmailResult.ok) {
+        return jsonError("outreach-gmail-send-failed", 502, `${gmailResult.code}: ${gmailResult.reason}`);
+      }
+      messageId = (gmailResult.output as { messageId?: string }).messageId ?? "";
+      sendPath = `google.gmail.send (Gmail, persona ${gmailPersonaId})`;
+    } else {
+      const sendResult = await marketaSendTransactional.execute(
+        { to, subject, bodyText },
+        { personaId: "", cartridge: "marketa" },
+      );
+      if (!sendResult.ok) {
+        return jsonError("outreach-send-failed", 502, `${sendResult.code}: ${sendResult.reason}`);
+      }
+      messageId = sendResult.output.messageId ?? "";
+      sendPath = "marketa.send-transactional (Mailjet)";
     }
 
     const { data: updatedSent, error: sentError } = await supabase
@@ -101,8 +125,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         metadata: {
           to,
           subject,
-          messageId: sendResult.output.messageId,
-          sendPath: "marketa.send-transactional (Mailjet)",
+          messageId,
+          sendPath,
           source: "marketa_activation_engine",
         },
       });
@@ -111,7 +135,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       {
         ok: true,
         candidate: dbToCandidate(updatedSent as Record<string, unknown>),
-        note: `Outreach sent to ${to} via the Marketa Mailjet send path (message ${sendResult.output.messageId ?? "queued"}). Reply tracking: mark the candidate responded when they answer.`,
+        note: `Outreach sent to ${to} via ${sendPath} (message ${messageId || "queued"}). Reply tracking: mark the candidate responded when they answer.`,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
