@@ -86,8 +86,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       messageId = (gmailResult.output as { messageId?: string }).messageId ?? "";
       sendPath = `google.gmail.send (Gmail, persona ${gmailPersonaId})`;
     } else {
+      // Reply-To: when MARKETA_OUTREACH_REPLY_TO is set (a Mailjet
+      // Parse-routed inbox), replies auto-flip the candidate via
+      // /api/marketa/activation/inbound-reply. Unset = Mailjet default.
+      const replyTo = process.env.MARKETA_OUTREACH_REPLY_TO?.trim();
       const sendResult = await marketaSendTransactional.execute(
-        { to, subject, bodyText },
+        { to, subject, bodyText, ...(replyTo ? { replyTo } : {}) },
         { personaId: "", cartridge: "marketa" },
       );
       if (!sendResult.ok) {
