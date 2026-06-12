@@ -107,6 +107,7 @@ export function MarketaActivationEngineTab() {
   const { sessionPersonas } = useSupabaseSessionPersonas();
   const operatorPersonaId = sessionPersonas[0]?.id ?? "";
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const passportSyncRef = useRef<string | null>(null);
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [discoverKind, setDiscoverKind] = useState<"a2a_card" | "mcp_registry">("a2a_card");
   const [discoverUrl, setDiscoverUrl] = useState("");
@@ -176,7 +177,9 @@ export function MarketaActivationEngineTab() {
   }, [loadTemplates]);
 
   // Consents are per-candidate decisions — clear them on selection change.
+  // Also re-arms the passport auto-sync (one sync per selection episode).
   useEffect(() => {
+    passportSyncRef.current = null;
     setBureauConsents({});
     setAgentCardInput("");
     setOppDescription("");
@@ -213,13 +216,19 @@ export function MarketaActivationEngineTab() {
 
   // Auto-sync passport status from the Bureau whenever we select a
   // candidate whose passport is in-flight — so steward approvals show up
-  // without requiring the operator to re-click Passport.
+  // without requiring the operator to re-click Passport. The ref guards
+  // against a request loop: the sync's own setCandidates re-runs this
+  // effect (candidates is a dep), and a still-in-flight status would
+  // otherwise re-POST forever. One sync per selection; re-selecting the
+  // candidate later re-syncs (the clear-on-selection effect resets the ref).
   useEffect(() => {
     if (!selectedId) return;
+    if (passportSyncRef.current === selectedId) return;
     const selected = candidates.find(c => c.id === selectedId);
     if (!selected) return;
     const inFlight = ["submitted", "pending_approval", "needs_more_information"];
     if (!inFlight.includes(selected.passportIntegration.passportApplicationStatus)) return;
+    passportSyncRef.current = selectedId;
     let cancelled = false;
     void (async () => {
       try {
