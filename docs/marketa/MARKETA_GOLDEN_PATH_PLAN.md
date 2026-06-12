@@ -86,7 +86,7 @@ In rough order of value to the golden path:
 2. ~~Outreach send via existing Marketa send path + reply-flip hook~~ — **DONE 2026-06-11** (manual reply flip; webhook ingestion later)
 3. ~~Revenue roll-up + dashboard metrics~~ — **DONE 2026-06-11** (pipeline/closed/MRR cartridge metrics)
 4. ~~Discovery automation~~ — **DONE 2026-06-12** (`POST /api/marketa/activation/discover` + Discover UI; scheduling via operator cron later)
-5. ~~Template library~~ — **DONE 2026-06-12** (CRUD + lane-aware picker; curation via API/SQL, editor UI later if needed)
+5. ~~Template library~~ — **DONE 2026-06-12** (CRUD + lane-aware picker + in-cartridge template manager: Templates header button → list / enable-disable / edit / create with placeholder hints)
 
 (1) and (2) together produce the first real revenue path. (3) makes the
 result visible to the operator. (4) and (5) scale it.
