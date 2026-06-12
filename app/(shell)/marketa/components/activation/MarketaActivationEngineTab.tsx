@@ -19,6 +19,7 @@ import {
   Upload,
 } from "lucide-react";
 import type { CandidateAgent, CandidateOpportunity } from "@/services/marketa/activation/types";
+import { attributeRevenue } from "@/services/marketa/activation/normalizers";
 
 interface CandidateListResponse {
   ok: boolean;
@@ -260,6 +261,8 @@ export function MarketaActivationEngineTab() {
     }),
     [candidates],
   );
+
+  const attribution = useMemo(() => attributeRevenue(candidates), [candidates]);
 
   const createDemoCandidate = async () => {
     setCreating(true);
@@ -684,6 +687,41 @@ export function MarketaActivationEngineTab() {
           <p className="text-2xl font-bold text-sky-300">${metrics.mrr}/mo</p>
         </div>
       </div>
+
+      {(attribution.byLane.length > 0 || attribution.bySource.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {(
+            [
+              ["By strategic lane", attribution.byLane, "Revenue attributed to each candidate's primary strategic lane"],
+              ["By discovery source", attribution.bySource, "Revenue attributed to where each candidate was discovered"],
+            ] as const
+          ).map(([title, buckets, hint]) => (
+            <div key={title} className={`${GLASS_CARD} p-4`} title={hint}>
+              <p className="text-xs font-semibold text-slate-300 mb-2">Revenue attribution — {title.toLowerCase()}</p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-slate-500 text-left">
+                    <th className="font-normal pb-1">{title === "By strategic lane" ? "Lane" : "Source"}</th>
+                    <th className="font-normal pb-1 text-right">Pipeline</th>
+                    <th className="font-normal pb-1 text-right">MRR</th>
+                    <th className="font-normal pb-1 text-right">Closed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {buckets.map(bucket => (
+                    <tr key={bucket.key} className="text-slate-200">
+                      <td className="py-0.5 pr-2">{formatLabel(bucket.key)}</td>
+                      <td className="py-0.5 text-right">${bucket.pipeline}</td>
+                      <td className="py-0.5 text-right text-sky-300">{bucket.mrr > 0 ? `$${bucket.mrr}/mo` : "—"}</td>
+                      <td className="py-0.5 text-right text-emerald-300">${bucket.closed}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         <div className={`${GLASS_CARD} p-4 xl:col-span-2`}>
