@@ -1409,12 +1409,23 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
   tabs: [
     // ── aigentZ group (front door) ─────────────────────────────
     {
+      id: 'dev-command-center',
+      label: 'Command Center',
+      slug: 'dev-command-center',
+      enabled: true,
+      group: 'agentz',
+      order: 0,
+      type: 'static',
+      config: { component: 'DevCommandCenterTab', props: {} },
+      metadata: { icon: 'Cpu', description: 'aigentZ Development Command Center — consequence engineering workflow', color: 'green' }
+    },
+    {
       id: 'start',
       label: 'Start Here',
       slug: 'start',
       enabled: true,
       group: 'agentz',
-      order: 0,
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1872,12 +1883,23 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
   tabs: [
     // ── aigentZ group (front door) ──────────────────────────────
     {
+      id: 'agentiq-os-dev-command-center',
+      label: 'Command Center',
+      slug: 'os-dev-command-center',
+      enabled: true,
+      group: 'agentz',
+      order: 0,
+      type: 'static',
+      config: { component: 'DevCommandCenterTab', props: {} },
+      metadata: { icon: 'Cpu', description: 'aigentZ Development Command Center — consequence engineering workflow', color: 'green' },
+    },
+    {
       id: 'agentiq-os-start-here',
       label: 'Start Here',
       slug: 'start-here',
       enabled: true,
       group: 'agentz',
-      order: 0,
+      order: 1,
       type: 'static',
       config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_start_here' } },
       metadata: { icon: 'BookOpen', description: 'Get oriented to AgentiQ OS' },
