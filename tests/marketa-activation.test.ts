@@ -243,3 +243,63 @@ describe('discovery parsers', () => {
     expect(parseConfiguredSources('not json')).toEqual([]);
   });
 });
+
+describe('outreach template library', () => {
+  const candidate = {
+    name: 'Atlas Research Agent',
+    operatorName: 'Atlas Labs',
+    strategicLanes: ['founder_operator_enablement'],
+    capabilities: ['research', 'crm'],
+    legalTrack: 'none',
+    topBottomRelevance: { mobilityReferenceTag: 'none' },
+  } as never;
+
+  it('renders the built-in template with candidate placeholders filled', async () => {
+    const { BUILT_IN_OUTREACH_TEMPLATE, renderOutreachTemplate } = await import('@/services/marketa/activation/outreachTemplates');
+    const draft = renderOutreachTemplate(BUILT_IN_OUTREACH_TEMPLATE, candidate, 'warm intro via KNYT');
+    expect(draft.subject).toBe('Explore Polity Participant activation for Atlas Labs');
+    expect(draft.body).toContain('Hi Atlas Labs,');
+    expect(draft.body).toContain('Atlas Research Agent appears relevant to founder operator enablement.');
+    expect(draft.body).toContain('- research\n- crm');
+    expect(draft.body).toContain('Operator note / angle: warm intro via KNYT');
+    expect(draft.body).not.toContain('{{'); // every placeholder resolved
+    expect(draft.body).not.toContain('Legal track'); // legalTrack none → line omitted
+    expect(draft.body).not.toMatch(/\n{3,}/); // empty lines collapsed
+  });
+
+  it('drops unknown placeholders and the angle note when no angle is given', async () => {
+    const { renderOutreachTemplate } = await import('@/services/marketa/activation/outreachTemplates');
+    const draft = renderOutreachTemplate(
+      { subjectTemplate: 'Hello {{operator}} {{bogus_field}}', bodyTemplate: '{{angle_note}}\n\nBody for {{candidate_name}}', cta: 'cta' },
+      candidate,
+      '',
+    );
+    expect(draft.subject).toBe('Hello Atlas Labs');
+    expect(draft.body).toBe('Body for Atlas Research Agent');
+  });
+
+  it('picks lane-matching template over any-lane, skipping disabled', async () => {
+    const { pickOutreachTemplate } = await import('@/services/marketa/activation/outreachTemplates');
+    const tpl = (id: string, strategicLane: string, enabled = true) => ({
+      id, name: id, strategicLane, subjectTemplate: 's', bodyTemplate: 'b', cta: '',
+      enabled, createdAt: '', updatedAt: '',
+    });
+    const templates = [
+      tpl('disabled-lane', 'founder_operator_enablement', false),
+      tpl('catch-all', 'any'),
+      tpl('lane-match', 'founder_operator_enablement'),
+    ];
+    expect(pickOutreachTemplate(templates, ['founder_operator_enablement'])?.id).toBe('lane-match');
+    expect(pickOutreachTemplate(templates, ['other_lane'])?.id).toBe('catch-all');
+    expect(pickOutreachTemplate([tpl('x', 'some_lane')], ['other_lane'])).toBeNull();
+  });
+
+  it('validates template create input', async () => {
+    const { outreachTemplateInputToDb } = await import('@/services/marketa/activation/outreachTemplates');
+    const row = outreachTemplateInputToDb({ name: 'Intro v1', subjectTemplate: 's {{operator}}', bodyTemplate: 'b' });
+    expect(row.strategic_lane).toBe('any');
+    expect(row.enabled).toBe(true);
+    expect(() => outreachTemplateInputToDb({ subjectTemplate: 's', bodyTemplate: 'b' })).toThrow(/name/i);
+    expect(() => outreachTemplateInputToDb({ name: 'n', subjectTemplate: 's' })).toThrow(/subject and body/i);
+  });
+});

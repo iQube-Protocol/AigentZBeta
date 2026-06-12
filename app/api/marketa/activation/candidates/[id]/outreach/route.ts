@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
 import { dbToCandidate } from "@/services/marketa/activation/normalizers";
+import {
+  BUILT_IN_OUTREACH_TEMPLATE,
+  dbToOutreachTemplate,
+  pickOutreachTemplate,
+  renderOutreachTemplate,
+  type OutreachTemplate,
+} from "@/services/marketa/activation/outreachTemplates";
 import { marketaSendTransactional } from "@/services/marketa/marketaConnector";
 
 export const dynamic = "force-dynamic";
@@ -11,50 +18,6 @@ function jsonError(error: string, status = 400, detail?: string) {
     { ok: false, error, ...(detail ? { detail } : {}) },
     { status, headers: { "Cache-Control": "no-store" } },
   );
-}
-
-function firstNonEmpty(...values: Array<string | undefined>) {
-  return values.find(value => value && value.trim().length > 0) ?? "";
-}
-
-function buildDraft(candidate: ReturnType<typeof dbToCandidate>, angle: string) {
-  const operator = firstNonEmpty(candidate.operatorName, candidate.name);
-  const primaryLane =
-    candidate.strategicLanes[0]?.replace(/_/g, " ") || "trusted participant activation";
-  const mobility =
-    candidate.topBottomRelevance.mobilityReferenceTag !== "none"
-      ? `\n- Mobility fit: ${candidate.topBottomRelevance.mobilityReferenceTag.replace(/_/g, " ")}`
-      : "";
-  const legal =
-    candidate.legalTrack !== "none"
-      ? `\n- Legal track: ${candidate.legalTrack.replace(/_/g, " ")}`
-      : "";
-  const subject = `Explore Polity Participant activation for ${operator}`;
-  const body = `Hi ${operator},
-
-I’m Marketa, the Polity liaison for metaMe and Aigent Z. I’m reviewing trusted agent participants that can strengthen founder-operator workflows and generate clean, policy-aligned value.
-
-${candidate.name} appears relevant to ${primaryLane}.${legal}${mobility}
-
-Why this may be a fit:
-${
-  candidate.capabilities
-    .slice(0, 5)
-    .map(capability => `- ${capability}`)
-    .join("\n") ||
-  "- Your declared capabilities appear aligned with trusted participant activation."
-}
-
-${angle ? `Operator note / angle: ${angle}\n\n` : ""}If you’re open to it, the next step is a human-approved review of your Agent Card / MCP / OpenAPI surface and a possible Participant Passport application path. This is not an approval or revenue promise; it is an invitation to explore fit under Polity trust, consent, auditability, and clean-revenue rules.
-
-Best,
-Marketa`;
-  return {
-    channel: "email",
-    subject,
-    body,
-    cta: "Review Agent Card / integration surface and confirm interest in Participant Passport pathway",
-  };
 }
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
@@ -68,6 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     to?: string;
     subject?: string;
     body?: string;
+    templateId?: string;
   };
   const actor = body.actorId || "marketa";
 
@@ -193,7 +157,39 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     );
   }
 
-  const draft = buildDraft(candidate, body.angle ?? "");
+  // ── Template resolution (golden path #5): explicit templateId wins, else
+  // auto-pick an enabled template matching the candidate's lanes ('any' =
+  // catch-all), else fall back to the built-in copy. The table is optional —
+  // a missing migration just means built-in drafts.
+  let template: OutreachTemplate | null = null;
+  if (body.templateId) {
+    const { data: templateRow, error: templateError } = await supabase
+      .schema("marketa")
+      .from("marketa_outreach_templates")
+      .select("*")
+      .eq("id", body.templateId)
+      .single();
+    if (templateError || !templateRow) {
+      return jsonError("template-not-found", 404, templateError?.message);
+    }
+    template = dbToOutreachTemplate(templateRow as Record<string, unknown>);
+  } else {
+    const { data: templateRows } = await supabase
+      .schema("marketa")
+      .from("marketa_outreach_templates")
+      .select("*");
+    template = pickOutreachTemplate(
+      (templateRows ?? []).map(row => dbToOutreachTemplate(row as Record<string, unknown>)),
+      candidate.strategicLanes,
+    );
+  }
+
+  const draft = renderOutreachTemplate(
+    template ?? BUILT_IN_OUTREACH_TEMPLATE,
+    candidate,
+    body.angle ?? "",
+  );
+  const templateLabel = template ? `template "${template.name}"` : "the built-in template";
 
   const { data: updated, error: updateError } = await supabase
     .schema("marketa")
@@ -221,6 +217,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       actor,
       metadata: {
         draft,
+        templateId: template?.id ?? null,
+        templateName: template?.name ?? "built-in",
         source: "marketa_activation_engine",
         existingOutreachPattern: "avl_compose_review_before_send",
       },
@@ -231,7 +229,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       ok: true,
       candidate: dbToCandidate(updated as Record<string, unknown>),
       draft,
-      note: "Draft only. No outreach was sent; operator approval remains required.",
+      note: `Draft only (from ${templateLabel}). No outreach was sent; operator approval remains required.`,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

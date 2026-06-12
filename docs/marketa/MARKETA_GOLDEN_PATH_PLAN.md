@@ -66,9 +66,19 @@ In rough order of value to the golden path:
    URLs are hardcoded — sources are always operator-configured. OpenAPI
    repo scan deferred until a concrete source is chosen.
 
-5. **Outreach template library.** Currently every draft is hard-coded in
-   `buildDraft`. A small set of operator-curated templates per lane is a
-   conversion-rate lever once #2 is live.
+5. **Outreach template library.** SHIPPED 2026-06-12. Operator-curated
+   templates live in `marketa.marketa_outreach_templates` (migration
+   `20260612000000_marketa_outreach_templates.sql` — must be run in
+   Supabase before curating; until then drafting silently uses the
+   built-in copy). CRUD at `/api/marketa/activation/templates` (+
+   `/[id]` PATCH). Rendering is pure placeholder substitution in
+   `services/marketa/activation/outreachTemplates.ts` ({{operator}},
+   {{candidate_name}}, {{primary_lane}}, {{capabilities_bullets}},
+   {{legal_line}}, {{mobility_line}}, {{angle_note}}); the original
+   hard-coded copy is `BUILT_IN_OUTREACH_TEMPLATE`. Draft resolution:
+   explicit templateId from the scorecard picker → first enabled
+   template matching the candidate's lane → 'any' catch-all → built-in.
+   The event log records which template produced each draft.
 
 ## Recommended attack order
 
@@ -76,7 +86,7 @@ In rough order of value to the golden path:
 2. ~~Outreach send via existing Marketa send path + reply-flip hook~~ — **DONE 2026-06-11** (manual reply flip; webhook ingestion later)
 3. ~~Revenue roll-up + dashboard metrics~~ — **DONE 2026-06-11** (pipeline/closed/MRR cartridge metrics)
 4. ~~Discovery automation~~ — **DONE 2026-06-12** (`POST /api/marketa/activation/discover` + Discover UI; scheduling via operator cron later)
-5. Template library
+5. ~~Template library~~ — **DONE 2026-06-12** (CRUD + lane-aware picker; curation via API/SQL, editor UI later if needed)
 
 (1) and (2) together produce the first real revenue path. (3) makes the
 result visible to the operator. (4) and (5) scale it.
