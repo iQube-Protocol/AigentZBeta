@@ -47,3 +47,13 @@ export {
   getStageLabel,
   buildImplementationPackage,
 } from './devLoop';
+
+export {
+  buildStageInstructionBlock,
+  extractStageProposals,
+  applyStageProposal,
+  STAGE_PROPOSAL_KIND,
+  PROPOSAL_KIND_TO_CAPSULE,
+  type StageProposal,
+  type StageProposalKind,
+} from './stageOrchestrator';

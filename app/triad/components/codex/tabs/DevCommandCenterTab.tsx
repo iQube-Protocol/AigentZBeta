@@ -33,7 +33,7 @@ import {
   Terminal, GitBranch, Wrench, BarChart3,
   RotateCcw, Play,
 } from "lucide-react";
-import { SmartTriadCopilotLayer, type SuggestedLayoutHint } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+import { SmartTriadCopilotLayer, type SuggestedLayoutHint, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { ExploreQuickActionsStrip, type ExploreToolId, type ExploreSuggestionMap } from "@/components/metame/copilot/ExploreQuickActionsStrip";
 
 import type {
@@ -41,10 +41,7 @@ import type {
   DevLoopStage,
   StructuredDevIntent,
   ContextPack,
-  ContextPackItem,
   CapabilityGapAnalysis,
-  ExistingCapability,
-  MissingCapability,
   ConsequenceCanvas,
   ConsequenceValidationReport,
 } from "@/types/devCommandCenter";
@@ -54,22 +51,16 @@ import {
   canAdvance,
   advanceStage,
   buildImplementationPackage,
-  refineIntent,
-  createEmptyIntent,
   buildIntentSummary,
-  createEmptyContextPack,
-  addContextItem,
   buildContextPackSummary,
-  createEmptyGapAnalysis,
-  addExistingCapability,
-  addMissingCapability,
   buildGapAnalysisSummary,
-  createEmptyCanvas,
-  createConsequenceEntry,
-  addShouldHappen,
-  addShouldNeverHappen,
   buildConsequenceCanvasSummary,
   buildValidationSummary,
+  applyStageProposal,
+  STAGE_PROPOSAL_KIND,
+  PROPOSAL_KIND_TO_CAPSULE,
+  type StageProposal,
+  type StageProposalKind,
 } from "@/services/devCommandCenter";
 
 type QuickPrompt = string | {
@@ -175,95 +166,6 @@ const DEV_QUICK_LINKS: { id: string; label: string; icon: typeof Terminal }[] = 
   { id: "devtools", label: "DevTools", icon: Wrench },
   { id: "linear", label: "Linear", icon: BarChart3 },
 ];
-
-// ─── Seed a demo DevLoopState using the real service layer ────────────────
-
-function seedDemoSession(): DevLoopState {
-  let session = createDevLoopSession();
-
-  // Seed intent via service functions
-  let intent = createEmptyIntent("Build Executive Mobility Travel");
-  intent = refineIntent(intent, {
-    goal: "Build Executive Mobility Travel service for high-value participants",
-    users: ["Executive participants", "Corporate mobility managers", "Travel coordinators"],
-    constraints: [
-      "Must integrate with existing Passport Bureau",
-      "Must not duplicate CRM contact workflows",
-      "Must respect sovereignty-first principle",
-    ],
-    desiredOutcomes: [
-      "Executive travel booking and management",
-      "Accommodation workflow integration",
-      "Residency pathway workflow activation",
-      "CRM status tracking for mobility events",
-    ],
-    successCriteria: [
-      "Travel booking triggers accommodation workflow",
-      "Accommodation completion triggers residency workflow",
-      "All events create DVN-anchored receipts",
-      "CRM reflects current mobility status",
-    ],
-    relatedVentures: ["Venture Lab α"],
-    relatedCartridges: ["knyt-codex", "agentiq-codex"],
-    priority: "high",
-    status: "refined",
-  });
-  session = { ...session, intent };
-
-  // Seed context pack
-  let ctx = createEmptyContextPack(intent.intentId);
-  const ctxItems: Array<{ sourceKind: ContextPackItem["sourceKind"]; sourcePath: string; title: string; relevanceScore: number; reuseSignal: ContextPackItem["reuseSignal"]; excerpt: string }> = [
-    { sourceKind: "codebase", sourcePath: "services/passport/passportCredentialService.ts", title: "Passport Credential Service", relevanceScore: 95, reuseSignal: "reuse", excerpt: "Credential issuance and verification for passport bureau" },
-    { sourceKind: "codebase", sourcePath: "services/crm/", title: "CRM Integration Layer", relevanceScore: 90, reuseSignal: "reuse", excerpt: "Contact management and status tracking" },
-    { sourceKind: "codebase", sourcePath: "services/marketa/", title: "Marketa Workflow Engine", relevanceScore: 85, reuseSignal: "extend", excerpt: "Workflow orchestration for agent-driven campaigns" },
-    { sourceKind: "governance", sourcePath: "services/governance/sovereignAgentRoles.ts", title: "Sovereign Agent Roles", relevanceScore: 80, reuseSignal: "reference", excerpt: "Role definitions for sovereign governance model" },
-    { sourceKind: "receipt", sourcePath: "services/receipts/activityReceiptService.ts", title: "Activity Receipt Pipeline", relevanceScore: 75, reuseSignal: "reuse", excerpt: "DVN-anchored activity receipt creation and finalization" },
-    { sourceKind: "architecture", sourcePath: "codexes/packs/aigency/items/", title: "System Architecture Docs", relevanceScore: 70, reuseSignal: "reference", excerpt: "Platform architecture and design decisions" },
-  ];
-  for (const item of ctxItems) ctx = addContextItem(ctx, item);
-  session = { ...session, contextPack: ctx };
-
-  // Seed gap analysis
-  let gaps = createEmptyGapAnalysis(intent.intentId);
-  const existingCaps: ExistingCapability[] = [
-    { name: "Passport Bureau", location: "services/passport/", description: "Credential issuance for passport bureau", reuseStrategy: "use_directly", confidence: 95 },
-    { name: "CRM Contact Management", location: "services/crm/", description: "Contact lifecycle and status management", reuseStrategy: "extend", confidence: 90 },
-    { name: "Marketa Workflows", location: "services/marketa/", description: "Agent-driven workflow orchestration", reuseStrategy: "extend", confidence: 85 },
-    { name: "Activity Receipt Pipeline", location: "services/receipts/", description: "DVN-anchored receipt creation", reuseStrategy: "use_directly", confidence: 95 },
-    { name: "DVN Anchoring", location: "services/dvn/", description: "Decentralised verification network anchoring", reuseStrategy: "use_directly", confidence: 95 },
-  ];
-  for (const c of existingCaps) gaps = addExistingCapability(gaps, c);
-  const missingCaps: MissingCapability[] = [
-    { name: "Executive Travel Workflow", description: "Booking, itinerary, and mobility event management", estimatedComplexity: "medium", suggestedLocation: "services/travel/", dependencies: ["Passport Bureau", "CRM Contact Management"] },
-    { name: "Corporate Mobility Dashboard", description: "Real-time view of executive mobility status and events", estimatedComplexity: "medium", suggestedLocation: "app/triad/components/codex/tabs/", dependencies: ["Executive Travel Workflow", "CRM Contact Management"] },
-  ];
-  for (const c of missingCaps) gaps = addMissingCapability(gaps, c);
-  session = { ...session, gapAnalysis: gaps };
-
-  // Seed consequence canvas
-  let canvas = createEmptyCanvas(intent.intentId);
-  canvas = { ...canvas, successState: "Executive travel booking, accommodation, and residency workflows execute as a connected chain with full DVN receipt trail and CRM synchronization." };
-  const shouldHappen = [
-    createConsequenceEntry("Travel booking creates a DVN-anchored receipt", "workflow", "critical"),
-    createConsequenceEntry("Accommodation workflow triggered on booking completion", "workflow", "high"),
-    createConsequenceEntry("Residency workflow triggered on accommodation completion", "workflow", "high"),
-    createConsequenceEntry("CRM updated with current mobility status", "integration", "high"),
-    createConsequenceEntry("All state transitions emit orchestration events", "governance", "medium"),
-  ];
-  const shouldNotHappen = [
-    createConsequenceEntry("Travel data exposed outside sovereignty boundary", "governance", "critical"),
-    createConsequenceEntry("Duplicate CRM records from parallel workflows", "data", "high"),
-    createConsequenceEntry("Booking without valid passport credential", "permission", "critical"),
-  ];
-  for (const e of shouldHappen) canvas = addShouldHappen(canvas, e);
-  for (const e of shouldNotHappen) canvas = addShouldNeverHappen(canvas, e);
-  session = { ...session, consequenceCanvas: canvas };
-
-  // Advance stage to consequence_modeling (past intent, context, gaps)
-  session = { ...session, stage: "consequence_modeling" };
-
-  return session;
-}
 
 // ─── Right-pane sub-components ────────────────────────────────────────────
 
@@ -812,12 +714,101 @@ function AccordionSection({ title, icon: Icon, defaultOpen, children }: {
   );
 }
 
+// ── ICE engine: pending proposal approval card ─────────────────────────────
+// Mirrors aigentMe's artifact-pill approval pattern: the copilot's structured
+// stage proposal renders as an amber card inside the capability capsule it
+// belongs to. Approve commits it to the DevLoopState (and advances the strip
+// when it satisfies the waiting stage); Dismiss drops it — the operator can
+// ask aigentZ to refine and a fresh card replaces it.
+
+function proposalPreviewLines(p: StageProposal): string[] {
+  const d = p.data as Record<string, unknown>;
+  const count = (v: unknown) => (Array.isArray(v) ? v.length : 0);
+  switch (p.kind) {
+    case "intent":
+      return [
+        typeof d.goal === "string" ? `Goal: ${d.goal}` : "",
+        `${count(d.users)} user groups · ${count(d.desiredOutcomes)} outcomes · ${count(d.successCriteria)} success criteria · ${count(d.constraints)} constraints`,
+      ].filter(Boolean);
+    case "context_pack":
+      return [`${count(d.items)} context items proposed`];
+    case "gap_analysis":
+      return [`${count(d.existing)} existing capabilities (reuse/extend) · ${count(d.missing)} to create`];
+    case "consequence_canvas":
+      return [
+        `${count(d.shouldHappen)} should-happen · ${count(d.shouldNeverHappen)} must-never-happen`,
+        typeof d.successState === "string" && d.successState ? `Success state: ${d.successState.slice(0, 140)}${d.successState.length > 140 ? "…" : ""}` : "",
+      ].filter(Boolean);
+    case "implementation_brief":
+      return [typeof d.brief === "string" ? `Brief: ${d.brief.split("\n").find(l => l.trim()) ?? ""} (${d.brief.length.toLocaleString()} chars)` : ""];
+    case "validation_report":
+      return [`${count(d.items)} consequence checks · ${count(d.testingRequirements)} testing requirements`];
+    default:
+      return [];
+  }
+}
+
+const PROPOSAL_KIND_LABEL: Record<StageProposalKind, string> = {
+  intent: "Distilled Intent",
+  context_pack: "Context Pack",
+  gap_analysis: "Gap Report",
+  consequence_canvas: "Consequence Canvas",
+  implementation_brief: "Implementation Package",
+  validation_report: "Validation Report",
+};
+
+function PendingProposalCard({ proposal, onApprove, onDismiss }: {
+  proposal: StageProposal;
+  onApprove: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+        <span className="text-[10px] uppercase tracking-wide text-amber-300 font-semibold">
+          Proposed by aigentZ — awaiting your approval
+        </span>
+      </div>
+      <div className="text-xs font-semibold text-white">
+        {PROPOSAL_KIND_LABEL[proposal.kind]}: {proposal.summary}
+      </div>
+      <div className="space-y-0.5">
+        {proposalPreviewLines(proposal).map((line, i) => (
+          <div key={i} className="text-[11px] text-slate-300">{line}</div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          onClick={onApprove}
+          className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors font-semibold"
+        >
+          <CheckCircle className="w-3 h-3" />
+          Approve
+        </button>
+        <button
+          onClick={onDismiss}
+          className="text-[10px] px-2.5 py-1 rounded bg-slate-700/40 text-slate-300 border border-slate-600/40 hover:bg-slate-700/70 transition-colors"
+        >
+          Dismiss
+        </button>
+        <span className="text-[10px] text-slate-500 ml-1">
+          or ask aigentZ to refine it — a fresh card replaces this one
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // Capability detail layouts (shown when a capability button is clicked)
-function CapabilityLayout({ capsuleId, onBack, session, onAdvanceStage }: {
+function CapabilityLayout({ capsuleId, onBack, session, onAdvanceStage, pendingProposal, onApproveProposal, onDismissProposal }: {
   capsuleId: DevCapsuleId;
   onBack: () => void;
   session: DevLoopState;
   onAdvanceStage: () => void;
+  pendingProposal?: StageProposal | null;
+  onApproveProposal?: (capsule: DevCapsuleId) => void;
+  onDismissProposal?: (capsule: DevCapsuleId) => void;
 }) {
   const cap = CAPABILITIES.find(c => c.id === capsuleId);
   if (!cap) return null;
@@ -848,6 +839,14 @@ function CapabilityLayout({ capsuleId, onBack, session, onAdvanceStage }: {
           <h3 className="text-sm font-bold text-white">{cap.label}</h3>
         </div>
       </div>
+
+      {pendingProposal && onApproveProposal && onDismissProposal && (
+        <PendingProposalCard
+          proposal={pendingProposal}
+          onApprove={() => onApproveProposal(capsuleId)}
+          onDismiss={() => onDismissProposal(capsuleId)}
+        />
+      )}
 
       {capsuleId === "project-overview" && <ProjectOverviewPanel session={session} />}
       {capsuleId === "intent" && session.intent && <IntentPanel intent={session.intent} />}
@@ -921,7 +920,9 @@ interface DevCommandCenterTabProps {
 }
 
 export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
-  const [session, setSession] = useState<DevLoopState>(() => seedDemoSession());
+  // ICE engine: sessions start clean at intent_capture — the loop is
+  // populated by approving aigentZ's stage proposals, not demo data.
+  const [session, setSession] = useState<DevLoopState>(() => createDevLoopSession());
   const [activeLayoutId, setActiveLayoutId] = useState<DevLayoutId>("stack");
   const [activeCapsuleId, setActiveCapsuleId] = useState<DevCapsuleId | null>(null);
 
@@ -996,6 +997,66 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     });
   }, []);
 
+  // ── ICE engine: pending stage proposals (mirrors aigentMe's artifact-
+  // approval pattern). The copilot's stage_data fences arrive here as
+  // structured proposals; each lands as a pending approval card inside
+  // its capability capsule. Pending cards persist across turns until
+  // approved, dismissed, or replaced by a fresh proposal of the same kind
+  // — an empty turn never clobbers an unreviewed artifact.
+  const [pendingProposals, setPendingProposals] = useState<Partial<Record<DevCapsuleId, StageProposal>>>({});
+
+  const handleStageProposals = useCallback((proposals: CopilotStageProposal[]) => {
+    if (proposals.length === 0) return;
+    const typed = proposals.filter(
+      (p): p is StageProposal => typeof p.kind === "string" && p.kind in PROPOSAL_KIND_TO_CAPSULE,
+    );
+    if (typed.length === 0) return;
+    setPendingProposals(prev => {
+      const next = { ...prev };
+      for (const p of typed) {
+        next[PROPOSAL_KIND_TO_CAPSULE[p.kind] as DevCapsuleId] = p;
+      }
+      return next;
+    });
+    // Surface the first proposal: pulse its chip and mount its capsule so
+    // the dev sees the card without hunting for it (containment rule —
+    // the artifact renders inside the capability that produced it).
+    const capsule = PROPOSAL_KIND_TO_CAPSULE[typed[0].kind] as DevCapsuleId;
+    setCapsuleSuggestions(prev => ({ ...prev, [capsule]: true }));
+    engageCapsuleAndMount(capsule);
+  }, [engageCapsuleAndMount]);
+
+  const handleApproveProposal = useCallback((capsule: DevCapsuleId) => {
+    const proposal = pendingProposals[capsule];
+    if (!proposal) return;
+    setSession(s => {
+      let next = applyStageProposal(s, proposal);
+      // Auto-advance only when the approved artifact is the one the current
+      // stage was waiting for — approving a cyclical revision of an earlier
+      // stage must not push the strip forward.
+      if (STAGE_PROPOSAL_KIND[next.stage] === proposal.kind && canAdvance(next)) {
+        next = advanceStage(next);
+      }
+      console.log(`[aigentZ ICE] approved ${proposal.kind} → stage ${next.stage}`);
+      return next;
+    });
+    setPendingProposals(prev => {
+      const next = { ...prev };
+      delete next[capsule];
+      return next;
+    });
+    consumeCapsuleSuggestion(capsule);
+  }, [pendingProposals, consumeCapsuleSuggestion]);
+
+  const handleDismissProposal = useCallback((capsule: DevCapsuleId) => {
+    setPendingProposals(prev => {
+      const next = { ...prev };
+      delete next[capsule];
+      return next;
+    });
+    consumeCapsuleSuggestion(capsule);
+  }, [consumeCapsuleSuggestion]);
+
   // Ground context for the copilot — feeds the LLM with current session state.
   // Includes markdown summaries from the service layer so the LLM can reason
   // about the full dev loop without needing a separate API call.
@@ -1018,7 +1079,10 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     consequenceCanvasSummary: session.consequenceCanvas ? buildConsequenceCanvasSummary(session.consequenceCanvas) : null,
     validationSummary: session.validationReport ? buildValidationSummary(session.validationReport) : null,
     implementationPackage: buildImplementationPackage(session) ? "ready" : "incomplete",
-  }), [session, activeLayoutId, activeCapsuleId]);
+    // Proposals awaiting operator approval — the LLM should remind the
+    // operator about unreviewed cards rather than emit duplicate fences.
+    pendingApprovals: Object.values(pendingProposals).map(p => p?.kind).filter(Boolean),
+  }), [session, activeLayoutId, activeCapsuleId, pendingProposals]);
 
   // Quick-prompt chips for the copilot left pane. `highlight` pulses the
   // chip when the copilot's last turn suggested the matching capability;
@@ -1098,6 +1162,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           groundContext={copilotGroundContext}
           onPrompt={handlePrompt}
           onSuggestedLayouts={handleSuggestedLayouts}
+          onStageProposals={handleStageProposals}
           onClearHighlights={clearCapsuleSuggestions}
           onClose={() => undefined}
         />
@@ -1120,7 +1185,15 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
             />
           )}
           {isCapsuleLayout && activeCapsuleId && (
-            <CapabilityLayout capsuleId={activeCapsuleId} onBack={returnToStack} session={session} onAdvanceStage={handleAdvanceStage} />
+            <CapabilityLayout
+              capsuleId={activeCapsuleId}
+              onBack={returnToStack}
+              session={session}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals[activeCapsuleId] ?? null}
+              onApproveProposal={handleApproveProposal}
+              onDismissProposal={handleDismissProposal}
+            />
           )}
           {isToolLayout && (
             <ToolLayout toolId={activeLayoutId} onBack={returnToStack} />

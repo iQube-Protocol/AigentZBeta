@@ -96,9 +96,9 @@ export function buildImplementationPackage(state: DevLoopState): ImplementationP
     return null;
   }
 
-  return {
-    intentId: state.intent.intentId,
-    brief: [
+  // Prefer the LLM-enriched brief (PRD + architecture plan + task list)
+  // approved at the implementation stage; fall back to the derived brief.
+  const derivedBrief = [
       `# Implementation Brief: ${state.intent.goal}`,
       '',
       `## Goal`,
@@ -127,7 +127,11 @@ export function buildImplementationPackage(state: DevLoopState): ImplementationP
       '',
       `## Success State`,
       state.consequenceCanvas.successState,
-    ].join('\n'),
+    ].join('\n');
+
+  return {
+    intentId: state.intent.intentId,
+    brief: state.implementationBrief || derivedBrief,
     contextPack: state.contextPack,
     gapAnalysis: state.gapAnalysis,
     consequenceCanvas: state.consequenceCanvas,

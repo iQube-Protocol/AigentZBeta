@@ -152,6 +152,9 @@ export interface DevLoopState {
   gapAnalysis: CapabilityGapAnalysis | null;
   consequenceCanvas: ConsequenceCanvas | null;
   validationReport: ConsequenceValidationReport | null;
+  /** LLM-enriched implementation brief (PRD + plan + tasks). When present,
+   *  buildImplementationPackage uses it instead of the derived brief. */
+  implementationBrief?: string | null;
   receipts: string[];
   startedAt: string;
   updatedAt: string;

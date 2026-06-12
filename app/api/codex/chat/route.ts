@@ -33,6 +33,8 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
+import { buildStageInstructionBlock, extractStageProposals } from '@/services/devCommandCenter/stageOrchestrator';
+import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1961,6 +1963,12 @@ function buildSystemPrompt(
         }
 
         groundContextBlock = `\n\n## Dev loop ground truth — narrate THIS, do not invent\n\nYou are aigentZ, the development command center agent. The operator's right pane shows the Dev Command Center with the session state below. Your replies MUST reference this exact state — cite the current stage, the intent goal, the gap analysis ratios, and consequence guardrails when relevant. Guide the operator through the dev loop: intent → context → gaps → consequences → implementation → validation → complete.\n\nWhen you suggest an action, emit a [layout:<id>|<substance>] tag (same format as aigent-me). Valid dev IDs: intent, context, gap-analysis, consequence-canvas, validation, project-overview, terminal, github, devtools, linear.\n\n${lines.join('\n')}`;
+
+        // ICE engine (Phase 1A): stage-specific execution instructions +
+        // the structured stage_data proposal contract for this stage.
+        groundContextBlock += buildStageInstructionBlock(
+          typeof gc.activeStage === 'string' ? gc.activeStage : undefined,
+        );
       }
     } catch {
       // groundContext malformed — fall back to general narrative.
@@ -2336,9 +2344,16 @@ export async function POST(request: NextRequest) {
         if (ctx) userContext.metameContext = ctx;
       }
 
+      // ICE engine: the dev loop stage the calling surface reports — drives
+      // stage-specific live inventories (cartridges, API routes, registry).
+      const devLoopStage =
+        isAigentZ && groundContext && typeof (groundContext as Record<string, unknown>).activeStage === 'string'
+          ? ((groundContext as Record<string, unknown>).activeStage as string)
+          : undefined;
+
       // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
-      // state, and aigent-z platform knowledge in parallel
-      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, platformKnowledgeBlock] = await Promise.all([
+      // state, and aigent-z platform knowledge + stage ground data in parallel
+      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData] = await Promise.all([
         fetchCodexMetadata(domain),
         searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
         needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
@@ -2349,7 +2364,14 @@ export async function POST(request: NextRequest) {
               return '';
             })
           : Promise.resolve(''),
+        isAigentZ
+          ? buildStageGroundData(devLoopStage).catch((err) => {
+              console.warn('[CodexChat] aigent-z stage ground data failed:', err);
+              return '';
+            })
+          : Promise.resolve(''),
       ]);
+      const platformKnowledgeBlock = `${resolvedPlatformKnowledge}${resolvedStageGroundData}`;
       metadata = resolvedMetadata;
       // Merge domain KB + protocol KB results, deduplicated by content prefix
       const seen = new Set<string>();
@@ -2447,9 +2469,15 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
-    const walletActions = inferWalletActions(message, assistantMessage);
-    const suggestedLayouts = inferSuggestedLayouts(message, assistantMessage);
-    const responseForClient = stripLayoutTags(assistantMessage);
+    // ICE engine: pull structured stage_data proposals (aigent-z only) out of
+    // the reply before layout-tag stripping; they return as stage_proposals.
+    const { cleanText: messageSansStageData, proposals: stageProposals } =
+      resolvedAgentId === 'aigent-z'
+        ? extractStageProposals(assistantMessage)
+        : { cleanText: assistantMessage, proposals: [] };
+    const walletActions = inferWalletActions(message, messageSansStageData);
+    const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData);
+    const responseForClient = stripLayoutTags(messageSansStageData);
 
     console.log('[CodexChat] Response length:', responseForClient.length);
     console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');
@@ -2460,6 +2488,7 @@ export async function POST(request: NextRequest) {
       persona,
       wallet_actions: walletActions,
       suggested_layouts: suggestedLayouts,
+      stage_proposals: stageProposals,
       event_meta: eventMeta,
       userContext: {
         domain: userContext.domain,
