@@ -1090,11 +1090,34 @@ python3 scripts/qubetalk_bridge/apply_packets.py [--dry-run]
 
 ---
 
+## Worldcoin keys — which one goes where (DON'T CONFUSE THESE)
+
+Worldcoin uses three distinct credentials with overlapping names. Mixing them up causes silent verification failures.
+
+| Variable | Scope | Public? | Used by | What it does |
+|---|---|---|---|---|
+| `WORLD_ID_APP_ID` | server env (Amplify) | **public** (`app_xxx...`) | `services/passport/personhoodProof.ts` → POST to `developer.worldcoin.org/api/v2/verify/${app_id}` | Server-side proof verification. **No auth header required** — the proof itself is the credential. |
+| `NEXT_PUBLIC_WORLD_ID_APP_ID` | build-time env (Amplify) | **public** (same value as above) | `components/passport/WorldIdButton.tsx` IDKit modal | Browser-side — tells the IDKit modal which Worldcoin app to request a proof for. **Must be set to the same value as `WORLD_ID_APP_ID`** or the modal won't render. |
+| `WORLD_ID_ACTION_ID` | server env | **public** (e.g. `polity-passport-verify`) | Server verifier (default fallback) | Action slug. Set in Developer Portal → app → **Incognito Actions** → Create action. Scopes the nullifier hash: one verified proof per (action, human). |
+| `NEXT_PUBLIC_WORLD_ID_ACTION_ID` | build-time env | **public** (same value as above) | Browser-side IDKit modal | Same value, browser scope. |
+| `WORLD_DEVELOPER_API_KEY` | MCP server config | **secret** (`Bearer dev_xxx...`) | Only the Developer Portal **management** MCP (`mcp_servers.worldcoin-developer-portal`) — used to programmatically create apps, list events, etc. | **NOT used by the verification flow.** Setting this alone does nothing for passport verification. Only relevant if you're driving the Worldcoin dev portal from chat via MCP. |
+
+**TL;DR for the Polity Passport verification flow:** you need only the first four. Two values, four env vars (each value pasted both server-scope and `NEXT_PUBLIC_` scope). `WORLD_DEVELOPER_API_KEY` is a separate concern.
+
+**Why the `NEXT_PUBLIC_` duplication is required:** Next.js bakes `NEXT_PUBLIC_*` env vars into the client bundle at **build time**. Non-`NEXT_PUBLIC_` vars are runtime-only (server). The IDKit modal mounts in the browser — it can't read server env. If you set only the server vars, the browser-side button silently falls back to dev-worldid mode.
+
+**Provisioning steps:**
+1. developer.worldcoin.org → log in → **Create an app** → grab `app_xxx...` → that's both `WORLD_ID_APP_ID` and `NEXT_PUBLIC_WORLD_ID_APP_ID`.
+2. In the app → **Incognito Actions** → **Create action** → name it `polity-passport-verify` → that's both `WORLD_ID_ACTION_ID` and `NEXT_PUBLIC_WORLD_ID_ACTION_ID`.
+3. Optional, **separate**: under **API Keys** → generate a key → that's `WORLD_DEVELOPER_API_KEY`, used only by the MCP management server.
+
+After setting the four env vars in Amplify, **trigger a rebuild** — the `NEXT_PUBLIC_*` values won't reach the browser until the client bundle is rebuilt.
+
+---
+
 ## Wallet-Over-Cartridge Overlay — CANONICAL PATTERN (must reuse)
 
-**Goal:** open the SmartWalletDrawer (PersonaQube, PassportQube, AgentQubes sections) on top of a cartridge layer without losing the cartridge content underneath.
-
-**The only path that works**: mount `<SmartWalletDrawer variant="embedded" />` INSIDE a `<CodexCopilotLayer>` flex container. Do NOT render the SmartWalletDrawer as a standalone slide-over on top of a cartridge — z-index conflicts make it unusable. The comment at `app/components/codex/CodexCopilotLayer.tsx:113` explicitly names this: "the parallel SmartWalletDrawer (which has z-index conflicts)."
+**Goal:** open the SmartWalletDrawer (PersonaQube, PassportQube, AgentQubes sections) on top of a cartridge layer without losing the cartridge content underneath.**The only path that works**: mount `<SmartWalletDrawer variant="embedded" />` INSIDE a `<CodexCopilotLayer>` flex container. Do NOT render the SmartWalletDrawer as a standalone slide-over on top of a cartridge — z-index conflicts make it unusable. The comment at `app/components/codex/CodexCopilotLayer.tsx:113` explicitly names this: "the parallel SmartWalletDrawer (which has z-index conflicts)."
 
 **Reference implementation:** `app/components/codex/CodexCopilotLayer.tsx:1700-1724` — the `walletPanelOpen` branch mounts `<SmartWalletDrawer variant="embedded" />` inside the copilot's flex layout. When the user clicks a wallet action chip in the copilot UI, `setWalletPanelOpen(true)` flips the panel on and the drawer slides in alongside (not on top of) the copilot. Both ride above the cartridge content via the copilot layer's overlay.
 
