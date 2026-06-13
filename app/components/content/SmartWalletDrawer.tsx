@@ -64,6 +64,7 @@ import {
   BookOpen,
   Settings,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Bot,
   User,
@@ -980,6 +981,8 @@ export default function SmartWalletDrawer({
   const [passportQubes, setPassportQubes] = useState<PassportQubeItem[]>([]);
   const [passportQubesLoading, setPassportQubesLoading] = useState(false);
   const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
+  const [passportCardCollapsed, setPassportCardCollapsed] = useState<Set<string>>(new Set());
+  const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
 
   // Sponsored agents — wallet section "Agents I sponsor" (Sprint 3).
   interface SponsoredAgentItem {
@@ -1114,6 +1117,23 @@ export default function SmartWalletDrawer({
     a.download = `passport-${pq.passportId}.vc.json`;
     a.click();
     URL.revokeObjectURL(url);
+  }, []);
+
+  const handleCopyVc = useCallback((pq: PassportQubeItem) => {
+    if (!pq.credential) return;
+    void navigator.clipboard.writeText(JSON.stringify(pq.credential, null, 2)).then(() => {
+      setPassportVcCopied(pq.passportId);
+      setTimeout(() => setPassportVcCopied((prev) => (prev === pq.passportId ? null : prev)), 2000);
+    });
+  }, []);
+
+  const togglePassportCardCollapse = useCallback((passportId: string) => {
+    setPassportCardCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(passportId)) next.delete(passportId);
+      else next.add(passportId);
+      return next;
+    });
   }, []);
 
   const hasPaidTier = useCallback((content?: SmartContentQube | null): boolean => {
@@ -4476,36 +4496,44 @@ export default function SmartWalletDrawer({
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {passportQubes.map((pq) => (
+                    {passportQubes.map((pq) => {
+                      const isCollapsed = passportCardCollapsed.has(pq.passportId);
+                      return (
                       <div
                         key={pq.passportId}
                         className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2"
                       >
-                        <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => togglePassportCardCollapse(pq.passportId)}
+                          className="flex w-full items-center justify-between"
+                        >
                           <div className="flex items-center gap-2">
                             <ShieldCheck className="h-4 w-4 text-emerald-400" />
                             <span className="text-xs font-medium text-emerald-300">
                               {pq.passportClass === "citizen" ? "Citizen" : "Participant"} Passport
                             </span>
+                            {pq.passportGrade === 'verified_citizen' && (
+                              <span className="flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-300">
+                                <ShieldCheck className="h-2.5 w-2.5" />
+                                Verified
+                              </span>
+                            )}
                           </div>
-                          <span className="text-[10px] text-white/40 font-mono">
-                            {pq.passportId.slice(0, 16)}…
-                          </span>
-                        </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-white/40 font-mono">
+                              {pq.passportId.slice(0, 12)}…
+                            </span>
+                            {isCollapsed ? <ChevronDown className="h-3 w-3 text-white/40" /> : <ChevronUp className="h-3 w-3 text-white/40" />}
+                          </div>
+                        </button>
+                        {!isCollapsed && (
+                          <>
                         <div className="flex items-center gap-2 text-[10px] text-white/50 flex-wrap">
                           <span>Status: <span className="text-emerald-300">{pq.passportStatus}</span></span>
                           {pq.passportGrade && <span>· Grade: {pq.passportGrade}</span>}
                           {pq.claimedAt && <span>· Claimed {new Date(pq.claimedAt).toLocaleDateString()}</span>}
-                          {pq.passportGrade === 'verified_citizen' && (
-                            <span className="flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[9px] font-medium text-sky-300">
-                              <ShieldCheck className="h-2.5 w-2.5" />
-                              World ID Verified
-                            </span>
-                          )}
                         </div>
-                        {/* World ID upgrade CTA — citizen passports only,
-                            visible until verified. Non-verified citizens
-                            remain first-class; this is an additive badge. */}
                         {pq.passportClass === 'citizen' && pq.passportGrade !== 'verified_citizen' && pq.claimedAt && (
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <WorldIdButton
@@ -4537,6 +4565,13 @@ export default function SmartWalletDrawer({
                                 <Download className="h-3 w-3" />
                                 Download
                               </button>
+                              <button
+                                onClick={() => handleCopyVc(pq)}
+                                className="flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-[10px] text-white/50 hover:bg-white/10 transition-colors"
+                              >
+                                {passportVcCopied === pq.passportId ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                                {passportVcCopied === pq.passportId ? "Copied" : "Copy"}
+                              </button>
                             </div>
                             {passportVcExpanded === pq.passportId && (
                               <div className="rounded bg-black/30 p-2 max-h-32 overflow-y-auto">
@@ -4552,8 +4587,11 @@ export default function SmartWalletDrawer({
                             Claimable — visit the Polity Passport Registry to claim this credential.
                           </p>
                         )}
+                          </>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>
