@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T19:50:55.153Z",
+  "last_updated": "2026-06-13T20:00:36.957Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "841a64e7b413ad40563f40cb6cfbd58f2824923d",
-  "latest_commit_short": "841a64e",
-  "latest_commit_title": "fix amplify build — remove literal @worldcoin/idkit dynamic import",
+  "latest_commit": "a1c80a0e978f73d4344b85688c5fc960875ea514",
+  "latest_commit_short": "a1c80a0",
+  "latest_commit_title": "add hackathon submission note explaining cumulative build provenance",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a1c80a0",
+      "full_sha": "a1c80a0e978f73d4344b85688c5fc960875ea514",
+      "title": "add hackathon submission note explaining cumulative build provenance",
+      "author": "Claude",
+      "timestamp": "2026-06-13T19:58:41Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a1c80a0.md"
+    },
     {
       "sha": "841a64e",
       "full_sha": "841a64e7b413ad40563f40cb6cfbd58f2824923d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T21:54:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e549a85.md"
-    },
-    {
-      "sha": "0d769b7",
-      "full_sha": "0d769b77c620e1c0c7bc50770460c5204d1a2979",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-31T21:54:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0d769b7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

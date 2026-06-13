@@ -2244,3 +2244,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-841a64e.md](../build_/COMMITS/COMMIT-841a64e.md)
 - Message: fix amplify build — remove literal @worldcoin/idkit dynamic import
+
+## Commit `a1c80a0` — 2026-06-13T19:58:41Z
+- Type: `feat`
+- Brief: [COMMIT-a1c80a0.md](../build_/COMMITS/COMMIT-a1c80a0.md)
+- Message: add hackathon submission note explaining cumulative build provenance
