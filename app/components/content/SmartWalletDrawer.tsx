@@ -102,6 +102,7 @@ import {
   ShieldCheck,
   Download,
 } from "lucide-react";
+import { WorldIdButton, type WorldIdProofBundle } from "@/components/passport/WorldIdButton";
 
 
 // Tooltip component for icon hints
@@ -1038,68 +1039,49 @@ export default function SmartWalletDrawer({
   const [worldIdBusy, setWorldIdBusy] = useState<string | null>(null);
   const [worldIdError, setWorldIdError] = useState<Record<string, string | null>>({});
 
-  const handleWorldIdUpgrade = useCallback(async (passportId: string) => {
-    setWorldIdBusy(passportId);
-    setWorldIdError((e) => ({ ...e, [passportId]: null }));
-    try {
-      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
-      if (!session?.access_token) {
-        setWorldIdError((e) => ({ ...e, [passportId]: 'Sign in required' }));
-        return;
+  // World ID upgrade — receives a real proof bundle from <WorldIdButton>
+  // (or a dev-worldid-orb fallback when NEXT_PUBLIC_WORLD_ID_APP_ID is
+  // unset). Forwards to verify-worldid; optimistically flips grade in
+  // the local list on success so the UI updates without a refetch.
+  const handleWorldIdProof = useCallback(
+    async (passportId: string, proof: WorldIdProofBundle) => {
+      setWorldIdBusy(passportId);
+      setWorldIdError((e) => ({ ...e, [passportId]: null }));
+      try {
+        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+        if (!session?.access_token) {
+          setWorldIdError((e) => ({ ...e, [passportId]: 'Sign in required' }));
+          return;
+        }
+        const res = await fetch('/api/polity-passport/verify-worldid', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ passportId, proof }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.ok) {
+          setWorldIdError((e) => ({ ...e, [passportId]: data?.error ?? 'Verification failed' }));
+          return;
+        }
+        setPassportQubes((prev) =>
+          prev.map((pq) =>
+            pq.passportId === passportId ? { ...pq, passportGrade: 'verified_citizen' } : pq,
+          ),
+        );
+      } catch (e) {
+        setWorldIdError((err) => ({
+          ...err,
+          [passportId]: e instanceof Error ? e.message : 'Network error',
+        }));
+      } finally {
+        setWorldIdBusy(null);
       }
-
-      // Strong-proof bundle. In production the IDKit modal returns these
-      // four fields; the @worldcoin/idkit React component fires the
-      // openModal flow and resolves with the same shape.
-      //
-      // We DO NOT statically import @worldcoin/idkit here — the package
-      // isn't installed yet (stub mode is the demo cut), and a literal
-      // dynamic import('@worldcoin/idkit') still trips Next.js's
-      // module-not-found at build time. Until the SDK is installed and
-      // a dedicated WorldIdButton component mounts IDKitWidget inline,
-      // we generate a dev-worldid token here that the server-side
-      // verifyWorldIdProof accepts when WORLD_ID_APP_ID is unset.
-      const proof: {
-        proof: string;
-        merkle_root: string;
-        nullifier_hash: string;
-        verification_level: 'orb' | 'device';
-      } = {
-        proof: 'dev-worldid-orb',
-        merkle_root: '0x0',
-        nullifier_hash: `0x${Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64)}`,
-        verification_level: 'orb',
-      };
-
-      const res = await fetch('/api/polity-passport/verify-worldid', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ passportId, proof }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.ok) {
-        setWorldIdError((e) => ({ ...e, [passportId]: data?.error ?? 'Verification failed' }));
-        return;
-      }
-
-      // Optimistic update — flip grade to verified_citizen in-place.
-      setPassportQubes((prev) =>
-        prev.map((pq) =>
-          pq.passportId === passportId ? { ...pq, passportGrade: 'verified_citizen' } : pq,
-        ),
-      );
-    } catch (e) {
-      setWorldIdError((err) => ({
-        ...err,
-        [passportId]: e instanceof Error ? e.message : 'Network error',
-      }));
-    } finally {
-      setWorldIdBusy(null);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (activeTab !== "iqube") return;
@@ -4526,20 +4508,13 @@ export default function SmartWalletDrawer({
                             remain first-class; this is an additive badge. */}
                         {pq.passportClass === 'citizen' && pq.passportGrade !== 'verified_citizen' && pq.claimedAt && (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => handleWorldIdUpgrade(pq.passportId)}
-                              disabled={worldIdBusy === pq.passportId}
+                            <WorldIdButton
+                              onProof={(proof) => handleWorldIdProof(pq.passportId, proof)}
+                              busy={worldIdBusy === pq.passportId}
+                              signal={pq.passportId}
+                              label="Upgrade with World ID"
                               className="flex items-center gap-1 rounded bg-sky-500/15 px-2 py-1 text-[10px] text-sky-300 hover:bg-sky-500/25 transition-colors disabled:opacity-50"
-                              title="Upgrade to a Verified Citizen passport with a World ID proof of personhood"
-                            >
-                              {worldIdBusy === pq.passportId ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <ShieldCheck className="h-3 w-3" />
-                              )}
-                              {worldIdBusy === pq.passportId ? 'Verifying…' : 'Upgrade with World ID'}
-                            </button>
+                            />
                             {worldIdError[pq.passportId] && (
                               <span className="text-[10px] text-rose-400">{worldIdError[pq.passportId]}</span>
                             )}

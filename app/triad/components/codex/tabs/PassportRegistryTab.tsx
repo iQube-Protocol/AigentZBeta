@@ -20,6 +20,7 @@ import { BookOpenCheck, RefreshCw, Loader2, AlertCircle, ShieldCheck, Bot, Walle
 import { SubHeaderSlotContext } from '../SubHeaderSlot';
 import { PassportClaimModal } from './PassportClaimModal';
 import { personaFetch } from '@/utils/personaSpine';
+import { WorldIdButton, type WorldIdProofBundle } from '@/components/passport/WorldIdButton';
 
 interface PublicPassport {
   passportId: string;
@@ -64,39 +65,37 @@ export function PassportRegistryTab() {
   const [worldIdBusy, setWorldIdBusy] = useState<string | null>(null);
   const [worldIdError, setWorldIdError] = useState<Record<string, string | null>>({});
 
-  // World ID upgrade — same pattern as SmartWalletDrawer.handleWorldIdUpgrade.
-  // Surfaces a Verify-with-World-ID action on every claimed citizen passport
-  // that isn't already verified. Operator request 2026-06-13: the upgrade
-  // loop must be visible from the Registry tab, not only the wallet drawer.
-  const handleWorldIdUpgrade = useCallback(async (passportId: string) => {
-    setWorldIdBusy(passportId);
-    setWorldIdError((e) => ({ ...e, [passportId]: null }));
-    try {
-      const proof = {
-        proof: 'dev-worldid-orb',
-        merkle_root: '0x0',
-        nullifier_hash: `0x${Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64)}`,
-        verification_level: 'orb' as const,
-      };
-      const res = await personaFetch('/api/polity-passport/verify-worldid', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passportId, proof }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.ok) {
-        setWorldIdError((e) => ({ ...e, [passportId]: data?.error ?? 'Verification failed' }));
-        return;
+  // World ID upgrade — receives a real proof bundle from <WorldIdButton>
+  // (or a dev-worldid-orb fallback when NEXT_PUBLIC_WORLD_ID_APP_ID is
+  // unset). Forwards to verify-worldid; refreshes the row on success.
+  const handleWorldIdProof = useCallback(
+    async (passportId: string, proof: WorldIdProofBundle) => {
+      setWorldIdBusy(passportId);
+      setWorldIdError((e) => ({ ...e, [passportId]: null }));
+      try {
+        const res = await personaFetch('/api/polity-passport/verify-worldid', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passportId, proof }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.ok) {
+          setWorldIdError((e) => ({ ...e, [passportId]: data?.error ?? 'Verification failed' }));
+          return;
+        }
+        void loadOwn();
+      } catch (e) {
+        setWorldIdError((err) => ({
+          ...err,
+          [passportId]: e instanceof Error ? e.message : 'Network error',
+        }));
+      } finally {
+        setWorldIdBusy(null);
       }
-      // Refresh own passports so the grade flips.
-      void loadOwn();
-    } catch (e) {
-      setWorldIdError((err) => ({ ...err, [passportId]: e instanceof Error ? e.message : 'Network error' }));
-    } finally {
-      setWorldIdBusy(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -246,19 +245,11 @@ export function PassportRegistryTab() {
                   </span>
                 )}
                 {own?.claimedAt && p.passportClass === 'citizen' && own.passportGrade !== 'verified_citizen' && (
-                  <button
-                    onClick={() => void handleWorldIdUpgrade(p.passportId)}
-                    disabled={worldIdBusy === p.passportId}
-                    className="flex items-center gap-1 rounded-full bg-sky-500/15 border border-sky-500/30 px-2.5 py-0.5 text-xs text-sky-300 hover:bg-sky-500/25 transition-colors disabled:opacity-50"
-                    title="Strongly verify this passport with World ID"
-                  >
-                    {worldIdBusy === p.passportId ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <ShieldCheck className="h-3 w-3" />
-                    )}
-                    {worldIdBusy === p.passportId ? 'Verifying…' : 'Verify with World ID'}
-                  </button>
+                  <WorldIdButton
+                    onProof={(proof) => handleWorldIdProof(p.passportId, proof)}
+                    busy={worldIdBusy === p.passportId}
+                    signal={p.passportId}
+                  />
                 )}
                 <span
                   className={cls(

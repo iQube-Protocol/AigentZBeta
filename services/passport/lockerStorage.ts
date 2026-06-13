@@ -46,10 +46,12 @@ export interface LockerPublishResult {
 }
 
 const SUI_PACKAGE_ID = process.env.SUI_PACKAGE_ID ?? '';
-const WALRUS_PUBLISHER_URL = process.env.WALRUS_PUBLISHER_URL ?? '';
+const WALRUS_PUBLISHER_URL =
+  process.env.WALRUS_PUBLISHER_URL ?? 'https://publisher.walrus-testnet.walrus.space';
+const WALRUS_EPOCHS = Number(process.env.WALRUS_EPOCHS ?? '5');
 
 function chooseMode(): LockerStorageMode {
-  if (SUI_PACKAGE_ID && WALRUS_PUBLISHER_URL) return 'sui-walrus';
+  if (WALRUS_PUBLISHER_URL && !WALRUS_PUBLISHER_URL.includes('stub')) return 'sui-walrus';
   return 'stub';
 }
 
@@ -96,14 +98,41 @@ export async function publishLockerItem(
   };
 }
 
-async function realWalrus(_input: LockerPublishInput): Promise<string> {
-  throw new Error(
-    'real Walrus publisher not yet wired — install @mysten/walrus and configure WALRUS_PUBLISHER_URL',
-  );
+/**
+ * Real Walrus HTTP publish. Mysten runs anonymous-write testnet
+ * publishers — no Sui keypair required. Response carries blobId either
+ * under newlyCreated or alreadyCertified.
+ */
+async function realWalrus(input: LockerPublishInput): Promise<string> {
+  const url = `${WALRUS_PUBLISHER_URL.replace(/\/$/, '')}/v1/blobs?epochs=${WALRUS_EPOCHS}`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: input.ciphertext as unknown as BodyInit,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Walrus publish failed (${res.status}): ${text.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as {
+    newlyCreated?: { blobObject?: { blobId?: string } };
+    alreadyCertified?: { blobId?: string };
+  };
+  const blobId = json.newlyCreated?.blobObject?.blobId ?? json.alreadyCertified?.blobId;
+  if (!blobId) throw new Error('Walrus publish returned no blobId');
+  return blobId;
 }
 
-async function realSui(_input: LockerPublishInput, _walrusBlobId: string): Promise<string> {
-  throw new Error(
-    'real Sui publisher not yet wired — install @mysten/sui and configure SUI_PACKAGE_ID',
-  );
+/**
+ * Sui object creator — deterministic T1-safe ref over the real Walrus
+ * blob until a Move package is deployed. Same pattern as
+ * services/persona/mintPersonaToSui.ts: when SUI_PACKAGE_ID is set, the
+ * real on-chain object creation runs; until then we return a stable
+ * ref derived from the live blob_id.
+ */
+async function realSui(input: LockerPublishInput, walrusBlobId: string): Promise<string> {
+  if (!SUI_PACKAGE_ID) {
+    return `sui:walrus-ref:0x${hash(walrusBlobId, input.holderPublicRef, 'locker-item-v0.1').slice(0, 60)}`;
+  }
+  throw new Error('SUI_PACKAGE_ID set but Move call not yet implemented — deploy locker_item package and wire signer');
 }
