@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T05:12:04.931Z",
+  "last_updated": "2026-06-13T07:03:39.344Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d9014b6c7ee6993b6baf646b85459e6efeb4efd8",
-  "latest_commit_short": "d9014b6",
-  "latest_commit_title": "fix Amplify build: scope outputFileTracingIncludes to aigency + agentiq packs only — wildcard glob follows alpha-knyt symlink causing directory collision",
+  "latest_commit": "71ca12a55607f825c65f1aa68f7f6289cc615b74",
+  "latest_commit_short": "71ca12a",
+  "latest_commit_title": "amend passport bureau prd: add hackathon extension narrative, provekit zk layer, dvn stub, human mobility demo flows, prize alignment",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "71ca12a",
+      "full_sha": "71ca12a55607f825c65f1aa68f7f6289cc615b74",
+      "title": "amend passport bureau prd: add hackathon extension narrative, provekit zk layer, dvn stub, human mobility demo flows, prize alignment",
+      "author": "Claude",
+      "timestamp": "2026-06-13T07:01:32Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-71ca12a.md"
+    },
     {
       "sha": "d9014b6",
       "full_sha": "d9014b6c7ee6993b6baf646b85459e6efeb4efd8",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T19:46:35Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-17e0d6b.md"
-    },
-    {
-      "sha": "c502c4c",
-      "full_sha": "c502c4c82975eaf27d99c7a4505f93284f874cb0",
-      "title": "NBA cards: contextual title rewrites via LLM rerank",
-      "author": "Claude",
-      "timestamp": "2026-05-31T19:41:29Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c502c4c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
