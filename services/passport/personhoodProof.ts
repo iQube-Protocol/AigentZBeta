@@ -1,12 +1,17 @@
 /**
- * Personhood proof verification — weak proof (CAPTCHA) for MVP, with the
- * interface shaped so strong proof (World ID) slots in behind the existing
- * ReputationService extension point later (PRD §6.1, §16; implementation
- * plan Stage 3 + the World ID stub in ReputationService.checkTokenQubePolicy).
+ * Personhood proof verification — weak proof (CAPTCHA) and strong proof
+ * (World ID). PRD §6.1, §16; 2026-06-13 hackathon-submission plan §Sprint 2.
  *
- * Provider: Cloudflare Turnstile when TURNSTILE_SECRET_KEY is set.
- * Dev fallback: when the secret is unset (local/dev sandbox), tokens prefixed
- * 'dev-' verify successfully so the flow is testable without the provider.
+ * Weak proof — Cloudflare Turnstile (TURNSTILE_SECRET_KEY).
+ * Strong proof — Worldcoin World ID Cloud Verifier (WORLD_ID_APP_ID +
+ *   WORLD_ID_ACTION_ID). Verifies the IDKit proof bundle via the
+ *   developer.worldcoin.org cloud endpoint — no on-chain calls, no SDK
+ *   install required for the server-side verification step.
+ *
+ * Dev fallback: when secrets are unset (local/dev sandbox), tokens
+ * prefixed 'dev-' verify successfully so the flow is testable without
+ * the providers. Real World ID nullifier hashes are base16 hex; they
+ * never collide with 'dev-' prefix.
  */
 
 export type PersonhoodProofType = 'captcha' | 'world_id' | 'agent_declaration' | 'operator_attestation';
@@ -19,6 +24,101 @@ export interface ProofVerification {
 }
 
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+const WORLD_ID_VERIFY_URL = 'https://developer.worldcoin.org/api/v2/verify';
+
+export interface WorldIdProofPayload {
+  /** The semaphore proof. */
+  proof: string;
+  /** Merkle tree root the proof was generated against. */
+  merkle_root: string;
+  /** Nullifier hash — unique per (action, user). Persisted to prevent re-use. */
+  nullifier_hash: string;
+  /** Verification level — 'orb' (max strength) or 'device'. */
+  verification_level: 'orb' | 'device';
+  /** Optional action_id override; defaults to WORLD_ID_ACTION_ID. */
+  action?: string;
+  /** Optional signal — opaque per-request data that bound to the proof. */
+  signal?: string;
+}
+
+/**
+ * Verify a World ID proof bundle against the Worldcoin Cloud Verifier.
+ *
+ * The verifier returns:
+ *   - 200 + { success: true, ... } when the proof is valid AND the
+ *     (action, nullifier_hash) pair has not been seen before by Worldcoin's
+ *     side. We persist nullifier_hash on the passport record so the same
+ *     human can't double-verify a second persona's passport.
+ *   - 4xx with an error code when invalid.
+ *
+ * Dev fallback: when WORLD_ID_APP_ID is unset, tokens of the form
+ * 'dev-worldid-orb' / 'dev-worldid-device' verify successfully so the
+ * flow is testable locally.
+ */
+export async function verifyWorldIdProof(
+  payload: WorldIdProofPayload,
+): Promise<ProofVerification> {
+  const appId = process.env.WORLD_ID_APP_ID;
+  const defaultAction = process.env.WORLD_ID_ACTION_ID ?? 'polity-passport-verify';
+
+  // Dev fallback path — accept canary tokens when no app_id configured.
+  if (!appId) {
+    if (typeof payload.proof === 'string' && payload.proof.startsWith('dev-worldid-')) {
+      const level = payload.proof.includes('orb') ? 'orb' : 'device';
+      return {
+        ok: true,
+        proofType: 'world_id',
+        proofRef: `dev:worldid:${level}:${payload.nullifier_hash || randomNullifier()}`,
+      };
+    }
+    return {
+      ok: false,
+      proofType: 'world_id',
+      proofRef: null,
+      error: 'World ID provider not configured (set WORLD_ID_APP_ID + WORLD_ID_ACTION_ID)',
+    };
+  }
+
+  try {
+    const res = await fetch(`${WORLD_ID_VERIFY_URL}/${appId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nullifier_hash: payload.nullifier_hash,
+        merkle_root: payload.merkle_root,
+        proof: payload.proof,
+        verification_level: payload.verification_level,
+        action: payload.action ?? defaultAction,
+        signal_hash: payload.signal ?? undefined,
+      }),
+    });
+    const json = (await res.json()) as { success?: boolean; code?: string; detail?: string };
+    if (res.ok && json.success) {
+      return {
+        ok: true,
+        proofType: 'world_id',
+        proofRef: `worldid:${payload.verification_level}:${payload.nullifier_hash}`,
+      };
+    }
+    return {
+      ok: false,
+      proofType: 'world_id',
+      proofRef: null,
+      error: `World ID verification failed: ${json.code ?? 'unknown'} ${json.detail ?? ''}`.trim(),
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      proofType: 'world_id',
+      proofRef: null,
+      error: e instanceof Error ? e.message : 'World ID request failed',
+    };
+  }
+}
+
+function randomNullifier(): string {
+  return Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+}
 
 export async function verifyWeakProof(token: string, remoteIp?: string | null): Promise<ProofVerification> {
   const trimmed = (token || '').trim();

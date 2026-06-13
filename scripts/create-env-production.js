@@ -119,6 +119,14 @@ const envVars = [
   'WALRUS_AGGREGATOR_URL',
   // PersonaQube descriptor encryption — AES-256-GCM. 64 hex chars = 32 bytes.
   'PERSONA_IQUBE_ENCRYPTION_KEY',
+  // World ID strong-proof upgrade — Worldcoin Cloud Verifier.
+  // When unset, verifyWorldIdProof accepts 'dev-worldid-*' tokens for
+  // local testing; production requires both.
+  'WORLD_ID_APP_ID',
+  'WORLD_ID_ACTION_ID',
+  // World ID — client-side IDKit widget needs the public app id.
+  'NEXT_PUBLIC_WORLD_ID_APP_ID',
+  'NEXT_PUBLIC_WORLD_ID_ACTION_ID',
   'SEQUENCE_DISPATCH_SECRET',
   'LVB_BRIDGE_DEFAULT_PERSONA_ID',
   // iQubeNFT — ERC721 on-chain anchor
