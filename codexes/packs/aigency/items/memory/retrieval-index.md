@@ -2259,3 +2259,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-84f45d6.md](../build_/COMMITS/COMMIT-84f45d6.md)
 - Message: fix passport bureau copilot — wire CodexCopilotLayer for polity-passport-bureau-cartridge (aigent-z default)
+
+## Commit `72dde3e` — 2026-06-13T20:31:30Z
+- Type: `push`
+- Brief: [COMMIT-72dde3e.md](../build_/COMMITS/COMMIT-72dde3e.md)
+- Message: document wallet-over-cartridge overlay pattern + aletheon activation walkthrough
