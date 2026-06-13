@@ -177,15 +177,27 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'token query param required' }, { status: 400 });
   }
 
-  const verification = verifyAgentKitAttestation(token);
+  const verification = await verifyAgentKitAttestation(token);
   if (!verification.valid) {
     return NextResponse.json(
-      { ok: false, valid: false, mode: verification.mode, error: verification.error },
+      {
+        ok: false,
+        valid: false,
+        mode: verification.mode,
+        issuer: verification.issuer,
+        error: verification.error,
+      },
       { status: 401 },
     );
   }
   return NextResponse.json(
-    { ok: true, valid: true, mode: verification.mode, payload: verification.payload },
+    {
+      ok: true,
+      valid: true,
+      mode: verification.mode,
+      issuer: verification.issuer,
+      payload: verification.payload,
+    },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

@@ -31,7 +31,8 @@
  * AgentKit attestation API (TBD on canonical URL; check World docs).
  */
 
-import { createHash, createHmac } from 'crypto';
+import { createHash } from 'crypto';
+import { signIssuerToken, verifyIssuerToken, getIssuerAddress, isProductionIssuer } from '@/services/identity/polityIssuer';
 
 export type AgentKitMode = 'stub' | 'live';
 
@@ -65,22 +66,13 @@ export interface AgentKitAttestationResult {
   note?: string;
 }
 
-const AGENTKIT_API_KEY = process.env.AGENTKIT_API_KEY ?? '';
 const AGENTKIT_POLICY_ID = process.env.AGENTKIT_POLICY_ID ?? 'polity-bounded-delegation-v0.1';
-const AGENTKIT_ATTEST_URL = process.env.AGENTKIT_ATTEST_URL ?? '';
 
 function chooseMode(): AgentKitMode {
-  if (AGENTKIT_API_KEY && AGENTKIT_ATTEST_URL) return 'live';
-  return 'stub';
-}
-
-function stubSign(payload: string): string {
-  // Deterministic, env-keyed HMAC so dev environments produce reproducible
-  // tokens. Not cryptographically meaningful — purely the stub-mode
-  // signature consumers can pass through to the verifier (which knows the
-  // same key in dev).
-  const key = process.env.AGENTKIT_STUB_KEY ?? 'polity-agentkit-stub-key-v0.1';
-  return createHmac('sha256', key).update(payload).digest('hex');
+  // Live whenever the polity issuer key is set in env. The token is
+  // signed with a real EIP-191 signature any EVM-aware verifier can
+  // check against the issuer's public address — no shared secret.
+  return isProductionIssuer() ? 'live' : 'stub';
 }
 
 /**
@@ -96,83 +88,62 @@ export async function issueAgentKitAttestation(
   const mode = chooseMode();
   const issuedAt = new Date().toISOString();
   const verifiedHuman = input.sponsorWorldIdNullifier !== null;
+  const issuerAddress = getIssuerAddress();
 
-  if (mode === 'stub') {
-    const payload = {
-      iss: 'polity-passport-bureau',
-      policy: AGENTKIT_POLICY_ID,
-      delegation_grant_id: input.delegationGrantId,
-      sponsor_passport_id: input.sponsorPassportId,
-      verified_human: verifiedHuman,
-      // T2-safe nullifier hash IS the personhood commitment — safe to
-      // include. We never serialise persona_id or any T0 id here.
-      sponsor_personhood_commitment: input.sponsorWorldIdNullifier,
-      delegate_did: input.delegatedAgentDidUri,
-      scopes: input.allowedActions,
-      issued_at: issuedAt,
-      expires_at: input.expiresAt,
-    };
-    const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
-    const signature = stubSign(encoded);
-    const token = `${encoded}.agentkit-stub.${signature}`;
-    const attestationRef = `agentkit:stub:${createHash('sha256').update(token).digest('hex').slice(0, 24)}`;
+  const payload = {
+    iss: 'polity-passport-bureau',
+    issuer_address: issuerAddress,
+    policy: AGENTKIT_POLICY_ID,
+    schema: 'polity.attestation.agentkit-delegation.v0.1',
+    delegation_grant_id: input.delegationGrantId,
+    sponsor_passport_id: input.sponsorPassportId,
+    verified_human: verifiedHuman,
+    // T2-safe nullifier hash IS the personhood commitment — safe to
+    // include. We never serialise persona_id or any T0 id here.
+    sponsor_personhood_commitment: input.sponsorWorldIdNullifier,
+    delegate_did: input.delegatedAgentDidUri,
+    scopes: input.allowedActions,
+    issued_at: issuedAt,
+    expires_at: input.expiresAt,
+  };
 
-    return {
-      mode,
-      attestationToken: token,
-      verifiedHuman,
-      attestationRef,
-      issuedAt,
-      note: 'Stub mode — set AGENTKIT_API_KEY + AGENTKIT_ATTEST_URL and install the AgentKit SDK to issue cryptographic attestations from the World AgentKit policy engine.',
-    };
-  }
+  // Real EIP-191 signature — any EVM-aware verifier can confirm against
+  // the issuer's public address without a shared secret.
+  const attestationToken = await signIssuerToken(payload);
+  const attestationRef = `agentkit:${mode}:${createHash('sha256').update(attestationToken).digest('hex').slice(0, 24)}`;
 
-  // Live mode (TBD on AgentKit canonical SDK shape — follow World docs).
-  throw new Error(
-    'Live AgentKit attestation not yet wired — install the AgentKit SDK and configure AGENTKIT_API_KEY + AGENTKIT_ATTEST_URL.',
-  );
+  return {
+    mode,
+    attestationToken,
+    verifiedHuman,
+    attestationRef,
+    issuedAt,
+    note:
+      mode === 'stub'
+        ? 'Dev-issuer mode — token is a real EIP-191 signature but signed with the deterministic dev key. Set POLITY_ISSUER_PRIVATE_KEY for a production identity.'
+        : 'Production issuer — EIP-191 signature against POLITY_ISSUER_PRIVATE_KEY. Verifiers check at GET /api/access/delegation/agentkit-attest?token=...',
+  };
 }
 
 /**
- * Verify an AgentKit attestation token. Stub mode recomputes the HMAC
- * with the same env-keyed secret and confirms the payload matches; live
- * mode calls the AgentKit verify API.
+ * Verify an AgentKit attestation token by checking the EIP-191
+ * signature against the polity issuer's address. Public; no auth
+ * required — anyone can call this to confirm an attestation is genuine.
  */
-export function verifyAgentKitAttestation(token: string): {
+export async function verifyAgentKitAttestation(token: string): Promise<{
   valid: boolean;
   payload: Record<string, unknown> | null;
   mode: AgentKitMode;
+  issuer: string;
   error?: string;
-} {
+}> {
   const mode = chooseMode();
-  if (!token || typeof token !== 'string' || !token.includes('.')) {
-    return { valid: false, payload: null, mode, error: 'Malformed token' };
-  }
-
-  // Stub mode local verification.
-  if (mode === 'stub' || token.includes('.agentkit-stub.')) {
-    const parts = token.split('.');
-    if (parts.length !== 3 || parts[1] !== 'agentkit-stub') {
-      return { valid: false, payload: null, mode, error: 'Malformed stub token' };
-    }
-    const [encoded, , signature] = parts;
-    const expected = stubSign(encoded);
-    if (expected !== signature) {
-      return { valid: false, payload: null, mode, error: 'Signature mismatch' };
-    }
-    try {
-      const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-      return { valid: true, payload, mode };
-    } catch {
-      return { valid: false, payload: null, mode, error: 'Payload decode failed' };
-    }
-  }
-
-  // Live mode — TBD.
+  const result = await verifyIssuerToken(token);
   return {
-    valid: false,
-    payload: null,
+    valid: result.valid,
+    payload: result.payload,
     mode,
-    error: 'Live AgentKit verification not yet wired',
+    issuer: result.issuer,
+    error: result.error,
   };
 }
