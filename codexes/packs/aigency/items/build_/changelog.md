@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d520569`](https://github.com/iQube-Protocol/AigentZBeta/commit/d520569c35ff12a445bb4e9b559c16acc764acd8) [push] refine aletheon card: the first citizen's constitutional companion intelligence (Claude, 2026-06-13T08:36:41Z)
 - [`71ca12a`](https://github.com/iQube-Protocol/AigentZBeta/commit/71ca12a55607f825c65f1aa68f7f6289cc615b74) [feat] amend passport bureau prd: add hackathon extension narrative, provekit zk layer, dvn stub, human mobility demo flows, prize alignment (Claude, 2026-06-13T07:01:32Z)
 - [`d9014b6`](https://github.com/iQube-Protocol/AigentZBeta/commit/d9014b6c7ee6993b6baf646b85459e6efeb4efd8) [fix] fix Amplify build: scope outputFileTracingIncludes to aigency + agentiq packs only — wildcard glob follows alpha-knyt symlink causing directory collision (Claude, 2026-06-13T05:10:09Z)
 - [`9945b46`](https://github.com/iQube-Protocol/AigentZBeta/commit/9945b46cb762a095e2af9e1793541566822267b0) [push] document aigent-z platform ground knowledge session in agentiq updates pack (Claude, 2026-06-12T16:00:51Z)
