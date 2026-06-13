@@ -2274,3 +2274,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-99334b6.md](../build_/COMMITS/COMMIT-99334b6.md)
 - Message: go live — walrus http publisher + real worldid idkit widget
+
+## Commit `cdfe373` — 2026-06-13T21:01:10Z
+- Type: `feat`
+- Brief: [COMMIT-cdfe373.md](../build_/COMMITS/COMMIT-cdfe373.md)
+- Message: add polity passport bureau doctrine, ens, and being tabs
+
+## Commit `1abc8ec` — 2026-06-13T21:09:18Z
+- Type: `feat`
+- Brief: [COMMIT-1abc8ec.md](../build_/COMMITS/COMMIT-1abc8ec.md)
+- Message: add polity passport as first-class metaMe activation + embed link on all activation cards
+
+## Commit `5406314` — 2026-06-13T21:19:31Z
+- Type: `push`
+- Brief: [COMMIT-5406314.md](../build_/COMMITS/COMMIT-5406314.md)
+- Message: trigger deploy to dev

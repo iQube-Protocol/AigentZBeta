@@ -2608,6 +2608,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
     { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
+    { id: 'passport',     label: 'Polity Passport',  icon: 'ShieldCheck',order: 4.5, activationId: 'polity-passport' },
     { id: 'qriptopia',    label: 'Qriptopia',        icon: 'Globe',      order: 5,   activationId: 'qriptopian' },
     { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
   ],
@@ -3173,6 +3174,38 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'Kn0wdZTab', props: {} },
       metadata: { icon: 'Users', description: 'Community resources and Qriptopian', color: 'emerald' },
       subTabs: aiqOsTabsByGroup('ecosystem'),
+    },
+
+    // ── Polity Passport group (activation-gated) ────────────────────────────
+    // Mirrors the Polity Passport Bureau cartridge tabs so the full Bureau
+    // experience is available inside metaMe as a first-class activation.
+    // Uses the same polityPassportTabsByGroup() clone pattern as the
+    // AgentiQ / AgentiQ OS passport mirrors.
+    {
+      id: 'polity-passport',
+      label: 'Polity Passport',
+      slug: 'polity-passport',
+      enabled: true,
+      activationId: 'polity-passport',
+      group: 'passport',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab', props: {} },
+      metadata: {
+        icon: 'ShieldCheck',
+        description: 'Apply for an anonymous Citizen Passport — proof of personhood with self-custody privacy',
+        color: 'violet',
+      },
+      get subTabs() {
+        return polityPassportTabsByGroup('apply', 'metame-passport')
+          .concat(polityPassportTabsByGroup('doctrine', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('registry', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('locker', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('delegation', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('ens', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('being', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('steward', 'metame-passport'));
+      },
     },
 
     // ── Qriptopia group ──────────────────────────────────────────────────────
@@ -3746,13 +3779,27 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
     tags: ['passport', 'identity', 'kybe', 'polity', 'registry'],
   },
   tabGroups: [
-    { id: 'apply',   label: 'Apply',   icon: 'FileCheck2', order: 0 },
-    { id: 'registry', label: 'Registry', icon: 'BookOpenCheck', order: 1 },
-    { id: 'locker',  label: 'Locker',  icon: 'Lock', order: 2 },
-    { id: 'delegation', label: 'Delegation', icon: 'Link2', order: 3 },
-    { id: 'steward', label: 'Steward', icon: 'Gavel', order: 4, adminOnly: true },
+    { id: 'doctrine', label: 'Doctrine', icon: 'BookOpen', order: 0, adminOnly: true },
+    { id: 'apply',   label: 'Apply',   icon: 'FileCheck2', order: 1 },
+    { id: 'registry', label: 'Registry', icon: 'BookOpenCheck', order: 2 },
+    { id: 'locker',  label: 'Locker',  icon: 'Lock', order: 3 },
+    { id: 'delegation', label: 'Delegation', icon: 'Link2', order: 4 },
+    { id: 'ens',     label: 'ENS',     icon: 'Globe', order: 5, adminOnly: true },
+    { id: 'being',   label: 'Being',   icon: 'Home', order: 6, adminOnly: true },
+    { id: 'steward', label: 'Steward', icon: 'Gavel', order: 7, adminOnly: true },
   ],
   tabs: [
+    {
+      id: 'passport-bureau-doctrine',
+      label: 'Doctrine',
+      slug: 'doctrine',
+      enabled: true,
+      group: 'doctrine',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportDoctrineTab' },
+      metadata: { icon: 'BookOpen', description: 'Constitutional framework, passport types, identity model, rights and obligations', color: 'violet' },
+    },
     {
       id: 'passport-bureau-apply',
       label: 'Citizen Application',
@@ -3787,6 +3834,17 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — AgentKit attestation when sponsor is World ID verified', color: 'violet' },
     },
     {
+      id: 'passport-bureau-ens',
+      label: 'ENS Identity',
+      slug: 'ens',
+      enabled: true,
+      group: 'ens',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportEnsTab' },
+      metadata: { icon: 'Globe', description: 'Mint a gasless ENS subname for your persona — discoverable, privacy-preserving', color: 'violet' },
+    },
+    {
       id: 'passport-bureau-registry',
       label: 'Passport Registry',
       slug: 'registry',
@@ -3796,6 +3854,17 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'PassportRegistryTab' },
       metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-being',
+      label: 'Being',
+      slug: 'being',
+      enabled: true,
+      group: 'being',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBeingTab' },
+      metadata: { icon: 'Home', description: 'Human Mobility Services — immigration, housing, shelter, legal assistance routing', color: 'emerald' },
     },
     {
       id: 'passport-bureau-steward',

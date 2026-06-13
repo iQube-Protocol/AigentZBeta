@@ -4,9 +4,38 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
   Shield, ShieldCheck, ShieldX, Clock, Activity, AlertTriangle,
   CheckCircle2, Loader2, ChevronDown, ChevronUp, Receipt, Wallet,
-  Play, Ban, Terminal,
+  Play, Ban, Terminal, Bot,
 } from "lucide-react";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
+import { personaFetch } from "@/utils/personaSpine";
+
+interface DelegateAgent {
+  agentRootId: string;
+  displayName: string;
+  didUri: string;
+  agentClass: string;
+}
+
+const PLATFORM_AGENTS: DelegateAgent[] = [
+  { agentRootId: 'aigent-c-os-root', displayName: 'Aigent C-OS', didUri: 'did:iqube:aigent-c-os-root', agentClass: 'platform' },
+  { agentRootId: 'aigent-z-root', displayName: 'Aigent Z', didUri: 'did:iqube:aigent-z-root', agentClass: 'platform' },
+  { agentRootId: 'marketa-root', displayName: 'Marketa', didUri: 'did:iqube:marketa-root', agentClass: 'platform' },
+  { agentRootId: 'kn0w1-root', displayName: 'Kn0w1', didUri: 'did:iqube:kn0w1-root', agentClass: 'platform' },
+];
+
+function agentClassColor(cls: string): string {
+  switch (cls) {
+    case 'platform': return 'bg-violet-500/20 text-violet-300 border-violet-500/30';
+    case 'mobility': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+    case 'legal': return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+    default: return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+  }
+}
+
+function truncateDid(did: string): string {
+  if (did.length <= 28) return did;
+  return did.slice(0, 16) + '...' + did.slice(-8);
+}
 
 interface DelegationState {
   active: boolean;
@@ -129,6 +158,11 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [demoLog, setDemoLog] = useState<DemoLogEntry[]>([]);
   const [demoRunning, setDemoRunning] = useState(false);
 
+  // Agent selector state
+  const [selectedAgent, setSelectedAgent] = useState<DelegateAgent>(PLATFORM_AGENTS[0]);
+  const [sponsoredAgents, setSponsoredAgents] = useState<DelegateAgent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+
   const [selectedTrustBand, setSelectedTrustBand] = useState("L2_VERIFIED_COMMUNITY");
   const [selectedTtl, setSelectedTtl] = useState(4);
   const [selectedActions, setSelectedActions] = useState<string[]>(["knowledge_retrieval", "draft_document"]);
@@ -177,6 +211,29 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     loadDelegation();
   }, [loadDelegation]);
 
+  // Fetch sponsored agents
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchSponsoredAgents() {
+      setAgentsLoading(true);
+      try {
+        const res = await personaFetch('/api/persona/sponsored-agents');
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data.agents) {
+            setSponsoredAgents(data.agents);
+          }
+        }
+      } catch {
+        // Sponsored agents are optional — platform agents always available
+      } finally {
+        if (!cancelled) setAgentsLoading(false);
+      }
+    }
+    fetchSponsoredAgents();
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (showAudit) loadAuditEvents();
   }, [showAudit, loadAuditEvents]);
@@ -190,6 +247,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           persona_id: pid,
+          agent_root_did: selectedAgent.agentRootId,
           trust_band: selectedTrustBand,
           selected_actions: selectedActions,
           ttl_hours: selectedTtl,
@@ -325,7 +383,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
           <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium">Aigent C-OS blocked a potential injection attempt</p>
+            <p className="font-medium">{selectedAgent.displayName} blocked a potential injection attempt</p>
             <p className="text-xs text-red-400 mt-0.5">
               at {new Date(lastBlockedEvent!.created_at).toLocaleString()}
             </p>
@@ -333,18 +391,27 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </div>
       )}
 
-      {/* Agent identity card */}
+      {/* Agent identity card — shows selected agent */}
       <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Aigent C-OS Identity</p>
+        <div className="flex items-center gap-2">
+          <Bot className="h-4 w-4 text-violet-400" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Delegate Agent Identity</p>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-400">Agent</span>
+          <span className="text-sm font-medium text-slate-200">{selectedAgent.displayName}</span>
+        </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-400">Root DiD</span>
           <code className="text-xs text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded">
-            did:iqube:aigent-c-os-root
+            {selectedAgent.didUri}
           </code>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-400">Bounded persona</span>
-          <code className="text-xs text-slate-300 bg-slate-800 px-2 py-0.5 rounded">aigent-c-os</code>
+          <span className="text-slate-400">Class</span>
+          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${agentClassColor(selectedAgent.agentClass)}`}>
+            {selectedAgent.agentClass}
+          </span>
         </div>
         <p className="text-[11px] text-slate-500 italic">Personas may vary. Accountability does not.</p>
       </div>
@@ -470,7 +537,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
             <Shield className="h-5 w-5 text-slate-500" />
             <span className="text-sm text-slate-400">No active delegation</span>
           </div>
-          <p className="text-xs text-slate-500">Grant authority to enable delegated actions in Aigent C-OS.</p>
+          <p className="text-xs text-slate-500">Grant authority to enable delegated actions for {selectedAgent.displayName}.</p>
           <button
             type="button"
             onClick={() => setShowGrantForm((v) => !v)}
@@ -486,6 +553,100 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       {showGrantForm && !delegation?.active && (
         <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-4">
           <p className="text-sm font-semibold text-slate-200">Configure Delegation</p>
+
+          {/* Delegate To — agent selector */}
+          <div className="space-y-2">
+            <label className="text-xs text-slate-400 flex items-center gap-1.5">
+              <Bot className="h-3.5 w-3.5" />
+              Delegate To
+            </label>
+
+            <p className="text-xs text-slate-500">Platform Agents</p>
+            <div className="grid grid-cols-2 gap-2">
+              {PLATFORM_AGENTS.map((agent) => (
+                <button
+                  key={agent.agentRootId}
+                  type="button"
+                  onClick={() => setSelectedAgent(agent)}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                    selectedAgent.agentRootId === agent.agentRootId
+                      ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
+                      : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+                      selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
+                    }`}>
+                      <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
+                        {agent.displayName}
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
+                      {agent.agentClass}
+                    </span>
+                    {selectedAgent.agentRootId === agent.agentRootId && (
+                      <CheckCircle2 className="h-3 w-3 text-violet-400" />
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Sponsored agents section */}
+            {agentsLoading ? (
+              <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading sponsored agents...
+              </div>
+            ) : sponsoredAgents.length > 0 ? (
+              <>
+                <p className="text-xs text-slate-500 mt-3">Your Sponsored Agents</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {sponsoredAgents.map((agent) => (
+                    <button
+                      key={agent.agentRootId}
+                      type="button"
+                      onClick={() => setSelectedAgent(agent)}
+                      className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                        selectedAgent.agentRootId === agent.agentRootId
+                          ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
+                          : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+                          selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
+                        }`}>
+                          <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
+                            {agent.displayName}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
+                        </div>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
+                          {agent.agentClass}
+                        </span>
+                        {selectedAgent.agentRootId === agent.agentRootId && (
+                          <CheckCircle2 className="h-3 w-3 text-violet-400" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
 
           <div className="space-y-1.5">
             <label className="text-xs text-slate-400">

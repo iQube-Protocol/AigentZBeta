@@ -18,8 +18,30 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X } from 'lucide-react';
+import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+
+const DOCUMENT_CLASSES = [
+  { value: 'identity_document', label: 'Identity Document', color: 'border-blue-500/40 bg-blue-500/10 text-blue-300' },
+  { value: 'legal_document', label: 'Legal Document', color: 'border-violet-500/40 bg-violet-500/10 text-violet-300' },
+  { value: 'medical_record', label: 'Medical Record', color: 'border-rose-500/40 bg-rose-500/10 text-rose-300' },
+  { value: 'financial_record', label: 'Financial Record', color: 'border-amber-500/40 bg-amber-500/10 text-amber-300' },
+  { value: 'evidence', label: 'Evidence', color: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' },
+  { value: 'other', label: 'Other', color: 'border-slate-500/40 bg-slate-500/10 text-slate-300' },
+] as const;
+
+type DocumentClass = typeof DOCUMENT_CLASSES[number]['value'];
+
+function getDocClassDef(dc: string | undefined) {
+  return DOCUMENT_CLASSES.find((d) => d.value === dc) ?? DOCUMENT_CLASSES[DOCUMENT_CLASSES.length - 1];
+}
+
+interface LocationCheckpoint {
+  lat: number;
+  lng: number;
+  timestamp: string;
+  accuracy: number;
+}
 
 interface LockerItem {
   itemId: string;
@@ -31,6 +53,7 @@ interface LockerItem {
   downloadable: boolean;
   storageMode: 'stub' | 'sui-walrus';
   createdAt: string;
+  documentClass?: string;
 }
 
 interface LockerGrant {
@@ -47,6 +70,15 @@ interface SponsoredAgent {
   displayName: string;
   didUri: string;
   agentClass: string;
+}
+
+interface PassportVcItem {
+  passportId: string;
+  passportClass: string;
+  passportGrade: string | null;
+  passportStatus: string | null;
+  claimedAt: string | null;
+  credential?: Record<string, unknown>;
 }
 
 function cls(...xs: Array<string | false | undefined>) {
@@ -79,14 +111,36 @@ export function LockerTab() {
   const [uploadDownloadable, setUploadDownloadable] = useState(true);
   const [uploadDisplayName, setUploadDisplayName] = useState('');
   const [grantTarget, setGrantTarget] = useState<{ itemId: string; agentRootId: string; scope: 'read' | 'read_download' } | null>(null);
+  const [uploadDocClass, setUploadDocClass] = useState<DocumentClass>('other');
+  const [docClassOpen, setDocClassOpen] = useState(false);
+  const [locationBusy, setLocationBusy] = useState(false);
+  const [lastLocation, setLastLocation] = useState<LocationCheckpoint | null>(null);
+  const [passportVcs, setPassportVcs] = useState<PassportVcItem[]>([]);
+  const [passportVcsLoading, setPassportVcsLoading] = useState(true);
+  const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
+  const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
+  const [passportCardCollapsed, setPassportCardCollapsed] = useState(true);
+
+  // Derive last location from items when loaded
+  useEffect(() => {
+    const locItem = items
+      .filter((i) => i.displayName === 'Location checkpoint' && i.contentType === 'application/json')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    if (locItem) {
+      // We don't have the payload in the list response — parse from walrusBlobId metadata is not possible.
+      // Instead, store the timestamp from createdAt as a fallback display.
+      setLastLocation(null); // Will be set properly from the upload flow below.
+    }
+  }, [items]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [lockerRes, agentRes] = await Promise.all([
+      const [lockerRes, agentRes, passportRes] = await Promise.all([
         personaFetch('/api/polity-passport/locker', { cache: 'no-store' }),
         personaFetch('/api/persona/sponsored-agents', { cache: 'no-store' }),
+        personaFetch('/api/polity-passport/wallet', { cache: 'no-store' }),
       ]);
       if (lockerRes.ok) {
         const data = await lockerRes.json();
@@ -113,15 +167,78 @@ export function LockerTab() {
           );
         }
       }
+      if (passportRes.ok) {
+        const data = await passportRes.json();
+        if (data?.ok) setPassportVcs(data.passportQubes ?? []);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Locker load failed');
     } finally {
       setLoading(false);
+      setPassportVcsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  const handleTrackLocation = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser');
+      return;
+    }
+    setLocationBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        });
+      });
+      const checkpoint: LocationCheckpoint = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        timestamp: new Date().toISOString(),
+        accuracy: pos.coords.accuracy,
+      };
+      const payloadBase64 = btoa(JSON.stringify(checkpoint));
+      const res = await personaFetch('/api/polity-passport/locker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: 'Location checkpoint',
+          contentType: 'application/json',
+          payloadBase64,
+          downloadable: false,
+          documentClass: 'evidence',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setError(data?.error ?? 'Location save failed');
+        return;
+      }
+      setLastLocation(checkpoint);
+      setNotice(`Location saved: ${checkpoint.lat.toFixed(6)}, ${checkpoint.lng.toFixed(6)}`);
+      void load();
+    } catch (e) {
+      if (e instanceof GeolocationPositionError) {
+        const msgs: Record<number, string> = {
+          1: 'Location permission denied',
+          2: 'Location unavailable',
+          3: 'Location request timed out',
+        };
+        setError(msgs[e.code] ?? 'Location failed');
+      } else {
+        setError(e instanceof Error ? e.message : 'Location failed');
+      }
+    } finally {
+      setLocationBusy(false);
+    }
   }, [load]);
 
   const handleUpload = useCallback(
@@ -143,6 +260,7 @@ export function LockerTab() {
             contentType: file.type || 'application/octet-stream',
             payloadBase64,
             downloadable: uploadDownloadable,
+            documentClass: uploadDocClass,
           }),
         });
         const data = await res.json();
@@ -159,7 +277,7 @@ export function LockerTab() {
         setUploadBusy(false);
       }
     },
-    [uploadDisplayName, uploadDownloadable, load],
+    [uploadDisplayName, uploadDownloadable, uploadDocClass, load],
   );
 
   const handleGrant = useCallback(async () => {
@@ -218,13 +336,21 @@ export function LockerTab() {
     [load],
   );
 
+  const handleCopyVc = useCallback((pq: PassportVcItem) => {
+    if (!pq.credential) return;
+    void navigator.clipboard.writeText(JSON.stringify(pq.credential, null, 2)).then(() => {
+      setPassportVcCopied(pq.passportId);
+      setTimeout(() => setPassportVcCopied((prev) => (prev === pq.passportId ? null : prev)), 2000);
+    });
+  }, []);
+
   const grantsByItem = grants.reduce<Record<string, LockerGrant[]>>((acc, g) => {
     (acc[g.itemId] ||= []).push(g);
     return acc;
   }, {});
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4">
+    <div className="mx-auto max-w-4xl space-y-4 p-4">
       <div className="flex items-center gap-3">
         <Lock className="h-7 w-7 text-violet-400" />
         <div>
@@ -249,12 +375,166 @@ export function LockerTab() {
         </div>
       )}
 
+      {/* Location tracking */}
+      <div className="rounded-xl border border-emerald-700/50 bg-emerald-950/20 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-emerald-400" />
+            <span className="text-sm font-semibold text-slate-200">Location Tracking</span>
+          </div>
+          <button
+            onClick={() => void handleTrackLocation()}
+            disabled={locationBusy}
+            className="flex items-center gap-2 rounded-lg border border-emerald-500 bg-emerald-900/40 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-900/60 disabled:opacity-50"
+          >
+            {locationBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <MapPin className="h-4 w-4" />
+            )}
+            Track My Location
+          </button>
+        </div>
+        {lastLocation && (
+          <div className="flex items-center gap-4 rounded-lg border border-emerald-800/40 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
+            <span className="font-mono">{lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}</span>
+            <span className="text-emerald-400/60">accuracy: {lastLocation.accuracy.toFixed(0)}m</span>
+            <span className="text-emerald-400/60">{new Date(lastLocation.timestamp).toLocaleString()}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Passport & HMS Records */}
+      <div className="rounded-xl border border-violet-700/50 bg-violet-950/20 p-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setPassportCardCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-violet-400" />
+            <span className="text-sm font-semibold text-slate-200">Passport & HMS Records</span>
+            {passportVcs.length > 0 && (
+              <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+                {passportVcs.length}
+              </span>
+            )}
+          </div>
+          {passportCardCollapsed ? (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {!passportCardCollapsed && (
+          <div className="space-y-2">
+            {passportVcsLoading ? (
+              <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading passport credentials…
+              </div>
+            ) : passportVcs.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                No passport credentials yet. Claim an approved passport from the Registry tab.
+              </p>
+            ) : (
+              passportVcs.map((pq) => (
+                <div key={pq.passportId} className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                      <span className="text-xs font-medium text-emerald-300">
+                        {pq.passportClass === 'citizen' ? 'Citizen' : 'Participant'} Passport
+                      </span>
+                      {pq.passportGrade === 'verified_citizen' && (
+                        <span className="flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-300">
+                          <ShieldCheck className="h-2.5 w-2.5" /> Verified
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">{pq.passportId.slice(0, 12)}…</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
+                    <span>Status: <span className="text-emerald-300">{pq.passportStatus}</span></span>
+                    {pq.passportGrade && <span>· Grade: {pq.passportGrade}</span>}
+                    {pq.claimedAt && <span>· Claimed {new Date(pq.claimedAt).toLocaleDateString()}</span>}
+                  </div>
+                  {pq.credential && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setPassportVcExpanded(passportVcExpanded === pq.passportId ? null : pq.passportId)}
+                          className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                        >
+                          <Eye className="h-3 w-3" />
+                          {passportVcExpanded === pq.passportId ? 'Hide VC' : 'View VC'}
+                        </button>
+                        <button
+                          onClick={() => handleCopyVc(pq)}
+                          className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                        >
+                          {passportVcCopied === pq.passportId ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                          {passportVcCopied === pq.passportId ? 'Copied' : 'Copy JSON'}
+                        </button>
+                      </div>
+                      {passportVcExpanded === pq.passportId && (
+                        <pre className="rounded bg-black/30 p-2 max-h-40 overflow-y-auto text-[10px] text-emerald-200 font-mono whitespace-pre-wrap break-all">
+                          {JSON.stringify(pq.credential, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Upload */}
       <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
           <Upload className="h-4 w-4 text-violet-400" />
           Upload to locker
         </div>
+
+        {/* Document class selector */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setDocClassOpen((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-slate-400" />
+              <span>Document class:</span>
+              <span className={cls('rounded-full border px-2 py-0.5 text-xs', getDocClassDef(uploadDocClass).color)}>
+                {getDocClassDef(uploadDocClass).label}
+              </span>
+            </div>
+            <ChevronDown className={cls('h-4 w-4 text-slate-400 transition-transform', docClassOpen && 'rotate-180')} />
+          </button>
+          {docClassOpen && (
+            <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-slate-700 bg-slate-800 py-1 shadow-xl">
+              {DOCUMENT_CLASSES.map((dc) => (
+                <button
+                  key={dc.value}
+                  type="button"
+                  onClick={() => {
+                    setUploadDocClass(dc.value);
+                    setDocClassOpen(false);
+                  }}
+                  className={cls(
+                    'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-700',
+                    uploadDocClass === dc.value ? 'text-white bg-slate-700/50' : 'text-slate-300',
+                  )}
+                >
+                  <span className={cls('rounded-full border px-2 py-0.5 text-xs', dc.color)}>{dc.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <input
           value={uploadDisplayName}
           onChange={(e) => setUploadDisplayName(e.target.value)}
@@ -298,102 +578,132 @@ export function LockerTab() {
             No items in your locker yet. Upload one above.
           </p>
         ) : (
-          items.map((item) => (
-            <div key={item.itemId} className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <span className="text-sm text-slate-100 truncate">{item.displayName}</span>
-                </div>
-                <span className="text-[10px] text-slate-500 shrink-0">{formatBytes(item.sizeBytes)}</span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
-                <span>{item.contentType}</span>
-                <span>·</span>
-                <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-                {item.downloadable ? (
-                  <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-emerald-300">downloadable</span>
-                ) : (
-                  <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-300">view-only</span>
-                )}
-                <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5">{item.storageMode}</span>
-              </div>
-              <code className="block text-[10px] text-slate-500 font-mono break-all">
-                walrus: {item.walrusBlobId}
-              </code>
-              {item.suiObjectId && (
-                <code className="block text-[10px] text-slate-500 font-mono break-all">
-                  sui: {item.suiObjectId}
-                </code>
-              )}
-
-              {/* Existing grants */}
-              {(grantsByItem[item.itemId] || []).map((g) => {
-                const agent = agents.find((a) => a.agentRootId === g.delegatedAgentRootId);
-                return (
-                  <div
-                    key={g.grantId}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-violet-700/40 bg-violet-900/10 p-2 text-xs"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Bot className="h-3.5 w-3.5 text-violet-400" />
-                      <span className="text-violet-200">{agent?.displayName ?? 'Bound agent'}</span>
-                      <span className="rounded-full bg-violet-900/60 px-2 py-0.5 text-[10px] text-violet-300">
-                        {g.scope === 'read_download' ? <Download className="inline h-3 w-3 mr-0.5" /> : <Eye className="inline h-3 w-3 mr-0.5" />}
-                        {g.scope}
-                      </span>
+          items.map((item) => {
+            const itemGrants = grantsByItem[item.itemId] || [];
+            const docDef = getDocClassDef(item.documentClass);
+            return (
+              <div key={item.itemId} className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                  {/* Left column — item details (3/5 width on md+) */}
+                  <div className="space-y-2 md:col-span-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+                        <span className="text-sm text-slate-100 truncate">{item.displayName}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 shrink-0">{formatBytes(item.sizeBytes)}</span>
                     </div>
-                    <button
-                      onClick={() => void handleRevoke(g.grantId)}
-                      className="flex items-center gap-1 rounded bg-rose-900/40 px-2 py-1 text-rose-300 hover:bg-rose-900/60"
-                    >
-                      <X className="h-3 w-3" />
-                      Revoke
-                    </button>
-                  </div>
-                );
-              })}
-
-              {/* Grant action */}
-              {agents.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-slate-500">Grant to:</span>
-                  {agents.map((agent) => (
-                    <div key={agent.agentRootId} className="flex gap-1">
-                      <button
-                        onClick={() =>
-                          setGrantTarget({
-                            itemId: item.itemId,
-                            agentRootId: agent.agentRootId,
-                            scope: 'read',
-                          })
-                        }
-                        className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
-                      >
-                        <Eye className="h-3 w-3" />
-                        {agent.displayName} · read
-                      </button>
-                      {item.downloadable && (
-                        <button
-                          onClick={() =>
-                            setGrantTarget({
-                              itemId: item.itemId,
-                              agentRootId: agent.agentRootId,
-                              scope: 'read_download',
-                            })
-                          }
-                          className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
-                        >
-                          <Download className="h-3 w-3" />
-                          {agent.displayName} · read+dl
-                        </button>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
+                      <span>{item.contentType}</span>
+                      <span>·</span>
+                      <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                      {item.documentClass && (
+                        <span className={cls('rounded-full border px-2 py-0.5', docDef.color)}>
+                          {docDef.label}
+                        </span>
                       )}
+                      {item.downloadable ? (
+                        <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-emerald-300">downloadable</span>
+                      ) : (
+                        <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-300">view-only</span>
+                      )}
+                      <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5">{item.storageMode}</span>
                     </div>
-                  ))}
+                    <code className="block text-[10px] text-slate-500 font-mono break-all">
+                      walrus: {item.walrusBlobId}
+                    </code>
+                    {item.suiObjectId && (
+                      <code className="block text-[10px] text-slate-500 font-mono break-all">
+                        sui: {item.suiObjectId}
+                      </code>
+                    )}
+                    {/* Grant action buttons */}
+                    {agents.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                        <span className="text-[10px] text-slate-500">Grant to:</span>
+                        {agents.map((agent) => (
+                          <div key={agent.agentRootId} className="flex gap-1">
+                            <button
+                              onClick={() =>
+                                setGrantTarget({
+                                  itemId: item.itemId,
+                                  agentRootId: agent.agentRootId,
+                                  scope: 'read',
+                                })
+                              }
+                              className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                            >
+                              <Eye className="h-3 w-3" />
+                              {agent.displayName} · read
+                            </button>
+                            {item.downloadable && (
+                              <button
+                                onClick={() =>
+                                  setGrantTarget({
+                                    itemId: item.itemId,
+                                    agentRootId: agent.agentRootId,
+                                    scope: 'read_download',
+                                  })
+                                }
+                                className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                              >
+                                <Download className="h-3 w-3" />
+                                {agent.displayName} · read+dl
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right column — delegates (2/5 width on md+) */}
+                  <div className="md:col-span-2 md:border-l md:border-slate-700/50 md:pl-3 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                      <Bot className="h-3.5 w-3.5 text-violet-400" />
+                      Delegates
+                    </div>
+                    {itemGrants.length === 0 ? (
+                      <p className="text-[10px] text-slate-500 italic">No agents have access</p>
+                    ) : (
+                      itemGrants.map((g) => {
+                        const agent = agents.find((a) => a.agentRootId === g.delegatedAgentRootId);
+                        return (
+                          <div
+                            key={g.grantId}
+                            className="flex items-center justify-between gap-2 rounded-lg border border-violet-700/40 bg-violet-900/10 p-2 text-xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Bot className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                              <span className="text-violet-200 truncate">{agent?.displayName ?? 'Bound agent'}</span>
+                              {g.scope === 'read_download' ? (
+                                <span className="flex items-center gap-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300 shrink-0">
+                                  <Download className="h-3 w-3" />
+                                  read+dl
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-0.5 rounded-full border border-blue-500/40 bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-300 shrink-0">
+                                  <Eye className="h-3 w-3" />
+                                  read
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => void handleRevoke(g.grantId)}
+                              className="flex items-center gap-1 rounded bg-rose-900/40 px-2 py-1 text-rose-300 hover:bg-rose-900/60 shrink-0"
+                            >
+                              <X className="h-3 w-3" />
+                              Revoke
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))
+              </div>
+            );
+          })
         )}
       </div>
 
