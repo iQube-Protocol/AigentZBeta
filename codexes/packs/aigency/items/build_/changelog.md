@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`99334b6`](https://github.com/iQube-Protocol/AigentZBeta/commit/99334b6e04b4b5247b80dcb6079ffe709d283428) [push] go live — walrus http publisher + real worldid idkit widget (Claude, 2026-06-13T20:48:41Z)
 - [`914c081`](https://github.com/iQube-Protocol/AigentZBeta/commit/914c08124f7996047bf0900c2e339a29742bec72) [chore] polish step strip to rounded-rect boxes + surface world id upgrade on registry (Claude, 2026-06-13T20:35:04Z)
 - [`72dde3e`](https://github.com/iQube-Protocol/AigentZBeta/commit/72dde3ebda4ffeb0c4ae3bb8eb747866903c99a7) [push] document wallet-over-cartridge overlay pattern + aletheon activation walkthrough (Claude, 2026-06-13T20:31:30Z)
 - [`84f45d6`](https://github.com/iQube-Protocol/AigentZBeta/commit/84f45d6040febc440eb1c22ca69ebcb078a5fdb7) [feat] fix passport bureau copilot — wire CodexCopilotLayer for polity-passport-bureau-cartridge (aigent-z default) (Claude, 2026-06-13T20:28:27Z)

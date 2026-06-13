@@ -2269,3 +2269,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-914c081.md](../build_/COMMITS/COMMIT-914c081.md)
 - Message: polish step strip to rounded-rect boxes + surface world id upgrade on registry
+
+## Commit `99334b6` — 2026-06-13T20:48:41Z
+- Type: `push`
+- Brief: [COMMIT-99334b6.md](../build_/COMMITS/COMMIT-99334b6.md)
+- Message: go live — walrus http publisher + real worldid idkit widget

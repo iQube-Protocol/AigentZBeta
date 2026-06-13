@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T20:36:57.460Z",
+  "last_updated": "2026-06-13T20:50:46.647Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "914c08124f7996047bf0900c2e339a29742bec72",
-  "latest_commit_short": "914c081",
-  "latest_commit_title": "polish step strip to rounded-rect boxes + surface world id upgrade on registry",
+  "latest_commit": "99334b6e04b4b5247b80dcb6079ffe709d283428",
+  "latest_commit_short": "99334b6",
+  "latest_commit_title": "go live — walrus http publisher + real worldid idkit widget",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "99334b6",
+      "full_sha": "99334b6e04b4b5247b80dcb6079ffe709d283428",
+      "title": "go live — walrus http publisher + real worldid idkit widget",
+      "author": "Claude",
+      "timestamp": "2026-06-13T20:48:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-99334b6.md"
+    },
     {
       "sha": "914c081",
       "full_sha": "914c08124f7996047bf0900c2e339a29742bec72",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T02:07:36Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1ce6738.md"
-    },
-    {
-      "sha": "48086c8",
-      "full_sha": "48086c86e4c463e99febc53db606dd7065b84408",
-      "title": "SmartWalletDrawer: remove mandatory persona-creation gate on sign-in",
-      "author": "Claude",
-      "timestamp": "2026-05-31T23:37:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-48086c8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
