@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T17:50:13.571Z",
+  "last_updated": "2026-06-13T19:50:55.153Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ce27071e9b9a979eec0f6157595d71367590434c",
-  "latest_commit_short": "ce27071",
-  "latest_commit_title": "document hackathon submission build — sprints 1-7 complete",
+  "latest_commit": "841a64e7b413ad40563f40cb6cfbd58f2824923d",
+  "latest_commit_short": "841a64e",
+  "latest_commit_title": "fix amplify build — remove literal @worldcoin/idkit dynamic import",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "841a64e",
+      "full_sha": "841a64e7b413ad40563f40cb6cfbd58f2824923d",
+      "title": "fix amplify build — remove literal @worldcoin/idkit dynamic import",
+      "author": "Claude",
+      "timestamp": "2026-06-13T19:48:50Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-841a64e.md"
+    },
     {
       "sha": "ce27071",
       "full_sha": "ce27071e9b9a979eec0f6157595d71367590434c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T21:54:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0d769b7.md"
-    },
-    {
-      "sha": "2e60b85",
-      "full_sha": "2e60b85c0283d09fbea6fdd7186a5359cdc43ee4",
-      "title": "canvasService.listEntries: surface meta_json.surface stamp via JSON-path",
-      "author": "Claude",
-      "timestamp": "2026-05-31T21:32:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2e60b85.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

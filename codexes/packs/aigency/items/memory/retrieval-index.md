@@ -2239,3 +2239,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-ce27071.md](../build_/COMMITS/COMMIT-ce27071.md)
 - Message: document hackathon submission build — sprints 1-7 complete
+
+## Commit `841a64e` — 2026-06-13T19:48:50Z
+- Type: `fix`
+- Brief: [COMMIT-841a64e.md](../build_/COMMITS/COMMIT-841a64e.md)
+- Message: fix amplify build — remove literal @worldcoin/idkit dynamic import
