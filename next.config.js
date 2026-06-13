@@ -35,8 +35,21 @@ const nextConfig = {
       // the AgentiQ cartridge copilot). Without these entries the Lambda
       // bundle ships without the pack files and searchCodex returns nothing —
       // the copilot then answers "[NOT DOCUMENTED]" for documented topics.
-      "/api/codex/chat": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
-      "/api/codex/chat/aigentiq": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
+      // Scoped to aigency + agentiq only — the wildcard ./codexes/packs/**
+      // follows the alpha-knyt symlink and collides with the bundler's
+      // directory-vs-non-directory check on Amplify.
+      "/api/codex/chat": [
+        "./codexes/packs/aigency/**/*.md",
+        "./codexes/packs/aigency/**/*.json",
+        "./codexes/packs/agentiq/**/*.md",
+        "./codexes/packs/agentiq/**/*.json",
+      ],
+      "/api/codex/chat/aigentiq": [
+        "./codexes/packs/aigency/**/*.md",
+        "./codexes/packs/aigency/**/*.json",
+        "./codexes/packs/agentiq/**/*.md",
+        "./codexes/packs/agentiq/**/*.json",
+      ],
     },
   },
   transpilePackages: [
