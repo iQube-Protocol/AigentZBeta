@@ -8,22 +8,20 @@
  *
  *   ┌─────────────────────────┬────────────────────────────┐
  *   │                         │  Stage strip (carousel)    │
- *   │   aigentZ Copilot       │  6 capability buttons (2×3)│
- *   │   (embedded, persistent)│  Active layout (capsule)   │
- *   │                         │  Experience Model           │
- *   │   Quick-prompt chips:   │  Specialists               │
- *   │   New intent · Where    │  Dev Receipts              │
- *   │   are we? · Analyze     │                            │
- *   │   gaps · Model          │  Quick links: Terminal ·   │
- *   │   consequences ·        │  GitHub · DevTools ·       │
- *   │   Validate build        │  Linear · Upload · Download│
- *   │                         │                            │
- *   │                         │  Dev loop diagram          │
+ *   │   aigentZ Copilot       │  CTA chip row (capsule     │
+ *   │   (embedded, persistent)│   activators with advance) │
+ *   │                         │  Active layout (capsule)   │
+ *   │   Quick-prompt chips:   │                            │
+ *   │   New intent · Where    │  Quick links: Terminal ·   │
+ *   │   are we? · Analyze     │  GitHub · DevTools ·       │
+ *   │   gaps · Model          │  Linear · Upload · Download│
+ *   │   consequences ·        │                            │
+ *   │   Validate build        │                            │
  *   └─────────────────────────┴────────────────────────────┘
  *
- * Two-tier copilot routing (stubbed for Claude Code integration):
- *   Tier 1: aigentZ → LLM → drives right pane layouts
- *   Tier 2: aigentZ → Claude Code → results → aigentZ → routing decision
+ * Right-pane capsule layouts are standalone files under
+ * components/devcommandcenter/layouts/ — each uses LayoutShell for
+ * consistent chrome, in line with aigentMe's layout template pattern.
  */
 
 import React, { useState, useCallback, useMemo } from "react";
@@ -31,99 +29,50 @@ import {
   Cpu, Target, FileSearch, AlertTriangle, CheckCircle,
   ChevronDown, Package, Layers, ArrowRight,
   Terminal, GitBranch, Wrench, BarChart3,
-  Upload, Download, RotateCcw,
+  Play,
 } from "lucide-react";
-import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+import { SmartTriadCopilotLayer, type SuggestedLayoutHint, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+import { ExploreQuickActionsStrip, type ExploreToolId, type ExploreSuggestionMap } from "@/components/metame/copilot/ExploreQuickActionsStrip";
+
+import type {
+  DevLoopState,
+  DevLoopStage,
+} from "@/types/devCommandCenter";
+
+import {
+  createDevLoopSession,
+  canAdvance,
+  advanceStage,
+  buildImplementationPackage,
+  buildIntentSummary,
+  buildContextPackSummary,
+  buildGapAnalysisSummary,
+  buildConsequenceCanvasSummary,
+  buildValidationSummary,
+  applyStageProposal,
+  STAGE_PROPOSAL_KIND,
+  PROPOSAL_KIND_TO_CAPSULE,
+  type StageProposal,
+  type StageProposalKind,
+} from "@/services/devCommandCenter";
+
+import {
+  IntentLayout,
+  ContextLayout,
+  GapAnalysisLayout,
+  ConsequenceCanvasLayout,
+  ValidationLayout,
+  ProjectOverviewLayout,
+  CAPSULE_LAYOUT,
+  type DevCapsuleId,
+  type DevLayoutId,
+} from "@/components/devcommandcenter/layouts";
 
 type QuickPrompt = string | {
   label: string;
   prompt?: string;
   onSelect?: () => void;
-};
-
-// ─── Types (local mirrors — avoids server import in client component) ──────
-
-type DevLoopStage =
-  | "intent_capture"
-  | "context_assembly"
-  | "gap_analysis"
-  | "consequence_modeling"
-  | "implementation"
-  | "consequence_validation"
-  | "complete";
-
-type DevCapsuleId =
-  | "project-overview"
-  | "intent"
-  | "context"
-  | "gap-analysis"
-  | "consequence-canvas"
-  | "validation";
-
-type DevLayoutId =
-  | "stack"
-  | "project-overview"
-  | "intent"
-  | "context"
-  | "gap-analysis"
-  | "consequence-canvas"
-  | "validation"
-  | "terminal"
-  | "github"
-  | "devtools"
-  | "linear";
-
-interface StructuredDevIntent {
-  intentId: string;
-  rawInput: string;
-  goal: string;
-  users: string[];
-  constraints: string[];
-  desiredOutcomes: string[];
-  successCriteria: string[];
-  relatedVentures: string[];
-  relatedCartridges: string[];
-  priority: "critical" | "high" | "medium" | "low";
-  status: "draft" | "refined" | "approved" | "in_progress" | "validated" | "complete";
-}
-
-interface ContextPackItem {
-  sourceKind: string;
-  sourcePath: string;
-  title: string;
-  relevanceScore: number;
-  reuseSignal: "reuse" | "extend" | "reference";
-}
-
-interface ExistingCapability {
-  name: string;
-  location: string;
-  reuseStrategy: string;
-}
-
-interface MissingCapability {
-  name: string;
-  description: string;
-  estimatedComplexity: string;
-  suggestedLocation: string;
-}
-
-interface ConsequenceEntry {
-  id: string;
-  description: string;
-  category: string;
-  severity: string;
-}
-
-// ─── Capsule → Layout mapping ─────────────────────────────────────────────
-
-const CAPSULE_LAYOUT: Record<DevCapsuleId, DevLayoutId> = {
-  "project-overview": "project-overview",
-  "intent": "intent",
-  "context": "context",
-  "gap-analysis": "gap-analysis",
-  "consequence-canvas": "consequence-canvas",
-  "validation": "validation",
+  highlight?: boolean;
 };
 
 // ─── Two-tier routing stub ─────────────────────────────────────────────────
@@ -144,7 +93,7 @@ function classifyPromptTier(prompt: string): RoutingDecision {
   return { tier: "llm", reason: "Planning / analysis / right-pane update" };
 }
 
-// ─── Stage metadata ────────────────────────────────────────────────────────
+// ─── Stage metadata (UI rendering) ────────────────────────────────────────
 
 const STAGES: { id: DevLoopStage; label: string; icon: typeof Cpu }[] = [
   { id: "intent_capture", label: "Intent", icon: Target },
@@ -156,19 +105,51 @@ const STAGES: { id: DevLoopStage; label: string; icon: typeof Cpu }[] = [
   { id: "complete", label: "Complete", icon: CheckCircle },
 ];
 
+const STAGE_TO_CAPSULE: Partial<Record<DevLoopStage, DevCapsuleId>> = {
+  intent_capture: "intent",
+  context_assembly: "context",
+  gap_analysis: "gap-analysis",
+  consequence_modeling: "consequence-canvas",
+  consequence_validation: "validation",
+};
+
 function getStageIndex(stage: DevLoopStage): number {
   return STAGES.findIndex(s => s.id === stage);
 }
 
-// ─── Capability buttons ───────────────────────────────────────────────────
+// ─── Capability chip metadata ────────────────────────────────────────────
 
-const CAPABILITIES: { id: DevCapsuleId; label: string; icon: typeof Cpu; color: string; description: string }[] = [
-  { id: "project-overview", label: "Project Overview", icon: Layers, color: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20", description: "Active project, intent ID, and loop status" },
-  { id: "intent", label: "Intent Distillation", icon: Target, color: "text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20", description: "Distill raw input into structured intent" },
-  { id: "context", label: "Context Pack", icon: Package, color: "text-purple-400 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20", description: "Assemble relevant codebase context" },
-  { id: "gap-analysis", label: "Gap Analysis", icon: FileSearch, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20", description: "Identify existing vs missing capabilities" },
-  { id: "consequence-canvas", label: "Consequence Canvas", icon: AlertTriangle, color: "text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20", description: "Model what should/shouldn't happen" },
-  { id: "validation", label: "Validation", icon: CheckCircle, color: "text-green-400 border-green-500/30 bg-green-500/10 hover:bg-green-500/20", description: "Validate build against consequences" },
+const CAPABILITIES: { id: DevCapsuleId; label: string; shortLabel: string; icon: typeof Cpu; activeClass: string; hasDataClass: string; emptyClass: string; iconActiveClass: string; iconEmptyClass: string }[] = [
+  { id: "project-overview", label: "Project Overview", shortLabel: "Overview", icon: Layers,
+    activeClass: "bg-cyan-500/20 border-cyan-500/40 text-cyan-300 ring-1 ring-cyan-500/30",
+    hasDataClass: "bg-cyan-500/10 border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/15",
+    emptyClass: "bg-cyan-500/5 border-cyan-500/15 text-cyan-400/60 hover:bg-cyan-500/10 hover:text-cyan-300",
+    iconActiveClass: "text-cyan-400", iconEmptyClass: "text-cyan-500/50" },
+  { id: "intent", label: "Intent Distillation", shortLabel: "Intent", icon: Target,
+    activeClass: "bg-blue-500/20 border-blue-500/40 text-blue-300 ring-1 ring-blue-500/30",
+    hasDataClass: "bg-blue-500/10 border-blue-500/20 text-blue-300 hover:bg-blue-500/15",
+    emptyClass: "bg-blue-500/5 border-blue-500/15 text-blue-400/60 hover:bg-blue-500/10 hover:text-blue-300",
+    iconActiveClass: "text-blue-400", iconEmptyClass: "text-blue-500/50" },
+  { id: "context", label: "Context Pack", shortLabel: "Context", icon: Package,
+    activeClass: "bg-purple-500/20 border-purple-500/40 text-purple-300 ring-1 ring-purple-500/30",
+    hasDataClass: "bg-purple-500/10 border-purple-500/20 text-purple-300 hover:bg-purple-500/15",
+    emptyClass: "bg-purple-500/5 border-purple-500/15 text-purple-400/60 hover:bg-purple-500/10 hover:text-purple-300",
+    iconActiveClass: "text-purple-400", iconEmptyClass: "text-purple-500/50" },
+  { id: "gap-analysis", label: "Gap Analysis", shortLabel: "Gaps", icon: FileSearch,
+    activeClass: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/30",
+    hasDataClass: "bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/15",
+    emptyClass: "bg-emerald-500/5 border-emerald-500/15 text-emerald-400/60 hover:bg-emerald-500/10 hover:text-emerald-300",
+    iconActiveClass: "text-emerald-400", iconEmptyClass: "text-emerald-500/50" },
+  { id: "consequence-canvas", label: "Consequence Canvas", shortLabel: "Consequences", icon: AlertTriangle,
+    activeClass: "bg-amber-500/20 border-amber-500/40 text-amber-300 ring-1 ring-amber-500/30",
+    hasDataClass: "bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/15",
+    emptyClass: "bg-amber-500/5 border-amber-500/15 text-amber-400/60 hover:bg-amber-500/10 hover:text-amber-300",
+    iconActiveClass: "text-amber-400", iconEmptyClass: "text-amber-500/50" },
+  { id: "validation", label: "Validation", shortLabel: "Validate", icon: CheckCircle,
+    activeClass: "bg-green-500/20 border-green-500/40 text-green-300 ring-1 ring-green-500/30",
+    hasDataClass: "bg-green-500/10 border-green-500/20 text-green-300 hover:bg-green-500/15",
+    emptyClass: "bg-green-500/5 border-green-500/15 text-green-400/60 hover:bg-green-500/10 hover:text-green-300",
+    iconActiveClass: "text-green-400", iconEmptyClass: "text-green-500/50" },
 ];
 
 // ─── Quick links for bottom strip ─────────────────────────────────────────
@@ -180,75 +161,9 @@ const DEV_QUICK_LINKS: { id: string; label: string; icon: typeof Terminal }[] = 
   { id: "linear", label: "Linear", icon: BarChart3 },
 ];
 
-// ─── Demo data (Executive Mobility Travel validation use case) ─────────────
-
-const DEMO_INTENT: StructuredDevIntent = {
-  intentId: "dci-demo-001",
-  rawInput: "Build Executive Mobility Travel",
-  goal: "Build Executive Mobility Travel service for high-value participants",
-  users: ["Executive participants", "Corporate mobility managers", "Travel coordinators"],
-  constraints: [
-    "Must integrate with existing Passport Bureau",
-    "Must not duplicate CRM contact workflows",
-    "Must respect sovereignty-first principle",
-  ],
-  desiredOutcomes: [
-    "Executive travel booking and management",
-    "Accommodation workflow integration",
-    "Residency pathway workflow activation",
-    "CRM status tracking for mobility events",
-  ],
-  successCriteria: [
-    "Travel booking triggers accommodation workflow",
-    "Accommodation completion triggers residency workflow",
-    "All events create DVN-anchored receipts",
-    "CRM reflects current mobility status",
-  ],
-  relatedVentures: ["Venture Lab α"],
-  relatedCartridges: ["knyt-codex", "agentiq-codex"],
-  priority: "high",
-  status: "refined",
-};
-
-const DEMO_CONTEXT_ITEMS: ContextPackItem[] = [
-  { sourceKind: "codebase", sourcePath: "services/passport/passportCredentialService.ts", title: "Passport Credential Service", relevanceScore: 95, reuseSignal: "reuse" },
-  { sourceKind: "codebase", sourcePath: "services/crm/", title: "CRM Integration Layer", relevanceScore: 90, reuseSignal: "reuse" },
-  { sourceKind: "codebase", sourcePath: "services/marketa/", title: "Marketa Workflow Engine", relevanceScore: 85, reuseSignal: "extend" },
-  { sourceKind: "governance", sourcePath: "services/governance/sovereignAgentRoles.ts", title: "Sovereign Agent Roles", relevanceScore: 80, reuseSignal: "reference" },
-  { sourceKind: "receipt", sourcePath: "services/receipts/activityReceiptService.ts", title: "Activity Receipt Pipeline", relevanceScore: 75, reuseSignal: "reuse" },
-  { sourceKind: "architecture", sourcePath: "codexes/packs/aigency/items/", title: "System Architecture Docs", relevanceScore: 70, reuseSignal: "reference" },
-];
-
-const DEMO_EXISTING: ExistingCapability[] = [
-  { name: "Passport Bureau", location: "services/passport/", reuseStrategy: "use_directly" },
-  { name: "CRM Contact Management", location: "services/crm/", reuseStrategy: "extend" },
-  { name: "Marketa Workflows", location: "services/marketa/", reuseStrategy: "extend" },
-  { name: "Activity Receipt Pipeline", location: "services/receipts/", reuseStrategy: "use_directly" },
-  { name: "DVN Anchoring", location: "services/dvn/", reuseStrategy: "use_directly" },
-];
-
-const DEMO_MISSING: MissingCapability[] = [
-  { name: "Executive Travel Workflow", description: "Booking, itinerary, and mobility event management", estimatedComplexity: "medium", suggestedLocation: "services/travel/" },
-  { name: "Corporate Mobility Dashboard", description: "Real-time view of executive mobility status and events", estimatedComplexity: "medium", suggestedLocation: "app/triad/components/codex/tabs/" },
-];
-
-const DEMO_SHOULD_HAPPEN: ConsequenceEntry[] = [
-  { id: "ce-1", description: "Travel booking creates a DVN-anchored receipt", category: "workflow", severity: "critical" },
-  { id: "ce-2", description: "Accommodation workflow triggered on booking completion", category: "workflow", severity: "high" },
-  { id: "ce-3", description: "Residency workflow triggered on accommodation completion", category: "workflow", severity: "high" },
-  { id: "ce-4", description: "CRM updated with current mobility status", category: "integration", severity: "high" },
-  { id: "ce-5", description: "All state transitions emit orchestration events", category: "governance", severity: "medium" },
-];
-
-const DEMO_SHOULD_NOT_HAPPEN: ConsequenceEntry[] = [
-  { id: "ce-6", description: "Travel data exposed outside sovereignty boundary", category: "governance", severity: "critical" },
-  { id: "ce-7", description: "Duplicate CRM records from parallel workflows", category: "data", severity: "high" },
-  { id: "ce-8", description: "Booking without valid passport credential", category: "permission", severity: "critical" },
-];
-
 // ─── Right-pane sub-components ────────────────────────────────────────────
 
-function StageStrip({ stage }: { stage: DevLoopStage }) {
+function StageStrip({ stage, onStageClick }: { stage: DevLoopStage; onStageClick?: (stage: DevLoopStage) => void }) {
   const currentIdx = getStageIndex(stage);
   return (
     <div className="flex items-center gap-1 overflow-x-auto pb-1 px-1">
@@ -260,295 +175,85 @@ function StageStrip({ stage }: { stage: DevLoopStage }) {
           : isPast ? "bg-emerald-500/10 border-emerald-500/20"
           : "bg-slate-800/30 border-slate-700/30";
         const iconColor = isCurrent ? "text-green-400" : isPast ? "text-emerald-400/60" : "text-slate-500";
+        const capsuleTarget = STAGE_TO_CAPSULE[s.id];
+        const isClickable = capsuleTarget && (isPast || isCurrent);
         return (
           <React.Fragment key={s.id}>
             {i > 0 && <ArrowRight className={`w-3 h-3 shrink-0 ${isPast || isCurrent ? "text-emerald-400/40" : "text-slate-700"}`} />}
-            <div className={`flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-semibold whitespace-nowrap text-white ${box}`}>
+            <button
+              type="button"
+              disabled={!isClickable}
+              onClick={() => isClickable && onStageClick?.(s.id)}
+              className={`flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-semibold whitespace-nowrap text-white ${box} ${isClickable ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"}`}
+            >
               <Icon className={`w-3 h-3 ${iconColor}`} />
               {s.label}
-            </div>
+            </button>
           </React.Fragment>
         );
       })}
-    </div>
-  );
-}
-
-function IntentPanel({ intent }: { intent: StructuredDevIntent }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-          intent.status === "refined" ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-          : intent.status === "approved" ? "bg-green-500/20 text-green-300 border-green-500/30"
-          : "bg-slate-500/20 text-slate-300 border-slate-500/30"
-        }`}>{intent.status}</span>
-        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-          intent.priority === "critical" ? "bg-red-500/20 text-red-300 border-red-500/30"
-          : intent.priority === "high" ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
-          : "bg-slate-500/20 text-slate-300 border-slate-500/30"
-        }`}>{intent.priority}</span>
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-0.5">Goal</div>
-        <p className="text-sm text-white">{intent.goal}</p>
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-0.5">Raw input</div>
-        <p className="text-xs text-slate-400 italic">&ldquo;{intent.rawInput}&rdquo;</p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <div className="text-xs text-slate-500 mb-1">Users</div>
-          {intent.users.map(u => <div key={u} className="text-xs text-slate-300">· {u}</div>)}
-        </div>
-        <div>
-          <div className="text-xs text-slate-500 mb-1">Desired Outcomes</div>
-          {intent.desiredOutcomes.map(o => <div key={o} className="text-xs text-slate-300">· {o}</div>)}
-        </div>
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-1">Success Criteria</div>
-        {intent.successCriteria.map(c => <div key={c} className="text-xs text-emerald-300">✓ {c}</div>)}
-      </div>
-      {intent.constraints.length > 0 && (
-        <div>
-          <div className="text-xs text-slate-500 mb-1">Constraints</div>
-          {intent.constraints.map(c => <div key={c} className="text-xs text-amber-300">⚠ {c}</div>)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ContextPackPanel({ items }: { items: ContextPackItem[] }) {
-  const reuse = items.filter(i => i.reuseSignal === "reuse");
-  const extend = items.filter(i => i.reuseSignal === "extend");
-  const reference = items.filter(i => i.reuseSignal === "reference");
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3 text-xs">
-        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Reuse: {reuse.length}</span>
-        <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">Extend: {extend.length}</span>
-        <span className="px-1.5 py-0.5 rounded bg-slate-500/20 text-slate-300">Reference: {reference.length}</span>
-      </div>
-      {items.map(item => (
-        <div key={item.sourcePath} className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-700/20 last:border-0">
-          <div className="min-w-0">
-            <div className="text-xs text-white truncate">{item.title}</div>
-            <div className="text-[10px] text-slate-500 font-mono truncate">{item.sourcePath}</div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] text-slate-500">{item.relevanceScore}%</span>
-            <span className={`text-[10px] px-1 py-0.5 rounded ${
-              item.reuseSignal === "reuse" ? "bg-emerald-500/20 text-emerald-300"
-              : item.reuseSignal === "extend" ? "bg-blue-500/20 text-blue-300"
-              : "bg-slate-500/20 text-slate-300"
-            }`}>{item.reuseSignal}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function GapAnalysisPanel({ existing, missing }: { existing: ExistingCapability[]; missing: MissingCapability[] }) {
-  const ratio = Math.round((existing.length / (existing.length + missing.length)) * 100);
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
-          <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${ratio}%` }} />
-        </div>
-        <span className="text-xs text-emerald-300 font-semibold">{ratio}% reuse</span>
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-1 uppercase font-semibold">Existing ({existing.length})</div>
-        {existing.map(c => (
-          <div key={c.name} className="flex items-center justify-between py-1 border-b border-slate-700/20 last:border-0">
-            <div className="text-xs text-emerald-300">{c.name}</div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-500 font-mono">{c.location}</span>
-              <span className="text-[10px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300">{c.reuseStrategy}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-1 uppercase font-semibold">Missing ({missing.length})</div>
-        {missing.map(c => (
-          <div key={c.name} className="py-1.5 border-b border-slate-700/20 last:border-0">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-amber-300">{c.name}</span>
-              <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300">{c.estimatedComplexity}</span>
-            </div>
-            <div className="text-[10px] text-slate-400">{c.description}</div>
-            <div className="text-[10px] text-slate-500 font-mono">{c.suggestedLocation}</div>
-          </div>
-        ))}
+      <div className="flex items-center gap-1.5 ml-2 shrink-0">
+        <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30 font-semibold whitespace-nowrap">Phase 1 MVP</span>
+        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold whitespace-nowrap">Operation Chrysalis</span>
       </div>
     </div>
   );
 }
 
-function ConsequenceCanvasPanel({ shouldHappen, shouldNotHappen, successState }: {
-  shouldHappen: ConsequenceEntry[]; shouldNotHappen: ConsequenceEntry[]; successState: string;
+function capabilityHasData(id: DevCapsuleId, session: DevLoopState): boolean {
+  switch (id) {
+    case "project-overview": return session.intent !== null;
+    case "intent": return session.intent !== null;
+    case "context": return session.contextPack !== null && session.contextPack.items.length > 0;
+    case "gap-analysis": return session.gapAnalysis !== null;
+    case "consequence-canvas": return session.consequenceCanvas !== null && session.consequenceCanvas.successState.length > 0;
+    case "validation": return session.validationReport !== null;
+    default: return false;
+  }
+}
+
+/**
+ * CTA chip row — mirrors aigentMe's capsule chip strip.
+ * Each chip activates its capsule layout; pulsing chips indicate
+ * copilot suggestions; a green dot indicates data is present.
+ */
+function CapabilityChipRow({ session, activeCapsuleId, pulsing, pending, onChipClick }: {
+  session: DevLoopState;
+  activeCapsuleId: DevCapsuleId | null;
+  pulsing: Partial<Record<DevCapsuleId, boolean>>;
+  pending: Partial<Record<DevCapsuleId, StageProposal>>;
+  onChipClick: (id: DevCapsuleId) => void;
 }) {
   return (
-    <div className="space-y-3">
-      <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
-        <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Success State</div>
-        <p className="text-xs text-green-300">{successState}</p>
-      </div>
-      <div>
-        <div className="text-xs text-emerald-400 font-semibold mb-1">Should Happen ({shouldHappen.length})</div>
-        {shouldHappen.map(e => (
-          <div key={e.id} className="flex items-start gap-2 py-1 border-b border-slate-700/20 last:border-0">
-            <CheckCircle className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
-            <div>
-              <div className="text-xs text-slate-300">{e.description}</div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] text-slate-500">{e.category}</span>
-                <span className={`text-[10px] ${e.severity === "critical" ? "text-red-400" : e.severity === "high" ? "text-amber-400" : "text-slate-400"}`}>{e.severity}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div>
-        <div className="text-xs text-rose-400 font-semibold mb-1">Should Never Happen ({shouldNotHappen.length})</div>
-        {shouldNotHappen.map(e => (
-          <div key={e.id} className="flex items-start gap-2 py-1 border-b border-slate-700/20 last:border-0">
-            <AlertTriangle className="w-3 h-3 text-rose-400 mt-0.5 shrink-0" />
-            <div>
-              <div className="text-xs text-slate-300">{e.description}</div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] text-slate-500">{e.category}</span>
-                <span className={`text-[10px] ${e.severity === "critical" ? "text-red-400" : e.severity === "high" ? "text-amber-400" : "text-slate-400"}`}>{e.severity}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 px-1">
+      {CAPABILITIES.map(cap => {
+        const Icon = cap.icon;
+        const isActive = activeCapsuleId === cap.id;
+        const hasData = capabilityHasData(cap.id, session);
+        const isPulsing = pulsing[cap.id] === true;
+        const hasPending = pending[cap.id] !== undefined;
 
-function ProjectOverviewPanel({ intent, activeStage }: { intent: StructuredDevIntent; activeStage: DevLoopStage }) {
-  const stageIdx = getStageIndex(activeStage);
-  return (
-    <div className="space-y-3">
-      <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-white truncate">{intent.goal}</div>
-            <div className="text-[10px] text-slate-400 font-mono">{intent.intentId}</div>
-          </div>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
-            intent.status === "refined" ? "bg-blue-500/20 text-white border-blue-500/30"
-            : "bg-slate-500/20 text-white border-slate-500/30"
-          }`}>{intent.status}</span>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Loop Stage</div>
-          <div className="text-xs text-white">{STAGES[stageIdx]?.label} ({stageIdx + 1}/{STAGES.length})</div>
-        </div>
-        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Priority</div>
-          <div className="text-xs text-white">{intent.priority}</div>
-        </div>
-        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Ventures</div>
-          {intent.relatedVentures.map(v => <div key={v} className="text-xs text-white">{v}</div>)}
-        </div>
-        <div className="p-2 rounded bg-slate-800/40 border border-slate-700/30">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold mb-0.5">Cartridges</div>
-          {intent.relatedCartridges.map(c => <div key={c} className="text-xs text-white font-mono">{c}</div>)}
-        </div>
-      </div>
-      <div>
-        <div className="text-xs text-slate-500 mb-1">Success Criteria</div>
-        {intent.successCriteria.map(c => <div key={c} className="text-xs text-emerald-300">✓ {c}</div>)}
-      </div>
-    </div>
-  );
-}
-
-function ValidationPanel() {
-  return (
-    <div className="text-xs text-slate-400 italic py-4 text-center">
-      Validation runs after Claude Code generates implementation. Pending implementation stage.
-    </div>
-  );
-}
-
-// ─── Right-pane layout components ─────────────────────────────────────────
-
-function StackLayout({ onCapabilityClick, activeStage }: {
-  onCapabilityClick: (id: DevCapsuleId) => void;
-  activeStage: DevLoopStage;
-}) {
-  return (
-    <div className="space-y-4">
-      {/* Capability buttons */}
-      <div className="space-y-2">
-        <div className="text-[10px] text-slate-500 uppercase font-semibold px-1">Capabilities</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {CAPABILITIES.map(cap => (
-            <button
-              key={cap.id}
-              onClick={() => onCapabilityClick(cap.id)}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${cap.color}`}
-            >
-              <cap.icon className="w-5 h-5 shrink-0" />
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-white">{cap.label}</div>
-                <div className="text-[10px] text-slate-300">{cap.description}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Accordion sections */}
-      <AccordionSection title="Experience Model" icon={Layers} defaultOpen={false}>
-        <div className="text-xs text-slate-400 py-2">
-          Experience model configuration inherited from aigentMe. Configure stages, goals, and progression.
-        </div>
-      </AccordionSection>
-
-      <AccordionSection title="Specialists" icon={Cpu} defaultOpen={false}>
-        <div className="text-xs text-slate-400 py-2">
-          aigentZ specialist agents — domain experts for architecture, security, governance review.
-        </div>
-      </AccordionSection>
-
-      <AccordionSection title="Dev Receipts" icon={CheckCircle} defaultOpen={false}>
-        <div className="text-xs text-slate-400 py-2">
-          DVN-anchored development receipts — intent captures, gap analyses, validation results.
-        </div>
-      </AccordionSection>
-
-      {/* Dev loop diagram */}
-      <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30">
-        <div className="flex items-baseline gap-2 mb-2 min-w-0">
-          <h4 className="text-xs font-semibold text-white shrink-0">Development Loop</h4>
-          <p className="text-[10px] text-slate-400 truncate">
-            Claude Code generates code. aigentZ generates and validates capability. The loop is cyclical.
-          </p>
-        </div>
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 text-xs">
-          {["User Intent", "Intent Distillation", "Context Pack", "Gap Analysis", "Consequence Canvas", "Claude Code", "Generated Code", "Consequence Validation", "Receipts", "Memory Update"].map((step, i, arr) => (
-            <React.Fragment key={step}>
-              <span className="px-2 py-1 rounded bg-slate-700/50 text-white whitespace-nowrap shrink-0">{step}</span>
-              {i < arr.length - 1 && <ArrowRight className="w-3 h-3 text-slate-600 shrink-0" />}
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
+        return (
+          <button
+            key={cap.id}
+            type="button"
+            onClick={() => onChipClick(cap.id)}
+            className={`
+              relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold
+              whitespace-nowrap transition-all
+              ${isActive ? cap.activeClass : hasData ? cap.hasDataClass : cap.emptyClass}
+              ${isPulsing ? "animate-pulse" : ""}
+            `}
+          >
+            <Icon className={`w-3.5 h-3.5 shrink-0 ${hasData || isActive ? cap.iconActiveClass : cap.iconEmptyClass}`} />
+            <span>{cap.shortLabel}</span>
+            {hasData && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
+            {hasPending && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-slate-900 animate-pulse" />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -571,48 +276,163 @@ function AccordionSection({ title, icon: Icon, defaultOpen, children }: {
   );
 }
 
-// Capability detail layouts (shown when a capability button is clicked)
-function CapabilityLayout({ capsuleId, onBack, activeStage }: {
-  capsuleId: DevCapsuleId;
-  onBack: () => void;
+function StackLayout({ session, activeStage, onCapabilityClick, pending }: {
+  session: DevLoopState;
   activeStage: DevLoopStage;
+  onCapabilityClick: (id: DevCapsuleId) => void;
+  pending: Partial<Record<DevCapsuleId, StageProposal>>;
 }) {
-  const cap = CAPABILITIES.find(c => c.id === capsuleId);
-  if (!cap) return null;
-
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
-        >
-          <RotateCcw className="w-3 h-3" />
-          Back to overview
-        </button>
-        <div className="flex items-center gap-2">
-          <cap.icon className="w-5 h-5 text-green-400" />
-          <h3 className="text-sm font-bold text-white">{cap.label}</h3>
+    <div className="space-y-4">
+      {/* Capability cards — larger, with summaries + pending indicators */}
+      <div className="space-y-2">
+        <div className="text-[10px] text-slate-500 uppercase font-semibold px-1">Capabilities</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {CAPABILITIES.map(cap => {
+            const Icon = cap.icon;
+            const hasData = capabilityHasData(cap.id, session);
+            const hasPending = pending[cap.id] !== undefined;
+            return (
+              <button
+                key={cap.id}
+                onClick={() => onCapabilityClick(cap.id)}
+                className={`relative flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
+                  hasData ? cap.hasDataClass : cap.emptyClass
+                } ${hasPending ? "ring-1 ring-amber-500/40" : ""}`}
+              >
+                <Icon className={`w-5 h-5 shrink-0 ${hasData ? cap.iconActiveClass : cap.iconEmptyClass}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-white">{cap.label}</span>
+                    {hasData && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {cap.id === "project-overview" && (session.intent ? session.intent.goal : "No active intent")}
+                    {cap.id === "intent" && (session.intent ? `${session.intent.status} — ${session.intent.goal}` : "Start a new intent")}
+                    {cap.id === "context" && (session.contextPack ? `${session.contextPack.items.length} items assembled` : "Pending intent")}
+                    {cap.id === "gap-analysis" && (session.gapAnalysis ? `${session.gapAnalysis.existing.length} existing · ${session.gapAnalysis.missing.length} missing` : "Pending context")}
+                    {cap.id === "consequence-canvas" && (session.consequenceCanvas ? `${session.consequenceCanvas.shouldHappen.length + session.consequenceCanvas.shouldNeverHappen.length} entries` : "Pending gaps")}
+                    {cap.id === "validation" && (session.validationReport ? session.validationReport.overallVerdict : "Pending implementation")}
+                  </div>
+                </div>
+                {hasPending && (
+                  <span className="absolute -top-1 -right-1 flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold animate-pulse">
+                    Pending
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {capsuleId === "project-overview" && <ProjectOverviewPanel intent={DEMO_INTENT} activeStage={activeStage} />}
-      {capsuleId === "intent" && <IntentPanel intent={DEMO_INTENT} />}
-      {capsuleId === "context" && <ContextPackPanel items={DEMO_CONTEXT_ITEMS} />}
-      {capsuleId === "gap-analysis" && <GapAnalysisPanel existing={DEMO_EXISTING} missing={DEMO_MISSING} />}
-      {capsuleId === "consequence-canvas" && (
-        <ConsequenceCanvasPanel
-          shouldHappen={DEMO_SHOULD_HAPPEN}
-          shouldNotHappen={DEMO_SHOULD_NOT_HAPPEN}
-          successState="Executive travel booking, accommodation, and residency workflows execute as a connected chain with full DVN receipt trail and CRM synchronization."
-        />
-      )}
-      {capsuleId === "validation" && <ValidationPanel />}
+      {/* Accordion sections */}
+      <AccordionSection title="Experience Model" icon={Layers} defaultOpen={false}>
+        <div className="space-y-2">
+          <div className="text-[10px] text-slate-500 uppercase font-semibold">Dev Loop Stages</div>
+          {STAGES.map((s, i) => {
+            const stageIdx = getStageIndex(activeStage);
+            const isCurrent = s.id === activeStage;
+            const isPast = i < stageIdx;
+            const SIcon = s.icon;
+            return (
+              <div key={s.id} className="flex items-center gap-2 py-0.5">
+                <SIcon className={`w-3 h-3 ${isCurrent ? "text-green-400" : isPast ? "text-emerald-400/60" : "text-slate-600"}`} />
+                <span className={`text-xs ${isCurrent ? "text-green-300 font-semibold" : isPast ? "text-emerald-300/60" : "text-slate-500"}`}>{s.label}</span>
+                {isCurrent && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300">Active</span>}
+                {isPast && <span className="text-[10px] text-emerald-400/50">✓</span>}
+              </div>
+            );
+          })}
+          <div className="pt-1 border-t border-slate-700/20">
+            <div className="text-[10px] text-slate-500">Implementation package: {session.intent && session.contextPack && session.gapAnalysis && session.consequenceCanvas ? <span className="text-emerald-300">ready to assemble</span> : <span className="text-amber-300">incomplete — fill remaining capabilities</span>}</div>
+          </div>
+        </div>
+      </AccordionSection>
+
+      <AccordionSection title="Specialists" icon={Cpu} defaultOpen={false}>
+        <div className="space-y-2">
+          {[
+            { name: "Architecture Reviewer", role: "Validates structural decisions against platform patterns", status: "available" },
+            { name: "Security Reviewer", role: "Checks for OWASP top 10, auth gate integrity, secret exposure", status: "available" },
+            { name: "Governance Reviewer", role: "Ensures DVN receipt compliance and sovereignty boundaries", status: "available" },
+            { name: "Spine Integrity Checker", role: "Validates identity spine contracts and tier exposure rules", status: "available" },
+          ].map(spec => (
+            <div key={spec.name} className="flex items-center justify-between py-1 border-b border-slate-700/20 last:border-0">
+              <div>
+                <div className="text-xs text-white">{spec.name}</div>
+                <div className="text-[10px] text-slate-500">{spec.role}</div>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{spec.status}</span>
+            </div>
+          ))}
+          <div className="text-[10px] text-slate-500 pt-1">Specialists are invoked by aigentZ during gap analysis and validation stages.</div>
+        </div>
+      </AccordionSection>
+
+      <AccordionSection title="Dev Receipts" icon={CheckCircle} defaultOpen={false}>
+        <div className="space-y-2">
+          {session.receipts.length > 0 ? (
+            session.receipts.map((receiptId, i) => (
+              <div key={receiptId} className="flex items-center justify-between py-1 border-b border-slate-700/20 last:border-0">
+                <span className="text-xs text-white font-mono truncate">{receiptId}</span>
+                <span className="text-[10px] text-slate-500">#{i + 1}</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-slate-400 py-1">
+              No receipts yet. Receipts are created when capabilities complete.
+            </div>
+          )}
+          <div className="flex items-center gap-3 text-[10px] text-slate-500 pt-1 border-t border-slate-700/20">
+            <span>Session: <span className="font-mono text-slate-400">{session.sessionId.slice(0, 16)}…</span></span>
+            <span>Started: {new Date(session.startedAt).toLocaleDateString()}</span>
+          </div>
+        </div>
+      </AccordionSection>
+
+      {/* Dev loop diagram */}
+      <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30">
+        <div className="flex items-baseline gap-2 mb-2 min-w-0">
+          <h4 className="text-xs font-semibold text-white shrink-0">Development Loop</h4>
+          <p className="text-[10px] text-slate-400 truncate">
+            Claude Code generates code. aigentZ generates and validates capability. The loop is cyclical.
+          </p>
+        </div>
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 text-xs">
+          {[
+            { label: "User Intent", stage: "intent_capture" },
+            { label: "Intent Distillation", stage: "intent_capture" },
+            { label: "Context Pack", stage: "context_assembly" },
+            { label: "Gap Analysis", stage: "gap_analysis" },
+            { label: "Consequence Canvas", stage: "consequence_modeling" },
+            { label: "Claude Code", stage: "implementation" },
+            { label: "Generated Code", stage: "implementation" },
+            { label: "Consequence Validation", stage: "consequence_validation" },
+            { label: "Receipts", stage: "complete" },
+            { label: "Memory Update", stage: "complete" },
+          ].map((step, i, arr) => {
+            const stageIdx = getStageIndex(activeStage);
+            const stepStageIdx = STAGES.findIndex(s => s.id === step.stage);
+            const isPast = stepStageIdx < stageIdx;
+            const isCurrent = step.stage === activeStage;
+            return (
+              <React.Fragment key={step.label}>
+                <span className={`px-2 py-1 rounded whitespace-nowrap shrink-0 ${
+                  isCurrent ? "bg-green-500/20 text-green-300 ring-1 ring-green-500/30"
+                  : isPast ? "bg-emerald-500/10 text-emerald-300/60"
+                  : "bg-slate-700/50 text-white"
+                }`}>{step.label}</span>
+                {i < arr.length - 1 && <ArrowRight className={`w-3 h-3 shrink-0 ${isPast || isCurrent ? "text-emerald-400/40" : "text-slate-600"}`} />}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
-// Stub layout for tool modals (Terminal, GitHub, DevTools, Linear)
 function ToolLayout({ toolId, onBack }: { toolId: string; onBack: () => void }) {
   const tool = DEV_QUICK_LINKS.find(l => l.id === toolId);
   const Icon = tool?.icon ?? Terminal;
@@ -622,7 +442,7 @@ function ToolLayout({ toolId, onBack }: { toolId: string; onBack: () => void }) 
         onClick={onBack}
         className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
       >
-        <RotateCcw className="w-3 h-3" />
+        <ArrowRight className="w-3 h-3 rotate-180" />
         Back to overview
       </button>
       <div className="flex items-center gap-2">
@@ -652,7 +472,7 @@ interface DevCommandCenterTabProps {
 }
 
 export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
-  const [activeStage] = useState<DevLoopStage>("consequence_modeling");
+  const [session, setSession] = useState<DevLoopState>(() => createDevLoopSession());
   const [activeLayoutId, setActiveLayoutId] = useState<DevLayoutId>("stack");
   const [activeCapsuleId, setActiveCapsuleId] = useState<DevCapsuleId | null>(null);
 
@@ -671,55 +491,188 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     setActiveLayoutId(toolId as DevLayoutId);
   }, []);
 
-  // Ground context for the copilot — feeds the LLM with current right-pane state
+  const handleAdvanceStage = useCallback(() => {
+    setSession(prev => {
+      const next = advanceStage(prev);
+      if (next.stage !== prev.stage) {
+        console.log(`[aigentZ dev-loop] advanced: ${prev.stage} → ${next.stage}`);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleStageClick = useCallback((stageId: DevLoopStage) => {
+    const capsuleId = STAGE_TO_CAPSULE[stageId];
+    if (capsuleId) engageCapsuleAndMount(capsuleId);
+  }, [engageCapsuleAndMount]);
+
+  // ── Copilot-driven suggestions
+  const [exploreSuggestions, setExploreSuggestions] = useState<ExploreSuggestionMap>({});
+  const [capsuleSuggestions, setCapsuleSuggestions] = useState<Partial<Record<DevCapsuleId, boolean>>>({});
+
+  const handleSuggestedLayouts = useCallback((hints: SuggestedLayoutHint[]) => {
+    const explore: ExploreSuggestionMap = {};
+    const caps: Partial<Record<DevCapsuleId, boolean>> = {};
+    for (const h of hints) {
+      const id = h.layoutId as string;
+      if (id === "upload" || id === "download" || id === "terminal" || id === "github" || id === "devtools" || id === "linear") {
+        explore[id as ExploreToolId | "upload" | "download"] = true;
+      } else if (id === "intent" || id === "context" || id === "gap-analysis" || id === "consequence-canvas" || id === "validation" || id === "project-overview") {
+        caps[id as DevCapsuleId] = true;
+      } else if (id === "brief" || id === "venture-cockpit") {
+        caps["project-overview"] = true;
+      } else if (id === "decision-board") {
+        caps["consequence-canvas"] = true;
+      }
+    }
+    setExploreSuggestions(explore);
+    setCapsuleSuggestions(caps);
+  }, []);
+
+  const clearExploreSuggestions = useCallback(() => setExploreSuggestions({}), []);
+  const clearCapsuleSuggestions = useCallback(() => setCapsuleSuggestions({}), []);
+  const consumeCapsuleSuggestion = useCallback((id: DevCapsuleId) => {
+    setCapsuleSuggestions(prev => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  // ── ICE engine: pending stage proposals
+  const [pendingProposals, setPendingProposals] = useState<Partial<Record<DevCapsuleId, StageProposal>>>({});
+
+  const handleStageProposals = useCallback((proposals: CopilotStageProposal[]) => {
+    if (proposals.length === 0) return;
+    const typed = proposals.filter(
+      (p): p is StageProposal => typeof p.kind === "string" && p.kind in PROPOSAL_KIND_TO_CAPSULE,
+    );
+    if (typed.length === 0) return;
+    setPendingProposals(prev => {
+      const next = { ...prev };
+      for (const p of typed) {
+        next[PROPOSAL_KIND_TO_CAPSULE[p.kind] as DevCapsuleId] = p;
+      }
+      return next;
+    });
+    const capsule = PROPOSAL_KIND_TO_CAPSULE[typed[0].kind] as DevCapsuleId;
+    setCapsuleSuggestions(prev => ({ ...prev, [capsule]: true }));
+    engageCapsuleAndMount(capsule);
+  }, [engageCapsuleAndMount]);
+
+  const handleApproveProposal = useCallback((capsule: DevCapsuleId) => {
+    const proposal = pendingProposals[capsule];
+    if (!proposal) return;
+    setSession(s => {
+      let next = applyStageProposal(s, proposal);
+      if (STAGE_PROPOSAL_KIND[next.stage] === proposal.kind && canAdvance(next)) {
+        next = advanceStage(next);
+      }
+      console.log(`[aigentZ ICE] approved ${proposal.kind} → stage ${next.stage}`);
+      return next;
+    });
+    setPendingProposals(prev => {
+      const next = { ...prev };
+      delete next[capsule];
+      return next;
+    });
+    consumeCapsuleSuggestion(capsule);
+  }, [pendingProposals, consumeCapsuleSuggestion]);
+
+  const handleDismissProposal = useCallback((capsule: DevCapsuleId) => {
+    setPendingProposals(prev => {
+      const next = { ...prev };
+      delete next[capsule];
+      return next;
+    });
+    consumeCapsuleSuggestion(capsule);
+  }, [consumeCapsuleSuggestion]);
+
+  // Ground context for the copilot
   const copilotGroundContext = useMemo(() => ({
     surface: "dev-command-center",
-    activeStage,
+    activeStage: session.stage,
     activeLayout: activeLayoutId,
     activeCapsule: activeCapsuleId,
+    sessionId: session.sessionId,
+    canAdvance: canAdvance(session),
     twoTierRouting: {
       description: "aigentZ routes prompts either to the LLM (tier 1, planning/analysis) or to Claude Code (tier 2, code generation). Results from Claude Code flow back through aigentZ for disposition.",
       currentTier: "llm",
     },
     capabilities: CAPABILITIES.map(c => c.id),
     devLoopStages: STAGES.map(s => s.id),
-  }), [activeStage, activeLayoutId, activeCapsuleId]);
+    intentSummary: session.intent ? buildIntentSummary(session.intent) : null,
+    contextPackSummary: session.contextPack ? buildContextPackSummary(session.contextPack) : null,
+    gapAnalysisSummary: session.gapAnalysis ? buildGapAnalysisSummary(session.gapAnalysis) : null,
+    consequenceCanvasSummary: session.consequenceCanvas ? buildConsequenceCanvasSummary(session.consequenceCanvas) : null,
+    validationSummary: session.validationReport ? buildValidationSummary(session.validationReport) : null,
+    implementationPackage: buildImplementationPackage(session) ? "ready" : "incomplete",
+    pendingApprovals: Object.values(pendingProposals).map(p => p?.kind).filter(Boolean),
+  }), [session, activeLayoutId, activeCapsuleId, pendingProposals]);
 
   // Quick-prompt chips for the copilot left pane
   const copilotQuickPrompts = useMemo((): QuickPrompt[] => [
     {
       label: "New intent",
       prompt: "I want to start a new development intent. Help me distill what I'm trying to build.",
-      onSelect: () => engageCapsuleAndMount("intent"),
+      highlight: capsuleSuggestions["intent"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("intent");
+        consumeCapsuleSuggestion("intent");
+      },
     },
     {
       label: "Where are we?",
       prompt: "Give me a status update on the current dev loop — what stage are we at and what's next?",
+      highlight: capsuleSuggestions["project-overview"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("project-overview");
+        consumeCapsuleSuggestion("project-overview");
+      },
+    },
+    {
+      label: "Assemble context",
+      prompt: "Assemble the context pack for the current intent. Identify files, services, and patterns to reuse.",
+      highlight: capsuleSuggestions["context"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("context");
+        consumeCapsuleSuggestion("context");
+      },
     },
     {
       label: "Analyze gaps",
       prompt: "Analyze capability gaps for the current intent. What can we reuse, extend, or build new?",
-      onSelect: () => engageCapsuleAndMount("gap-analysis"),
+      highlight: capsuleSuggestions["gap-analysis"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("gap-analysis");
+        consumeCapsuleSuggestion("gap-analysis");
+      },
     },
     {
       label: "Model consequences",
       prompt: "Model the consequences for the current intent. What should happen and what must never happen?",
-      onSelect: () => engageCapsuleAndMount("consequence-canvas"),
+      highlight: capsuleSuggestions["consequence-canvas"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("consequence-canvas");
+        consumeCapsuleSuggestion("consequence-canvas");
+      },
     },
     {
       label: "Validate build",
       prompt: "Validate the implementation against the consequence canvas. Run the post-prompt validation.",
-      onSelect: () => engageCapsuleAndMount("validation"),
+      highlight: capsuleSuggestions["validation"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("validation");
+        consumeCapsuleSuggestion("validation");
+      },
     },
-  ], [engageCapsuleAndMount]);
+  ], [engageCapsuleAndMount, capsuleSuggestions, consumeCapsuleSuggestion]);
 
-  // Two-tier routing: on each prompt, classify and log the routing decision
   const handlePrompt = useCallback((prompt: string) => {
     const decision = classifyPromptTier(prompt);
     console.log(`[aigentZ routing] tier=${decision.tier} reason="${decision.reason}" prompt="${prompt.slice(0, 80)}…"`);
-    // Tier 1: handled by SmartTriadCopilotLayer's built-in chat POST
-    // Tier 2 (stub): would route to Claude Code session and await response
-    // For now both tiers flow through the LLM; Claude Code integration is Phase 2
   }, []);
 
   const isToolLayout = activeLayoutId === "terminal" || activeLayoutId === "github" || activeLayoutId === "devtools" || activeLayoutId === "linear";
@@ -739,6 +692,9 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           personaId={personaId}
           groundContext={copilotGroundContext}
           onPrompt={handlePrompt}
+          onSuggestedLayouts={handleSuggestedLayouts}
+          onStageProposals={handleStageProposals}
+          onClearHighlights={clearCapsuleSuggestions}
           onClose={() => undefined}
         />
       </div>
@@ -747,59 +703,144 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
       <div className="lg:w-1/2 w-full h-full min-h-0 relative flex flex-col">
         {/* Stage strip at top */}
         <div className="shrink-0 py-2">
-          <StageStrip stage={activeStage} />
+          <StageStrip stage={session.stage} onStageClick={handleStageClick} />
         </div>
 
-        {/* Scrollable content area */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-16">
+        {/* CTA chip row — mirrors aigentMe's capsule chip strip */}
+        <div className="shrink-0 py-1">
+          <CapabilityChipRow
+            session={session}
+            activeCapsuleId={activeCapsuleId}
+            pulsing={capsuleSuggestions}
+            pending={pendingProposals}
+            onChipClick={(id) => {
+              if (activeCapsuleId === id) {
+                returnToStack();
+              } else {
+                engageCapsuleAndMount(id);
+              }
+              consumeCapsuleSuggestion(id);
+            }}
+          />
+        </div>
+
+        {/* Scrollable content area — capsule layouts or stack */}
+        <div className="flex-1 min-h-0 overflow-hidden">
           {activeLayoutId === "stack" && (
-            <StackLayout
-              onCapabilityClick={engageCapsuleAndMount}
-              activeStage={activeStage}
+            <div className="h-full overflow-y-auto px-1 pb-16">
+              <StackLayout
+                session={session}
+                activeStage={session.stage}
+                onCapabilityClick={engageCapsuleAndMount}
+                pending={pendingProposals}
+              />
+            </div>
+          )}
+
+          {isCapsuleLayout && activeCapsuleId === "project-overview" && (
+            <ProjectOverviewLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["project-overview"] ?? null}
+              onApproveProposal={() => handleApproveProposal("project-overview")}
+              onDismissProposal={() => handleDismissProposal("project-overview")}
+              onNavigateCapsule={engageCapsuleAndMount}
             />
           )}
-          {isCapsuleLayout && activeCapsuleId && (
-            <CapabilityLayout capsuleId={activeCapsuleId} onBack={returnToStack} activeStage={activeStage} />
+          {isCapsuleLayout && activeCapsuleId === "intent" && (
+            <IntentLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["intent"] ?? null}
+              onApproveProposal={() => handleApproveProposal("intent")}
+              onDismissProposal={() => handleDismissProposal("intent")}
+            />
           )}
+          {isCapsuleLayout && activeCapsuleId === "context" && (
+            <ContextLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["context"] ?? null}
+              onApproveProposal={() => handleApproveProposal("context")}
+              onDismissProposal={() => handleDismissProposal("context")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "gap-analysis" && (
+            <GapAnalysisLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["gap-analysis"] ?? null}
+              onApproveProposal={() => handleApproveProposal("gap-analysis")}
+              onDismissProposal={() => handleDismissProposal("gap-analysis")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "consequence-canvas" && (
+            <ConsequenceCanvasLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["consequence-canvas"] ?? null}
+              onApproveProposal={() => handleApproveProposal("consequence-canvas")}
+              onDismissProposal={() => handleDismissProposal("consequence-canvas")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "validation" && (
+            <ValidationLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["validation"] ?? null}
+              onApproveProposal={() => handleApproveProposal("validation")}
+              onDismissProposal={() => handleDismissProposal("validation")}
+            />
+          )}
+
           {isToolLayout && (
-            <ToolLayout toolId={activeLayoutId} onBack={returnToStack} />
+            <div className="h-full overflow-y-auto px-1 pb-16">
+              <ToolLayout toolId={activeLayoutId} onBack={returnToStack} />
+            </div>
           )}
         </div>
 
-        {/* Bottom quick-links strip — pinned */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-2 px-3 z-30">
+        {/* Floating explore strip */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-30">
           <div className="pointer-events-auto">
-            <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-slate-900/90 backdrop-blur-sm border border-slate-700/40">
-              {DEV_QUICK_LINKS.map(link => (
-                <button
-                  key={link.id}
-                  onClick={() => handleToolOpen(link.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    activeLayoutId === link.id
-                      ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                  }`}
-                >
-                  <link.icon className="w-3 h-3" />
-                  {link.label}
-                </button>
-              ))}
-              <div className="w-px h-4 bg-slate-700/50 mx-1" />
-              <button
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
-                onClick={() => console.log("[dev-cmd] upload")}
-              >
-                <Upload className="w-3 h-3" />
-                Upload
-              </button>
-              <button
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all"
-                onClick={() => console.log("[dev-cmd] download")}
-              >
-                <Download className="w-3 h-3" />
-                Download
-              </button>
-            </div>
+            <ExploreQuickActionsStrip
+              onOpen={(tool) => {
+                handleToolOpen(tool);
+                setExploreSuggestions(prev => {
+                  if (!prev[tool]) return prev;
+                  const next = { ...prev };
+                  delete next[tool];
+                  return next;
+                });
+              }}
+              onUploadOpen={() => {
+                console.log("[dev-cmd] upload");
+                setExploreSuggestions(prev => {
+                  if (!prev.upload) return prev;
+                  const next = { ...prev };
+                  delete next.upload;
+                  return next;
+                });
+              }}
+              onDownloadsOpen={() => {
+                console.log("[dev-cmd] download");
+                setExploreSuggestions(prev => {
+                  if (!prev.download) return prev;
+                  const next = { ...prev };
+                  delete next.download;
+                  return next;
+                });
+              }}
+              activeToolId={isToolLayout ? activeLayoutId : null}
+              suggested={exploreSuggestions}
+              onClearSuggestions={clearExploreSuggestions}
+            />
           </div>
         </div>
       </div>

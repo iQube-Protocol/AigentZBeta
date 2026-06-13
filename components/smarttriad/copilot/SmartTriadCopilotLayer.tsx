@@ -123,13 +123,33 @@ interface SmartTriadCopilotLayerProps {
    * callers that don't wire it stay unchanged.
    */
   onSentAttachments?: (uploadIds: string[]) => void;
+  /**
+   * ICE engine (Dev Command Center) — fired after each successful chat
+   * POST with the structured stage proposals the server extracted from
+   * the aigent-z reply's stage_data fences. The parent renders each as
+   * a pending approval card inside the matching capability capsule;
+   * approval commits the artifact to the DevLoopState. Optional; only
+   * the Dev Command Center wires it. Empty turns fire with [] so the
+   * parent can clear stale pulses.
+   */
+  onStageProposals?: (proposals: CopilotStageProposal[]) => void;
 }
+
+/** Loose mirror of services/devCommandCenter StageProposal — keeps this
+ *  shared layer free of dev-command-center type imports. */
+export type CopilotStageProposal = {
+  kind: string;
+  summary: string;
+  data: Record<string, unknown>;
+};
 
 export type SuggestedLayoutHint = {
   layoutId:
     | 'brief' | 'decision-board' | 'venture-cockpit' | 'specialists'
     | 'gmail' | 'event' | 'doc' | 'sheet' | 'slides' | 'marketa'
-    | 'upload' | 'download';
+    | 'upload' | 'download'
+    | 'terminal' | 'github' | 'devtools' | 'linear'
+    | 'intent' | 'context' | 'gap-analysis' | 'consequence-canvas' | 'validation' | 'project-overview';
   reason: string;
   promptHint: string;
 };
@@ -236,6 +256,7 @@ export function SmartTriadCopilotLayer({
   enableAdvancedRendering = true,
   groundContext,
   onSuggestedLayouts,
+  onStageProposals,
   onClearHighlights,
   onSentAttachments,
 }: SmartTriadCopilotLayerProps) {
@@ -580,6 +601,16 @@ export function SmartTriadCopilotLayer({
         onSuggestedLayouts?.(data.suggested_layouts as SuggestedLayoutHint[]);
       } else {
         onSuggestedLayouts?.([]);
+      }
+
+      // ICE engine — surface structured stage proposals to the parent
+      // (Dev Command Center) so they render as pending approval cards
+      // in the matching capability capsule. Same authoritative-empty
+      // semantics as suggested_layouts.
+      if (Array.isArray(data?.stage_proposals)) {
+        onStageProposals?.(data.stage_proposals as CopilotStageProposal[]);
+      } else {
+        onStageProposals?.([]);
       }
 
       // Case A — escrow the operator-attached uploads for the next

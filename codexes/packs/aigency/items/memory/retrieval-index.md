@@ -2144,3 +2144,43 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-bc20c54.md](../build_/COMMITS/COMMIT-bc20c54.md)
 - Message: stage 7 discovery surfaces: .well-known bureau document + llms.txt orientation
+
+## Commit `6ebdc7a` — 2026-06-12T18:32:25Z
+- Type: `push`
+- Brief: [COMMIT-6ebdc7a.md](../build_/COMMITS/COMMIT-6ebdc7a.md)
+- Message: extract 6 capsule layout templates for dev command center with CTA chip row, LayoutShell chrome, and pending proposal cards — mirrors aigentMe capsule layout pattern
+
+## Commit `10210ed` — 2026-06-12T18:17:44Z
+- Type: `feat`
+- Brief: [COMMIT-10210ed.md](../build_/COMMITS/COMMIT-10210ed.md)
+- Message: fix aigentZ KB retrieval: trace codex packs into chat route Lambdas, add stopword filter + plural folding + term weighting to pack search
+
+## Commit `df0c5c3` — 2026-06-12T18:14:20Z
+- Type: `feat`
+- Brief: [COMMIT-df0c5c3.md](../build_/COMMITS/COMMIT-df0c5c3.md)
+- Message: add Sessions placeholder tab to metaMe aigentZ group so the sub-menu row renders in line with aigentMe
+
+## Commit `3372c92` — 2026-06-12T18:11:08Z
+- Type: `push`
+- Brief: [COMMIT-3372c92.md](../build_/COMMITS/COMMIT-3372c92.md)
+- Message: remove aigentZ tab from AgentiQ OS cartridge and its metaMe mirror — first-class metaMe aigentZ menu is the sole surface
+
+## Commit `17ef7bd` — 2026-06-12T16:33:20Z
+- Type: `push`
+- Brief: [COMMIT-17ef7bd.md](../build_/COMMITS/COMMIT-17ef7bd.md)
+- Message: document ICE engine phase 1a session in agentiq updates pack
+
+## Commit `d885aba` — 2026-06-12T16:32:46Z
+- Type: `push`
+- Brief: [COMMIT-d885aba.md](../build_/COMMITS/COMMIT-d885aba.md)
+- Message: ICE engine phase 1a: stage orchestrator with structured proposals, approval cards in capability capsules, live stage inventories
+
+## Commit `9945b46` — 2026-06-12T16:00:51Z
+- Type: `push`
+- Brief: [COMMIT-9945b46.md](../build_/COMMITS/COMMIT-9945b46.md)
+- Message: document aigent-z platform ground knowledge session in agentiq updates pack
+
+## Commit `d9014b6` — 2026-06-13T05:10:09Z
+- Type: `fix`
+- Brief: [COMMIT-d9014b6.md](../build_/COMMITS/COMMIT-d9014b6.md)
+- Message: fix Amplify build: scope outputFileTracingIncludes to aigency + agentiq packs only — wildcard glob follows alpha-knyt symlink causing directory collision

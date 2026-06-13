@@ -32,6 +32,9 @@ import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experience
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
+import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
+import { buildStageInstructionBlock, extractStageProposals } from '@/services/devCommandCenter/stageOrchestrator';
+import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -318,7 +321,17 @@ export type ChipTargetId =
   | 'slides'
   | 'marketa'
   | 'upload'
-  | 'download';
+  | 'download'
+  | 'terminal'
+  | 'github'
+  | 'devtools'
+  | 'linear'
+  | 'intent'
+  | 'context'
+  | 'gap-analysis'
+  | 'consequence-canvas'
+  | 'validation'
+  | 'project-overview';
 
 export interface SuggestedLayoutHint {
   layoutId: ChipTargetId;
@@ -331,6 +344,8 @@ const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = [
   'brief', 'decision-board', 'venture-cockpit', 'specialists',
   'gmail', 'event', 'doc', 'sheet', 'slides', 'marketa',
   'upload', 'download',
+  'terminal', 'github', 'devtools', 'linear',
+  'intent', 'context', 'gap-analysis', 'consequence-canvas', 'validation', 'project-overview',
 ];
 
 const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string }> = [
@@ -346,6 +361,16 @@ const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string
   { id: 'marketa',          pattern: /(marketa (campaign|send|cohort)|send to cohort|campaign blast|cohort email|marketa email|email (the )?(cohort|list|subscribers|audience|community))/i, reason: 'Operator wants a Marketa campaign send' },
   { id: 'upload',           pattern: /(upload (a |my )?(file|document|pdf|doc|image)|attach (a |my )?(file|doc|pdf|image)|drop (a |my )?file|share (a |my )?(file|document|pdf))/i, reason: 'Operator wants to upload a file' },
   { id: 'download',         pattern: /(download|export (my )?(ledger|receipts|history|brief)|save (a )?(copy|pdf)|export the)/i, reason: 'Operator wants to download/export something' },
+  { id: 'terminal',          pattern: /(open (a |the )?terminal|terminal session|run (a )?command|shell|cli|command line)/i, reason: 'Operator wants a terminal session' },
+  { id: 'github',            pattern: /(open (the )?repo|github|pull request|PR|commit history|branches|merge)/i, reason: 'Operator wants to view the repository' },
+  { id: 'devtools',          pattern: /(build (log|error)|type error|diagnostic|dev ?tools|lint|compile|debug)/i, reason: 'Operator wants build diagnostics / devtools' },
+  { id: 'linear',            pattern: /(linear|issue tracker|tickets?|backlog|sprint|task board)/i, reason: 'Operator wants the issue tracker' },
+  { id: 'intent',            pattern: /(new intent|distill (my |the |an? )?intent|what am i (trying to )?build|capture (my |the )?intent|start (a |the )?dev (loop|session))/i, reason: 'Operator wants to distill a development intent' },
+  { id: 'context',           pattern: /(context pack|assemble context|relevant (code|files|docs)|codebase context|what (code |files )?do (i|we) (need|have))/i, reason: 'Operator wants to assemble a context pack' },
+  { id: 'gap-analysis',      pattern: /(gap analysis|capability gaps?|what (do we |is )missing|what can (we |i )reuse|existing (capabilities|code)|what needs to be built)/i, reason: 'Operator wants a capability gap analysis' },
+  { id: 'consequence-canvas', pattern: /(consequence|what should happen|what must never|model (the )?consequences|consequence canvas|should happen|should not happen|guardrails)/i, reason: 'Operator wants to model consequences' },
+  { id: 'validation',        pattern: /(validate|post-prompt validation|check (the )?build|verify (the )?(implementation|code|output)|consequence validation)/i, reason: 'Operator wants to validate against the consequence canvas' },
+  { id: 'project-overview',  pattern: /(project overview|where are we|status update|dev loop status|what stage|current (stage|progress)|how far along)/i, reason: 'Operator wants a project overview' },
 ];
 
 function inferSuggestedLayouts(
@@ -1719,6 +1744,7 @@ function buildSystemPrompt(
   kbContext?: KBSearchResult[],
   liveContext?: KnytLiveContext,
   activeSkill?: Know1SkillId | null,
+  platformKnowledgeBlock?: string,
 ): string {
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
   const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
@@ -1807,8 +1833,8 @@ function buildSystemPrompt(
 
   // Right-pane ground truth — when the host surface tells us what's
   // currently on screen, the LLM MUST narrate that exact shape instead
-  // of inventing a generic template. Only emitted for aigent-me and
-  // only when groundContext carries usable structure. Skipped when the
+  // of inventing a generic template. Emitted for aigent-me (personal
+  // assistant) and aigent-z (dev command center). Skipped when the
   // payload is empty so we don't add noise.
   let groundContextBlock = '';
   if (resolvedPersonaId === 'aigent-me' && userContext?.groundContext) {
@@ -1889,6 +1915,71 @@ function buildSystemPrompt(
 
       if (lines.length > 0) {
         groundContextBlock = `\n\n## Right-pane ground truth — narrate THIS, do not invent\n\nThe operator's right pane is currently showing the structured data below. Your reply MUST mirror these exact rows — refer to each NBA by its label and rationale, cite the persona's primary goal / stage / active cartridges as the framing axis, and use the per-NBA hint (when present) as the starting frame for any "Act" guidance. NEVER emit placeholder strings like "[Priority 1]", "[Action 1]", or "[Event/Document/Message 1]" — those indicate you ignored this block. If the operator asks "give me my daily brief", paraphrase the brief below as a short narrative followed by 2-3 sentences of WHY each NBA is the move right now.\n\n${lines.join('\n')}`;
+      }
+    } catch {
+      // groundContext malformed — fall back to general narrative.
+    }
+  }
+
+  // aigent-z Dev Command Center ground truth — feeds the LLM with the
+  // current dev loop session state so it can give stage-aware advice,
+  // suggest the right capsule/tool, and reason about what's next.
+  if (resolvedPersonaId === 'aigent-z' && userContext?.groundContext) {
+    try {
+      const gc = userContext.groundContext as Record<string, unknown>;
+      if (gc.surface === 'dev-command-center') {
+        const lines: string[] = [];
+
+        lines.push(`### Dev Command Center session state`);
+        lines.push(`- Surface: Dev Command Center`);
+        lines.push(`- Current stage: **${gc.activeStage ?? 'unknown'}**`);
+        lines.push(`- Active layout: ${gc.activeLayout ?? 'stack'}`);
+        lines.push(`- Active capsule: ${gc.activeCapsule ?? 'none'}`);
+        lines.push(`- Session: ${gc.sessionId ?? 'unknown'}`);
+        lines.push(`- Can advance to next stage: ${gc.canAdvance ? 'yes' : 'no'}`);
+        lines.push(`- Implementation package: ${gc.implementationPackage ?? 'unknown'}`);
+
+        if (gc.intentSummary) {
+          lines.push('');
+          lines.push(gc.intentSummary as string);
+        }
+        if (gc.contextPackSummary) {
+          lines.push('');
+          lines.push(gc.contextPackSummary as string);
+        }
+        if (gc.gapAnalysisSummary) {
+          lines.push('');
+          lines.push(gc.gapAnalysisSummary as string);
+        }
+        if (gc.consequenceCanvasSummary) {
+          lines.push('');
+          lines.push(gc.consequenceCanvasSummary as string);
+        }
+        if (gc.validationSummary) {
+          lines.push('');
+          lines.push(gc.validationSummary as string);
+        }
+
+        groundContextBlock = `\n\n## Dev loop ground truth — narrate THIS, do not invent\n\nYou are aigentZ, the development command center agent. The operator's right pane shows the Dev Command Center with the session state below. Your replies MUST reference this exact state — cite the current stage, the intent goal, the gap analysis ratios, and consequence guardrails when relevant. Guide the operator through the dev loop: intent → context → gaps → consequences → implementation → validation → complete.\n\nWhen you suggest an action, emit a [layout:<id>|<substance>] tag (same format as aigent-me). Valid dev IDs: intent, context, gap-analysis, consequence-canvas, validation, project-overview, terminal, github, devtools, linear.\n\n${lines.join('\n')}`;
+
+        // ICE engine (Phase 1A): stage-specific execution instructions +
+        // the structured stage_data proposal contract for this stage.
+        // When the operator is viewing a specific capsule (activeCapsule),
+        // use that capsule's corresponding stage for the instruction block
+        // so aigentZ emits the right kind of proposal — not the session's
+        // official stage which may be behind the viewed capsule.
+        const CAPSULE_TO_STAGE: Record<string, string> = {
+          intent: 'intent_capture',
+          context: 'context_assembly',
+          'gap-analysis': 'gap_analysis',
+          'consequence-canvas': 'consequence_modeling',
+          validation: 'consequence_validation',
+        };
+        const viewedCapsule = typeof gc.activeCapsule === 'string' ? gc.activeCapsule : null;
+        const effectiveStage =
+          (viewedCapsule && CAPSULE_TO_STAGE[viewedCapsule]) ||
+          (typeof gc.activeStage === 'string' ? gc.activeStage : undefined);
+        groundContextBlock += buildStageInstructionBlock(effectiveStage);
       }
     } catch {
       // groundContext malformed — fall back to general narrative.
@@ -2009,8 +2100,8 @@ After your response, add:
   }
 
   // Platform/system agents: persona system prompt only, plus any KB hits.
-  // metameContextBlock + groundContextBlock are appended for aigent-me
-  // (empty strings for any other agent — adds nothing to their prompts).
+  // metameContextBlock is aigent-me only. groundContextBlock + layoutSuggestionsBlock
+  // are built for both aigent-me and aigent-z (empty strings for other agents).
   // Attached uploads block — only emitted for aigent-me (the only
   // surface that currently exposes the upload-attach UI). When the
   // POST handler resolved uploads against the persona, the block is
@@ -2026,9 +2117,16 @@ After your response, add:
   const layoutSuggestionsBlock =
     resolvedPersonaId === 'aigent-me'
       ? `\n\n## Right-pane chip-strip control — append a layout tag when you propose an action\n\nThe operator's left pane (where you live) has a chip strip — and the right pane has matching surfaces. When YOU propose a concrete action in your reply, append a control tag at the end of your message in this exact form:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. Its only role is to make the matching chip pulse so the operator can one-click into the right-pane surface with the action substance already seeded.\n\nValid <id> values (12 total):\n- brief, decision-board, venture-cockpit, specialists  (Capsule chips, left strip)\n- gmail, event, doc, sheet, slides, marketa            (Composer chips, right strip)\n- upload, download                                     (Drawer chips, right strip)\n\n<substance> rules (NON-NEGOTIABLE):\n- ≤180 chars.\n- Describe WHAT to do, distilled from the conversation. Example: "Draft a partnership outreach to Lamina 1 framing the three-lane metaProof campaign and offering co-marketing on the KNYT Wheel launch".\n- NEVER restate the user's meta-instruction. "Ask Marketa to draft a plan" is WRONG — that's the request, not the substance. The substance is what the plan IS ABOUT.\n- NEVER use placeholder strings like "[partner name]" or "[your goal]" — if you don't have grounded content, omit the tag entirely.\n- One tag per action you propose. Maximum 2 tags per reply (the chip strip caps suggestions at 4 total; we leave headroom for the keyword classifier).\n- Tag goes at the END of your reply, on its own line.\n\nWhen NOT to emit a tag:\n- You're answering a question, not proposing an action.\n- You don't have enough conversation context to write a real substance (≥10 words of actual content).\n- The user is in mid-clarification ("yes", "ok", "go ahead") — wait until the next turn when you have something concrete to propose.`
+    : resolvedPersonaId === 'aigent-z'
+      ? `\n\n## Right-pane chip-strip control — append a layout tag when you suggest a dev action\n\nYou are aigentZ in the Development Command Center. The operator's left pane (your copilot) has capability quick-prompt chips, and the right pane has the Dev Command Center with capability capsules + an explore strip. When YOU propose a concrete next step, append a control tag:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble. Its role is to pulse the matching chip/button so the operator can one-click into the right surface.\n\nValid <id> values for dev surfaces:\n- intent, context, gap-analysis, consequence-canvas, validation, project-overview  (Capability capsules)\n- terminal, github, devtools, linear  (Explore strip tools)\n- upload, download  (Explore strip drawers)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions.\n\nExamples:\n- [layout:intent|Distill the Executive Mobility Travel booking service into structured intent with users, constraints, and success criteria]\n- [layout:gap-analysis|Analyze which existing services (Passport Bureau, CRM, Marketa) can be reused for the travel workflow]\n- [layout:consequence-canvas|Model what should happen when a booking completes and what must never happen with travel data sovereignty]\n- [layout:terminal|Open a terminal to run the spine verification script against the dev environment]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply.`
       : '';
 
-  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}`;
+  // Platform knowledge (repo map + pack excerpts + registry/network
+  // snapshots) — built async in the POST handler, aigent-z only.
+  const platformBlock =
+    resolvedPersonaId === 'aigent-z' && platformKnowledgeBlock ? platformKnowledgeBlock : '';
+
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -2244,6 +2342,7 @@ export async function POST(request: NextRequest) {
       const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
       const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
       const isAigentMe = resolvedAgentForFetch === 'aigent-me';
+      const isAigentZ = resolvedAgentForFetch === 'aigent-z';
       const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
       const needsProtocolKB = isProtocolQuery(message);
 
@@ -2256,13 +2355,45 @@ export async function POST(request: NextRequest) {
         if (ctx) userContext.metameContext = ctx;
       }
 
-      // Fetch codex metadata, KB results, protocol KB (when relevant), and live KNYT state in parallel
-      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext] = await Promise.all([
+      // ICE engine: the dev loop stage the calling surface reports — drives
+      // stage-specific live inventories (cartridges, API routes, registry).
+      // Prefer the viewed capsule's stage over the session's official stage
+      // so live inventories match what the operator is looking at.
+      const CAPSULE_STAGE_MAP: Record<string, string> = {
+        intent: 'intent_capture',
+        context: 'context_assembly',
+        'gap-analysis': 'gap_analysis',
+        'consequence-canvas': 'consequence_modeling',
+        validation: 'consequence_validation',
+      };
+      const gc_ = groundContext as Record<string, unknown> | undefined;
+      const viewedCapsule_ = gc_ && typeof gc_.activeCapsule === 'string' ? gc_.activeCapsule : null;
+      const devLoopStage = isAigentZ
+        ? (viewedCapsule_ && CAPSULE_STAGE_MAP[viewedCapsule_]) ||
+          (gc_ && typeof gc_.activeStage === 'string' ? gc_.activeStage as string : undefined)
+        : undefined;
+
+      // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
+      // state, and aigent-z platform knowledge + stage ground data in parallel
+      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData] = await Promise.all([
         fetchCodexMetadata(domain),
         searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
         needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
+        isAigentZ
+          ? buildAigentZPlatformKnowledge(message, new URL(request.url).origin).catch((err) => {
+              console.warn('[CodexChat] aigent-z platform knowledge failed:', err);
+              return '';
+            })
+          : Promise.resolve(''),
+        isAigentZ
+          ? buildStageGroundData(devLoopStage).catch((err) => {
+              console.warn('[CodexChat] aigent-z stage ground data failed:', err);
+              return '';
+            })
+          : Promise.resolve(''),
       ]);
+      const platformKnowledgeBlock = `${resolvedPlatformKnowledge}${resolvedStageGroundData}`;
       metadata = resolvedMetadata;
       // Merge domain KB + protocol KB results, deduplicated by content prefix
       const seen = new Set<string>();
@@ -2275,7 +2406,7 @@ export async function POST(request: NextRequest) {
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill);
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined);
     }
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);
@@ -2360,9 +2491,15 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
-    const walletActions = inferWalletActions(message, assistantMessage);
-    const suggestedLayouts = inferSuggestedLayouts(message, assistantMessage);
-    const responseForClient = stripLayoutTags(assistantMessage);
+    // ICE engine: pull structured stage_data proposals (aigent-z only) out of
+    // the reply before layout-tag stripping; they return as stage_proposals.
+    const { cleanText: messageSansStageData, proposals: stageProposals } =
+      resolvedAgentId === 'aigent-z'
+        ? extractStageProposals(assistantMessage)
+        : { cleanText: assistantMessage, proposals: [] };
+    const walletActions = inferWalletActions(message, messageSansStageData);
+    const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData);
+    const responseForClient = stripLayoutTags(messageSansStageData);
 
     console.log('[CodexChat] Response length:', responseForClient.length);
     console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');
@@ -2373,6 +2510,7 @@ export async function POST(request: NextRequest) {
       persona,
       wallet_actions: walletActions,
       suggested_layouts: suggestedLayouts,
+      stage_proposals: stageProposals,
       event_meta: eventMeta,
       userContext: {
         domain: userContext.domain,
