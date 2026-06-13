@@ -528,7 +528,7 @@ export function PassportBureauApplyTab() {
   ) : null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-4">
+    <div className="mx-auto max-w-4xl space-y-6 p-4">
       {subHeaderSlotEl && tierBadge ? createPortal(tierBadge, subHeaderSlotEl) : null}
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-7 w-7 text-violet-400" />
@@ -544,21 +544,26 @@ export function PassportBureauApplyTab() {
         </div>
       </div>
 
-      {/* Step strip */}
-      <div className="flex items-center gap-2">
+      {/* Step strip — rounded-rectangle boxes, equal-width, one row.
+          Replaces the prior pill design which wrapped to two lines on
+          'Private Vault'. Per operator note 2026-06-13: 'use a better
+          kind of more polished looking boxes... still rounded corners'. */}
+      <div className="grid grid-cols-6 gap-2">
         {steps.map((s, i) => (
           <button
             key={s.id}
             onClick={() => setStep(s.id)}
             className={cls(
-              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300',
+              'group relative flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-all duration-300 whitespace-nowrap overflow-hidden',
               step === s.id
-                ? 'bg-violet-600 text-white'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-700',
+                ? 'bg-violet-600/90 text-white ring-1 ring-violet-400/60 shadow-md shadow-violet-900/30'
+                : 'bg-slate-800/60 text-slate-400 ring-1 ring-slate-700/40 hover:bg-slate-700/70 hover:text-slate-200 hover:ring-slate-600/60',
             )}
           >
-            {s.icon}
-            <span>{i + 1}. {s.label}</span>
+            <span className="shrink-0 opacity-80 group-hover:opacity-100">{s.icon}</span>
+            <span className="truncate">
+              <span className="opacity-60">{i + 1}.</span> {s.label}
+            </span>
           </button>
         ))}
       </div>
