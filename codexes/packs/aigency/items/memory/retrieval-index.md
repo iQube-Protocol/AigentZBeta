@@ -2264,3 +2264,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-72dde3e.md](../build_/COMMITS/COMMIT-72dde3e.md)
 - Message: document wallet-over-cartridge overlay pattern + aletheon activation walkthrough
+
+## Commit `914c081` — 2026-06-13T20:35:04Z
+- Type: `chore`
+- Brief: [COMMIT-914c081.md](../build_/COMMITS/COMMIT-914c081.md)
+- Message: polish step strip to rounded-rect boxes + surface world id upgrade on registry

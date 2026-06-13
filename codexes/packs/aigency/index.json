@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T20:33:59.972Z",
+  "last_updated": "2026-06-13T20:36:57.460Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "72dde3ebda4ffeb0c4ae3bb8eb747866903c99a7",
-  "latest_commit_short": "72dde3e",
-  "latest_commit_title": "document wallet-over-cartridge overlay pattern + aletheon activation walkthrough",
+  "latest_commit": "914c08124f7996047bf0900c2e339a29742bec72",
+  "latest_commit_short": "914c081",
+  "latest_commit_title": "polish step strip to rounded-rect boxes + surface world id upgrade on registry",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "914c081",
+      "full_sha": "914c08124f7996047bf0900c2e339a29742bec72",
+      "title": "polish step strip to rounded-rect boxes + surface world id upgrade on registry",
+      "author": "Claude",
+      "timestamp": "2026-06-13T20:35:04Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-914c081.md"
+    },
     {
       "sha": "72dde3e",
       "full_sha": "72dde3ebda4ffeb0c4ae3bb8eb747866903c99a7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T23:37:11Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-48086c8.md"
-    },
-    {
-      "sha": "05a8d6c",
-      "full_sha": "05a8d6c04997d79c1515e9f1163861da87fca337",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-31T23:37:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-05a8d6c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
