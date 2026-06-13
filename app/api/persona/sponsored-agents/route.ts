@@ -1,0 +1,132 @@
+/**
+ * GET /api/persona/sponsored-agents
+ *
+ * Returns every Agent sponsored by the active persona's Citizen Passport.
+ * Surfaces "Agents I sponsor" in the wallet drawer (per 2026-06-13
+ * hackathon plan §Sprint 3 — answers "why don't I see Aletheon's
+ * passport in my wallet?").
+ *
+ * Joins agent_root_identity to polity_passport_records via bound_passport_id
+ * so each row carries:
+ *   - the agent's identity (display_name, did_uri, slug, card url)
+ *   - its passport state (claimed / claimable / pending issuance)
+ *   - the underlying VC commitment refs (T1-safe)
+ *
+ * T0 discipline: agent's persona_id, sponsor_persona_id, and any other T0
+ * id never serialise — only public refs and slugs travel.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: NextRequest) {
+  try {
+    const persona = await getActivePersona(req);
+    if (!persona?.personaId) {
+      return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
+    }
+
+    const admin = getSupabaseServer();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
+    }
+
+    // Pull all sponsored agents for this persona.
+    const { data: rows, error } = await admin
+      .from('agent_root_identity')
+      .select(
+        'id, agent_id, did_uri, agent_class, display_name, description, agent_card_url, agent_card_slug, sponsor_passport_id, bound_passport_id, created_at',
+      )
+      .eq('sponsor_persona_id', persona.personaId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      // Pre-migration soft-fail: return empty list rather than 500 so the
+      // wallet doesn't break before the migration runs.
+      if (error.message.includes('sponsor_persona_id') || error.message.includes('agent_card_slug')) {
+        return NextResponse.json(
+          {
+            ok: true,
+            agents: [],
+            migrationPending: '20260613200000_agent_genesis_polity_bound.sql',
+          },
+          { headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+
+    const agentRows = rows ?? [];
+
+    // For each agent with a bound passport, fetch the passport row to surface
+    // the credential state. Batched to a single in-query.
+    const passportIds = agentRows
+      .map((r) => r.bound_passport_id)
+      .filter((p): p is string => typeof p === 'string' && p.length > 0);
+
+    const passportById: Record<string, {
+      passport_class: string;
+      passport_grade: string | null;
+      citizen_status: string | null;
+      participant_status: string | null;
+      credential_claimed_at: string | null;
+      persona_public_ref: string | null;
+      kybe_did_public_ref: string | null;
+      issued_at: string | null;
+      world_id_verified_at: string | null;
+    }> = {};
+
+    if (passportIds.length > 0) {
+      const { data: pps } = await admin
+        .from('polity_passport_records')
+        .select('passport_id, passport_class, passport_grade, citizen_status, participant_status, credential_claimed_at, persona_public_ref, kybe_did_public_ref, issued_at, world_id_verified_at')
+        .in('passport_id', passportIds);
+      for (const p of pps ?? []) {
+        passportById[p.passport_id] = p;
+      }
+    }
+
+    const agents = agentRows.map((row) => {
+      const passport = row.bound_passport_id ? passportById[row.bound_passport_id] : undefined;
+      return {
+        agentRootId: row.id,
+        agentId: row.agent_id,
+        didUri: row.did_uri,
+        agentClass: row.agent_class,
+        displayName: row.display_name,
+        description: row.description,
+        agentCardUrl: row.agent_card_url,
+        agentCardSlug: row.agent_card_slug,
+        sponsorPassportId: row.sponsor_passport_id,
+        boundPassportId: row.bound_passport_id,
+        passport: passport
+          ? {
+              passportId: row.bound_passport_id,
+              passportClass: passport.passport_class,
+              passportGrade: passport.passport_grade,
+              passportStatus: passport.citizen_status ?? passport.participant_status,
+              issuedAt: passport.issued_at,
+              claimedAt: passport.credential_claimed_at,
+              personaPublicRef: passport.persona_public_ref,
+              kybeDidPublicRef: passport.kybe_did_public_ref,
+              worldIdVerified: Boolean(passport.world_id_verified_at),
+            }
+          : null,
+        createdAt: row.created_at,
+      };
+    });
+
+    return NextResponse.json(
+      { ok: true, agents },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : 'Lookup failed' },
+      { status: 500 },
+    );
+  }
+}

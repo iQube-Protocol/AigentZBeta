@@ -980,6 +980,58 @@ export default function SmartWalletDrawer({
   const [passportQubesLoading, setPassportQubesLoading] = useState(false);
   const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
 
+  // Sponsored agents — wallet section "Agents I sponsor" (Sprint 3).
+  interface SponsoredAgentItem {
+    agentRootId: string;
+    agentId: string;
+    didUri: string;
+    agentClass: string;
+    displayName: string;
+    description: string;
+    agentCardUrl: string;
+    agentCardSlug: string;
+    sponsorPassportId: string | null;
+    boundPassportId: string | null;
+    passport: {
+      passportId: string;
+      passportClass: string;
+      passportGrade: string | null;
+      passportStatus: string | null;
+      issuedAt: string | null;
+      claimedAt: string | null;
+      worldIdVerified: boolean;
+    } | null;
+    createdAt: string;
+  }
+  const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgentItem[]>([]);
+  const [sponsoredAgentsLoading, setSponsoredAgentsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "iqube") return;
+    let cancelled = false;
+    void (async () => {
+      setSponsoredAgentsLoading(true);
+      try {
+        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+        if (!session?.access_token) return;
+        const res = await fetch("/api/persona/sponsored-agents", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data?.ok) return;
+        setSponsoredAgents(data.agents ?? []);
+      } catch {
+        // Silent — wallet survives endpoint failure.
+      } finally {
+        if (!cancelled) setSponsoredAgentsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId]);
+
   // World ID strong-verification state — per passport. 'busy' shows the
   // spinner while the verification round-trip is in flight; 'error' surfaces
   // a failure message back into the card.
@@ -4540,6 +4592,84 @@ export default function SmartWalletDrawer({
                             Claimable — visit the Polity Passport Registry to claim this credential.
                           </p>
                         )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* AgentQubes — agents sponsored by this persona (Sprint 3) */}
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
+                  <Bot className="w-3.5 h-3.5 text-violet-400" />
+                  AgentQubes — Bound Delegates
+                </div>
+                {sponsoredAgentsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
+                  </div>
+                ) : sponsoredAgents.length === 0 ? (
+                  <p className="text-xs text-white/40 leading-relaxed">
+                    No agents sponsored yet. Sponsor a Polity-bound agent from the Polity Passport → Apply tab to delegate work under your bounded authority.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {sponsoredAgents.map((sa) => (
+                      <div
+                        key={sa.agentRootId}
+                        className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Bot className="h-4 w-4 text-violet-400" />
+                            <span className="text-sm font-medium text-violet-300">{sa.displayName}</span>
+                          </div>
+                          <span className="text-[10px] text-white/40 font-mono">{sa.agentClass}</span>
+                        </div>
+                        <p className="text-[10px] text-white/50 leading-relaxed line-clamp-2">
+                          {sa.description}
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px] text-white/50 flex-wrap">
+                          {sa.passport ? (
+                            <>
+                              <span>
+                                Passport: <span className="text-emerald-300">{sa.passport.passportStatus}</span>
+                              </span>
+                              {sa.passport.claimedAt ? (
+                                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] text-emerald-300">
+                                  VC claimed
+                                </span>
+                              ) : (
+                                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-300">
+                                  VC unclaimed
+                                </span>
+                              )}
+                              {sa.passport.worldIdVerified && (
+                                <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[9px] text-sky-300">
+                                  World ID
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-300">
+                              Passport pending submission
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <a
+                            href={sa.agentCardUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-white/50 hover:bg-white/10 transition-colors"
+                          >
+                            <Link className="h-3 w-3" />
+                            View Agent Card
+                          </a>
+                          <code className="text-[9px] text-white/30 font-mono truncate">
+                            {sa.didUri}
+                          </code>
+                        </div>
                       </div>
                     ))}
                   </div>
