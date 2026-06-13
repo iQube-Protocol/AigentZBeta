@@ -26,6 +26,10 @@ interface MarketaSendInput {
   bcc?: string;
   /** Optional override of the From name (defaults to MAILJET_FROM_NAME). */
   fromName?: string;
+  /** Optional Reply-To address — e.g. a Mailjet Parse-routed inbox so
+   *  replies land on /api/marketa/activation/inbound-reply. Omitted =
+   *  Mailjet's default (replies go to the From address). */
+  replyTo?: string;
   /** Persona upload ids to attach. Resolved server-side via
    *  resolveAttachments; each becomes a Mailjet `Attachments` entry
    *  with the upload's filename + mime + base64 bytes. */
@@ -72,6 +76,7 @@ export const marketaSendTransactional: GoogleConnector<MarketaSendInput, Marketa
     cc: { type: 'string', description: 'Comma-separated CC' },
     bcc: { type: 'string', description: 'Comma-separated BCC' },
     fromName: { type: 'string', description: 'Override From name' },
+    replyTo: { type: 'string', description: 'Reply-To address (optional — e.g. a parse-routed inbox for reply ingestion)' },
   },
   outputSchema: {
     messageId: { type: 'string', description: 'Mailjet message id' },
@@ -113,6 +118,8 @@ export const marketaSendTransactional: GoogleConnector<MarketaSendInput, Marketa
     };
     if (Cc.length > 0) message.Cc = Cc;
     if (Bcc.length > 0) message.Bcc = Bcc;
+    const replyTo = input.replyTo?.trim();
+    if (replyTo && /@/.test(replyTo)) message.ReplyTo = { Email: replyTo };
 
     // Optional attachments — resolved from the persona upload library.
     // Mailjet v3.1 `Attachments` entries: ContentType, Filename,

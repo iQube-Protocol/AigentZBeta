@@ -1,20 +1,23 @@
 'use client';
 
 /**
- * PassportBureauApplyTab — citizen passport application flow (Stage 3 UI).
+ * PassportBureauApplyTab — passport application wizard (Stage 3 UI).
  *
- * PRD §9 steps 1–9, guided as five panels:
- *   1. Bureau account — localized sign-on (synthetic-email Supabase user)
- *   2. Identity — persona + KybeDID bind (commitment refs displayed only)
- *   3. Private vault (optional) — client-side AES-256-GCM encrypt → upload
- *      (plaintext NEVER leaves the browser; Addendum A)
- *   4. Consents — terms + the four mandatory self-custody acknowledgements
- *   5. Submit — weak personhood proof + submission, then own-status list
+ * PRD §9: applicants choose a passport class up front —
+ *   • Citizen — anonymous personhood (the original five-panel flow):
+ *     account → identity → private vault → consents → submit
+ *   • Participant — an agent bound to the applicant (PRD: apply for
+ *     passports for agents too). The vault panel is replaced by an Agent
+ *     panel that captures the agent's identity AND binds the agent to the
+ *     applicant via the AgentiQ OS bounded-delegation grant (same
+ *     /api/codex/chat/agentiq-os/delegation surface BoundedDelegationTab
+ *     uses), then submits through /api/polity-passport/submit.
  *
- * All API calls ride the Bearer token (spine rule) via authedFetchHeaders.
+ * All Bureau API calls ride the Bearer token (spine rule) via
+ * authedFetchHeaders.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ShieldCheck,
   KeyRound,
@@ -25,6 +28,9 @@ import {
   CheckCircle2,
   AlertCircle,
   UserPlus,
+  Bot,
+  User,
+  Link2,
 } from 'lucide-react';
 import {
   getSupabaseBrowserClient,
@@ -34,8 +40,56 @@ import {
   encryptVaultPayload,
   buildSelfCustodyRef,
 } from '@/services/passport/selfCustodyVault';
+import { useSupabaseSessionPersonas } from '@/app/hooks/useSupabaseSessionPersonas';
 
-type StepId = 'account' | 'identity' | 'vault' | 'consents' | 'submit';
+type StepId = 'class' | 'account' | 'identity' | 'vault' | 'agent' | 'consents' | 'submit';
+type PassportClass = 'citizen' | 'participant';
+
+// Mirrors BoundedDelegationTab's grant vocabulary (AgentiQ OS cartridge).
+const DELEGATION_TRUST_BANDS = [
+  'L1_EXPERIMENTAL',
+  'L2_VERIFIED_COMMUNITY',
+  'L3_PRODUCTION_CANDIDATE',
+  'L4_PRODUCTION_APPROVED',
+];
+const DELEGATION_BAND_ACTIONS: Record<string, string[]> = {
+  L1_EXPERIMENTAL: ['knowledge_retrieval'],
+  L2_VERIFIED_COMMUNITY: ['knowledge_retrieval', 'draft_document'],
+  L3_PRODUCTION_CANDIDATE: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal'],
+  L4_PRODUCTION_APPROVED: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal', 'registry_publish'],
+};
+
+// Cloudflare Turnstile — rendered in the citizen submit step when the
+// site key is configured; otherwise the manual dev-token input remains.
+// The secret-side verification lives in services/passport/personhoodProof.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '';
+const TURNSTILE_SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+interface TurnstileApi {
+  render: (
+    el: HTMLElement,
+    opts: {
+      sitekey: string;
+      theme?: string;
+      callback: (token: string) => void;
+      'expired-callback'?: () => void;
+      'error-callback'?: () => void;
+    },
+  ) => string;
+  remove: (widgetId: string) => void;
+}
+
+function getTurnstile(): TurnstileApi | null {
+  const t = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+  return t ?? null;
+}
+
+const PARTICIPANT_CONSENT_LABELS: Array<{ key: string; label: string }> = [
+  { key: 'participant_terms_accepted', label: 'I accept the Participant Passport terms on behalf of this agent.' },
+  { key: 'registry_pending_record_consent', label: 'I consent to a public pending-registry record for this application.' },
+  { key: 'constraints_and_obligations_accepted', label: 'I accept the participant constraints and obligations.' },
+  { key: 'review_process_accepted', label: 'I accept the steward review process.' },
+];
 
 interface OwnApplication {
   applicationId: string;
@@ -76,10 +130,23 @@ function cls(...xs: Array<string | false | undefined>) {
 }
 
 export function PassportBureauApplyTab() {
-  const [step, setStep] = useState<StepId>('account');
+  const [step, setStep] = useState<StepId>('class');
+  const [passportClass, setPassportClass] = useState<PassportClass>('citizen');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Participant — agent identity + bounded-delegation binding
+  const { sessionPersonas } = useSupabaseSessionPersonas();
+  const operatorPersonaId = sessionPersonas[0]?.id ?? '';
+  const [agentName, setAgentName] = useState('');
+  const [agentType, setAgentType] = useState('general');
+  const [agentDescription, setAgentDescription] = useState('');
+  const [agentCardUrl, setAgentCardUrl] = useState('');
+  const [agentCapabilities, setAgentCapabilities] = useState('');
+  const [delegationBand, setDelegationBand] = useState('L1_EXPERIMENTAL');
+  const [delegationTtl, setDelegationTtl] = useState(4);
+  const [delegationBound, setDelegationBound] = useState(false);
 
   // Step 1 — account
   const [username, setUsername] = useState('');
@@ -104,6 +171,45 @@ export function PassportBureauApplyTab() {
   // Step 5 — submit
   const [captchaToken, setCaptchaToken] = useState('');
   const [applications, setApplications] = useState<OwnApplication[]>([]);
+  const turnstileRef = useRef<HTMLDivElement | null>(null);
+
+  // Render the Turnstile challenge when the citizen submit panel mounts
+  // and a site key is configured. Loads the script once; cleans up the
+  // widget on unmount so re-entering the step re-renders a fresh one.
+  useEffect(() => {
+    if (step !== 'submit' || passportClass !== 'citizen' || !TURNSTILE_SITE_KEY) return;
+    let widgetId: string | null = null;
+    let disposed = false;
+    const renderWidget = () => {
+      const turnstile = getTurnstile();
+      if (disposed || !turnstile || !turnstileRef.current) return;
+      turnstileRef.current.innerHTML = '';
+      widgetId = turnstile.render(turnstileRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: 'dark',
+        callback: (token: string) => setCaptchaToken(token),
+        'expired-callback': () => setCaptchaToken(''),
+        'error-callback': () => setCaptchaToken(''),
+      });
+    };
+    if (getTurnstile()) {
+      renderWidget();
+    } else {
+      let script = document.querySelector<HTMLScriptElement>(`script[src="${TURNSTILE_SCRIPT_SRC}"]`);
+      if (!script) {
+        script = document.createElement('script');
+        script.src = TURNSTILE_SCRIPT_SRC;
+        script.async = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener('load', renderWidget);
+    }
+    return () => {
+      disposed = true;
+      const turnstile = getTurnstile();
+      if (turnstile && widgetId) turnstile.remove(widgetId);
+    };
+  }, [step, passportClass]);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -121,11 +227,19 @@ export function PassportBureauApplyTab() {
       const { data } = await getSupabaseBrowserClient().auth.getSession();
       if (data?.session) {
         setSignedIn(true);
-        setStep('identity');
         void loadStatus();
       }
     })();
   }, [loadStatus]);
+
+  const handleClassChoice = useCallback(
+    (chosen: PassportClass) => {
+      setPassportClass(chosen);
+      setChecks({});
+      setStep(signedIn ? 'identity' : 'account');
+    },
+    [signedIn],
+  );
 
   const handleAccount = useCallback(async () => {
     setBusy(true);
@@ -178,13 +292,106 @@ export function PassportBureauApplyTab() {
             ? 'Existing platform identity mapped — your KybeDID was reused.'
             : 'New KybeDID minted and bound.',
       );
-      setStep('vault');
+      setStep(passportClass === 'participant' ? 'agent' : 'vault');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bind failed');
     } finally {
       setBusy(false);
     }
-  }, [displayName]);
+  }, [displayName, passportClass]);
+
+  // Participant — bind the agent to the applicant with an AgentiQ OS
+  // bounded-delegation grant (same surface as BoundedDelegationTab).
+  const handleDelegationBind = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (!operatorPersonaId) throw new Error('No session persona available to bind against — sign in first.');
+      const res = await fetch('/api/codex/chat/agentiq-os/delegation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          persona_id: operatorPersonaId,
+          trust_band: delegationBand,
+          selected_actions: DELEGATION_BAND_ACTIONS[delegationBand] ?? ['knowledge_retrieval'],
+          ttl_hours: delegationTtl,
+          reputation_score: sessionPersonas[0]?.reputationScore ?? 0,
+          allowed_surfaces: ['agentiq-codex'],
+          disclosure_class: 'tenant',
+          max_actions: 20,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Delegation grant failed');
+      setDelegationBound(true);
+      setNotice(`Agent bound to you via bounded delegation (${delegationBand}, ${delegationTtl}h TTL).`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delegation bind failed');
+    } finally {
+      setBusy(false);
+    }
+  }, [operatorPersonaId, delegationBand, delegationTtl, sessionPersonas]);
+
+  const handleSubmitParticipant = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const consents: Record<string, unknown> = {
+        consent_actor: displayName || 'applicant',
+        consented_at: new Date().toISOString(),
+      };
+      for (const { key } of PARTICIPANT_CONSENT_LABELS) consents[key] = true;
+      const declared = agentCapabilities
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
+      const res = await fetch('/api/polity-passport/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schema_version: '0.1.0',
+          application_type: 'agent_participant_passport',
+          participant: {
+            participant_kind: 'agent',
+            agent_type: agentType || 'general',
+            display_name: agentName.trim(),
+            description: agentDescription.trim() || undefined,
+            operator_name: displayName || undefined,
+          },
+          agent_identity: {
+            agent_card: { agent_card_url: agentCardUrl.trim() },
+          },
+          capabilities: { declared, target_users: [] },
+          policy_profile: { clean_revenue_review: 'screened' },
+          risk_profile: {},
+          passport_request: {
+            requested_passport_type: 'agent_participant',
+            requested_scope: [agentType || 'general'],
+            requested_status: 'provisional_ok',
+          },
+          consents,
+          references: {
+            bound_via_delegation: delegationBound
+              ? { trust_band: delegationBand, ttl_hours: delegationTtl }
+              : undefined,
+          },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        const issues = Array.isArray(json.issues)
+          ? `: ${json.issues.map((i: { path: string; message: string }) => `${i.path} — ${i.message}`).join('; ')}`
+          : '';
+        throw new Error((json.error || 'Submission failed') + issues);
+      }
+      setNotice(`Participant application submitted — status: ${json.applicationStatus ?? 'submitted'}`);
+      void loadStatus();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Submission failed');
+    } finally {
+      setBusy(false);
+    }
+  }, [agentName, agentType, agentDescription, agentCardUrl, agentCapabilities, displayName, delegationBound, delegationBand, delegationTtl, loadStatus]);
 
   const handleVault = useCallback(async () => {
     setBusy(true);
@@ -218,7 +425,9 @@ export function PassportBureauApplyTab() {
   }, [privateDetails, passphrase]);
 
   const allChecked =
-    [...ACK_LABELS, ...CONSENT_LABELS].every((item) => checks[item.key] === true);
+    passportClass === 'participant'
+      ? PARTICIPANT_CONSENT_LABELS.every((item) => checks[item.key] === true)
+      : [...ACK_LABELS, ...CONSENT_LABELS].every((item) => checks[item.key] === true);
 
   const handleSubmit = useCallback(async () => {
     setBusy(true);
@@ -252,9 +461,12 @@ export function PassportBureauApplyTab() {
   }, [captchaToken, vaultRef, loadStatus]);
 
   const steps: Array<{ id: StepId; label: string; icon: React.ReactNode }> = [
+    { id: 'class', label: 'Class', icon: <ShieldCheck className="h-4 w-4" /> },
     { id: 'account', label: 'Account', icon: <UserPlus className="h-4 w-4" /> },
     { id: 'identity', label: 'Identity', icon: <KeyRound className="h-4 w-4" /> },
-    { id: 'vault', label: 'Private Vault', icon: <Lock className="h-4 w-4" /> },
+    ...(passportClass === 'participant'
+      ? [{ id: 'agent' as StepId, label: 'Agent', icon: <Bot className="h-4 w-4" /> }]
+      : [{ id: 'vault' as StepId, label: 'Private Vault', icon: <Lock className="h-4 w-4" /> }]),
     { id: 'consents', label: 'Consents', icon: <FileCheck2 className="h-4 w-4" /> },
     { id: 'submit', label: 'Submit', icon: <Send className="h-4 w-4" /> },
   ];
@@ -264,9 +476,13 @@ export function PassportBureauApplyTab() {
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-7 w-7 text-violet-400" />
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Citizen Passport Application</h2>
+          <h2 className="text-lg font-semibold text-slate-100">
+            {passportClass === 'participant' ? 'Participant Passport Application' : 'Citizen Passport Application'}
+          </h2>
           <p className="text-sm text-slate-400">
-            Anonymous proof of personhood. Your private data stays in your custody — always.
+            {passportClass === 'participant'
+              ? 'Apply for a passport for an agent and bind it to yourself with a bounded delegation.'
+              : 'Anonymous proof of personhood. Your private data stays in your custody — always.'}
           </p>
         </div>
       </div>
@@ -300,6 +516,121 @@ export function PassportBureauApplyTab() {
         <div className="flex items-start gap-2 rounded-lg border border-emerald-800 bg-emerald-950/40 p-3 text-sm text-emerald-300">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{notice}</span>
+        </div>
+      )}
+
+      {step === 'class' && (
+        <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+          <p className="text-sm text-slate-300">Who is this passport for?</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => handleClassChoice('citizen')}
+              className="flex flex-col items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/60 p-4 text-left hover:border-violet-500/60 hover:bg-slate-800"
+            >
+              <User className="h-6 w-6 text-violet-400" />
+              <span className="text-sm font-semibold text-slate-100">Citizen Passport</span>
+              <span className="text-xs text-slate-400">
+                For you — anonymous proof of personhood with self-custody privacy.
+              </span>
+            </button>
+            <button
+              onClick={() => handleClassChoice('participant')}
+              className="flex flex-col items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/60 p-4 text-left hover:border-violet-500/60 hover:bg-slate-800"
+            >
+              <Bot className="h-6 w-6 text-violet-400" />
+              <span className="text-sm font-semibold text-slate-100">Participant Passport</span>
+              <span className="text-xs text-slate-400">
+                For an agent you operate — bound to you via an AgentiQ OS bounded delegation.
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 'agent' && (
+        <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+          <p className="text-sm text-slate-300">
+            Describe the agent this passport is for, then bind it to yourself. The Bureau anchors
+            participant identity on the agent card URL.
+          </p>
+          <input
+            value={agentName}
+            onChange={(e) => setAgentName(e.target.value)}
+            placeholder="Agent display name"
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+          />
+          <input
+            value={agentCardUrl}
+            onChange={(e) => setAgentCardUrl(e.target.value)}
+            placeholder="Agent card URL (A2A agent-card.json — the identity anchor)"
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+          />
+          <input
+            value={agentType}
+            onChange={(e) => setAgentType(e.target.value)}
+            placeholder="Agent type (e.g. general, research, outreach)"
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+          />
+          <textarea
+            value={agentDescription}
+            onChange={(e) => setAgentDescription(e.target.value)}
+            placeholder="What does this agent do? (optional)"
+            rows={2}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+          />
+          <input
+            value={agentCapabilities}
+            onChange={(e) => setAgentCapabilities(e.target.value)}
+            placeholder="Declared capabilities, comma-separated (optional)"
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+          />
+          <div className="space-y-2 rounded-lg border border-slate-700/70 bg-slate-800/40 p-3">
+            <p className="text-xs font-semibold text-slate-300">
+              Bind agent to you — bounded delegation (AgentiQ OS)
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={delegationBand}
+                onChange={(e) => setDelegationBand(e.target.value)}
+                title="Trust band — caps what the bound agent may do under your delegation"
+                className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100"
+              >
+                {DELEGATION_TRUST_BANDS.map((band) => (
+                  <option key={band} value={band}>{band.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+              <select
+                value={delegationTtl}
+                onChange={(e) => setDelegationTtl(Number(e.target.value))}
+                title="How long the delegation grant lives before it expires"
+                className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100"
+              >
+                <option value={1}>1 hour</option>
+                <option value={4}>4 hours</option>
+                <option value={8}>8 hours</option>
+              </select>
+              <button
+                onClick={handleDelegationBind}
+                disabled={busy || delegationBound}
+                className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                {delegationBound ? 'Agent bound to you' : 'Bind agent to me'}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Grants the agent a bounded, time-limited delegation under your persona — the same
+              grant surface as the AgentiQ OS Bounded Delegation tab.
+            </p>
+          </div>
+          <button
+            onClick={() => setStep('consents')}
+            disabled={!agentName.trim() || !agentCardUrl.trim()}
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            <FileCheck2 className="h-4 w-4" />
+            Continue to consents
+          </button>
         </div>
       )}
 
@@ -424,32 +755,53 @@ export function PassportBureauApplyTab() {
 
       {step === 'consents' && (
         <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-          <h3 className="text-sm font-semibold text-slate-200">Terms</h3>
-          {CONSENT_LABELS.map(({ key, label }) => (
-            <label key={key} className="flex items-start gap-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={checks[key] === true}
-                onChange={(e) => setChecks((c) => ({ ...c, [key]: e.target.checked }))}
-                className="mt-1"
-              />
-              <span>{label}</span>
-            </label>
-          ))}
-          <h3 className="pt-2 text-sm font-semibold text-amber-300">
-            Self-custody acknowledgements (required)
-          </h3>
-          {ACK_LABELS.map(({ key, label }) => (
-            <label key={key} className="flex items-start gap-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={checks[key] === true}
-                onChange={(e) => setChecks((c) => ({ ...c, [key]: e.target.checked }))}
-                className="mt-1"
-              />
-              <span>{label}</span>
-            </label>
-          ))}
+          {passportClass === 'participant' ? (
+            <>
+              <h3 className="text-sm font-semibold text-slate-200">
+                Participant consents (all four required)
+              </h3>
+              {PARTICIPANT_CONSENT_LABELS.map(({ key, label }) => (
+                <label key={key} className="flex items-start gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={checks[key] === true}
+                    onChange={(e) => setChecks((c) => ({ ...c, [key]: e.target.checked }))}
+                    className="mt-1"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </>
+          ) : (
+            <>
+              <h3 className="text-sm font-semibold text-slate-200">Terms</h3>
+              {CONSENT_LABELS.map(({ key, label }) => (
+                <label key={key} className="flex items-start gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={checks[key] === true}
+                    onChange={(e) => setChecks((c) => ({ ...c, [key]: e.target.checked }))}
+                    className="mt-1"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+              <h3 className="pt-2 text-sm font-semibold text-amber-300">
+                Self-custody acknowledgements (required)
+              </h3>
+              {ACK_LABELS.map(({ key, label }) => (
+                <label key={key} className="flex items-start gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={checks[key] === true}
+                    onChange={(e) => setChecks((c) => ({ ...c, [key]: e.target.checked }))}
+                    className="mt-1"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </>
+          )}
           <button
             onClick={() => setStep('submit')}
             disabled={!allChecked}
@@ -461,17 +813,51 @@ export function PassportBureauApplyTab() {
         </div>
       )}
 
-      {step === 'submit' && (
+      {step === 'submit' && passportClass === 'participant' && (
+        <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+          <p className="text-sm text-slate-300">
+            Submit the participant application for <strong>{agentName || 'your agent'}</strong>.
+            A steward reviews it in the Bureau queue; you can watch status below.
+          </p>
+          {!delegationBound && (
+            <p className="text-xs text-amber-300">
+              Note: the agent is not yet bound to you via bounded delegation — you can still submit,
+              but binding is recommended before activation.
+            </p>
+          )}
+          <button
+            onClick={handleSubmitParticipant}
+            disabled={busy || !allChecked || !agentName.trim() || !agentCardUrl.trim()}
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Submit participant application
+          </button>
+        </div>
+      )}
+
+      {step === 'submit' && passportClass === 'citizen' && (
         <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
           <p className="text-sm text-slate-300">
             One last check that you are a person, then submit.
           </p>
-          <input
-            value={captchaToken}
-            onChange={(e) => setCaptchaToken(e.target.value)}
-            placeholder="Proof token (CAPTCHA — dev tokens start with 'dev-')"
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-          />
+          {TURNSTILE_SITE_KEY ? (
+            <>
+              <div ref={turnstileRef} />
+              {captchaToken && (
+                <p className="flex items-center gap-1.5 text-xs text-emerald-300">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Personhood check passed
+                </p>
+              )}
+            </>
+          ) : (
+            <input
+              value={captchaToken}
+              onChange={(e) => setCaptchaToken(e.target.value)}
+              placeholder="Proof token (CAPTCHA — dev tokens start with 'dev-')"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+            />
+          )}
           <button
             onClick={handleSubmit}
             disabled={busy || !allChecked || !captchaToken}

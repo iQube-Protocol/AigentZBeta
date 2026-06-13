@@ -1400,7 +1400,10 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     { id: 'memory',      label: 'Memory',       icon: 'Brain',    order: 3 },
     { id: 'registry',    label: 'Registry',     icon: 'Database', order: 4 },
     { id: 'governance',  label: 'Governance',   icon: 'Scale',    order: 5 },
-    { id: 'operations',  label: 'Operations',   icon: 'Settings', order: 6, adminOnly: true },
+    // Polity Passport replaces the former Operations menu (operator
+    // decision 2026-06-12). Group is NOT adminOnly — Apply + Registry are
+    // public; the Steward sub-tab carries its own adminOnly gate.
+    { id: 'passport',    label: 'Polity Passport', icon: 'ShieldCheck', order: 6 },
     { id: 'ecosystem',   label: 'Ecosystem',    icon: 'Users',    order: 7 },
   ],
   tabs: [
@@ -1789,15 +1792,16 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Receipt', description: 'DVN-anchored governance decision receipts' }
     },
 
-    // ── Operations group (admin) ───────────────────────────────
+    // ── Operators manual — re-homed from the retired Operations group
+    // (Polity Passport took its menu slot, 2026-06-12). Stays admin-only.
     {
       id: 'operators-manual',
       label: 'Operators',
       slug: 'operators-manual',
       enabled: true,
       adminOnly: true,
-      group: 'operations',
-      order: 0,
+      group: 'governance',
+      order: 90,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1811,6 +1815,56 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         description: 'Operators manual — trust scoring, pipeline reference, Aigent roster',
         color: 'slate'
       }
+    },
+
+    // ── Polity Passport group — first-class mirror of the Polity
+    // Passport Bureau cartridge (operator decision 2026-06-12; replaced
+    // the placeholder Operations Hub). Each Bureau tabGroup becomes a
+    // tab here, with lazy subTabs cloning that group's Bureau tabs so
+    // sub-menus stay in lockstep with the canonical cartridge (3 levels:
+    // AgentiQ → Polity Passport → Apply/Registry/Steward → sub-tabs).
+    // Steward keeps its adminOnly gate at both levels. (Restored after
+    // the 2026-06-12 Chrysalis merge textually relocated these tabs
+    // into AGENTIQ_OS_CARTRIDGE, leaving this menu empty.)
+    {
+      id: 'agentiq-passport-apply',
+      label: 'Apply',
+      slug: 'passport-apply',
+      enabled: true,
+      group: 'passport',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('apply', 'agentiq-passport-apply');
+      },
+    },
+    {
+      id: 'agentiq-passport-registry',
+      label: 'Registry',
+      slug: 'passport-registry',
+      enabled: true,
+      group: 'passport',
+      order: 1,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'agentiq-passport-steward',
+      label: 'Steward',
+      slug: 'passport-steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'passport',
+      order: 2,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — admin only', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('steward', 'agentiq-passport-steward');
+      },
     },
 
     // ── Ecosystem group ────────────────────────────────────────
@@ -1877,7 +1931,10 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
     { id: 'memory',      label: 'Memory',       icon: 'Brain',      order: 3 },
     { id: 'registry',    label: 'Registry',     icon: 'Database',   order: 4 },
     { id: 'governance',  label: 'Governance',   icon: 'Scale',      order: 5 },
-    { id: 'operations',  label: 'Operations',   icon: 'Settings',   order: 6, adminOnly: true },
+    // Polity Passport replaces the (empty) Operations group — same operator
+    // decision as AGENTIQ_CARTRIDGE (2026-06-12): menu between Governance
+    // and Ecosystem; Apply + Registry public, Steward adminOnly on the tab.
+    { id: 'passport',    label: 'Polity Passport', icon: 'ShieldCheck', order: 6 },
     { id: 'ecosystem',   label: 'Ecosystem',    icon: 'Users',      order: 7 },
   ],
   tabs: [
@@ -2145,24 +2202,50 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Receipt', description: 'DVN-anchored governance decision receipts' },
     },
 
-    // ── Operations group (admin) ─────────────────────────────────
+    // ── Polity Passport group — first-class mirror of the Polity
+    // Passport Bureau cartridge (operator decision 2026-06-12; replaced
+    // the empty Operations group). Same pattern as AGENTIQ_CARTRIDGE:
+    // lazy subTabs keep sub-menus in lockstep with the canonical
+    // cartridge; Steward keeps its adminOnly gate at both levels.
     {
-      id: 'agentiq-os-admin-home',
-      label: 'Operations Hub',
-      slug: 'admin-home',
+      id: 'agentiq-os-passport-apply',
+      label: 'Apply',
+      slug: 'os-passport-apply',
       enabled: true,
-      adminOnly: true,
-      group: 'operations',
+      group: 'passport',
       order: 0,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'Operations Hub',
-          description: 'AgentiQ operations surface — registry ops, agent lifecycle, infrastructure management. Evolves in Phase 1.',
-        },
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('apply', 'agentiq-os-passport-apply');
       },
-      metadata: { icon: 'Settings', description: 'AgentiQ operations hub', color: 'indigo' },
+    },
+    {
+      id: 'agentiq-os-passport-registry',
+      label: 'Registry',
+      slug: 'os-passport-registry',
+      enabled: true,
+      group: 'passport',
+      order: 1,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'agentiq-os-passport-steward',
+      label: 'Steward',
+      slug: 'os-passport-steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'passport',
+      order: 2,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — admin only', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('steward', 'agentiq-os-passport-steward');
+      },
     },
 
     // ── Ecosystem group ───────────────────────────────────────
@@ -2338,6 +2421,24 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 };
+
+// Pull Polity Passport Bureau tabs by group so AGENTIQ_CARTRIDGE's
+// Polity Passport menu can expose them as sub-tabs without modifying the
+// canonical Bureau cartridge. Function declaration (hoisted) because
+// AGENTIQ_CARTRIDGE is defined before POLITY_PASSPORT_BUREAU_CARTRIDGE;
+// the lazy `get subTabs()` callers only run at render time. adminOnly
+// gates are preserved on the clones (Steward stays admin-gated).
+function polityPassportTabsByGroup(groupId: string, idPrefix: string) {
+  return POLITY_PASSPORT_BUREAU_CARTRIDGE.tabs
+    .filter((t) => t.group === groupId && t.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((t) => ({
+      ...t,
+      id: `${idPrefix}-${t.id}`,
+      slug: `${idPrefix}-${t.slug}`,
+      group: 'passport',
+    }));
+}
 
 // Pull AgentiQ OS source tabs by group so the metaMe agentiqos tabs can
 // expose them as 3rd-tier sub-tabs without modifying the source cartridge.
@@ -2988,6 +3089,21 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'GovernanceConstitutionTab', props: {} },
       metadata: { icon: 'Scale', description: 'Constitution, roles, authority matrix, receipts', color: 'emerald' },
       subTabs: aiqOsTabsByGroup('governance'),
+    },
+    // Polity Passport — mirrored from AGENTIQ_OS_CARTRIDGE's passport group.
+    // Same pattern as the other agentiqos tabs: top-level tab in the metaMe
+    // agentiqos group with subTabs pulled from the source cartridge.
+    {
+      id: 'agentiqos-passport',
+      label: 'Polity Passport',
+      slug: 'agentiqos-passport',
+      enabled: true,
+      group: 'agentiqos',
+      order: 45.5,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'ShieldCheck', description: 'Polity Passport — apply, registry, steward', color: 'violet' },
+      subTabs: aiqOsTabsByGroup('passport'),
     },
     // Chief-of-staff unlock: AgentiQ OS operations tabs mirrored into
     // metaMe. Visible only to personas admin of the agentiq-os cartridge.

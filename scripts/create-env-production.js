@@ -87,6 +87,10 @@ const envVars = [
   'MAILJET_TEMPLATE_REACTIVATION',
   'MAILJET_TEMPLATE_GENERAL',
   'MAILJET_BCC_EMAIL',
+  // Mailjet webhooks (CRM event tracking + activation inbound replies)
+  'MAILJET_WEBHOOK_SECRET',
+  // Activation outreach Reply-To — parse-routed inbox for reply auto-flip
+  'MARKETA_OUTREACH_REPLY_TO',
   // Campaign tracking
   'KICKSTARTER_CAMPAIGN_URL',
   'KNYT_WHEEL_TOTAL_SLOTS',
@@ -101,6 +105,10 @@ const envVars = [
   // Marketa portal
   'MARKETA_CREATOR_DID',
   'MARKETA_SYSTEM_AGENT_ID',
+  // Activation engine scheduled discovery — JSON array of { kind, url } sources
+  'MARKETA_DISCOVERY_SOURCES',
+  // Polity Passport Bureau — credential HMAC signing (Phase A stub)
+  'PASSPORT_BUREAU_CREDENTIAL_SECRET',
   'SEQUENCE_DISPATCH_SECRET',
   'LVB_BRIDGE_DEFAULT_PERSONA_ID',
   // iQubeNFT — ERC721 on-chain anchor
@@ -118,6 +126,9 @@ const envVars = [
   'BTC_NETWORK',
   'BTC_CUSTODIAN_KEY_REF',
   'BTC_SIGNER_CANISTER_ID',
+  // Polity Passport Bureau — CAPTCHA (Cloudflare Turnstile)
+  'TURNSTILE_SECRET_KEY',
+  'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
   // Wallet alias privacy refactor (2026-04-29)
   'WALLET_ALIAS_HMAC_KEY',
   'WALLET_ALIAS_CHALLENGE_DOMAIN',
