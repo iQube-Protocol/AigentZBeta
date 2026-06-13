@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T20:00:36.957Z",
+  "last_updated": "2026-06-13T20:12:32.141Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a1c80a0e978f73d4344b85688c5fc960875ea514",
-  "latest_commit_short": "a1c80a0",
-  "latest_commit_title": "add hackathon submission note explaining cumulative build provenance",
+  "latest_commit": "afdf02d2dcb7460f866243c65b291ce721a4db65",
+  "latest_commit_short": "afdf02d",
+  "latest_commit_title": "fix migrations — personas RLS uses auth_profile_id, not auth_user_id (operator unblock)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "afdf02d",
+      "full_sha": "afdf02d2dcb7460f866243c65b291ce721a4db65",
+      "title": "fix migrations — personas RLS uses auth_profile_id, not auth_user_id (operator unblock)",
+      "author": "Claude",
+      "timestamp": "2026-06-13T20:10:42Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-afdf02d.md"
+    },
     {
       "sha": "a1c80a0",
       "full_sha": "a1c80a0e978f73d4344b85688c5fc960875ea514",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T22:32:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-4e01b23.md"
-    },
-    {
-      "sha": "e549a85",
-      "full_sha": "e549a8507875dcae26984042d507b9a4ad345d24",
-      "title": "myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation",
-      "author": "Claude",
-      "timestamp": "2026-05-31T21:54:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e549a85.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
