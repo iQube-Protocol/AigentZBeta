@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T21:11:06.786Z",
+  "last_updated": "2026-06-13T21:21:27.203Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1abc8ec9c1872909eb96ae9bb4b10401da6186ae",
-  "latest_commit_short": "1abc8ec",
-  "latest_commit_title": "add polity passport as first-class metaMe activation + embed link on all activation cards",
+  "latest_commit": "54063144f36a193f745f937fe672a40d62a1728c",
+  "latest_commit_short": "5406314",
+  "latest_commit_title": "trigger deploy to dev",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5406314",
+      "full_sha": "54063144f36a193f745f937fe672a40d62a1728c",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-13T21:19:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5406314.md"
+    },
     {
       "sha": "1abc8ec",
       "full_sha": "1abc8ec9c1872909eb96ae9bb4b10401da6186ae",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T12:41:57Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7538ba5.md"
-    },
-    {
-      "sha": "09a18bf",
-      "full_sha": "09a18bf3645901162d7f3cec5f2208a11a81d1db",
-      "title": "trigger deploy to dev: ops layout — anchor calibration repositioned + Base mainnet card",
-      "author": "Claude",
-      "timestamp": "2026-06-01T12:41:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-09a18bf.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
