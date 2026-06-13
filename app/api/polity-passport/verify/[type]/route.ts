@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return withCors(NextResponse.json({ ok: false, error: 'proofToken required' }, { status: 400 }));
     }
 
-    const verification = verifyProveKitProof(circuit, body.proofToken);
+    const verification = await verifyProveKitProof(circuit, body.proofToken);
     if (verification.notYetImplemented) {
       return withCors(
         NextResponse.json(

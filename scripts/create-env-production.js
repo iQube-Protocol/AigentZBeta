@@ -142,6 +142,13 @@ const envVars = [
   'NAMESTONE_API_KEY',
   'NAMESTONE_API_BASE',
   'ENS_PARENT_NAME',
+  // Polity Passport Bureau cryptographic issuer key — signs AgentKit
+  // attestations + ProveKit proof commitments with EIP-191. Generate
+  // once via `node -e "console.log(require('viem/accounts').generatePrivateKey())"`.
+  // Public address surfaces at GET /api/polity-passport/issuer.
+  'POLITY_ISSUER_PRIVATE_KEY',
+  // Walrus HTTP publisher (defaults to mysten public testnet).
+  'WALRUS_EPOCHS',
   'SEQUENCE_DISPATCH_SECRET',
   'LVB_BRIDGE_DEFAULT_PERSONA_ID',
   // iQubeNFT — ERC721 on-chain anchor

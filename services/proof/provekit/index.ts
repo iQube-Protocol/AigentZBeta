@@ -21,6 +21,7 @@
  */
 
 import { createHash } from 'crypto';
+import { signIssuerToken, verifyIssuerToken, getIssuerAddress, isProductionIssuer } from '@/services/identity/polityIssuer';
 
 export type ProveKitMode = 'stub' | 'live';
 
@@ -51,12 +52,8 @@ export interface ProveKitProof {
   note?: string;
 }
 
-const PROVEKIT_API_KEY = process.env.PROVEKIT_API_KEY ?? '';
-const PROVEKIT_CIRCUIT_REGISTRY = process.env.PROVEKIT_CIRCUIT_REGISTRY ?? '';
-
 function chooseMode(): ProveKitMode {
-  if (PROVEKIT_API_KEY && PROVEKIT_CIRCUIT_REGISTRY) return 'live';
-  return 'stub';
+  return isProductionIssuer() ? 'live' : 'stub';
 }
 
 function hash(...parts: string[]): string {
@@ -125,7 +122,11 @@ export async function generateProveKitProof(
   const supported = SUPPORTED_CIRCUITS.has(circuit);
 
   if (!supported) {
-    // Phase B circuits — shaped placeholder so the demo path still completes.
+    // Phase B circuits — shaped commitment placeholder so the demo path
+    // completes. The Verity/ProveKit Noir circuits for these three are
+    // in design (passport_standing, document_possession,
+    // mobility_authorization). When circuits ship, this branch will use
+    // the real prover.
     const commitmentRef = `provekit:${circuit}:not_yet_implemented:${hash(
       circuit,
       JSON.stringify(input),
@@ -138,31 +139,44 @@ export async function generateProveKitProof(
       mode: 'stub',
       generatedAt,
       notYetImplemented: true,
-      note: `Circuit ${circuit} is Phase B — placeholder commitment ref returned. proof_of_personhood and proof_of_delegation_authority ship in the demo cut.`,
+      note: `Circuit ${circuit} is Phase B — Noir circuit in design. proof_of_personhood and proof_of_delegation_authority ship in the demo cut.`,
     };
   }
 
-  if (mode === 'stub') {
-    const commitmentRef = `provekit:${circuit}:stub:${hash(
-      circuit,
-      JSON.stringify(input),
-      generatedAt,
-    ).slice(0, 32)}`;
-    const proofToken = `${commitmentRef}.${hash(commitmentRef, 'provekit-stub').slice(0, 48)}`;
-    return {
-      circuit,
-      proofToken,
-      commitmentRef,
-      mode,
-      generatedAt,
-      note: 'Stub mode — install the ProveKit SDK and set PROVEKIT_API_KEY + PROVEKIT_CIRCUIT_REGISTRY to generate real zk proofs.',
-    };
-  }
-
-  // Live mode — TBD.
-  throw new Error(
-    'Live ProveKit generation not yet wired — install the ProveKit SDK and configure PROVEKIT_API_KEY + PROVEKIT_CIRCUIT_REGISTRY.',
-  );
+  // Supported circuit — sign the commitment with the polity issuer key
+  // (EIP-191). This is a real cryptographic proof of issuance: the token
+  // is signed by POLITY_ISSUER_PRIVATE_KEY and verifiable by anyone with
+  // the issuer's public address. Once the corresponding Noir circuit is
+  // compiled and the .pkp/.pkv schemes bundled, the prover.prove() call
+  // replaces this signed commitment with a real ZK proof. The token
+  // contract is identical from the verifier's perspective.
+  const commitmentRef = `provekit:${circuit}:${mode}:${hash(
+    circuit,
+    JSON.stringify(input),
+    generatedAt,
+  ).slice(0, 32)}`;
+  const issuerAddress = getIssuerAddress();
+  const payload = {
+    iss: 'polity-passport-bureau',
+    issuer_address: issuerAddress,
+    schema: `polity.attestation.${circuit}.v0.1`,
+    circuit,
+    commitment_ref: commitmentRef,
+    inputs: input,
+    generated_at: generatedAt,
+  };
+  const proofToken = await signIssuerToken(payload);
+  return {
+    circuit,
+    proofToken,
+    commitmentRef,
+    mode,
+    generatedAt,
+    note:
+      mode === 'stub'
+        ? 'Dev-issuer mode — proof is a real EIP-191 signed commitment. Set POLITY_ISSUER_PRIVATE_KEY for production issuance. Full Noir-circuit ZK proofs ship once .pkp/.pkv schemes are compiled.'
+        : 'Production issuer — EIP-191 signed commitment. Verifiable against the issuer address. Noir-circuit ZK proofs upgrade this signed commitment when circuits ship.',
+  };
 }
 
 export interface VerifyResult {
@@ -174,12 +188,14 @@ export interface VerifyResult {
   notYetImplemented?: boolean;
 }
 
-export function verifyProveKitProof(circuit: ProveKitCircuit, proofToken: string): VerifyResult {
+export async function verifyProveKitProof(
+  circuit: ProveKitCircuit,
+  proofToken: string,
+): Promise<VerifyResult> {
   const mode = chooseMode();
   const supported = SUPPORTED_CIRCUITS.has(circuit);
 
   if (!supported) {
-    // Phase B placeholders verify as "shaped but not zk-proven".
     return {
       valid: false,
       circuit,
@@ -190,26 +206,30 @@ export function verifyProveKitProof(circuit: ProveKitCircuit, proofToken: string
     };
   }
 
-  // Stub-mode verification recomputes the deterministic signature.
-  if (mode === 'stub' || proofToken.includes(':stub:')) {
-    const dotIdx = proofToken.lastIndexOf('.');
-    if (dotIdx < 0) {
-      return { valid: false, circuit, mode, commitmentRef: null, error: 'Malformed token' };
-    }
-    const ref = proofToken.slice(0, dotIdx);
-    const sig = proofToken.slice(dotIdx + 1);
-    const expectedSig = hash(ref, 'provekit-stub').slice(0, 48);
-    if (expectedSig !== sig) {
-      return { valid: false, circuit, mode, commitmentRef: null, error: 'Signature mismatch' };
-    }
-    return { valid: true, circuit, mode, commitmentRef: ref };
+  const result = await verifyIssuerToken(proofToken);
+  if (!result.valid) {
+    return {
+      valid: false,
+      circuit,
+      mode,
+      commitmentRef: null,
+      error: result.error ?? 'Issuer signature verification failed',
+    };
   }
-
+  const payload = result.payload as { commitment_ref?: string; circuit?: string } | null;
+  if (payload?.circuit !== circuit) {
+    return {
+      valid: false,
+      circuit,
+      mode,
+      commitmentRef: null,
+      error: 'Circuit mismatch',
+    };
+  }
   return {
-    valid: false,
+    valid: true,
     circuit,
     mode,
-    commitmentRef: null,
-    error: 'Live ProveKit verification not yet wired',
+    commitmentRef: payload.commitment_ref ?? null,
   };
 }
