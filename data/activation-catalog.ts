@@ -302,8 +302,8 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     longDescription:
       'Activate the Polity Passport Bureau surfaces inside metaMe — apply for an anonymous Citizen Passport, mint a gasless ENS subname, manage your self-custody Locker, grant bounded delegations to agents, and access human mobility services. Irrevocable proof of personhood with privacy-preserving identity.',
     gate: 'open',
-    tabSlug: 'polity-passport',
-    sourceCartridge: 'metame',
+    tabSlug: 'passport-bureau-apply',
+    sourceCartridge: 'polity-passport-bureau',
     icon: 'ShieldCheck',
     color: 'violet',
     metrics: [

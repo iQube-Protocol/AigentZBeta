@@ -31,7 +31,7 @@ const SOURCE_TO_EMBED_SLUG: Record<string, string> = {
 
 function buildEmbedUrl(sourceCartridge: string, tabSlug: string): string {
   const slug = SOURCE_TO_EMBED_SLUG[sourceCartridge] ?? sourceCartridge;
-  return `/triad/embed/codex/${slug}?tab=${encodeURIComponent(tabSlug)}`;
+  return `/triad/embed/codex/${slug}?tab=${encodeURIComponent(tabSlug)}&theme=dark&density=wide`;
 }
 
 export function ActivationsTab({ isAdmin = false, onOpenSurface, theme = "dark" }: Props) {

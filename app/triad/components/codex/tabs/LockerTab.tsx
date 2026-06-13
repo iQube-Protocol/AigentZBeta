@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown } from 'lucide-react';
+import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 
 const DOCUMENT_CLASSES = [
@@ -72,6 +72,15 @@ interface SponsoredAgent {
   agentClass: string;
 }
 
+interface PassportVcItem {
+  passportId: string;
+  passportClass: string;
+  passportGrade: string | null;
+  passportStatus: string | null;
+  claimedAt: string | null;
+  credential?: Record<string, unknown>;
+}
+
 function cls(...xs: Array<string | false | undefined>) {
   return xs.filter(Boolean).join(' ');
 }
@@ -106,6 +115,11 @@ export function LockerTab() {
   const [docClassOpen, setDocClassOpen] = useState(false);
   const [locationBusy, setLocationBusy] = useState(false);
   const [lastLocation, setLastLocation] = useState<LocationCheckpoint | null>(null);
+  const [passportVcs, setPassportVcs] = useState<PassportVcItem[]>([]);
+  const [passportVcsLoading, setPassportVcsLoading] = useState(true);
+  const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
+  const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
+  const [passportCardCollapsed, setPassportCardCollapsed] = useState(true);
 
   // Derive last location from items when loaded
   useEffect(() => {
@@ -123,9 +137,10 @@ export function LockerTab() {
     setLoading(true);
     setError(null);
     try {
-      const [lockerRes, agentRes] = await Promise.all([
+      const [lockerRes, agentRes, passportRes] = await Promise.all([
         personaFetch('/api/polity-passport/locker', { cache: 'no-store' }),
         personaFetch('/api/persona/sponsored-agents', { cache: 'no-store' }),
+        personaFetch('/api/polity-passport/wallet', { cache: 'no-store' }),
       ]);
       if (lockerRes.ok) {
         const data = await lockerRes.json();
@@ -152,10 +167,15 @@ export function LockerTab() {
           );
         }
       }
+      if (passportRes.ok) {
+        const data = await passportRes.json();
+        if (data?.ok) setPassportVcs(data.passportQubes ?? []);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Locker load failed');
     } finally {
       setLoading(false);
+      setPassportVcsLoading(false);
     }
   }, []);
 
@@ -316,6 +336,14 @@ export function LockerTab() {
     [load],
   );
 
+  const handleCopyVc = useCallback((pq: PassportVcItem) => {
+    if (!pq.credential) return;
+    void navigator.clipboard.writeText(JSON.stringify(pq.credential, null, 2)).then(() => {
+      setPassportVcCopied(pq.passportId);
+      setTimeout(() => setPassportVcCopied((prev) => (prev === pq.passportId ? null : prev)), 2000);
+    });
+  }, []);
+
   const grantsByItem = grants.reduce<Record<string, LockerGrant[]>>((acc, g) => {
     (acc[g.itemId] ||= []).push(g);
     return acc;
@@ -372,6 +400,92 @@ export function LockerTab() {
             <span className="font-mono">{lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}</span>
             <span className="text-emerald-400/60">accuracy: {lastLocation.accuracy.toFixed(0)}m</span>
             <span className="text-emerald-400/60">{new Date(lastLocation.timestamp).toLocaleString()}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Passport & HMS Records */}
+      <div className="rounded-xl border border-violet-700/50 bg-violet-950/20 p-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setPassportCardCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-violet-400" />
+            <span className="text-sm font-semibold text-slate-200">Passport & HMS Records</span>
+            {passportVcs.length > 0 && (
+              <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+                {passportVcs.length}
+              </span>
+            )}
+          </div>
+          {passportCardCollapsed ? (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {!passportCardCollapsed && (
+          <div className="space-y-2">
+            {passportVcsLoading ? (
+              <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading passport credentials…
+              </div>
+            ) : passportVcs.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                No passport credentials yet. Claim an approved passport from the Registry tab.
+              </p>
+            ) : (
+              passportVcs.map((pq) => (
+                <div key={pq.passportId} className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                      <span className="text-xs font-medium text-emerald-300">
+                        {pq.passportClass === 'citizen' ? 'Citizen' : 'Participant'} Passport
+                      </span>
+                      {pq.passportGrade === 'verified_citizen' && (
+                        <span className="flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-300">
+                          <ShieldCheck className="h-2.5 w-2.5" /> Verified
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">{pq.passportId.slice(0, 12)}…</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
+                    <span>Status: <span className="text-emerald-300">{pq.passportStatus}</span></span>
+                    {pq.passportGrade && <span>· Grade: {pq.passportGrade}</span>}
+                    {pq.claimedAt && <span>· Claimed {new Date(pq.claimedAt).toLocaleDateString()}</span>}
+                  </div>
+                  {pq.credential && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setPassportVcExpanded(passportVcExpanded === pq.passportId ? null : pq.passportId)}
+                          className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                        >
+                          <Eye className="h-3 w-3" />
+                          {passportVcExpanded === pq.passportId ? 'Hide VC' : 'View VC'}
+                        </button>
+                        <button
+                          onClick={() => handleCopyVc(pq)}
+                          className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                        >
+                          {passportVcCopied === pq.passportId ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                          {passportVcCopied === pq.passportId ? 'Copied' : 'Copy JSON'}
+                        </button>
+                      </div>
+                      {passportVcExpanded === pq.passportId && (
+                        <pre className="rounded bg-black/30 p-2 max-h-40 overflow-y-auto text-[10px] text-emerald-200 font-mono whitespace-pre-wrap break-all">
+                          {JSON.stringify(pq.credential, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
