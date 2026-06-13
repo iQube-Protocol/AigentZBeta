@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T17:48:16.519Z",
+  "last_updated": "2026-06-13T17:50:13.571Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "237130046dec79f8d20695016c5d03e1fcc58a8c",
-  "latest_commit_short": "2371300",
-  "latest_commit_title": "sprint 7 — ens subnames for personas + lockers via namestone",
+  "latest_commit": "ce27071e9b9a979eec0f6157595d71367590434c",
+  "latest_commit_short": "ce27071",
+  "latest_commit_title": "document hackathon submission build — sprints 1-7 complete",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ce27071",
+      "full_sha": "ce27071e9b9a979eec0f6157595d71367590434c",
+      "title": "document hackathon submission build — sprints 1-7 complete",
+      "author": "Claude",
+      "timestamp": "2026-06-13T17:48:11Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ce27071.md"
+    },
     {
       "sha": "2371300",
       "full_sha": "237130046dec79f8d20695016c5d03e1fcc58a8c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T21:32:31Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-2e60b85.md"
-    },
-    {
-      "sha": "a5f865a",
-      "full_sha": "a5f865ac1b1f80511ff8d04d9968ffde34795dcb",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-31T21:32:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a5f865a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
