@@ -2224,3 +2224,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e86dfe4.md](../build_/COMMITS/COMMIT-e86dfe4.md)
 - Message: sprint 5 — delegation tab in passport + agentkit attestation bridge
+
+## Commit `16d854f` — 2026-06-13T17:43:19Z
+- Type: `push`
+- Brief: [COMMIT-16d854f.md](../build_/COMMITS/COMMIT-16d854f.md)
+- Message: sprint 6 — partial provekit zk for personhood + delegation authority
