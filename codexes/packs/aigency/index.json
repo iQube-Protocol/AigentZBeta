@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T17:43:12.566Z",
+  "last_updated": "2026-06-13T17:45:26.412Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e86dfe4a059d8813ab25e19d6e3da65872e63f15",
-  "latest_commit_short": "e86dfe4",
-  "latest_commit_title": "sprint 5 — delegation tab in passport + agentkit attestation bridge",
+  "latest_commit": "16d854f482367b5166247f00565c00dfa8b3c38a",
+  "latest_commit_short": "16d854f",
+  "latest_commit_title": "sprint 6 — partial provekit zk for personhood + delegation authority",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "16d854f",
+      "full_sha": "16d854f482367b5166247f00565c00dfa8b3c38a",
+      "title": "sprint 6 — partial provekit zk for personhood + delegation authority",
+      "author": "Claude",
+      "timestamp": "2026-06-13T17:43:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-16d854f.md"
+    },
     {
       "sha": "e86dfe4",
       "full_sha": "e86dfe4a059d8813ab25e19d6e3da65872e63f15",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T20:58:02Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0a9c834.md"
-    },
-    {
-      "sha": "995f518",
-      "full_sha": "995f51837a707f5052cb9d74ec707dd2397c8a17",
-      "title": "myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint)",
-      "author": "Claude",
-      "timestamp": "2026-05-31T20:44:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-995f518.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
