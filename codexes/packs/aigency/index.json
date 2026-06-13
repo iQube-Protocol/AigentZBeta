@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T08:38:27.699Z",
+  "last_updated": "2026-06-13T16:36:55.568Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d520569c35ff12a445bb4e9b559c16acc764acd8",
-  "latest_commit_short": "d520569",
-  "latest_commit_title": "refine aletheon card: the first citizen's constitutional companion intelligence",
+  "latest_commit": "8a41c0185a06034c24e41301ccb54cfffdb53b1f",
+  "latest_commit_short": "8a41c01",
+  "latest_commit_title": "move citizen/participant application badge to tier-3 right-justified",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8a41c01",
+      "full_sha": "8a41c0185a06034c24e41301ccb54cfffdb53b1f",
+      "title": "move citizen/participant application badge to tier-3 right-justified",
+      "author": "Claude",
+      "timestamp": "2026-06-13T16:27:38Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-8a41c01.md"
+    },
+    {
+      "sha": "554aab0",
+      "full_sha": "554aab0458621779a92d90e3adfcc1722744dde3",
+      "title": "sprint 1 step 2 — complete PersonaQube mint to Sui+Walrus (stub mode pending packages)",
+      "author": "Claude",
+      "timestamp": "2026-06-13T16:34:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-554aab0.md"
+    },
     {
       "sha": "d520569",
       "full_sha": "d520569c35ff12a445bb4e9b559c16acc764acd8",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-31T19:48:16Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e3b0bd0.md"
-    },
-    {
-      "sha": "f09ac66",
-      "full_sha": "f09ac6603a4e7c75078f694d55ab8279b16026db",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-31T19:48:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f09ac66.md"
-    },
-    {
-      "sha": "b582f2a",
-      "full_sha": "b582f2a9651df7987406857c41f25c135ae58bec",
-      "title": "my-space restructure: myArtifacts tabGroup with three sub-tabs",
-      "author": "Claude",
-      "timestamp": "2026-05-31T19:46:35Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-b582f2a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
