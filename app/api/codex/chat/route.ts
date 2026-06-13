@@ -1964,9 +1964,22 @@ function buildSystemPrompt(
 
         // ICE engine (Phase 1A): stage-specific execution instructions +
         // the structured stage_data proposal contract for this stage.
-        groundContextBlock += buildStageInstructionBlock(
-          typeof gc.activeStage === 'string' ? gc.activeStage : undefined,
-        );
+        // When the operator is viewing a specific capsule (activeCapsule),
+        // use that capsule's corresponding stage for the instruction block
+        // so aigentZ emits the right kind of proposal — not the session's
+        // official stage which may be behind the viewed capsule.
+        const CAPSULE_TO_STAGE: Record<string, string> = {
+          intent: 'intent_capture',
+          context: 'context_assembly',
+          'gap-analysis': 'gap_analysis',
+          'consequence-canvas': 'consequence_modeling',
+          validation: 'consequence_validation',
+        };
+        const viewedCapsule = typeof gc.activeCapsule === 'string' ? gc.activeCapsule : null;
+        const effectiveStage =
+          (viewedCapsule && CAPSULE_TO_STAGE[viewedCapsule]) ||
+          (typeof gc.activeStage === 'string' ? gc.activeStage : undefined);
+        groundContextBlock += buildStageInstructionBlock(effectiveStage);
       }
     } catch {
       // groundContext malformed — fall back to general narrative.
@@ -2344,10 +2357,21 @@ export async function POST(request: NextRequest) {
 
       // ICE engine: the dev loop stage the calling surface reports — drives
       // stage-specific live inventories (cartridges, API routes, registry).
-      const devLoopStage =
-        isAigentZ && groundContext && typeof (groundContext as Record<string, unknown>).activeStage === 'string'
-          ? ((groundContext as Record<string, unknown>).activeStage as string)
-          : undefined;
+      // Prefer the viewed capsule's stage over the session's official stage
+      // so live inventories match what the operator is looking at.
+      const CAPSULE_STAGE_MAP: Record<string, string> = {
+        intent: 'intent_capture',
+        context: 'context_assembly',
+        'gap-analysis': 'gap_analysis',
+        'consequence-canvas': 'consequence_modeling',
+        validation: 'consequence_validation',
+      };
+      const gc_ = groundContext as Record<string, unknown> | undefined;
+      const viewedCapsule_ = gc_ && typeof gc_.activeCapsule === 'string' ? gc_.activeCapsule : null;
+      const devLoopStage = isAigentZ
+        ? (viewedCapsule_ && CAPSULE_STAGE_MAP[viewedCapsule_]) ||
+          (gc_ && typeof gc_.activeStage === 'string' ? gc_.activeStage as string : undefined)
+        : undefined;
 
       // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
       // state, and aigent-z platform knowledge + stage ground data in parallel
