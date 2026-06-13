@@ -138,6 +138,10 @@ const envVars = [
   // return shaped placeholders. Stub mode when unset.
   'PROVEKIT_API_KEY',
   'PROVEKIT_CIRCUIT_REGISTRY',
+  // ENS L2 subnames via Namestone (gasless). Stub mode when unset.
+  'NAMESTONE_API_KEY',
+  'NAMESTONE_API_BASE',
+  'ENS_PARENT_NAME',
   'SEQUENCE_DISPATCH_SECRET',
   'LVB_BRIDGE_DEFAULT_PERSONA_ID',
   // iQubeNFT — ERC721 on-chain anchor
