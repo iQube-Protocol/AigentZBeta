@@ -2249,3 +2249,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-a1c80a0.md](../build_/COMMITS/COMMIT-a1c80a0.md)
 - Message: add hackathon submission note explaining cumulative build provenance
+
+## Commit `afdf02d` — 2026-06-13T20:10:42Z
+- Type: `fix`
+- Brief: [COMMIT-afdf02d.md](../build_/COMMITS/COMMIT-afdf02d.md)
+- Message: fix migrations — personas RLS uses auth_profile_id, not auth_user_id (operator unblock)

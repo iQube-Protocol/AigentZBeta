@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`afdf02d`](https://github.com/iQube-Protocol/AigentZBeta/commit/afdf02d2dcb7460f866243c65b291ce721a4db65) [fix] fix migrations — personas RLS uses auth_profile_id, not auth_user_id (operator unblock) (Claude, 2026-06-13T20:10:42Z)
 - [`a1c80a0`](https://github.com/iQube-Protocol/AigentZBeta/commit/a1c80a0e978f73d4344b85688c5fc960875ea514) [feat] add hackathon submission note explaining cumulative build provenance (Claude, 2026-06-13T19:58:41Z)
 - [`841a64e`](https://github.com/iQube-Protocol/AigentZBeta/commit/841a64e7b413ad40563f40cb6cfbd58f2824923d) [fix] fix amplify build — remove literal @worldcoin/idkit dynamic import (Claude, 2026-06-13T19:48:50Z)
 - [`ce27071`](https://github.com/iQube-Protocol/AigentZBeta/commit/ce27071e9b9a979eec0f6157595d71367590434c) [push] document hackathon submission build — sprints 1-7 complete (Claude, 2026-06-13T17:48:11Z)
