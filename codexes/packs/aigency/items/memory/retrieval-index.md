@@ -2204,3 +2204,8 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-8a41c01.md](../build_/COMMITS/COMMIT-8a41c01.md)
 - Message: move citizen/participant application badge to tier-3 right-justified
+
+## Commit `25260eb` — 2026-06-13T16:39:27Z
+- Type: `push`
+- Brief: [COMMIT-25260eb.md](../build_/COMMITS/COMMIT-25260eb.md)
+- Message: sprint 2 — world id strong verification for citizen passports

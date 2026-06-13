@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`25260eb`](https://github.com/iQube-Protocol/AigentZBeta/commit/25260ebb5ed51e788c9529fa711b4f71e4748cc1) [push] sprint 2 — world id strong verification for citizen passports (Claude, 2026-06-13T16:39:27Z)
 - [`8a41c01`](https://github.com/iQube-Protocol/AigentZBeta/commit/8a41c0185a06034c24e41301ccb54cfffdb53b1f) [refactor] move citizen/participant application badge to tier-3 right-justified (Claude, 2026-06-13T16:27:38Z)
 - [`554aab0`](https://github.com/iQube-Protocol/AigentZBeta/commit/554aab0458621779a92d90e3adfcc1722744dde3) [push] sprint 1 step 2 — complete PersonaQube mint to Sui+Walrus (stub mode pending packages) (Claude, 2026-06-13T16:34:57Z)
 - [`d520569`](https://github.com/iQube-Protocol/AigentZBeta/commit/d520569c35ff12a445bb4e9b559c16acc764acd8) [push] refine aletheon card: the first citizen's constitutional companion intelligence (Claude, 2026-06-13T08:36:41Z)
