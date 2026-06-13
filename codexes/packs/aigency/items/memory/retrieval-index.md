@@ -2254,3 +2254,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-afdf02d.md](../build_/COMMITS/COMMIT-afdf02d.md)
 - Message: fix migrations — personas RLS uses auth_profile_id, not auth_user_id (operator unblock)
+
+## Commit `84f45d6` — 2026-06-13T20:28:27Z
+- Type: `feat`
+- Brief: [COMMIT-84f45d6.md](../build_/COMMITS/COMMIT-84f45d6.md)
+- Message: fix passport bureau copilot — wire CodexCopilotLayer for polity-passport-bureau-cartridge (aigent-z default)

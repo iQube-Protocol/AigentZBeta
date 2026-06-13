@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T20:12:32.141Z",
+  "last_updated": "2026-06-13T20:30:21.195Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "afdf02d2dcb7460f866243c65b291ce721a4db65",
-  "latest_commit_short": "afdf02d",
-  "latest_commit_title": "fix migrations — personas RLS uses auth_profile_id, not auth_user_id (operator unblock)",
+  "latest_commit": "84f45d6040febc440eb1c22ca69ebcb078a5fdb7",
+  "latest_commit_short": "84f45d6",
+  "latest_commit_title": "fix passport bureau copilot — wire CodexCopilotLayer for polity-passport-bureau-cartridge (aigent-z default)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "84f45d6",
+      "full_sha": "84f45d6040febc440eb1c22ca69ebcb078a5fdb7",
+      "title": "fix passport bureau copilot — wire CodexCopilotLayer for polity-passport-bureau-cartridge (aigent-z default)",
+      "author": "Claude",
+      "timestamp": "2026-06-13T20:28:27Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-84f45d6.md"
+    },
     {
       "sha": "afdf02d",
       "full_sha": "afdf02d2dcb7460f866243c65b291ce721a4db65",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T22:32:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-609c885.md"
-    },
-    {
-      "sha": "4e01b23",
-      "full_sha": "4e01b23bfb637e617cc92d0b1144989bc7baf9fe",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-31T22:32:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4e01b23.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
