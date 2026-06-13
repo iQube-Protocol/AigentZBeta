@@ -2279,3 +2279,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-cdfe373.md](../build_/COMMITS/COMMIT-cdfe373.md)
 - Message: add polity passport bureau doctrine, ens, and being tabs
+
+## Commit `1abc8ec` — 2026-06-13T21:09:18Z
+- Type: `feat`
+- Brief: [COMMIT-1abc8ec.md](../build_/COMMITS/COMMIT-1abc8ec.md)
+- Message: add polity passport as first-class metaMe activation + embed link on all activation cards
