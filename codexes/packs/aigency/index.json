@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T16:42:05.216Z",
+  "last_updated": "2026-06-13T16:49:32.694Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "25260ebb5ed51e788c9529fa711b4f71e4748cc1",
-  "latest_commit_short": "25260eb",
-  "latest_commit_title": "sprint 2 — world id strong verification for citizen passports",
+  "latest_commit": "69905ac588a277e89adb4b56c4343271de721835",
+  "latest_commit_short": "69905ac",
+  "latest_commit_title": "sprint 3 — agent genesis wizard inside the passport bureau apply tab",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "69905ac",
+      "full_sha": "69905ac588a277e89adb4b56c4343271de721835",
+      "title": "sprint 3 — agent genesis wizard inside the passport bureau apply tab",
+      "author": "Claude",
+      "timestamp": "2026-06-13T16:47:32Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-69905ac.md"
+    },
     {
       "sha": "25260eb",
       "full_sha": "25260ebb5ed51e788c9529fa711b4f71e4748cc1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T20:41:16Z",
       "type": "chore",
       "brief": "items/build_/COMMITS/COMMIT-ff63bfe.md"
-    },
-    {
-      "sha": "6db2a85",
-      "full_sha": "6db2a855a219a746ea9975681fca4038bae7ee2c",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-31T20:41:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6db2a85.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
