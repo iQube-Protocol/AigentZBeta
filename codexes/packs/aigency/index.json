@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T16:49:32.694Z",
+  "last_updated": "2026-06-13T17:39:52.006Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "69905ac588a277e89adb4b56c4343271de721835",
-  "latest_commit_short": "69905ac",
-  "latest_commit_title": "sprint 3 — agent genesis wizard inside the passport bureau apply tab",
+  "latest_commit": "9a7e4e9f578397e072d455ed38ded2237445f2f2",
+  "latest_commit_short": "9a7e4e9",
+  "latest_commit_title": "sprint 4 — polity passport locker + qubetalk channel bridge",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9a7e4e9",
+      "full_sha": "9a7e4e9f578397e072d455ed38ded2237445f2f2",
+      "title": "sprint 4 — polity passport locker + qubetalk channel bridge",
+      "author": "Claude",
+      "timestamp": "2026-06-13T17:37:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9a7e4e9.md"
+    },
     {
       "sha": "69905ac",
       "full_sha": "69905ac588a277e89adb4b56c4343271de721835",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T20:44:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d48b6f2.md"
-    },
-    {
-      "sha": "ff63bfe",
-      "full_sha": "ff63bfee9a594938d89d0bec840f450f3bc9d610",
-      "title": "nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures",
-      "author": "Claude",
-      "timestamp": "2026-05-31T20:41:16Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-ff63bfe.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
