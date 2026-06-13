@@ -893,10 +893,48 @@ export default function SmartWalletDrawer({
   const [isWalletUnlocked, setIsWalletUnlocked] = useState(false);
   const [personaToUnlock, setPersonaToUnlock] = useState<string | null>(null);
 
-  // iQube persona minting state
-  const [mintStatus, setMintStatus] = useState<"idle" | "staging" | "staged" | "error">("idle");
-  const [mintStubId, setMintStubId] = useState<string | null>(null);
+  // PersonaQube mint state — Polity Passport rail (Sui + Walrus).
+  // Distinct from the legacy Qripto/KNYT mint paths (AutoDrive rail).
+  const [mintStatus, setMintStatus] = useState<"idle" | "staging" | "minted" | "error">("idle");
   const [mintError, setMintError] = useState<string | null>(null);
+  const [mintResult, setMintResult] = useState<{
+    suiObjectId: string | null;
+    walrusBlobId: string | null;
+    mode: "stub" | "sui-walrus" | null;
+    onChain: boolean;
+    mintedAt: string | null;
+  }>({ suiObjectId: null, walrusBlobId: null, mode: null, onChain: false, mintedAt: null });
+
+  // Load any existing mint on mount / persona change so the UI shows
+  // "minted" without making the operator re-mint.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+        if (!session?.access_token) return;
+        const res = await fetch("/api/iqube/persona/passport/mint", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data?.ok || !data.minted) return;
+        setMintResult({
+          suiObjectId: data.suiObjectId ?? null,
+          walrusBlobId: data.walrusBlobId ?? null,
+          mode: data.mode ?? null,
+          onChain: Boolean(data.onChain),
+          mintedAt: data.mintedAt ?? null,
+        });
+        setMintStatus("minted");
+      } catch {
+        // Silent — wallet drawer survives mint endpoint failure.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [walletNode?.personaContext?.activePersona?.personaId]);
 
   const handleStageMint = useCallback(async () => {
     setMintStatus("staging");
@@ -907,15 +945,21 @@ export default function SmartWalletDrawer({
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
-      const res = await fetch("/api/iqube/persona/qripto/mint", { method: "POST", headers });
-      const data: { stub_id?: string; status?: string; error?: string } = await res.json();
-      if (!res.ok) {
-        setMintError(data.error ?? "Staging failed — check that you have an active Qripto persona.");
+      const res = await fetch("/api/iqube/persona/passport/mint", { method: "POST", headers });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setMintError(data?.error ?? "Mint failed — please try again.");
         setMintStatus("error");
         return;
       }
-      setMintStubId(data.stub_id ?? null);
-      setMintStatus("staged");
+      setMintResult({
+        suiObjectId: data.suiObjectId ?? null,
+        walrusBlobId: data.walrusBlobId ?? null,
+        mode: data.mode ?? null,
+        onChain: Boolean(data.onChain),
+        mintedAt: data.mintedAt ?? null,
+      });
+      setMintStatus("minted");
     } catch {
       setMintError("Network error — please try again.");
       setMintStatus("error");
@@ -4258,27 +4302,45 @@ export default function SmartWalletDrawer({
                   </div>
                 )}
                 {/* Mint action */}
-                {mintStatus === "staged" ? (
-                  <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-3 space-y-2">
+                {mintStatus === "minted" ? (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
                     <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-violet-400" />
-                      <span className="text-sm font-medium text-violet-300">PersonaQube staged</span>
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span className="text-sm font-medium text-emerald-300">
+                        PersonaQube minted {mintResult.onChain ? "(on-chain)" : "(stub mode)"}
+                      </span>
                     </div>
                     <p className="text-xs text-white/50 leading-relaxed">
-                      Your persona data is encrypted and queued for the Autonomys write pipeline. The chain write completes asynchronously.
+                      Persona descriptor encrypted client-side, published to Walrus, and bound to a Sui object representing your PersonaQube. The (Sui object, Walrus blob) pair anchors to your DVN receipt trail.
                     </p>
-                    {mintStubId && (
-                      <code className="text-[10px] text-white/30 font-mono block">stub: {mintStubId}</code>
+                    <div className="space-y-1">
+                      {mintResult.suiObjectId && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Sui object</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.suiObjectId}</code>
+                        </div>
+                      )}
+                      {mintResult.walrusBlobId && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Walrus blob</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.walrusBlobId}</code>
+                        </div>
+                      )}
+                    </div>
+                    {!mintResult.onChain && (
+                      <p className="text-[10px] text-amber-300/70 leading-relaxed">
+                        Stub mode — set SUI_PACKAGE_ID + WALRUS_PUBLISHER_URL in Amplify and install @mysten/sui + @mysten/walrus to enable on-chain mint.
+                      </p>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-xs text-white/50 leading-relaxed">
-                      Mint your persona as a <strong className="text-white/70">PersonaQube</strong> — content-addressed on Autonomys with your FIO key.
+                      Mint your persona as a <strong className="text-white/70">PersonaQube</strong> on the Polity Passport rail — encrypted persona descriptor on Walrus, ownership object on Sui, DVN-anchored to your Root DiD.
                       Enables cryptographic binding to SkillQubes and AigentQubes, and cross-platform portability without trusting this database.
                     </p>
                     <p className="text-[10px] text-white/30 leading-relaxed">
-                      Your DVN receipts are already anchored to your Root DiD through the ordinal inscription pipeline — minting adds content-addressable persona data on Autonomys.
+                      T0 discipline: only public commitment refs (persona_public_ref, kybe_did_public_ref) ever land on Sui or Walrus — your persona_id never leaves the server.
                     </p>
                     {mintStatus === "error" && (
                       <p className="text-xs text-red-400">{mintError}</p>
@@ -4289,7 +4351,7 @@ export default function SmartWalletDrawer({
                       disabled={mintStatus === "staging"}
                       className="w-full rounded-lg border border-violet-500/40 bg-violet-600/20 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {mintStatus === "staging" ? "Staging…" : "Stage PersonaQube"}
+                      {mintStatus === "staging" ? "Minting…" : "Mint PersonaQube"}
                     </button>
                   </div>
                 )}

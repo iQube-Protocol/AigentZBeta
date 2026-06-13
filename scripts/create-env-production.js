@@ -109,6 +109,16 @@ const envVars = [
   'MARKETA_DISCOVERY_SOURCES',
   // Polity Passport Bureau — credential HMAC signing (Phase A stub)
   'PASSPORT_BUREAU_CREDENTIAL_SECRET',
+  // PersonaQube — Sui + Walrus mint rail (Polity Passport rail).
+  // When unset, mintPersonaToSui falls back to stub mode (deterministic
+  // fake IDs). Setting all three switches the route to real on-chain mint.
+  'SUI_NETWORK',
+  'SUI_PACKAGE_ID',
+  'SUI_SPONSOR_KEY',
+  'WALRUS_PUBLISHER_URL',
+  'WALRUS_AGGREGATOR_URL',
+  // PersonaQube descriptor encryption — AES-256-GCM. 64 hex chars = 32 bytes.
+  'PERSONA_IQUBE_ENCRYPTION_KEY',
   'SEQUENCE_DISPATCH_SECRET',
   'LVB_BRIDGE_DEFAULT_PERSONA_ID',
   // iQubeNFT — ERC721 on-chain anchor

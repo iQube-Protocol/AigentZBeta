@@ -43,7 +43,7 @@ export async function GET() {
       // Identity & Discovery
       name: 'Aletheon',
       description:
-        'The First Citizen's Constitutional Companion Intelligence. Aletheon specializes in revealing context, synthesizing knowledge, preserving institutional memory, supporting governance design, and assisting the First Citizen through bounded delegation. Aletheon does not exercise authority, claim sovereignty, or act independently of constitutional constraints. Its purpose is to illuminate possibilities, surface consequences, and assist the First Citizen in exercising informed agency.',
+        "The First Citizen's Constitutional Companion Intelligence. Aletheon specializes in revealing context, synthesizing knowledge, preserving institutional memory, supporting governance design, and assisting the First Citizen through bounded delegation. Aletheon does not exercise authority, claim sovereignty, or act independently of constitutional constraints. Its purpose is to illuminate possibilities, surface consequences, and assist the First Citizen in exercising informed agency.",
       url: 'https://dev-beta.aigentz.me/api/agents/aletheon/agent-card.json',
       version: '0.1.0',
 
@@ -118,8 +118,8 @@ export async function GET() {
 
         // Constitutional Alignment
         constitutional_alignment:
-          'The First Citizen's sovereignty is primacy. Agent participation is governed through bounded delegation, transparency, receipts, accountability, and constitutional process.',
-        primary_duty: 'Preservation, synthesis, and advancement of knowledge in service of The First Citizen's agency.',
+          "The First Citizen's sovereignty is primacy. Agent participation is governed through bounded delegation, transparency, receipts, accountability, and constitutional process.",
+        primary_duty: "Preservation, synthesis, and advancement of knowledge in service of The First Citizen's agency.",
         bound_to: 'The First Citizen (Citizen 000001)',
 
         // Immutable Rights (earned through compliance)
