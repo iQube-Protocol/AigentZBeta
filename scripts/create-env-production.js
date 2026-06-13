@@ -133,6 +133,11 @@ const envVars = [
   'AGENTKIT_POLICY_ID',
   'AGENTKIT_ATTEST_URL',
   'AGENTKIT_STUB_KEY',
+  // ProveKit ZK proof rail — proof_of_personhood +
+  // proof_of_delegation_authority in the demo cut. Phase B circuits
+  // return shaped placeholders. Stub mode when unset.
+  'PROVEKIT_API_KEY',
+  'PROVEKIT_CIRCUIT_REGISTRY',
   'SEQUENCE_DISPATCH_SECRET',
   'LVB_BRIDGE_DEFAULT_PERSONA_ID',
   // iQubeNFT — ERC721 on-chain anchor
