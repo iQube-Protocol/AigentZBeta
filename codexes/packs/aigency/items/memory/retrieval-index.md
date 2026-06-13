@@ -2189,3 +2189,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-71ca12a.md](../build_/COMMITS/COMMIT-71ca12a.md)
 - Message: amend passport bureau prd: add hackathon extension narrative, provekit zk layer, dvn stub, human mobility demo flows, prize alignment
+
+## Commit `d520569` — 2026-06-13T08:36:41Z
+- Type: `push`
+- Brief: [COMMIT-d520569.md](../build_/COMMITS/COMMIT-d520569.md)
+- Message: refine aletheon card: the first citizen's constitutional companion intelligence

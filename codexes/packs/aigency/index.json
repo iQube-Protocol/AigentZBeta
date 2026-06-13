@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T07:03:39.344Z",
+  "last_updated": "2026-06-13T08:38:27.699Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "71ca12a55607f825c65f1aa68f7f6289cc615b74",
-  "latest_commit_short": "71ca12a",
-  "latest_commit_title": "amend passport bureau prd: add hackathon extension narrative, provekit zk layer, dvn stub, human mobility demo flows, prize alignment",
+  "latest_commit": "d520569c35ff12a445bb4e9b559c16acc764acd8",
+  "latest_commit_short": "d520569",
+  "latest_commit_title": "refine aletheon card: the first citizen's constitutional companion intelligence",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d520569",
+      "full_sha": "d520569c35ff12a445bb4e9b559c16acc764acd8",
+      "title": "refine aletheon card: the first citizen's constitutional companion intelligence",
+      "author": "Claude",
+      "timestamp": "2026-06-13T08:36:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d520569.md"
+    },
     {
       "sha": "71ca12a",
       "full_sha": "71ca12a55607f825c65f1aa68f7f6289cc615b74",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T19:46:35Z",
       "type": "refactor",
       "brief": "items/build_/COMMITS/COMMIT-b582f2a.md"
-    },
-    {
-      "sha": "17e0d6b",
-      "full_sha": "17e0d6b30a7219e494eb6e3f472b256cd043c39c",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-31T19:46:35Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-17e0d6b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
