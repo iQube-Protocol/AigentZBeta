@@ -1852,6 +1852,17 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
     },
     {
+      id: 'agentiq-passport-locker',
+      label: 'Locker',
+      slug: 'passport-locker',
+      enabled: true,
+      group: 'passport',
+      order: 2,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
+    },
+    {
       id: 'agentiq-passport-steward',
       label: 'Steward',
       slug: 'passport-steward',
@@ -2229,6 +2240,17 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'PassportRegistryTab' },
       metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'agentiq-os-passport-locker',
+      label: 'Locker',
+      slug: 'os-passport-locker',
+      enabled: true,
+      group: 'passport',
+      order: 2,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
     },
     {
       id: 'agentiq-os-passport-steward',
@@ -3704,7 +3726,8 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
   tabGroups: [
     { id: 'apply',   label: 'Apply',   icon: 'FileCheck2', order: 0 },
     { id: 'registry', label: 'Registry', icon: 'BookOpenCheck', order: 1 },
-    { id: 'steward', label: 'Steward', icon: 'Gavel', order: 2, adminOnly: true },
+    { id: 'locker',  label: 'Locker',  icon: 'Lock', order: 2 },
+    { id: 'steward', label: 'Steward', icon: 'Gavel', order: 3, adminOnly: true },
   ],
   tabs: [
     {
@@ -3717,6 +3740,17 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'PassportBureauApplyTab' },
       metadata: { icon: 'ShieldCheck', description: 'Apply for an anonymous Citizen Passport — proof of personhood with self-custody privacy', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-locker',
+      label: 'Locker',
+      slug: 'locker',
+      enabled: true,
+      group: 'locker',
+      order: 0,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Holder-owned encrypted vault — Sui+Walrus storage, agent-gated access', color: 'violet' },
     },
     {
       id: 'passport-bureau-registry',
