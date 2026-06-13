@@ -1090,6 +1090,36 @@ python3 scripts/qubetalk_bridge/apply_packets.py [--dry-run]
 
 ---
 
+## Wallet-Over-Cartridge Overlay — CANONICAL PATTERN (must reuse)
+
+**Goal:** open the SmartWalletDrawer (PersonaQube, PassportQube, AgentQubes sections) on top of a cartridge layer without losing the cartridge content underneath.
+
+**The only path that works**: mount `<SmartWalletDrawer variant="embedded" />` INSIDE a `<CodexCopilotLayer>` flex container. Do NOT render the SmartWalletDrawer as a standalone slide-over on top of a cartridge — z-index conflicts make it unusable. The comment at `app/components/codex/CodexCopilotLayer.tsx:113` explicitly names this: "the parallel SmartWalletDrawer (which has z-index conflicts)."
+
+**Reference implementation:** `app/components/codex/CodexCopilotLayer.tsx:1700-1724` — the `walletPanelOpen` branch mounts `<SmartWalletDrawer variant="embedded" />` inside the copilot's flex layout. When the user clicks a wallet action chip in the copilot UI, `setWalletPanelOpen(true)` flips the panel on and the drawer slides in alongside (not on top of) the copilot. Both ride above the cartridge content via the copilot layer's overlay.
+
+**Reproducible recipe (use this anywhere you need cartridge + wallet overlay):**
+
+1. The host cartridge must already be wired in `CodexPanelDynamic.tsx` to render a `<CodexCopilotLayer />`. Today: `marketa-codex`, `knyt-codex`, `metame-codex`, and (as of 2026-06-13 Sprint 8) `polity-passport-bureau-cartridge`.
+2. Inside the copilot, the wallet panel is opened with `setWalletPanelOpen(true)` — triggered by clicking a wallet/library/tasks/reputation/rewards/payments action chip. Don't surface a separate wallet button; let the copilot own the activation.
+3. The SmartWalletDrawer renders with `variant="embedded"`, `embeddedAnchor`, `embeddedWidth`, and `codexMode={true}`. These four props are the difference between "wallet slides in alongside the copilot" and "wallet covers the cartridge with z-index fights."
+4. Cartridge content stays visible behind the copilot+wallet flex stack — that's why operators can see the Apply tab beneath aigentMe + PersonaQube in the canonical screenshot (2026-06-13).
+
+**Operator-confirmed working surfaces (the screenshot record):**
+- metaMe Cartridge → AgentiQ OS → Polity Passport → Apply tab → aigentMe copilot active → wallet open showing PersonaQube + PassportQube (2026-06-13)
+- AgentiQ OS → Registry → Persona → "Mint your persona as iQube" → wallet overlay above the cartridge (operator's original reference, 2026-06-13)
+
+**Anti-pattern (do NOT use):** rendering `<SmartWalletDrawer open={true} />` directly inside a tab component — this creates a standalone slide-over that competes with the cartridge's stacking context. Symptoms: drawer renders behind the cartridge, drawer renders but clicks pass through, drawer covers the copilot. All are the same root cause: parallel-mounting instead of embedded-mode-inside-the-copilot.
+
+**Rule for new cartridges that need wallet access:**
+1. Add the cartridge to the hardcoded `codexId` list in `CodexPanelDynamic.tsx:1071-1121`.
+2. Pick the copilot agent (the default agent for that cartridge's surface).
+3. Let the copilot own the wallet activation — no parallel wallet triggers.
+
+This is non-negotiable because it's the only path with a reproducible working precedent. Until a config-driven copilot+wallet system replaces the hardcoded `codexId` list (Phase B Sprint 8 follow-on), every new cartridge that needs in-place wallet access must follow this recipe.
+
+---
+
 ## Adding to This File
 
 When a new rule, pattern, or constraint is established during development, add it here immediately.
