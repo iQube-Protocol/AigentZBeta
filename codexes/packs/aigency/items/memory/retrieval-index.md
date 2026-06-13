@@ -2229,3 +2229,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-16d854f.md](../build_/COMMITS/COMMIT-16d854f.md)
 - Message: sprint 6 — partial provekit zk for personhood + delegation authority
+
+## Commit `2371300` — 2026-06-13T17:45:59Z
+- Type: `push`
+- Brief: [COMMIT-2371300.md](../build_/COMMITS/COMMIT-2371300.md)
+- Message: sprint 7 — ens subnames for personas + lockers via namestone

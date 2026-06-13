@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T17:45:26.412Z",
+  "last_updated": "2026-06-13T17:48:16.519Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "16d854f482367b5166247f00565c00dfa8b3c38a",
-  "latest_commit_short": "16d854f",
-  "latest_commit_title": "sprint 6 — partial provekit zk for personhood + delegation authority",
+  "latest_commit": "237130046dec79f8d20695016c5d03e1fcc58a8c",
+  "latest_commit_short": "2371300",
+  "latest_commit_title": "sprint 7 — ens subnames for personas + lockers via namestone",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2371300",
+      "full_sha": "237130046dec79f8d20695016c5d03e1fcc58a8c",
+      "title": "sprint 7 — ens subnames for personas + lockers via namestone",
+      "author": "Claude",
+      "timestamp": "2026-06-13T17:45:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2371300.md"
+    },
     {
       "sha": "16d854f",
       "full_sha": "16d854f482367b5166247f00565c00dfa8b3c38a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T21:32:31Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a5f865a.md"
-    },
-    {
-      "sha": "0a9c834",
-      "full_sha": "0a9c8349c11353c82c1a6ba318efd2d53db05abd",
-      "title": "metaMe cartridge: swap myArtifacts and Activations top-menu order",
-      "author": "Claude",
-      "timestamp": "2026-05-31T20:58:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0a9c834.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
