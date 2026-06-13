@@ -17,7 +17,9 @@
  * authedFetchHeaders.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { SubHeaderSlotContext } from '../SubHeaderSlot';
 import {
   ShieldCheck,
   KeyRound,
@@ -130,6 +132,7 @@ function cls(...xs: Array<string | false | undefined>) {
 }
 
 export function PassportBureauApplyTab() {
+  const subHeaderSlotEl = useContext(SubHeaderSlotContext);
   const [step, setStep] = useState<StepId>('class');
   const [passportClass, setPassportClass] = useState<PassportClass>('citizen');
   const [busy, setBusy] = useState(false);
@@ -471,8 +474,19 @@ export function PassportBureauApplyTab() {
     { id: 'submit', label: 'Submit', icon: <Send className="h-4 w-4" /> },
   ];
 
+  // Tier-3 right-justified context badge — shows which passport class the
+  // applicant has chosen. Portaled into SubHeaderSlot so it sits on the same
+  // row as the Apply/Registry tabs, right-aligned via ml-auto.
+  const tierBadge = step !== 'class' ? (
+    <div className="ml-auto flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] text-emerald-300">
+      <ShieldCheck className="h-3 w-3" />
+      {passportClass === 'participant' ? 'Participant Application' : 'Citizen Application'}
+    </div>
+  ) : null;
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-4">
+      {subHeaderSlotEl && tierBadge ? createPortal(tierBadge, subHeaderSlotEl) : null}
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-7 w-7 text-violet-400" />
         <div>

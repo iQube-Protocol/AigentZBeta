@@ -1827,6 +1827,9 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     // the 2026-06-12 Chrysalis merge textually relocated these tabs
     // into AGENTIQ_OS_CARTRIDGE, leaving this menu empty.)
     {
+      // No subTabs getter — single-entry subTabs would block SubHeaderSlot,
+      // and the tab's own badge (Citizen / Participant Application) is now
+      // portaled into the tier-3 row right-justified by PassportBureauApplyTab.
       id: 'agentiq-passport-apply',
       label: 'Apply',
       slug: 'passport-apply',
@@ -1836,9 +1839,6 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'PassportBureauApplyTab' },
       metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood', color: 'violet' },
-      get subTabs() {
-        return polityPassportTabsByGroup('apply', 'agentiq-passport-apply');
-      },
     },
     {
       id: 'agentiq-passport-registry',
@@ -2217,9 +2217,7 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'PassportBureauApplyTab' },
       metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood', color: 'violet' },
-      get subTabs() {
-        return polityPassportTabsByGroup('apply', 'agentiq-os-passport-apply');
-      },
+      // No subTabs getter — see note on agentiq-passport-apply above.
     },
     {
       id: 'agentiq-os-passport-registry',
