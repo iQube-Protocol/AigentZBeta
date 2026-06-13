@@ -151,6 +151,49 @@ export function PassportBureauApplyTab() {
   const [delegationTtl, setDelegationTtl] = useState(4);
   const [delegationBound, setDelegationBound] = useState(false);
 
+  // Agent Card source: 'genesis' (we create it) or 'url' (user pastes existing).
+  // Sprint 3 adds the genesis path — the non-technical user can sponsor a new
+  // agent without hosting their own card.
+  const [agentCardSource, setAgentCardSource] = useState<'genesis' | 'url'>('genesis');
+  const [genesisSlug, setGenesisSlug] = useState('');
+  const [genesisSponsorPassportId, setGenesisSponsorPassportId] = useState('');
+  const [genesisBusy, setGenesisBusy] = useState(false);
+  const [genesisCompleted, setGenesisCompleted] = useState(false);
+
+  const handleGenesisAgent = useCallback(async () => {
+    if (!agentName.trim() || !agentDescription.trim() || !genesisSlug.trim() || !genesisSponsorPassportId.trim()) {
+      setError('Provide agent name, description, slug, and sponsor passport id');
+      return;
+    }
+    setGenesisBusy(true);
+    setError(null);
+    try {
+      const res = await authedFetchHeaders();
+      const r = await fetch('/api/agents/genesis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...res },
+        body: JSON.stringify({
+          slug: genesisSlug.trim(),
+          displayName: agentName.trim(),
+          description: agentDescription.trim(),
+          sponsorPassportId: genesisSponsorPassportId.trim(),
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) {
+        setError(data?.error ?? 'Agent genesis failed');
+        return;
+      }
+      setAgentCardUrl(data.agent.agentCardUrl);
+      setGenesisCompleted(true);
+      setNotice(`Agent Card live at ${data.agent.agentCardUrl} — submit below to issue Aletheon a Participant Passport.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setGenesisBusy(false);
+    }
+  }, [agentName, agentDescription, genesisSlug, genesisSponsorPassportId]);
+
   // Step 1 — account
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -567,18 +610,76 @@ export function PassportBureauApplyTab() {
             Describe the agent this passport is for, then bind it to yourself. The Bureau anchors
             participant identity on the agent card URL.
           </p>
+
+          {/* Agent Card source toggle (Sprint 3) */}
+          <div className="flex gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => { setAgentCardSource('genesis'); setGenesisCompleted(false); }}
+              className={cls(
+                'rounded px-3 py-1.5',
+                agentCardSource === 'genesis' ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400',
+              )}
+            >
+              Genesis a new agent (recommended)
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAgentCardSource('url'); setGenesisCompleted(false); }}
+              className={cls(
+                'rounded px-3 py-1.5',
+                agentCardSource === 'url' ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400',
+              )}
+            >
+              Paste existing Agent Card URL
+            </button>
+          </div>
+
           <input
             value={agentName}
             onChange={(e) => setAgentName(e.target.value)}
-            placeholder="Agent display name"
+            placeholder="Agent display name (e.g. Aletheon)"
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
           />
-          <input
-            value={agentCardUrl}
-            onChange={(e) => setAgentCardUrl(e.target.value)}
-            placeholder="Agent card URL (A2A agent-card.json — the identity anchor)"
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-          />
+
+          {agentCardSource === 'genesis' ? (
+            <div className="space-y-2 rounded-lg border border-violet-700/40 bg-violet-900/10 p-3">
+              <p className="text-[11px] text-violet-300">
+                Genesis path — we provision a stable Agent Card URL at /api/agents/&lt;slug&gt;/agent-card.json bound to your Citizen Passport.
+              </p>
+              <input
+                value={genesisSlug}
+                onChange={(e) => setGenesisSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                placeholder="Agent slug (lowercase, 3–41 chars, e.g. aletheon)"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              />
+              <input
+                value={genesisSponsorPassportId}
+                onChange={(e) => setGenesisSponsorPassportId(e.target.value.trim())}
+                placeholder="Your Citizen Passport ID (find it in the wallet PassportQube section)"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              />
+              <button
+                type="button"
+                onClick={handleGenesisAgent}
+                disabled={genesisBusy || genesisCompleted}
+                className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+              >
+                {genesisBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+                {genesisCompleted ? 'Agent Card live' : 'Sponsor agent & generate card'}
+              </button>
+              {genesisCompleted && (
+                <code className="block text-[10px] text-emerald-300 font-mono break-all">{agentCardUrl}</code>
+              )}
+            </div>
+          ) : (
+            <input
+              value={agentCardUrl}
+              onChange={(e) => setAgentCardUrl(e.target.value)}
+              placeholder="Agent card URL (A2A agent-card.json — the identity anchor)"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+            />
+          )}
           <input
             value={agentType}
             onChange={(e) => setAgentType(e.target.value)}
