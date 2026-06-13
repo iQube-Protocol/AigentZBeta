@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`9a7e4e9`](https://github.com/iQube-Protocol/AigentZBeta/commit/9a7e4e9f578397e072d455ed38ded2237445f2f2) [push] sprint 4 — polity passport locker + qubetalk channel bridge (Claude, 2026-06-13T17:37:42Z)
 - [`69905ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/69905ac588a277e89adb4b56c4343271de721835) [push] sprint 3 — agent genesis wizard inside the passport bureau apply tab (Claude, 2026-06-13T16:47:32Z)
 - [`25260eb`](https://github.com/iQube-Protocol/AigentZBeta/commit/25260ebb5ed51e788c9529fa711b4f71e4748cc1) [push] sprint 2 — world id strong verification for citizen passports (Claude, 2026-06-13T16:39:27Z)
 - [`8a41c01`](https://github.com/iQube-Protocol/AigentZBeta/commit/8a41c0185a06034c24e41301ccb54cfffdb53b1f) [refactor] move citizen/participant application badge to tier-3 right-justified (Claude, 2026-06-13T16:27:38Z)
