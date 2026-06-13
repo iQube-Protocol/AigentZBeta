@@ -2194,3 +2194,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d520569.md](../build_/COMMITS/COMMIT-d520569.md)
 - Message: refine aletheon card: the first citizen's constitutional companion intelligence
+
+## Commit `554aab0` — 2026-06-13T16:34:57Z
+- Type: `push`
+- Brief: [COMMIT-554aab0.md](../build_/COMMITS/COMMIT-554aab0.md)
+- Message: sprint 1 step 2 — complete PersonaQube mint to Sui+Walrus (stub mode pending packages)
+
+## Commit `8a41c01` — 2026-06-13T16:27:38Z
+- Type: `refactor`
+- Brief: [COMMIT-8a41c01.md](../build_/COMMITS/COMMIT-8a41c01.md)
+- Message: move citizen/participant application badge to tier-3 right-justified
