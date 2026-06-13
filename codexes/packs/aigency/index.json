@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T21:03:18.434Z",
+  "last_updated": "2026-06-13T21:11:06.786Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cdfe3730dd7c8c9c04c3d7638da5e926489bc8b3",
-  "latest_commit_short": "cdfe373",
-  "latest_commit_title": "add polity passport bureau doctrine, ens, and being tabs",
+  "latest_commit": "1abc8ec9c1872909eb96ae9bb4b10401da6186ae",
+  "latest_commit_short": "1abc8ec",
+  "latest_commit_title": "add polity passport as first-class metaMe activation + embed link on all activation cards",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1abc8ec",
+      "full_sha": "1abc8ec9c1872909eb96ae9bb4b10401da6186ae",
+      "title": "add polity passport as first-class metaMe activation + embed link on all activation cards",
+      "author": "Claude",
+      "timestamp": "2026-06-13T21:09:18Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1abc8ec.md"
+    },
     {
       "sha": "cdfe373",
       "full_sha": "cdfe3730dd7c8c9c04c3d7638da5e926489bc8b3",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T12:41:57Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-09a18bf.md"
-    },
-    {
-      "sha": "a875f3e",
-      "full_sha": "a875f3e5d2d6ad220b59329a817ee2297ba2d54a",
-      "title": "metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts",
-      "author": "Claude",
-      "timestamp": "2026-06-01T02:07:36Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-a875f3e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

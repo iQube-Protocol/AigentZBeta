@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1abc8ec`](https://github.com/iQube-Protocol/AigentZBeta/commit/1abc8ec9c1872909eb96ae9bb4b10401da6186ae) [feat] add polity passport as first-class metaMe activation + embed link on all activation cards (Claude, 2026-06-13T21:09:18Z)
 - [`cdfe373`](https://github.com/iQube-Protocol/AigentZBeta/commit/cdfe3730dd7c8c9c04c3d7638da5e926489bc8b3) [feat] add polity passport bureau doctrine, ens, and being tabs (Claude, 2026-06-13T21:01:10Z)
 - [`99334b6`](https://github.com/iQube-Protocol/AigentZBeta/commit/99334b6e04b4b5247b80dcb6079ffe709d283428) [push] go live — walrus http publisher + real worldid idkit widget (Claude, 2026-06-13T20:48:41Z)
 - [`914c081`](https://github.com/iQube-Protocol/AigentZBeta/commit/914c08124f7996047bf0900c2e339a29742bec72) [chore] polish step strip to rounded-rect boxes + surface world id upgrade on registry (Claude, 2026-06-13T20:35:04Z)
