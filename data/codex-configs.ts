@@ -3779,13 +3779,13 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
     tags: ['passport', 'identity', 'kybe', 'polity', 'registry'],
   },
   tabGroups: [
-    { id: 'doctrine', label: 'Doctrine', icon: 'BookOpen', order: 0 },
+    { id: 'doctrine', label: 'Doctrine', icon: 'BookOpen', order: 0, adminOnly: true },
     { id: 'apply',   label: 'Apply',   icon: 'FileCheck2', order: 1 },
     { id: 'registry', label: 'Registry', icon: 'BookOpenCheck', order: 2 },
     { id: 'locker',  label: 'Locker',  icon: 'Lock', order: 3 },
     { id: 'delegation', label: 'Delegation', icon: 'Link2', order: 4 },
-    { id: 'ens',     label: 'ENS',     icon: 'Globe', order: 5 },
-    { id: 'being',   label: 'Being',   icon: 'Home', order: 6 },
+    { id: 'ens',     label: 'ENS',     icon: 'Globe', order: 5, adminOnly: true },
+    { id: 'being',   label: 'Being',   icon: 'Home', order: 6, adminOnly: true },
     { id: 'steward', label: 'Steward', icon: 'Gavel', order: 7, adminOnly: true },
   ],
   tabs: [
