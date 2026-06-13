@@ -2184,3 +2184,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-d9014b6.md](../build_/COMMITS/COMMIT-d9014b6.md)
 - Message: fix Amplify build: scope outputFileTracingIncludes to aigency + agentiq packs only — wildcard glob follows alpha-knyt symlink causing directory collision
+
+## Commit `71ca12a` — 2026-06-13T07:01:32Z
+- Type: `feat`
+- Brief: [COMMIT-71ca12a.md](../build_/COMMITS/COMMIT-71ca12a.md)
+- Message: amend passport bureau prd: add hackathon extension narrative, provekit zk layer, dvn stub, human mobility demo flows, prize alignment
