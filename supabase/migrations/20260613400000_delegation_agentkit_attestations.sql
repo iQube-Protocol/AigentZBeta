@@ -53,7 +53,7 @@ CREATE POLICY agentkit_attest_sponsor_read ON delegation_agentkit_attestations
   FOR SELECT USING (
     auth.role() = 'service_role'
     OR sponsor_persona_id IN (
-      SELECT id FROM personas WHERE auth_user_id = auth.uid()
+      SELECT id FROM personas WHERE auth_profile_id = auth.uid()
     )
   );
 

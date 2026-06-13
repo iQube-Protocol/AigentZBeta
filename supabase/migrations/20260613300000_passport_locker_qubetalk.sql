@@ -51,7 +51,7 @@ CREATE POLICY locker_items_holder_read ON passport_locker_items
   FOR SELECT USING (
     auth.role() = 'service_role'
     OR holder_persona_id IN (
-      SELECT id FROM personas WHERE auth_user_id = auth.uid()
+      SELECT id FROM personas WHERE auth_profile_id = auth.uid()
     )
   );
 
@@ -95,10 +95,10 @@ CREATE POLICY locker_grants_principal_read ON passport_locker_grants
   FOR SELECT USING (
     auth.role() = 'service_role'
     OR granted_by_persona_id IN (
-      SELECT id FROM personas WHERE auth_user_id = auth.uid()
+      SELECT id FROM personas WHERE auth_profile_id = auth.uid()
     )
     OR delegated_persona_id IN (
-      SELECT id FROM personas WHERE auth_user_id = auth.uid()
+      SELECT id FROM personas WHERE auth_profile_id = auth.uid()
     )
   );
 
@@ -137,10 +137,10 @@ CREATE POLICY qubetalk_channels_principal_read ON passport_qubetalk_channels
   FOR SELECT USING (
     auth.role() = 'service_role'
     OR holder_persona_id IN (
-      SELECT id FROM personas WHERE auth_user_id = auth.uid()
+      SELECT id FROM personas WHERE auth_profile_id = auth.uid()
     )
     OR delegated_persona_id IN (
-      SELECT id FROM personas WHERE auth_user_id = auth.uid()
+      SELECT id FROM personas WHERE auth_profile_id = auth.uid()
     )
   );
 

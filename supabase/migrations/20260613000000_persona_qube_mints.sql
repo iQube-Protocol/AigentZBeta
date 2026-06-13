@@ -40,7 +40,7 @@ ALTER TABLE persona_qube_mints ENABLE ROW LEVEL SECURITY;
 CREATE POLICY persona_qube_mints_holder_read ON persona_qube_mints
   FOR SELECT USING (
     persona_id IN (
-      SELECT id FROM personas WHERE auth_user_id = auth.uid()
+      SELECT id FROM personas WHERE auth_profile_id = auth.uid()
     )
   );
 

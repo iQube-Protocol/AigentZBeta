@@ -41,7 +41,7 @@ ALTER TABLE persona_ens_names ENABLE ROW LEVEL SECURITY;
 CREATE POLICY persona_ens_holder_read ON persona_ens_names
   FOR SELECT USING (
     auth.role() = 'service_role'
-    OR persona_id IN (SELECT id FROM personas WHERE auth_user_id = auth.uid())
+    OR persona_id IN (SELECT id FROM personas WHERE auth_profile_id = auth.uid())
   );
 
 CREATE POLICY persona_ens_service_write ON persona_ens_names
@@ -73,7 +73,7 @@ ALTER TABLE locker_ens_names ENABLE ROW LEVEL SECURITY;
 CREATE POLICY locker_ens_holder_read ON locker_ens_names
   FOR SELECT USING (
     auth.role() = 'service_role'
-    OR holder_persona_id IN (SELECT id FROM personas WHERE auth_user_id = auth.uid())
+    OR holder_persona_id IN (SELECT id FROM personas WHERE auth_profile_id = auth.uid())
   );
 
 CREATE POLICY locker_ens_service_write ON locker_ens_names
