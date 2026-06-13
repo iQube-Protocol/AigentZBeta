@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T20:30:21.195Z",
+  "last_updated": "2026-06-13T20:33:59.972Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "84f45d6040febc440eb1c22ca69ebcb078a5fdb7",
-  "latest_commit_short": "84f45d6",
-  "latest_commit_title": "fix passport bureau copilot — wire CodexCopilotLayer for polity-passport-bureau-cartridge (aigent-z default)",
+  "latest_commit": "72dde3ebda4ffeb0c4ae3bb8eb747866903c99a7",
+  "latest_commit_short": "72dde3e",
+  "latest_commit_title": "document wallet-over-cartridge overlay pattern + aletheon activation walkthrough",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "72dde3e",
+      "full_sha": "72dde3ebda4ffeb0c4ae3bb8eb747866903c99a7",
+      "title": "document wallet-over-cartridge overlay pattern + aletheon activation walkthrough",
+      "author": "Claude",
+      "timestamp": "2026-06-13T20:31:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-72dde3e.md"
+    },
     {
       "sha": "84f45d6",
       "full_sha": "84f45d6040febc440eb1c22ca69ebcb078a5fdb7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T23:37:11Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-05a8d6c.md"
-    },
-    {
-      "sha": "609c885",
-      "full_sha": "609c885d6cdb7f7720402589ce70787cebc4d4a6",
-      "title": "MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern",
-      "author": "Claude",
-      "timestamp": "2026-05-31T22:32:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-609c885.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
