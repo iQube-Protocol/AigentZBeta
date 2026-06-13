@@ -2179,3 +2179,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9945b46.md](../build_/COMMITS/COMMIT-9945b46.md)
 - Message: document aigent-z platform ground knowledge session in agentiq updates pack
+
+## Commit `d9014b6` — 2026-06-13T05:10:09Z
+- Type: `fix`
+- Brief: [COMMIT-d9014b6.md](../build_/COMMITS/COMMIT-d9014b6.md)
+- Message: fix Amplify build: scope outputFileTracingIncludes to aigency + agentiq packs only — wildcard glob follows alpha-knyt symlink causing directory collision

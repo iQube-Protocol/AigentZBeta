@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T01:26:46.358Z",
+  "last_updated": "2026-06-13T05:12:04.931Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9945b46cb762a095e2af9e1793541566822267b0",
-  "latest_commit_short": "9945b46",
-  "latest_commit_title": "document aigent-z platform ground knowledge session in agentiq updates pack",
+  "latest_commit": "d9014b6c7ee6993b6baf646b85459e6efeb4efd8",
+  "latest_commit_short": "d9014b6",
+  "latest_commit_title": "fix Amplify build: scope outputFileTracingIncludes to aigency + agentiq packs only — wildcard glob follows alpha-knyt symlink causing directory collision",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d9014b6",
+      "full_sha": "d9014b6c7ee6993b6baf646b85459e6efeb4efd8",
+      "title": "fix Amplify build: scope outputFileTracingIncludes to aigency + agentiq packs only — wildcard glob follows alpha-knyt symlink causing directory collision",
+      "author": "Claude",
+      "timestamp": "2026-06-13T05:10:09Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d9014b6.md"
+    },
     {
       "sha": "9945b46",
       "full_sha": "9945b46cb762a095e2af9e1793541566822267b0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T19:41:29Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c502c4c.md"
-    },
-    {
-      "sha": "b497263",
-      "full_sha": "b4972637aa0dca2757c19a31c1fcf2ec5bdae80e",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-31T19:41:29Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b497263.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
