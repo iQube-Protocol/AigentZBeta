@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ce27071`](https://github.com/iQube-Protocol/AigentZBeta/commit/ce27071e9b9a979eec0f6157595d71367590434c) [push] document hackathon submission build — sprints 1-7 complete (Claude, 2026-06-13T17:48:11Z)
 - [`2371300`](https://github.com/iQube-Protocol/AigentZBeta/commit/237130046dec79f8d20695016c5d03e1fcc58a8c) [push] sprint 7 — ens subnames for personas + lockers via namestone (Claude, 2026-06-13T17:45:59Z)
 - [`16d854f`](https://github.com/iQube-Protocol/AigentZBeta/commit/16d854f482367b5166247f00565c00dfa8b3c38a) [push] sprint 6 — partial provekit zk for personhood + delegation authority (Claude, 2026-06-13T17:43:19Z)
 - [`e86dfe4`](https://github.com/iQube-Protocol/AigentZBeta/commit/e86dfe4a059d8813ab25e19d6e3da65872e63f15) [push] sprint 5 — delegation tab in passport + agentkit attestation bridge (Claude, 2026-06-13T17:41:06Z)
