@@ -2284,3 +2284,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-1abc8ec.md](../build_/COMMITS/COMMIT-1abc8ec.md)
 - Message: add polity passport as first-class metaMe activation + embed link on all activation cards
+
+## Commit `5406314` — 2026-06-13T21:19:31Z
+- Type: `push`
+- Brief: [COMMIT-5406314.md](../build_/COMMITS/COMMIT-5406314.md)
+- Message: trigger deploy to dev
