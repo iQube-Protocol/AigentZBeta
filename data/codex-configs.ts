@@ -1863,6 +1863,17 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
     },
     {
+      id: 'agentiq-passport-delegation',
+      label: 'Delegation',
+      slug: 'passport-delegation',
+      enabled: true,
+      group: 'passport',
+      order: 3,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — AgentKit attestation when sponsor is World ID verified', color: 'violet' },
+    },
+    {
       id: 'agentiq-passport-steward',
       label: 'Steward',
       slug: 'passport-steward',
@@ -2251,6 +2262,17 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'LockerTab' },
       metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
+    },
+    {
+      id: 'agentiq-os-passport-delegation',
+      label: 'Delegation',
+      slug: 'os-passport-delegation',
+      enabled: true,
+      group: 'passport',
+      order: 3,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — AgentKit attestation when sponsor is World ID verified', color: 'violet' },
     },
     {
       id: 'agentiq-os-passport-steward',
@@ -3727,7 +3749,8 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
     { id: 'apply',   label: 'Apply',   icon: 'FileCheck2', order: 0 },
     { id: 'registry', label: 'Registry', icon: 'BookOpenCheck', order: 1 },
     { id: 'locker',  label: 'Locker',  icon: 'Lock', order: 2 },
-    { id: 'steward', label: 'Steward', icon: 'Gavel', order: 3, adminOnly: true },
+    { id: 'delegation', label: 'Delegation', icon: 'Link2', order: 3 },
+    { id: 'steward', label: 'Steward', icon: 'Gavel', order: 4, adminOnly: true },
   ],
   tabs: [
     {
@@ -3751,6 +3774,17 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'LockerTab' },
       metadata: { icon: 'Lock', description: 'Holder-owned encrypted vault — Sui+Walrus storage, agent-gated access', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-delegation',
+      label: 'Delegation',
+      slug: 'delegation',
+      enabled: true,
+      group: 'delegation',
+      order: 0,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — AgentKit attestation when sponsor is World ID verified', color: 'violet' },
     },
     {
       id: 'passport-bureau-registry',

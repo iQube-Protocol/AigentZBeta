@@ -127,6 +127,12 @@ const envVars = [
   // World ID — client-side IDKit widget needs the public app id.
   'NEXT_PUBLIC_WORLD_ID_APP_ID',
   'NEXT_PUBLIC_WORLD_ID_ACTION_ID',
+  // AgentKit policy attestation layer — wraps bounded delegation grants
+  // with a cryptographic attestation. Stub mode when unset.
+  'AGENTKIT_API_KEY',
+  'AGENTKIT_POLICY_ID',
+  'AGENTKIT_ATTEST_URL',
+  'AGENTKIT_STUB_KEY',
   'SEQUENCE_DISPATCH_SECRET',
   'LVB_BRIDGE_DEFAULT_PERSONA_ID',
   // iQubeNFT — ERC721 on-chain anchor
