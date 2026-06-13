@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`914c081`](https://github.com/iQube-Protocol/AigentZBeta/commit/914c08124f7996047bf0900c2e339a29742bec72) [chore] polish step strip to rounded-rect boxes + surface world id upgrade on registry (Claude, 2026-06-13T20:35:04Z)
 - [`72dde3e`](https://github.com/iQube-Protocol/AigentZBeta/commit/72dde3ebda4ffeb0c4ae3bb8eb747866903c99a7) [push] document wallet-over-cartridge overlay pattern + aletheon activation walkthrough (Claude, 2026-06-13T20:31:30Z)
 - [`84f45d6`](https://github.com/iQube-Protocol/AigentZBeta/commit/84f45d6040febc440eb1c22ca69ebcb078a5fdb7) [feat] fix passport bureau copilot — wire CodexCopilotLayer for polity-passport-bureau-cartridge (aigent-z default) (Claude, 2026-06-13T20:28:27Z)
 - [`afdf02d`](https://github.com/iQube-Protocol/AigentZBeta/commit/afdf02d2dcb7460f866243c65b291ce721a4db65) [fix] fix migrations — personas RLS uses auth_profile_id, not auth_user_id (operator unblock) (Claude, 2026-06-13T20:10:42Z)
