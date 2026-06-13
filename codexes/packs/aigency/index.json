@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T17:39:52.006Z",
+  "last_updated": "2026-06-13T17:43:12.566Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9a7e4e9f578397e072d455ed38ded2237445f2f2",
-  "latest_commit_short": "9a7e4e9",
-  "latest_commit_title": "sprint 4 — polity passport locker + qubetalk channel bridge",
+  "latest_commit": "e86dfe4a059d8813ab25e19d6e3da65872e63f15",
+  "latest_commit_short": "e86dfe4",
+  "latest_commit_title": "sprint 5 — delegation tab in passport + agentkit attestation bridge",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e86dfe4",
+      "full_sha": "e86dfe4a059d8813ab25e19d6e3da65872e63f15",
+      "title": "sprint 5 — delegation tab in passport + agentkit attestation bridge",
+      "author": "Claude",
+      "timestamp": "2026-06-13T17:41:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e86dfe4.md"
+    },
     {
       "sha": "9a7e4e9",
       "full_sha": "9a7e4e9f578397e072d455ed38ded2237445f2f2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T20:44:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-995f518.md"
-    },
-    {
-      "sha": "d48b6f2",
-      "full_sha": "d48b6f2749924f0196ee91d1d766e26d3792e5d0",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-31T20:44:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d48b6f2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

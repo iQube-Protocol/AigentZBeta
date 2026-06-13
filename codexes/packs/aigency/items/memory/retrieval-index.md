@@ -2219,3 +2219,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9a7e4e9.md](../build_/COMMITS/COMMIT-9a7e4e9.md)
 - Message: sprint 4 — polity passport locker + qubetalk channel bridge
+
+## Commit `e86dfe4` — 2026-06-13T17:41:06Z
+- Type: `push`
+- Brief: [COMMIT-e86dfe4.md](../build_/COMMITS/COMMIT-e86dfe4.md)
+- Message: sprint 5 — delegation tab in passport + agentkit attestation bridge

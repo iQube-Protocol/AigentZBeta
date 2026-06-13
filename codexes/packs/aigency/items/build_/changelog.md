@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e86dfe4`](https://github.com/iQube-Protocol/AigentZBeta/commit/e86dfe4a059d8813ab25e19d6e3da65872e63f15) [push] sprint 5 — delegation tab in passport + agentkit attestation bridge (Claude, 2026-06-13T17:41:06Z)
 - [`9a7e4e9`](https://github.com/iQube-Protocol/AigentZBeta/commit/9a7e4e9f578397e072d455ed38ded2237445f2f2) [push] sprint 4 — polity passport locker + qubetalk channel bridge (Claude, 2026-06-13T17:37:42Z)
 - [`69905ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/69905ac588a277e89adb4b56c4343271de721835) [push] sprint 3 — agent genesis wizard inside the passport bureau apply tab (Claude, 2026-06-13T16:47:32Z)
 - [`25260eb`](https://github.com/iQube-Protocol/AigentZBeta/commit/25260ebb5ed51e788c9529fa711b4f71e4748cc1) [push] sprint 2 — world id strong verification for citizen passports (Claude, 2026-06-13T16:39:27Z)
