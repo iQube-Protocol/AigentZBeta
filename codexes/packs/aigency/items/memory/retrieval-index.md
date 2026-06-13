@@ -2274,3 +2274,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-99334b6.md](../build_/COMMITS/COMMIT-99334b6.md)
 - Message: go live — walrus http publisher + real worldid idkit widget
+
+## Commit `cdfe373` — 2026-06-13T21:01:10Z
+- Type: `feat`
+- Brief: [COMMIT-cdfe373.md](../build_/COMMITS/COMMIT-cdfe373.md)
+- Message: add polity passport bureau doctrine, ens, and being tabs
