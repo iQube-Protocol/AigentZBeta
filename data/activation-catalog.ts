@@ -295,6 +295,28 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
       { action: 'author-experience', label: 'Author a new experience', rationale: 'Open the Studio composer and start an ExperienceQube.', specialist: 'aigent-z' },
     ],
   },
+  {
+    id: 'polity-passport',
+    label: 'Polity Passport',
+    description: 'Identity sovereignty — apply for a Polity Passport, manage ENS, delegate to agents.',
+    longDescription:
+      'Activate the Polity Passport Bureau surfaces inside metaMe — apply for an anonymous Citizen Passport, mint a gasless ENS subname, manage your self-custody Locker, grant bounded delegations to agents, and access human mobility services. Irrevocable proof of personhood with privacy-preserving identity.',
+    gate: 'open',
+    tabSlug: 'polity-passport',
+    sourceCartridge: 'metame',
+    icon: 'ShieldCheck',
+    color: 'violet',
+    metrics: [
+      { metric: 'passports_issued', class: 'outcome', label: 'Passports issued', defaultUnit: 'passports', query: { kind: 'receipts', eventType: 'passport.issued' } },
+      { metric: 'delegations_granted', class: 'activity', label: 'Delegations granted', defaultUnit: 'delegations', query: { kind: 'receipts', eventType: 'passport.delegation.granted' } },
+      { metric: 'ens_names_minted', class: 'outcome', label: 'ENS names minted', defaultUnit: 'names', query: { kind: 'receipts', eventType: 'passport.ens.minted' } },
+      { metric: 'locker_items_stored', class: 'activity', label: 'Locker items stored', defaultUnit: 'items', query: { kind: 'receipts', eventType: 'passport.locker.stored' } },
+    ],
+    actions: [
+      { action: 'apply-passport', label: 'Apply for a Citizen Passport', rationale: 'Start the passport application flow — anonymous, self-custody, irrevocable.', specialist: 'aigent-z' },
+      { action: 'mint-ens', label: 'Mint an ENS subname', rationale: 'Claim a gasless L2 ENS identity under polity.eth.', specialist: 'aigent-z' },
+    ],
+  },
 ];
 
 export function getActivationEntry(id: string): ActivationCatalogEntry | null {

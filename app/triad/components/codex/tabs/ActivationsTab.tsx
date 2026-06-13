@@ -9,8 +9,8 @@
  * events, no per-component fetches.
  */
 
-import React, { useCallback } from "react";
-import { Loader2, Sparkles, ChevronRight, Lock, CheckCircle2, X, Hourglass } from "lucide-react";
+import React, { useCallback, useState } from "react";
+import { Loader2, Sparkles, ChevronRight, Lock, CheckCircle2, X, Hourglass, ExternalLink, Check } from "lucide-react";
 import { useActivations } from "@/services/activations/ActivationsContext";
 
 interface Props {
@@ -19,6 +19,19 @@ interface Props {
   /** Optional click handler — parent can navigate to the activated tab. */
   onOpenSurface?: (tabSlug: string) => void;
   theme?: "light" | "dark";
+}
+
+const SOURCE_TO_EMBED_SLUG: Record<string, string> = {
+  metame: 'metame',
+  knyt: 'knyt',
+  qriptopian: 'qripto',
+  marketa: 'marketa',
+  mvl: 'alpha-knyt',
+};
+
+function buildEmbedUrl(sourceCartridge: string, tabSlug: string): string {
+  const slug = SOURCE_TO_EMBED_SLUG[sourceCartridge] ?? sourceCartridge;
+  return `/triad/embed/codex/${slug}?tab=${encodeURIComponent(tabSlug)}`;
 }
 
 export function ActivationsTab({ isAdmin = false, onOpenSurface, theme = "dark" }: Props) {
@@ -33,6 +46,8 @@ export function ActivationsTab({ isAdmin = false, onOpenSurface, theme = "dark" 
     clearError,
   } = useActivations();
 
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const handleClick = useCallback(
     (id: string, action: "activate" | "request" | "revoke") => {
       if (action === "activate") return void activate(id);
@@ -41,6 +56,15 @@ export function ActivationsTab({ isAdmin = false, onOpenSurface, theme = "dark" 
     },
     [activate, requestAccess, revoke],
   );
+
+  const handleCopyEmbed = useCallback((id: string, sourceCartridge: string, tabSlug: string) => {
+    const path = buildEmbedUrl(sourceCartridge, tabSlug);
+    const url = typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 2000);
+    });
+  }, []);
 
   const isDark = theme === "dark";
   const panelClass = isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900";
@@ -173,10 +197,19 @@ export function ActivationsTab({ isAdmin = false, onOpenSurface, theme = "dark" 
                     <span className="text-xs text-amber-300">Request submitted — admin will review.</span>
                   )}
                   {s.grantedAt && isActive && (
-                    <span className={`text-[10px] ${mutedClass} ml-auto`}>
+                    <span className={`text-[10px] ${mutedClass}`}>
                       via {s.grantedVia} · {new Date(s.grantedAt).toLocaleDateString()}
                     </span>
                   )}
+                  <button
+                    type="button"
+                    title="Copy embed link"
+                    onClick={() => handleCopyEmbed(s.id, s.sourceCartridge, s.tabSlug)}
+                    className="flex items-center gap-1 px-2 py-1 rounded border border-slate-600 hover:border-sky-500/50 text-xs text-slate-400 hover:text-sky-300 ml-auto"
+                  >
+                    {copiedId === s.id ? <Check className="w-3 h-3 text-emerald-400" /> : <ExternalLink className="w-3 h-3" />}
+                    {copiedId === s.id ? 'Copied' : 'Embed'}
+                  </button>
                 </div>
               </div>
             );

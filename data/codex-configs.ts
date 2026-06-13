@@ -2608,6 +2608,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
     { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
+    { id: 'passport',     label: 'Polity Passport',  icon: 'ShieldCheck',order: 4.5, activationId: 'polity-passport' },
     { id: 'qriptopia',    label: 'Qriptopia',        icon: 'Globe',      order: 5,   activationId: 'qriptopian' },
     { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
   ],
@@ -3173,6 +3174,38 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'Kn0wdZTab', props: {} },
       metadata: { icon: 'Users', description: 'Community resources and Qriptopian', color: 'emerald' },
       subTabs: aiqOsTabsByGroup('ecosystem'),
+    },
+
+    // ── Polity Passport group (activation-gated) ────────────────────────────
+    // Mirrors the Polity Passport Bureau cartridge tabs so the full Bureau
+    // experience is available inside metaMe as a first-class activation.
+    // Uses the same polityPassportTabsByGroup() clone pattern as the
+    // AgentiQ / AgentiQ OS passport mirrors.
+    {
+      id: 'polity-passport',
+      label: 'Polity Passport',
+      slug: 'polity-passport',
+      enabled: true,
+      activationId: 'polity-passport',
+      group: 'passport',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab', props: {} },
+      metadata: {
+        icon: 'ShieldCheck',
+        description: 'Apply for an anonymous Citizen Passport — proof of personhood with self-custody privacy',
+        color: 'violet',
+      },
+      get subTabs() {
+        return polityPassportTabsByGroup('apply', 'metame-passport')
+          .concat(polityPassportTabsByGroup('doctrine', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('registry', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('locker', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('delegation', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('ens', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('being', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('steward', 'metame-passport'));
+      },
     },
 
     // ── Qriptopia group ──────────────────────────────────────────────────────
