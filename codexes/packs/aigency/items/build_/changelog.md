@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d9014b6`](https://github.com/iQube-Protocol/AigentZBeta/commit/d9014b6c7ee6993b6baf646b85459e6efeb4efd8) [fix] fix Amplify build: scope outputFileTracingIncludes to aigency + agentiq packs only — wildcard glob follows alpha-knyt symlink causing directory collision (Claude, 2026-06-13T05:10:09Z)
 - [`9945b46`](https://github.com/iQube-Protocol/AigentZBeta/commit/9945b46cb762a095e2af9e1793541566822267b0) [push] document aigent-z platform ground knowledge session in agentiq updates pack (Claude, 2026-06-12T16:00:51Z)
 - [`d885aba`](https://github.com/iQube-Protocol/AigentZBeta/commit/d885abafe6a5a31604c46139256915e48d99a3d1) [push] ICE engine phase 1a: stage orchestrator with structured proposals, approval cards in capability capsules, live stage inventories (Claude, 2026-06-12T16:32:46Z)
 - [`17ef7bd`](https://github.com/iQube-Protocol/AigentZBeta/commit/17ef7bddfdf965ba54383fda7d97ea15d9ced8ac) [push] document ICE engine phase 1a session in agentiq updates pack (Claude, 2026-06-12T16:33:20Z)
