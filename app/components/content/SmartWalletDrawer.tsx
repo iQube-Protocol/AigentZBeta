@@ -1050,41 +1050,26 @@ export default function SmartWalletDrawer({
 
       // Strong-proof bundle. In production the IDKit modal returns these
       // four fields; the @worldcoin/idkit React component fires the
-      // openModal flow and resolves with the same shape. For the demo cut
-      // we POST a dev-worldid token when the WORLD_ID_APP_ID env var is
-      // absent on the server — the server-side fallback accepts it.
-      const idkitMod: { IDKit?: unknown } = await import('@worldcoin/idkit').catch(() => ({}));
-      let proof: {
+      // openModal flow and resolves with the same shape.
+      //
+      // We DO NOT statically import @worldcoin/idkit here — the package
+      // isn't installed yet (stub mode is the demo cut), and a literal
+      // dynamic import('@worldcoin/idkit') still trips Next.js's
+      // module-not-found at build time. Until the SDK is installed and
+      // a dedicated WorldIdButton component mounts IDKitWidget inline,
+      // we generate a dev-worldid token here that the server-side
+      // verifyWorldIdProof accepts when WORLD_ID_APP_ID is unset.
+      const proof: {
         proof: string;
         merkle_root: string;
         nullifier_hash: string;
         verification_level: 'orb' | 'device';
+      } = {
+        proof: 'dev-worldid-orb',
+        merkle_root: '0x0',
+        nullifier_hash: `0x${Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64)}`,
+        verification_level: 'orb',
       };
-
-      if (idkitMod.IDKit) {
-        // Production path: IDKit modal returns the proof bundle.
-        // The handlers/modal are owned by @worldcoin/idkit; we receive
-        // the bundle through the IDKitWidget onSuccess callback. For
-        // simplicity in the wallet drawer we surface a stub here; the
-        // production wiring lives in components/identity/WorldIdButton.
-        // tsx (added in Sprint 2 follow-up) which mounts IDKitWidget
-        // inline and calls this same endpoint with the real proof.
-        proof = {
-          proof: 'dev-worldid-orb-fallback',
-          merkle_root: '0x0',
-          nullifier_hash: `0x${Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64)}`,
-          verification_level: 'orb',
-        };
-      } else {
-        // Dev/sandbox: server accepts dev-worldid-* tokens when
-        // WORLD_ID_APP_ID is unset. Otherwise this fails closed.
-        proof = {
-          proof: 'dev-worldid-orb',
-          merkle_root: '0x0',
-          nullifier_hash: `0x${Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64)}`,
-          verification_level: 'orb',
-        };
-      }
 
       const res = await fetch('/api/polity-passport/verify-worldid', {
         method: 'POST',
