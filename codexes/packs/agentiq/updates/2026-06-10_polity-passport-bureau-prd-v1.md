@@ -93,6 +93,27 @@ A write-through integration to the iQube Registry. Every valid submitted applica
 
 A workflow for automated checks, steward review, approval, provisional approval, denial, suspension, revocation, renewal, and appeal.
 
+### 4.6 Hackathon Extension: ProveKit Zero-Knowledge Attestations
+
+This implementation is an extension of the existing Polity Passport architecture, not a standalone project.
+
+**Existing Polity Passport capabilities:**
+- Citizen Passports
+- Participant Passports
+- Delegation Frameworks
+- Reputation Infrastructure
+- Human Mobility Services workflows
+- Self-custodied blakQube storage
+- Agent participation models
+
+**Hackathon extension integrates:**
+- World ID proof-of-personhood
+- ENS discovery infrastructure
+- Walrus decentralized evidence storage
+- ProveKit-powered zero-knowledge attestations
+
+**Objective:** extend the Polity Passport stack with reusable privacy-preserving verification infrastructure for Human Mobility Services workflows. The goal is not a weekend prototype but a materially extended, production-grade system.
+
 ## 5. User Classes
 
 ### 5.1 Human Applicants
@@ -403,6 +424,111 @@ Initial use cases: immigration law orientation; housing law orientation; housing
 
 The Passport Bureau should not itself provide formal legal advice unless operated by approved legal assistance agents or licensed partners. Instead, it should route citizens to approved Being cartridges and approved participant agents. **Being-related services should be in a separate tab in the Passport Bureau Cartridge and may even be moved to a new separate cartridge — stub for that.**
 
+### 15.A Layer 7 – Zero-Knowledge Attestations
+
+**Provider:** [ProveKit](https://provekit.org)
+
+**Documentation:** [ProveKit Documentation](https://docs.provekit.atheon.xyz)
+
+**Purpose:** Enable privacy-preserving verification of participant claims without disclosure of underlying sensitive information.
+
+The MVP will use ProveKit to generate and verify attestations such as:
+
+- proof of personhood
+- proof of delegation authority
+- proof of passport standing
+- proof of participant eligibility
+- proof of document possession
+- proof of refugee or protected status (where appropriate attestations exist)
+- proof of mobility workflow authorization
+
+without exposing the underlying records, PII, or sensitive declarations stored in blakQube.
+
+### 15.B Delegated Verification Network (DVN) Integration Stub
+
+The MVP introduces the first implementation of the Polity Delegated Verification Network.
+
+The DVN enables:
+
+```
+Claim
+  ↓
+Attestation
+  ↓
+Proof Generation
+  ↓
+Proof Verification
+```
+
+without requiring disclosure of underlying sensitive information.
+
+**In the MVP:**
+
+- ProveKit acts as the proof-generation framework.
+- Passport records remain encrypted in self-custody blakQube storage.
+- Verification occurs through zero-knowledge attestations.
+- Third parties receive proof rather than raw data.
+
+This serves as the foundation for future T0/T1/T2 verification infrastructure, supporting reputation verification, mobility authorization, and selective disclosure workflows where citizens and agents can prove standing without exposing private details.
+
+### 15.1 Refugee / Stateless Citizen Demonstration Scenario
+
+```
+World ID (proof of human)
+    ↓
+Citizen Passport (Polity membership)
+    ↓
+Delegation Grant (authority to act)
+    ↓
+Mobility Agent (immigration/housing assistance intermediary)
+    ↓
+Walrus Evidence Vault (encrypted case files, documents, permits)
+    ↓
+ProveKit ZK Proof (selective disclosure)
+    ↓
+Immigration Counsel (verification without data exposure)
+```
+
+**Counsel can verify:**
+- human existence and uniqueness
+- delegated authority granted by the citizen
+- passport standing and eligibility
+- possession of supporting evidence (documents, permits, declarations)
+
+**Counsel cannot learn (without explicit citizen authorization):**
+- exact location or movement history
+- legal name or identity
+- unnecessary personal information
+- private case notes or health information
+
+### 15.2 Executive Mobility Demonstration Scenario
+
+```
+World ID (proof of human)
+    ↓
+Citizen Passport (Polity recognition)
+    ↓
+Executive Mobility Agent (relocation/legal coordination agent)
+    ↓
+Walrus Vault (private documents, contracts, compliance records)
+    ↓
+ProveKit Attestations (selective disclosure proofs)
+    ↓
+Travel / Legal / Relocation Partners (verification & coordination)
+```
+
+**Partners can verify:**
+- authorization to act on the citizen's behalf
+- passport standing and reputation
+- eligibility for required services
+- possession of required documentation (visas, permits, clearances)
+
+**Partners cannot learn (without explicit authorization):**
+- private financial records
+- health or family status
+- visa or passport numbers
+- private legal strategy or risk factors
+
 ## 16. MVP Scope
 
 **MVP Must Include:** Bureau cartridge landing page; Citizen Passport application flow; Agent Participant Passport application flow; username/password persona creation; optional email recovery; CAPTCHA weak proof of personhood; KybeDID creation/binding; application iQube creation; pending registry record creation; basic iQube Registry integration; public registry status page; doctrine download bundle; JSON schema download; Participant Passport application schema; Citizen Passport application schema; manual steward review dashboard; status transitions; receipts for submission and registry writes.
@@ -435,6 +561,30 @@ The product is ready when:
 14. The system preserves anonymous citizen application as a first-class path.
 15. The system distinguishes human citizenship from agent participant standing.
 16. MVP preserves a clean migration path to multi-sig / multi-modal blakQube recovery without weakening the self-custody rule.
+
+### 18.A Prize Alignment
+
+The extended Polity Passport implementation now naturally aligns with all four World prize dimensions:
+
+| Prize Track | Integration | How Polity Passport Qualifies |
+|---|---|---|
+| **World AgentKit** | Human-backed delegated agents | Delegation Framework (§15 scenario: Mobility Agent acts on citizen's behalf) |
+| **World ID** | Proof of personhood | Strong proof-of-personhood integration enables Verified Citizen Passport grade |
+| **ProveKit** | Zero-knowledge attestations | Layer 7 (§15.A) generates privacy-preserving proofs of standing, eligibility, document possession without data exposure |
+| **ENS** | Naming and discovery | Participant Passport agent discovery via ENS reverse resolution; citizen pseudonym resolution through KybeDID anchors |
+| **Walrus** | Self-custodied evidence storage | Encrypted case files, documents, declarations stored as Walrus-backed blakQube payloads; holder controls all decryption |
+
+**Strategic narrative:** The Polity Passport system is not a weekend prototype. It is a systematic extension of existing Polity doctrine and identity infrastructure, now hardened with production-grade privacy, verification, and mobility services.
+
+**The architecture:**
+- **World** proves the human.
+- **Polity Passport** recognizes the participant.
+- **Delegation** preserves human agency.
+- **Walrus** preserves encrypted evidence.
+- **ENS** provides discoverability.
+- **ProveKit** enables selective disclosure.
+
+Together they create the first concrete implementation of **Human Mobility Services** as reusable infrastructure for sovereign agency across dimensions of being.
 
 ## 19. Non-Goals
 
