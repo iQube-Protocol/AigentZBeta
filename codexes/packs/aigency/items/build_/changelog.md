@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`dafd44c`](https://github.com/iQube-Protocol/AigentZBeta/commit/dafd44c85ec0e9d66bfba03511d4abd5739b5946) [push] document worldcoin keyspace — three keys, one purpose each (operator unblock) (Claude, 2026-06-13T23:10:59Z)
 - [`5406314`](https://github.com/iQube-Protocol/AigentZBeta/commit/54063144f36a193f745f937fe672a40d62a1728c) [push] trigger deploy to dev (Claude, 2026-06-13T21:19:31Z)
 - [`1abc8ec`](https://github.com/iQube-Protocol/AigentZBeta/commit/1abc8ec9c1872909eb96ae9bb4b10401da6186ae) [feat] add polity passport as first-class metaMe activation + embed link on all activation cards (Claude, 2026-06-13T21:09:18Z)
 - [`cdfe373`](https://github.com/iQube-Protocol/AigentZBeta/commit/cdfe3730dd7c8c9c04c3d7638da5e926489bc8b3) [feat] add polity passport bureau doctrine, ens, and being tabs (Claude, 2026-06-13T21:01:10Z)
