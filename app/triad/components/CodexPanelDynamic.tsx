@@ -146,6 +146,7 @@ export default function CodexPanelDynamic({
   const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
   const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
   const [metameCopilotOpen, setMetameCopilotOpen] = useState(false);
+  const [passportCopilotOpen, setPassportCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -1117,6 +1118,33 @@ export default function CodexPanelDynamic({
           promptPlaceholder="Ask aigentMe about your ExperienceModel, briefs, or next move..."
           initialMessage="I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything."
           quickPrompts={['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1', 'Ask Nakamoto']}
+        />
+      )}
+
+      {/* Polity Passport Bureau — copilot on every passport tab.
+          Violet branding to match the cartridge accent. Agent: aigent-z
+          (system orchestrator + cartridge owner) — operator placeholder,
+          will reassign later. Per 2026-06-13 Sprint 8 plan. */}
+      {codexId === 'polity-passport-bureau-cartridge' && (
+        <CodexCopilotLayer
+          isOpen={passportCopilotOpen}
+          onClose={() => setPassportCopilotOpen(false)}
+          onOpen={() => setPassportCopilotOpen(true)}
+          variant="floating"
+          accentColor="violet"
+          agent={{ id: 'aigent-z', name: 'Aigent Z' }}
+          personaId={resolvedPersonaId ?? undefined}
+          enableInferenceRendering
+          contextId={`passport-${activeTabSlug}`}
+          promptPlaceholder="Ask about your passport, agent delegation, or locker…"
+          initialMessage="I'm Aigent Z — your guide through the Polity Passport Bureau. Citizen Passports, Participant Passports, agent genesis, bounded delegation, the Locker, ENS, and verifiable credentials — ask me anything."
+          quickPrompts={[
+            'How do I claim a Citizen Passport?',
+            'How do I sponsor an agent?',
+            'What does World ID verification add?',
+            'Show my bound agents',
+            'How does the Locker work?',
+          ]}
         />
       )}
     </SmartTriadProvider>
