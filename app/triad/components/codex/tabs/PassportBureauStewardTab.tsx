@@ -21,7 +21,7 @@ import {
   Bot,
   User,
 } from 'lucide-react';
-import { personaFetch } from '@/utils/personaSpine';
+import { authedFetchHeaders } from '@/utils/supabaseBrowser';
 
 interface QueueItem {
   applicationId: string;
@@ -51,7 +51,8 @@ export function PassportBureauStewardTab() {
     setLoading(true);
     setError(null);
     try {
-      const res = await personaFetch('/api/passport/review/queue', { cache: 'no-store' });
+      const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
+      const res = await fetch('/api/passport/review/queue', { cache: 'no-store', headers: headers ?? undefined });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || `Queue load failed (${res.status})`);
       setQueue(json.queue ?? []);
@@ -71,9 +72,10 @@ export function PassportBureauStewardTab() {
       setBusyId(applicationId);
       setError(null);
       try {
-        const res = await personaFetch('/api/passport/review/decide', {
+        const hdrs = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+        const res = await fetch('/api/passport/review/decide', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: hdrs ?? { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             applicationId,
             decision,
