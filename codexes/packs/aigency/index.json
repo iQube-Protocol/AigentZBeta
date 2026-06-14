@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T00:17:17.428Z",
+  "last_updated": "2026-06-14T00:41:11.483Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c4bb4cea824f0ee3b947f83d7f5731738b2337aa",
-  "latest_commit_short": "c4bb4ce",
-  "latest_commit_title": "self-hosted ccip-read ens resolver — bypass namestone entirely",
+  "latest_commit": "db509a301c14e2ea6d5fbc6d4436744ea4d201ae",
+  "latest_commit_short": "db509a3",
+  "latest_commit_title": "add /api/ens/ccip-read/health diagnostic endpoint",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "db509a3",
+      "full_sha": "db509a301c14e2ea6d5fbc6d4436744ea4d201ae",
+      "title": "add /api/ens/ccip-read/health diagnostic endpoint",
+      "author": "Claude",
+      "timestamp": "2026-06-14T00:39:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-db509a3.md"
+    },
     {
       "sha": "c4bb4ce",
       "full_sha": "c4bb4cea824f0ee3b947f83d7f5731738b2337aa",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T12:38:16Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d7eab2f.md"
-    },
-    {
-      "sha": "fbf7823",
-      "full_sha": "fbf7823ec47bdba78cd5c3174b688869324baa11",
-      "title": "docs: AgentiQ Network Costs — first-class reference doc + cartridge collection",
-      "author": "Claude",
-      "timestamp": "2026-06-01T12:39:45Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-fbf7823.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

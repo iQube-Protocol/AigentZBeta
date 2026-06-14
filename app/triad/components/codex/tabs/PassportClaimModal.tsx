@@ -15,6 +15,7 @@ import {
   Check,
   Copy,
   Wallet,
+  Link2,
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 
@@ -226,6 +227,22 @@ export function PassportClaimModal({
                 Download
               </button>
             </div>
+
+            {!isCitizen && (
+              <button
+                onClick={() => {
+                  onClose();
+                  const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
+                  if (tabButtons.length > 0) {
+                    (tabButtons[0] as HTMLElement).click();
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-500"
+              >
+                <Link2 className="h-4 w-4" />
+                Set up Bounded Delegation
+              </button>
+            )}
 
             <button
               onClick={onClose}

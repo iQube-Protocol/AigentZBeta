@@ -141,6 +141,31 @@ export async function POST(
         .from('polity_passport_records')
         .update({ credential_claimed_at: new Date().toISOString() })
         .eq('passport_id', passportId);
+
+      // Bind participant passports to their agent_root_identity.
+      // Look up the application by passport_id to find the agent_card_url,
+      // then update agent_root_identity.bound_passport_id so the sponsor
+      // can see the agent's passport in their "Sponsored Agents" view.
+      if (result.record!.passport_class !== 'citizen') {
+        try {
+          const { data: appRow } = await admin
+            .from('polity_passport_applications')
+            .select('agent_card_url')
+            .eq('passport_id', passportId)
+            .not('agent_card_url', 'is', null)
+            .maybeSingle();
+          if (appRow?.agent_card_url) {
+            await admin
+              .from('agent_root_identity')
+              .update({ bound_passport_id: passportId })
+              .eq('agent_card_url', appRow.agent_card_url)
+              .is('bound_passport_id', null);
+          }
+        } catch {
+          // Non-fatal — binding is best-effort during claim.
+          // The sponsor can still see the passport via the registry.
+        }
+      }
     }
 
     return NextResponse.json(
