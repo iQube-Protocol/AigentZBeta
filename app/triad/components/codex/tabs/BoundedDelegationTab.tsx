@@ -380,6 +380,104 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
       {activeSubTab === "delegation" && (<>
 
+      {/* Agent selector — always visible at the top */}
+      <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Bot className="h-4 w-4 text-violet-400" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Select Agent to Delegate</p>
+        </div>
+
+        {agentsLoading ? (
+          <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Loading agents...
+          </div>
+        ) : (
+          <>
+            {/* Sponsored / bound agents first */}
+            {sponsoredAgents.length > 0 && (
+              <>
+                <p className="text-xs text-slate-400 font-medium">Your Sponsored Agents</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {sponsoredAgents.map((agent) => (
+                    <button
+                      key={agent.agentRootId}
+                      type="button"
+                      onClick={() => setSelectedAgent(agent)}
+                      className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                        selectedAgent.agentRootId === agent.agentRootId
+                          ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
+                          : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+                          selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
+                        }`}>
+                          <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
+                            {agent.displayName}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
+                        </div>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
+                          {agent.agentClass}
+                        </span>
+                        {selectedAgent.agentRootId === agent.agentRootId && (
+                          <CheckCircle2 className="h-3 w-3 text-violet-400" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <p className="text-xs text-slate-400 font-medium">{sponsoredAgents.length > 0 ? 'Platform Agents' : 'Available Agents'}</p>
+            <div className="grid grid-cols-2 gap-2">
+              {PLATFORM_AGENTS.map((agent) => (
+                <button
+                  key={agent.agentRootId}
+                  type="button"
+                  onClick={() => setSelectedAgent(agent)}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                    selectedAgent.agentRootId === agent.agentRootId
+                      ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
+                      : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+                      selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
+                    }`}>
+                      <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
+                        {agent.displayName}
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
+                      {agent.agentClass}
+                    </span>
+                    {selectedAgent.agentRootId === agent.agentRootId && (
+                      <CheckCircle2 className="h-3 w-3 text-violet-400" />
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
       {/* Injection warning banner */}
       {hasInjectionWarning && showAudit && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
@@ -392,31 +490,6 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           </div>
         </div>
       )}
-
-      {/* Agent identity card — shows selected agent */}
-      <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-violet-400" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Delegate Agent Identity</p>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-400">Agent</span>
-          <span className="text-sm font-medium text-slate-200">{selectedAgent.displayName}</span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-400">Root DiD</span>
-          <code className="text-xs text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded">
-            {selectedAgent.didUri}
-          </code>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-400">Class</span>
-          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${agentClassColor(selectedAgent.agentClass)}`}>
-            {selectedAgent.agentClass}
-          </span>
-        </div>
-        <p className="text-[11px] text-slate-500 italic">Personas may vary. Accountability does not.</p>
-      </div>
 
       {/* Persona wallet state */}
       {activePersona && (
@@ -578,100 +651,16 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       {/* Grant form */}
       {showGrantForm && !delegation?.active && (
         <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-4">
-          <p className="text-sm font-semibold text-slate-200">Configure Delegation</p>
+          <p className="text-sm font-semibold text-slate-200">Configure Delegation for {selectedAgent.displayName}</p>
 
-          {/* Delegate To — agent selector */}
-          <div className="space-y-2">
-            <label className="text-xs text-slate-400 flex items-center gap-1.5">
-              <Bot className="h-3.5 w-3.5" />
-              Delegate To
-            </label>
-
-            <p className="text-xs text-slate-500">Platform Agents</p>
-            <div className="grid grid-cols-2 gap-2">
-              {PLATFORM_AGENTS.map((agent) => (
-                <button
-                  key={agent.agentRootId}
-                  type="button"
-                  onClick={() => setSelectedAgent(agent)}
-                  className={`rounded-lg border px-3 py-2.5 text-left transition ${
-                    selectedAgent.agentRootId === agent.agentRootId
-                      ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
-                      : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                      selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
-                    }`}>
-                      <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
-                        {agent.displayName}
-                      </p>
-                      <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
-                    </div>
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
-                      {agent.agentClass}
-                    </span>
-                    {selectedAgent.agentRootId === agent.agentRootId && (
-                      <CheckCircle2 className="h-3 w-3 text-violet-400" />
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {/* Sponsored agents section */}
-            {agentsLoading ? (
-              <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Loading sponsored agents...
-              </div>
-            ) : sponsoredAgents.length > 0 ? (
-              <>
-                <p className="text-xs text-slate-500 mt-3">Your Sponsored Agents</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {sponsoredAgents.map((agent) => (
-                    <button
-                      key={agent.agentRootId}
-                      type="button"
-                      onClick={() => setSelectedAgent(agent)}
-                      className={`rounded-lg border px-3 py-2.5 text-left transition ${
-                        selectedAgent.agentRootId === agent.agentRootId
-                          ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
-                          : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                          selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
-                        }`}>
-                          <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
-                            {agent.displayName}
-                          </p>
-                          <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
-                        </div>
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-1.5">
-                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
-                          {agent.agentClass}
-                        </span>
-                        {selectedAgent.agentRootId === agent.agentRootId && (
-                          <CheckCircle2 className="h-3 w-3 text-violet-400" />
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : null}
+          {/* Selected agent summary */}
+          <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
+            <Bot className="h-4 w-4 text-violet-400" />
+            <span className="text-sm text-violet-200 font-medium">{selectedAgent.displayName}</span>
+            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(selectedAgent.agentClass)}`}>
+              {selectedAgent.agentClass}
+            </span>
+            <code className="text-[10px] text-slate-500 ml-auto">{truncateDid(selectedAgent.didUri)}</code>
           </div>
 
           <div className="space-y-1.5">
