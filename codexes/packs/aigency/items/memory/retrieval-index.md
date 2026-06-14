@@ -2354,3 +2354,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-e4fff69.md](../build_/COMMITS/COMMIT-e4fff69.md)
 - Message: fix ENS tab spinner + add QubeTalk channels to Locker
+
+## Commit `15b39af` — 2026-06-14T19:20:10Z
+- Type: `push`
+- Brief: [COMMIT-15b39af.md](../build_/COMMITS/COMMIT-15b39af.md)
+- Message: trigger deploy to dev
+
+## Commit `7dcfb89` — 2026-06-14T19:19:54Z
+- Type: `feat`
+- Brief: [COMMIT-7dcfb89.md](../build_/COMMITS/COMMIT-7dcfb89.md)
+- Message: fix steward review auth + add collapsible wallet cards
