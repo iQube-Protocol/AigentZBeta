@@ -67,13 +67,62 @@ function loadEnvFile() {
   return out;
 }
 
-const saved = loadEnvFile();
-const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || saved.DEPLOYER_PRIVATE_KEY;
+function normalizePrivateKey(v) {
+  if (typeof v !== 'string') return v;
+  const trimmed = v.trim();
+  if (/^[a-fA-F0-9]{64}$/.test(trimmed)) return `0x${trimmed}`;
+  return trimmed;
+}
 
-if (!DEPLOYER_PRIVATE_KEY || !DEPLOYER_PRIVATE_KEY.startsWith('0x') || DEPLOYER_PRIVATE_KEY.length !== 66) {
-  console.error(`❌ DEPLOYER_PRIVATE_KEY not found in env or ${ENV_FILE}.`);
-  console.error(`   Run 'node scripts/deploy.mjs' first to save the key.`);
-  process.exit(1);
+function isValidPrivateKey(v) {
+  return typeof v === 'string' && /^0x[a-fA-F0-9]{64}$/.test(v);
+}
+
+async function promptHidden(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+  const stdin = process.openStdin();
+  process.stdout.write(question);
+  return new Promise((resolve) => {
+    let answer = '';
+    const onData = (char) => {
+      const ch = char.toString();
+      if (ch === '\n' || ch === '\r' || ch === '') {
+        stdin.removeListener('data', onData);
+        stdin.setRawMode(false);
+        stdin.pause();
+        process.stdout.write('\n');
+        rl.close();
+        resolve(answer);
+        return;
+      }
+      if (ch === '') process.exit(1);
+      if (ch === '' || ch === '\b') {
+        if (answer.length > 0) answer = answer.slice(0, -1);
+      } else {
+        answer += ch;
+      }
+    };
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.on('data', onData);
+  });
+}
+
+const saved = loadEnvFile();
+let DEPLOYER_PRIVATE_KEY = normalizePrivateKey(
+  process.env.DEPLOYER_PRIVATE_KEY || saved.DEPLOYER_PRIVATE_KEY,
+);
+
+if (!isValidPrivateKey(DEPLOYER_PRIVATE_KEY)) {
+  console.log(`No saved deployer key found at ${ENV_FILE}.`);
+  console.log(`Paste your Sepolia wallet private key (the one that owns polity.eth).`);
+  console.log(`Hidden input — your key will not echo. 64 hex chars, with or without 0x prefix.`);
+  const raw = await promptHidden('   Private key: ');
+  DEPLOYER_PRIVATE_KEY = normalizePrivateKey(raw);
+  if (!isValidPrivateKey(DEPLOYER_PRIVATE_KEY)) {
+    console.error(`❌ Invalid. Got ${raw.length} chars. Expected 64 hex.`);
+    process.exit(1);
+  }
 }
 
 let resolverAddress = process.argv[2];
