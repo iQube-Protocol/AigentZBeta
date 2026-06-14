@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`4f00c2c`](https://github.com/iQube-Protocol/AigentZBeta/commit/4f00c2c9567678af40bd2aefcd3b36196a3346f9) [feat] add programmatic resolver-set script — bypass ENS Manager UI (Claude, 2026-06-14T05:21:47Z)
 - [`604196e`](https://github.com/iQube-Protocol/AigentZBeta/commit/604196e295856f3cc01602c8709bc144c90fa18b) [push] auto-prepend 0x to private keys in deploy.mjs (Claude, 2026-06-14T05:14:24Z)
 - [`eda3879`](https://github.com/iQube-Protocol/AigentZBeta/commit/eda3879551eeead0fd80f103f40257e740f656d5) [push] interactive ccip-read deploy script — one command, prompts for missing keys (Claude, 2026-06-14T02:20:24Z)
 - [`86ea6e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/86ea6e021553f4f057befdf6519df25ecda37528) [feat] add ccip-read ens operator runbook (Claude, 2026-06-14T01:42:34Z)

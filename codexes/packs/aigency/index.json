@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T05:16:29.336Z",
+  "last_updated": "2026-06-14T05:23:42.095Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "604196e295856f3cc01602c8709bc144c90fa18b",
-  "latest_commit_short": "604196e",
-  "latest_commit_title": "auto-prepend 0x to private keys in deploy.mjs",
+  "latest_commit": "4f00c2c9567678af40bd2aefcd3b36196a3346f9",
+  "latest_commit_short": "4f00c2c",
+  "latest_commit_title": "add programmatic resolver-set script — bypass ENS Manager UI",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4f00c2c",
+      "full_sha": "4f00c2c9567678af40bd2aefcd3b36196a3346f9",
+      "title": "add programmatic resolver-set script — bypass ENS Manager UI",
+      "author": "Claude",
+      "timestamp": "2026-06-14T05:21:47Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-4f00c2c.md"
+    },
     {
       "sha": "604196e",
       "full_sha": "604196e295856f3cc01602c8709bc144c90fa18b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T13:37:53Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-4a36c1f.md"
-    },
-    {
-      "sha": "cdcf115",
-      "full_sha": "cdcf11569eef7dc90930350bc5f3df26aa9d18cf",
-      "title": "RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode",
-      "author": "Claude",
-      "timestamp": "2026-06-01T13:20:49Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cdcf115.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

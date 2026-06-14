@@ -2329,3 +2329,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-604196e.md](../build_/COMMITS/COMMIT-604196e.md)
 - Message: auto-prepend 0x to private keys in deploy.mjs
+
+## Commit `4f00c2c` — 2026-06-14T05:21:47Z
+- Type: `feat`
+- Brief: [COMMIT-4f00c2c.md](../build_/COMMITS/COMMIT-4f00c2c.md)
+- Message: add programmatic resolver-set script — bypass ENS Manager UI
