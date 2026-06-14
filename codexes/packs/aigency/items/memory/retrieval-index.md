@@ -2344,3 +2344,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-180a967.md](../build_/COMMITS/COMMIT-180a967.md)
 - Message: handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero
+
+## Commit `79405af` — 2026-06-14T08:05:19Z
+- Type: `push`
+- Brief: [COMMIT-79405af.md](../build_/COMMITS/COMMIT-79405af.md)
+- Message: trigger deploy to dev
+
+## Commit `e4fff69` — 2026-06-14T08:04:56Z
+- Type: `feat`
+- Brief: [COMMIT-e4fff69.md](../build_/COMMITS/COMMIT-e4fff69.md)
+- Message: fix ENS tab spinner + add QubeTalk channels to Locker

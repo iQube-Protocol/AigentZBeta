@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T05:30:15.457Z",
+  "last_updated": "2026-06-14T08:07:16.749Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "180a96733ea5b3bd4b92b9ec984f6e795c7db6b9",
-  "latest_commit_short": "180a967",
-  "latest_commit_title": "handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero",
+  "latest_commit": "e4fff6987191afe424fab349d65af4dc44546e15",
+  "latest_commit_short": "e4fff69",
+  "latest_commit_title": "fix ENS tab spinner + add QubeTalk channels to Locker",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e4fff69",
+      "full_sha": "e4fff6987191afe424fab349d65af4dc44546e15",
+      "title": "fix ENS tab spinner + add QubeTalk channels to Locker",
+      "author": "Claude",
+      "timestamp": "2026-06-14T08:04:56Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e4fff69.md"
+    },
+    {
+      "sha": "79405af",
+      "full_sha": "79405af0b645613bea09e0c2e44db762f0aefc65",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-14T08:05:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-79405af.md"
+    },
     {
       "sha": "180a967",
       "full_sha": "180a96733ea5b3bd4b92b9ec984f6e795c7db6b9",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-01T23:26:40Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-336eacc.md"
-    },
-    {
-      "sha": "f6455ca",
-      "full_sha": "f6455cacc09e14e1c906ca28d0e5553a95a1da05",
-      "title": "MyCanvasTab: Edit button + in-panel edit-mode on saved experience_derived entries",
-      "author": "Claude",
-      "timestamp": "2026-06-01T15:33:36Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f6455ca.md"
-    },
-    {
-      "sha": "c98ed5e",
-      "full_sha": "c98ed5e843f11495aa338a2c396229d5c321cda7",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-06-01T15:33:36Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c98ed5e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
