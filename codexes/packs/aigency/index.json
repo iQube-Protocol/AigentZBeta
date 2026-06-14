@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-13T21:21:27.203Z",
+  "last_updated": "2026-06-14T00:17:17.428Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "54063144f36a193f745f937fe672a40d62a1728c",
-  "latest_commit_short": "5406314",
-  "latest_commit_title": "trigger deploy to dev",
+  "latest_commit": "c4bb4cea824f0ee3b947f83d7f5731738b2337aa",
+  "latest_commit_short": "c4bb4ce",
+  "latest_commit_title": "self-hosted ccip-read ens resolver — bypass namestone entirely",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c4bb4ce",
+      "full_sha": "c4bb4cea824f0ee3b947f83d7f5731738b2337aa",
+      "title": "self-hosted ccip-read ens resolver — bypass namestone entirely",
+      "author": "Claude",
+      "timestamp": "2026-06-14T00:15:12Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c4bb4ce.md"
+    },
+    {
+      "sha": "dafd44c",
+      "full_sha": "dafd44c85ec0e9d66bfba03511d4abd5739b5946",
+      "title": "document worldcoin keyspace — three keys, one purpose each (operator unblock)",
+      "author": "Claude",
+      "timestamp": "2026-06-13T23:10:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-dafd44c.md"
+    },
     {
       "sha": "5406314",
       "full_sha": "54063144f36a193f745f937fe672a40d62a1728c",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-01T12:39:45Z",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-fbf7823.md"
-    },
-    {
-      "sha": "72e03a8",
-      "full_sha": "72e03a8d725c25afcb8a21d2ceb41a2248222962",
-      "title": "trigger deploy to dev: ops anchor cron + K/T policy + calibration card + network-costs doc",
-      "author": "Claude",
-      "timestamp": "2026-06-01T12:39:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-72e03a8.md"
-    },
-    {
-      "sha": "7538ba5",
-      "full_sha": "7538ba53f3cd63ecb70246eccb1267e92b4fdd31",
-      "title": "ops page: anchor calibration repositioned + Base mainnet card added",
-      "author": "Claude",
-      "timestamp": "2026-06-01T12:41:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7538ba5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
