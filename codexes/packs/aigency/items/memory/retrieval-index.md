@@ -2304,3 +2304,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-db509a3.md](../build_/COMMITS/COMMIT-db509a3.md)
 - Message: add /api/ens/ccip-read/health diagnostic endpoint
+
+## Commit `bf296b8` — 2026-06-14T01:35:13Z
+- Type: `feat`
+- Brief: [COMMIT-bf296b8.md](../build_/COMMITS/COMMIT-bf296b8.md)
+- Message: add listAutoGrantActivationIds export to unblock amplify build
+
+## Commit `d5f5887` — 2026-06-14T01:40:31Z
+- Type: `push`
+- Brief: [COMMIT-d5f5887.md](../build_/COMMITS/COMMIT-d5f5887.md)
+- Message: trigger deploy to dev

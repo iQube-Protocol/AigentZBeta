@@ -3785,7 +3785,7 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
     { id: 'locker',  label: 'Locker',  icon: 'Lock', order: 3 },
     { id: 'delegation', label: 'Delegation', icon: 'Link2', order: 4 },
     { id: 'ens',     label: 'ENS',     icon: 'Globe', order: 5, adminOnly: true },
-    { id: 'being',   label: 'Being',   icon: 'Home', order: 6, adminOnly: true },
+    { id: 'being',   label: 'Mobility Services',   icon: 'Home', order: 6, adminOnly: true },
     { id: 'steward', label: 'Steward', icon: 'Gavel', order: 7, adminOnly: true },
   ],
   tabs: [
@@ -3857,14 +3857,14 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
     },
     {
       id: 'passport-bureau-being',
-      label: 'Being',
+      label: 'Mobility Services',
       slug: 'being',
       enabled: true,
       group: 'being',
       order: 0,
       type: 'static',
       config: { component: 'PassportBeingTab' },
-      metadata: { icon: 'Home', description: 'Human Mobility Services — immigration, housing, shelter, legal assistance routing', color: 'emerald' },
+      metadata: { icon: 'Home', description: 'Mobility Services — immigration, housing, shelter, legal assistance routing', color: 'emerald' },
     },
     {
       id: 'passport-bureau-steward',

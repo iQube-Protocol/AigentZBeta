@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 
 const DOCUMENT_CLASSES = [
@@ -78,7 +78,23 @@ interface PassportVcItem {
   passportGrade: string | null;
   passportStatus: string | null;
   claimedAt: string | null;
+  claimable: boolean;
   credential?: Record<string, unknown>;
+}
+
+interface SponsoredAgentItem {
+  agentRootId: string;
+  displayName: string;
+  agentCardUrl: string;
+  agentClass: string;
+  boundPassportId: string | null;
+  passport: {
+    passportId: string;
+    passportClass: string;
+    passportGrade: string | null;
+    passportStatus: string | null;
+    claimedAt: string | null;
+  } | null;
 }
 
 function cls(...xs: Array<string | false | undefined>) {
@@ -119,7 +135,9 @@ export function LockerTab() {
   const [passportVcsLoading, setPassportVcsLoading] = useState(true);
   const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
   const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
-  const [passportCardCollapsed, setPassportCardCollapsed] = useState(true);
+  const [passportCardCollapsed, setPassportCardCollapsed] = useState(false);
+  const [sponsoredAgentItems, setSponsoredAgentItems] = useState<SponsoredAgentItem[]>([]);
+  const [claimBusy, setClaimBusy] = useState<string | null>(null);
 
   // Derive last location from items when loaded
   useEffect(() => {
@@ -157,12 +175,23 @@ export function LockerTab() {
       if (agentRes.ok) {
         const data = await agentRes.json();
         if (data?.ok) {
+          const agentList = data.agents ?? [];
           setAgents(
-            (data.agents ?? []).map((a: { agentRootId: string; displayName: string; didUri: string; agentClass: string }) => ({
+            agentList.map((a: { agentRootId: string; displayName: string; didUri: string; agentClass: string }) => ({
               agentRootId: a.agentRootId,
               displayName: a.displayName,
               didUri: a.didUri,
               agentClass: a.agentClass,
+            })),
+          );
+          setSponsoredAgentItems(
+            agentList.map((a: SponsoredAgentItem & { agentRootId: string }) => ({
+              agentRootId: a.agentRootId,
+              displayName: a.displayName,
+              agentCardUrl: a.agentCardUrl,
+              agentClass: a.agentClass,
+              boundPassportId: a.boundPassportId,
+              passport: a.passport,
             })),
           );
         }
@@ -336,6 +365,27 @@ export function LockerTab() {
     [load],
   );
 
+  const handleClaimPassport = useCallback(async (passportId: string) => {
+    setClaimBusy(passportId);
+    try {
+      const res = await personaFetch(`/api/polity-passport/credential/${encodeURIComponent(passportId)}`, {
+        method: 'POST',
+        cache: 'no-store',
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setError(data?.error ?? data?.reason ?? 'Claim failed');
+        return;
+      }
+      setNotice('Passport credential claimed — it now appears in your wallet.');
+      void load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Claim failed');
+    } finally {
+      setClaimBusy(null);
+    }
+  }, [load]);
+
   const handleCopyVc = useCallback((pq: PassportVcItem) => {
     if (!pq.credential) return;
     void navigator.clipboard.writeText(JSON.stringify(pq.credential, null, 2)).then(() => {
@@ -404,7 +454,7 @@ export function LockerTab() {
         )}
       </div>
 
-      {/* Passport & HMS Records */}
+      {/* Passport Credentials & Sponsored Agents */}
       <div className="rounded-xl border border-violet-700/50 bg-violet-950/20 p-4 space-y-3">
         <button
           type="button"
@@ -413,10 +463,10 @@ export function LockerTab() {
         >
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-violet-400" />
-            <span className="text-sm font-semibold text-slate-200">Passport & HMS Records</span>
-            {passportVcs.length > 0 && (
+            <span className="text-sm font-semibold text-slate-200">My Credentials & Relationships</span>
+            {(passportVcs.length + sponsoredAgentItems.length) > 0 && (
               <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
-                {passportVcs.length}
+                {passportVcs.length + sponsoredAgentItems.length}
               </span>
             )}
           </div>
@@ -427,64 +477,158 @@ export function LockerTab() {
           )}
         </button>
         {!passportCardCollapsed && (
-          <div className="space-y-2">
-            {passportVcsLoading ? (
-              <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading passport credentials…
-              </div>
-            ) : passportVcs.length === 0 ? (
-              <p className="text-xs text-slate-400">
-                No passport credentials yet. Claim an approved passport from the Registry tab.
-              </p>
-            ) : (
-              passportVcs.map((pq) => (
-                <div key={pq.passportId} className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                      <span className="text-xs font-medium text-emerald-300">
-                        {pq.passportClass === 'citizen' ? 'Citizen' : 'Participant'} Passport
-                      </span>
-                      {pq.passportGrade === 'verified_citizen' && (
-                        <span className="flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-300">
-                          <ShieldCheck className="h-2.5 w-2.5" /> Verified
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-mono">{pq.passportId.slice(0, 12)}…</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
-                    <span>Status: <span className="text-emerald-300">{pq.passportStatus}</span></span>
-                    {pq.passportGrade && <span>· Grade: {pq.passportGrade}</span>}
-                    {pq.claimedAt && <span>· Claimed {new Date(pq.claimedAt).toLocaleDateString()}</span>}
-                  </div>
-                  {pq.credential && (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setPassportVcExpanded(passportVcExpanded === pq.passportId ? null : pq.passportId)}
-                          className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
-                        >
-                          <Eye className="h-3 w-3" />
-                          {passportVcExpanded === pq.passportId ? 'Hide VC' : 'View VC'}
-                        </button>
-                        <button
-                          onClick={() => handleCopyVc(pq)}
-                          className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
-                        >
-                          {passportVcCopied === pq.passportId ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                          {passportVcCopied === pq.passportId ? 'Copied' : 'Copy JSON'}
-                        </button>
-                      </div>
-                      {passportVcExpanded === pq.passportId && (
-                        <pre className="rounded bg-black/30 p-2 max-h-40 overflow-y-auto text-[10px] text-emerald-200 font-mono whitespace-pre-wrap break-all">
-                          {JSON.stringify(pq.credential, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  )}
+          <div className="space-y-4">
+            {/* Own passports */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">My Passports</h4>
+              {passportVcsLoading ? (
+                <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading credentials…
                 </div>
-              ))
+              ) : passportVcs.length === 0 ? (
+                <p className="text-xs text-slate-400">
+                  No passport credentials yet. Apply on the Apply tab, then claim here once approved.
+                </p>
+              ) : (
+                passportVcs.map((pq) => (
+                  <div key={pq.passportId} className={cls(
+                    'rounded-lg border p-3 space-y-2',
+                    pq.claimedAt ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5',
+                  )}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                        <span className="text-xs font-medium text-emerald-300">
+                          {pq.passportClass === 'citizen' ? 'Citizen' : 'Participant'} Passport
+                        </span>
+                        {pq.passportGrade === 'verified_citizen' && (
+                          <span className="flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-300">
+                            <ShieldCheck className="h-2.5 w-2.5" /> Verified
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono">{pq.passportId.slice(0, 12)}…</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
+                      <span>Status: <span className="text-emerald-300">{pq.passportStatus}</span></span>
+                      {pq.passportGrade && <span>· Grade: {pq.passportGrade}</span>}
+                      {pq.claimedAt && <span>· Claimed {new Date(pq.claimedAt).toLocaleDateString()}</span>}
+                    </div>
+                    {!pq.claimedAt && pq.claimable && (
+                      <button
+                        onClick={() => void handleClaimPassport(pq.passportId)}
+                        disabled={claimBusy === pq.passportId}
+                        className="flex items-center gap-1 rounded bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                      >
+                        {claimBusy === pq.passportId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wallet className="h-3 w-3" />}
+                        Claim Credential
+                      </button>
+                    )}
+                    {pq.credential && (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPassportVcExpanded(passportVcExpanded === pq.passportId ? null : pq.passportId)}
+                            className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                          >
+                            <Eye className="h-3 w-3" />
+                            {passportVcExpanded === pq.passportId ? 'Hide VC' : 'View VC'}
+                          </button>
+                          <button
+                            onClick={() => handleCopyVc(pq)}
+                            className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                          >
+                            {passportVcCopied === pq.passportId ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                            {passportVcCopied === pq.passportId ? 'Copied' : 'Copy JSON'}
+                          </button>
+                        </div>
+                        {passportVcExpanded === pq.passportId && (
+                          <pre className="rounded bg-black/30 p-2 max-h-40 overflow-y-auto text-[10px] text-emerald-200 font-mono whitespace-pre-wrap break-all">
+                            {JSON.stringify(pq.credential, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Sponsored agents */}
+            {sponsoredAgentItems.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Sponsored Agents</h4>
+                {sponsoredAgentItems.map((agent) => {
+                  const hasPassport = !!agent.passport;
+                  const isClaimed = !!agent.passport?.claimedAt;
+                  return (
+                    <div
+                      key={agent.agentRootId}
+                      className={cls(
+                        'rounded-lg border p-3 space-y-2',
+                        isClaimed
+                          ? 'border-emerald-500/20 bg-emerald-500/5'
+                          : hasPassport
+                            ? 'border-amber-500/20 bg-amber-500/5'
+                            : 'border-slate-700 bg-slate-900/40',
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Bot className="h-4 w-4 text-violet-400" />
+                          <span className="text-xs font-medium text-slate-100">{agent.displayName}</span>
+                          <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
+                            {agent.agentClass}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {isClaimed && (
+                            <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                              <ShieldCheck className="h-3 w-3" /> Claimed
+                            </span>
+                          )}
+                          {hasPassport && !isClaimed && (
+                            <button
+                              onClick={() => void handleClaimPassport(agent.passport!.passportId)}
+                              disabled={claimBusy === agent.passport!.passportId}
+                              className="flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-500/30 px-2.5 py-0.5 text-xs text-violet-300 hover:bg-violet-500/25 disabled:opacity-50 animate-pulse"
+                            >
+                              {claimBusy === agent.passport!.passportId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wallet className="h-3 w-3" />}
+                              Claim
+                            </button>
+                          )}
+                          {!hasPassport && (
+                            <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-500">
+                              Awaiting issuance
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-500 flex-wrap">
+                        <span className="font-mono truncate max-w-[200px]">{agent.agentCardUrl}</span>
+                        {hasPassport && (
+                          <span>· Status: <span className="text-slate-300">{agent.passport!.passportStatus}</span></span>
+                        )}
+                      </div>
+                      {isClaimed && (
+                        <div className="flex items-center gap-2 pt-1">
+                          <a
+                            href="#delegation"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const btn = document.querySelector('[data-tab-slug="passport-bureau-delegation"]');
+                              if (btn) (btn as HTMLElement).click();
+                            }}
+                            className="flex items-center gap-1 rounded bg-violet-600/20 border border-violet-500/30 px-2.5 py-1 text-xs text-violet-300 hover:bg-violet-600/30"
+                          >
+                            <Link2 className="h-3 w-3" /> Set up Delegation
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}

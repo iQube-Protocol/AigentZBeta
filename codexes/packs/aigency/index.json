@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T00:41:11.483Z",
+  "last_updated": "2026-06-14T01:42:31.233Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "db509a301c14e2ea6d5fbc6d4436744ea4d201ae",
-  "latest_commit_short": "db509a3",
-  "latest_commit_title": "add /api/ens/ccip-read/health diagnostic endpoint",
+  "latest_commit": "d5f588769358b57da5ff8b2553d685e4ed243023",
+  "latest_commit_short": "d5f5887",
+  "latest_commit_title": "trigger deploy to dev",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d5f5887",
+      "full_sha": "d5f588769358b57da5ff8b2553d685e4ed243023",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-14T01:40:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d5f5887.md"
+    },
+    {
+      "sha": "bf296b8",
+      "full_sha": "bf296b866fa56fa07ca7c627cba1084c374138f9",
+      "title": "add listAutoGrantActivationIds export to unblock amplify build",
+      "author": "Claude",
+      "timestamp": "2026-06-14T01:35:13Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-bf296b8.md"
+    },
     {
       "sha": "db509a3",
       "full_sha": "db509a301c14e2ea6d5fbc6d4436744ea4d201ae",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-31T19:47:04Z",
       "type": "refactor",
       "brief": "items/build_/COMMITS/COMMIT-99783e1.md"
-    },
-    {
-      "sha": "3138ef5",
-      "full_sha": "3138ef5bf8a893048e4e1410cab9775f53b11114",
-      "title": "ops: anchor cron + K/T policy backend — schema, cron-tick, calibration, history",
-      "author": "Claude",
-      "timestamp": "2026-06-01T12:36:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3138ef5.md"
-    },
-    {
-      "sha": "d7eab2f",
-      "full_sha": "d7eab2f95dc4bf72ed82850bc8577d98eb91785b",
-      "title": "ops: AnchorCalibrationCard — runtime tuning panel on /ops",
-      "author": "Claude",
-      "timestamp": "2026-06-01T12:38:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d7eab2f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
