@@ -82,6 +82,15 @@ interface PassportVcItem {
   credential?: Record<string, unknown>;
 }
 
+interface PendingApplication {
+  applicationId: string;
+  passportClass: string;
+  applicationStatus: string;
+  passportGrade: string | null;
+  submittedAt: string | null;
+  updatedAt: string | null;
+}
+
 interface SponsoredAgentItem {
   agentRootId: string;
   displayName: string;
@@ -138,6 +147,7 @@ export function LockerTab() {
   const [passportCardCollapsed, setPassportCardCollapsed] = useState(false);
   const [sponsoredAgentItems, setSponsoredAgentItems] = useState<SponsoredAgentItem[]>([]);
   const [claimBusy, setClaimBusy] = useState<string | null>(null);
+  const [pendingApplications, setPendingApplications] = useState<PendingApplication[]>([]);
 
   // Derive last location from items when loaded
   useEffect(() => {
@@ -198,7 +208,10 @@ export function LockerTab() {
       }
       if (passportRes.ok) {
         const data = await passportRes.json();
-        if (data?.ok) setPassportVcs(data.passportQubes ?? []);
+        if (data?.ok) {
+          setPassportVcs(data.passportQubes ?? []);
+          setPendingApplications(data.pendingApplications ?? []);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Locker load failed');
@@ -464,9 +477,9 @@ export function LockerTab() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-violet-400" />
             <span className="text-sm font-semibold text-slate-200">My Credentials & Relationships</span>
-            {(passportVcs.length + sponsoredAgentItems.length) > 0 && (
+            {(passportVcs.length + pendingApplications.length + sponsoredAgentItems.length) > 0 && (
               <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
-                {passportVcs.length + sponsoredAgentItems.length}
+                {passportVcs.length + pendingApplications.length + sponsoredAgentItems.length}
               </span>
             )}
           </div>
@@ -485,12 +498,32 @@ export function LockerTab() {
                 <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading credentials…
                 </div>
-              ) : passportVcs.length === 0 ? (
+              ) : passportVcs.length === 0 && pendingApplications.length === 0 ? (
                 <p className="text-xs text-slate-400">
                   No passport credentials yet. Apply on the Apply tab, then claim here once approved.
                 </p>
-              ) : (
-                passportVcs.map((pq) => (
+              ) : (<>
+                {pendingApplications.map((app) => (
+                  <div key={app.applicationId} className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
+                        <span className="text-sm font-medium text-amber-200 capitalize">{app.passportClass} Passport</span>
+                      </div>
+                      <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                        {app.applicationStatus.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    {app.passportGrade && (
+                      <p className="text-[11px] text-slate-400">Grade: <span className="text-slate-300">{app.passportGrade.replace(/_/g, ' ')}</span></p>
+                    )}
+                    {app.submittedAt && (
+                      <p className="text-[11px] text-slate-500">Submitted {new Date(app.submittedAt).toLocaleDateString()}</p>
+                    )}
+                    <p className="text-[10px] text-slate-500">Awaiting steward review. Once approved, your passport credential will appear here.</p>
+                  </div>
+                ))}
+                {passportVcs.map((pq) => (
                   <div key={pq.passportId} className={cls(
                     'rounded-lg border p-3 space-y-2',
                     pq.claimedAt ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5',
@@ -550,8 +583,8 @@ export function LockerTab() {
                       </div>
                     )}
                   </div>
-                ))
-              )}
+                ))}
+              </>)}
             </div>
 
             {/* Sponsored agents */}
