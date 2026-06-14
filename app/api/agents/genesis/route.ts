@@ -150,7 +150,9 @@ export async function POST(req: NextRequest) {
     // platform agents (did:agent:root:<slug>).
     const agentId = `polity-bound:${slug}`;
     const didUri = `did:agent:root:${slug}`;
-    const origin = req.nextUrl.origin;
+    const forwardedHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
+    const proto = req.headers.get('x-forwarded-proto') || 'https';
+    const origin = forwardedHost ? `${proto}://${forwardedHost}` : req.nextUrl.origin;
     const agentCardUrl = `${origin}/api/agents/${slug}/agent-card.json`;
 
     const { data: rootRow, error: rootErr } = await admin
