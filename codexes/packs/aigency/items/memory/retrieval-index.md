@@ -2299,3 +2299,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c4bb4ce.md](../build_/COMMITS/COMMIT-c4bb4ce.md)
 - Message: self-hosted ccip-read ens resolver — bypass namestone entirely
+
+## Commit `db509a3` — 2026-06-14T00:39:03Z
+- Type: `feat`
+- Brief: [COMMIT-db509a3.md](../build_/COMMITS/COMMIT-db509a3.md)
+- Message: add /api/ens/ccip-read/health diagnostic endpoint
