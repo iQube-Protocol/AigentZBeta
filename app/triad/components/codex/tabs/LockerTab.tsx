@@ -755,29 +755,41 @@ export function LockerTab() {
       </div>
 
       {/* QubeTalk — Citizen ↔ Agent messaging */}
-      {qubeTalkChannels.length > 0 && (
-        <div className="rounded-xl border border-sky-700/50 bg-sky-950/20 p-4 space-y-3">
-          <button
-            type="button"
-            onClick={() => setQubeTalkCollapsed((p) => !p)}
-            className="flex w-full items-center justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-sky-400" />
-              <span className="text-sm font-semibold text-slate-200">Agent Channels</span>
+      <div className="rounded-xl border border-sky-700/50 bg-sky-950/20 p-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setQubeTalkCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-sky-400" />
+            <span className="text-sm font-semibold text-slate-200">Agent Channels</span>
+            {qubeTalkChannels.length > 0 && (
               <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300">
                 {qubeTalkChannels.length}
               </span>
-            </div>
-            {qubeTalkCollapsed ? (
-              <ChevronDown className="h-4 w-4 text-slate-400" />
-            ) : (
-              <ChevronUp className="h-4 w-4 text-slate-400" />
             )}
-          </button>
-          {!qubeTalkCollapsed && (
-            <div className="space-y-2">
-              {qubeTalkChannels.map((ch) => {
+          </div>
+          {qubeTalkCollapsed ? (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {!qubeTalkCollapsed && (
+          <div className="space-y-2">
+            {qubeTalkChannels.length === 0 ? (
+              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 text-center space-y-2">
+                <p className="text-xs text-slate-400">
+                  No agent channels yet. Grant locker access to a sponsored agent to open a QubeTalk channel.
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  Upload a document below, then use the &quot;Grant to&quot; buttons on each item to share with your bound agents.
+                  A QubeTalk channel opens automatically with the first grant.
+                </p>
+              </div>
+            ) : (
+              qubeTalkChannels.map((ch) => {
                 const isActive = activeChannelId === ch.channelId;
                 return (
                   <div key={ch.channelId}>
@@ -849,11 +861,11 @@ export function LockerTab() {
                     )}
                   </div>
                 );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+              })
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Upload */}
       <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
