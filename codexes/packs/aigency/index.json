@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T05:23:42.095Z",
+  "last_updated": "2026-06-14T05:26:49.408Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4f00c2c9567678af40bd2aefcd3b36196a3346f9",
-  "latest_commit_short": "4f00c2c",
-  "latest_commit_title": "add programmatic resolver-set script — bypass ENS Manager UI",
+  "latest_commit": "d5aff7e1771f07363a40f34503e4b02dd0df3eca",
+  "latest_commit_short": "d5aff7e",
+  "latest_commit_title": "fix two unblockers — viem.normalize import path + set-resolver prompts for key",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d5aff7e",
+      "full_sha": "d5aff7e1771f07363a40f34503e4b02dd0df3eca",
+      "title": "fix two unblockers — viem.normalize import path + set-resolver prompts for key",
+      "author": "Claude",
+      "timestamp": "2026-06-14T05:24:56Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d5aff7e.md"
+    },
     {
       "sha": "4f00c2c",
       "full_sha": "4f00c2c9567678af40bd2aefcd3b36196a3346f9",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T13:37:53Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-5c07dab.md"
-    },
-    {
-      "sha": "4a36c1f",
-      "full_sha": "4a36c1fb2a8728f7414a1b570042d00b72d87f32",
-      "title": "trigger deploy to dev: env allowlist fix for CRON_TRIGGER_TOKEN",
-      "author": "Claude",
-      "timestamp": "2026-06-01T13:37:53Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4a36c1f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

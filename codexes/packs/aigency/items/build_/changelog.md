@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d5aff7e`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5aff7e1771f07363a40f34503e4b02dd0df3eca) [fix] fix two unblockers — viem.normalize import path + set-resolver prompts for key (Claude, 2026-06-14T05:24:56Z)
 - [`4f00c2c`](https://github.com/iQube-Protocol/AigentZBeta/commit/4f00c2c9567678af40bd2aefcd3b36196a3346f9) [feat] add programmatic resolver-set script — bypass ENS Manager UI (Claude, 2026-06-14T05:21:47Z)
 - [`604196e`](https://github.com/iQube-Protocol/AigentZBeta/commit/604196e295856f3cc01602c8709bc144c90fa18b) [push] auto-prepend 0x to private keys in deploy.mjs (Claude, 2026-06-14T05:14:24Z)
 - [`eda3879`](https://github.com/iQube-Protocol/AigentZBeta/commit/eda3879551eeead0fd80f103f40257e740f656d5) [push] interactive ccip-read deploy script — one command, prompts for missing keys (Claude, 2026-06-14T02:20:24Z)
