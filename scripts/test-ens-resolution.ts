@@ -27,7 +27,8 @@
  *     signature recovery flow (visible if you trace the RPC calls)
  */
 
-import { createPublicClient, http, normalize } from 'viem';
+import { createPublicClient, http } from 'viem';
+import { normalize } from 'viem/ens';
 import { sepolia } from 'viem/chains';
 
 const SEPOLIA_RPC = process.env.SEPOLIA_RPC_URL ?? 'https://sepolia.drpc.org';

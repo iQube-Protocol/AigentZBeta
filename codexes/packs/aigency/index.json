@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T02:22:28.306Z",
+  "last_updated": "2026-06-14T05:30:15.457Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "eda3879551eeead0fd80f103f40257e740f656d5",
-  "latest_commit_short": "eda3879",
-  "latest_commit_title": "interactive ccip-read deploy script — one command, prompts for missing keys",
+  "latest_commit": "180a96733ea5b3bd4b92b9ec984f6e795c7db6b9",
+  "latest_commit_short": "180a967",
+  "latest_commit_title": "handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "180a967",
+      "full_sha": "180a96733ea5b3bd4b92b9ec984f6e795c7db6b9",
+      "title": "handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero",
+      "author": "Claude",
+      "timestamp": "2026-06-14T05:28:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-180a967.md"
+    },
+    {
+      "sha": "d5aff7e",
+      "full_sha": "d5aff7e1771f07363a40f34503e4b02dd0df3eca",
+      "title": "fix two unblockers — viem.normalize import path + set-resolver prompts for key",
+      "author": "Claude",
+      "timestamp": "2026-06-14T05:24:56Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d5aff7e.md"
+    },
+    {
+      "sha": "4f00c2c",
+      "full_sha": "4f00c2c9567678af40bd2aefcd3b36196a3346f9",
+      "title": "add programmatic resolver-set script — bypass ENS Manager UI",
+      "author": "Claude",
+      "timestamp": "2026-06-14T05:21:47Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-4f00c2c.md"
+    },
+    {
+      "sha": "604196e",
+      "full_sha": "604196e295856f3cc01602c8709bc144c90fa18b",
+      "title": "auto-prepend 0x to private keys in deploy.mjs",
+      "author": "Claude",
+      "timestamp": "2026-06-14T05:14:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-604196e.md"
+    },
     {
       "sha": "eda3879",
       "full_sha": "eda3879551eeead0fd80f103f40257e740f656d5",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-06-01T15:33:36Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c98ed5e.md"
-    },
-    {
-      "sha": "5c07dab",
-      "full_sha": "5c07dab75546242781f18d152735423c2f5d657d",
-      "title": "fix(ops): add CRON_TRIGGER_TOKEN to env allowlist",
-      "author": "Claude",
-      "timestamp": "2026-06-01T13:37:53Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-5c07dab.md"
-    },
-    {
-      "sha": "4a36c1f",
-      "full_sha": "4a36c1fb2a8728f7414a1b570042d00b72d87f32",
-      "title": "trigger deploy to dev: env allowlist fix for CRON_TRIGGER_TOKEN",
-      "author": "Claude",
-      "timestamp": "2026-06-01T13:37:53Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4a36c1f.md"
-    },
-    {
-      "sha": "cdcf115",
-      "full_sha": "cdcf11569eef7dc90930350bc5f3df26aa9d18cf",
-      "title": "RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode",
-      "author": "Claude",
-      "timestamp": "2026-06-01T13:20:49Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cdcf115.md"
-    },
-    {
-      "sha": "df33f1f",
-      "full_sha": "df33f1f8efdfa2a1b63bcd36b1f7d05812103d96",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-06-01T13:20:49Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-df33f1f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

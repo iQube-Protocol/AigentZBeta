@@ -2324,3 +2324,23 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-eda3879.md](../build_/COMMITS/COMMIT-eda3879.md)
 - Message: interactive ccip-read deploy script — one command, prompts for missing keys
+
+## Commit `604196e` — 2026-06-14T05:14:24Z
+- Type: `push`
+- Brief: [COMMIT-604196e.md](../build_/COMMITS/COMMIT-604196e.md)
+- Message: auto-prepend 0x to private keys in deploy.mjs
+
+## Commit `4f00c2c` — 2026-06-14T05:21:47Z
+- Type: `feat`
+- Brief: [COMMIT-4f00c2c.md](../build_/COMMITS/COMMIT-4f00c2c.md)
+- Message: add programmatic resolver-set script — bypass ENS Manager UI
+
+## Commit `d5aff7e` — 2026-06-14T05:24:56Z
+- Type: `fix`
+- Brief: [COMMIT-d5aff7e.md](../build_/COMMITS/COMMIT-d5aff7e.md)
+- Message: fix two unblockers — viem.normalize import path + set-resolver prompts for key
+
+## Commit `180a967` — 2026-06-14T05:28:27Z
+- Type: `push`
+- Brief: [COMMIT-180a967.md](../build_/COMMITS/COMMIT-180a967.md)
+- Message: handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero

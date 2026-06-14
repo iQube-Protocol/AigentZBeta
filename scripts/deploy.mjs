@@ -50,6 +50,15 @@ function isValidPrivateKey(v) {
   return typeof v === 'string' && /^0x[a-fA-F0-9]{64}$/.test(v);
 }
 
+function normalizePrivateKey(v) {
+  if (typeof v !== 'string') return v;
+  const trimmed = v.trim();
+  // MetaMask exports keys as 64-hex without 0x prefix — auto-prepend so the
+  // operator doesn't have to remember to type 0x before paste.
+  if (/^[a-fA-F0-9]{64}$/.test(trimmed)) return `0x${trimmed}`;
+  return trimmed;
+}
+
 async function prompt(question, { hidden = false } = {}) {
   const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
   if (hidden) {
@@ -107,8 +116,8 @@ if (!isValidPrivateKey(env.POLITY_ISSUER_PRIVATE_KEY)) {
     console.log(`   ✅ Generated. Public address: ${privateKeyToAccount(env.POLITY_ISSUER_PRIVATE_KEY).address}`);
     console.log(`   ⚠️  ADD THIS TO AMPLIFY before the deploy will work end-to-end:`);
     console.log(`      POLITY_ISSUER_PRIVATE_KEY=${env.POLITY_ISSUER_PRIVATE_KEY}`);
-  } else if (isValidPrivateKey(choice)) {
-    env.POLITY_ISSUER_PRIVATE_KEY = choice;
+  } else if (isValidPrivateKey(normalizePrivateKey(choice))) {
+    env.POLITY_ISSUER_PRIVATE_KEY = normalizePrivateKey(choice);
   } else {
     console.error(`   ❌ '${choice.slice(0, 10)}…' is not a valid 0x+64-hex private key.`);
     process.exit(1);
@@ -125,10 +134,11 @@ if (!isValidPrivateKey(env.DEPLOYER_PRIVATE_KEY)) {
   console.log('   This is your Sepolia wallet private key (the one that owns polity.eth).');
   console.log('   Get it from MetaMask: account menu → Account details → Show private key.');
   console.log('   Must be 0x + 64 hex characters (32 bytes). An ADDRESS is 0x + 40 hex — not the same.');
-  const input = await prompt('   Paste the private key (hidden input): ', { hidden: true });
+  const raw = await prompt('   Paste the private key (hidden input): ', { hidden: true });
+  const input = normalizePrivateKey(raw);
   if (!isValidPrivateKey(input)) {
     console.error(
-      `   ❌ Invalid. Got ${input.length} chars (expected 66 — 0x + 64 hex). Try again.`,
+      `   ❌ Invalid. Got ${raw.length} chars (expected 64 hex, with or without 0x prefix). Try again.`,
     );
     process.exit(1);
   }
