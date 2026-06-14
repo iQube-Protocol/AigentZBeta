@@ -18,8 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet, Clock } from 'lucide-react';
-import { personaFetch } from '@/utils/personaSpine';
+import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet, Clock, MessageSquare, Send } from 'lucide-react';
 import { authedFetchHeaders } from '@/utils/supabaseBrowser';
 import dynamic from 'next/dynamic';
 
@@ -96,6 +95,16 @@ interface PassportVcItem {
   credential?: Record<string, unknown>;
 }
 
+interface QubeTalkChannel {
+  channelId: string;
+  agentRootId: string;
+  agentDisplayName: string;
+  agentClass: string;
+  agentDidUri: string | null;
+  status: string;
+  createdAt: string;
+}
+
 interface PendingApplication {
   applicationId: string;
   passportClass: string;
@@ -162,6 +171,11 @@ export function LockerTab() {
   const [sponsoredAgentItems, setSponsoredAgentItems] = useState<SponsoredAgentItem[]>([]);
   const [claimBusy, setClaimBusy] = useState<string | null>(null);
   const [pendingApplications, setPendingApplications] = useState<PendingApplication[]>([]);
+  const [qubeTalkChannels, setQubeTalkChannels] = useState<QubeTalkChannel[]>([]);
+  const [qubeTalkCollapsed, setQubeTalkCollapsed] = useState(false);
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [messageSending, setMessageSending] = useState(false);
 
   // Derive last location from items when loaded
   useEffect(() => {
@@ -181,10 +195,11 @@ export function LockerTab() {
     try {
       const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
       const authInit: RequestInit = { cache: 'no-store', headers: headers ?? undefined };
-      const [lockerRes, agentRes, passportRes] = await Promise.allSettled([
+      const [lockerRes, agentRes, passportRes, channelRes] = await Promise.allSettled([
         fetch('/api/polity-passport/locker', authInit),
         fetch('/api/persona/sponsored-agents', authInit),
         fetch('/api/polity-passport/wallet', authInit),
+        fetch('/api/qubetalk/passport-channels', authInit),
       ]);
       if (lockerRes.status === 'fulfilled' && lockerRes.value.ok) {
         const data = await lockerRes.value.json();
@@ -227,6 +242,12 @@ export function LockerTab() {
         if (data?.ok) {
           setPassportVcs(data.passportQubes ?? []);
           setPendingApplications(data.pendingApplications ?? []);
+        }
+      }
+      if (channelRes.status === 'fulfilled' && channelRes.value.ok) {
+        const data = await channelRes.value.json();
+        if (data?.ok) {
+          setQubeTalkChannels(data.channels ?? []);
         }
       }
     } catch (e) {
@@ -730,6 +751,107 @@ export function LockerTab() {
           </div>
         )}
       </div>
+
+      {/* QubeTalk — Citizen ↔ Agent messaging */}
+      {qubeTalkChannels.length > 0 && (
+        <div className="rounded-xl border border-sky-700/50 bg-sky-950/20 p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => setQubeTalkCollapsed((p) => !p)}
+            className="flex w-full items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-sky-400" />
+              <span className="text-sm font-semibold text-slate-200">Agent Channels</span>
+              <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300">
+                {qubeTalkChannels.length}
+              </span>
+            </div>
+            {qubeTalkCollapsed ? (
+              <ChevronDown className="h-4 w-4 text-slate-400" />
+            ) : (
+              <ChevronUp className="h-4 w-4 text-slate-400" />
+            )}
+          </button>
+          {!qubeTalkCollapsed && (
+            <div className="space-y-2">
+              {qubeTalkChannels.map((ch) => {
+                const isActive = activeChannelId === ch.channelId;
+                return (
+                  <div key={ch.channelId}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveChannelId(isActive ? null : ch.channelId)}
+                      className={cls(
+                        'w-full rounded-lg border p-3 text-left transition-colors',
+                        isActive
+                          ? 'border-sky-500/40 bg-sky-500/10'
+                          : 'border-slate-700 bg-slate-900/40 hover:bg-slate-800/60',
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Bot className="h-4 w-4 text-sky-400" />
+                          <span className="text-xs font-medium text-slate-100">{ch.agentDisplayName}</span>
+                          <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
+                            {ch.agentClass}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                          <Check className="h-2.5 w-2.5" /> Active
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Channel opened {new Date(ch.createdAt).toLocaleDateString()}
+                      </p>
+                    </button>
+                    {isActive && (
+                      <div className="mt-2 rounded-lg border border-sky-500/20 bg-slate-950/40 p-3 space-y-3">
+                        <div className="rounded-lg bg-slate-900/60 p-3 min-h-[80px] text-xs text-slate-500 italic flex items-center justify-center">
+                          QubeTalk channel with {ch.agentDisplayName} — messages will appear here
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            value={messageInput}
+                            onChange={(e) => setMessageInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && messageInput.trim()) {
+                                setMessageSending(true);
+                                setTimeout(() => {
+                                  setMessageSending(false);
+                                  setMessageInput('');
+                                  setNotice(`Message sent to ${ch.agentDisplayName}`);
+                                }, 500);
+                              }
+                            }}
+                            placeholder={`Message ${ch.agentDisplayName}…`}
+                            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+                          />
+                          <button
+                            onClick={() => {
+                              if (!messageInput.trim()) return;
+                              setMessageSending(true);
+                              setTimeout(() => {
+                                setMessageSending(false);
+                                setMessageInput('');
+                                setNotice(`Message sent to ${ch.agentDisplayName}`);
+                              }, 500);
+                            }}
+                            disabled={messageSending || !messageInput.trim()}
+                            className="flex items-center gap-1 rounded-lg bg-sky-600 px-3 py-2 text-sm text-white hover:bg-sky-500 disabled:opacity-50"
+                          >
+                            {messageSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Upload */}
       <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">

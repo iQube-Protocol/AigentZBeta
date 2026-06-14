@@ -3784,7 +3784,7 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
     { id: 'registry', label: 'Registry', icon: 'BookOpenCheck', order: 2 },
     { id: 'locker',  label: 'Locker',  icon: 'Lock', order: 3 },
     { id: 'delegation', label: 'Delegation', icon: 'Link2', order: 4 },
-    { id: 'ens',     label: 'ENS',     icon: 'Globe', order: 5, adminOnly: true },
+    { id: 'ens',     label: 'ENS',     icon: 'Globe', order: 5 },
     { id: 'being',   label: 'Mobility Services',   icon: 'Home', order: 6, adminOnly: true },
     { id: 'steward', label: 'Steward', icon: 'Gavel', order: 7, adminOnly: true },
   ],
