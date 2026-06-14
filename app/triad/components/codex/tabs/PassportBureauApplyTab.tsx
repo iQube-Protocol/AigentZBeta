@@ -33,6 +33,7 @@ import {
   Bot,
   User,
   Link2,
+  Zap,
 } from 'lucide-react';
 import {
   getSupabaseBrowserClient,
@@ -154,11 +155,57 @@ export function PassportBureauApplyTab() {
   // Agent Card source: 'genesis' (we create it) or 'url' (user pastes existing).
   // Sprint 3 adds the genesis path — the non-technical user can sponsor a new
   // agent without hosting their own card.
-  const [agentCardSource, setAgentCardSource] = useState<'genesis' | 'url'>('genesis');
+  const [agentCardSource, setAgentCardSource] = useState<'genesis' | 'url' | 'quick'>('genesis');
   const [genesisSlug, setGenesisSlug] = useState('');
   const [genesisSponsorPassportId, setGenesisSponsorPassportId] = useState('');
   const [genesisBusy, setGenesisBusy] = useState(false);
   const [genesisCompleted, setGenesisCompleted] = useState(false);
+
+  const handleQuickAgent = useCallback(async () => {
+    setGenesisBusy(true);
+    setError(null);
+    try {
+      const headers = await authedFetchHeaders();
+      const walletRes = await fetch('/api/polity-passport/wallet', { headers, cache: 'no-store' });
+      const walletData = await walletRes.json();
+      const claimed = (walletData?.passportQubes ?? []).find(
+        (pq: { claimedAt: string | null }) => pq.claimedAt,
+      );
+      if (!claimed) {
+        setError('You need a claimed Citizen Passport first. Apply on the Class → Identity steps, then come back here.');
+        return;
+      }
+      const name = agentName.trim() || 'Polity Helper';
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'polity-helper';
+      const desc = agentDescription.trim() || 'General-purpose polity helper agent';
+      const r = await fetch('/api/agents/genesis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          slug,
+          displayName: name,
+          description: desc,
+          sponsorPassportId: claimed.passportId,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) {
+        setError(data?.error ?? 'Agent genesis failed');
+        return;
+      }
+      setAgentName(name);
+      setAgentDescription(desc);
+      setGenesisSlug(slug);
+      setGenesisSponsorPassportId(claimed.passportId);
+      setAgentCardUrl(data.agent.agentCardUrl);
+      setGenesisCompleted(true);
+      setNotice(`Agent Card live at ${data.agent.agentCardUrl}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setGenesisBusy(false);
+    }
+  }, [agentName, agentDescription]);
 
   const handleGenesisAgent = useCallback(async () => {
     if (!agentName.trim() || !agentDescription.trim() || !genesisSlug.trim() || !genesisSponsorPassportId.trim()) {
@@ -617,7 +664,17 @@ export function PassportBureauApplyTab() {
           </p>
 
           {/* Agent Card source toggle (Sprint 3) */}
-          <div className="flex gap-2 text-xs">
+          <div className="flex flex-wrap gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => { setAgentCardSource('quick'); setGenesisCompleted(false); }}
+              className={cls(
+                'rounded px-3 py-1.5',
+                agentCardSource === 'quick' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400',
+              )}
+            >
+              Generate helper agent (fastest)
+            </button>
             <button
               type="button"
               onClick={() => { setAgentCardSource('genesis'); setGenesisCompleted(false); }}
@@ -626,7 +683,7 @@ export function PassportBureauApplyTab() {
                 agentCardSource === 'genesis' ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400',
               )}
             >
-              Genesis a new agent (recommended)
+              Genesis a new agent
             </button>
             <button
               type="button"
@@ -640,6 +697,39 @@ export function PassportBureauApplyTab() {
             </button>
           </div>
 
+          {agentCardSource === 'quick' ? (
+            <div className="space-y-3 rounded-lg border border-emerald-700/40 bg-emerald-900/10 p-3">
+              <p className="text-[11px] text-emerald-300">
+                One-click agent — we auto-generate a general helper agent bound to your Citizen Passport.
+                Optionally name it or describe what it does; otherwise defaults apply.
+              </p>
+              <input
+                value={agentName}
+                onChange={(e) => setAgentName(e.target.value)}
+                placeholder="Agent name (optional — defaults to 'Polity Helper')"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              />
+              <input
+                value={agentDescription}
+                onChange={(e) => setAgentDescription(e.target.value)}
+                placeholder="What does this agent do? (optional — defaults to 'General-purpose polity helper agent')"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              />
+              <button
+                type="button"
+                onClick={handleQuickAgent}
+                disabled={genesisBusy || genesisCompleted}
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {genesisBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                {genesisCompleted ? 'Agent Card live' : 'Generate & bind agent'}
+              </button>
+              {genesisCompleted && (
+                <code className="block text-[10px] text-emerald-300 font-mono break-all">{agentCardUrl}</code>
+              )}
+            </div>
+          ) : (
+            <>
           <input
             value={agentName}
             onChange={(e) => setAgentName(e.target.value)}
@@ -743,6 +833,8 @@ export function PassportBureauApplyTab() {
               grant surface as the AgentiQ OS Bounded Delegation tab.
             </p>
           </div>
+            </>
+          )}
           <button
             onClick={() => setStep('consents')}
             disabled={!agentName.trim() || !agentCardUrl.trim()}

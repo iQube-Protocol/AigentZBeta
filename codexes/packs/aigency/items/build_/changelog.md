@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c4bb4ce`](https://github.com/iQube-Protocol/AigentZBeta/commit/c4bb4cea824f0ee3b947f83d7f5731738b2337aa) [push] self-hosted ccip-read ens resolver — bypass namestone entirely (Claude, 2026-06-14T00:15:12Z)
 - [`dafd44c`](https://github.com/iQube-Protocol/AigentZBeta/commit/dafd44c85ec0e9d66bfba03511d4abd5739b5946) [push] document worldcoin keyspace — three keys, one purpose each (operator unblock) (Claude, 2026-06-13T23:10:59Z)
 - [`5406314`](https://github.com/iQube-Protocol/AigentZBeta/commit/54063144f36a193f745f937fe672a40d62a1728c) [push] trigger deploy to dev (Claude, 2026-06-13T21:19:31Z)
 - [`1abc8ec`](https://github.com/iQube-Protocol/AigentZBeta/commit/1abc8ec9c1872909eb96ae9bb4b10401da6186ae) [feat] add polity passport as first-class metaMe activation + embed link on all activation cards (Claude, 2026-06-13T21:09:18Z)
