@@ -2339,3 +2339,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-d5aff7e.md](../build_/COMMITS/COMMIT-d5aff7e.md)
 - Message: fix two unblockers — viem.normalize import path + set-resolver prompts for key
+
+## Commit `180a967` — 2026-06-14T05:28:27Z
+- Type: `push`
+- Brief: [COMMIT-180a967.md](../build_/COMMITS/COMMIT-180a967.md)
+- Message: handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero

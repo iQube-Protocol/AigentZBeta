@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T05:26:49.408Z",
+  "last_updated": "2026-06-14T05:30:15.457Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d5aff7e1771f07363a40f34503e4b02dd0df3eca",
-  "latest_commit_short": "d5aff7e",
-  "latest_commit_title": "fix two unblockers — viem.normalize import path + set-resolver prompts for key",
+  "latest_commit": "180a96733ea5b3bd4b92b9ec984f6e795c7db6b9",
+  "latest_commit_short": "180a967",
+  "latest_commit_title": "handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "180a967",
+      "full_sha": "180a96733ea5b3bd4b92b9ec984f6e795c7db6b9",
+      "title": "handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero",
+      "author": "Claude",
+      "timestamp": "2026-06-14T05:28:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-180a967.md"
+    },
     {
       "sha": "d5aff7e",
       "full_sha": "d5aff7e1771f07363a40f34503e4b02dd0df3eca",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T15:33:36Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c98ed5e.md"
-    },
-    {
-      "sha": "5c07dab",
-      "full_sha": "5c07dab75546242781f18d152735423c2f5d657d",
-      "title": "fix(ops): add CRON_TRIGGER_TOKEN to env allowlist",
-      "author": "Claude",
-      "timestamp": "2026-06-01T13:37:53Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-5c07dab.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
