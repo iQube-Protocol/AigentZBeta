@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T00:41:11.483Z",
+  "last_updated": "2026-06-14T01:37:24.640Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "db509a301c14e2ea6d5fbc6d4436744ea4d201ae",
-  "latest_commit_short": "db509a3",
-  "latest_commit_title": "add /api/ens/ccip-read/health diagnostic endpoint",
+  "latest_commit": "bf296b866fa56fa07ca7c627cba1084c374138f9",
+  "latest_commit_short": "bf296b8",
+  "latest_commit_title": "add listAutoGrantActivationIds export to unblock amplify build",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bf296b8",
+      "full_sha": "bf296b866fa56fa07ca7c627cba1084c374138f9",
+      "title": "add listAutoGrantActivationIds export to unblock amplify build",
+      "author": "Claude",
+      "timestamp": "2026-06-14T01:35:13Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-bf296b8.md"
+    },
     {
       "sha": "db509a3",
       "full_sha": "db509a301c14e2ea6d5fbc6d4436744ea4d201ae",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T12:36:24Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3138ef5.md"
-    },
-    {
-      "sha": "d7eab2f",
-      "full_sha": "d7eab2f95dc4bf72ed82850bc8577d98eb91785b",
-      "title": "ops: AnchorCalibrationCard — runtime tuning panel on /ops",
-      "author": "Claude",
-      "timestamp": "2026-06-01T12:38:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d7eab2f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
