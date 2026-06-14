@@ -2319,3 +2319,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-86ea6e0.md](../build_/COMMITS/COMMIT-86ea6e0.md)
 - Message: add ccip-read ens operator runbook
+
+## Commit `eda3879` — 2026-06-14T02:20:24Z
+- Type: `push`
+- Brief: [COMMIT-eda3879.md](../build_/COMMITS/COMMIT-eda3879.md)
+- Message: interactive ccip-read deploy script — one command, prompts for missing keys
