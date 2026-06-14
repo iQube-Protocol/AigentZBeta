@@ -20,6 +20,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { authedFetchHeaders } from '@/utils/supabaseBrowser';
 
 const DOCUMENT_CLASSES = [
   { value: 'identity_document', label: 'Identity Document', color: 'border-blue-500/40 bg-blue-500/10 text-blue-300' },
@@ -165,13 +166,15 @@ export function LockerTab() {
     setLoading(true);
     setError(null);
     try {
-      const [lockerRes, agentRes, passportRes] = await Promise.all([
+      const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
+      const authInit: RequestInit = { cache: 'no-store', headers: headers ?? undefined };
+      const [lockerRes, agentRes, passportRes] = await Promise.allSettled([
         personaFetch('/api/polity-passport/locker', { cache: 'no-store' }),
         personaFetch('/api/persona/sponsored-agents', { cache: 'no-store' }),
-        personaFetch('/api/polity-passport/wallet', { cache: 'no-store' }),
+        fetch('/api/polity-passport/wallet', authInit),
       ]);
-      if (lockerRes.ok) {
-        const data = await lockerRes.json();
+      if (lockerRes.status === 'fulfilled' && lockerRes.value.ok) {
+        const data = await lockerRes.value.json();
         if (data?.ok) {
           setItems(data.items ?? []);
           setGrants(data.grants ?? []);
@@ -182,8 +185,8 @@ export function LockerTab() {
           setError(data.error);
         }
       }
-      if (agentRes.ok) {
-        const data = await agentRes.json();
+      if (agentRes.status === 'fulfilled' && agentRes.value.ok) {
+        const data = await agentRes.value.json();
         if (data?.ok) {
           const agentList = data.agents ?? [];
           setAgents(
@@ -206,8 +209,8 @@ export function LockerTab() {
           );
         }
       }
-      if (passportRes.ok) {
-        const data = await passportRes.json();
+      if (passportRes.status === 'fulfilled' && passportRes.value.ok) {
+        const data = await passportRes.value.json();
         if (data?.ok) {
           setPassportVcs(data.passportQubes ?? []);
           setPendingApplications(data.pendingApplications ?? []);
