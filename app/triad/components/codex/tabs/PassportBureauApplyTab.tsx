@@ -1038,6 +1038,19 @@ export function PassportBureauApplyTab() {
             Submit the participant application for <strong>{agentName || 'your agent'}</strong>.
             A steward reviews it in the Bureau queue; you can watch status below.
           </p>
+          {!allChecked && (
+            <p className="text-xs text-amber-300">
+              You must accept the consents on{' '}
+              <button
+                type="button"
+                onClick={() => setStep('consents')}
+                className="underline hover:text-amber-200"
+              >
+                Step 5 (Consents)
+              </button>{' '}
+              before submitting.
+            </p>
+          )}
           {!delegationBound && (
             <p className="text-xs text-amber-300">
               Note: the agent is not yet bound to you via bounded delegation — you can still submit,
