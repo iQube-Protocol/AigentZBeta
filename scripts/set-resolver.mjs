@@ -27,6 +27,10 @@ import { sepolia } from 'viem/chains';
 
 const ENV_FILE = join(homedir(), '.polity-ccip-read.env');
 const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e';
+// ENS NameWrapper on Sepolia — modern ENS wraps names by default at
+// registration. Wrapped names: Registry.owner = NameWrapper address,
+// real owner = NFT holder via NameWrapper.ownerOf(uint256(node)).
+const NAME_WRAPPER_SEPOLIA = '0x0635513f179D50A207757E05759CbD106d7dFcE8';
 const ENS_NAME = process.env.ENS_PARENT_NAME ?? 'polity.eth';
 const SEPOLIA_RPC = process.env.SEPOLIA_RPC_URL ?? 'https://sepolia.drpc.org';
 
@@ -52,6 +56,28 @@ const REGISTRY_ABI = [
     type: 'function',
     name: 'owner',
     inputs: [{ name: 'node', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+];
+
+// NameWrapper's setResolver has the same signature but is gated to the
+// NFT owner. ownerOf takes uint256(node) — the namehash cast to integer.
+const NAME_WRAPPER_ABI = [
+  {
+    type: 'function',
+    name: 'setResolver',
+    inputs: [
+      { name: 'node', type: 'bytes32' },
+      { name: 'resolver', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'ownerOf',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
     outputs: [{ name: '', type: 'address' }],
     stateMutability: 'view',
   },
@@ -148,22 +174,53 @@ console.log(`   namehash:      ${node}`);
 console.log(`   New resolver:  ${resolverAddress}`);
 console.log(`   Caller:        ${account.address}\n`);
 
-// 1. Verify caller owns the name
-const owner = await publicClient.readContract({
+// 1. Check Registry ownership — if zero or NameWrapper, the name is
+//    wrapped and we need to call NameWrapper.setResolver instead.
+const registryOwner = await publicClient.readContract({
   address: ENS_REGISTRY,
   abi: REGISTRY_ABI,
   functionName: 'owner',
   args: [node],
 });
-console.log(`Current owner of ${ENS_NAME}: ${owner}`);
-if (owner.toLowerCase() !== account.address.toLowerCase()) {
+console.log(`Registry owner of ${ENS_NAME}: ${registryOwner}`);
+
+const isWrapped =
+  registryOwner === '0x0000000000000000000000000000000000000000' ||
+  registryOwner.toLowerCase() === NAME_WRAPPER_SEPOLIA.toLowerCase();
+
+let targetContract;
+let targetAbi;
+let actualOwner;
+
+if (isWrapped) {
+  console.log(`(name is wrapped — checking NameWrapper at ${NAME_WRAPPER_SEPOLIA})`);
+  // NameWrapper uses uint256(node) as the tokenId.
+  const tokenId = BigInt(node);
+  actualOwner = await publicClient.readContract({
+    address: NAME_WRAPPER_SEPOLIA,
+    abi: NAME_WRAPPER_ABI,
+    functionName: 'ownerOf',
+    args: [tokenId],
+  });
+  console.log(`NameWrapper NFT owner: ${actualOwner}`);
+  targetContract = NAME_WRAPPER_SEPOLIA;
+  targetAbi = NAME_WRAPPER_ABI;
+} else {
+  actualOwner = registryOwner;
+  targetContract = ENS_REGISTRY;
+  targetAbi = REGISTRY_ABI;
+}
+
+if (actualOwner.toLowerCase() !== account.address.toLowerCase()) {
   console.error(`❌ Caller ${account.address} is not the owner of ${ENS_NAME}.`);
-  console.error(`   The owner is ${owner}. Use that wallet's private key instead.`);
+  console.error(`   The actual owner is ${actualOwner}.`);
+  console.error(`   Use that wallet's private key instead, or transfer ownership first.`);
   process.exit(1);
 }
 console.log(`✅ Caller owns the name.`);
 
-// 2. Show current resolver (informational)
+// 2. Show current resolver (informational, from Registry — both wrapped
+//    and unwrapped names register the resolver on the same Registry slot).
 const currentResolver = await publicClient.readContract({
   address: ENS_REGISTRY,
   abi: REGISTRY_ABI,
@@ -176,11 +233,11 @@ if (currentResolver.toLowerCase() === resolverAddress.toLowerCase()) {
   process.exit(0);
 }
 
-// 3. Send the setResolver tx
-console.log(`\n📡 Sending setResolver transaction...`);
+// 3. Send the setResolver tx (via NameWrapper if wrapped, else Registry).
+console.log(`\n📡 Sending setResolver via ${isWrapped ? 'NameWrapper' : 'Registry'}...`);
 const hash = await wallet.writeContract({
-  address: ENS_REGISTRY,
-  abi: REGISTRY_ABI,
+  address: targetContract,
+  abi: targetAbi,
   functionName: 'setResolver',
   args: [node, resolverAddress],
 });
