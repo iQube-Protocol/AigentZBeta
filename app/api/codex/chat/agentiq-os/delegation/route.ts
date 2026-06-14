@@ -249,11 +249,13 @@ export async function GET(request: NextRequest) {
     handoff_id: record.handoff.handoff_id,
     trust_band: record.handoff.reason.match(/Trust band: (\S+)\./)?.[ 1] ?? 'L2_VERIFIED_COMMUNITY',
     allowed_actions: record.handoff.open_tasks,
+    allowed_surfaces: record.handoff.policy_envelope?.allowed_surfaces ?? ['agentiq-os-cartridge'],
+    disclosure_class: record.handoff.policy_envelope?.disclosure_class ?? 'tenant',
     expires_at: record.expires_at,
     actions_taken: record.actions_taken,
     max_actions: record.max_actions,
     created_at: record.created_at,
-    agent_root_did: AIGENT_C_OS_ROOT_DID,
+    agent_root_did: record.handoff.to_agent ?? AIGENT_C_OS_ROOT_DID,
     policy_envelope: record.handoff.policy_envelope,
   });
 }
@@ -267,19 +269,37 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       persona_id,
+      agent_root_did: bodyAgentDid,
       trust_band = 'L2_VERIFIED_COMMUNITY',
       selected_actions,
       ttl_hours = 4,
       tenant_id,
       reputation_score,
+      allowed_surfaces: bodySurfaces,
+      disclosure_class: bodyDisclosure,
+      max_actions: bodyMaxActions,
+      spend_autonomy,
+      show_receipts,
+      curated_skills_only,
+      explain_before_acting,
     } = body as {
       persona_id?: string;
+      agent_root_did?: string;
       trust_band?: TrustBand;
       selected_actions?: string[];
       ttl_hours?: number;
       tenant_id?: string;
       reputation_score?: number;
+      allowed_surfaces?: string[];
+      disclosure_class?: string;
+      max_actions?: number;
+      spend_autonomy?: string;
+      show_receipts?: boolean;
+      curated_skills_only?: boolean;
+      explain_before_acting?: boolean;
     };
+
+    const agentRootDid = bodyAgentDid || AIGENT_C_OS_ROOT_DID;
 
     if (!persona_id || typeof persona_id !== 'string') {
       return NextResponse.json({ error: 'persona_id is required' }, { status: 400 });
@@ -314,14 +334,22 @@ export async function POST(request: NextRequest) {
       ? selected_actions.filter((a) => bandActions.includes(a))
       : bandActions;
 
+    const resolvedSurfaces = Array.isArray(bodySurfaces) && bodySurfaces.length > 0
+      ? bodySurfaces
+      : ['agentiq-os-cartridge'];
+    const resolvedDisclosure = bodyDisclosure || 'tenant';
+    const resolvedMaxActions = typeof bodyMaxActions === 'number' && bodyMaxActions > 0
+      ? Math.min(bodyMaxActions, 200)
+      : 20;
+
     const envelope: PolicyEnvelope = {
       tenant_id: tenant_id ?? 'default',
       persona_id,
-      allowed_surfaces: ['agentiq-os-cartridge'],
+      allowed_surfaces: resolvedSurfaces,
       forbidden_actions: BASE_FORBIDDEN_ACTIONS,
-      disclosure_class: 'tenant',
+      disclosure_class: resolvedDisclosure,
       requires_guardian_approval: false,
-      cartridge_scope: 'agentiq-os-cartridge',
+      cartridge_scope: resolvedSurfaces[0] ?? 'agentiq-os-cartridge',
     };
 
     const handoffId = buildHandoffId();
@@ -329,9 +357,9 @@ export async function POST(request: NextRequest) {
     const handoff: HandoffPayload = {
       handoff_id: handoffId,
       from_agent: 'aigent-z',
-      to_agent: 'aigent-c',
-      reason: `Developer granted bounded delegation for AgentiQ OS session. Trust band: ${trust_band}.`,
-      user_context_summary: `Persona ${persona_id} granted delegation. Allowed: ${allowedActions.join(', ')}. Expires: ${expiresAt}.`,
+      to_agent: agentRootDid,
+      reason: `Bounded delegation granted. Trust band: ${trust_band}. Agent: ${agentRootDid}.`,
+      user_context_summary: `Persona ${persona_id} granted delegation to ${agentRootDid}. Allowed: ${allowedActions.join(', ')}. Surfaces: ${resolvedSurfaces.join(', ')}. Disclosure: ${resolvedDisclosure}. Expires: ${expiresAt}.`,
       journey_state_summary: {
         persona_id,
         journey_stage: 'acolyte',
@@ -351,7 +379,7 @@ export async function POST(request: NextRequest) {
     const record: DelegationRecord = {
       handoff,
       expires_at: expiresAt,
-      max_actions: 20,
+      max_actions: resolvedMaxActions,
       actions_taken: 0,
       created_at: new Date().toISOString(),
     };
@@ -360,10 +388,18 @@ export async function POST(request: NextRequest) {
 
     void emitDelegationEvent('z_delegated', persona_id, {
       handoff_id: handoffId,
+      agent_root_did: agentRootDid,
       trust_band,
       allowed_actions: allowedActions,
+      allowed_surfaces: resolvedSurfaces,
+      disclosure_class: resolvedDisclosure,
+      max_actions: resolvedMaxActions,
       expires_at: expiresAt,
       ttl_hours: clampedTtl,
+      spend_autonomy: spend_autonomy ?? 'low',
+      show_receipts: show_receipts ?? true,
+      curated_skills_only: curated_skills_only ?? true,
+      explain_before_acting: explain_before_acting ?? false,
     });
 
     return NextResponse.json({
@@ -372,9 +408,11 @@ export async function POST(request: NextRequest) {
       persona_id,
       trust_band,
       allowed_actions: allowedActions,
+      allowed_surfaces: resolvedSurfaces,
+      disclosure_class: resolvedDisclosure,
       expires_at: expiresAt,
-      max_actions: record.max_actions,
-      agent_root_did: AIGENT_C_OS_ROOT_DID,
+      max_actions: resolvedMaxActions,
+      agent_root_did: agentRootDid,
     });
   } catch (err) {
     console.error('[Delegation POST] Error:', err);
