@@ -103,7 +103,16 @@ import {
   ShieldCheck,
   Download,
 } from "lucide-react";
-import { WorldIdButton, type WorldIdProofBundle } from "@/components/passport/WorldIdButton";
+const WorldIdButton = dynamic(
+  () => import("@/components/passport/WorldIdButton").then((m) => ({ default: m.WorldIdButton })),
+  { ssr: false, loading: () => <span className="text-[10px] text-sky-400">Loading…</span> },
+);
+interface WorldIdProofBundle {
+  proof: string;
+  merkle_root: string;
+  nullifier_hash: string;
+  verification_level: 'orb' | 'device';
+}
 
 
 // Tooltip component for icon hints
