@@ -16,11 +16,22 @@
 
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpenCheck, RefreshCw, Loader2, AlertCircle, ShieldCheck, Bot, Wallet } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { BookOpenCheck, RefreshCw, Loader2, AlertCircle, ShieldCheck, Bot, Wallet, Link2, ChevronDown, ChevronUp } from 'lucide-react';
 import { SubHeaderSlotContext } from '../SubHeaderSlot';
 import { PassportClaimModal } from './PassportClaimModal';
 import { personaFetch } from '@/utils/personaSpine';
-import { WorldIdButton, type WorldIdProofBundle } from '@/components/passport/WorldIdButton';
+
+const WorldIdButton = dynamic(
+  () => import('@/components/passport/WorldIdButton').then((m) => ({ default: m.WorldIdButton })),
+  { ssr: false, loading: () => <span className="text-[10px] text-sky-400">Loading…</span> },
+);
+interface WorldIdProofBundle {
+  proof: string;
+  merkle_root: string;
+  nullifier_hash: string;
+  verification_level: 'orb' | 'device';
+}
 
 interface PublicPassport {
   passportId: string;
@@ -39,6 +50,22 @@ interface OwnPassport {
   passportGrade: string | null;
   claimedAt: string | null;
   claimable: boolean;
+}
+
+interface SponsoredAgent {
+  agentRootId: string;
+  displayName: string;
+  agentCardUrl: string;
+  agentClass: string;
+  boundPassportId: string | null;
+  sponsorPassportId: string;
+  passport: {
+    passportId: string;
+    passportClass: string;
+    passportGrade: string | null;
+    passportStatus: string | null;
+    claimedAt: string | null;
+  } | null;
 }
 
 const CLASS_FILTERS = [
@@ -61,6 +88,8 @@ export function PassportRegistryTab() {
   const subHeaderSlotEl = useContext(SubHeaderSlotContext);
 
   const [ownPassports, setOwnPassports] = useState<OwnPassport[]>([]);
+  const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgent[]>([]);
+  const [sponsoredOpen, setSponsoredOpen] = useState(true);
   const [claimTarget, setClaimTarget] = useState<{ passportId: string; passportClass: string } | null>(null);
   const [worldIdBusy, setWorldIdBusy] = useState<string | null>(null);
   const [worldIdError, setWorldIdError] = useState<Record<string, string | null>>({});
@@ -115,10 +144,18 @@ export function PassportRegistryTab() {
 
   const loadOwn = useCallback(async () => {
     try {
-      const res = await personaFetch('/api/polity-passport/wallet', { cache: 'no-store' });
-      if (!res.ok) return;
-      const json = await res.json();
-      if (json.ok) setOwnPassports(json.passportQubes ?? []);
+      const [walletRes, agentsRes] = await Promise.all([
+        personaFetch('/api/polity-passport/wallet', { cache: 'no-store' }),
+        personaFetch('/api/persona/sponsored-agents', { cache: 'no-store' }),
+      ]);
+      if (walletRes.ok) {
+        const json = await walletRes.json();
+        if (json.ok) setOwnPassports(json.passportQubes ?? []);
+      }
+      if (agentsRes.ok) {
+        const json = await agentsRes.json();
+        if (json.ok) setSponsoredAgents(json.agents ?? []);
+      }
     } catch {
       // Silent — user may not be authenticated
     }
@@ -175,6 +212,123 @@ export function PassportRegistryTab() {
         <div className="flex items-start gap-2 rounded-lg border border-rose-700 bg-rose-950/40 p-3 text-sm text-rose-300">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* My Sponsored Agents — passport claim + delegation flow */}
+      {sponsoredAgents.length > 0 && (
+        <div className="rounded-xl border border-violet-700/40 bg-violet-950/20 p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => setSponsoredOpen((p) => !p)}
+            className="flex w-full items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-violet-400" />
+              <span className="text-sm font-semibold text-slate-200">My Sponsored Agents</span>
+              <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+                {sponsoredAgents.length}
+              </span>
+            </div>
+            {sponsoredOpen ? (
+              <ChevronUp className="h-4 w-4 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-slate-400" />
+            )}
+          </button>
+          {sponsoredOpen && (
+            <div className="space-y-2">
+              {sponsoredAgents.map((agent) => {
+                const hasPassport = !!agent.passport;
+                const isClaimed = !!agent.passport?.claimedAt;
+                const passportStatus = agent.passport?.passportStatus;
+                return (
+                  <div
+                    key={agent.agentRootId}
+                    className={cls(
+                      'rounded-lg border p-3 space-y-2',
+                      isClaimed
+                        ? 'border-emerald-500/30 bg-emerald-500/5'
+                        : hasPassport
+                          ? 'border-amber-500/30 bg-amber-500/5'
+                          : 'border-slate-700 bg-slate-900/60',
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Bot className="h-4 w-4 text-violet-400" />
+                        <span className="text-sm font-medium text-slate-100">{agent.displayName}</span>
+                        <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
+                          {agent.agentClass}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isClaimed && (
+                          <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                            <ShieldCheck className="h-3 w-3" /> Passport Claimed
+                          </span>
+                        )}
+                        {hasPassport && !isClaimed && (
+                          <button
+                            onClick={() =>
+                              setClaimTarget({
+                                passportId: agent.passport!.passportId,
+                                passportClass: agent.passport!.passportClass,
+                              })
+                            }
+                            className="flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-500/30 px-2.5 py-0.5 text-xs text-violet-300 hover:bg-violet-500/25 transition-colors animate-pulse"
+                          >
+                            <Wallet className="h-3 w-3" /> Claim Passport
+                          </button>
+                        )}
+                        {!hasPassport && (
+                          <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-500">
+                            Awaiting issuance
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500 flex-wrap">
+                      <span className="font-mono">{agent.agentCardUrl}</span>
+                      {hasPassport && (
+                        <span>
+                          Passport: <span className="text-slate-300">{passportStatus}</span>
+                        </span>
+                      )}
+                    </div>
+                    {isClaimed && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() =>
+                            setClaimTarget({
+                              passportId: agent.passport!.passportId,
+                              passportClass: agent.passport!.passportClass,
+                            })
+                          }
+                          className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-700"
+                        >
+                          <Wallet className="h-3 w-3" /> View Credential
+                        </button>
+                        <a
+                          href="#delegation"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
+                            if (tabButtons.length > 0) {
+                              (tabButtons[0] as HTMLElement).click();
+                            }
+                          }}
+                          className="flex items-center gap-1 rounded bg-violet-600/20 border border-violet-500/30 px-2.5 py-1 text-xs text-violet-300 hover:bg-violet-600/30"
+                        >
+                          <Link2 className="h-3 w-3" /> Set up Delegation
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

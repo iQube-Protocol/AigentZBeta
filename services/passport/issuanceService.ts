@@ -178,6 +178,7 @@ export async function applyReviewDecision(
     .from('polity_passport_applications')
     .update({
       application_status: 'approved',
+      passport_id: passportId,
       assigned_steward_id: input.stewardPersonaId,
       decided_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
