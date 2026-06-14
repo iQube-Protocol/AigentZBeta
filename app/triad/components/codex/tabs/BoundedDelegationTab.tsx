@@ -144,6 +144,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<"delegation" | "demo">("delegation");
 
   const [delegation, setDelegation] = useState<DelegationState | null>(null);
+  const [delegationAgentDid, setDelegationAgentDid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [granting, setGranting] = useState(false);
   const [revoking, setRevoking] = useState(false);
@@ -185,6 +186,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       const res = await fetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`);
       const data = await res.json();
       setDelegation(data);
+      if (data?.agent_root_did) setDelegationAgentDid(data.agent_root_did);
     } catch {
       setError("Failed to load delegation state.");
     } finally {
@@ -247,7 +249,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           persona_id: pid,
-          agent_root_did: selectedAgent.agentRootId,
+          agent_root_did: selectedAgent.didUri || selectedAgent.agentRootId,
           trust_band: selectedTrustBand,
           selected_actions: selectedActions,
           ttl_hours: selectedTtl,
@@ -492,6 +494,24 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
               Revoke
             </button>
           </div>
+
+          {/* Delegated agent identity */}
+          {delegationAgentDid && (() => {
+            const allAgents = [...PLATFORM_AGENTS, ...sponsoredAgents];
+            const matched = allAgents.find((a) => a.agentRootId === delegationAgentDid || a.didUri === delegationAgentDid);
+            return (
+              <div className="flex items-center gap-2 rounded-lg border border-green-500/15 bg-green-500/5 px-3 py-2">
+                <Bot className="h-4 w-4 text-green-400" />
+                <span className="text-sm text-green-200 font-medium">{matched?.displayName ?? delegationAgentDid}</span>
+                {matched && (
+                  <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(matched.agentClass)}`}>
+                    {matched.agentClass}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center gap-1.5 text-slate-400">
               <Clock className="h-3.5 w-3.5" />
@@ -502,6 +522,12 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
               {delegation.actions_taken ?? 0} / {delegation.max_actions ?? 20} actions
             </div>
           </div>
+          {delegation.trust_band && (
+            <div className="flex items-center gap-1.5 text-sm text-slate-400">
+              <Shield className="h-3.5 w-3.5" />
+              Trust Band: <span className="text-violet-300">{String(delegation.trust_band).replace(/_/g, ' ')}</span>
+            </div>
+          )}
           <div>
             <p className="text-xs text-slate-500 mb-1.5">Allowed actions</p>
             <div className="flex flex-wrap gap-1.5">
