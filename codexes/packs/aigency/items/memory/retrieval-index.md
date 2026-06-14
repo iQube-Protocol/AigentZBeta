@@ -2324,3 +2324,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-eda3879.md](../build_/COMMITS/COMMIT-eda3879.md)
 - Message: interactive ccip-read deploy script — one command, prompts for missing keys
+
+## Commit `604196e` — 2026-06-14T05:14:24Z
+- Type: `push`
+- Brief: [COMMIT-604196e.md](../build_/COMMITS/COMMIT-604196e.md)
+- Message: auto-prepend 0x to private keys in deploy.mjs

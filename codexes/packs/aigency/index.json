@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T02:22:28.306Z",
+  "last_updated": "2026-06-14T05:16:29.336Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "eda3879551eeead0fd80f103f40257e740f656d5",
-  "latest_commit_short": "eda3879",
-  "latest_commit_title": "interactive ccip-read deploy script — one command, prompts for missing keys",
+  "latest_commit": "604196e295856f3cc01602c8709bc144c90fa18b",
+  "latest_commit_short": "604196e",
+  "latest_commit_title": "auto-prepend 0x to private keys in deploy.mjs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "604196e",
+      "full_sha": "604196e295856f3cc01602c8709bc144c90fa18b",
+      "title": "auto-prepend 0x to private keys in deploy.mjs",
+      "author": "Claude",
+      "timestamp": "2026-06-14T05:14:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-604196e.md"
+    },
     {
       "sha": "eda3879",
       "full_sha": "eda3879551eeead0fd80f103f40257e740f656d5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T13:20:49Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-cdcf115.md"
-    },
-    {
-      "sha": "df33f1f",
-      "full_sha": "df33f1f8efdfa2a1b63bcd36b1f7d05812103d96",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-06-01T13:20:49Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-df33f1f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

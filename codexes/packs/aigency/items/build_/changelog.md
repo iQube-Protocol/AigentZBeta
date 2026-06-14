@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`604196e`](https://github.com/iQube-Protocol/AigentZBeta/commit/604196e295856f3cc01602c8709bc144c90fa18b) [push] auto-prepend 0x to private keys in deploy.mjs (Claude, 2026-06-14T05:14:24Z)
 - [`eda3879`](https://github.com/iQube-Protocol/AigentZBeta/commit/eda3879551eeead0fd80f103f40257e740f656d5) [push] interactive ccip-read deploy script — one command, prompts for missing keys (Claude, 2026-06-14T02:20:24Z)
 - [`86ea6e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/86ea6e021553f4f057befdf6519df25ecda37528) [feat] add ccip-read ens operator runbook (Claude, 2026-06-14T01:42:34Z)
 - [`d5f5887`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5f588769358b57da5ff8b2553d685e4ed243023) [push] trigger deploy to dev (Claude, 2026-06-14T01:40:31Z)
