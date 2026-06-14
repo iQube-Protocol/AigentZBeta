@@ -67,6 +67,8 @@ interface LockerItem {
   storageMode: 'stub' | 'sui-walrus';
   createdAt: string;
   documentClass?: string;
+  encryptionIv?: string | null;
+  encryptionAuthTag?: string | null;
 }
 
 interface LockerGrant {
@@ -972,14 +974,29 @@ export function LockerTab() {
                       )}
                       <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5">{item.storageMode}</span>
                     </div>
-                    <code className="block text-[10px] text-slate-500 font-mono break-all">
-                      walrus: {item.walrusBlobId}
-                    </code>
-                    {item.suiObjectId && (
-                      <code className="block text-[10px] text-slate-500 font-mono break-all">
-                        sui: {item.suiObjectId}
+                    <div className="space-y-1">
+                      <code className="block text-[10px] text-emerald-400/70 font-mono break-all">
+                        walrus CID: {item.walrusBlobId}
                       </code>
-                    )}
+                      {item.suiObjectId && (
+                        <code className="block text-[10px] text-sky-400/70 font-mono break-all">
+                          sui object: {item.suiObjectId}
+                        </code>
+                      )}
+                      {(item.encryptionIv || item.encryptionAuthTag) && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                            <ShieldCheck className="h-2.5 w-2.5" /> AES-256-GCM encrypted
+                          </span>
+                          {item.encryptionIv && (
+                            <code className="text-[9px] text-slate-600 font-mono">IV: {item.encryptionIv.slice(0, 12)}…</code>
+                          )}
+                          {item.encryptionAuthTag && (
+                            <code className="text-[9px] text-slate-600 font-mono">tag: {item.encryptionAuthTag.slice(0, 12)}…</code>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     {/* Grant action buttons */}
                     {agents.length > 0 && (
                       <div className="flex items-center gap-1.5 flex-wrap pt-1">
