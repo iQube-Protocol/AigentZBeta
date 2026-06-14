@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T08:07:16.749Z",
+  "last_updated": "2026-06-14T19:22:09.227Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e4fff6987191afe424fab349d65af4dc44546e15",
-  "latest_commit_short": "e4fff69",
-  "latest_commit_title": "fix ENS tab spinner + add QubeTalk channels to Locker",
+  "latest_commit": "7dcfb899a97b58fd3a368f829bb57a9979bb3590",
+  "latest_commit_short": "7dcfb89",
+  "latest_commit_title": "fix steward review auth + add collapsible wallet cards",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7dcfb89",
+      "full_sha": "7dcfb899a97b58fd3a368f829bb57a9979bb3590",
+      "title": "fix steward review auth + add collapsible wallet cards",
+      "author": "Claude",
+      "timestamp": "2026-06-14T19:19:54Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-7dcfb89.md"
+    },
+    {
+      "sha": "15b39af",
+      "full_sha": "15b39af11208b9e69c7a59bba251016542e2aefb",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-14T19:20:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-15b39af.md"
+    },
     {
       "sha": "e4fff69",
       "full_sha": "e4fff6987191afe424fab349d65af4dc44546e15",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-02T00:38:30Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-927f459.md"
-    },
-    {
-      "sha": "7ccb102",
-      "full_sha": "7ccb1027eb477ce51bed0e645c6394d54fc6c12e",
-      "title": "spec: intent chain orchestrator — draft v1 + reference template",
-      "author": "Claude",
-      "timestamp": "2026-06-02T00:14:35Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7ccb102.md"
-    },
-    {
-      "sha": "336eacc",
-      "full_sha": "336eacc81cd76e8d7403c05edc8d69b50e7dffa6",
-      "title": "backlog: auto-merge workflow repair + anchor cron scheduler wiring",
-      "author": "Claude",
-      "timestamp": "2026-06-01T23:26:40Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-336eacc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

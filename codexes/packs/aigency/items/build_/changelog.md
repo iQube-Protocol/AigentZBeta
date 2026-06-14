@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`7dcfb89`](https://github.com/iQube-Protocol/AigentZBeta/commit/7dcfb899a97b58fd3a368f829bb57a9979bb3590) [feat] fix steward review auth + add collapsible wallet cards (Claude, 2026-06-14T19:19:54Z)
+- [`15b39af`](https://github.com/iQube-Protocol/AigentZBeta/commit/15b39af11208b9e69c7a59bba251016542e2aefb) [push] trigger deploy to dev (Claude, 2026-06-14T19:20:10Z)
 - [`e4fff69`](https://github.com/iQube-Protocol/AigentZBeta/commit/e4fff6987191afe424fab349d65af4dc44546e15) [feat] fix ENS tab spinner + add QubeTalk channels to Locker (Claude, 2026-06-14T08:04:56Z)
 - [`79405af`](https://github.com/iQube-Protocol/AigentZBeta/commit/79405af0b645613bea09e0c2e44db762f0aefc65) [push] trigger deploy to dev (Claude, 2026-06-14T08:05:19Z)
 - [`180a967`](https://github.com/iQube-Protocol/AigentZBeta/commit/180a96733ea5b3bd4b92b9ec984f6e795c7db6b9) [push] handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero (Claude, 2026-06-14T05:28:27Z)
