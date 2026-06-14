@@ -329,6 +329,16 @@ export function activationIdForTabSlug(slug: string): string | null {
 }
 
 /**
+ * Return every activation id whose `gate` is `open` — these are the
+ * surfaces a persona auto-grants on first read (no explicit consent
+ * required). Used by the admin/assistant diag routes and the
+ * personaActivations bootstrap to populate the open-gate set.
+ */
+export function listAutoGrantActivationIds(): string[] {
+  return ACTIVATION_CATALOG.filter((e) => e.gate === 'open').map((e) => e.id);
+}
+
+/**
  * Return every metric exposed by activations the persona has in `active`
  * status. Used by the KPI editor's source picker and the resolver.
  */
