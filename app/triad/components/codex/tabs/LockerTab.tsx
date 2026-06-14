@@ -21,6 +21,19 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { authedFetchHeaders } from '@/utils/supabaseBrowser';
+import dynamic from 'next/dynamic';
+
+const WorldIdButton = dynamic(
+  () => import('@/components/passport/WorldIdButton').then((m) => ({ default: m.WorldIdButton })),
+  { ssr: false, loading: () => <span className="text-[10px] text-sky-400">Loading…</span> },
+);
+
+interface WorldIdProofBundle {
+  proof: string;
+  merkle_root: string;
+  nullifier_hash: string;
+  verification_level: 'orb' | 'device';
+}
 
 const DOCUMENT_CLASSES = [
   { value: 'identity_document', label: 'Identity Document', color: 'border-blue-500/40 bg-blue-500/10 text-blue-300' },
@@ -410,6 +423,33 @@ export function LockerTab() {
     });
   }, []);
 
+  const [worldIdBusy, setWorldIdBusy] = useState<string | null>(null);
+  const [worldIdError, setWorldIdError] = useState<Record<string, string | null>>({});
+
+  const handleWorldIdProof = useCallback(async (passportId: string, proof: WorldIdProofBundle) => {
+    setWorldIdBusy(passportId);
+    setWorldIdError((e) => ({ ...e, [passportId]: null }));
+    try {
+      const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const res = await fetch('/api/polity-passport/verify-worldid', {
+        method: 'POST',
+        headers: headers ?? { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passportId, ...proof }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setWorldIdError((e) => ({ ...e, [passportId]: data?.error ?? 'Verification failed' }));
+        return;
+      }
+      setNotice('World ID verified — passport upgraded to verified_citizen.');
+      void load();
+    } catch (err) {
+      setWorldIdError((e) => ({ ...e, [passportId]: err instanceof Error ? err.message : 'Verification failed' }));
+    } finally {
+      setWorldIdBusy(null);
+    }
+  }, [load]);
+
   const grantsByItem = grants.reduce<Record<string, LockerGrant[]>>((acc, g) => {
     (acc[g.itemId] ||= []).push(g);
     return acc;
@@ -559,6 +599,20 @@ export function LockerTab() {
                         {claimBusy === pq.passportId ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wallet className="h-3 w-3" />}
                         Claim Credential
                       </button>
+                    )}
+                    {pq.passportClass === 'citizen' && pq.passportGrade !== 'verified_citizen' && pq.claimedAt && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <WorldIdButton
+                          onProof={(proof) => handleWorldIdProof(pq.passportId, proof)}
+                          busy={worldIdBusy === pq.passportId}
+                          signal={pq.passportId}
+                          label="Upgrade with World ID"
+                          className="flex items-center gap-1 rounded bg-sky-500/15 px-2.5 py-1 text-xs text-sky-300 hover:bg-sky-500/25 transition-colors disabled:opacity-50"
+                        />
+                        {worldIdError[pq.passportId] && (
+                          <span className="text-[10px] text-red-400">{worldIdError[pq.passportId]}</span>
+                        )}
+                      </div>
                     )}
                     {pq.credential && (
                       <div className="space-y-1">
