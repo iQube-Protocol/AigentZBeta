@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`86ea6e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/86ea6e021553f4f057befdf6519df25ecda37528) [feat] add ccip-read ens operator runbook (Claude, 2026-06-14T01:42:34Z)
+- [`d5f5887`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5f588769358b57da5ff8b2553d685e4ed243023) [push] trigger deploy to dev (Claude, 2026-06-14T01:40:31Z)
 - [`bf296b8`](https://github.com/iQube-Protocol/AigentZBeta/commit/bf296b866fa56fa07ca7c627cba1084c374138f9) [feat] add listAutoGrantActivationIds export to unblock amplify build (Claude, 2026-06-14T01:35:13Z)
 - [`db509a3`](https://github.com/iQube-Protocol/AigentZBeta/commit/db509a301c14e2ea6d5fbc6d4436744ea4d201ae) [feat] add /api/ens/ccip-read/health diagnostic endpoint (Claude, 2026-06-14T00:39:03Z)
 - [`c4bb4ce`](https://github.com/iQube-Protocol/AigentZBeta/commit/c4bb4cea824f0ee3b947f83d7f5731738b2337aa) [push] self-hosted ccip-read ens resolver — bypass namestone entirely (Claude, 2026-06-14T00:15:12Z)
