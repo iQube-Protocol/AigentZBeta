@@ -48,14 +48,31 @@ const GATEWAY_URL =
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY as Hex | undefined;
 const ISSUER_PRIVATE_KEY = process.env.POLITY_ISSUER_PRIVATE_KEY as Hex | undefined;
 
-if (!DEPLOYER_PRIVATE_KEY || !DEPLOYER_PRIVATE_KEY.startsWith('0x')) {
-  console.error('DEPLOYER_PRIVATE_KEY env var required (0x-prefixed 32-byte hex)');
-  process.exit(1);
+function validateKey(name: string, value: string | undefined): asserts value is Hex {
+  if (!value) {
+    console.error(`❌ ${name} env var required.`);
+    console.error(`   In your shell, run:    export ${name}=0x<64-hex-chars>`);
+    console.error(`   (NOT just '${name}=...' — that's a one-shot assignment that doesn't propagate.)`);
+    process.exit(1);
+  }
+  if (!value.startsWith('0x')) {
+    console.error(`❌ ${name} must start with 0x. Got: '${value.slice(0, 10)}...'`);
+    process.exit(1);
+  }
+  if (value.length !== 66) {
+    const got = value.length;
+    if (got === 42) {
+      console.error(`❌ ${name} is ${got} characters (an Ethereum ADDRESS), not 66 (a private KEY).`);
+      console.error(`   Get the private key from MetaMask: account menu → Account details → Show private key.`);
+    } else {
+      console.error(`❌ ${name} must be 66 characters total (0x + 64 hex). Got: ${got} chars.`);
+    }
+    process.exit(1);
+  }
 }
-if (!ISSUER_PRIVATE_KEY || !ISSUER_PRIVATE_KEY.startsWith('0x')) {
-  console.error('POLITY_ISSUER_PRIVATE_KEY env var required');
-  process.exit(1);
-}
+
+validateKey('DEPLOYER_PRIVATE_KEY', DEPLOYER_PRIVATE_KEY);
+validateKey('POLITY_ISSUER_PRIVATE_KEY', ISSUER_PRIVATE_KEY);
 
 const deployer = privateKeyToAccount(DEPLOYER_PRIVATE_KEY);
 const issuer = privateKeyToAccount(ISSUER_PRIVATE_KEY);
