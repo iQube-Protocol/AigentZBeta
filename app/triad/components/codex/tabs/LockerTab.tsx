@@ -191,9 +191,10 @@ export function LockerTab() {
     }
   }, [items]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preserveNotice = false) => {
     setLoading(true);
     setError(null);
+    if (!preserveNotice) setNotice(null);
     try {
       const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
       const authInit: RequestInit = { cache: 'no-store', headers: headers ?? undefined };
@@ -203,17 +204,24 @@ export function LockerTab() {
         fetch('/api/polity-passport/wallet', authInit),
         fetch('/api/qubetalk/passport-channels', authInit),
       ]);
-      if (lockerRes.status === 'fulfilled' && lockerRes.value.ok) {
-        const data = await lockerRes.value.json();
-        if (data?.ok) {
-          setItems(data.items ?? []);
-          setGrants(data.grants ?? []);
-          if (data.migrationPending) {
-            setError(`Pending migration: ${data.migrationPending}`);
+      if (lockerRes.status === 'fulfilled') {
+        if (lockerRes.value.ok) {
+          const data = await lockerRes.value.json();
+          if (data?.ok) {
+            setItems(data.items ?? []);
+            setGrants(data.grants ?? []);
+            if (data.migrationPending) {
+              setError(`Pending migration: ${data.migrationPending}`);
+            }
+          } else if (data?.error) {
+            setError(data.error);
           }
-        } else if (data?.error) {
-          setError(data.error);
+        } else {
+          const data = await lockerRes.value.json().catch(() => null);
+          setError(data?.error ?? `Locker load failed (${lockerRes.value.status})`);
         }
+      } else {
+        setError(`Locker unavailable: ${lockerRes.reason instanceof Error ? lockerRes.reason.message : 'network error'}`);
       }
       if (agentRes.status === 'fulfilled' && agentRes.value.ok) {
         const data = await agentRes.value.json();
@@ -306,7 +314,7 @@ export function LockerTab() {
       }
       setLastLocation(checkpoint);
       setNotice(`Location saved: ${checkpoint.lat.toFixed(6)}, ${checkpoint.lng.toFixed(6)}`);
-      void load();
+      void load(true);
     } catch (e) {
       if (e instanceof GeolocationPositionError) {
         const msgs: Record<number, string> = {
@@ -353,7 +361,7 @@ export function LockerTab() {
         }
         setNotice(`Uploaded ${data.item.displayName} → ${data.item.walrusBlobId.slice(0, 40)}…`);
         setUploadDisplayName('');
-        void load();
+        void load(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Upload failed');
       } finally {
@@ -393,7 +401,7 @@ export function LockerTab() {
 
       setNotice(`Granted ${grantTarget.scope} access to agent`);
       setGrantTarget(null);
-      void load();
+      void load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Grant failed');
     }
@@ -414,7 +422,7 @@ export function LockerTab() {
           return;
         }
         setNotice('Grant revoked');
-        void load();
+        void load(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Revoke failed');
       }
@@ -437,7 +445,7 @@ export function LockerTab() {
         return;
       }
       setNotice('Passport credential claimed — it now appears in your wallet.');
-      void load();
+      void load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Claim failed');
     } finally {
@@ -472,7 +480,7 @@ export function LockerTab() {
         return;
       }
       setNotice('World ID verified — passport upgraded to verified_citizen.');
-      void load();
+      void load(true);
     } catch (err) {
       setWorldIdError((e) => ({ ...e, [passportId]: err instanceof Error ? err.message : 'Verification failed' }));
     } finally {
