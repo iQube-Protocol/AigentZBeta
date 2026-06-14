@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`eff22bc`](https://github.com/iQube-Protocol/AigentZBeta/commit/eff22bc7cb9ef84f0e6d431c0ee3c07e14bc658c) [push] flip steward queue cards to decided state after approve/deny (Claude, 2026-06-14T19:33:23Z)
 - [`7dcfb89`](https://github.com/iQube-Protocol/AigentZBeta/commit/7dcfb899a97b58fd3a368f829bb57a9979bb3590) [feat] fix steward review auth + add collapsible wallet cards (Claude, 2026-06-14T19:19:54Z)
 - [`15b39af`](https://github.com/iQube-Protocol/AigentZBeta/commit/15b39af11208b9e69c7a59bba251016542e2aefb) [push] trigger deploy to dev (Claude, 2026-06-14T19:20:10Z)
 - [`e4fff69`](https://github.com/iQube-Protocol/AigentZBeta/commit/e4fff6987191afe424fab349d65af4dc44546e15) [feat] fix ENS tab spinner + add QubeTalk channels to Locker (Claude, 2026-06-14T08:04:56Z)

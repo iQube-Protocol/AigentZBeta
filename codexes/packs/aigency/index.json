@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T19:22:09.227Z",
+  "last_updated": "2026-06-14T19:35:23.565Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7dcfb899a97b58fd3a368f829bb57a9979bb3590",
-  "latest_commit_short": "7dcfb89",
-  "latest_commit_title": "fix steward review auth + add collapsible wallet cards",
+  "latest_commit": "eff22bc7cb9ef84f0e6d431c0ee3c07e14bc658c",
+  "latest_commit_short": "eff22bc",
+  "latest_commit_title": "flip steward queue cards to decided state after approve/deny",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "eff22bc",
+      "full_sha": "eff22bc7cb9ef84f0e6d431c0ee3c07e14bc658c",
+      "title": "flip steward queue cards to decided state after approve/deny",
+      "author": "Claude",
+      "timestamp": "2026-06-14T19:33:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-eff22bc.md"
+    },
     {
       "sha": "7dcfb89",
       "full_sha": "7dcfb899a97b58fd3a368f829bb57a9979bb3590",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-02T00:44:01Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b065860.md"
-    },
-    {
-      "sha": "927f459",
-      "full_sha": "927f459ceffc1cb0c9748f54b269373d21053f47",
-      "title": "intent chains commit 1: schema + types + template registry + reference",
-      "author": "Claude",
-      "timestamp": "2026-06-02T00:38:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-927f459.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
