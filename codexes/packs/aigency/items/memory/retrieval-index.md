@@ -2334,3 +2334,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-4f00c2c.md](../build_/COMMITS/COMMIT-4f00c2c.md)
 - Message: add programmatic resolver-set script — bypass ENS Manager UI
+
+## Commit `d5aff7e` — 2026-06-14T05:24:56Z
+- Type: `fix`
+- Brief: [COMMIT-d5aff7e.md](../build_/COMMITS/COMMIT-d5aff7e.md)
+- Message: fix two unblockers — viem.normalize import path + set-resolver prompts for key
