@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet } from 'lucide-react';
+import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet, Clock } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { authedFetchHeaders } from '@/utils/supabaseBrowser';
 import dynamic from 'next/dynamic';
@@ -182,8 +182,8 @@ export function LockerTab() {
       const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
       const authInit: RequestInit = { cache: 'no-store', headers: headers ?? undefined };
       const [lockerRes, agentRes, passportRes] = await Promise.allSettled([
-        personaFetch('/api/polity-passport/locker', { cache: 'no-store' }),
-        personaFetch('/api/persona/sponsored-agents', { cache: 'no-store' }),
+        fetch('/api/polity-passport/locker', authInit),
+        fetch('/api/persona/sponsored-agents', authInit),
         fetch('/api/polity-passport/wallet', authInit),
       ]);
       if (lockerRes.status === 'fulfilled' && lockerRes.value.ok) {
@@ -550,7 +550,7 @@ export function LockerTab() {
                   <div key={app.applicationId} className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
+                        <Clock className="h-4 w-4 text-amber-400" />
                         <span className="text-sm font-medium text-amber-200 capitalize">{app.passportClass} Passport</span>
                       </div>
                       <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-medium text-amber-300">
