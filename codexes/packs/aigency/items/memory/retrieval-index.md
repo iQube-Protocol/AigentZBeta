@@ -2289,3 +2289,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5406314.md](../build_/COMMITS/COMMIT-5406314.md)
 - Message: trigger deploy to dev
+
+## Commit `dafd44c` — 2026-06-13T23:10:59Z
+- Type: `push`
+- Brief: [COMMIT-dafd44c.md](../build_/COMMITS/COMMIT-dafd44c.md)
+- Message: document worldcoin keyspace — three keys, one purpose each (operator unblock)
+
+## Commit `c4bb4ce` — 2026-06-14T00:15:12Z
+- Type: `push`
+- Brief: [COMMIT-c4bb4ce.md](../build_/COMMITS/COMMIT-c4bb4ce.md)
+- Message: self-hosted ccip-read ens resolver — bypass namestone entirely
