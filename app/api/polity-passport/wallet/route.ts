@@ -70,8 +70,25 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    // Also return pending applications so the Locker can show application
+    // status when no passport record has been issued yet.
+    const { data: pendingApps } = await admin
+      .from('polity_passport_applications')
+      .select('id, passport_class, application_status, passport_grade, submitted_at, updated_at')
+      .eq('persona_id', persona.personaId)
+      .in('application_status', ['submitted', 'pending_approval', 'needs_more_information']);
+
+    const pendingApplications = (pendingApps ?? []).map((app) => ({
+      applicationId: String(app.id),
+      passportClass: app.passport_class,
+      applicationStatus: app.application_status,
+      passportGrade: app.passport_grade,
+      submittedAt: app.submitted_at,
+      updatedAt: app.updated_at,
+    }));
+
     return NextResponse.json(
-      { ok: true, passportQubes },
+      { ok: true, passportQubes, pendingApplications },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {

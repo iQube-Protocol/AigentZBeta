@@ -18,8 +18,22 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet } from 'lucide-react';
+import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet, Clock } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { authedFetchHeaders } from '@/utils/supabaseBrowser';
+import dynamic from 'next/dynamic';
+
+const WorldIdButton = dynamic(
+  () => import('@/components/passport/WorldIdButton').then((m) => ({ default: m.WorldIdButton })),
+  { ssr: false, loading: () => <span className="text-[10px] text-sky-400">Loading…</span> },
+);
+
+interface WorldIdProofBundle {
+  proof: string;
+  merkle_root: string;
+  nullifier_hash: string;
+  verification_level: 'orb' | 'device';
+}
 
 const DOCUMENT_CLASSES = [
   { value: 'identity_document', label: 'Identity Document', color: 'border-blue-500/40 bg-blue-500/10 text-blue-300' },
@@ -82,6 +96,15 @@ interface PassportVcItem {
   credential?: Record<string, unknown>;
 }
 
+interface PendingApplication {
+  applicationId: string;
+  passportClass: string;
+  applicationStatus: string;
+  passportGrade: string | null;
+  submittedAt: string | null;
+  updatedAt: string | null;
+}
+
 interface SponsoredAgentItem {
   agentRootId: string;
   displayName: string;
@@ -138,6 +161,7 @@ export function LockerTab() {
   const [passportCardCollapsed, setPassportCardCollapsed] = useState(false);
   const [sponsoredAgentItems, setSponsoredAgentItems] = useState<SponsoredAgentItem[]>([]);
   const [claimBusy, setClaimBusy] = useState<string | null>(null);
+  const [pendingApplications, setPendingApplications] = useState<PendingApplication[]>([]);
 
   // Derive last location from items when loaded
   useEffect(() => {
@@ -155,13 +179,15 @@ export function LockerTab() {
     setLoading(true);
     setError(null);
     try {
-      const [lockerRes, agentRes, passportRes] = await Promise.all([
-        personaFetch('/api/polity-passport/locker', { cache: 'no-store' }),
-        personaFetch('/api/persona/sponsored-agents', { cache: 'no-store' }),
-        personaFetch('/api/polity-passport/wallet', { cache: 'no-store' }),
+      const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
+      const authInit: RequestInit = { cache: 'no-store', headers: headers ?? undefined };
+      const [lockerRes, agentRes, passportRes] = await Promise.allSettled([
+        fetch('/api/polity-passport/locker', authInit),
+        fetch('/api/persona/sponsored-agents', authInit),
+        fetch('/api/polity-passport/wallet', authInit),
       ]);
-      if (lockerRes.ok) {
-        const data = await lockerRes.json();
+      if (lockerRes.status === 'fulfilled' && lockerRes.value.ok) {
+        const data = await lockerRes.value.json();
         if (data?.ok) {
           setItems(data.items ?? []);
           setGrants(data.grants ?? []);
@@ -172,8 +198,8 @@ export function LockerTab() {
           setError(data.error);
         }
       }
-      if (agentRes.ok) {
-        const data = await agentRes.json();
+      if (agentRes.status === 'fulfilled' && agentRes.value.ok) {
+        const data = await agentRes.value.json();
         if (data?.ok) {
           const agentList = data.agents ?? [];
           setAgents(
@@ -196,9 +222,12 @@ export function LockerTab() {
           );
         }
       }
-      if (passportRes.ok) {
-        const data = await passportRes.json();
-        if (data?.ok) setPassportVcs(data.passportQubes ?? []);
+      if (passportRes.status === 'fulfilled' && passportRes.value.ok) {
+        const data = await passportRes.value.json();
+        if (data?.ok) {
+          setPassportVcs(data.passportQubes ?? []);
+          setPendingApplications(data.pendingApplications ?? []);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Locker load failed');
@@ -394,6 +423,33 @@ export function LockerTab() {
     });
   }, []);
 
+  const [worldIdBusy, setWorldIdBusy] = useState<string | null>(null);
+  const [worldIdError, setWorldIdError] = useState<Record<string, string | null>>({});
+
+  const handleWorldIdProof = useCallback(async (passportId: string, proof: WorldIdProofBundle) => {
+    setWorldIdBusy(passportId);
+    setWorldIdError((e) => ({ ...e, [passportId]: null }));
+    try {
+      const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const res = await fetch('/api/polity-passport/verify-worldid', {
+        method: 'POST',
+        headers: headers ?? { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passportId, ...proof }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setWorldIdError((e) => ({ ...e, [passportId]: data?.error ?? 'Verification failed' }));
+        return;
+      }
+      setNotice('World ID verified — passport upgraded to verified_citizen.');
+      void load();
+    } catch (err) {
+      setWorldIdError((e) => ({ ...e, [passportId]: err instanceof Error ? err.message : 'Verification failed' }));
+    } finally {
+      setWorldIdBusy(null);
+    }
+  }, [load]);
+
   const grantsByItem = grants.reduce<Record<string, LockerGrant[]>>((acc, g) => {
     (acc[g.itemId] ||= []).push(g);
     return acc;
@@ -464,9 +520,9 @@ export function LockerTab() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-violet-400" />
             <span className="text-sm font-semibold text-slate-200">My Credentials & Relationships</span>
-            {(passportVcs.length + sponsoredAgentItems.length) > 0 && (
+            {(passportVcs.length + pendingApplications.length + sponsoredAgentItems.length) > 0 && (
               <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
-                {passportVcs.length + sponsoredAgentItems.length}
+                {passportVcs.length + pendingApplications.length + sponsoredAgentItems.length}
               </span>
             )}
           </div>
@@ -485,12 +541,32 @@ export function LockerTab() {
                 <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading credentials…
                 </div>
-              ) : passportVcs.length === 0 ? (
+              ) : passportVcs.length === 0 && pendingApplications.length === 0 ? (
                 <p className="text-xs text-slate-400">
                   No passport credentials yet. Apply on the Apply tab, then claim here once approved.
                 </p>
-              ) : (
-                passportVcs.map((pq) => (
+              ) : (<>
+                {pendingApplications.map((app) => (
+                  <div key={app.applicationId} className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-amber-400" />
+                        <span className="text-sm font-medium text-amber-200 capitalize">{app.passportClass} Passport</span>
+                      </div>
+                      <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                        {app.applicationStatus.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    {app.passportGrade && (
+                      <p className="text-[11px] text-slate-400">Grade: <span className="text-slate-300">{app.passportGrade.replace(/_/g, ' ')}</span></p>
+                    )}
+                    {app.submittedAt && (
+                      <p className="text-[11px] text-slate-500">Submitted {new Date(app.submittedAt).toLocaleDateString()}</p>
+                    )}
+                    <p className="text-[10px] text-slate-500">Awaiting steward review. Once approved, your passport credential will appear here.</p>
+                  </div>
+                ))}
+                {passportVcs.map((pq) => (
                   <div key={pq.passportId} className={cls(
                     'rounded-lg border p-3 space-y-2',
                     pq.claimedAt ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5',
@@ -524,6 +600,20 @@ export function LockerTab() {
                         Claim Credential
                       </button>
                     )}
+                    {pq.passportClass === 'citizen' && pq.passportGrade !== 'verified_citizen' && pq.claimedAt && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <WorldIdButton
+                          onProof={(proof) => handleWorldIdProof(pq.passportId, proof)}
+                          busy={worldIdBusy === pq.passportId}
+                          signal={pq.passportId}
+                          label="Upgrade with World ID"
+                          className="flex items-center gap-1 rounded bg-sky-500/15 px-2.5 py-1 text-xs text-sky-300 hover:bg-sky-500/25 transition-colors disabled:opacity-50"
+                        />
+                        {worldIdError[pq.passportId] && (
+                          <span className="text-[10px] text-red-400">{worldIdError[pq.passportId]}</span>
+                        )}
+                      </div>
+                    )}
                     {pq.credential && (
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -550,8 +640,8 @@ export function LockerTab() {
                       </div>
                     )}
                   </div>
-                ))
-              )}
+                ))}
+              </>)}
             </div>
 
             {/* Sponsored agents */}

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T01:44:35.856Z",
+  "last_updated": "2026-06-14T02:22:28.306Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "86ea6e021553f4f057befdf6519df25ecda37528",
-  "latest_commit_short": "86ea6e0",
-  "latest_commit_title": "add ccip-read ens operator runbook",
+  "latest_commit": "eda3879551eeead0fd80f103f40257e740f656d5",
+  "latest_commit_short": "eda3879",
+  "latest_commit_title": "interactive ccip-read deploy script — one command, prompts for missing keys",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "eda3879",
+      "full_sha": "eda3879551eeead0fd80f103f40257e740f656d5",
+      "title": "interactive ccip-read deploy script — one command, prompts for missing keys",
+      "author": "Claude",
+      "timestamp": "2026-06-14T02:20:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-eda3879.md"
+    },
     {
       "sha": "86ea6e0",
       "full_sha": "86ea6e021553f4f057befdf6519df25ecda37528",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-01T13:20:49Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-df33f1f.md"
-    },
-    {
-      "sha": "d0d5618",
-      "full_sha": "d0d561824e882545f08daceb4ab095c8d2bea23c",
-      "title": "trinity rename: code surface — disambiguate iQube primitives from SmartTriad",
-      "author": "Claude",
-      "timestamp": "2026-05-31T19:47:03Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-d0d5618.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

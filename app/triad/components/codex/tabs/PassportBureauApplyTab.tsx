@@ -176,7 +176,9 @@ export function PassportBureauApplyTab() {
         return;
       }
       const name = agentName.trim() || 'Polity Helper';
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'polity-helper';
+      const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'polity-helper';
+      const suffix = Math.random().toString(36).slice(2, 6);
+      const slug = `${baseSlug}-${suffix}`;
       const desc = agentDescription.trim() || 'General-purpose polity helper agent';
       const r = await fetch('/api/agents/genesis', {
         method: 'POST',
@@ -367,14 +369,19 @@ export function PassportBureauApplyTab() {
   const handleBind = useCallback(async () => {
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const hasAuth = headers && typeof headers === 'object' && 'Authorization' in headers;
+      if (!hasAuth) {
+        throw new Error('No auth session — please sign in first (Step 2).');
+      }
       const res = await fetch('/api/passport/identity/bind', {
         method: 'POST',
         headers,
         body: JSON.stringify({ displayName: displayName || undefined }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({ ok: false, error: `Identity bind failed (HTTP ${res.status})` }));
       if (!json.ok) throw new Error(json.error || 'Identity bind failed');
       setBound(true);
       setKybeRef(json.kybePublicRef ?? null);
@@ -1031,10 +1038,30 @@ export function PassportBureauApplyTab() {
             Submit the participant application for <strong>{agentName || 'your agent'}</strong>.
             A steward reviews it in the Bureau queue; you can watch status below.
           </p>
+          {!allChecked && (
+            <p className="text-xs text-amber-300">
+              You must accept the consents on{' '}
+              <button
+                type="button"
+                onClick={() => setStep('consents')}
+                className="underline hover:text-amber-200"
+              >
+                Step 5 (Consents)
+              </button>{' '}
+              before submitting.
+            </p>
+          )}
           {!delegationBound && (
             <p className="text-xs text-amber-300">
               Note: the agent is not yet bound to you via bounded delegation — you can still submit,
-              but binding is recommended before activation.
+              but binding is recommended before activation.{' '}
+              <button
+                type="button"
+                onClick={() => setStep('agent')}
+                className="underline hover:text-amber-200"
+              >
+                Go back to Step 4 to bind.
+              </button>
             </p>
           )}
           <button

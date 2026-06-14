@@ -18,6 +18,20 @@ import {
   Link2,
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { authedFetchHeaders } from '@/utils/supabaseBrowser';
+import dynamic from 'next/dynamic';
+
+const WorldIdButton = dynamic(
+  () => import('@/components/passport/WorldIdButton').then((m) => ({ default: m.WorldIdButton })),
+  { ssr: false, loading: () => <span className="text-[10px] text-sky-400">Loading…</span> },
+);
+
+interface WorldIdProofBundle {
+  proof: string;
+  merkle_root: string;
+  nullifier_hash: string;
+  verification_level: 'orb' | 'device';
+}
 
 interface PassportClaimModalProps {
   open: boolean;
@@ -117,6 +131,34 @@ export function PassportClaimModal({
     a.click();
     URL.revokeObjectURL(url);
   }, [credential, passportId]);
+
+  const [worldIdBusy, setWorldIdBusy] = useState(false);
+  const [worldIdError, setWorldIdError] = useState<string | null>(null);
+  const [worldIdDone, setWorldIdDone] = useState(false);
+
+  const handleWorldIdProof = useCallback(async (proof: WorldIdProofBundle) => {
+    setWorldIdBusy(true);
+    setWorldIdError(null);
+    try {
+      const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const res = await fetch('/api/polity-passport/verify-worldid', {
+        method: 'POST',
+        headers: headers ?? { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passportId, ...proof }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setWorldIdError(data?.error ?? 'Verification failed');
+        return;
+      }
+      setWorldIdDone(true);
+      onClaimed?.();
+    } catch (err) {
+      setWorldIdError(err instanceof Error ? err.message : 'Verification failed');
+    } finally {
+      setWorldIdBusy(false);
+    }
+  }, [passportId, onClaimed]);
 
   const isCitizen = passportClass === 'citizen';
   const typeLabel = isCitizen ? 'Citizen Passport' : 'Participant Passport';
@@ -227,6 +269,38 @@ export function PassportClaimModal({
                 Download
               </button>
             </div>
+
+            {isCitizen && !worldIdDone && (
+              <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 space-y-2">
+                <p className="text-xs text-sky-300 font-medium">Validate your passport with World ID</p>
+                <p className="text-[11px] text-slate-400">
+                  Upgrade to <strong className="text-sky-200">verified_citizen</strong> by proving your personhood.
+                  This is optional but unlocks higher trust bands for agent delegation.
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <WorldIdButton
+                    onProof={handleWorldIdProof}
+                    busy={worldIdBusy}
+                    signal={passportId}
+                    label="Verify with World ID"
+                    className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-500 transition-colors disabled:opacity-50"
+                  />
+                  {worldIdError && (
+                    <span className="text-[10px] text-red-400">{worldIdError}</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {worldIdDone && (
+              <div className="flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 p-3">
+                <ShieldCheck className="h-5 w-5 text-sky-400" />
+                <div>
+                  <p className="text-sm font-medium text-sky-300">World ID Verified</p>
+                  <p className="text-xs text-slate-400">Passport upgraded to verified_citizen.</p>
+                </div>
+              </div>
+            )}
 
             {!isCitizen && (
               <button

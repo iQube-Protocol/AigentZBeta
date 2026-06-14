@@ -85,6 +85,16 @@ body {
 [role="dialog"] {
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
+/* World ID / IDKit modal must render above the copilot (z-[120])
+   and wallet drawer layers. IDKit portals to document.body with
+   id="idkit-widget". Force it and its backdrop above everything. */
+#idkit-widget {
+  z-index: 9999 !important;
+}
+/* Headless UI / Radix portal containers that IDKit may use */
+[data-headlessui-portal] {
+  z-index: 9999 !important;
+}
 /* Popover, dropdown, select, tooltip — same rule */
 [role="listbox"],
 [role="menu"],
