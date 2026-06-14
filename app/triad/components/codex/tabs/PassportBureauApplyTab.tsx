@@ -176,7 +176,9 @@ export function PassportBureauApplyTab() {
         return;
       }
       const name = agentName.trim() || 'Polity Helper';
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'polity-helper';
+      const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'polity-helper';
+      const suffix = Math.random().toString(36).slice(2, 6);
+      const slug = `${baseSlug}-${suffix}`;
       const desc = agentDescription.trim() || 'General-purpose polity helper agent';
       const r = await fetch('/api/agents/genesis', {
         method: 'POST',
