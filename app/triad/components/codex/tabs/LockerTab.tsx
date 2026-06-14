@@ -264,9 +264,10 @@ export function LockerTab() {
         accuracy: pos.coords.accuracy,
       };
       const payloadBase64 = btoa(JSON.stringify(checkpoint));
-      const res = await personaFetch('/api/polity-passport/locker', {
+      const authHdrs = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const res = await fetch('/api/polity-passport/locker', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHdrs ?? { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           displayName: 'Location checkpoint',
           contentType: 'application/json',
@@ -310,9 +311,10 @@ export function LockerTab() {
       setNotice(null);
       try {
         const payloadBase64 = await fileToBase64(file);
-        const res = await personaFetch('/api/polity-passport/locker', {
+        const authHdrs = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+        const res = await fetch('/api/polity-passport/locker', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHdrs ?? { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             displayName: uploadDisplayName.trim(),
             contentType: file.type || 'application/octet-stream',
@@ -343,9 +345,10 @@ export function LockerTab() {
     setError(null);
     setNotice(null);
     try {
-      const res = await personaFetch('/api/polity-passport/locker/grant', {
+      const authHdrs = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const res = await fetch('/api/polity-passport/locker/grant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHdrs ?? { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           itemId: grantTarget.itemId,
           delegatedAgentRootId: grantTarget.agentRootId,
@@ -359,9 +362,9 @@ export function LockerTab() {
       }
 
       // Also bind the QubeTalk channel (idempotent — does nothing if one exists).
-      await personaFetch('/api/qubetalk/channels/bind', {
+      await fetch('/api/qubetalk/channels/bind', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHdrs ?? { 'Content-Type': 'application/json' },
         body: JSON.stringify({ delegatedAgentRootId: grantTarget.agentRootId, delegationGrantId: data.grant.grantId }),
       }).catch(() => {});
 
@@ -377,8 +380,10 @@ export function LockerTab() {
     async (grantId: string) => {
       setError(null);
       try {
-        const res = await personaFetch(`/api/polity-passport/locker/grant?grantId=${grantId}`, {
+        const authHdrs = await authedFetchHeaders({});
+        const res = await fetch(`/api/polity-passport/locker/grant?grantId=${grantId}`, {
           method: 'DELETE',
+          headers: authHdrs ?? undefined,
         });
         const data = await res.json();
         if (!res.ok || !data?.ok) {
@@ -397,9 +402,11 @@ export function LockerTab() {
   const handleClaimPassport = useCallback(async (passportId: string) => {
     setClaimBusy(passportId);
     try {
-      const res = await personaFetch(`/api/polity-passport/credential/${encodeURIComponent(passportId)}`, {
+      const authHdrs = await authedFetchHeaders({});
+      const res = await fetch(`/api/polity-passport/credential/${encodeURIComponent(passportId)}`, {
         method: 'POST',
         cache: 'no-store',
+        headers: authHdrs ?? undefined,
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {

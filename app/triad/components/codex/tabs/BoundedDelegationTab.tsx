@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { personaFetch } from "@/utils/personaSpine";
+import { authedFetchHeaders } from "@/utils/supabaseBrowser";
 
 interface DelegateAgent {
   agentRootId: string;
@@ -151,6 +152,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [showConcept, setShowConcept] = useState(false);
+  const [justRevoked, setJustRevoked] = useState(false);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
@@ -219,11 +221,21 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     async function fetchSponsoredAgents() {
       setAgentsLoading(true);
       try {
-        const res = await personaFetch('/api/persona/sponsored-agents');
+        const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
+        const res = await fetch('/api/persona/sponsored-agents', {
+          cache: 'no-store',
+          headers: headers ?? undefined,
+        });
         if (res.ok) {
           const data = await res.json();
           if (!cancelled && data.agents) {
-            setSponsoredAgents(data.agents);
+            const mapped = (data.agents as Array<{ agentRootId?: string; id?: string; displayName?: string; display_name?: string; didUri?: string; did_uri?: string; agentClass?: string; agent_class?: string }>).map((a) => ({
+              agentRootId: a.agentRootId ?? a.id ?? '',
+              displayName: a.displayName ?? a.display_name ?? 'Agent',
+              didUri: a.didUri ?? a.did_uri ?? '',
+              agentClass: a.agentClass ?? a.agent_class ?? 'polity_bound',
+            }));
+            setSponsoredAgents(mapped);
           }
         }
       } catch {
@@ -285,6 +297,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       await fetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`, {
         method: "DELETE",
       });
+      setJustRevoked(true);
       await loadDelegation();
       if (showAudit) await loadAuditEvents();
     } catch {
@@ -380,7 +393,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
       {activeSubTab === "delegation" && (<>
 
-      {/* Agent selector — always visible at the top */}
+      {/* Agent selector — horizontal carousel at the top */}
       <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-violet-400" />
@@ -394,64 +407,56 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           </div>
         ) : (
           <>
-            {/* Sponsored / bound agents first */}
-            {sponsoredAgents.length > 0 && (
-              <>
-                <p className="text-xs text-slate-400 font-medium">Your Sponsored Agents</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {sponsoredAgents.map((agent) => (
-                    <button
-                      key={agent.agentRootId}
-                      type="button"
-                      onClick={() => setSelectedAgent(agent)}
-                      className={`rounded-lg border px-3 py-2.5 text-left transition ${
-                        selectedAgent.agentRootId === agent.agentRootId
-                          ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
-                          : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                          selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
-                        }`}>
-                          <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
-                            {agent.displayName}
-                          </p>
-                          <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
-                        </div>
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-1.5">
-                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
-                          {agent.agentClass}
-                        </span>
-                        {selectedAgent.agentRootId === agent.agentRootId && (
-                          <CheckCircle2 className="h-3 w-3 text-violet-400" />
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <p className="text-xs text-slate-400 font-medium">{sponsoredAgents.length > 0 ? 'Platform Agents' : 'Available Agents'}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {PLATFORM_AGENTS.map((agent) => (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-700">
+              {/* Sponsored agents first in the carousel */}
+              {sponsoredAgents.map((agent) => (
                 <button
                   key={agent.agentRootId}
                   type="button"
                   onClick={() => setSelectedAgent(agent)}
-                  className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                  className={`flex-shrink-0 rounded-lg border px-3 py-2.5 text-left transition w-44 ${
                     selectedAgent.agentRootId === agent.agentRootId
                       ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
                       : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+                    <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${
+                      selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
+                    }`}>
+                      <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
+                        {agent.displayName}
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
+                      {agent.agentClass.replace(/_/g, ' ')}
+                    </span>
+                    {selectedAgent.agentRootId === agent.agentRootId && (
+                      <CheckCircle2 className="h-3 w-3 text-violet-400" />
+                    )}
+                  </div>
+                </button>
+              ))}
+              {/* Platform agents in the same carousel row */}
+              {PLATFORM_AGENTS.map((agent) => (
+                <button
+                  key={agent.agentRootId}
+                  type="button"
+                  onClick={() => setSelectedAgent(agent)}
+                  className={`flex-shrink-0 rounded-lg border px-3 py-2.5 text-left transition w-44 ${
+                    selectedAgent.agentRootId === agent.agentRootId
+                      ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
+                      : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${
                       selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
                     }`}>
                       <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
@@ -632,18 +637,30 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </div>
       ) : (
         <div className="rounded-xl border border-slate-700/40 bg-slate-900/20 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-slate-500" />
-            <span className="text-sm text-slate-400">No active delegation</span>
-          </div>
-          <p className="text-xs text-slate-500">Grant authority to enable delegated actions for {selectedAgent.displayName}.</p>
+          {justRevoked ? (
+            <>
+              <div className="flex items-center gap-2">
+                <ShieldX className="h-5 w-5 text-red-400" />
+                <span className="text-sm font-semibold text-red-300">Delegation Revoked</span>
+              </div>
+              <p className="text-xs text-slate-400">Authority has been revoked. A DVN receipt has been recorded. You can re-delegate at any time.</p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-slate-500" />
+                <span className="text-sm text-slate-400">No active delegation</span>
+              </div>
+              <p className="text-xs text-slate-500">Grant authority to enable delegated actions for {selectedAgent.displayName}.</p>
+            </>
+          )}
           <button
             type="button"
-            onClick={() => setShowGrantForm((v) => !v)}
+            onClick={() => { setShowGrantForm((v) => !v); setJustRevoked(false); }}
             className="inline-flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20 transition-colors"
           >
             <Shield className="h-4 w-4" />
-            {showGrantForm ? "Cancel" : "Grant Authority"}
+            {showGrantForm ? "Cancel" : justRevoked ? "Delegate" : "Grant Authority"}
           </button>
         </div>
       )}
