@@ -2364,3 +2364,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-7dcfb89.md](../build_/COMMITS/COMMIT-7dcfb89.md)
 - Message: fix steward review auth + add collapsible wallet cards
+
+## Commit `eff22bc` — 2026-06-14T19:33:23Z
+- Type: `push`
+- Brief: [COMMIT-eff22bc.md](../build_/COMMITS/COMMIT-eff22bc.md)
+- Message: flip steward queue cards to decided state after approve/deny
