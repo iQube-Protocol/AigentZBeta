@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T01:42:31.233Z",
+  "last_updated": "2026-06-14T01:44:35.856Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d5f588769358b57da5ff8b2553d685e4ed243023",
-  "latest_commit_short": "d5f5887",
-  "latest_commit_title": "trigger deploy to dev",
+  "latest_commit": "86ea6e021553f4f057befdf6519df25ecda37528",
+  "latest_commit_short": "86ea6e0",
+  "latest_commit_title": "add ccip-read ens operator runbook",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "86ea6e0",
+      "full_sha": "86ea6e021553f4f057befdf6519df25ecda37528",
+      "title": "add ccip-read ens operator runbook",
+      "author": "Claude",
+      "timestamp": "2026-06-14T01:42:34Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-86ea6e0.md"
+    },
     {
       "sha": "d5f5887",
       "full_sha": "d5f588769358b57da5ff8b2553d685e4ed243023",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-31T19:47:03Z",
       "type": "refactor",
       "brief": "items/build_/COMMITS/COMMIT-d0d5618.md"
-    },
-    {
-      "sha": "99783e1",
-      "full_sha": "99783e119f7093ef0052080579a4c10b9f9581e6",
-      "title": "trigger deploy to dev: trinity rename (code-surface only; DB enum values preserved)",
-      "author": "Claude",
-      "timestamp": "2026-05-31T19:47:04Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-99783e1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
