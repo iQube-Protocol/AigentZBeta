@@ -92,6 +92,7 @@ import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal
 import { InviteModal } from "@/components/shared/InviteModal";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
+import { getRuntimeContextPreference, RUNTIME_CONTEXT_PREF_KEY } from "@/utils/runtimeContextPreference";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
@@ -2320,11 +2321,27 @@ export default function MetaMeRuntimeClient() {
   });
 
   const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
-  // LAUNCH OVERRIDE (KNYT activation campaign): runtime takeover defaults to
-  // 'knyt' on arrival, so the welcome banner shows the KNYT WORLD takeover
-  // (amber badge, KNYT-specific CTAs) instead of the bare metaMe state.
-  // Reverts to 'metame' post-launch.
-  const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>('knyt');
+  // Runtime takeover context. Default comes from the persisted admin/Play-menu
+  // preference (getRuntimeContextPreference), which falls back to 'knyt' — the
+  // KNYT activation-campaign launch override — when unset. The welcome banner
+  // then shows the KNYT WORLD takeover (amber badge, KNYT-specific CTAs) by
+  // default; admins can flip the default to 'metame' from the metaMe Runtime
+  // Settings admin tab, and the in-runtime ⚡ Play-menu toggle flips it live.
+  const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>(getRuntimeContextPreference);
+
+  // Live-sync with the persisted preference: if the admin toggle (in a sibling
+  // document / embed) flips the default, the browser-native `storage` event
+  // updates the running surface without a reload. Wires to the existing
+  // setRuntimeContext mechanism — does not rebuild takeover logic.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== RUNTIME_CONTEXT_PREF_KEY) return;
+      const next = e.newValue === 'metame' || e.newValue === 'knyt' ? e.newValue : null;
+      if (next) setRuntimeContext(next);
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   // ─── Runtime Takeover ────────────────────────────────────────────────────────
   // Derive the active takeover cartridge slug from runtimeContext.

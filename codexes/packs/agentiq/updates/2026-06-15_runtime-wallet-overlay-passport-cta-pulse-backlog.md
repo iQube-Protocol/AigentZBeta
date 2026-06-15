@@ -52,12 +52,27 @@ Build steps:
 The list/promote/reject API routes already accept `cartridge` as a param — no
 route changes needed beyond the CHECK constraint.
 
-## Item 2 — runtime takeover toggle (no recreation)
-The ⚡ lightning-bolt in the runtime Play menu already flips `runtimeContext`
-between KNYT (amber) and metaMe (emerald); metaMe is the default, KNYT is
-currently active. TODO: surface that **same** toggle state as an admin control
-in a new metaMe "Runtime Settings" admin tab — wire to the existing mechanism,
-do not rebuild the takeover logic.
+### 2. Runtime takeover context — admin control (SHIPPED)
+The ⚡ lightning-bolt in the runtime Play menu flips `runtimeContext` between
+KNYT (amber) and metaMe (emerald). That state is now also surfaced as an admin
+control without rebuilding the takeover logic:
+
+- `utils/runtimeContextPreference.ts` — single source of truth for the persisted
+  default context (`metame:runtime-default-context` localStorage key, launch
+  default `'knyt'`). Read + written by both the runtime and the admin tab.
+- `components/metame/MetaMeRuntimeClient.tsx` — `runtimeContext` now initialises
+  from `getRuntimeContextPreference()` (was hardcoded `'knyt'`), and a `storage`
+  listener live-syncs the running surface (incl. embedded iframe) when the
+  default changes elsewhere. The in-runtime ⚡ Play-menu toggle is unchanged
+  (still an ephemeral per-session flip).
+- `app/triad/components/codex/tabs/MetaMeRuntimeSettingsTab.tsx` — new admin tab
+  with a metaMe/KNYT toggle that writes the shared preference and broadcasts a
+  `storage` event so a live runtime updates immediately. Registered in
+  `TabRenderer` + the metaMe codex `admin` group (`slug: runtime-settings`).
+
+Scope note: the preference is per-browser (mirrors the ephemeral ⚡ toggle's
+client-side nature). A server-persisted global default would be a separate
+follow-up — out of scope for "wire to the existing mechanism, do not rebuild".
 
 ## Backlog — fast follows
 

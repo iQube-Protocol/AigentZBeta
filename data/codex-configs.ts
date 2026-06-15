@@ -3335,6 +3335,22 @@ export const METAME_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'admin-runtime-settings',
+      label: 'Runtime Settings',
+      slug: 'runtime-settings',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62.8,
+      type: 'static',
+      config: { component: 'MetaMeRuntimeSettingsTab', props: {} },
+      metadata: {
+        icon: 'Zap',
+        description: 'Set the default Runtime takeover context (metaMe / KNYT) — the same toggle the in-runtime ⚡ flips',
+        color: 'amber'
+      }
+    },
+    {
       id: 'admin-experience-framework',
       label: 'Experience Framework',
       slug: 'experience-framework',
