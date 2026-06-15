@@ -135,6 +135,7 @@ import { MetaMeStrategyTab } from "./tabs/MetaMeStrategyTab";
 import { MetaMeStatusTab } from "./tabs/MetaMeStatusTab";
 import { MetaMeNbeTab } from "./tabs/MetaMeNbeTab";
 import { MetaMeAnalysisTab } from "./tabs/MetaMeAnalysisTab";
+import { MetaMeRuntimeSettingsTab } from "./tabs/MetaMeRuntimeSettingsTab";
 import { TAB_TEMPLATES, type TabTemplateProps } from "./tabTemplates/registry";
 import type { CartridgeTabTemplateId } from "@/types/ventureQube";
 
@@ -293,6 +294,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MetaMeStatusTab,
   MetaMeNbeTab,
   MetaMeAnalysisTab,
+  MetaMeRuntimeSettingsTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
