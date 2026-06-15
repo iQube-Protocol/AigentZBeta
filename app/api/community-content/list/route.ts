@@ -22,7 +22,7 @@ import { getCommunityContentSupabase } from '../_lib/personaContext';
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_STATUSES = new Set(['draft', 'shared', 'pending_promotion', 'runtime_promoted', 'rejected']);
-const ALLOWED_CARTRIDGES = new Set(['knyt', 'qripto']);
+const ALLOWED_CARTRIDGES = new Set(['knyt', 'qripto', 'metame-runtime']);
 
 interface ContentRow {
   id: string;
@@ -39,6 +39,8 @@ interface ContentRow {
   generation_index: number;
   runtime_promoted_at: string | null;
   cartridge: string | null;
+  runtime_menu: string | null;
+  runtime_submenu: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -80,7 +82,7 @@ export async function GET(req: NextRequest) {
       // looked up separately (see imagePreview hydration on the client)
       // and the full article body is fetched on-demand when the user
       // opens an item.
-      .select('id, creator_persona_id, source_experience_id, parent_id, skill, title, prompt, status, qc_cost, generation_index, runtime_promoted_at, cartridge, created_at, updated_at')
+      .select('id, creator_persona_id, source_experience_id, parent_id, skill, title, prompt, status, qc_cost, generation_index, runtime_promoted_at, cartridge, runtime_menu, runtime_submenu, created_at, updated_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -180,7 +182,9 @@ export async function GET(req: NextRequest) {
         isMe:      personaId ? r.creator_persona_id === personaId : false,
       },
       promotedToRuntime:   r.status === 'runtime_promoted',
-      cartridge:           (r.cartridge as 'knyt' | 'qripto' | null) ?? 'knyt',
+      cartridge:           (r.cartridge as 'knyt' | 'qripto' | 'metame-runtime' | null) ?? 'knyt',
+      runtimeMenu:         r.runtime_menu ?? null,
+      runtimeSubmenu:      r.runtime_submenu ?? null,
       createdAt:           r.created_at,
       updatedAt:           r.updated_at,
     }));

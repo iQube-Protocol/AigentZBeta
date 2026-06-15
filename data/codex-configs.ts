@@ -3351,6 +3351,22 @@ export const METAME_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'admin-metame-pulse',
+      label: 'metaMe Pulse',
+      slug: 'metame-pulse',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62.9,
+      type: 'static',
+      config: { component: 'MetaMePulseAdminTab', props: {} },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'Approve runtime content launches and assign their be/make/play/earn/share menu placement',
+        color: 'emerald'
+      }
+    },
+    {
       id: 'admin-experience-framework',
       label: 'Experience Framework',
       slug: 'experience-framework',

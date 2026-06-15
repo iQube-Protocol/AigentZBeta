@@ -34,7 +34,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 interface Body {
-  cartridge?: 'knyt' | 'qripto';
+  cartridge?: 'knyt' | 'qripto' | 'metame-runtime';
 }
 
 export async function POST(
@@ -62,7 +62,10 @@ export async function POST(
     return NextResponse.json({ ok: false, error: 'invalid-json' }, { status: 400 });
   }
 
-  const cartridge: 'knyt' | 'qripto' = body.cartridge === 'qripto' ? 'qripto' : 'knyt';
+  const cartridge: 'knyt' | 'qripto' | 'metame-runtime' =
+    body.cartridge === 'qripto' ? 'qripto'
+    : body.cartridge === 'metame-runtime' ? 'metame-runtime'
+    : 'knyt';
 
   // Owner-only — getEntry already filters by personaId so a non-owner
   // gets null and falls through to 404.
@@ -149,21 +152,25 @@ export async function POST(
   //    the Living Canon reaction infrastructure (KnytReactionBar today,
   //    qripto mirror when the cartridge-parameterized refactor lands)
   //    accepts this row as a valid publication. Same UUID for both rows.
-  const publicationTable = cartridge === 'qripto'
-    ? 'qripto_publication_states'
-    : 'knyt_publication_states';
-  await supabase.from(publicationTable).upsert(
-    {
-      id: contentId,
-      subject_type: 'community_content',
-      subject_id:   contentId,
-      branch:       'community',
-      state:        'submitted',
-      created_at:   new Date().toISOString(),
-      updated_at:   new Date().toISOString(),
-    },
-    { onConflict: 'id' },
-  );
+  //    The 'metame-runtime' lane (metaMe Pulse) has no Living Canon surface,
+  //    so it gets no publication-state mirror.
+  if (cartridge !== 'metame-runtime') {
+    const publicationTable = cartridge === 'qripto'
+      ? 'qripto_publication_states'
+      : 'knyt_publication_states';
+    await supabase.from(publicationTable).upsert(
+      {
+        id: contentId,
+        subject_type: 'community_content',
+        subject_id:   contentId,
+        branch:       'community',
+        state:        'submitted',
+        created_at:   new Date().toISOString(),
+        updated_at:   new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    );
+  }
 
   // 4. Stamp the originating myCanvas entry with the new contentId so
   //    the existing republish path (PUBLISH button on entries with
