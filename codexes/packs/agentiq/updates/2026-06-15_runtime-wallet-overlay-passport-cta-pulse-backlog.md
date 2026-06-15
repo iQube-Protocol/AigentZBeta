@@ -20,7 +20,70 @@ ExperienceModel" in the metaMe takeover welcome. Uses the in-runtime deep-link
 so the operator lands directly on the passport Apply tab — no manual default-tab
 config needed.
 
-## Locked spec — item 4: metaMe Pulse (runtime content approval)
+## 4. metaMe Pulse — runtime content approval (SHIPPED)
+
+Built the metame-runtime Pulse lane end-to-end, mirroring KNYT/Qripto Pulse.
+
+**Files:**
+- `supabase/migrations/20260615120000_metame_pulse_runtime_lane.sql` — adds
+  `'metame-runtime'` to the `cartridge` CHECK + `runtime_menu` (be/make/play/earn/share)
+  and `runtime_submenu` columns. **Operator must run this in Supabase before the
+  lane is live** (SQL below).
+- `app/api/community-content/list/route.ts` — `metame-runtime` added to
+  `ALLOWED_CARTRIDGES`; `runtimeMenu`/`runtimeSubmenu` selected + returned.
+- `app/api/community-content/[id]/promote/route.ts` — accepts + persists
+  `runtimeMenu`/`runtimeSubmenu` at promote time (validated against the 5 menus).
+- `app/api/community-content/generate/route.ts`, `.../[id]/publish/route.ts`,
+  `app/api/mycanvas/entries/[id]/publish-to-pulse/route.ts` — cartridge union
+  widened to include `metame-runtime`; the metame-runtime lane skips the
+  `*_publication_states` mirror (no Living Canon surface).
+- `services/community-content/promotedCapsules.ts` — cartridge-aware projection:
+  maps cartridge→codexSlug (`metame-runtime`→`metame`), and for the metame lane
+  emits the admin's `runtime_menu` as `surfaceIntent` + `[menu, submenu]` as
+  `modalityHints` (→ capsule tags) so the existing `scoreContent` maps the row
+  into the right runtime menu. Also corrects qripto rows (were mislabeled knyt).
+- `types/runtimeCapsules.ts` + `MetaMeRuntimeClient.tsx` — widened
+  `surfaceIntent`/`runtimeMenuIntent` to be/make/play/earn/share.
+- `app/triad/components/codex/tabs/MetaMePulseAdminTab.tsx` — new admin tab:
+  promotion queue scoped to `cartridge=metame-runtime` with per-row Menu +
+  Submenu dropdowns; promote is disabled until a menu is chosen. Registered in
+  `TabRenderer` + metaMe codex `admin` group (`slug: metame-pulse`).
+
+**The loop:** producer writes row `cartridge='metame-runtime'`, draft→shared
+(pending) → admin assigns menu + promotes → `runtime_promoted` + menu saved →
+`promotedCapsules` surfaces it on `/api/runtime/capsules` with `codexSlug=metame`
++ menu tags → `scoreContent` maps it into the be/make/play/earn/share menu.
+
+**Operator — run this migration in Supabase SQL editor:**
+```sql
+ALTER TABLE community_generated_content
+  DROP CONSTRAINT IF EXISTS community_generated_content_cartridge_check;
+ALTER TABLE community_generated_content
+  ADD CONSTRAINT community_generated_content_cartridge_check
+    CHECK (cartridge IN ('knyt', 'qripto', 'metame-runtime'));
+ALTER TABLE community_generated_content
+  ADD COLUMN IF NOT EXISTS runtime_menu TEXT
+    CHECK (runtime_menu IS NULL OR runtime_menu IN ('be','make','play','earn','share'));
+ALTER TABLE community_generated_content
+  ADD COLUMN IF NOT EXISTS runtime_submenu TEXT;
+CREATE INDEX IF NOT EXISTS idx_cgc_runtime_menu ON community_generated_content(runtime_menu);
+```
+
+**One open decision (producer affordance):** the content-table producers
+(`generate`, `publish`, `publish-to-pulse`) now ACCEPT `cartridge='metame-runtime'`,
+but no UI button passes it yet. ComposerStudio's runtime launch uses the
+experience-projection pipeline (`runtimeLifecycleClient` / `listPublishedRuntimeCapsuleRecords`),
+NOT the community-content table — so there is no existing "Studio→runtime publish"
+that writes a Pulse row. Which surface should mint metame-runtime Pulse rows
+(a new Studio CTA, RemixDialog targeting metame, or myCanvas note→metame) is the
+remaining FE hook — flagged for operator before wiring, to avoid a speculative button.
+Two notes on the current projection: (1) promoted rows require an `image_url`
+(text-only notes won't surface until a cover exists); (2) surfacing is via the
+shared `/api/runtime/capsules` path, not a separate runtime fetch.
+
+---
+
+## Original locked spec — item 4: metaMe Pulse (runtime content approval)
 
 Operator decisions (2026-06-15):
 - **Data model + gate:** Mirror the KNYT/Qripto pulse. Reuse

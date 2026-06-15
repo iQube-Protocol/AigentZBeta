@@ -200,7 +200,7 @@ type RuntimeEditorState = {
 
 type RuntimeCapsule = SmartContentQube & {
   runtimeSource: RuntimeContentSource;
-  runtimeMenuIntent?: "make" | "play";
+  runtimeMenuIntent?: "be" | "make" | "play" | "earn" | "share";
   runtimeCodexSlug?: string;
   runtimeCodexInitialTab?: string;
   runtimeLaunchHref?: string;
