@@ -69,17 +69,83 @@ ALTER TABLE community_generated_content
 CREATE INDEX IF NOT EXISTS idx_cgc_runtime_menu ON community_generated_content(runtime_menu);
 ```
 
-**One open decision (producer affordance):** the content-table producers
-(`generate`, `publish`, `publish-to-pulse`) now ACCEPT `cartridge='metame-runtime'`,
-but no UI button passes it yet. ComposerStudio's runtime launch uses the
-experience-projection pipeline (`runtimeLifecycleClient` / `listPublishedRuntimeCapsuleRecords`),
-NOT the community-content table — so there is no existing "Studio→runtime publish"
-that writes a Pulse row. Which surface should mint metame-runtime Pulse rows
-(a new Studio CTA, RemixDialog targeting metame, or myCanvas note→metame) is the
-remaining FE hook — flagged for operator before wiring, to avoid a speculative button.
-Two notes on the current projection: (1) promoted rows require an `image_url`
-(text-only notes won't surface until a cover exists); (2) surfacing is via the
-shared `/api/runtime/capsules` path, not a separate runtime fetch.
+**Producer affordance — RESOLVED (2026-06-15, see § 5 below).** The metaMe
+runtime has TWO content sources, not one: (a) the experience-projection
+pipeline (Studio→runtime launches) and (b) the community-content table (UGC
+Pulse). The right model isn't a new "publish a Pulse row" button — it's to gate
+the existing runtime-launch path through the admin panel, and let cartridge
+Pulse admins forward approved UGC into that same admin queue.
+
+## 5. metaMe Runtime content controller (SHIPPED)
+
+Operator direction (2026-06-15): the MCP Inspector's "Runtime Launch" is already
+a first-class Studio→runtime path — it shouldn't mint unrestricted. Route it
+through the metaMe admin panel. The admin panel must also manage what's already
+live (publish/unpublish/archive/delete), including editorial content forwarded
+from cartridges. And cartridge Pulse admins should be able to submit approved
+UGC into the metaMe runtime queue, tagged by cartridge + runtime menu. Editorial
+flows in as-is (no new approval gate yet — a cartridge→runtime approval is a
+future follow-up); the metaMe admin manages it.
+
+**Part 1 — gate runtime launches.** A live "Runtime Launch" deploy used to write
+`composer_experience_qubes.meta_qube.runtime_publication.status='published'`
+immediately (no gate); `listPublishedRuntimeCapsuleRecords` filters `==='published'`,
+so it surfaced instantly. Now `buildExperienceRuntimeProjection`
+(`services/composer/runtimeProjectionShared.ts`) lands a fresh deploy as
+`pending_review` (preserving `published` across re-deploys of already-approved
+content, so a routine asset refresh doesn't yank live content back to the
+queue). The runtime reader is unchanged — pending content simply doesn't match
+its `==='published'` filter, so the gate is automatic.
+
+**Part 2 — central controller.** New `GET/POST /api/runtime/admin/content`
+unifies BOTH runtime sources into one admin surface:
+- experience projections (`pending_review` → pending; `published` → live) via new
+  `listRuntimeProjectionAdminRecords` / `setRuntimeProjectionStatus`
+  (`services/composer/runtimeProjectionService.ts`).
+- community rows (`metame-runtime shared` → pending; any-cartridge
+  `runtime_promoted` → live — KNYT/Qripto promoted content also surfaces in the
+  runtime via `promotedCapsules`).
+Actions: `publish` (community requires a be/make/play/earn/share menu; experience
+releases its baked `menu_intent`), `unpublish` (→ pending), `archive`
+(retain-but-hidden), `delete` (community = hard delete + publication-state mirror
+cleanup; experience = soft archive, the ExperienceQube is kept). Admin-gated via
+`requireCommunityAdmin`. `MetaMePulseAdminTab` reworked into **Pending review** +
+**Live in runtime** sections backed by this endpoint (tab relabelled "Runtime
+Content").
+
+**Part 3 — cartridge → runtime.** `POST /api/community-content/[id]/submit-to-runtime`
+mints a linked `cartridge='metame-runtime'` row (`status='shared'`,
+`origin_cartridge`, `runtime_menu/submenu`, `parent_id`=source) into the metaMe
+queue without moving the original Pulse row (idempotent on `parent_id`).
+`KnytCommunityContentAdminTab` (used by KNYT + Qripto) gets a per-row
+"→ Runtime" action with an inline menu/submenu picker. myCanvas is unchanged —
+runtime inclusion routes through the cartridge admin, by design.
+
+**Migration — run in Supabase SQL editor:**
+```sql
+ALTER TABLE community_generated_content
+  DROP CONSTRAINT IF EXISTS community_generated_content_status_check;
+ALTER TABLE community_generated_content
+  ADD CONSTRAINT community_generated_content_status_check
+    CHECK (status IN ('draft','shared','pending_promotion','runtime_promoted','rejected','unpublished','archived'));
+ALTER TABLE community_generated_content
+  ADD COLUMN IF NOT EXISTS origin_cartridge TEXT
+    CHECK (origin_cartridge IS NULL OR origin_cartridge IN ('knyt','qripto','metame-runtime'));
+CREATE INDEX IF NOT EXISTS idx_cgc_origin_cartridge ON community_generated_content(origin_cartridge);
+```
+
+**Files:** `services/composer/runtimeProjectionShared.ts`,
+`services/composer/runtimeProjectionService.ts`,
+`app/api/runtime/admin/content/route.ts` (new),
+`app/api/community-content/[id]/submit-to-runtime/route.ts` (new),
+`app/triad/components/codex/tabs/MetaMePulseAdminTab.tsx`,
+`app/triad/components/codex/tabs/KnytCommunityContentAdminTab.tsx`,
+`data/codex-configs.ts`,
+`supabase/migrations/20260615130000_runtime_content_lifecycle.sql` (new).
+
+**Backlog:** the runtime copilot LLM being tag-aware (surfacing recommendations
+from `runtime_menu`/`runtime_submenu` placement) and a cartridge→runtime approval
+gate (vs the current as-is editorial flow) remain follow-ups.
 
 ---
 
