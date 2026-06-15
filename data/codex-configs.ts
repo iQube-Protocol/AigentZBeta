@@ -3352,7 +3352,7 @@ export const METAME_CODEX: CodexConfig = {
     },
     {
       id: 'admin-metame-pulse',
-      label: 'metaMe Pulse',
+      label: 'Runtime Content',
       slug: 'metame-pulse',
       enabled: true,
       adminOnly: true,
@@ -3362,7 +3362,7 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'MetaMePulseAdminTab', props: {} },
       metadata: {
         icon: 'Sparkles',
-        description: 'Approve runtime content launches and assign their be/make/play/earn/share menu placement',
+        description: 'Controller for what surfaces in the metaMe Runtime — approve launches, assign be/make/play/earn/share placement, and publish/unpublish/archive live content',
         color: 'emerald'
       }
     },
