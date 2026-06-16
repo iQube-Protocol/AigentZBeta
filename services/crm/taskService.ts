@@ -679,7 +679,7 @@ export async function getPersonaReputation(
   return rowToPersonaReputation(data as CrmPersonaReputationRow);
 }
 
-async function updatePersonaReputation(
+export async function updatePersonaReputation(
   personaId: string,
   deltas: {
     deltaTechnical: number;

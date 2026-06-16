@@ -9,6 +9,7 @@ import { ExperienceBlockHeader } from "@/components/composer/ExperienceBlockChro
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 import SkillImagePlayer from "@/components/composer/SkillImagePlayer";
 import { Award, BookOpen, CheckSquare, ChevronDown, ChevronUp, Headphones, Loader2, PencilLine, Square } from "lucide-react";
+import { personaFetch } from "@/utils/personaSpine";
 
 /**
  * Formats a rail value for display. Costs are typically Q¢ and rewards $KNYT,
@@ -61,6 +62,7 @@ function CompositionBundleBrief({
   costAsset = "Q¢",
   rewardAmount = 0,
   rewardAsset = "Q¢",
+  cartridgeSlug = "",
 }: {
   packet: Record<string, any>;
   experienceId: string;
@@ -69,6 +71,7 @@ function CompositionBundleBrief({
   costAsset?: string;
   rewardAmount?: number;
   rewardAsset?: string;
+  cartridgeSlug?: string;
 }) {
   const rewardLabel = formatRailValue(rewardAmount, rewardAsset);
   const costLabel = formatRailValue(costAmount, costAsset);
@@ -79,6 +82,11 @@ function CompositionBundleBrief({
   // is Workstream C, which posts a task-completion receipt the cartridge
   // treasury/registry consumes.
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+  // C-b: when every task is checked we POST a completion that grants the
+  // configured reward + reputation. hasSubmitted guards against duplicate
+  // POSTs; completionNotice surfaces the grant result to the consumer.
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [completionNotice, setCompletionNotice] = useState<string | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -158,23 +166,59 @@ function CompositionBundleBrief({
     articleGlossary.length > 0 ||
     Boolean(articleGenerated?.nextAction);
   const completedCount = nextActions.filter((task) => completedTasks.has(task)).length;
-  const toggleTask = (task: string) => {
-    setCompletedTasks((prev) => {
-      const next = new Set(prev);
-      if (next.has(task)) next.delete(task);
-      else next.add(task);
-      if (typeof window !== "undefined") {
-        try {
-          window.localStorage.setItem(`exp_tasks_${experienceId}`, JSON.stringify([...next]));
-        } catch {
-          /* ignore quota / serialization errors */
+
+  // C-b: fire the live grant once all tasks are complete. Partial progress
+  // stays client-side (localStorage). On 200/409 the server is the SoT, so we
+  // clear localStorage and surface the grant result. personaFetch attaches the
+  // Bearer token — raw fetch would 401 against the spine-resolved route.
+  const fireCompletion = (tasks: Set<string>) => {
+    if (hasSubmitted) return;
+    if (nextActions.length === 0 || tasks.size < nextActions.length) return;
+    setHasSubmitted(true);
+    void personaFetch("/api/experience/complete-tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        experienceId,
+        completedTasks: [...tasks],
+        totalTasks: nextActions.length,
+        cartridgeSlug,
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok && res.status !== 409) {
+          setHasSubmitted(false);
+          return;
         }
+        try {
+          window.localStorage.removeItem(`exp_tasks_${experienceId}`);
+        } catch {
+          /* ignore */
+        }
+        const data = await res.json().catch(() => null);
+        const g = data?.grant as { asset?: string; amount?: number } | null | undefined;
+        if (g && Number(g.amount) > 0) {
+          setCompletionNotice(`Completed — earned ${formatRailValue(Number(g.amount), g.asset === "KNYT" ? "KNYT" : "Q¢")}`);
+        } else {
+          setCompletionNotice("Completed");
+        }
+      })
+      .catch(() => setHasSubmitted(false));
+  };
+
+  const toggleTask = (task: string) => {
+    const next = new Set(completedTasks);
+    if (next.has(task)) next.delete(task);
+    else next.add(task);
+    setCompletedTasks(next);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(`exp_tasks_${experienceId}`, JSON.stringify([...next]));
+      } catch {
+        /* ignore quota / serialization errors */
       }
-      // Workstream C seam: a completed task should precipitate reward + reputation
-      // changes back into the cartridge treasury/registry and the smart wallet.
-      // Currently local-only; C will POST a task-completion receipt here.
-      return next;
-    });
+    }
+    fireCompletion(next);
   };
 
   if (!composition && !articleDraft) return null;
@@ -442,6 +486,11 @@ function CompositionBundleBrief({
               ) : null}
             </div>
           ) : null}
+          {!canEdit && completionNotice ? (
+            <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200">
+              <Award className="h-3.5 w-3.5" /> {completionNotice}
+            </div>
+          ) : null}
           {canEdit ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {nextActions.map((item) => (
@@ -492,6 +541,7 @@ type ExperienceQube = {
   name: string;
   description?: string;
   configuration?: Record<string, any>;
+  metadata?: Record<string, any>;
 };
 
 interface ExperienceLiquidRendererProps {
@@ -521,6 +571,13 @@ export function ExperienceLiquidRenderer({
   const costAsset = typeof walletRewards.unlock_asset === "string" ? walletRewards.unlock_asset : "Q¢";
   const rewardAmount = Number(walletRewards.reward_amount || 0);
   const rewardAsset = typeof walletRewards.reward_asset === "string" ? walletRewards.reward_asset : "Q¢";
+  // Cartridge that published this experience to the runtime — drives the
+  // C-b completion grant's tenant/treasury routing. Read from the runtime
+  // publication metadata (same field ComposerExperienceViewer resolves).
+  const cartridgeSlug =
+    typeof (experience.metadata?.runtime_publication as { cartridge_id?: unknown } | undefined)?.cartridge_id === "string"
+      ? ((experience.metadata?.runtime_publication as { cartridge_id?: string }).cartridge_id as string)
+      : "";
 
   if (!packet) {
     return (
@@ -542,6 +599,7 @@ export function ExperienceLiquidRenderer({
           costAsset={costAsset}
           rewardAmount={rewardAmount}
           rewardAsset={rewardAsset}
+          cartridgeSlug={cartridgeSlug}
         />
         <SkillVideoPlayer
           skill_id={packet.skill.skill_id}
@@ -575,6 +633,7 @@ export function ExperienceLiquidRenderer({
           costAsset={costAsset}
           rewardAmount={rewardAmount}
           rewardAsset={rewardAsset}
+          cartridgeSlug={cartridgeSlug}
         />
         <SkillImagePlayer
           provider_id={packet.image_generation.provider_id}
