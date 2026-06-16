@@ -13,6 +13,7 @@
 
 import { getCrmClient } from './crmDataAccess';
 import * as db from './crmDataAccess';
+import { accrueStanding } from './standingAccrualService';
 import {
   CrmTaskTemplate,
   CrmTaskTemplateRow,
@@ -610,6 +611,18 @@ export async function completeTask(input: CompleteTaskInput): Promise<CompleteTa
 
   // 10. Update persona reputation vector
   await updatePersonaReputation(contrib.persona_id, repDeltas, cvs);
+
+  // 10b. Standing accrual (Phase 2 keystone) — runs synchronously alongside
+  // reputation accrual; never fails the task completion. Sponsor side is
+  // null for MVP; Phase 3 wires the sponsor lookup.
+  await accrueStanding({
+    crmPersonaId: contrib.persona_id,
+    sponsorCrmPersonaId: null,
+    cvs,
+    standingType:
+      (task as unknown as { standingType?: 'personal' | 'delegated' | 'stewardship' }).standingType ?? 'personal',
+    sourceEventId: repEvent?.id ?? null,
+  });
 
   return {
     contribution: rowToContribution(updatedContrib),
