@@ -17,7 +17,6 @@ import {
   Wallet,
   Link2,
 } from 'lucide-react';
-import { personaFetch } from '@/utils/personaSpine';
 import { authedFetchHeaders } from '@/utils/supabaseBrowser';
 import dynamic from 'next/dynamic';
 
@@ -71,11 +70,14 @@ export function PassportClaimModal({
   useEffect(() => {
     if (!open || !passportId || state !== 'idle') return;
     setState('loading');
-    fetch(`/api/polity-passport/credential/${encodeURIComponent(passportId)}`, {
-      cache: 'no-store',
-    })
-      .then((r) => r.json())
-      .then((json) => {
+    (async () => {
+      try {
+        const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
+        const r = await fetch(`/api/polity-passport/credential/${encodeURIComponent(passportId)}`, {
+          cache: 'no-store',
+          headers: headers ?? undefined,
+        });
+        const json = await r.json();
         if (!json.ok) {
           setError(json.reason || json.error || 'Could not load credential');
           setState('error');
@@ -83,20 +85,21 @@ export function PassportClaimModal({
         }
         setCredential(json.credential);
         setState(json.claimed ? 'claimed' : 'preview');
-      })
-      .catch(() => {
+      } catch {
         setError('Network error loading credential');
         setState('error');
-      });
+      }
+    })();
   }, [open, passportId, state]);
 
   const handleClaim = useCallback(async () => {
     setState('claiming');
     setError(null);
     try {
-      const res = await personaFetch(
+      const headers = await authedFetchHeaders({});
+      const res = await fetch(
         `/api/polity-passport/credential/${encodeURIComponent(passportId)}`,
-        { method: 'POST', cache: 'no-store' },
+        { method: 'POST', cache: 'no-store', headers: headers ?? undefined },
       );
       const json = await res.json();
       if (!json.ok) {

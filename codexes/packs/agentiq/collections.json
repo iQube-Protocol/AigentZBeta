@@ -40,6 +40,9 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-16_runtime-consumer-runner-cb-live-grant-plan.md",
+        "updates/2026-06-16_runtime-consumer-runner-rewards-c1-schema.md",
+        "updates/2026-06-15_runtime-wallet-overlay-passport-cta-pulse-backlog.md",
         "updates/2026-06-14_passport-uniqueness-fast-follow.md",
         "updates/2026-06-02_cartridge-isolation-hardening.md",
         "updates/2026-06-02_mycartridge-personal-system-isolation-fix.md",

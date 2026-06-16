@@ -58,7 +58,7 @@ interface Body {
       table the publish endpoint writes to. Defaults to 'knyt' for
       back-compat. When sourceExperienceId points at a Qriptopian
       experience the caller should set 'qripto'. */
-  cartridge?: 'knyt' | 'qripto';
+  cartridge?: 'knyt' | 'qripto' | 'metame-runtime';
 }
 
 interface Settings {
@@ -201,7 +201,10 @@ export async function POST(req: NextRequest) {
   // myCanvas note publish) pass 'qripto' explicitly when the row should
   // belong to the Qriptopian Pulse. The /publish route reads this field
   // to decide which *_publication_states table receives the record.
-  const cartridge: 'knyt' | 'qripto' = body.cartridge === 'qripto' ? 'qripto' : 'knyt';
+  const cartridge: 'knyt' | 'qripto' | 'metame-runtime' =
+    body.cartridge === 'qripto' ? 'qripto'
+    : body.cartridge === 'metame-runtime' ? 'metame-runtime'
+    : 'knyt';
 
   const insertPayload = {
     creator_persona_id:   personaId,

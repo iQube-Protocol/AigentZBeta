@@ -52,6 +52,7 @@ import {
   type LlmProviderId,
 } from "@/services/metame/agentLlmOrchestra";
 import {
+  Award,
   BookOpen,
   Bot,
   ChevronDown,
@@ -92,6 +93,7 @@ import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal
 import { InviteModal } from "@/components/shared/InviteModal";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
+import { getRuntimeContextPreference, RUNTIME_CONTEXT_PREF_KEY } from "@/utils/runtimeContextPreference";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
@@ -199,7 +201,7 @@ type RuntimeEditorState = {
 
 type RuntimeCapsule = SmartContentQube & {
   runtimeSource: RuntimeContentSource;
-  runtimeMenuIntent?: "make" | "play";
+  runtimeMenuIntent?: "be" | "make" | "play" | "earn" | "share";
   runtimeCodexSlug?: string;
   runtimeCodexInitialTab?: string;
   runtimeLaunchHref?: string;
@@ -1394,6 +1396,27 @@ function resolveRuntimeExperienceBundleLabel(content: RuntimeCapsule): string | 
   return null;
 }
 
+// Reward/cost rails for a capsule, read from the experience config. Costs are
+// typically Q¢ and rewards $KNYT, but either rail is honoured via *_asset. Q¢
+// renders USD-primary ($1 = 100 Q¢); $KNYT renders as a token count. Surfaced
+// read-only as a high-level thumbnail badge; detail lives in the task runner.
+function formatRuntimeRailValue(amount: number, asset: string): string {
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  const normalized = asset.replace(/\s/g, "").toUpperCase();
+  if (normalized === "KNYT" || normalized === "$KNYT") return `${amount} $KNYT`;
+  return `$${(amount / 100).toFixed(2)}`;
+}
+
+function resolveRuntimeRewardCost(content: RuntimeCapsule): { costLabel: string; rewardLabel: string } {
+  const wr = asRecord(content.configuration?.wallet_rewards) ?? {};
+  const costAsset = typeof wr.unlock_asset === "string" ? wr.unlock_asset : "Q¢";
+  const rewardAsset = typeof wr.reward_asset === "string" ? wr.reward_asset : "Q¢";
+  return {
+    costLabel: formatRuntimeRailValue(Number(wr.unlock_price || 0), costAsset),
+    rewardLabel: formatRuntimeRailValue(Number(wr.reward_amount || 0), rewardAsset),
+  };
+}
+
 function defaultRuntimeIntentForCapsule(content: RuntimeCapsule): RuntimeIntent {
   const quickActions = deriveRuntimeExperienceQuickActions(content, content.runtimeContentKind === "video" ? "watch" : "read");
   if (quickActions.some((action) => action.kind === "watch")) return "watch";
@@ -2320,11 +2343,27 @@ export default function MetaMeRuntimeClient() {
   });
 
   const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
-  // LAUNCH OVERRIDE (KNYT activation campaign): runtime takeover defaults to
-  // 'knyt' on arrival, so the welcome banner shows the KNYT WORLD takeover
-  // (amber badge, KNYT-specific CTAs) instead of the bare metaMe state.
-  // Reverts to 'metame' post-launch.
-  const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>('knyt');
+  // Runtime takeover context. Default comes from the persisted admin/Play-menu
+  // preference (getRuntimeContextPreference), which falls back to 'knyt' — the
+  // KNYT activation-campaign launch override — when unset. The welcome banner
+  // then shows the KNYT WORLD takeover (amber badge, KNYT-specific CTAs) by
+  // default; admins can flip the default to 'metame' from the metaMe Runtime
+  // Settings admin tab, and the in-runtime ⚡ Play-menu toggle flips it live.
+  const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>(getRuntimeContextPreference);
+
+  // Live-sync with the persisted preference: if the admin toggle (in a sibling
+  // document / embed) flips the default, the browser-native `storage` event
+  // updates the running surface without a reload. Wires to the existing
+  // setRuntimeContext mechanism — does not rebuild takeover logic.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== RUNTIME_CONTEXT_PREF_KEY) return;
+      const next = e.newValue === 'metame' || e.newValue === 'knyt' ? e.newValue : null;
+      if (next) setRuntimeContext(next);
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   // ─── Runtime Takeover ────────────────────────────────────────────────────────
   // Derive the active takeover cartridge slug from runtimeContext.
@@ -3552,6 +3591,7 @@ export default function MetaMeRuntimeClient() {
       const heroImage = resolveCapsuleCoverImage(content);
       const experienceKinds = deriveRuntimeExperienceKinds(content);
       const bundleLabel = resolveRuntimeExperienceBundleLabel(content);
+      const { costLabel, rewardLabel } = resolveRuntimeRewardCost(content);
       const { headline, summary } = resolveRuntimeExperienceSummary(content);
       const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
       const consumerExperienceHref = content.runtimeLaunchHref
@@ -3566,6 +3606,17 @@ export default function MetaMeRuntimeClient() {
               <div className="mt-1 text-sm text-slate-300 line-clamp-3">{summary}</div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {rewardLabel ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-200" title={`Earn ${rewardLabel}`}>
+                  <Award className="h-3 w-3" />
+                  {rewardLabel}
+                </span>
+              ) : null}
+              {costLabel ? (
+                <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200" title={`Unlock ${costLabel}`}>
+                  {costLabel}
+                </span>
+              ) : null}
               {bundleLabel ? (
                 <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
                   {bundleLabel}
@@ -6282,6 +6333,20 @@ export default function MetaMeRuntimeClient() {
                 >
                   <Sparkles className="h-3 w-3 shrink-0" />
                   Set up my ExperienceModel
+                </button>
+                {/* Get your Polity Passport — deep-links into the Polity
+                    Passport Bureau cartridge with the Apply tab active so the
+                    operator lands directly on the passport application. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    signalRuntimeBusy("quick_link:get_passport", { autoClearMs: 0 });
+                    setActiveCartridgeOverlay({ slug: 'polity-passport-bureau', title: 'Polity Passport', initialTab: 'apply' });
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] text-violet-200/80 hover:border-violet-500/40 hover:text-violet-100 transition-colors backdrop-blur-sm"
+                >
+                  <Fingerprint className="h-3 w-3 shrink-0" />
+                  Get your Polity Passport
                 </button>
                 <button
                   type="button"

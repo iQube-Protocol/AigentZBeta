@@ -46,7 +46,9 @@ export type ActivityActionType =
   | 'governance_decision_ratified'
   | 'governance_decision_amended'
   | 'governance_authority_exercised'
-  | 'governance_escalation_triggered';
+  | 'governance_escalation_triggered'
+  // Consumer task runner (DVN-anchorable; Workstream C-b)
+  | 'experience_task_completed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

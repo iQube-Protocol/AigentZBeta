@@ -1,14 +1,13 @@
 'use client';
 
 /**
- * PassportEnsTab — ENS subname management for Polity Passport holders (Sprint 7 UI).
+ * PassportEnsTab — ENS subname management for Polity Passport holders.
  *
  * Personas can mint gasless L2 ENS subnames (via Namestone) under the
  * Polity parent name (e.g. alice.polity.eth). The subname resolves to a
  * public commitment ref — never the persona_id (T0 rule).
  *
- * Backend: /api/identity/persona/[id]/ens (GET + POST)
- * Service: services/identity/namestoneClient.ts
+ * Backend: /api/identity/my-ens (GET + POST) — resolves caller server-side.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -20,8 +19,7 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react';
-import { personaFetch } from '@/utils/personaSpine';
-import { useActivePersona } from '@/app/hooks/useActivePersona';
+import { authedFetchHeaders } from '@/utils/supabaseBrowser';
 
 interface EnsAssignment {
   ensName: string;
@@ -42,9 +40,6 @@ function cls(...xs: Array<string | false | undefined>) {
 }
 
 export function PassportEnsTab() {
-  const { surface: persona } = useActivePersona();
-  const personaId = persona?.personaId;
-
   const [assignment, setAssignment] = useState<EnsAssignment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,12 +53,13 @@ export function PassportEnsTab() {
   const [lookupResult, setLookupResult] = useState<ResolveResult | null>(null);
 
   const loadAssignment = useCallback(async () => {
-    if (!personaId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await personaFetch(`/api/identity/persona/${personaId}/ens`, {
+      const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
+      const res = await fetch('/api/identity/my-ens', {
         cache: 'no-store',
+        headers: headers ?? undefined,
       });
       if (res.status === 404) {
         setAssignment(null);
@@ -77,21 +73,22 @@ export function PassportEnsTab() {
     } finally {
       setLoading(false);
     }
-  }, [personaId]);
+  }, []);
 
   useEffect(() => {
     void loadAssignment();
   }, [loadAssignment]);
 
   const handleMint = useCallback(async () => {
-    if (!personaId || !label.trim()) return;
+    if (!label.trim()) return;
     setMintBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const res = await personaFetch(`/api/identity/persona/${personaId}/ens`, {
+      const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const res = await fetch('/api/identity/my-ens', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers ?? { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: label.trim().toLowerCase() }),
       });
       const json = await res.json();
@@ -103,7 +100,7 @@ export function PassportEnsTab() {
     } finally {
       setMintBusy(false);
     }
-  }, [personaId, label]);
+  }, [label]);
 
   const handleLookup = useCallback(async () => {
     if (!lookupName.trim()) return;
@@ -205,7 +202,7 @@ export function PassportEnsTab() {
             </div>
             <button
               onClick={handleMint}
-              disabled={mintBusy || !labelValid || !personaId}
+              disabled={mintBusy || !labelValid}
               className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {mintBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}

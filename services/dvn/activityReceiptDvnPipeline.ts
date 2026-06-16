@@ -60,6 +60,8 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'governance_decision_amended',
   'governance_authority_exercised',
   'governance_escalation_triggered',
+  // Consumer task runner (Workstream C-b) — task-completion provenance
+  'experience_task_completed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

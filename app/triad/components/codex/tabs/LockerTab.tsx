@@ -18,8 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet, Clock } from 'lucide-react';
-import { personaFetch } from '@/utils/personaSpine';
+import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet, Clock, MessageSquare, Send } from 'lucide-react';
 import { authedFetchHeaders } from '@/utils/supabaseBrowser';
 import dynamic from 'next/dynamic';
 
@@ -68,6 +67,8 @@ interface LockerItem {
   storageMode: 'stub' | 'sui-walrus';
   createdAt: string;
   documentClass?: string;
+  encryptionIv?: string | null;
+  encryptionAuthTag?: string | null;
 }
 
 interface LockerGrant {
@@ -94,6 +95,16 @@ interface PassportVcItem {
   claimedAt: string | null;
   claimable: boolean;
   credential?: Record<string, unknown>;
+}
+
+interface QubeTalkChannel {
+  channelId: string;
+  agentRootId: string;
+  agentDisplayName: string;
+  agentClass: string;
+  agentDidUri: string | null;
+  status: string;
+  createdAt: string;
 }
 
 interface PendingApplication {
@@ -162,6 +173,11 @@ export function LockerTab() {
   const [sponsoredAgentItems, setSponsoredAgentItems] = useState<SponsoredAgentItem[]>([]);
   const [claimBusy, setClaimBusy] = useState<string | null>(null);
   const [pendingApplications, setPendingApplications] = useState<PendingApplication[]>([]);
+  const [qubeTalkChannels, setQubeTalkChannels] = useState<QubeTalkChannel[]>([]);
+  const [qubeTalkCollapsed, setQubeTalkCollapsed] = useState(false);
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [messageSending, setMessageSending] = useState(false);
 
   // Derive last location from items when loaded
   useEffect(() => {
@@ -175,28 +191,37 @@ export function LockerTab() {
     }
   }, [items]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preserveNotice = false) => {
     setLoading(true);
     setError(null);
+    if (!preserveNotice) setNotice(null);
     try {
       const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
       const authInit: RequestInit = { cache: 'no-store', headers: headers ?? undefined };
-      const [lockerRes, agentRes, passportRes] = await Promise.allSettled([
+      const [lockerRes, agentRes, passportRes, channelRes] = await Promise.allSettled([
         fetch('/api/polity-passport/locker', authInit),
         fetch('/api/persona/sponsored-agents', authInit),
         fetch('/api/polity-passport/wallet', authInit),
+        fetch('/api/qubetalk/passport-channels', authInit),
       ]);
-      if (lockerRes.status === 'fulfilled' && lockerRes.value.ok) {
-        const data = await lockerRes.value.json();
-        if (data?.ok) {
-          setItems(data.items ?? []);
-          setGrants(data.grants ?? []);
-          if (data.migrationPending) {
-            setError(`Pending migration: ${data.migrationPending}`);
+      if (lockerRes.status === 'fulfilled') {
+        if (lockerRes.value.ok) {
+          const data = await lockerRes.value.json();
+          if (data?.ok) {
+            setItems(data.items ?? []);
+            setGrants(data.grants ?? []);
+            if (data.migrationPending) {
+              setError(`Pending migration: ${data.migrationPending}`);
+            }
+          } else if (data?.error) {
+            setError(data.error);
           }
-        } else if (data?.error) {
-          setError(data.error);
+        } else {
+          const data = await lockerRes.value.json().catch(() => null);
+          setError(data?.error ?? `Locker load failed (${lockerRes.value.status})`);
         }
+      } else {
+        setError(`Locker unavailable: ${lockerRes.reason instanceof Error ? lockerRes.reason.message : 'network error'}`);
       }
       if (agentRes.status === 'fulfilled' && agentRes.value.ok) {
         const data = await agentRes.value.json();
@@ -227,6 +252,12 @@ export function LockerTab() {
         if (data?.ok) {
           setPassportVcs(data.passportQubes ?? []);
           setPendingApplications(data.pendingApplications ?? []);
+        }
+      }
+      if (channelRes.status === 'fulfilled' && channelRes.value.ok) {
+        const data = await channelRes.value.json();
+        if (data?.ok) {
+          setQubeTalkChannels(data.channels ?? []);
         }
       }
     } catch (e) {
@@ -264,9 +295,10 @@ export function LockerTab() {
         accuracy: pos.coords.accuracy,
       };
       const payloadBase64 = btoa(JSON.stringify(checkpoint));
-      const res = await personaFetch('/api/polity-passport/locker', {
+      const authHdrs = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const res = await fetch('/api/polity-passport/locker', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHdrs ?? { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           displayName: 'Location checkpoint',
           contentType: 'application/json',
@@ -282,7 +314,7 @@ export function LockerTab() {
       }
       setLastLocation(checkpoint);
       setNotice(`Location saved: ${checkpoint.lat.toFixed(6)}, ${checkpoint.lng.toFixed(6)}`);
-      void load();
+      void load(true);
     } catch (e) {
       if (e instanceof GeolocationPositionError) {
         const msgs: Record<number, string> = {
@@ -310,9 +342,10 @@ export function LockerTab() {
       setNotice(null);
       try {
         const payloadBase64 = await fileToBase64(file);
-        const res = await personaFetch('/api/polity-passport/locker', {
+        const authHdrs = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+        const res = await fetch('/api/polity-passport/locker', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHdrs ?? { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             displayName: uploadDisplayName.trim(),
             contentType: file.type || 'application/octet-stream',
@@ -328,7 +361,7 @@ export function LockerTab() {
         }
         setNotice(`Uploaded ${data.item.displayName} → ${data.item.walrusBlobId.slice(0, 40)}…`);
         setUploadDisplayName('');
-        void load();
+        void load(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Upload failed');
       } finally {
@@ -343,9 +376,10 @@ export function LockerTab() {
     setError(null);
     setNotice(null);
     try {
-      const res = await personaFetch('/api/polity-passport/locker/grant', {
+      const authHdrs = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const res = await fetch('/api/polity-passport/locker/grant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHdrs ?? { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           itemId: grantTarget.itemId,
           delegatedAgentRootId: grantTarget.agentRootId,
@@ -359,15 +393,15 @@ export function LockerTab() {
       }
 
       // Also bind the QubeTalk channel (idempotent — does nothing if one exists).
-      await personaFetch('/api/qubetalk/channels/bind', {
+      await fetch('/api/qubetalk/channels/bind', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHdrs ?? { 'Content-Type': 'application/json' },
         body: JSON.stringify({ delegatedAgentRootId: grantTarget.agentRootId, delegationGrantId: data.grant.grantId }),
       }).catch(() => {});
 
       setNotice(`Granted ${grantTarget.scope} access to agent`);
       setGrantTarget(null);
-      void load();
+      void load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Grant failed');
     }
@@ -377,8 +411,10 @@ export function LockerTab() {
     async (grantId: string) => {
       setError(null);
       try {
-        const res = await personaFetch(`/api/polity-passport/locker/grant?grantId=${grantId}`, {
+        const authHdrs = await authedFetchHeaders({});
+        const res = await fetch(`/api/polity-passport/locker/grant?grantId=${grantId}`, {
           method: 'DELETE',
+          headers: authHdrs ?? undefined,
         });
         const data = await res.json();
         if (!res.ok || !data?.ok) {
@@ -386,7 +422,7 @@ export function LockerTab() {
           return;
         }
         setNotice('Grant revoked');
-        void load();
+        void load(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Revoke failed');
       }
@@ -397,9 +433,11 @@ export function LockerTab() {
   const handleClaimPassport = useCallback(async (passportId: string) => {
     setClaimBusy(passportId);
     try {
-      const res = await personaFetch(`/api/polity-passport/credential/${encodeURIComponent(passportId)}`, {
+      const authHdrs = await authedFetchHeaders({});
+      const res = await fetch(`/api/polity-passport/credential/${encodeURIComponent(passportId)}`, {
         method: 'POST',
         cache: 'no-store',
+        headers: authHdrs ?? undefined,
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
@@ -407,7 +445,7 @@ export function LockerTab() {
         return;
       }
       setNotice('Passport credential claimed — it now appears in your wallet.');
-      void load();
+      void load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Claim failed');
     } finally {
@@ -442,7 +480,7 @@ export function LockerTab() {
         return;
       }
       setNotice('World ID verified — passport upgraded to verified_citizen.');
-      void load();
+      void load(true);
     } catch (err) {
       setWorldIdError((e) => ({ ...e, [passportId]: err instanceof Error ? err.message : 'Verification failed' }));
     } finally {
@@ -724,6 +762,119 @@ export function LockerTab() {
         )}
       </div>
 
+      {/* QubeTalk — Citizen ↔ Agent messaging */}
+      <div className="rounded-xl border border-sky-700/50 bg-sky-950/20 p-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setQubeTalkCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-sky-400" />
+            <span className="text-sm font-semibold text-slate-200">Agent Channels</span>
+            {qubeTalkChannels.length > 0 && (
+              <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300">
+                {qubeTalkChannels.length}
+              </span>
+            )}
+          </div>
+          {qubeTalkCollapsed ? (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {!qubeTalkCollapsed && (
+          <div className="space-y-2">
+            {qubeTalkChannels.length === 0 ? (
+              <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-4 text-center space-y-2">
+                <p className="text-xs text-slate-400">
+                  No agent channels yet. Grant locker access to a sponsored agent to open a QubeTalk channel.
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  Upload a document below, then use the &quot;Grant to&quot; buttons on each item to share with your bound agents.
+                  A QubeTalk channel opens automatically with the first grant.
+                </p>
+              </div>
+            ) : (
+              qubeTalkChannels.map((ch) => {
+                const isActive = activeChannelId === ch.channelId;
+                return (
+                  <div key={ch.channelId}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveChannelId(isActive ? null : ch.channelId)}
+                      className={cls(
+                        'w-full rounded-lg border p-3 text-left transition-colors',
+                        isActive
+                          ? 'border-sky-500/40 bg-sky-500/10'
+                          : 'border-slate-700 bg-slate-900/40 hover:bg-slate-800/60',
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Bot className="h-4 w-4 text-sky-400" />
+                          <span className="text-xs font-medium text-slate-100">{ch.agentDisplayName}</span>
+                          <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
+                            {ch.agentClass}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                          <Check className="h-2.5 w-2.5" /> Active
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Channel opened {new Date(ch.createdAt).toLocaleDateString()}
+                      </p>
+                    </button>
+                    {isActive && (
+                      <div className="mt-2 rounded-lg border border-sky-500/20 bg-slate-950/40 p-3 space-y-3">
+                        <div className="rounded-lg bg-slate-900/60 p-3 min-h-[80px] text-xs text-slate-500 italic flex items-center justify-center">
+                          QubeTalk channel with {ch.agentDisplayName} — messages will appear here
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            value={messageInput}
+                            onChange={(e) => setMessageInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && messageInput.trim()) {
+                                setMessageSending(true);
+                                setTimeout(() => {
+                                  setMessageSending(false);
+                                  setMessageInput('');
+                                  setNotice(`Message sent to ${ch.agentDisplayName}`);
+                                }, 500);
+                              }
+                            }}
+                            placeholder={`Message ${ch.agentDisplayName}…`}
+                            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+                          />
+                          <button
+                            onClick={() => {
+                              if (!messageInput.trim()) return;
+                              setMessageSending(true);
+                              setTimeout(() => {
+                                setMessageSending(false);
+                                setMessageInput('');
+                                setNotice(`Message sent to ${ch.agentDisplayName}`);
+                              }, 500);
+                            }}
+                            disabled={messageSending || !messageInput.trim()}
+                            className="flex items-center gap-1 rounded-lg bg-sky-600 px-3 py-2 text-sm text-white hover:bg-sky-500 disabled:opacity-50"
+                          >
+                            {messageSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Upload */}
       <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
@@ -843,14 +994,29 @@ export function LockerTab() {
                       )}
                       <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5">{item.storageMode}</span>
                     </div>
-                    <code className="block text-[10px] text-slate-500 font-mono break-all">
-                      walrus: {item.walrusBlobId}
-                    </code>
-                    {item.suiObjectId && (
-                      <code className="block text-[10px] text-slate-500 font-mono break-all">
-                        sui: {item.suiObjectId}
+                    <div className="space-y-1">
+                      <code className="block text-[10px] text-emerald-400/70 font-mono break-all">
+                        walrus CID: {item.walrusBlobId}
                       </code>
-                    )}
+                      {item.suiObjectId && (
+                        <code className="block text-[10px] text-sky-400/70 font-mono break-all">
+                          sui object: {item.suiObjectId}
+                        </code>
+                      )}
+                      {(item.encryptionIv || item.encryptionAuthTag) && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                            <ShieldCheck className="h-2.5 w-2.5" /> AES-256-GCM encrypted
+                          </span>
+                          {item.encryptionIv && (
+                            <code className="text-[9px] text-slate-600 font-mono">IV: {item.encryptionIv.slice(0, 12)}…</code>
+                          )}
+                          {item.encryptionAuthTag && (
+                            <code className="text-[9px] text-slate-600 font-mono">tag: {item.encryptionAuthTag.slice(0, 12)}…</code>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     {/* Grant action buttons */}
                     {agents.length > 0 && (
                       <div className="flex items-center gap-1.5 flex-wrap pt-1">

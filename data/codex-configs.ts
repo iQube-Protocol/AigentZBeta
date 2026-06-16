@@ -3335,6 +3335,38 @@ export const METAME_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'admin-runtime-settings',
+      label: 'Runtime Settings',
+      slug: 'runtime-settings',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62.8,
+      type: 'static',
+      config: { component: 'MetaMeRuntimeSettingsTab', props: {} },
+      metadata: {
+        icon: 'Zap',
+        description: 'Set the default Runtime takeover context (metaMe / KNYT) — the same toggle the in-runtime ⚡ flips',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'admin-metame-pulse',
+      label: 'Runtime Content',
+      slug: 'metame-pulse',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62.9,
+      type: 'static',
+      config: { component: 'MetaMePulseAdminTab', props: {} },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'Controller for what surfaces in the metaMe Runtime — approve launches, assign be/make/play/earn/share placement, and publish/unpublish/archive live content',
+        color: 'emerald'
+      }
+    },
+    {
       id: 'admin-experience-framework',
       label: 'Experience Framework',
       slug: 'experience-framework',
@@ -3784,7 +3816,7 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
     { id: 'registry', label: 'Registry', icon: 'BookOpenCheck', order: 2 },
     { id: 'locker',  label: 'Locker',  icon: 'Lock', order: 3 },
     { id: 'delegation', label: 'Delegation', icon: 'Link2', order: 4 },
-    { id: 'ens',     label: 'ENS',     icon: 'Globe', order: 5, adminOnly: true },
+    { id: 'ens',     label: 'ENS',     icon: 'Globe', order: 5 },
     { id: 'being',   label: 'Mobility Services',   icon: 'Home', order: 6, adminOnly: true },
     { id: 'steward', label: 'Steward', icon: 'Gavel', order: 7, adminOnly: true },
   ],

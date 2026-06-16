@@ -1,4 +1,10 @@
 # Build — Changelog
+- [`eff22bc`](https://github.com/iQube-Protocol/AigentZBeta/commit/eff22bc7cb9ef84f0e6d431c0ee3c07e14bc658c) [push] flip steward queue cards to decided state after approve/deny (Claude, 2026-06-14T19:33:23Z)
+- [`7dcfb89`](https://github.com/iQube-Protocol/AigentZBeta/commit/7dcfb899a97b58fd3a368f829bb57a9979bb3590) [feat] fix steward review auth + add collapsible wallet cards (Claude, 2026-06-14T19:19:54Z)
+- [`15b39af`](https://github.com/iQube-Protocol/AigentZBeta/commit/15b39af11208b9e69c7a59bba251016542e2aefb) [push] trigger deploy to dev (Claude, 2026-06-14T19:20:10Z)
+- [`e4fff69`](https://github.com/iQube-Protocol/AigentZBeta/commit/e4fff6987191afe424fab349d65af4dc44546e15) [feat] fix ENS tab spinner + add QubeTalk channels to Locker (Claude, 2026-06-14T08:04:56Z)
+- [`79405af`](https://github.com/iQube-Protocol/AigentZBeta/commit/79405af0b645613bea09e0c2e44db762f0aefc65) [push] trigger deploy to dev (Claude, 2026-06-14T08:05:19Z)
+- [`180a967`](https://github.com/iQube-Protocol/AigentZBeta/commit/180a96733ea5b3bd4b92b9ec984f6e795c7db6b9) [push] handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero (Claude, 2026-06-14T05:28:27Z)
 - [`d5aff7e`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5aff7e1771f07363a40f34503e4b02dd0df3eca) [fix] fix two unblockers — viem.normalize import path + set-resolver prompts for key (Claude, 2026-06-14T05:24:56Z)
 - [`4f00c2c`](https://github.com/iQube-Protocol/AigentZBeta/commit/4f00c2c9567678af40bd2aefcd3b36196a3346f9) [feat] add programmatic resolver-set script — bypass ENS Manager UI (Claude, 2026-06-14T05:21:47Z)
 - [`604196e`](https://github.com/iQube-Protocol/AigentZBeta/commit/604196e295856f3cc01602c8709bc144c90fa18b) [push] auto-prepend 0x to private keys in deploy.mjs (Claude, 2026-06-14T05:14:24Z)

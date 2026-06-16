@@ -19,6 +19,10 @@ const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
   { ssr: false }
 );
+const SmartWalletDrawer = dynamic(
+  () => import("@/app/components/content/SmartWalletDrawer"),
+  { ssr: false }
+);
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { personaFetch } from "@/utils/personaSpine";
@@ -115,6 +119,13 @@ export default function CodexPanelDynamic({
   // Resolve personaId: explicit prop wins; fall back to global PersonaContext
   const { activePersonaId: ctxPersonaId, setActivePersonaId } = usePersonaSafe();
   const resolvedPersonaId = personaId || ctxPersonaId || undefined;
+
+  // Direct SmartWallet overlay (variant="overlay") launched from the
+  // active-persona header badge — opens on the wallet tab so the operator
+  // can switch the active persona. This is the standalone wallet overlay
+  // (mirrors DevPersonaTab's "Open SmartWallet → iQube tab" gem), NOT the
+  // copilot-embedded wallet.
+  const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
 
   // When SmartWalletDrawer reports a persona switch, update the global context
   const handlePersonaChange = React.useCallback(
@@ -778,16 +789,19 @@ export default function CodexPanelDynamic({
                         On narrow screens the label truncates with an ellipsis
                         so a long FIO handle can't push the theme toggle off. */}
                     {headerPersonaLabel && (
-                      <div
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] md:text-xs font-medium max-w-[55vw] md:max-w-none ${
+                      <button
+                        type="button"
+                        onClick={() => setWalletDrawerOpen(true)}
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] md:text-xs font-medium max-w-[55vw] md:max-w-none transition-colors cursor-pointer ${
                           isDark
-                            ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200`
-                            : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700`
+                            ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200 hover:bg-${accentColor}-500/20 hover:border-${accentColor}-500/50`
+                            : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700 hover:bg-${accentColor}-100 hover:border-${accentColor}-400`
                         }`}
-                        title={`Active persona: ${headerPersonaLabel}`}
+                        title={`Active persona: ${headerPersonaLabel} — open wallet to switch persona`}
                       >
+                        <UserCircle2 className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">Welcome, {headerPersonaLabel}</span>
-                      </div>
+                      </button>
                     )}
                     {/* Theme toggle */}
                     <button
@@ -1145,6 +1159,23 @@ export default function CodexPanelDynamic({
             'Show my bound agents',
             'How does the Locker work?',
           ]}
+        />
+      )}
+
+      {/* Standalone SmartWallet overlay launched from the active-persona
+          header badge. variant="overlay" renders the full wallet on top of
+          the cartridge (not via the copilot layer); opens on the wallet tab
+          where the persona switcher lives. */}
+      {walletDrawerOpen && (
+        <SmartWalletDrawer
+          open={walletDrawerOpen}
+          onClose={() => setWalletDrawerOpen(false)}
+          variant="overlay"
+          initialTab="wallet"
+          personaId={resolvedPersonaId}
+          onPersonaChange={handlePersonaChange}
+          cartridgeSlug={codexId}
+          agent={{ id: resolvedPersonaId ?? codexId, name: headerPersonaLabel ?? 'Wallet' }}
         />
       )}
     </SmartTriadProvider>

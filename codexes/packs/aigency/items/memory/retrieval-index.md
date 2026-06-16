@@ -2339,3 +2339,33 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-d5aff7e.md](../build_/COMMITS/COMMIT-d5aff7e.md)
 - Message: fix two unblockers — viem.normalize import path + set-resolver prompts for key
+
+## Commit `180a967` — 2026-06-14T05:28:27Z
+- Type: `push`
+- Brief: [COMMIT-180a967.md](../build_/COMMITS/COMMIT-180a967.md)
+- Message: handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero
+
+## Commit `79405af` — 2026-06-14T08:05:19Z
+- Type: `push`
+- Brief: [COMMIT-79405af.md](../build_/COMMITS/COMMIT-79405af.md)
+- Message: trigger deploy to dev
+
+## Commit `e4fff69` — 2026-06-14T08:04:56Z
+- Type: `feat`
+- Brief: [COMMIT-e4fff69.md](../build_/COMMITS/COMMIT-e4fff69.md)
+- Message: fix ENS tab spinner + add QubeTalk channels to Locker
+
+## Commit `15b39af` — 2026-06-14T19:20:10Z
+- Type: `push`
+- Brief: [COMMIT-15b39af.md](../build_/COMMITS/COMMIT-15b39af.md)
+- Message: trigger deploy to dev
+
+## Commit `7dcfb89` — 2026-06-14T19:19:54Z
+- Type: `feat`
+- Brief: [COMMIT-7dcfb89.md](../build_/COMMITS/COMMIT-7dcfb89.md)
+- Message: fix steward review auth + add collapsible wallet cards
+
+## Commit `eff22bc` — 2026-06-14T19:33:23Z
+- Type: `push`
+- Brief: [COMMIT-eff22bc.md](../build_/COMMITS/COMMIT-eff22bc.md)
+- Message: flip steward queue cards to decided state after approve/deny

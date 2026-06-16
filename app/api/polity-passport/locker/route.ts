@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await admin
       .from('passport_locker_items')
       .select(
-        'item_id, display_name, content_type, size_bytes, walrus_blob_id, sui_object_id, downloadable, storage_mode, created_at',
+        'item_id, display_name, content_type, size_bytes, walrus_blob_id, sui_object_id, downloadable, storage_mode, created_at, encryption_iv, encryption_auth_tag',
       )
       .eq('holder_persona_id', persona.personaId)
       .order('created_at', { ascending: false });
@@ -103,6 +103,8 @@ export async function GET(req: NextRequest) {
           downloadable: i.downloadable,
           storageMode: i.storage_mode,
           createdAt: i.created_at,
+          encryptionIv: i.encryption_iv ?? null,
+          encryptionAuthTag: i.encryption_auth_tag ?? null,
         })),
         grants: grants.map((g) => ({
           grantId: g.grant_id,

@@ -991,6 +991,8 @@ export default function SmartWalletDrawer({
   const [passportQubesLoading, setPassportQubesLoading] = useState(false);
   const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
   const [passportCardCollapsed, setPassportCardCollapsed] = useState<Set<string>>(new Set());
+  const [personaQubeCollapsed, setPersonaQubeCollapsed] = useState(false);
+  const [agentCardCollapsed, setAgentCardCollapsed] = useState<Set<string>>(new Set());
   const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
 
   // Sponsored agents — wallet section "Agents I sponsor" (Sprint 3).
@@ -1145,6 +1147,15 @@ export default function SmartWalletDrawer({
       const next = new Set(prev);
       if (next.has(passportId)) next.delete(passportId);
       else next.add(passportId);
+      return next;
+    });
+  }, []);
+
+  const toggleAgentCardCollapse = useCallback((agentId: string) => {
+    setAgentCardCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(agentId)) next.delete(agentId);
+      else next.add(agentId);
       return next;
     });
   }, []);
@@ -4460,10 +4471,18 @@ export default function SmartWalletDrawer({
           {activeTab === "iqube" && (
             <div className="space-y-4">
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
-                  <Layers className="w-3.5 h-3.5 text-violet-400" />
-                  PersonaQube — On-Chain Identity
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setPersonaQubeCollapsed((p) => !p)}
+                  className="flex w-full items-center justify-between mb-3"
+                >
+                  <div className="text-[10px] uppercase tracking-wider text-white/60 flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5 text-violet-400" />
+                    PersonaQube — On-Chain Identity
+                  </div>
+                  {personaQubeCollapsed ? <ChevronDown className="h-3 w-3 text-white/40" /> : <ChevronUp className="h-3 w-3 text-white/40" />}
+                </button>
+                {!personaQubeCollapsed && <>
                 {/* Active persona identity summary */}
                 {walletNode?.personaContext?.activePersona && (
                   <div className="space-y-1.5 mb-4">
@@ -4542,6 +4561,7 @@ export default function SmartWalletDrawer({
                     </button>
                   </div>
                 )}
+                </>}
               </section>
 
               {/* PassportQube — claimed passport credentials */}
@@ -4693,18 +4713,28 @@ export default function SmartWalletDrawer({
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {sponsoredAgents.map((sa) => (
+                    {sponsoredAgents.map((sa) => {
+                      const agentCollapsed = agentCardCollapsed.has(sa.agentRootId);
+                      return (
                       <div
                         key={sa.agentRootId}
                         className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-2"
                       >
-                        <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => toggleAgentCardCollapse(sa.agentRootId)}
+                          className="flex w-full items-center justify-between"
+                        >
                           <div className="flex items-center gap-2">
                             <Bot className="h-4 w-4 text-violet-400" />
                             <span className="text-sm font-medium text-violet-300">{sa.displayName}</span>
                           </div>
-                          <span className="text-[10px] text-white/40 font-mono">{sa.agentClass}</span>
-                        </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-white/40 font-mono">{sa.agentClass}</span>
+                            {agentCollapsed ? <ChevronDown className="h-3 w-3 text-white/40" /> : <ChevronUp className="h-3 w-3 text-white/40" />}
+                          </div>
+                        </button>
+                        {!agentCollapsed && <>
                         <p className="text-[10px] text-white/50 leading-relaxed line-clamp-2">
                           {sa.description}
                         </p>
@@ -4749,8 +4779,10 @@ export default function SmartWalletDrawer({
                             {sa.didUri}
                           </code>
                         </div>
+                        </>}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>
