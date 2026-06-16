@@ -86,12 +86,13 @@ Recommendation: support both; prefer (b) for normal flows, (a) for exceptions.
 4. Normalize behind a cartridge-resolved interface so Qriptopian + metaMe extend
    it once their treasuries register (KNYT is the blueprint).
 
-## C-c — thumbnail badge (read-only, next contained step)
+## C-c — thumbnail badge (read-only) — SHIPPED
 
-Project `wallet_rewards` cost/reward into the runtime capsule record
-(`services/composer/runtimeProjectionShared.ts` + `RuntimeCapsule` type) and
-render a high-level cost label + "rewarded" badge on the runtime capsule card
-(`MetaMeRuntimeClient`). Detail stays in the task runner (shipped in C-a).
+`RuntimeCapsule` already carries `configuration`, so no projection change was
+needed. `MetaMeRuntimeClient` reads `configuration.wallet_rewards` directly via
+`resolveRuntimeRewardCost()` and renders a high-level "rewarded" badge (emerald,
+$KNYT/Q¢) + cost badge (amber) in the experience-chip card's badge cluster.
+Detail stays in the task runner (C-a).
 
 ## Captured backlog (no action now — alignment only)
 
