@@ -119,8 +119,25 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    // Sponsorship Capacity Protocol (Phase 3). base + earned = total slots;
+    // used = active sponsorships (already-fetched agentRows). Soft-fail if the
+    // capacity migration hasn't been applied yet — clients render the section
+    // without capacity rather than breaking.
+    let capacity: { base: number; earned: number; used: number; remaining: number } | null = null;
+    const { data: capacityRow, error: capacityErr } = await admin
+      .from('personas')
+      .select('sponsorship_capacity_base, sponsorship_capacity_earned')
+      .eq('id', persona.personaId)
+      .maybeSingle();
+    if (!capacityErr && capacityRow?.sponsorship_capacity_base != null) {
+      const base = Number(capacityRow.sponsorship_capacity_base);
+      const earned = Number(capacityRow.sponsorship_capacity_earned ?? 0);
+      const used = agentRows.length;
+      capacity = { base, earned, used, remaining: Math.max(0, base + earned - used) };
+    }
+
     return NextResponse.json(
-      { ok: true, agents },
+      { ok: true, agents, capacity },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {

@@ -1018,6 +1018,9 @@ export default function SmartWalletDrawer({
   }
   const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgentItem[]>([]);
   const [sponsoredAgentsLoading, setSponsoredAgentsLoading] = useState(false);
+  // Phase 3 — Sponsorship Capacity Protocol.
+  interface SponsorshipCapacity { base: number; earned: number; used: number; remaining: number }
+  const [sponsorshipCapacity, setSponsorshipCapacity] = useState<SponsorshipCapacity | null>(null);
 
   useEffect(() => {
     if (activeTab !== "iqube") return;
@@ -1036,6 +1039,7 @@ export default function SmartWalletDrawer({
         const data = await res.json();
         if (cancelled || !data?.ok) return;
         setSponsoredAgents(data.agents ?? []);
+        setSponsorshipCapacity(data.capacity ?? null);
       } catch {
         // Silent — wallet survives endpoint failure.
       } finally {
@@ -4662,6 +4666,23 @@ export default function SmartWalletDrawer({
                   <Bot className="w-3.5 h-3.5 text-violet-400" />
                   AgentQubes — Bound Delegates
                 </div>
+                {/* Phase 3 — Sponsorship Capacity Protocol. Capacity = base + earned. */}
+                {sponsorshipCapacity && (
+                  <div className="mb-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">Sponsorship Capacity</span>
+                      <span className="text-[10px] text-white/50">
+                        Base {sponsorshipCapacity.base} + Earned {sponsorshipCapacity.earned} · Used {sponsorshipCapacity.used}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-base font-semibold ${sponsorshipCapacity.remaining > 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                        {sponsorshipCapacity.remaining}
+                      </div>
+                      <div className="text-[9px] text-white/40 uppercase tracking-wider">remaining</div>
+                    </div>
+                  </div>
+                )}
                 {sponsoredAgentsLoading ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
