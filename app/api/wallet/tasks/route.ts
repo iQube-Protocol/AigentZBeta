@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
   const { data: reputation } = crmPersonaId
     ? await supabase
         .from('crm_persona_reputation')
-        .select('rep_overall, rep_technical, rep_creative, rep_entrepreneurial, rep_data_arch, rep_community, lifetime_cvs, total_tasks_completed')
+        .select('rep_overall, rep_technical, rep_creative, rep_entrepreneurial, rep_data_arch, rep_community, lifetime_cvs, total_tasks_completed, standing_personal, standing_delegated, standing_stewardship, standing_overall, standing_bucket')
         .eq('persona_id', crmPersonaId)
         .maybeSingle()
     : { data: null };
@@ -283,6 +283,16 @@ export async function GET(req: NextRequest) {
       community: Number(reputation.rep_community) || 0,
       lifetimeCvs: Number(reputation.lifetime_cvs) || 0,
       totalTasksCompleted: Number(reputation.total_tasks_completed) || 0,
+    } : null,
+    // Phase 2 keystone — Standing alongside Reputation. Three lanes
+    // (Personal/Delegated/Stewardship) + composite + 0..4 bucket reusing
+    // the SmartWalletDrawer dot-strip primitive.
+    standing: reputation ? {
+      personal: Number(reputation.standing_personal) || 0,
+      delegated: Number(reputation.standing_delegated) || 0,
+      stewardship: Number(reputation.standing_stewardship) || 0,
+      overall: Number(reputation.standing_overall) || 0,
+      bucket: Number(reputation.standing_bucket) || 0,
     } : null,
   });
 }

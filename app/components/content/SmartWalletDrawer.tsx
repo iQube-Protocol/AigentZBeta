@@ -1728,6 +1728,15 @@ export default function SmartWalletDrawer({
       lifetimeCvs: number;
       totalTasksCompleted: number;
     } | null;
+    // Phase 2 keystone — Standing alongside Reputation. Three lanes
+    // (Personal/Delegated/Stewardship) + composite + 0..4 bucket.
+    standing?: {
+      personal: number;
+      delegated: number;
+      stewardship: number;
+      overall: number;
+      bucket: number;
+    } | null;
   }
   const [walletTasksData, setWalletTasksData] = useState<WalletTasksPayload | null>(null);
   const [walletTasksLoading, setWalletTasksLoading] = useState(false);
@@ -4191,6 +4200,48 @@ export default function SmartWalletDrawer({
                   </div>
                 )}
               </section>
+
+              {/* Standing (Phase 2 keystone) — Personal/Delegated/Stewardship */}
+              {walletTasksData?.standing && (
+                <section className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 ring-1 ring-emerald-500/20 p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-[10px] uppercase tracking-wider text-white/70">Standing</div>
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <span
+                          key={i}
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            i < (walletTasksData.standing?.bucket ?? 0)
+                              ? 'bg-emerald-400'
+                              : 'bg-slate-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    {([
+                      { label: 'Personal',     value: walletTasksData.standing.personal,     color: 'bg-emerald-500' },
+                      { label: 'Delegated',    value: walletTasksData.standing.delegated,    color: 'bg-teal-500' },
+                      { label: 'Stewardship',  value: walletTasksData.standing.stewardship,  color: 'bg-cyan-500' },
+                    ] as { label: string; value: number; color: string }[]).map(({ label, value, color }) => (
+                      <div key={label}>
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className="text-white/60">{label}</span>
+                          <span className="text-white/80 font-medium">{value.toFixed(1)}</span>
+                        </div>
+                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                          <div className={`h-full ${color}`} style={{ width: `${Math.min(100, value)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">
+                      <span className="text-white/50">Overall Standing</span>
+                      <span className="text-white/90 font-semibold">{walletTasksData.standing.overall.toFixed(1)}</span>
+                    </div>
+                  </div>
+                </section>
+              )}
 
               {/* Submit Claim */}
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
