@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { ExperienceLiquidRenderer } from "./ExperienceLiquidRenderer";
+import { personaFetch } from "@/utils/personaSpine";
 
 type ExperienceQube = {
   id: string;
@@ -51,28 +52,34 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
   const adminUrlOverride =
     searchParams?.get("admin") === "1" || searchParams?.get("runtimeAdmin") === "1";
   const [showPacket, setShowPacket] = useState(false);
-  // Admin resolution mirrors MetaMeRuntimeClient's admin-check: session email →
-  // /api/codex/admin-check (crm_admin_roles). Editing the launcher is admin-only;
+  // Admin is a PERSONA attribute resolved server-side by the identity spine —
+  // never email-gated. personaFetch attaches the Supabase Bearer token; the
+  // spine returns cartridgeFlags.isAdmin (global/platform-tier) + adminCartridges
+  // (per-cartridge tenant admin). Email only enables persona access/recovery;
+  // the active persona is the identifier. Editing the launcher is admin-only;
   // the runtime consumer surface (embed=1 / from=runtime) must not expose the
   // Studio authoring controls. Direct Studio authoring stays editable.
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminFlags, setAdminFlags] = useState<{ isAdmin: boolean; adminCartridges: string[] }>({
+    isAdmin: false,
+    adminCartridges: [],
+  });
   useEffect(() => {
     if (typeof window === "undefined") return;
     let cancelled = false;
     (async () => {
       try {
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        if (!url || !anonKey) return;
-        const { createClient } = await import("@supabase/supabase-js");
-        const supabase = createClient(url, anonKey);
-        const { data: { session } } = await supabase.auth.getSession();
-        const email = session?.user?.email;
-        if (!email || cancelled) return;
-        const res = await fetch(`/api/codex/admin-check?email=${encodeURIComponent(email)}`);
+        const res = await personaFetch("/api/wallet/active-persona", { cache: "no-store" });
         if (!res.ok || cancelled) return;
-        const json = await res.json();
-        if (!cancelled) setIsAdmin(Boolean(json?.isAdmin));
+        const surface = await res.json();
+        const flags = surface?.cartridgeFlags;
+        if (!cancelled) {
+          setAdminFlags({
+            isAdmin: Boolean(flags?.isAdmin),
+            adminCartridges: Array.isArray(flags?.adminCartridges)
+              ? flags.adminCartridges.filter((x: unknown): x is string => typeof x === "string")
+              : [],
+          });
+        }
       } catch {
         // Non-fatal — defaults to the consumer (non-editing) view.
       }
@@ -81,6 +88,15 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
       cancelled = true;
     };
   }, []);
+  // Resolve the experience's cartridge so per-cartridge (tenant) admins also edit.
+  const experienceCartridge =
+    typeof (experience?.metadata?.runtime_publication as { cartridge_id?: unknown } | undefined)
+      ?.cartridge_id === "string"
+      ? ((experience?.metadata?.runtime_publication as { cartridge_id?: string }).cartridge_id as string)
+      : null;
+  const isAdmin =
+    adminFlags.isAdmin ||
+    (experienceCartridge ? adminFlags.adminCartridges.includes(experienceCartridge) : false);
   const isConsumerSurface = isEmbeddedPreview || fromRuntime;
   const canEdit = adminUrlOverride || isAdmin || !isConsumerSurface;
 
