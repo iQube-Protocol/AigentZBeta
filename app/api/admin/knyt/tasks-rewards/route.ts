@@ -43,6 +43,11 @@ interface TaskTemplateRow {
   reward_qct: number;
   reward_qoyn: number;
   reward_knyt: number;
+  rep_weight_technical: number;
+  rep_weight_creative: number;
+  rep_weight_entrepreneurial: number;
+  rep_weight_data_arch: number;
+  rep_weight_community: number;
   cap_max_per_period: number | null;
   cap_period_days: number | null;
   cohort_id: string | null;
@@ -67,6 +72,8 @@ interface RewardAggregate {
 interface TaskTemplateRowOut extends TaskTemplateRow {
   aggregates: RewardAggregate;
   reward_task_types: string[];
+  /** C-b: how many consumer experience completions mapped to this template. */
+  experience_completions_count: number;
 }
 
 // Cartridge-scoped admin gate. Replaces the prior global-isAdmin
@@ -82,7 +89,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const { data: templates, error: tErr } = await db
     .from('crm_task_templates')
     .select(
-      'id, slug, title, description, category, difficulty_level, reward_qct, reward_qoyn, reward_knyt, cap_max_per_period, cap_period_days, cohort_id, is_active, schema_json, metadata, created_at, updated_at',
+      'id, slug, title, description, category, difficulty_level, reward_qct, reward_qoyn, reward_knyt, rep_weight_technical, rep_weight_creative, rep_weight_entrepreneurial, rep_weight_data_arch, rep_weight_community, cap_max_per_period, cap_period_days, cohort_id, is_active, schema_json, metadata, created_at, updated_at',
     )
     .eq('tenant_id', KNYT_TENANT_ID)
     .order('slug', { ascending: true });
@@ -138,6 +145,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // C-b: per-template consumer experience-completion counts. Best-effort —
+  // if the table isn't migrated yet, counts default to 0.
+  const completionCounts = new Map<string, number>();
+  if (ids.length) {
+    const { data: completions } = await db
+      .from('experience_task_completions')
+      .select('task_template_id')
+      .in('task_template_id', ids);
+    for (const c of completions ?? []) {
+      const id = (c as { task_template_id: string | null }).task_template_id;
+      if (id) completionCounts.set(id, (completionCounts.get(id) ?? 0) + 1);
+    }
+  }
+
   const out: TaskTemplateRowOut[] = (templates ?? []).map((t) => {
     const schema = (t.schema_json ?? {}) as Record<string, unknown>;
     const reward_task_types = ['reward_task_type', 'streak_reward_task_type', 'streak_bonus_reward_task_type', 'signup_reward_task_type', 'conversion_reward_task_type']
@@ -146,6 +167,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return {
       ...(t as TaskTemplateRow),
       reward_task_types,
+      experience_completions_count: completionCounts.get(t.id) ?? 0,
       aggregates:
         agg.get(t.id) ?? {
           approved_count: 0,
@@ -165,8 +187,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 interface PatchPayload {
   taskTemplateId: string;
-  patch: Partial<Pick<TaskTemplateRow, 'reward_knyt' | 'is_active' | 'title' | 'description' | 'reward_qct' | 'reward_qoyn' | 'cap_max_per_period' | 'cap_period_days'>>;
+  patch: Partial<Pick<TaskTemplateRow,
+    | 'reward_knyt' | 'is_active' | 'title' | 'description' | 'reward_qct' | 'reward_qoyn'
+    | 'cap_max_per_period' | 'cap_period_days'
+    | 'rep_weight_technical' | 'rep_weight_creative' | 'rep_weight_entrepreneurial'
+    | 'rep_weight_data_arch' | 'rep_weight_community'>>;
 }
+
+const REP_WEIGHT_FIELDS = [
+  'rep_weight_technical', 'rep_weight_creative', 'rep_weight_entrepreneurial',
+  'rep_weight_data_arch', 'rep_weight_community',
+] as const;
 
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const gate = await requireCartridgeAdmin(request, 'knyt-codex');
@@ -181,12 +212,13 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     'reward_knyt', 'is_active', 'title', 'description',
     'reward_qct', 'reward_qoyn',
     'cap_max_per_period', 'cap_period_days',
+    ...REP_WEIGHT_FIELDS,
   ];
   const safePatch: Record<string, unknown> = {};
   for (const k of allowed) {
     if (k in body.patch && body.patch[k] !== undefined) {
       const v = body.patch[k];
-      if (k === 'reward_knyt' || k === 'reward_qct' || k === 'reward_qoyn') {
+      if (k === 'reward_knyt' || k === 'reward_qct' || k === 'reward_qoyn' || (REP_WEIGHT_FIELDS as readonly string[]).includes(k)) {
         const n = Number(v);
         if (!Number.isFinite(n) || n < 0) {
           return NextResponse.json({ error: `${k} must be a non-negative number` }, { status: 400 });

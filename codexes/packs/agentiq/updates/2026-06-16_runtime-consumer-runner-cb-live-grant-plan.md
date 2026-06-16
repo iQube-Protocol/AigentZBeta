@@ -397,6 +397,80 @@ added to `ANCHORABLE_ACTION_TYPES`. The existing finalizer
 - `creditQc()` in `app/api/community-content/_lib/generate.ts` — reused as-is for the Q¢ branch (may be lifted into a shared `services/wallet/` helper if reuse warrants it)
 - `services/dvn/activityReceiptDvnPipeline.ts` — only the `ANCHORABLE_ACTION_TYPES` set is extended (permitted)
 
+## BUILD RECORD — shipped 2026-06-16
+
+C-b is implemented. Files:
+
+- **NEW** `supabase/migrations/20260616000000_experience_task_completions.sql`
+  — completion table (UNIQUE idempotency gate) + `activity_receipts`
+  action_type CHECK extended with `experience_task_completed`.
+- **NEW** `services/experience/experienceTaskCompletion.ts` —
+  `recordExperienceTaskCompletion()`: idempotent slot claim → template
+  resolution → asset-branched credit (`grantRewardForTask` for KNYT /
+  `creditQc` for Q¢) → reputation (template weights + per-experience bump) →
+  DVN activity receipt → finalise row.
+- **NEW** `app/api/experience/complete-tasks/route.ts` — POST, spine-auth via
+  `getActivePersona`, returns T1-safe payload (no personaId).
+- **MODIFIED** `components/composer/ExperienceLiquidRenderer.tsx` — task runner
+  fires the completion POST via `personaFetch` on full completion; clears
+  localStorage on 200/409; surfaces a grant notice.
+- **MODIFIED** `services/receipts/activityReceiptService.ts` +
+  `services/dvn/activityReceiptDvnPipeline.ts` — added
+  `experience_task_completed` to the action-type union + anchorable set.
+- **MODIFIED** `services/crm/taskService.ts` — exported `updatePersonaReputation`
+  for reuse (no logic change).
+- **MODIFIED** `app/api/admin/knyt/tasks-rewards/route.ts` — PATCH now accepts
+  `rep_weight_*`; GET returns `experience_completions_count` per template.
+
+### Operator action — run this migration in Supabase
+
+```sql
+-- supabase/migrations/20260616000000_experience_task_completions.sql
+CREATE TABLE IF NOT EXISTS public.experience_task_completions (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  persona_id       UUID NOT NULL,
+  experience_id    UUID NOT NULL,
+  tenant_id        TEXT NOT NULL,
+  task_template_id UUID REFERENCES public.crm_task_templates(id),
+  tasks_completed  TEXT[] NOT NULL DEFAULT '{}',
+  total_tasks      INTEGER NOT NULL DEFAULT 0,
+  reward_asset     TEXT,
+  reward_amount    NUMERIC(36,12) NOT NULL DEFAULT 0,
+  reward_grant_id  UUID,
+  grant_failed     BOOLEAN NOT NULL DEFAULT false,
+  source_event_id  UUID,
+  completed_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_persona_experience UNIQUE (persona_id, experience_id)
+);
+CREATE INDEX IF NOT EXISTS idx_etc_persona ON public.experience_task_completions(persona_id);
+CREATE INDEX IF NOT EXISTS idx_etc_experience ON public.experience_task_completions(experience_id);
+CREATE INDEX IF NOT EXISTS idx_etc_tenant ON public.experience_task_completions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_etc_template ON public.experience_task_completions(task_template_id);
+
+ALTER TABLE public.activity_receipts DROP CONSTRAINT IF EXISTS activity_receipts_action_type_check;
+ALTER TABLE public.activity_receipts ADD CONSTRAINT activity_receipts_action_type_check
+  CHECK (action_type IN (
+    'intent_queued','specialist_consulted','artifact_created','artifact_sent',
+    'approval_granted','approval_rejected','experience_model_updated','session_started','session_completed',
+    'passport_application_submitted','passport_issued','passport_status_changed',
+    'passport_revoked','passport_privilege_changed','passport_infraction_recorded',
+    'governance_decision_ratified','governance_decision_amended',
+    'governance_authority_exercised','governance_escalation_triggered',
+    'experience_task_completed'
+  ));
+```
+
+### To make an experience grant rewards (admin/authoring)
+
+Set on `experience.configuration.wallet_rewards`:
+- `reward_amount` + `reward_asset` (`"KNYT"` or `"Q¢"`)
+- `task_template_slug` — an active `crm_task_templates.slug` in the cartridge's
+  tenant. For KNYT rewards the template's `schema_json.reward_task_type` must be
+  a valid `RewardTaskType`. For Q¢ the template's `reward_qct` is used if set,
+  else `reward_amount`.
+- optional `reputation_bump: { dimension, weight }` for a per-experience bump.
+
 ## 11. Implementation Order
 
 1. **Migration** — `experience_task_completions` table (operator runs SQL)
