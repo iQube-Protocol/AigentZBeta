@@ -52,6 +52,7 @@ import {
   type LlmProviderId,
 } from "@/services/metame/agentLlmOrchestra";
 import {
+  Award,
   BookOpen,
   Bot,
   ChevronDown,
@@ -1393,6 +1394,27 @@ function resolveRuntimeExperienceBundleLabel(content: RuntimeCapsule): string | 
   if (kinds.includes("article")) return "Article";
   if (kinds.includes("image")) return "Image";
   return null;
+}
+
+// Reward/cost rails for a capsule, read from the experience config. Costs are
+// typically Q¢ and rewards $KNYT, but either rail is honoured via *_asset. Q¢
+// renders USD-primary ($1 = 100 Q¢); $KNYT renders as a token count. Surfaced
+// read-only as a high-level thumbnail badge; detail lives in the task runner.
+function formatRuntimeRailValue(amount: number, asset: string): string {
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  const normalized = asset.replace(/\s/g, "").toUpperCase();
+  if (normalized === "KNYT" || normalized === "$KNYT") return `${amount} $KNYT`;
+  return `$${(amount / 100).toFixed(2)}`;
+}
+
+function resolveRuntimeRewardCost(content: RuntimeCapsule): { costLabel: string; rewardLabel: string } {
+  const wr = asRecord(content.configuration?.wallet_rewards) ?? {};
+  const costAsset = typeof wr.unlock_asset === "string" ? wr.unlock_asset : "Q¢";
+  const rewardAsset = typeof wr.reward_asset === "string" ? wr.reward_asset : "Q¢";
+  return {
+    costLabel: formatRuntimeRailValue(Number(wr.unlock_price || 0), costAsset),
+    rewardLabel: formatRuntimeRailValue(Number(wr.reward_amount || 0), rewardAsset),
+  };
 }
 
 function defaultRuntimeIntentForCapsule(content: RuntimeCapsule): RuntimeIntent {
@@ -3569,6 +3591,7 @@ export default function MetaMeRuntimeClient() {
       const heroImage = resolveCapsuleCoverImage(content);
       const experienceKinds = deriveRuntimeExperienceKinds(content);
       const bundleLabel = resolveRuntimeExperienceBundleLabel(content);
+      const { costLabel, rewardLabel } = resolveRuntimeRewardCost(content);
       const { headline, summary } = resolveRuntimeExperienceSummary(content);
       const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
       const consumerExperienceHref = content.runtimeLaunchHref
@@ -3583,6 +3606,17 @@ export default function MetaMeRuntimeClient() {
               <div className="mt-1 text-sm text-slate-300 line-clamp-3">{summary}</div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {rewardLabel ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-200" title={`Earn ${rewardLabel}`}>
+                  <Award className="h-3 w-3" />
+                  {rewardLabel}
+                </span>
+              ) : null}
+              {costLabel ? (
+                <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200" title={`Unlock ${costLabel}`}>
+                  {costLabel}
+                </span>
+              ) : null}
               {bundleLabel ? (
                 <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
                   {bundleLabel}
