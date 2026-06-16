@@ -33,6 +33,7 @@ interface QueueItem {
   applicationPayload: Record<string, unknown> | null;
   reviewPriority: string;
   hasAssignedSteward: boolean;
+  recommendationCount?: number;
   submittedAt: string | null;
 }
 
@@ -158,16 +159,26 @@ export function PassportBureauStewardTab() {
                   </span>
                 )}
               </div>
-              <span
-                className={cls(
-                  'rounded-full px-2 py-0.5 text-xs',
-                  item.reviewPriority === 'expedited' || item.reviewPriority === 'high'
-                    ? 'bg-amber-900 text-amber-300'
-                    : 'bg-slate-800 text-slate-400',
-                )}
-              >
-                {item.reviewPriority}
-              </span>
+              <div className="flex items-center gap-2">
+                {item.recommendationCount && item.recommendationCount > 0 ? (
+                  <span
+                    title="Stewardship-gated recommendations"
+                    className="rounded-full bg-cyan-900/60 px-2 py-0.5 text-xs text-cyan-300"
+                  >
+                    ★ {item.recommendationCount} rec
+                  </span>
+                ) : null}
+                <span
+                  className={cls(
+                    'rounded-full px-2 py-0.5 text-xs',
+                    item.reviewPriority === 'expedited' || item.reviewPriority === 'high'
+                      ? 'bg-amber-900 text-amber-300'
+                      : 'bg-slate-800 text-slate-400',
+                  )}
+                >
+                  {item.reviewPriority}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-1 text-xs text-slate-400">
