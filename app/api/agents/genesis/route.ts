@@ -128,6 +128,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 1b. Sponsorship Capacity Protocol (Phase 3). Capacity = base + earned;
+    // used = count(active sponsorships). Soft-fail if the capacity migration
+    // hasn't been applied yet (treats capacity as unbounded so genesis never
+    // breaks on a deferred migration).
+    const { data: capacityRow, error: capacityErr } = await admin
+      .from('personas')
+      .select('sponsorship_capacity_base, sponsorship_capacity_earned')
+      .eq('id', persona.personaId)
+      .maybeSingle();
+    if (
+      capacityErr &&
+      !capacityErr.message.includes('sponsorship_capacity_base') &&
+      !capacityErr.message.includes('sponsorship_capacity_earned')
+    ) {
+      return NextResponse.json({ ok: false, error: capacityErr.message }, { status: 500 });
+    }
+    if (capacityRow?.sponsorship_capacity_base != null) {
+      const base = Number(capacityRow.sponsorship_capacity_base);
+      const earned = Number(capacityRow.sponsorship_capacity_earned ?? 0);
+      const { count: usedCount } = await admin
+        .from('agent_root_identity')
+        .select('id', { count: 'exact', head: true })
+        .eq('sponsor_persona_id', persona.personaId);
+      const used = usedCount ?? 0;
+      const remaining = base + earned - used;
+      if (remaining <= 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: 'sponsorship_capacity_exhausted',
+            error:
+              'Sponsorship capacity exhausted. Earn additional capacity when a sponsored participant reaches Standing.',
+            capacity: { base, earned, used, remaining: 0 },
+          },
+          { status: 409 },
+        );
+      }
+    }
+
     // 2. Slug uniqueness check. Pre-flight so the unique index error doesn't
     // leak the existing row.
     const { data: existing, error: existingErr } = await admin

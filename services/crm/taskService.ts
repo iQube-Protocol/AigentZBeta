@@ -612,12 +612,13 @@ export async function completeTask(input: CompleteTaskInput): Promise<CompleteTa
   // 10. Update persona reputation vector
   await updatePersonaReputation(contrib.persona_id, repDeltas, cvs);
 
-  // 10b. Standing accrual (Phase 2 keystone) — runs synchronously alongside
-  // reputation accrual; never fails the task completion. Sponsor side is
-  // null for MVP; Phase 3 wires the sponsor lookup.
+  // 10b. Standing accrual (Phase 2 keystone + Phase 3 capacity credit) — runs
+  // synchronously alongside reputation accrual; never fails the task
+  // completion. Sponsor is auto-resolved via the identity spine; when the
+  // contributor's standing_overall crosses the threshold, the sponsor's
+  // sponsorship_capacity_earned is incremented.
   await accrueStanding({
     crmPersonaId: contrib.persona_id,
-    sponsorCrmPersonaId: null,
     cvs,
     standingType:
       (task as unknown as { standingType?: 'personal' | 'delegated' | 'stewardship' }).standingType ?? 'personal',
