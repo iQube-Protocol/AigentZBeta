@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
 import { useRouter } from "next/navigation";
 import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
@@ -8,7 +8,7 @@ import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquid
 import { ExperienceBlockHeader } from "@/components/composer/ExperienceBlockChrome";
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 import SkillImagePlayer from "@/components/composer/SkillImagePlayer";
-import { BookOpen, ChevronDown, ChevronUp, Headphones, Loader2, PencilLine, Square } from "lucide-react";
+import { BookOpen, CheckSquare, ChevronDown, ChevronUp, Headphones, Loader2, PencilLine, Square } from "lucide-react";
 
 type ArticleDraftSection = {
   heading: string;
@@ -43,12 +43,33 @@ function buildTTSText(article: {
 function CompositionBundleBrief({
   packet,
   experienceId,
+  canEdit = false,
 }: {
   packet: Record<string, any>;
   experienceId: string;
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const [articleExpanded, setArticleExpanded] = useState(false);
+  // Consumer task-runner completion state. Persisted to localStorage for UX
+  // reactivity only — the durable record (and reward/reputation distribution)
+  // is Workstream C, which posts a task-completion receipt the cartridge
+  // treasury/registry consumes.
+  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(`exp_tasks_${experienceId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setCompletedTasks(new Set(parsed.filter((x): x is string => typeof x === "string")));
+        }
+      }
+    } catch {
+      /* ignore corrupt localStorage */
+    }
+  }, [experienceId]);
   const { ttsState, handleListen } = useTTSPlayer({
     getText: () => buildTTSText(
       articleGenerated ?? {
@@ -113,6 +134,26 @@ function CompositionBundleBrief({
     articleTakeaways.length > 0 ||
     articleGlossary.length > 0 ||
     Boolean(articleGenerated?.nextAction);
+  const completedCount = nextActions.filter((task) => completedTasks.has(task)).length;
+  const toggleTask = (task: string) => {
+    setCompletedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(task)) next.delete(task);
+      else next.add(task);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(`exp_tasks_${experienceId}`, JSON.stringify([...next]));
+        } catch {
+          /* ignore quota / serialization errors */
+        }
+      }
+      // Workstream C seam: a completed task should precipitate reward + reputation
+      // changes back into the cartridge treasury/registry and the smart wallet.
+      // Currently local-only; C will POST a task-completion receipt here.
+      return next;
+    });
+  };
+
   if (!composition && !articleDraft) return null;
 
   const handleEditDraft = () => {
@@ -249,14 +290,16 @@ function CompositionBundleBrief({
                   <span>{articleExpanded ? "Collapse" : "Read Draft"}</span>
                   {articleExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleEditDraft}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
-                >
-                  <PencilLine className="h-3.5 w-3.5" />
-                  <span>Edit Draft</span>
-                </button>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    onClick={handleEditDraft}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
+                  >
+                    <PencilLine className="h-3.5 w-3.5" />
+                    <span>Edit Draft</span>
+                  </button>
+                ) : null}
               </>
             }
             className="flex items-center justify-between pb-3"
@@ -325,40 +368,82 @@ function CompositionBundleBrief({
                 <BookOpen className="h-3.5 w-3.5" />
                 <span>{articleExpanded ? "Show Summary" : "Read Full Draft"}</span>
               </button>
-              <button
-                type="button"
-                onClick={handleEditDraft}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
-              >
-                <PencilLine className="h-3.5 w-3.5" />
-                <span>Edit in Customizer</span>
-              </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={handleEditDraft}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
+                >
+                  <PencilLine className="h-3.5 w-3.5" />
+                  <span>Edit in Customizer</span>
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
       ) : null}
 
       <div className="mt-3 space-y-3">
-        <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Sequencing</div>
-          <div className="mt-2 space-y-1 text-xs text-slate-400">
-            {sequencing.map((step) => (
-              <div key={step}>{step}</div>
-            ))}
+        {sequencing.length > 0 ? (
+          <div>
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Sequencing</div>
+            <div className="mt-2 space-y-1 text-xs text-slate-400">
+              {sequencing.map((step) => (
+                <div key={step}>{step}</div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Next Actions</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {nextActions.map((item) => (
-              <span
-                key={item}
-                className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300"
-              >
-                {item}
-              </span>
-            ))}
+          <div className="flex items-center justify-between">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              {canEdit ? "Next Actions" : "Your tasks"}
+            </div>
+            {!canEdit && nextActions.length > 0 ? (
+              <div className="text-[11px] text-slate-500">
+                {completedCount}/{nextActions.length} complete
+              </div>
+            ) : null}
           </div>
+          {canEdit ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {nextActions.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : nextActions.length > 0 ? (
+            <div className="mt-2 space-y-2">
+              {nextActions.map((item) => {
+                const done = completedTasks.has(item);
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => toggleTask(item)}
+                    className={`flex w-full items-start gap-2 rounded-xl border px-3 py-2 text-left text-xs transition ${
+                      done
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
+                        : "border-slate-700 bg-slate-900/60 text-slate-200 hover:border-slate-500"
+                    }`}
+                  >
+                    {done ? (
+                      <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                    ) : (
+                      <Square className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                    )}
+                    <span className={done ? "line-through opacity-80" : ""}>{item}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-2 text-xs text-slate-500">No tasks for this experience yet.</div>
+          )}
         </div>
       </div>
     </div>
@@ -377,6 +462,9 @@ interface ExperienceLiquidRendererProps {
   packet: Record<string, any> | null;
   theme?: "light" | "dark";
   personaId?: string;
+  /** When false, all authoring/editing affordances are hidden and the consumer
+      task-runner is shown instead. Resolved admin-side by the host viewer. */
+  canEdit?: boolean;
 }
 
 export function ExperienceLiquidRenderer({
@@ -384,6 +472,7 @@ export function ExperienceLiquidRenderer({
   packet,
   theme = "dark",
   personaId,
+  canEdit = false,
 }: ExperienceLiquidRendererProps) {
   const templateKey = packet?.ui?.primary_template as string | undefined;
 
@@ -399,7 +488,7 @@ export function ExperienceLiquidRenderer({
   if (templateKey === "skill:video_player_v1" && packet.skill) {
     return (
       <>
-        <CompositionBundleBrief packet={packet} experienceId={experience.id} />
+        <CompositionBundleBrief packet={packet} experienceId={experience.id} canEdit={canEdit} />
         <SkillVideoPlayer
           skill_id={packet.skill.skill_id}
           prompt={packet.skill.prompt}
@@ -424,7 +513,7 @@ export function ExperienceLiquidRenderer({
   if (templateKey === "skill:image_player_v1" && packet.image_generation) {
     return (
       <>
-        <CompositionBundleBrief packet={packet} experienceId={experience.id} />
+        <CompositionBundleBrief packet={packet} experienceId={experience.id} canEdit={canEdit} />
         <SkillImagePlayer
           provider_id={packet.image_generation.provider_id}
           portrait_prompt={packet.image_generation.portrait_prompt}

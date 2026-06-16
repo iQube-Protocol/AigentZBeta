@@ -47,7 +47,42 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
   const [packetError, setPacketError] = useState<string | null>(null);
   const [packetRetryKey, setPacketRetryKey] = useState(0);
   const isEmbeddedPreview = searchParams?.get("embed") === "1";
+  const fromRuntime = searchParams?.get("from") === "runtime";
+  const adminUrlOverride =
+    searchParams?.get("admin") === "1" || searchParams?.get("runtimeAdmin") === "1";
   const [showPacket, setShowPacket] = useState(false);
+  // Admin resolution mirrors MetaMeRuntimeClient's admin-check: session email →
+  // /api/codex/admin-check (crm_admin_roles). Editing the launcher is admin-only;
+  // the runtime consumer surface (embed=1 / from=runtime) must not expose the
+  // Studio authoring controls. Direct Studio authoring stays editable.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!url || !anonKey) return;
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(url, anonKey);
+        const { data: { session } } = await supabase.auth.getSession();
+        const email = session?.user?.email;
+        if (!email || cancelled) return;
+        const res = await fetch(`/api/codex/admin-check?email=${encodeURIComponent(email)}`);
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (!cancelled) setIsAdmin(Boolean(json?.isAdmin));
+      } catch {
+        // Non-fatal — defaults to the consumer (non-editing) view.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const isConsumerSurface = isEmbeddedPreview || fromRuntime;
+  const canEdit = adminUrlOverride || isAdmin || !isConsumerSurface;
 
   useEffect(() => {
     let active = true;
@@ -142,12 +177,14 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
               >
                 <ArrowLeft className="h-4 w-4" /> Back to Composer
               </button>
-              <button
-                onClick={() => setShowPacket((prev) => !prev)}
-                className="text-xs text-slate-400 hover:text-slate-200"
-              >
-                {showPacket ? "Hide Packet" : "Show Packet"}
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => setShowPacket((prev) => !prev)}
+                  className="text-xs text-slate-400 hover:text-slate-200"
+                >
+                  {showPacket ? "Hide Packet" : "Show Packet"}
+                </button>
+              )}
             </div>
           )}
 
@@ -167,9 +204,10 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
             experience={experience}
             packet={packet}
             personaId={resolvedPersonaId}
+            canEdit={canEdit}
           />
 
-          {!isEmbeddedPreview && showPacket && (
+          {!isEmbeddedPreview && canEdit && showPacket && (
             <pre className="max-h-96 overflow-auto rounded-xl bg-black/40 p-4 text-xs text-slate-200">
               {JSON.stringify(packet, null, 2)}
             </pre>
