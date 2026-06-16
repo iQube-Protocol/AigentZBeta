@@ -168,11 +168,21 @@ POST /api/experience/complete-tasks
 │                    task_template_id, cohort_alias_commitment }
 │     → cohort_alias_commitment via hashPersonaRef (T2-safe)
 │
-├─ 7. If task template resolved → call grantRewardForTask()
-│     → taskType: template.schema_json.reward_task_type
-│     → personaId, sourceEventId: orchestration_events.id
-│     → metadata: { experienceId, completionSource: 'consumer-task-runner' }
-│     → returns: { rewardGrantId, finalAmount, repMultiplier }
+├─ 7. Issue the reward — BRANCH on wallet_rewards.reward_asset
+│     ┌─ reward_asset === 'KNYT' (and template resolved):
+│     │    → grantRewardForTask({
+│     │        taskType: template.schema_json.reward_task_type,
+│     │        personaId, sourceEventId: orchestration_events.id,
+│     │        metadata: { experienceId, completionSource: 'consumer-task-runner' }
+│     │      })
+│     │    → returns { rewardGrantId, finalAmount, repMultiplier }
+│     └─ reward_asset ∈ {'Q¢','QC','QCT'}:
+│          → creditQc(personaId,
+│                     template?.reward_qct ?? wallet_rewards.reward_amount,
+│                     reason: `experience-completion:${experienceId}`,
+│                     referenceId: completionId)
+│          → credits qc_balances + logs qc_transactions
+│          → rewardGrantId = null (no reward_grants analogue for Q¢)
 │
 ├─ 8. Compute reputation deltas
 │     a. Template weights (cartridge-level policy — default):
@@ -373,7 +383,7 @@ added to `ANCHORABLE_ACTION_TYPES`. The existing finalizer
 | File | Action | What changes |
 |---|---|---|
 | `app/api/experience/complete-tasks/route.ts` | **CREATE** | New POST endpoint (Section 4 flow) |
-| `services/experience/experienceTaskCompletion.ts` | **CREATE** | Service layer: template resolution, grant call, reputation update |
+| `services/experience/experienceTaskCompletion.ts` | **CREATE** | Service layer: template resolution, asset-branched credit (`grantRewardForTask` for KNYT / `creditQc` for Q¢), reputation update |
 | `components/composer/ExperienceLiquidRenderer.tsx` | **MODIFY** | Wire `toggleTask()` seam → POST on full completion |
 | `services/dvn/activityReceiptDvnPipeline.ts` | **MODIFY** | Add `'experience_task_completed'` to `ANCHORABLE_ACTION_TYPES` |
 | `supabase/migrations/YYYYMMDD_experience_task_completions.sql` | **CREATE** | New table + indexes (Section 2b) |
@@ -383,7 +393,8 @@ added to `ANCHORABLE_ACTION_TYPES`. The existing finalizer
 
 - `services/identity/getActivePersona.ts` — consumed, not changed
 - `services/access/evaluateAccess.ts` — not involved in this flow
-- `services/rewards/rewardService.ts` — called as-is via `grantRewardForTask()`
+- `services/rewards/rewardService.ts` — called as-is via `grantRewardForTask()` (KNYT branch); not modified
+- `creditQc()` in `app/api/community-content/_lib/generate.ts` — reused as-is for the Q¢ branch (may be lifted into a shared `services/wallet/` helper if reuse warrants it)
 - `services/dvn/activityReceiptDvnPipeline.ts` — only the `ANCHORABLE_ACTION_TYPES` set is extended (permitted)
 
 ## 11. Implementation Order
@@ -396,27 +407,53 @@ added to `ANCHORABLE_ACTION_TYPES`. The existing finalizer
 6. **Admin** — extend tasks-rewards GET/PATCH for reputation weights + completion counts
 7. **Test** — end-to-end: check all tasks → POST fires → grant created → wallet shows reward → DVN receipt anchored
 
-## 12. Open Questions for Operator
+## 12. Resolved Decisions (operator sign-off — 2026-06-16)
 
-1. **Partial completion grants?** Current plan: grant fires only on full
-   completion (all nextActions checked). Should partial completion (e.g. 3/5
-   tasks) trigger a proportional grant? Recommendation: no — full completion
-   keeps the idempotency model clean.
+1. **Partial completion grants — NO.** Grant fires only on full completion
+   (all `nextActions` checked). Partial progress stays client-side in
+   localStorage. This keeps the idempotency model clean (one grant per
+   persona × experience).
 
-2. **Treasury namespace for non-KNYT cartridges.** The `knyt_treasury_namespaces`
-   table is KNYT-branded. Should C-b rename/generalise it to
-   `cartridge_treasury_namespaces`, or should Qriptopian/metaMe register their
-   own rows in the existing table? Recommendation: register rows in the existing
-   table (slug: `qriptopian_treasury`, `metame_treasury`) — rename is cosmetic
-   and can happen later.
+2. **Treasury namespace for non-KNYT cartridges — register rows in the
+   existing table.** Qriptopian/metaMe get their own rows in
+   `knyt_treasury_namespaces` (slugs `qriptopian_treasury`, `metame_treasury`).
+   No rename now — generalising the table name to
+   `cartridge_treasury_namespaces` is cosmetic and deferred.
 
-3. **Q¢ grant path.** `grantRewardForTask()` currently credits KNYT via
-   `wallet_balances` + `reward_grants`. Q¢ rewards need a parallel credit path
-   (or the same path with `asset_code = 'QC'`). Does the existing
-   `wallet_transactions` / `wallet_balances` infrastructure already support Q¢
-   as an asset code, or does it need extending? Need to verify before building.
+3. **Q¢ grant path — Q¢ is native to the wallet, but via a SEPARATE credit
+   path from KNYT.** (Verified against the schema; this corrects an earlier,
+   inaccurate "single path handles both" note.)
 
-4. **Studio Customizer UI for `task_template_slug` + `reputation_bump`.** This
-   is a follow-on UI task — should it be part of C-b or deferred to C-d?
-   Recommendation: defer to C-d; C-b wires the server-side; admins set template
-   slugs via direct DB or admin tab until the Customizer catches up.
+   Q¢ (a.k.a. Qc, Q¢, QriptoCENT, `QCT`) is a first-class wallet asset, but it
+   does **not** flow through `grantRewardForTask()`. Two distinct ledgers exist:
+
+   | Asset | Balance table | Tx table | Credit function | Grant record |
+   |---|---|---|---|---|
+   | `KNYT` | `wallet_balances` (`asset_code='KNYT'`) | `wallet_transactions` | `grantRewardForTask()` → `_creditImmediate()` | `reward_grants` → `crm_rewards` bridge |
+   | `Q¢` (`QCT`) | `qc_balances` (`currency='base_qc'`) | `qc_transactions` | `creditQc()` (`app/api/community-content/_lib/generate.ts:231`) | — (no parallel grant table today) |
+
+   Findings that drive the implementation:
+   - `grantRewardForTask()` (`services/rewards/rewardService.ts`) hardcodes
+     `asset:'KNYT'` (line ~544) and `asset_code:'KNYT'` (lines ~578, ~595). It
+     cannot credit Q¢.
+   - `crm_task_templates` carries `reward_qct` / `reward_qoyn` / `reward_knyt`
+     columns, but the KNYT grant service ignores `reward_qct`.
+   - `creditQc()` already credits `qc_balances` + logs `qc_transactions` — it's
+     used today for content-generation refunds and USDC→Q¢ conversions.
+
+   **Implementation:** the C-b completion service branches on
+   `wallet_rewards.reward_asset`:
+   - `KNYT` → `grantRewardForTask()` (existing KNYT pipeline, unchanged).
+   - `Q¢`/`QC`/`QCT` → `creditQc(personaId, reward_qct ?? reward_amount, reason, completionId)`.
+
+   To keep parity with the KNYT side's auditability, the Q¢ branch also writes
+   the `experience_task_completions` row (with `reward_grant_id` null, since
+   `creditQc` has no `reward_grants` analogue) and the same
+   `orchestration_events` receipt. A parallel `qc_reward_grants` table is **not**
+   built in C-b — the `experience_task_completions` row + `qc_transactions`
+   entry are sufficient provenance for Q¢ task rewards at this stage.
+
+4. **Studio Customizer UI for `task_template_slug` + `reputation_bump` —
+   deferred to C-d.** C-b wires the server-side only. Admins set template
+   slugs via the Tasks & Rewards admin tab / direct DB until the Customizer
+   asset-selector UI lands in C-d.
