@@ -550,7 +550,18 @@ export function PassportBureauApplyTab() {
         }),
       });
       const json = await res.json();
-      if (!json.ok) throw new Error(json.error || 'Submission failed');
+      if (!json.ok) {
+        // Identity Hardening: one active Citizen Passport per identity. Surface
+        // the guidance to apply as a Participant instead, naming the existing
+        // passport rather than failing generically.
+        if (json.code === 'citizen_passport_exists') {
+          setError(
+            `${json.error}${json.passportId ? ` (existing passport: ${json.passportId})` : ''}`,
+          );
+          return;
+        }
+        throw new Error(json.error || 'Submission failed');
+      }
       setNotice(`Application submitted — status: ${json.applicationStatus}`);
       void loadStatus();
     } catch (e) {

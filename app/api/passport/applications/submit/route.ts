@@ -118,6 +118,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Identity Hardening Policy — one natural person → one active Citizen
+    // Passport. The open-application check above stops in-flight duplicates;
+    // this stops a second application when an issued, still-valid Citizen
+    // Passport already exists for this identity. Citizenship is unique;
+    // reapplication is routed to the Participant class by the client.
+    const { data: activeCitizen } = await admin
+      .from('polity_passport_records')
+      .select('passport_id, citizen_status')
+      .eq('persona_id', persona.personaId)
+      .eq('passport_class', 'citizen')
+      .in('citizen_status', ['active', 'renewal_due'])
+      .limit(1);
+    if (activeCitizen && activeCitizen.length > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'citizen_passport_exists',
+          error:
+            'You already have an active Citizen Passport under this identity. Citizenship is unique — apply as a Participant instead.',
+          passportId: String(activeCitizen[0].passport_id),
+          citizenStatus: String(activeCitizen[0].citizen_status),
+          suggestedClass: 'participant',
+        },
+        { status: 409 },
+      );
+    }
+
     const beingDeclarations =
       body.beingDeclarations && typeof body.beingDeclarations === 'object'
         ? body.beingDeclarations
