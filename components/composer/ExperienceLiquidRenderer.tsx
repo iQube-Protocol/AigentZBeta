@@ -8,7 +8,20 @@ import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquid
 import { ExperienceBlockHeader } from "@/components/composer/ExperienceBlockChrome";
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 import SkillImagePlayer from "@/components/composer/SkillImagePlayer";
-import { BookOpen, CheckSquare, ChevronDown, ChevronUp, Headphones, Loader2, PencilLine, Square } from "lucide-react";
+import { Award, BookOpen, CheckSquare, ChevronDown, ChevronUp, Headphones, Loader2, PencilLine, Square } from "lucide-react";
+
+/**
+ * Formats a rail value for display. Costs are typically Q¢ and rewards $KNYT,
+ * but either rail is supported on either field via an explicit asset. Q¢ renders
+ * in canonical USD-primary form ($1 = 100 Q¢) with the Q¢ count as a secondary;
+ * $KNYT renders as a token count. Returns "" for non-positive amounts.
+ */
+function formatRailValue(amount: number, asset: string): string {
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  const normalized = asset.replace(/\s/g, "").toUpperCase();
+  if (normalized === "KNYT" || normalized === "$KNYT") return `${amount} $KNYT`;
+  return `$${(amount / 100).toFixed(2)} · ${amount} Q¢`;
+}
 
 type ArticleDraftSection = {
   heading: string;
@@ -44,11 +57,21 @@ function CompositionBundleBrief({
   packet,
   experienceId,
   canEdit = false,
+  costAmount = 0,
+  costAsset = "Q¢",
+  rewardAmount = 0,
+  rewardAsset = "Q¢",
 }: {
   packet: Record<string, any>;
   experienceId: string;
   canEdit?: boolean;
+  costAmount?: number;
+  costAsset?: string;
+  rewardAmount?: number;
+  rewardAsset?: string;
 }) {
+  const rewardLabel = formatRailValue(rewardAmount, rewardAsset);
+  const costLabel = formatRailValue(costAmount, costAsset);
   const router = useRouter();
   const [articleExpanded, setArticleExpanded] = useState(false);
   // Consumer task-runner completion state. Persisted to localStorage for UX
@@ -405,6 +428,20 @@ function CompositionBundleBrief({
               </div>
             ) : null}
           </div>
+          {!canEdit && (rewardLabel || costLabel) ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {rewardLabel ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200">
+                  <Award className="h-3.5 w-3.5" /> Earn {rewardLabel}
+                </span>
+              ) : null}
+              {costLabel ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200">
+                  Unlock {costLabel}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           {canEdit ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {nextActions.map((item) => (
@@ -476,6 +513,15 @@ export function ExperienceLiquidRenderer({
 }: ExperienceLiquidRendererProps) {
   const templateKey = packet?.ui?.primary_template as string | undefined;
 
+  // Reward/cost rails live on the experience config. Costs default to Q¢ and
+  // rewards to Q¢ for back-compat, but either field accepts an explicit asset
+  // (e.g. $KNYT rewards) via *_asset. Surfaced read-only in the task runner.
+  const walletRewards = (experience.configuration?.wallet_rewards ?? {}) as Record<string, any>;
+  const costAmount = Number(walletRewards.unlock_price || 0);
+  const costAsset = typeof walletRewards.unlock_asset === "string" ? walletRewards.unlock_asset : "Q¢";
+  const rewardAmount = Number(walletRewards.reward_amount || 0);
+  const rewardAsset = typeof walletRewards.reward_asset === "string" ? walletRewards.reward_asset : "Q¢";
+
   if (!packet) {
     return (
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-400">
@@ -488,7 +534,15 @@ export function ExperienceLiquidRenderer({
   if (templateKey === "skill:video_player_v1" && packet.skill) {
     return (
       <>
-        <CompositionBundleBrief packet={packet} experienceId={experience.id} canEdit={canEdit} />
+        <CompositionBundleBrief
+          packet={packet}
+          experienceId={experience.id}
+          canEdit={canEdit}
+          costAmount={costAmount}
+          costAsset={costAsset}
+          rewardAmount={rewardAmount}
+          rewardAsset={rewardAsset}
+        />
         <SkillVideoPlayer
           skill_id={packet.skill.skill_id}
           prompt={packet.skill.prompt}
@@ -513,7 +567,15 @@ export function ExperienceLiquidRenderer({
   if (templateKey === "skill:image_player_v1" && packet.image_generation) {
     return (
       <>
-        <CompositionBundleBrief packet={packet} experienceId={experience.id} canEdit={canEdit} />
+        <CompositionBundleBrief
+          packet={packet}
+          experienceId={experience.id}
+          canEdit={canEdit}
+          costAmount={costAmount}
+          costAsset={costAsset}
+          rewardAmount={rewardAmount}
+          rewardAsset={rewardAsset}
+        />
         <SkillImagePlayer
           provider_id={packet.image_generation.provider_id}
           portrait_prompt={packet.image_generation.portrait_prompt}
