@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Building2,
   FileText,
+  Pencil,
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { MobilityPassportPanel } from './MobilityPassportPanel';
@@ -190,10 +191,35 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream
             <p className="text-xs text-slate-400">PSC-001 · {caseData.classification === 'black_cube' ? 'BlakQube' : caseData.classification}</p>
           </div>
         </div>
-        <button onClick={load} className="text-slate-500 hover:text-slate-300 transition-colors">
-          <RefreshCw className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenIntake && (
+            <button
+              onClick={onOpenIntake}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs text-slate-300 hover:border-emerald-500/50 hover:text-emerald-300 transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit Intake
+            </button>
+          )}
+          <button onClick={load} className="text-slate-500 hover:text-slate-300 transition-colors">
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
       </div>
+
+      {/* Intake complete — edit prompt */}
+      {incompleteSections.length === 0 && caseData.intake_completed_at && (
+        <button
+          onClick={onOpenIntake}
+          className="w-full flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900/40 px-4 py-3 hover:bg-slate-800/60 transition-colors group"
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <span className="text-sm text-slate-300">Intake complete — click to review or correct any section</span>
+          </div>
+          <ArrowRight className="h-4 w-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+        </button>
+      )}
 
       {/* Incomplete intake banner */}
       {incompleteSections.length > 0 && (

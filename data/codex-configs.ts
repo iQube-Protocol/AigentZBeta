@@ -3939,13 +3939,7 @@ export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
     tags: ['mobility', 'repatriation', 'housing', 'education', 'polity', 'psc-001'],
   },
   tabGroups: [
-    { id: 'activation', label: 'Activation',   icon: 'FolderOpen', order: 1 },
-    { id: 'housing',    label: 'Housing',       icon: 'Home',       order: 2, adminOnly: true },
-    { id: 'education',  label: 'Education',     icon: 'GraduationCap', order: 3, adminOnly: true },
-    { id: 'relocation', label: 'Relocation',    icon: 'Package',    order: 4, adminOnly: true },
-    { id: 'business',   label: 'Business',      icon: 'Briefcase',  order: 5, adminOnly: true },
-    { id: 'economic',   label: 'Economic',      icon: 'TrendingUp', order: 6, adminOnly: true },
-    { id: 'family',     label: 'Family',        icon: 'Heart',      order: 7, adminOnly: true },
+    { id: 'activation', label: 'Activation', icon: 'FolderOpen', order: 1 },
   ],
   tabs: [
     {
