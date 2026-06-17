@@ -57,6 +57,7 @@ interface CriticalDate {
   id: string;
   label: string;
   date_category: string;
+  workstream_key?: string;
   due_date: string;
   is_hard_deadline: boolean;
   status: string;

@@ -81,7 +81,7 @@ export function HumanMobilityServicesTab() {
   };
 
   const handleBack = () => {
-    const parent = parentOf[view];
+    const parent = parentOf[view as View];
     if (parent) setView(parent);
   };
 
@@ -97,10 +97,10 @@ export function HumanMobilityServicesTab() {
             className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
-            {VIEW_LABELS[parentOf[view] ?? 'list']}
+            {VIEW_LABELS[(parentOf[view as View] ?? 'list') as View]}
           </button>
           <span className="text-slate-600">/</span>
-          <span className="text-xs text-slate-300">{VIEW_LABELS[view]}</span>
+          <span className="text-xs text-slate-300">{VIEW_LABELS[view as View]}</span>
         </div>
       )}
 

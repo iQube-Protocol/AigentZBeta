@@ -129,7 +129,10 @@ export function MobilityPassportPanel({ caseId, caseClassification }: Props) {
     setUploadSuccess(false);
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
       const res = await personaFetch('/api/polity-passport/locker', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

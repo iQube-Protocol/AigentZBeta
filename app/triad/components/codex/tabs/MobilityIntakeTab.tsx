@@ -307,9 +307,10 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
   }, [caseId, household, capability, continuity, housing, education, business, financial, mobility, family, confidentiality, criticalDates, onComplete]);
 
   const handleNext = useCallback(async () => {
-    await saveStep(step);
-    if (!saving) setStep(s => Math.min(s + 1, STEPS.length - 1));
-  }, [step, saveStep, saving]);
+    let failed = false;
+    try { await saveStep(step); } catch { failed = true; }
+    if (!failed) setStep(s => Math.min(s + 1, STEPS.length - 1));
+  }, [step, saveStep]);
 
   // Save current step without advancing — used when re-editing a completed step
   const handleSaveOnly = useCallback(async () => {
