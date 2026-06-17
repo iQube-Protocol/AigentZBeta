@@ -47,6 +47,7 @@ export function MobilitySRBTab({ caseId }: Props) {
   const [generating, setGenerating] = useState(false);
   const [approving, setApproving]   = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['executive_summary']));
 
   const load = useCallback(async () => {
@@ -73,7 +74,13 @@ export function MobilitySRBTab({ caseId }: Props) {
     try {
       const res  = await personaFetch(`/api/mobility/cases/${caseId}/srb`, { method: 'POST' });
       const json = await res.json();
-      if (!json.ok) throw new Error(json.error ?? 'Generation failed');
+      if (!json.ok) {
+        if (Array.isArray(json.missing_fields) && json.missing_fields.length > 0) {
+          setMissingFields(json.missing_fields as string[]);
+        }
+        throw new Error(json.error ?? 'Generation failed');
+      }
+      setMissingFields([]);
       setSrb(json.srb);
       setStatus('draft');
       // Open all sections after generation
@@ -161,6 +168,23 @@ export function MobilitySRBTab({ caseId }: Props) {
         <div className="flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2">
           <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
           <p className="text-xs text-rose-300">{error}</p>
+        </div>
+      )}
+
+      {/* Class A missing fields gate */}
+      {missingFields.length > 0 && (
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4 space-y-2">
+          <p className="text-xs font-semibold text-rose-300">Class A fields required before SRB generation</p>
+          <ul className="space-y-1">
+            {missingFields.map(f => (
+              <li key={f} className="flex items-center gap-2 text-xs text-rose-200">
+                <span className="text-rose-500 font-bold">✗</span> {f}
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-rose-300/60 pt-1">
+            Return to intake and complete these fields. The SRB will only use explicitly entered data — it will never infer or substitute missing information.
+          </p>
         </div>
       )}
 

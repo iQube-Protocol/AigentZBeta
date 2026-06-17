@@ -18,6 +18,44 @@ import { callAnthropicJson, callOpenAiJson } from '@/services/agents/_lib/llmDra
 
 export const dynamic = 'force-dynamic';
 
+// ─── Class A field validation ─────────────────────────────────────────────────
+
+interface ClassAResult { ok: boolean; missing: string[] }
+
+function validateClassA(row: Record<string, unknown>): ClassAResult {
+  const missing: string[] = [];
+  const h = (row.household_profile as Record<string, unknown>) ?? {};
+  const e = (row.education_profile as Record<string, unknown>) ?? {};
+  const cap = (row.capability_profile as Record<string, unknown>) ?? {};
+  const fin = (row.financial_profile as Record<string, unknown>) ?? {};
+  const housing = (row.housing_profile as Record<string, unknown>) ?? {};
+
+  if (!h.adultsCount) missing.push('Household: Number of adults');
+  if (!h.citizenshipStatus) missing.push('Household: Citizenship status (e.g. "All UK citizens")');
+  if (!h.destinationCountry) missing.push('Household: Destination country');
+  if (!housing.requiredDepartureDate) missing.push('Housing: Required departure date (hard deadline)');
+
+  const childrenCount = parseInt(String(h.dependentsCount ?? '0'), 10);
+  if (childrenCount > 0) {
+    const children = Array.isArray(e.children) ? (e.children as Record<string, unknown>[]) : [];
+    if (children.length === 0) {
+      missing.push(`Education: ${childrenCount} dependent(s) listed — child records with ages required`);
+    } else {
+      children.forEach((c, i) => {
+        if (!c.age) missing.push(`Education: Child ${i + 1} — age not provided`);
+      });
+    }
+  }
+
+  const hasProfessional = !!(cap.role || cap.industrySectors || cap.professionalBackground);
+  if (!hasProfessional) missing.push('Capability: Professional role or sector not provided');
+
+  const hasFinancial = !!(fin.liquidityLevel || fin.liquidityRange);
+  if (!hasFinancial) missing.push('Financial: Liquidity level not provided');
+
+  return { ok: missing.length === 0, missing };
+}
+
 async function canAccess(
   personaId: string,
   caseId: string,
@@ -96,6 +134,17 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
       }, { status: 422 });
     }
 
+    // Class A field gate — block if mission-critical facts are missing
+    const classA = validateClassA(row as Record<string, unknown>);
+    if (!classA.ok) {
+      return NextResponse.json({
+        ok: false,
+        error: 'Class A fields incomplete — SRB generation blocked',
+        missing_fields: classA.missing,
+        guidance: 'Return to intake and complete the highlighted fields. SRB will only use explicitly entered data — missing fields will appear as UNKNOWN in the brief.',
+      }, { status: 422 });
+    }
+
     // Build redacted profile for LLM — omit confidentiality internals
     const caseProfile = {
       case_type: row.case_type,
@@ -122,13 +171,32 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
       },
     };
 
+    const h = (row.household_profile as Record<string, unknown>) ?? {};
+    const eduProfile = (row.education_profile as Record<string, unknown>) ?? {};
+    const children = Array.isArray(eduProfile.children) ? eduProfile.children as Record<string, unknown>[] : [];
+    const childrenSummary = children.length > 0
+      ? children.map((c, i) =>
+          `Child ${i + 1}: age ${c.age ?? 'UNKNOWN'}, target school: ${c.targetSchool || 'UNKNOWN'}, current school: ${c.currentSchool || 'UNKNOWN'}`
+        ).join('; ')
+      : (eduProfile.childrenDetails ? String(eduProfile.childrenDetails) : 'UNKNOWN');
+
     const system = `You are aigentMe — confidentiality guardian and disclosure broker for a BlakQube-classified mobility case under PSC-001 (Polity Capability Preservation Standard).
+
+DETERMINISTIC CASE MODEL — CRITICAL NON-FABRICATION RULES:
+1. You MUST use ONLY information explicitly present in the case profile below.
+2. If a field is missing, null, empty, or unknown: write the word UNKNOWN — never infer, estimate, or substitute.
+3. Do NOT assume financial standing, wealth, or economic resilience from professional standing or visa history.
+4. Do NOT assume educational history, school names, or pathways not explicitly provided.
+5. Child ages MUST come only from the structured children array — currently: ${childrenSummary}. Do not write any other ages.
+6. Professional discipline MUST come from capability.role + capability.industrySectors/sector — do not embellish beyond what is explicitly stated.
+7. Financial status MUST come from the financial profile fields — if liquidityLevel and liquidityRange are both absent, write UNKNOWN for financial standing.
+8. School names appearing in the SRB must match exactly what is in the children[].targetSchool fields or continuity_profile — never invent school names.
+9. This is a deterministic report, not a narrative story. Every sentence must reference explicit case data.
+10. The SRB is NOT a benefits application. Communicate capability, continuity, and future contribution — not hardship.
 
 Generate a Strategic Repatriation Brief (SRB). This is a curated advocacy document enabling institutions to understand the complete household before evaluating individual requests.
 
-The SRB is NOT a benefits application. It communicates capability, continuity, and future contribution potential — not hardship.
-
-Output ONLY valid JSON with exactly these 8 keys. Each value is 2-4 paragraphs of flowing prose. No bullet points. Tone: measured, professional, dignified. Preserve standing. Omit any details that would identify specific individuals, addresses, or institutions.
+Output ONLY valid JSON with exactly these 8 keys. Each value is 2-4 paragraphs of flowing professional prose. No bullet points. Tone: measured, professional, dignified.
 
 {
   "executive_summary": "...",

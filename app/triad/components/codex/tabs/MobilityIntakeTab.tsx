@@ -65,6 +65,11 @@ interface HouseholdProfile {
 }
 
 interface CapabilityProfile {
+  role: string;
+  sector: string;
+  founderOperator: string;
+  o1VisaHistory: string;
+  yearsOnO1: string;
   professionalBackground: string;
   founderExperience: string;
   specialistSkills: string;
@@ -95,14 +100,24 @@ interface HousingProfile {
   temporaryHousingAvailable: string;
 }
 
+interface ChildRecord {
+  childId: string;
+  age: string;
+  currentGrade: string;
+  yearGroup: string;
+  currentSchool: string;
+  targetSchool: string;
+  alternativeSchools: string;
+  continuityPriority: string;
+  notes: string;
+}
+
 interface EducationProfile {
-  childrenDetails: string;
-  currentSchools: string;
-  previousSchools: string;
-  targetSchools: string;
+  children: ChildRecord[];
   admissionsDeadlines: string;
   continuityPriorities: string;
   specialRequirements: string;
+  childrenDetails?: string; // legacy — read-only migration reference
 }
 
 interface BusinessProfile {
@@ -117,6 +132,10 @@ interface BusinessProfile {
 }
 
 interface FinancialProfile {
+  liquidityLevel: string;
+  urgencyLevel: string;
+  runwayMonths: string;
+  incomeStatus: string;
   liquidityRange: string;
   incomeSources: string;
   recurringObligations: string;
@@ -202,6 +221,7 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
     languageRequirements: '', specialRequirements: '',
   });
   const [capability, setCapability] = useState<CapabilityProfile>({
+    role: '', sector: '', founderOperator: '', o1VisaHistory: '', yearsOnO1: '',
     professionalBackground: '', founderExperience: '', specialistSkills: '',
     industrySectors: '', extraordinaryAbility: '', entrepreneurialHistory: '', contributionPotential: '',
   });
@@ -215,14 +235,14 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
     temporaryHousingAvailable: '',
   });
   const [education, setEducation] = useState<EducationProfile>({
-    childrenDetails: '', currentSchools: '', previousSchools: '', targetSchools: '',
-    admissionsDeadlines: '', continuityPriorities: '', specialRequirements: '',
+    children: [], admissionsDeadlines: '', continuityPriorities: '', specialRequirements: '',
   });
   const [business, setBusiness] = useState<BusinessProfile>({
     usEntities: '', ukEntities: '', bankingRelationships: '', complianceRequirements: '',
     revenueSources: '', currentContracts: '', registeredAgents: '', taxObligations: '',
   });
   const [financial, setFinancial] = useState<FinancialProfile>({
+    liquidityLevel: '', urgencyLevel: '', runwayMonths: '', incomeStatus: '',
     liquidityRange: '', incomeSources: '', recurringObligations: '',
     immediateFinancialRisks: '', expectedRunway: '',
   });
@@ -253,7 +273,16 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
         if (c.capability_profile && Object.keys(c.capability_profile).length > 0) setCapability(c.capability_profile);
         if (c.continuity_profile && Object.keys(c.continuity_profile).length > 0) setContinuity(c.continuity_profile);
         if (c.housing_profile && Object.keys(c.housing_profile).length > 0) setHousing(c.housing_profile);
-        if (c.education_profile && Object.keys(c.education_profile).length > 0) setEducation(c.education_profile);
+        if (c.education_profile && Object.keys(c.education_profile).length > 0) {
+          const ep = c.education_profile as Record<string, unknown>;
+          setEducation({
+            children: Array.isArray(ep.children) ? (ep.children as ChildRecord[]) : [],
+            admissionsDeadlines: String(ep.admissionsDeadlines ?? ''),
+            continuityPriorities: String(ep.continuityPriorities ?? ''),
+            specialRequirements: String(ep.specialRequirements ?? ''),
+            childrenDetails: ep.childrenDetails ? String(ep.childrenDetails) : undefined,
+          });
+        }
         if (c.business_profile && Object.keys(c.business_profile).length > 0) setBusiness(c.business_profile);
         if (c.financial_profile && Object.keys(c.financial_profile).length > 0) setFinancial(c.financial_profile);
         if (c.mobility_profile && Object.keys(c.mobility_profile).length > 0) setMobility(c.mobility_profile);
@@ -466,6 +495,37 @@ function StepCapability({
   return (
     <>
       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Capability Profile</p>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Role / title *" hint="Required for SRB">
+          <TextInput value={cap.role} onChange={uc('role')} placeholder="Founder & CEO / Technology Director…" />
+        </Field>
+        <Field label="Primary sector *" hint="Required for SRB">
+          <TextInput value={cap.sector} onChange={uc('sector')} placeholder="AI / Web3 / Fintech / Deep Tech…" />
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Founder / operator?">
+          <select className={inputCls} value={cap.founderOperator} onChange={e => uc('founderOperator')(e.target.value)}>
+            <option value="">Select…</option>
+            <option value="yes">Yes — active founder</option>
+            <option value="prior">Prior founder — now advisory</option>
+            <option value="no">No</option>
+          </select>
+        </Field>
+        <Field label="O-1 / extraordinary ability visa?">
+          <select className={inputCls} value={cap.o1VisaHistory} onChange={e => uc('o1VisaHistory')(e.target.value)}>
+            <option value="">Select…</option>
+            <option value="current">Yes — currently held</option>
+            <option value="prior">Yes — prior holder</option>
+            <option value="no">No</option>
+          </select>
+        </Field>
+      </div>
+      {cap.o1VisaHistory && cap.o1VisaHistory !== 'no' && (
+        <Field label="Years on O-1">
+          <TextInput value={cap.yearsOnO1} onChange={uc('yearsOnO1')} placeholder="e.g. 8 years" />
+        </Field>
+      )}
       <Field label="Professional background" hint="Employment history, leadership roles, areas of expertise">
         <TextArea value={cap.professionalBackground} onChange={uc('professionalBackground')} placeholder="Technology leadership, founder/operator, international experience…" />
       </Field>
@@ -534,29 +594,105 @@ function StepHousing({ state, set }: { state: HousingProfile; set: React.Dispatc
 }
 
 function StepEducation({ state, set }: { state: EducationProfile; set: React.Dispatch<React.SetStateAction<EducationProfile>> }) {
-  const u = (k: keyof EducationProfile) => (v: string) => set(s => ({ ...s, [k]: v }));
+  const addChild = () => set(s => ({
+    ...s,
+    children: [...s.children, {
+      childId: `c${Date.now()}`,
+      age: '', currentGrade: '', yearGroup: '', currentSchool: '',
+      targetSchool: '', alternativeSchools: '', continuityPriority: '', notes: '',
+    }],
+  }));
+
+  const removeChild = (idx: number) => set(s => ({
+    ...s, children: s.children.filter((_, i) => i !== idx),
+  }));
+
+  const updateChild = (idx: number, field: keyof ChildRecord, value: string) =>
+    set(s => ({
+      ...s,
+      children: s.children.map((c, i) => i === idx ? { ...c, [field]: value } : c),
+    }));
+
   return (
     <>
-      <Field label="Children details" hint="Age, year group, any relevant educational history">
-        <TextArea value={state.childrenDetails} onChange={u('childrenDetails')} placeholder="Child 1: age 13, Year 9 secondary. Child 2: age 5, Reception/Year 1." rows={3} />
-      </Field>
-      <Field label="Current schools (US)">
-        <TextInput value={state.currentSchools} onChange={u('currentSchools')} placeholder="Current NJ school(s)" />
-      </Field>
-      <Field label="Previous UK schools">
-        <TextInput value={state.previousSchools} onChange={u('previousSchools')} placeholder="Any prior Dulwich-area school attendance" />
-      </Field>
-      <Field label="Target schools (UK)">
-        <TextArea value={state.targetSchools} onChange={u('targetSchools')} placeholder="Preferred school(s) — continuity targets in Dulwich…" rows={2} />
-      </Field>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Children (one card per child)</p>
+        <button
+          type="button"
+          onClick={addChild}
+          className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded px-2 py-1 transition-colors"
+        >
+          <Plus className="h-3 w-3" /> Add child
+        </button>
+      </div>
+
+      {/* Legacy migration notice */}
+      {state.childrenDetails && state.children.length === 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
+          <p className="text-xs font-semibold text-amber-300">⚠ Previous text entry found — not usable for SRB</p>
+          <p className="text-[11px] text-amber-300/70">Unstructured text cannot be used in deterministic SRB generation. Please add each child using the form above.</p>
+          <p className="text-[11px] text-amber-400/50 font-mono mt-1">{state.childrenDetails}</p>
+        </div>
+      )}
+
+      {state.children.length === 0 && !state.childrenDetails && (
+        <p className="text-xs text-slate-500 py-2">No children added. Click "Add child" for each dependent child.</p>
+      )}
+
+      {state.children.map((child, idx) => (
+        <div key={child.childId} className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-300">Child {idx + 1}</span>
+            <button type="button" onClick={() => removeChild(idx)} className="text-slate-500 hover:text-rose-400 transition-colors">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Age *" hint="Required for SRB">
+              <TextInput value={child.age} onChange={v => updateChild(idx, 'age', v)} placeholder="e.g. 13" />
+            </Field>
+            <Field label="Current grade" hint="Local grade in origin country">
+              <TextInput value={child.currentGrade} onChange={v => updateChild(idx, 'currentGrade', v)} placeholder="e.g. Grade 8 (US)" />
+            </Field>
+            <Field label="UK year group">
+              <TextInput value={child.yearGroup} onChange={v => updateChild(idx, 'yearGroup', v)} placeholder="e.g. Year 9" />
+            </Field>
+          </div>
+          <Field label="Current school (origin country)">
+            <TextInput value={child.currentSchool} onChange={v => updateChild(idx, 'currentSchool', v)} placeholder="Current school name, state / city" />
+          </Field>
+          <Field label="Target school (destination) *" hint="Primary preference — appears in SRB exactly as entered">
+            <TextInput value={child.targetSchool} onChange={v => updateChild(idx, 'targetSchool', v)} placeholder="Preferred school name" />
+          </Field>
+          <Field label="Alternative schools">
+            <TextInput value={child.alternativeSchools} onChange={v => updateChild(idx, 'alternativeSchools', v)} placeholder="Comma-separated alternatives" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="School level">
+              <select
+                className={inputCls}
+                value={child.continuityPriority}
+                onChange={e => updateChild(idx, 'continuityPriority', e.target.value)}
+              >
+                <option value="">Select…</option>
+                <option value="primary">Primary (ages 4–11)</option>
+                <option value="secondary">Secondary (ages 11–16)</option>
+                <option value="sixth_form">Sixth Form (16–18)</option>
+                <option value="university">University</option>
+              </select>
+            </Field>
+            <Field label="Notes (optional)">
+              <TextInput value={child.notes} onChange={v => updateChild(idx, 'notes', v)} placeholder="SEND, EHC plan, specialist needs…" />
+            </Field>
+          </div>
+        </div>
+      ))}
+
       <Field label="Admissions deadlines">
-        <TextInput value={state.admissionsDeadlines} onChange={u('admissionsDeadlines')} placeholder="September intake — applications required by…" />
-      </Field>
-      <Field label="Continuity priorities">
-        <TextArea value={state.continuityPriorities} onChange={u('continuityPriorities')} placeholder="Maximise continuity with prior Dulwich educational pathway…" rows={2} />
+        <TextInput value={state.admissionsDeadlines} onChange={v => set(s => ({ ...s, admissionsDeadlines: v }))} placeholder="e.g. September 2026 intake — local authority deadline" />
       </Field>
       <Field label="Special educational requirements (optional)">
-        <TextInput value={state.specialRequirements} onChange={u('specialRequirements')} placeholder="Any SEND, EHC plans, or specialist provision needed" />
+        <TextInput value={state.specialRequirements} onChange={v => set(s => ({ ...s, specialRequirements: v }))} placeholder="Any SEND, EHC plans, or specialist provision needed" />
       </Field>
     </>
   );
@@ -590,14 +726,42 @@ function StepBusiness({
       </Field>
 
       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-2">Financial Profile</p>
-      <Field label="Liquidity range" hint="Approximate cash reserves available now — ranges are sufficient, exact figures not required">
-        <TextInput value={fin.liquidityRange} onChange={uf('liquidityRange')} placeholder="e.g. under £5k / £5–15k / £15–30k / £30k+" />
-      </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Liquidity level *" hint="Required for SRB — do not leave blank">
+          <select className={inputCls} value={fin.liquidityLevel} onChange={e => uf('liquidityLevel')(e.target.value)}>
+            <option value="">Select…</option>
+            <option value="high">High — 6+ months runway</option>
+            <option value="medium">Medium — 3–6 months</option>
+            <option value="low">Low — 1–3 months</option>
+            <option value="critical">Critical — under 30 days</option>
+          </select>
+        </Field>
+        <Field label="Urgency level *">
+          <select className={inputCls} value={fin.urgencyLevel} onChange={e => uf('urgencyLevel')(e.target.value)}>
+            <option value="">Select…</option>
+            <option value="critical">Critical — immediate action required</option>
+            <option value="high">High — within 30 days</option>
+            <option value="medium">Medium — within 60 days</option>
+            <option value="low">Low — planned transition</option>
+          </select>
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Income status">
+          <select className={inputCls} value={fin.incomeStatus} onChange={e => uf('incomeStatus')(e.target.value)}>
+            <option value="">Select…</option>
+            <option value="active">Active — ongoing revenue</option>
+            <option value="transitional">Transitional — reduced / variable</option>
+            <option value="deferred">Deferred — income pending</option>
+            <option value="none">None currently</option>
+          </select>
+        </Field>
+        <Field label="Runway (months)">
+          <TextInput value={fin.runwayMonths} onChange={uf('runwayMonths')} placeholder="e.g. 2 months / 6 months" />
+        </Field>
+      </div>
       <Field label="Immediate financial risks">
         <TextArea value={fin.immediateFinancialRisks} onChange={uf('immediateFinancialRisks')} placeholder="Housing deadline, outstanding debts, payroll…" rows={2} />
-      </Field>
-      <Field label="Expected financial runway" hint="How long current reserves cover basic outgoings">
-        <TextInput value={fin.expectedRunway} onChange={uf('expectedRunway')} placeholder="e.g. 30 days / 60 days" />
       </Field>
     </>
   );
