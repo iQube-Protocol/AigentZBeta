@@ -27,6 +27,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { MobilityPassportPanel } from './MobilityPassportPanel';
 
 function cls(...xs: Array<string | false | undefined>) {
   return xs.filter(Boolean).join(' ');
@@ -243,6 +244,9 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream
         <RiskCard label="Education" icon={<GraduationCap className="h-3.5 w-3.5" />} level={caseData.education_risk_level} />
         <RiskCard label="Business" icon={<Briefcase className="h-3.5 w-3.5" />} level={caseData.business_continuity_risk} />
       </div>
+
+      {/* Polity Passport — identity shield, locker, attestation */}
+      <MobilityPassportPanel caseId={caseId} caseClassification={caseData.classification} />
 
       {/* Critical dates */}
       {criticalDates.length > 0 && (
