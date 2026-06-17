@@ -25,6 +25,7 @@ import {
   Calendar,
   ArrowRight,
   ChevronRight,
+  Building2,
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { MobilityPassportPanel } from './MobilityPassportPanel';
@@ -110,9 +111,10 @@ interface Props {
   caseId: string;
   onOpenIntake?: () => void;
   onOpenWorkstream?: (key: string) => void;
+  onOpenIES?: () => void;
 }
 
-export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream }: Props) {
+export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream, onOpenIES }: Props) {
   const [caseData, setCaseData] = useState<CaseDetail | null>(null);
   const [workstreams, setWorkstreams] = useState<Workstream[]>([]);
   const [criticalDates, setCriticalDates] = useState<CriticalDate[]>([]);
@@ -292,6 +294,24 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* IES — Institutional Engagement Strategy */}
+      {onOpenIES && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-slate-200">Outreach</h3>
+          <button
+            onClick={onOpenIES}
+            className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2.5 w-full text-left hover:border-emerald-500/30 hover:bg-slate-800/60 transition-all cursor-pointer group"
+          >
+            <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
+            <div className="flex-1 min-w-0">
+              <span className="text-sm text-slate-100">Institutional Engagement Strategy</span>
+              <p className="text-[11px] text-slate-500">Generate an outreach draft for partner institutions</p>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-emerald-400 transition-colors shrink-0" />
+          </button>
         </div>
       )}
 

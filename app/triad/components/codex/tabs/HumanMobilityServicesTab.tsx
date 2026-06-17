@@ -30,8 +30,9 @@ import { MobilityRelocationTab } from './MobilityRelocationTab';
 import { MobilityBusinessTab } from './MobilityBusinessTab';
 import { MobilityEconomicTab } from './MobilityEconomicTab';
 import { MobilityFamilyTab } from './MobilityFamilyTab';
+import { MobilityIESTab } from './MobilityIESTab';
 
-type View = 'list' | 'intake' | 'overview' | 'management' | 'housing' | 'education' | 'relocation' | 'business' | 'economic' | 'family';
+type View = 'list' | 'intake' | 'overview' | 'management' | 'housing' | 'education' | 'relocation' | 'business' | 'economic' | 'family' | 'ies';
 
 const VIEW_LABELS: Record<View, string> = {
   list:       'All Cases',
@@ -44,6 +45,7 @@ const VIEW_LABELS: Record<View, string> = {
   business:   'Business (E)',
   economic:   'Economic (F)',
   family:     'Family (G)',
+  ies:        'Institutional Engagement Strategy',
 };
 
 const WORKSTREAM_VIEW: Record<string, View> = {
@@ -83,6 +85,7 @@ export function HumanMobilityServicesTab() {
     business:   'overview',
     economic:   'overview',
     family:     'overview',
+    ies:        'overview',
   };
 
   const handleBack = () => {
@@ -123,6 +126,7 @@ export function HumanMobilityServicesTab() {
             const target = WORKSTREAM_VIEW[key];
             if (target) setView(target);
           }}
+          onOpenIES={() => setView('ies')}
         />
       )}
       {view === 'management' && activeCaseId && (
@@ -145,6 +149,9 @@ export function HumanMobilityServicesTab() {
       )}
       {view === 'family' && activeCaseId && (
         <MobilityFamilyTab caseId={activeCaseId} />
+      )}
+      {view === 'ies' && activeCaseId && (
+        <MobilityIESTab caseId={activeCaseId} />
       )}
     </div>
   );

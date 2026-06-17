@@ -127,6 +127,7 @@ import { MobilityBusinessTab } from "./tabs/MobilityBusinessTab";
 import { MobilityEconomicTab } from "./tabs/MobilityEconomicTab";
 import { MobilityFamilyTab } from "./tabs/MobilityFamilyTab";
 import { MobilityCaseManagementTab } from "./tabs/MobilityCaseManagementTab";
+import { MobilityIESTab } from "./tabs/MobilityIESTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
@@ -296,6 +297,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MobilityEconomicTab,
   MobilityFamilyTab,
   MobilityCaseManagementTab,
+  MobilityIESTab,
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,
