@@ -10,9 +10,11 @@
  *   housing    → Workstream B: Housing Acquisition
  *   education  → Workstream C: Educational Continuity
  *   relocation → Workstream D: Physical Relocation
+ *   business   → Workstream E: Business Continuity
+ *   economic   → Workstream F: Economic Reactivation
+ *   family     → Workstream G: Family Stabilization
  *
  * All workstream sub-views receive caseId from here via activeCaseId state.
- * Workstreams E–G (Business, Economic, Family) are Phase 2.
  */
 
 import React, { useState } from 'react';
@@ -23,8 +25,11 @@ import { MobilityCaseOverviewTab } from './MobilityCaseOverviewTab';
 import { MobilityHousingTab } from './MobilityHousingTab';
 import { MobilityEducationTab } from './MobilityEducationTab';
 import { MobilityRelocationTab } from './MobilityRelocationTab';
+import { MobilityBusinessTab } from './MobilityBusinessTab';
+import { MobilityEconomicTab } from './MobilityEconomicTab';
+import { MobilityFamilyTab } from './MobilityFamilyTab';
 
-type View = 'list' | 'intake' | 'overview' | 'housing' | 'education' | 'relocation';
+type View = 'list' | 'intake' | 'overview' | 'housing' | 'education' | 'relocation' | 'business' | 'economic' | 'family';
 
 const VIEW_LABELS: Record<View, string> = {
   list:       'All Cases',
@@ -33,12 +38,18 @@ const VIEW_LABELS: Record<View, string> = {
   housing:    'Housing (B)',
   education:  'Education (C)',
   relocation: 'Relocation (D)',
+  business:   'Business (E)',
+  economic:   'Economic (F)',
+  family:     'Family (G)',
 };
 
 const WORKSTREAM_VIEW: Record<string, View> = {
   B: 'housing',
   C: 'education',
   D: 'relocation',
+  E: 'business',
+  F: 'economic',
+  G: 'family',
 };
 
 export function HumanMobilityServicesTab() {
@@ -64,6 +75,9 @@ export function HumanMobilityServicesTab() {
     housing:    'overview',
     education:  'overview',
     relocation: 'overview',
+    business:   'overview',
+    economic:   'overview',
+    family:     'overview',
   };
 
   const handleBack = () => {
@@ -114,6 +128,15 @@ export function HumanMobilityServicesTab() {
       )}
       {view === 'relocation' && activeCaseId && (
         <MobilityRelocationTab caseId={activeCaseId} />
+      )}
+      {view === 'business' && activeCaseId && (
+        <MobilityBusinessTab caseId={activeCaseId} />
+      )}
+      {view === 'economic' && activeCaseId && (
+        <MobilityEconomicTab caseId={activeCaseId} />
+      )}
+      {view === 'family' && activeCaseId && (
+        <MobilityFamilyTab caseId={activeCaseId} />
       )}
     </div>
   );

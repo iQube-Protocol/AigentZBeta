@@ -1,5 +1,5 @@
 -- HMS Seed: Live Repatriation Case — NJ → Dulwich, London
--- PSC-001 · Black Qube Classification
+-- PSC-001 · BlakQube Classification
 --
 -- HOW TO RUN:
 --   1. Find your persona_id:
@@ -122,7 +122,7 @@ BEGIN
       'currencyExposure', 'USD primary (US income), GBP destination',
       'forexStrategy', 'Staged GBP conversion to cover initial UK setup costs',
       'ukBankAccount', 'To be opened or reactivated on arrival',
-      'financialNotes', 'Black Qube classification applies — financial specifics compartmentalized'
+      'financialNotes', 'BlakQube classification applies — financial specifics compartmentalized'
     ),
     -- mobility_profile
     jsonb_build_object(
@@ -173,11 +173,11 @@ BEGIN
   -- ── Workstreams (seeded by the API on case creation, but explicit here for seed) ──
   INSERT INTO mobility_workstreams (case_id, workstream_key, label, priority, status, notes)
   VALUES
-    (v_case_id, 'A', 'Strategic Repatriation Assessment', 'immediate', 'active',  'PSC-001 assessment complete. RV-1 classification. Black Qube. aigentMe is the confidentiality guardian.'),
+    (v_case_id, 'A', 'Strategic Repatriation Assessment', 'immediate', 'active',  'PSC-001 assessment complete. RV-1 classification. BlakQube. aigentMe is the confidentiality guardian.'),
     (v_case_id, 'B', 'Housing Acquisition',              'critical',  'active',  'Dulwich SE21/SE22 priority. ~30 day NJ departure deadline. School catchment is primary housing filter.'),
     (v_case_id, 'C', 'Educational Continuity',           'critical',  'pending', 'Age 13 (Year 9 secondary) and age 5 (Reception/Year 1 primary). September 2026 intake window.'),
     (v_case_id, 'D', 'Physical Relocation',              'critical',  'pending', 'Partial household ship NJ→UK. Target arrival ~20 July 2026.'),
-    (v_case_id, 'E', 'Business Continuity',              'high',      'pending', 'UK entity formation. Investor relationship management under Black Qube protocol.'),
+    (v_case_id, 'E', 'Business Continuity',              'high',      'pending', 'UK entity formation. Investor relationship management under BlakQube protocol.'),
     (v_case_id, 'F', 'Economic Reactivation',            'high',      'pending', 'GBP banking, NI reactivation, UK tax residency.'),
     (v_case_id, 'G', 'Family Stabilization',             'medium',    'pending', 'Children settling plan. UK support network activation.')
   ON CONFLICT (case_id, workstream_key) DO NOTHING;

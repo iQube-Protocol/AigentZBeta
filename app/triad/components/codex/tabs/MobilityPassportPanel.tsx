@@ -17,7 +17,7 @@
  *      commitment reference to landlords or school admissions without
  *      disclosing case details or classification.
  *
- * Black Qube note: no raw file URLs are surfaced. All document bytes are
+ * BlakQube note: no raw file URLs are surfaced. All document bytes are
  * encrypted before upload and stored on Walrus/Sui via the locker pipeline.
  * The locker panel shows metadata only — no download links.
  */
@@ -43,12 +43,13 @@ function cls(...xs: Array<string | false | undefined>) {
 
 const HMS_TAG_PREFIX = '[HMS:';
 
-function taggedName(caseId: string, name: string) {
-  return `${HMS_TAG_PREFIX}${caseId.slice(0, 8)}] ${name}`;
+// Tags use a T2-safe server-computed hash ref, never the raw caseId.
+function taggedName(lockerRef: string, name: string) {
+  return `${HMS_TAG_PREFIX}${lockerRef}] ${name}`;
 }
 
-function isHmsItem(caseId: string, displayName: string) {
-  return displayName.startsWith(`${HMS_TAG_PREFIX}${caseId.slice(0, 8)}]`);
+function isHmsItem(lockerRef: string, displayName: string) {
+  return displayName.startsWith(`${HMS_TAG_PREFIX}${lockerRef}]`);
 }
 
 function stripTag(displayName: string) {
@@ -80,6 +81,7 @@ interface Props {
 
 export function MobilityPassportPanel({ caseId, caseClassification }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [lockerRef, setLockerRef] = useState<string | null>(null);
   const [items, setItems] = useState<LockerItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [uploadName, setUploadName] = useState('');
@@ -91,20 +93,29 @@ export function MobilityPassportPanel({ caseId, caseClassification }: Props) {
   const [attestError, setAttestError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Fetch T2-safe locker ref from server — caseId never used as a tag directly
+  useEffect(() => {
+    personaFetch(`/api/mobility/cases/${caseId}/locker-ref`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => { if (j.ok) setLockerRef(j.lockerRef); })
+      .catch(() => {});
+  }, [caseId]);
+
   const loadItems = useCallback(async () => {
+    if (!lockerRef) return;
     setLoadingItems(true);
     try {
       const res = await personaFetch('/api/polity-passport/locker', { cache: 'no-store' });
       const json = await res.json();
       if (json.ok) {
-        setItems((json.items ?? []).filter((i: LockerItem) => isHmsItem(caseId, i.displayName)));
+        setItems((json.items ?? []).filter((i: LockerItem) => isHmsItem(lockerRef, i.displayName)));
       }
     } catch {
       // silent — panel is supplementary
     } finally {
       setLoadingItems(false);
     }
-  }, [caseId]);
+  }, [lockerRef]);
 
   useEffect(() => {
     if (expanded) loadItems();
@@ -112,7 +123,7 @@ export function MobilityPassportPanel({ caseId, caseClassification }: Props) {
 
   const handleUpload = async () => {
     const file = fileRef.current?.files?.[0];
-    if (!file || !uploadName.trim()) return;
+    if (!file || !uploadName.trim() || !lockerRef) return;
     setUploading(true);
     setUploadError(null);
     setUploadSuccess(false);
@@ -123,7 +134,7 @@ export function MobilityPassportPanel({ caseId, caseClassification }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          displayName: taggedName(caseId, uploadName.trim()),
+          displayName: taggedName(lockerRef!, uploadName.trim()),
           contentType: file.type || 'application/octet-stream',
           payloadBase64: base64,
           downloadable: false,
@@ -150,7 +161,7 @@ export function MobilityPassportPanel({ caseId, caseClassification }: Props) {
       const res = await personaFetch('/api/polity-passport/attest/proof_of_mobility_authorization', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseRef: caseId.slice(0, 8), classification: caseClassification }),
+        body: JSON.stringify({ caseRef: lockerRef ?? 'pending', classification: caseClassification }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? 'Attestation failed');
@@ -181,7 +192,7 @@ export function MobilityPassportPanel({ caseId, caseClassification }: Props) {
           <span className="text-sm font-semibold text-violet-200">Polity Passport — Identity Shield</span>
           {isBlackCube && (
             <span className="text-[10px] px-1.5 py-0.5 rounded border border-violet-500/30 bg-violet-500/10 text-violet-300 font-medium">
-              Black Qube
+              BlakQube
             </span>
           )}
         </div>

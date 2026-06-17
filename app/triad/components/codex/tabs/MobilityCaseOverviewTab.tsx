@@ -183,7 +183,7 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream
           <Home className="h-6 w-6 text-emerald-400" />
           <div>
             <h2 className="text-base font-semibold text-slate-100 capitalize">{caseData.case_type.replace('_', ' ')} — Case Overview</h2>
-            <p className="text-xs text-slate-400">PSC-001 · {caseData.classification === 'black_cube' ? 'Black Qube' : caseData.classification}</p>
+            <p className="text-xs text-slate-400">PSC-001 · {caseData.classification === 'black_cube' ? 'BlakQube' : caseData.classification}</p>
           </div>
         </div>
         <button onClick={load} className="text-slate-500 hover:text-slate-300 transition-colors">
@@ -301,7 +301,7 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream
         <div className="space-y-1.5">
           {workstreams.map(ws => {
             const statusColor = STATUS_COLOR[ws.status as keyof typeof STATUS_COLOR] ?? 'slate';
-            const hasDetail = ['B', 'C', 'D'].includes(ws.workstream_key);
+            const hasDetail = ['B', 'C', 'D', 'E', 'F', 'G'].includes(ws.workstream_key);
             const WsWrapper = hasDetail ? 'button' : 'div';
             return (
               <WsWrapper

@@ -5,6 +5,76 @@ Update it as new patterns and rules are established.
 
 ---
 
+## Platform Ontology — MANDATORY READING (read before writing any code or copy)
+
+**All agents MUST read `docs/platform-ontology.md` before writing any code, UI copy, or documentation.**
+
+The ontology file defines the canonical spelling and meaning of core platform terms. Using a
+non-canonical spelling is a bug. Key terms governed by the ontology:
+
+- **BlakQube** — not "Black Cube", "Black Qube", or "black_cube" in display. BLAK = Binary Logic Avoiding Knowledge.
+- **aigentMe** — not "Agent Me", "AgentMe". The sovereign identity layer and confidentiality guardian.
+- **iQube** — not "iqube" or "IQube". The core data primitive.
+- **AigentZ** — the primary orchestration agent.
+- **PSC-001** — Polity Capability Preservation Standard. Governs all HMS cases.
+- **DVN** — Decentralised Verification Network. Never spell out differently.
+- **MAF** — Mobility Activation File. The HMS intake record.
+
+Full definitions, usage rules, and the complete classification ladder are in `docs/platform-ontology.md`.
+
+---
+
+## HMS Identifier Isolation — NO RAW IDs IN LOCKER, DVN, OR CHAIN (PARAMOUNT)
+
+**The case ID (`caseId`), persona ID (`personaId`), and any delegated agent identifier MUST NEVER appear in:**
+- Passport locker item `display_name` or any locker metadata
+- DVN receipt payloads
+- Walrus blob metadata or Sui chain records
+- Any network-bound or chain-bound data structure
+
+These are **T0 identifiers** — server-internal only. They are subject to the same protections as `personaId`, `authProfileId`, and `rootDid` (see Identity & Access Spine section below).
+
+### Required pattern — T2-safe commitment references
+
+All locker tagging, DVN receipt construction, and chain-bound metadata for HMS cases MUST use a **server-computed commitment reference** derived via a one-way hash function. This reference is:
+
+- **Deterministic**: same input always yields the same ref — idempotent re-tagging works
+- **One-way**: the commitment cannot be reversed to recover the source identifier
+- **T2-safe**: safe for DVN receipt payloads, Walrus blob metadata, and on-chain anchoring
+
+**Canonical implementation for case-scoped locker refs:**
+
+```ts
+// Server-side only — in an API route, NEVER in client code
+import { createHash } from 'crypto';
+const lockerRef = createHash('sha256')
+  .update('hms:locker:' + caseId)   // namespace prefix prevents cross-type collisions
+  .digest('hex')
+  .slice(0, 16);                     // 16-char hex commitment — T2-safe
+// Return only lockerRef to client — caseId NEVER leaves this function
+```
+
+**The client tags locker items as `[HMS:${lockerRef}] ${name}` — the lockerRef is the commitment, not the caseId.**
+
+### Applies to ALL identifiers in the HMS context
+
+| Identifier | Tier | What you MUST use instead |
+|---|---|---|
+| `caseId` (UUID) | T0 | `sha256('hms:locker:' + caseId).hex().slice(0,16)` commitment |
+| `personaId` (UUID) | T0 | T1 surface only — NEVER in DVN/chain/locker |
+| Delegated agent ID | T0 | Agent commitment derived the same way |
+| `authProfileId` | T0 | NEVER serialised — same rule as the spine |
+
+### Route that computes locker refs
+
+`GET /api/mobility/cases/[caseId]/locker-ref` — verifies caller owns the case, then returns the T2-safe commitment. **All client-side locker operations MUST fetch this ref first.** Never derive it client-side (that would expose caseId in network traffic or client state).
+
+### Why this is non-negotiable
+
+A locker item `display_name` containing a raw `caseId` UUID will appear in DVN receipt payloads and potentially on-chain. The `caseId` is a T0 identifier that carries subject re-identification risk — an observer who correlates two receipts with the same `caseId` can link mobility activities to the same family unit, defeating the BlakQube compartmentalisation guarantee. The same principle extends to any delegated agent identifier issued under the case.
+
+---
+
 ## Push Commit Messages — MANDATORY (top priority, do not override)
 
 **Every push to GitHub / dev / any deploy-triggering branch MUST carry a commit message that names the actual content being pushed. Generic merge messages are forbidden.**

@@ -311,6 +311,11 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
     if (!saving) setStep(s => Math.min(s + 1, STEPS.length - 1));
   }, [step, saveStep, saving]);
 
+  // Save current step without advancing — used when re-editing a completed step
+  const handleSaveOnly = useCallback(async () => {
+    await saveStep(step);
+  }, [step, saveStep]);
+
   const handleBack = () => setStep(s => Math.max(s - 1, 0));
 
   const isStepComplete = (idx: number) => {
@@ -390,16 +395,29 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
           <ChevronLeft className="h-4 w-4" />
           Back
         </button>
-        <button
-          onClick={handleNext}
-          disabled={saving}
-          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {step === STEPS.length - 1 ? 'Complete Intake' : (
-            <>Save & Continue <ChevronRight className="h-4 w-4" /></>
+        <div className="flex items-center gap-2">
+          {/* Show standalone Save when re-editing a completed step (not the last step) */}
+          {isStepComplete(step) && step < STEPS.length - 1 && (
+            <button
+              onClick={handleSaveOnly}
+              disabled={saving}
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save
+            </button>
           )}
-        </button>
+          <button
+            onClick={handleNext}
+            disabled={saving}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {step === STEPS.length - 1 ? 'Save Changes' : (
+              <>Save & Continue <ChevronRight className="h-4 w-4" /></>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
