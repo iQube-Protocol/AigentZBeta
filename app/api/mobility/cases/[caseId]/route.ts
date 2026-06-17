@@ -148,7 +148,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { caseId: st
       .from('mobility_cases')
       .update(updates)
       .eq('id', params.caseId)
-      .select('id, case_status, intake_sections_complete, capability_score, continuity_score, recovery_velocity_class, standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk, intake_completed_at, updated_at')
+      .select('id, case_type, case_status, priority_level, classification, intake_sections_complete, capability_score, continuity_score, recovery_velocity_class, standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk, intake_completed_at, created_at, updated_at')
       .single();
 
     if (error) throw error;
