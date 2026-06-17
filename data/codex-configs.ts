@@ -3921,6 +3921,67 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString(),
 };
 
+// ─── HUMAN MOBILITY SERVICES CARTRIDGE ───────────────────────────────────────
+// PSC-001: Polity Capability Preservation — Strategic Repatriation.
+// Registered as adminOnly pending first citizen-facing release.
+export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
+  id: 'human-mobility-services-cartridge',
+  name: 'Human Mobility Services',
+  slug: 'human-mobility-services',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'Polity capability preservation — strategic repatriation, relocation, and family mobility services.',
+    icon: 'Home',
+    color: 'emerald',
+    category: 'platform',
+    tags: ['mobility', 'repatriation', 'housing', 'education', 'polity', 'psc-001'],
+  },
+  tabGroups: [
+    { id: 'activation', label: 'Activation',   icon: 'FolderOpen', order: 1 },
+    { id: 'housing',    label: 'Housing',       icon: 'Home',       order: 2, adminOnly: true },
+    { id: 'education',  label: 'Education',     icon: 'GraduationCap', order: 3, adminOnly: true },
+    { id: 'relocation', label: 'Relocation',    icon: 'Package',    order: 4, adminOnly: true },
+    { id: 'business',   label: 'Business',      icon: 'Briefcase',  order: 5, adminOnly: true },
+    { id: 'economic',   label: 'Economic',      icon: 'TrendingUp', order: 6, adminOnly: true },
+    { id: 'family',     label: 'Family',        icon: 'Heart',      order: 7, adminOnly: true },
+  ],
+  tabs: [
+    {
+      id: 'hms-activation',
+      label: 'Cases',
+      slug: 'activation',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'activation',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'HumanMobilityServicesTab' },
+      metadata: { description: 'Mobility case list and MAF intake wizard', icon: 'FolderOpen', color: 'emerald', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-doctrine',
+      label: 'Doctrine',
+      slug: 'doctrine',
+      enabled: true,
+      type: 'static' as const,
+      group: 'activation',
+      order: 2,
+      adminOnly: true,
+      config: { component: 'MobilityDoctrineTab' },
+      metadata: { description: 'PSC-001 Polity Capability Preservation Standard', icon: 'Shield', color: 'violet', category: 'platform', tags: [] },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z', 'admin'],
+    admin: ['aigent-z', 'admin'],
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
@@ -3941,6 +4002,7 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   MARKETA_CARTRIDGE,
   IQUBE_REGISTRY_CARTRIDGE,
   POLITY_PASSPORT_BUREAU_CARTRIDGE,
+  HUMAN_MOBILITY_SERVICES_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {

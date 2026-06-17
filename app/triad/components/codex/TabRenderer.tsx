@@ -118,6 +118,8 @@ import { LockerTab } from "./tabs/LockerTab";
 import { PassportDoctrineTab } from "./tabs/PassportDoctrineTab";
 import { PassportEnsTab } from "./tabs/PassportEnsTab";
 import { PassportBeingTab } from "./tabs/PassportBeingTab";
+import { HumanMobilityServicesTab } from "./tabs/HumanMobilityServicesTab";
+import { MobilityDoctrineTab } from "./tabs/MobilityDoctrineTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
@@ -278,6 +280,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   PassportDoctrineTab,
   PassportEnsTab,
   PassportBeingTab,
+  HumanMobilityServicesTab,
+  MobilityDoctrineTab,
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,
