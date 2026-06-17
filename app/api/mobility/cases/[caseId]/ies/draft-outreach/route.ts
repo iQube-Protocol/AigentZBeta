@@ -27,10 +27,20 @@
  * T0 discipline: caseId server-side only; no raw IDs in email body.
  */
 
+import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { callAnthropicJson, callOpenAiJson } from '@/services/agents/_lib/llmDraftHelper';
+
+/** Commitment ref for HMS email routing — same as locker-ref route. T2-safe. */
+function hmsCustomId(caseId: string, institutionId: string): string {
+  const ref = createHash('sha256')
+    .update('hms:locker:' + caseId)
+    .digest('hex')
+    .slice(0, 16);
+  return `hms:${ref}:${institutionId}`;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -305,6 +315,10 @@ Disclosure package (${pkg} — Stage ${engagementStage}):\n\n${disclosurePackage
           ].join('\n');
     }
 
+    // Routing metadata for Marketa send path and manual copy-send
+    const customId = hmsCustomId(params.caseId, institution.id);
+    const systemReplyTo = process.env.MARKETA_OUTREACH_REPLY_TO ?? null;
+
     return NextResponse.json({
       ok: true,
       subject,
@@ -314,6 +328,12 @@ Disclosure package (${pkg} — Stage ${engagementStage}):\n\n${disclosurePackage
       engagement_stage: engagementStage,
       engagement_tempo: engagementTempo,
       anonymous,
+      // Routing: include in email headers when sending (CustomID for reply attribution)
+      custom_id: customId,
+      reply_to: systemReplyTo,
+      routing_note: systemReplyTo
+        ? `Set Reply-To: ${systemReplyTo} and CustomID: ${customId} when sending. Responses will be ingested via /api/mobility/inbound-reply and attributed to this institution.`
+        : 'Set MARKETA_OUTREACH_REPLY_TO env var to enable automatic response ingestion.',
     });
   } catch (err) {
     console.error('[ies/draft-outreach]', err);

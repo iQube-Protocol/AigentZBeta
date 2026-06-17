@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { caseId: stri
     const [caseRes, workstreamsRes, datesRes] = await Promise.all([
       supabase
         .from('mobility_cases')
-        .select('id, case_type, case_status, priority_level, classification, household_profile, capability_profile, continuity_profile, standing_profile, housing_profile, education_profile, business_profile, financial_profile, mobility_profile, family_profile, confidentiality_profile, capability_score, continuity_score, recovery_velocity_class, standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk, intake_sections_complete, intake_completed_at, created_at, updated_at')
+        .select('id, case_type, case_status, priority_level, classification, household_profile, capability_profile, continuity_profile, standing_profile, housing_profile, education_profile, business_profile, financial_profile, mobility_profile, family_profile, confidentiality_profile, capability_score, continuity_score, recovery_velocity_class, standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk, intake_sections_complete, intake_completed_at, marketa_forward_email, created_at, updated_at')
         .eq('id', params.caseId)
         .single(),
       supabase
@@ -109,6 +109,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { caseId: st
     }
     if (body.case_status !== undefined) updates.case_status = body.case_status;
     if (body.priority_level !== undefined) updates.priority_level = body.priority_level;
+    if (body.marketa_forward_email !== undefined) updates.marketa_forward_email = body.marketa_forward_email || null;
 
     // Mark section complete and compute scores if a profile section changed
     const changedSections = PROFILE_SECTIONS.filter(s => updates[s] !== undefined);
@@ -148,7 +149,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { caseId: st
       .from('mobility_cases')
       .update(updates)
       .eq('id', params.caseId)
-      .select('id, case_type, case_status, priority_level, classification, intake_sections_complete, capability_score, continuity_score, recovery_velocity_class, standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk, intake_completed_at, created_at, updated_at')
+      .select('id, case_type, case_status, priority_level, classification, intake_sections_complete, capability_score, continuity_score, recovery_velocity_class, standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk, intake_completed_at, marketa_forward_email, created_at, updated_at')
       .single();
 
     if (error) throw error;

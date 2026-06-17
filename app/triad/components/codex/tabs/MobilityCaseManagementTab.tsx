@@ -20,6 +20,7 @@ interface CaseData {
   id: string; case_status: string; case_type: string; priority_level: string; classification: string;
   created_at: string; intake_completed_at: string | null; capability_score: number | null;
   continuity_score: number | null; recovery_velocity_class: string | null;
+  marketa_forward_email?: string | null;
 }
 interface WorkstreamRow { id: string; workstream_key: string; notes: string | null; tasks: CaseNote[]; }
 
@@ -32,6 +33,8 @@ export function MobilityCaseManagementTab({ caseId }: { caseId: string }) {
   const [notes, setNotes] = useState('');
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsOpen, setContactsOpen] = useState(true);
+  const [forwardEmail, setForwardEmail] = useState('');
+  const [savingForwardEmail, setSavingForwardEmail] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
@@ -48,6 +51,7 @@ export function MobilityCaseManagementTab({ caseId }: { caseId: string }) {
       if (caseJson.ok) {
         setCaseData(caseJson.case);
         setContacts((caseJson.case.household_profile?.contacts as Contact[]) ?? []);
+        setForwardEmail(caseJson.case.marketa_forward_email ?? '');
       }
       if (wsJson.ok) {
         const ws = (wsJson.workstreams as WorkstreamRow[]).find(w => w.workstream_key === 'A');
@@ -88,6 +92,21 @@ export function MobilityCaseManagementTab({ caseId }: { caseId: string }) {
     } catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
     finally { setSavingStatus(false); }
   }, [caseId, caseData]);
+
+  const saveForwardEmail = useCallback(async () => {
+    setSavingForwardEmail(true);
+    try {
+      const res = await personaFetch(`/api/mobility/cases/${caseId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ marketa_forward_email: forwardEmail.trim() || null }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? 'Save failed');
+      setCaseData(json.case);
+      setForwardEmail(json.case.marketa_forward_email ?? '');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
+    finally { setSavingForwardEmail(false); }
+  }, [caseId, forwardEmail]);
 
   if (loading) return <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-slate-500" /></div>;
 
@@ -159,6 +178,39 @@ export function MobilityCaseManagementTab({ caseId }: { caseId: string }) {
           </div>
         </div>
       )}
+
+      {/* Marketa response routing */}
+      <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-200">Institutional Response Routing</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Marketa sends outreach from the system inbox and forwards institutional responses to this address. aigentMe will evaluate responses against PDEP escalation criteria (fast-follow).</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 space-y-1">
+            <label className="text-[11px] text-slate-500">Forward responses to</label>
+            <input
+              type="email"
+              value={forwardEmail}
+              onChange={e => setForwardEmail(e.target.value)}
+              placeholder="e.g. case-lead@yourdomain.com"
+              className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500/60 focus:outline-none focus:ring-1 focus:ring-sky-500/30"
+            />
+          </div>
+          <div className="shrink-0 pt-5">
+            <button
+              onClick={saveForwardEmail}
+              disabled={savingForwardEmail || forwardEmail === (caseData?.marketa_forward_email ?? '')}
+              className="flex items-center gap-1.5 rounded-lg bg-sky-600/10 px-3 py-1.5 text-xs font-medium text-sky-400 hover:bg-sky-600/20 disabled:opacity-40 transition-colors"
+            >
+              {savingForwardEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              Save
+            </button>
+          </div>
+        </div>
+        {caseData?.marketa_forward_email && (
+          <p className="text-[11px] text-emerald-500">Responses routed → {caseData.marketa_forward_email}</p>
+        )}
+      </div>
 
       {/* Key contacts */}
       <div className="rounded-xl border border-slate-700 bg-slate-900/60">
