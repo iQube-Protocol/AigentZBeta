@@ -9,6 +9,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Target, AlertTriangle, Loader2, CheckCircle2, RefreshCw, Copy, X, Shield } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 
+type DisclosurePackage = 'A' | 'B' | 'AB' | 'C' | 'D';
+
 interface Institution {
   id: string;
   name: string;
@@ -21,7 +23,13 @@ interface Institution {
   execution_impact: number;
   rationale: string;
   recommended_action: string;
-  disclosure_level: 'FULL' | 'CAPABILITY_ONLY' | 'SUMMARY_ONLY';
+  expected_response?: string;
+  escalation_criteria?: string;
+  // PDEP fields
+  engagement_stage?: number;
+  recommended_package?: DisclosurePackage;
+  // legacy compat
+  disclosure_level?: 'FULL' | 'CAPABILITY_ONLY' | 'SUMMARY_ONLY';
 }
 
 interface Phase {
@@ -35,6 +43,7 @@ interface IESContent {
   institutions: Institution[];
   phases: Phase[];
   strategic_note: string;
+  engagement_tempo?: string;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -52,7 +61,22 @@ function CategoryBadge({ cat }: { cat: string }) {
   return <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1 ${colors[cat] ?? colors.C}`}>{cat}</span>;
 }
 
-function DisclosureBadge({ level }: { level: string }) {
+function PackageBadge({ pkg, stage }: { pkg?: DisclosurePackage; stage?: number }) {
+  const label = pkg ?? '—';
+  const anonymous = pkg === 'A' || pkg === 'B' || pkg === 'AB';
+  const cls = anonymous
+    ? 'bg-violet-500/10 text-violet-400 ring-violet-500/20'
+    : pkg === 'C' ? 'bg-amber-500/10 text-amber-400 ring-amber-500/20'
+    : pkg === 'D' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20'
+    : 'bg-slate-500/10 text-slate-400 ring-slate-500/20';
+  return (
+    <span className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${cls}`} title={`Package ${label}${stage !== undefined ? ` · Stage ${stage}` : ''}`}>
+      {label}{stage !== undefined ? <span className="opacity-60">·S{stage}</span> : null}
+    </span>
+  );
+}
+
+function DisclosureBadge({ level }: { level?: string }) {
   if (level === 'FULL') return <span className="rounded px-1.5 py-0.5 text-[10px] bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">FULL</span>;
   if (level === 'CAPABILITY_ONLY') return <span className="rounded px-1.5 py-0.5 text-[10px] bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20">CAPABILITY</span>;
   return <span className="rounded px-1.5 py-0.5 text-[10px] bg-slate-500/10 text-slate-400 ring-1 ring-slate-500/20">SUMMARY</span>;
@@ -72,13 +96,20 @@ interface OutreachModalProps {
 function OutreachModal({ institution, caseId, onClose }: OutreachModalProps) {
   const [recipientName, setRecipientName] = useState('');
   const [recipientRole, setRecipientRole] = useState('');
-  const [draft, setDraft] = useState<{ subject: string; body: string } | null>(null);
+  const [draft, setDraft] = useState<{ subject: string; body: string; anonymous?: boolean; disclosure_package?: string; engagement_stage?: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const pkg = institution.recommended_package;
+  const anonymous = pkg === 'A' || pkg === 'B' || pkg === 'AB';
+
   const generate = useCallback(async () => {
-    if (!recipientName.trim() || !recipientRole.trim()) { setError('Recipient name and role are required'); return; }
+    // For anonymous packages, recipient role is optional (not used in salutation)
+    if (!anonymous && (!recipientName.trim() || !recipientRole.trim())) {
+      setError('Recipient name and role are required for identity-stage outreach');
+      return;
+    }
     setLoading(true); setError(null);
     try {
       const res = await personaFetch(`/api/mobility/cases/${caseId}/ies/draft-outreach`, {
@@ -86,11 +117,11 @@ function OutreachModal({ institution, caseId, onClose }: OutreachModalProps) {
         body: JSON.stringify({ institution_id: institution.id, recipient_name: recipientName, recipient_role: recipientRole }),
       });
       const json = await res.json();
-      if (json.ok) setDraft({ subject: json.subject, body: json.body });
+      if (json.ok) setDraft({ subject: json.subject, body: json.body, anonymous: json.anonymous, disclosure_package: json.disclosure_package, engagement_stage: json.engagement_stage });
       else setError(json.error ?? 'Draft failed');
     } catch (e) { setError(e instanceof Error ? e.message : 'Draft failed'); }
     finally { setLoading(false); }
-  }, [caseId, institution.id, recipientName, recipientRole]);
+  }, [anonymous, caseId, institution.id, recipientName, recipientRole]);
 
   const copy = useCallback(async () => {
     if (!draft) return;
@@ -106,7 +137,13 @@ function OutreachModal({ institution, caseId, onClose }: OutreachModalProps) {
         <div className="flex items-center justify-between border-b border-slate-700 px-5 py-4">
           <div>
             <h3 className="text-sm font-semibold text-slate-100">Draft Outreach — {institution.name}</h3>
-            <p className="text-xs text-slate-400">Disclosure: <DisclosureBadge level={institution.disclosure_level} /> · aigentMe disclosure broker</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <PackageBadge pkg={institution.recommended_package} stage={institution.engagement_stage} />
+              {institution.recommended_package && (institution.recommended_package === 'A' || institution.recommended_package === 'B' || institution.recommended_package === 'AB') && (
+                <span className="text-[10px] text-violet-400">Anonymous — identity protected</span>
+              )}
+              <span className="text-[10px] text-slate-500">aigentMe · PDEP governed</span>
+            </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X className="h-5 w-5" /></button>
         </div>
@@ -114,13 +151,18 @@ function OutreachModal({ institution, caseId, onClose }: OutreachModalProps) {
           {!draft ? (
             <>
               <p className="text-xs text-slate-400">{institution.recommended_action}</p>
+              {anonymous && (
+                <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
+                  <p className="text-xs text-violet-300">Package {institution.recommended_package ?? 'AB'} — Stage {institution.engagement_stage ?? 0} outreach is fully anonymous. The email will not include any names, addresses, or personal identifiers. Recipient fields are optional and used only for routing context.</p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-400">Recipient name</label>
+                  <label className="text-xs text-slate-400">Recipient name {anonymous ? '(optional)' : '*'}</label>
                   <input className={inputCls} value={recipientName} onChange={e => setRecipientName(e.target.value)} placeholder="e.g. James Whitfield" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-400">Recipient role / title</label>
+                  <label className="text-xs text-slate-400">Recipient role / title {anonymous ? '(optional)' : '*'}</label>
                   <input className={inputCls} value={recipientRole} onChange={e => setRecipientRole(e.target.value)} placeholder="e.g. Senior Consular Officer" />
                 </div>
               </div>
@@ -132,6 +174,11 @@ function OutreachModal({ institution, caseId, onClose }: OutreachModalProps) {
             </>
           ) : (
             <div className="space-y-3">
+              {draft.anonymous && (
+                <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
+                  <p className="text-xs text-violet-300">Package {draft.disclosure_package} · Stage {draft.engagement_stage} — identity protected. This email contains no names, addresses, or personal identifiers.</p>
+                </div>
+              )}
               <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3 space-y-1">
                 <p className="text-[11px] text-slate-500 uppercase tracking-wide">Subject</p>
                 <p className="text-sm text-slate-200 font-medium">{draft.subject}</p>
@@ -143,6 +190,9 @@ function OutreachModal({ institution, caseId, onClose }: OutreachModalProps) {
               <div className="flex items-center gap-3">
                 <button onClick={copy} className="flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-600 transition-colors">
                   <Copy className="h-4 w-4" />{copied ? 'Copied!' : 'Copy to clipboard'}
+                </button>
+                <button disabled title="Send via Marketa — coming soon" className="flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-500 cursor-not-allowed ring-1 ring-slate-700">
+                  Send via Marketa <span className="rounded bg-amber-500/15 px-1 py-0.5 text-[9px] font-bold text-amber-400 uppercase tracking-wide">SOON</span>
                 </button>
                 <button onClick={() => setDraft(null)} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Redraft</button>
               </div>
@@ -226,7 +276,9 @@ export function MobilityIESTab({ caseId, onOpenSRB }: { caseId: string; onOpenSR
           <Target className="h-6 w-6 text-sky-400" />
           <div>
             <h2 className="text-base font-semibold text-slate-100">Institutional Engagement Strategy</h2>
-            <p className="text-xs text-slate-400">PSC-001 · Scored institution matrix · BlakQube disclosure control</p>
+            <p className="text-xs text-slate-400">PSC-001 · PDEP governed · BlakQube disclosure control
+              {ies?.engagement_tempo && <span className="ml-2 rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-400 ring-1 ring-sky-500/20 capitalize">{ies.engagement_tempo} tempo</span>}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -307,7 +359,7 @@ export function MobilityIESTab({ caseId, onOpenSRB }: { caseId: string; onOpenSR
                         <th className="px-2 py-2 text-center text-[10px] text-slate-500 font-medium" title="Capability Preservation">Cap</th>
                         <th className="px-2 py-2 text-center text-[10px] text-slate-500 font-medium" title="Continuity Preservation">Con</th>
                         <th className="px-2 py-2 text-center text-[10px] text-slate-500 font-medium" title="Execution Impact">Exe</th>
-                        <th className="px-2 py-2 text-center text-[10px] text-slate-500 font-medium">Disclosure</th>
+                        <th className="px-2 py-2 text-center text-[10px] text-slate-500 font-medium">Package</th>
                         <th className="px-3 py-2 text-right text-[10px] text-slate-500 font-medium"></th>
                       </tr>
                     </thead>
@@ -324,7 +376,7 @@ export function MobilityIESTab({ caseId, onOpenSRB }: { caseId: string; onOpenSR
                           <td className="px-2 py-2.5 text-center"><ScorePill score={inst.capability_preservation} /></td>
                           <td className="px-2 py-2.5 text-center"><ScorePill score={inst.continuity_preservation} /></td>
                           <td className="px-2 py-2.5 text-center"><ScorePill score={inst.execution_impact} /></td>
-                          <td className="px-2 py-2.5 text-center"><DisclosureBadge level={inst.disclosure_level} /></td>
+                          <td className="px-2 py-2.5 text-center"><PackageBadge pkg={inst.recommended_package} stage={inst.engagement_stage} /></td>
                           <td className="px-3 py-2.5 text-right">
                             {status === 'approved' && (
                               <button

@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-17_hms-pdep-adtf-progressive-disclosure-doctrine.md",
         "updates/2026-06-17_human-mobility-services-psc001-cartridge.md",
         "updates/2026-06-16_runtime-consumer-runner-cb-live-grant-plan.md",
         "updates/2026-06-16_runtime-consumer-runner-rewards-c1-schema.md",

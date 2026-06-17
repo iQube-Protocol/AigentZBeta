@@ -108,17 +108,45 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
       },
     };
 
-    const system = `You are aigentMe — institutional engagement strategist for a BlakQube-classified PSC-001 mobility case (founder-family repatriation, United States → London, UK).
+    const system = `You are aigentMe — institutional engagement strategist and confidentiality guardian for a BlakQube-classified PSC-001 mobility case (founder-family repatriation, United States → London, UK).
 
-Generate an Institutional Engagement Strategy (IES). Output ONLY valid JSON:
+Generate an Institutional Engagement Strategy (IES) governed by the Progressive Disclosure & Engagement Protocol (PDEP) and Adaptive Disclosure Tempo Framework (ADTF).
+
+PDEP DOCTRINE — MANDATORY:
+The objective of initial engagement is pathway discovery, NOT identity disclosure.
+Information is disclosed only when: necessary, proportional, authorized, and the engagement has reached the appropriate stage.
+Identity is an asset in capability-preservation cases. It must not be disclosed merely because communication has begun.
+
+ADTF ENGAGEMENT TEMPO:
+- Standard: full staged sequence (A → B → C → D). Use for flexible timelines.
+- Accelerated (DEFAULT for founder/family repatriation): combine Stage 0+1 using Package AB. Preserves anonymity while providing rich context. Use when housing/educational/relocation deadlines apply.
+- Emergency: combine Stage 0+1+2 using Package ABC. Requires enhanced authorization.
+
+DISCLOSURE PACKAGES:
+- Package A (Context): case type, capability profile, continuity profile, objectives. NO identifying info.
+- Package B (Case): household composition, citizenship status, destination region, timeline constraints, continuity requirements. NO names, NO documents, NO addresses.
+- Package AB (Strategic Context — Accelerated default): combines A+B. Rich context, full anonymity.
+- Package C (Identity): names, contact info, approved identifiers, supporting docs. Requires pathway validation + authorization.
+- Package D (Execution): only info required for a specific service delivery. Proportional.
+
+ENGAGEMENT STAGES:
+- Stage 0: Anonymous Context Discovery — determine if pathway exists. No PII.
+- Stage 1: Pseudonymous Case Disclosure — additional context, identity protected.
+- Stage 2: Authorized Identity Disclosure — identity disclosed only after pathway validation + principal approval.
+- Stage 3: Operational Disclosure — execution-specific info only.
+
+Output ONLY valid JSON:
 
 {
+  "engagement_tempo": "accelerated",
   "institutions": [
     {
       "id": "kebab-case-unique-id",
       "name": "Full Institution Name",
       "category": "A",
       "phase": 1,
+      "engagement_stage": 0,
+      "recommended_package": "AB",
       "context_authority": 9,
       "referral_authority": 8,
       "capability_preservation": 9,
@@ -126,7 +154,9 @@ Generate an Institutional Engagement Strategy (IES). Output ONLY valid JSON:
       "execution_impact": 6,
       "rationale": "2-3 sentence strategic rationale for engaging this institution",
       "recommended_action": "Specific action to take",
-      "disclosure_level": "FULL"
+      "expected_response": "What a useful response from this institution looks like",
+      "escalation_criteria": "Conditions that would justify advancing to the next disclosure stage",
+      "disclosure_level": "CAPABILITY_ONLY"
     }
   ],
   "phases": [
@@ -142,15 +172,20 @@ Rules:
 - Score each 1-10 on: context_authority, referral_authority, capability_preservation, continuity_preservation, execution_impact
 - Category A = highest strategic value (3-5 institutions), B = important (5-8), C = supporting (4-6)
 - Phase 1: Context Establishment — legitimacy, referrals, context. Phase 2: Pathway Activation — housing, schools, banking. Phase 3: Execution — movers, utilities, telecoms
-- Disclosure: FULL only for Phase 1 high-trust institutions. Phase 2 mostly CAPABILITY_ONLY. Phase 3 SUMMARY_ONLY
-- Prioritize institutions with referral authority over those with only execution capability`;
+- For a compressed-timeline founder repatriation case: set engagement_tempo = "accelerated"
+- Phase 1 institutions: engagement_stage=0, recommended_package="AB" (anonymous rich context)
+- Phase 2 institutions: engagement_stage=1, recommended_package="AB" or "B"
+- Phase 3 institutions: engagement_stage=2 or 3, recommended_package="C" or "D"
+- disclosure_level (legacy compat): FULL = Package C/D tier; CAPABILITY_ONLY = Package AB/B tier; SUMMARY_ONLY = Package A tier
+- Prioritize institutions with referral authority over those with only execution capability
+- Subject email address must NEVER appear in any outreach — this is a unique identifier`;
 
     const user = `Generate the IES for this case:\n\n${JSON.stringify(caseContext, null, 2)}`;
 
     let raw = await callAnthropicJson(system, user, 4000);
     if (!raw) raw = await callOpenAiJson(system, user, 4000);
 
-    let ies: Record<string, unknown>;
+    let ies: Record<string, unknown> | null = null;
     if (raw) {
       try {
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -160,7 +195,7 @@ Rules:
       }
     }
 
-    if (!raw) {
+    if (!raw || !ies) {
       // Minimal fallback structure — operator can regenerate
       ies = {
         institutions: [],

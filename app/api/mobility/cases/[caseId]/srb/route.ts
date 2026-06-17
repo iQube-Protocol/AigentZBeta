@@ -149,7 +149,7 @@ The requested_guidance section must always close with: "What guidance, referrals
     let raw = await callAnthropicJson(system, user, 2400);
     if (!raw) raw = await callOpenAiJson(system, user, 2400);
 
-    let srb: Record<string, string>;
+    let srb: Record<string, string> | null = null;
     if (raw) {
       try {
         srb = JSON.parse(raw);
@@ -158,7 +158,7 @@ The requested_guidance section must always close with: "What guidance, referrals
       }
     }
 
-    if (!raw) {
+    if (!raw || !srb) {
       // Template fallback — structured but generic
       const household = (row.household_profile as Record<string, unknown>) ?? {};
       const capability = (row.capability_profile as Record<string, unknown>) ?? {};
