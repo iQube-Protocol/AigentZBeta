@@ -33,6 +33,9 @@ import {
   Loader2,
   Plus,
   Trash2,
+  Link,
+  RefreshCw,
+  Lock,
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 
@@ -166,16 +169,73 @@ interface ConfidentialityProfile {
   businessInformationRules: string;
 }
 
-type StepId = 'household' | 'capability' | 'housing' | 'education' | 'business' | 'mobility' | 'confidentiality';
+// ─── Professional Profile types ──────────────────────────────────────────────
+
+type FactConfidence = 'SOURCE_DERIVED' | 'PRINCIPAL_VERIFIED';
+
+interface ProfessionalFact {
+  factId: string;
+  source: string;
+  sourceUrl?: string;
+  confidence: FactConfidence;
+  principalApproved: boolean;
+}
+
+interface RoleFact extends ProfessionalFact {
+  organization: string;
+  title: string;
+  isCurrent: boolean;
+}
+interface EducationFact extends ProfessionalFact {
+  institution: string;
+  degree: string;
+  field: string;
+  years: string;
+}
+interface PublicationFact extends ProfessionalFact {
+  title: string;
+  type: string;
+  year: string;
+}
+interface PatentFact extends ProfessionalFact {
+  number: string;
+  title: string;
+  year: string;
+}
+interface AwardFact extends ProfessionalFact {
+  title: string;
+  issuer: string;
+  year: string;
+}
+interface EAIFact extends ProfessionalFact {
+  description: string;
+  category: string;
+}
+
+interface ProfessionalProfile {
+  sourceDocuments: Array<{ type: string; url: string; lastVerified: string }>;
+  currentRoles: RoleFact[];
+  education: EducationFact[];
+  publications: PublicationFact[];
+  patents: PatentFact[];
+  awards: AwardFact[];
+  licenses: AwardFact[];
+  extraordinaryAbilityIndicators: EAIFact[];
+  principalApproved: boolean;
+  approvedAt?: string;
+}
+
+type StepId = 'household' | 'capability' | 'professional' | 'housing' | 'education' | 'business' | 'mobility' | 'confidentiality';
 
 const STEPS: Array<{ id: StepId; label: string; icon: React.ReactNode; sectionKeys: string[] }> = [
-  { id: 'household',      label: 'Household',         icon: <Users className="h-4 w-4" />,         sectionKeys: ['household_profile'] },
-  { id: 'capability',     label: 'Capability',         icon: <TrendingUp className="h-4 w-4" />,    sectionKeys: ['capability_profile', 'continuity_profile'] },
-  { id: 'housing',        label: 'Housing',            icon: <Home className="h-4 w-4" />,           sectionKeys: ['housing_profile'] },
-  { id: 'education',      label: 'Education',          icon: <GraduationCap className="h-4 w-4" />, sectionKeys: ['education_profile'] },
-  { id: 'business',       label: 'Business',           icon: <Briefcase className="h-4 w-4" />,     sectionKeys: ['business_profile', 'financial_profile'] },
-  { id: 'mobility',       label: 'Relocation',         icon: <Heart className="h-4 w-4" />,         sectionKeys: ['mobility_profile', 'family_profile'] },
-  { id: 'confidentiality',label: 'Confidentiality',    icon: <Shield className="h-4 w-4" />,        sectionKeys: ['confidentiality_profile'] },
+  { id: 'household',      label: 'Household',          icon: <Users className="h-4 w-4" />,         sectionKeys: ['household_profile'] },
+  { id: 'capability',     label: 'Capability',          icon: <TrendingUp className="h-4 w-4" />,    sectionKeys: ['capability_profile', 'continuity_profile'] },
+  { id: 'professional',   label: 'Professional Profile',icon: <Lock className="h-4 w-4" />,          sectionKeys: ['capability_profile'] },
+  { id: 'housing',        label: 'Housing',             icon: <Home className="h-4 w-4" />,           sectionKeys: ['housing_profile'] },
+  { id: 'education',      label: 'Education',           icon: <GraduationCap className="h-4 w-4" />, sectionKeys: ['education_profile'] },
+  { id: 'business',       label: 'Business',            icon: <Briefcase className="h-4 w-4" />,     sectionKeys: ['business_profile', 'financial_profile'] },
+  { id: 'mobility',       label: 'Relocation',          icon: <Heart className="h-4 w-4" />,         sectionKeys: ['mobility_profile', 'family_profile'] },
+  { id: 'confidentiality',label: 'Confidentiality',     icon: <Shield className="h-4 w-4" />,        sectionKeys: ['confidentiality_profile'] },
 ];
 
 // ─── Field helpers ────────────────────────────────────────────────────────────
@@ -257,6 +317,13 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
     classificationLevel: 'black_cube', disclosureRules: '', standingProtectionRequirements: '',
     childrensInformationRules: '', businessInformationRules: '',
   });
+  const [professionalProfile, setProfessionalProfile] = useState<ProfessionalProfile>({
+    sourceDocuments: [],
+    currentRoles: [], education: [], publications: [], patents: [],
+    awards: [], licenses: [], extraordinaryAbilityIndicators: [],
+    principalApproved: false,
+  });
+
   const [criticalDates, setCriticalDates] = useState<CriticalDate[]>([
     { label: '', date_category: 'housing', due_date: '', is_hard_deadline: true, workstream_key: 'B', notes: '' },
   ]);
@@ -270,7 +337,11 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
         if (!json.ok) return;
         const c = json.case;
         if (c.household_profile && Object.keys(c.household_profile).length > 0) setHousehold(c.household_profile);
-        if (c.capability_profile && Object.keys(c.capability_profile).length > 0) setCapability(c.capability_profile);
+        if (c.capability_profile && Object.keys(c.capability_profile).length > 0) {
+          const cap = c.capability_profile as Record<string, unknown>;
+          setCapability(cap as unknown as typeof capability);
+          if (cap.professionalProfile) setProfessionalProfile(cap.professionalProfile as ProfessionalProfile);
+        }
         if (c.continuity_profile && Object.keys(c.continuity_profile).length > 0) setContinuity(c.continuity_profile);
         if (c.housing_profile && Object.keys(c.housing_profile).length > 0) setHousing(c.housing_profile);
         if (c.education_profile && Object.keys(c.education_profile).length > 0) {
@@ -299,12 +370,16 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
     try {
       const payloads: Record<string, unknown> = {};
       if (stepIdx === 0) payloads.household_profile = household;
-      if (stepIdx === 1) { payloads.capability_profile = capability; payloads.continuity_profile = continuity; }
-      if (stepIdx === 2) payloads.housing_profile = housing;
-      if (stepIdx === 3) payloads.education_profile = education;
-      if (stepIdx === 4) { payloads.business_profile = business; payloads.financial_profile = financial; }
-      if (stepIdx === 5) { payloads.mobility_profile = mobility; payloads.family_profile = family; }
-      if (stepIdx === 6) payloads.confidentiality_profile = confidentiality;
+      if (stepIdx === 1) { payloads.capability_profile = { ...capability }; payloads.continuity_profile = continuity; }
+      if (stepIdx === 2) {
+        // Professional Profile — merge into capability_profile.professionalProfile
+        payloads.capability_profile = { ...capability, professionalProfile };
+      }
+      if (stepIdx === 3) payloads.housing_profile = housing;
+      if (stepIdx === 4) payloads.education_profile = education;
+      if (stepIdx === 5) { payloads.business_profile = business; payloads.financial_profile = financial; }
+      if (stepIdx === 6) { payloads.mobility_profile = mobility; payloads.family_profile = family; }
+      if (stepIdx === 7) payloads.confidentiality_profile = confidentiality;
 
       const res = await personaFetch(`/api/mobility/cases/${caseId}`, {
         method: 'PATCH',
@@ -316,7 +391,7 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
       setCompletedSections(json.case.intake_sections_complete ?? []);
 
       // Save critical dates on last step
-      if (stepIdx === 6) {
+      if (stepIdx === 7) {
         for (const d of criticalDates) {
           if (d.label && d.due_date) {
             await personaFetch(`/api/mobility/cases/${caseId}/dates`, {
@@ -333,7 +408,7 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [caseId, household, capability, continuity, housing, education, business, financial, mobility, family, confidentiality, criticalDates, onComplete]);
+  }, [caseId, household, capability, continuity, professionalProfile, housing, education, business, financial, mobility, family, confidentiality, criticalDates, onComplete]);
 
   const handleNext = useCallback(async () => {
     let failed = false;
@@ -401,11 +476,12 @@ export function MobilityIntakeTab({ caseId, onComplete }: Props) {
       <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-5 space-y-4">
         {step === 0 && <StepHousehold state={household} set={setHousehold} />}
         {step === 1 && <StepCapability cap={capability} setCap={setCapability} con={continuity} setCon={setContinuity} />}
-        {step === 2 && <StepHousing state={housing} set={setHousing} />}
-        {step === 3 && <StepEducation state={education} set={setEducation} />}
-        {step === 4 && <StepBusiness bus={business} setBus={setBusiness} fin={financial} setFin={setFinancial} />}
-        {step === 5 && <StepMobility mob={mobility} setMob={setMobility} fam={family} setFam={setFamily} />}
-        {step === 6 && <StepConfidentiality conf={confidentiality} setConf={setConfidentiality} dates={criticalDates} setDates={setCriticalDates} />}
+        {step === 2 && <StepProfessional caseId={caseId} profile={professionalProfile} setProfile={setProfessionalProfile} />}
+        {step === 3 && <StepHousing state={housing} set={setHousing} />}
+        {step === 4 && <StepEducation state={education} set={setEducation} />}
+        {step === 5 && <StepBusiness bus={business} setBus={setBusiness} fin={financial} setFin={setFinancial} />}
+        {step === 6 && <StepMobility mob={mobility} setMob={setMobility} fam={family} setFam={setFamily} />}
+        {step === 7 && <StepConfidentiality conf={confidentiality} setConf={setConfidentiality} dates={criticalDates} setDates={setCriticalDates} />}
       </div>
 
       {saveError && (
@@ -798,6 +874,334 @@ function StepMobility({
       <Field label="Community reintegration preferences">
         <TextArea value={fam.communityReintegrationPreferences} onChange={uf('communityReintegrationPreferences')} placeholder="Re-connecting with Dulwich community, school community, founder networks…" rows={2} />
       </Field>
+    </>
+  );
+}
+
+// ─── StepProfessional ────────────────────────────────────────────────────────
+
+function StepProfessional({
+  caseId,
+  profile,
+  setProfile,
+}: {
+  caseId: string;
+  profile: ProfessionalProfile;
+  setProfile: React.Dispatch<React.SetStateAction<ProfessionalProfile>>;
+}) {
+  const [sourceType, setSourceType] = useState<string>('linkedin');
+  const [sourceUrl, setSourceUrl]   = useState<string>('');
+  const [sourceText, setSourceText] = useState<string>('');
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
+  const [candidate, setCandidate]   = useState<Partial<ProfessionalProfile> | null>(null);
+
+  const extract = async () => {
+    if (!sourceText.trim()) return;
+    setExtracting(true);
+    setExtractError(null);
+    try {
+      const res = await personaFetch(`/api/mobility/cases/${caseId}/professional-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_type: sourceType, source_url: sourceUrl, source_text: sourceText }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? 'Extraction failed');
+      setCandidate(json.candidate);
+    } catch (e) {
+      setExtractError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const approveAll = () => {
+    if (!candidate) return;
+    const merge = (arr: ProfessionalFact[]) =>
+      arr.map(f => ({ ...f, principalApproved: true, confidence: 'PRINCIPAL_VERIFIED' as const }));
+    setProfile(p => ({
+      ...p,
+      sourceDocuments: sourceUrl
+        ? [...p.sourceDocuments, { type: sourceType, url: sourceUrl, lastVerified: new Date().toISOString() }]
+        : p.sourceDocuments,
+      currentRoles: [...p.currentRoles, ...merge((candidate.currentRoles ?? []) as ProfessionalFact[])],
+      education: [...p.education, ...merge((candidate.education ?? []) as ProfessionalFact[])],
+      publications: [...p.publications, ...merge((candidate.publications ?? []) as ProfessionalFact[])],
+      patents: [...p.patents, ...merge((candidate.patents ?? []) as ProfessionalFact[])],
+      awards: [...p.awards, ...merge((candidate.awards ?? []) as ProfessionalFact[])],
+      licenses: [...p.licenses, ...merge((candidate.licenses ?? []) as ProfessionalFact[])],
+      extraordinaryAbilityIndicators: [...p.extraordinaryAbilityIndicators, ...merge((candidate.extraordinaryAbilityIndicators ?? []) as ProfessionalFact[])],
+    }));
+    setCandidate(null);
+    setSourceText('');
+    setSourceUrl('');
+  };
+
+  const toggleApprove = (
+    category: keyof Pick<ProfessionalProfile, 'currentRoles' | 'education' | 'publications' | 'patents' | 'awards' | 'licenses' | 'extraordinaryAbilityIndicators'>,
+    factId: string,
+  ) => {
+    setProfile(p => ({
+      ...p,
+      [category]: (p[category] as ProfessionalFact[]).map(f =>
+        f.factId === factId
+          ? { ...f, principalApproved: !f.principalApproved, confidence: (!f.principalApproved ? 'PRINCIPAL_VERIFIED' : 'SOURCE_DERIVED') as FactConfidence }
+          : f
+      ),
+    }));
+  };
+
+  const removeFact = (
+    category: keyof Pick<ProfessionalProfile, 'currentRoles' | 'education' | 'publications' | 'patents' | 'awards' | 'licenses' | 'extraordinaryAbilityIndicators'>,
+    factId: string,
+  ) => {
+    setProfile(p => ({ ...p, [category]: (p[category] as ProfessionalFact[]).filter(f => f.factId !== factId) }));
+  };
+
+  const lockProfile = () => setProfile(p => ({ ...p, principalApproved: true, approvedAt: new Date().toISOString() }));
+  const unlockProfile = () => setProfile(p => ({ ...p, principalApproved: false, approvedAt: undefined }));
+
+  const approvedCount = [
+    ...profile.currentRoles, ...profile.education, ...profile.publications,
+    ...profile.patents, ...profile.awards, ...profile.licenses, ...profile.extraordinaryAbilityIndicators,
+  ].filter(f => f.principalApproved).length;
+
+  const totalCount = profile.currentRoles.length + profile.education.length + profile.publications.length +
+    profile.patents.length + profile.awards.length + profile.licenses.length + profile.extraordinaryAbilityIndicators.length;
+
+  function FactRow({ fact, category, summary }: { fact: ProfessionalFact; category: keyof Pick<ProfessionalProfile, 'currentRoles' | 'education' | 'publications' | 'patents' | 'awards' | 'licenses' | 'extraordinaryAbilityIndicators'>; summary: string }) {
+    return (
+      <div className={cls(
+        'flex items-start gap-2 rounded-lg border px-3 py-2',
+        fact.principalApproved
+          ? 'border-emerald-500/30 bg-emerald-500/5'
+          : 'border-slate-700 bg-slate-800/50',
+      )}>
+        <button
+          type="button"
+          onClick={() => toggleApprove(category, fact.factId)}
+          className={cls('mt-0.5 h-4 w-4 rounded border shrink-0 flex items-center justify-center transition-colors', fact.principalApproved ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-500')}
+        >
+          {fact.principalApproved && <CheckCircle2 className="h-3 w-3" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-slate-200">{summary}</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            {fact.confidence === 'PRINCIPAL_VERIFIED' ? '✓ Verified' : 'SOURCE_DERIVED — approve to use in SRB'}
+            {fact.sourceUrl ? ` · ${fact.sourceUrl}` : ''}
+          </p>
+        </div>
+        <button type="button" onClick={() => removeFact(category, fact.factId)} className="text-slate-600 hover:text-rose-400 shrink-0">
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Lock status */}
+      {profile.principalApproved ? (
+        <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Lock className="h-4 w-4 text-emerald-400" />
+            <div>
+              <p className="text-xs font-semibold text-emerald-200">Profile locked — {approvedCount} verified facts</p>
+              {profile.approvedAt && <p className="text-[10px] text-emerald-400/60">Locked {new Date(profile.approvedAt).toLocaleDateString()}</p>}
+            </div>
+          </div>
+          <button onClick={unlockProfile} className="text-[10px] text-slate-400 hover:text-slate-200 border border-slate-600 rounded px-2 py-1">Unlock to edit</button>
+        </div>
+      ) : totalCount > 0 ? (
+        <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+          <p className="text-xs text-amber-200">{approvedCount}/{totalCount} facts approved — lock profile to use in SRB</p>
+          <button
+            onClick={lockProfile}
+            disabled={approvedCount === 0}
+            className="flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg disabled:opacity-40 transition-colors"
+          >
+            <Lock className="h-3 w-3" /> Lock profile
+          </button>
+        </div>
+      ) : null}
+
+      {/* Source import */}
+      {!profile.principalApproved && (
+        <div className="space-y-3 rounded-lg border border-slate-700 bg-slate-800/30 p-3">
+          <p className="text-xs font-semibold text-slate-300">Import from source</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Source type">
+              <select className={inputCls} value={sourceType} onChange={e => setSourceType(e.target.value)}>
+                <option value="linkedin">LinkedIn</option>
+                <option value="cv">CV / Résumé</option>
+                <option value="patent_record">Patent record</option>
+                <option value="publication">Publication</option>
+                <option value="award_citation">Award citation</option>
+                <option value="other">Other</option>
+              </select>
+            </Field>
+            <Field label="Source URL (optional)">
+              <div className="relative">
+                <Link className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+                <input className={`${inputCls} pl-8`} value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} placeholder="https://linkedin.com/in/..." />
+              </div>
+            </Field>
+          </div>
+          <Field label="Paste source text" hint="Paste LinkedIn About + Experience section, CV text, or bio. aigentMe will extract structured facts — you approve each one.">
+            <textarea
+              className={textareaCls}
+              rows={6}
+              value={sourceText}
+              onChange={e => setSourceText(e.target.value)}
+              placeholder="Paste LinkedIn profile text, CV, patent abstract, bio, or any document text here…"
+            />
+          </Field>
+          {extractError && (
+            <p className="text-xs text-rose-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {extractError}</p>
+          )}
+          <button
+            onClick={extract}
+            disabled={extracting || !sourceText.trim()}
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
+          >
+            {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Extract & review facts
+          </button>
+        </div>
+      )}
+
+      {/* Candidate review */}
+      {candidate && !profile.principalApproved && (
+        <div className="space-y-3 rounded-lg border border-violet-500/30 bg-violet-500/5 p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-violet-200">Extracted facts — review and approve</p>
+            <button onClick={approveAll} className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded px-2 py-1">Approve all</button>
+          </div>
+          {(candidate.currentRoles ?? []).length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase">Roles</p>
+              {(candidate.currentRoles as RoleFact[]).map((f, i) => (
+                <div key={i} className="rounded border border-slate-600 bg-slate-800/50 px-3 py-2 text-xs text-slate-200">
+                  {f.title} @ {f.organization}{f.isCurrent ? ' (current)' : ''}
+                </div>
+              ))}
+            </div>
+          )}
+          {(candidate.education ?? []).length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase">Education</p>
+              {(candidate.education as EducationFact[]).map((f, i) => (
+                <div key={i} className="rounded border border-slate-600 bg-slate-800/50 px-3 py-2 text-xs text-slate-200">
+                  {f.degree || 'Study'} at {f.institution}{f.years ? ` (${f.years})` : ''}
+                </div>
+              ))}
+            </div>
+          )}
+          {(candidate.publications ?? []).length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase">Publications</p>
+              {(candidate.publications as PublicationFact[]).map((f, i) => (
+                <div key={i} className="rounded border border-slate-600 bg-slate-800/50 px-3 py-2 text-xs text-slate-200">{f.title}{f.year ? ` (${f.year})` : ''}</div>
+              ))}
+            </div>
+          )}
+          {(candidate.patents ?? []).length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase">Patents</p>
+              {(candidate.patents as PatentFact[]).map((f, i) => (
+                <div key={i} className="rounded border border-slate-600 bg-slate-800/50 px-3 py-2 text-xs text-slate-200">{f.title}{f.number ? ` (${f.number})` : ''}{f.year ? ` · ${f.year}` : ''}</div>
+              ))}
+            </div>
+          )}
+          {(candidate.awards ?? []).length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase">Awards & recognition</p>
+              {(candidate.awards as AwardFact[]).map((f, i) => (
+                <div key={i} className="rounded border border-slate-600 bg-slate-800/50 px-3 py-2 text-xs text-slate-200">{f.title}{f.issuer ? ` — ${f.issuer}` : ''}{f.year ? ` (${f.year})` : ''}</div>
+              ))}
+            </div>
+          )}
+          {(candidate.extraordinaryAbilityIndicators ?? []).length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase">Extraordinary ability indicators</p>
+              {(candidate.extraordinaryAbilityIndicators as EAIFact[]).map((f, i) => (
+                <div key={i} className="rounded border border-slate-600 bg-slate-800/50 px-3 py-2 text-xs text-slate-200">{f.description} <span className="text-slate-500">({f.category})</span></div>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-violet-300/60">Click "Approve all" to accept these facts into your profile, or approve them individually after adding.</p>
+        </div>
+      )}
+
+      {/* Approved facts */}
+      {totalCount > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Profile facts</p>
+          {profile.currentRoles.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase">Roles</p>
+              {profile.currentRoles.map(f => (
+                <FactRow key={f.factId} fact={f} category="currentRoles" summary={`${f.title} @ ${f.organization}${f.isCurrent ? ' (current)' : ''}`} />
+              ))}
+            </div>
+          )}
+          {profile.education.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase">Education</p>
+              {profile.education.map(f => (
+                <FactRow key={f.factId} fact={f} category="education" summary={`${f.degree || 'Study'} at ${f.institution}${f.years ? ` (${f.years})` : ''}`} />
+              ))}
+            </div>
+          )}
+          {profile.publications.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase">Publications</p>
+              {profile.publications.map(f => (
+                <FactRow key={f.factId} fact={f} category="publications" summary={`${f.title}${f.year ? ` (${f.year})` : ''}`} />
+              ))}
+            </div>
+          )}
+          {profile.patents.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase">Patents</p>
+              {profile.patents.map(f => (
+                <FactRow key={f.factId} fact={f} category="patents" summary={`${f.title}${f.number ? ` (${f.number})` : ''}${f.year ? ` · ${f.year}` : ''}`} />
+              ))}
+            </div>
+          )}
+          {profile.awards.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase">Awards & recognition</p>
+              {profile.awards.map(f => (
+                <FactRow key={f.factId} fact={f} category="awards" summary={`${f.title}${f.issuer ? ` — ${f.issuer}` : ''}${f.year ? ` (${f.year})` : ''}`} />
+              ))}
+            </div>
+          )}
+          {profile.licenses.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase">Licences</p>
+              {profile.licenses.map(f => (
+                <FactRow key={f.factId} fact={f} category="licenses" summary={`${f.title}${f.issuer ? ` — ${f.issuer}` : ''}${f.year ? ` (${f.year})` : ''}`} />
+              ))}
+            </div>
+          )}
+          {profile.extraordinaryAbilityIndicators.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase">Extraordinary ability indicators</p>
+              {profile.extraordinaryAbilityIndicators.map(f => (
+                <FactRow key={f.factId} fact={f} category="extraordinaryAbilityIndicators" summary={`${f.description} (${f.category})`} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {totalCount === 0 && !candidate && (
+        <p className="text-xs text-slate-500 py-4 text-center">
+          No professional facts yet. Paste source text above and click &ldquo;Extract &amp; review facts&rdquo; to begin.
+        </p>
+      )}
     </>
   );
 }
