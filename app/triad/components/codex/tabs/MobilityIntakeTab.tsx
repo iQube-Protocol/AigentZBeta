@@ -645,7 +645,7 @@ function StepConfidentiality({
         <p className="text-xs text-slate-400">
           This case is classified Black Cube by default. All information is compartmentalized.
           Agents receive only information required for their assigned workstream.
-          Agent Me functions as the family&apos;s confidentiality guardian and disclosure broker.
+          aigentMe functions as the family&apos;s confidentiality guardian and disclosure broker.
         </p>
       </div>
       <Field label="Standing protection requirements" hint="What professional or reputational standing must be protected?">

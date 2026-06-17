@@ -17,7 +17,7 @@
  *      commitment reference to landlords or school admissions without
  *      disclosing case details or classification.
  *
- * Black Cube note: no raw file URLs are surfaced. All document bytes are
+ * Black Qube note: no raw file URLs are surfaced. All document bytes are
  * encrypted before upload and stored on Walrus/Sui via the locker pipeline.
  * The locker panel shows metadata only — no download links.
  */
@@ -181,7 +181,7 @@ export function MobilityPassportPanel({ caseId, caseClassification }: Props) {
           <span className="text-sm font-semibold text-violet-200">Polity Passport — Identity Shield</span>
           {isBlackCube && (
             <span className="text-[10px] px-1.5 py-0.5 rounded border border-violet-500/30 bg-violet-500/10 text-violet-300 font-medium">
-              Black Cube
+              Black Qube
             </span>
           )}
         </div>

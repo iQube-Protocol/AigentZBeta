@@ -3,13 +3,16 @@
 /**
  * HumanMobilityServicesTab — root tab for the HMS Cartridge.
  *
- * Manages the full view state machine:
- *   list     → case list (MobilityActivationTab)
- *   intake   → MAF intake wizard (MobilityIntakeTab)
- *   overview → active case dashboard (MobilityCaseOverviewTab)
- *   housing  → Workstream B housing detail (MobilityHousingTab)
+ * View state machine:
+ *   list       → case list (MobilityActivationTab)
+ *   intake     → MAF intake wizard (MobilityIntakeTab)
+ *   overview   → active case dashboard (MobilityCaseOverviewTab)
+ *   housing    → Workstream B: Housing Acquisition
+ *   education  → Workstream C: Educational Continuity
+ *   relocation → Workstream D: Physical Relocation
  *
- * The tab is the shell. All workstream sub-views receive caseId from here.
+ * All workstream sub-views receive caseId from here via activeCaseId state.
+ * Workstreams E–G (Business, Economic, Family) are Phase 2.
  */
 
 import React, { useState } from 'react';
@@ -18,14 +21,24 @@ import { MobilityActivationTab } from './MobilityActivationTab';
 import { MobilityIntakeTab } from './MobilityIntakeTab';
 import { MobilityCaseOverviewTab } from './MobilityCaseOverviewTab';
 import { MobilityHousingTab } from './MobilityHousingTab';
+import { MobilityEducationTab } from './MobilityEducationTab';
+import { MobilityRelocationTab } from './MobilityRelocationTab';
 
-type View = 'list' | 'intake' | 'overview' | 'housing';
+type View = 'list' | 'intake' | 'overview' | 'housing' | 'education' | 'relocation';
 
 const VIEW_LABELS: Record<View, string> = {
-  list: 'All Cases',
-  intake: 'MAF Intake',
-  overview: 'Case Overview',
-  housing: 'Housing (B)',
+  list:       'All Cases',
+  intake:     'MAF Intake',
+  overview:   'Case Overview',
+  housing:    'Housing (B)',
+  education:  'Education (C)',
+  relocation: 'Relocation (D)',
+};
+
+const WORKSTREAM_VIEW: Record<string, View> = {
+  B: 'housing',
+  C: 'education',
+  D: 'relocation',
 };
 
 export function HumanMobilityServicesTab() {
@@ -46,9 +59,11 @@ export function HumanMobilityServicesTab() {
   };
 
   const parentOf: Partial<Record<View, View>> = {
-    intake: 'overview',
-    overview: 'list',
-    housing: 'overview',
+    intake:     'overview',
+    overview:   'list',
+    housing:    'overview',
+    education:  'overview',
+    relocation: 'overview',
   };
 
   const handleBack = () => {
@@ -86,12 +101,19 @@ export function HumanMobilityServicesTab() {
           caseId={activeCaseId}
           onOpenIntake={handleOpenIntake}
           onOpenWorkstream={(key) => {
-            if (key === 'B') setView('housing');
+            const target = WORKSTREAM_VIEW[key];
+            if (target) setView(target);
           }}
         />
       )}
       {view === 'housing' && activeCaseId && (
         <MobilityHousingTab caseId={activeCaseId} />
+      )}
+      {view === 'education' && activeCaseId && (
+        <MobilityEducationTab caseId={activeCaseId} />
+      )}
+      {view === 'relocation' && activeCaseId && (
+        <MobilityRelocationTab caseId={activeCaseId} />
       )}
     </div>
   );

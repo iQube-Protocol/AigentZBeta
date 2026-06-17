@@ -33,7 +33,7 @@ const CONFIDENTIALITY_TIERS = [
   { tier: 'White',      color: 'slate',  desc: 'Public information. No restrictions.' },
   { tier: 'Grey',       color: 'slate',  desc: 'Routine administrative information. Restricted disclosure.' },
   { tier: 'Black',      color: 'slate',  desc: 'Sensitive personal or financial information. Need-to-know basis.' },
-  { tier: 'Black Cube', color: 'rose',   desc: 'Information whose disclosure may create material harm to safety, standing, business interests, economic prospects, family wellbeing, or strategic opportunities. Compartmentalized by default.' },
+  { tier: 'Black Qube', color: 'rose',   desc: 'Information whose disclosure may create material harm to safety, standing, business interests, economic prospects, family wellbeing, or strategic opportunities. Compartmentalized by default.' },
 ];
 
 export function MobilityDoctrineTab() {
@@ -89,10 +89,10 @@ export function MobilityDoctrineTab() {
         <h3 className="text-sm font-semibold text-slate-200">Confidentiality Classification</h3>
         <div className="space-y-1.5">
           {CONFIDENTIALITY_TIERS.map(t => (
-            <div key={t.tier} className={cls('rounded-lg border px-3 py-2.5', t.tier === 'Black Cube' ? 'border-rose-500/30 bg-rose-500/5' : 'border-slate-700 bg-slate-900/50')}>
+            <div key={t.tier} className={cls('rounded-lg border px-3 py-2.5', t.tier === 'Black Qube' ? 'border-rose-500/30 bg-rose-500/5' : 'border-slate-700 bg-slate-900/50')}>
               <div className="flex items-center gap-2 mb-0.5">
-                {t.tier === 'Black Cube' && <Lock className="h-3 w-3 text-rose-400" />}
-                <span className={cls('text-xs font-semibold', t.tier === 'Black Cube' ? 'text-rose-300' : 'text-slate-300')}>{t.tier}</span>
+                {t.tier === 'Black Qube' && <Lock className="h-3 w-3 text-rose-400" />}
+                <span className={cls('text-xs font-semibold', t.tier === 'Black Qube' ? 'text-rose-300' : 'text-slate-300')}>{t.tier}</span>
               </div>
               <p className="text-xs text-slate-400">{t.desc}</p>
             </div>

@@ -144,7 +144,7 @@ export function MobilityActivationTab({ onSelectCase }: Props) {
       <div className="flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 px-4 py-2">
         <Shield className="h-4 w-4 text-rose-400 shrink-0" />
         <p className="text-xs text-rose-200/80">
-          <span className="font-semibold">Black Cube</span> — all case data is compartmentalized.
+          <span className="font-semibold">Black Qube</span> — all case data is compartmentalized.
           Agents receive only information required for their assigned workstream.
         </p>
       </div>
@@ -191,7 +191,7 @@ export function MobilityActivationTab({ onSelectCase }: Props) {
                         {status.label}
                       </span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/30 font-semibold">
-                        {c.classification === 'black_cube' ? 'Black Cube' : c.classification}
+                        {c.classification === 'black_cube' ? 'Black Qube' : c.classification}
                       </span>
                       {rv && (
                         <span className={cls(
