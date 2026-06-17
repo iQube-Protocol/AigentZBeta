@@ -301,7 +301,7 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream
         <div className="space-y-1.5">
           {workstreams.map(ws => {
             const statusColor = STATUS_COLOR[ws.status as keyof typeof STATUS_COLOR] ?? 'slate';
-            const hasDetail = ['B', 'C', 'D', 'E', 'F', 'G'].includes(ws.workstream_key);
+            const hasDetail = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].includes(ws.workstream_key);
             const WsWrapper = hasDetail ? 'button' : 'div';
             return (
               <WsWrapper

@@ -4,15 +4,16 @@
  * HumanMobilityServicesTab — root tab for the HMS Cartridge.
  *
  * View state machine:
- *   list       → case list (MobilityActivationTab)
- *   intake     → MAF intake wizard (MobilityIntakeTab)
- *   overview   → active case dashboard (MobilityCaseOverviewTab)
- *   housing    → Workstream B: Housing Acquisition
- *   education  → Workstream C: Educational Continuity
- *   relocation → Workstream D: Physical Relocation
- *   business   → Workstream E: Business Continuity
- *   economic   → Workstream F: Economic Reactivation
- *   family     → Workstream G: Family Stabilization
+ *   list        → case list (MobilityActivationTab)
+ *   intake      → MAF intake wizard (MobilityIntakeTab)
+ *   overview    → active case dashboard (MobilityCaseOverviewTab)
+ *   management  → Workstream A: Case Management
+ *   housing     → Workstream B: Housing Acquisition
+ *   education   → Workstream C: Educational Continuity
+ *   relocation  → Workstream D: Physical Relocation
+ *   business    → Workstream E: Business Continuity
+ *   economic    → Workstream F: Economic Reactivation
+ *   family      → Workstream G: Family Stabilization
  *
  * All workstream sub-views receive caseId from here via activeCaseId state.
  */
@@ -22,6 +23,7 @@ import { ChevronLeft } from 'lucide-react';
 import { MobilityActivationTab } from './MobilityActivationTab';
 import { MobilityIntakeTab } from './MobilityIntakeTab';
 import { MobilityCaseOverviewTab } from './MobilityCaseOverviewTab';
+import { MobilityCaseManagementTab } from './MobilityCaseManagementTab';
 import { MobilityHousingTab } from './MobilityHousingTab';
 import { MobilityEducationTab } from './MobilityEducationTab';
 import { MobilityRelocationTab } from './MobilityRelocationTab';
@@ -29,12 +31,13 @@ import { MobilityBusinessTab } from './MobilityBusinessTab';
 import { MobilityEconomicTab } from './MobilityEconomicTab';
 import { MobilityFamilyTab } from './MobilityFamilyTab';
 
-type View = 'list' | 'intake' | 'overview' | 'housing' | 'education' | 'relocation' | 'business' | 'economic' | 'family';
+type View = 'list' | 'intake' | 'overview' | 'management' | 'housing' | 'education' | 'relocation' | 'business' | 'economic' | 'family';
 
 const VIEW_LABELS: Record<View, string> = {
   list:       'All Cases',
   intake:     'MAF Intake',
   overview:   'Case Overview',
+  management: 'Case Management (A)',
   housing:    'Housing (B)',
   education:  'Education (C)',
   relocation: 'Relocation (D)',
@@ -44,6 +47,7 @@ const VIEW_LABELS: Record<View, string> = {
 };
 
 const WORKSTREAM_VIEW: Record<string, View> = {
+  A: 'management',
   B: 'housing',
   C: 'education',
   D: 'relocation',
@@ -72,6 +76,7 @@ export function HumanMobilityServicesTab() {
   const parentOf: Partial<Record<View, View>> = {
     intake:     'overview',
     overview:   'list',
+    management: 'overview',
     housing:    'overview',
     education:  'overview',
     relocation: 'overview',
@@ -119,6 +124,9 @@ export function HumanMobilityServicesTab() {
             if (target) setView(target);
           }}
         />
+      )}
+      {view === 'management' && activeCaseId && (
+        <MobilityCaseManagementTab caseId={activeCaseId} />
       )}
       {view === 'housing' && activeCaseId && (
         <MobilityHousingTab caseId={activeCaseId} />
