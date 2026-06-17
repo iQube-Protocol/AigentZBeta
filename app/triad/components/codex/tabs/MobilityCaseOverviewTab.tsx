@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Calendar,
   ArrowRight,
+  ChevronRight,
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 
@@ -107,9 +108,10 @@ const SECTION_LABELS: Record<string, string> = {
 interface Props {
   caseId: string;
   onOpenIntake?: () => void;
+  onOpenWorkstream?: (key: string) => void;
 }
 
-export function MobilityCaseOverviewTab({ caseId, onOpenIntake }: Props) {
+export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream }: Props) {
   const [caseData, setCaseData] = useState<CaseDetail | null>(null);
   const [workstreams, setWorkstreams] = useState<Workstream[]>([]);
   const [criticalDates, setCriticalDates] = useState<CriticalDate[]>([]);
@@ -295,10 +297,16 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake }: Props) {
         <div className="space-y-1.5">
           {workstreams.map(ws => {
             const statusColor = STATUS_COLOR[ws.status as keyof typeof STATUS_COLOR] ?? 'slate';
+            const hasDetail = ws.workstream_key === 'B';
+            const WsWrapper = hasDetail ? 'button' : 'div';
             return (
-              <div
+              <WsWrapper
                 key={ws.id}
-                className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2.5"
+                {...(hasDetail ? { onClick: () => onOpenWorkstream?.(ws.workstream_key) } : {})}
+                className={cls(
+                  'flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2.5 w-full text-left',
+                  hasDetail ? 'hover:border-emerald-500/30 hover:bg-slate-800/60 transition-all cursor-pointer group' : '',
+                )}
               >
                 <span className="shrink-0 text-slate-400">{WORKSTREAM_ICONS[ws.workstream_key]}</span>
                 <div className="flex-1 min-w-0">
@@ -315,8 +323,11 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake }: Props) {
                   )}>
                     {ws.status}
                   </span>
+                  {hasDetail && (
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                  )}
                 </div>
-              </div>
+              </WsWrapper>
             );
           })}
         </div>

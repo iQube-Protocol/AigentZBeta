@@ -3,22 +3,30 @@
 /**
  * HumanMobilityServicesTab — root tab for the HMS Cartridge.
  *
- * Manages the three-view state machine:
- *   list  → case list (MobilityActivationTab)
- *   intake → MAF intake wizard (MobilityIntakeTab)
- *   case  → active case dashboard (MobilityCaseOverviewTab)
+ * Manages the full view state machine:
+ *   list     → case list (MobilityActivationTab)
+ *   intake   → MAF intake wizard (MobilityIntakeTab)
+ *   overview → active case dashboard (MobilityCaseOverviewTab)
+ *   housing  → Workstream B housing detail (MobilityHousingTab)
  *
- * The tab is the shell. It never fetches data directly — it delegates
- * to the three child views.
+ * The tab is the shell. All workstream sub-views receive caseId from here.
  */
 
 import React, { useState } from 'react';
-import { Home, ChevronLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { MobilityActivationTab } from './MobilityActivationTab';
 import { MobilityIntakeTab } from './MobilityIntakeTab';
 import { MobilityCaseOverviewTab } from './MobilityCaseOverviewTab';
+import { MobilityHousingTab } from './MobilityHousingTab';
 
-type View = 'list' | 'intake' | 'case';
+type View = 'list' | 'intake' | 'overview' | 'housing';
+
+const VIEW_LABELS: Record<View, string> = {
+  list: 'All Cases',
+  intake: 'MAF Intake',
+  overview: 'Case Overview',
+  housing: 'Housing (B)',
+};
 
 export function HumanMobilityServicesTab() {
   const [view, setView] = useState<View>('list');
@@ -26,7 +34,7 @@ export function HumanMobilityServicesTab() {
 
   const handleSelectCase = (caseId: string) => {
     setActiveCaseId(caseId);
-    setView('case');
+    setView('overview');
   };
 
   const handleOpenIntake = () => {
@@ -34,27 +42,36 @@ export function HumanMobilityServicesTab() {
   };
 
   const handleIntakeComplete = () => {
-    if (activeCaseId) setView('case');
+    if (activeCaseId) setView('overview');
   };
 
-  const breadcrumb = view !== 'list';
+  const parentOf: Partial<Record<View, View>> = {
+    intake: 'overview',
+    overview: 'list',
+    housing: 'overview',
+  };
+
+  const handleBack = () => {
+    const parent = parentOf[view];
+    if (parent) setView(parent);
+  };
+
+  const showBreadcrumb = view !== 'list';
 
   return (
     <div className="h-full overflow-auto">
       {/* Back nav */}
-      {breadcrumb && (
+      {showBreadcrumb && (
         <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-800 bg-slate-950/90 px-4 py-2 backdrop-blur">
           <button
-            onClick={() => setView(view === 'intake' && activeCaseId ? 'case' : 'list')}
+            onClick={handleBack}
             className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
-            {view === 'intake' ? 'Back to case' : 'All cases'}
+            {VIEW_LABELS[parentOf[view] ?? 'list']}
           </button>
           <span className="text-slate-600">/</span>
-          <span className="text-xs text-slate-300">
-            {view === 'intake' ? 'MAF Intake' : 'Case Overview'}
-          </span>
+          <span className="text-xs text-slate-300">{VIEW_LABELS[view]}</span>
         </div>
       )}
 
@@ -64,8 +81,17 @@ export function HumanMobilityServicesTab() {
       {view === 'intake' && activeCaseId && (
         <MobilityIntakeTab caseId={activeCaseId} onComplete={handleIntakeComplete} />
       )}
-      {view === 'case' && activeCaseId && (
-        <MobilityCaseOverviewTab caseId={activeCaseId} onOpenIntake={handleOpenIntake} />
+      {view === 'overview' && activeCaseId && (
+        <MobilityCaseOverviewTab
+          caseId={activeCaseId}
+          onOpenIntake={handleOpenIntake}
+          onOpenWorkstream={(key) => {
+            if (key === 'B') setView('housing');
+          }}
+        />
+      )}
+      {view === 'housing' && activeCaseId && (
+        <MobilityHousingTab caseId={activeCaseId} />
       )}
     </div>
   );
