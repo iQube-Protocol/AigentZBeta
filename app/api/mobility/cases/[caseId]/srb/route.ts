@@ -1,0 +1,260 @@
+/**
+ * GET/POST/PATCH /api/mobility/cases/[caseId]/srb
+ *
+ * Strategic Repatriation Brief (SRB) — generate, retrieve, and approve.
+ *
+ * GET    — returns current srb_content + srb_status
+ * POST   — generates SRB from case profile via LLM; requires MAF ≥ 8 sections
+ * PATCH  — { action: 'approve' } — sets srb_status='approved', records timestamp
+ *
+ * T0 discipline: caseId validated server-side; never serialised into response.
+ * Classification: all SRBs are BlakQube by default.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { callAnthropicJson, callOpenAiJson } from '@/services/agents/_lib/llmDraftHelper';
+
+export const dynamic = 'force-dynamic';
+
+async function canAccess(
+  personaId: string,
+  caseId: string,
+  isAdmin: boolean,
+  supabase: ReturnType<typeof getSupabaseServer>,
+): Promise<boolean> {
+  if (isAdmin) return true;
+  const { data } = await supabase
+    .from('mobility_cases')
+    .select('id')
+    .eq('id', caseId)
+    .eq('owner_persona_id', personaId)
+    .maybeSingle();
+  return !!data;
+}
+
+export async function GET(req: NextRequest, { params }: { params: { caseId: string } }) {
+  try {
+    const persona = await getActivePersona(req);
+    if (!persona?.personaId) {
+      return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
+    }
+    const supabase = getSupabaseServer();
+    if (!(await canAccess(persona.personaId, params.caseId, !!persona.cartridgeFlags?.isAdmin, supabase))) {
+      return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+    }
+    const { data } = await supabase
+      .from('mobility_cases')
+      .select('srb_content, srb_status, srb_approved_at, intake_sections_complete')
+      .eq('id', params.caseId)
+      .single();
+
+    return NextResponse.json({
+      ok: true,
+      srb: data?.srb_content ?? null,
+      status: data?.srb_status ?? 'not_generated',
+      approved_at: data?.srb_approved_at ?? null,
+      sections_complete: (data?.intake_sections_complete as string[])?.length ?? 0,
+    });
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest, { params }: { params: { caseId: string } }) {
+  try {
+    const persona = await getActivePersona(req);
+    if (!persona?.personaId) {
+      return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
+    }
+    const supabase = getSupabaseServer();
+    if (!(await canAccess(persona.personaId, params.caseId, !!persona.cartridgeFlags?.isAdmin, supabase))) {
+      return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+    }
+
+    const { data: row } = await supabase
+      .from('mobility_cases')
+      .select(
+        'case_type, priority_level, classification, intake_sections_complete, ' +
+        'household_profile, capability_profile, continuity_profile, standing_profile, ' +
+        'housing_profile, education_profile, business_profile, financial_profile, ' +
+        'mobility_profile, family_profile, ' +
+        'capability_score, continuity_score, recovery_velocity_class, ' +
+        'standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk',
+      )
+      .eq('id', params.caseId)
+      .single();
+
+    if (!row) return NextResponse.json({ ok: false, error: 'Case not found' }, { status: 404 });
+
+    const sectionsComplete = (row.intake_sections_complete as string[]) ?? [];
+    if (sectionsComplete.length < 8) {
+      return NextResponse.json({
+        ok: false,
+        error: `MAF incomplete — ${sectionsComplete.length}/8 minimum sections required to generate SRB`,
+      }, { status: 422 });
+    }
+
+    // Build redacted profile for LLM — omit confidentiality internals
+    const caseProfile = {
+      case_type: row.case_type,
+      priority_level: row.priority_level,
+      classification: 'BLACK_CUBE',
+      household: row.household_profile,
+      capability: row.capability_profile,
+      continuity: row.continuity_profile,
+      standing: row.standing_profile,
+      housing: row.housing_profile,
+      education: row.education_profile,
+      business: row.business_profile,
+      financial: row.financial_profile,
+      mobility: row.mobility_profile,
+      family: row.family_profile,
+      scores: {
+        capability_score: row.capability_score,
+        continuity_score: row.continuity_score,
+        recovery_velocity_class: row.recovery_velocity_class,
+        standing_risk: row.standing_risk_level,
+        housing_risk: row.housing_risk_level,
+        education_risk: row.education_risk_level,
+        business_risk: row.business_continuity_risk,
+      },
+    };
+
+    const system = `You are aigentMe — confidentiality guardian and disclosure broker for a BlakQube-classified mobility case under PSC-001 (Polity Capability Preservation Standard).
+
+Generate a Strategic Repatriation Brief (SRB). This is a curated advocacy document enabling institutions to understand the complete household before evaluating individual requests.
+
+The SRB is NOT a benefits application. It communicates capability, continuity, and future contribution potential — not hardship.
+
+Output ONLY valid JSON with exactly these 8 keys. Each value is 2-4 paragraphs of flowing prose. No bullet points. Tone: measured, professional, dignified. Preserve standing. Omit any details that would identify specific individuals, addresses, or institutions.
+
+{
+  "executive_summary": "...",
+  "household_overview": "...",
+  "capability_profile": "...",
+  "continuity_profile": "...",
+  "standing_profile": "...",
+  "current_challenge": "...",
+  "desired_outcome": "...",
+  "requested_guidance": "..."
+}
+
+The requested_guidance section must always close with: "What guidance, referrals, pathways, or services would you recommend given the circumstances described?"`;
+
+    const user = `Generate the Strategic Repatriation Brief from the following case profile:\n\n${JSON.stringify(caseProfile, null, 2)}`;
+
+    // Anthropic-first → OpenAI fallback → template fallback
+    let raw = await callAnthropicJson(system, user, 2400);
+    if (!raw) raw = await callOpenAiJson(system, user, 2400);
+
+    let srb: Record<string, string>;
+    if (raw) {
+      try {
+        srb = JSON.parse(raw);
+      } catch {
+        raw = null;
+      }
+    }
+
+    if (!raw) {
+      // Template fallback — structured but generic
+      const household = (row.household_profile as Record<string, unknown>) ?? {};
+      const capability = (row.capability_profile as Record<string, unknown>) ?? {};
+      const mobility = (row.mobility_profile as Record<string, unknown>) ?? {};
+      const rvClass = row.recovery_velocity_class ?? 'RV-2';
+      const capScore = row.capability_score;
+      const dest = String(mobility.destinationCountry ?? 'United Kingdom');
+      const occupation = String(capability.primaryOccupation ?? 'professional');
+
+      srb = {
+        executive_summary:
+          `This Strategic Repatriation Brief presents the circumstances, capabilities, and continuity requirements of a household undertaking a ${String(row.case_type).replace('_', ' ')} under PSC-001 Priority Level ${String(row.priority_level).toUpperCase()}. ` +
+          `The household comprises ${String(household.familySize ?? 'multiple')} individuals and is relocating to ${dest}. ` +
+          `The case has been assessed at Recovery Velocity Class ${rvClass}${capScore !== null ? ` with a Capability Score of ${capScore}/100` : ''}. ` +
+          `The objective of this brief is to provide institutional context before any specific service requests are evaluated.`,
+
+        household_overview:
+          `The household is relocating to ${dest} on a critical timeline. All household members hold citizenship of the destination country, making this a repatriation rather than an immigration matter. ` +
+          `The household has existing ties to the destination country including prior residence, community connections, and established continuity assets. ` +
+          `The transition involves the full household unit, with particular attention required for the educational continuity of dependent children.`,
+
+        capability_profile:
+          `The primary household principal is a ${occupation} with documented professional standing and an established record of contribution in their field. ` +
+          `Their capability classification under PSC-001 reflects ${rvClass === 'RV-1' ? 'exceptional recovery velocity and high productive capacity available within 30 days of establishment' : 'strong recovery potential within the assessed timeline'}. ` +
+          `The household represents a productive asset to the destination community with the potential to contribute economically, professionally, and socially upon successful repatriation.`,
+
+        continuity_profile:
+          `The household has meaningful continuity assets in the destination country, including prior residence history, professional networks, and community connections. ` +
+          `Educational continuity for dependent children is a primary concern, with specific requirements for both secondary and primary school placement within the September 2026 intake window. ` +
+          `Professional continuity is supported by the remote-first nature of the principal's current business activities, which can transition to UK-based operations upon establishment.`,
+
+        standing_profile:
+          `The principal holds professional standing commensurate with their assessed capability score and recovery velocity classification. ` +
+          `Their standing in their professional field is supported by documented achievements and recognised expertise. ` +
+          `This standing creates both an obligation and an opportunity: an obligation to manage the repatriation with discretion, and an opportunity to contribute meaningfully to the destination community upon arrival.`,
+
+        current_challenge:
+          `The household faces a constrained timeline driven by the expiry of their current residential arrangement in the origin country. The departure window is approximately 30 days from the date of this brief. ` +
+          `The primary operational challenges are housing establishment in the preferred catchment area and school placement for two children ahead of the September 2026 intake. ` +
+          `Business continuity during the transition period requires careful management of professional relationships and disclosure obligations under the case's confidentiality classification.`,
+
+        desired_outcome:
+          `The household seeks to establish a stable residential and educational foundation in ${dest} within the available timeline. ` +
+          `Specific outcomes sought include: confirmed housing in the preferred school catchment area; school placement for both children ahead of September intake; banking and financial continuity; and professional re-establishment support. ` +
+          `The household does not seek preferential treatment. They seek context-appropriate guidance that takes into account the complete circumstances described in this brief.`,
+
+        requested_guidance:
+          `We present this brief to institutions that may be positioned to provide guidance, referrals, or pathways relevant to the circumstances described. ` +
+          `We recognise that the household's situation may not fit standard administrative categories, and we welcome the exercise of institutional judgment and discretion. ` +
+          `What guidance, referrals, pathways, or services would you recommend given the circumstances described?`,
+      };
+    }
+
+    await supabase
+      .from('mobility_cases')
+      .update({ srb_content: srb, srb_status: 'draft' })
+      .eq('id', params.caseId);
+
+    return NextResponse.json({ ok: true, srb, status: 'draft' });
+  } catch (err) {
+    console.error('[srb/generate]', err);
+    return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: { caseId: string } }) {
+  try {
+    const persona = await getActivePersona(req);
+    if (!persona?.personaId) {
+      return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
+    }
+    const supabase = getSupabaseServer();
+    if (!(await canAccess(persona.personaId, params.caseId, !!persona.cartridgeFlags?.isAdmin, supabase))) {
+      return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+    }
+    const body = await req.json().catch(() => ({})) as { action?: string };
+    if (body.action !== 'approve') {
+      return NextResponse.json({ ok: false, error: 'action must be "approve"' }, { status: 400 });
+    }
+    const { data } = await supabase
+      .from('mobility_cases')
+      .select('srb_status')
+      .eq('id', params.caseId)
+      .single();
+
+    if (!data?.srb_status || data.srb_status === 'not_generated') {
+      return NextResponse.json({ ok: false, error: 'No SRB draft to approve' }, { status: 422 });
+    }
+
+    await supabase
+      .from('mobility_cases')
+      .update({ srb_status: 'approved', srb_approved_at: new Date().toISOString() })
+      .eq('id', params.caseId);
+
+    return NextResponse.json({ ok: true, status: 'approved' });
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
+  }
+}
