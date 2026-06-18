@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-18T21:48:44.224Z",
+  "last_updated": "2026-06-18T22:44:27.279Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "104cfc7a165c9ea71b385b048cdcc63d7d2dd333",
-  "latest_commit_short": "104cfc7",
-  "latest_commit_title": "fix Open Experience button: route to consumer viewer instead of re-opening runtime",
+  "latest_commit": "239cee4e309089336dcf8c710826aeba81295f80",
+  "latest_commit_short": "239cee4",
+  "latest_commit_title": "fix runtime regression: render consumer task runner for admins too",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "239cee4",
+      "full_sha": "239cee4e309089336dcf8c710826aeba81295f80",
+      "title": "fix runtime regression: render consumer task runner for admins too",
+      "author": "Claude",
+      "timestamp": "2026-06-18T22:40:27Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-239cee4.md"
+    },
+    {
+      "sha": "812fe7e",
+      "full_sha": "812fe7e005470a4b51d69463893b5205f8ff8277",
+      "title": "trigger deploy to dev: runtime consumer task runner regression fix",
+      "author": "Claude",
+      "timestamp": "2026-06-18T22:43:07Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-812fe7e.md"
+    },
     {
       "sha": "104cfc7",
       "full_sha": "104cfc7a165c9ea71b385b048cdcc63d7d2dd333",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-03T05:47:09Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b6b73af.md"
-    },
-    {
-      "sha": "710fd94",
-      "full_sha": "710fd94b2e0ce39bd933fc9069c26646b757919b",
-      "title": "Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union",
-      "author": "Claude",
-      "timestamp": "2026-06-02T23:26:34Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-710fd94.md"
-    },
-    {
-      "sha": "2e9022f",
-      "full_sha": "2e9022fdab8000b5bc318952ce11233a7e7f556a",
-      "title": "MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable",
-      "author": "Claude",
-      "timestamp": "2026-06-02T23:21:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2e9022f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

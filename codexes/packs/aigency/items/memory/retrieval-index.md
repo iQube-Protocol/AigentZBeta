@@ -2429,3 +2429,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-104cfc7.md](../build_/COMMITS/COMMIT-104cfc7.md)
 - Message: fix Open Experience button: route to consumer viewer instead of re-opening runtime
+
+## Commit `812fe7e` — 2026-06-18T22:43:07Z
+- Type: `fix`
+- Brief: [COMMIT-812fe7e.md](../build_/COMMITS/COMMIT-812fe7e.md)
+- Message: trigger deploy to dev: runtime consumer task runner regression fix
+
+## Commit `239cee4` — 2026-06-18T22:40:27Z
+- Type: `fix`
+- Brief: [COMMIT-239cee4.md](../build_/COMMITS/COMMIT-239cee4.md)
+- Message: fix runtime regression: render consumer task runner for admins too
