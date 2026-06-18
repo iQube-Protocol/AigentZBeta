@@ -176,9 +176,50 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
     const children = Array.isArray(eduProfile.children) ? eduProfile.children as Record<string, unknown>[] : [];
     const childrenSummary = children.length > 0
       ? children.map((c, i) =>
-          `Child ${i + 1}: age ${c.age ?? 'UNKNOWN'}, target school: ${c.targetSchool || 'UNKNOWN'}, current school: ${c.currentSchool || 'UNKNOWN'}`
+          `Child ${i + 1}: age ${c.age ?? 'UNKNOWN'}, current grade: ${c.currentGrade || 'UNKNOWN'}, UK year group: ${c.yearGroup || 'UNKNOWN'}, target school: ${c.targetSchool || 'UNKNOWN'}, current school: ${c.currentSchool || 'UNKNOWN'}`
         ).join('; ')
       : (eduProfile.childrenDetails ? String(eduProfile.childrenDetails) : 'UNKNOWN');
+
+    // Extract PRINCIPAL_VERIFIED professional facts only
+    const capProfile = (row.capability_profile as Record<string, unknown>) ?? {};
+    const profProfile = capProfile.professionalProfile as Record<string, unknown> | undefined;
+    const verifiedFacts = profProfile?.principalApproved === true ? profProfile : null;
+
+    const buildVerifiedSummary = (arr: unknown[], formatter: (f: Record<string, unknown>) => string) =>
+      Array.isArray(arr)
+        ? arr.filter((f: unknown) => (f as Record<string, unknown>).principalApproved).map(f => formatter(f as Record<string, unknown>))
+        : [];
+
+    const verifiedRoles = verifiedFacts
+      ? buildVerifiedSummary(verifiedFacts.currentRoles as unknown[], f => `${f.title} at ${f.organization}${f.isCurrent ? ' (current)' : ''}`)
+      : [];
+    const verifiedEdu = verifiedFacts
+      ? buildVerifiedSummary(verifiedFacts.education as unknown[], f => `${f.degree || 'Study'} at ${f.institution}${f.years ? ` (${f.years})` : ''}`)
+      : [];
+    const verifiedPubs = verifiedFacts
+      ? buildVerifiedSummary(verifiedFacts.publications as unknown[], f => `${f.title}${f.year ? ` (${f.year})` : ''}`)
+      : [];
+    const verifiedPatents = verifiedFacts
+      ? buildVerifiedSummary(verifiedFacts.patents as unknown[], f => `${f.title}${f.number ? ` (${f.number})` : ''}${f.year ? ` · ${f.year}` : ''}`)
+      : [];
+    const verifiedAwards = verifiedFacts
+      ? buildVerifiedSummary(verifiedFacts.awards as unknown[], f => `${f.title}${f.issuer ? ` — ${f.issuer}` : ''}${f.year ? ` (${f.year})` : ''}`)
+      : [];
+    const verifiedEAIs = verifiedFacts
+      ? buildVerifiedSummary(verifiedFacts.extraordinaryAbilityIndicators as unknown[], f => `${f.description} [${f.category}]`)
+      : [];
+
+    const professionalFactsBlock = verifiedFacts
+      ? `
+PRINCIPAL-VERIFIED PROFESSIONAL FACTS (use these verbatim in the capability_profile and standing_profile sections):
+${verifiedRoles.length > 0 ? `Roles: ${verifiedRoles.join('; ')}` : ''}
+${verifiedEdu.length > 0 ? `Education: ${verifiedEdu.join('; ')}` : ''}
+${verifiedPubs.length > 0 ? `Publications: ${verifiedPubs.join('; ')}` : ''}
+${verifiedPatents.length > 0 ? `Patents: ${verifiedPatents.join('; ')}` : ''}
+${verifiedAwards.length > 0 ? `Awards/Recognition: ${verifiedAwards.join('; ')}` : ''}
+${verifiedEAIs.length > 0 ? `Extraordinary ability indicators: ${verifiedEAIs.join('; ')}` : ''}
+These facts are PRINCIPAL_VERIFIED — use them as stated, do not rephrase or embellish.`
+      : 'No principal-verified professional facts available — derive capability description only from capability_profile.role and capability_profile.industrySectors.';
 
     const system = `You are aigentMe — confidentiality guardian and disclosure broker for a BlakQube-classified mobility case under PSC-001 (Polity Capability Preservation Standard).
 
@@ -188,11 +229,12 @@ DETERMINISTIC CASE MODEL — CRITICAL NON-FABRICATION RULES:
 3. Do NOT assume financial standing, wealth, or economic resilience from professional standing or visa history.
 4. Do NOT assume educational history, school names, or pathways not explicitly provided.
 5. Child ages MUST come only from the structured children array — currently: ${childrenSummary}. Do not write any other ages.
-6. Professional discipline MUST come from capability.role + capability.industrySectors/sector — do not embellish beyond what is explicitly stated.
+6. Professional discipline MUST come from the PRINCIPAL-VERIFIED PROFESSIONAL FACTS block below, then capability.role + capability.industrySectors/sector. Do not embellish beyond what is explicitly stated.
 7. Financial status MUST come from the financial profile fields — if liquidityLevel and liquidityRange are both absent, write UNKNOWN for financial standing.
 8. School names appearing in the SRB must match exactly what is in the children[].targetSchool fields or continuity_profile — never invent school names.
 9. This is a deterministic report, not a narrative story. Every sentence must reference explicit case data.
 10. The SRB is NOT a benefits application. Communicate capability, continuity, and future contribution — not hardship.
+${professionalFactsBlock}
 
 Generate a Strategic Repatriation Brief (SRB). This is a curated advocacy document enabling institutions to understand the complete household before evaluating individual requests.
 
