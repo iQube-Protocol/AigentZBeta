@@ -288,6 +288,9 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
   const [generating, setGenerating] = useState(false);
   const [generatedOutput, setGeneratedOutput] = useState<string | null>(null);
 
+  // Vault (Walrus/Sui) per evidence
+  const [vaulting, setVaulting] = useState<Record<string, boolean>>({});
+
   // Link case
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [linking, setLinking] = useState(false);
@@ -422,6 +425,28 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
       setError('Extraction network error');
     } finally {
       setExtracting(prev => ({ ...prev, [evidenceId]: false }));
+    }
+  }
+
+  // Vault evidence to Standing Vault (Walrus/Sui)
+  async function handleVault(evidenceId: string) {
+    if (!activeProfile) return;
+    setVaulting(prev => ({ ...prev, [evidenceId]: true }));
+    try {
+      const res = await personaFetch(
+        `/api/vsp/profiles/${activeProfile.id}/evidence/${evidenceId}/vault`,
+        { method: 'POST' },
+      );
+      const json = await res.json();
+      if (json.ok) {
+        await loadProfile(activeProfile.id);
+      } else {
+        setError(json.error ?? 'Vault failed');
+      }
+    } catch {
+      setError('Vault network error');
+    } finally {
+      setVaulting(prev => ({ ...prev, [evidenceId]: false }));
     }
   }
 
@@ -821,14 +846,31 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleExtract(ev.id)}
-                      disabled={extracting[ev.id] || ev.extraction_status === 'extracting'}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-300 text-xs rounded-lg transition-colors shrink-0"
-                    >
-                      {extracting[ev.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                      Extract Facts
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {ev.storage_backend === 'sui_locker' ? (
+                        <span className="flex items-center gap-1 text-xs text-violet-400 font-mono px-2 py-1 bg-violet-900/30 rounded-lg">
+                          <Lock className="w-3 h-3" /> Vaulted
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleVault(ev.id)}
+                          disabled={vaulting[ev.id]}
+                          title="Encrypt and store in Standing Vault (Walrus/Sui)"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-700 hover:bg-violet-800 disabled:opacity-50 text-slate-400 hover:text-white text-xs rounded-lg transition-colors"
+                        >
+                          {vaulting[ev.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Lock className="w-3 h-3" />}
+                          Vault
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleExtract(ev.id)}
+                        disabled={extracting[ev.id] || ev.extraction_status === 'extracting'}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-300 text-xs rounded-lg transition-colors"
+                      >
+                        {extracting[ev.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        Extract Facts
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
