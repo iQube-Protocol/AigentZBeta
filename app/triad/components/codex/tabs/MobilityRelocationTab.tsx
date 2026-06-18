@@ -245,7 +245,7 @@ export function MobilityRelocationTab({ caseId }: Props) {
           <Plane className={cls('h-5 w-5 shrink-0', isUrgent ? 'text-amber-400' : 'text-slate-400')} />
           <div className="flex-1">
             <p className={cls('text-sm font-semibold', isUrgent ? 'text-amber-200' : 'text-slate-200')}>
-              Target Arrival — London
+              Target Arrival — {mobilityProfile?.destinationCountry ?? 'UK'}
             </p>
             <p className="text-xs text-slate-400">
               {new Date(arrivalDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
