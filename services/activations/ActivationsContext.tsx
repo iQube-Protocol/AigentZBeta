@@ -104,17 +104,21 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
     personaRef.current = personaId;
   }, [personaId]);
 
+  // Mutation generation counter — incremented when a mutation starts,
+  // checked when a background refresh completes. Prevents stale refresh
+  // responses (fired by the personaId useEffect or a prior mutation) from
+  // overwriting optimistic state set by an in-flight mutation.
+  const mutationGenRef = useRef(0);
+
   const refresh = useCallback(async () => {
     const pid = personaRef.current;
     if (!pid) {
       setLoading(false);
       return;
     }
+    const genAtStart = mutationGenRef.current;
     setLoading(true);
     try {
-      // Cache-bust the URL: identical-URL GETs in rapid succession can
-      // dedupe at the browser/edge layer despite `Cache-Control: no-store`.
-      // A per-call `_t` query param guarantees a unique URL → unique request.
       const url = `/api/assistant/activations?_t=${Date.now()}`;
       const res = await personaFetch(url, {
         personaIdHint: pid,
@@ -122,9 +126,6 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        // 401 = the spine rejected the call because no valid Supabase Bearer
-        // token reached it from this browsing context (personaFetch found no
-        // session). Surface an actionable message instead of a bare status.
         if (res.status === 401) {
           throw new Error(
             'Not signed in for this window — the activations API needs your Supabase session. Sign in at dev-beta (or reload after signing in) and try again.',
@@ -134,7 +135,11 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
       }
       const data = (await res.json()) as { activations: ActivationSurface[] };
       if (Array.isArray(data.activations)) {
-        setSurfaces(() => data.activations);
+        // Only apply server data if no mutation started while we were
+        // fetching — otherwise the optimistic state is more recent.
+        if (mutationGenRef.current === genAtStart) {
+          setSurfaces(() => data.activations);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -152,6 +157,10 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
     async (id: string, action: ActivationAction) => {
       const pid = personaRef.current;
       if (!pid) return;
+
+      // Bump the generation so any in-flight refresh() calls discard
+      // their results rather than overwriting our optimistic state.
+      mutationGenRef.current += 1;
 
       setMutatingIds((prev) => {
         const next = new Set(prev);
@@ -195,7 +204,9 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
           }
           throw new Error((body as { detail?: string }).detail ?? `mutation failed (${res.status})`);
         }
-        // Server confirms — re-sync from /api/assistant/activations.
+        // Server confirms — bump gen again so the refresh we're about to
+        // fire is the authoritative read, and schedule the re-sync.
+        mutationGenRef.current += 1;
         await refresh();
       } catch (err) {
         // Revert optimistic write.
