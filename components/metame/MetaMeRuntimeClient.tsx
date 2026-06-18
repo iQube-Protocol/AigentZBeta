@@ -3347,7 +3347,7 @@ export default function MetaMeRuntimeClient() {
                         <RefreshCw className="h-5 w-5" />
                       </a>
                     ) : null}
-                    {embedMode && consumerExperienceHref ? (
+                    {embedMode && runtimeAdminMode && consumerExperienceHref ? (
                       <a
                         href={consumerExperienceHref}
                         target="_blank"
@@ -3506,7 +3506,7 @@ export default function MetaMeRuntimeClient() {
               <RuntimeArticlePanel articleDraft={articleDraft} anchorId={articleAnchorId} />
             ) : null}
 
-            {embedMode && (() => {
+            {embedMode && runtimeAdminMode && (() => {
               const makeBundle = asRecord(content.configuration?.make_bundle);
               const blockKinds = Array.isArray(makeBundle?.blockKinds) ? makeBundle.blockKinds as string[] : [];
               const blockStatuses = asRecord(makeBundle?.block_statuses);
@@ -4094,7 +4094,7 @@ export default function MetaMeRuntimeClient() {
                         {embedMode && content.runtimeSource === "experience" && (receiptHref || regenerateHref) ? (
                           <span className="mx-0.5 h-3 w-px bg-white/20" aria-hidden="true" />
                         ) : null}
-                        {embedMode && content.runtimeSource === "experience" && receiptHref ? (
+                        {embedMode && runtimeAdminMode && content.runtimeSource === "experience" && receiptHref ? (
                           <a
                             href={receiptHref}
                             target="_top"
@@ -4106,7 +4106,7 @@ export default function MetaMeRuntimeClient() {
                             <FileText className="h-3.5 w-3.5" />
                           </a>
                         ) : null}
-                        {embedMode && content.runtimeSource === "experience" && regenerateHref ? (
+                        {embedMode && runtimeAdminMode && content.runtimeSource === "experience" && regenerateHref ? (
                           <a
                             href={regenerateHref}
                             target="_top"
@@ -4122,14 +4122,17 @@ export default function MetaMeRuntimeClient() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            if (consumerExperienceHref) {
+                            // Consumers (non-admin) render inline only — the external
+                            // /studio/composer/experience page is a platform route that
+                            // 404s on the thin-client origin. Admins keep the pop-out.
+                            if (consumerExperienceHref && runtimeAdminMode) {
                               window.open(consumerExperienceHref, "_blank", "noopener,noreferrer");
                             } else {
                               launchCapsule(content);
                             }
                           }}
                           className="rounded-full border border-white/15 bg-slate-900/50 p-1.5 text-white/55 hover:text-white/80"
-                          title="Open in new window"
+                          title={runtimeAdminMode ? "Open in new window" : "Open experience"}
                         >
                           <SquareArrowOutUpRight className="h-3.5 w-3.5" />
                         </button>
