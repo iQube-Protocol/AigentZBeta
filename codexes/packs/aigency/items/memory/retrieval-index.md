@@ -2369,3 +2369,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-eff22bc.md](../build_/COMMITS/COMMIT-eff22bc.md)
 - Message: flip steward queue cards to decided state after approve/deny
+
+## Commit `4d66986` — 2026-06-16T16:30:03Z
+- Type: `push`
+- Brief: [COMMIT-4d66986.md](../build_/COMMITS/COMMIT-4d66986.md)
+- Message: Phase 4 MVP — Bureau recommendation rights gated by Stewardship Standing

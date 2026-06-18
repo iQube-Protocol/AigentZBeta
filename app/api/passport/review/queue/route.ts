@@ -55,6 +55,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
+    // Phase 4 — recommendation counts per application (single batched query).
+    const appIds = (data ?? []).map((r) => String(r.id));
+    const recommendationCountByApp: Record<string, number> = {};
+    if (appIds.length > 0) {
+      const { data: recs, error: recsErr } = await admin
+        .from('passport_recommendations')
+        .select('candidate_application_id')
+        .in('candidate_application_id', appIds)
+        .is('withdrawn_at', null);
+      // Pre-migration soft-fail — leave the map empty rather than 500ing the
+      // whole queue when 20260616300000 hasn't been applied yet.
+      if (!recsErr) {
+        for (const r of recs ?? []) {
+          const aid = String(r.candidate_application_id);
+          recommendationCountByApp[aid] = (recommendationCountByApp[aid] ?? 0) + 1;
+        }
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       queue: (data ?? []).map((row) => ({
@@ -68,6 +87,7 @@ export async function GET(req: NextRequest) {
         reviewPriority: row.review_priority,
         // assigned_steward_id is a persona id (T0) — only a boolean projects.
         hasAssignedSteward: Boolean(row.assigned_steward_id),
+        recommendationCount: recommendationCountByApp[String(row.id)] ?? 0,
         submittedAt: row.submitted_at,
         createdAt: row.created_at,
       })),

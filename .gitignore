@@ -124,3 +124,4 @@ capstone/**/env.body
 capstone/**/env.meta
 capstone/**/principal.body
 capstone/**/principal.meta
+.claude/worktrees/

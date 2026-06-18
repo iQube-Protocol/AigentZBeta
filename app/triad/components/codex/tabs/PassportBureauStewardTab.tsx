@@ -33,6 +33,7 @@ interface QueueItem {
   applicationPayload: Record<string, unknown> | null;
   reviewPriority: string;
   hasAssignedSteward: boolean;
+  recommendationCount?: number;
   submittedAt: string | null;
 }
 
@@ -183,6 +184,14 @@ export function PassportBureauStewardTab() {
                 )}
               </div>
               <div className="flex items-center gap-2">
+                {item.recommendationCount && item.recommendationCount > 0 ? (
+                  <span
+                    title="Stewardship-gated recommendations"
+                    className="rounded-full bg-cyan-900/60 px-2 py-0.5 text-xs text-cyan-300"
+                  >
+                    ★ {item.recommendationCount} rec
+                  </span>
+                ) : null}
                 {itemDecided && (
                   <span
                     className={cls(

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T19:35:23.565Z",
+  "last_updated": "2026-06-16T18:01:20.015Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "eff22bc7cb9ef84f0e6d431c0ee3c07e14bc658c",
-  "latest_commit_short": "eff22bc",
-  "latest_commit_title": "flip steward queue cards to decided state after approve/deny",
+  "latest_commit": "4d6698611734c48e99cd687033026097992d9c0f",
+  "latest_commit_short": "4d66986",
+  "latest_commit_title": "Phase 4 MVP — Bureau recommendation rights gated by Stewardship Standing",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4d66986",
+      "full_sha": "4d6698611734c48e99cd687033026097992d9c0f",
+      "title": "Phase 4 MVP — Bureau recommendation rights gated by Stewardship Standing",
+      "author": "Claude",
+      "timestamp": "2026-06-16T16:30:03Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4d66986.md"
+    },
     {
       "sha": "eff22bc",
       "full_sha": "eff22bc7cb9ef84f0e6d431c0ee3c07e14bc658c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-02T00:49:58Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-375df58.md"
-    },
-    {
-      "sha": "b065860",
-      "full_sha": "b06586021ef524b9528dee8089268dc558372166",
-      "title": "intent chains: feedback table + spec §6.7 — like/dislike learning loop",
-      "author": "Claude",
-      "timestamp": "2026-06-02T00:44:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b065860.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

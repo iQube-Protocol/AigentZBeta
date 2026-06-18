@@ -158,6 +158,7 @@ export default function CodexPanelDynamic({
   const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
   const [metameCopilotOpen, setMetameCopilotOpen] = useState(false);
   const [passportCopilotOpen, setPassportCopilotOpen] = useState(false);
+  const [hmsCopilotOpen, setHmsCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -1158,6 +1159,32 @@ export default function CodexPanelDynamic({
             'What does World ID verification add?',
             'Show my bound agents',
             'How does the Locker work?',
+          ]}
+        />
+      )}
+
+      {/* Human Mobility Services — aigentMe copilot.
+          Emerald branding. aigentMe is the sole disclosure broker for
+          BlakQube cases. Per PSC-001 / G5 gap closure 2026-06-17. */}
+      {codexId === 'human-mobility-services-cartridge' && (
+        <CodexCopilotLayer
+          isOpen={hmsCopilotOpen}
+          onClose={() => setHmsCopilotOpen(false)}
+          onOpen={() => setHmsCopilotOpen(true)}
+          variant="floating"
+          accentColor="emerald"
+          agent={{ id: 'aigent-z', name: 'aigentMe' }}
+          personaId={resolvedPersonaId ?? undefined}
+          enableInferenceRendering
+          contextId={`hms-${activeTabSlug}`}
+          promptPlaceholder="Ask about your case, workstreams, or critical dates…"
+          initialMessage="I'm aigentMe — your confidentiality guardian for this mobility case. BlakQube protocol is active. Ask me about housing, education, relocation timelines, or workstream status."
+          quickPrompts={[
+            'What are the most urgent deadlines?',
+            'What is the housing workstream status?',
+            'What school applications are pending?',
+            'Summarise the relocation timeline',
+            'What does BlakQube compartmentalisation mean for this case?',
           ]}
         />
       )}

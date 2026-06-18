@@ -117,8 +117,36 @@ export async function POST(
     const result = await loadAndBuild(passportId, admin, req.nextUrl.origin);
     if (result.err) return result.err;
 
+    // Sponsor-custodian authorization (Phase 1 / G2): a polity_bound agent has
+    // no spine session of its own, so the citizen who sponsors it may claim the
+    // agent's Participant Passport on its behalf. Resolve sponsorship up front
+    // via the application's agent_card_url → agent_root_identity.sponsor_persona_id
+    // (also reused below to bind bound_passport_id). This ADDS an authorized
+    // principal — the verified sponsor — without weakening the holder gate.
+    let sponsorCustodian = false;
+    let agentCardUrl: string | null = null;
+    if (result.record!.passport_class !== 'citizen') {
+      const { data: appRow } = await admin
+        .from('polity_passport_applications')
+        .select('agent_card_url')
+        .eq('passport_id', passportId)
+        .not('agent_card_url', 'is', null)
+        .maybeSingle();
+      agentCardUrl = appRow?.agent_card_url ?? null;
+      if (agentCardUrl) {
+        const { data: agentRow } = await admin
+          .from('agent_root_identity')
+          .select('sponsor_persona_id')
+          .eq('agent_card_url', agentCardUrl)
+          .maybeSingle();
+        if (agentRow?.sponsor_persona_id && agentRow.sponsor_persona_id === persona.personaId) {
+          sponsorCustodian = true;
+        }
+      }
+    }
+
     const recordPersonaId = (result.record as unknown as { persona_id: string | null }).persona_id;
-    if (recordPersonaId && recordPersonaId !== persona.personaId) {
+    if (recordPersonaId && recordPersonaId !== persona.personaId && !sponsorCustodian) {
       return NextResponse.json(
         { ok: false, error: 'Passport is not held by the active persona' },
         { status: 403 },
@@ -146,21 +174,13 @@ export async function POST(
       // Look up the application by passport_id to find the agent_card_url,
       // then update agent_root_identity.bound_passport_id so the sponsor
       // can see the agent's passport in their "Sponsored Agents" view.
-      if (result.record!.passport_class !== 'citizen') {
+      if (result.record!.passport_class !== 'citizen' && agentCardUrl) {
         try {
-          const { data: appRow } = await admin
-            .from('polity_passport_applications')
-            .select('agent_card_url')
-            .eq('passport_id', passportId)
-            .not('agent_card_url', 'is', null)
-            .maybeSingle();
-          if (appRow?.agent_card_url) {
-            await admin
-              .from('agent_root_identity')
-              .update({ bound_passport_id: passportId })
-              .eq('agent_card_url', appRow.agent_card_url)
-              .is('bound_passport_id', null);
-          }
+          await admin
+            .from('agent_root_identity')
+            .update({ bound_passport_id: passportId })
+            .eq('agent_card_url', agentCardUrl)
+            .is('bound_passport_id', null);
         } catch {
           // Non-fatal — binding is best-effort during claim.
           // The sponsor can still see the passport via the registry.

@@ -1020,6 +1020,9 @@ export default function SmartWalletDrawer({
   }
   const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgentItem[]>([]);
   const [sponsoredAgentsLoading, setSponsoredAgentsLoading] = useState(false);
+  // Phase 3 — Sponsorship Capacity Protocol.
+  interface SponsorshipCapacity { base: number; earned: number; used: number; remaining: number }
+  const [sponsorshipCapacity, setSponsorshipCapacity] = useState<SponsorshipCapacity | null>(null);
 
   useEffect(() => {
     if (activeTab !== "iqube") return;
@@ -1038,6 +1041,7 @@ export default function SmartWalletDrawer({
         const data = await res.json();
         if (cancelled || !data?.ok) return;
         setSponsoredAgents(data.agents ?? []);
+        setSponsorshipCapacity(data.capacity ?? null);
       } catch {
         // Silent — wallet survives endpoint failure.
       } finally {
@@ -1738,6 +1742,15 @@ export default function SmartWalletDrawer({
       community: number;
       lifetimeCvs: number;
       totalTasksCompleted: number;
+    } | null;
+    // Phase 2 keystone — Standing alongside Reputation. Three lanes
+    // (Personal/Delegated/Stewardship) + composite + 0..4 bucket.
+    standing?: {
+      personal: number;
+      delegated: number;
+      stewardship: number;
+      overall: number;
+      bucket: number;
     } | null;
   }
   const [walletTasksData, setWalletTasksData] = useState<WalletTasksPayload | null>(null);
@@ -4203,6 +4216,48 @@ export default function SmartWalletDrawer({
                 )}
               </section>
 
+              {/* Standing (Phase 2 keystone) — Personal/Delegated/Stewardship */}
+              {walletTasksData?.standing && (
+                <section className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 ring-1 ring-emerald-500/20 p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-[10px] uppercase tracking-wider text-white/70">Standing</div>
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <span
+                          key={i}
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            i < (walletTasksData.standing?.bucket ?? 0)
+                              ? 'bg-emerald-400'
+                              : 'bg-slate-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    {([
+                      { label: 'Personal',     value: walletTasksData.standing.personal,     color: 'bg-emerald-500' },
+                      { label: 'Delegated',    value: walletTasksData.standing.delegated,    color: 'bg-teal-500' },
+                      { label: 'Stewardship',  value: walletTasksData.standing.stewardship,  color: 'bg-cyan-500' },
+                    ] as { label: string; value: number; color: string }[]).map(({ label, value, color }) => (
+                      <div key={label}>
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className="text-white/60">{label}</span>
+                          <span className="text-white/80 font-medium">{value.toFixed(1)}</span>
+                        </div>
+                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                          <div className={`h-full ${color}`} style={{ width: `${Math.min(100, value)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">
+                      <span className="text-white/50">Overall Standing</span>
+                      <span className="text-white/90 font-semibold">{walletTasksData.standing.overall.toFixed(1)}</span>
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {/* Submit Claim */}
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-white/50 mb-2">Submit Reputation Claim</div>
@@ -4631,6 +4686,23 @@ export default function SmartWalletDrawer({
                   <Bot className="w-3.5 h-3.5 text-violet-400" />
                   AgentQubes — Bound Delegates
                 </div>
+                {/* Phase 3 — Sponsorship Capacity Protocol. Capacity = base + earned. */}
+                {sponsorshipCapacity && (
+                  <div className="mb-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">Sponsorship Capacity</span>
+                      <span className="text-[10px] text-white/50">
+                        Base {sponsorshipCapacity.base} + Earned {sponsorshipCapacity.earned} · Used {sponsorshipCapacity.used}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-base font-semibold ${sponsorshipCapacity.remaining > 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                        {sponsorshipCapacity.remaining}
+                      </div>
+                      <div className="text-[9px] text-white/40 uppercase tracking-wider">remaining</div>
+                    </div>
+                  </div>
+                )}
                 {sponsoredAgentsLoading ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
