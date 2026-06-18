@@ -325,7 +325,7 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
       'The Standing Cartridge is your reusable capability and standing primitive. Upload evidence documents — CVs, publications, patents, media appearances, speaking engagements, reference letters — and the system extracts candidate facts for your review. Once approved and compiled, your Verified Standing Profile (VSP) becomes the authoritative source for mobility applications, immigration petitions, professional biographies, CVs, investor profiles, and future Polity services. The Standing Cartridge is anchored to your KybeDID and travels across your entire persona estate.',
     gate: 'open',
     tabSlug: 'standing',
-    sourceCartridge: 'hms',
+    sourceCartridge: 'human-mobility-services',
     icon: 'Star',
     color: 'violet',
     metrics: [
