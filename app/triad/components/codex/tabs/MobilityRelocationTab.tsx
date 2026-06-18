@@ -221,7 +221,7 @@ export function MobilityRelocationTab({ caseId }: Props) {
           <Package className="h-6 w-6 text-amber-400" />
           <div>
             <h2 className="text-base font-semibold text-slate-100">Workstream D — Physical Relocation</h2>
-            <p className="text-xs text-slate-400">Priority: Critical · NJ → London · Shipping, travel, customs</p>
+            <p className="text-xs text-slate-400">Priority: Critical{mobilityProfile?.departureCountry ? ` · ${mobilityProfile.departureCountry} → ${mobilityProfile.destinationCountry ?? 'UK'}` : ''} · Shipping, travel, customs</p>
           </div>
         </div>
         <button onClick={load} className="text-slate-500 hover:text-slate-300 transition-colors">
@@ -411,13 +411,16 @@ export function MobilityRelocationTab({ caseId }: Props) {
       {tasks.length === 0 && (
         <button
           onClick={() => {
+            const from = mobilityProfile?.departureCountry ?? 'origin';
+            const to = mobilityProfile?.destinationCountry ?? 'UK';
+            const route = `${from} → ${to}`;
             const scaffold: ReloTask[] = [
-              { id: crypto.randomUUID(), label: 'Obtain quotes from international shipping companies', status: 'pending', notes: 'Focus on NJ→UK routes; ask about groupage vs full container', assignee: '', due: '', category: 'shipping' },
+              { id: crypto.randomUUID(), label: 'Obtain quotes from international shipping companies', status: 'pending', notes: `Focus on ${route} routes; ask about groupage vs full container`, assignee: '', due: '', category: 'shipping' },
               { id: crypto.randomUUID(), label: 'Inventory all household goods — determine ship vs store vs sell', status: 'pending', notes: '', assignee: '', due: '', category: 'shipping' },
-              { id: crypto.randomUUID(), label: 'Book flights — family of four, NJ → London', status: 'pending', notes: 'Book after housing confirmed', assignee: '', due: '', category: 'travel' },
-              { id: crypto.randomUUID(), label: 'Arrange UK customs clearance / UK agent', status: 'pending', notes: 'UK returning residents relief from customs duty on household goods', assignee: '', due: '', category: 'customs' },
-              { id: crypto.randomUUID(), label: 'NJ apartment exit — deposit return, utilities, mail forwarding', status: 'pending', notes: '', assignee: '', due: '', category: 'admin' },
-              { id: crypto.randomUUID(), label: 'Book UK arrival storage if needed', status: 'pending', notes: 'Bridge period between arrival and housing completion', assignee: '', due: '', category: 'storage' },
+              { id: crypto.randomUUID(), label: `Book flights — ${route}`, status: 'pending', notes: 'Book after housing confirmed', assignee: '', due: '', category: 'travel' },
+              { id: crypto.randomUUID(), label: `Arrange ${to} customs clearance / import agent`, status: 'pending', notes: 'Returning residents relief from customs duty on household goods', assignee: '', due: '', category: 'customs' },
+              { id: crypto.randomUUID(), label: `Exit ${from} property — deposit return, utilities, mail forwarding`, status: 'pending', notes: '', assignee: '', due: '', category: 'admin' },
+              { id: crypto.randomUUID(), label: `Book ${to} arrival storage if needed`, status: 'pending', notes: 'Bridge period between arrival and housing completion', assignee: '', due: '', category: 'storage' },
             ];
             setTasks(scaffold);
             saveWorkstream(scaffold);
