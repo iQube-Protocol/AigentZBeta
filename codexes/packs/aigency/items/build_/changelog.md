@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`239cee4`](https://github.com/iQube-Protocol/AigentZBeta/commit/239cee4e309089336dcf8c710826aeba81295f80) [fix] fix runtime regression: render consumer task runner for admins too (Claude, 2026-06-18T22:40:27Z)
+- [`812fe7e`](https://github.com/iQube-Protocol/AigentZBeta/commit/812fe7e005470a4b51d69463893b5205f8ff8277) [fix] trigger deploy to dev: runtime consumer task runner regression fix (Claude, 2026-06-18T22:43:07Z)
 - [`104cfc7`](https://github.com/iQube-Protocol/AigentZBeta/commit/104cfc7a165c9ea71b385b048cdcc63d7d2dd333) [fix] fix Open Experience button: route to consumer viewer instead of re-opening runtime (Claude, 2026-06-18T10:51:32Z)
 - [`1d1ac0f`](https://github.com/iQube-Protocol/AigentZBeta/commit/1d1ac0fa1c0253ecd440b8b986819d045645cf6e) [fix] trigger deploy to dev: fix Open Experience consumer routing (Claude, 2026-06-18T10:51:37Z)
 - [`62645f0`](https://github.com/iQube-Protocol/AigentZBeta/commit/62645f06b020a9ad0cd9a7224aa3debf69cf03c9) [feat] add consumer task runner inline in runtime experience panel (Claude, 2026-06-18T11:17:46Z)
