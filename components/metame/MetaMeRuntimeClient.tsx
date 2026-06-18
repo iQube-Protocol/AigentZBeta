@@ -6350,6 +6350,17 @@ export default function MetaMeRuntimeClient() {
                 <button
                   type="button"
                   onClick={() => {
+                    signalRuntimeBusy("quick_link:get_passport", { autoClearMs: 0 });
+                    setActiveCartridgeOverlay({ slug: 'polity-passport-bureau', title: 'Polity Passport', initialTab: 'apply' });
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] text-violet-200/80 hover:border-violet-500/40 hover:text-violet-100 transition-colors backdrop-blur-sm"
+                >
+                  <Fingerprint className="h-3 w-3 shrink-0" />
+                  Get my Polity Passport
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     signalRuntimeBusy("quick_link:set_up_experience", { autoClearMs: 0 });
                     setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'Set up ExperienceModel', initialTab: 'aigent-me' });
                   }}
@@ -6357,20 +6368,6 @@ export default function MetaMeRuntimeClient() {
                 >
                   <Sparkles className="h-3 w-3 shrink-0" />
                   Set up my ExperienceModel
-                </button>
-                {/* Get your Polity Passport — deep-links into the Polity
-                    Passport Bureau cartridge with the Apply tab active so the
-                    operator lands directly on the passport application. */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    signalRuntimeBusy("quick_link:get_passport", { autoClearMs: 0 });
-                    setActiveCartridgeOverlay({ slug: 'polity-passport-bureau', title: 'Polity Passport', initialTab: 'apply' });
-                  }}
-                  className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] text-violet-200/80 hover:border-violet-500/40 hover:text-violet-100 transition-colors backdrop-blur-sm"
-                >
-                  <Fingerprint className="h-3 w-3 shrink-0" />
-                  Get your Polity Passport
                 </button>
                 <button
                   type="button"
