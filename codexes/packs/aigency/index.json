@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-16T18:01:20.015Z",
+  "last_updated": "2026-06-18T21:48:44.224Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4d6698611734c48e99cd687033026097992d9c0f",
-  "latest_commit_short": "4d66986",
-  "latest_commit_title": "Phase 4 MVP — Bureau recommendation rights gated by Stewardship Standing",
+  "latest_commit": "104cfc7a165c9ea71b385b048cdcc63d7d2dd333",
+  "latest_commit_short": "104cfc7",
+  "latest_commit_title": "fix Open Experience button: route to consumer viewer instead of re-opening runtime",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,105 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "104cfc7",
+      "full_sha": "104cfc7a165c9ea71b385b048cdcc63d7d2dd333",
+      "title": "fix Open Experience button: route to consumer viewer instead of re-opening runtime",
+      "author": "Claude",
+      "timestamp": "2026-06-18T10:51:32Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-104cfc7.md"
+    },
+    {
+      "sha": "1d1ac0f",
+      "full_sha": "1d1ac0fa1c0253ecd440b8b986819d045645cf6e",
+      "title": "trigger deploy to dev: fix Open Experience consumer routing",
+      "author": "Claude",
+      "timestamp": "2026-06-18T10:51:37Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-1d1ac0f.md"
+    },
+    {
+      "sha": "62645f0",
+      "full_sha": "62645f06b020a9ad0cd9a7224aa3debf69cf03c9",
+      "title": "add consumer task runner inline in runtime experience panel",
+      "author": "Claude",
+      "timestamp": "2026-06-18T11:17:46Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-62645f0.md"
+    },
+    {
+      "sha": "c3a2e31",
+      "full_sha": "c3a2e31ca437b62e259047ebac60a7bfad70accd",
+      "title": "trigger deploy to dev: inline consumer task runner in runtime",
+      "author": "Claude",
+      "timestamp": "2026-06-18T11:17:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c3a2e31.md"
+    },
+    {
+      "sha": "620be7a",
+      "full_sha": "620be7a5cb4d9a8401527c814bb5beed6a517df0",
+      "title": "populate composition.nextActions in reading sprint packet",
+      "author": "Claude",
+      "timestamp": "2026-06-18T15:41:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-620be7a.md"
+    },
+    {
+      "sha": "af00bff",
+      "full_sha": "af00bfff79607c35696a5cc1be1b43b08f3d9f94",
+      "title": "trigger deploy to dev: reading sprint nextActions in packet",
+      "author": "Claude",
+      "timestamp": "2026-06-18T15:41:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-af00bff.md"
+    },
+    {
+      "sha": "345666c",
+      "full_sha": "345666c72f373e936b027deca3c8ff979064b91f",
+      "title": "server-side runtime context preference + reading sprint nextActions in packet",
+      "author": "Claude",
+      "timestamp": "2026-06-18T17:44:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-345666c.md"
+    },
+    {
+      "sha": "257f0e0",
+      "full_sha": "257f0e02d300329c71d2638c4f4b1687625ba932",
+      "title": "trigger deploy to dev: server-side runtime context + reading sprint tasks",
+      "author": "Claude",
+      "timestamp": "2026-06-18T17:44:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-257f0e0.md"
+    },
+    {
+      "sha": "50cbc92",
+      "full_sha": "50cbc92cdee6937bd23d509c790fc8f3cb778977",
+      "title": "swap Polity Passport before ExperienceModel on welcome screen, rename to 'Get my'",
+      "author": "Claude",
+      "timestamp": "2026-06-18T21:23:14Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-50cbc92.md"
+    },
+    {
+      "sha": "d156c1e",
+      "full_sha": "d156c1efbf46f42d75e7096c4021768ea38ca758",
+      "title": "trigger deploy to dev: welcome button reorder",
+      "author": "Claude",
+      "timestamp": "2026-06-18T21:23:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d156c1e.md"
+    },
+    {
+      "sha": "553e41b",
+      "full_sha": "553e41b5e67381c99ccea20b2c59a1630e67f886",
+      "title": "fix activations flicker: add mutation generation guard to prevent stale refresh overwriting optimistic state",
+      "author": "Claude",
+      "timestamp": "2026-06-18T21:32:12Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-553e41b.md"
+    },
     {
       "sha": "4d66986",
       "full_sha": "4d6698611734c48e99cd687033026097992d9c0f",
@@ -1153,105 +1252,6 @@
       "timestamp": "2026-06-02T23:21:57Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-2e9022f.md"
-    },
-    {
-      "sha": "b45d9a0",
-      "full_sha": "b45d9a0979aa181edc24e72cfaa299c4771e7ded",
-      "title": "fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES",
-      "author": "Claude",
-      "timestamp": "2026-06-02T03:04:51Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-b45d9a0.md"
-    },
-    {
-      "sha": "cab9fb4",
-      "full_sha": "cab9fb4ba1e562a0e677d94d7bf66f0af021fc7e",
-      "title": "trigger deploy: backfill VALID_SOURCES allowlist fix",
-      "author": "Claude",
-      "timestamp": "2026-06-02T03:05:07Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-cab9fb4.md"
-    },
-    {
-      "sha": "4148830",
-      "full_sha": "414883014ea07d628fad6a9fad2d167b8145a5c4",
-      "title": "intent chains commit 10: v1 close report",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:28:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4148830.md"
-    },
-    {
-      "sha": "0077105",
-      "full_sha": "0077105de1ff8ce1a0cc0cf6f4e20d784a10847c",
-      "title": "intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:26:12Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0077105.md"
-    },
-    {
-      "sha": "5a33625",
-      "full_sha": "5a336253f1cb3238817e7a071d93a61f7750dff1",
-      "title": "intent chains commit 8: ExpandedNBEPill chain breadcrumb + ChainDetailDrawer",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:24:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5a33625.md"
-    },
-    {
-      "sha": "9c15b5d",
-      "full_sha": "9c15b5db33de5372673f4a39e01393a919cac3fe",
-      "title": "intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:21:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9c15b5d.md"
-    },
-    {
-      "sha": "a905e0e",
-      "full_sha": "a905e0ed6bd03bc749533e9496d16ca6d27ccc45",
-      "title": "intent chains commit 6: cron extension for scheduled steps + wait timeouts",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:17:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a905e0e.md"
-    },
-    {
-      "sha": "9db46a1",
-      "full_sha": "9db46a19fe1854946346163f39a48f625ce75063",
-      "title": "intent chains commit 5: Marketa propose intake + Factory Ingestion stub",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:15:29Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9db46a1.md"
-    },
-    {
-      "sha": "8b7f98f",
-      "full_sha": "8b7f98f173e79aa8c8bc40c134f0eb41b1be9acc",
-      "title": "intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:13:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8b7f98f.md"
-    },
-    {
-      "sha": "4312058",
-      "full_sha": "43120584cd3305a1ec8bd79509db259ab2e97c75",
-      "title": "intent chains commit 3: dispatcher + advancer + refs + listener hook",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:10:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4312058.md"
-    },
-    {
-      "sha": "375df58",
-      "full_sha": "375df582f384fe54f545dcdc9425dc593e945572",
-      "title": "intent chains commit 2: sanitizeReceiptMetadata + canary tests",
-      "author": "Claude",
-      "timestamp": "2026-06-02T00:49:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-375df58.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
