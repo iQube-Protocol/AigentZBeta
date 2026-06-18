@@ -202,7 +202,7 @@ export function MobilityHousingTab({ caseId }: Props) {
           <Home className="h-6 w-6 text-emerald-400" />
           <div>
             <h2 className="text-base font-semibold text-slate-100">Workstream B — Housing Acquisition</h2>
-            <p className="text-xs text-slate-400">Priority: Critical · Dulwich continuity zone</p>
+            <p className="text-xs text-slate-400">Priority: Critical{housingProfile?.preferredLocation ? ` · ${housingProfile.preferredLocation}` : ''} · Housing acquisition</p>
           </div>
         </div>
         <button onClick={load} className="text-slate-500 hover:text-slate-300 transition-colors">
@@ -226,7 +226,7 @@ export function MobilityHousingTab({ caseId }: Props) {
           <Calendar className={cls('h-5 w-5 shrink-0', isUrgent ? 'text-rose-400' : 'text-amber-400')} />
           <div className="flex-1">
             <p className={cls('text-sm font-semibold', isUrgent ? 'text-rose-200' : 'text-amber-200')}>
-              NJ Housing Deadline
+              Housing Departure Deadline
             </p>
             <p className="text-xs text-slate-400">
               {new Date(departureDeadline).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -394,7 +394,7 @@ export function MobilityHousingTab({ caseId }: Props) {
         <button
           onClick={() => {
             const scaffold: HousingTask[] = [
-              { id: crypto.randomUUID(), label: 'Contact Dulwich-area letting agents', status: 'pending', notes: 'Focus on Village, North, East, West Dulwich', assignee: '', due: '' },
+              { id: crypto.randomUUID(), label: `Contact letting agents${housingProfile?.preferredLocation ? ` — ${housingProfile.preferredLocation}` : ' in target area'}`, status: 'pending', notes: housingProfile?.acceptableLocations ? `Also consider: ${housingProfile.acceptableLocations}` : '', assignee: '', due: '' },
               { id: crypto.randomUUID(), label: 'Verify school catchment areas for target properties', status: 'pending', notes: '', assignee: '', due: '' },
               { id: crypto.randomUUID(), label: 'Confirm guarantor / reference arrangements', status: 'pending', notes: '', assignee: '', due: '' },
               { id: crypto.randomUUID(), label: 'Identify temporary accommodation contingency', status: 'pending', notes: '', assignee: '', due: '' },

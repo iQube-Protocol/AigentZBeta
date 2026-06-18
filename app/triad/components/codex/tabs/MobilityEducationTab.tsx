@@ -113,6 +113,7 @@ interface Props {
 }
 
 export function MobilityEducationTab({ caseId }: Props) {
+  const [originCountry, setOriginCountry] = useState<string>('');
   const [eduProfile, setEduProfile] = useState<EducationProfile | null>(null);
   const [workstream, setWorkstream] = useState<WorkstreamRow | null>(null);
   const [criticalDates, setCriticalDates] = useState<CriticalDate[]>([]);
@@ -134,7 +135,10 @@ export function MobilityEducationTab({ caseId }: Props) {
       const [caseJson, wsJson, datesJson] = await Promise.all([
         caseRes.json(), wsRes.json(), datesRes.json(),
       ]);
-      if (caseJson.ok) setEduProfile(caseJson.case.education_profile ?? {});
+      if (caseJson.ok) {
+        setEduProfile(caseJson.case.education_profile ?? {});
+        setOriginCountry(caseJson.case.household_profile?.originCountry ?? caseJson.case.household_profile?.originCity ?? '');
+      }
       if (wsJson.ok) {
         const ws = (wsJson.workstreams as WorkstreamRow[]).find(w => w.workstream_key === 'C');
         if (ws) {
@@ -486,12 +490,17 @@ export function MobilityEducationTab({ caseId }: Props) {
       {tasks.length === 0 && (
         <button
           onClick={() => {
+            const area = eduProfile?.preferredSchoolArea ?? 'target area';
+            const from = originCountry || 'origin';
+            const children = Array.isArray(eduProfile?.children) ? eduProfile.children : [];
+            const elderChild = children.find(c => Number(c.age) >= 10);
+            const youngerChild = children.find(c => Number(c.age) < 10);
             const scaffold: EduTask[] = [
-              { id: crypto.randomUUID(), label: 'Research Dulwich secondary schools — year 9 entry', status: 'pending', notes: 'Dulwich College, JAGS, Alleyn\'s, Harris Boys\' Academy', assignee: '', due: '', childRef: 'elder' },
-              { id: crypto.randomUUID(), label: 'Research Dulwich primary schools — reception/Year 1', status: 'pending', notes: 'Check Ofsted ratings and catchment areas', assignee: '', due: '', childRef: 'younger' },
-              { id: crypto.randomUUID(), label: 'Confirm September intake application deadlines', status: 'pending', notes: 'Check Southwark & Lambeth council in-year admission processes', assignee: '', due: '', childRef: 'both' },
-              { id: crypto.randomUUID(), label: 'Obtain current school records / transcripts from NJ schools', status: 'pending', notes: '', assignee: '', due: '', childRef: 'both' },
-              { id: crypto.randomUUID(), label: 'Submit school applications with Dulwich address', status: 'pending', notes: 'Requires confirmed housing address — coordinate with Workstream B', assignee: '', due: '', childRef: 'both' },
+              ...(elderChild ? [{ id: crypto.randomUUID(), label: `Research secondary schools in ${area} — ${elderChild.yearGroup ?? 'secondary'} entry`, status: 'pending' as const, notes: 'Check Ofsted Outstanding ratings and admissions criteria', assignee: '', due: '', childRef: 'elder' as const }] : []),
+              ...(youngerChild ? [{ id: crypto.randomUUID(), label: `Research primary schools in ${area} — ${youngerChild.yearGroup ?? 'primary'} entry`, status: 'pending' as const, notes: 'Check Ofsted ratings and catchment areas', assignee: '', due: '', childRef: 'younger' as const }] : []),
+              { id: crypto.randomUUID(), label: 'Confirm in-year admission application deadlines', status: 'pending', notes: 'Check local council in-year admissions processes', assignee: '', due: '', childRef: 'both' },
+              { id: crypto.randomUUID(), label: `Obtain school records / transcripts from ${from} schools`, status: 'pending', notes: '', assignee: '', due: '', childRef: 'both' },
+              { id: crypto.randomUUID(), label: 'Submit school applications with confirmed UK address', status: 'pending', notes: 'Requires confirmed housing address — coordinate with Workstream B', assignee: '', due: '', childRef: 'both' },
             ];
             setTasks(scaffold);
             saveWorkstream(scaffold);
