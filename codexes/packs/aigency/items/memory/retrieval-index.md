@@ -2374,3 +2374,58 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-4d66986.md](../build_/COMMITS/COMMIT-4d66986.md)
 - Message: Phase 4 MVP — Bureau recommendation rights gated by Stewardship Standing
+
+## Commit `553e41b` — 2026-06-18T21:32:12Z
+- Type: `feat`
+- Brief: [COMMIT-553e41b.md](../build_/COMMITS/COMMIT-553e41b.md)
+- Message: fix activations flicker: add mutation generation guard to prevent stale refresh overwriting optimistic state
+
+## Commit `d156c1e` — 2026-06-18T21:23:14Z
+- Type: `push`
+- Brief: [COMMIT-d156c1e.md](../build_/COMMITS/COMMIT-d156c1e.md)
+- Message: trigger deploy to dev: welcome button reorder
+
+## Commit `50cbc92` — 2026-06-18T21:23:14Z
+- Type: `refactor`
+- Brief: [COMMIT-50cbc92.md](../build_/COMMITS/COMMIT-50cbc92.md)
+- Message: swap Polity Passport before ExperienceModel on welcome screen, rename to 'Get my'
+
+## Commit `257f0e0` — 2026-06-18T17:44:57Z
+- Type: `push`
+- Brief: [COMMIT-257f0e0.md](../build_/COMMITS/COMMIT-257f0e0.md)
+- Message: trigger deploy to dev: server-side runtime context + reading sprint tasks
+
+## Commit `345666c` — 2026-06-18T17:44:49Z
+- Type: `push`
+- Brief: [COMMIT-345666c.md](../build_/COMMITS/COMMIT-345666c.md)
+- Message: server-side runtime context preference + reading sprint nextActions in packet
+
+## Commit `af00bff` — 2026-06-18T15:41:47Z
+- Type: `push`
+- Brief: [COMMIT-af00bff.md](../build_/COMMITS/COMMIT-af00bff.md)
+- Message: trigger deploy to dev: reading sprint nextActions in packet
+
+## Commit `620be7a` — 2026-06-18T15:41:42Z
+- Type: `push`
+- Brief: [COMMIT-620be7a.md](../build_/COMMITS/COMMIT-620be7a.md)
+- Message: populate composition.nextActions in reading sprint packet
+
+## Commit `c3a2e31` — 2026-06-18T11:17:53Z
+- Type: `push`
+- Brief: [COMMIT-c3a2e31.md](../build_/COMMITS/COMMIT-c3a2e31.md)
+- Message: trigger deploy to dev: inline consumer task runner in runtime
+
+## Commit `62645f0` — 2026-06-18T11:17:46Z
+- Type: `feat`
+- Brief: [COMMIT-62645f0.md](../build_/COMMITS/COMMIT-62645f0.md)
+- Message: add consumer task runner inline in runtime experience panel
+
+## Commit `1d1ac0f` — 2026-06-18T10:51:37Z
+- Type: `fix`
+- Brief: [COMMIT-1d1ac0f.md](../build_/COMMITS/COMMIT-1d1ac0f.md)
+- Message: trigger deploy to dev: fix Open Experience consumer routing
+
+## Commit `104cfc7` — 2026-06-18T10:51:32Z
+- Type: `fix`
+- Brief: [COMMIT-104cfc7.md](../build_/COMMITS/COMMIT-104cfc7.md)
+- Message: fix Open Experience button: route to consumer viewer instead of re-opening runtime
