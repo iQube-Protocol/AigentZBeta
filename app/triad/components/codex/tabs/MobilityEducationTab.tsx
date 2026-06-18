@@ -42,7 +42,25 @@ interface EduTask {
   childRef: 'elder' | 'younger' | 'both' | '';
 }
 
+interface ChildRecord {
+  childId: string;
+  age: string;
+  currentGrade: string;
+  yearGroup: string;
+  currentSchool: string;
+  targetSchool: string;
+  alternativeSchools: string;
+  continuityPriority: string;
+  notes: string;
+}
+
 interface EducationProfile {
+  // New structured schema
+  children?: ChildRecord[];
+  admissionsDeadlines?: string;
+  continuityPriorities?: string;
+  specialRequirements?: string;
+  // Legacy flat fields (read-only compat)
   numberOfChildren?: string;
   childrenAges?: string;
   currentSchoolSystem?: string;
@@ -84,9 +102,9 @@ const TASK_STATUS_CONFIG = {
 } as const;
 
 const CHILD_REF_LABELS: Record<string, string> = {
-  elder:   'Age 13 (secondary)',
-  younger: 'Age 5 (primary)',
-  both:    'Both children',
+  elder:   'Elder child',
+  younger: 'Younger child',
+  both:    'All children',
   '':      'General',
 };
 
@@ -208,7 +226,7 @@ export function MobilityEducationTab({ caseId }: Props) {
           <GraduationCap className="h-6 w-6 text-sky-400" />
           <div>
             <h2 className="text-base font-semibold text-slate-100">Workstream C — Educational Continuity</h2>
-            <p className="text-xs text-slate-400">Priority: Critical · Two children · September intake window</p>
+            <p className="text-xs text-slate-400">Priority: Critical · {eduProfile?.children?.length ? `${eduProfile.children.length} child${eduProfile.children.length !== 1 ? 'ren' : ''}` : 'Children'} · September intake window</p>
           </div>
         </div>
         <button onClick={load} className="text-slate-500 hover:text-slate-300 transition-colors">
@@ -248,46 +266,74 @@ export function MobilityEducationTab({ caseId }: Props) {
       )}
 
       {/* Child summary cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-3 space-y-1">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-3.5 w-3.5 text-sky-400" />
-            <span className="text-xs font-semibold text-sky-200">Secondary — Age 13</span>
-          </div>
-          {eduProfile?.elder_currentYear && (
-            <p className="text-[11px] text-slate-400">Current year: {eduProfile.elder_currentYear}</p>
-          )}
-          {eduProfile?.elder_requirementsNotes && (
-            <p className="text-[11px] text-slate-300">{eduProfile.elder_requirementsNotes}</p>
-          )}
-          {!eduProfile?.elder_currentYear && (
-            <p className="text-[11px] text-slate-500 italic">Complete education intake to add details</p>
-          )}
+      {eduProfile?.children && eduProfile.children.length > 0 ? (
+        <div className={cls('grid gap-3', eduProfile.children.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
+          {eduProfile.children.map((child, i) => (
+            <div key={child.childId} className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-3 space-y-1">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-3.5 w-3.5 text-sky-400" />
+                <span className="text-xs font-semibold text-sky-200">
+                  Child {i + 1} — Age {child.age || 'UNKNOWN'}
+                  {child.continuityPriority ? ` · ${child.continuityPriority.charAt(0).toUpperCase() + child.continuityPriority.slice(1)}` : ''}
+                </span>
+              </div>
+              {child.yearGroup && <p className="text-[11px] text-slate-400">UK year group: {child.yearGroup}</p>}
+              {child.currentGrade && <p className="text-[11px] text-slate-400">Current grade: {child.currentGrade}</p>}
+              {child.currentSchool && <p className="text-[11px] text-slate-300">Current: {child.currentSchool}</p>}
+              {child.targetSchool
+                ? <p className="text-[11px] text-emerald-300">Target: {child.targetSchool}</p>
+                : <p className="text-[11px] text-amber-400/70 italic">No target school set — complete education intake</p>
+              }
+              {child.alternativeSchools && <p className="text-[11px] text-slate-500">Alt: {child.alternativeSchools}</p>}
+              {child.notes && <p className="text-[11px] text-slate-400">{child.notes}</p>}
+            </div>
+          ))}
         </div>
-        <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-3 space-y-1">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-3.5 w-3.5 text-sky-400" />
-            <span className="text-xs font-semibold text-sky-200">Primary — Age 5</span>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-3.5 w-3.5 text-sky-400" />
+              <span className="text-xs font-semibold text-sky-200">Secondary child</span>
+            </div>
+            {eduProfile?.elder_currentYear && (
+              <p className="text-[11px] text-slate-400">Current year: {eduProfile.elder_currentYear}</p>
+            )}
+            {eduProfile?.elder_requirementsNotes && (
+              <p className="text-[11px] text-slate-300">{eduProfile.elder_requirementsNotes}</p>
+            )}
+            {!eduProfile?.elder_currentYear && (
+              <p className="text-[11px] text-slate-500 italic">Complete education intake to add details</p>
+            )}
           </div>
-          {eduProfile?.younger_currentYear && (
-            <p className="text-[11px] text-slate-400">Current year: {eduProfile.younger_currentYear}</p>
-          )}
-          {eduProfile?.younger_requirementsNotes && (
-            <p className="text-[11px] text-slate-300">{eduProfile.younger_requirementsNotes}</p>
-          )}
-          {!eduProfile?.younger_currentYear && (
-            <p className="text-[11px] text-slate-500 italic">Complete education intake to add details</p>
-          )}
+          <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-3.5 w-3.5 text-sky-400" />
+              <span className="text-xs font-semibold text-sky-200">Primary child</span>
+            </div>
+            {eduProfile?.younger_currentYear && (
+              <p className="text-[11px] text-slate-400">Current year: {eduProfile.younger_currentYear}</p>
+            )}
+            {eduProfile?.younger_requirementsNotes && (
+              <p className="text-[11px] text-slate-300">{eduProfile.younger_requirementsNotes}</p>
+            )}
+            {!eduProfile?.younger_currentYear && (
+              <p className="text-[11px] text-slate-500 italic">Complete education intake to add details</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Education profile summary */}
-      {eduProfile && (eduProfile.preferredSchoolArea || eduProfile.targetSchoolType || eduProfile.senOrAdditionalNeeds) && (
+      {eduProfile && (eduProfile.admissionsDeadlines || eduProfile.specialRequirements || eduProfile.continuityPriorities || eduProfile.preferredSchoolArea || eduProfile.targetSchoolType || eduProfile.senOrAdditionalNeeds) && (
         <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-200">Education Profile</h3>
+          <h3 className="text-sm font-semibold text-slate-200">Education Notes</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {eduProfile.targetSchoolType && (
-              <ProfileField icon={<GraduationCap className="h-3.5 w-3.5" />} label="Target school type" value={eduProfile.targetSchoolType} />
+            {(eduProfile.admissionsDeadlines) && (
+              <ProfileField icon={<Calendar className="h-3.5 w-3.5" />} label="Admissions deadlines" value={eduProfile.admissionsDeadlines} />
+            )}
+            {(eduProfile.continuityPriorities) && (
+              <ProfileField icon={<GraduationCap className="h-3.5 w-3.5" />} label="Continuity priorities" value={eduProfile.continuityPriorities} />
             )}
             {eduProfile.preferredSchoolArea && (
               <ProfileField icon={<MapPin className="h-3.5 w-3.5" />} label="Preferred area" value={eduProfile.preferredSchoolArea} />
@@ -296,10 +342,10 @@ export function MobilityEducationTab({ caseId }: Props) {
               <ProfileField icon={<BookOpen className="h-3.5 w-3.5" />} label="Current system" value={eduProfile.currentSchoolSystem} />
             )}
           </div>
-          {eduProfile.senOrAdditionalNeeds && (
+          {(eduProfile.specialRequirements || eduProfile.senOrAdditionalNeeds) && (
             <div className="pt-1 border-t border-slate-700/50">
-              <p className="text-[11px] text-slate-500 mb-0.5">Additional needs / SEN</p>
-              <p className="text-xs text-slate-300">{eduProfile.senOrAdditionalNeeds}</p>
+              <p className="text-[11px] text-slate-500 mb-0.5">Special requirements / SEN</p>
+              <p className="text-xs text-slate-300">{eduProfile.specialRequirements || eduProfile.senOrAdditionalNeeds}</p>
             </div>
           )}
         </div>
