@@ -819,6 +819,11 @@ async function buildPacket(experience: any) {
   const wallet = config.wallet_rewards || {};
   const copilot = config.copilot_output || {};
   const primaryTemplate = selectPrimaryTemplate(experience);
+  const compositionBundle = getAppliedExperienceBundle(experience);
+  const sequencingState = resolveExperienceBundleSequencingState(experience, compositionBundle);
+  const articleDraft = shouldIncludeArticleDraft(experience, compositionBundle)
+    ? buildArticleDraftContext(experience)
+    : undefined;
 
   const featureId = content.feature_item_id;
   const supportingIds = Array.isArray(content.supporting_item_ids) ? content.supporting_item_ids : [];
@@ -863,6 +868,23 @@ async function buildPacket(experience: any) {
         reward_amount: rewardAmount,
       },
     },
+    composition: compositionBundle
+      ? {
+          ...compositionBundle,
+          media_mode: "read",
+          sequencing_state: sequencingState,
+        }
+      : {
+          presetId: "reading_sprint",
+          media_mode: "read",
+          nextActions: [
+            "Open the feature article",
+            "Read with preview + unlock",
+            "Capture copilot takeaways",
+            "Save the takeaways card",
+          ],
+        },
+    article_draft: articleDraft,
     ui: {
       primary_template: primaryTemplate.templateId,
       layout: "split",
