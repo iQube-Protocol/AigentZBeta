@@ -95,9 +95,10 @@ export function computeScores(profile: ProfileSnapshot): Scores {
   const children = Array.isArray(eduProfile?.children) ? eduProfile!.children as Record<string, unknown>[] : [];
   const hasStructuredChildren = children.length > 0;
   const hasTargetSchools = children.some(c => !!(c as Record<string, unknown>).targetSchool);
+  const allTargetSchools = hasStructuredChildren && children.every(c => !!(c as Record<string, unknown>).targetSchool);
   const educationRisk: 'low' | 'medium' | 'high' =
-    hasTargetSchools ? 'medium' :
-    hasStructuredChildren ? 'medium' : 'high';
+    allTargetSchools ? 'low' :
+    hasTargetSchools || hasStructuredChildren ? 'medium' : 'high';
 
   // Business continuity risk: based on complexity
   const bizProfile = profile.business_profile as Record<string, unknown> | undefined;
