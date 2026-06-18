@@ -878,6 +878,45 @@ function StepMobility({
   );
 }
 
+// ─── FactRow (module-level — must not be defined inside StepProfessional) ────
+
+type FactRowProps = {
+  fact: ProfessionalFact;
+  category: keyof Pick<ProfessionalProfile, 'currentRoles' | 'education' | 'publications' | 'patents' | 'awards' | 'licenses' | 'extraordinaryAbilityIndicators'>;
+  summary: string;
+  onToggle: (category: FactRowProps['category'], factId: string) => void;
+  onRemove: (category: FactRowProps['category'], factId: string) => void;
+};
+
+function FactRow({ fact, category, summary, onToggle, onRemove }: FactRowProps) {
+  return (
+    <div className={cls(
+      'flex items-start gap-2 rounded-lg border px-3 py-2',
+      fact.principalApproved
+        ? 'border-emerald-500/30 bg-emerald-500/5'
+        : 'border-slate-700 bg-slate-800/50',
+    )}>
+      <button
+        type="button"
+        onClick={() => onToggle(category, fact.factId)}
+        className={cls('mt-0.5 h-4 w-4 rounded border shrink-0 flex items-center justify-center transition-colors', fact.principalApproved ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-500')}
+      >
+        {fact.principalApproved && <CheckCircle2 className="h-3 w-3" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-slate-200">{summary}</p>
+        <p className="text-[10px] text-slate-500 mt-0.5">
+          {fact.confidence === 'PRINCIPAL_VERIFIED' ? '✓ Verified' : 'SOURCE_DERIVED — approve to use in SRB'}
+          {fact.sourceUrl ? ` · ${fact.sourceUrl}` : ''}
+        </p>
+      </div>
+      <button type="button" onClick={() => onRemove(category, fact.factId)} className="text-slate-600 hover:text-rose-400 shrink-0">
+        <Trash2 className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 // ─── StepProfessional ────────────────────────────────────────────────────────
 
 function StepProfessional({
@@ -969,35 +1008,6 @@ function StepProfessional({
 
   const totalCount = profile.currentRoles.length + profile.education.length + profile.publications.length +
     profile.patents.length + profile.awards.length + profile.licenses.length + profile.extraordinaryAbilityIndicators.length;
-
-  function FactRow({ fact, category, summary }: { fact: ProfessionalFact; category: keyof Pick<ProfessionalProfile, 'currentRoles' | 'education' | 'publications' | 'patents' | 'awards' | 'licenses' | 'extraordinaryAbilityIndicators'>; summary: string }) {
-    return (
-      <div className={cls(
-        'flex items-start gap-2 rounded-lg border px-3 py-2',
-        fact.principalApproved
-          ? 'border-emerald-500/30 bg-emerald-500/5'
-          : 'border-slate-700 bg-slate-800/50',
-      )}>
-        <button
-          type="button"
-          onClick={() => toggleApprove(category, fact.factId)}
-          className={cls('mt-0.5 h-4 w-4 rounded border shrink-0 flex items-center justify-center transition-colors', fact.principalApproved ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-500')}
-        >
-          {fact.principalApproved && <CheckCircle2 className="h-3 w-3" />}
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-slate-200">{summary}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">
-            {fact.confidence === 'PRINCIPAL_VERIFIED' ? '✓ Verified' : 'SOURCE_DERIVED — approve to use in SRB'}
-            {fact.sourceUrl ? ` · ${fact.sourceUrl}` : ''}
-          </p>
-        </div>
-        <button type="button" onClick={() => removeFact(category, fact.factId)} className="text-slate-600 hover:text-rose-400 shrink-0">
-          <Trash2 className="h-3 w-3" />
-        </button>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -1142,7 +1152,7 @@ function StepProfessional({
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold text-slate-500 uppercase">Roles</p>
               {profile.currentRoles.map(f => (
-                <FactRow key={f.factId} fact={f} category="currentRoles" summary={`${f.title} @ ${f.organization}${f.isCurrent ? ' (current)' : ''}`} />
+                <FactRow key={f.factId} fact={f} category="currentRoles" summary={`${f.title} @ ${f.organization}${f.isCurrent ? ' (current)' : ''}`} onToggle={toggleApprove} onRemove={removeFact} />
               ))}
             </div>
           )}
@@ -1150,7 +1160,7 @@ function StepProfessional({
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold text-slate-500 uppercase">Education</p>
               {profile.education.map(f => (
-                <FactRow key={f.factId} fact={f} category="education" summary={`${f.degree || 'Study'} at ${f.institution}${f.years ? ` (${f.years})` : ''}`} />
+                <FactRow key={f.factId} fact={f} category="education" summary={`${f.degree || 'Study'} at ${f.institution}${f.years ? ` (${f.years})` : ''}`} onToggle={toggleApprove} onRemove={removeFact} />
               ))}
             </div>
           )}
@@ -1158,7 +1168,7 @@ function StepProfessional({
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold text-slate-500 uppercase">Publications</p>
               {profile.publications.map(f => (
-                <FactRow key={f.factId} fact={f} category="publications" summary={`${f.title}${f.year ? ` (${f.year})` : ''}`} />
+                <FactRow key={f.factId} fact={f} category="publications" summary={`${f.title}${f.year ? ` (${f.year})` : ''}`} onToggle={toggleApprove} onRemove={removeFact} />
               ))}
             </div>
           )}
@@ -1166,7 +1176,7 @@ function StepProfessional({
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold text-slate-500 uppercase">Patents</p>
               {profile.patents.map(f => (
-                <FactRow key={f.factId} fact={f} category="patents" summary={`${f.title}${f.number ? ` (${f.number})` : ''}${f.year ? ` · ${f.year}` : ''}`} />
+                <FactRow key={f.factId} fact={f} category="patents" summary={`${f.title}${f.number ? ` (${f.number})` : ''}${f.year ? ` · ${f.year}` : ''}`} onToggle={toggleApprove} onRemove={removeFact} />
               ))}
             </div>
           )}
@@ -1174,7 +1184,7 @@ function StepProfessional({
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold text-slate-500 uppercase">Awards & recognition</p>
               {profile.awards.map(f => (
-                <FactRow key={f.factId} fact={f} category="awards" summary={`${f.title}${f.issuer ? ` — ${f.issuer}` : ''}${f.year ? ` (${f.year})` : ''}`} />
+                <FactRow key={f.factId} fact={f} category="awards" summary={`${f.title}${f.issuer ? ` — ${f.issuer}` : ''}${f.year ? ` (${f.year})` : ''}`} onToggle={toggleApprove} onRemove={removeFact} />
               ))}
             </div>
           )}
@@ -1182,7 +1192,7 @@ function StepProfessional({
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold text-slate-500 uppercase">Licences</p>
               {profile.licenses.map(f => (
-                <FactRow key={f.factId} fact={f} category="licenses" summary={`${f.title}${f.issuer ? ` — ${f.issuer}` : ''}${f.year ? ` (${f.year})` : ''}`} />
+                <FactRow key={f.factId} fact={f} category="licenses" summary={`${f.title}${f.issuer ? ` — ${f.issuer}` : ''}${f.year ? ` (${f.year})` : ''}`} onToggle={toggleApprove} onRemove={removeFact} />
               ))}
             </div>
           )}
@@ -1190,7 +1200,7 @@ function StepProfessional({
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold text-slate-500 uppercase">Extraordinary ability indicators</p>
               {profile.extraordinaryAbilityIndicators.map(f => (
-                <FactRow key={f.factId} fact={f} category="extraordinaryAbilityIndicators" summary={`${f.description} (${f.category})`} />
+                <FactRow key={f.factId} fact={f} category="extraordinaryAbilityIndicators" summary={`${f.description} (${f.category})`} onToggle={toggleApprove} onRemove={removeFact} />
               ))}
             </div>
           )}
