@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-18T22:44:27.279Z",
+  "last_updated": "2026-06-18T23:03:36.864Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "239cee4e309089336dcf8c710826aeba81295f80",
-  "latest_commit_short": "239cee4",
-  "latest_commit_title": "fix runtime regression: render consumer task runner for admins too",
+  "latest_commit": "88fba98483b8b91ec59ded97f49eb9e0697c7054",
+  "latest_commit_short": "88fba98",
+  "latest_commit_title": "fix consumer 404: render experience inline-only for non-admins, hide platform links",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "88fba98",
+      "full_sha": "88fba98483b8b91ec59ded97f49eb9e0697c7054",
+      "title": "fix consumer 404: render experience inline-only for non-admins, hide platform links",
+      "author": "Claude",
+      "timestamp": "2026-06-18T23:01:41Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-88fba98.md"
+    },
+    {
+      "sha": "490cff8",
+      "full_sha": "490cff8fba349393a9d9a7d0019855a371a709ec",
+      "title": "trigger deploy to dev: consumer inline-only experience fix",
+      "author": "Claude",
+      "timestamp": "2026-06-18T23:01:41Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-490cff8.md"
+    },
     {
       "sha": "239cee4",
       "full_sha": "239cee4e309089336dcf8c710826aeba81295f80",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-03T06:16:43Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-abb7d55.md"
-    },
-    {
-      "sha": "76a1012",
-      "full_sha": "76a1012c84a134a471fe84f877deb83af6f2e7e5",
-      "title": "feat(intent chain): emit specialist_invoked + clickable workbench pills",
-      "author": "Claude",
-      "timestamp": "2026-06-03T05:47:06Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-76a1012.md"
-    },
-    {
-      "sha": "b6b73af",
-      "full_sha": "b6b73af5ee95ef205288b24b74139c50c2d9ac06",
-      "title": "trigger deploy: chain-of-intent (specialist_invoked + clickable pills)",
-      "author": "Claude",
-      "timestamp": "2026-06-03T05:47:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b6b73af.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
