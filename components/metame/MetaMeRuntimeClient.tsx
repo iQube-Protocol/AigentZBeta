@@ -89,6 +89,7 @@ import {
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import { RuntimeTakeoverBanner } from "@/components/metame/RuntimeTakeoverBanner";
 import { RuntimeCapsuleRemixEditor } from "@/components/metame/runtime/RuntimeCapsuleRemixEditor";
+import { RuntimeConsumerTaskRunner } from "@/components/metame/runtime/RuntimeConsumerTaskRunner";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { InviteModal } from "@/components/shared/InviteModal";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
@@ -3247,39 +3248,42 @@ export default function MetaMeRuntimeClient() {
             ) : null}
 
             {(() => {
-              // Diagnostic — surfaces which editor branch fired and why.
-              if (typeof window !== 'undefined') {
-                console.log('[MetaMeRuntime] dispatch', {
-                  capsuleId: content.id,
-                  runtimeAdminMode,
-                  runtimeAdminUrlOverride,
-                  personaIsAdmin,
-                  activePersonaId,
-                  personaResolving,
-                });
-              }
+              const resolvedExpIdForRunner = resolveRuntimeExperienceId(content) ?? content.id;
+              const { costLabel: runnerCostLabel, rewardLabel: runnerRewardLabel } = resolveRuntimeRewardCost(content);
+              const runnerCartridgeSlug =
+                typeof (content.configuration as Record<string, unknown> | undefined)?.cartridge_id === "string"
+                  ? (content.configuration as Record<string, unknown>).cartridge_id as string
+                  : "";
               return runtimeAdminMode ? (
                 <RuntimeCapsuleAdminEditor
                   content={content}
                   onComplete={(override) =>
                     setRuntimeExperienceOverrides((prev) => ({
                       ...prev,
-                      [resolveRuntimeExperienceId(content) ?? content.id]: override,
+                      [resolvedExpIdForRunner]: override,
                     }))
                   }
                 />
               ) : (
-                <RuntimeCapsuleRemixEditor
-                  personaId={activePersonaId}
-                  personaResolving={personaResolving}
-                  sourceExperienceId={resolveRuntimeExperienceId(content) ?? content.id}
-                  initialTitle={content.title || ""}
-                  initialPrompt={articleDraft?.prompt || content.description || ""}
-                  sourceImageUrl={resolveCapsuleCoverImage(content) || null}
-                  sourceDescription={content.description || null}
-                  onSignInRequest={() => setWalletDrawerOpen(true)}
-                  onConnectWallet={() => { setWalletInitialTab("wallet"); setWalletDrawerOpen(true); }}
-                />
+                <>
+                  <RuntimeConsumerTaskRunner
+                    experienceId={resolvedExpIdForRunner}
+                    rewardLabel={runnerRewardLabel}
+                    costLabel={runnerCostLabel}
+                    cartridgeSlug={runnerCartridgeSlug}
+                  />
+                  <RuntimeCapsuleRemixEditor
+                    personaId={activePersonaId}
+                    personaResolving={personaResolving}
+                    sourceExperienceId={resolvedExpIdForRunner}
+                    initialTitle={content.title || ""}
+                    initialPrompt={articleDraft?.prompt || content.description || ""}
+                    sourceImageUrl={resolveCapsuleCoverImage(content) || null}
+                    sourceDescription={content.description || null}
+                    onSignInRequest={() => setWalletDrawerOpen(true)}
+                    onConnectWallet={() => { setWalletInitialTab("wallet"); setWalletDrawerOpen(true); }}
+                  />
+                </>
               );
             })()}
 
