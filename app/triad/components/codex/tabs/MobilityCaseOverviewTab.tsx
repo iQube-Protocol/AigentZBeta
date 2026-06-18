@@ -72,6 +72,8 @@ type CaseDetail = {
   business_continuity_risk: string | null;
   intake_sections_complete: string[];
   intake_completed_at: string | null;
+  srb_status: string | null;
+  ies_status: string | null;
 };
 
 const WORKSTREAM_ICONS: Record<string, React.ReactNode> = {
@@ -361,27 +363,50 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream
             {onOpenSRB && (
               <button
                 onClick={onOpenSRB}
-                className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2.5 w-full text-left hover:border-violet-500/30 hover:bg-slate-800/60 transition-all cursor-pointer group"
+                className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 w-full text-left hover:bg-slate-800/60 transition-all cursor-pointer group ${
+                  caseData.srb_status === 'approved'
+                    ? 'border-emerald-500/30 bg-emerald-500/5'
+                    : caseData.srb_status === 'draft'
+                    ? 'border-amber-500/30 bg-amber-500/5'
+                    : 'border-slate-700 bg-slate-900/50 hover:border-violet-500/30'
+                }`}
               >
-                <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                <FileText className={`h-4 w-4 shrink-0 ${caseData.srb_status === 'approved' ? 'text-emerald-400' : caseData.srb_status === 'draft' ? 'text-amber-400' : 'text-slate-400'}`} />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm text-slate-100">Strategic Repatriation Brief</span>
-                  <p className="text-[11px] text-slate-500">Capability and continuity narrative for institutional engagement</p>
+                  <p className="text-[11px] text-slate-500">
+                    {caseData.srb_status === 'approved' ? 'Authorized — ready for institutional outreach'
+                      : caseData.srb_status === 'draft' ? 'Draft — awaiting principal authorization'
+                      : 'Not yet generated'}
+                  </p>
                 </div>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-violet-400 transition-colors shrink-0" />
+                {caseData.srb_status === 'approved' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+                {(!caseData.srb_status || caseData.srb_status === 'not_generated') && <ChevronRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-violet-400 transition-colors shrink-0" />}
               </button>
             )}
             {onOpenIES && (
               <button
                 onClick={onOpenIES}
-                className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2.5 w-full text-left hover:border-emerald-500/30 hover:bg-slate-800/60 transition-all cursor-pointer group"
+                className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 w-full text-left hover:bg-slate-800/60 transition-all cursor-pointer group ${
+                  caseData.ies_status === 'approved'
+                    ? 'border-violet-500/30 bg-violet-500/5'
+                    : caseData.ies_status === 'draft'
+                    ? 'border-sky-500/30 bg-sky-500/5'
+                    : 'border-slate-700 bg-slate-900/50 hover:border-emerald-500/30'
+                }`}
               >
-                <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
+                <Building2 className={`h-4 w-4 shrink-0 ${caseData.ies_status === 'approved' ? 'text-violet-400' : caseData.ies_status === 'draft' ? 'text-sky-400' : 'text-slate-400'}`} />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm text-slate-100">Institutional Engagement Strategy</span>
-                  <p className="text-[11px] text-slate-500">Sequenced outreach plan and partner institution drafts</p>
+                  <p className="text-[11px] text-slate-500">
+                    {caseData.ies_status === 'approved' ? 'Authorized — outreach drafts enabled'
+                      : caseData.ies_status === 'draft' ? 'Draft — awaiting authorization'
+                      : caseData.srb_status === 'approved' ? 'Ready to generate — SRB approved'
+                      : 'Requires approved SRB first'}
+                  </p>
                 </div>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-emerald-400 transition-colors shrink-0" />
+                {caseData.ies_status === 'approved' && <CheckCircle2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />}
+                {(!caseData.ies_status || caseData.ies_status === 'not_generated') && <ChevronRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-emerald-400 transition-colors shrink-0" />}
               </button>
             )}
           </div>

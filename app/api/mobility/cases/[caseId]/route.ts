@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { caseId: stri
     const [caseRes, workstreamsRes, datesRes] = await Promise.all([
       supabase
         .from('mobility_cases')
-        .select('id, case_type, case_status, priority_level, classification, household_profile, capability_profile, continuity_profile, standing_profile, housing_profile, education_profile, business_profile, financial_profile, mobility_profile, family_profile, confidentiality_profile, capability_score, continuity_score, recovery_velocity_class, standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk, intake_sections_complete, intake_completed_at, marketa_forward_email, created_at, updated_at')
+        .select('id, case_type, case_status, priority_level, classification, household_profile, capability_profile, continuity_profile, standing_profile, housing_profile, education_profile, business_profile, financial_profile, mobility_profile, family_profile, confidentiality_profile, capability_score, continuity_score, recovery_velocity_class, standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk, intake_sections_complete, intake_completed_at, srb_status, ies_status, marketa_forward_email, created_at, updated_at')
         .eq('id', params.caseId)
         .single(),
       supabase
