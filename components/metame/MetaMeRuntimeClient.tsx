@@ -3189,8 +3189,9 @@ export default function MetaMeRuntimeClient() {
         const sourceExperienceHref = content.runtimeAuthoringHref
           ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
           : null;
-        const consumerExperienceHref = content.runtimeLaunchHref
-          ? safeLaunchHref(withQueryParam(content.runtimeLaunchHref, "device", activeDevice))
+        const resolvedExpId = resolveRuntimeExperienceId(content);
+        const consumerExperienceHref = resolvedExpId
+          ? `/studio/composer/experience/${encodeURIComponent(resolvedExpId)}?from=runtime&device=${encodeURIComponent(activeDevice)}`
           : null;
         const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
         const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
@@ -3594,8 +3595,9 @@ export default function MetaMeRuntimeClient() {
       const { costLabel, rewardLabel } = resolveRuntimeRewardCost(content);
       const { headline, summary } = resolveRuntimeExperienceSummary(content);
       const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
-      const consumerExperienceHref = content.runtimeLaunchHref
-        ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
+      const resolvedExpId = resolveRuntimeExperienceId(content);
+      const consumerExperienceHref = resolvedExpId
+        ? `/studio/composer/experience/${encodeURIComponent(resolvedExpId)}?from=runtime&device=${encodeURIComponent(activeDevice)}`
         : null;
       return (
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
@@ -3963,8 +3965,9 @@ export default function MetaMeRuntimeClient() {
               const authoringExperienceHref = content.runtimeAuthoringHref
                 ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
                 : null;
-              const consumerExperienceHref = content.runtimeLaunchHref
-                ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
+              const resolvedExpId = resolveRuntimeExperienceId(content);
+              const consumerExperienceHref = resolvedExpId
+                ? `/studio/composer/experience/${encodeURIComponent(resolvedExpId)}?from=runtime&device=${encodeURIComponent(activeDevice)}`
                 : null;
               const receiptHref = authoringExperienceHref
                 ? withQueryParam(authoringExperienceHref, "focus", "receipt")
