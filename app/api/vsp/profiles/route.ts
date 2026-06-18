@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from('vsp_profiles')
-      .select('id, label, profile_type, status, compiled_at, created_at, updated_at')
+      .select('id, label, profile_type, status, compiled_at, kybe_did_public_ref, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (!isAdmin) {
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         label: body.label ?? 'Standing Profile',
         profile_type: body.profile_type ?? 'general',
       })
-      .select('id, label, profile_type, status, compiled_at, created_at, updated_at')
+      .select('id, label, profile_type, status, compiled_at, kybe_did_public_ref, created_at, updated_at')
       .single();
 
     if (error) throw error;

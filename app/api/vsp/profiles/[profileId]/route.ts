@@ -43,12 +43,12 @@ export async function GET(req: NextRequest, { params }: { params: { profileId: s
     const [profileRes, evidenceRes, factsRes] = await Promise.all([
       supabase
         .from('vsp_profiles')
-        .select('id, label, profile_type, status, vsp_content, compiled_at, created_at, updated_at')
+        .select('id, label, profile_type, status, vsp_content, standing_graph, compiled_at, kybe_did_public_ref, persona_public_ref, created_at, updated_at')
         .eq('id', params.profileId)
         .single(),
       supabase
         .from('vsp_evidence')
-        .select('id, source_type, label, content_text, extraction_status, extracted_fact_count, extracted_at, created_at')
+        .select('id, source_type, label, content_text, extraction_status, extracted_fact_count, extracted_at, classification, disclosure_policy, verification_status, source_provenance, storage_backend, storage_ref, created_at')
         .eq('profile_id', params.profileId)
         .order('created_at'),
       supabase

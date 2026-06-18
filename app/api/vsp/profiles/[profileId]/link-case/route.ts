@@ -25,16 +25,23 @@ export async function POST(req: NextRequest, { params }: { params: { profileId: 
       return NextResponse.json({ ok: false, error: 'case_id is required' }, { status: 400 });
     }
 
-    // Verify profile ownership
+    // Verify profile ownership + compiled state
     const { data: profile } = await supabase
       .from('vsp_profiles')
-      .select('id')
+      .select('id, compiled_at')
       .eq('id', params.profileId)
       .eq(isAdmin ? 'id' : 'owner_persona_id', isAdmin ? params.profileId : persona.personaId)
       .maybeSingle();
 
     if (!profile) {
       return NextResponse.json({ ok: false, error: 'Profile not found' }, { status: 404 });
+    }
+
+    if (!profile.compiled_at) {
+      return NextResponse.json(
+        { ok: false, error: 'Profile must be compiled before linking to a case' },
+        { status: 422 },
+      );
     }
 
     // Verify case ownership

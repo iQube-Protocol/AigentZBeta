@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: { profileId: s
 
     const { data, error } = await supabase
       .from('vsp_evidence')
-      .select('id, source_type, label, content_text, extraction_status, extracted_fact_count, extracted_at, created_at')
+      .select('id, source_type, label, content_text, extraction_status, extracted_fact_count, extracted_at, classification, disclosure_policy, verification_status, source_provenance, storage_backend, storage_ref, created_at')
       .eq('profile_id', params.profileId)
       .order('created_at');
 
@@ -66,11 +66,17 @@ export async function POST(req: NextRequest, { params }: { params: { profileId: 
       source_type?: string;
       label?: string;
       content_text?: string;
+      classification?: string;
+      disclosure_policy?: string;
+      source_provenance?: string;
     };
 
     if (!body.source_type || !body.label) {
       return NextResponse.json({ ok: false, error: 'source_type and label are required' }, { status: 400 });
     }
+
+    const validClassifications = ['WHITE', 'GREY', 'BLACK', 'BLAKQUBE'];
+    const validPolicies = ['public', 'principal_only', 'service_only', 'restricted'];
 
     const { data, error } = await supabase
       .from('vsp_evidence')
@@ -80,8 +86,11 @@ export async function POST(req: NextRequest, { params }: { params: { profileId: 
         label: body.label,
         content_text: body.content_text ?? '',
         extraction_status: 'pending',
+        classification: validClassifications.includes(body.classification ?? '') ? body.classification : 'GREY',
+        disclosure_policy: validPolicies.includes(body.disclosure_policy ?? '') ? body.disclosure_policy : 'principal_only',
+        source_provenance: body.source_provenance ?? null,
       })
-      .select('id, source_type, label, content_text, extraction_status, extracted_fact_count, extracted_at, created_at')
+      .select('id, source_type, label, content_text, extraction_status, extracted_fact_count, extracted_at, classification, disclosure_policy, verification_status, source_provenance, storage_backend, storage_ref, created_at')
       .single();
 
     if (error) throw error;
