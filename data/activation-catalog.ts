@@ -81,7 +81,7 @@ export interface ActivationCatalogEntry {
   longDescription: string;
   gate: ActivationGate;
   tabSlug: string;
-  sourceCartridge: ActiveCartridgeSlug | 'metame';
+  sourceCartridge: ActiveCartridgeSlug | 'metame' | 'polity-passport-bureau' | 'standing-cartridge' | 'human-mobility-services';
   icon?: string;
   color?: string;
   /** KPI metrics this activation exposes. Empty / undefined = none. */
@@ -384,9 +384,9 @@ export function metricsForActiveActivations(
  */
 export function actionsForActiveActivations(
   activeIds: Iterable<string>,
-): Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> {
+): Array<{ activationId: string; activationLabel: string; cartridge: ActivationCatalogEntry['sourceCartridge']; action: ActivationAction }> {
   const set = new Set(activeIds);
-  const out: Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> = [];
+  const out: Array<{ activationId: string; activationLabel: string; cartridge: ActivationCatalogEntry['sourceCartridge']; action: ActivationAction }> = [];
   for (const entry of ACTIVATION_CATALOG) {
     if (!set.has(entry.id)) continue;
     for (const a of entry.actions ?? []) {
