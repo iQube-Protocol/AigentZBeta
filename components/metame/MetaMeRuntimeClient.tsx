@@ -3271,35 +3271,42 @@ export default function MetaMeRuntimeClient() {
                 typeof (content.configuration as Record<string, unknown> | undefined)?.cartridge_id === "string"
                   ? (content.configuration as Record<string, unknown>).cartridge_id as string
                   : "";
-              return runtimeAdminMode ? (
-                <RuntimeCapsuleAdminEditor
-                  content={content}
-                  onComplete={(override) =>
-                    setRuntimeExperienceOverrides((prev) => ({
-                      ...prev,
-                      [resolvedExpIdForRunner]: override,
-                    }))
-                  }
-                />
-              ) : (
+              return (
                 <>
+                  {/* The consumer task runner (checkboxes, reward/cost badges,
+                      completion grant) is the actual experience — it renders
+                      for EVERY viewer, admin or not. The admin/remix editor
+                      below is an *addition* (pricing config for admins, remix
+                      for consumers), never a replacement for the experience. */}
                   <RuntimeConsumerTaskRunner
                     experienceId={resolvedExpIdForRunner}
                     rewardLabel={runnerRewardLabel}
                     costLabel={runnerCostLabel}
                     cartridgeSlug={runnerCartridgeSlug}
                   />
-                  <RuntimeCapsuleRemixEditor
-                    personaId={activePersonaId}
-                    personaResolving={personaResolving}
-                    sourceExperienceId={resolvedExpIdForRunner}
-                    initialTitle={content.title || ""}
-                    initialPrompt={articleDraft?.prompt || content.description || ""}
-                    sourceImageUrl={resolveCapsuleCoverImage(content) || null}
-                    sourceDescription={content.description || null}
-                    onSignInRequest={() => setWalletDrawerOpen(true)}
-                    onConnectWallet={() => { setWalletInitialTab("wallet"); setWalletDrawerOpen(true); }}
-                  />
+                  {runtimeAdminMode ? (
+                    <RuntimeCapsuleAdminEditor
+                      content={content}
+                      onComplete={(override) =>
+                        setRuntimeExperienceOverrides((prev) => ({
+                          ...prev,
+                          [resolvedExpIdForRunner]: override,
+                        }))
+                      }
+                    />
+                  ) : (
+                    <RuntimeCapsuleRemixEditor
+                      personaId={activePersonaId}
+                      personaResolving={personaResolving}
+                      sourceExperienceId={resolvedExpIdForRunner}
+                      initialTitle={content.title || ""}
+                      initialPrompt={articleDraft?.prompt || content.description || ""}
+                      sourceImageUrl={resolveCapsuleCoverImage(content) || null}
+                      sourceDescription={content.description || null}
+                      onSignInRequest={() => setWalletDrawerOpen(true)}
+                      onConnectWallet={() => { setWalletInitialTab("wallet"); setWalletDrawerOpen(true); }}
+                    />
+                  )}
                 </>
               );
             })()}
