@@ -119,12 +119,26 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
         'housing_profile, education_profile, business_profile, financial_profile, ' +
         'mobility_profile, family_profile, ' +
         'capability_score, continuity_score, recovery_velocity_class, ' +
-        'standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk',
+        'standing_risk_level, housing_risk_level, education_risk_level, business_continuity_risk, ' +
+        'vsp_profile_id',
       )
       .eq('id', params.caseId)
       .single();
 
     if (!row) return NextResponse.json({ ok: false, error: 'Case not found' }, { status: 404 });
+
+    // Fetch compiled VSP if linked — verified facts take precedence over manually entered profile data
+    let vspBlock = '';
+    if (row.vsp_profile_id) {
+      const { data: vsp } = await supabase
+        .from('vsp_profiles')
+        .select('vsp_content, label, profile_type')
+        .eq('id', row.vsp_profile_id as string)
+        .single();
+      if (vsp?.vsp_content) {
+        vspBlock = `\n\nVERIFIED STANDING PROFILE (VSP) — Principal-verified facts from documentary evidence. These facts are locked and authoritative. Use them in preference to any inferred or manually entered profile data. Do NOT modify, enrich, or contradict any fact listed here:\n${JSON.stringify(vsp.vsp_content, null, 2)}`;
+      }
+    }
 
     const sectionsComplete = (row.intake_sections_complete as string[]) ?? [];
     if (sectionsComplete.length < 8) {
@@ -234,7 +248,7 @@ DETERMINISTIC CASE MODEL — CRITICAL NON-FABRICATION RULES:
 8. School names appearing in the SRB must match exactly what is in the children[].targetSchool fields or continuity_profile — never invent school names.
 9. This is a deterministic report, not a narrative story. Every sentence must reference explicit case data.
 10. The SRB is NOT a benefits application. Communicate capability, continuity, and future contribution — not hardship.
-${professionalFactsBlock}
+${professionalFactsBlock}${vspBlock}
 
 Generate a Strategic Repatriation Brief (SRB). This is a curated advocacy document enabling institutions to understand the complete household before evaluating individual requests.
 

@@ -77,13 +77,26 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
       .from('mobility_cases')
       .select(
         'case_type, srb_status, srb_content, household_profile, capability_profile, continuity_profile, ' +
-        'standing_profile, mobility_profile, capability_score, continuity_score, recovery_velocity_class, ' +
+        'standing_profile, mobility_profile, vsp_profile_id, capability_score, continuity_score, recovery_velocity_class, ' +
         'housing_risk_level, education_risk_level, business_continuity_risk',
       )
       .eq('id', params.caseId)
       .single();
 
     if (!row) return NextResponse.json({ ok: false, error: 'Case not found' }, { status: 404 });
+
+    // Fetch compiled VSP if linked — verified facts inform IES capability framing
+    let vspBlock = '';
+    if (row.vsp_profile_id) {
+      const { data: vsp } = await supabase
+        .from('vsp_profiles')
+        .select('vsp_content')
+        .eq('id', row.vsp_profile_id as string)
+        .single();
+      if (vsp?.vsp_content) {
+        vspBlock = `\n\nVERIFIED STANDING PROFILE (VSP) — use for Package AB/C capability framing only. These are principal-verified facts from documentary evidence:\n${JSON.stringify(vsp.vsp_content, null, 2)}`;
+      }
+    }
 
     if (row.srb_status !== 'approved') {
       return NextResponse.json({
@@ -126,7 +139,7 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
     const destCountry = String(mobilityProfile2.destinationCountry ?? (row.household_profile as Record<string, unknown> | null)?.destinationCountry ?? 'the destination country');
     const caseDescriptor = `${(row.recovery_velocity_class as string | null)?.toLowerCase() ?? 'priority'} ${String((row as Record<string, unknown>).case_type ?? 'repatriation').replace('_', ' ')} case, destination: ${destCountry}`;
 
-    const system = `You are aigentMe — institutional engagement strategist and confidentiality guardian for a BlakQube-classified PSC-001 mobility case (${caseDescriptor}).
+    const system = `You are aigentMe — institutional engagement strategist and confidentiality guardian for a BlakQube-classified PSC-001 mobility case (${caseDescriptor}).${vspBlock}
 ${professionalContext}
 Generate an Institutional Engagement Strategy (IES) governed by the Progressive Disclosure & Engagement Protocol (PDEP) and Adaptive Disclosure Tempo Framework (ADTF).
 

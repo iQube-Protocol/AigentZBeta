@@ -3949,6 +3949,18 @@ export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
   ],
   tabs: [
     {
+      id: 'hms-standing',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'activation',
+      order: 0,
+      adminOnly: true,
+      config: { component: 'StandingCartridgeTab' },
+      metadata: { description: 'Verified Standing Profile — evidence-derived capability and reputation profile', icon: 'Star', color: 'violet', category: 'platform', tags: [] },
+    },
+    {
       id: 'hms-activation',
       label: 'Cases',
       slug: 'activation',
