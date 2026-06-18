@@ -35,6 +35,7 @@ import {
   type KpiSource,
 } from "@/services/strategy/kpiTypes";
 import { ACTIVATION_CATALOG } from "@/data/activation-catalog";
+import { useActivations } from "@/services/activations/ActivationsContext";
 import {
   getActiveCartridge,
   tryOpenInMountedCartridge,
@@ -2099,25 +2100,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return null;
   }, [brief, moveForwardResult, activeCartridges]);
 
-  // Phase 2 B.1 3/3 — load the persona's active activation ids so the
-  // copilot bridge can expose the available KPI sources filtered to
-  // what's currently switched on.
-  const [activeActivationIds, setActiveActivationIds] = useState<string[]>([]);
-  useEffect(() => {
-    if (!personaId) return;
-    let cancelled = false;
-    void personaFetch('/api/assistant/activations', { personaIdHint: personaId })
-      .then((r) => r.json())
-      .then((d: { activations?: Array<{ id: string; status: string }> }) => {
-        if (cancelled) return;
-        const ids = (d.activations ?? [])
-          .filter((a) => a.status === 'active')
-          .map((a) => a.id);
-        setActiveActivationIds(ids);
-      })
-      .catch(() => undefined);
-    return () => { cancelled = true; };
-  }, [personaId]);
+  // Phase 2 B.1 3/3 — derive active activation ids from the shared
+  // ActivationsContext instead of a parallel fetch. The context already
+  // manages optimistic state and mutation guards, so reading from it
+  // avoids the race condition where a stale fetch overwrites state.
+  const { activeIds: activationsActiveIds } = useActivations();
+  const activeActivationIds = useMemo(
+    () => Array.from(activationsActiveIds),
+    [activationsActiveIds],
+  );
 
   // Phase 2 B.3 — live cockpit sync.
   //

@@ -104,6 +104,10 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
     personaRef.current = personaId;
   }, [personaId]);
 
+  // Mirror mutatingIds in a ref so the refresh() callback can read it
+  // without a dependency — avoids re-creating refresh on every mutation.
+  const mutatingIdsRef = useRef<Set<string>>(new Set());
+
   // Mutation generation counter — incremented when a mutation starts,
   // checked when a background refresh completes. Prevents stale refresh
   // responses (fired by the personaId useEffect or a prior mutation) from
@@ -135,10 +139,20 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
       }
       const data = (await res.json()) as { activations: ActivationSurface[] };
       if (Array.isArray(data.activations)) {
-        // Only apply server data if no mutation started while we were
-        // fetching — otherwise the optimistic state is more recent.
         if (mutationGenRef.current === genAtStart) {
-          setSurfaces(() => data.activations);
+          setSurfaces((prev) => {
+            const currentMutating = mutatingIdsRef.current;
+            if (currentMutating.size === 0) return data.activations;
+            const serverMap = new Map(data.activations.map((s) => [s.id, s]));
+            return prev.map((s) => {
+              if (currentMutating.has(s.id)) return s;
+              return serverMap.get(s.id) ?? s;
+            }).concat(
+              data.activations.filter(
+                (s) => !prev.some((p) => p.id === s.id) && !currentMutating.has(s.id),
+              ),
+            );
+          });
         }
       }
     } catch (err) {
@@ -165,6 +179,7 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
       setMutatingIds((prev) => {
         const next = new Set(prev);
         next.add(id);
+        mutatingIdsRef.current = next;
         return next;
       });
       setError(null);
@@ -204,9 +219,11 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
           }
           throw new Error((body as { detail?: string }).detail ?? `mutation failed (${res.status})`);
         }
-        // Server confirms — bump gen again so the refresh we're about to
-        // fire is the authoritative read, and schedule the re-sync.
+        // Server confirms — bump gen again so the refresh we fire is the
+        // authoritative read. Short delay lets Supabase read-after-write
+        // settle across connections before we re-sync.
         mutationGenRef.current += 1;
+        await new Promise((r) => setTimeout(r, 300));
         await refresh();
       } catch (err) {
         // Revert optimistic write.
@@ -216,6 +233,7 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
         setMutatingIds((prev) => {
           const next = new Set(prev);
           next.delete(id);
+          mutatingIdsRef.current = next;
           return next;
         });
       }
