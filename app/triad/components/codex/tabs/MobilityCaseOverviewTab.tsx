@@ -28,6 +28,7 @@ import {
   Building2,
   FileText,
   Pencil,
+  Download,
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { MobilityPassportPanel } from './MobilityPassportPanel';
@@ -124,6 +125,25 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [downloading, setDownloading] = useState(false);
+
+  const handleExport = useCallback(async () => {
+    setDownloading(true);
+    try {
+      const res = await personaFetch(`/api/mobility/cases/${caseId}/export`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `MAF_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silent */ } finally {
+      setDownloading(false);
+    }
+  }, [caseId]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -201,6 +221,14 @@ export function MobilityCaseOverviewTab({ caseId, onOpenIntake, onOpenWorkstream
               Edit Intake
             </button>
           )}
+          <button
+            onClick={handleExport}
+            disabled={downloading}
+            title="Download MAF as JSON"
+            className="text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-40"
+          >
+            {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          </button>
           <button onClick={load} className="text-slate-500 hover:text-slate-300 transition-colors">
             <RefreshCw className="h-4 w-4" />
           </button>
