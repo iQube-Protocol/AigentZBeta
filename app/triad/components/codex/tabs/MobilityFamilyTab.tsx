@@ -12,12 +12,15 @@ import { personaFetch } from '@/utils/personaSpine';
 function cls(...xs: Array<string | false | undefined>) { return xs.filter(Boolean).join(' '); }
 
 interface FamilyTask { id: string; label: string; status: 'pending'|'in_progress'|'complete'|'blocked'; notes: string; assignee: string; due: string; }
-interface HouseholdProfile { adultCount?: number; childCount?: number; childAges?: number[]; petsCount?: number; specialNeeds?: string; gpRegistered?: string; }
+interface HouseholdProfile { adultsCount?: string; dependentsCount?: string; specialRequirements?: string; }
+interface ChildRecord { childId: string; age: string; currentGrade?: string; yearGroup?: string; continuityPriority?: string; notes?: string; }
+interface EducationProfile { children?: ChildRecord[]; }
 interface WorkstreamRow { id: string; workstream_key: string; label: string; priority: string; status: string; notes: string | null; tasks: FamilyTask[]; }
 const TASK_STATUS_CONFIG = { pending: { label: 'Pending', color: 'slate' }, in_progress: { label: 'In Progress', color: 'amber' }, complete: { label: 'Complete', color: 'emerald' }, blocked: { label: 'Blocked', color: 'rose' } } as const;
 
 export function MobilityFamilyTab({ caseId }: { caseId: string }) {
   const [profile, setProfile] = useState<HouseholdProfile | null>(null);
+  const [children, setChildren] = useState<ChildRecord[]>([]);
   const [workstream, setWorkstream] = useState<WorkstreamRow | null>(null);
   const [tasks, setTasks] = useState<FamilyTask[]>([]);
   const [notes, setNotes] = useState('');
@@ -33,7 +36,11 @@ export function MobilityFamilyTab({ caseId }: { caseId: string }) {
         personaFetch(`/api/mobility/cases/${caseId}/workstreams`, { cache: 'no-store' }),
       ]);
       const [caseJson, wsJson] = await Promise.all([caseRes.json(), wsRes.json()]);
-      if (caseJson.ok) setProfile(caseJson.case.household_profile ?? {});
+      if (caseJson.ok) {
+        setProfile(caseJson.case.household_profile ?? {});
+        const edu = caseJson.case.education_profile as EducationProfile | null;
+        setChildren(Array.isArray(edu?.children) ? edu.children : []);
+      }
       if (wsJson.ok) {
         const ws = (wsJson.workstreams as WorkstreamRow[]).find(w => w.workstream_key === 'G');
         if (ws) { setWorkstream(ws); setNotes(ws.notes ?? ''); setTasks((ws.tasks as FamilyTask[]) ?? []); }
@@ -63,9 +70,8 @@ export function MobilityFamilyTab({ caseId }: { caseId: string }) {
 
   if (loading) return <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-slate-500" /></div>;
 
-  const childAges = profile?.childAges ?? [];
-  const hasElder = childAges.some(a => a >= 10);
-  const hasYounger = childAges.some(a => a < 10);
+  const elderChildren = children.filter(c => Number(c.age) >= 10);
+  const youngerChildren = children.filter(c => Number(c.age) < 10);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 p-4">
@@ -89,35 +95,37 @@ export function MobilityFamilyTab({ caseId }: { caseId: string }) {
       </div>
 
       {/* Household overview */}
-      {profile && (profile.adultCount !== undefined || childAges.length > 0) && (
+      {profile && (profile.adultsCount || profile.dependentsCount) && (
         <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2"><Users className="h-4 w-4 text-slate-400" /> Household</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {profile.adultCount !== undefined && <ProfileField label="Adults" value={String(profile.adultCount)} />}
-            {profile.childCount !== undefined && <ProfileField label="Children" value={String(profile.childCount)} />}
-            {childAges.length > 0 && <ProfileField label="Child ages" value={childAges.join(', ')} />}
-            {profile.petsCount !== undefined && profile.petsCount > 0 && <ProfileField label="Pets" value={String(profile.petsCount)} />}
+            {profile.adultsCount && <ProfileField label="Adults" value={profile.adultsCount} />}
+            {profile.dependentsCount && <ProfileField label="Dependents" value={profile.dependentsCount} />}
+            {children.length > 0 && <ProfileField label="Child ages" value={children.map(c => c.age).join(', ')} />}
           </div>
-          {profile.specialNeeds && <div className="pt-1 border-t border-slate-700/50"><p className="text-[11px] text-slate-500 mb-0.5">Special needs / medical</p><p className="text-xs text-slate-300">{profile.specialNeeds}</p></div>}
-          {profile.gpRegistered && <div><p className="text-[11px] text-slate-500 mb-0.5">GP registration status</p><p className="text-xs text-slate-300">{profile.gpRegistered}</p></div>}
+          {profile.specialRequirements && <div className="pt-1 border-t border-slate-700/50"><p className="text-[11px] text-slate-500 mb-0.5">Special requirements</p><p className="text-xs text-slate-300">{profile.specialRequirements}</p></div>}
         </div>
       )}
 
-      {/* Child transition cards */}
-      {(hasElder || hasYounger) && (
+      {/* Child transition cards — one per child, dynamically rendered */}
+      {children.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {hasElder && (
-            <div className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-3 space-y-1">
-              <p className="text-xs font-semibold text-pink-200">Secondary-age child (13)</p>
-              <p className="text-[11px] text-slate-400">GCSE continuity · friendship networks · extracurricular</p>
+          {elderChildren.map(c => (
+            <div key={c.childId} className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-3 space-y-1">
+              <p className="text-xs font-semibold text-pink-200">
+                Secondary-age child{c.age ? ` (${c.age})` : ''}{c.yearGroup ? ` — ${c.yearGroup}` : ''}
+              </p>
+              <p className="text-[11px] text-slate-400">GCSE continuity · friendship networks · extracurricular{c.notes ? ` · ${c.notes}` : ''}</p>
             </div>
-          )}
-          {hasYounger && (
-            <div className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-3 space-y-1">
-              <p className="text-xs font-semibold text-pink-200">Primary-age child (5)</p>
-              <p className="text-[11px] text-slate-400">Reception / Year 1 transition · early settling support</p>
+          ))}
+          {youngerChildren.map(c => (
+            <div key={c.childId} className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-3 space-y-1">
+              <p className="text-xs font-semibold text-pink-200">
+                Primary-age child{c.age ? ` (${c.age})` : ''}{c.yearGroup ? ` — ${c.yearGroup}` : ''}
+              </p>
+              <p className="text-[11px] text-slate-400">Early years / primary transition · settling support{c.notes ? ` · ${c.notes}` : ''}</p>
             </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -129,13 +137,26 @@ export function MobilityFamilyTab({ caseId }: { caseId: string }) {
         onRemove={(id) => { const u = tasks.filter(t => t.id !== id); setTasks(u); save(u); }}
         onNotesChange={setNotes} onSave={() => save()} statusConfig={TASK_STATUS_CONFIG}
         scaffold={tasks.length === 0 ? () => {
+          const childTasks: FamilyTask[] = elderChildren.map(c => ({
+            id: crypto.randomUUID(),
+            label: `Support ${c.age ? `${c.age}yr-old` : 'secondary-age child'}${c.yearGroup ? ` (${c.yearGroup})` : ''}: curriculum continuity review`,
+            status: 'pending' as const,
+            notes: 'Confirm subject alignment between origin and UK curriculum — liaise with new school',
+            assignee: '', due: '',
+          }));
+          childTasks.push(...youngerChildren.map(c => ({
+            id: crypto.randomUUID(),
+            label: `Support ${c.age ? `${c.age}yr-old` : 'primary-age child'}${c.yearGroup ? ` (${c.yearGroup})` : ''}: school settling plan`,
+            status: 'pending' as const,
+            notes: 'Visit school before start date if possible; arrange playdates if school permits',
+            assignee: '', due: '',
+          })));
           const s: FamilyTask[] = [
-            { id: crypto.randomUUID(), label: 'Register with GP surgery in Dulwich / SE London', status: 'pending', notes: 'NHS registration requires proof of address — do immediately on arrival', assignee: '', due: '' },
+            { id: crypto.randomUUID(), label: 'Register with GP surgery in target area', status: 'pending', notes: 'NHS registration requires proof of address — do immediately on arrival', assignee: '', due: '' },
             { id: crypto.randomUUID(), label: 'Register children with NHS dentist', status: 'pending', notes: 'NHS dental waitlists — register early', assignee: '', due: '' },
-            { id: crypto.randomUUID(), label: 'Support 13yr-old: GCSE subject continuity review', status: 'pending', notes: 'Confirm subject alignment between NJ and UK curriculum — liaise with new school', assignee: '', due: '' },
-            { id: crypto.randomUUID(), label: 'Support 5yr-old: September Year 1 settling plan', status: 'pending', notes: 'Visit school before start date if possible; arrange playdates if school permits', assignee: '', due: '' },
+            ...childTasks,
             { id: crypto.randomUUID(), label: 'Re-establish family support network (extended family, friends)', status: 'pending', notes: '', assignee: '', due: '' },
-            { id: crypto.randomUUID(), label: 'Identify local activities / clubs for children (sports, arts)', status: 'pending', notes: 'Dulwich community — Herne Hill Velodrome, Dulwich Hamlet, local drama clubs', assignee: '', due: '' },
+            { id: crypto.randomUUID(), label: 'Identify local activities / clubs for children (sports, arts)', status: 'pending', notes: '', assignee: '', due: '' },
             { id: crypto.randomUUID(), label: 'Ensure continuity of any ongoing therapeutic / support services', status: 'pending', notes: '', assignee: '', due: '' },
           ]; setTasks(s); save(s);
         } : undefined}
