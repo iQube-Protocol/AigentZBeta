@@ -13,13 +13,9 @@ import { computeScores } from '@/app/api/mobility/_lib/computeScores';
 
 export const dynamic = 'force-dynamic';
 
-interface RouteParams {
-  params: Promise<{ caseId: string }>;
-}
-
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, { params }: { params: { caseId: string } }) {
   try {
-    const { caseId } = await params;
+    const { caseId } = params;
 
     const persona = await getActivePersona(req);
     if (!persona?.personaId) {
