@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, { params }: { params: { caseId: stri
       supabase
         .from('mobility_cases')
         .select(
-          'case_type, priority_level, classification, status, ' +
+          'case_type, priority_level, classification, case_status, ' +
           'intake_sections_complete, ' +
           'household_profile, capability_profile, continuity_profile, ' +
           'standing_profile, housing_profile, education_profile, ' +
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: { caseId: stri
         .eq('id', params.caseId)
         .single(),
       supabase
-        .from('critical_dates')
+        .from('mobility_critical_dates')
         .select('label, date_category, due_date, is_hard_deadline, workstream_key, notes')
         .eq('case_id', params.caseId)
         .order('due_date', { ascending: true }),
