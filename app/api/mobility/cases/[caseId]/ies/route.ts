@@ -108,8 +108,21 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
       },
     };
 
-    const system = `You are aigentMe — institutional engagement strategist and confidentiality guardian for a BlakQube-classified PSC-001 mobility case (founder-family repatriation, United States → London, UK).
+    // Extract PRINCIPAL_VERIFIED professional facts for IES context
+    const capProfile = (row.capability_profile as Record<string, unknown>) ?? {};
+    const profProfile = capProfile.professionalProfile as Record<string, unknown> | undefined;
+    const hasProfProfile = profProfile?.principalApproved === true;
+    const buildVerified = (arr: unknown[], fmt: (f: Record<string, unknown>) => string) =>
+      Array.isArray(arr) ? arr.filter((f: unknown) => (f as Record<string, unknown>).principalApproved).map(f => fmt(f as Record<string, unknown>)) : [];
+    const verifiedRoles = hasProfProfile ? buildVerified(profProfile!.currentRoles as unknown[], f => `${f.title} at ${f.organization}${f.isCurrent ? ' (current)' : ''}`) : [];
+    const verifiedAwards = hasProfProfile ? buildVerified(profProfile!.awards as unknown[], f => `${f.title}${f.issuer ? ` — ${f.issuer}` : ''}${f.year ? ` (${f.year})` : ''}`) : [];
+    const verifiedEAIs = hasProfProfile ? buildVerified(profProfile!.extraordinaryAbilityIndicators as unknown[], f => `${f.description} [${f.category}]`) : [];
+    const professionalContext = hasProfProfile && (verifiedRoles.length + verifiedAwards.length + verifiedEAIs.length > 0)
+      ? `\nPRINCIPAL-VERIFIED PROFESSIONAL FACTS (use for Package AB/C capability framing only — never disclose as PII in Package A/B):\n${verifiedRoles.length > 0 ? `Roles: ${verifiedRoles.join('; ')}` : ''}\n${verifiedAwards.length > 0 ? `Awards: ${verifiedAwards.join('; ')}` : ''}\n${verifiedEAIs.length > 0 ? `Extraordinary ability indicators: ${verifiedEAIs.join('; ')}` : ''}`
+      : '';
 
+    const system = `You are aigentMe — institutional engagement strategist and confidentiality guardian for a BlakQube-classified PSC-001 mobility case (founder-family repatriation, United States → London, UK).
+${professionalContext}
 Generate an Institutional Engagement Strategy (IES) governed by the Progressive Disclosure & Engagement Protocol (PDEP) and Adaptive Disclosure Tempo Framework (ADTF).
 
 PDEP DOCTRINE — MANDATORY:
