@@ -3,8 +3,8 @@
 /**
  * MobilityEducationTab — Workstream C: Educational Continuity.
  *
- * Priority: Critical. September school-year deadline for two children.
- * Age 13 (secondary) and age 5 (primary) require separate applications.
+ * Priority: Critical. September school-year deadline drives applications.
+ * Secondary and primary-age children require separate application tracks.
  *
  * Surfaces: education profile, school-category critical dates, task board.
  */

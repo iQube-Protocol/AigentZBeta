@@ -3,7 +3,7 @@
 /**
  * MobilityRelocationTab — Workstream D: Physical Relocation.
  *
- * Priority: Critical. Coordinates the physical move NJ → London.
+ * Priority: Critical. Coordinates the physical relocation logistics.
  * Key sub-tasks: shipping, storage, customs, travel logistics, arrival plan.
  */
 
