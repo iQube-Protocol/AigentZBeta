@@ -7,10 +7,9 @@
  * Surfaces two Polity Passport capabilities for HMS cases:
  *
  *   1. Secure Locker — encrypted document storage via passport_locker_items.
- *      Documents are tagged with the caseId via display_name prefix
- *      "[HMS:<caseId>] <name>" so they can be filtered without a schema change.
- *      Grants allow sharing specific docs with agents/advisors without
- *      revealing T0 identity.
+ *      Documents are tagged with a T2-safe commitment ref (sha256 of caseId)
+ *      "[HMS:<lockerRef>] <name>" so they can be filtered without a schema change.
+ *      The raw caseId is never stored in display_name or any locker metadata.
  *
  *   2. Mobility Attestation — generates proof_of_mobility_authorization
  *      (ProveKit circuit, Phase B placeholder). The family can present this
