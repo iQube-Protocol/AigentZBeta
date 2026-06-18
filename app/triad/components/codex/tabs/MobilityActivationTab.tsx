@@ -47,6 +47,8 @@ type CaseSummary = {
   education_risk_level: string | null;
   business_continuity_risk: string | null;
   intake_completed_at: string | null;
+  srb_status: string | null;
+  ies_status: string | null;
   created_at: string;
 };
 
@@ -251,6 +253,32 @@ export function MobilityActivationTab({ onSelectCase }: Props) {
                         </div>
                       </div>
                     )}
+                    {/* SRB / IES pipeline status */}
+                    {(c.srb_status || c.ies_status) && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {c.srb_status && c.srb_status !== 'not_generated' && (
+                          <span className={cls(
+                            'text-[10px] px-2 py-0.5 rounded-full font-medium border',
+                            c.srb_status === 'approved'
+                              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                              : 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+                          )}>
+                            SRB {c.srb_status}
+                          </span>
+                        )}
+                        {c.ies_status && c.ies_status !== 'not_generated' && (
+                          <span className={cls(
+                            'text-[10px] px-2 py-0.5 rounded-full font-medium border',
+                            c.ies_status === 'approved'
+                              ? 'bg-violet-500/10 text-violet-300 border-violet-500/30'
+                              : 'bg-sky-500/10 text-sky-300 border-sky-500/30',
+                          )}>
+                            IES {c.ies_status}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {c.intake_completed_at && (
                       <div className="flex items-center gap-1.5 text-xs text-emerald-400">
                         <CheckCircle2 className="h-3 w-3" />
