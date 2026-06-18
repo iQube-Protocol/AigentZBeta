@@ -43,11 +43,28 @@ export function computeScores(profile: ProfileSnapshot): Scores {
   const hou = profile.housing_profile as Record<string, unknown> | undefined;
   const fin = profile.financial_profile as Record<string, unknown> | undefined;
 
-  // Capability score: how many capability fields populated + founder flag bonus
+  // Capability score: how many capability fields populated + structured professional profile bonuses
   const capKeys = countKeys(cap);
-  const isFounder = !!(cap?.founderExperience || cap?.entrepreneurialHistory);
-  const isO1 = !!(cap?.extraordinaryAbility);
-  const capScore = Math.min(100, capKeys * 8 + (isFounder ? 20 : 0) + (isO1 ? 15 : 0));
+  const isFounder = !!(cap?.founderExperience || cap?.entrepreneurialHistory || cap?.founderOperator === 'yes');
+  const isO1 = !!(cap?.extraordinaryAbility || cap?.o1VisaHistory === 'current' || cap?.o1VisaHistory === 'prior');
+  const hasRole = !!(cap?.role);
+  const hasSector = !!(cap?.sector);
+  // Bonus for a locked professional profile with verified facts
+  const profProfile = cap?.professionalProfile as Record<string, unknown> | undefined;
+  const hasProfProfile = profProfile?.principalApproved === true;
+  const verifiedFactCount = hasProfProfile
+    ? (['currentRoles', 'education', 'publications', 'patents', 'awards', 'extraordinaryAbilityIndicators'] as const)
+        .reduce((n, k) => n + (Array.isArray(profProfile?.[k]) ? (profProfile![k] as unknown[]).filter((f: unknown) => (f as Record<string, unknown>).principalApproved).length : 0), 0)
+    : 0;
+  const capScore = Math.min(100,
+    capKeys * 6 +
+    (isFounder ? 15 : 0) +
+    (isO1 ? 15 : 0) +
+    (hasRole ? 5 : 0) +
+    (hasSector ? 5 : 0) +
+    (hasProfProfile ? 10 : 0) +
+    Math.min(10, verifiedFactCount * 2),
+  );
 
   // Continuity score: prior community + school + professional anchors
   const conKeys = countKeys(con);
@@ -73,9 +90,14 @@ export function computeScores(profile: ProfileSnapshot): Scores {
   const standingRisk: 'low' | 'medium' | 'high' =
     isO1 || isFounder ? 'medium' : 'low';
 
-  // Education risk: default medium until school details populated
-  const hasSchoolTargets = !!(profile.education_profile as Record<string, unknown>)?.targetSchools;
-  const educationRisk: 'low' | 'medium' | 'high' = hasSchoolTargets ? 'medium' : 'high';
+  // Education risk: improved when structured children with target schools are present
+  const eduProfile = profile.education_profile as Record<string, unknown> | undefined;
+  const children = Array.isArray(eduProfile?.children) ? eduProfile!.children as Record<string, unknown>[] : [];
+  const hasStructuredChildren = children.length > 0;
+  const hasTargetSchools = children.some(c => !!(c as Record<string, unknown>).targetSchool);
+  const educationRisk: 'low' | 'medium' | 'high' =
+    hasTargetSchools ? 'medium' :
+    hasStructuredChildren ? 'medium' : 'high';
 
   // Business continuity risk: based on complexity
   const bizProfile = profile.business_profile as Record<string, unknown> | undefined;
