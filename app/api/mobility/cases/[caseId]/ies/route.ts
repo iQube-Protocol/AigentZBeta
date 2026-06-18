@@ -76,7 +76,7 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
     const { data: row } = await supabase
       .from('mobility_cases')
       .select(
-        'srb_status, srb_content, household_profile, capability_profile, continuity_profile, ' +
+        'case_type, srb_status, srb_content, household_profile, capability_profile, continuity_profile, ' +
         'standing_profile, mobility_profile, capability_score, continuity_score, recovery_velocity_class, ' +
         'housing_risk_level, education_risk_level, business_continuity_risk',
       )
@@ -121,7 +121,12 @@ export async function POST(req: NextRequest, { params }: { params: { caseId: str
       ? `\nPRINCIPAL-VERIFIED PROFESSIONAL FACTS (use for Package AB/C capability framing only — never disclose as PII in Package A/B):\n${verifiedRoles.length > 0 ? `Roles: ${verifiedRoles.join('; ')}` : ''}\n${verifiedAwards.length > 0 ? `Awards: ${verifiedAwards.join('; ')}` : ''}\n${verifiedEAIs.length > 0 ? `Extraordinary ability indicators: ${verifiedEAIs.join('; ')}` : ''}`
       : '';
 
-    const system = `You are aigentMe — institutional engagement strategist and confidentiality guardian for a BlakQube-classified PSC-001 mobility case (founder-family repatriation, United States → London, UK).
+    const caseTypeLabel = String((row.household_profile as Record<string, unknown> | null)?.caseType ?? row.recovery_velocity_class ?? 'mobility case');
+    const mobilityProfile2 = (row.mobility_profile as Record<string, unknown>) ?? {};
+    const destCountry = String(mobilityProfile2.destinationCountry ?? (row.household_profile as Record<string, unknown> | null)?.destinationCountry ?? 'the destination country');
+    const caseDescriptor = `${(row.recovery_velocity_class as string | null)?.toLowerCase() ?? 'priority'} ${String((row as Record<string, unknown>).case_type ?? 'repatriation').replace('_', ' ')} case, destination: ${destCountry}`;
+
+    const system = `You are aigentMe — institutional engagement strategist and confidentiality guardian for a BlakQube-classified PSC-001 mobility case (${caseDescriptor}).
 ${professionalContext}
 Generate an Institutional Engagement Strategy (IES) governed by the Progressive Disclosure & Engagement Protocol (PDEP) and Adaptive Disclosure Tempo Framework (ADTF).
 

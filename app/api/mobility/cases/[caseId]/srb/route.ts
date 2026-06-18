@@ -269,14 +269,21 @@ The requested_guidance section must always close with: "What guidance, referrals
     }
 
     if (!raw || !srb) {
-      // Template fallback — structured but generic
+      // Template fallback — structured but generic, using only case data
       const household = (row.household_profile as Record<string, unknown>) ?? {};
       const capability = (row.capability_profile as Record<string, unknown>) ?? {};
       const mobility = (row.mobility_profile as Record<string, unknown>) ?? {};
+      const housingProfile = (row.housing_profile as Record<string, unknown>) ?? {};
       const rvClass = row.recovery_velocity_class ?? 'RV-2';
       const capScore = row.capability_score;
-      const dest = String(mobility.destinationCountry ?? 'United Kingdom');
-      const occupation = String(capability.primaryOccupation ?? 'professional');
+      const dest = String(mobility.destinationCountry ?? household.destinationCountry ?? 'the destination country');
+      const occupation = String(capability.primaryOccupation ?? capability.role ?? 'professional');
+      const depCount = parseInt(String(household.dependentsCount ?? '0'), 10);
+      const depLine = depCount > 0 ? ` with particular attention required for the educational continuity of ${depCount} dependent${depCount > 1 ? 's' : ''}` : '';
+      const departureDateRaw = String(housingProfile.requiredDepartureDate ?? mobility.targetDepartureDate ?? '');
+      const departureLine = departureDateRaw
+        ? ` The confirmed departure deadline is ${new Date(departureDateRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`
+        : '';
 
       srb = {
         executive_summary:
@@ -286,9 +293,9 @@ The requested_guidance section must always close with: "What guidance, referrals
           `The objective of this brief is to provide institutional context before any specific service requests are evaluated.`,
 
         household_overview:
-          `The household is relocating to ${dest} on a critical timeline. All household members hold citizenship of the destination country, making this a repatriation rather than an immigration matter. ` +
-          `The household has existing ties to the destination country including prior residence, community connections, and established continuity assets. ` +
-          `The transition involves the full household unit, with particular attention required for the educational continuity of dependent children.`,
+          `The household is relocating to ${dest} on a confirmed timeline.${departureLine} ` +
+          `The transition involves the full household unit${depLine}. ` +
+          `The household has existing ties to the destination country and is undertaking this transition as a repatriation rather than a first-time immigration matter.`,
 
         capability_profile:
           `The primary household principal is a ${occupation} with documented professional standing and an established record of contribution in their field. ` +
@@ -297,8 +304,10 @@ The requested_guidance section must always close with: "What guidance, referrals
 
         continuity_profile:
           `The household has meaningful continuity assets in the destination country, including prior residence history, professional networks, and community connections. ` +
-          `Educational continuity for dependent children is a primary concern, with specific requirements for both secondary and primary school placement within the September 2026 intake window. ` +
-          `Professional continuity is supported by the remote-first nature of the principal's current business activities, which can transition to UK-based operations upon establishment.`,
+          (depCount > 0
+            ? `Educational continuity for dependent children is a primary concern, with specific school placement requirements tied to the current academic intake window. `
+            : '') +
+          `Professional continuity is supported by the nature of the principal's current activities, which are designed to transition to destination-country operations upon establishment.`,
 
         standing_profile:
           `The principal holds professional standing commensurate with their assessed capability score and recovery velocity classification. ` +
@@ -306,14 +315,14 @@ The requested_guidance section must always close with: "What guidance, referrals
           `This standing creates both an obligation and an opportunity: an obligation to manage the repatriation with discretion, and an opportunity to contribute meaningfully to the destination community upon arrival.`,
 
         current_challenge:
-          `The household faces a constrained timeline driven by the expiry of their current residential arrangement in the origin country. The departure window is approximately 30 days from the date of this brief. ` +
-          `The primary operational challenges are housing establishment in the preferred catchment area and school placement for two children ahead of the September 2026 intake. ` +
-          `Business continuity during the transition period requires careful management of professional relationships and disclosure obligations under the case's confidentiality classification.`,
+          `The household faces a constrained timeline driven by the expiry of their current residential arrangement.${departureLine} ` +
+          `The primary operational challenges include housing establishment in the preferred catchment area${depCount > 0 ? `, school placement for ${depCount} dependent${depCount > 1 ? 's' : ''} ahead of the next academic intake` : ''}, and business continuity during the transition period. ` +
+          `These challenges require careful coordination and institutional support within the available window.`,
 
         desired_outcome:
           `The household seeks to establish a stable residential and educational foundation in ${dest} within the available timeline. ` +
-          `Specific outcomes sought include: confirmed housing in the preferred school catchment area; school placement for both children ahead of September intake; banking and financial continuity; and professional re-establishment support. ` +
-          `The household does not seek preferential treatment. They seek context-appropriate guidance that takes into account the complete circumstances described in this brief.`,
+          `The household does not seek preferential treatment — they seek context-appropriate guidance that takes into account the complete circumstances described in this brief. ` +
+          `Successful outcomes include confirmed housing, ${depCount > 0 ? 'school placement for dependants, ' : ''}banking continuity, and professional re-establishment support.`,
 
         requested_guidance:
           `We present this brief to institutions that may be positioned to provide guidance, referrals, or pathways relevant to the circumstances described. ` +
