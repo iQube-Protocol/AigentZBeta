@@ -4078,13 +4078,6 @@ export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString(),
 };
 
-// Standing Cartridge — the canonical personal capability & standing ledger.
-// A root-DID asset: available to a persona's entire estate and anchored to the
-// KybeDID / Polity Passport credential. Registered as a first-class standalone
-// cartridge (not just an HMS tab) so it surfaces in the multi-cartridge viewer,
-// resolves via its own embed slug, and renders in the metaMe runtime for any
-// persona that has activated it. The StandingCartridgeTab component houses the
-// evidence domains, fact review, compile, asset graph, and output generation.
 export const STANDING_CARTRIDGE: CodexConfig = {
   id: 'standing-cartridge',
   name: 'Standing Cartridge',
@@ -4115,6 +4108,11 @@ export const STANDING_CARTRIDGE: CodexConfig = {
       metadata: { description: 'Verified Standing Profile — evidence-derived capability and reputation profile', icon: 'Star', color: 'violet', category: 'platform', tags: [] },
     },
   ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z', 'admin'],
+    admin: ['aigent-z', 'admin'],
+  },
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
