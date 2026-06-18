@@ -36,37 +36,71 @@ interface ExtractedFact {
   confidence: string;
 }
 
-const EXTRACT_SYSTEM = `You are a professional fact extractor for the Verified Standing Profile system.
+const EXTRACT_SYSTEM = `You are a professional fact extractor for the Verified Standing Profile (VSP) system — a Personal Capability & Standing Ledger.
 
 Extract structured facts from the provided evidence document.
 
-CRITICAL RULES:
-- Extract ONLY facts explicitly stated in the document. Never infer or assume.
+CRITICAL RULES — NON-NEGOTIABLE:
+- Extract ONLY facts explicitly stated in the document. Never infer, assume, or embellish.
 - If something is not clearly stated, DO NOT include it.
-- Do NOT generate UNKNOWN facts — omit fields with no evidence.
-- INFERRED facts are FORBIDDEN — only DOCUMENT_VERIFIED facts.
-- Each fact must map to exactly one domain and field.
+- INFERRED facts are STRICTLY FORBIDDEN — only DOCUMENT_VERIFIED facts are permitted.
+- Do NOT generate placeholder or speculative values. Omit fields with no explicit evidence.
+- Each fact must map to exactly one domain and one field from the schema below.
+- confidence MUST always be "DOCUMENT_VERIFIED" unless instructed otherwise.
 
-Output ONLY valid JSON array:
+Output ONLY valid JSON array — no preamble, no commentary, no markdown:
 [
   {
     "domain": "professional",
-    "field": "currentRole",
+    "field": "current_role",
     "label": "Current Role",
     "value": "CEO at TechCorp Inc (2019–present)",
     "confidence": "DOCUMENT_VERIFIED"
   }
 ]
 
-Domains and fields to extract (extract only those present in document):
+DOMAINS AND FIELDS (extract only those explicitly present in the document):
 
-identity: citizenship, passport_country, date_of_birth, place_of_birth, residency_status
-education: degree_title, institution, graduation_year, field_of_study, academic_distinction, gpa
-professional: current_role, current_employer, years_experience, previous_roles, specialization, industry
-founder: companies_founded, co_founder_roles, board_positions, products_launched, patents, innovations
-recognition: awards, media_coverage, publications, books, speaking_engagements, professional_memberships
-validation: recommendation_letters, expert_testimonials, industry_references, institutional_endorsements
-extraordinary_ability: original_contributions, critical_roles, authorship, judging_roles, commercial_impact, uscis_criteria_met`;
+identity:
+  citizenship, passport_country, date_of_birth, place_of_birth, residency_status, visa_history, travel_record
+
+education:
+  degree_title, institution, graduation_year, field_of_study, academic_distinction, gpa,
+  professional_qualification, professional_license, training_record, continuing_education
+
+professional:
+  current_role, current_employer, years_experience, previous_roles, specialization, industry,
+  leadership_position, board_membership, consulting_role, executive_appointment, international_assignment
+
+founder:
+  companies_founded, co_founder_roles, products_launched, patents, ventures,
+  fundraising_history, commercial_achievement, startup_name, investors
+
+recognition:
+  awards, honours, professional_recognition, industry_distinction, competition_won,
+  hackathon, innovation_challenge, government_recognition, institutional_recognition
+
+publications:
+  book_title, article_title, white_paper, research_paper, publication_venue,
+  publication_year, co_authors, isbn_or_doi, published_commentary, technical_publication
+
+media:
+  media_outlet, interview_title, press_coverage, podcast_name, podcast_episode,
+  television_appearance, documentary, feature_article, profile_publication, publication_date
+
+speaking:
+  conference_name, event_name, talk_title, keynote, panel_name, workshop,
+  guest_lecture, roundtable, event_date, event_location, organiser
+
+validation:
+  recommendation_author, recommendation_role, testimonial, industry_reference,
+  professional_reference, institutional_endorsement, peer_recognition
+
+extraordinary_ability:
+  original_contributions, critical_roles, authorship, judging_activities,
+  high_impact_contributions, industry_influence, commercial_impact, institutional_impact,
+  uscis_criteria_met, o1_evidence, eb1_evidence, global_talent_evidence`;
+
 
 export async function POST(
   req: NextRequest,
@@ -132,7 +166,7 @@ export async function POST(
       }
 
       // Insert facts
-      const validDomains = ['identity','education','professional','founder','recognition','validation','extraordinary_ability'];
+      const validDomains = ['identity','education','professional','founder','recognition','publications','media','speaking','validation','extraordinary_ability'];
       const toInsert = facts
         .filter(f => f.domain && f.field && f.label && f.value && validDomains.includes(f.domain))
         .map(f => ({

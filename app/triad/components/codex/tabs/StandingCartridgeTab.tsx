@@ -5,7 +5,7 @@ import { personaFetch } from '@/utils/personaSpine';
 import {
   Star, Plus, CheckCircle2, XCircle,
   Edit2, RefreshCw, Link2, FileText, Loader2, AlertCircle,
-  Lock, Package
+  Lock, Package, GitBranch, Sparkles, ChevronDown, ChevronRight
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -19,6 +19,7 @@ interface VspProfile {
   created_at: string;
   updated_at: string;
   vsp_content?: Record<string, unknown> | null;
+  standing_graph?: StandingGraph | null;
 }
 
 interface VspEvidence {
@@ -30,6 +31,32 @@ interface VspEvidence {
   extracted_fact_count: number;
   extracted_at: string | null;
   created_at: string;
+  classification: string;
+  disclosure_policy: string;
+  verification_status: string;
+  source_provenance: string | null;
+}
+
+interface StandingGraphClaim {
+  id: string;
+  label: string;
+  category: string;
+  confidence_level: string;
+  supporting_evidence_count: number;
+}
+
+interface StandingGraphEdge {
+  from_domain: string;
+  from_field: string;
+  to_claim_id: string;
+  weight: number;
+  rationale: string;
+}
+
+interface StandingGraph {
+  built_at: string;
+  capability_claims: StandingGraphClaim[];
+  edges: StandingGraphEdge[];
 }
 
 interface VspFact {
@@ -66,23 +93,56 @@ const PROFILE_TYPES = [
 ];
 
 const SOURCE_TYPES = [
-  { value: 'cv', label: 'CV / Resume' },
-  { value: 'linkedin', label: 'LinkedIn Profile' },
-  { value: 'passport', label: 'Passport' },
-  { value: 'birth_certificate', label: 'Birth Certificate' },
-  { value: 'academic_transcript', label: 'Academic Transcript' },
-  { value: 'degree_certificate', label: 'Degree Certificate' },
-  { value: 'professional_license', label: 'Professional License' },
-  { value: 'published_article', label: 'Published Article' },
-  { value: 'book', label: 'Book / Chapter' },
-  { value: 'patent', label: 'Patent' },
-  { value: 'company_record', label: 'Company Record' },
-  { value: 'reference_letter', label: 'Reference Letter' },
-  { value: 'o1_petition', label: 'O-1 Petition' },
-  { value: 'eb1_petition', label: 'EB-1 Petition' },
-  { value: 'global_talent_application', label: 'Global Talent Application' },
-  { value: 'executive_background', label: 'Executive Background' },
-  { value: 'other', label: 'Other' },
+  { group: 'Identity', value: 'passport', label: 'Passport' },
+  { group: 'Identity', value: 'national_id', label: 'National ID' },
+  { group: 'Identity', value: 'birth_certificate', label: 'Birth Certificate' },
+  { group: 'Identity', value: 'citizenship_record', label: 'Citizenship Record' },
+  { group: 'Identity', value: 'visa_record', label: 'Visa Record' },
+  { group: 'Identity', value: 'residency_record', label: 'Residency Record' },
+  { group: 'Education', value: 'academic_transcript', label: 'Academic Transcript' },
+  { group: 'Education', value: 'degree_certificate', label: 'Degree Certificate' },
+  { group: 'Education', value: 'professional_qualification', label: 'Professional Qualification' },
+  { group: 'Education', value: 'professional_license', label: 'Professional License' },
+  { group: 'Education', value: 'training_record', label: 'Training Record' },
+  { group: 'Professional', value: 'cv', label: 'CV / Resume' },
+  { group: 'Professional', value: 'linkedin', label: 'LinkedIn Profile' },
+  { group: 'Professional', value: 'employment_record', label: 'Employment Record' },
+  { group: 'Professional', value: 'executive_appointment', label: 'Executive Appointment' },
+  { group: 'Professional', value: 'board_membership', label: 'Board Membership' },
+  { group: 'Founder', value: 'company_record', label: 'Company Record' },
+  { group: 'Founder', value: 'patent', label: 'Patent' },
+  { group: 'Founder', value: 'startup_record', label: 'Startup Record' },
+  { group: 'Founder', value: 'fundraising_record', label: 'Fundraising Record' },
+  { group: 'Publications', value: 'published_article', label: 'Published Article' },
+  { group: 'Publications', value: 'book', label: 'Book / Chapter' },
+  { group: 'Publications', value: 'white_paper', label: 'White Paper' },
+  { group: 'Publications', value: 'research_paper', label: 'Research Paper' },
+  { group: 'Publications', value: 'technical_publication', label: 'Technical Publication' },
+  { group: 'Media', value: 'media_interview', label: 'Media Interview' },
+  { group: 'Media', value: 'press_coverage', label: 'Press Coverage' },
+  { group: 'Media', value: 'podcast_appearance', label: 'Podcast Appearance' },
+  { group: 'Media', value: 'television_appearance', label: 'Television Appearance' },
+  { group: 'Media', value: 'documentary', label: 'Documentary' },
+  { group: 'Media', value: 'publication_feature', label: 'Publication Feature' },
+  { group: 'Speaking', value: 'conference_presentation', label: 'Conference Presentation' },
+  { group: 'Speaking', value: 'keynote', label: 'Keynote' },
+  { group: 'Speaking', value: 'panel_appearance', label: 'Panel Appearance' },
+  { group: 'Speaking', value: 'guest_lecture', label: 'Guest Lecture' },
+  { group: 'Speaking', value: 'roundtable', label: 'Roundtable' },
+  { group: 'Recognition', value: 'award_record', label: 'Award Record' },
+  { group: 'Recognition', value: 'industry_distinction', label: 'Industry Distinction' },
+  { group: 'Validation', value: 'reference_letter', label: 'Reference Letter' },
+  { group: 'Immigration', value: 'o1_petition', label: 'O-1 Petition' },
+  { group: 'Immigration', value: 'eb1_petition', label: 'EB-1 Petition' },
+  { group: 'Immigration', value: 'global_talent_application', label: 'Global Talent Application' },
+  { group: 'Other', value: 'other', label: 'Other' },
+];
+
+const CLASSIFICATION_OPTIONS = [
+  { value: 'WHITE', label: 'WHITE — Public', description: 'Publicly available information' },
+  { value: 'GREY', label: 'GREY — Limited', description: 'CVs, professional profiles, reference lists' },
+  { value: 'BLACK', label: 'BLACK — Sensitive', description: 'Passports, transcripts, private contracts' },
+  { value: 'BLAKQUBE', label: 'BLAKQUBE — Highly Sensitive', description: 'Financial records, immigration filings, personal correspondence' },
 ];
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -91,11 +151,31 @@ const DOMAIN_LABELS: Record<string, string> = {
   professional: 'Professional',
   founder: 'Founder',
   recognition: 'Recognition',
+  publications: 'Publications',
+  media: 'Media',
+  speaking: 'Speaking',
   validation: 'Validation',
   extraordinary_ability: 'Extraordinary Ability',
 };
 
-const DOMAIN_ORDER = ['identity','education','professional','founder','recognition','validation','extraordinary_ability'];
+const DOMAIN_ORDER = [
+  'identity','education','professional','founder','recognition',
+  'publications','media','speaking','validation','extraordinary_ability',
+];
+
+const OUTPUT_TYPES = [
+  { value: 'biography', label: 'Professional Biography' },
+  { value: 'executive_biography', label: 'Executive Biography' },
+  { value: 'speaker_bio', label: 'Speaker Bio' },
+  { value: 'cv', label: 'CV Summary (JSON)' },
+  { value: 'founder_profile', label: 'Founder Profile' },
+  { value: 'investor_profile', label: 'Investor Profile' },
+  { value: 'media_profile', label: 'Media Profile' },
+  { value: 'linkedin_summary', label: 'LinkedIn Summary' },
+  { value: 'board_biography', label: 'Board Biography' },
+  { value: 'capability_assessment', label: 'Capability Assessment (JSON)' },
+  { value: 'mobility_profile_summary', label: 'Mobility Profile Summary' },
+];
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -123,6 +203,20 @@ function FactStatusBadge({ status }: { status: string }) {
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${map[status] ?? 'bg-slate-700 text-slate-300'}`}>
       {status}
+    </span>
+  );
+}
+
+function ClassificationBadge({ classification }: { classification: string }) {
+  const map: Record<string, string> = {
+    WHITE: 'bg-slate-700 text-slate-300',
+    GREY: 'bg-slate-700/80 text-slate-400',
+    BLACK: 'bg-slate-900 text-slate-400 border border-slate-600',
+    BLAKQUBE: 'bg-black text-violet-400 border border-violet-800',
+  };
+  return (
+    <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${map[classification] ?? 'bg-slate-700 text-slate-400'}`}>
+      {classification}
     </span>
   );
 }
@@ -168,6 +262,8 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
   const [evSourceType, setEvSourceType] = useState('cv');
   const [evLabel, setEvLabel] = useState('');
   const [evContent, setEvContent] = useState('');
+  const [evClassification, setEvClassification] = useState('GREY');
+  const [evProvenance, setEvProvenance] = useState('');
   const [addingEvidence, setAddingEvidence] = useState(false);
 
   // Extracting state per evidence
@@ -180,6 +276,17 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
 
   // Compile
   const [compiling, setCompiling] = useState(false);
+
+  // Standing Asset Graph
+  const [buildingGraph, setBuildingGraph] = useState(false);
+  const [graphExpanded, setGraphExpanded] = useState(false);
+
+  // Output generation
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [genOutputType, setGenOutputType] = useState('biography');
+  const [genContext, setGenContext] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [generatedOutput, setGeneratedOutput] = useState<string | null>(null);
 
   // Link case
   const [selectedCaseId, setSelectedCaseId] = useState('');
@@ -269,7 +376,13 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
       const res = await personaFetch(`/api/vsp/profiles/${activeProfile.id}/evidence`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_type: evSourceType, label: evLabel, content_text: evContent }),
+        body: JSON.stringify({
+          source_type: evSourceType,
+          label: evLabel,
+          content_text: evContent,
+          classification: evClassification,
+          source_provenance: evProvenance || undefined,
+        }),
       });
       const json = await res.json();
       if (json.ok) {
@@ -278,6 +391,8 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
         setEvLabel('');
         setEvContent('');
         setEvSourceType('cv');
+        setEvClassification('GREY');
+        setEvProvenance('');
       } else {
         setError(json.error ?? 'Failed to add evidence');
       }
@@ -377,6 +492,51 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
       setError('Network error');
     } finally {
       setLinking(false);
+    }
+  }
+
+  // Build Standing Asset Graph
+  async function handleBuildGraph() {
+    if (!activeProfile) return;
+    setBuildingGraph(true);
+    try {
+      const res = await personaFetch(`/api/vsp/profiles/${activeProfile.id}/graph`, { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        setActiveProfile(prev => prev ? { ...prev, standing_graph: json.graph } : prev);
+        setGraphExpanded(true);
+      } else {
+        setError(json.error ?? 'Graph build failed');
+      }
+    } catch {
+      setError('Network error');
+    } finally {
+      setBuildingGraph(false);
+    }
+  }
+
+  // Generate output
+  async function handleGenerate() {
+    if (!activeProfile) return;
+    setGenerating(true);
+    setGeneratedOutput(null);
+    try {
+      const res = await personaFetch(`/api/vsp/profiles/${activeProfile.id}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ output_type: genOutputType, context: genContext || undefined }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        const out = typeof json.output === 'string' ? json.output : JSON.stringify(json.output, null, 2);
+        setGeneratedOutput(out);
+      } else {
+        setError(json.error ?? 'Generation failed');
+      }
+    } catch {
+      setError('Network error');
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -573,8 +733,12 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
                       onChange={e => setEvSourceType(e.target.value)}
                       className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
                     >
-                      {SOURCE_TYPES.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
+                      {Array.from(new Set(SOURCE_TYPES.map(s => s.group))).map(group => (
+                        <optgroup key={group} label={group}>
+                          {SOURCE_TYPES.filter(s => s.group === group).map(s => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   </div>
@@ -585,6 +749,29 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
                       onChange={e => setEvLabel(e.target.value)}
                       className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
                       placeholder="e.g. LinkedIn profile export"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Classification</label>
+                    <select
+                      value={evClassification}
+                      onChange={e => setEvClassification(e.target.value)}
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                    >
+                      {CLASSIFICATION_OPTIONS.map(c => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Source / Provenance</label>
+                    <input
+                      value={evProvenance}
+                      onChange={e => setEvProvenance(e.target.value)}
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+                      placeholder="URL or institution name"
                     />
                   </div>
                 </div>
@@ -627,6 +814,7 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
                       <p className="text-sm font-medium text-white truncate">{ev.label}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-slate-500">{SOURCE_TYPES.find(s => s.value === ev.source_type)?.label ?? ev.source_type}</span>
+                        <ClassificationBadge classification={ev.classification ?? 'GREY'} />
                         <ExtractionBadge status={ev.extraction_status} />
                         {ev.extracted_fact_count > 0 && (
                           <span className="text-xs text-slate-500">{ev.extracted_fact_count} facts</span>
@@ -796,6 +984,149 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Standing Asset Graph */}
+          {activeProfile?.compiled_at && (
+            <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-2">
+                  <GitBranch className="w-4 h-4 text-violet-400" />
+                  <span className="text-sm font-medium text-white">Standing Asset Graph</span>
+                  {activeProfile.standing_graph && (
+                    <span className="text-xs text-slate-500">
+                      {activeProfile.standing_graph.capability_claims?.length ?? 0} capability claims
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {activeProfile.standing_graph && (
+                    <button
+                      onClick={() => setGraphExpanded(v => !v)}
+                      className="text-slate-400 hover:text-white transition-colors"
+                    >
+                      {graphExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleBuildGraph}
+                    disabled={buildingGraph}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 disabled:opacity-50 text-white text-xs rounded-lg transition-colors"
+                  >
+                    {buildingGraph ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                    {activeProfile.standing_graph ? 'Rebuild' : 'Build'} Graph
+                  </button>
+                </div>
+              </div>
+              {graphExpanded && activeProfile.standing_graph && (
+                <div className="border-t border-slate-700 p-4 space-y-3">
+                  <p className="text-xs text-slate-500">
+                    Built {new Date(activeProfile.standing_graph.built_at).toLocaleString()}
+                  </p>
+                  <div className="space-y-2">
+                    {activeProfile.standing_graph.capability_claims?.map(claim => {
+                      const edges = activeProfile.standing_graph?.edges?.filter(e => e.to_claim_id === claim.id) ?? [];
+                      return (
+                        <div key={claim.id} className="bg-slate-750 border border-slate-600 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm text-white font-medium">{claim.label}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              claim.confidence_level === 'high' ? 'bg-emerald-900/60 text-emerald-300' :
+                              claim.confidence_level === 'medium' ? 'bg-amber-900/60 text-amber-300' :
+                              'bg-slate-700 text-slate-400'
+                            }`}>
+                              {claim.confidence_level}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            {edges.map((edge, i) => (
+                              <p key={i} className="text-xs text-slate-400">
+                                <span className="text-slate-500 font-mono">{edge.from_domain}.{edge.from_field}</span>
+                                {' → '}
+                                <span className="text-violet-400">w{edge.weight}</span>
+                                {' — '}{edge.rationale}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Generate Outputs */}
+          {activeProfile?.compiled_at && (
+            <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-medium text-white">Generate Outputs</span>
+                </div>
+                <button
+                  onClick={() => setShowGenerate(v => !v)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  {showGenerate ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+              </div>
+              {showGenerate && (
+                <div className="border-t border-slate-700 p-4 space-y-3">
+                  <p className="text-xs text-slate-400">
+                    Generate reusable professional documents from the compiled VSP. The Standing Cartridge is the authoritative source — outputs are derived, not the record.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Output Type</label>
+                      <select
+                        value={genOutputType}
+                        onChange={e => setGenOutputType(e.target.value)}
+                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+                      >
+                        {OUTPUT_TYPES.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Context (optional)</label>
+                      <input
+                        value={genContext}
+                        onChange={e => setGenContext(e.target.value)}
+                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                        placeholder="e.g. target audience, role, company"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleGenerate}
+                    disabled={generating}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-amber-700 hover:bg-amber-600 disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
+                  >
+                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    Generate
+                  </button>
+                  {generatedOutput && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-slate-400">Generated output</span>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(generatedOutput)}
+                          className="text-xs text-slate-500 hover:text-white transition-colors"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <pre className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs text-slate-300 whitespace-pre-wrap overflow-auto max-h-80">
+                        {generatedOutput}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

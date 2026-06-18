@@ -92,13 +92,35 @@ export async function POST(req: NextRequest, { params }: { params: { profileId: 
       .update({ locked_at: compiledAt })
       .in('id', factIds);
 
-    // Save VSP content
+    // Fetch persona's Polity Passport kybe_did_public_ref to anchor VSP to root DID
+    let kybeDidPublicRef: string | null = null;
+    let personaPublicRef: string | null = null;
+    try {
+      const { data: mintRow } = await supabase
+        .from('persona_qube_mints')
+        .select('kybe_did_public_ref, persona_public_ref')
+        .eq('persona_id', persona.personaId)
+        .maybeSingle();
+      if (mintRow) {
+        kybeDidPublicRef = mintRow.kybe_did_public_ref ?? null;
+        personaPublicRef = mintRow.persona_public_ref ?? null;
+      }
+    } catch {
+      // Non-fatal — VSP compiles even if passport lookup fails
+    }
+
+    // Save VSP content + root DID anchoring
     await supabase
       .from('vsp_profiles')
-      .update({ vsp_content: vsp, compiled_at: compiledAt })
+      .update({
+        vsp_content: vsp,
+        compiled_at: compiledAt,
+        ...(kybeDidPublicRef ? { kybe_did_public_ref: kybeDidPublicRef } : {}),
+        ...(personaPublicRef ? { persona_public_ref: personaPublicRef } : {}),
+      })
       .eq('id', params.profileId);
 
-    return NextResponse.json({ ok: true, vsp });
+    return NextResponse.json({ ok: true, vsp, anchored_to_passport: !!kybeDidPublicRef });
   } catch (err) {
     console.error('[vsp/compile POST]', err);
     return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
