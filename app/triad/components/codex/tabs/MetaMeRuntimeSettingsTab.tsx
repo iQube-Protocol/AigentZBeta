@@ -51,10 +51,25 @@ export function MetaMeRuntimeSettingsTab() {
   const [context, setContext] = useState<RuntimeContext>("knyt");
   const [hydrated, setHydrated] = useState(false);
 
-  // Read the persisted preference on the client only (avoid SSR/CSR mismatch).
+  // Read the persisted preference — server-side first, localStorage fallback.
   useEffect(() => {
-    setContext(getRuntimeContextPreference());
-    setHydrated(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/runtime/settings/context", { cache: "no-store" });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (data.context === "metame" || data.context === "knyt") {
+            setContext(data.context);
+            setRuntimeContextPreference(data.context);
+          }
+        }
+      } catch {
+        if (!cancelled) setContext(getRuntimeContextPreference());
+      }
+      if (!cancelled) setHydrated(true);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Keep in sync if the runtime's ⚡ toggle (or another admin tab) changes it.
@@ -69,6 +84,12 @@ export function MetaMeRuntimeSettingsTab() {
   const select = (value: RuntimeContext) => {
     setContext(value);
     setRuntimeContextPreference(value);
+    // Persist server-side so the thin client (different origin) picks it up.
+    void fetch("/api/runtime/settings/context", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context: value }),
+    }).catch(() => {});
     // Notify same-document listeners too — the native `storage` event does not
     // fire in the document that performed the write, only in sibling documents.
     try {

@@ -2352,6 +2352,23 @@ export default function MetaMeRuntimeClient() {
   // Settings admin tab, and the in-runtime ⚡ Play-menu toggle flips it live.
   const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>(getRuntimeContextPreference);
 
+  // Server-side preference sync — covers cross-origin (thin client on metame.live
+  // vs admin tab on dev-beta). Falls back to localStorage when the API is unavailable.
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/runtime/settings/context', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const ctx = data?.context;
+        if ((ctx === 'metame' || ctx === 'knyt') && !cancelled) {
+          setRuntimeContext(ctx);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   // Live-sync with the persisted preference: if the admin toggle (in a sibling
   // document / embed) flips the default, the browser-native `storage` event
   // updates the running surface without a reload. Wires to the existing
