@@ -4078,6 +4078,47 @@ export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString(),
 };
 
+// Standing Cartridge — the canonical personal capability & standing ledger.
+// A root-DID asset: available to a persona's entire estate and anchored to the
+// KybeDID / Polity Passport credential. Registered as a first-class standalone
+// cartridge (not just an HMS tab) so it surfaces in the multi-cartridge viewer,
+// resolves via its own embed slug, and renders in the metaMe runtime for any
+// persona that has activated it. The StandingCartridgeTab component houses the
+// evidence domains, fact review, compile, asset graph, and output generation.
+export const STANDING_CARTRIDGE: CodexConfig = {
+  id: 'standing-cartridge',
+  name: 'Standing Cartridge',
+  slug: 'standing-cartridge',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'Your personal capability & standing ledger — evidence-derived, principal-verified, anchored to your Polity Passport.',
+    icon: 'Star',
+    color: 'violet',
+    category: 'platform',
+    tags: ['standing', 'capability', 'vsp', 'evidence', 'identity', 'root-did'],
+  },
+  tabGroups: [
+    { id: 'ledger', label: 'Standing Ledger', icon: 'Star', order: 1 },
+  ],
+  tabs: [
+    {
+      id: 'standing-ledger',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'ledger',
+      order: 0,
+      config: { component: 'StandingCartridgeTab' },
+      metadata: { description: 'Verified Standing Profile — evidence-derived capability and reputation profile', icon: 'Star', color: 'violet', category: 'platform', tags: [] },
+    },
+  ],
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
@@ -4099,6 +4140,7 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   IQUBE_REGISTRY_CARTRIDGE,
   POLITY_PASSPORT_BUREAU_CARTRIDGE,
   HUMAN_MOBILITY_SERVICES_CARTRIDGE,
+  STANDING_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {
