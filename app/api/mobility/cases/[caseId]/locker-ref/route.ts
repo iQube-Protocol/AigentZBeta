@@ -24,13 +24,9 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
 
-interface RouteParams {
-  params: Promise<{ caseId: string }>;
-}
-
-export async function GET(req: NextRequest, { params }: RouteParams) {
+export async function GET(req: NextRequest, { params }: { params: { caseId: string } }) {
   try {
-    const { caseId } = await params;
+    const { caseId } = params;
 
     const persona = await getActivePersona(req);
     if (!persona?.personaId) {
