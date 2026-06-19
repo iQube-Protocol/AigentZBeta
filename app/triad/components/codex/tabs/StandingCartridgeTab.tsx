@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { personaFetch } from '@/utils/personaSpine';
 import {
   Star, Plus, CheckCircle2, XCircle,
   Edit2, RefreshCw, Link2, FileText, Loader2, AlertCircle,
-  Lock, Package, GitBranch, Sparkles, ChevronDown, ChevronRight
+  Lock, Package, GitBranch, Sparkles, ChevronDown, ChevronRight,
+  Upload, X as XIcon,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -266,6 +267,13 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
   const [evProvenance, setEvProvenance] = useState('');
   const [addingEvidence, setAddingEvidence] = useState(false);
 
+  // File upload state
+  const [uploadMode, setUploadMode] = useState<'file' | 'text'>('file');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Extracting state per evidence
   const [extracting, setExtracting] = useState<Record<string, boolean>>({});
 
@@ -404,6 +412,47 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
     } finally {
       setAddingEvidence(false);
     }
+  }
+
+  // Upload file evidence
+  async function handleUploadFile() {
+    if (!activeProfile || !uploadFile) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', uploadFile);
+      fd.append('source_type', evSourceType);
+      fd.append('label', evLabel || uploadFile.name);
+      fd.append('classification', evClassification);
+      if (evProvenance) fd.append('source_provenance', evProvenance);
+
+      const res = await personaFetch(
+        `/api/vsp/profiles/${activeProfile.id}/evidence/upload`,
+        { method: 'POST', body: fd },
+      );
+      const json = await res.json();
+      if (json.ok) {
+        setEvidence(prev => [...prev, json.evidence]);
+        setShowAddEvidence(false);
+        setUploadFile(null);
+        setEvLabel('');
+        setEvSourceType('cv');
+        setEvClassification('GREY');
+        setEvProvenance('');
+      } else {
+        setError(json.error ?? 'Upload failed');
+      }
+    } catch {
+      setError('Upload network error');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleFileChange(file: File | null) {
+    if (!file) return;
+    setUploadFile(file);
+    if (!evLabel) setEvLabel(file.name.replace(/\.[^.]+$/, ''));
   }
 
   // Extract facts
@@ -777,6 +826,22 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
                     />
                   </div>
                 </div>
+                {/* Upload mode toggle */}
+                <div className="flex gap-1 p-1 bg-slate-900 rounded-lg w-fit">
+                  <button
+                    onClick={() => setUploadMode('file')}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-md transition-colors ${uploadMode === 'file' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    <Upload className="w-3 h-3" /> Upload file
+                  </button>
+                  <button
+                    onClick={() => setUploadMode('text')}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-md transition-colors ${uploadMode === 'text' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    <FileText className="w-3 h-3" /> Paste text
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">Classification</label>
@@ -800,27 +865,80 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">Document Text (paste content here)</label>
-                  <textarea
-                    value={evContent}
-                    onChange={e => setEvContent(e.target.value)}
-                    rows={6}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 resize-none"
-                    placeholder="Paste the document text for AI fact extraction…"
-                  />
-                </div>
+
+                {uploadMode === 'file' ? (
+                  <div>
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xml,.rtf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.heic,.mp3,.m4a,.wav,.ogg,.flac,.aac,.mp4,.mov,.avi,.mkv,.webm,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*,image/*,audio/*,video/*"
+                      onChange={e => handleFileChange(e.target.files?.[0] ?? null)}
+                    />
+                    {uploadFile ? (
+                      <div className="flex items-center gap-3 p-3 bg-slate-700 border border-violet-500/40 rounded-lg">
+                        <FileText className="w-5 h-5 text-violet-400 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-white truncate">{uploadFile.name}</p>
+                          <p className="text-xs text-slate-400">{(uploadFile.size / 1024).toFixed(1)} KB · {uploadFile.type || 'unknown type'}</p>
+                        </div>
+                        <button onClick={() => { setUploadFile(null); setEvLabel(''); }} className="text-slate-500 hover:text-rose-400">
+                          <XIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={e => { e.preventDefault(); setDragOver(false); handleFileChange(e.dataTransfer.files?.[0] ?? null); }}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${dragOver ? 'border-violet-400 bg-violet-900/20' : 'border-slate-600 hover:border-violet-500/60 hover:bg-slate-700/40'}`}
+                      >
+                        <Upload className="w-6 h-6 text-slate-500" />
+                        <p className="text-sm text-slate-400">Drop file here or <span className="text-violet-400">browse</span></p>
+                        <p className="text-xs text-slate-600 text-center">PDF, DOCX, TXT, CSV, JSON, JPEG, PNG, MP3, MP4 and more · max 20 MB</p>
+                        <p className="text-xs text-violet-500/70 mt-1 flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> File content encrypted and stored in Standing Vault
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Document Text</label>
+                    <textarea
+                      value={evContent}
+                      onChange={e => setEvContent(e.target.value)}
+                      rows={6}
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+                      placeholder="Paste the document text for AI fact extraction…"
+                    />
+                  </div>
+                )}
+
                 <div className="flex gap-2">
+                  {uploadMode === 'file' ? (
+                    <button
+                      onClick={handleUploadFile}
+                      disabled={uploading || !uploadFile || !evLabel}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
+                    >
+                      {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      {uploading ? 'Uploading…' : 'Upload & Add'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleAddEvidence}
+                      disabled={addingEvidence || !evLabel}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
+                    >
+                      {addingEvidence ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      Add
+                    </button>
+                  )}
                   <button
-                    onClick={handleAddEvidence}
-                    disabled={addingEvidence || !evLabel}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
-                  >
-                    {addingEvidence ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                    Add
-                  </button>
-                  <button
-                    onClick={() => setShowAddEvidence(false)}
+                    onClick={() => { setShowAddEvidence(false); setUploadFile(null); }}
                     className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
                   >
                     Cancel
