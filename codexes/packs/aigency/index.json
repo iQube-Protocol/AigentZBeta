@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-19T00:57:16.149Z",
+  "last_updated": "2026-06-19T01:05:03.055Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "25cf4de867fca693b9ec6f3cf947ee08cbfb4783",
-  "latest_commit_short": "25cf4de",
-  "latest_commit_title": "persist metaMe/KNYT takeover context toggle across sessions",
+  "latest_commit": "161728bb9013cb9058f6dd56afe7f5fc028a8b1b",
+  "latest_commit_short": "161728b",
+  "latest_commit_title": "keep consumer task/reward furniture visible when experience has no tasks",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "161728b",
+      "full_sha": "161728bb9013cb9058f6dd56afe7f5fc028a8b1b",
+      "title": "keep consumer task/reward furniture visible when experience has no tasks",
+      "author": "Claude",
+      "timestamp": "2026-06-19T01:02:56Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-161728b.md"
+    },
     {
       "sha": "25cf4de",
       "full_sha": "25cf4de867fca693b9ec6f3cf947ee08cbfb4783",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-03T14:59:05Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f1cd8a8.md"
-    },
-    {
-      "sha": "cf928c7",
-      "full_sha": "cf928c7efc704a4f965d0c4b61761521745e1c1a",
-      "title": "Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec",
-      "author": "Claude",
-      "timestamp": "2026-06-03T14:56:18Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cf928c7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
