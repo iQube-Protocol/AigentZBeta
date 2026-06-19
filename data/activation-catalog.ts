@@ -81,7 +81,7 @@ export interface ActivationCatalogEntry {
   longDescription: string;
   gate: ActivationGate;
   tabSlug: string;
-  sourceCartridge: ActiveCartridgeSlug | 'metame';
+  sourceCartridge: ActiveCartridgeSlug | 'metame' | 'polity-passport-bureau' | 'standing-cartridge' | 'human-mobility-services';
   icon?: string;
   color?: string;
   /** KPI metrics this activation exposes. Empty / undefined = none. */
@@ -325,7 +325,7 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
       'The Standing Cartridge is your reusable capability and standing primitive. Upload evidence documents — CVs, publications, patents, media appearances, speaking engagements, reference letters — and the system extracts candidate facts for your review. Once approved and compiled, your Verified Standing Profile (VSP) becomes the authoritative source for mobility applications, immigration petitions, professional biographies, CVs, investor profiles, and future Polity services. The Standing Cartridge is anchored to your KybeDID and travels across your entire persona estate.',
     gate: 'open',
     tabSlug: 'standing',
-    sourceCartridge: 'human-mobility-services',
+    sourceCartridge: 'standing-cartridge',
     icon: 'Star',
     color: 'violet',
     metrics: [
@@ -384,9 +384,9 @@ export function metricsForActiveActivations(
  */
 export function actionsForActiveActivations(
   activeIds: Iterable<string>,
-): Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> {
+): Array<{ activationId: string; activationLabel: string; cartridge: ActivationCatalogEntry['sourceCartridge']; action: ActivationAction }> {
   const set = new Set(activeIds);
-  const out: Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> = [];
+  const out: Array<{ activationId: string; activationLabel: string; cartridge: ActivationCatalogEntry['sourceCartridge']; action: ActivationAction }> = [];
   for (const entry of ACTIVATION_CATALOG) {
     if (!set.has(entry.id)) continue;
     for (const a of entry.actions ?? []) {

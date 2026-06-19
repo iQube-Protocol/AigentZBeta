@@ -2439,3 +2439,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-239cee4.md](../build_/COMMITS/COMMIT-239cee4.md)
 - Message: fix runtime regression: render consumer task runner for admins too
+
+## Commit `490cff8` — 2026-06-18T23:01:41Z
+- Type: `fix`
+- Brief: [COMMIT-490cff8.md](../build_/COMMITS/COMMIT-490cff8.md)
+- Message: trigger deploy to dev: consumer inline-only experience fix
+
+## Commit `88fba98` — 2026-06-18T23:01:41Z
+- Type: `fix`
+- Brief: [COMMIT-88fba98.md](../build_/COMMITS/COMMIT-88fba98.md)
+- Message: fix consumer 404: render experience inline-only for non-admins, hide platform links
