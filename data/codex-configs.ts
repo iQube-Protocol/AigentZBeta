@@ -3226,6 +3226,28 @@ export const METAME_CODEX: CodexConfig = {
       },
     },
 
+    // ── Standing group ───────────────────────────────────────────────────────
+    // First-class metaMe tab that mounts the StandingCartridgeTab component
+    // (evidence intake, fact review, compile, asset graph, output generation).
+    // The 'standing' group is declared in METAME_CODEX.tabGroups above; this
+    // tab is what handleGroupClick resolves to when the operator clicks the
+    // Standing label.
+    {
+      id: 'metame-standing-ledger',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      group: 'standing',
+      order: 0,
+      type: 'static' as const,
+      config: { component: 'StandingCartridgeTab', props: {} },
+      metadata: {
+        icon: 'Star',
+        description: 'Verified Standing Profile — evidence-derived capability and reputation profile',
+        color: 'violet',
+      },
+    },
+
     // ── Qriptopia group ──────────────────────────────────────────────────────
     // Canonical Qripto Codex tabs (Magazines, Papers, Polity) are mirrored
     // in from QRIPTO_CODEX so metaMe stays in lock-step with the cartridge.
