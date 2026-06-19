@@ -2491,6 +2491,7 @@ export default function MetaMeRuntimeClient() {
     slug: string;
     title: string;
     initialTab?: string;
+    autoActivate?: string;
   } | null>(null);
   // Tracks when the cartridge overlay was last opened — used to guard against race-condition
   // closes where CARTRIDGE_OVERLAY_CLOSE or a close-signal arrives within the same message
@@ -6154,7 +6155,7 @@ export default function MetaMeRuntimeClient() {
                   type="button"
                   onClick={() => {
                     signalRuntimeBusy("quick_link:get_passport", { autoClearMs: 0 });
-                    setActiveCartridgeOverlay({ slug: 'polity-passport-bureau-cartridge', title: 'Polity Passport', initialTab: 'apply' });
+                    setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'Polity Passport', initialTab: 'polity-passport', autoActivate: 'polity-passport' });
                   }}
                   className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] text-violet-200/80 hover:border-violet-500/40 hover:text-violet-100 transition-colors backdrop-blur-sm"
                 >
@@ -6294,7 +6295,7 @@ export default function MetaMeRuntimeClient() {
       {activeCartridgeOverlay != null && (
         <div className="absolute inset-0 z-[60]">
           <iframe
-            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}`}
+            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}${activeCartridgeOverlay.autoActivate ? `&autoActivate=${encodeURIComponent(activeCartridgeOverlay.autoActivate)}` : ''}`}
             title={`${activeCartridgeOverlay.title} Cartridge`}
             className="h-full w-full border-0"
             allow="microphone; clipboard-read; clipboard-write"

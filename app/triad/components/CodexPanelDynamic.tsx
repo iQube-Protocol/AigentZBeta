@@ -48,6 +48,7 @@ interface CodexPanelDynamicProps {
   isPartner?: boolean;          // Partner identity — shows partnerOnly tabs, hides adminOnly tabs
   isInvestor?: boolean;         // Investor identity — shows investorOnly tabs (IAM service resolves this)
   partnerId?: string;           // avl_partner_contacts.id — passed to partner tab components
+  autoActivate?: string;        // Activation ID to auto-activate on mount (e.g. 'polity-passport')
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
   onClose?: () => void;         // Direct close callback (inline rendering)
@@ -106,6 +107,7 @@ export default function CodexPanelDynamic({
   isPartner: isPartnerProp,
   isInvestor = false,
   partnerId,
+  autoActivate,
   useDefaults = true,
   previewDevice,
   onClose,
@@ -216,7 +218,15 @@ export default function CodexPanelDynamic({
   // wraps the embed/shell layouts. Single source of truth — the Activations
   // panel mutates via the same context, so optimistic updates propagate
   // through React's render cycle (no window events, no fetch race).
-  const { activeIds: activeActivations } = useActivations();
+  const { activeIds: activeActivations, activate: activateActivation } = useActivations();
+
+  const autoActivateRef = useRef(false);
+  useEffect(() => {
+    if (!autoActivate || autoActivateRef.current) return;
+    if (activeActivations.has(autoActivate)) return;
+    autoActivateRef.current = true;
+    void activateActivation(autoActivate).catch(() => {});
+  }, [autoActivate, activeActivations, activateActivation]);
 
   // Per-cartridge admin grants — fail-CLOSED while loading so the
   // adminOfCartridge tabs (e.g. mirrored KNYT Admin inside metaMe's

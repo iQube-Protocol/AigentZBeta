@@ -59,6 +59,7 @@ function DynamicCodexContent() {
   const codexId = hasKnownSuffix ? rawCodex : `${rawCodex}-codex`;
 
   const tab = readFirst(searchParams, ["tab", "initialTab", "tabSlug", "section"]);
+  const autoActivate = readFirst(searchParams, ["autoActivate", "activate"]);
   const theme = normalizeTheme(readFirst(searchParams, ["theme", "mode", "colorMode", "appearance"]));
   const density = normalizeDensity(readFirst(searchParams, ["density", "layoutDensity"]));
   const queryPersonaId = readFirst(searchParams, ["personaId"]);
@@ -87,6 +88,7 @@ function DynamicCodexContent() {
       theme={theme}
       density={density}
       initialTab={tab}
+      autoActivate={autoActivate}
       personaId={personaId}
       isAdmin={isAdmin}
       isPartner={queryIsPartner || undefined}
