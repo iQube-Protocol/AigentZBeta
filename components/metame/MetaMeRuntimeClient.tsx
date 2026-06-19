@@ -94,7 +94,7 @@ import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal
 import { InviteModal } from "@/components/shared/InviteModal";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
-import { getRuntimeContextPreference, RUNTIME_CONTEXT_PREF_KEY } from "@/utils/runtimeContextPreference";
+import { getRuntimeContextPreference, setRuntimeContextPreference, RUNTIME_CONTEXT_PREF_KEY } from "@/utils/runtimeContextPreference";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
@@ -2381,6 +2381,35 @@ export default function MetaMeRuntimeClient() {
     }
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  // runtimeAdminMode resolves asynchronously (the email-based admin check runs in
+  // an effect after mount). Mirror it into a ref so persistRuntimeContext can stay
+  // a stable callback and still read the *current* admin state from inside the
+  // once-mounted message handlers ([] deps) without a stale closure.
+  const runtimeAdminModeRef = useRef(runtimeAdminMode);
+  useEffect(() => { runtimeAdminModeRef.current = runtimeAdminMode; }, [runtimeAdminMode]);
+
+  // Single entry point for changing the runtime takeover context. Updates live
+  // state always; persists the new default (localStorage + server) ONLY when the
+  // current session is an admin — so once an admin flips the toggle it survives
+  // across sessions until an admin flips it again. Non-admin changes stay
+  // session-local and never overwrite the persisted launch default. Mirrors the
+  // persistence the admin Runtime Settings tab performs (PUT + storage event).
+  const persistRuntimeContext = useCallback((ctx: 'metame' | 'knyt') => {
+    setRuntimeContext(ctx);
+    if (!runtimeAdminModeRef.current) return;
+    setRuntimeContextPreference(ctx);
+    void fetch('/api/runtime/settings/context', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context: ctx }),
+    }).catch(() => {});
+    try {
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: RUNTIME_CONTEXT_PREF_KEY, newValue: ctx }),
+      );
+    } catch { /* StorageEvent constructor unavailable — sibling-doc sync still works */ }
   }, []);
 
   // ─── Runtime Takeover ────────────────────────────────────────────────────────
@@ -4866,7 +4895,7 @@ export default function MetaMeRuntimeClient() {
 
       if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
         const ctx = (rawPayload.context ?? (raw as Record<string, unknown>).context) === "knyt" ? "knyt" : "metame";
-        setRuntimeContext(ctx as "metame" | "knyt");
+        persistRuntimeContext(ctx as "metame" | "knyt");
         return;
       }
     }
@@ -5156,7 +5185,7 @@ export default function MetaMeRuntimeClient() {
           "make-build":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'AgentiQ OS',    initialTab: 'agentiq-os'       }),
           "make-remix":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'iQube Registry', initialTab: 'registry-supply' }),
           // Play sub-actions
-          "play-knyt": () => { setRuntimeContext('knyt'); refreshTakeover("toggle"); },
+          "play-knyt": () => { persistRuntimeContext('knyt'); refreshTakeover("toggle"); },
           // Share — opens the canonical Qriptopian SocialSharingModal,
           // pre-populated with the active capsule (if any) or a generic
           // 'metaMe' share. Falls back to the active runtime context
@@ -5262,7 +5291,7 @@ export default function MetaMeRuntimeClient() {
 
       if (message.type === "RUNTIME_CONTEXT_CHANGE") {
         const ctx = payload.context === "knyt" ? "knyt" : "metame";
-        setRuntimeContext(ctx);
+        persistRuntimeContext(ctx);
         // Trigger the copilot to reframe within the new context.
         // The prevRuntimeContextRef effect fires after the state update and triggers refreshTakeover.
         void handlePrompt(
@@ -5339,7 +5368,7 @@ export default function MetaMeRuntimeClient() {
     postRuntimeEvent,
     resetRuntime,
     setActiveCartridgeOverlay,
-    setRuntimeContext,
+    persistRuntimeContext,
     showWelcome,
     thinShellMode,
     relayCloseCodexToNestedFrames,
@@ -5594,7 +5623,7 @@ export default function MetaMeRuntimeClient() {
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Headphones className="h-3.5 w-3.5 text-cyan-400" />Listen
                   </button>
-                  <button type="button" onClick={() => { setRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
+                  <button type="button" onClick={() => { persistRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Moon className="h-3.5 w-3.5 text-cyan-400" />KNYT
                   </button>
@@ -5759,7 +5788,7 @@ export default function MetaMeRuntimeClient() {
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                       <Headphones className="h-3.5 w-3.5 text-cyan-400" />Listen
                     </button>
-                    <button type="button" onClick={() => { setRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
+                    <button type="button" onClick={() => { persistRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                       <Moon className="h-3.5 w-3.5 text-cyan-400" />KNYT
                     </button>
