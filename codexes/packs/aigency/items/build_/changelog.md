@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`846f3b2`](https://github.com/iQube-Protocol/AigentZBeta/commit/846f3b2364a20aaa40d2b1691be2ea305e6cd6c7) [push] trigger deploy to dev: inline ExperienceLiquidRenderer for consumer experience cards (Claude, 2026-06-19T01:57:24Z)
 - [`161728b`](https://github.com/iQube-Protocol/AigentZBeta/commit/161728bb9013cb9058f6dd56afe7f5fc028a8b1b) [push] keep consumer task/reward furniture visible when experience has no tasks (Claude, 2026-06-19T01:02:56Z)
 - [`25cf4de`](https://github.com/iQube-Protocol/AigentZBeta/commit/25cf4de867fca693b9ec6f3cf947ee08cbfb4783) [push] persist metaMe/KNYT takeover context toggle across sessions (Claude, 2026-06-19T00:55:11Z)
 - [`88fba98`](https://github.com/iQube-Protocol/AigentZBeta/commit/88fba98483b8b91ec59ded97f49eb9e0697c7054) [fix] fix consumer 404: render experience inline-only for non-admins, hide platform links (Claude, 2026-06-18T23:01:41Z)

@@ -2459,3 +2459,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-161728b.md](../build_/COMMITS/COMMIT-161728b.md)
 - Message: keep consumer task/reward furniture visible when experience has no tasks
+
+## Commit `846f3b2` — 2026-06-19T01:57:24Z
+- Type: `push`
+- Brief: [COMMIT-846f3b2.md](../build_/COMMITS/COMMIT-846f3b2.md)
+- Message: trigger deploy to dev: inline ExperienceLiquidRenderer for consumer experience cards
