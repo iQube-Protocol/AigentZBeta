@@ -2449,3 +2449,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-88fba98.md](../build_/COMMITS/COMMIT-88fba98.md)
 - Message: fix consumer 404: render experience inline-only for non-admins, hide platform links
+
+## Commit `25cf4de` — 2026-06-19T00:55:11Z
+- Type: `push`
+- Brief: [COMMIT-25cf4de.md](../build_/COMMITS/COMMIT-25cf4de.md)
+- Message: persist metaMe/KNYT takeover context toggle across sessions
