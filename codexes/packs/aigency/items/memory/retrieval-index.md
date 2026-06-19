@@ -2469,3 +2469,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-ae6bb66.md](../build_/COMMITS/COMMIT-ae6bb66.md)
 - Message: fix toggle persistence — remove admin gate from persistRuntimeContext
+
+## Commit `40b86f5` — 2026-06-19T12:46:03Z
+- Type: `fix`
+- Brief: [COMMIT-40b86f5.md](../build_/COMMITS/COMMIT-40b86f5.md)
+- Message: fix Policy Passport deep link — use full cartridge ID in overlay slug
+
+## Commit `a94abea` — 2026-06-19T12:45:36Z
+- Type: `fix`
+- Brief: [COMMIT-a94abea.md](../build_/COMMITS/COMMIT-a94abea.md)
+- Message: fix toggle persistence — remove invalid columns from upsert + sync localStorage

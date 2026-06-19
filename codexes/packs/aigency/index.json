@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-19T12:12:42.544Z",
+  "last_updated": "2026-06-19T12:48:05.845Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ae6bb6671bf3023c54d5374fa18ae971afab3b1b",
-  "latest_commit_short": "ae6bb66",
-  "latest_commit_title": "fix toggle persistence — remove admin gate from persistRuntimeContext",
+  "latest_commit": "a94abea66a7d1e75ebfaddf95c342a5824c03986",
+  "latest_commit_short": "a94abea",
+  "latest_commit_title": "fix toggle persistence — remove invalid columns from upsert + sync localStorage",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a94abea",
+      "full_sha": "a94abea66a7d1e75ebfaddf95c342a5824c03986",
+      "title": "fix toggle persistence — remove invalid columns from upsert + sync localStorage",
+      "author": "Claude",
+      "timestamp": "2026-06-19T12:45:36Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a94abea.md"
+    },
+    {
+      "sha": "40b86f5",
+      "full_sha": "40b86f580c9aebef36214e1984179e56b16eb5ad",
+      "title": "fix Policy Passport deep link — use full cartridge ID in overlay slug",
+      "author": "Claude",
+      "timestamp": "2026-06-19T12:46:03Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-40b86f5.md"
+    },
     {
       "sha": "ae6bb66",
       "full_sha": "ae6bb6671bf3023c54d5374fa18ae971afab3b1b",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-03T16:39:22Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-83fa3de.md"
-    },
-    {
-      "sha": "3ea9f0f",
-      "full_sha": "3ea9f0fb8a5076c21eb5ff4161daea7d8aa45196",
-      "title": "feat(aigentme): downloadable VentureQube schema + downloads menu",
-      "author": "Claude",
-      "timestamp": "2026-06-03T16:23:08Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3ea9f0f.md"
-    },
-    {
-      "sha": "42ef1c9",
-      "full_sha": "42ef1c9f4fde7c9eae0dcb16e0296f51fc8b18f4",
-      "title": "trigger deploy: aigentMe downloads menu + VentureQube schema (3ea9f0fb)",
-      "author": "Claude",
-      "timestamp": "2026-06-03T16:23:12Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-42ef1c9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
