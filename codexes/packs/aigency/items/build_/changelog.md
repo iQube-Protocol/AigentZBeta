@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`25cf4de`](https://github.com/iQube-Protocol/AigentZBeta/commit/25cf4de867fca693b9ec6f3cf947ee08cbfb4783) [push] persist metaMe/KNYT takeover context toggle across sessions (Claude, 2026-06-19T00:55:11Z)
 - [`88fba98`](https://github.com/iQube-Protocol/AigentZBeta/commit/88fba98483b8b91ec59ded97f49eb9e0697c7054) [fix] fix consumer 404: render experience inline-only for non-admins, hide platform links (Claude, 2026-06-18T23:01:41Z)
 - [`490cff8`](https://github.com/iQube-Protocol/AigentZBeta/commit/490cff8fba349393a9d9a7d0019855a371a709ec) [fix] trigger deploy to dev: consumer inline-only experience fix (Claude, 2026-06-18T23:01:41Z)
 - [`239cee4`](https://github.com/iQube-Protocol/AigentZBeta/commit/239cee4e309089336dcf8c710826aeba81295f80) [fix] fix runtime regression: render consumer task runner for admins too (Claude, 2026-06-18T22:40:27Z)
