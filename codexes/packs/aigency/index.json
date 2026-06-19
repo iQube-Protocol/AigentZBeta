@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-19T01:59:15.777Z",
+  "last_updated": "2026-06-19T12:12:42.544Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "846f3b2364a20aaa40d2b1691be2ea305e6cd6c7",
-  "latest_commit_short": "846f3b2",
-  "latest_commit_title": "trigger deploy to dev: inline ExperienceLiquidRenderer for consumer experience cards",
+  "latest_commit": "ae6bb6671bf3023c54d5374fa18ae971afab3b1b",
+  "latest_commit_short": "ae6bb66",
+  "latest_commit_title": "fix toggle persistence — remove admin gate from persistRuntimeContext",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ae6bb66",
+      "full_sha": "ae6bb6671bf3023c54d5374fa18ae971afab3b1b",
+      "title": "fix toggle persistence — remove admin gate from persistRuntimeContext",
+      "author": "Claude",
+      "timestamp": "2026-06-19T12:10:36Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-ae6bb66.md"
+    },
     {
       "sha": "846f3b2",
       "full_sha": "846f3b2364a20aaa40d2b1691be2ea305e6cd6c7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-03T16:23:12Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-42ef1c9.md"
-    },
-    {
-      "sha": "bd1bc83",
-      "full_sha": "bd1bc832798c563505d888529ea0b1e00448845f",
-      "title": "fix(chain of intent): make every pill expand inline on both surfaces",
-      "author": "Claude",
-      "timestamp": "2026-06-03T14:59:01Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-bd1bc83.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ae6bb66`](https://github.com/iQube-Protocol/AigentZBeta/commit/ae6bb6671bf3023c54d5374fa18ae971afab3b1b) [fix] fix toggle persistence — remove admin gate from persistRuntimeContext (Claude, 2026-06-19T12:10:36Z)
 - [`846f3b2`](https://github.com/iQube-Protocol/AigentZBeta/commit/846f3b2364a20aaa40d2b1691be2ea305e6cd6c7) [push] trigger deploy to dev: inline ExperienceLiquidRenderer for consumer experience cards (Claude, 2026-06-19T01:57:24Z)
 - [`161728b`](https://github.com/iQube-Protocol/AigentZBeta/commit/161728bb9013cb9058f6dd56afe7f5fc028a8b1b) [push] keep consumer task/reward furniture visible when experience has no tasks (Claude, 2026-06-19T01:02:56Z)
 - [`25cf4de`](https://github.com/iQube-Protocol/AigentZBeta/commit/25cf4de867fca693b9ec6f3cf947ee08cbfb4783) [push] persist metaMe/KNYT takeover context toggle across sessions (Claude, 2026-06-19T00:55:11Z)

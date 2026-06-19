@@ -2464,3 +2464,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-846f3b2.md](../build_/COMMITS/COMMIT-846f3b2.md)
 - Message: trigger deploy to dev: inline ExperienceLiquidRenderer for consumer experience cards
+
+## Commit `ae6bb66` — 2026-06-19T12:10:36Z
+- Type: `fix`
+- Brief: [COMMIT-ae6bb66.md](../build_/COMMITS/COMMIT-ae6bb66.md)
+- Message: fix toggle persistence — remove admin gate from persistRuntimeContext
