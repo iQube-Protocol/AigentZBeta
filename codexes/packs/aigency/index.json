@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-19T15:27:37.707Z",
+  "last_updated": "2026-06-19T16:11:50.975Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "34d34c9cdfbd0987a0aa973ba527e3e279cb1697",
-  "latest_commit_short": "34d34c9",
-  "latest_commit_title": "trigger deploy to dev",
+  "latest_commit": "bcb1eac05585279d9a6cbdeea067edaef4b6ffe1",
+  "latest_commit_short": "bcb1eac",
+  "latest_commit_title": "make standing a permanently active first-class tab in metaMe",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bcb1eac",
+      "full_sha": "bcb1eac05585279d9a6cbdeea067edaef4b6ffe1",
+      "title": "make standing a permanently active first-class tab in metaMe",
+      "author": "Claude",
+      "timestamp": "2026-06-19T16:09:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bcb1eac.md"
+    },
+    {
+      "sha": "c02eee1",
+      "full_sha": "c02eee111ce43a8df9f62b97db017c43d41891dc",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-19T16:09:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c02eee1.md"
+    },
     {
       "sha": "34d34c9",
       "full_sha": "34d34c9cdfbd0987a0aa973ba527e3e279cb1697",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-04T03:43:51Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-fc88460.md"
-    },
-    {
-      "sha": "93efc7e",
-      "full_sha": "93efc7ef18ae417f848b07be1ecc60735bb7f363",
-      "title": "trigger deploy: specialist_response + myLedger chain section (fc884603)",
-      "author": "Claude",
-      "timestamp": "2026-06-04T03:43:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-93efc7e.md"
-    },
-    {
-      "sha": "bb7723f",
-      "full_sha": "bb7723ff4b4fad8b3baceb99529a21d029e1113b",
-      "title": "feat: ship Operator Manual + show chain status + receipts on expand",
-      "author": "Claude",
-      "timestamp": "2026-06-04T03:28:41Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-bb7723f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

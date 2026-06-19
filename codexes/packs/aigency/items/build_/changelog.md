@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`bcb1eac`](https://github.com/iQube-Protocol/AigentZBeta/commit/bcb1eac05585279d9a6cbdeea067edaef4b6ffe1) [push] make standing a permanently active first-class tab in metaMe (Claude, 2026-06-19T16:09:30Z)
+- [`c02eee1`](https://github.com/iQube-Protocol/AigentZBeta/commit/c02eee111ce43a8df9f62b97db017c43d41891dc) [push] trigger deploy to dev (Claude, 2026-06-19T16:09:40Z)
 - [`34d34c9`](https://github.com/iQube-Protocol/AigentZBeta/commit/34d34c9cdfbd0987a0aa973ba527e3e279cb1697) [push] trigger deploy to dev (Claude, 2026-06-19T15:25:51Z)
 - [`40340e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/40340e02ea924277c6f806b5c25b74239ec13cdd) [push] trigger deploy to dev (Claude, 2026-06-19T13:29:41Z)
 - [`4891112`](https://github.com/iQube-Protocol/AigentZBeta/commit/4891112307447538d3a1ee04f96714514a471897) [push] change default runtime context from KNYT to metaMe (Claude, 2026-06-19T12:49:15Z)
