@@ -34,21 +34,21 @@ const OPTIONS: Array<{
   {
     value: "metame",
     label: "metaMe",
-    blurb: "Bare metaMe sovereignty surface — emerald banner, cross-cartridge NBEs.",
+    blurb: "metaMe sovereignty surface — emerald banner, cross-cartridge NBEs (launch default).",
     icon: <Hexagon className="h-4 w-4" />,
     active: "border-emerald-500/50 bg-emerald-500/10 text-emerald-200",
   },
   {
     value: "knyt",
     label: "KNYT World",
-    blurb: "KNYT activation-campaign takeover — amber banner, KNYT-specific CTAs (launch default).",
+    blurb: "KNYT activation-campaign takeover — amber banner, KNYT-specific CTAs.",
     icon: <Zap className="h-4 w-4" />,
     active: "border-amber-500/50 bg-amber-500/10 text-amber-200",
   },
 ];
 
 export function MetaMeRuntimeSettingsTab() {
-  const [context, setContext] = useState<RuntimeContext>("knyt");
+  const [context, setContext] = useState<RuntimeContext>("metame");
   const [hydrated, setHydrated] = useState(false);
 
   // Read the persisted preference — server-side first, localStorage fallback.

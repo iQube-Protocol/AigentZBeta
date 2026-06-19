@@ -40,11 +40,11 @@ export async function GET(): Promise<NextResponse> {
 
     const ctx = data?.metadata?.context;
     return NextResponse.json(
-      { context: isValidContext(ctx) ? ctx : 'knyt' },
+      { context: isValidContext(ctx) ? ctx : 'metame' },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch {
-    return NextResponse.json({ context: 'knyt' }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ context: 'metame' }, { headers: { 'Cache-Control': 'no-store' } });
   }
 }
 

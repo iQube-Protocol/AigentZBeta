@@ -12,8 +12,8 @@
  * browser-native `storage` event so a change in one surface (e.g. the admin tab
  * in a sibling document/iframe) updates the live runtime without a reload.
  *
- * Launch default is 'knyt' (the KNYT activation-campaign launch override). When
- * the key is unset the runtime falls back to that, preserving prior behaviour.
+ * Launch default is 'metame'. When the key is unset the runtime falls back to
+ * the metaMe sovereign surface.
  */
 
 export type RuntimeContext = "metame" | "knyt";
@@ -22,7 +22,7 @@ export type RuntimeContext = "metame" | "knyt";
 export const RUNTIME_CONTEXT_PREF_KEY = "metame:runtime-default-context";
 
 /** Launch override default when no preference is stored. */
-export const DEFAULT_RUNTIME_CONTEXT: RuntimeContext = "knyt";
+export const DEFAULT_RUNTIME_CONTEXT: RuntimeContext = "metame";
 
 export function getRuntimeContextPreference(): RuntimeContext {
   if (typeof window === "undefined") return DEFAULT_RUNTIME_CONTEXT;

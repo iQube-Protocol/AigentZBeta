@@ -2344,12 +2344,10 @@ export default function MetaMeRuntimeClient() {
   });
 
   const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
-  // Runtime takeover context. Default comes from the persisted admin/Play-menu
-  // preference (getRuntimeContextPreference), which falls back to 'knyt' — the
-  // KNYT activation-campaign launch override — when unset. The welcome banner
-  // then shows the KNYT WORLD takeover (amber badge, KNYT-specific CTAs) by
-  // default; admins can flip the default to 'metame' from the metaMe Runtime
-  // Settings admin tab, and the in-runtime ⚡ Play-menu toggle flips it live.
+  // Runtime takeover context. Default is 'metame' (the sovereign surface).
+  // Persisted via getRuntimeContextPreference (localStorage) and the server-side
+  // GET /api/runtime/settings/context. Admins can flip to 'knyt' from the
+  // Runtime Settings tab or the in-runtime Play-menu toggle.
   const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>(getRuntimeContextPreference);
 
   // Server-side preference sync — covers cross-origin (thin client on metame.live
