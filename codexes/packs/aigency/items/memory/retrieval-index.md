@@ -2504,3 +2504,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-bcb1eac.md](../build_/COMMITS/COMMIT-bcb1eac.md)
 - Message: make standing a permanently active first-class tab in metaMe
+
+## Commit `8f74779` — 2026-06-19T16:17:13Z
+- Type: `push`
+- Brief: [COMMIT-8f74779.md](../build_/COMMITS/COMMIT-8f74779.md)
+- Message: trigger deploy to dev
+
+## Commit `afdc85f` — 2026-06-19T16:17:08Z
+- Type: `push`
+- Brief: [COMMIT-afdc85f.md](../build_/COMMITS/COMMIT-afdc85f.md)
+- Message: seed standing-cartridge activation qube so the catalog card works

@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`afdc85f`](https://github.com/iQube-Protocol/AigentZBeta/commit/afdc85ff223adb53f3a50c7c2a5dcb7a66463064) [push] seed standing-cartridge activation qube so the catalog card works (Claude, 2026-06-19T16:17:08Z)
+- [`8f74779`](https://github.com/iQube-Protocol/AigentZBeta/commit/8f74779dc02195b4fa537ecb396728d649a35944) [push] trigger deploy to dev (Claude, 2026-06-19T16:17:13Z)
 - [`bcb1eac`](https://github.com/iQube-Protocol/AigentZBeta/commit/bcb1eac05585279d9a6cbdeea067edaef4b6ffe1) [push] make standing a permanently active first-class tab in metaMe (Claude, 2026-06-19T16:09:30Z)
 - [`c02eee1`](https://github.com/iQube-Protocol/AigentZBeta/commit/c02eee111ce43a8df9f62b97db017c43d41891dc) [push] trigger deploy to dev (Claude, 2026-06-19T16:09:40Z)
 - [`34d34c9`](https://github.com/iQube-Protocol/AigentZBeta/commit/34d34c9cdfbd0987a0aa973ba527e3e279cb1697) [push] trigger deploy to dev (Claude, 2026-06-19T15:25:51Z)

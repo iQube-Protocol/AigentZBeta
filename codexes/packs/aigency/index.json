@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-19T16:11:50.975Z",
+  "last_updated": "2026-06-19T16:19:00.563Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bcb1eac05585279d9a6cbdeea067edaef4b6ffe1",
-  "latest_commit_short": "bcb1eac",
-  "latest_commit_title": "make standing a permanently active first-class tab in metaMe",
+  "latest_commit": "afdc85ff223adb53f3a50c7c2a5dcb7a66463064",
+  "latest_commit_short": "afdc85f",
+  "latest_commit_title": "seed standing-cartridge activation qube so the catalog card works",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "afdc85f",
+      "full_sha": "afdc85ff223adb53f3a50c7c2a5dcb7a66463064",
+      "title": "seed standing-cartridge activation qube so the catalog card works",
+      "author": "Claude",
+      "timestamp": "2026-06-19T16:17:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-afdc85f.md"
+    },
+    {
+      "sha": "8f74779",
+      "full_sha": "8f74779dc02195b4fa537ecb396728d649a35944",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-19T16:17:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8f74779.md"
+    },
     {
       "sha": "bcb1eac",
       "full_sha": "bcb1eac05585279d9a6cbdeea067edaef4b6ffe1",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-04T04:06:48Z",
       "type": "style",
       "brief": "items/build_/COMMITS/COMMIT-2dcff5e.md"
-    },
-    {
-      "sha": "1ca89bf",
-      "full_sha": "1ca89bfd91143ca31bab1db7c3b485a993744c17",
-      "title": "trigger deploy: emerald container around expanded intents (2dcff5ed)",
-      "author": "Claude",
-      "timestamp": "2026-06-04T04:06:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1ca89bf.md"
-    },
-    {
-      "sha": "fc88460",
-      "full_sha": "fc884603fac61dde0f9c9a61c8e4b736945cde14",
-      "title": "feat(chain): persist specialist response + chain section in myLedger",
-      "author": "Claude",
-      "timestamp": "2026-06-04T03:43:51Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-fc88460.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
