@@ -2291,11 +2291,11 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
     },
 
     // ── Standing group — first-class mirror of the Standing Cartridge
-    // (root-DID capability & standing ledger). Permanently active (no
-    // activation gate) so it always surfaces in the runtime/embed context,
-    // matching the Passport tab. The StandingCartridgeTab component houses
-    // the evidence domains, fact review, compile, asset graph, and output
-    // generation in one surface.
+    // (root-DID capability & standing ledger). Gated on the
+    // 'standing-cartridge' activation via the group's activationId so it
+    // only surfaces once the persona activates the surface. The
+    // StandingCartridgeTab component houses the evidence domains, fact
+    // review, compile, asset graph, and output generation in one surface.
     {
       id: 'metame-standing-ledger',
       label: 'Standing',
@@ -2627,7 +2627,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
     { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
     { id: 'passport',     label: 'Passport',          icon: 'ShieldCheck',order: -0.5 },
-    { id: 'standing',     label: 'Standing',         icon: 'Star',       order: 4.6 },
+    { id: 'standing',     label: 'Standing',         icon: 'Star',       order: 4.6, activationId: 'standing-cartridge' },
     { id: 'qriptopia',    label: 'Qriptopia',        icon: 'Globe',      order: 5,   activationId: 'qriptopian' },
     { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
   ],
