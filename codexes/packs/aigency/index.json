@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-19T12:51:05.317Z",
+  "last_updated": "2026-06-19T13:31:30.667Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4891112307447538d3a1ee04f96714514a471897",
-  "latest_commit_short": "4891112",
-  "latest_commit_title": "change default runtime context from KNYT to metaMe",
+  "latest_commit": "40340e02ea924277c6f806b5c25b74239ec13cdd",
+  "latest_commit_short": "40340e0",
+  "latest_commit_title": "trigger deploy to dev",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "40340e0",
+      "full_sha": "40340e02ea924277c6f806b5c25b74239ec13cdd",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-19T13:29:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-40340e0.md"
+    },
     {
       "sha": "4891112",
       "full_sha": "4891112307447538d3a1ee04f96714514a471897",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-04T03:28:46Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-2a2e9a4.md"
-    },
-    {
-      "sha": "1ae9df0",
-      "full_sha": "1ae9df032f56c2c026b9f6a6f11fc61e16b2f7e3",
-      "title": "feat(downloads): ship Agent Runbook + flip menu entry to available",
-      "author": "Claude",
-      "timestamp": "2026-06-03T16:39:17Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-1ae9df0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -26,9 +26,6 @@ import { publishLockerItem } from '@/services/passport/lockerStorage';
 
 export const dynamic = 'force-dynamic';
 
-// Next.js App Router: disable body parsing so we can read the raw stream
-export const config = { api: { bodyParser: false } };
-
 async function canAccess(
   personaId: string,
   profileId: string,
