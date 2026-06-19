@@ -89,7 +89,7 @@ import {
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import { RuntimeTakeoverBanner } from "@/components/metame/RuntimeTakeoverBanner";
 import { RuntimeCapsuleRemixEditor } from "@/components/metame/runtime/RuntimeCapsuleRemixEditor";
-import { RuntimeConsumerTaskRunner } from "@/components/metame/runtime/RuntimeConsumerTaskRunner";
+import { InlineExperienceRenderer } from "@/components/metame/runtime/InlineExperienceRenderer";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { InviteModal } from "@/components/shared/InviteModal";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
@@ -3221,31 +3221,12 @@ export default function MetaMeRuntimeClient() {
 
       if (content.runtimeSource === "experience") {
         const heroImage = resolveCapsuleCoverImage(content);
-        const previewMedia = content.runtimePreviewMediaUri || null;
-        const mediaImage = !isLikelyVideoUri(previewMedia) ? previewMedia || heroImage : heroImage;
-        const { videoStyle, imageStyle } = resolveSmartMediaPanelStyles(activeDevice, intent);
-        const provider = detectExperienceProviderFromAssetUri(previewMedia || heroImage || content.runtimeLaunchHref || null);
-        const makeBundle = asRecord(content.configuration?.make_bundle);
-        const isVideoBundleOrKind =
-          makeBundle?.presetId === "video_article_bundle" ||
-          content.runtimeContentKind === "video";
-        const primaryKind = (isLikelyVideoUri(previewMedia) || isVideoBundleOrKind) ? "video" : "image";
         const experienceKinds = deriveRuntimeExperienceKinds(content);
-        const styleLabel = inferRuntimeExperienceStyle(content);
-        const experienceContext = resolveRuntimeExperienceContext(content);
-        const sourceExperienceHref = content.runtimeAuthoringHref
-          ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
-          : null;
         const resolvedExpId = resolveRuntimeExperienceId(content);
         const consumerExperienceHref = resolvedExpId
           ? `/studio/composer/experience/${encodeURIComponent(resolvedExpId)}?from=runtime&device=${encodeURIComponent(activeDevice)}`
           : null;
-        const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
-        const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
         const articleDraft = resolveRuntimeArticleDraft(content);
-        const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
-        const mediaAnchorId = `experience-${content.id}-media`;
-        const articleAnchorId = `experience-${content.id}-article`;
         return (
           <div
             data-embed-panel
@@ -3295,23 +3276,12 @@ export default function MetaMeRuntimeClient() {
 
             {(() => {
               const resolvedExpIdForRunner = resolveRuntimeExperienceId(content) ?? content.id;
-              const { costLabel: runnerCostLabel, rewardLabel: runnerRewardLabel } = resolveRuntimeRewardCost(content);
-              const runnerCartridgeSlug =
-                typeof (content.configuration as Record<string, unknown> | undefined)?.cartridge_id === "string"
-                  ? (content.configuration as Record<string, unknown>).cartridge_id as string
-                  : "";
               return (
                 <>
-                  {/* The consumer task runner (checkboxes, reward/cost badges,
-                      completion grant) is the actual experience — it renders
-                      for EVERY viewer, admin or not. The admin/remix editor
-                      below is an *addition* (pricing config for admins, remix
-                      for consumers), never a replacement for the experience. */}
-                  <RuntimeConsumerTaskRunner
+                  <InlineExperienceRenderer
                     experienceId={resolvedExpIdForRunner}
-                    rewardLabel={runnerRewardLabel}
-                    costLabel={runnerCostLabel}
-                    cartridgeSlug={runnerCartridgeSlug}
+                    personaId={activePersonaId}
+                    canEdit={runtimeAdminMode}
                   />
                   {runtimeAdminMode ? (
                     <RuntimeCapsuleAdminEditor
@@ -3339,201 +3309,6 @@ export default function MetaMeRuntimeClient() {
                 </>
               );
             })()}
-
-            <div id={mediaAnchorId} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
-              <ExperienceBlockHeader
-                kind={primaryKind}
-                provider={provider}
-                title={primaryKind === "video" ? "Video Generation" : "Image Generation"}
-                mobileTitle={primaryKind === "video" ? "Video" : "Image"}
-                rightActions={
-                  <div className="flex items-center gap-1">
-                    <div
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400"
-                      title={styleLabel}
-                    >
-                      <ExperienceStyleIcon style={styleLabel} className="h-5 w-5" />
-                    </div>
-                    {embedMode && receiptHref ? (
-                      <a
-                        href={receiptHref}
-                        target="_top"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
-                        title="Open receipt details"
-                      >
-                        <FileText className="h-5 w-5" />
-                      </a>
-                    ) : null}
-                    {embedMode && regenerateHref ? (
-                      <a
-                        href={regenerateHref}
-                        target="_top"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
-                        title="Open source experience to regenerate"
-                      >
-                        <RefreshCw className="h-5 w-5" />
-                      </a>
-                    ) : null}
-                    {embedMode && runtimeAdminMode && consumerExperienceHref ? (
-                      <a
-                        href={consumerExperienceHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
-                        title="Pop out experience"
-                      >
-                        <SquareArrowOutUpRight className="h-5 w-5" />
-                      </a>
-                    ) : null}
-                  </div>
-                }
-              />
-
-              <div className="p-4 pt-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                    {primaryKind === "video" ? "video" : "preview"}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
-                      Last generated
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-300">
-                      <Eye className="h-3 w-3" />
-                      Live
-                    </div>
-                  </div>
-                </div>
-
-                {isLikelyVideoUri(previewMedia) ? (
-                  <video
-                    src={previewMedia || undefined}
-                    poster={heroImage || undefined}
-                    controls
-                    className="w-full rounded-xl border border-white/10 bg-slate-950 object-cover"
-                    style={videoStyle}
-                  />
-                ) : mediaImage ? (
-                  <img
-                    src={mediaImage}
-                    alt={content.title}
-                    className="w-full rounded-xl border border-white/10 object-cover"
-                    style={imageStyle}
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-2 text-[11px] text-amber-100">
-                    Asset unavailable for this ExperienceQube.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <p className="text-[11px] text-slate-400">
-              Rendering the published experience media directly in runtime to avoid nested iframe shells.
-            </p>
-
-            {!embedMode && experienceContext ? (
-              <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/5 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Active Experience</div>
-                    <div className="mt-1 text-sm font-semibold text-white">
-                      {typeof experienceContext.inferenceContext?.experienceName === "string"
-                        ? experienceContext.inferenceContext.experienceName
-                        : content.title}
-                    </div>
-                    {typeof experienceContext.inferenceContext?.experienceDescription === "string" &&
-                    experienceContext.inferenceContext.experienceDescription.trim() ? (
-                      <div className="mt-1 text-xs text-slate-300">
-                        {experienceContext.inferenceContext.experienceDescription}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-1.5">
-                    {Array.isArray(experienceContext.allowedActions)
-                      ? experienceContext.allowedActions.map((action) => (
-                          <span
-                            key={`${content.id}-${action}`}
-                            className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
-                          >
-                            {action}
-                          </span>
-                        ))
-                      : null}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {!embedMode ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {quickActions.map((action) => {
-                  if (action.kind === "watch") {
-                    return (
-                      <a
-                        key={`${content.id}-${action.kind}`}
-                        href={`#${mediaAnchorId}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-500/20"
-                      >
-                        <PlayCircle className="h-4 w-4" />
-                        {action.label}
-                      </a>
-                    );
-                  }
-                  if (action.kind === "read") {
-                    return (
-                      <a
-                        key={`${content.id}-${action.kind}`}
-                        href={`#${articleAnchorId}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
-                      >
-                        <BookOpen className="h-4 w-4" />
-                        {action.label}
-                      </a>
-                    );
-                  }
-                  if (action.kind === "listen") {
-                    return (
-                      <a
-                        key={`${content.id}-${action.kind}`}
-                        href={`#${articleAnchorId}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
-                      >
-                        <Headphones className="h-4 w-4" />
-                        {action.label}
-                      </a>
-                    );
-                  }
-                  return (
-                    <button
-                      key={`${content.id}-${action.kind}`}
-                      type="button"
-                      // Smart-action 'Share' opens the Qriptopian
-                      // SocialSharingModal instead of pushing the legacy
-                      // QubeTalk channel-list panel into the chat.
-                      onClick={() => setRuntimeShareItem({
-                        id: content.id,
-                        title: content.title,
-                        description: content.description || undefined,
-                        section: content.runtimeContentKind || undefined,
-                        type: content.runtimeContentKind === 'article' ? 'text' : undefined,
-                      })}
-                      className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
-                    >
-                      <Share2 className="h-4 w-4" />
-                      {action.label}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {(content.runtimeContentKind === "article" || articleDraft) && articleDraft ? (
-              <RuntimeArticlePanel articleDraft={articleDraft} anchorId={articleAnchorId} />
-            ) : null}
 
             {embedMode && runtimeAdminMode && (() => {
               const makeBundle = asRecord(content.configuration?.make_bundle);
