@@ -2363,6 +2363,7 @@ export default function MetaMeRuntimeClient() {
         const ctx = data?.context;
         if ((ctx === 'metame' || ctx === 'knyt') && !cancelled) {
           setRuntimeContext(ctx);
+          setRuntimeContextPreference(ctx);
         }
       })
       .catch(() => {});
