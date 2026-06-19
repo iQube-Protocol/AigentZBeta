@@ -136,7 +136,21 @@ export function RuntimeConsumerTaskRunner({
     );
   }
 
-  if (nextActions.length === 0) return null;
+  // Never render blank: even when an experience has no consumer tasks yet, the
+  // reward/cost furniture and an explicit "no tasks" affordance must remain
+  // visible so the consumer can see the experience's economics and knows the
+  // task surface exists. This mirrors the canonical CompositionBundleBrief
+  // consumer surface (components/composer/ExperienceLiquidRenderer.tsx) — the
+  // earlier `return null` on empty tasks was the regression that made the whole
+  // task/reward block disappear inline.
+  const hasRewardFurniture = Boolean(rewardLabelResolved || costLabelResolved);
+  if (nextActions.length === 0 && !hasRewardFurniture && !completionNotice) {
+    return (
+      <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-slate-500">
+        No tasks for this experience yet.
+      </div>
+    );
+  }
 
   const completedCount = nextActions.filter((t) => completedTasks.has(t)).length;
 
@@ -144,9 +158,11 @@ export function RuntimeConsumerTaskRunner({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Your tasks</div>
-        <div className="text-[11px] text-slate-500">
-          {completedCount}/{nextActions.length} complete
-        </div>
+        {nextActions.length > 0 ? (
+          <div className="text-[11px] text-slate-500">
+            {completedCount}/{nextActions.length} complete
+          </div>
+        ) : null}
       </div>
 
       {(rewardLabelResolved || costLabelResolved) ? (
@@ -170,30 +186,34 @@ export function RuntimeConsumerTaskRunner({
         </div>
       ) : null}
 
-      <div className="space-y-2">
-        {nextActions.map((item) => {
-          const done = completedTasks.has(item);
-          return (
-            <button
-              key={item}
-              type="button"
-              onClick={() => toggleTask(item)}
-              className={`flex w-full items-start gap-2 rounded-xl border px-3 py-2 text-left text-xs transition ${
-                done
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
-                  : "border-slate-700 bg-slate-900/60 text-slate-200 hover:border-slate-500"
-              }`}
-            >
-              {done ? (
-                <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
-              ) : (
-                <Square className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-              )}
-              <span className={done ? "line-through opacity-80" : ""}>{item}</span>
-            </button>
-          );
-        })}
-      </div>
+      {nextActions.length > 0 ? (
+        <div className="space-y-2">
+          {nextActions.map((item) => {
+            const done = completedTasks.has(item);
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => toggleTask(item)}
+                className={`flex w-full items-start gap-2 rounded-xl border px-3 py-2 text-left text-xs transition ${
+                  done
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
+                    : "border-slate-700 bg-slate-900/60 text-slate-200 hover:border-slate-500"
+                }`}
+              >
+                {done ? (
+                  <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                ) : (
+                  <Square className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                )}
+                <span className={done ? "line-through opacity-80" : ""}>{item}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-xs text-slate-500">No tasks for this experience yet.</div>
+      )}
     </div>
   );
 }
