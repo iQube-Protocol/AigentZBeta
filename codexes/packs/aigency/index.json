@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-19T12:48:05.845Z",
+  "last_updated": "2026-06-19T12:51:05.317Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a94abea66a7d1e75ebfaddf95c342a5824c03986",
-  "latest_commit_short": "a94abea",
-  "latest_commit_title": "fix toggle persistence — remove invalid columns from upsert + sync localStorage",
+  "latest_commit": "4891112307447538d3a1ee04f96714514a471897",
+  "latest_commit_short": "4891112",
+  "latest_commit_title": "change default runtime context from KNYT to metaMe",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4891112",
+      "full_sha": "4891112307447538d3a1ee04f96714514a471897",
+      "title": "change default runtime context from KNYT to metaMe",
+      "author": "Claude",
+      "timestamp": "2026-06-19T12:49:15Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4891112.md"
+    },
     {
       "sha": "a94abea",
       "full_sha": "a94abea66a7d1e75ebfaddf95c342a5824c03986",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-03T16:39:17Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-1ae9df0.md"
-    },
-    {
-      "sha": "83fa3de",
-      "full_sha": "83fa3def7b2027623f5081c58e45ea51ec747318",
-      "title": "trigger deploy: Agent Runbook now downloadable (1ae9df03)",
-      "author": "Claude",
-      "timestamp": "2026-06-03T16:39:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-83fa3de.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

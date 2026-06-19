@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`4891112`](https://github.com/iQube-Protocol/AigentZBeta/commit/4891112307447538d3a1ee04f96714514a471897) [push] change default runtime context from KNYT to metaMe (Claude, 2026-06-19T12:49:15Z)
 - [`a94abea`](https://github.com/iQube-Protocol/AigentZBeta/commit/a94abea66a7d1e75ebfaddf95c342a5824c03986) [fix] fix toggle persistence — remove invalid columns from upsert + sync localStorage (Claude, 2026-06-19T12:45:36Z)
 - [`40b86f5`](https://github.com/iQube-Protocol/AigentZBeta/commit/40b86f580c9aebef36214e1984179e56b16eb5ad) [fix] fix Policy Passport deep link — use full cartridge ID in overlay slug (Claude, 2026-06-19T12:46:03Z)
 - [`ae6bb66`](https://github.com/iQube-Protocol/AigentZBeta/commit/ae6bb6671bf3023c54d5374fa18ae971afab3b1b) [fix] fix toggle persistence — remove admin gate from persistRuntimeContext (Claude, 2026-06-19T12:10:36Z)

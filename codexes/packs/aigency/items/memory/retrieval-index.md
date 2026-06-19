@@ -2479,3 +2479,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-a94abea.md](../build_/COMMITS/COMMIT-a94abea.md)
 - Message: fix toggle persistence — remove invalid columns from upsert + sync localStorage
+
+## Commit `4891112` — 2026-06-19T12:49:15Z
+- Type: `push`
+- Brief: [COMMIT-4891112.md](../build_/COMMITS/COMMIT-4891112.md)
+- Message: change default runtime context from KNYT to metaMe
