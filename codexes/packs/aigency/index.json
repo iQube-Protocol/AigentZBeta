@@ -2,11 +2,11 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-19T13:31:30.667Z",
+  "last_updated": "2026-06-19T15:27:37.707Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "40340e02ea924277c6f806b5c25b74239ec13cdd",
-  "latest_commit_short": "40340e0",
+  "latest_commit": "34d34c9cdfbd0987a0aa973ba527e3e279cb1697",
+  "latest_commit_short": "34d34c9",
   "latest_commit_title": "trigger deploy to dev",
   "pr_history": [
     {
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "34d34c9",
+      "full_sha": "34d34c9cdfbd0987a0aa973ba527e3e279cb1697",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-19T15:25:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-34d34c9.md"
+    },
     {
       "sha": "40340e0",
       "full_sha": "40340e02ea924277c6f806b5c25b74239ec13cdd",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-04T03:28:41Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-bb7723f.md"
-    },
-    {
-      "sha": "2a2e9a4",
-      "full_sha": "2a2e9a46fe241166817ed29c2ce3bc98e79f88dd",
-      "title": "trigger deploy: Operator Manual + chain status header + inline receipts (bb7723ff)",
-      "author": "Claude",
-      "timestamp": "2026-06-04T03:28:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2a2e9a4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`34d34c9`](https://github.com/iQube-Protocol/AigentZBeta/commit/34d34c9cdfbd0987a0aa973ba527e3e279cb1697) [push] trigger deploy to dev (Claude, 2026-06-19T15:25:51Z)
 - [`40340e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/40340e02ea924277c6f806b5c25b74239ec13cdd) [push] trigger deploy to dev (Claude, 2026-06-19T13:29:41Z)
 - [`4891112`](https://github.com/iQube-Protocol/AigentZBeta/commit/4891112307447538d3a1ee04f96714514a471897) [push] change default runtime context from KNYT to metaMe (Claude, 2026-06-19T12:49:15Z)
 - [`a94abea`](https://github.com/iQube-Protocol/AigentZBeta/commit/a94abea66a7d1e75ebfaddf95c342a5824c03986) [fix] fix toggle persistence — remove invalid columns from upsert + sync localStorage (Claude, 2026-06-19T12:45:36Z)
