@@ -2383,22 +2383,12 @@ export default function MetaMeRuntimeClient() {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  // runtimeAdminMode resolves asynchronously (the email-based admin check runs in
-  // an effect after mount). Mirror it into a ref so persistRuntimeContext can stay
-  // a stable callback and still read the *current* admin state from inside the
-  // once-mounted message handlers ([] deps) without a stale closure.
-  const runtimeAdminModeRef = useRef(runtimeAdminMode);
-  useEffect(() => { runtimeAdminModeRef.current = runtimeAdminMode; }, [runtimeAdminMode]);
-
-  // Single entry point for changing the runtime takeover context. Updates live
-  // state always; persists the new default (localStorage + server) ONLY when the
-  // current session is an admin — so once an admin flips the toggle it survives
-  // across sessions until an admin flips it again. Non-admin changes stay
-  // session-local and never overwrite the persisted launch default. Mirrors the
-  // persistence the admin Runtime Settings tab performs (PUT + storage event).
+  // Single entry point for changing the runtime takeover context. Persists
+  // to localStorage (same-browser) AND server (cross-origin/cross-session).
+  // Every toggle — admin or consumer — persists so the setting survives
+  // refresh. The server-side GET on load picks it up for cross-origin cases.
   const persistRuntimeContext = useCallback((ctx: 'metame' | 'knyt') => {
     setRuntimeContext(ctx);
-    if (!runtimeAdminModeRef.current) return;
     setRuntimeContextPreference(ctx);
     void fetch('/api/runtime/settings/context', {
       method: 'PUT',
