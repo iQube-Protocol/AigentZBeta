@@ -2454,3 +2454,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-25cf4de.md](../build_/COMMITS/COMMIT-25cf4de.md)
 - Message: persist metaMe/KNYT takeover context toggle across sessions
+
+## Commit `161728b` — 2026-06-19T01:02:56Z
+- Type: `push`
+- Brief: [COMMIT-161728b.md](../build_/COMMITS/COMMIT-161728b.md)
+- Message: keep consumer task/reward furniture visible when experience has no tasks
