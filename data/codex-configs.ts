@@ -2626,7 +2626,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
     { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
-    { id: 'passport',     label: 'Polity Passport',  icon: 'ShieldCheck',order: 4.5, activationId: 'polity-passport' },
+    { id: 'passport',     label: 'Passport',          icon: 'ShieldCheck',order: -0.5 },
     { id: 'standing',     label: 'Standing',         icon: 'Star',       order: 4.6, activationId: 'standing-cartridge' },
     { id: 'qriptopia',    label: 'Qriptopia',        icon: 'Globe',      order: 5,   activationId: 'qriptopian' },
     { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
@@ -3195,17 +3195,16 @@ export const METAME_CODEX: CodexConfig = {
       subTabs: aiqOsTabsByGroup('ecosystem'),
     },
 
-    // ── Polity Passport group (activation-gated) ────────────────────────────
+    // ── Passport group (permanently active) ──────────────────────────────────
     // Mirrors the Polity Passport Bureau cartridge tabs so the full Bureau
-    // experience is available inside metaMe as a first-class activation.
+    // experience is available inside metaMe as a first-class tab.
     // Uses the same polityPassportTabsByGroup() clone pattern as the
     // AgentiQ / AgentiQ OS passport mirrors.
     {
       id: 'polity-passport',
-      label: 'Polity Passport',
+      label: 'Passport',
       slug: 'polity-passport',
       enabled: true,
-      activationId: 'polity-passport',
       group: 'passport',
       order: 0,
       type: 'static',

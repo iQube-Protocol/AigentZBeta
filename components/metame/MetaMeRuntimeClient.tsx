@@ -6155,7 +6155,7 @@ export default function MetaMeRuntimeClient() {
                   type="button"
                   onClick={() => {
                     signalRuntimeBusy("quick_link:get_passport", { autoClearMs: 0 });
-                    setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'Polity Passport', initialTab: 'polity-passport', autoActivate: 'polity-passport' });
+                    setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'Passport', initialTab: 'polity-passport' });
                   }}
                   className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] text-violet-200/80 hover:border-violet-500/40 hover:text-violet-100 transition-colors backdrop-blur-sm"
                 >
