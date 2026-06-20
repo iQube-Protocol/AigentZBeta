@@ -13,6 +13,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { PASSPORT_BUREAU_CARTRIDGE_SLUG } from '@/services/passport/issuanceService';
 import { REVOCATION_STATES, TERMINAL_REVOCATION_STATES, type RevocationState } from '@/services/polity/constitution';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,6 +96,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .single();
     if (updErr) {
       return NextResponse.json({ ok: false, error: updErr.message }, { status: 500 });
+    }
+
+    // DVN-anchorable receipt for the lifecycle transition (Agent Charter
+    // §Receipts). Awaited so it persists before the response returns — on
+    // serverless a fire-and-forget write is cut off when the function freezes.
+    // Identifiers kept agent-scoped (agent_root_id, agent class), not the
+    // sponsor's raw persona id.
+    try {
+      await createActivityReceipt({
+        personaId: persona.personaId,
+        activeCartridge: PASSPORT_BUREAU_CARTRIDGE_SLUG,
+        actionType: 'agent_revocation_state_changed',
+        summary: `Agent "${agent.display_name}" ${current} → ${next}${body.reason ? `: ${body.reason}` : ''}`,
+        actionInput: {
+          agent_root_id: agentRootId,
+          agent_class: agent.agent_class,
+          previous_state: current,
+          revocation_state: next,
+          reason: body.reason ?? null,
+        },
+      });
+    } catch {
+      // Receipt is best-effort — never fail the revocation over the audit write.
     }
 
     return NextResponse.json({

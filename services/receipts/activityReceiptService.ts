@@ -48,7 +48,9 @@ export type ActivityActionType =
   | 'governance_authority_exercised'
   | 'governance_escalation_triggered'
   // Consumer task runner (DVN-anchorable; Workstream C-b)
-  | 'experience_task_completed';
+  | 'experience_task_completed'
+  // Autonomous agent lifecycle (DVN-anchorable; Option A revocation framework)
+  | 'agent_revocation_state_changed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

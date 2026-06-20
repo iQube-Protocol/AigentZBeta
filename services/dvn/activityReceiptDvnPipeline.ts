@@ -62,6 +62,8 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'governance_escalation_triggered',
   // Consumer task runner (Workstream C-b) — task-completion provenance
   'experience_task_completed',
+  // Autonomous agent lifecycle (Option A) — revocation provenance
+  'agent_revocation_state_changed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

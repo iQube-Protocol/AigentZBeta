@@ -32,7 +32,11 @@ delegated instruments, never sovereign.
   passport (no orphaned agents).
 - **`POST /api/agents/[id]/revoke`** — lifecycle control (pause/suspend/revoke/
   quarantine/destroy), immediate effect, admin or recorded revocation authority;
-  terminal states (revoked/destroyed) are final.
+  terminal states (revoked/destroyed) are final. Each transition emits an
+  **awaited DVN-anchorable receipt** (`agent_revocation_state_changed`, added to
+  `ActivityActionType` + `ANCHORABLE_ACTION_TYPES`) so the lifecycle is fully
+  receipted per the Agent Charter §Receipts. Identifiers stay agent-scoped (no
+  raw sponsor persona id in the receipt).
 - **Apply tab** Option A control is now functional (admin-only) — deploys the
   autonomous agent and shows its Agent Card + bound constitution version.
 
