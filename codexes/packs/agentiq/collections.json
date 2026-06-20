@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-17_option-a-autonomous-agents-and-dvn-audit-fix.md",
         "updates/2026-06-17_polity-core-cartridge-constitutional-framework.md",
         "updates/2026-06-17_aigentme-wallet-persona-b-bplus-optiona-stub.md",
         "updates/2026-06-17_fix-delegate-passport-awaiting-issuance.md",

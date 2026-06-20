@@ -96,7 +96,10 @@ async function emitDelegationEvent(
   personaId: string,
   metadata: Record<string, unknown>,
 ): Promise<void> {
-  void emitOrchestrationEvent({
+  // MUST be awaited by callers — on serverless the function freezes after the
+  // response returns, so a fire-and-forget insert is cut off before it lands
+  // (symptom: "No delegation events recorded" in the DVN audit log).
+  await emitOrchestrationEvent({
     event_id: buildEventId(),
     timestamp: new Date().toISOString(),
     event_type: eventType,
@@ -228,7 +231,7 @@ export async function GET(request: NextRequest) {
 
   if (isExpired(record)) {
     delegationStore.delete(persona_id);
-    void emitDelegationEvent('control_returned_to_metame', persona_id, {
+    await emitDelegationEvent('control_returned_to_metame', persona_id, {
       handoff_id: record.handoff.handoff_id,
       reason: 'TTL expired',
     });
@@ -386,7 +389,7 @@ export async function POST(request: NextRequest) {
 
     delegationStore.set(persona_id, record);
 
-    void emitDelegationEvent('z_delegated', persona_id, {
+    await emitDelegationEvent('z_delegated', persona_id, {
       handoff_id: handoffId,
       agent_root_did: agentRootDid,
       trust_band,
@@ -444,7 +447,7 @@ export async function DELETE(request: NextRequest) {
 
     delegationStore.delete(persona_id);
 
-    void emitDelegationEvent('control_returned_to_metame', persona_id, {
+    await emitDelegationEvent('control_returned_to_metame', persona_id, {
       handoff_id: record.handoff.handoff_id,
       reason: 'User revoked delegation',
       actions_taken: record.actions_taken,

@@ -13,6 +13,10 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  getAgentPassportBinding,
+  checkAgentClassConstraints,
+} from '@/services/polity/constitution';
 
 export const SLUG_RE = /^[a-z][a-z0-9-]{2,40}$/;
 
@@ -30,6 +34,15 @@ export interface SponsorAgentInput {
   agentClass?: 'polity_bound' | 'polity_autonomous';
   /** Marks this as the citizen's primary personal delegate (aigentMe). */
   isAigentMe?: boolean;
+  /**
+   * Option A — deploy a polity_autonomous agent. Requires callerIsAdmin. Stamps
+   * the constitutional binding (Constitution / Agent Charter / Delegation
+   * Framework versions + revocation authority) onto the agent and enforces the
+   * ADID constraints (no kybe DID, never human, never a citizen passport).
+   */
+  isAutonomous?: boolean;
+  /** Whether the caller holds platform admin authority (gates autonomous). */
+  callerIsAdmin?: boolean;
 }
 
 export interface SponsoredAgentResult {
@@ -71,6 +84,8 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
     origin,
     agentClass,
     isAigentMe = false,
+    isAutonomous = false,
+    callerIsAdmin = false,
   } = input;
 
   if (!slug || !SLUG_RE.test(slug)) {
@@ -91,15 +106,35 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
     };
   }
 
-  // polity_autonomous requires admin governance decoupling.
-  const resolvedClass = agentClass === 'polity_autonomous' ? null : 'polity_bound';
-  if (!resolvedClass) {
+  // Class resolution. polity_autonomous (Option A) is admin-only and binds to
+  // the current constitution; everything else is polity_bound.
+  const wantsAutonomous = isAutonomous || agentClass === 'polity_autonomous';
+  if (wantsAutonomous && !callerIsAdmin) {
     return {
       ok: false,
       status: 403,
-      error:
-        'polity_autonomous requires admin governance decoupling — use POST /api/governance/agent/decouple (Phase B)',
+      code: 'autonomous_requires_admin',
+      error: 'Autonomous agents (Option A) may be deployed by platform administrators only.',
     };
+  }
+  const resolvedClass = wantsAutonomous ? 'polity_autonomous' : 'polity_bound';
+
+  // ADID constraints (Agent Charter): an autonomous agent carries no kybe DID,
+  // never presents as human, and can never hold a citizen passport.
+  if (wantsAutonomous) {
+    const violations = checkAgentClassConstraints({
+      hasKybeDid: false,
+      isHuman: false,
+      passportClass: 'agent_participant',
+    });
+    if (violations.length > 0) {
+      return {
+        ok: false,
+        status: 422,
+        code: 'agent_class_constraint_violation',
+        error: `Autonomous agent constraint violation: ${violations.join(', ')}`,
+      };
+    }
   }
 
   // 1. Sponsor passport ownership — caller must own the citizen passport.
@@ -166,7 +201,8 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
   }
 
   // 3. Write the root identity.
-  const agentId = `polity-bound:${slug}`;
+  const agentIdPrefix = resolvedClass === 'polity_autonomous' ? 'polity-autonomous' : 'polity-bound';
+  const agentId = `${agentIdPrefix}:${slug}`;
   const didUri = `did:agent:root:${slug}`;
   const agentCardUrl = `${origin}/api/agents/${slug}/agent-card.json`;
 
@@ -182,6 +218,15 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
     agent_card_slug: slug,
   };
   if (isAigentMe) insertRow.is_aigent_me = true;
+  // Option A — stamp the constitutional binding + revocation authority.
+  if (resolvedClass === 'polity_autonomous') {
+    const binding = getAgentPassportBinding();
+    insertRow.constitution_version = binding.constitutionVersion;
+    insertRow.agent_charter_version = binding.agentCharterVersion;
+    insertRow.delegation_framework_version = binding.delegationFrameworkVersion;
+    insertRow.revocation_authority_persona_id = sponsorPersonaId;
+    insertRow.revocation_state = 'active';
+  }
 
   const { data: rootRow, error: rootErr } = await admin
     .from('agent_root_identity')
@@ -211,6 +256,19 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
         status: 503,
         error:
           'Pending migration: 20260617000000_aigent_me_designation.sql must be applied before aigentMe agents can be designated.',
+      };
+    }
+    // Constitutional binding columns missing → Option A migration pending.
+    if (
+      rootErr.message.includes('constitution_version') ||
+      rootErr.message.includes('revocation_state') ||
+      rootErr.message.includes('revocation_authority_persona_id')
+    ) {
+      return {
+        ok: false,
+        status: 503,
+        error:
+          'Pending migration: 20260617100000_agent_constitutional_binding.sql must be applied before autonomous agents can be deployed.',
       };
     }
     // Partial unique index violation → an aigentMe already exists for this persona.
