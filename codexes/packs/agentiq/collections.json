@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-17_aigentme-wallet-persona-b-bplus-optiona-stub.md",
         "updates/2026-06-17_fix-delegate-passport-awaiting-issuance.md",
         "updates/2026-06-17_registry-sponsor-hub-genesis-aigentme.md",
         "updates/2026-06-17_mobility-tracks-and-aigentme-delegation.md",

@@ -2351,6 +2351,26 @@ export default function SmartWalletDrawer({
                       const isConfirming = confirmDeletePersonaId === persona.id;
                       const isPending = personaActionPending === persona.id;
                       const isArchived = (persona as Record<string, unknown>).status === 'inactive';
+                      // aigentMe persona — the citizen's delegate. Default tap is
+                      // "engage" (B), NOT a spine identity swap. The explicit
+                      // "Act as" control performs the full switch (B+).
+                      const isAigentMePersona =
+                        (persona as { appOrigin?: string }).appOrigin === 'aigent-me';
+                      const switchToPersona = () => {
+                        setLocalPersonaId(persona.id);
+                        ctxSetActivePersonaId(persona.id);
+                        onPersonaChange?.(persona.id);
+                        setPersonaMenuOpen(false);
+                        window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
+                      };
+                      const engageAigentMe = () => {
+                        // B — engage as delegate/chief-of-staff without changing
+                        // the active spine persona. Runtime can route through it.
+                        setPersonaMenuOpen(false);
+                        window.dispatchEvent(
+                          new CustomEvent("aigentme-engaged", { detail: { personaId: persona.id } }),
+                        );
+                      };
                       return (
                         <div
                           key={persona.id}
@@ -2359,13 +2379,7 @@ export default function SmartWalletDrawer({
                           } ${isArchived ? 'opacity-50' : ''}`}
                         >
                           <button
-                            onClick={() => {
-                              setLocalPersonaId(persona.id);
-                              ctxSetActivePersonaId(persona.id);
-                              onPersonaChange?.(persona.id);
-                              setPersonaMenuOpen(false);
-                              window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
-                            }}
+                            onClick={isAigentMePersona ? engageAigentMe : switchToPersona}
                             className="flex items-center gap-2 flex-1 min-w-0 text-left"
                           >
                             {persona.isAgent ? (
@@ -2374,8 +2388,17 @@ export default function SmartWalletDrawer({
                               <User className="w-4 h-4 text-cyan-400 shrink-0" />
                             )}
                             <div className="text-left min-w-0 flex-1">
-                              <p className="text-sm text-white/90 truncate">{persona.displayName || "Persona"}</p>
-                              <p className="text-xs text-white/50 truncate">{persona.fioHandle || "No handle"}</p>
+                              <p className="text-sm text-white/90 truncate flex items-center gap-1.5">
+                                {persona.displayName || "Persona"}
+                                {isAigentMePersona && (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0 text-[9px] font-medium text-amber-300">
+                                    <Star className="w-2.5 h-2.5" /> aigentMe
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-white/50 truncate">
+                                {isAigentMePersona ? 'Your delegate · tap to engage' : (persona.fioHandle || "No handle")}
+                              </p>
                             </div>
                             {effectivePersonaId === persona.id && !isConfirming && (
                               <Check className="w-3 h-3 text-emerald-400 shrink-0" />
@@ -2385,6 +2408,15 @@ export default function SmartWalletDrawer({
                           {/* Manage actions — revealed on hover */}
                           {!isConfirming && !isPending && (
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              {isAigentMePersona && effectivePersonaId !== persona.id && (
+                                <button
+                                  title="Act as your aigentMe (advanced — occupy the agent seat)"
+                                  onClick={switchToPersona}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+                                >
+                                  Act as
+                                </button>
+                              )}
                               {cartridgeSlug && (() => {
                                 const isDefault = getCartridgeDefault(cartridgeSlug) === persona.id;
                                 return (

@@ -41,6 +41,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { sponsorPolityAgent } from '@/services/agents/sponsorPolityAgent';
+import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 
 export const dynamic = 'force-dynamic';
@@ -88,10 +89,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(rest, { status });
     }
 
+    // If this genesis designated the agent as the citizen's aigentMe, surface
+    // it as a wallet persona too (best-effort — never fails the genesis).
+    let walletPersona = null;
+    if (outcome.agent.isAigentMe) {
+      walletPersona = await provisionAigentMePersona({
+        admin,
+        callerAuthProfileId: persona.authProfileId,
+        agentRoot: {
+          did_uri: outcome.agent.didUri,
+          display_name: outcome.agent.displayName,
+          agent_card_slug: outcome.agent.agentCardSlug,
+        },
+      });
+    }
+
     const { agentCardUrl, agentRootId } = outcome.agent;
     return NextResponse.json({
       ok: true,
       agent: outcome.agent,
+      walletPersona,
       nextSteps: [
         'Submit a Participant Passport application at /api/polity-passport/submit using agent_card_url=' + agentCardUrl,
         'Once issued, create the agent persona at POST /api/identity/persona/agent with agentRootId=' + agentRootId,

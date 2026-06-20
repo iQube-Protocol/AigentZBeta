@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { sponsorPolityAgent } from '@/services/agents/sponsorPolityAgent';
+import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 
 export const dynamic = 'force-dynamic';
@@ -164,10 +165,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(rest, { status });
     }
 
+    // Close the loop — surface the aigentMe as a wallet persona (best-effort).
+    const walletPersona = await provisionAigentMePersona({
+      admin,
+      callerAuthProfileId: persona.authProfileId,
+      agentRoot: {
+        did_uri: outcome.agent.didUri,
+        display_name: outcome.agent.displayName,
+        agent_card_slug: outcome.agent.agentCardSlug,
+      },
+    });
+
     return NextResponse.json({
       ok: true,
       created: true,
       agent: outcome.agent,
+      walletPersona,
       nextSteps: [
         'Your aigentMe now appears in your wallet under AgentQubes and as delegate slot 1.',
         'Submit a Participant Passport application at /api/polity-passport/submit using agent_card_url=' +
@@ -282,7 +295,19 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, promoted: true, agent: projectAgent(updated) });
+    // Close the loop — surface the promoted aigentMe as a wallet persona.
+    const promoted = projectAgent(updated);
+    const walletPersona = await provisionAigentMePersona({
+      admin,
+      callerAuthProfileId: persona.authProfileId,
+      agentRoot: {
+        did_uri: promoted.didUri,
+        display_name: promoted.displayName,
+        agent_card_slug: promoted.agentCardSlug,
+      },
+    });
+
+    return NextResponse.json({ ok: true, promoted: true, agent: promoted, walletPersona });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : 'aigentMe promotion failed' },

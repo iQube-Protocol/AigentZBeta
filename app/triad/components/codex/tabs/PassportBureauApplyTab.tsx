@@ -187,18 +187,28 @@ export function PassportBureauApplyTab() {
   // per persona; the toggle disables when an aigentMe already exists.
   const [makeAigentMe, setMakeAigentMe] = useState(false);
   const [existingAigentMe, setExistingAigentMe] = useState<{ displayName: string } | null>(null);
+  // Admin gate for the Option A (autonomous agent) stub.
+  const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
     let cancelled = false;
     authedFetchHeaders()
       .then((headers) =>
-        fetch('/api/agents/aigentme', { headers, cache: 'no-store' })
-          .then((r) => r.json())
-          .then((j) => {
-            if (!cancelled && j?.ok && j.agent) {
-              setExistingAigentMe({ displayName: String(j.agent.displayName ?? 'aigentMe') });
-            }
-          })
-          .catch(() => {}),
+        Promise.all([
+          fetch('/api/agents/aigentme', { headers, cache: 'no-store' })
+            .then((r) => r.json())
+            .then((j) => {
+              if (!cancelled && j?.ok && j.agent) {
+                setExistingAigentMe({ displayName: String(j.agent.displayName ?? 'aigentMe') });
+              }
+            })
+            .catch(() => {}),
+          fetch('/api/wallet/active-persona', { headers, cache: 'no-store' })
+            .then((r) => r.json())
+            .then((j) => {
+              if (!cancelled) setIsAdmin(Boolean(j?.cartridgeFlags?.isAdmin));
+            })
+            .catch(() => {}),
+        ]),
       )
       .catch(() => {});
     return () => { cancelled = true; };
@@ -802,6 +812,37 @@ export function PassportBureauApplyTab() {
                 )}
               </span>
             </label>
+          )}
+
+          {/* Option A (advanced, admin-only) — autonomous agent deployment STUB.
+              Not yet functional. Constraint: an autonomous agent gets NO kybe
+              DID, can never present as a human/citizen, and cannot hold a
+              citizen passport — it is always identifiable as an agent. */}
+          {isAdmin && (agentCardSource === 'quick' || agentCardSource === 'genesis') && (
+            <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 px-3 py-2.5 text-xs space-y-1.5 opacity-90">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 font-medium text-purple-200">
+                  <GitBranch className="h-3.5 w-3.5 text-purple-400" />
+                  Deploy as autonomous agent (Option A)
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-300">
+                  Admin · coming soon
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Advanced: deploy a fully autonomous agent that can occupy the agent seat and act
+                directly. <strong className="text-slate-300">Guardrails (enforced when built):</strong> no
+                kybe DID, never presents as a human/citizen, always identifiable as an agent, and
+                cannot hold a citizen passport — agent class only.
+              </p>
+              <button
+                type="button"
+                disabled
+                className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 text-[11px] font-medium text-purple-300/70 cursor-not-allowed"
+              >
+                Deploy autonomous agent (not yet available)
+              </button>
+            </div>
           )}
 
           {agentCardSource === 'quick' ? (
