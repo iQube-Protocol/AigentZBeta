@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
   Shield, ShieldCheck, ShieldX, Clock, Activity, AlertTriangle,
   CheckCircle2, Loader2, ChevronDown, ChevronUp, Receipt, Wallet,
-  Play, Ban, Terminal, Bot,
+  Play, Ban, Terminal, Bot, Sparkles, Lock, Crown,
 } from "lucide-react";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { personaFetch } from "@/utils/personaSpine";
@@ -15,13 +15,18 @@ interface DelegateAgent {
   displayName: string;
   didUri: string;
   agentClass: string;
+  isAigentMe?: boolean;
+  /** True for the platform/system agents — delegation gated to admins. */
+  isSystem?: boolean;
 }
 
+// System (platform) agents. Delegating to these is admin-only — they are the
+// shared orchestration agents, not personal delegates.
 const PLATFORM_AGENTS: DelegateAgent[] = [
-  { agentRootId: 'aigent-c-os-root', displayName: 'Aigent C-OS', didUri: 'did:iqube:aigent-c-os-root', agentClass: 'platform' },
-  { agentRootId: 'aigent-z-root', displayName: 'Aigent Z', didUri: 'did:iqube:aigent-z-root', agentClass: 'platform' },
-  { agentRootId: 'marketa-root', displayName: 'Marketa', didUri: 'did:iqube:marketa-root', agentClass: 'platform' },
-  { agentRootId: 'kn0w1-root', displayName: 'Kn0w1', didUri: 'did:iqube:kn0w1-root', agentClass: 'platform' },
+  { agentRootId: 'aigent-c-os-root', displayName: 'Aigent C-OS', didUri: 'did:iqube:aigent-c-os-root', agentClass: 'platform', isSystem: true },
+  { agentRootId: 'aigent-z-root', displayName: 'Aigent Z', didUri: 'did:iqube:aigent-z-root', agentClass: 'platform', isSystem: true },
+  { agentRootId: 'marketa-root', displayName: 'Marketa', didUri: 'did:iqube:marketa-root', agentClass: 'platform', isSystem: true },
+  { agentRootId: 'kn0w1-root', displayName: 'Kn0w1', didUri: 'did:iqube:kn0w1-root', agentClass: 'platform', isSystem: true },
 ];
 
 function agentClassColor(cls: string): string {
@@ -138,6 +143,17 @@ interface DemoLogEntry {
   timestamp: string;
 }
 
+// Maps a raw sponsored-agents / aigentme payload into a DelegateAgent.
+function mapAgent(a: Record<string, unknown>): DelegateAgent {
+  return {
+    agentRootId: String(a.agentRootId ?? a.id ?? ''),
+    displayName: String(a.displayName ?? a.display_name ?? 'Agent'),
+    didUri: String(a.didUri ?? a.did_uri ?? ''),
+    agentClass: String(a.agentClass ?? a.agent_class ?? 'polity_bound'),
+    isAigentMe: Boolean(a.isAigentMe ?? a.is_aigent_me ?? false),
+  };
+}
+
 export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const { sessionPersonas } = useSupabaseSessionPersonas();
   const activePersona = sessionPersonas.find((p) => p.id === personaId) ?? sessionPersonas[0] ?? null;
@@ -161,10 +177,23 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [demoLog, setDemoLog] = useState<DemoLogEntry[]>([]);
   const [demoRunning, setDemoRunning] = useState(false);
 
-  // Agent selector state
-  const [selectedAgent, setSelectedAgent] = useState<DelegateAgent>(PLATFORM_AGENTS[0]);
-  const [sponsoredAgents, setSponsoredAgents] = useState<DelegateAgent[]>([]);
+  // Delegate roster state.
+  const [selectedAgent, setSelectedAgent] = useState<DelegateAgent | null>(null);
+  const [otherAgents, setOtherAgents] = useState<DelegateAgent[]>([]); // sponsored, non-aigentMe
   const [agentsLoading, setAgentsLoading] = useState(false);
+
+  // Slot 1 — aigentMe (the citizen's primary personal delegate).
+  const [aigentMe, setAigentMe] = useState<DelegateAgent | null>(null);
+  const [aigentMeLoading, setAigentMeLoading] = useState(true);
+  const [creatingAigentMe, setCreatingAigentMe] = useState(false);
+
+  // Slots 2 & 3 — assignable to a pre-existing agent (client-side selection;
+  // only one delegation is active at a time, so slot assignment is UX scaffolding).
+  const [slot2, setSlot2] = useState<DelegateAgent | null>(null);
+  const [slot3, setSlot3] = useState<DelegateAgent | null>(null);
+
+  // System-agent delegation is admin-only.
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [selectedTrustBand, setSelectedTrustBand] = useState("L2_VERIFIED_COMMUNITY");
   const [selectedTtl, setSelectedTtl] = useState(4);
@@ -215,7 +244,50 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     loadDelegation();
   }, [loadDelegation]);
 
-  // Fetch sponsored agents
+  // Resolve admin status (system-agent delegation gate) via the spine.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/wallet/active-persona', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) setIsAdmin(Boolean(data?.cartridgeFlags?.isAdmin));
+        }
+      } catch {
+        // Non-admin by default — fail closed.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch the aigentMe (slot 1).
+  const loadAigentMe = useCallback(async () => {
+    setAigentMeLoading(true);
+    try {
+      const res = await personaFetch('/api/agents/aigentme', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.agent) {
+          const a = { ...mapAgent(data.agent), isAigentMe: true };
+          setAigentMe(a);
+        } else {
+          setAigentMe(null);
+        }
+      }
+    } catch {
+      // aigentMe optional — slot 1 falls back to the create affordance.
+    } finally {
+      setAigentMeLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAigentMe();
+  }, [loadAigentMe]);
+
+  // Fetch sponsored agents (slots 2 & 3 pool). aigentMe is filtered out — it
+  // owns slot 1.
   useEffect(() => {
     let cancelled = false;
     async function fetchSponsoredAgents() {
@@ -229,17 +301,14 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         if (res.ok) {
           const data = await res.json();
           if (!cancelled && data.agents) {
-            const mapped = (data.agents as Array<{ agentRootId?: string; id?: string; displayName?: string; display_name?: string; didUri?: string; did_uri?: string; agentClass?: string; agent_class?: string }>).map((a) => ({
-              agentRootId: a.agentRootId ?? a.id ?? '',
-              displayName: a.displayName ?? a.display_name ?? 'Agent',
-              didUri: a.didUri ?? a.did_uri ?? '',
-              agentClass: a.agentClass ?? a.agent_class ?? 'polity_bound',
-            }));
-            setSponsoredAgents(mapped);
+            const mapped = (data.agents as Array<Record<string, unknown>>)
+              .map(mapAgent)
+              .filter((a) => !a.isAigentMe);
+            setOtherAgents(mapped);
           }
         }
       } catch {
-        // Sponsored agents are optional — platform agents always available
+        // Sponsored agents are optional.
       } finally {
         if (!cancelled) setAgentsLoading(false);
       }
@@ -252,7 +321,35 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     if (showAudit) loadAuditEvents();
   }, [showAudit, loadAuditEvents]);
 
+  async function handleCreateAigentMe() {
+    setCreatingAigentMe(true);
+    setError(null);
+    try {
+      const res = await personaFetch('/api/agents/aigentme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? 'Could not create your aigentMe.');
+      } else if (data.agent) {
+        const a = { ...mapAgent(data.agent), isAigentMe: true };
+        setAigentMe(a);
+        setSelectedAgent(a);
+      }
+    } catch {
+      setError('aigentMe creation failed.');
+    } finally {
+      setCreatingAigentMe(false);
+    }
+  }
+
   async function handleGrant() {
+    if (!selectedAgent) {
+      setError('Select a delegate first.');
+      return;
+    }
     setGranting(true);
     setError(null);
     try {
@@ -312,6 +409,17 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const lastBlockedEvent = auditEvents.find((e) => e.event_type === "policy_blocked");
   const hasInjectionWarning = !!lastBlockedEvent;
 
+  // Assignable pool for slots 2 & 3: sponsored non-aigentMe agents, plus the
+  // system agents only when the caller is an admin. Excludes whatever is in
+  // the OTHER assignable slot so the same agent can't occupy both.
+  function assignableFor(slot: 2 | 3): DelegateAgent[] {
+    const taken = slot === 2 ? slot3 : slot2;
+    const systemPool = isAdmin ? PLATFORM_AGENTS : [];
+    return [...otherAgents, ...systemPool].filter(
+      (a) => !taken || a.agentRootId !== taken.agentRootId,
+    );
+  }
+
   async function runDemoAction(type: "allowed" | "denied") {
     const prompt =
       type === "allowed"
@@ -359,6 +467,112 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     }
   }
 
+  // A single delegate slot card (selectable as the grant target).
+  function SlotCard({
+    slotNumber,
+    title,
+    agent,
+    onAssign,
+    onClear,
+    assignable,
+    primary,
+  }: {
+    slotNumber: number;
+    title: string;
+    agent: DelegateAgent | null;
+    onAssign?: (a: DelegateAgent) => void;
+    onClear?: () => void;
+    assignable?: DelegateAgent[];
+    primary?: boolean;
+  }) {
+    const selected = !!agent && selectedAgent?.agentRootId === agent.agentRootId;
+    return (
+      <div
+        className={`rounded-xl border p-3 transition ${
+          selected
+            ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30"
+            : "border-slate-700/50 bg-slate-900/30"
+        }`}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700/60 text-[10px] font-semibold text-slate-300">
+              {slotNumber}
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</span>
+            {primary && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                <Crown className="h-2.5 w-2.5" /> primary
+              </span>
+            )}
+          </div>
+          {agent && onClear && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-[10px] text-slate-500 hover:text-slate-300"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {agent ? (
+          <button
+            type="button"
+            onClick={() => setSelectedAgent(agent)}
+            className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left"
+          >
+            <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${selected ? "bg-violet-500/30" : "bg-slate-700/50"}`}>
+              <Bot className={`h-4 w-4 ${selected ? "text-violet-300" : "text-slate-400"}`} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm font-medium truncate ${selected ? "text-violet-200" : "text-slate-200"}`}>
+                {agent.displayName}
+              </p>
+              <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {agent.isSystem && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+                  <Lock className="h-2.5 w-2.5" /> system
+                </span>
+              )}
+              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
+                {agent.agentClass.replace(/_/g, ' ')}
+              </span>
+              {selected && <CheckCircle2 className="h-4 w-4 text-violet-400" />}
+            </div>
+          </button>
+        ) : assignable ? (
+          assignable.length > 0 ? (
+            <select
+              value=""
+              onChange={(e) => {
+                const a = assignable.find((x) => x.agentRootId === e.target.value);
+                if (a && onAssign) onAssign(a);
+              }}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300"
+            >
+              <option value="" disabled>
+                Assign an agent…
+              </option>
+              {assignable.map((a) => (
+                <option key={a.agentRootId} value={a.agentRootId}>
+                  {a.displayName}{a.isSystem ? ' (system · admin)' : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-[11px] text-slate-500 px-1 py-1">
+              No additional agents yet. Sponsor one from <span className="text-slate-400">Polity Passport → Apply</span>, or develop a new agent — then assign it here.
+            </p>
+          )
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-5 max-w-2xl">
       <div className="flex items-start gap-4">
@@ -368,7 +582,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         <div>
           <h2 className="text-lg font-semibold text-slate-100">Aigent Delegates</h2>
           <p className="text-sm text-slate-400 mt-0.5">
-            Grant bounded authority to Aigents with audit logs — sealed, time-limited, DVN-signed.
+            Grant bounded authority to your Aigents — sealed, time-limited, DVN-signed.
           </p>
         </div>
       </div>
@@ -393,98 +607,98 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
       {activeSubTab === "delegation" && (<>
 
-      {/* Agent selector — horizontal carousel at the top */}
+      {/* Delegate roster — 3 slots, aigentMe primary */}
       <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-violet-400" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Select Agent to Delegate</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-violet-400" />
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your Delegates</p>
+          </div>
+          <span className="text-[10px] text-slate-500">One active delegation at a time</span>
         </div>
 
-        {agentsLoading ? (
+        {/* Slot 1 — aigentMe */}
+        {aigentMeLoading ? (
           <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Loading agents...
+            Loading your aigentMe…
           </div>
+        ) : aigentMe ? (
+          <SlotCard slotNumber={1} title="aigentMe" agent={aigentMe} primary />
         ) : (
-          <>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-700">
-              {/* Sponsored agents first in the carousel */}
-              {sponsoredAgents.map((agent) => (
-                <button
-                  key={agent.agentRootId}
-                  type="button"
-                  onClick={() => setSelectedAgent(agent)}
-                  className={`flex-shrink-0 rounded-lg border px-3 py-2.5 text-left transition w-44 ${
-                    selectedAgent.agentRootId === agent.agentRootId
-                      ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
-                      : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${
-                      selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
-                    }`}>
-                      <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
-                        {agent.displayName}
-                      </p>
-                      <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
-                    </div>
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
-                      {agent.agentClass.replace(/_/g, ' ')}
-                    </span>
-                    {selectedAgent.agentRootId === agent.agentRootId && (
-                      <CheckCircle2 className="h-3 w-3 text-violet-400" />
-                    )}
-                  </div>
-                </button>
-              ))}
-              {/* Platform agents in the same carousel row */}
-              {PLATFORM_AGENTS.map((agent) => (
-                <button
-                  key={agent.agentRootId}
-                  type="button"
-                  onClick={() => setSelectedAgent(agent)}
-                  className={`flex-shrink-0 rounded-lg border px-3 py-2.5 text-left transition w-44 ${
-                    selectedAgent.agentRootId === agent.agentRootId
-                      ? "border-violet-500/60 bg-violet-500/20 ring-1 ring-violet-500/30"
-                      : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${
-                      selectedAgent.agentRootId === agent.agentRootId ? "bg-violet-500/30" : "bg-slate-700/50"
-                    }`}>
-                      <Bot className={`h-3.5 w-3.5 ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-300" : "text-slate-400"}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-medium truncate ${selectedAgent.agentRootId === agent.agentRootId ? "text-violet-200" : "text-slate-300"}`}>
-                        {agent.displayName}
-                      </p>
-                      <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
-                    </div>
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
-                      {agent.agentClass}
-                    </span>
-                    {selectedAgent.agentRootId === agent.agentRootId && (
-                      <CheckCircle2 className="h-3 w-3 text-violet-400" />
-                    )}
-                  </div>
-                </button>
-              ))}
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700/60 text-[10px] font-semibold text-slate-300">1</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">aigentMe</span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                <Crown className="h-2.5 w-2.5" /> primary
+              </span>
             </div>
-          </>
+            <p className="text-[11px] text-slate-400">
+              Your aigentMe is your personal bounded delegate — the agent that represents you across metaMe. Create it once and it appears in your wallet and here as delegate&nbsp;1.
+            </p>
+            <button
+              type="button"
+              onClick={handleCreateAigentMe}
+              disabled={creatingAigentMe}
+              className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+            >
+              {creatingAigentMe ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {creatingAigentMe ? "Creating…" : "Create my aigentMe"}
+            </button>
+          </div>
         )}
+
+        {/* Slot 2 */}
+        <SlotCard
+          slotNumber={2}
+          title="Delegate 2"
+          agent={slot2}
+          assignable={assignableFor(2)}
+          onAssign={(a) => { setSlot2(a); setSelectedAgent(a); }}
+          onClear={() => { setSlot2(null); if (selectedAgent?.agentRootId === slot2?.agentRootId) setSelectedAgent(null); }}
+        />
+
+        {/* Slot 3 */}
+        <SlotCard
+          slotNumber={3}
+          title="Delegate 3"
+          agent={slot3}
+          assignable={assignableFor(3)}
+          onAssign={(a) => { setSlot3(a); setSelectedAgent(a); }}
+          onClear={() => { setSlot3(null); if (selectedAgent?.agentRootId === slot3?.agentRootId) setSelectedAgent(null); }}
+        />
+
+        {agentsLoading && (
+          <div className="flex items-center gap-2 text-slate-500 text-[10px]">
+            <Loader2 className="h-3 w-3 animate-spin" /> Loading agents…
+          </div>
+        )}
+
+        {!isAdmin && (
+          <p className="flex items-center gap-1.5 text-[10px] text-slate-500">
+            <Lock className="h-3 w-3" />
+            Delegating to system agents (Aigent Z, Aigent C-OS, Marketa, Kn0w1) is restricted to admins.
+          </p>
+        )}
+
+        {/* Premium stub — simultaneous multi-delegate activation (option B) */}
+        <div className="flex items-center justify-between rounded-xl border border-slate-700/40 bg-slate-800/20 px-3 py-2.5 opacity-80">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-amber-400/70" />
+            <div>
+              <p className="text-xs font-medium text-slate-300">Activate all 3 delegates at once</p>
+              <p className="text-[10px] text-slate-500">Run multiple bounded delegations in parallel.</p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+            <Lock className="h-2.5 w-2.5" /> Premium — coming soon
+          </span>
+        </div>
       </div>
 
       {/* Injection warning banner */}
-      {hasInjectionWarning && showAudit && (
+      {hasInjectionWarning && showAudit && selectedAgent && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
           <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
           <div>
@@ -534,7 +748,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </button>
         {showConcept && (
           <div className="px-4 pb-4 text-xs text-slate-400 space-y-2 border-t border-slate-700/40 pt-3">
-            <p>Bounded delegation grants any Aigent — platform or custom — explicit, time-limited authority via a sealed <strong className="text-slate-300">PolicyEnvelope</strong>. The envelope binds the agent&apos;s Root DiD to your persona&apos;s disclosure class.</p>
+            <p>Bounded delegation grants any Aigent — your aigentMe, a sponsored delegate, or (for admins) a system agent — explicit, time-limited authority via a sealed <strong className="text-slate-300">PolicyEnvelope</strong>. The envelope binds the agent&apos;s Root DiD to your persona&apos;s disclosure class.</p>
             <p>The envelope is immutable after creation — no conversation can expand it. Injection attempts and forbidden actions are blocked at the API boundary before reaching the LLM.</p>
             <p>Every delegation event emits a receipt-eligible <strong className="text-slate-300">OrchestrationEvent</strong> anchored to both Root DiDs (yours and the agent&apos;s). See <strong className="text-slate-300">Build → Aigent Ref</strong> for the full model including custom agent registration.</p>
           </div>
@@ -575,12 +789,21 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
           {/* Delegated agent identity */}
           {delegationAgentDid && (() => {
-            const allAgents = [...PLATFORM_AGENTS, ...sponsoredAgents];
+            const allAgents = [
+              ...(aigentMe ? [aigentMe] : []),
+              ...otherAgents,
+              ...PLATFORM_AGENTS,
+            ];
             const matched = allAgents.find((a) => a.agentRootId === delegationAgentDid || a.didUri === delegationAgentDid);
             return (
               <div className="flex items-center gap-2 rounded-lg border border-green-500/15 bg-green-500/5 px-3 py-2">
                 <Bot className="h-4 w-4 text-green-400" />
                 <span className="text-sm text-green-200 font-medium">{matched?.displayName ?? delegationAgentDid}</span>
+                {matched?.isAigentMe && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                    <Crown className="h-2.5 w-2.5" /> aigentMe
+                  </span>
+                )}
                 {matched && (
                   <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(matched.agentClass)}`}>
                     {matched.agentClass}
@@ -651,13 +874,18 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
                 <Shield className="h-5 w-5 text-slate-500" />
                 <span className="text-sm text-slate-400">No active delegation</span>
               </div>
-              <p className="text-xs text-slate-500">Grant authority to enable delegated actions for {selectedAgent.displayName}.</p>
+              <p className="text-xs text-slate-500">
+                {selectedAgent
+                  ? `Grant authority to enable delegated actions for ${selectedAgent.displayName}.`
+                  : "Select a delegate above to grant authority."}
+              </p>
             </>
           )}
           <button
             type="button"
+            disabled={!selectedAgent}
             onClick={() => { setShowGrantForm((v) => !v); setJustRevoked(false); }}
-            className="inline-flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Shield className="h-4 w-4" />
             {showGrantForm ? "Cancel" : justRevoked ? "Delegate" : "Grant Authority"}
@@ -666,7 +894,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       )}
 
       {/* Grant form */}
-      {showGrantForm && !delegation?.active && (
+      {showGrantForm && !delegation?.active && selectedAgent && (
         <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-4">
           <p className="text-sm font-semibold text-slate-200">Configure Delegation for {selectedAgent.displayName}</p>
 
@@ -674,6 +902,11 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
             <Bot className="h-4 w-4 text-violet-400" />
             <span className="text-sm text-violet-200 font-medium">{selectedAgent.displayName}</span>
+            {selectedAgent.isAigentMe && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                <Crown className="h-2.5 w-2.5" /> aigentMe
+              </span>
+            )}
             <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(selectedAgent.agentClass)}`}>
               {selectedAgent.agentClass}
             </span>
@@ -971,7 +1204,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
           {!delegation?.active && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-300">
-              Grant delegation first (Delegation tab) to see the full enforcement chain. The denied action will still be blocked regardless.
+              Grant delegation first (Delegate tab) to see the full enforcement chain. The denied action will still be blocked regardless.
             </div>
           )}
 
