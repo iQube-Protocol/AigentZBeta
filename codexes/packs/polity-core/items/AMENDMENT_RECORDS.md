@@ -19,8 +19,12 @@ Autodrive (Autonomys) for content-addressed immutability. The resulting CIDs are
 recorded alongside each version so any party can verify the on-chain copy
 matches the in-repo source of legitimacy.
 
-| Framework | Version | Autodrive CID |
+| Framework | Version | Autodrive CID (Autonomys mainnet) |
 |---|---|---|
-| Polity Constitution | 1.0.0 | _published via `scripts/publish-polity-core.mjs`_ |
-| Autonomous Agent Charter | 1.0.0 | _published via `scripts/publish-polity-core.mjs`_ |
-| Delegation Framework | 1.0.0 | _published via `scripts/publish-polity-core.mjs`_ |
+| Polity Constitution | 1.0.0 | `bafkr6ie7xpb76mbi43zcq6bza5u6w7hkoiyzzt6u2dzc77n434khlatvqq` |
+| Autonomous Agent Charter | 1.0.0 | `bafkr6ifttkd6vwktjy45aqsxzirap5p7iizyy6ligekmqtgbkmfonxygxq` |
+| Delegation Framework | 1.0.0 | `bafkr6ibmhpwihx7ghvalps3a3dk5wf7iq7yl7dwc35b4a2rhkfx5vqenbm` |
+
+Published 2026-06-20 via `POST /api/polity-core/publish`. The CIDs are also
+served by `GET /api/polity-core/constitution` and recorded in
+`services/polity/frameworks/autodrive-cids.json`.
