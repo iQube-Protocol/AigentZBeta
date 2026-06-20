@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
 
 export const dynamic = 'force-dynamic';
 
@@ -204,6 +205,22 @@ export async function GET(req: NextRequest) {
       const earned = Number(capacityRow.sponsorship_capacity_earned ?? 0);
       const used = agentRows.length;
       capacity = { base, earned, used, remaining: Math.max(0, base + earned - used) };
+    }
+
+    // Self-heal: ensure the aigentMe (if any) has its wallet persona so it
+    // surfaces in the persona switcher. Idempotent + best-effort — covers
+    // aigentMe agents designated before wallet-persona provisioning shipped.
+    const aigentMeRow = agentRows.find((r) => Boolean(r.is_aigent_me));
+    if (aigentMeRow) {
+      await provisionAigentMePersona({
+        admin,
+        callerAuthProfileId: persona.authProfileId,
+        agentRoot: {
+          did_uri: String(aigentMeRow.did_uri),
+          display_name: String(aigentMeRow.display_name),
+          agent_card_slug: aigentMeRow.agent_card_slug ? String(aigentMeRow.agent_card_slug) : null,
+        },
+      });
     }
 
     return NextResponse.json(

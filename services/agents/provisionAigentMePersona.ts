@@ -114,11 +114,13 @@ export async function provisionAigentMePersona(input: {
           return { personaId: String(byHandle.id), displayName: String(byHandle.display_name), created: false };
         }
       }
+      console.error('[provisionAigentMePersona] insert failed', error.message);
       return null;
     }
 
     return { personaId: String(created.id), displayName: String(created.display_name), created: true };
-  } catch {
+  } catch (e) {
+    console.error('[provisionAigentMePersona] threw', e instanceof Error ? e.message : e);
     return null;
   }
 }

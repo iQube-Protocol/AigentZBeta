@@ -21,6 +21,7 @@ import { BookOpenCheck, RefreshCw, Loader2, AlertCircle, ShieldCheck, Bot, Walle
 import { SubHeaderSlotContext } from '../SubHeaderSlot';
 import { PassportClaimModal } from './PassportClaimModal';
 import { personaFetch } from '@/utils/personaSpine';
+import { useSupabaseSessionPersonas } from '@/app/hooks/useSupabaseSessionPersonas';
 
 const WorldIdButton = dynamic(
   () => import('@/components/passport/WorldIdButton').then((m) => ({ default: m.WorldIdButton })),
@@ -55,6 +56,7 @@ interface OwnPassport {
 interface SponsoredAgent {
   agentRootId: string;
   displayName: string;
+  didUri?: string;
   agentCardUrl: string;
   agentClass: string;
   isAigentMe?: boolean;
@@ -102,6 +104,11 @@ export function PassportRegistryTab() {
   const [promotingId, setPromotingId] = useState<string | null>(null);
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [claimTarget, setClaimTarget] = useState<{ passportId: string; passportClass: string } | null>(null);
+  // The agent_root_did currently holding the active delegation for this persona
+  // (one active delegation at a time). Used to show "Delegation active" instead
+  // of "Set up Delegation" on the matching agent row.
+  const { sessionPersonas } = useSupabaseSessionPersonas();
+  const [activeDelegationDid, setActiveDelegationDid] = useState<string | null>(null);
   const [worldIdBusy, setWorldIdBusy] = useState<string | null>(null);
   const [worldIdError, setWorldIdError] = useState<Record<string, string | null>>({});
 
@@ -204,6 +211,26 @@ export function PassportRegistryTab() {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadOwn(); }, [loadOwn]);
+
+  // Resolve the active delegation so agent rows reflect "already delegated".
+  const loadActiveDelegation = useCallback(async () => {
+    try {
+      const pid =
+        (typeof window !== 'undefined' && window.localStorage.getItem('currentPersonaId')) ||
+        sessionPersonas[0]?.id ||
+        '';
+      if (!pid) return;
+      const res = await fetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`,
+        { cache: 'no-store' },
+      );
+      const data = await res.json();
+      setActiveDelegationDid(data?.active && data?.agent_root_did ? String(data.agent_root_did) : null);
+    } catch {
+      setActiveDelegationDid(null);
+    }
+  }, [sessionPersonas]);
+  useEffect(() => { void loadActiveDelegation(); }, [loadActiveDelegation]);
 
   const ownMap = new Map(ownPassports.map((p) => [p.passportId, p]));
   const hasAigentMe = sponsoredAgents.some((a) => a.isAigentMe);
@@ -331,6 +358,9 @@ export function PassportRegistryTab() {
                 const hasPassport = !!agent.passport;
                 const isClaimed = !!agent.passport?.claimedAt;
                 const passportStatus = agent.passport?.passportStatus;
+                const isDelegated =
+                  !!activeDelegationDid &&
+                  (activeDelegationDid === agent.didUri || activeDelegationDid === agent.agentRootId);
                 return (
                   <div
                     key={agent.agentRootId}
@@ -419,19 +449,32 @@ export function PassportRegistryTab() {
                         >
                           <Wallet className="h-3 w-3" /> View Credential
                         </button>
-                        <a
-                          href="#delegation"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
-                            if (tabButtons.length > 0) {
-                              (tabButtons[0] as HTMLElement).click();
-                            }
-                          }}
-                          className="flex items-center gap-1 rounded bg-violet-600/20 border border-violet-500/30 px-2.5 py-1 text-xs text-violet-300 hover:bg-violet-600/30"
-                        >
-                          <Link2 className="h-3 w-3" /> Set up Delegation
-                        </a>
+                        {isDelegated ? (
+                          <a
+                            href="#delegation"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
+                              if (tabButtons.length > 0) (tabButtons[0] as HTMLElement).click();
+                            }}
+                            title="This agent holds your active delegation — open the Delegation tab to manage or revoke"
+                            className="flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300 hover:bg-emerald-500/20"
+                          >
+                            <ShieldCheck className="h-3 w-3" /> Delegation active
+                          </a>
+                        ) : (
+                          <a
+                            href="#delegation"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
+                              if (tabButtons.length > 0) (tabButtons[0] as HTMLElement).click();
+                            }}
+                            className="flex items-center gap-1 rounded bg-violet-600/20 border border-violet-500/30 px-2.5 py-1 text-xs text-violet-300 hover:bg-violet-600/30"
+                          >
+                            <Link2 className="h-3 w-3" /> Set up Delegation
+                          </a>
+                        )}
                       </div>
                     )}
                   </div>

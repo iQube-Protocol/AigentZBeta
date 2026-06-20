@@ -74,8 +74,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
+    // Self-heal: ensure the wallet persona exists for an already-designated
+    // aigentMe (covers agents designated before provisioning shipped, or a
+    // prior soft-failed provision). Idempotent — returns the existing row if
+    // present. The persona then surfaces in /api/wallet/personas.
+    let walletPersona = null;
+    if (data) {
+      walletPersona = await provisionAigentMePersona({
+        admin,
+        callerAuthProfileId: persona.authProfileId,
+        agentRoot: {
+          did_uri: String(data.did_uri),
+          display_name: String(data.display_name),
+          agent_card_slug: data.agent_card_slug ? String(data.agent_card_slug) : null,
+        },
+      });
+    }
+
     return NextResponse.json(
-      { ok: true, agent: data ? projectAgent(data) : null },
+      { ok: true, agent: data ? projectAgent(data) : null, walletPersona },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {
