@@ -34,14 +34,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
     }
 
-    // Pull all sponsored agents for this persona.
-    const { data: rows, error } = await admin
+    // Pull all sponsored agents for this persona. The aigentMe designation
+    // (is_aigent_me) is a later migration than genesis — if that column isn't
+    // present yet we fall back to the pre-aigentMe query so sponsored agents
+    // keep rendering rather than vanishing.
+    const baseCols =
+      'id, agent_id, did_uri, agent_class, display_name, description, agent_card_url, agent_card_slug, sponsor_passport_id, bound_passport_id, created_at';
+
+    let rows: Record<string, unknown>[] | null = null;
+    let error: { message: string } | null = null;
+
+    const enriched = await admin
       .from('agent_root_identity')
-      .select(
-        'id, agent_id, did_uri, agent_class, display_name, description, agent_card_url, agent_card_slug, sponsor_passport_id, bound_passport_id, created_at',
-      )
+      .select(`${baseCols}, is_aigent_me`)
       .eq('sponsor_persona_id', persona.personaId)
+      // aigentMe (the primary delegate) sorts first, then newest sponsorships.
+      .order('is_aigent_me', { ascending: false })
       .order('created_at', { ascending: false });
+
+    if (enriched.error && enriched.error.message.includes('is_aigent_me')) {
+      // aigentMe migration pending — retry without the column/order.
+      const fallback = await admin
+        .from('agent_root_identity')
+        .select(baseCols)
+        .eq('sponsor_persona_id', persona.personaId)
+        .order('created_at', { ascending: false });
+      rows = fallback.data;
+      error = fallback.error;
+    } else {
+      rows = enriched.data;
+      error = enriched.error;
+    }
 
     if (error) {
       // Pre-migration soft-fail: return empty list rather than 500 so the
@@ -64,7 +87,7 @@ export async function GET(req: NextRequest) {
     // For each agent with a bound passport, fetch the passport row to surface
     // the credential state. Batched to a single in-query.
     const passportIds = agentRows
-      .map((r) => r.bound_passport_id)
+      .map((r) => r.bound_passport_id as string | null)
       .filter((p): p is string => typeof p === 'string' && p.length > 0);
 
     const passportById: Record<string, {
@@ -90,7 +113,8 @@ export async function GET(req: NextRequest) {
     }
 
     const agents = agentRows.map((row) => {
-      const passport = row.bound_passport_id ? passportById[row.bound_passport_id] : undefined;
+      const boundPassportId = (row.bound_passport_id as string | null) ?? null;
+      const passport = boundPassportId ? passportById[boundPassportId] : undefined;
       return {
         agentRootId: row.id,
         agentId: row.agent_id,
@@ -100,11 +124,12 @@ export async function GET(req: NextRequest) {
         description: row.description,
         agentCardUrl: row.agent_card_url,
         agentCardSlug: row.agent_card_slug,
+        isAigentMe: Boolean(row.is_aigent_me),
         sponsorPassportId: row.sponsor_passport_id,
-        boundPassportId: row.bound_passport_id,
+        boundPassportId,
         passport: passport
           ? {
-              passportId: row.bound_passport_id,
+              passportId: boundPassportId,
               passportClass: passport.passport_class,
               passportGrade: passport.passport_grade,
               passportStatus: passport.citizen_status ?? passport.participant_status,
