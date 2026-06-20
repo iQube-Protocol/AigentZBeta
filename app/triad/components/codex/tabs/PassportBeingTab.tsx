@@ -34,6 +34,11 @@ import {
   Building2,
   FileCheck,
   Landmark,
+  Calendar,
+  AlertTriangle,
+  Heart,
+  LifeBuoy,
+  Receipt,
 } from 'lucide-react';
 
 function cls(...xs: Array<string | false | undefined>) {
@@ -46,7 +51,7 @@ interface FlowStep {
   description: string;
 }
 
-type TrackId = 'executive' | 'protection';
+type TrackId = 'business' | 'emergency';
 
 interface UseCase {
   icon: React.ReactNode;
@@ -54,42 +59,52 @@ interface UseCase {
   color: string;
 }
 
-const EXECUTIVE_USE_CASES: UseCase[] = [
-  { icon: <Globe className="h-4 w-4" />, label: 'Visa & work-permit orientation', color: 'violet' },
-  { icon: <Building2 className="h-4 w-4" />, label: 'Relocation & housing setup', color: 'emerald' },
-  { icon: <Landmark className="h-4 w-4" />, label: 'Cross-border tax & residency orientation', color: 'sky' },
-  { icon: <FileCheck className="h-4 w-4" />, label: 'Fast-track identity & credential verification', color: 'amber' },
-  { icon: <Plane className="h-4 w-4" />, label: 'Global-talent & investor mobility navigation', color: 'cyan' },
-  { icon: <Shield className="h-4 w-4" />, label: 'Travel-risk & security briefings', color: 'rose' },
+// Business Mobility — the full gamut, not just executive/international: domestic
+// + conference travel, cross-border deployment, relocation, work authorisation,
+// and corporate duty-of-care.
+const BUSINESS_USE_CASES: UseCase[] = [
+  { icon: <Plane className="h-4 w-4" />, label: 'Business & conference travel coordination', color: 'violet' },
+  { icon: <Calendar className="h-4 w-4" />, label: 'Domestic & event mobility logistics', color: 'emerald' },
+  { icon: <Globe className="h-4 w-4" />, label: 'Visa & work-permit orientation', color: 'sky' },
+  { icon: <Building2 className="h-4 w-4" />, label: 'Relocation & housing setup', color: 'amber' },
+  { icon: <Landmark className="h-4 w-4" />, label: 'Cross-border tax & residency orientation', color: 'cyan' },
+  { icon: <FileCheck className="h-4 w-4" />, label: 'Fast-track identity & credential verification', color: 'rose' },
+  { icon: <Briefcase className="h-4 w-4" />, label: 'Global-talent & investor mobility', color: 'violet' },
+  { icon: <Shield className="h-4 w-4" />, label: 'Corporate duty-of-care & travel-risk briefings', color: 'emerald' },
 ];
 
-const PROTECTION_USE_CASES: UseCase[] = [
-  { icon: <Globe className="h-4 w-4" />, label: 'Immigration law orientation', color: 'violet' },
-  { icon: <Home className="h-4 w-4" />, label: 'Housing law orientation', color: 'emerald' },
-  { icon: <Shield className="h-4 w-4" />, label: 'Shelter and support discovery', color: 'sky' },
-  { icon: <Scale className="h-4 w-4" />, label: 'Statelessness documentation guidance', color: 'amber' },
-  { icon: <Users className="h-4 w-4" />, label: 'Refugee/asylum support navigation', color: 'rose' },
-  { icon: <Lock className="h-4 w-4" />, label: 'Anonymous identity continuity', color: 'cyan' },
+// Emergency Mobility — rapid, private mobility under duress. Spans vulnerable
+// persons AND executives/diplomats needing emergency exit, evacuation, or safe
+// conduct.
+const EMERGENCY_USE_CASES: UseCase[] = [
+  { icon: <Users className="h-4 w-4" />, label: 'Refugee & asylum support navigation', color: 'violet' },
+  { icon: <Home className="h-4 w-4" />, label: 'Shelter & safe-passage discovery', color: 'emerald' },
+  { icon: <Scale className="h-4 w-4" />, label: 'Statelessness documentation guidance', color: 'sky' },
+  { icon: <Lock className="h-4 w-4" />, label: 'Anonymous identity continuity in fragile contexts', color: 'cyan' },
+  { icon: <Plane className="h-4 w-4" />, label: 'Executive emergency exit & evacuation', color: 'rose' },
+  { icon: <Landmark className="h-4 w-4" />, label: 'Diplomatic safe-conduct & emergency exit', color: 'amber' },
+  { icon: <AlertTriangle className="h-4 w-4" />, label: 'Crisis relocation & duty-of-care activation', color: 'violet' },
+  { icon: <Heart className="h-4 w-4" />, label: 'Medical & security evacuation orientation', color: 'emerald' },
 ];
 
-const EXECUTIVE_FLOW: FlowStep[] = [
+const BUSINESS_FLOW: FlowStep[] = [
   { icon: <Fingerprint className="h-4 w-4 text-sky-400" />, label: 'World ID', description: 'Proof of human existence and uniqueness' },
   { icon: <Shield className="h-4 w-4 text-emerald-400" />, label: 'Citizen Passport', description: 'Polity membership recognition' },
-  { icon: <Users className="h-4 w-4 text-violet-400" />, label: 'Delegation Grant', description: 'Authority delegated to a mobility concierge agent' },
-  { icon: <Bot className="h-4 w-4 text-amber-400" />, label: 'Mobility Concierge Agent', description: 'Relocation, visa, and residency coordination' },
-  { icon: <Lock className="h-4 w-4 text-rose-400" />, label: 'Walrus Document Vault', description: 'Encrypted passports, contracts, and filings' },
-  { icon: <Eye className="h-4 w-4 text-cyan-400" />, label: 'ProveKit ZK Proof', description: 'Prove eligibility without exposing full dossier' },
-  { icon: <Landmark className="h-4 w-4 text-green-400" />, label: 'Immigration / Tax Counsel', description: 'Verification without surfacing private financials' },
+  { icon: <Users className="h-4 w-4 text-violet-400" />, label: 'Bounded Delegation', description: 'Sealed, time-limited authority to your aigentMe or a mobility concierge agent' },
+  { icon: <Bot className="h-4 w-4 text-amber-400" />, label: 'Mobility Concierge Agent', description: 'Business travel, relocation, visa, and residency coordination' },
+  { icon: <Lock className="h-4 w-4 text-rose-400" />, label: 'Walrus Document Vault', description: 'Encrypted passports, contracts, and filings — Sui-anchored' },
+  { icon: <Eye className="h-4 w-4 text-cyan-400" />, label: 'ProveKit ZK Proof', description: 'Prove eligibility without exposing the full dossier' },
+  { icon: <Receipt className="h-4 w-4 text-green-400" />, label: 'DVN Receipt', description: 'Every delegated action auditable and tamper-evident' },
 ];
 
-const PROTECTION_FLOW: FlowStep[] = [
+const EMERGENCY_FLOW: FlowStep[] = [
   { icon: <Fingerprint className="h-4 w-4 text-sky-400" />, label: 'World ID', description: 'Proof of human existence and uniqueness' },
   { icon: <Shield className="h-4 w-4 text-emerald-400" />, label: 'Citizen Passport', description: 'Polity membership recognition' },
-  { icon: <Users className="h-4 w-4 text-violet-400" />, label: 'Delegation Grant', description: 'Authority delegated to a mobility agent' },
-  { icon: <Bot className="h-4 w-4 text-amber-400" />, label: 'Mobility Agent', description: 'Immigration/housing assistance intermediary' },
-  { icon: <Lock className="h-4 w-4 text-rose-400" />, label: 'Walrus Evidence Vault', description: 'Encrypted case files and documents' },
-  { icon: <Eye className="h-4 w-4 text-cyan-400" />, label: 'ProveKit ZK Proof', description: 'Selective disclosure — verify without exposing' },
-  { icon: <Scale className="h-4 w-4 text-green-400" />, label: 'Immigration Counsel', description: 'Verification without raw data exposure' },
+  { icon: <Users className="h-4 w-4 text-violet-400" />, label: 'Bounded Delegation', description: 'Authority delegated to a mobility / protection agent — immediate, revocable' },
+  { icon: <LifeBuoy className="h-4 w-4 text-amber-400" />, label: 'Mobility / Protection Agent', description: 'Safe passage, evacuation, immigration & housing assistance' },
+  { icon: <Lock className="h-4 w-4 text-rose-400" />, label: 'Walrus Evidence Vault', description: 'Encrypted case files, documents, and credentials' },
+  { icon: <Eye className="h-4 w-4 text-cyan-400" />, label: 'ProveKit ZK Proof', description: 'Selective disclosure — verify without exposing location or identity' },
+  { icon: <Scale className="h-4 w-4 text-green-400" />, label: 'Counsel / Authority', description: 'Verification without raw data exposure' },
 ];
 
 const TRACKS: Record<TrackId, {
@@ -103,30 +118,32 @@ const TRACKS: Record<TrackId, {
   scenarioTitle: string;
   flow: FlowStep[];
 }> = {
-  executive: {
-    label: 'Executive & Global Mobility',
-    tagline: 'Relocation, work authorisation, and cross-border living for executives, global talent, and investors.',
+  business: {
+    label: 'Business Mobility Services',
+    tagline:
+      'The full gamut of business mobility — conference and domestic travel, cross-border deployment, relocation, work authorisation, and corporate duty-of-care — for teams, executives, global talent, and investors.',
     icon: <Briefcase className="h-4 w-4" />,
     toggleActiveClass: 'bg-sky-500/20 text-sky-200 border border-sky-500/30',
     iconActiveClass: 'text-sky-300',
-    useCases: EXECUTIVE_USE_CASES,
-    scenarioTitle: 'Demonstration Scenario: Executive Relocation',
-    flow: EXECUTIVE_FLOW,
+    useCases: BUSINESS_USE_CASES,
+    scenarioTitle: 'Demonstration Scenario: Cross-Border Business Deployment',
+    flow: BUSINESS_FLOW,
   },
-  protection: {
-    label: 'Vulnerable Persons & Protection',
-    tagline: 'Safe passage, shelter, and legal orientation for refugees, stateless people, and those in fragile contexts.',
-    icon: <Shield className="h-4 w-4" />,
-    toggleActiveClass: 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/30',
-    iconActiveClass: 'text-emerald-300',
-    useCases: PROTECTION_USE_CASES,
-    scenarioTitle: 'Demonstration Scenario: Refugee / Stateless Citizen',
-    flow: PROTECTION_FLOW,
+  emergency: {
+    label: 'Emergency Mobility Services',
+    tagline:
+      'Rapid, private mobility under duress — for refugees and stateless people, and for executives and diplomats needing emergency exit, evacuation, or safe conduct.',
+    icon: <AlertTriangle className="h-4 w-4" />,
+    toggleActiveClass: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+    iconActiveClass: 'text-amber-300',
+    useCases: EMERGENCY_USE_CASES,
+    scenarioTitle: 'Demonstration Scenario: Emergency Exit (refugee · executive · diplomat)',
+    flow: EMERGENCY_FLOW,
   },
 };
 
 export function PassportBeingTab() {
-  const [track, setTrack] = useState<TrackId>('executive');
+  const [track, setTrack] = useState<TrackId>('business');
   const active = TRACKS[track];
 
   return (
@@ -160,12 +177,13 @@ export function PassportBeingTab() {
           relocation, legal assistance, and support navigation.
         </blockquote>
         <p className="text-sm text-slate-300">
-          Human mobility spans a spectrum. At one end, executives, global talent, and investors
-          move across borders for work and life and need fast, private coordination of visas,
-          residency, tax, and housing. At the other, refugees, stateless people, and those in
-          fragile legal or political contexts need identity continuity and access to protection
-          workflows without surrendering unnecessary PII at the entry point. The same identity
-          spine serves both — the disclosure stays minimal either way.
+          Human mobility splits into two demands. <strong className="text-slate-100">Business
+          Mobility</strong> is the everyday gamut — conference and domestic travel, cross-border
+          deployment, relocation, work authorisation, and corporate duty-of-care for teams,
+          executives, talent, and investors. <strong className="text-slate-100">Emergency
+          Mobility</strong> is movement under duress — refugees and stateless people seeking safe
+          passage, and equally executives or diplomats needing emergency exit, evacuation, or safe
+          conduct. The same identity spine serves both, and the disclosure stays minimal either way.
         </p>
       </div>
 
