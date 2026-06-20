@@ -183,3 +183,110 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+interface PromoteBody {
+  agentRootId?: string;
+}
+
+/**
+ * PATCH — promote an EXISTING sponsored delegate (one the caller already
+ * sponsors) to be their aigentMe. Carries that agent's card + bound passport
+ * into the aigentMe role. The partial unique index guarantees one aigentMe per
+ * persona, so a second promotion returns aigent_me_exists.
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    const persona = await getActivePersona(req);
+    if (!persona?.personaId) {
+      return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
+    }
+    const admin = getSupabaseServer();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
+    }
+
+    const body = (await req.json().catch(() => ({}))) as PromoteBody;
+    const agentRootId = body.agentRootId?.trim();
+    if (!agentRootId) {
+      return NextResponse.json({ ok: false, error: 'agentRootId is required' }, { status: 400 });
+    }
+
+    // Caller must already sponsor the target agent.
+    const { data: target, error: targetErr } = await admin
+      .from('agent_root_identity')
+      .select(`${AGENT_SELECT}, sponsor_persona_id`)
+      .eq('id', agentRootId)
+      .maybeSingle();
+    if (targetErr) {
+      if (targetErr.message.includes('is_aigent_me')) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Pending migration: 20260617000000_aigent_me_designation.sql must be applied before an agent can be designated aigentMe.',
+          },
+          { status: 503 },
+        );
+      }
+      return NextResponse.json({ ok: false, error: targetErr.message }, { status: 500 });
+    }
+    if (!target) {
+      return NextResponse.json({ ok: false, error: 'Agent not found' }, { status: 404 });
+    }
+    if (target.sponsor_persona_id !== persona.personaId) {
+      return NextResponse.json(
+        { ok: false, error: 'You do not sponsor this agent' },
+        { status: 403 },
+      );
+    }
+    if (target.is_aigent_me) {
+      return NextResponse.json({ ok: true, agent: projectAgent(target), promoted: false });
+    }
+
+    // One aigentMe per persona — block if another is already designated.
+    const { data: existing } = await admin
+      .from('agent_root_identity')
+      .select('id')
+      .eq('sponsor_persona_id', persona.personaId)
+      .eq('is_aigent_me', true)
+      .maybeSingle();
+    if (existing?.id) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'aigent_me_exists',
+          error: 'You already have an aigentMe. Only one aigentMe is allowed per persona.',
+        },
+        { status: 409 },
+      );
+    }
+
+    const { data: updated, error: updateErr } = await admin
+      .from('agent_root_identity')
+      .update({ is_aigent_me: true })
+      .eq('id', agentRootId)
+      .eq('sponsor_persona_id', persona.personaId)
+      .select(AGENT_SELECT)
+      .single();
+    if (updateErr) {
+      if (updateErr.message.includes('uq_agent_root_aigent_me_per_persona')) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: 'aigent_me_exists',
+            error: 'You already have an aigentMe. Only one aigentMe is allowed per persona.',
+          },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, promoted: true, agent: projectAgent(updated) });
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : 'aigentMe promotion failed' },
+      { status: 500 },
+    );
+  }
+}

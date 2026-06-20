@@ -181,6 +181,29 @@ export function PassportBureauApplyTab() {
   const [genesisBusy, setGenesisBusy] = useState(false);
   const [genesisCompleted, setGenesisCompleted] = useState(false);
 
+  // aigentMe designation — when checked, the generated agent (card + the
+  // participant passport it earns) becomes the citizen's aigentMe, mapped to
+  // their persona + citizen passport + wallet via the is_aigent_me flag. One
+  // per persona; the toggle disables when an aigentMe already exists.
+  const [makeAigentMe, setMakeAigentMe] = useState(false);
+  const [existingAigentMe, setExistingAigentMe] = useState<{ displayName: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    authedFetchHeaders()
+      .then((headers) =>
+        fetch('/api/agents/aigentme', { headers, cache: 'no-store' })
+          .then((r) => r.json())
+          .then((j) => {
+            if (!cancelled && j?.ok && j.agent) {
+              setExistingAigentMe({ displayName: String(j.agent.displayName ?? 'aigentMe') });
+            }
+          })
+          .catch(() => {}),
+      )
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const handleQuickAgent = useCallback(async () => {
     setGenesisBusy(true);
     setError(null);
@@ -208,6 +231,7 @@ export function PassportBureauApplyTab() {
           displayName: name,
           description: desc,
           sponsorPassportId: claimed.passportId,
+          isAigentMe: makeAigentMe,
         }),
       });
       const data = await r.json();
@@ -221,13 +245,18 @@ export function PassportBureauApplyTab() {
       setGenesisSponsorPassportId(claimed.passportId);
       setAgentCardUrl(data.agent.agentCardUrl);
       setGenesisCompleted(true);
-      setNotice(`Agent Card live at ${data.agent.agentCardUrl}`);
+      if (data.agent.isAigentMe) setExistingAigentMe({ displayName: name });
+      setNotice(
+        data.agent.isAigentMe
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — its participant passport will map to your aigentMe.`
+          : `Agent Card live at ${data.agent.agentCardUrl}`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
     } finally {
       setGenesisBusy(false);
     }
-  }, [agentName, agentDescription]);
+  }, [agentName, agentDescription, makeAigentMe]);
 
   const handleGenesisAgent = useCallback(async () => {
     if (!agentName.trim() || !agentDescription.trim() || !genesisSlug.trim() || !genesisSponsorPassportId.trim()) {
@@ -246,6 +275,7 @@ export function PassportBureauApplyTab() {
           displayName: agentName.trim(),
           description: agentDescription.trim(),
           sponsorPassportId: genesisSponsorPassportId.trim(),
+          isAigentMe: makeAigentMe,
         }),
       });
       const data = await r.json();
@@ -255,13 +285,18 @@ export function PassportBureauApplyTab() {
       }
       setAgentCardUrl(data.agent.agentCardUrl);
       setGenesisCompleted(true);
-      setNotice(`Agent Card live at ${data.agent.agentCardUrl} — submit below to issue Aletheon a Participant Passport.`);
+      if (data.agent.isAigentMe) setExistingAigentMe({ displayName: agentName.trim() });
+      setNotice(
+        data.agent.isAigentMe
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — submit below to issue your aigentMe its Participant Passport.`
+          : `Agent Card live at ${data.agent.agentCardUrl} — submit below to issue ${agentName.trim()} a Participant Passport.`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
     } finally {
       setGenesisBusy(false);
     }
-  }, [agentName, agentDescription, genesisSlug, genesisSponsorPassportId]);
+  }, [agentName, agentDescription, genesisSlug, genesisSponsorPassportId, makeAigentMe]);
 
   // Step 1 — account
   const [username, setUsername] = useState('');
@@ -734,6 +769,40 @@ export function PassportBureauApplyTab() {
               Paste existing Agent Card URL
             </button>
           </div>
+
+          {/* aigentMe designation — only for generated cards (quick/genesis). */}
+          {(agentCardSource === 'quick' || agentCardSource === 'genesis') && (
+            <label
+              className={cls(
+                'flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs',
+                existingAigentMe
+                  ? 'border-slate-700/60 bg-slate-900/40 cursor-not-allowed'
+                  : 'border-amber-500/40 bg-amber-500/5 cursor-pointer',
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={makeAigentMe && !existingAigentMe}
+                disabled={!!existingAigentMe}
+                onChange={(e) => setMakeAigentMe(e.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 rounded accent-amber-500"
+              />
+              <span className="flex items-center gap-1.5">
+                <Star className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                {existingAigentMe ? (
+                  <span className="text-slate-400">
+                    You already have an aigentMe ({existingAigentMe.displayName}). Only one aigentMe is allowed per persona.
+                  </span>
+                ) : (
+                  <span className="text-amber-200/90">
+                    <strong className="text-amber-200">This is my aigentMe.</strong> The generated agent card and the
+                    participant passport it earns will become your aigentMe — your primary personal delegate — mapped to
+                    your persona, your citizen passport, and your wallet.
+                  </span>
+                )}
+              </span>
+            </label>
+          )}
 
           {agentCardSource === 'quick' ? (
             <div className="space-y-3 rounded-lg border border-emerald-700/40 bg-emerald-900/10 p-3">

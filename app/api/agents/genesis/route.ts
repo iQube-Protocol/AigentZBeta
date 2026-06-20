@@ -51,6 +51,9 @@ interface GenesisBody {
   description: string;
   agentClass?: 'polity_bound' | 'polity_autonomous';
   sponsorPassportId: string;
+  // When true, the generated agent is flagged as the citizen's aigentMe (their
+  // primary personal delegate). One per persona — enforced server-side.
+  isAigentMe?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -61,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = (await req.json()) as GenesisBody;
-    const { slug, displayName, description, agentClass, sponsorPassportId } = body;
+    const { slug, displayName, description, agentClass, sponsorPassportId, isAigentMe } = body;
 
     const admin = getSupabaseServer();
     if (!admin) {
@@ -76,6 +79,7 @@ export async function POST(req: NextRequest) {
       displayName,
       description,
       agentClass,
+      isAigentMe: Boolean(isAigentMe),
       origin: resolveRequestOrigin(req),
     });
 
