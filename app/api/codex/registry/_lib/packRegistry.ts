@@ -299,6 +299,10 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
       // hand-curated tabs — pack docs are not lost, only the duplicate auto-registration is.
       const lowered = dirent.name.toLowerCase();
       if (lowered === "agentiq" || lowered === "aigentiq" || lowered === "aigency" || lowered === "agentiq-os") continue;
+      // polity-core is hand-curated in CODEX_DEFINITIONS (POLITY_CORE_CARTRIDGE);
+      // its pack supplies markdown via AgentiqCartridgeTab. Skip auto-gen to
+      // avoid a duplicate cartridge.
+      if (lowered === "polity-core") continue;
 
       const codex = await buildCodexConfigFromPack(dirent.name);
       if (!codex) continue;

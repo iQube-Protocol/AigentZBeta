@@ -1,0 +1,88 @@
+{
+  "collections": [
+    {
+      "id": "col_constitution",
+      "title": "Constitution",
+      "description": "The Polity Constitution — sovereignty, the chain of legitimacy, and constitutional persons.",
+      "type": "static",
+      "order": 0,
+      "enabled": true,
+      "metadata": { "icon": "Landmark", "category": "main" },
+      "items": [
+        "items/CONSTITUTION.md"
+      ]
+    },
+    {
+      "id": "col_agent_charter",
+      "title": "Agent Charter",
+      "description": "The Autonomous Agent Constitutional Charter — ADID class, Phase 1 restrictions, sponsorship, revocation, and binding.",
+      "type": "static",
+      "order": 1,
+      "enabled": true,
+      "metadata": { "icon": "Bot", "category": "main" },
+      "items": [
+        "items/AGENT_CHARTER.md"
+      ]
+    },
+    {
+      "id": "col_delegation_framework",
+      "title": "Delegation Framework",
+      "description": "Bounded delegation — scope, duration, spend, information access, and operational domains.",
+      "type": "static",
+      "order": 2,
+      "enabled": true,
+      "metadata": { "icon": "Link2", "category": "main" },
+      "items": [
+        "items/DELEGATION_FRAMEWORK.md"
+      ]
+    },
+    {
+      "id": "col_standing_framework",
+      "title": "Standing Framework",
+      "description": "Standing belongs to sovereign citizens; agents hold none of their own.",
+      "type": "static",
+      "order": 3,
+      "enabled": true,
+      "metadata": { "icon": "Award", "category": "main" },
+      "items": [
+        "items/STANDING_FRAMEWORK.md"
+      ]
+    },
+    {
+      "id": "col_governance_framework",
+      "title": "Governance Framework",
+      "description": "Governance authority is reserved to sovereign human citizens.",
+      "type": "static",
+      "order": 4,
+      "enabled": true,
+      "metadata": { "icon": "Scale", "category": "main" },
+      "items": [
+        "items/GOVERNANCE_FRAMEWORK.md"
+      ]
+    },
+    {
+      "id": "col_amendment_records",
+      "title": "Amendment Records",
+      "description": "Append-only ledger of constitutional changes and their Autodrive CIDs.",
+      "type": "static",
+      "order": 5,
+      "enabled": true,
+      "metadata": { "icon": "FileText", "category": "main" },
+      "items": [
+        "items/AMENDMENT_RECORDS.md"
+      ]
+    },
+    {
+      "id": "col_machine_readable",
+      "title": "Machine-Readable",
+      "description": "The machine-readable source of legitimacy — endpoint, source files, and accessor.",
+      "type": "static",
+      "order": 6,
+      "enabled": true,
+      "metadata": { "icon": "Code", "category": "main" },
+      "items": [
+        "items/MACHINE_READABLE.md"
+      ]
+    }
+  ]
+}

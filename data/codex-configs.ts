@@ -4157,6 +4157,136 @@ export const STANDING_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString(),
 };
 
+// ───────────────────────────────────────────────────────────────────────────
+// POLITY CORE CARTRIDGE
+// The authoritative constitutional repository + machine-readable source of
+// legitimacy for autonomous agents. Human-readable docs live in the
+// codexes/packs/polity-core/ pack; machine-readable frameworks live in
+// services/polity/frameworks/*.json and are served at
+// GET /api/polity-core/constitution. Pack auto-generation is suppressed for
+// 'polity-core' in packRegistry so this hand-curated surface is canonical.
+// ───────────────────────────────────────────────────────────────────────────
+export const POLITY_CORE_CARTRIDGE: CodexConfig = {
+  id: 'polity-core-cartridge',
+  name: 'Polity Core',
+  slug: 'polity-core',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'The authoritative constitutional repository — Constitution, Charters, Governance, Agent, and Standing frameworks, and Amendment Records. The machine-readable source of legitimacy for autonomous agents.',
+    icon: 'Landmark',
+    color: 'violet',
+    category: 'platform',
+    tags: ['polity', 'constitution', 'governance', 'agent', 'legitimacy'],
+  },
+  tabGroups: [
+    { id: 'constitution', label: 'Constitution', icon: 'Landmark', order: 0 },
+    { id: 'frameworks', label: 'Frameworks', icon: 'BookOpen', order: 1 },
+    { id: 'records', label: 'Records', icon: 'FileText', order: 2 },
+  ],
+  tabs: [
+    {
+      id: 'polity-core-constitution',
+      label: 'Constitution',
+      slug: 'constitution',
+      enabled: true,
+      group: 'constitution',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_constitution', defaultPath: 'items/CONSTITUTION.md' },
+      },
+      metadata: { icon: 'Landmark', description: 'The Polity Constitution — sovereignty and the chain of legitimacy', color: 'violet' },
+    },
+    {
+      id: 'polity-core-agent-charter',
+      label: 'Agent Charter',
+      slug: 'agent-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_agent_charter', defaultPath: 'items/AGENT_CHARTER.md' },
+      },
+      metadata: { icon: 'Bot', description: 'Autonomous Agent Constitutional Charter — ADID class and Phase 1 guardrails', color: 'violet' },
+    },
+    {
+      id: 'polity-core-delegation',
+      label: 'Delegation',
+      slug: 'delegation-framework',
+      enabled: true,
+      group: 'frameworks',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_delegation_framework', defaultPath: 'items/DELEGATION_FRAMEWORK.md' },
+      },
+      metadata: { icon: 'Link2', description: 'Bounded delegation framework', color: 'violet' },
+    },
+    {
+      id: 'polity-core-standing',
+      label: 'Standing',
+      slug: 'standing-framework',
+      enabled: true,
+      group: 'frameworks',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_standing_framework', defaultPath: 'items/STANDING_FRAMEWORK.md' },
+      },
+      metadata: { icon: 'Award', description: 'Standing belongs to sovereign citizens', color: 'violet' },
+    },
+    {
+      id: 'polity-core-governance',
+      label: 'Governance',
+      slug: 'governance-framework',
+      enabled: true,
+      group: 'frameworks',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_governance_framework', defaultPath: 'items/GOVERNANCE_FRAMEWORK.md' },
+      },
+      metadata: { icon: 'Scale', description: 'Governance authority is reserved to citizens', color: 'violet' },
+    },
+    {
+      id: 'polity-core-amendments',
+      label: 'Amendment Records',
+      slug: 'amendment-records',
+      enabled: true,
+      group: 'records',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_amendment_records', defaultPath: 'items/AMENDMENT_RECORDS.md' },
+      },
+      metadata: { icon: 'FileText', description: 'Append-only ledger of constitutional changes + Autodrive CIDs', color: 'violet' },
+    },
+    {
+      id: 'polity-core-machine-readable',
+      label: 'Machine-Readable',
+      slug: 'machine-readable',
+      enabled: true,
+      group: 'records',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_machine_readable', defaultPath: 'items/MACHINE_READABLE.md' },
+      },
+      metadata: { icon: 'Code', description: 'Machine-readable source of legitimacy — endpoint, sources, accessor', color: 'violet' },
+    },
+  ],
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
@@ -4179,6 +4309,7 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   POLITY_PASSPORT_BUREAU_CARTRIDGE,
   HUMAN_MOBILITY_SERVICES_CARTRIDGE,
   STANDING_CARTRIDGE,
+  POLITY_CORE_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {
