@@ -2290,6 +2290,24 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       },
     },
 
+    // ── Standing group — first-class mirror of the Standing Cartridge
+    // (root-DID capability & standing ledger). Gated on the
+    // 'standing-cartridge' activation via the group's activationId so it
+    // only surfaces once the persona activates the surface. The
+    // StandingCartridgeTab component houses the evidence domains, fact
+    // review, compile, asset graph, and output generation in one surface.
+    {
+      id: 'metame-standing-ledger',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      group: 'standing',
+      order: 0,
+      type: 'static' as const,
+      config: { component: 'StandingCartridgeTab', props: {} },
+      metadata: { icon: 'Star', description: 'Verified Standing Profile — evidence-derived capability and reputation profile', color: 'violet' },
+    },
+
     // ── Ecosystem group ───────────────────────────────────────
     {
       id: 'agentiq-os-dev-resources',
@@ -2608,7 +2626,8 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
     { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
-    { id: 'passport',     label: 'Polity Passport',  icon: 'ShieldCheck',order: 4.5, activationId: 'polity-passport' },
+    { id: 'passport',     label: 'Passport',          icon: 'ShieldCheck',order: -0.5 },
+    { id: 'standing',     label: 'Standing',         icon: 'Star',       order: 4.6, activationId: 'standing-cartridge' },
     { id: 'qriptopia',    label: 'Qriptopia',        icon: 'Globe',      order: 5,   activationId: 'qriptopian' },
     { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
   ],
@@ -3176,17 +3195,16 @@ export const METAME_CODEX: CodexConfig = {
       subTabs: aiqOsTabsByGroup('ecosystem'),
     },
 
-    // ── Polity Passport group (activation-gated) ────────────────────────────
+    // ── Passport group (permanently active) ──────────────────────────────────
     // Mirrors the Polity Passport Bureau cartridge tabs so the full Bureau
-    // experience is available inside metaMe as a first-class activation.
+    // experience is available inside metaMe as a first-class tab.
     // Uses the same polityPassportTabsByGroup() clone pattern as the
     // AgentiQ / AgentiQ OS passport mirrors.
     {
       id: 'polity-passport',
-      label: 'Polity Passport',
+      label: 'Passport',
       slug: 'polity-passport',
       enabled: true,
-      activationId: 'polity-passport',
       group: 'passport',
       order: 0,
       type: 'static',
@@ -3205,6 +3223,28 @@ export const METAME_CODEX: CodexConfig = {
           .concat(polityPassportTabsByGroup('ens', 'metame-passport'))
           .concat(polityPassportTabsByGroup('being', 'metame-passport'))
           .concat(polityPassportTabsByGroup('steward', 'metame-passport'));
+      },
+    },
+
+    // ── Standing group ───────────────────────────────────────────────────────
+    // First-class metaMe tab that mounts the StandingCartridgeTab component
+    // (evidence intake, fact review, compile, asset graph, output generation).
+    // The 'standing' group is declared in METAME_CODEX.tabGroups above; this
+    // tab is what handleGroupClick resolves to when the operator clicks the
+    // Standing label.
+    {
+      id: 'metame-standing-ledger',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      group: 'standing',
+      order: 0,
+      type: 'static' as const,
+      config: { component: 'StandingCartridgeTab', props: {} },
+      metadata: {
+        icon: 'Star',
+        description: 'Verified Standing Profile — evidence-derived capability and reputation profile',
+        color: 'violet',
       },
     },
 
@@ -3921,6 +3961,202 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString(),
 };
 
+// ─── HUMAN MOBILITY SERVICES CARTRIDGE ───────────────────────────────────────
+// PSC-001: Polity Capability Preservation — Strategic Repatriation.
+// Registered as adminOnly pending first citizen-facing release.
+export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
+  id: 'human-mobility-services-cartridge',
+  name: 'Human Mobility Services',
+  slug: 'human-mobility-services',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'Polity capability preservation — strategic repatriation, relocation, and family mobility services.',
+    icon: 'Home',
+    color: 'emerald',
+    category: 'platform',
+    tags: ['mobility', 'repatriation', 'housing', 'education', 'polity', 'psc-001'],
+  },
+  tabGroups: [
+    { id: 'activation', label: 'Activation',  icon: 'FolderOpen',    order: 1 },
+    { id: 'housing',    label: 'Housing',     icon: 'Home',          order: 2, adminOnly: true },
+    { id: 'education',  label: 'Education',   icon: 'GraduationCap', order: 3, adminOnly: true },
+    { id: 'relocation', label: 'Relocation',  icon: 'Package',       order: 4, adminOnly: true },
+    { id: 'business',   label: 'Business',    icon: 'Briefcase',     order: 5, adminOnly: true },
+    { id: 'economic',   label: 'Economic',    icon: 'TrendingUp',    order: 6, adminOnly: true },
+    { id: 'family',     label: 'Family',      icon: 'Heart',         order: 7, adminOnly: true },
+  ],
+  tabs: [
+    {
+      id: 'hms-standing',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'activation',
+      order: 0,
+      adminOnly: true,
+      config: { component: 'StandingCartridgeTab' },
+      metadata: { description: 'Verified Standing Profile — evidence-derived capability and reputation profile', icon: 'Star', color: 'violet', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-activation',
+      label: 'Cases',
+      slug: 'activation',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'activation',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'HumanMobilityServicesTab' },
+      metadata: { description: 'Mobility case list and MAF intake wizard', icon: 'FolderOpen', color: 'emerald', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-doctrine',
+      label: 'Doctrine',
+      slug: 'doctrine',
+      enabled: true,
+      type: 'static' as const,
+      group: 'activation',
+      order: 2,
+      adminOnly: true,
+      config: { component: 'MobilityDoctrineTab' },
+      metadata: { description: 'PSC-001 Polity Capability Preservation Standard', icon: 'Shield', color: 'violet', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-activations',
+      label: 'Engagements',
+      slug: 'engagements',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'activation',
+      order: 3,
+      adminOnly: true,
+      config: { component: 'MobilityActivationsTab' },
+      metadata: { description: 'PDEP-governed institutional engagement tracker', icon: 'Target', color: 'violet', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-housing',
+      label: 'Housing',
+      slug: 'housing',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'housing',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'housing' } },
+      metadata: { description: 'Workstream B — Housing acquisition and rental market strategy', icon: 'Home', color: 'emerald', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-education',
+      label: 'Education',
+      slug: 'education',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'education',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'education' } },
+      metadata: { description: 'Workstream C — Educational continuity and school placement', icon: 'GraduationCap', color: 'sky', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-relocation',
+      label: 'Relocation',
+      slug: 'relocation',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'relocation',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'relocation' } },
+      metadata: { description: 'Workstream D — Physical relocation logistics', icon: 'Package', color: 'amber', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-business',
+      label: 'Business',
+      slug: 'business',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'business',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'business' } },
+      metadata: { description: 'Workstream E — Business continuity and entity migration', icon: 'Briefcase', color: 'violet', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-economic',
+      label: 'Economic',
+      slug: 'economic',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'economic',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'economic' } },
+      metadata: { description: 'Workstream F — Economic reactivation and banking', icon: 'TrendingUp', color: 'emerald', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-family',
+      label: 'Family',
+      slug: 'family',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'family',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'family' } },
+      metadata: { description: 'Workstream G — Family stabilization and wellbeing', icon: 'Heart', color: 'rose', category: 'platform', tags: [] },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z', 'admin'],
+    admin: ['aigent-z', 'admin'],
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+export const STANDING_CARTRIDGE: CodexConfig = {
+  id: 'standing-cartridge',
+  name: 'Standing Cartridge',
+  slug: 'standing-cartridge',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'Your personal capability & standing ledger — evidence-derived, principal-verified, anchored to your Polity Passport.',
+    icon: 'Star',
+    color: 'violet',
+    category: 'platform',
+    tags: ['standing', 'capability', 'vsp', 'evidence', 'identity', 'root-did'],
+  },
+  tabGroups: [
+    { id: 'ledger', label: 'Standing Ledger', icon: 'Star', order: 1 },
+  ],
+  tabs: [
+    {
+      id: 'standing-ledger',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      type: 'static' as const,
+      group: 'ledger',
+      order: 0,
+      config: { component: 'StandingCartridgeTab', props: {} },
+      metadata: { description: 'Verified Standing Profile — evidence-derived capability and reputation profile', icon: 'Star', color: 'violet', category: 'platform', tags: [] },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z', 'admin'],
+    admin: ['aigent-z', 'admin'],
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
@@ -3941,6 +4177,8 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   MARKETA_CARTRIDGE,
   IQUBE_REGISTRY_CARTRIDGE,
   POLITY_PASSPORT_BUREAU_CARTRIDGE,
+  HUMAN_MOBILITY_SERVICES_CARTRIDGE,
+  STANDING_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {

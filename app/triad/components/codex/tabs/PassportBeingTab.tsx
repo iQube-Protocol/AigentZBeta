@@ -12,10 +12,9 @@
  *
  * Per PRD: "Being-related services should be in a separate tab in the
  * Passport Bureau Cartridge and may even be moved to a new separate
- * cartridge." This is the Phase 1 vision surface — it describes the two
- * mobility tracks and their demonstration scenarios without yet routing to
- * live service providers. Phase 2 connects to approved Being cartridges and
- * approved participant agents.
+ * cartridge." This is the overview surface — it presents the two mobility
+ * tracks and their demonstration scenarios and points at the now-live Human
+ * Mobility Services (HMS PSC-001) cartridge for case activation and intake.
  */
 
 import React, { useState } from 'react';
@@ -142,14 +141,14 @@ export function PassportBeingTab() {
         </div>
       </div>
 
-      {/* Phase marker */}
-      <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2">
-        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">
-          Phase 1 Stub
+      {/* Phase marker → HMS Cartridge live */}
+      <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2">
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+          Phase 2 Live
         </span>
-        <p className="text-xs text-amber-200/80">
-          This tab describes the Human Mobility Services vision across both mobility tracks.
-          Phase 2 connects to approved Being cartridges and approved participant agents.
+        <p className="text-xs text-emerald-200/80">
+          Human Mobility Services is now available as a dedicated cartridge, spanning both
+          mobility tracks below. Case activation, MAF intake, and workstream management are live.
         </p>
       </div>
 

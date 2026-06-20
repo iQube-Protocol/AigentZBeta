@@ -2369,3 +2369,148 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-eff22bc.md](../build_/COMMITS/COMMIT-eff22bc.md)
 - Message: flip steward queue cards to decided state after approve/deny
+
+## Commit `4d66986` — 2026-06-16T16:30:03Z
+- Type: `push`
+- Brief: [COMMIT-4d66986.md](../build_/COMMITS/COMMIT-4d66986.md)
+- Message: Phase 4 MVP — Bureau recommendation rights gated by Stewardship Standing
+
+## Commit `553e41b` — 2026-06-18T21:32:12Z
+- Type: `feat`
+- Brief: [COMMIT-553e41b.md](../build_/COMMITS/COMMIT-553e41b.md)
+- Message: fix activations flicker: add mutation generation guard to prevent stale refresh overwriting optimistic state
+
+## Commit `d156c1e` — 2026-06-18T21:23:14Z
+- Type: `push`
+- Brief: [COMMIT-d156c1e.md](../build_/COMMITS/COMMIT-d156c1e.md)
+- Message: trigger deploy to dev: welcome button reorder
+
+## Commit `50cbc92` — 2026-06-18T21:23:14Z
+- Type: `refactor`
+- Brief: [COMMIT-50cbc92.md](../build_/COMMITS/COMMIT-50cbc92.md)
+- Message: swap Polity Passport before ExperienceModel on welcome screen, rename to 'Get my'
+
+## Commit `257f0e0` — 2026-06-18T17:44:57Z
+- Type: `push`
+- Brief: [COMMIT-257f0e0.md](../build_/COMMITS/COMMIT-257f0e0.md)
+- Message: trigger deploy to dev: server-side runtime context + reading sprint tasks
+
+## Commit `345666c` — 2026-06-18T17:44:49Z
+- Type: `push`
+- Brief: [COMMIT-345666c.md](../build_/COMMITS/COMMIT-345666c.md)
+- Message: server-side runtime context preference + reading sprint nextActions in packet
+
+## Commit `af00bff` — 2026-06-18T15:41:47Z
+- Type: `push`
+- Brief: [COMMIT-af00bff.md](../build_/COMMITS/COMMIT-af00bff.md)
+- Message: trigger deploy to dev: reading sprint nextActions in packet
+
+## Commit `620be7a` — 2026-06-18T15:41:42Z
+- Type: `push`
+- Brief: [COMMIT-620be7a.md](../build_/COMMITS/COMMIT-620be7a.md)
+- Message: populate composition.nextActions in reading sprint packet
+
+## Commit `c3a2e31` — 2026-06-18T11:17:53Z
+- Type: `push`
+- Brief: [COMMIT-c3a2e31.md](../build_/COMMITS/COMMIT-c3a2e31.md)
+- Message: trigger deploy to dev: inline consumer task runner in runtime
+
+## Commit `62645f0` — 2026-06-18T11:17:46Z
+- Type: `feat`
+- Brief: [COMMIT-62645f0.md](../build_/COMMITS/COMMIT-62645f0.md)
+- Message: add consumer task runner inline in runtime experience panel
+
+## Commit `1d1ac0f` — 2026-06-18T10:51:37Z
+- Type: `fix`
+- Brief: [COMMIT-1d1ac0f.md](../build_/COMMITS/COMMIT-1d1ac0f.md)
+- Message: trigger deploy to dev: fix Open Experience consumer routing
+
+## Commit `104cfc7` — 2026-06-18T10:51:32Z
+- Type: `fix`
+- Brief: [COMMIT-104cfc7.md](../build_/COMMITS/COMMIT-104cfc7.md)
+- Message: fix Open Experience button: route to consumer viewer instead of re-opening runtime
+
+## Commit `812fe7e` — 2026-06-18T22:43:07Z
+- Type: `fix`
+- Brief: [COMMIT-812fe7e.md](../build_/COMMITS/COMMIT-812fe7e.md)
+- Message: trigger deploy to dev: runtime consumer task runner regression fix
+
+## Commit `239cee4` — 2026-06-18T22:40:27Z
+- Type: `fix`
+- Brief: [COMMIT-239cee4.md](../build_/COMMITS/COMMIT-239cee4.md)
+- Message: fix runtime regression: render consumer task runner for admins too
+
+## Commit `490cff8` — 2026-06-18T23:01:41Z
+- Type: `fix`
+- Brief: [COMMIT-490cff8.md](../build_/COMMITS/COMMIT-490cff8.md)
+- Message: trigger deploy to dev: consumer inline-only experience fix
+
+## Commit `88fba98` — 2026-06-18T23:01:41Z
+- Type: `fix`
+- Brief: [COMMIT-88fba98.md](../build_/COMMITS/COMMIT-88fba98.md)
+- Message: fix consumer 404: render experience inline-only for non-admins, hide platform links
+
+## Commit `25cf4de` — 2026-06-19T00:55:11Z
+- Type: `push`
+- Brief: [COMMIT-25cf4de.md](../build_/COMMITS/COMMIT-25cf4de.md)
+- Message: persist metaMe/KNYT takeover context toggle across sessions
+
+## Commit `161728b` — 2026-06-19T01:02:56Z
+- Type: `push`
+- Brief: [COMMIT-161728b.md](../build_/COMMITS/COMMIT-161728b.md)
+- Message: keep consumer task/reward furniture visible when experience has no tasks
+
+## Commit `846f3b2` — 2026-06-19T01:57:24Z
+- Type: `push`
+- Brief: [COMMIT-846f3b2.md](../build_/COMMITS/COMMIT-846f3b2.md)
+- Message: trigger deploy to dev: inline ExperienceLiquidRenderer for consumer experience cards
+
+## Commit `ae6bb66` — 2026-06-19T12:10:36Z
+- Type: `fix`
+- Brief: [COMMIT-ae6bb66.md](../build_/COMMITS/COMMIT-ae6bb66.md)
+- Message: fix toggle persistence — remove admin gate from persistRuntimeContext
+
+## Commit `40b86f5` — 2026-06-19T12:46:03Z
+- Type: `fix`
+- Brief: [COMMIT-40b86f5.md](../build_/COMMITS/COMMIT-40b86f5.md)
+- Message: fix Policy Passport deep link — use full cartridge ID in overlay slug
+
+## Commit `a94abea` — 2026-06-19T12:45:36Z
+- Type: `fix`
+- Brief: [COMMIT-a94abea.md](../build_/COMMITS/COMMIT-a94abea.md)
+- Message: fix toggle persistence — remove invalid columns from upsert + sync localStorage
+
+## Commit `4891112` — 2026-06-19T12:49:15Z
+- Type: `push`
+- Brief: [COMMIT-4891112.md](../build_/COMMITS/COMMIT-4891112.md)
+- Message: change default runtime context from KNYT to metaMe
+
+## Commit `40340e0` — 2026-06-19T13:29:41Z
+- Type: `push`
+- Brief: [COMMIT-40340e0.md](../build_/COMMITS/COMMIT-40340e0.md)
+- Message: trigger deploy to dev
+
+## Commit `34d34c9` — 2026-06-19T15:25:51Z
+- Type: `push`
+- Brief: [COMMIT-34d34c9.md](../build_/COMMITS/COMMIT-34d34c9.md)
+- Message: trigger deploy to dev
+
+## Commit `c02eee1` — 2026-06-19T16:09:40Z
+- Type: `push`
+- Brief: [COMMIT-c02eee1.md](../build_/COMMITS/COMMIT-c02eee1.md)
+- Message: trigger deploy to dev
+
+## Commit `bcb1eac` — 2026-06-19T16:09:30Z
+- Type: `push`
+- Brief: [COMMIT-bcb1eac.md](../build_/COMMITS/COMMIT-bcb1eac.md)
+- Message: make standing a permanently active first-class tab in metaMe
+
+## Commit `8f74779` — 2026-06-19T16:17:13Z
+- Type: `push`
+- Brief: [COMMIT-8f74779.md](../build_/COMMITS/COMMIT-8f74779.md)
+- Message: trigger deploy to dev
+
+## Commit `afdc85f` — 2026-06-19T16:17:08Z
+- Type: `push`
+- Brief: [COMMIT-afdc85f.md](../build_/COMMITS/COMMIT-afdc85f.md)
+- Message: seed standing-cartridge activation qube so the catalog card works

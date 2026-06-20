@@ -118,6 +118,20 @@ import { LockerTab } from "./tabs/LockerTab";
 import { PassportDoctrineTab } from "./tabs/PassportDoctrineTab";
 import { PassportEnsTab } from "./tabs/PassportEnsTab";
 import { PassportBeingTab } from "./tabs/PassportBeingTab";
+import { HumanMobilityServicesTab } from "./tabs/HumanMobilityServicesTab";
+import { MobilityDoctrineTab } from "./tabs/MobilityDoctrineTab";
+import { MobilityActivationsTab } from "./tabs/MobilityActivationsTab";
+import { MobilityWorkstreamShellTab } from "./tabs/MobilityWorkstreamShellTab";
+import { MobilityHousingTab } from "./tabs/MobilityHousingTab";
+import { MobilityEducationTab } from "./tabs/MobilityEducationTab";
+import { MobilityRelocationTab } from "./tabs/MobilityRelocationTab";
+import { MobilityBusinessTab } from "./tabs/MobilityBusinessTab";
+import { MobilityEconomicTab } from "./tabs/MobilityEconomicTab";
+import { MobilityFamilyTab } from "./tabs/MobilityFamilyTab";
+import { MobilityCaseManagementTab } from "./tabs/MobilityCaseManagementTab";
+import { MobilityIESTab } from "./tabs/MobilityIESTab";
+import { StandingCartridgeTab } from "./tabs/StandingCartridgeTab";
+import { MobilitySRBTab } from "./tabs/MobilitySRBTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
@@ -278,6 +292,20 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   PassportDoctrineTab,
   PassportEnsTab,
   PassportBeingTab,
+  HumanMobilityServicesTab,
+  MobilityDoctrineTab,
+  MobilityActivationsTab,
+  MobilityWorkstreamShellTab,
+  MobilityHousingTab,
+  MobilityEducationTab,
+  MobilityRelocationTab,
+  MobilityBusinessTab,
+  MobilityEconomicTab,
+  MobilityFamilyTab,
+  MobilityCaseManagementTab,
+  MobilityIESTab,
+  StandingCartridgeTab,
+  MobilitySRBTab,
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,

@@ -104,17 +104,25 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
     personaRef.current = personaId;
   }, [personaId]);
 
+  // Mirror mutatingIds in a ref so the refresh() callback can read it
+  // without a dependency — avoids re-creating refresh on every mutation.
+  const mutatingIdsRef = useRef<Set<string>>(new Set());
+
+  // Mutation generation counter — incremented when a mutation starts,
+  // checked when a background refresh completes. Prevents stale refresh
+  // responses (fired by the personaId useEffect or a prior mutation) from
+  // overwriting optimistic state set by an in-flight mutation.
+  const mutationGenRef = useRef(0);
+
   const refresh = useCallback(async () => {
     const pid = personaRef.current;
     if (!pid) {
       setLoading(false);
       return;
     }
+    const genAtStart = mutationGenRef.current;
     setLoading(true);
     try {
-      // Cache-bust the URL: identical-URL GETs in rapid succession can
-      // dedupe at the browser/edge layer despite `Cache-Control: no-store`.
-      // A per-call `_t` query param guarantees a unique URL → unique request.
       const url = `/api/assistant/activations?_t=${Date.now()}`;
       const res = await personaFetch(url, {
         personaIdHint: pid,
@@ -122,9 +130,6 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        // 401 = the spine rejected the call because no valid Supabase Bearer
-        // token reached it from this browsing context (personaFetch found no
-        // session). Surface an actionable message instead of a bare status.
         if (res.status === 401) {
           throw new Error(
             'Not signed in for this window — the activations API needs your Supabase session. Sign in at dev-beta (or reload after signing in) and try again.',
@@ -134,7 +139,21 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
       }
       const data = (await res.json()) as { activations: ActivationSurface[] };
       if (Array.isArray(data.activations)) {
-        setSurfaces(() => data.activations);
+        if (mutationGenRef.current === genAtStart) {
+          setSurfaces((prev) => {
+            const currentMutating = mutatingIdsRef.current;
+            if (currentMutating.size === 0) return data.activations;
+            const serverMap = new Map(data.activations.map((s) => [s.id, s]));
+            return prev.map((s) => {
+              if (currentMutating.has(s.id)) return s;
+              return serverMap.get(s.id) ?? s;
+            }).concat(
+              data.activations.filter(
+                (s) => !prev.some((p) => p.id === s.id) && !currentMutating.has(s.id),
+              ),
+            );
+          });
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -153,9 +172,14 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
       const pid = personaRef.current;
       if (!pid) return;
 
+      // Bump the generation so any in-flight refresh() calls discard
+      // their results rather than overwriting our optimistic state.
+      mutationGenRef.current += 1;
+
       setMutatingIds((prev) => {
         const next = new Set(prev);
         next.add(id);
+        mutatingIdsRef.current = next;
         return next;
       });
       setError(null);
@@ -195,7 +219,11 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
           }
           throw new Error((body as { detail?: string }).detail ?? `mutation failed (${res.status})`);
         }
-        // Server confirms — re-sync from /api/assistant/activations.
+        // Server confirms — bump gen again so the refresh we fire is the
+        // authoritative read. Short delay lets Supabase read-after-write
+        // settle across connections before we re-sync.
+        mutationGenRef.current += 1;
+        await new Promise((r) => setTimeout(r, 300));
         await refresh();
       } catch (err) {
         // Revert optimistic write.
@@ -205,6 +233,7 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
         setMutatingIds((prev) => {
           const next = new Set(prev);
           next.delete(id);
+          mutatingIdsRef.current = next;
           return next;
         });
       }

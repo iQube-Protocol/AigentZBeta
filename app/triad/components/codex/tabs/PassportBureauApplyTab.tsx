@@ -34,6 +34,8 @@ import {
   User,
   Link2,
   Zap,
+  Star,
+  GitBranch,
 } from 'lucide-react';
 import {
   getSupabaseBrowserClient,
@@ -139,6 +141,24 @@ export function PassportBureauApplyTab() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // VSP standing credential — fetched lazily for vault step
+  const [vspSummary, setVspSummary] = useState<{
+    label: string; compiledAt: string | null; factCount: number;
+    domains: string[]; anchoredToPassport: boolean; capabilityClaimCount: number;
+  } | null>(null);
+  const [vspLoading, setVspLoading] = useState(false);
+  useEffect(() => {
+    if (step !== 'vault') return;
+    setVspLoading(true);
+    authedFetchHeaders().then(headers =>
+      fetch('/api/vsp/persona', { headers, cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => { if (j.ok && j.primaryProfile) setVspSummary(j.primaryProfile); })
+        .catch(() => {})
+        .finally(() => setVspLoading(false))
+    ).catch(() => setVspLoading(false));
+  }, [step]);
 
   // Participant — agent identity + bounded-delegation binding
   const { sessionPersonas } = useSupabaseSessionPersonas();
@@ -946,7 +966,55 @@ export function PassportBureauApplyTab() {
       )}
 
       {step === 'vault' && (
-        <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+        <div className="space-y-3">
+          {/* VSP Standing Credential — anchored to this passport on compile */}
+          <div className="rounded-xl border border-violet-700/40 bg-violet-950/30 p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <Star className="h-4 w-4 text-violet-400" />
+              <span className="text-sm font-medium text-violet-200">Standing Credential</span>
+            </div>
+            {vspLoading ? (
+              <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin" /> Checking Standing Cartridge…
+              </p>
+            ) : vspSummary ? (
+              <div className="space-y-1">
+                <p className="text-xs text-slate-300">
+                  <span className="text-white font-medium">{vspSummary.label}</span>
+                  {vspSummary.compiledAt
+                    ? ` — compiled ${new Date(vspSummary.compiledAt).toLocaleDateString()}`
+                    : ' — not yet compiled'}
+                </p>
+                {vspSummary.compiledAt && (
+                  <div className="flex items-center gap-3 text-xs text-slate-400">
+                    <span>{vspSummary.factCount} verified facts</span>
+                    <span>{vspSummary.domains.length} domains</span>
+                    {vspSummary.capabilityClaimCount > 0 && (
+                      <span className="flex items-center gap-1">
+                        <GitBranch className="h-3 w-3" /> {vspSummary.capabilityClaimCount} capability claims
+                      </span>
+                    )}
+                    {vspSummary.anchoredToPassport && (
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Anchored to Passport
+                      </span>
+                    )}
+                  </div>
+                )}
+                {!vspSummary.anchoredToPassport && vspSummary.compiledAt && (
+                  <p className="text-xs text-amber-400">
+                    Compile a new VSP after applying for your passport to anchor it to your KybeDID.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">
+                No compiled Standing Profile found. Open the <strong className="text-slate-300">Standing Cartridge</strong> tab in the HMS cartridge to build your Verified Standing Profile — evidence-derived, principal-verified, portable across all Polity services.
+              </p>
+            )}
+          </div>
+
+        <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 space-y-3">
           <p className="text-sm text-slate-300">
             Optional. Anything you enter here is encrypted <strong>in your browser</strong> before
             upload. The Bureau receives ciphertext only and can never read it.
@@ -980,6 +1048,7 @@ export function PassportBureauApplyTab() {
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
             {privateDetails.trim() ? 'Encrypt + store, then continue' : 'Skip — stay fully anonymous'}
           </button>
+        </div>
         </div>
       )}
 

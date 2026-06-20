@@ -48,6 +48,7 @@ interface CodexPanelDynamicProps {
   isPartner?: boolean;          // Partner identity — shows partnerOnly tabs, hides adminOnly tabs
   isInvestor?: boolean;         // Investor identity — shows investorOnly tabs (IAM service resolves this)
   partnerId?: string;           // avl_partner_contacts.id — passed to partner tab components
+  autoActivate?: string;        // Activation ID to auto-activate on mount (e.g. 'polity-passport')
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
   onClose?: () => void;         // Direct close callback (inline rendering)
@@ -106,6 +107,7 @@ export default function CodexPanelDynamic({
   isPartner: isPartnerProp,
   isInvestor = false,
   partnerId,
+  autoActivate,
   useDefaults = true,
   previewDevice,
   onClose,
@@ -158,6 +160,7 @@ export default function CodexPanelDynamic({
   const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
   const [metameCopilotOpen, setMetameCopilotOpen] = useState(false);
   const [passportCopilotOpen, setPassportCopilotOpen] = useState(false);
+  const [hmsCopilotOpen, setHmsCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -215,7 +218,15 @@ export default function CodexPanelDynamic({
   // wraps the embed/shell layouts. Single source of truth — the Activations
   // panel mutates via the same context, so optimistic updates propagate
   // through React's render cycle (no window events, no fetch race).
-  const { activeIds: activeActivations } = useActivations();
+  const { activeIds: activeActivations, activate: activateActivation } = useActivations();
+
+  const autoActivateRef = useRef(false);
+  useEffect(() => {
+    if (!autoActivate || autoActivateRef.current) return;
+    if (activeActivations.has(autoActivate)) return;
+    autoActivateRef.current = true;
+    void activateActivation(autoActivate).catch(() => {});
+  }, [autoActivate, activeActivations, activateActivation]);
 
   // Per-cartridge admin grants — fail-CLOSED while loading so the
   // adminOfCartridge tabs (e.g. mirrored KNYT Admin inside metaMe's
@@ -1158,6 +1169,32 @@ export default function CodexPanelDynamic({
             'What does World ID verification add?',
             'Show my bound agents',
             'How does the Locker work?',
+          ]}
+        />
+      )}
+
+      {/* Human Mobility Services — aigentMe copilot.
+          Emerald branding. aigentMe is the sole disclosure broker for
+          BlakQube cases. Per PSC-001 / G5 gap closure 2026-06-17. */}
+      {codexId === 'human-mobility-services-cartridge' && (
+        <CodexCopilotLayer
+          isOpen={hmsCopilotOpen}
+          onClose={() => setHmsCopilotOpen(false)}
+          onOpen={() => setHmsCopilotOpen(true)}
+          variant="floating"
+          accentColor="emerald"
+          agent={{ id: 'aigent-z', name: 'aigentMe' }}
+          personaId={resolvedPersonaId ?? undefined}
+          enableInferenceRendering
+          contextId={`hms-${activeTabSlug}`}
+          promptPlaceholder="Ask about your case, workstreams, or critical dates…"
+          initialMessage="I'm aigentMe — your confidentiality guardian for this mobility case. BlakQube protocol is active. Ask me about housing, education, relocation timelines, or workstream status."
+          quickPrompts={[
+            'What are the most urgent deadlines?',
+            'What is the housing workstream status?',
+            'What school applications are pending?',
+            'Summarise the relocation timeline',
+            'What does BlakQube compartmentalisation mean for this case?',
           ]}
         />
       )}

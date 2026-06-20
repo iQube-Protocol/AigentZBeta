@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-14T19:35:23.565Z",
+  "last_updated": "2026-06-19T16:19:00.563Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "eff22bc7cb9ef84f0e6d431c0ee3c07e14bc658c",
-  "latest_commit_short": "eff22bc",
-  "latest_commit_title": "flip steward queue cards to decided state after approve/deny",
+  "latest_commit": "afdc85ff223adb53f3a50c7c2a5dcb7a66463064",
+  "latest_commit_short": "afdc85f",
+  "latest_commit_title": "seed standing-cartridge activation qube so the catalog card works",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,267 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "afdc85f",
+      "full_sha": "afdc85ff223adb53f3a50c7c2a5dcb7a66463064",
+      "title": "seed standing-cartridge activation qube so the catalog card works",
+      "author": "Claude",
+      "timestamp": "2026-06-19T16:17:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-afdc85f.md"
+    },
+    {
+      "sha": "8f74779",
+      "full_sha": "8f74779dc02195b4fa537ecb396728d649a35944",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-19T16:17:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8f74779.md"
+    },
+    {
+      "sha": "bcb1eac",
+      "full_sha": "bcb1eac05585279d9a6cbdeea067edaef4b6ffe1",
+      "title": "make standing a permanently active first-class tab in metaMe",
+      "author": "Claude",
+      "timestamp": "2026-06-19T16:09:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bcb1eac.md"
+    },
+    {
+      "sha": "c02eee1",
+      "full_sha": "c02eee111ce43a8df9f62b97db017c43d41891dc",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-19T16:09:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c02eee1.md"
+    },
+    {
+      "sha": "34d34c9",
+      "full_sha": "34d34c9cdfbd0987a0aa973ba527e3e279cb1697",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-19T15:25:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-34d34c9.md"
+    },
+    {
+      "sha": "40340e0",
+      "full_sha": "40340e02ea924277c6f806b5c25b74239ec13cdd",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-19T13:29:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-40340e0.md"
+    },
+    {
+      "sha": "4891112",
+      "full_sha": "4891112307447538d3a1ee04f96714514a471897",
+      "title": "change default runtime context from KNYT to metaMe",
+      "author": "Claude",
+      "timestamp": "2026-06-19T12:49:15Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4891112.md"
+    },
+    {
+      "sha": "a94abea",
+      "full_sha": "a94abea66a7d1e75ebfaddf95c342a5824c03986",
+      "title": "fix toggle persistence — remove invalid columns from upsert + sync localStorage",
+      "author": "Claude",
+      "timestamp": "2026-06-19T12:45:36Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a94abea.md"
+    },
+    {
+      "sha": "40b86f5",
+      "full_sha": "40b86f580c9aebef36214e1984179e56b16eb5ad",
+      "title": "fix Policy Passport deep link — use full cartridge ID in overlay slug",
+      "author": "Claude",
+      "timestamp": "2026-06-19T12:46:03Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-40b86f5.md"
+    },
+    {
+      "sha": "ae6bb66",
+      "full_sha": "ae6bb6671bf3023c54d5374fa18ae971afab3b1b",
+      "title": "fix toggle persistence — remove admin gate from persistRuntimeContext",
+      "author": "Claude",
+      "timestamp": "2026-06-19T12:10:36Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-ae6bb66.md"
+    },
+    {
+      "sha": "846f3b2",
+      "full_sha": "846f3b2364a20aaa40d2b1691be2ea305e6cd6c7",
+      "title": "trigger deploy to dev: inline ExperienceLiquidRenderer for consumer experience cards",
+      "author": "Claude",
+      "timestamp": "2026-06-19T01:57:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-846f3b2.md"
+    },
+    {
+      "sha": "161728b",
+      "full_sha": "161728bb9013cb9058f6dd56afe7f5fc028a8b1b",
+      "title": "keep consumer task/reward furniture visible when experience has no tasks",
+      "author": "Claude",
+      "timestamp": "2026-06-19T01:02:56Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-161728b.md"
+    },
+    {
+      "sha": "25cf4de",
+      "full_sha": "25cf4de867fca693b9ec6f3cf947ee08cbfb4783",
+      "title": "persist metaMe/KNYT takeover context toggle across sessions",
+      "author": "Claude",
+      "timestamp": "2026-06-19T00:55:11Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-25cf4de.md"
+    },
+    {
+      "sha": "88fba98",
+      "full_sha": "88fba98483b8b91ec59ded97f49eb9e0697c7054",
+      "title": "fix consumer 404: render experience inline-only for non-admins, hide platform links",
+      "author": "Claude",
+      "timestamp": "2026-06-18T23:01:41Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-88fba98.md"
+    },
+    {
+      "sha": "490cff8",
+      "full_sha": "490cff8fba349393a9d9a7d0019855a371a709ec",
+      "title": "trigger deploy to dev: consumer inline-only experience fix",
+      "author": "Claude",
+      "timestamp": "2026-06-18T23:01:41Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-490cff8.md"
+    },
+    {
+      "sha": "239cee4",
+      "full_sha": "239cee4e309089336dcf8c710826aeba81295f80",
+      "title": "fix runtime regression: render consumer task runner for admins too",
+      "author": "Claude",
+      "timestamp": "2026-06-18T22:40:27Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-239cee4.md"
+    },
+    {
+      "sha": "812fe7e",
+      "full_sha": "812fe7e005470a4b51d69463893b5205f8ff8277",
+      "title": "trigger deploy to dev: runtime consumer task runner regression fix",
+      "author": "Claude",
+      "timestamp": "2026-06-18T22:43:07Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-812fe7e.md"
+    },
+    {
+      "sha": "104cfc7",
+      "full_sha": "104cfc7a165c9ea71b385b048cdcc63d7d2dd333",
+      "title": "fix Open Experience button: route to consumer viewer instead of re-opening runtime",
+      "author": "Claude",
+      "timestamp": "2026-06-18T10:51:32Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-104cfc7.md"
+    },
+    {
+      "sha": "1d1ac0f",
+      "full_sha": "1d1ac0fa1c0253ecd440b8b986819d045645cf6e",
+      "title": "trigger deploy to dev: fix Open Experience consumer routing",
+      "author": "Claude",
+      "timestamp": "2026-06-18T10:51:37Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-1d1ac0f.md"
+    },
+    {
+      "sha": "62645f0",
+      "full_sha": "62645f06b020a9ad0cd9a7224aa3debf69cf03c9",
+      "title": "add consumer task runner inline in runtime experience panel",
+      "author": "Claude",
+      "timestamp": "2026-06-18T11:17:46Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-62645f0.md"
+    },
+    {
+      "sha": "c3a2e31",
+      "full_sha": "c3a2e31ca437b62e259047ebac60a7bfad70accd",
+      "title": "trigger deploy to dev: inline consumer task runner in runtime",
+      "author": "Claude",
+      "timestamp": "2026-06-18T11:17:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c3a2e31.md"
+    },
+    {
+      "sha": "620be7a",
+      "full_sha": "620be7a5cb4d9a8401527c814bb5beed6a517df0",
+      "title": "populate composition.nextActions in reading sprint packet",
+      "author": "Claude",
+      "timestamp": "2026-06-18T15:41:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-620be7a.md"
+    },
+    {
+      "sha": "af00bff",
+      "full_sha": "af00bfff79607c35696a5cc1be1b43b08f3d9f94",
+      "title": "trigger deploy to dev: reading sprint nextActions in packet",
+      "author": "Claude",
+      "timestamp": "2026-06-18T15:41:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-af00bff.md"
+    },
+    {
+      "sha": "345666c",
+      "full_sha": "345666c72f373e936b027deca3c8ff979064b91f",
+      "title": "server-side runtime context preference + reading sprint nextActions in packet",
+      "author": "Claude",
+      "timestamp": "2026-06-18T17:44:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-345666c.md"
+    },
+    {
+      "sha": "257f0e0",
+      "full_sha": "257f0e02d300329c71d2638c4f4b1687625ba932",
+      "title": "trigger deploy to dev: server-side runtime context + reading sprint tasks",
+      "author": "Claude",
+      "timestamp": "2026-06-18T17:44:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-257f0e0.md"
+    },
+    {
+      "sha": "50cbc92",
+      "full_sha": "50cbc92cdee6937bd23d509c790fc8f3cb778977",
+      "title": "swap Polity Passport before ExperienceModel on welcome screen, rename to 'Get my'",
+      "author": "Claude",
+      "timestamp": "2026-06-18T21:23:14Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-50cbc92.md"
+    },
+    {
+      "sha": "d156c1e",
+      "full_sha": "d156c1efbf46f42d75e7096c4021768ea38ca758",
+      "title": "trigger deploy to dev: welcome button reorder",
+      "author": "Claude",
+      "timestamp": "2026-06-18T21:23:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d156c1e.md"
+    },
+    {
+      "sha": "553e41b",
+      "full_sha": "553e41b5e67381c99ccea20b2c59a1630e67f886",
+      "title": "fix activations flicker: add mutation generation guard to prevent stale refresh overwriting optimistic state",
+      "author": "Claude",
+      "timestamp": "2026-06-18T21:32:12Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-553e41b.md"
+    },
+    {
+      "sha": "4d66986",
+      "full_sha": "4d6698611734c48e99cd687033026097992d9c0f",
+      "title": "Phase 4 MVP — Bureau recommendation rights gated by Stewardship Standing",
+      "author": "Claude",
+      "timestamp": "2026-06-16T16:30:03Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4d66986.md"
+    },
     {
       "sha": "eff22bc",
       "full_sha": "eff22bc7cb9ef84f0e6d431c0ee3c07e14bc658c",
@@ -991,267 +1252,6 @@
       "timestamp": "2026-06-04T04:06:48Z",
       "type": "style",
       "brief": "items/build_/COMMITS/COMMIT-2dcff5e.md"
-    },
-    {
-      "sha": "1ca89bf",
-      "full_sha": "1ca89bfd91143ca31bab1db7c3b485a993744c17",
-      "title": "trigger deploy: emerald container around expanded intents (2dcff5ed)",
-      "author": "Claude",
-      "timestamp": "2026-06-04T04:06:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1ca89bf.md"
-    },
-    {
-      "sha": "fc88460",
-      "full_sha": "fc884603fac61dde0f9c9a61c8e4b736945cde14",
-      "title": "feat(chain): persist specialist response + chain section in myLedger",
-      "author": "Claude",
-      "timestamp": "2026-06-04T03:43:51Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-fc88460.md"
-    },
-    {
-      "sha": "93efc7e",
-      "full_sha": "93efc7ef18ae417f848b07be1ecc60735bb7f363",
-      "title": "trigger deploy: specialist_response + myLedger chain section (fc884603)",
-      "author": "Claude",
-      "timestamp": "2026-06-04T03:43:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-93efc7e.md"
-    },
-    {
-      "sha": "bb7723f",
-      "full_sha": "bb7723ff4b4fad8b3baceb99529a21d029e1113b",
-      "title": "feat: ship Operator Manual + show chain status + receipts on expand",
-      "author": "Claude",
-      "timestamp": "2026-06-04T03:28:41Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-bb7723f.md"
-    },
-    {
-      "sha": "2a2e9a4",
-      "full_sha": "2a2e9a46fe241166817ed29c2ce3bc98e79f88dd",
-      "title": "trigger deploy: Operator Manual + chain status header + inline receipts (bb7723ff)",
-      "author": "Claude",
-      "timestamp": "2026-06-04T03:28:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2a2e9a4.md"
-    },
-    {
-      "sha": "1ae9df0",
-      "full_sha": "1ae9df032f56c2c026b9f6a6f11fc61e16b2f7e3",
-      "title": "feat(downloads): ship Agent Runbook + flip menu entry to available",
-      "author": "Claude",
-      "timestamp": "2026-06-03T16:39:17Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-1ae9df0.md"
-    },
-    {
-      "sha": "83fa3de",
-      "full_sha": "83fa3def7b2027623f5081c58e45ea51ec747318",
-      "title": "trigger deploy: Agent Runbook now downloadable (1ae9df03)",
-      "author": "Claude",
-      "timestamp": "2026-06-03T16:39:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-83fa3de.md"
-    },
-    {
-      "sha": "3ea9f0f",
-      "full_sha": "3ea9f0fb8a5076c21eb5ff4161daea7d8aa45196",
-      "title": "feat(aigentme): downloadable VentureQube schema + downloads menu",
-      "author": "Claude",
-      "timestamp": "2026-06-03T16:23:08Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3ea9f0f.md"
-    },
-    {
-      "sha": "42ef1c9",
-      "full_sha": "42ef1c9f4fde7c9eae0dcb16e0296f51fc8b18f4",
-      "title": "trigger deploy: aigentMe downloads menu + VentureQube schema (3ea9f0fb)",
-      "author": "Claude",
-      "timestamp": "2026-06-03T16:23:12Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-42ef1c9.md"
-    },
-    {
-      "sha": "bd1bc83",
-      "full_sha": "bd1bc832798c563505d888529ea0b1e00448845f",
-      "title": "fix(chain of intent): make every pill expand inline on both surfaces",
-      "author": "Claude",
-      "timestamp": "2026-06-03T14:59:01Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-bd1bc83.md"
-    },
-    {
-      "sha": "f1cd8a8",
-      "full_sha": "f1cd8a83d8cb8e02af0fd63cb97492472c6a6090",
-      "title": "trigger deploy: pills expand inline on both ledger + workspace (bd1bc83)",
-      "author": "Claude",
-      "timestamp": "2026-06-03T14:59:05Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f1cd8a8.md"
-    },
-    {
-      "sha": "cf928c7",
-      "full_sha": "cf928c7efc704a4f965d0c4b61761521745e1c1a",
-      "title": "Document MENU_ACTION deep_link envelope in iframe-bridge README — closes backlog #5 from Lovable Part 1 spec",
-      "author": "Claude",
-      "timestamp": "2026-06-03T14:56:18Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cf928c7.md"
-    },
-    {
-      "sha": "abb7d55",
-      "full_sha": "abb7d556780007e91d984b4851c25b4c0af9f508",
-      "title": "Wire initialAuthMode + initialPersonaFlow through SmartWalletDrawer — closes deep-link backlog #1 + #2 from Lovable Part 1",
-      "author": "Claude",
-      "timestamp": "2026-06-03T06:16:43Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-abb7d55.md"
-    },
-    {
-      "sha": "76a1012",
-      "full_sha": "76a1012c84a134a471fe84f877deb83af6f2e7e5",
-      "title": "feat(intent chain): emit specialist_invoked + clickable workbench pills",
-      "author": "Claude",
-      "timestamp": "2026-06-03T05:47:06Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-76a1012.md"
-    },
-    {
-      "sha": "b6b73af",
-      "full_sha": "b6b73af5ee95ef205288b24b74139c50c2d9ac06",
-      "title": "trigger deploy: chain-of-intent (specialist_invoked + clickable pills)",
-      "author": "Claude",
-      "timestamp": "2026-06-03T05:47:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b6b73af.md"
-    },
-    {
-      "sha": "710fd94",
-      "full_sha": "710fd94b2e0ce39bd933fc9069c26646b757919b",
-      "title": "Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union",
-      "author": "Claude",
-      "timestamp": "2026-06-02T23:26:34Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-710fd94.md"
-    },
-    {
-      "sha": "2e9022f",
-      "full_sha": "2e9022fdab8000b5bc318952ce11233a7e7f556a",
-      "title": "MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable",
-      "author": "Claude",
-      "timestamp": "2026-06-02T23:21:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2e9022f.md"
-    },
-    {
-      "sha": "b45d9a0",
-      "full_sha": "b45d9a0979aa181edc24e72cfaa299c4771e7ded",
-      "title": "fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES",
-      "author": "Claude",
-      "timestamp": "2026-06-02T03:04:51Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-b45d9a0.md"
-    },
-    {
-      "sha": "cab9fb4",
-      "full_sha": "cab9fb4ba1e562a0e677d94d7bf66f0af021fc7e",
-      "title": "trigger deploy: backfill VALID_SOURCES allowlist fix",
-      "author": "Claude",
-      "timestamp": "2026-06-02T03:05:07Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-cab9fb4.md"
-    },
-    {
-      "sha": "4148830",
-      "full_sha": "414883014ea07d628fad6a9fad2d167b8145a5c4",
-      "title": "intent chains commit 10: v1 close report",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:28:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4148830.md"
-    },
-    {
-      "sha": "0077105",
-      "full_sha": "0077105de1ff8ce1a0cc0cf6f4e20d784a10847c",
-      "title": "intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:26:12Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0077105.md"
-    },
-    {
-      "sha": "5a33625",
-      "full_sha": "5a336253f1cb3238817e7a071d93a61f7750dff1",
-      "title": "intent chains commit 8: ExpandedNBEPill chain breadcrumb + ChainDetailDrawer",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:24:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5a33625.md"
-    },
-    {
-      "sha": "9c15b5d",
-      "full_sha": "9c15b5db33de5372673f4a39e01393a919cac3fe",
-      "title": "intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:21:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9c15b5d.md"
-    },
-    {
-      "sha": "a905e0e",
-      "full_sha": "a905e0ed6bd03bc749533e9496d16ca6d27ccc45",
-      "title": "intent chains commit 6: cron extension for scheduled steps + wait timeouts",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:17:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a905e0e.md"
-    },
-    {
-      "sha": "9db46a1",
-      "full_sha": "9db46a19fe1854946346163f39a48f625ce75063",
-      "title": "intent chains commit 5: Marketa propose intake + Factory Ingestion stub",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:15:29Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9db46a1.md"
-    },
-    {
-      "sha": "8b7f98f",
-      "full_sha": "8b7f98f173e79aa8c8bc40c134f0eb41b1be9acc",
-      "title": "intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:13:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8b7f98f.md"
-    },
-    {
-      "sha": "4312058",
-      "full_sha": "43120584cd3305a1ec8bd79509db259ab2e97c75",
-      "title": "intent chains commit 3: dispatcher + advancer + refs + listener hook",
-      "author": "Claude",
-      "timestamp": "2026-06-02T01:10:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4312058.md"
-    },
-    {
-      "sha": "375df58",
-      "full_sha": "375df582f384fe54f545dcdc9425dc593e945572",
-      "title": "intent chains commit 2: sanitizeReceiptMetadata + canary tests",
-      "author": "Claude",
-      "timestamp": "2026-06-02T00:49:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-375df58.md"
-    },
-    {
-      "sha": "b065860",
-      "full_sha": "b06586021ef524b9528dee8089268dc558372166",
-      "title": "intent chains: feedback table + spec §6.7 — like/dislike learning loop",
-      "author": "Claude",
-      "timestamp": "2026-06-02T00:44:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b065860.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

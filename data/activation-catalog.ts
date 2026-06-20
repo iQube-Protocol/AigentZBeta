@@ -81,7 +81,7 @@ export interface ActivationCatalogEntry {
   longDescription: string;
   gate: ActivationGate;
   tabSlug: string;
-  sourceCartridge: ActiveCartridgeSlug | 'metame';
+  sourceCartridge: ActiveCartridgeSlug | 'metame' | 'polity-passport-bureau' | 'standing-cartridge' | 'human-mobility-services';
   icon?: string;
   color?: string;
   /** KPI metrics this activation exposes. Empty / undefined = none. */
@@ -317,6 +317,28 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
       { action: 'mint-ens', label: 'Mint an ENS subname', rationale: 'Claim a gasless L2 ENS identity under polity.eth.', specialist: 'aigent-z' },
     ],
   },
+  {
+    id: 'standing-cartridge',
+    label: 'Standing Cartridge',
+    description: 'Your personal capability & standing ledger — evidence-derived, principal-verified, anchored to your Polity Passport.',
+    longDescription:
+      'The Standing Cartridge is your reusable capability and standing primitive. Upload evidence documents — CVs, publications, patents, media appearances, speaking engagements, reference letters — and the system extracts candidate facts for your review. Once approved and compiled, your Verified Standing Profile (VSP) becomes the authoritative source for mobility applications, immigration petitions, professional biographies, CVs, investor profiles, and future Polity services. The Standing Cartridge is anchored to your KybeDID and travels across your entire persona estate.',
+    gate: 'open',
+    tabSlug: 'standing',
+    sourceCartridge: 'standing-cartridge',
+    icon: 'Star',
+    color: 'violet',
+    metrics: [
+      { metric: 'facts_approved', class: 'outcome', label: 'Facts approved', defaultUnit: 'facts', query: { kind: 'receipts', eventType: 'vsp.fact.approved' } },
+      { metric: 'profiles_compiled', class: 'outcome', label: 'Profiles compiled', defaultUnit: 'profiles', query: { kind: 'receipts', eventType: 'vsp.profile.compiled' } },
+      { metric: 'outputs_generated', class: 'activity', label: 'Outputs generated', defaultUnit: 'outputs', query: { kind: 'receipts', eventType: 'vsp.output.generated' } },
+    ],
+    actions: [
+      { action: 'add-evidence', label: 'Add evidence document', rationale: 'Upload a document — CV, publication, patent, reference letter — for fact extraction.', specialist: 'aigent-z' },
+      { action: 'compile-vsp', label: 'Compile Verified Standing Profile', rationale: 'Lock approved facts into a portable VSP anchored to your Polity Passport.', specialist: 'aigent-z', approvalRequired: true },
+      { action: 'generate-output', label: 'Generate professional output', rationale: 'Derive a biography, CV, or capability assessment from your compiled VSP.', specialist: 'aigent-z' },
+    ],
+  },
 ];
 
 export function getActivationEntry(id: string): ActivationCatalogEntry | null {
@@ -362,9 +384,9 @@ export function metricsForActiveActivations(
  */
 export function actionsForActiveActivations(
   activeIds: Iterable<string>,
-): Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> {
+): Array<{ activationId: string; activationLabel: string; cartridge: ActivationCatalogEntry['sourceCartridge']; action: ActivationAction }> {
   const set = new Set(activeIds);
-  const out: Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> = [];
+  const out: Array<{ activationId: string; activationLabel: string; cartridge: ActivationCatalogEntry['sourceCartridge']; action: ActivationAction }> = [];
   for (const entry of ACTIVATION_CATALOG) {
     if (!set.has(entry.id)) continue;
     for (const a of entry.actions ?? []) {
