@@ -41,18 +41,23 @@ export interface AccessReceiptBatchResult {
 }
 
 export interface AccessReceiptBatchOptions {
-  /** Max rows to submit in one run. Default 50. */
+  /** Max rows to submit in one run. Default 20. */
   limit?: number;
   /** Only batch rows older than this many seconds (lets short-lived test rows
    *  age out before being inscribed). Default 60. */
   minAgeSeconds?: number;
+  /** Stop submitting after this many ms to avoid Lambda/API-Gateway 504.
+   *  Default 22000 (22s) — well inside the 29s API Gateway hard limit. */
+  maxFunctionMs?: number;
 }
 
 export async function submitPendingAccessReceipts(
   opts: AccessReceiptBatchOptions = {},
 ): Promise<AccessReceiptBatchResult> {
-  const limit = opts.limit ?? 50;
+  const limit = opts.limit ?? 20;
   const minAgeSeconds = opts.minAgeSeconds ?? 60;
+  const maxFunctionMs = opts.maxFunctionMs ?? 22_000;
+  const deadline = Date.now() + maxFunctionMs;
   const result: AccessReceiptBatchResult = {
     ok: false,
     pendingCount: 0,
@@ -106,6 +111,12 @@ export async function submitPendingAccessReceipts(
   }
 
   for (const row of rows) {
+    // Stop before the API Gateway hard timeout so the caller gets a response.
+    if (Date.now() >= deadline) {
+      const deferred = rows.length - result.submitted - result.failed;
+      errors.push({ event_id: '-', error: `deadline reached — ${deferred} rows deferred to next run` });
+      break;
+    }
     try {
       const meta = (row.metadata ?? {}) as Record<string, unknown>;
       const payload = JSON.stringify({
