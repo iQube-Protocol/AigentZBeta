@@ -21,6 +21,10 @@ and activatable.
   persona switch so you occupy the agent seat and the aigentMe acts directly.
   This needs **no change to the protected `getActivePersona`** — the aigentMe is a
   real `personas` row owned by your auth profile, which the spine already accepts.
+  While acting as the aigentMe, a persistent **banner** ("Acting as your aigentMe
+  (<name>) — you are in the agent seat") with a one-tap **"Return to <citizen>"**
+  renders at the top of the wallet drawer; return restores the persona captured
+  when "Act as" was pressed (falling back to the first human persona).
 - **A — autonomous agent (admin-only STUB).** A clearly-labelled, disabled
   "Deploy as autonomous agent" affordance in the agent-setup step, visible only
   to admins. **Guardrails captured for when it's built:** an autonomous agent

@@ -281,6 +281,8 @@ export default function SmartWalletDrawer({
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [dismissed, setDismissed] = useState(false);
   const [localPersonaId, setLocalPersonaId] = useState<string | null>(null);
+  // The persona to return to after "Act as aigentMe" (B+). Captured on switch.
+  const [preActAsPersonaId, setPreActAsPersonaId] = useState<string | null>(null);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
   const bals = useBalances(
     {
@@ -2411,7 +2413,10 @@ export default function SmartWalletDrawer({
                               {isAigentMePersona && effectivePersonaId !== persona.id && (
                                 <button
                                   title="Act as your aigentMe (advanced — occupy the agent seat)"
-                                  onClick={switchToPersona}
+                                  onClick={() => {
+                                    setPreActAsPersonaId(effectivePersonaId ?? null);
+                                    switchToPersona();
+                                  }}
                                   className="px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
                                 >
                                   Act as
@@ -2644,6 +2649,47 @@ export default function SmartWalletDrawer({
             </Tooltip>
           </div>
         </header>
+
+        {/* Acting-as-aigentMe banner (B+) — visible while the active persona is
+            an aigentMe, with a one-tap return to the citizen persona. */}
+        {(() => {
+          const activeRow = allAvailablePersonas.find((p) => p.id === effectivePersonaId);
+          if ((activeRow as { appOrigin?: string } | undefined)?.appOrigin !== 'aigent-me') return null;
+          const returnTarget =
+            allAvailablePersonas.find(
+              (p) => p.id === preActAsPersonaId && (p as { appOrigin?: string }).appOrigin !== 'aigent-me',
+            ) ||
+            allAvailablePersonas.find(
+              (p) => (p as { appOrigin?: string }).appOrigin !== 'aigent-me' && !p.isAgent,
+            ) ||
+            null;
+          return (
+            <div className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Bot className="w-4 h-4 text-amber-400 shrink-0" />
+                <p className="text-xs text-amber-200 truncate">
+                  Acting as your aigentMe{activeRow?.displayName ? ` (${activeRow.displayName})` : ''} — you are in the agent seat.
+                </p>
+              </div>
+              {returnTarget && (
+                <button
+                  onClick={() => {
+                    setLocalPersonaId(returnTarget.id);
+                    ctxSetActivePersonaId(returnTarget.id);
+                    onPersonaChange?.(returnTarget.id);
+                    setPreActAsPersonaId(null);
+                    window.dispatchEvent(
+                      new CustomEvent("persona-switched", { detail: { personaId: returnTarget.id } }),
+                    );
+                  }}
+                  className="shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium text-amber-200 hover:bg-amber-500/25 transition-colors"
+                >
+                  Return to {returnTarget.displayName || 'my persona'}
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Tab Navigation */}
         <div className="wallet-tab-nav px-3 py-2 bg-black/20">
