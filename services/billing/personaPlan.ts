@@ -1,41 +1,48 @@
 /**
- * personaPlan — read a persona's plan tier and resolve VentureQube Lite/Pro
- * entitlements. The entitlement layer for metaMe's commercial model (Step 4).
+ * personaPlan — read a persona's plan tier and resolve Venture Lab entitlements.
+ * The entitlement layer for metaMe's commercial model (Step 4, revised).
  *
- * Plan families:
- *   - agency plan:        citizen (free) | citizen_plus | sovereign_citizen | first_citizen
- *   - Founder Office tier: none (default) | basic | pro | elite
+ * Two independent axes:
+ *   - plan_tier (citizen ladder, free today): citizen | citizen_plus |
+ *     sovereign_citizen | first_citizen — room for future premium citizen levels.
+ *   - venture_tier (gates Venture Lab access):
+ *       none  → free Citizen: NO Venture Lab cartridge, 0 ventures (glimpse only)
+ *       lite  → 1 venture + Venture Lab + Marketa
+ *       pro   → 3 ventures
+ *       elite → unlimited ventures
  *
- * Gating rule: VentureQube Lite (single venture) is free for everyone;
- * VentureQube Pro (multi-venture + premium surfaces) requires Founder Office
- * pro/elite. Best-effort: defaults to the free tier if the plan table is
- * unavailable (so a pending migration never locks anyone out of the free path).
+ * Venture Lab cartridge ACCESS is the paywall (venture_tier != none). A free
+ * citizen still gets the persona-anchored experience + a venture *glimpse* badge
+ * on aigentMe, but cannot open the Venture Lab cartridge — the first upgrade CTA.
  *
- * Checkout/billing is stubbed — rows are admin/granted until payment rails are
- * wired. The read + gating path here is live.
+ * Best-effort: defaults to free Citizen if the plan table is unavailable.
+ * Checkout/billing is stubbed — rows are admin/granted until payment rails land.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type AgencyPlanTier = 'citizen' | 'citizen_plus' | 'sovereign_citizen' | 'first_citizen';
-export type FounderOfficeTier = 'none' | 'basic' | 'pro' | 'elite';
+export type VentureTier = 'none' | 'lite' | 'pro' | 'elite';
 
 export interface PersonaPlan {
   planTier: AgencyPlanTier;
-  founderOfficeTier: FounderOfficeTier;
+  ventureTier: VentureTier;
   status: 'active' | 'past_due' | 'cancelled';
-  /** True when the Founder Office tier unlocks VentureQube Pro (multi-venture). */
-  ventureProUnlocked: boolean;
-  /** Max active VentureQubes this plan may own (Lite = 1, Pro/Elite = unlimited). */
+  /** True when the plan unlocks the Venture Lab cartridge (any paid venture tier). */
+  ventureLabAccess: boolean;
+  /** True when the plan unlocks Marketa (any paid venture tier). */
+  marketaAccess: boolean;
+  /** Max active VentureQubes this plan may own (none=0, lite=1, pro=3, elite=unlimited). */
   ventureLimit: number;
 }
 
 const FREE_PLAN: PersonaPlan = {
   planTier: 'citizen',
-  founderOfficeTier: 'none',
+  ventureTier: 'none',
   status: 'active',
-  ventureProUnlocked: false,
-  ventureLimit: 1,
+  ventureLabAccess: false,
+  marketaAccess: false,
+  ventureLimit: 0,
 };
 
 export const PLAN_LABEL: Record<AgencyPlanTier, string> = {
@@ -45,27 +52,30 @@ export const PLAN_LABEL: Record<AgencyPlanTier, string> = {
   first_citizen: 'First Citizen',
 };
 
-export const FOUNDER_OFFICE_LABEL: Record<FounderOfficeTier, string> = {
-  none: 'Founder Office (Lite)',
-  basic: 'Founder Office Basic',
-  pro: 'Founder Office Pro',
-  elite: 'Founder Office Elite',
+export const VENTURE_TIER_LABEL: Record<VentureTier, string> = {
+  none: 'Citizen (free)',
+  lite: 'Venture Lab Lite',
+  pro: 'Venture Lab Pro',
+  elite: 'Venture Lab Elite',
 };
 
-function resolve(plan: {
-  plan_tier?: string;
-  founder_office_tier?: string;
-  status?: string;
-}): PersonaPlan {
-  const founderOfficeTier = (plan.founder_office_tier as FounderOfficeTier) ?? 'none';
-  const ventureProUnlocked = founderOfficeTier === 'pro' || founderOfficeTier === 'elite';
+const VENTURE_LIMIT: Record<VentureTier, number> = {
+  none: 0,
+  lite: 1,
+  pro: 3,
+  elite: 9999,
+};
+
+function resolve(row: { plan_tier?: string; venture_tier?: string; status?: string }): PersonaPlan {
+  const ventureTier = (row.venture_tier as VentureTier) ?? 'none';
+  const paid = ventureTier !== 'none';
   return {
-    planTier: (plan.plan_tier as AgencyPlanTier) ?? 'citizen',
-    founderOfficeTier,
-    status: (plan.status as PersonaPlan['status']) ?? 'active',
-    ventureProUnlocked,
-    // Lite tiers cap at one venture; Pro/Elite are effectively unlimited.
-    ventureLimit: ventureProUnlocked ? 9999 : 1,
+    planTier: (row.plan_tier as AgencyPlanTier) ?? 'citizen',
+    ventureTier,
+    status: (row.status as PersonaPlan['status']) ?? 'active',
+    ventureLabAccess: paid,
+    marketaAccess: paid,
+    ventureLimit: VENTURE_LIMIT[ventureTier] ?? 0,
   };
 }
 
@@ -76,7 +86,7 @@ export async function getPersonaPlan(
   try {
     const { data, error } = await admin
       .from('persona_plans')
-      .select('plan_tier, founder_office_tier, status')
+      .select('plan_tier, venture_tier, status')
       .eq('persona_id', personaId)
       .maybeSingle();
     if (error || !data) return { ...FREE_PLAN };

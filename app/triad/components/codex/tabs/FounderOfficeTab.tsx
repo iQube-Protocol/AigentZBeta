@@ -109,7 +109,7 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
   const [selected, setSelected] = useState<VentureRecord | null>(null);
   const [standing, setStanding] = useState<StandingSummary | null>(null);
   const [spine, setSpine] = useState<SpineState | null>(null);
-  const [plan, setPlan] = useState<{ ventureProUnlocked: boolean; founderOfficeLabel: string; planLabel: string } | null>(null);
+  const [plan, setPlan] = useState<{ ventureTier: string; ventureLabAccess: boolean; ventureTierLabel: string; planLabel: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -255,10 +255,10 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-slate-100">
-              Founder Office <span className="text-[10px] font-medium align-middle px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">{plan?.ventureProUnlocked ? 'Pro' : 'Lite'}</span>
+              Founder Office <span className="text-[10px] font-medium align-middle px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">{plan ? (plan.ventureTier.charAt(0).toUpperCase() + plan.ventureTier.slice(1)) : 'Lite'}</span>
             </h2>
             <p className="text-xs text-slate-400">
-              Venture formation operating system — turn an idea into an executable Venture Blueprint{plan?.ventureProUnlocked ? ' (VentureQube Pro)' : ''}.
+              Venture formation operating system — turn an idea into an executable Venture Blueprint (VentureQube Pro).
             </p>
           </div>
         </div>

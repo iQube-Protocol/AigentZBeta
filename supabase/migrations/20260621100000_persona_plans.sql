@@ -1,13 +1,14 @@
 -- Persona plan tiers — the entitlement layer for metaMe's commercial model.
 --
--- One row per persona. Captures the agency plan (Citizen / Citizen Plus /
--- Sovereign / First Citizen) and the Founder Office add-on tier (none / Basic /
--- Pro / Elite). Gates VentureQube Lite (free, single venture) vs Pro
--- (multi-venture + premium surfaces). Step 4 of the commercial workstream.
---
--- T0 discipline: persona_id is server-internal only (service-role RLS). Checkout
--- / billing is stubbed for now — rows are set by admin/grant until the payment
--- rails are wired; the read path + gating are live.
+-- One row per persona. `plan_tier` is the (free) citizen/agency ladder (room for
+-- future premium citizen levels); `venture_tier` gates Venture Lab access:
+--   none  = free Citizen — NO Venture Lab cartridge, 0 ventures (glimpse badge only)
+--   lite  = 1 venture + Venture Lab + Marketa
+--   pro   = 3 ventures
+--   elite = unlimited ventures
+-- Venture Lab cartridge ACCESS itself is the paywall (venture_tier != none).
+-- Step 4 of the commercial workstream. T0 persona_id, service-role RLS.
+-- Checkout is stubbed — rows are admin/granted until payment rails are wired.
 
 BEGIN;
 
@@ -17,8 +18,8 @@ CREATE TABLE IF NOT EXISTS public.persona_plans (
   persona_id          text        NOT NULL UNIQUE,
   plan_tier           text        NOT NULL DEFAULT 'citizen'
     CHECK (plan_tier IN ('citizen','citizen_plus','sovereign_citizen','first_citizen')),
-  founder_office_tier text        NOT NULL DEFAULT 'none'
-    CHECK (founder_office_tier IN ('none','basic','pro','elite')),
+  venture_tier        text        NOT NULL DEFAULT 'none'
+    CHECK (venture_tier IN ('none','lite','pro','elite')),
   status              text        NOT NULL DEFAULT 'active'
     CHECK (status IN ('active','past_due','cancelled')),
   -- How the plan was set — 'grant'/'admin' until checkout is wired.
@@ -42,8 +43,9 @@ CREATE TRIGGER persona_plans_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMENT ON TABLE public.persona_plans IS
-  'Persona plan tiers (agency + Founder Office) — entitlement layer for VentureQube Lite/Pro gating.';
+  'Persona plan tiers — entitlement layer. venture_tier gates Venture Lab access (none=free citizen, lite/pro/elite=paid).';
 COMMENT ON COLUMN public.persona_plans.persona_id IS
   'T0 — server-internal only. Never serialised to the browser or a receipt.';
 
 COMMIT;
+

@@ -66,6 +66,12 @@ type IssueOption = {
 
 
 /** Compact badge shown in the AgentiQ side menu area — Q¢ only (platform-wide rail). */
+// Activation ids that are gated by the persona's plan (cartridge access as a
+// paid entitlement). Admins always receive these; others get them from their
+// plan. The activationId on the relevant tab groups (e.g. 'venture-lab') is the
+// existing gate this feeds.
+const PLAN_GATED_ACTIVATIONS = ['venture-lab', 'marketa'] as const;
+
 export function AgentiQEconomyBadge() {
   return (
     <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/25 bg-indigo-500/8 px-2.5 py-0.5">
@@ -228,6 +234,36 @@ export default function CodexPanelDynamic({
     void activateActivation(autoActivate).catch(() => {});
   }, [autoActivate, activeActivations, activateActivation]);
 
+  // Plan-derived cartridge access — the paywall gate. Venture Lab / Marketa
+  // unlock when the persona's plan grants them (venture_tier != none, etc.);
+  // admins override and see all premium cartridges. Additive + fail-open: a
+  // failed plan fetch never removes a persona's existing activations.
+  const [planActivations, setPlanActivations] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    personaFetch('/api/billing/plan', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p) => {
+        if (cancelled || !p?.ok) return;
+        const ids: string[] = [];
+        if (p.ventureLabAccess) ids.push('venture-lab');
+        if (p.marketaAccess) ids.push('marketa');
+        setPlanActivations(ids);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [personaId]);
+
+  const effectiveActivations = useMemo(() => {
+    const s = new Set(activeActivations);
+    if (isAdmin) {
+      for (const id of PLAN_GATED_ACTIVATIONS) s.add(id);
+    } else {
+      for (const id of planActivations) s.add(id);
+    }
+    return s;
+  }, [activeActivations, isAdmin, planActivations]);
+
   // Per-cartridge admin grants — fail-CLOSED while loading so the
   // adminOfCartridge tabs (e.g. mirrored KNYT Admin inside metaMe's
   // Order group) stay hidden during the brief fetch window for
@@ -296,14 +332,14 @@ export default function CodexPanelDynamic({
 
   const enabledTabs = useMemo(
     () => [
-      ...getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+      ...getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, effectiveActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
       // Inject published personal cartridge tabs into the mycluster group.
       // Gated on 'mycanvas' activation to match the group's own activationId.
-      ...(activeActivations.has('mycanvas')
+      ...(effectiveActivations.has('mycanvas')
         ? publishedCartridgeTabs.filter((t) => !hiddenTabSet.has(t.slug.toLowerCase()))
         : []),
     ],
-    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, hiddenTabSet, publishedCartridgeTabs]
+    [codex, isAdmin, effectiveIsPartner, isInvestor, effectiveActivations, cartridgeAdminGrants, hiddenTabSet, publishedCartridgeTabs]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -687,7 +723,7 @@ export default function CodexPanelDynamic({
           // activation-gated groups hidden when activation isn't active.
           const visibleGroups = groups.filter(g => {
             if (g.adminOnly && !isAdmin) return false;
-            if (g.activationId && !activeActivations.has(g.activationId)) return false;
+            if (g.activationId && !effectiveActivations.has(g.activationId)) return false;
             return true;
           });
           // Standalone tabs: enabled tabs with no group, sorted by order

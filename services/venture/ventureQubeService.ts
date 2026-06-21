@@ -145,21 +145,21 @@ export async function createVentureQube(
   if (!admin) return { ok: false, error: 'database unavailable' };
   const slug = slugify(input.slug || input.name);
 
-  // Lite/Pro gating — VentureQube Lite includes one venture; Pro unlocks more.
+  // Venture-tier gating — none=0 (free citizen), lite=1, pro=3, elite=unlimited.
   const plan = await getPersonaPlan(admin, input.personaId);
-  if (!plan.ventureProUnlocked) {
-    const { count } = await admin
-      .from('venture_qubes')
-      .select('*', { count: 'exact', head: true })
-      .eq('owner_persona_id', input.personaId)
-      .eq('status', 'active');
-    if ((count ?? 0) >= plan.ventureLimit) {
-      return {
-        ok: false,
-        error:
-          'VentureQube Lite includes one venture. Upgrade to Founder Office Pro to create additional ventures.',
-      };
-    }
+  const { count } = await admin
+    .from('venture_qubes')
+    .select('*', { count: 'exact', head: true })
+    .eq('owner_persona_id', input.personaId)
+    .eq('status', 'active');
+  if ((count ?? 0) >= plan.ventureLimit) {
+    return {
+      ok: false,
+      error:
+        plan.ventureTier === 'none'
+          ? 'Venture Lab is a premium service. Upgrade to Venture Lab Lite to create your venture.'
+          : `Your plan includes ${plan.ventureLimit} venture${plan.ventureLimit === 1 ? '' : 's'}. Upgrade your Venture Lab tier to create more.`,
+    };
   }
 
   // Insert the row first to obtain the canonical row id (basis for refs).

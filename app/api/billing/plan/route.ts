@@ -1,6 +1,6 @@
 /**
- * GET /api/billing/plan — the active persona's plan tier + VentureQube Lite/Pro
- * entitlements. T1-safe (persona-scoped via the spine).
+ * GET /api/billing/plan — the active persona's plan tier + Venture Lab
+ * entitlements (venture_tier, ventureLabAccess, ventureLimit). T1-safe.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,7 +9,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   getPersonaPlan,
   PLAN_LABEL,
-  FOUNDER_OFFICE_LABEL,
+  VENTURE_TIER_LABEL,
 } from '@/services/billing/personaPlan';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +28,6 @@ export async function GET(req: NextRequest) {
     ok: true,
     ...plan,
     planLabel: PLAN_LABEL[plan.planTier],
-    founderOfficeLabel: FOUNDER_OFFICE_LABEL[plan.founderOfficeTier],
+    ventureTierLabel: VENTURE_TIER_LABEL[plan.ventureTier],
   });
 }

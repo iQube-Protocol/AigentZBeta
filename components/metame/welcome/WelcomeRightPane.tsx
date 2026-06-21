@@ -53,6 +53,7 @@ import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/meta
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
 import type { SectionId } from "./useAigentMeCopilotBridge";
+import { VenturePositionChip } from "./VenturePositionChip";
 
 interface Specialist {
   id: string;
@@ -551,7 +552,7 @@ export function WelcomeRightPane(props: Props) {
                 ? `ExperienceQube active${expModel.meta?.experienceName ? ` — ${expModel.meta.experienceName}` : ""}`
                 : "Set up your Experience Model"
             }
-            className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${
+            className={`text-xs px-2 py-0.5 rounded-full border shrink-0 max-w-[150px] truncate ${
               expModel.configured
                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                 : "bg-amber-500/10 border-amber-500/30 text-amber-300"
@@ -565,6 +566,7 @@ export function WelcomeRightPane(props: Props) {
         <PersonalGuideChip personaId={personaId} />
         <PersonaQubeBadge using={usingIqubes} theme={theme} />
         <StageProgressionChip evaluation={stageEval ?? null} />
+        <VenturePositionChip personaId={personaId} />
         <RequestAccessChip
           recommendedCartridgeSlug={recommendedAccessCartridgeSlug}
           recommendedCartridgeLabel={recommendedAccessCartridgeLabel}
