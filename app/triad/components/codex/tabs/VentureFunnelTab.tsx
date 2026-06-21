@@ -35,6 +35,24 @@ interface CustomerMatrix {
   empty: boolean;
 }
 
+interface VentureGrowthPoint {
+  ventureId: string;
+  name: string;
+  stage: string;
+  yMaturity: number;
+  xCommercialization: number;
+  zone: string;
+}
+
+interface MatrixCalibration {
+  source: string;
+  growth: { yMaturity: number; xCommercialization: number; zone: string; label: string };
+  experience: { engagement: string; sovereignty: string };
+  ventures: VentureGrowthPoint[];
+  reason: string;
+  hasExperienceModel: boolean;
+}
+
 interface Props {
   isAdmin?: boolean;
 }
@@ -69,6 +87,7 @@ export function VentureFunnelTab({ isAdmin }: Props) {
   const [ventures, setVentures] = useState<ScorecardVenture[]>([]);
   const [matrix, setMatrix] = useState<CustomerMatrix | null>(null);
   const [scope, setScope] = useState<string>('platform');
+  const [calibration, setCalibration] = useState<MatrixCalibration | null>(null);
   const [loading, setLoading] = useState(true);
   const [matrixLoading, setMatrixLoading] = useState(false);
 
@@ -103,15 +122,39 @@ export function VentureFunnelTab({ isAdmin }: Props) {
     }
   }, []);
 
-  useEffect(() => { loadVentures(); }, [loadVentures]);
+  const loadCalibration = useCallback(async () => {
+    try {
+      const res = await personaFetch('/api/experience/matrix-calibration', { cache: 'no-store' });
+      const json = await res.json();
+      if (json.ok) setCalibration(json);
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
+  useEffect(() => { loadVentures(); loadCalibration(); }, [loadVentures, loadCalibration]);
   useEffect(() => { loadMatrix(scope); }, [scope, loadMatrix]);
 
-  // Index ventures by "x,y" for the growth-matrix grid.
+  // Index portfolio ventures by "x,y" for the growth-matrix grid.
   const ventureCell: Record<string, ScorecardVenture[]> = {};
   for (const v of ventures) {
     const key = `${v.x_commercialization},${v.y_maturity}`;
     (ventureCell[key] ??= []).push(v);
   }
+
+  // Index the active persona's OWN ventures (derived from the experience-guide
+  // SoT via /api/experience/matrix-calibration) so they plot automatically.
+  const personaVentureCell: Record<string, VentureGrowthPoint[]> = {};
+  for (const pv of calibration?.ventures ?? []) {
+    const key = `${pv.xCommercialization},${pv.yMaturity}`;
+    (personaVentureCell[key] ??= []).push(pv);
+  }
+  const growthHeadlineKey = calibration
+    ? `${calibration.growth.xCommercialization},${calibration.growth.yMaturity}`
+    : null;
+  const experienceCellKey = calibration
+    ? `${calibration.experience.engagement}:${calibration.experience.sovereignty}`
+    : null;
 
   const maxCustomerCell = matrix
     ? Math.max(1, ...Object.values(matrix.cells))
@@ -130,6 +173,17 @@ export function VentureFunnelTab({ isAdmin }: Props) {
           </p>
         </div>
       </div>
+
+      {/* Calibration from the experience-guide source of truth */}
+      {calibration && (
+        <div className="px-3 py-2 rounded-lg bg-amber-900/15 border border-amber-500/20 text-xs text-amber-200 flex items-center gap-4 flex-wrap">
+          <span className="flex items-center gap-1.5"><Grid3x3 className="w-3.5 h-3.5" /> Your position (from experience guide)</span>
+          <span>growth: <span className="font-mono">{calibration.growth.label}</span> · zone {calibration.growth.zone}</span>
+          <span>experience: {calibration.experience.engagement} × {calibration.experience.sovereignty}</span>
+          {calibration.ventures.length > 0 && <span>{calibration.ventures.length} venture{calibration.ventures.length === 1 ? '' : 's'} plotted</span>}
+          {!calibration.hasExperienceModel && <span className="text-amber-300/70">set up your experience model to calibrate</span>}
+        </div>
+      )}
 
       {/* ── Venture progress view (growth matrix) ─────────────────────────────── */}
       <section className="space-y-2">
@@ -157,15 +211,23 @@ export function VentureFunnelTab({ isAdmin }: Props) {
                 <React.Fragment key={y}>
                   <div className="text-[9px] text-slate-500 pr-2 flex items-center justify-end">{y}. {MATURITY[y - 1]}</div>
                   {[1, 2, 3, 4, 5, 6, 7].map((x) => {
-                    const occ = ventureCell[`${x},${y}`] ?? [];
+                    const cellKey = `${x},${y}`;
+                    const occ = ventureCell[cellKey] ?? [];
+                    const mine = personaVentureCell[cellKey] ?? [];
+                    const isHeadline = growthHeadlineKey === cellKey;
                     return (
                       <div
                         key={x}
-                        title={occ.map((v) => v.venture_name).join(', ')}
-                        className="h-9 m-0.5 rounded border border-white/[0.05] bg-slate-900/40 flex items-center justify-center gap-0.5 flex-wrap"
+                        title={[...occ.map((v) => v.venture_name), ...mine.map((v) => `${v.name} (yours)`)].join(', ')}
+                        className={`h-9 m-0.5 rounded border bg-slate-900/40 flex items-center justify-center gap-0.5 flex-wrap ${
+                          isHeadline ? 'border-amber-400/70 ring-1 ring-amber-400/40' : 'border-white/[0.05]'
+                        }`}
                       >
-                        {occ.slice(0, 4).map((v) => (
+                        {occ.slice(0, 3).map((v) => (
                           <span key={v.id} className={`w-2 h-2 rounded-full ${ZONE_DOT[v.zone] ?? 'bg-slate-500'}`} />
+                        ))}
+                        {mine.slice(0, 3).map((v) => (
+                          <span key={v.ventureId} title={`${v.name} (yours)`} className="w-2 h-2 rounded-sm bg-amber-400 ring-1 ring-amber-200/50" />
                         ))}
                       </div>
                     );
@@ -224,13 +286,18 @@ export function VentureFunnelTab({ isAdmin }: Props) {
                 <React.Fragment key={yLvl}>
                   <div className="text-[9px] text-slate-500 pr-2 flex items-center justify-end">{yLvl}</div>
                   {matrix.sovereigntyStages.map((x) => {
-                    const count = matrix.cells[`${yLvl}:${x}`] ?? 0;
+                    const key = `${yLvl}:${x}`;
+                    const count = matrix.cells[key] ?? 0;
+                    const isMine = experienceCellKey === key;
                     return (
                       <div
                         key={x}
-                        className={`h-8 m-0.5 rounded border border-white/[0.05] flex items-center justify-center text-[10px] font-mono ${heat(count, maxCustomerCell)}`}
+                        title={isMine ? 'Your derived position' : undefined}
+                        className={`h-8 m-0.5 rounded border flex items-center justify-center text-[10px] font-mono ${heat(count, maxCustomerCell)} ${
+                          isMine ? 'border-amber-400/70 ring-1 ring-amber-400/40' : 'border-white/[0.05]'
+                        }`}
                       >
-                        {count > 0 ? count : ''}
+                        {count > 0 ? count : isMine ? '◆' : ''}
                       </div>
                     );
                   })}
