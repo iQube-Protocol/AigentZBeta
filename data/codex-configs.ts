@@ -1470,6 +1470,22 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
     {
+      // VL Admin — first-class menu item grouping the admin-only Venture Lab
+      // tabs (α Programme, AgentiQ OS α, α Docs). Lazy getter: VENTURE_LAB_CODEX
+      // + the mirror helper are declared later in this module.
+      id: 'aiq-vl-admin',
+      label: 'VL Admin',
+      slug: 'vl-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'projects',
+      order: 3,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Venture Lab admin — α Programme, AgentiQ OS α, α Docs.', color: 'amber' },
+      get subTabs() { return ventureLabAdminTabsForMetameVl(); },
+    },
+    {
       id: 'alpha-program',
       label: 'AgentiQ α',
       slug: 'alpha-program',
@@ -2366,7 +2382,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Founder Office',
       slug: 'founder-office',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 0,
       type: 'static',
       config: {
@@ -2384,7 +2400,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Commercial Funnel',
       slug: 'commercial-funnel',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 1,
       type: 'static',
       config: {
@@ -2438,7 +2454,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Relationship Builder',
       slug: 'relationship-builder',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 3,
       type: 'static',
       config: {
@@ -2474,7 +2490,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Growth Matrix',
       slug: 'growth-matrix',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 5,
       type: 'static',
       config: {
@@ -2492,7 +2508,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Portfolio',
       slug: 'portfolio',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 6,
       type: 'static',
       config: {
@@ -2557,16 +2573,14 @@ const knytOrderTabs = () =>
 // automatically. The per-cartridge admin gate stays — it's set on the
 // order-admin tab inside KNYT, not in the metaMe mirror.)
 
-// Mirror ALL Venture Lab cartridge tabs into metaMe's "Venture Lab" (vl) group
-// so the metaMe-native Venture Lab surface renders every first-class VL tab
-// (Founder Office, Commercial Funnel, α Programme, AgentiQ OS α, Relationship
-// Builder, α Docs, Growth Matrix, Portfolio) — not just a hand-picked few. It's
-// a deep-mirror, so all the Venture Lab intelligence is native here. adminOnly /
-// adminOfCartridge flags are preserved so admin gating travels with each tab.
-// Same mirror pattern as aiqOsTabsByGroup / knytOrderTabs.
+// Mirror the OPERATOR-facing Venture Lab cartridge tabs into metaMe's "Venture
+// Lab" (vl) group as first-class items (Founder Office, Commercial Funnel,
+// Relationship Builder, Growth Matrix, Portfolio — anything not adminOnly).
+// Admin-only VL tabs are grouped separately under the VL Admin item via
+// ventureLabAdminTabsForMetameVl(). Same mirror pattern as aiqOsTabsByGroup.
 const ventureLabTabsForMetameVl = () =>
   VENTURE_LAB_CODEX.tabs
-    .filter((t) => t.enabled)
+    .filter((t) => t.enabled && !t.adminOnly)
     .sort((a, b) => a.order - b.order)
     .map((t, i) => ({
       ...t,
@@ -2637,24 +2651,21 @@ const agentiqOsAdminTabsForMetameAgentiqos = () =>
 // placeholder "VL Admin" entry for now. When VL grows a proper
 // adminOnly tabGroup like KNYT's, swap this stub for the same clone
 // pattern used above.
-const ventureLabAdminTabsForMetameVl = () => [
-  {
-    id: 'metame-vl-admin-placeholder',
-    label: 'Venture Lab Admin',
-    slug: 'vl-admin-placeholder',
-    enabled: true,
-    adminOfCartridge: 'venture-lab',
-    group: 'vl',
-    order: 0,
-    type: 'static' as const,
-    config: { component: 'TabRendererFallback', props: {} },
-    metadata: {
-      icon: 'Settings',
-      description: 'Placeholder Venture Lab admin surface — full admin tabs to be wired when the VL cartridge ships its adminOnly tabGroup.',
-      color: 'amber',
-    },
-  },
-];
+// Mirror the ADMIN-only Venture Lab cartridge tabs (α Programme, AgentiQ OS α,
+// α Docs) as sub-items grouped under the "VL Admin" surface — used both by
+// metaMe's VL group and the AgentiQ cartridge's VL Admin tab. adminOnly is
+// preserved so the gating travels with each tab.
+const ventureLabAdminTabsForMetameVl = () =>
+  VENTURE_LAB_CODEX.tabs
+    .filter((t) => t.enabled && t.adminOnly)
+    .sort((a, b) => a.order - b.order)
+    .map((t, i) => ({
+      ...t,
+      id: `vl-admin-${t.id}`,
+      slug: `vl-admin-${t.slug}`,
+      group: 'vl',
+      order: i,
+    }));
 
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
