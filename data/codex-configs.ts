@@ -4257,12 +4257,26 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Globe', description: 'The second institution — sovereign signals into collective intelligence', color: 'violet' },
     },
     {
+      id: 'polity-core-founder-office',
+      label: 'Founder Office Charter',
+      slug: 'founder-office-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_founder_office_charter', defaultPath: 'items/FOUNDER_OFFICE_CHARTER.md' },
+      },
+      metadata: { icon: 'Rocket', description: 'Sub-metaCommons artefact — capability discovery, opportunity intelligence, venture formation', color: 'violet' },
+    },
+    {
       id: 'polity-core-standing',
       label: 'Standing Framework',
       slug: 'standing-framework',
       enabled: true,
       group: 'frameworks',
-      order: 4,
+      order: 5,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -4276,7 +4290,7 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
       slug: 'governance-framework',
       enabled: true,
       group: 'frameworks',
-      order: 5,
+      order: 6,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',

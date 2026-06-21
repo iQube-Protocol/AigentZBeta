@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-17_founder-office-charter.md",
         "updates/2026-06-17_standing-and-metacommons-charters.md",
         "updates/2026-06-17_polity-paper-series-ingest-backlog.md",
         "updates/2026-06-17_deferred-mint-processor-and-chain-dispatch.md",

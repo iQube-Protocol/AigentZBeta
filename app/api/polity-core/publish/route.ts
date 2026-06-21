@@ -20,6 +20,7 @@ import {
   getDelegationFramework,
   getStandingCharter,
   getMetacommonsCharter,
+  getFounderOfficeCharter,
   getAutodriveImmutability,
   CURRENT_CONSTITUTIONAL_VERSIONS,
 } from '@/services/polity/constitution';
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
       { label: 'delegation-framework', version: CURRENT_CONSTITUTIONAL_VERSIONS.delegationFrameworkVersion, body: getDelegationFramework() },
       { label: 'standing-charter', version: getStandingCharter().version, body: getStandingCharter() },
       { label: 'metacommons-charter', version: getMetacommonsCharter().version, body: getMetacommonsCharter() },
+      { label: 'founder-office-charter', version: getFounderOfficeCharter().version, body: getFounderOfficeCharter() },
     ];
 
     const { createAutoDriveApi } = await import('@autonomys/auto-drive');

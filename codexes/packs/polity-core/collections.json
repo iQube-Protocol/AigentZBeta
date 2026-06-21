@@ -61,6 +61,18 @@
       ]
     },
     {
+      "id": "col_founder_office_charter",
+      "title": "Founder Office Charter",
+      "description": "Sub-metaCommons artefact — capability discovery, opportunity intelligence, and venture formation.",
+      "type": "static",
+      "order": 5,
+      "enabled": true,
+      "metadata": { "icon": "Rocket", "category": "main" },
+      "items": [
+        "items/FOUNDER_OFFICE_CHARTER.md"
+      ]
+    },
+    {
       "id": "col_standing_framework",
       "title": "Standing Framework",
       "description": "Operational companion to the Standing Charter — how Standing operates today.",

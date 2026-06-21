@@ -21,6 +21,7 @@ import agentCharterV1 from './frameworks/agent-charter.v1.json';
 import delegationFrameworkV1 from './frameworks/delegation-framework.v1.json';
 import standingCharterV1 from './frameworks/standing-charter.v1.json';
 import metacommonsCharterV1 from './frameworks/metacommons-charter.v1.json';
+import founderOfficeCharterV1 from './frameworks/founder-office-charter.v1.json';
 import autodriveCids from './frameworks/autodrive-cids.json';
 
 export type RevocationState =
@@ -59,6 +60,14 @@ export function getStandingCharter() {
 export function getMetacommonsCharter() {
   return metacommonsCharterV1;
 }
+/**
+ * The Founder Office Charter — a sub-metaCommons constitutional artefact. It is
+ * not part of the Agent Passport binding triple (constitution + agent-charter +
+ * delegation); it is downstream of the metaCommons and calibrated by Standing.
+ */
+export function getFounderOfficeCharter() {
+  return founderOfficeCharterV1;
+}
 
 /**
  * Autodrive (Autonomys) CID records proving content-addressed immutability of
@@ -77,6 +86,7 @@ export function getConstitutionalFramework() {
     delegationFramework: delegationFrameworkV1,
     standingCharter: standingCharterV1,
     metacommonsCharter: metacommonsCharterV1,
+    founderOfficeCharter: founderOfficeCharterV1,
     autodrive: autodriveCids,
   };
 }

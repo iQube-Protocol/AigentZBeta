@@ -14,6 +14,7 @@ remain readable for audit; agents must bind to the current approved versions.
 | 2026-06-17 | Standing Charter | 1.0.0 | Initial ratification — Standing = confidence in veracity of declarations (not reputation/status); citizen obligation is veracity, Polity obligation is interpretation; held by citizens, aigents, organizations, institutions; participant agents hold Standing but not citizenship/inalienable rights. |
 | 2026-06-17 | metaCommons Charter | 1.0.0 | Initial ratification — the second institution; transforms sovereign signals into collective intelligence; the Commons is a field; aggregates Proof of Work Potential; learns through Proof of Time Saved. |
 | 2026-06-17 | Standing Framework | 1.0.1 | Corrected — participant agents DO hold Standing (participatory, revocable rights), not citizenship; reframed as operational companion to the Standing Charter. |
+| 2026-06-17 | Founder Office Charter | 1.0.0 | Initial ratification — sub-metaCommons constitutional artefact; capability discovery + opportunity intelligence + venture formation; primary institutional interface between founders and the metaCommons; consumes Commons signals (intent/demand/capability/opportunity/standing + PoWP); Standing calibrates confidence, does not gate opportunity; purpose is venture formation, not extraction. Downstream of the metaCommons Charter; calibrated by the Standing Charter; NOT part of the Agent Passport binding triple. |
 
 ## Immutability
 
