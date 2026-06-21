@@ -10,6 +10,7 @@ import {
   getPersonaPlan,
   PLAN_LABEL,
   VENTURE_TIER_LABEL,
+  STANDING_TIER_LABEL,
 } from '@/services/billing/personaPlan';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,7 @@ export async function GET(req: NextRequest) {
       marketaAccess: true,
       studioAccess: true,
       hmsAccess: true,
+      professionalStanding: true,
       ventureLimit: 9999,
     };
   }
@@ -41,5 +43,6 @@ export async function GET(req: NextRequest) {
     ...plan,
     planLabel: PLAN_LABEL[plan.planTier],
     ventureTierLabel: VENTURE_TIER_LABEL[plan.ventureTier],
+    standingTierLabel: STANDING_TIER_LABEL[plan.standingTier],
   });
 }

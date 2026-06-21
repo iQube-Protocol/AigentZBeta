@@ -23,10 +23,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type AgencyPlanTier = 'citizen' | 'citizen_plus' | 'sovereign_citizen' | 'first_citizen';
 export type VentureTier = 'none' | 'lite' | 'pro' | 'elite';
+export type StandingTier = 'standing' | 'professional';
 
 export interface PersonaPlan {
   planTier: AgencyPlanTier;
   ventureTier: VentureTier;
+  standingTier: StandingTier;
   status: 'active' | 'past_due' | 'cancelled';
   /** True when the plan unlocks the Venture Lab cartridge (any paid venture tier). */
   ventureLabAccess: boolean;
@@ -36,6 +38,9 @@ export interface PersonaPlan {
   studioAccess: boolean;
   /** True when the plan unlocks Human Mobility Services (any paid venture tier). */
   hmsAccess: boolean;
+  /** True when Tier 3 Professional Standing is unlocked (subscription OR bundled
+   *  with Founder Office Pro/Elite). */
+  professionalStanding: boolean;
   /** Max active VentureQubes this plan may own (none=0, lite=1, pro=3, elite=unlimited). */
   ventureLimit: number;
 }
@@ -43,11 +48,13 @@ export interface PersonaPlan {
 const FREE_PLAN: PersonaPlan = {
   planTier: 'citizen',
   ventureTier: 'none',
+  standingTier: 'standing',
   status: 'active',
   ventureLabAccess: false,
   marketaAccess: false,
   studioAccess: false,
   hmsAccess: false,
+  professionalStanding: false,
   ventureLimit: 0,
 };
 
@@ -65,6 +72,11 @@ export const VENTURE_TIER_LABEL: Record<VentureTier, string> = {
   elite: 'Venture Lab Elite',
 };
 
+export const STANDING_TIER_LABEL: Record<StandingTier, string> = {
+  standing: 'Standing (free)',
+  professional: 'Professional Standing',
+};
+
 const VENTURE_LIMIT: Record<VentureTier, number> = {
   none: 0,
   lite: 1,
@@ -72,17 +84,28 @@ const VENTURE_LIMIT: Record<VentureTier, number> = {
   elite: 9999,
 };
 
-function resolve(row: { plan_tier?: string; venture_tier?: string; status?: string }): PersonaPlan {
+function resolve(row: {
+  plan_tier?: string;
+  venture_tier?: string;
+  standing_tier?: string;
+  status?: string;
+}): PersonaPlan {
   const ventureTier = (row.venture_tier as VentureTier) ?? 'none';
+  const standingTier = (row.standing_tier as StandingTier) ?? 'standing';
   const paid = ventureTier !== 'none';
+  // Professional Standing: own subscription OR bundled with Founder Office Pro/Elite.
+  const professionalStanding =
+    standingTier === 'professional' || ventureTier === 'pro' || ventureTier === 'elite';
   return {
     planTier: (row.plan_tier as AgencyPlanTier) ?? 'citizen',
     ventureTier,
+    standingTier,
     status: (row.status as PersonaPlan['status']) ?? 'active',
     ventureLabAccess: paid,
     marketaAccess: paid,
     studioAccess: paid,
     hmsAccess: paid,
+    professionalStanding,
     ventureLimit: VENTURE_LIMIT[ventureTier] ?? 0,
   };
 }
@@ -94,7 +117,7 @@ export async function getPersonaPlan(
   try {
     const { data, error } = await admin
       .from('persona_plans')
-      .select('plan_tier, venture_tier, status')
+      .select('plan_tier, venture_tier, standing_tier, status')
       .eq('persona_id', personaId)
       .maybeSingle();
     if (error || !data) return { ...FREE_PLAN };
