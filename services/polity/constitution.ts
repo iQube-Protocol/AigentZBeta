@@ -19,6 +19,8 @@
 import constitutionV1 from './frameworks/constitution.v1.json';
 import agentCharterV1 from './frameworks/agent-charter.v1.json';
 import delegationFrameworkV1 from './frameworks/delegation-framework.v1.json';
+import standingCharterV1 from './frameworks/standing-charter.v1.json';
+import metacommonsCharterV1 from './frameworks/metacommons-charter.v1.json';
 import autodriveCids from './frameworks/autodrive-cids.json';
 
 export type RevocationState =
@@ -51,6 +53,12 @@ export function getAgentCharter() {
 export function getDelegationFramework() {
   return delegationFrameworkV1;
 }
+export function getStandingCharter() {
+  return standingCharterV1;
+}
+export function getMetacommonsCharter() {
+  return metacommonsCharterV1;
+}
 
 /**
  * Autodrive (Autonomys) CID records proving content-addressed immutability of
@@ -67,6 +75,8 @@ export function getConstitutionalFramework() {
     constitution: constitutionV1,
     agentCharter: agentCharterV1,
     delegationFramework: delegationFrameworkV1,
+    standingCharter: standingCharterV1,
+    metacommonsCharter: metacommonsCharterV1,
     autodrive: autodriveCids,
   };
 }

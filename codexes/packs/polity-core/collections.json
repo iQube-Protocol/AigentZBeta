@@ -37,9 +37,33 @@
       ]
     },
     {
+      "id": "col_standing_charter",
+      "title": "Standing Charter",
+      "description": "The Standing Charter — Standing as confidence in the veracity of declarations.",
+      "type": "static",
+      "order": 3,
+      "enabled": true,
+      "metadata": { "icon": "Award", "category": "main" },
+      "items": [
+        "items/STANDING_CHARTER.md"
+      ]
+    },
+    {
+      "id": "col_metacommons_charter",
+      "title": "metaCommons Charter",
+      "description": "The metaCommons Charter — the second institution; sovereign signals into collective intelligence.",
+      "type": "static",
+      "order": 4,
+      "enabled": true,
+      "metadata": { "icon": "Globe", "category": "main" },
+      "items": [
+        "items/METACOMMONS_CHARTER.md"
+      ]
+    },
+    {
       "id": "col_standing_framework",
       "title": "Standing Framework",
-      "description": "Standing belongs to sovereign citizens; agents hold none of their own.",
+      "description": "Operational companion to the Standing Charter — how Standing operates today.",
       "type": "static",
       "order": 3,
       "enabled": true,
