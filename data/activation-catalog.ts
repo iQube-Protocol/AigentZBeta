@@ -81,7 +81,7 @@ export interface ActivationCatalogEntry {
   longDescription: string;
   gate: ActivationGate;
   tabSlug: string;
-  sourceCartridge: ActiveCartridgeSlug | 'metame' | 'polity-passport-bureau' | 'standing-cartridge' | 'human-mobility-services';
+  sourceCartridge: ActiveCartridgeSlug | 'metame' | 'polity-passport-bureau' | 'standing-cartridge' | 'human-mobility-services' | 'polity-core';
   icon?: string;
   color?: string;
   /** KPI metrics this activation exposes. Empty / undefined = none. */
@@ -338,6 +338,37 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
       { action: 'compile-vsp', label: 'Compile Verified Standing Profile', rationale: 'Lock approved facts into a portable VSP anchored to your Polity Passport.', specialist: 'aigent-z', approvalRequired: true },
       { action: 'generate-output', label: 'Generate professional output', rationale: 'Derive a biography, CV, or capability assessment from your compiled VSP.', specialist: 'aigent-z' },
     ],
+  },
+  {
+    id: 'human-mobility-services',
+    label: 'Human Mobility Services',
+    description: 'Mobility cases — business + emergency relocation, housing, education, and family support.',
+    longDescription:
+      'Activate the Human Mobility Services (HMS) surfaces — business mobility (executive relocation, global talent movement) and emergency mobility (crisis relocation, family relocation, vulnerable-citizen support), with housing, education, relocation, economic, and case-management workflows. A premium Founder/Operator service powered by your Standing and Polity Passport.',
+    gate: 'gated',
+    tabSlug: 'hms',
+    sourceCartridge: 'human-mobility-services',
+    icon: 'Plane',
+    color: 'cyan',
+    metrics: [
+      { metric: 'cases_opened', class: 'activity', label: 'Mobility cases opened', defaultUnit: 'cases', query: { kind: 'receipts', eventType: 'hms.case.opened' } },
+      { metric: 'cases_resolved', class: 'outcome', label: 'Cases resolved', defaultUnit: 'cases', query: { kind: 'receipts', eventType: 'hms.case.resolved' } },
+    ],
+    actions: [
+      { action: 'open-mobility-case', label: 'Open a mobility case', rationale: 'Start a business or emergency mobility case with HMS.', specialist: 'aigent-z' },
+    ],
+  },
+  {
+    id: 'polity-core',
+    label: 'Polity Core',
+    description: 'The constitutional repository — Constitution, charters, frameworks, and amendment records.',
+    longDescription:
+      'Open access to Polity Core — the authoritative, machine- and human-readable source of constitutional legitimacy: the Polity Constitution, the Agent / Standing / metaCommons / Founder Office charters, the delegation + governance frameworks, the VentureQube spec, and the append-only Amendment Records. Free for every citizen.',
+    gate: 'open',
+    tabSlug: 'polity-core',
+    sourceCartridge: 'polity-core',
+    icon: 'Landmark',
+    color: 'violet',
   },
 ];
 

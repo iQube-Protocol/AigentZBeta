@@ -2691,6 +2691,8 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
+    { id: 'hms',          label: 'Human Mobility',   icon: 'Plane',      order: 3.5, activationId: 'human-mobility-services' },
+    { id: 'polity-core',  label: 'Polity Core',      icon: 'Landmark',   order: 0.55, activationId: 'polity-core' },
     { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
     { id: 'passport',     label: 'Passport',          icon: 'ShieldCheck',order: -0.5 },
     { id: 'standing',     label: 'Standing',         icon: 'Star',       order: 4.6, activationId: 'standing-cartridge' },
@@ -2975,6 +2977,94 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'TabRendererFallback', props: {} },
       metadata: { icon: 'Settings', description: 'Venture Lab admin surface — stubbed until VL ships its own adminOnly tabGroup. Visible only when the active persona admins the Venture Lab cartridge.', color: 'amber' },
       subTabs: ventureLabAdminTabsForMetameVl(),
+    },
+
+    // ── Human Mobility group (payment-gated via activationId) ────────────────
+    // Flat tabs, each a real registered component (the proven pattern — no
+    // parent/ghost-subtab nesting). Group activationId gates access.
+    {
+      id: 'hms-services', label: 'Mobility Services', slug: 'hms', enabled: true, group: 'hms', order: 0,
+      type: 'static', config: { component: 'HumanMobilityServicesTab', props: {} },
+      metadata: { icon: 'Plane', description: 'Human Mobility Services — business + emergency mobility', color: 'cyan' },
+    },
+    {
+      id: 'hms-doctrine', label: 'Doctrine', slug: 'hms-doctrine', enabled: true, group: 'hms', order: 1,
+      type: 'static', config: { component: 'MobilityDoctrineTab', props: {} },
+      metadata: { icon: 'BookOpen', description: 'Mobility doctrine', color: 'cyan' },
+    },
+    {
+      id: 'hms-activations', label: 'Activations', slug: 'hms-activations', enabled: true, group: 'hms', order: 2,
+      type: 'static', config: { component: 'MobilityActivationsTab', props: {} },
+      metadata: { icon: 'Zap', description: 'Mobility activations', color: 'cyan' },
+    },
+    {
+      id: 'hms-housing', label: 'Housing', slug: 'hms-housing', enabled: true, group: 'hms', order: 3,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'housing' } },
+      metadata: { icon: 'Home', description: 'Housing workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-education', label: 'Education', slug: 'hms-education', enabled: true, group: 'hms', order: 4,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'education' } },
+      metadata: { icon: 'GraduationCap', description: 'Education workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-relocation', label: 'Relocation', slug: 'hms-relocation', enabled: true, group: 'hms', order: 5,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'relocation' } },
+      metadata: { icon: 'Map', description: 'Relocation workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-business', label: 'Business', slug: 'hms-business', enabled: true, group: 'hms', order: 6,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'business' } },
+      metadata: { icon: 'Briefcase', description: 'Business mobility workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-economic', label: 'Emergency', slug: 'hms-economic', enabled: true, group: 'hms', order: 7,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'economic' } },
+      metadata: { icon: 'LifeBuoy', description: 'Emergency / economic mobility workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-family', label: 'Family', slug: 'hms-family', enabled: true, group: 'hms', order: 8,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'family' } },
+      metadata: { icon: 'Users', description: 'Family mobility workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-case-management', label: 'Case Management', slug: 'hms-case-management', enabled: true, group: 'hms', order: 9,
+      type: 'static', config: { component: 'MobilityCaseManagementTab', props: {} },
+      metadata: { icon: 'ClipboardList', description: 'Mobility case management', color: 'cyan' },
+    },
+
+    // ── Polity Core group (FREE — open activation) ───────────────────────────
+    // Flat AgentiqCartridgeTab tabs per collection (real component, each with
+    // its own doc sidebar). No ghost tabs.
+    {
+      id: 'pc-constitution', label: 'Constitution', slug: 'polity-core', enabled: true, group: 'polity-core', order: 0,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_constitution', defaultPath: 'items/CONSTITUTION.md' } },
+      metadata: { icon: 'Landmark', description: 'The Polity Constitution', color: 'violet' },
+    },
+    {
+      id: 'pc-agent-charter', label: 'Agent Charter', slug: 'pc-agent-charter', enabled: true, group: 'polity-core', order: 1,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_agent_charter', defaultPath: 'items/AGENT_CHARTER.md' } },
+      metadata: { icon: 'Bot', description: 'Autonomous Agent Charter', color: 'violet' },
+    },
+    {
+      id: 'pc-standing-charter', label: 'Standing Charter', slug: 'pc-standing-charter', enabled: true, group: 'polity-core', order: 2,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_standing_charter', defaultPath: 'items/STANDING_CHARTER.md' } },
+      metadata: { icon: 'Award', description: 'The Standing Charter', color: 'violet' },
+    },
+    {
+      id: 'pc-metacommons-charter', label: 'metaCommons Charter', slug: 'pc-metacommons-charter', enabled: true, group: 'polity-core', order: 3,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_metacommons_charter', defaultPath: 'items/METACOMMONS_CHARTER.md' } },
+      metadata: { icon: 'Globe', description: 'The metaCommons Charter', color: 'violet' },
+    },
+    {
+      id: 'pc-founder-office-charter', label: 'Founder Office Charter', slug: 'pc-founder-office-charter', enabled: true, group: 'polity-core', order: 4,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_founder_office_charter', defaultPath: 'items/FOUNDER_OFFICE_CHARTER.md' } },
+      metadata: { icon: 'Rocket', description: 'Founder Office Charter (sub-metaCommons)', color: 'violet' },
+    },
+    {
+      id: 'pc-amendments', label: 'Amendment Records', slug: 'pc-amendments', enabled: true, group: 'polity-core', order: 5,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_amendment_records', defaultPath: 'items/AMENDMENT_RECORDS.md' } },
+      metadata: { icon: 'FileText', description: 'Amendment Records', color: 'violet' },
     },
 
     // ── Marketa group (admin-gated; Partner sub-tabs) ────────────────────────
