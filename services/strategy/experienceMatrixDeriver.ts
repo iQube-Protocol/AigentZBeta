@@ -66,6 +66,8 @@ export interface VentureGrowthPoint {
   xCommercialization: number;
   zone: string;
   confidence: number | null;
+  /** True when synthesised from the experience model (no formal VentureQube). */
+  derived?: boolean;
 }
 
 export interface PersonaMatrixCalibration {
@@ -95,17 +97,21 @@ export async function deriveMatrixCalibration(
   let currentStage = '';
   let hasExperienceModel = false;
   let avgMaturityOrdinal = 0;
+  let experienceName = '';
+  let experienceType = '';
 
   // 1. Experience model + personalGuide (the SoT).
   try {
     const { data } = await admin
       .from('experience_qubes')
-      .select('current_stage, blak_qube')
+      .select('current_stage, experience_name, experience_type, blak_qube')
       .eq('persona_id', personaId)
       .maybeSingle();
     if (data) {
       hasExperienceModel = true;
       currentStage = String(data.current_stage ?? '');
+      experienceName = String((data as { experience_name?: string }).experience_name ?? '');
+      experienceType = String((data as { experience_type?: string }).experience_type ?? '');
       const guide = (data.blak_qube as { personalGuide?: { sphereMaturity?: Record<string, string> } } | null)
         ?.personalGuide;
       const sphereMaturity = guide?.sphereMaturity ?? {};
@@ -150,6 +156,26 @@ export async function deriveMatrixCalibration(
     /* venture_qubes unavailable */
   }
 
+  // 2b. Pass-through: if the persona has configured an experience model but no
+  //     formal VentureQube yet, synthesise a venture point FROM the experience
+  //     model so it still plots in the Venture Lab + Studio matrices. This is
+  //     the "experience model flows into the matrices" wiring for the Lite path
+  //     (before a VentureQube Pro exists).
+  if (ventures.length === 0 && hasExperienceModel) {
+    const y = (currentStage && EXPERIENCE_STAGE_TO_GROWTH_Y[currentStage]) || 1;
+    const x = clamp(y - 1, 1, 7);
+    ventures.push({
+      ventureId: 'experience-model',
+      name: experienceName || (experienceType ? `${experienceType} (experience model)` : 'Your venture'),
+      stage: currentStage || 'setup',
+      yMaturity: y,
+      xCommercialization: x,
+      zone: computeZone(y, x),
+      confidence: null,
+      derived: true,
+    });
+  }
+
   // 3. Headline growth position — prefer the most-advanced VentureQube, else the
   //    experience model stage, else a default Ideation/Pre-Market.
   let growthY: number;
@@ -163,8 +189,10 @@ export async function deriveMatrixCalibration(
     )[0];
     growthY = lead.yMaturity;
     growthX = lead.xCommercialization;
-    source = 'venture_qube';
-    reason = `Derived from lead VentureQube "${lead.name}" (stage ${lead.stage}).`;
+    source = lead.derived ? 'experience_model' : 'venture_qube';
+    reason = lead.derived
+      ? `Derived from experience model "${lead.name}" (stage ${lead.stage}) — no VentureQube yet.`
+      : `Derived from lead VentureQube "${lead.name}" (stage ${lead.stage}).`;
   } else if (hasExperienceModel && currentStage) {
     growthY = EXPERIENCE_STAGE_TO_GROWTH_Y[currentStage] ?? 1;
     growthX = clamp(growthY - 1, 1, 7); // commercialization trails maturity pre-venture
