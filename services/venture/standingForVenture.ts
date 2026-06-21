@@ -19,6 +19,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { computeStandingScore, type StandingScoreBreakdown } from '@/services/standing/standingScore';
 
 export interface StandingSnapshot {
   personal: number;
@@ -52,6 +53,8 @@ export interface StandingForVenture {
   reputation: ReputationSnapshot | null;
   /** Verified declarations grouped by domain (identity, capability, etc.). */
   factsByDomain: Record<string, VerifiedFact[]>;
+  /** Reconciled Standing score (veracity + contribution) — calibration input. */
+  score: StandingScoreBreakdown | null;
   /** True when ANY Standing signal was found (drives confidence calibration). */
   hasStandingSignal: boolean;
 }
@@ -69,8 +72,17 @@ export async function readStandingForVenture(
     standing: null,
     reputation: null,
     factsByDomain: {},
+    score: null,
     hasStandingSignal: false,
   };
+
+  // Reconciled Standing score (veracity-led) — the calibration signal.
+  try {
+    out.score = await computeStandingScore(admin, personaId);
+    if (out.score.score > 0) out.hasStandingSignal = true;
+  } catch {
+    /* score unavailable */
+  }
 
   // 1. Standing + reputation vector.
   try {

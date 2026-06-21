@@ -25,9 +25,13 @@ import type { StandingForVenture } from './standingForVenture';
 
 const clamp = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
 
-/** 0..1 multiplier from the Standing bucket (0..4). Floor 0.6 so no-Standing
- *  operators still get a real (uncalibrated) reading rather than zero. */
+/** 0..1 multiplier from the reconciled Standing score (0..100). Floor 0.6 so
+ *  no-Standing operators still get a real (uncalibrated) reading rather than
+ *  zero; full Standing lifts confidence to its ceiling. Falls back to the
+ *  bucket when the reconciled score is unavailable. */
 function standingMultiplier(standing: StandingForVenture): number {
+  const score = standing.score?.score;
+  if (typeof score === 'number') return 0.6 + (Math.max(0, Math.min(100, score)) / 100) * 0.4;
   const bucket = standing.standing?.bucket ?? 0;
   return 0.6 + (Math.max(0, Math.min(4, bucket)) / 4) * 0.4; // 0.6 → 1.0
 }
@@ -113,7 +117,15 @@ export function evaluateVentureSignals(
     capabilityConfidence * 0.5 + Math.min(30, standingOverall) + Math.min(20, lifetimeCvs / 5),
   );
 
-  const standingConfidence = clamp(standingOverall > 0 ? 40 + Math.min(60, standingOverall) : 0);
+  // Standing confidence — prefer the reconciled veracity-led score.
+  const standingScoreVal = standing.score?.score ?? 0;
+  const standingConfidence = clamp(
+    standingScoreVal > 0
+      ? standingScoreVal
+      : standingOverall > 0
+        ? 40 + Math.min(60, standingOverall)
+        : 0,
+  );
 
   // Venture confidence — the headline governance roll-up.
   const ventureConfidence = clamp(

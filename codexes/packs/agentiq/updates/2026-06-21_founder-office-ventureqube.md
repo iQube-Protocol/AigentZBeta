@@ -7,8 +7,11 @@
 ## What shipped
 
 The venture-formation operating system behind the metaMe commercial spine
-(`Passport → Standing → aigentMe → Founder Office → Venture Lab → Mobility →
-metaKnyt`). Founder Office turns an idea/opportunity into an executable
+(`Passport → aigentMe Delegation → Standing → Founder Office → Venture Lab →
+[verticals: Mobility (HMS), metaKnyt / metaMedia / metaLegal]`). aigentMe helps
+the citizen establish Standing; HMS and metaKnyt/metaMedia/metaLegal are Venture
+Lab venture-building verticals, not peer rails. Founder Office turns an
+idea/opportunity into an executable
 **Venture Blueprint** = **VentureQube v1.0**, the per-venture formation
 primitive.
 

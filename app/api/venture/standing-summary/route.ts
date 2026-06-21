@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     standing: summary.standing,
     reputation: summary.reputation,
+    score: summary.score,
     factCountsByDomain: factCounts,
     hasStandingSignal: summary.hasStandingSignal,
   });

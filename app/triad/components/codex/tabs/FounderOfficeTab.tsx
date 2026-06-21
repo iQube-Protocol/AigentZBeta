@@ -42,8 +42,25 @@ interface VentureRecord {
 interface StandingSummary {
   standing: { personal: number; delegated: number; stewardship: number; overall: number; bucket: number } | null;
   reputation: { overall: number; lifetimeCvs: number; entrepreneurial: number } | null;
+  score: { score: number; veracityScore: number; contributionScore: number; verifiedFactCount: number; hasCompiledVsp: boolean; qualified: boolean } | null;
   factCountsByDomain: Record<string, number>;
   hasStandingSignal: boolean;
+}
+
+interface SpineStage {
+  id: string;
+  label: string;
+  complete: boolean;
+  detail: string;
+  target: string;
+}
+
+interface SpineState {
+  stages: SpineStage[];
+  verticals: Array<{ id: string; label: string; active: boolean }>;
+  nextStep: { id: string; label: string; cta: string; target: string } | null;
+  standingScore: number;
+  ventureCount: number;
 }
 
 type SubView = 'workspace' | 'discover' | 'validate' | 'architect' | 'blueprint';
@@ -91,6 +108,7 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<VentureRecord | null>(null);
   const [standing, setStanding] = useState<StandingSummary | null>(null);
+  const [spine, setSpine] = useState<SpineState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -118,10 +136,21 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
     }
   }, []);
 
+  const loadSpine = useCallback(async () => {
+    try {
+      const res = await personaFetch('/api/journey/commercial-spine', { cache: 'no-store' });
+      const json = await res.json();
+      if (json.ok) setSpine(json);
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
   useEffect(() => {
     loadVentures();
     loadStanding();
-  }, [loadVentures, loadStanding]);
+    loadSpine();
+  }, [loadVentures, loadStanding, loadSpine]);
 
   const openBlueprint = useCallback(async (id: string) => {
     setError(null);
@@ -229,6 +258,9 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
         </div>
       )}
 
+      {/* Commercial spine progress */}
+      {spine && view !== 'blueprint' && <SpineStrip spine={spine} />}
+
       {/* Standing calibration banner */}
       {standing && view !== 'blueprint' && (
         <StandingBanner standing={standing} />
@@ -266,6 +298,43 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
   );
 }
 
+// ── Commercial spine strip ───────────────────────────────────────────────────
+function SpineStrip({ spine }: { spine: SpineState }) {
+  return (
+    <div className="p-3 rounded-xl bg-slate-900/50 border border-white/[0.06]">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {spine.stages.map((s, i) => (
+          <React.Fragment key={s.id}>
+            <div
+              title={s.detail}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] ${
+                s.complete
+                  ? 'bg-emerald-900/20 border-emerald-500/30 text-emerald-200'
+                  : spine.nextStep?.id === s.id
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-200'
+                    : 'bg-slate-800/40 border-white/[0.06] text-slate-500'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${s.complete ? 'bg-emerald-400' : spine.nextStep?.id === s.id ? 'bg-amber-400' : 'bg-slate-600'}`} />
+              {s.label}
+            </div>
+            {i < spine.stages.length - 1 && <span className="text-slate-600 text-[11px]">→</span>}
+          </React.Fragment>
+        ))}
+      </div>
+      {spine.nextStep && (
+        <p className="text-[11px] text-amber-300/80 mt-2">
+          Next step: <span className="font-medium">{spine.nextStep.cta}</span>
+          {' — '}
+          <span className="text-slate-400">
+            {spine.stages.find((s) => s.id === spine.nextStep?.id)?.detail}
+          </span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Standing banner ──────────────────────────────────────────────────────────
 function StandingBanner({ standing }: { standing: StandingSummary }) {
   if (!standing.hasStandingSignal) {
@@ -277,16 +346,17 @@ function StandingBanner({ standing }: { standing: StandingSummary }) {
       </div>
     );
   }
-  const s = standing.standing;
   const factTotal = Object.values(standing.factCountsByDomain).reduce((a, b) => a + b, 0);
+  const sc = standing.score;
   return (
     <div className="px-3 py-2 rounded-lg bg-emerald-900/15 border border-emerald-500/20 text-xs text-emerald-200 flex items-center gap-4 flex-wrap">
       <span className="flex items-center gap-1.5">
         <ShieldCheck className="w-3.5 h-3.5" /> Standing calibrating your ventures
       </span>
-      {s && <span>Overall {Math.round(s.overall)} · bucket {s.bucket}/4</span>}
+      {sc && <span className="font-mono">Score {Math.round(sc.score)}/100</span>}
+      {sc && <span>veracity {Math.round(sc.veracityScore)} · contribution {Math.round(sc.contributionScore)}</span>}
       <span>{factTotal} verified fact{factTotal === 1 ? '' : 's'}</span>
-      {standing.reputation && <span>Lifetime CVS {Math.round(standing.reputation.lifetimeCvs)}</span>}
+      {sc?.hasCompiledVsp && <span className="text-emerald-300">VSP anchored</span>}
     </div>
   );
 }
