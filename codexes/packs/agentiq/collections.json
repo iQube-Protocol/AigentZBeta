@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-17_deferred-mint-processor-and-chain-dispatch.md",
         "updates/2026-06-17_personaqube-registry-sot-trinity-multichain.md",
         "updates/2026-06-17_personaqube-base-mint-fallback.md",
         "updates/2026-06-17_aigentme-wallet-polish-registry-badge-rename-header.md",

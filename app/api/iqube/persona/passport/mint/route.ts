@@ -27,8 +27,9 @@ import { createCipheriv, createHash, randomBytes } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { mintPersonaToSui } from '@/services/persona/mintPersonaToSui';
-import { mintPersonaQubeToBase, derivePersonaTokenIdHex } from '@/services/chain/baseTokenMint';
+import { derivePersonaTokenIdHex } from '@/services/chain/baseTokenMint';
 import { DEFAULT_MINT_CHAIN, isChainLive, isMintChain, type MintChain } from '@/services/chain/mintChains';
+import { mintTokenQubeOnChain } from '@/services/chain/tokenQubeMintDispatch';
 import { enqueueDeferredMint } from '@/services/chain/deferredMint';
 import { registerPersonaIqube } from '@/services/persona/registerPersonaIqube';
 
@@ -118,15 +119,15 @@ export async function POST(req: NextRequest) {
     let effectiveMode = result.mode as string;
     let effectiveOnChain = result.onChain;
 
-    if (strategy === 'immediate' && targetChain === 'base' && isChainLive('base') && ownerAddress) {
-      const base = await mintPersonaQubeToBase({ personaId: persona.personaId, ownerAddress });
-      if (base.ok && base.tokenId) {
-        baseTokenId = base.tokenId;
-        baseTxHash = base.txHash ?? null;
-        effectiveMode = 'base';
+    if (strategy === 'immediate' && isChainLive(targetChain) && ownerAddress) {
+      const minted = await mintTokenQubeOnChain(targetChain, { personaId: persona.personaId, ownerAddress });
+      if (minted.ok && (minted.tokenId || minted.alreadyMinted)) {
+        baseTokenId = minted.tokenId ?? tokenCommitment;
+        baseTxHash = minted.txHash ?? null;
+        effectiveMode = targetChain;
         effectiveOnChain = true;
       } else {
-        // env unconfigured / skipped → defer for the batch mint process.
+        // env unconfigured / minter skipped → defer for the batch mint process.
         deferred = true;
         await enqueueDeferredMint({
           admin, iqubeId: null, personaId: persona.personaId, targetChain,
