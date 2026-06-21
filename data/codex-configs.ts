@@ -2380,12 +2380,30 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'commercial-funnel',
+      label: 'Commercial Funnel',
+      slug: 'commercial-funnel',
+      enabled: true,
+      adminOnly: true,
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'VentureFunnelTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Grid3x3',
+        description: 'Matrix funnel — venture progress (maturity × commercialization) consolidated with customer progress (engagement × sovereignty journey)',
+        color: 'amber'
+      }
+    },
+    {
       id: 'alpha-programme',
       label: 'α Programme',
       slug: 'alpha-programme',
       enabled: true,
       adminOnly: true,
-      order: 1,
+      order: 2,
       type: 'static',
       config: {
         component: 'AlphaProgrammeTab',
