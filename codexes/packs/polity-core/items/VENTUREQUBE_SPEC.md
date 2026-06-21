@@ -16,11 +16,14 @@
   registry SoT with `primitive_type='ClusterQube'`).
 - **Canonical name:** VentureQube.
 - **Schema version:** `venture-iqube/v1.0`.
-- **Relationship to v0.4:** v0.1→v0.4 is the operator-centric portfolio wrapper
-  integrated with the aigentMe experience-model onboarding (one operator → one
-  or many ventures; idea incubation). v1.0 is the **per-venture formation
-  primitive** a wrapper venture graduates into for venture blueprinting. The two
-  coexist; v1.0 never replaces v0.4.
+- **Product tiers:** **VentureQube Lite** = the v0.1→v0.4 operator wrapper — the
+  standard / free path integrated with the aigentMe experience-model onboarding
+  (single-venture idea incubation; position derived in the Lite experience-guide
+  flow). **VentureQube Pro** = the v1.0 per-venture formation primitive — the
+  premium path (Step 4 gating): multi-venture/portfolio, advanced Pro
+  experience-guide intake fed by Standing declarations, Venture Lab Pro surfaces,
+  and multiple metaMe venture views in the Studio. The two coexist; Pro never
+  replaces Lite — a Lite venture graduates into a Pro VentureQube.
 
 ## First Principle
 

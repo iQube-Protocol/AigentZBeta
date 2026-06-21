@@ -316,7 +316,35 @@ export interface VentureQube {
 export type VentureQubeV04 = VentureQube & { schemaVersion: "venture-iqube/v0.4" };
 
 // ───────────────────────────────────────────────────────────────────────────
-// VentureQube v1.0 — the canonical 13-layer venture-formation primitive.
+// Product tiers (the operator-facing names for the two VentureQube schemas).
+//
+//   VentureQube Lite = the v0.1–v0.4 operator wrapper. The STANDARD / FREE path,
+//     wired into the aigentMe experience-model onboarding (single-venture idea
+//     incubation; position derived in the Lite experience-guide flow).
+//   VentureQube Pro  = the v1.0 per-venture formation primitive. The PREMIUM
+//     path (Step 4 gating): multi-venture/portfolio, advanced Pro experience-
+//     guide intake fed by Standing declarations, Venture Lab Pro surfaces, and
+//     multiple metaMe venture views in the Studio.
+//
+// The `venture-iqube/vX` schema versions remain the canonical protocol IDs;
+// Lite/Pro are display labels mapped onto them.
+// ───────────────────────────────────────────────────────────────────────────
+
+export type VentureQubeTier = "lite" | "pro";
+
+export const VENTUREQUBE_TIER_LABEL: Record<VentureQubeTier, string> = {
+  lite: "VentureQube Lite",
+  pro: "VentureQube Pro",
+};
+
+/** Map a schema version to its product tier. v1.0 = Pro; everything else = Lite. */
+export function ventureQubeTier(schemaVersion: VentureQubeSchemaVersion): VentureQubeTier {
+  return schemaVersion === "venture-iqube/v1.0" ? "pro" : "lite";
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// VentureQube v1.0 — "VentureQube Pro" — the canonical 13-layer
+// venture-formation primitive (the premium / Step-4 path).
 //
 // Classification: ClusterQube specialization (registered in the iQube registry
 // SoT with primitive_type='ClusterQube'). One VentureQube === one venture.

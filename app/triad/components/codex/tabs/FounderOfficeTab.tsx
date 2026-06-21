@@ -242,9 +242,11 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
             <Rocket className="w-5 h-5 text-amber-300" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-slate-100">Founder Office</h2>
+            <h2 className="text-lg font-semibold text-slate-100">
+              Founder Office <span className="text-[10px] font-medium align-middle px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Pro</span>
+            </h2>
             <p className="text-xs text-slate-400">
-              Venture formation operating system — turn an idea into an executable Venture Blueprint.
+              Venture formation operating system — turn an idea into an executable Venture Blueprint (VentureQube Pro).
             </p>
           </div>
         </div>
@@ -513,7 +515,7 @@ function PathForm({
         className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-100 hover:bg-amber-500/30 disabled:opacity-50"
       >
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-        Create VentureQube
+        Create VentureQube Pro
       </button>
       <p className="text-[11px] text-slate-500">
         On create, your Standing auto-populates the Signal Evidence + Capability layers and calibrates

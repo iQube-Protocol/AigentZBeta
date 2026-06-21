@@ -9,6 +9,10 @@
   "classification": "cluster_qube_specialization",
   "relatesTo": ["metacommons-charter", "standing-charter", "founder-office-charter"],
   "schemaVersion": "venture-iqube/v1.0",
+  "productTiers": {
+    "lite": "VentureQube Lite — v0.1-v0.4 operator wrapper; standard/free path; aigentMe experience-model onboarding; single-venture idea incubation.",
+    "pro": "VentureQube Pro — v1.0 per-venture formation primitive; premium/Step-4 path; multi-venture/portfolio; advanced Pro experience-guide intake fed by Standing declarations; Venture Lab Pro; multiple metaMe venture views."
+  },
   "engineeringSourceOfTruth": [
     "types/ventureQube.ts (v1.0)",
     "services/iqube/ventureQubeSchema.ts (ventureQubeV1Schema)"
