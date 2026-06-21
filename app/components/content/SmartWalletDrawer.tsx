@@ -1007,6 +1007,7 @@ export default function SmartWalletDrawer({
     description: string;
     agentCardUrl: string;
     agentCardSlug: string;
+    isAigentMe?: boolean;
     sponsorPassportId: string | null;
     boundPassportId: string | null;
     passport: {
@@ -1026,32 +1027,32 @@ export default function SmartWalletDrawer({
   interface SponsorshipCapacity { base: number; earned: number; used: number; remaining: number }
   const [sponsorshipCapacity, setSponsorshipCapacity] = useState<SponsorshipCapacity | null>(null);
 
+  const loadSponsoredAgents = useCallback(async () => {
+    setSponsoredAgentsLoading(true);
+    try {
+      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch("/api/persona/sponsored-agents", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.ok) return;
+      setSponsoredAgents(data.agents ?? []);
+      setSponsorshipCapacity(data.capacity ?? null);
+    } catch {
+      // Silent — wallet survives endpoint failure.
+    } finally {
+      setSponsoredAgentsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab !== "iqube") return;
-    let cancelled = false;
-    void (async () => {
-      setSponsoredAgentsLoading(true);
-      try {
-        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
-        if (!session?.access_token) return;
-        const res = await fetch("/api/persona/sponsored-agents", {
-          method: "GET",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          cache: "no-store",
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled || !data?.ok) return;
-        setSponsoredAgents(data.agents ?? []);
-        setSponsorshipCapacity(data.capacity ?? null);
-      } catch {
-        // Silent — wallet survives endpoint failure.
-      } finally {
-        if (!cancelled) setSponsoredAgentsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId]);
+    void loadSponsoredAgents();
+  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId, loadSponsoredAgents]);
 
   // World ID strong-verification state — per passport. 'busy' shows the
   // spinner while the verification round-trip is in flight; 'error' surfaces
@@ -2160,9 +2161,9 @@ export default function SmartWalletDrawer({
                   <User className="w-4 h-4 text-cyan-400" />
                 )}
               </div>
-              {(activePersona?.fioHandle || agent.fioHandle || effectivePersonaId) && (
+              {(activePersona?.displayName || activePersona?.fioHandle || agent.fioHandle || effectivePersonaId) && (
                 <span className={`text-xs font-medium truncate max-w-[110px] ${activePersona?.isAgent ? "text-amber-300" : "text-cyan-300"}`}>
-                  {activePersona?.fioHandle || agent.fioHandle || effectivePersonaId}
+                  {activePersona?.displayName || activePersona?.fioHandle || agent.fioHandle || effectivePersonaId}
                 </span>
               )}
               <ChevronDown className={`w-3 h-3 text-white/50 transition-transform ${personaMenuOpen ? "rotate-180" : ""}`} />
@@ -4806,6 +4807,11 @@ export default function SmartWalletDrawer({
                           <div className="flex items-center gap-2">
                             <Bot className="h-4 w-4 text-violet-400" />
                             <span className="text-sm font-medium text-violet-300">{sa.displayName}</span>
+                            {sa.isAigentMe && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0 text-[9px] font-medium text-amber-300">
+                                <Star className="h-2.5 w-2.5" /> aigentMe
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-white/40 font-mono">{sa.agentClass}</span>
@@ -4973,6 +4979,11 @@ export default function SmartWalletDrawer({
               fioHandle: updated.fioHandle,
             });
             setPersonaEditModalOpen(false);
+            // Refresh the dropdown so the renamed persona reflects immediately;
+            // also refresh sponsored agents so an aigentMe rename propagates to
+            // its Bound Delegates card.
+            refreshPersonas();
+            void loadSponsoredAgents();
           }}
         />
       )}

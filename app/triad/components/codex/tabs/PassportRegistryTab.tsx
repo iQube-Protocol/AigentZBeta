@@ -90,7 +90,7 @@ function cls(...xs: Array<string | false | undefined>) {
   return xs.filter(Boolean).join(' ');
 }
 
-export function PassportRegistryTab() {
+export function PassportRegistryTab({ personaId }: { personaId?: string }) {
   const [passports, setPassports] = useState<PublicPassport[]>([]);
   const [classFilter, setClassFilter] = useState('');
   const [loading, setLoading] = useState(true);
@@ -216,6 +216,7 @@ export function PassportRegistryTab() {
   const loadActiveDelegation = useCallback(async () => {
     try {
       const pid =
+        personaId ||
         (typeof window !== 'undefined' && window.localStorage.getItem('currentPersonaId')) ||
         sessionPersonas[0]?.id ||
         '';
@@ -229,7 +230,7 @@ export function PassportRegistryTab() {
     } catch {
       setActiveDelegationDid(null);
     }
-  }, [sessionPersonas]);
+  }, [personaId, sessionPersonas]);
   useEffect(() => { void loadActiveDelegation(); }, [loadActiveDelegation]);
 
   const ownMap = new Map(ownPassports.map((p) => [p.passportId, p]));
