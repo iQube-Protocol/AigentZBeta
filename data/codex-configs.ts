@@ -2557,6 +2557,25 @@ const knytOrderTabs = () =>
 // automatically. The per-cartridge admin gate stays — it's set on the
 // order-admin tab inside KNYT, not in the metaMe mirror.)
 
+// Mirror ALL Venture Lab cartridge tabs into metaMe's "Venture Lab" (vl) group
+// so the metaMe-native Venture Lab surface renders every first-class VL tab
+// (Founder Office, Commercial Funnel, α Programme, AgentiQ OS α, Relationship
+// Builder, α Docs, Growth Matrix, Portfolio) — not just a hand-picked few. It's
+// a deep-mirror, so all the Venture Lab intelligence is native here. adminOnly /
+// adminOfCartridge flags are preserved so admin gating travels with each tab.
+// Same mirror pattern as aiqOsTabsByGroup / knytOrderTabs.
+const ventureLabTabsForMetameVl = () =>
+  VENTURE_LAB_CODEX.tabs
+    .filter((t) => t.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((t, i) => ({
+      ...t,
+      id: `vl-${t.id}`,
+      slug: `vl-${t.slug}`,
+      group: 'vl',
+      order: 10 + i,
+    }));
+
 // Qriptopian admin tabs mirrored into metaMe's qriptopia group. Qripto's
 // admin tabs live at top level (no group), gated by adminOnly: true. We
 // filter on adminOnly === true to pick them up. Same clone pattern as
@@ -2922,29 +2941,12 @@ export const METAME_CODEX: CodexConfig = {
       subTabs: knytOrderTabs(),
     },
 
-    // ── VL group (activation-gated) ───────────────────────────────────────
-    {
-      id: 'vl-growth-matrix',
-      label: 'Growth Matrix',
-      slug: 'vl-growth-matrix',
-      enabled: true,
-      group: 'vl',
-      order: 10,
-      type: 'static',
-      config: { component: 'VentureLabGrowthMatrixTab', props: {} },
-      metadata: { icon: 'Grid3x3', description: 'Venture Lab growth matrix', color: 'violet' }
-    },
-    {
-      id: 'vl-relationship-builder',
-      label: 'Relationship Builder',
-      slug: 'vl-relationship-builder',
-      enabled: true,
-      group: 'vl',
-      order: 11,
-      type: 'static',
-      config: { component: 'RelationshipBuilderTab', props: {} },
-      metadata: { icon: 'Users', description: 'Partner / relationship builder', color: 'violet' }
-    },
+    // ── VL group (activation-gated) — full mirror of the Venture Lab cartridge ──
+    // Renders every first-class VL tab natively under metaMe → Venture Lab
+    // (Founder Office, Commercial Funnel, α Programme, AgentiQ OS α, Relationship
+    // Builder, α Docs, Growth Matrix, Portfolio). Each tab's adminOnly /
+    // adminOfCartridge gating is preserved by the mirror.
+    ...ventureLabTabsForMetameVl(),
     // Venture Lab admin stub — VL doesn't yet have a dedicated
     // adminOnly tabGroup on its own cartridge, so we ship a single
     // placeholder admin tab here gated by adminOfCartridge: 'venture-lab'.
@@ -2957,7 +2959,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       adminOfCartridge: 'venture-lab',
       group: 'vl',
-      order: 12,
+      order: 90,
       type: 'static',
       config: { component: 'TabRendererFallback', props: {} },
       metadata: { icon: 'Settings', description: 'Venture Lab admin surface — stubbed until VL ships its own adminOnly tabGroup. Visible only when the active persona admins the Venture Lab cartridge.', color: 'amber' },
