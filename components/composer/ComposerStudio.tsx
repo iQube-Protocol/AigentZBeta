@@ -17,6 +17,7 @@ import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTempl
 import { resolveLiquidTemplateId } from "@/services/composer/composerRegistryMapping";
 import type { SmartContentQube } from "@/types/smartContent";
 import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
+import { personaFetch } from "@/utils/personaSpine";
 import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
@@ -1922,7 +1923,30 @@ export const ComposerStudio = () => {
   // investors: 500 investor names for the individual lens carousel
   useEffect(() => {
     if (copilotContextId !== "knyt-codex") {
-      setMatrixCellCounts({}); setMatrixTotalUsers(0); setMatrixIndividuals([]); setMatrixDataFetched(false); return;
+      // Non-KNYT cartridges (metaMe, etc.) use the GENERALIZED customer-matrix
+      // feed (journey_states) instead of the KNYT-only nakamoto feed. It emits
+      // cells in the same `Engagement:Sovereignty` key vocabulary the grid reads,
+      // so it is drop-in. Admin-gated → personaFetch (Bearer); non-admins simply
+      // see no live counts (same as before). KNYT branch below is untouched.
+      setMatrixIndividuals([]);
+      const tenantId = copilotContextId === "metame-codex" ? "metame" : null;
+      const matrixUrl = tenantId
+        ? `/api/venture/customer-matrix?tenantId=${encodeURIComponent(tenantId)}`
+        : "/api/venture/customer-matrix";
+      setMatrixDataLoading(true);
+      personaFetch(matrixUrl, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.ok && data.cells) {
+            setMatrixCellCounts(data.cells as Record<string, number>);
+            setMatrixTotalUsers((data.total as number) ?? 0);
+          } else {
+            setMatrixCellCounts({}); setMatrixTotalUsers(0);
+          }
+        })
+        .catch(() => { setMatrixCellCounts({}); setMatrixTotalUsers(0); })
+        .finally(() => { setMatrixDataLoading(false); setMatrixDataFetched(false); });
+      return;
     }
     if (matrixDataFetched) return;
     setMatrixDataLoading(true);
