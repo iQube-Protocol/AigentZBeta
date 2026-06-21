@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-17_personaqube-base-mint-fallback.md",
         "updates/2026-06-17_aigentme-wallet-polish-registry-badge-rename-header.md",
         "updates/2026-06-17_aigentme-wallet-persona-selfheal-and-registry-delegation-awareness.md",
         "updates/2026-06-17_option-a-autonomous-agents-and-dvn-audit-fix.md",

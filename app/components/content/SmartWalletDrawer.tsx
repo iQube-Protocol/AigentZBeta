@@ -913,10 +913,12 @@ export default function SmartWalletDrawer({
   const [mintResult, setMintResult] = useState<{
     suiObjectId: string | null;
     walrusBlobId: string | null;
-    mode: "stub" | "sui-walrus" | null;
+    baseTokenId: string | null;
+    baseTxHash: string | null;
+    mode: "stub" | "sui-walrus" | "base" | null;
     onChain: boolean;
     mintedAt: string | null;
-  }>({ suiObjectId: null, walrusBlobId: null, mode: null, onChain: false, mintedAt: null });
+  }>({ suiObjectId: null, walrusBlobId: null, baseTokenId: null, baseTxHash: null, mode: null, onChain: false, mintedAt: null });
 
   // Load any existing mint on mount / persona change so the UI shows
   // "minted" without making the operator re-mint.
@@ -937,6 +939,8 @@ export default function SmartWalletDrawer({
         setMintResult({
           suiObjectId: data.suiObjectId ?? null,
           walrusBlobId: data.walrusBlobId ?? null,
+          baseTokenId: data.baseTokenId ?? null,
+          baseTxHash: data.baseTxHash ?? null,
           mode: data.mode ?? null,
           onChain: Boolean(data.onChain),
           mintedAt: data.mintedAt ?? null,
@@ -968,6 +972,8 @@ export default function SmartWalletDrawer({
       setMintResult({
         suiObjectId: data.suiObjectId ?? null,
         walrusBlobId: data.walrusBlobId ?? null,
+        baseTokenId: data.baseTokenId ?? null,
+        baseTxHash: data.baseTxHash ?? null,
         mode: data.mode ?? null,
         onChain: Boolean(data.onChain),
         mintedAt: data.mintedAt ?? null,
@@ -4596,16 +4602,30 @@ export default function SmartWalletDrawer({
                       </span>
                     </div>
                     <p className="text-xs text-white/50 leading-relaxed">
-                      Persona descriptor encrypted client-side, published to Walrus, and bound to a Sui object representing your PersonaQube. The (Sui object, Walrus blob) pair anchors to your DVN receipt trail.
+                      {mintResult.mode === "base"
+                        ? "Persona minted as a PersonaQube (a derivative of the iQube primitive) — an ERC-721 on Base mainnet against the iQube NFT contract. The token id is a one-way commitment over your persona (T0-safe), anchored to your DVN receipt trail."
+                        : "Persona descriptor encrypted client-side, published to Walrus, and bound to a Sui object representing your PersonaQube. The (Sui object, Walrus blob) pair anchors to your DVN receipt trail."}
                     </p>
                     <div className="space-y-1">
-                      {mintResult.suiObjectId && (
+                      {mintResult.baseTokenId && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">PersonaQube NFT</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.baseTokenId}</code>
+                        </div>
+                      )}
+                      {mintResult.baseTxHash && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Base tx</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.baseTxHash}</code>
+                        </div>
+                      )}
+                      {!mintResult.baseTokenId && mintResult.suiObjectId && (
                         <div className="flex items-start gap-2">
                           <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Sui object</span>
                           <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.suiObjectId}</code>
                         </div>
                       )}
-                      {mintResult.walrusBlobId && (
+                      {!mintResult.baseTokenId && mintResult.walrusBlobId && (
                         <div className="flex items-start gap-2">
                           <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Walrus blob</span>
                           <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.walrusBlobId}</code>
@@ -4614,7 +4634,7 @@ export default function SmartWalletDrawer({
                     </div>
                     {!mintResult.onChain && (
                       <p className="text-[10px] text-amber-300/70 leading-relaxed">
-                        Stub mode — set SUI_PACKAGE_ID + WALRUS_PUBLISHER_URL in Amplify and install @mysten/sui + @mysten/walrus to enable on-chain mint.
+                        Stub mode — set IQUBE_NFT_CONTRACT_ADDRESS + BASE_MINTER_PRIVATE_KEY (Base mainnet) to mint the PersonaQube on-chain, or SUI_PACKAGE_ID + WALRUS_PUBLISHER_URL for the Sui/Walrus rail.
                       </p>
                     )}
                   </div>
