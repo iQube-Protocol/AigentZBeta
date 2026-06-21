@@ -26,6 +26,8 @@ import {
 import { getConnectionStatuses, type GoogleSource } from '@/services/google/oauth';
 import { inferStrategy } from '@/services/strategy/strategyInference';
 import { evaluateStageProgression } from '@/services/strategy/stageProgression';
+import { getCommercialSpineState } from '@/services/journey/commercialSpine';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
 import type { PreflightContext } from '@/services/capabilities/preflight';
 import {
@@ -179,13 +181,21 @@ function buildGuidanceNote(
 }
 
 export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
-  const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
+  const adminClient = getSupabaseServer();
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
     inferStrategy(input.personaId).catch(() => null),
     evaluateStageProgression(input.personaId, { runAutoAdvance: false }).catch(() => null),
+    adminClient
+      ? getCommercialSpineState(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
   ]);
+
+  // Commercial-spine stage completion map — gates the golden-path NBE candidates.
+  const spineStagesComplete: Record<string, boolean> = {};
+  for (const s of spine?.stages ?? []) spineStagesComplete[s.id] = s.complete;
 
   const activeCartridges =
     qube?.meta.activeCartridges ?? input.defaultActiveCartridges ?? ['metame'];
@@ -223,6 +233,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         workspaceConnected,
         experienceGoals,
         stageAdvanceEligible,
+        spineStagesComplete,
       })
     : selectNbeCandidates({
         activeCartridges,
@@ -231,6 +242,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         workspaceConnected,
         experienceGoals,
         stageAdvanceEligible,
+        spineStagesComplete,
       });
 
   const rerank = await llmRerankNbeCandidates(nbeCandidates, {

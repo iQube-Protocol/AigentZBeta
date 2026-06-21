@@ -70,6 +70,10 @@ export interface NbeCandidate {
     workspaceNotConnected?: GoogleSource[];
     /** Only surface when the persona is eligible to advance their ExperienceStage. */
     stageAdvanceEligible?: boolean;
+    /** Golden path: only surface when this commercial-spine stage is NOT complete. */
+    spineStageNotComplete?: string;
+    /** Golden path: only surface when this prerequisite spine stage IS complete. */
+    spineStagePrereq?: string;
   };
   /**
    * Soft signals for goals-aware re-ranking. Case-insensitive substring
@@ -289,6 +293,52 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     effort: 'light',
     impact: 'medium',
   },
+
+  // ── Commercial Spine (golden path) ───────────────────────────────────────
+  // Sequential nudges along Passport → aigentMe → Standing → Founder Office →
+  // Venture Lab. Each surfaces only when its spine stage is incomplete AND its
+  // prerequisite stage is complete (gated via getCommercialSpineState). aigentMe
+  // actively guides the operator toward the founder-operator apex.
+  {
+    id: 'metame.establish-standing',
+    label: 'Establish your Standing',
+    rationale:
+      'Make declarations and verify facts to build veracity-backed Standing. Standing calibrates confidence across your ventures and unlocks the Founder Office.',
+    cartridge: 'metame',
+    approvalRequired: false,
+    weight: 86,
+    effort: 'standard',
+    impact: 'high',
+    requires: { spineStageNotComplete: 'standing', spineStagePrereq: 'aigentme_delegation' },
+    goalKeywords: ['standing', 'identity', 'fact', 'verification', 'credential', 'founder'],
+  },
+  {
+    id: 'metame.open-founder-office',
+    label: 'Open your Founder Office',
+    rationale:
+      'Create your first VentureQube — turn your idea into an executable Venture Blueprint. This opens the Founder Office and Venture Lab.',
+    cartridge: 'metame',
+    approvalRequired: false,
+    weight: 84,
+    effort: 'light',
+    impact: 'high',
+    requires: { spineStageNotComplete: 'founder_office', spineStagePrereq: 'standing' },
+    goalKeywords: ['founder', 'venture', 'office', 'blueprint', 'create', 'build'],
+  },
+  {
+    id: 'metame.advance-venture-lab',
+    label: 'Advance a venture in Venture Lab',
+    rationale:
+      'Move a VentureQube from concept toward formation — the path to founder-operator and the commercial apex.',
+    cartridge: 'metame',
+    specialist: 'aigent-z',
+    approvalRequired: false,
+    weight: 82,
+    effort: 'standard',
+    impact: 'high',
+    requires: { spineStageNotComplete: 'venture_lab', spineStagePrereq: 'founder_office' },
+    goalKeywords: ['venture', 'scale', 'build', 'formation', 'venture lab', 'operator'],
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -308,6 +358,8 @@ export interface NbeSelectionContext {
   experienceGoals?: string[];
   /** True when the persona meets every criterion for the next stage. */
   stageAdvanceEligible?: boolean;
+  /** Commercial-spine stage completion map (id → complete), from getCommercialSpineState. */
+  spineStagesComplete?: Record<string, boolean>;
 }
 
 /** Goal-keyword boost applied per keyword match. Capped at 3 hits per candidate. */
@@ -329,7 +381,11 @@ function countGoalHits(candidate: NbeCandidate, goals: string[]): number {
 
 function passesRequires(
   candidate: NbeCandidate,
-  ctx: { connected: GoogleSource[]; stageAdvanceEligible: boolean },
+  ctx: {
+    connected: GoogleSource[];
+    stageAdvanceEligible: boolean;
+    spineStagesComplete: Record<string, boolean>;
+  },
 ): boolean {
   const r = candidate.requires;
   if (!r) return true;
@@ -344,6 +400,14 @@ function passesRequires(
     }
   }
   if (r.stageAdvanceEligible === true && !ctx.stageAdvanceEligible) return false;
+  // Golden path: hide once the target spine stage is complete; require the
+  // prerequisite stage to be complete first (so nudges surface in order).
+  if (r.spineStageNotComplete && ctx.spineStagesComplete[r.spineStageNotComplete] === true) {
+    return false;
+  }
+  if (r.spineStagePrereq && ctx.spineStagesComplete[r.spineStagePrereq] !== true) {
+    return false;
+  }
   return true;
 }
 
@@ -362,6 +426,7 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
     workspaceConnected = [],
     experienceGoals = [],
     stageAdvanceEligible = false,
+    spineStagesComplete = {},
   } = ctx;
 
   const cartridgeSet = scopedCartridge
@@ -373,7 +438,7 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
     if (c.stages && c.stages.length > 0 && !c.stages.includes(currentStage)) {
       return false;
     }
-    if (!passesRequires(c, { connected: workspaceConnected, stageAdvanceEligible })) return false;
+    if (!passesRequires(c, { connected: workspaceConnected, stageAdvanceEligible, spineStagesComplete })) return false;
     return true;
   });
 
