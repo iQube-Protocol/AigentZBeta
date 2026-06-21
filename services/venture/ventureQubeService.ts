@@ -27,6 +27,7 @@ import { parseVentureQubeV1 } from '@/services/iqube/ventureQubeSchema';
 import { registerVentureIqube, deriveVenturePublicRef } from './registerVentureIqube';
 import { readStandingForVenture } from './standingForVenture';
 import { evaluateVentureSignals } from './metacommonsSignals';
+import { getPersonaPlan } from '@/services/billing/personaPlan';
 
 export interface VentureQubeRecord {
   id: string;
@@ -143,6 +144,23 @@ export async function createVentureQube(
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'database unavailable' };
   const slug = slugify(input.slug || input.name);
+
+  // Lite/Pro gating — VentureQube Lite includes one venture; Pro unlocks more.
+  const plan = await getPersonaPlan(admin, input.personaId);
+  if (!plan.ventureProUnlocked) {
+    const { count } = await admin
+      .from('venture_qubes')
+      .select('*', { count: 'exact', head: true })
+      .eq('owner_persona_id', input.personaId)
+      .eq('status', 'active');
+    if ((count ?? 0) >= plan.ventureLimit) {
+      return {
+        ok: false,
+        error:
+          'VentureQube Lite includes one venture. Upgrade to Founder Office Pro to create additional ventures.',
+      };
+    }
+  }
 
   // Insert the row first to obtain the canonical row id (basis for refs).
   const { data: inserted, error: insErr } = await admin
