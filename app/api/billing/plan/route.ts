@@ -23,7 +23,19 @@ export async function GET(req: NextRequest) {
   if (!admin) {
     return NextResponse.json({ ok: false, error: 'database unavailable' }, { status: 503 });
   }
-  const plan = await getPersonaPlan(admin, persona.personaId);
+  let plan = await getPersonaPlan(admin, persona.personaId);
+  // Admin override — admins have full cartridge access regardless of plan.
+  if (persona.cartridgeFlags.isAdmin) {
+    plan = {
+      ...plan,
+      ventureTier: plan.ventureTier === 'none' ? 'elite' : plan.ventureTier,
+      ventureLabAccess: true,
+      marketaAccess: true,
+      studioAccess: true,
+      hmsAccess: true,
+      ventureLimit: 9999,
+    };
+  }
   return NextResponse.json({
     ok: true,
     ...plan,

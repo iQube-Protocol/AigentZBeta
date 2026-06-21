@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
   }
   const result = await createVentureQube({
     personaId: persona.personaId,
+    isAdmin: persona.cartridgeFlags.isAdmin,
     name: body.name,
     slug: body.slug,
     path: body.path,

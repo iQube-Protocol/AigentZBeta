@@ -50,6 +50,8 @@ export interface CreateVentureInput {
   slug?: string;
   path?: FounderPath;
   stage?: VentureStage;
+  /** Admin override — admins bypass the venture-tier limit (they see all cartridges). */
+  isAdmin?: boolean;
   /** Optional seed text that pre-fills thesis / intent depending on the path. */
   seed?: {
     problemStatement?: string;
@@ -146,20 +148,23 @@ export async function createVentureQube(
   const slug = slugify(input.slug || input.name);
 
   // Venture-tier gating — none=0 (free citizen), lite=1, pro=3, elite=unlimited.
-  const plan = await getPersonaPlan(admin, input.personaId);
-  const { count } = await admin
-    .from('venture_qubes')
-    .select('*', { count: 'exact', head: true })
-    .eq('owner_persona_id', input.personaId)
-    .eq('status', 'active');
-  if ((count ?? 0) >= plan.ventureLimit) {
-    return {
-      ok: false,
-      error:
-        plan.ventureTier === 'none'
-          ? 'Venture Lab is a premium service. Upgrade to Venture Lab Lite to create your venture.'
-          : `Your plan includes ${plan.ventureLimit} venture${plan.ventureLimit === 1 ? '' : 's'}. Upgrade your Venture Lab tier to create more.`,
-    };
+  // Admins bypass the limit entirely (they have full cartridge access).
+  if (!input.isAdmin) {
+    const plan = await getPersonaPlan(admin, input.personaId);
+    const { count } = await admin
+      .from('venture_qubes')
+      .select('*', { count: 'exact', head: true })
+      .eq('owner_persona_id', input.personaId)
+      .eq('status', 'active');
+    if ((count ?? 0) >= plan.ventureLimit) {
+      return {
+        ok: false,
+        error:
+          plan.ventureTier === 'none'
+            ? 'Venture Lab is a premium service. Upgrade to Venture Lab Lite to create your venture.'
+            : `Your plan includes ${plan.ventureLimit} venture${plan.ventureLimit === 1 ? '' : 's'}. Upgrade your Venture Lab tier to create more.`,
+      };
+    }
   }
 
   // Insert the row first to obtain the canonical row id (basis for refs).
