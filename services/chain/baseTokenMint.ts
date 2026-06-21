@@ -362,6 +362,11 @@ function derivePersonaTokenId(personaId: string): bigint {
   return BigInt('0x' + digest);
 }
 
+/** Public hex form of the persona token-id commitment (used by deferred mints). */
+export function derivePersonaTokenIdHex(personaId: string): string {
+  return '0x' + derivePersonaTokenId(personaId).toString(16);
+}
+
 export interface MintPersonaQubeInput {
   /** T0 persona id — used ONLY as the one-way token-id hash input. Never on-chain. */
   personaId: string;

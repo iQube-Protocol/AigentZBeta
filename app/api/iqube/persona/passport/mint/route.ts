@@ -27,7 +27,10 @@ import { createCipheriv, createHash, randomBytes } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { mintPersonaToSui } from '@/services/persona/mintPersonaToSui';
-import { mintPersonaQubeToBase } from '@/services/chain/baseTokenMint';
+import { mintPersonaQubeToBase, derivePersonaTokenIdHex } from '@/services/chain/baseTokenMint';
+import { DEFAULT_MINT_CHAIN, isChainLive, isMintChain, type MintChain } from '@/services/chain/mintChains';
+import { enqueueDeferredMint } from '@/services/chain/deferredMint';
+import { registerPersonaIqube } from '@/services/persona/registerPersonaIqube';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,35 +90,74 @@ export async function POST(req: NextRequest) {
       encryptionAuthTag: authTag,
     });
 
-    // Base mainnet fallback — when the Sui/Walrus rail isn't live (stub), mint
-    // the PersonaQube as an ERC-721 on Base against the iQube NFT contract.
-    // iQube is the primitive; persona is a derivative tokenQube. The token id is
-    // a one-way commitment over the persona id (T2-safe). No-ops cleanly when
-    // the Base env isn't configured, so it never fakes liveness.
+    // Mint strategy + target chain (multi-chain ready; Base is the only live
+    // mainnet today). Deferred strategy or a non-live chain queue the mint.
+    const body = (await req.json().catch(() => ({}))) as { chain?: string; strategy?: string };
+    const targetChain: MintChain =
+      body.chain && isMintChain(body.chain) ? body.chain : DEFAULT_MINT_CHAIN;
+    const strategy = body.strategy === 'deferred' ? 'deferred' : 'immediate';
+
+    // Owner = the persona's EVM address (T1 wallet address).
+    const { data: pRow } = await admin
+      .from('personas')
+      .select('evm_address, evm_key')
+      .eq('id', persona.personaId)
+      .maybeSingle();
+    const ownerAddress =
+      (pRow?.evm_address as string | null) ||
+      ((pRow?.evm_key as { address?: string } | null)?.address ?? '');
+
+    // The Base ERC-721 tokenQube is the canonical bearer token — minted on
+    // EVERY persona mint (not a fallback). Sui/Walrus, when present, is the
+    // encrypted locker it bears. Token id is a one-way commitment over the
+    // persona id (T2-safe). Deferred strategy / non-live chains queue instead.
+    const tokenCommitment = derivePersonaTokenIdHex(persona.personaId);
     let baseTokenId: string | null = null;
     let baseTxHash: string | null = null;
+    let deferred = false;
     let effectiveMode = result.mode as string;
     let effectiveOnChain = result.onChain;
-    if (!result.onChain) {
-      // Owner = the persona's EVM address (T1 wallet address).
-      const { data: pRow } = await admin
-        .from('personas')
-        .select('evm_address, evm_key')
-        .eq('id', persona.personaId)
-        .maybeSingle();
-      const ownerAddress =
-        (pRow?.evm_address as string | null) ||
-        ((pRow?.evm_key as { address?: string } | null)?.address ?? '');
-      if (ownerAddress) {
-        const base = await mintPersonaQubeToBase({ personaId: persona.personaId, ownerAddress });
-        if (base.ok && base.tokenId) {
-          baseTokenId = base.tokenId;
-          baseTxHash = base.txHash ?? null;
-          effectiveMode = 'base';
-          effectiveOnChain = true;
-        }
+
+    if (strategy === 'immediate' && targetChain === 'base' && isChainLive('base') && ownerAddress) {
+      const base = await mintPersonaQubeToBase({ personaId: persona.personaId, ownerAddress });
+      if (base.ok && base.tokenId) {
+        baseTokenId = base.tokenId;
+        baseTxHash = base.txHash ?? null;
+        effectiveMode = 'base';
+        effectiveOnChain = true;
+      } else {
+        // env unconfigured / skipped → defer for the batch mint process.
+        deferred = true;
+        await enqueueDeferredMint({
+          admin, iqubeId: null, personaId: persona.personaId, targetChain,
+          tokenIdCommitment: tokenCommitment, ownerAddress: ownerAddress || null,
+          reason: 'env_unconfigured',
+        });
       }
+    } else {
+      // Deferred strategy OR a non-live reference chain (Optimism/Solana/BTC/…).
+      deferred = true;
+      await enqueueDeferredMint({
+        admin, iqubeId: null, personaId: persona.personaId, targetChain,
+        tokenIdCommitment: tokenCommitment, ownerAddress: ownerAddress || null,
+        reason: strategy === 'deferred' ? 'batch' : 'chain_not_live',
+      });
     }
+
+    // Register the persona as a canonical iQube (DataQube) in the registry SoT —
+    // on every mint, immediate or deferred. T2-safe: public meta + commitments
+    // only; the BlakQube payload stays encrypted in the locker.
+    const reg = await registerPersonaIqube({
+      admin,
+      personaId: persona.personaId,
+      personaPublicRef,
+      kybeDidPublicRef,
+      tokenId: baseTokenId,
+      chain: targetChain,
+      suiObjectId: result.suiObjectId,
+      walrusBlobId: result.walrusBlobId,
+    });
+    const iqubeId = reg?.iqubeId ?? null;
 
     // Upsert the mint row (uniq on persona_id). base_token_id/base_tx_hash are a
     // later migration — retry without them if the columns aren't present yet.
@@ -132,10 +174,13 @@ export async function POST(req: NextRequest) {
     };
     let { data: mintRow, error: insertErr } = await admin
       .from('persona_qube_mints')
-      .upsert({ ...baseRow, base_token_id: baseTokenId, base_tx_hash: baseTxHash }, { onConflict: 'persona_id' })
+      .upsert(
+        { ...baseRow, base_token_id: baseTokenId, base_tx_hash: baseTxHash, iqube_id: iqubeId },
+        { onConflict: 'persona_id' },
+      )
       .select('mint_id')
       .single();
-    if (insertErr && insertErr.message.includes('base_token_id')) {
+    if (insertErr && (insertErr.message.includes('base_token_id') || insertErr.message.includes('iqube_id'))) {
       ({ data: mintRow, error: insertErr } = await admin
         .from('persona_qube_mints')
         .upsert(baseRow, { onConflict: 'persona_id' })
@@ -159,6 +204,9 @@ export async function POST(req: NextRequest) {
       walrusBlobId: result.walrusBlobId,
       baseTokenId,
       baseTxHash,
+      chain: targetChain,
+      deferred,
+      iqubeId,
       personaPublicRef,
       mintedAt: result.mintedAt,
       note: result.note,
