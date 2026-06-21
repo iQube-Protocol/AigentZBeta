@@ -109,8 +109,12 @@ async function calibrate(
   const standing = await readStandingForVenture(admin, personaId);
   const evalResult = evaluateVentureSignals(layers, standing);
 
-  // Auto-populate capability "available" from verified capability facts (only
-  // when the operator hasn't already declared them) — Standing → VentureQube.
+  // Auto-populate capability "available" from the Standing Graph (Phase C) —
+  // capability claims are the richer signal; fall back to verified facts. Only
+  // fills when the operator hasn't already declared capabilities.
+  const graphCapabilities = standing.capabilityClaims
+    .map((c) => c.label)
+    .filter((s): s is string => Boolean(s));
   const capabilityFacts = [
     ...(standing.factsByDomain['professional'] ?? []),
     ...(standing.factsByDomain['founder'] ?? []),
@@ -118,6 +122,7 @@ async function calibrate(
   ]
     .map((f) => f.label || f.value || f.field)
     .filter((s): s is string => Boolean(s));
+  const derivedCapabilities = graphCapabilities.length > 0 ? graphCapabilities : capabilityFacts;
 
   const next: VentureQubeV1 = {
     ...layers,
@@ -128,7 +133,7 @@ async function calibrate(
       availableCapabilities:
         layers.capability.availableCapabilities.length > 0
           ? layers.capability.availableCapabilities
-          : Array.from(new Set(capabilityFacts)).slice(0, 24),
+          : Array.from(new Set(derivedCapabilities)).slice(0, 24),
     },
     identity: {
       ...layers.identity,

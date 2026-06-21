@@ -48,11 +48,21 @@ export interface VerifiedFact {
   status: string | null;
 }
 
+/** A capability claim from the citizen's Standing Graph (vsp_profiles.standing_graph). */
+export interface CapabilityClaim {
+  label: string;
+  category: string | null;
+  confidenceLevel: string | null;
+  supportingEvidenceCount: number | null;
+}
+
 export interface StandingForVenture {
   standing: StandingSnapshot | null;
   reputation: ReputationSnapshot | null;
   /** Verified declarations grouped by domain (identity, capability, etc.). */
   factsByDomain: Record<string, VerifiedFact[]>;
+  /** Capability claims from the Standing Graph — the richer capability signal. */
+  capabilityClaims: CapabilityClaim[];
   /** Reconciled Standing score (veracity + contribution) — calibration input. */
   score: StandingScoreBreakdown | null;
   /** True when ANY Standing signal was found (drives confidence calibration). */
@@ -72,6 +82,7 @@ export async function readStandingForVenture(
     standing: null,
     reputation: null,
     factsByDomain: {},
+    capabilityClaims: [],
     score: null,
     hasStandingSignal: false,
   };
@@ -118,13 +129,37 @@ export async function readStandingForVenture(
     /* migration pending — leave standing/reputation null */
   }
 
-  // 2. Verified declarations (VSP facts) grouped by domain.
+  // 2. Verified declarations (VSP facts) grouped by domain + the Standing Graph.
   try {
     const { data: profiles } = await admin
       .from('vsp_profiles')
-      .select('id')
+      .select('id, standing_graph')
       .eq('owner_persona_id', personaId);
     const profileIds = (profiles ?? []).map((p: { id: string }) => p.id);
+
+    // Standing Graph capability claims — the richer capability signal.
+    for (const p of profiles ?? []) {
+      const graph = (p as { standing_graph?: { capability_claims?: unknown[] } | null }).standing_graph;
+      const claims = graph?.capability_claims ?? [];
+      for (const c of Array.isArray(claims) ? claims : []) {
+        const claim = c as {
+          label?: string;
+          category?: string;
+          confidence_level?: string;
+          supporting_evidence_count?: number;
+        };
+        if (!claim?.label) continue;
+        out.capabilityClaims.push({
+          label: String(claim.label),
+          category: claim.category ?? null,
+          confidenceLevel: claim.confidence_level ?? null,
+          supportingEvidenceCount:
+            typeof claim.supporting_evidence_count === 'number' ? claim.supporting_evidence_count : null,
+        });
+        out.hasStandingSignal = true;
+      }
+    }
+
     if (profileIds.length > 0) {
       const { data: facts } = await admin
         .from('vsp_facts')
