@@ -77,6 +77,7 @@ import { MarketaReportsTab } from "@/app/(shell)/marketa/components/MarketaRepor
 import { MarketaPublishTab } from "@/app/(shell)/marketa/components/MarketaPublishTab";
 import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
+import { FounderOfficeTab } from "./tabs/FounderOfficeTab";
 import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
 import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
 import { QriptoAffiliatesPartnersTab } from "./tabs/QriptoAffiliatesPartnersTab";
@@ -251,6 +252,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MarketaPublishTab,
   VentureLabGrowthMatrixTab,
   VentureLabPortfolioTab,
+  FounderOfficeTab,
   QriptopianEditTab,
   QriptopianAdminTab,
   QriptoAffiliatesPartnersTab,

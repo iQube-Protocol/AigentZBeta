@@ -2362,6 +2362,24 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   },
   tabs: [
     {
+      id: 'founder-office',
+      label: 'Founder Office',
+      slug: 'founder-office',
+      enabled: true,
+      adminOnly: true,
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'FounderOfficeTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Rocket',
+        description: 'Venture formation OS — Discover / Validate / Architect a venture into an executable Venture Blueprint (VentureQube v1.0)',
+        color: 'amber'
+      }
+    },
+    {
       id: 'alpha-programme',
       label: 'α Programme',
       slug: 'alpha-programme',
@@ -4299,12 +4317,26 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Scale', description: 'Governance authority is reserved to citizens', color: 'violet' },
     },
     {
+      id: 'polity-core-ventureqube-spec',
+      label: 'VentureQube Spec (WIP)',
+      slug: 'ventureqube-spec',
+      enabled: true,
+      group: 'records',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_ventureqube_spec', defaultPath: 'items/VENTUREQUBE_SPEC.md' },
+      },
+      metadata: { icon: 'Layers', description: 'Work-in-progress constitutional primitive — VentureQube v1 (stubbed for canonization)', color: 'amber' },
+    },
+    {
       id: 'polity-core-amendments',
       label: 'Amendment Records',
       slug: 'amendment-records',
       enabled: true,
       group: 'records',
-      order: 0,
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -4318,7 +4350,7 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
       slug: 'machine-readable',
       enabled: true,
       group: 'records',
-      order: 1,
+      order: 2,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',

@@ -22,6 +22,7 @@ import delegationFrameworkV1 from './frameworks/delegation-framework.v1.json';
 import standingCharterV1 from './frameworks/standing-charter.v1.json';
 import metacommonsCharterV1 from './frameworks/metacommons-charter.v1.json';
 import founderOfficeCharterV1 from './frameworks/founder-office-charter.v1.json';
+import ventureQubeSpecV1 from './frameworks/ventureqube-spec.v1.json';
 import autodriveCids from './frameworks/autodrive-cids.json';
 
 export type RevocationState =
@@ -68,6 +69,15 @@ export function getMetacommonsCharter() {
 export function getFounderOfficeCharter() {
   return founderOfficeCharterV1;
 }
+/**
+ * The VentureQube Specification — a WORK-IN-PROGRESS constitutional primitive
+ * (ClusterQube specialization). Recorded in Polity Core for legibility while it
+ * is built; NOT ratified, NOT in the Agent Passport binding triple, and NOT
+ * published to Autodrive until canonized. Engineering SoT is types/ventureQube.ts.
+ */
+export function getVentureQubeSpec() {
+  return ventureQubeSpecV1;
+}
 
 /**
  * Autodrive (Autonomys) CID records proving content-addressed immutability of
@@ -87,6 +97,8 @@ export function getConstitutionalFramework() {
     standingCharter: standingCharterV1,
     metacommonsCharter: metacommonsCharterV1,
     founderOfficeCharter: founderOfficeCharterV1,
+    // WIP — recorded for legibility; not ratified, not in the binding triple.
+    ventureQubeSpec: ventureQubeSpecV1,
     autodrive: autodriveCids,
   };
 }

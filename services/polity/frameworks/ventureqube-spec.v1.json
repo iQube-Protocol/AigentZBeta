@@ -1,0 +1,50 @@
+{
+  "id": "ventureqube-spec",
+  "title": "VentureQube Specification v1",
+  "version": "1.0.0-wip",
+  "status": "draft_wip",
+  "constitutionalStatus": "stubbed_pending_canonization",
+  "ratified": false,
+  "boundConstitutionVersion": "1.0.0",
+  "classification": "cluster_qube_specialization",
+  "relatesTo": ["metacommons-charter", "standing-charter", "founder-office-charter"],
+  "schemaVersion": "venture-iqube/v1.0",
+  "engineeringSourceOfTruth": [
+    "types/ventureQube.ts (v1.0)",
+    "services/iqube/ventureQubeSchema.ts (ventureQubeV1Schema)"
+  ],
+  "firstPrinciple": "A VentureQube is not a business plan, a pitch deck, or a startup profile. It is a living venture specification whose purpose is to transform ideas into executable ventures.",
+  "relationshipToV04": "v0.1-v0.4 is the operator-centric portfolio wrapper integrated with the aigentMe experience-model onboarding (idea incubation). v1.0 is the per-venture formation primitive a wrapper venture graduates into (venture blueprinting). The two coexist; v1.0 never replaces v0.4.",
+  "layers": [
+    "identity",
+    "thesis",
+    "intent",
+    "signalEvidence",
+    "archetypes",
+    "revenueArchitecture",
+    "commercialModel",
+    "capability",
+    "resource",
+    "execution",
+    "delegation",
+    "outcome",
+    "governance",
+    "institutional"
+  ],
+  "stages": ["concept", "validation", "formation", "launch", "growth", "scale", "institution"],
+  "agentConsumers": ["aigentMe", "devon", "marketa", "venture-lab", "investor-office"],
+  "relationships": {
+    "standing": "calibrates confidence in venture inputs; does not determine venture success",
+    "metacommons": "continuously evaluates against demand, capability, opportunity, and Proof of Work Potential — the intelligence layer for VentureQubes",
+    "proofOfWorkPotential": "provides opportunity / capability / venture confidence estimates the VentureQube captures and operationalizes",
+    "proofOfTimeSaved": "validates venture / capability / opportunity assumptions — the venture+Polity learning loop"
+  },
+  "constitutionalPrincipleProposed": "The VentureQube exists to transform truthful information, demonstrated capability, and collective intelligence into executable ventures capable of creating meaningful outcomes within the Polity.",
+  "canonizationChecklist": [
+    "VentureQube engine operational (creation, calibration, handoff live)",
+    "metaCommons signal evaluation no longer stubbed",
+    "Standing -> VentureQube auto-population validated end-to-end",
+    "spec locked + published to Autodrive + recorded in Amendment Records"
+  ],
+  "note": "WORK IN PROGRESS — recorded in Polity Core for legibility while it is built. NOT a ratified charter and NOT part of the Agent Passport binding triple. Will be promoted to a canonized constitutional primitive once the engine is operational and the spec is locked."
+}

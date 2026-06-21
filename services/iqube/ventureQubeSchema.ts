@@ -28,6 +28,7 @@ export const schemaVersionEnum = z.enum([
   "venture-iqube/v0.2",
   "venture-iqube/v0.3",
   "venture-iqube/v0.4",
+  "venture-iqube/v1.0",
 ]);
 
 export const cartridgeSlugV04Enum = z.enum([
@@ -371,6 +372,249 @@ export function carriesMyCartridge(
   return data.ventures.some((v) => v.myCartridge !== undefined);
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// VentureQube v1.0 — the canonical 13-layer per-venture formation primitive.
+// Kept as a SEPARATE schema from the v0.4 operator wrapper above; the two
+// validators never share a parse path. Keep in lockstep with the v1.0 section
+// of types/ventureQube.ts.
+// ───────────────────────────────────────────────────────────────────────────
+
+import type { VentureQubeV1 } from "@/types/ventureQube";
+
+const confidenceScore = z.number().min(0).max(100).nullable();
+
+export const ventureStageEnum = z.enum([
+  "concept",
+  "validation",
+  "formation",
+  "launch",
+  "growth",
+  "scale",
+  "institution",
+]);
+
+export const founderPathEnum = z.enum(["discover", "validate", "architect"]);
+
+const ventureAgentConsumerEnum = z.enum([
+  "aigentMe",
+  "devon",
+  "marketa",
+  "venture-lab",
+  "investor-office",
+]);
+
+const identityLayerSchema = z.object({
+  ventureName: z.string().min(1).max(200),
+  ventureSlug: z
+    .string()
+    .min(2)
+    .max(80)
+    .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, "slug must be URL-safe lowercase with dashes"),
+  ventureDescription: z.string().max(8000).optional(),
+  stage: ventureStageEnum,
+  founderPublicRefs: z.array(z.string()),
+  passportPublicRefs: z.array(z.string()).optional(),
+  standingPublicRefs: z.array(z.string()).optional(),
+  associatedIqubeIds: z.array(z.string()).optional(),
+});
+
+const thesisLayerSchema = z.object({
+  mission: z.string().max(4000).optional(),
+  vision: z.string().max(4000).optional(),
+  problemStatement: z.string().max(4000).optional(),
+  consequenceThesis: z.string().max(4000).optional(),
+  valueProposition: z.string().max(4000).optional(),
+  ventureCategory: z.string().max(200).optional(),
+  industryTags: z.array(z.string()).optional(),
+  marketTags: z.array(z.string()).optional(),
+  geographicScope: z.string().max(280).optional(),
+});
+
+const intentLayerSchema = z.object({
+  founderIntents: z.array(z.string()),
+  ventureIntents: z.array(z.string()),
+  citizenIntents: z.array(z.string()).optional(),
+  commonsIntents: z.array(z.string()).optional(),
+});
+
+const signalEvidenceItemSchema = z.object({
+  signalId: z.string().min(1),
+  signalType: z.string().min(1).max(120),
+  signalSource: z.string().min(1).max(200),
+  confidenceScore: confidenceScore,
+  standingScore: confidenceScore,
+  proofOfWorkPotential: confidenceScore.optional(),
+  timestamp: z.string(),
+});
+
+const signalEvidenceLayerSchema = z.object({
+  items: z.array(signalEvidenceItemSchema),
+  signalConfidence: confidenceScore,
+  opportunityConfidence: confidenceScore,
+  demandConfidence: confidenceScore,
+  capabilityConfidence: confidenceScore,
+});
+
+const archetypeSchema = z.object({
+  kind: z.enum([
+    "citizen",
+    "creator",
+    "founder_operator",
+    "executive",
+    "investor",
+    "institution",
+    "other",
+  ]),
+  label: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
+  painPoints: z.array(z.string()).optional(),
+  desiredOutcomes: z.array(z.string()).optional(),
+  valueReceived: z.string().max(2000).optional(),
+  willingnessToPay: z.string().max(280).optional(),
+  priorityScore: confidenceScore.optional(),
+});
+
+const revenueEngineSchema = z.object({
+  engineType: z.enum([
+    "subscription",
+    "services",
+    "licensing",
+    "commerce",
+    "transaction_fees",
+    "intelligence_services",
+    "venture_participation",
+    "other",
+  ]),
+  engineName: z.string().min(1).max(200),
+  targetArchetypes: z.array(z.string()).optional(),
+  pricingModel: z.string().max(2000).optional(),
+  pricingAssumptions: z.string().max(2000).optional(),
+  priorityLevel: z.number().int().optional(),
+  estimatedRevenue: z.string().max(280).optional(),
+});
+
+const commercialModelLayerSchema = z.object({
+  targetPassports: z.number().int().nonnegative().optional(),
+  targetCitizens: z.number().int().nonnegative().optional(),
+  targetCreators: z.number().int().nonnegative().optional(),
+  targetFounders: z.number().int().nonnegative().optional(),
+  targetExecutives: z.number().int().nonnegative().optional(),
+  targetInvestors: z.number().int().nonnegative().optional(),
+  conversionAssumptions: z.array(z.string()).optional(),
+  acquisitionAssumptions: z.array(z.string()).optional(),
+  revenueTargets: z.array(z.string()).optional(),
+  mrrTargets: z.array(z.string()).optional(),
+  arrTargets: z.array(z.string()).optional(),
+  growthAssumptions: z.array(z.string()).optional(),
+});
+
+const capabilityLayerSchema = z.object({
+  requiredCapabilities: z.array(z.string()),
+  availableCapabilities: z.array(z.string()),
+  capabilityGaps: z.array(z.string()),
+  capabilityPriorities: z.array(z.string()),
+});
+
+const resourceLayerSchema = z.object({
+  requiredPeople: z.array(z.string()).optional(),
+  requiredAgents: z.array(z.string()).optional(),
+  requiredTools: z.array(z.string()).optional(),
+  requiredIqubes: z.array(z.string()).optional(),
+  requiredCapital: z.array(z.string()).optional(),
+});
+
+const executionPhaseSchema = z.object({
+  phaseName: z.string().min(1).max(200),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  objectives: z.array(z.string()),
+  deliverables: z.array(z.string()),
+  dependencies: z.array(z.string()).optional(),
+  successMetrics: z.array(z.string()).optional(),
+});
+
+const executionLayerSchema = z.object({
+  phases: z.array(executionPhaseSchema),
+});
+
+const agentAssignmentSchema = z.object({
+  agentType: ventureAgentConsumerEnum,
+  agentId: z.string().optional(),
+  responsibility: z.string().min(1).max(2000),
+  deliverables: z.array(z.string()),
+  successMetrics: z.array(z.string()).optional(),
+});
+
+const delegationLayerSchema = z.object({
+  assignments: z.array(agentAssignmentSchema),
+});
+
+const outcomeLayerSchema = z.object({
+  outcomes: z.array(z.string()).optional(),
+  proofOfTimeSaved: z.array(z.string()).optional(),
+  standingChanges: z.array(z.string()).optional(),
+  lessonsLearned: z.array(z.string()).optional(),
+});
+
+const governanceLayerSchema = z.object({
+  riskScore: confidenceScore.optional(),
+  sensitivityScore: confidenceScore.optional(),
+  accuracyScore: confidenceScore.optional(),
+  verifiabilityScore: confidenceScore.optional(),
+  standingConfidence: confidenceScore.optional(),
+  proofOfWorkPotential: confidenceScore.optional(),
+  ventureConfidence: confidenceScore.optional(),
+});
+
+const institutionalLayerSchema = z.object({
+  ventureLabStatus: z.string().max(200).optional(),
+  investmentStatus: z.string().max(200).optional(),
+  commonsVisibility: z.enum(["private", "commons", "public"]).optional(),
+  publicVisibility: z.boolean().optional(),
+  institutionalReadiness: confidenceScore.optional(),
+  institutionalClassification: z.string().max(200).optional(),
+});
+
+export const ventureQubeV1Schema = z.object({
+  schemaVersion: z.literal("venture-iqube/v1.0"),
+  ventureId: z.string().min(1),
+  emittedAt: z.string().optional(),
+  lastPath: founderPathEnum.optional(),
+  identity: identityLayerSchema,
+  thesis: thesisLayerSchema,
+  intent: intentLayerSchema,
+  signalEvidence: signalEvidenceLayerSchema,
+  archetypes: z.array(archetypeSchema),
+  revenueArchitecture: z.object({ engines: z.array(revenueEngineSchema) }),
+  commercialModel: commercialModelLayerSchema,
+  capability: capabilityLayerSchema,
+  resource: resourceLayerSchema,
+  execution: executionLayerSchema,
+  delegation: delegationLayerSchema,
+  outcome: outcomeLayerSchema,
+  governance: governanceLayerSchema,
+  institutional: institutionalLayerSchema,
+});
+
+export type VentureQubeV1Shape = z.infer<typeof ventureQubeV1Schema>;
+
+/** Parse + validate a candidate VentureQube v1.0 payload. */
+export function parseVentureQubeV1(payload: unknown):
+  | { ok: true; data: VentureQubeV1 }
+  | { ok: false; error: string; issues: z.ZodIssue[] } {
+  const result = ventureQubeV1Schema.safeParse(payload);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first?.path?.length ? first.path.join(".") : "(root)";
+    return {
+      ok: false,
+      error: `${path}: ${first?.message ?? "validation failed"}`,
+      issues: result.error.issues,
+    };
+  }
+  return { ok: true, data: result.data as VentureQubeV1 };
+}
+
 // Re-exports so callers don't have to reach into types/ — the schema file
 // is the single import point for FE and BE code that wants both the
 // runtime validator and the static types.
@@ -378,4 +622,5 @@ export type {
   CartridgeSlugV04,
   VentureQube,
   VentureQubeSchemaVersion,
+  VentureQubeV1,
 };

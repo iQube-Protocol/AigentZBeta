@@ -64,6 +64,8 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'experience_task_completed',
   // Autonomous agent lifecycle (Option A) — revocation provenance
   'agent_revocation_state_changed',
+  // Founder Office — Venture Blueprint handed to execution agents
+  'venture_blueprint_handoff',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

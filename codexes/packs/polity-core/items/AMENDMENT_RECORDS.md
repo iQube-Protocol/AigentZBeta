@@ -16,6 +16,12 @@ remain readable for audit; agents must bind to the current approved versions.
 | 2026-06-17 | Standing Framework | 1.0.1 | Corrected — participant agents DO hold Standing (participatory, revocable rights), not citizenship; reframed as operational companion to the Standing Charter. |
 | 2026-06-17 | Founder Office Charter | 1.0.0 | Initial ratification — sub-metaCommons constitutional artefact; capability discovery + opportunity intelligence + venture formation; primary institutional interface between founders and the metaCommons; consumes Commons signals (intent/demand/capability/opportunity/standing + PoWP); Standing calibrates confidence, does not gate opportunity; purpose is venture formation, not extraction. Downstream of the metaCommons Charter; calibrated by the Standing Charter; NOT part of the Agent Passport binding triple. |
 
+## Drafts / Work-in-progress (NOT ratified)
+
+| Date | Primitive | Version | Status | Note |
+|---|---|---|---|---|
+| 2026-06-21 | VentureQube Specification | 1.0.0-wip | draft_wip | Stubbed constitutional primitive (ClusterQube specialization). Recorded for legibility while the Founder Office / Venture Lab engine is built; NOT in the Agent Passport binding triple; NOT yet published to Autodrive. Engineering SoT: `types/ventureQube.ts` (v1.0). Promote to ratified once the engine is operational and the spec is locked. |
+
 ## Immutability
 
 The machine-readable counterparts of every ratified framework are published to

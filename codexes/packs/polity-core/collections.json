@@ -73,6 +73,18 @@
       ]
     },
     {
+      "id": "col_ventureqube_spec",
+      "title": "VentureQube Spec (WIP)",
+      "description": "Work-in-progress constitutional primitive — VentureQube v1 (ClusterQube specialization). Stubbed for canonization.",
+      "type": "static",
+      "order": 6,
+      "enabled": true,
+      "metadata": { "icon": "Layers", "category": "main" },
+      "items": [
+        "items/VENTUREQUBE_SPEC.md"
+      ]
+    },
+    {
       "id": "col_standing_framework",
       "title": "Standing Framework",
       "description": "Operational companion to the Standing Charter — how Standing operates today.",
