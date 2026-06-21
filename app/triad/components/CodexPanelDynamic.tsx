@@ -70,7 +70,7 @@ type IssueOption = {
 // paid entitlement). Admins always receive these; others get them from their
 // plan. The activationId on the relevant tab groups (e.g. 'venture-lab') is the
 // existing gate this feeds.
-const PLAN_GATED_ACTIVATIONS = ['venture-lab', 'marketa'] as const;
+const PLAN_GATED_ACTIVATIONS = ['venture-lab', 'marketa', 'metame-studio'] as const;
 
 export function AgentiQEconomyBadge() {
   return (
@@ -248,6 +248,7 @@ export default function CodexPanelDynamic({
         const ids: string[] = [];
         if (p.ventureLabAccess) ids.push('venture-lab');
         if (p.marketaAccess) ids.push('marketa');
+        if (p.studioAccess) ids.push('metame-studio');
         setPlanActivations(ids);
       })
       .catch(() => {});

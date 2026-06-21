@@ -32,6 +32,8 @@ export interface PersonaPlan {
   ventureLabAccess: boolean;
   /** True when the plan unlocks Marketa (any paid venture tier). */
   marketaAccess: boolean;
+  /** True when the plan unlocks metaMe Studio (any paid venture tier). */
+  studioAccess: boolean;
   /** Max active VentureQubes this plan may own (none=0, lite=1, pro=3, elite=unlimited). */
   ventureLimit: number;
 }
@@ -42,6 +44,7 @@ const FREE_PLAN: PersonaPlan = {
   status: 'active',
   ventureLabAccess: false,
   marketaAccess: false,
+  studioAccess: false,
   ventureLimit: 0,
 };
 
@@ -75,6 +78,7 @@ function resolve(row: { plan_tier?: string; venture_tier?: string; status?: stri
     status: (row.status as PersonaPlan['status']) ?? 'active',
     ventureLabAccess: paid,
     marketaAccess: paid,
+    studioAccess: paid,
     ventureLimit: VENTURE_LIMIT[ventureTier] ?? 0,
   };
 }
