@@ -79,6 +79,7 @@ import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierAppr
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
+import { ContactsImportPanel } from "@/components/metame/connections/ContactsImportPanel";
 import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
 import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
 import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGoogleDocModal";
@@ -2021,6 +2022,18 @@ function AigentMeWelcomeBody({
             accentClass={accentClass}
           >
             <GoogleConnectionsPanel isAdmin={!!data.cartridgeFlags?.isAdmin} theme={theme} />
+          </CollapsibleSection>
+
+          {/* Contacts — import from Google or iPhone vCard. */}
+          <CollapsibleSection
+            title="Contacts"
+            summary="Import from Google Contacts or iPhone vCard — searchable address book for aigentMe"
+            defaultOpen={false}
+            isDark={isDark}
+            mutedClass={mutedClass}
+            accentClass={accentClass}
+          >
+            <ContactsImportPanel theme={theme} />
           </CollapsibleSection>
 
           {/* Active context chips — collapsible. */}
