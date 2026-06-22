@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, ChevronLeft, ChevronRight, Check, Lock } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { MicButton } from "@/components/ui/MicButton";
 
 interface Form {
   name: string;
@@ -253,13 +254,24 @@ export function VentureProWizard({
               <div className="space-y-2 py-1">
                 <label className="block text-sm font-medium text-slate-200">{current.label}</label>
                 <p className="text-[11px] text-slate-400">{current.hint}</p>
-                <textarea
-                  value={form[current.field]}
-                  onChange={(e) => setField(current.field, e.target.value)}
-                  rows={6}
-                  className="w-full text-sm rounded-lg p-2.5 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
-                  placeholder="One per line…"
-                />
+                <div className="relative">
+                  <textarea
+                    value={form[current.field]}
+                    onChange={(e) => setField(current.field, e.target.value)}
+                    rows={6}
+                    className="w-full text-sm rounded-lg p-2.5 pr-10 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                    placeholder="One per line…"
+                  />
+                  <div className="absolute top-1.5 right-1.5">
+                    <MicButton
+                      onTranscript={(t) =>
+                        setField(current.field, form[current.field] ? `${form[current.field].trimEnd()} ${t}` : t)
+                      }
+                      size="sm"
+                      theme="dark"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 

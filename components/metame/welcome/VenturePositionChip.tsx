@@ -32,7 +32,14 @@ import { personaFetch } from '@/utils/personaSpine';
 
 interface Calibration {
   growth: { yMaturity: number; xCommercialization: number; zone: string; label: string };
-  ventures: Array<{ name: string; stage: string; derived?: boolean }>;
+  ventures: Array<{
+    name: string;
+    stage: string;
+    derived?: boolean;
+    yMaturity?: number;
+    xCommercialization?: number;
+    zone?: string;
+  }>;
   hasExperienceModel: boolean;
 }
 
@@ -85,6 +92,91 @@ export function useVenturePosition(personaId?: string): VenturePositionData {
 
 function hasPosition(cal: Calibration | null): cal is Calibration {
   return !!cal && (cal.hasExperienceModel || cal.ventures.length > 0);
+}
+
+/** Sum-based growth zone (mirrors the Venture Lab matrix zone logic). */
+function zoneForCell(y: number, x: number): string {
+  const sum = y + x;
+  if (sum <= 4) return 'formation';
+  if (sum <= 7) return 'validation';
+  if (sum <= 10) return 'activation';
+  if (sum <= 12) return 'strategic';
+  return 'scale';
+}
+
+const ZONE_CELL_FILL: Record<string, string> = {
+  formation: 'bg-slate-500/15',
+  validation: 'bg-blue-500/15',
+  activation: 'bg-emerald-500/15',
+  strategic: 'bg-amber-500/15',
+  scale: 'bg-violet-500/20',
+};
+const ZONE_DOT: Record<string, string> = {
+  formation: 'bg-slate-300',
+  validation: 'bg-blue-300',
+  activation: 'bg-emerald-300',
+  strategic: 'bg-amber-300',
+  scale: 'bg-violet-300',
+};
+
+/**
+ * Compact 7×7 growth matrix (X = commercialization 1→7, Y = maturity 7→1)
+ * plotting the operator's venture position(s). A visual read of where the
+ * venture sits, mirroring the Venture Lab matrix tab.
+ */
+function MatrixMini({ cal }: { cal: Calibration }) {
+  // Collect points: the headline growth position + each derived venture point.
+  const points: Array<{ y: number; x: number; zone: string; label: string }> = [];
+  points.push({
+    y: cal.growth.yMaturity,
+    x: cal.growth.xCommercialization,
+    zone: cal.growth.zone,
+    label: cal.growth.label,
+  });
+  for (const v of cal.ventures) {
+    if (typeof v.yMaturity === 'number' && typeof v.xCommercialization === 'number') {
+      points.push({ y: v.yMaturity, x: v.xCommercialization, zone: v.zone ?? zoneForCell(v.yMaturity, v.xCommercialization), label: v.name });
+    }
+  }
+  const keyOf = (y: number, x: number) => `${y},${x}`;
+  const pointMap = new Map<string, { zone: string; label: string }>();
+  for (const p of points) pointMap.set(keyOf(p.y, p.x), { zone: p.zone, label: p.label });
+
+  const rows = [7, 6, 5, 4, 3, 2, 1]; // top → bottom
+  const cols = [1, 2, 3, 4, 5, 6, 7];
+
+  return (
+    <div className="mt-1">
+      <div className="flex items-stretch gap-1">
+        {/* Y axis label */}
+        <div className="flex items-center">
+          <span className="text-[8px] text-slate-500 [writing-mode:vertical-rl] rotate-180">Maturity →</span>
+        </div>
+        <div className="flex-1">
+          <div className="grid gap-[2px]" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
+            {rows.map((y) =>
+              cols.map((x) => {
+                const cellZone = zoneForCell(y, x);
+                const hit = pointMap.get(keyOf(y, x));
+                return (
+                  <div
+                    key={`${y}-${x}`}
+                    title={hit ? `${hit.label} — ${cellZone}` : `maturity ${y} · commercialization ${x} · ${cellZone}`}
+                    className={`aspect-square rounded-[2px] flex items-center justify-center ${ZONE_CELL_FILL[cellZone] ?? ''}`}
+                  >
+                    {hit && (
+                      <span className={`block h-1.5 w-1.5 rounded-full ring-1 ring-white/40 ${ZONE_DOT[hit.zone] ?? 'bg-white'}`} />
+                    )}
+                  </div>
+                );
+              }),
+            )}
+          </div>
+          <div className="text-[8px] text-slate-500 text-center mt-0.5">Commercialization →</div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -171,6 +263,9 @@ export function VenturePositionCapsule({
           </div>
         )}
       </div>
+
+      {/* Visual matrix — where the venture sits on the growth grid. */}
+      <MatrixMini cal={cal} />
 
       <div className="mt-3 pt-2 border-t border-white/[0.06]">
         {hasAccess ? (

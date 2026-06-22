@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Check, Lock, ArrowUp, ArrowDown, Layers, Plus, Rocket } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { MicButton } from "@/components/ui/MicButton";
 import { VentureLightWizard } from "./VentureLightWizard";
 import { VentureProWizard } from "./VentureProWizard";
 
@@ -234,23 +235,33 @@ export function VenturePortfolioWizard({
 
             <div>
               <label className="block text-sm font-medium text-slate-200 mb-1">Portfolio thesis</label>
-              <textarea
-                value={thesis}
-                onChange={(e) => setThesis(e.target.value)}
-                rows={3}
-                placeholder="What ties these ventures together — the throughline of your portfolio."
-                className="w-full text-sm rounded-lg p-2.5 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
-              />
+              <div className="relative">
+                <textarea
+                  value={thesis}
+                  onChange={(e) => setThesis(e.target.value)}
+                  rows={3}
+                  placeholder="What ties these ventures together — the throughline of your portfolio."
+                  className="w-full text-sm rounded-lg p-2.5 pr-10 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                />
+                <div className="absolute top-1.5 right-1.5">
+                  <MicButton onTranscript={(t) => setThesis((v) => (v ? `${v.trimEnd()} ${t}` : t))} size="sm" theme="dark" />
+                </div>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-200 mb-1">Notes</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                placeholder="Prioritisation rationale, shared resources, sequencing…"
-                className="w-full text-sm rounded-lg p-2.5 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
-              />
+              <div className="relative">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Prioritisation rationale, shared resources, sequencing…"
+                  className="w-full text-sm rounded-lg p-2.5 pr-10 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                />
+                <div className="absolute top-1.5 right-1.5">
+                  <MicButton onTranscript={(t) => setNotes((v) => (v ? `${v.trimEnd()} ${t}` : t))} size="sm" theme="dark" />
+                </div>
+              </div>
             </div>
 
             {error && (

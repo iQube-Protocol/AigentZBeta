@@ -255,13 +255,13 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
               />
             )}
             {subTab === 'ladder' && (
-              <LadderView ventures={ventures} overlay={overlay} />
+              <LadderView ventures={mergedVentures} overlay={overlay} />
             )}
             {subTab === 'model' && (
               <ModelView ventures={ventures} isAdmin={isAdmin} onSave={savePayload} />
             )}
             {subTab === 'strategy' && (
-              <StrategyView ventures={ventures} overlay={overlay} />
+              <StrategyView ventures={mergedVentures} overlay={overlay} />
             )}
           </>
         )}

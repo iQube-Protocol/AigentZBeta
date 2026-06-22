@@ -26,7 +26,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, ChevronLeft, ChevronRight, Check, Sparkles } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Check, Sparkles, Linkedin } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { MicButton } from "@/components/ui/MicButton";
 
@@ -85,6 +85,13 @@ export function StandingCoreWizard({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // LinkedIn import panel.
+  const [liOpen, setLiOpen] = useState(false);
+  const [liUrl, setLiUrl] = useState("");
+  const [liText, setLiText] = useState("");
+  const [liBusy, setLiBusy] = useState(false);
+  const [liMsg, setLiMsg] = useState<string | null>(null);
 
   const wasOpen = useRef(false);
 
@@ -147,6 +154,43 @@ export function StandingCoreWizard({
     setPrefilled((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
   };
 
+  const importLinkedIn = async () => {
+    if (!liText.trim()) { setLiMsg("Paste your LinkedIn profile text first."); return; }
+    setLiBusy(true);
+    setLiMsg(null);
+    try {
+      const res = await personaFetch("/api/standing/core-wizard/linkedin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: liUrl.trim() || undefined, profileText: liText }),
+        personaIdHint: personaId,
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) throw new Error(data?.error || `Import failed (${res.status})`);
+      // Merge suggestions: fill empty fields; append to non-empty ones so
+      // nothing the operator already typed is lost. They edit freely after.
+      const suggested = (data.suggested ?? {}) as Partial<Answers>;
+      const pre: Partial<Record<keyof Answers, boolean>> = {};
+      setAnswers((prev) => {
+        const next = { ...prev };
+        for (const s of STEPS) {
+          const sv = suggested[s.key];
+          if (!sv) continue;
+          if (!next[s.key].trim()) { next[s.key] = sv; pre[s.key] = true; }
+          else next[s.key] = `${next[s.key].trimEnd()}\n${sv}`;
+        }
+        return next;
+      });
+      setPrefilled((prev) => ({ ...prev, ...pre }));
+      setLiMsg(`Imported ${data.factsExtracted} fact${data.factsExtracted === 1 ? "" : "s"} from LinkedIn — review and edit below.`);
+      setLiOpen(false);
+    } catch (err) {
+      setLiMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLiBusy(false);
+    }
+  };
+
   const save = async () => {
     setSaving(true);
     setError(null);
@@ -182,6 +226,51 @@ export function StandingCoreWizard({
             Every step is optional — fill them in any order, skip what you like.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Connect LinkedIn — import + extract to pre-fill the wizard. */}
+        <div>
+          <button
+            type="button"
+            onClick={() => { setLiOpen((o) => !o); setLiMsg(null); }}
+            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20"
+          >
+            <Linkedin className="w-3.5 h-3.5" /> Connect LinkedIn
+          </button>
+          {liMsg && !liOpen && <span className="ml-2 text-[11px] text-emerald-300/90">{liMsg}</span>}
+          {liOpen && (
+            <div className="mt-2 rounded-lg border border-sky-500/25 bg-slate-900/60 p-2.5 space-y-2">
+              <input
+                value={liUrl}
+                onChange={(e) => setLiUrl(e.target.value)}
+                placeholder="LinkedIn profile URL (optional)"
+                className="w-full text-xs rounded p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-sky-500/60 focus:outline-none"
+              />
+              <textarea
+                value={liText}
+                onChange={(e) => setLiText(e.target.value)}
+                rows={4}
+                placeholder="Paste your LinkedIn profile text here (About + experience). We extract your facts and pre-fill the wizard."
+                className="w-full text-xs rounded p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-sky-500/60 focus:outline-none"
+              />
+              <p className="text-[10px] text-slate-500">
+                Automatic LinkedIn fetch isn’t wired yet — paste your profile text and we’ll do the rest. Your data stays in your Standing profile.
+              </p>
+              {liMsg && <p className="text-[11px] text-amber-300">{liMsg}</p>}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={importLinkedIn}
+                  disabled={liBusy}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-sky-600/30 border border-sky-500/50 text-sky-100 hover:bg-sky-600/50 disabled:opacity-50"
+                >
+                  {liBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Linkedin className="w-3.5 h-3.5" />}
+                  {liBusy ? "Importing…" : "Import & extract"}
+                </button>
+                <button type="button" onClick={() => setLiOpen(false)} className="text-xs text-slate-400 hover:text-slate-200">Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Clickable progress bar — non-linear navigation. */}
         <div className="flex gap-1">
