@@ -52,6 +52,7 @@ import { SpecialistResponseCard, type SpecialistResponseData } from "@/component
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
+import { ContactsImportPanel } from "@/components/metame/connections/ContactsImportPanel";
 import type { SectionId } from "./useAigentMeCopilotBridge";
 import {
   VenturePositionChip,
@@ -1077,6 +1078,17 @@ export function WelcomeRightPane(props: Props) {
           theme={theme}
         >
           <GoogleConnectionsPanel isAdmin={!!isAdmin} theme={theme} />
+        </AccordionRow>
+
+        <AccordionRow
+          id="contacts"
+          title="Contacts"
+          summary="Import from Google, iPhone, iCloud, LinkedIn, Outlook or CSV"
+          expanded={expandedSectionId === "contacts"}
+          onToggle={() => toggleSection("contacts")}
+          theme={theme}
+        >
+          <ContactsImportPanel theme={theme} />
         </AccordionRow>
 
         <AccordionRow

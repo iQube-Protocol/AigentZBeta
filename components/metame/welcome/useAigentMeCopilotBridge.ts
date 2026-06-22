@@ -23,6 +23,7 @@ export type SectionId =
   | "specialists"
   | "cartridges"
   | "google"
+  | "contacts"
   | "context"
   | "receipts";
 
@@ -264,7 +265,7 @@ export function useAigentMeCopilotBridge({
     ],
     handler: ({ sectionId }: { sectionId: string }) => {
       const id = String(sectionId).toLowerCase();
-      const allowed: SectionId[] = ["experience", "specialists", "cartridges", "google", "context", "receipts"];
+      const allowed: SectionId[] = ["experience", "specialists", "cartridges", "google", "contacts", "context", "receipts"];
       if (!allowed.includes(id as SectionId)) {
         return { ok: false, reason: `Unknown sectionId '${sectionId}'. Allowed: ${allowed.join(", ")}.` };
       }
