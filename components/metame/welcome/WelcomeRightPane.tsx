@@ -59,6 +59,7 @@ import {
   useVenturePosition,
 } from "./VenturePositionChip";
 import { StandingCoreChip } from "./StandingCoreChip";
+import { VentureLightChip } from "./VentureLightChip";
 
 interface Specialist {
   id: string;
@@ -577,6 +578,7 @@ export function WelcomeRightPane(props: Props) {
         )}
         <PersonalGuideChip personaId={personaId} />
         <StandingCoreChip personaId={personaId} />
+        <VentureLightChip personaId={personaId} />
         <PersonaQubeBadge using={usingIqubes} theme={theme} />
         <StageProgressionChip evaluation={stageEval ?? null} />
         <VenturePositionChip

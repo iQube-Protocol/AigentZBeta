@@ -9,6 +9,7 @@ import {
   Upload, X as XIcon, Wand2, ShieldCheck, Rocket, Layers,
 } from 'lucide-react';
 import { StandingCoreWizard } from '@/components/metame/setup/StandingCoreWizard';
+import { VentureLightWizard } from '@/components/metame/setup/VentureLightWizard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -259,6 +260,7 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
     core: boolean; light: boolean; pro: boolean; portfolio: boolean;
   } | null>(null);
   const [coreWizardOpen, setCoreWizardOpen] = useState(false);
+  const [lightWizardOpen, setLightWizardOpen] = useState(false);
   useEffect(() => {
     void (async () => {
       try {
@@ -698,8 +700,19 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
             <span className="inline-block mt-1.5 text-[9px] uppercase tracking-wider text-emerald-300">Free · available</span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => setLightWizardOpen(true)}
+            className="text-left rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 hover:bg-violet-500/20 transition-colors"
+          >
+            <div className="flex items-center gap-1.5 text-sm font-medium text-violet-200">
+              <Sparkles className="w-3.5 h-3.5" /> Venture Light
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Incubate one venture (the essentials).</p>
+            <span className="inline-block mt-1.5 text-[9px] uppercase tracking-wider text-emerald-300">Free · available</span>
+          </button>
+
           {[
-            { key: 'light' as const, label: 'Venture Light', icon: Sparkles, desc: 'Incubate one venture (simplified).', free: true },
             { key: 'pro' as const, label: 'Venture Pro', icon: Rocket, desc: 'Full 13-layer VentureQube.', free: false },
             { key: 'portfolio' as const, label: 'Venture Portfolio', icon: Layers, desc: 'Multiple ventures, cross-venture.', free: false },
           ].map(({ key, label, icon: Icon, desc, free }) => {
@@ -733,6 +746,11 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
         onOpenChange={setCoreWizardOpen}
         personaId={_personaId}
         onSaved={() => { void loadProfiles(); }}
+      />
+      <VentureLightWizard
+        open={lightWizardOpen}
+        onOpenChange={setLightWizardOpen}
+        personaId={_personaId}
       />
 
       {/* Error */}

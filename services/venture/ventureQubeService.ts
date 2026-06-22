@@ -166,7 +166,7 @@ export async function createVentureQube(
         ok: false,
         error:
           plan.ventureTier === 'none'
-            ? 'Venture Lab is a premium service. Upgrade to Venture Lab Lite to create your venture.'
+            ? 'Free citizens can incubate one Venture Light. Upgrade to Venture Lab Lite to unlock the Venture Pro wizard and more ventures.'
             : `Your plan includes ${plan.ventureLimit} venture${plan.ventureLimit === 1 ? '' : 's'}. Upgrade your Venture Lab tier to create more.`,
       };
     }
