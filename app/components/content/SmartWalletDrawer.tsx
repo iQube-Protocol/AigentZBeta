@@ -4698,13 +4698,13 @@ export default function SmartWalletDrawer({
                       disabled={mintStatus === "staging"}
                       className="w-full rounded-lg border border-violet-500/40 bg-violet-600/20 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {mintStatus === "staging" ? "Minting…" : "Mint Persona to Base"}
+                      {mintStatus === "staging" ? "Minting…" : "Mint PersonaQube"}
                     </button>
                     <p className="text-[10px] text-white/30 leading-relaxed">
-                      Mints the PersonaQube as an ERC-721 on Base mainnet (the canonical
-                      bearer token). If the on-chain rail is unconfigured, the mint is
-                      queued for the batch minter and the locker is staged on Sui/Walrus
-                      in the meantime.
+                      The PersonaQube is the on-chain bearer token (an ERC-721, minted on
+                      Base today — multi-chain ready). Sui/Walrus holds the encrypted
+                      persona locker the token bears. If the on-chain rail is unconfigured,
+                      the mint is queued for the batch minter.
                     </p>
                   </div>
                 )}
