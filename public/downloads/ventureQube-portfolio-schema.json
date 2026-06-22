@@ -7,8 +7,9 @@
     "audience": "An off-platform AI assistant helping a Pro/Elite operator prepare a Venture Portfolio iQube.",
     "cumulative_design": "Schemas are cumulative supersets: Venture Light (v0.5) ⊂ Venture Pro (v1.0) ⊂ Venture Portfolio (this file). A portfolio operator uploads this single file — it populates ExperienceModel, ExperienceGuide, Standing, every venture's full 13-layer VentureQube, AND the portfolio-level thesis + priority order. There is no need to also upload the Light or Pro files.",
     "ventures": "Each entry in `ventures[]` uses the SAME full 13-layer VentureQube shape defined in the Venture Pro schema (ventureQube-pro-schema.json → definitions.ventureProV1): identity, thesis, intent, signalEvidence, archetypes, revenueArchitecture, commercialModel, capability, resource, execution, delegation, outcome, governance, institutional. Pro/Elite may include multiple ventures (Pro up to 3, Elite unlimited — enforced server-side).",
-    "portfolio_block": "The `portfolio` block is the new, portfolio-only layer: a `thesis` that spans all ventures, an explicit `priorities` order (by venture name or slug), and free-form `notes`. Cross-venture intelligence (shared capabilities, stage spread) is DERIVED server-side from the ventures — you don't provide it.",
-    "what_to_produce": "A single JSON file: the Pro base + the ventures array (full 13-layer each) + the portfolio block."
+    "portfolio_block": "The `portfolio` block is the portfolio-only KNOWLEDGE layer: a `thesis` that spans all ventures, an explicit `priorities` order (by venture name or slug), and free-form `notes`. Cross-venture intelligence (shared capabilities, stage spread) is DERIVED server-side from the ventures — you don't provide it.",
+    "operating_model_block": "The OPTIONAL `operatingModel` block is the portfolio-only OPERATING layer — distinct from `portfolio`, which is knowledge. Where `portfolio.thesis` says WHY this portfolio exists, `operatingModel` says HOW it is run day to day (mission, successMetrics, activeObjectives, priorityPartners, priorityActions, reviewCadence, primaryMetric). This is what turns the portfolio into a living brief aigentMe executes against as Chief of Staff. Omit it unless the operator wants daily operating execution. Do NOT hardwire these operating fields into the core schema or into a venture — they belong only here.",
+    "what_to_produce": "A single JSON file: the Pro base + the ventures array (full 13-layer each) + the portfolio block (+ optionally the operatingModel block)."
   },
   "type": "object",
   "required": ["schemaVersion", "operator", "strategy", "ventures", "plan", "portfolio"],
@@ -49,6 +50,20 @@
     "standing": { "type": "object", "additionalProperties": true, "description": "Same as Venture Light/Pro (standing.core + linkedInUrl)." },
     "plan": { "type": "object", "additionalProperties": true, "description": "Same as Venture Light/Pro (horizon plan)." },
     "kpiBoard": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "operatingModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL operating-artifact layer (Pro/Portfolio only). The portfolio's living operational brief — the place a multi-venture operating thesis like \"Operation Leap\" lives so aigentMe can execute against it daily as Chief of Staff. The core schema stays a general-purpose knowledge artifact; operations live here.",
+      "properties": {
+        "mission": { "type": "string", "maxLength": 2000, "description": "Portfolio-wide operating mission (e.g. \"Operation Leap\")." },
+        "successMetrics": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "Concrete portfolio success metrics — e.g. \"4,000 Passport holders\", \"$100K MRR\", \"100 Founder Operators identified\", \"25 Founder Office conversions\"." },
+        "activeObjectives": { "type": "array", "items": { "type": "string", "maxLength": 280 }, "maxItems": 30, "description": "Cross-venture objectives currently in flight." },
+        "priorityPartners": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "Strategic partners across the portfolio (e.g. Project Liberty, Horizon, Lamina1)." },
+        "priorityActions": { "type": "array", "items": { "type": "string", "maxLength": 280 }, "maxItems": 30, "description": "Next concrete actions across the portfolio, highest-priority first." },
+        "reviewCadence": { "type": "string", "maxLength": 64, "description": "Operating review cycle — e.g. \"weekly\"." },
+        "primaryMetric": { "type": "string", "maxLength": 280, "description": "The portfolio north-star KPI. Default framing is Net Value Acceleration — \"have our actions collapsed time to value?\" — which aligns every venture (Passport → time to citizenship, aigentMe → time to agency, Standing → time to trust, Founder Office → time to venture readiness)." }
+      }
+    },
     "ventures": {
       "type": "array",
       "minItems": 1,
