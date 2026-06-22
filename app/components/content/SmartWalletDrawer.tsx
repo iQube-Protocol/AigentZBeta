@@ -917,8 +917,9 @@ export default function SmartWalletDrawer({
     baseTxHash: string | null;
     mode: "stub" | "sui-walrus" | "base" | null;
     onChain: boolean;
+    deferred: boolean;
     mintedAt: string | null;
-  }>({ suiObjectId: null, walrusBlobId: null, baseTokenId: null, baseTxHash: null, mode: null, onChain: false, mintedAt: null });
+  }>({ suiObjectId: null, walrusBlobId: null, baseTokenId: null, baseTxHash: null, mode: null, onChain: false, deferred: false, mintedAt: null });
 
   // Load any existing mint on mount / persona change so the UI shows
   // "minted" without making the operator re-mint.
@@ -943,6 +944,7 @@ export default function SmartWalletDrawer({
           baseTxHash: data.baseTxHash ?? null,
           mode: data.mode ?? null,
           onChain: Boolean(data.onChain),
+          deferred: Boolean(data.deferred),
           mintedAt: data.mintedAt ?? null,
         });
         setMintStatus("minted");
@@ -998,6 +1000,7 @@ export default function SmartWalletDrawer({
         baseTxHash: data.baseTxHash ?? null,
         mode: data.mode ?? null,
         onChain: Boolean(data.onChain),
+        deferred: Boolean(data.deferred),
         mintedAt: data.mintedAt ?? null,
       });
       setMintStatus("minted");
@@ -4647,15 +4650,27 @@ export default function SmartWalletDrawer({
                 )}
                 {/* Mint action */}
                 {mintStatus === "minted" ? (
-                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
+                  <div className={`rounded-lg border p-3 space-y-2 ${
+                    mintResult.deferred
+                      ? "border-amber-500/30 bg-amber-500/10"
+                      : "border-emerald-500/30 bg-emerald-500/10"
+                  }`}>
                     <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span className="text-sm font-medium text-emerald-300">
-                        PersonaQube minted {mintResult.onChain ? "(on-chain)" : "(stub mode)"}
+                      {mintResult.deferred ? (
+                        <Clock className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Check className="w-4 h-4 text-emerald-400" />
+                      )}
+                      <span className={`text-sm font-medium ${mintResult.deferred ? "text-amber-300" : "text-emerald-300"}`}>
+                        {mintResult.deferred
+                          ? "PersonaQube queued for batch mint"
+                          : `PersonaQube minted ${mintResult.onChain ? "(on-chain)" : "(stub mode)"}`}
                       </span>
                     </div>
                     <p className="text-xs text-white/50 leading-relaxed">
-                      {mintResult.mode === "base"
+                      {mintResult.deferred
+                        ? "Your PersonaQube bearer token is queued for the next batch mint on Base. The encrypted persona locker is staged now; the on-chain token id + tx hash land here once the batch is processed."
+                        : mintResult.mode === "base"
                         ? "Persona minted as a PersonaQube (a derivative of the iQube primitive) — an ERC-721 on Base mainnet against the iQube NFT contract. The token id is a one-way commitment over your persona (T0-safe), anchored to your DVN receipt trail."
                         : "Persona descriptor encrypted client-side, published to Walrus, and bound to a Sui object representing your PersonaQube. The (Sui object, Walrus blob) pair anchors to your DVN receipt trail."}
                     </p>
@@ -4685,7 +4700,7 @@ export default function SmartWalletDrawer({
                         </div>
                       )}
                     </div>
-                    {!mintResult.onChain && (
+                    {!mintResult.onChain && !mintResult.deferred && (
                       <p className="text-[10px] text-amber-300/70 leading-relaxed">
                         Stub mode — set IQUBE_NFT_CONTRACT_ADDRESS + BASE_MINTER_PRIVATE_KEY (Base mainnet) to mint the PersonaQube on-chain, or SUI_PACKAGE_ID + WALRUS_PUBLISHER_URL for the Sui/Walrus rail.
                       </p>
@@ -4705,17 +4720,17 @@ export default function SmartWalletDrawer({
                     )}
                     <button
                       type="button"
-                      onClick={() => handleStageMint({ chain: "base", strategy: "immediate" })}
+                      onClick={() => handleStageMint({ chain: "base", strategy: "deferred" })}
                       disabled={mintStatus === "staging"}
                       className="w-full rounded-lg border border-violet-500/40 bg-violet-600/20 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {mintStatus === "staging" ? "Minting…" : "Mint PersonaQube"}
+                      {mintStatus === "staging" ? "Queuing…" : "Mint PersonaQube"}
                     </button>
                     <p className="text-[10px] text-white/30 leading-relaxed">
                       The PersonaQube is the on-chain bearer token (an ERC-721, minted on
                       Base today — multi-chain ready). Sui/Walrus holds the encrypted
-                      persona locker the token bears. If the on-chain rail is unconfigured,
-                      the mint is queued for the batch minter.
+                      persona locker the token bears. Your mint is queued and minted in the
+                      next batch against your wallet's EVM address.
                     </p>
                   </div>
                 )}

@@ -289,15 +289,21 @@ export async function GET(req: NextRequest) {
     }
 
     const row = data as Record<string, unknown>;
+    const baseTokenId = (row.base_token_id as string | null) ?? null;
+    // The bearer (Base) token is still queued when it hasn't minted on-chain
+    // yet — i.e. no base_token_id and the mode isn't 'base'. Surfaced so the
+    // wallet shows "queued for batch mint" instead of a misleading stub state.
+    const deferred = !baseTokenId && row.mint_mode !== 'base';
     return NextResponse.json({
       ok: true,
       minted: true,
       mintId: row.mint_id,
       mode: row.mint_mode,
       onChain: row.on_chain,
+      deferred,
       suiObjectId: row.sui_object_id,
       walrusBlobId: row.walrus_blob_id,
-      baseTokenId: (row.base_token_id as string | null) ?? null,
+      baseTokenId,
       baseTxHash: (row.base_tx_hash as string | null) ?? null,
       personaPublicRef: row.persona_public_ref,
       mintedAt: row.minted_at,
