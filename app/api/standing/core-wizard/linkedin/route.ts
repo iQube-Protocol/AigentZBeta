@@ -18,7 +18,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { ensureCoreProfile, type StandingCoreAnswers } from '@/services/standing/standingCore';
 import { extractFactsFromText, type ExtractedFact } from '@/services/standing/extractFacts';
-import { fetchLinkedInProfileText, isProxycurlConfigured } from '@/services/standing/linkedinProfile';
+import { fetchLinkedInProfileText, isEnrichConfigured } from '@/services/standing/linkedinProfile';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -62,18 +62,18 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { url?: string; profileText?: string };
   let profileText = (body.profileText ?? '').trim();
   const url = (body.url ?? '').trim();
-  let source: 'paste' | 'proxycurl' = 'paste';
+  let source: 'paste' | 'auto' = 'paste';
 
-  // Auto-fetch from the public URL via Proxycurl when no text was pasted and
-  // the key is configured. Paste always wins (operator-provided source of truth).
+  // Auto-fetch from the public URL via the configured enrichment provider when
+  // no text was pasted. Paste always wins (operator-provided source of truth).
   if (!profileText && url) {
     const fetched = await fetchLinkedInProfileText(url);
     if (fetched.ok) {
       profileText = fetched.text;
-      source = 'proxycurl';
-    } else if (fetched.reason === 'no-key') {
+      source = 'auto';
+    } else if (fetched.reason === 'no-provider') {
       return NextResponse.json(
-        { ok: false, error: 'Automatic fetch isn’t configured (set PROXYCURL_API_KEY). Paste your LinkedIn profile text instead.' },
+        { ok: false, error: 'Automatic fetch isn’t configured (no LinkedIn enrichment provider set). Paste your LinkedIn profile text instead.' },
         { status: 400 },
       );
     } else if (fetched.reason === 'bad-url') {
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: isProxycurlConfigured()
+        error: isEnrichConfigured()
           ? 'Provide your LinkedIn profile URL to auto-fetch, or paste your profile text.'
           : 'Paste your LinkedIn profile text to import.',
       },

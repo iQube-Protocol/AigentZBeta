@@ -182,7 +182,7 @@ export function StandingCoreWizard({
         return next;
       });
       setPrefilled((prev) => ({ ...prev, ...pre }));
-      const via = data.source === "proxycurl" ? "auto-fetched" : "from your pasted text";
+      const via = data.source === "auto" ? "auto-fetched" : "from your pasted text";
       setLiMsg(`Imported ${data.factsExtracted} fact${data.factsExtracted === 1 ? "" : "s"} (${via}) — review and edit below.`);
       setLiOpen(false);
     } catch (err) {
