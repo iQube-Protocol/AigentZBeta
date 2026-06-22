@@ -16,6 +16,18 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 async function requireAdmin(req: NextRequest) {
+  // Scheduled-caller path — a GitHub Actions cron has no persona session, so
+  // it authenticates with the ADMIN_OPS_TOKEN bearer (same convention as
+  // /api/access/finalize-receipts). Checked first so the loop never needs a
+  // Supabase session.
+  const expected = process.env.ADMIN_OPS_TOKEN;
+  if (expected) {
+    const auth = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (token === expected) return { ok: true as const };
+  }
+
+  // Interactive admin path — operator/persona session resolved via the spine.
   const persona = await getActivePersona(req);
   if (!persona?.personaId) return { ok: false as const, status: 401, error: 'Not authenticated' };
   if (!persona.cartridgeFlags?.isAdmin) return { ok: false as const, status: 403, error: 'Admin access required' };
