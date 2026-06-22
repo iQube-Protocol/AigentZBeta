@@ -1,17 +1,29 @@
 'use client';
 
 /**
- * VenturePositionChip — a carousel badge on the aigentMe right pane that gives a
- * free Citizen a *glimpse* of where their venture sits (derived from the
- * experience guide), and is the first upgrade CTA into Venture Lab.
+ * VenturePosition — the free-Citizen *glimpse* of where their venture sits
+ * (derived from the experience guide), and the first upgrade CTA into
+ * Venture Lab.
  *
- * - Free Citizen (no Venture Lab access): the chip + inline capsule show the
- *   venture position glimpse and an "Upgrade to Venture Lab Lite" chip. The
- *   Venture Lab cartridge itself stays gated.
+ * Surface split (2026-06-22 fix):
+ *   - `VenturePositionChip` — a horizontal badge in the aigentMe right-pane
+ *     carousel. Clicking it TOGGLES the capsule below; it no longer opens an
+ *     absolute popover *inside* the carousel. (The carousel has
+ *     `overflow-x-auto`, which clipped the old popover and made it read as
+ *     vertically-stacked buttons jammed into the carousel.)
+ *   - `VenturePositionCapsule` — renders in the main viewport flow UNDERNEATH
+ *     the carousel, as a capsule along the same lines as the other layout
+ *     templates (Brief / Venture cockpit). This is where the venture's
+ *     positioning is showcased.
+ *
+ * Both consume `useVenturePosition()` so the data is fetched once at the
+ * WelcomeRightPane level and shared between the chip and the capsule.
+ *
+ * - Free Citizen (no Venture Lab access): the capsule shows the venture
+ *   position glimpse and an "Upgrade to Venture Lab Lite" chip. The Venture
+ *   Lab cartridge itself stays gated.
  * - Paid (Venture Lab Lite/Pro/Elite): the capsule shows the position and an
  *   "Open Venture Lab" cue.
- *
- * Self-contained (like PersonalGuideChip): fetches its own data via personaFetch.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -30,6 +42,11 @@ interface Plan {
   ventureTierLabel: string;
 }
 
+export interface VenturePositionData {
+  cal: Calibration | null;
+  plan: Plan | null;
+}
+
 const ZONE_COLOR: Record<string, string> = {
   formation: 'text-slate-300 border-slate-500/30 bg-slate-500/10',
   validation: 'text-blue-300 border-blue-500/30 bg-blue-500/10',
@@ -38,10 +55,13 @@ const ZONE_COLOR: Record<string, string> = {
   scale: 'text-violet-300 border-violet-500/30 bg-violet-500/10',
 };
 
-export function VenturePositionChip({ personaId }: { personaId?: string }) {
+/**
+ * Fetch the venture-position glimpse once. Shared by the chip and the
+ * capsule so clicking the chip never triggers a second network round-trip.
+ */
+export function useVenturePosition(personaId?: string): VenturePositionData {
   const [cal, setCal] = useState<Calibration | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
-  const [open, setOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -60,64 +80,114 @@ export function VenturePositionChip({ personaId }: { personaId?: string }) {
 
   useEffect(() => { load(); }, [load, personaId]);
 
-  // Only show once we have a derived position (experience model or a venture).
-  if (!cal || (!cal.hasExperienceModel && cal.ventures.length === 0)) return null;
+  return { cal, plan };
+}
+
+function hasPosition(cal: Calibration | null): cal is Calibration {
+  return !!cal && (cal.hasExperienceModel || cal.ventures.length > 0);
+}
+
+/**
+ * The carousel chip. A normal horizontal badge — clicking it toggles the
+ * capsule rendered below the carousel (no inline popover).
+ */
+export function VenturePositionChip({
+  data,
+  open,
+  onToggle,
+}: {
+  data: VenturePositionData;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { cal, plan } = data;
+  if (!hasPosition(cal)) return null;
 
   const zoneClass = ZONE_COLOR[cal.growth.zone] ?? ZONE_COLOR.formation;
   const hasAccess = plan?.ventureLabAccess ?? false;
 
   return (
-    <span className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        title="Your venture position (from your experience guide)"
-        className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap flex items-center gap-1 ${zoneClass}`}
-      >
-        <TrendingUp className="w-3 h-3" />
-        Venture: {cal.growth.label}
-        {!hasAccess && <Lock className="w-2.5 h-2.5 opacity-70" />}
-      </button>
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      title="Your venture position (from your experience guide)"
+      className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 flex items-center gap-1 transition ${zoneClass} ${
+        open ? 'ring-1 ring-violet-400/60 brightness-110' : 'hover:brightness-110'
+      }`}
+    >
+      <TrendingUp className="w-3 h-3" />
+      Venture: {cal.growth.label}
+      {!hasAccess && <Lock className="w-2.5 h-2.5 opacity-70" />}
+    </button>
+  );
+}
 
-      {open && (
-        <div className="absolute z-30 top-full mt-1 right-0 w-64 rounded-xl border border-amber-500/25 bg-slate-900/95 backdrop-blur-sm p-3 shadow-xl text-left">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-100">Your venture position</span>
-            <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="space-y-1.5 text-[11px] text-slate-300">
-            <div>
-              Growth: <span className="font-mono text-slate-100">{cal.growth.label}</span> · zone{' '}
-              <span className={`px-1 rounded ${zoneClass}`}>{cal.growth.zone}</span>
-            </div>
-            <div className="text-slate-400">
-              maturity {cal.growth.yMaturity}/7 · commercialization {cal.growth.xCommercialization}/7
-            </div>
-            {cal.ventures[0] && (
-              <div className="text-slate-400">Venture: {cal.ventures[0].name} ({cal.ventures[0].stage})</div>
-            )}
-          </div>
+/**
+ * The capsule, rendered in the main viewport flow underneath the carousel.
+ * Mirrors the visual language of the other right-pane capsule layouts
+ * (rounded-xl glass card with a header + dismiss control).
+ */
+export function VenturePositionCapsule({
+  data,
+  onClose,
+}: {
+  data: VenturePositionData;
+  onClose: () => void;
+}) {
+  const { cal, plan } = data;
+  if (!hasPosition(cal)) return null;
 
-          <div className="mt-3 pt-2 border-t border-white/[0.06]">
-            {hasAccess ? (
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-300">
-                <TrendingUp className="w-3 h-3" /> Open Venture Lab → Commercial Funnel for the full matrix.
-              </span>
-            ) : (
-              <button
-                type="button"
-                className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-100 hover:bg-amber-500/30"
-                title="Upgrade to unlock the Venture Lab cartridge"
-              >
-                <Lock className="w-3 h-3" /> Upgrade to Venture Lab Lite to view in detail
-              </button>
-            )}
-          </div>
+  const zoneClass = ZONE_COLOR[cal.growth.zone] ?? ZONE_COLOR.formation;
+  const hasAccess = plan?.ventureLabAccess ?? false;
+
+  return (
+    <div className="rounded-xl border border-amber-500/25 bg-slate-900/60 backdrop-blur-sm p-3 shadow-sm">
+      <div className="flex items-center justify-between mb-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-100">
+          <TrendingUp className="w-3.5 h-3.5 text-amber-300" />
+          Your venture position
+        </span>
+        <button
+          onClick={onClose}
+          aria-label="Close venture position"
+          className="text-slate-500 hover:text-slate-300"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div className="space-y-1.5 text-[11px] text-slate-300">
+        <div>
+          Growth: <span className="font-mono text-slate-100">{cal.growth.label}</span> · zone{' '}
+          <span className={`px-1 rounded ${zoneClass}`}>{cal.growth.zone}</span>
         </div>
-      )}
-    </span>
+        <div className="text-slate-400">
+          maturity {cal.growth.yMaturity}/7 · commercialization {cal.growth.xCommercialization}/7
+        </div>
+        {cal.ventures[0] && (
+          <div className="text-slate-400">
+            Venture: {cal.ventures[0].name} ({cal.ventures[0].stage})
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 pt-2 border-t border-white/[0.06]">
+        {hasAccess ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-300">
+            <TrendingUp className="w-3 h-3" /> Open Venture Lab → Commercial Funnel for the full matrix.
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-100 hover:bg-amber-500/30"
+            title="Upgrade to unlock the Venture Lab cartridge"
+          >
+            <Lock className="w-3 h-3" /> Upgrade to Venture Lab Lite to view in detail
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

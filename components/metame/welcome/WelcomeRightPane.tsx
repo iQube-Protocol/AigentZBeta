@@ -53,7 +53,11 @@ import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/meta
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
 import type { SectionId } from "./useAigentMeCopilotBridge";
-import { VenturePositionChip } from "./VenturePositionChip";
+import {
+  VenturePositionChip,
+  VenturePositionCapsule,
+  useVenturePosition,
+} from "./VenturePositionChip";
 
 interface Specialist {
   id: string;
@@ -497,6 +501,13 @@ export function WelcomeRightPane(props: Props) {
     setExpandedSectionId(expandedSectionId === id ? null : id);
   }, [expandedSectionId, setExpandedSectionId]);
 
+  // Venture-position glimpse — fetched once, shared by the carousel chip
+  // and the capsule rendered in the main flow below the CTAs. Clicking the
+  // chip toggles the capsule; it no longer opens a popover inside the
+  // (overflow-clipped) carousel.
+  const venturePosition = useVenturePosition(personaId);
+  const [venturePositionOpen, setVenturePositionOpen] = useState(false);
+
   const visibleCtas = ctas.filter((c) => !c.id.startsWith("ask-"));
 
   const topAction = moveForwardResult?.topAction ?? null;
@@ -566,7 +577,11 @@ export function WelcomeRightPane(props: Props) {
         <PersonalGuideChip personaId={personaId} />
         <PersonaQubeBadge using={usingIqubes} theme={theme} />
         <StageProgressionChip evaluation={stageEval ?? null} />
-        <VenturePositionChip personaId={personaId} />
+        <VenturePositionChip
+          data={venturePosition}
+          open={venturePositionOpen}
+          onToggle={() => setVenturePositionOpen((o) => !o)}
+        />
         <RequestAccessChip
           recommendedCartridgeSlug={recommendedAccessCartridgeSlug}
           recommendedCartridgeLabel={recommendedAccessCartridgeLabel}
@@ -610,6 +625,19 @@ export function WelcomeRightPane(props: Props) {
             );
           })}
         </div>
+      )}
+
+      {/* ── Venture-position capsule ───────────────────────────────
+          Rendered in the main viewport flow underneath the carousel
+          (NOT as a popover inside the carousel) when the operator
+          clicks the "Venture: …" chip above. Showcases the venture's
+          positioning along the same lines as the other capsule
+          layouts. */}
+      {venturePositionOpen && (
+        <VenturePositionCapsule
+          data={venturePosition}
+          onClose={() => setVenturePositionOpen(false)}
+        />
       )}
 
       {/* ── Session history strip ──────────────────────────────────
