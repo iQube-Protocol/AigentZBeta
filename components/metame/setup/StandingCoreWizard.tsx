@@ -270,6 +270,9 @@ export function StandingCoreWizard({
               <p className="text-[10px] text-slate-500">
                 Your work email gives the best auto-match; a profile URL or pasted text also work. We extract your facts and pre-fill the wizard. Your data stays in your Standing profile.
               </p>
+              <p className="text-[10px] text-slate-500">
+                No account to connect? Paste works free — copy your LinkedIn About + experience, or export it from LinkedIn (Settings → Data privacy → Get a copy of your data) and paste it above.
+              </p>
               {liMsg && <p className="text-[11px] text-amber-300">{liMsg}</p>}
               <div className="flex items-center gap-2">
                 <button
