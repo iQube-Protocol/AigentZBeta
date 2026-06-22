@@ -962,6 +962,16 @@ export default function SmartWalletDrawer({
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
+      // Owner = the persona's wallet (x402) EVM address. Send it so a persona
+      // with no server-stored evm_address can still mint to its own wallet —
+      // the route falls back to this and persists it for the deferred batch
+      // processor. Prefer the connected external wallet, then the persona's
+      // own EVM address.
+      const ownerAddress =
+        externalEvmAddress ||
+        personaEvmOverride ||
+        walletNodePersonaEvmAddress ||
+        undefined;
       // Default to the Base mainnet rail (immediate) so the wallet's primary
       // mint button lands the PersonaQube ERC-721 on Base — matching the
       // AgentiQ OS mint path. Sui/Walrus still runs server-side as the
@@ -972,6 +982,7 @@ export default function SmartWalletDrawer({
         body: JSON.stringify({
           chain: opts?.chain ?? "base",
           strategy: opts?.strategy ?? "immediate",
+          ...(ownerAddress ? { ownerAddress } : {}),
         }),
       });
       const data = await res.json();
@@ -994,7 +1005,7 @@ export default function SmartWalletDrawer({
       setMintError("Network error — please try again.");
       setMintStatus("error");
     }
-  }, []);
+  }, [externalEvmAddress, personaEvmOverride, walletNodePersonaEvmAddress]);
 
   // PassportQube wallet state
   interface PassportQubeItem {

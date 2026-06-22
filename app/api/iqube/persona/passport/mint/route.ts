@@ -93,20 +93,44 @@ export async function POST(req: NextRequest) {
 
     // Mint strategy + target chain (multi-chain ready; Base is the only live
     // mainnet today). Deferred strategy or a non-live chain queue the mint.
-    const body = (await req.json().catch(() => ({}))) as { chain?: string; strategy?: string };
+    const body = (await req.json().catch(() => ({}))) as {
+      chain?: string;
+      strategy?: string;
+      ownerAddress?: string;
+    };
     const targetChain: MintChain =
       body.chain && isMintChain(body.chain) ? body.chain : DEFAULT_MINT_CHAIN;
     const strategy = body.strategy === 'deferred' ? 'deferred' : 'immediate';
 
-    // Owner = the persona's EVM address (T1 wallet address).
+    // Owner = the persona's EVM address. Prefer the server-stored address;
+    // fall back to the wallet-provided x402 EVM address the client sends so a
+    // persona without a persisted evm_address can still mint to its own
+    // wallet. The address is a public T1 value (it ends up on-chain), so it's
+    // safe to accept from the client. Validate the 0x40-hex shape before use.
+    const isEvmAddress = (v: string): v is `0x${string}` => /^0x[a-fA-F0-9]{40}$/.test(v);
     const { data: pRow } = await admin
       .from('personas')
       .select('evm_address, evm_key')
       .eq('id', persona.personaId)
       .maybeSingle();
-    const ownerAddress =
+    const storedOwner =
       (pRow?.evm_address as string | null) ||
       ((pRow?.evm_key as { address?: string } | null)?.address ?? '');
+    const clientOwner =
+      typeof body.ownerAddress === 'string' && isEvmAddress(body.ownerAddress.trim())
+        ? body.ownerAddress.trim()
+        : '';
+    const ownerAddress = storedOwner || clientOwner;
+
+    // Persist the wallet-provided owner when the persona has none stored, so
+    // future mints + the deferred batch processor (which skips owner-less
+    // rows) can resolve the same address without re-sending it.
+    if (!storedOwner && clientOwner) {
+      await admin
+        .from('personas')
+        .update({ evm_address: clientOwner })
+        .eq('id', persona.personaId);
+    }
 
     // The Base ERC-721 tokenQube is the canonical bearer token — minted on
     // EVERY persona mint (not a fallback). Sui/Walrus, when present, is the
