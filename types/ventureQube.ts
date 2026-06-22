@@ -544,9 +544,53 @@ export interface VentureDelegationLayer {
 }
 
 // ── Layer 11 — Outcome ──────────────────────────────────────────────────────
+
+/** Verification lifecycle for an outcome accrual claim. */
+export type OutcomeClaimVerificationStatus = "claimed" | "verified" | "rejected";
+
+/**
+ * Proof-of-Outcome claim — the verification-gated "Outcome Accrual Evidence"
+ * primitive. A claim begins life self-declared (`verificationStatus: 'claimed'`)
+ * and accrues NOTHING to Standing until a verifier moves it to `'verified'`.
+ *
+ * Net Value Acceleration (the refined PoTS) is computed, not stored:
+ *   NVA hours = max(0, timeSavedHours − riskRepairHours)
+ * i.e. time-to-value saved NET OF the time spent repairing risk the venture
+ * introduced. Proof-of-Time-Saved is one dimension of outcome accrual, not the
+ * whole story — `claimedValue` (monetary/strategic) and `riskProfile` round it
+ * out. Standing accrual = NVA × confidence, applied once (idempotent via
+ * `accruedAt`), and only for VERIFIED claims.
+ */
+export interface ProofOfOutcomeClaim {
+  /** Stable id so accrual can be made idempotent and claims can be re-verified. */
+  claimId: string;
+  description: string;
+  /** Claimed value delivered (free-text, e.g. "$40k ARR" / "2 launches"). */
+  claimedValue?: string;
+  /** Claimed time-to-value saved, in hours. The positive side of NVA. */
+  timeSavedHours?: number;
+  /** Time spent repairing risk the venture introduced, in hours. Subtracted. */
+  riskRepairHours?: number;
+  /** Qualitative risk posture of the claim (e.g. "low" / "speculative"). */
+  riskProfile?: string;
+  /** Gate: nothing accrues to Standing until this is 'verified'. */
+  verificationStatus: OutcomeClaimVerificationStatus;
+  /** T2-safe public ref / label of the verifier — never a raw personaId. */
+  verifier?: string;
+  verifiedAt?: string;
+  /** 0–1 multiplier applied to NVA when accruing Standing (null when unset). */
+  confidence?: number | null;
+  /** Set once the verified claim has been accrued to Standing (idempotency). */
+  accruedAt?: string;
+  createdAt?: string;
+}
+
 export interface VentureOutcomeLayer {
   outcomes?: string[];
+  /** @deprecated superseded by `proofOfOutcomeClaims`; retained for legacy reads. */
   proofOfTimeSaved?: string[];
+  /** Verification-gated Outcome Accrual Evidence (the refined PoTS). */
+  proofOfOutcomeClaims?: ProofOfOutcomeClaim[];
   standingChanges?: string[];
   lessonsLearned?: string[];
 }

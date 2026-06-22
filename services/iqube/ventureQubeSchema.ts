@@ -549,9 +549,27 @@ const delegationLayerSchema = z.object({
   assignments: z.array(agentAssignmentSchema),
 });
 
+// Verification-gated Outcome Accrual Evidence (the refined PoTS). A claim
+// accrues nothing to Standing until verificationStatus === 'verified'.
+const proofOfOutcomeClaimSchema = z.object({
+  claimId: z.string().min(1),
+  description: z.string().min(1).max(4000),
+  claimedValue: z.string().max(280).optional(),
+  timeSavedHours: z.number().nonnegative().optional(),
+  riskRepairHours: z.number().nonnegative().optional(),
+  riskProfile: z.string().max(280).optional(),
+  verificationStatus: z.enum(["claimed", "verified", "rejected"]),
+  verifier: z.string().max(280).optional(),
+  verifiedAt: z.string().optional(),
+  confidence: z.number().min(0).max(1).nullable().optional(),
+  accruedAt: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+
 const outcomeLayerSchema = z.object({
   outcomes: z.array(z.string()).optional(),
   proofOfTimeSaved: z.array(z.string()).optional(),
+  proofOfOutcomeClaims: z.array(proofOfOutcomeClaimSchema).optional(),
   standingChanges: z.array(z.string()).optional(),
   lessonsLearned: z.array(z.string()).optional(),
 });

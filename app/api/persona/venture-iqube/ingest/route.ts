@@ -403,6 +403,31 @@ function mergeObj<T>(cur: T, up: unknown): T {
   return up && typeof up === 'object' && !Array.isArray(up) ? { ...(cur as object), ...(up as object) } as T : cur;
 }
 
+/** Sanitise uploaded ProofOfOutcomeClaims: operators may DECLARE outcomes, but
+ *  verification is the accrual gate. Force every uploaded claim to 'claimed'
+ *  and strip verifier/verifiedAt/accruedAt so a payload can never pre-mark
+ *  itself verified and self-inflate Standing. The admin verify endpoint is the
+ *  only path that moves a claim to 'verified' + triggers accrual. */
+function sanitizeOutcome(outcome: unknown): unknown {
+  if (!outcome || typeof outcome !== 'object' || Array.isArray(outcome)) return outcome;
+  const o = outcome as Record<string, unknown>;
+  const claims = o.proofOfOutcomeClaims;
+  if (!Array.isArray(claims)) return outcome;
+  return {
+    ...o,
+    proofOfOutcomeClaims: claims.map((raw, i) => {
+      const c = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+      const { verificationStatus: _vs, verifier: _v, verifiedAt: _va, accruedAt: _a, ...rest } = c;
+      return {
+        ...rest,
+        claimId: typeof c.claimId === 'string' && c.claimId ? c.claimId : `claim-${Date.now()}-${i}`,
+        verificationStatus: 'claimed',
+        createdAt: typeof c.createdAt === 'string' ? c.createdAt : new Date().toISOString(),
+      };
+    }),
+  };
+}
+
 /** Build a venture-tier seed (thesis + intent) for createVentureQube. */
 function buildSeed(pv: ProVentureUpload) {
   const t = (pv.thesis ?? {}) as Record<string, string | undefined>;
@@ -430,7 +455,7 @@ function buildLayersPatch(current: VentureQubeV1, pv: ProVentureUpload): Partial
   patch.capability = mergeObj(current.capability, pv.capability);
   patch.resource = mergeObj(current.resource, pv.resource);
   patch.delegation = mergeObj(current.delegation, pv.delegation);
-  patch.outcome = mergeObj(current.outcome, pv.outcome);
+  patch.outcome = mergeObj(current.outcome, sanitizeOutcome(pv.outcome));
   patch.governance = mergeObj(current.governance, pv.governance);
   patch.institutional = mergeObj(current.institutional, pv.institutional);
   if (Array.isArray(pv.archetypes)) patch.archetypes = pv.archetypes;

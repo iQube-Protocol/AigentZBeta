@@ -19,7 +19,7 @@
       "9 resource — people, agents, tools, iqubes, capital",
       "10 execution — phases with objectives, deliverables, success metrics",
       "11 delegation — which agents (aigentMe, devon, marketa, venture-lab, investor-office) execute what",
-      "12 outcome — outcomes, proof of time saved, standing changes, lessons",
+      "12 outcome — outcomes, proofOfOutcomeClaims (verification-gated Net Value Acceleration evidence), standing changes, lessons",
       "13 governance — risk/sensitivity/accuracy/verifiability + ventureConfidence (mostly server-calibrated; leave null)",
       "14 institutional — venture-lab/investment status, commons + public visibility, readiness"
     ],
@@ -269,7 +269,29 @@
           "additionalProperties": true,
           "properties": {
             "outcomes": { "type": "array", "items": { "type": "string" } },
-            "proofOfTimeSaved": { "type": "string" },
+            "proofOfTimeSaved": { "type": "string", "description": "Legacy free-text; superseded by proofOfOutcomeClaims." },
+            "proofOfOutcomeClaims": {
+              "type": "array",
+              "description": "Verification-gated Outcome Accrual Evidence. Each claim is self-declared (verificationStatus 'claimed') and accrues NOTHING to Standing until a verifier moves it to 'verified'. Net Value Acceleration = max(0, timeSavedHours − riskRepairHours); Standing accrual = NVA × confidence, once.",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["claimId", "description", "verificationStatus"],
+                "properties": {
+                  "claimId": { "type": "string" },
+                  "description": { "type": "string" },
+                  "claimedValue": { "type": "string", "description": "e.g. \"$40k ARR\" / \"2 launches\"." },
+                  "timeSavedHours": { "type": "number", "minimum": 0, "description": "Time-to-value saved (positive side of NVA)." },
+                  "riskRepairHours": { "type": "number", "minimum": 0, "description": "Time spent repairing risk the venture introduced (subtracted)." },
+                  "riskProfile": { "type": "string" },
+                  "verificationStatus": { "type": "string", "enum": ["claimed", "verified", "rejected"] },
+                  "verifier": { "type": "string", "description": "T2-safe label — never a personaId." },
+                  "verifiedAt": { "type": "string" },
+                  "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                  "accruedAt": { "type": "string", "description": "Server-set once accrued — leave unset on upload." }
+                }
+              }
+            },
             "standingChanges": { "type": "array", "items": { "type": "string" } },
             "lessonsLearned": { "type": "array", "items": { "type": "string" } }
           }
