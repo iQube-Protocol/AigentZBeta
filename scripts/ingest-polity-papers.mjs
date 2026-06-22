@@ -255,7 +255,11 @@ async function main() {
   console.log(`[ingest]   COYN Thesis:            ${seriesPapers['coyn-thesis'].length}`);
   console.log(`[ingest]   The Polity:             ${seriesPapers['polity'].length}`);
   console.log(`[ingest]   Constitution elevated:  ${constitutionFilled ? 'yes' : 'NO (paper #4 not found — check the Polity series)'}`);
-  console.log('[ingest] Review the diff, then commit the generated markdown + JSON.');
+  console.log('\n[ingest] Next steps:');
+  console.log('[ingest]   1. Review the diff, commit the generated markdown + JSON, and deploy.');
+  console.log('[ingest]   2. Ingest into the Knowledge Base (semantic + keyword retrieval for agents):');
+  console.log(`[ingest]        curl -X POST -H "Authorization: Bearer $ADMIN_OPS_TOKEN" \\`);
+  console.log(`[ingest]          ${HOST}/api/admin/kb/ingest-polity-commentary`);
   // Touch the README check so an empty run doesn't leave a dangling dir.
   void readdirSync(COMMENTARY_DIR);
 }

@@ -64,15 +64,21 @@ Review the diff and commit the generated markdown + JSON.
   (`GET /api/polity-core/constitution`) — directly consumable by agents/services.
 - Per-paper full text is served from the pack via
   `GET /api/codex/packs/polity-core/file?path=items/commentary/...`.
-- For semantic (RAG) retrieval, ingest the generated markdown into the existing
-  KB pipeline (`scripts/populate-knowledge-base.ts` / `codex_kb_*`, domain
-  `protocol`/`qriptopian`) — follow-on.
+- **Semantic + keyword RAG (wired):** after extraction + deploy, ingest the
+  commentary markdown into the Knowledge Base via
+  `POST /api/admin/kb/ingest-polity-commentary` (ADMIN_OPS_TOKEN). It reads the
+  committed markdown, chunks + stores it under the `qriptopian` domain
+  (`contentCategory='constitutional-commentary'`; the elevated Constitution uses
+  `'constitutional'`), and drains the embedding queue so agents retrieve the
+  papers via `embeddingService.hybridSearch` (the chat context path). New KB
+  plumbing: `KnowledgeBaseService.ingestTextDocument()` +
+  `PDFExtractionService.chunkPlainText()`. Uses the existing `OPENAI_API_KEY`
+  for embeddings; without an embedding key the chunks remain keyword-searchable.
 
 ## Follow-ons
 
 - AutoDrive CID recording in the Amendment Records via the existing
   `publish-polity-core.mjs` flow (the papers are already on AutoDrive with ID
   records; record the commentary CIDs there).
-- KB ingestion of the commentary markdown for semantic retrieval.
 - Governance decision on whether the Constitution of the Agentic Polity joins
   the Agent Passport binding triple.
