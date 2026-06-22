@@ -951,6 +951,28 @@ const MARKETA_TOOLS_ANTHROPIC = [
       },
     },
   },
+  {
+    name: 'search_contacts',
+    description: 'Search the persona\'s personal address book (imported from Google Contacts, iPhone, LinkedIn, Outlook, etc.). Use this whenever the user asks about a specific person, company, email address, phone number, or wants to find contacts affiliated with a project, organisation, or topic. Returns matching contacts with name, email, phone, organisation, and job title.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text search — name, email, company, job title, or any keyword. Pass the most specific term the user mentioned (e.g. "Project Liberty", "Goldman Sachs", "Alice").',
+        },
+        source: {
+          type: 'string',
+          description: 'Optional: filter by import source — google_contacts | vcard | icloud | linkedin | outlook | csv | manual. Omit to search all sources.',
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results to return. Default 20.',
+        },
+      },
+      required: ['query'],
+    },
+  },
 ];
 
 const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
@@ -962,7 +984,7 @@ const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
   },
 }));
 
-async function executeMarketaTool(name: string, input: Record<string, unknown>): Promise<string> {
+async function executeMarketaTool(name: string, input: Record<string, unknown>, personaId?: string): Promise<string> {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   try {
     if (name === 'list_workflows') {
@@ -1116,6 +1138,47 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>):
       const json = await res.json();
       return JSON.stringify({ ready: json.ready, checks: json.checks, details: json.details, errors: json.errors });
     }
+    if (name === 'search_contacts') {
+      if (!personaId) return JSON.stringify({ error: 'No active persona — cannot search contacts' });
+      const q = String(input.query ?? '').trim();
+      const source = typeof input.source === 'string' ? input.source : '';
+      const limit = Math.min(Number(input.limit ?? 20), 100);
+      let query = supabase
+        .from('persona_contacts')
+        .select('display_name, first_name, last_name, organization, job_title, email, email_2, phone, phone_2, address, source')
+        .eq('persona_id', personaId)
+        .limit(limit);
+      if (source) query = query.eq('source', source);
+      if (q) {
+        // Full-text search via Postgres websearch syntax
+        query = (query as any).textSearch(
+          'fts',
+          q.split(/\s+/).map((w: string) => w + ':*').join(' & '),
+          { config: 'english', type: 'websearch' },
+        );
+      } else {
+        query = query.order('display_name', { ascending: true });
+      }
+      const { data, error } = await query;
+      if (error) return JSON.stringify({ error: error.message });
+      if (!data || data.length === 0) return JSON.stringify({ contacts: [], message: `No contacts found matching "${q}"` });
+      return JSON.stringify({
+        contacts: data.map((c: any) => ({
+          name: c.display_name,
+          firstName: c.first_name,
+          lastName: c.last_name,
+          organization: c.organization,
+          jobTitle: c.job_title,
+          email: c.email,
+          email2: c.email_2 ?? undefined,
+          phone: c.phone,
+          phone2: c.phone_2 ?? undefined,
+          address: c.address ?? undefined,
+          source: c.source,
+        })),
+        total: data.length,
+      });
+    }
     return JSON.stringify({ error: `Unknown tool: ${name}` });
   } catch (err: any) {
     return JSON.stringify({ error: err?.message ?? 'Tool execution failed' });
@@ -1127,6 +1190,7 @@ async function callAnthropicWithTools(
   history: ChatMessage[],
   message: string,
   modelId: string,
+  personaId?: string,
 ): Promise<ProviderExecutionResult> {
   const anthropicMessages: any[] = [
     ...history.filter((e) => e.role !== 'system').map((e) => ({ role: e.role, content: e.content })),
@@ -1164,7 +1228,7 @@ async function callAnthropicWithTools(
     const toolUseBlocks = (data.content ?? []).filter((b: any) => b.type === 'tool_use');
     const toolResults: any[] = [];
     for (const block of toolUseBlocks) {
-      const result = await executeMarketaTool(block.name, block.input ?? {});
+      const result = await executeMarketaTool(block.name, block.input ?? {}, personaId);
       toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
     }
     // Append assistant turn + tool results
@@ -1199,7 +1263,7 @@ async function callAnthropicWithTools(
   return { providerId: 'anthropic', modelId: mapAnthropicModelId(modelId || ANTHROPIC_MODEL), content };
 }
 
-async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Promise<ProviderExecutionResult> {
+async function callOpenAiWithTools(messages: ChatMessage[], modelId: string, personaId?: string): Promise<ProviderExecutionResult> {
   let currentMessages: any[] = messages;
 
   let response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1232,7 +1296,7 @@ async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Pr
     for (const tc of toolCalls) {
       let inputObj: Record<string, unknown> = {};
       try { inputObj = JSON.parse(tc.function?.arguments ?? '{}'); } catch { /* ignore */ }
-      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj);
+      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj, personaId);
       currentMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
     }
     response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1266,6 +1330,7 @@ async function executeProviderAttempt(
   history: ChatMessage[],
   message: string,
   isMarketa: boolean,
+  personaId?: string,
 ): Promise<ProviderExecutionResult> {
   switch (attempt.providerId) {
     case 'openai':
@@ -1273,6 +1338,7 @@ async function executeProviderAttempt(
         return callOpenAiWithTools(
           [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: message }],
           attempt.modelId,
+          personaId,
         );
       }
       return callOpenAi([...history, { role: 'user', content: message }], attempt.modelId);
@@ -1280,7 +1346,7 @@ async function executeProviderAttempt(
       return callVenice([...history, { role: 'user', content: message }], attempt.modelId);
     case 'anthropic':
       if (isMarketa) {
-        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId);
+        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId, personaId);
       }
       return callAnthropic(systemPrompt, history, message, attempt.modelId);
     case 'chaingpt':
@@ -2426,7 +2492,9 @@ export async function POST(request: NextRequest) {
       { role: 'system', content: systemPrompt },
       ...chatHistory.slice(-10), // Keep last 10 messages for context
     ];
-    const isMarketa = resolvedAgentId === 'aigent-marketa';
+    // Tool-calling is enabled for Marketa (full tool set) and all aigentMe
+    // agents that have contacts access (search_contacts tool).
+    const isMarketa = resolvedAgentId === 'aigent-marketa' || resolvedAgentId === 'aigent-me';
     let executionResult: ProviderExecutionResult | null = null;
     const providerErrors: Array<{ providerId: RuntimeProviderId; modelId: string; error: string }> = [];
 
@@ -2438,6 +2506,7 @@ export async function POST(request: NextRequest) {
           conversationHistory,
           message,
           isMarketa,
+          persona?.personaId,
         );
         console.log('[CodexChat] Provider success:', {
           providerId: executionResult.providerId,
