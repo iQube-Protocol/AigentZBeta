@@ -11,6 +11,7 @@ import {
 import { StandingCoreWizard } from '@/components/metame/setup/StandingCoreWizard';
 import { VentureLightWizard } from '@/components/metame/setup/VentureLightWizard';
 import { VentureProWizard } from '@/components/metame/setup/VentureProWizard';
+import { VenturePortfolioWizard } from '@/components/metame/setup/VenturePortfolioWizard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -263,6 +264,7 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
   const [coreWizardOpen, setCoreWizardOpen] = useState(false);
   const [lightWizardOpen, setLightWizardOpen] = useState(false);
   const [proWizardOpen, setProWizardOpen] = useState(false);
+  const [portfolioWizardOpen, setPortfolioWizardOpen] = useState(false);
   useEffect(() => {
     void (async () => {
       try {
@@ -737,22 +739,27 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
             </span>
           </button>
 
-          {/* Venture Portfolio — Pro/Elite (Phase 4). */}
-          <div
-            className={`text-left rounded-lg border p-3 ${
-              wizardAccess?.portfolio ? 'border-slate-600 bg-slate-800/60' : 'border-slate-700/60 bg-slate-900/40 opacity-70'
+          {/* Venture Portfolio — Pro/Elite. The wizard shows a locked upgrade
+              panel without access, so the card always opens it. */}
+          <button
+            type="button"
+            onClick={() => setPortfolioWizardOpen(true)}
+            className={`text-left rounded-lg border p-3 transition-colors ${
+              wizardAccess?.portfolio
+                ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20'
+                : 'border-slate-700/60 bg-slate-900/40 hover:bg-slate-800/60'
             }`}
-            title={wizardAccess?.portfolio ? 'Venture Portfolio — coming soon' : 'Venture Portfolio — upgrade to unlock'}
+            title={wizardAccess?.portfolio ? 'Venture Portfolio' : 'Venture Portfolio — upgrade to unlock'}
           >
             <div className="flex items-center gap-1.5 text-sm font-medium text-slate-200">
               <Layers className="w-3.5 h-3.5" /> Venture Portfolio
               {!wizardAccess?.portfolio && <Lock className="w-3 h-3 text-slate-500" />}
             </div>
             <p className="text-[11px] text-slate-400 mt-1">Multiple ventures, cross-venture.</p>
-            <span className="inline-block mt-1.5 text-[9px] uppercase tracking-wider text-slate-500">
-              {wizardAccess?.portfolio ? 'Coming soon' : 'Upgrade to unlock'}
+            <span className={`inline-block mt-1.5 text-[9px] uppercase tracking-wider ${wizardAccess?.portfolio ? 'text-emerald-300' : 'text-slate-500'}`}>
+              {wizardAccess?.portfolio ? 'Available' : 'Upgrade to unlock'}
             </span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -772,6 +779,12 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
         onOpenChange={setProWizardOpen}
         personaId={_personaId}
         hasProAccess={!!wizardAccess?.pro}
+      />
+      <VenturePortfolioWizard
+        open={portfolioWizardOpen}
+        onOpenChange={setPortfolioWizardOpen}
+        personaId={_personaId}
+        hasPortfolioAccess={!!wizardAccess?.portfolio}
       />
 
       {/* Error */}
