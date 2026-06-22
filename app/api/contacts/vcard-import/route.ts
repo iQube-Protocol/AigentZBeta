@@ -128,6 +128,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
   }
 
+  // ?source=icloud lets iCloud exports be tagged separately from iPhone vCards
+  const sourceParam = req.nextUrl.searchParams.get('source');
+  const source: 'vcard' | 'icloud' = sourceParam === 'icloud' ? 'icloud' : 'vcard';
+
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
   if (!file) {
@@ -158,7 +162,7 @@ export async function POST(req: NextRequest) {
 
     return {
       persona_id: persona.personaId,
-      source: 'vcard' as const,
+      source,
       source_id: sourceId,
       display_name: c.displayName,
       first_name: c.firstName,
