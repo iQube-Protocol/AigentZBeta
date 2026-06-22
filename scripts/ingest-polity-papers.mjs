@@ -6,17 +6,19 @@
  * The published papers are image/vector PDFs with NO text layer (pdf-parse
  * yields ~1 word for a 12-page paper), so extraction is hybrid:
  *   1. Try pdf-parse (fast) — used when the PDF has a real text layer.
- *   2. Otherwise VISION TRANSCRIBE: render each page to PNG with poppler
- *      (pdftoppm) and transcribe to Markdown with a vision LLM (Anthropic
- *      claude-sonnet-4-6, or OpenAI gpt-4o-mini as fallback).
+ *   2. Otherwise VISION TRANSCRIBE the PDF to Markdown:
+ *      - Anthropic (preferred): send the PDF directly as a document block to
+ *        claude-sonnet-4-6 — NO page-rendering / no poppler needed. Claude reads
+ *        image/scanned PDFs natively with built-in vision.
+ *      - OpenAI fallback: render pages to PNG with poppler (pdftoppm) and
+ *        transcribe each with gpt-4o-mini. (Only this path needs poppler.)
  *
  * Runs on a machine with network access (not the sandbox; not Lambda).
  *
  * Requirements for the vision path:
- *   - poppler:  brew install poppler            (provides pdftoppm)
  *   - an API key exported locally:
- *       export ANTHROPIC_API_KEY=sk-ant-...      (preferred), or
- *       export OPENAI_API_KEY=sk-...
+ *       export ANTHROPIC_API_KEY=sk-ant-...   (preferred — needs nothing else)
+ *       export OPENAI_API_KEY=sk-...          (fallback — also needs: brew install poppler)
  *
  * Usage:
  *   node scripts/ingest-polity-papers.mjs --host=https://dev-beta.aigentz.me --dry-run
@@ -84,6 +86,13 @@ const TRANSCRIBE_PROMPT =
   'paragraphs, block quotes, and reading order (handle multiple columns top-to-bottom, ' +
   'left-to-right). Do not add commentary, page numbers, or anything not on the page. ' +
   'Omit purely decorative graphics. Output ONLY the Markdown for this page.';
+
+const DOC_TRANSCRIBE_PROMPT =
+  'Transcribe this ENTIRE document to clean, faithful Markdown — every page, in order. ' +
+  'Preserve headings, lists, paragraphs, block quotes, and tables; keep reading order ' +
+  '(handle multi-column layouts top-to-bottom, left-to-right). Do not summarise, do not ' +
+  'add commentary or page numbers, and do not invent text that is not present. Omit purely ' +
+  'decorative graphics. Output ONLY the Markdown.';
 
 function slugify(s) {
   return s.toLowerCase().replace(/^\s*\d{1,4}\s*[.\-:)]?\s+/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'paper';
@@ -161,6 +170,43 @@ async function transcribePageImage(b64) {
   throw new Error('no vision API key (set ANTHROPIC_API_KEY or OPENAI_API_KEY)');
 }
 
+/**
+ * Transcribe a whole PDF directly via Anthropic's document support — no
+ * page-rendering, no poppler. Claude reads image/scanned PDFs with vision.
+ */
+async function transcribePdfViaAnthropic(buf, label) {
+  const b64 = buf.toString('base64');
+  process.stdout.write(`\r[ingest]   transcribing ${label} (PDF → Claude)…  `);
+  const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: VISION_MODEL,
+      max_tokens: 8192,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+          { type: 'text', text: DOC_TRANSCRIBE_PROMPT },
+        ],
+      }],
+    }),
+  }, 180000);
+  process.stdout.write('\n');
+  if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data = await res.json();
+  if (data.stop_reason === 'max_tokens') {
+    console.warn(`[ingest]   ⚠ ${label}: hit max_tokens — transcription may be truncated (long paper).`);
+  }
+  return cleanText((data.content || []).map((b) => b.text || '').join(''));
+}
+
+/** Dispatch the no-text-layer path: Anthropic PDF (no poppler) or OpenAI images. */
+async function extractNonTextLayer(buf, label) {
+  if (ANTHROPIC_KEY) return transcribePdfViaAnthropic(buf, label);
+  return visionTranscribe(buf, label); // OpenAI image path (requires poppler)
+}
+
 /** Render a PDF buffer to page PNGs (poppler) and vision-transcribe each. */
 async function visionTranscribe(buf, label) {
   const work = mkdtempSync(join(tmpdir(), 'polity-'));
@@ -198,9 +244,13 @@ async function main() {
   const popplerOk = havePoppler();
   const keyOk = !!(ANTHROPIC_KEY || OPENAI_KEY);
   if (!DRY) {
-    if (!popplerOk) { console.error('[ingest] poppler not found. Install with:  brew install poppler'); process.exit(1); }
-    if (!keyOk) { console.error('[ingest] no vision API key. Export ANTHROPIC_API_KEY (or OPENAI_API_KEY).'); process.exit(1); }
-    console.log(`[ingest] vision model: ${VISION_MODEL} · render DPI: ${DPI}`);
+    if (!keyOk) { console.error('[ingest] no vision API key. Export ANTHROPIC_API_KEY (preferred) or OPENAI_API_KEY.'); process.exit(1); }
+    // poppler is ONLY needed for the OpenAI image-rendering fallback.
+    if (!ANTHROPIC_KEY && OPENAI_KEY && !popplerOk) {
+      console.error('[ingest] OpenAI fallback needs poppler (brew install poppler) — or just set ANTHROPIC_API_KEY (no poppler needed).');
+      process.exit(1);
+    }
+    console.log(`[ingest] vision model: ${VISION_MODEL}${ANTHROPIC_KEY ? ' (PDF→Claude, no poppler)' : ` (OpenAI images, DPI ${DPI})`}`);
     for (const s of Object.values(SERIES)) {
       const d = join(COMMENTARY_DIR, s.dir);
       if (existsSync(d)) rmSync(d, { recursive: true, force: true });
@@ -244,7 +294,7 @@ async function main() {
 
     let text;
     if (hasTextLayer) { text = parsedText; textCount++; }
-    else { text = await visionTranscribe(buf, p.title); visionCount++; }
+    else { text = await extractNonTextLayer(buf, p.title); visionCount++; }
     if (!text.trim()) { console.log(`[ingest]   (empty after ${method}) — skipping`); continue; }
 
     const wcFinal = wordCount(text);
@@ -304,7 +354,12 @@ async function main() {
   if (DRY) {
     console.log(`\n[ingest] DRY RUN — no files written, no vision calls.`);
     console.log(`[ingest]   would use pdf-parse: ${textCount} · would vision-transcribe: ${visionCount}`);
-    console.log(`[ingest]   vision needs: ${havePoppler() ? 'poppler OK' : 'brew install poppler'} · ${(ANTHROPIC_KEY || OPENAI_KEY) ? 'API key OK' : 'export ANTHROPIC_API_KEY'}`);
+    const readiness = ANTHROPIC_KEY
+      ? 'Anthropic key OK — PDF→Claude, no poppler needed'
+      : OPENAI_KEY
+        ? `OpenAI key OK — needs ${havePoppler() ? 'poppler OK' : 'brew install poppler'}`
+        : 'no API key — export ANTHROPIC_API_KEY (preferred)';
+    console.log(`[ingest]   vision readiness: ${readiness}`);
     return;
   }
 
