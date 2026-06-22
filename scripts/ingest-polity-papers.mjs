@@ -174,41 +174,87 @@ async function transcribePageImage(b64) {
   throw new Error('no vision API key (set ANTHROPIC_API_KEY or OPENAI_API_KEY)');
 }
 
-/**
- * Transcribe a whole PDF directly via Anthropic's document support — no
- * page-rendering, no poppler. Uses a URL source so the (potentially large
- * image) PDF is fetched by Claude rather than inlined into the request (which
- * hits the request-size limit). Claude reads image/scanned PDFs with vision.
- */
-async function transcribePdfViaAnthropic(pdfUrl, label) {
-  process.stdout.write(`\r[ingest]   transcribing ${label} (PDF → Claude)…  `);
+/** One Anthropic transcription call given a document source block. */
+async function anthropicTranscribe(sourceBlock, extraHeaders = {}) {
   const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+      ...extraHeaders,
+    },
     body: JSON.stringify({
       model: VISION_MODEL,
       max_tokens: VISION_MAX_TOKENS,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'document', source: { type: 'url', url: pdfUrl } },
-          { type: 'text', text: DOC_TRANSCRIBE_PROMPT },
-        ],
-      }],
+      messages: [{ role: 'user', content: [sourceBlock, { type: 'text', text: DOC_TRANSCRIBE_PROMPT }] }],
     }),
   }, 300000);
-  process.stdout.write('\n');
-  if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) {
+    const e = new Error(`${res.status}: ${(await res.text()).slice(0, 200).replace(/\s+/g, ' ')}`);
+    e.status = res.status;
+    throw e;
+  }
   const data = await res.json();
   if (data.stop_reason === 'max_tokens') {
-    console.warn(`[ingest]   ⚠ ${label}: hit max_tokens — transcription may be truncated (raise VISION_MAX_TOKENS).`);
+    console.warn(`\n[ingest]   ⚠ hit max_tokens — may be truncated (raise VISION_MAX_TOKENS).`);
   }
   return cleanText((data.content || []).map((b) => b.text || '').join(''));
 }
 
-/** Dispatch the no-text-layer path: Anthropic PDF-by-URL (no poppler) or OpenAI images. */
+/** Upload a PDF to the Anthropic Files API → returns file_id. */
+async function uploadPdfToAnthropic(buf) {
+  const fd = new FormData();
+  fd.append('file', new Blob([buf], { type: 'application/pdf' }), 'paper.pdf');
+  const res = await fetchWithTimeout('https://api.anthropic.com/v1/files', {
+    method: 'POST',
+    headers: { 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'files-api-2025-04-14' },
+    body: fd,
+  }, 120000);
+  if (!res.ok) {
+    const e = new Error(`files ${res.status}: ${(await res.text()).slice(0, 200).replace(/\s+/g, ' ')}`);
+    e.status = res.status;
+    throw e;
+  }
+  return (await res.json()).id;
+}
+
+/**
+ * Transcribe a whole PDF via Anthropic — no poppler. Tries delivery methods in
+ * order so a size/support limit on one path doesn't block the run:
+ *   1. URL source   (PDF fetched by Claude; no request bloat)
+ *   2. Files API     (upload → file_id; robust for large image PDFs)
+ *   3. base64 inline (works for small PDFs)
+ */
+async function transcribePdfViaAnthropic(pdfUrl, buf, label) {
+  process.stdout.write(`\r[ingest]   transcribing ${label} (PDF → Claude)…  `);
+  const errs = [];
+  try {
+    const t = await anthropicTranscribe({ type: 'document', source: { type: 'url', url: pdfUrl } });
+    process.stdout.write('\n');
+    return t;
+  } catch (e) { errs.push(`url(${e.message})`); }
+  try {
+    const fileId = await uploadPdfToAnthropic(buf);
+    const t = await anthropicTranscribe(
+      { type: 'document', source: { type: 'file', file_id: fileId } },
+      { 'anthropic-beta': 'files-api-2025-04-14' },
+    );
+    process.stdout.write('\n');
+    return t;
+  } catch (e) { errs.push(`files(${e.message})`); }
+  try {
+    const t = await anthropicTranscribe({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buf.toString('base64') } });
+    process.stdout.write('\n');
+    return t;
+  } catch (e) { errs.push(`base64(${e.message})`); }
+  process.stdout.write('\n');
+  throw new Error(`all Anthropic delivery methods failed — ${errs.join(' · ')}`);
+}
+
+/** Dispatch the no-text-layer path: Anthropic PDF (no poppler) or OpenAI images. */
 async function extractNonTextLayer(buf, label, url) {
-  if (ANTHROPIC_KEY) return transcribePdfViaAnthropic(url, label);
+  if (ANTHROPIC_KEY) return transcribePdfViaAnthropic(url, buf, label);
   return visionTranscribe(buf, label); // OpenAI image path (requires poppler)
 }
 
@@ -298,8 +344,13 @@ async function main() {
     if (DRY) { (method === 'vision' ? visionCount++ : textCount++); continue; }
 
     let text;
-    if (hasTextLayer) { text = parsedText; textCount++; }
-    else { text = await extractNonTextLayer(buf, p.title, p.pdfUrl); visionCount++; }
+    try {
+      text = hasTextLayer ? parsedText : await extractNonTextLayer(buf, p.title, p.pdfUrl);
+    } catch (e) {
+      console.log(`[ingest]   extraction failed (${e.message}) — skipping this paper`);
+      continue;
+    }
+    if (hasTextLayer) textCount++; else visionCount++;
     if (!text.trim()) { console.log(`[ingest]   (empty after ${method}) — skipping`); continue; }
 
     const wcFinal = wordCount(text);
