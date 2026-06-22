@@ -18,6 +18,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { ensureCoreProfile, type StandingCoreAnswers } from '@/services/standing/standingCore';
 import { extractFactsFromText, type ExtractedFact } from '@/services/standing/extractFacts';
+import { fetchLinkedInProfileText, isProxycurlConfigured } from '@/services/standing/linkedinProfile';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -59,11 +60,43 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ ok: false, error: 'database unavailable' }, { status: 503 });
 
   const body = (await req.json().catch(() => ({}))) as { url?: string; profileText?: string };
-  const profileText = (body.profileText ?? '').trim();
+  let profileText = (body.profileText ?? '').trim();
   const url = (body.url ?? '').trim();
+  let source: 'paste' | 'proxycurl' = 'paste';
+
+  // Auto-fetch from the public URL via Proxycurl when no text was pasted and
+  // the key is configured. Paste always wins (operator-provided source of truth).
+  if (!profileText && url) {
+    const fetched = await fetchLinkedInProfileText(url);
+    if (fetched.ok) {
+      profileText = fetched.text;
+      source = 'proxycurl';
+    } else if (fetched.reason === 'no-key') {
+      return NextResponse.json(
+        { ok: false, error: 'Automatic fetch isn’t configured (set PROXYCURL_API_KEY). Paste your LinkedIn profile text instead.' },
+        { status: 400 },
+      );
+    } else if (fetched.reason === 'bad-url') {
+      return NextResponse.json(
+        { ok: false, error: 'That doesn’t look like a LinkedIn profile URL (e.g. https://www.linkedin.com/in/your-handle).' },
+        { status: 400 },
+      );
+    } else {
+      return NextResponse.json(
+        { ok: false, error: 'Couldn’t fetch that LinkedIn profile automatically — paste your profile text instead.', detail: fetched.error },
+        { status: 502 },
+      );
+    }
+  }
+
   if (!profileText) {
     return NextResponse.json(
-      { ok: false, error: 'Paste your LinkedIn profile text to import (an automatic fetch is not yet wired).' },
+      {
+        ok: false,
+        error: isProxycurlConfigured()
+          ? 'Provide your LinkedIn profile URL to auto-fetch, or paste your profile text.'
+          : 'Paste your LinkedIn profile text to import.',
+      },
       { status: 400 },
     );
   }
@@ -129,6 +162,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       profileId,
+      source,
       factsExtracted: facts.length,
       suggested: mapFactsToAnswers(facts),
     });

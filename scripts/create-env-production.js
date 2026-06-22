@@ -202,6 +202,11 @@ const envVars = [
   // actor intakes). Same generation pattern as CRON_TRIGGER_TOKEN.
   // Spec: AGENTIQ_INTENT_CHAINS_SPEC.md §7 + advancer.ts.
   'ORCHESTRATOR_SERVICE_TOKEN',
+  // LinkedIn profile enrichment for the Standing Core wizard. Proxycurl is the
+  // only path to experience/education (LinkedIn OAuth no longer exposes them).
+  // Optional — when unset the wizard falls back to the manual profile-text
+  // paste. Provision at nubela.co; never expose as NEXT_PUBLIC_.
+  'PROXYCURL_API_KEY',
 ];
 
 let content = '';

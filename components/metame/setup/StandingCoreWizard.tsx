@@ -155,7 +155,7 @@ export function StandingCoreWizard({
   };
 
   const importLinkedIn = async () => {
-    if (!liText.trim()) { setLiMsg("Paste your LinkedIn profile text first."); return; }
+    if (!liText.trim() && !liUrl.trim()) { setLiMsg("Add your LinkedIn URL or paste your profile text."); return; }
     setLiBusy(true);
     setLiMsg(null);
     try {
@@ -182,7 +182,8 @@ export function StandingCoreWizard({
         return next;
       });
       setPrefilled((prev) => ({ ...prev, ...pre }));
-      setLiMsg(`Imported ${data.factsExtracted} fact${data.factsExtracted === 1 ? "" : "s"} from LinkedIn — review and edit below.`);
+      const via = data.source === "proxycurl" ? "auto-fetched" : "from your pasted text";
+      setLiMsg(`Imported ${data.factsExtracted} fact${data.factsExtracted === 1 ? "" : "s"} (${via}) — review and edit below.`);
       setLiOpen(false);
     } catch (err) {
       setLiMsg(err instanceof Error ? err.message : String(err));
@@ -242,18 +243,18 @@ export function StandingCoreWizard({
               <input
                 value={liUrl}
                 onChange={(e) => setLiUrl(e.target.value)}
-                placeholder="LinkedIn profile URL (optional)"
+                placeholder="https://www.linkedin.com/in/your-handle"
                 className="w-full text-xs rounded p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-sky-500/60 focus:outline-none"
               />
               <textarea
                 value={liText}
                 onChange={(e) => setLiText(e.target.value)}
                 rows={4}
-                placeholder="Paste your LinkedIn profile text here (About + experience). We extract your facts and pre-fill the wizard."
+                placeholder="…or paste your LinkedIn profile text (About + experience + education)."
                 className="w-full text-xs rounded p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-sky-500/60 focus:outline-none"
               />
               <p className="text-[10px] text-slate-500">
-                Automatic LinkedIn fetch isn’t wired yet — paste your profile text and we’ll do the rest. Your data stays in your Standing profile.
+                Add your public URL to fetch automatically, or paste your profile text. We extract your facts and pre-fill the wizard. Your data stays in your Standing profile.
               </p>
               {liMsg && <p className="text-[11px] text-amber-300">{liMsg}</p>}
               <div className="flex items-center gap-2">
