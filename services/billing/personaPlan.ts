@@ -25,6 +25,23 @@ export type AgencyPlanTier = 'citizen' | 'citizen_plus' | 'sovereign_citizen' | 
 export type VentureTier = 'none' | 'lite' | 'pro' | 'elite';
 export type StandingTier = 'standing' | 'professional';
 
+/**
+ * Which Standing/Venture wizard templates a persona may launch.
+ *   - core      → Standing Core wizard (every citizen, free)
+ *   - light     → Venture Light wizard (every citizen, free — 1 light venture)
+ *   - pro       → Venture Pro wizard + the 13-layer VentureQube Pro schema
+ *                 (unlocks at Venture Lab Lite and above)
+ *   - portfolio → Venture Portfolio wizard, cross-venture (unlocks at Pro/Elite)
+ * The schema a persona may WRITE follows from this: `pro` access ⇒ may write the
+ * Pro schema; otherwise the Light schema only.
+ */
+export interface WizardAccess {
+  core: boolean;
+  light: boolean;
+  pro: boolean;
+  portfolio: boolean;
+}
+
 export interface PersonaPlan {
   planTier: AgencyPlanTier;
   ventureTier: VentureTier;
@@ -41,8 +58,12 @@ export interface PersonaPlan {
   /** True when Tier 3 Professional Standing is unlocked (subscription OR bundled
    *  with Founder Office Pro/Elite). */
   professionalStanding: boolean;
-  /** Max active VentureQubes this plan may own (none=0, lite=1, pro=3, elite=unlimited). */
+  /** Max active VentureQubes this plan may own (none=1 light, lite=1, pro=3, elite=unlimited). */
   ventureLimit: number;
+  /** Which wizard templates the persona may launch (see WizardAccess). */
+  wizardAccess: WizardAccess;
+  /** The richest VentureQube schema the persona may write ('pro' at lite+, else 'lite'). */
+  ventureSchemaTier: 'lite' | 'pro';
 }
 
 const FREE_PLAN: PersonaPlan = {
@@ -55,7 +76,10 @@ const FREE_PLAN: PersonaPlan = {
   studioAccess: false,
   hmsAccess: false,
   professionalStanding: false,
-  ventureLimit: 0,
+  // Free Citizens may incubate ONE venture with the Venture Light wizard.
+  ventureLimit: 1,
+  wizardAccess: { core: true, light: true, pro: false, portfolio: false },
+  ventureSchemaTier: 'lite',
 };
 
 export const PLAN_LABEL: Record<AgencyPlanTier, string> = {
@@ -78,8 +102,8 @@ export const STANDING_TIER_LABEL: Record<StandingTier, string> = {
 };
 
 const VENTURE_LIMIT: Record<VentureTier, number> = {
-  none: 0,
-  lite: 1,
+  none: 1, // free Citizen: one Light venture
+  lite: 1, // one venture, Pro schema
   pro: 3,
   elite: 9999,
 };
@@ -96,6 +120,9 @@ function resolve(row: {
   // Professional Standing: own subscription OR bundled with Founder Office Pro/Elite.
   const professionalStanding =
     standingTier === 'professional' || ventureTier === 'pro' || ventureTier === 'elite';
+  // Pro wizard/schema unlocks at Lite and above; Portfolio wizard at Pro/Elite.
+  const proWizard = paid; // lite | pro | elite
+  const portfolioWizard = ventureTier === 'pro' || ventureTier === 'elite';
   return {
     planTier: (row.plan_tier as AgencyPlanTier) ?? 'citizen',
     ventureTier,
@@ -106,7 +133,9 @@ function resolve(row: {
     studioAccess: paid,
     hmsAccess: paid,
     professionalStanding,
-    ventureLimit: VENTURE_LIMIT[ventureTier] ?? 0,
+    ventureLimit: VENTURE_LIMIT[ventureTier] ?? 1,
+    wizardAccess: { core: true, light: true, pro: proWizard, portfolio: portfolioWizard },
+    ventureSchemaTier: proWizard ? 'pro' : 'lite',
   };
 }
 

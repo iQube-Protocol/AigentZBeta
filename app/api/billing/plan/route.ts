@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
       hmsAccess: true,
       professionalStanding: true,
       ventureLimit: 9999,
+      wizardAccess: { core: true, light: true, pro: true, portfolio: true },
+      ventureSchemaTier: 'pro',
     };
   }
   return NextResponse.json({
