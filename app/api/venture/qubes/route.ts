@@ -39,13 +39,12 @@ export async function POST(req: NextRequest) {
   if (!body.name || typeof body.name !== 'string') {
     return NextResponse.json({ ok: false, error: 'name is required' }, { status: 400 });
   }
+  const flags = persona.cartridgeFlags;
   const result = await createVentureQube({
     personaId: persona.personaId,
-    // Admin override — global admin OR a per-cartridge Venture Lab admin bypasses
-    // the venture-tier limit (admins have full cartridge access).
-    isAdmin:
-      persona.cartridgeFlags.isAdmin ||
-      persona.cartridgeFlags.adminCartridges.includes('venture-lab'),
+    // Admin override — any admin (global, or admin of any cartridge incl.
+    // venture-lab) bypasses the venture-tier limit. "Admin is the override."
+    isAdmin: !!flags?.isAdmin || (flags?.adminCartridges?.length ?? 0) > 0,
     name: body.name,
     slug: body.slug,
     path: body.path,
