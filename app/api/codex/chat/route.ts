@@ -1150,11 +1150,10 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>, 
         .limit(limit);
       if (source) query = query.eq('source', source);
       if (q) {
-        // Full-text search via Postgres websearch syntax
         query = (query as any).textSearch(
           'fts',
           q.split(/\s+/).map((w: string) => w + ':*').join(' & '),
-          { config: 'english', type: 'websearch' },
+          { config: 'english', type: 'plain' },
         );
       } else {
         query = query.order('display_name', { ascending: true });

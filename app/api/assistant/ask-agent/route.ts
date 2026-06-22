@@ -65,7 +65,7 @@ async function maybeInjectContactContext(
       .from('persona_contacts')
       .select('display_name, organization, job_title, email, email_2, phone, phone_2, source')
       .eq('persona_id', personaId)
-      .textSearch('fts', q.split(/\s+/).map(w => w + ':*').join(' & '), { config: 'english', type: 'websearch' })
+      .textSearch('fts', q.split(/\s+/).map(w => w + ':*').join(' & '), { config: 'english', type: 'plain' })
       .limit(20);
 
     if (!data || data.length === 0) return null;

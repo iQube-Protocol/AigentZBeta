@@ -40,11 +40,10 @@ export async function GET(req: NextRequest) {
   }
 
   if (q) {
-    // Full-text search across name + email + org
     query = query.textSearch(
       'fts',
       q.split(/\s+/).map(w => w + ':*').join(' & '),
-      { config: 'english', type: 'websearch' }
+      { config: 'english', type: 'plain' }
     );
   }
 
