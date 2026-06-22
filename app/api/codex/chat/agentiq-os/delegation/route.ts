@@ -17,6 +17,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { PolicyEnvelope, HandoffPayload, OrchestrationEvent } from '@/types/orchestration';
 import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
+import {
+  persistDelegationGrant,
+  readActiveGrant,
+  revokeActiveGrant,
+  markGrantExpired,
+} from '@/services/delegation/delegationGrantStore';
 
 // ============================================================================
 // Types
@@ -151,6 +157,24 @@ export async function GET(request: NextRequest) {
   // Default — return active delegation state
   let record = delegationStore.get(persona_id);
 
+  // Durable rehydration: if the in-memory cache lost state (server restart),
+  // read the active grant from the delegation_grants ledger first. The stored
+  // handoff JSON rehydrates the record exactly. Falls through to the
+  // orchestration_events reconstruction below if the table is absent/empty.
+  if (!record) {
+    const grant = await readActiveGrant(persona_id);
+    if (grant?.handoff) {
+      record = {
+        handoff: grant.handoff,
+        expires_at: grant.expires_at,
+        max_actions: grant.max_actions,
+        actions_taken: grant.actions_taken,
+        created_at: grant.created_at,
+      };
+      delegationStore.set(persona_id, record);
+    }
+  }
+
   // Fallback: if in-memory store lost state (server restart), reconstruct from latest
   // z_delegated event in orchestration_events if it has not yet expired.
   if (!record) {
@@ -231,6 +255,7 @@ export async function GET(request: NextRequest) {
 
   if (isExpired(record)) {
     delegationStore.delete(persona_id);
+    await markGrantExpired(record.handoff.handoff_id);
     await emitDelegationEvent('control_returned_to_metame', persona_id, {
       handoff_id: record.handoff.handoff_id,
       reason: 'TTL expired',
@@ -389,6 +414,28 @@ export async function POST(request: NextRequest) {
 
     delegationStore.set(persona_id, record);
 
+    // Durable persistence — survives serverless cold starts and gives Delegated
+    // Standing a real ledger. Best-effort: soft-fails if the migration is
+    // pending (the in-memory grant above keeps the flow working regardless).
+    await persistDelegationGrant({
+      grantId: handoffId,
+      personaId: persona_id,
+      agentRootDid,
+      tenantId: tenant_id ?? 'default',
+      trustBand: trust_band,
+      allowedActions,
+      allowedSurfaces: resolvedSurfaces,
+      forbiddenActions: BASE_FORBIDDEN_ACTIONS,
+      disclosureClass: resolvedDisclosure,
+      maxActions: resolvedMaxActions,
+      spendAutonomy: spend_autonomy ?? 'low',
+      showReceipts: show_receipts ?? true,
+      curatedSkillsOnly: curated_skills_only ?? true,
+      explainBeforeActing: explain_before_acting ?? false,
+      handoff,
+      expiresAt: expiresAt,
+    });
+
     await emitDelegationEvent('z_delegated', persona_id, {
       handoff_id: handoffId,
       agent_root_did: agentRootDid,
@@ -441,7 +488,14 @@ export async function DELETE(request: NextRequest) {
 
     const record = delegationStore.get(persona_id);
 
+    // Always flip the durable ledger, even when the in-memory cache is cold —
+    // a grant rehydrated from the table (or never cached this instance) must
+    // still be revocable.
+    await revokeActiveGrant(persona_id, 'User revoked delegation');
+
     if (!record) {
+      // The cache may be cold while a durable grant existed; the revoke above
+      // covers that case. Nothing more to emit without a handoff_id.
       return NextResponse.json({ ok: true, message: 'No active delegation to revoke.' });
     }
 
