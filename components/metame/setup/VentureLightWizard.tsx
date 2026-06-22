@@ -66,15 +66,34 @@ const STEPS: StepDef[] = [
 
 const splitLines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
 
+/** Hydrate a form from a venture record (edit mode). */
+function loadVentureInto(v: { name?: string; stage?: string; layers?: { thesis?: Record<string, string>; intent?: { founderIntents?: string[]; ventureIntents?: string[] } } }, next: Form) {
+  next.name = v.name ?? "";
+  next.stage = v.stage ?? "concept";
+  const t = v.layers?.thesis ?? {};
+  next.problemStatement = t.problemStatement ?? "";
+  next.valueProposition = t.valueProposition ?? "";
+  next.mission = t.mission ?? "";
+  const it = v.layers?.intent ?? {};
+  next.founderIntents = (it.founderIntents ?? []).join("\n");
+  next.ventureIntents = (it.ventureIntents ?? []).join("\n");
+}
+
 export function VentureLightWizard({
   open,
   onOpenChange,
   personaId,
+  ventureId: targetVentureId,
+  forceCreate,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   personaId?: string;
+  /** Edit a specific venture (portfolio multi-venture). Omit for single-venture. */
+  ventureId?: string;
+  /** Always create a new venture, ignoring any existing one (portfolio "add"). */
+  forceCreate?: boolean;
   onSaved?: (result: { ventureId: string; name: string }) => void;
 }) {
   const [step, setStep] = useState(0);
@@ -101,21 +120,21 @@ export function VentureLightWizard({
       const pre: Partial<Record<keyof Form, boolean>> = {};
       let existingId: string | null = null;
       try {
-        const res = await personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          const v = Array.isArray(data?.ventures) && data.ventures.length > 0 ? data.ventures[0] : null;
-          if (v) {
-            existingId = v.id;
-            next.name = v.name ?? "";
-            next.stage = v.stage ?? "concept";
-            const t = v.layers?.thesis ?? {};
-            next.problemStatement = t.problemStatement ?? "";
-            next.valueProposition = t.valueProposition ?? "";
-            next.mission = t.mission ?? "";
-            const it = v.layers?.intent ?? {};
-            next.founderIntents = (it.founderIntents ?? []).join("\n");
-            next.ventureIntents = (it.ventureIntents ?? []).join("\n");
+        if (forceCreate) {
+          // Portfolio "add a venture" — never load an existing one.
+        } else if (targetVentureId) {
+          const res = await personaFetch(`/api/venture/qubes/${targetVentureId}`, { personaIdHint: personaId, cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            const v = data?.venture;
+            if (v) { existingId = v.id; loadVentureInto(v, next); }
+          }
+        } else {
+          const res = await personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            const v = Array.isArray(data?.ventures) && data.ventures.length > 0 ? data.ventures[0] : null;
+            if (v) { existingId = v.id; loadVentureInto(v, next); }
           }
         }
       } catch { /* best-effort */ }
@@ -146,7 +165,7 @@ export function VentureLightWizard({
       setPrefilled(pre);
       setLoading(false);
     })();
-  }, [open, personaId]);
+  }, [open, personaId, targetVentureId, forceCreate]);
 
   const total = STEPS.length;
   const current = STEPS[step];

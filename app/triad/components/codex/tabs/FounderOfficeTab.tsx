@@ -20,6 +20,8 @@ import {
   Building2, Layers, Gauge, X, Loader2, Sparkles,
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { VentureProWizard } from '@/components/metame/setup/VentureProWizard';
+import { VenturePortfolioWizard } from '@/components/metame/setup/VenturePortfolioWizard';
 import type {
   VentureQubeV1, VentureStage, FounderPath, VentureAgentConsumer,
 } from '@/types/ventureQube';
@@ -109,9 +111,15 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
   const [selected, setSelected] = useState<VentureRecord | null>(null);
   const [standing, setStanding] = useState<StandingSummary | null>(null);
   const [spine, setSpine] = useState<SpineState | null>(null);
-  const [plan, setPlan] = useState<{ ventureTier: string; ventureLabAccess: boolean; ventureTierLabel: string; planLabel: string } | null>(null);
+  const [plan, setPlan] = useState<{
+    ventureTier: string; ventureLabAccess: boolean; ventureTierLabel: string; planLabel: string;
+    wizardAccess?: { core: boolean; light: boolean; pro: boolean; portfolio: boolean };
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Guided wizards (parity with the Standing cartridge launcher).
+  const [proWizardOpen, setProWizardOpen] = useState(false);
+  const [portfolioWizardOpen, setPortfolioWizardOpen] = useState(false);
 
   const loadVentures = useCallback(async () => {
     setLoading(true);
@@ -281,12 +289,32 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
       )}
 
       {view === 'workspace' && (
-        <Workspace
-          loading={loading}
-          ventures={ventures}
-          onOpen={openBlueprint}
-          onNew={() => setView('discover')}
-        />
+        <>
+          {/* Guided wizards — parity with the Standing cartridge. The Pro
+              wizard builds the full VentureQube; Portfolio manages multiple
+              ventures + cross-venture thesis. */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <span className="text-[11px] uppercase tracking-wider text-slate-500">Guided wizards</span>
+            <button
+              onClick={() => setProWizardOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/15 border border-violet-500/40 text-violet-200 hover:bg-violet-500/25"
+            >
+              <Rocket className="w-3.5 h-3.5" /> Venture Pro wizard
+            </button>
+            <button
+              onClick={() => setPortfolioWizardOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/15 border border-violet-500/40 text-violet-200 hover:bg-violet-500/25"
+            >
+              <Layers className="w-3.5 h-3.5" /> Venture Portfolio
+            </button>
+          </div>
+          <Workspace
+            loading={loading}
+            ventures={ventures}
+            onOpen={openBlueprint}
+            onNew={() => setView('discover')}
+          />
+        </>
       )}
 
       {(view === 'discover' || view === 'validate' || view === 'architect') && (
@@ -308,6 +336,21 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
           onHandoff={handoff}
         />
       )}
+
+      <VentureProWizard
+        open={proWizardOpen}
+        onOpenChange={setProWizardOpen}
+        personaId={personaId}
+        hasProAccess={Boolean(isAdmin) || (plan?.wizardAccess?.pro ?? false)}
+        onSaved={() => { void loadVentures(); }}
+      />
+      <VenturePortfolioWizard
+        open={portfolioWizardOpen}
+        onOpenChange={setPortfolioWizardOpen}
+        personaId={personaId}
+        hasPortfolioAccess={Boolean(isAdmin) || (plan?.wizardAccess?.portfolio ?? false)}
+        onSaved={() => { void loadVentures(); }}
+      />
     </div>
   );
 }

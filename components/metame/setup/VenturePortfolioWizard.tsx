@@ -11,7 +11,7 @@
  * only the portfolio thesis/notes/priority ordering is new (venture_portfolios).
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +20,10 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Check, Lock, ArrowUp, ArrowDown, Layers } from "lucide-react";
+import { Loader2, Check, Lock, ArrowUp, ArrowDown, Layers, Plus, Rocket } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { VentureLightWizard } from "./VentureLightWizard";
+import { VentureProWizard } from "./VentureProWizard";
 
 interface VentureSummary {
   id: string;
@@ -59,34 +61,40 @@ export function VenturePortfolioWizard({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Add-venture cycle: Light (create) → optionally deepen with Pro.
+  const [addLightOpen, setAddLightOpen] = useState(false);
+  const [proVentureId, setProVentureId] = useState<string | null>(null);
+  const [proOpen, setProOpen] = useState(false);
   const wasOpen = useRef(false);
+
+  const load = useCallback(async () => {
+    if (!hasPortfolioAccess) return;
+    setLoading(true);
+    try {
+      const res = await personaFetch("/api/venture/portfolio", { personaIdHint: personaId, cache: "no-store" });
+      if (res.ok) {
+        const data = (await res.json()) as Portfolio & { ok: boolean };
+        setPortfolio(data);
+        setOrder(data.ventures ?? []);
+        setThesis(data.thesis ?? "");
+        setNotes(data.notes ?? "");
+      } else {
+        const b = await res.json().catch(() => ({}));
+        setError(b?.error || `Could not load portfolio (${res.status})`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [personaId, hasPortfolioAccess]);
 
   useEffect(() => {
     if (!open || wasOpen.current) { wasOpen.current = open; return; }
     wasOpen.current = true;
     setError(null);
-    if (!hasPortfolioAccess) return;
-    setLoading(true);
-    void (async () => {
-      try {
-        const res = await personaFetch("/api/venture/portfolio", { personaIdHint: personaId, cache: "no-store" });
-        if (res.ok) {
-          const data = (await res.json()) as Portfolio & { ok: boolean };
-          setPortfolio(data);
-          setOrder(data.ventures ?? []);
-          setThesis(data.thesis ?? "");
-          setNotes(data.notes ?? "");
-        } else {
-          const b = await res.json().catch(() => ({}));
-          setError(b?.error || `Could not load portfolio (${res.status})`);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [open, personaId, hasPortfolioAccess]);
+    void load();
+  }, [open, load]);
 
   const move = (i: number, dir: -1 | 1) => {
     setOrder((prev) => {
@@ -175,12 +183,22 @@ export function VenturePortfolioWizard({
               </div>
             )}
 
-            {/* Priority ordering */}
+            {/* Priority ordering + add */}
             <div>
-              <label className="block text-sm font-medium text-slate-200 mb-1.5">Priority order</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-slate-200">Ventures &amp; priority</label>
+                <button
+                  type="button"
+                  onClick={() => setAddLightOpen(true)}
+                  className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 hover:bg-amber-500/25"
+                >
+                  <Plus className="w-3 h-3" /> Add a venture
+                </button>
+              </div>
               {order.length === 0 ? (
                 <p className="text-[11px] text-slate-400">
-                  No ventures yet. Create ventures with the Venture Pro wizard to build a portfolio.
+                  No ventures yet. Use “Add a venture” — you’ll capture the essentials (Light), then
+                  deepen into the full blueprint (Pro).
                 </p>
               ) : (
                 <div className="space-y-1.5">
@@ -192,6 +210,14 @@ export function VenturePortfolioWizard({
                       {typeof v.ventureConfidence === "number" && (
                         <span className="text-[10px] text-emerald-300">{v.ventureConfidence}%</span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => { setProVentureId(v.id); setProOpen(true); }}
+                        title="Deepen with the Venture Pro wizard"
+                        className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border border-violet-500/40 text-violet-200 hover:bg-violet-500/15"
+                      >
+                        <Rocket className="w-3 h-3" /> Pro
+                      </button>
                       <div className="flex items-center gap-0.5">
                         <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="text-slate-400 hover:text-slate-200 disabled:opacity-30">
                           <ArrowUp className="w-3.5 h-3.5" />
@@ -252,6 +278,27 @@ export function VenturePortfolioWizard({
             </button>
           </DialogFooter>
         )}
+
+        {/* Add-venture cycle: Light (create) → deepen with Pro on the new id. */}
+        <VentureLightWizard
+          open={addLightOpen}
+          onOpenChange={setAddLightOpen}
+          personaId={personaId}
+          forceCreate
+          onSaved={(r) => {
+            void load();
+            // Chain straight into the Pro wizard on the venture just created.
+            if (r.ventureId) { setProVentureId(r.ventureId); setProOpen(true); }
+          }}
+        />
+        <VentureProWizard
+          open={proOpen}
+          onOpenChange={setProOpen}
+          personaId={personaId}
+          ventureId={proVentureId ?? undefined}
+          hasProAccess={hasPortfolioAccess}
+          onSaved={() => void load()}
+        />
       </DialogContent>
     </Dialog>
   );

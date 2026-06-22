@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Briefcase, ClipboardList, Users, Activity, Plus, ChevronDown, ChevronUp, RefreshCw, X, Save } from 'lucide-react';
+import { Briefcase, ClipboardList, Users, Activity, Plus, ChevronDown, ChevronUp, RefreshCw, X, Save, Layers } from 'lucide-react';
+import { personaFetch } from '@/utils/personaSpine';
+import { VenturePortfolioWizard } from '@/components/metame/setup/VenturePortfolioWizard';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -348,6 +350,10 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
   const [loading, setLoading]           = useState(true);
   const [subView, setSubView]           = useState<SubView>('board');
   const [editingId, setEditingId]       = useState<string | null>(null);
+  // "My Portfolio" — the citizen's OWN ventures (distinct from this admin
+  // scorecard board), managed via the Venture Portfolio wizard.
+  const [myPortfolioOpen, setMyPortfolioOpen] = useState(false);
+  const [portfolioAccess, setPortfolioAccess] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -360,6 +366,17 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await personaFetch('/api/billing/plan', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.ok) setPortfolioAccess(!!data.wizardAccess?.portfolio || !!isAdmin);
+      } catch { /* non-fatal */ }
+    })();
+  }, [isAdmin]);
 
   const saveScorecard = async (id: string, payload: Venture['payload']) => {
     const res = await fetch(`/api/venture-lab/portfolio/${id}`, {
@@ -411,6 +428,14 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
         </div>
 
         <button
+          onClick={() => setMyPortfolioOpen(true)}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25 hover:bg-violet-500/20"
+          title="Manage your own venture portfolio"
+        >
+          <Layers className="w-3.5 h-3.5" /> My Portfolio
+        </button>
+
+        <button
           onClick={load}
           className="text-slate-500 hover:text-slate-300 transition-colors"
           title="Refresh"
@@ -418,6 +443,12 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
+
+      <VenturePortfolioWizard
+        open={myPortfolioOpen}
+        onOpenChange={setMyPortfolioOpen}
+        hasPortfolioAccess={portfolioAccess}
+      />
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto p-5">

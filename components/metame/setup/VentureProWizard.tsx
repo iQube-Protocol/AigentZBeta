@@ -62,12 +62,15 @@ export function VentureProWizard({
   open,
   onOpenChange,
   personaId,
+  ventureId: targetVentureId,
   hasProAccess,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   personaId?: string;
+  /** Target a specific venture (portfolio multi-venture). Omit for single-venture. */
+  ventureId?: string;
   /** When false the wizard shows a locked upgrade panel. */
   hasProAccess: boolean;
   onSaved?: (result: { ventureId: string }) => void;
@@ -94,19 +97,33 @@ export function VentureProWizard({
     void (async () => {
       const next: Form = { ...EMPTY };
       try {
-        const res = await personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          const v = Array.isArray(data?.ventures) && data.ventures.length > 0 ? data.ventures[0] : null;
+        let v: { id: string; name?: string; layers?: Record<string, unknown> } | null = null;
+        if (targetVentureId) {
+          const res = await personaFetch(`/api/venture/qubes/${targetVentureId}`, { personaIdHint: personaId, cache: "no-store" });
+          if (res.ok) { const data = await res.json(); v = data?.venture ?? null; }
+        } else {
+          const res = await personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            v = Array.isArray(data?.ventures) && data.ventures.length > 0 ? data.ventures[0] : null;
+          }
+        }
+        {
           if (v) {
             setVentureId(v.id);
             next.name = v.name ?? "";
-            const L = v.layers ?? {};
-            next.archetypes = (L.archetypes ?? []).map((a: { label?: string }) => a.label).filter(Boolean).join("\n");
-            next.revenueEngines = (L.revenueArchitecture?.engines ?? []).map((e: { engineName?: string }) => e.engineName).filter(Boolean).join("\n");
+            const L = (v.layers ?? {}) as {
+              archetypes?: Array<{ label?: string }>;
+              revenueArchitecture?: { engines?: Array<{ engineName?: string }> };
+              commercialModel?: { revenueTargets?: string[] };
+              capability?: { requiredCapabilities?: string[]; availableCapabilities?: string[]; capabilityGaps?: string[]; capabilityPriorities?: string[] };
+              execution?: { phases?: Array<{ phaseName?: string }> };
+            };
+            next.archetypes = (L.archetypes ?? []).map((a) => a.label).filter(Boolean).join("\n");
+            next.revenueEngines = (L.revenueArchitecture?.engines ?? []).map((e) => e.engineName).filter(Boolean).join("\n");
             next.revenueTargets = (L.commercialModel?.revenueTargets ?? []).join("\n");
             next.requiredCapabilities = (L.capability?.requiredCapabilities ?? []).join("\n");
-            next.executionPhases = (L.execution?.phases ?? []).map((p: { phaseName?: string }) => p.phaseName).filter(Boolean).join("\n");
+            next.executionPhases = (L.execution?.phases ?? []).map((p) => p.phaseName).filter(Boolean).join("\n");
             setCapabilitySnapshot({
               availableCapabilities: L.capability?.availableCapabilities ?? [],
               capabilityGaps: L.capability?.capabilityGaps ?? [],
@@ -119,7 +136,7 @@ export function VentureProWizard({
         setLoading(false);
       }
     })();
-  }, [open, personaId, hasProAccess]);
+  }, [open, personaId, hasProAccess, targetVentureId]);
 
   const total = STEPS.length;
   const current = STEPS[step];
