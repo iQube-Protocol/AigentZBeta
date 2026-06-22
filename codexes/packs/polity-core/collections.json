@@ -13,6 +13,18 @@
       ]
     },
     {
+      "id": "col_constitution_agentic_polity",
+      "title": "Constitution of the Agentic Polity",
+      "description": "The foundational constitutional text (4th paper of the Polity series), elevated to ratified status. Populated by scripts/ingest-polity-papers.mjs.",
+      "type": "static",
+      "order": 0.5,
+      "enabled": true,
+      "metadata": { "icon": "Landmark", "category": "main" },
+      "items": [
+        "items/CONSTITUTION_OF_AGENTIC_POLITY.md"
+      ]
+    },
+    {
       "id": "col_agent_charter",
       "title": "Agent Charter",
       "description": "The Autonomous Agent Constitutional Charter — ADID class, Phase 1 restrictions, sponsorship, revocation, and binding.",
@@ -130,6 +142,42 @@
       "metadata": { "icon": "Code", "category": "main" },
       "items": [
         "items/MACHINE_READABLE.md"
+      ]
+    },
+    {
+      "id": "col_commentary_experience_sovereignty",
+      "title": "Commentary · Experience Sovereignty",
+      "description": "Constitutional commentary — the Experience Sovereignty paper series (Qriptopian codex). Machine-readable extractions. Populated by scripts/ingest-polity-papers.mjs.",
+      "type": "static",
+      "order": 7,
+      "enabled": true,
+      "metadata": { "icon": "BookOpen", "category": "commentary" },
+      "items": [
+        "items/commentary/README.md"
+      ]
+    },
+    {
+      "id": "col_commentary_coyn_thesis",
+      "title": "Commentary · COYN Thesis",
+      "description": "Constitutional commentary — the COYN Thesis paper series (Qriptopian codex). Machine-readable extractions. Populated by scripts/ingest-polity-papers.mjs.",
+      "type": "static",
+      "order": 8,
+      "enabled": true,
+      "metadata": { "icon": "BookOpen", "category": "commentary" },
+      "items": [
+        "items/commentary/README.md"
+      ]
+    },
+    {
+      "id": "col_commentary_polity",
+      "title": "Commentary · The Polity",
+      "description": "Constitutional commentary — the Polity paper series (Qriptopian codex), including the Constitution of the Agentic Polity. Machine-readable extractions. Populated by scripts/ingest-polity-papers.mjs.",
+      "type": "static",
+      "order": 9,
+      "enabled": true,
+      "metadata": { "icon": "BookOpen", "category": "commentary" },
+      "items": [
+        "items/commentary/README.md"
       ]
     }
   ]

@@ -4322,7 +4322,8 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
   tabGroups: [
     { id: 'constitution', label: 'Constitution', icon: 'Landmark', order: 0 },
     { id: 'frameworks', label: 'Frameworks', icon: 'BookOpen', order: 1 },
-    { id: 'records', label: 'Records', icon: 'FileText', order: 2 },
+    { id: 'commentary', label: 'Commentary', icon: 'BookOpen', order: 2 },
+    { id: 'records', label: 'Records', icon: 'FileText', order: 3 },
   ],
   tabs: [
     {
@@ -4338,6 +4339,62 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
         props: { packId: 'polity-core', collectionId: 'col_constitution', defaultPath: 'items/CONSTITUTION.md' },
       },
       metadata: { icon: 'Landmark', description: 'The Polity Constitution — sovereignty and the chain of legitimacy', color: 'violet' },
+    },
+    {
+      id: 'polity-core-constitution-agentic-polity',
+      label: 'Constitution of the Agentic Polity',
+      slug: 'constitution-agentic-polity',
+      enabled: true,
+      group: 'constitution',
+      order: 0.5,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_constitution_agentic_polity', defaultPath: 'items/CONSTITUTION_OF_AGENTIC_POLITY.md' },
+      },
+      metadata: { icon: 'Landmark', description: 'The foundational constitutional text — 4th paper of the Polity series, elevated to ratified status', color: 'violet' },
+    },
+    {
+      id: 'polity-core-commentary-experience-sovereignty',
+      label: 'Experience Sovereignty',
+      slug: 'commentary-experience-sovereignty',
+      enabled: true,
+      group: 'commentary',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_commentary_experience_sovereignty', defaultPath: 'items/commentary/README.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'Constitutional commentary — Experience Sovereignty paper series', color: 'violet' },
+    },
+    {
+      id: 'polity-core-commentary-coyn-thesis',
+      label: 'COYN Thesis',
+      slug: 'commentary-coyn-thesis',
+      enabled: true,
+      group: 'commentary',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_commentary_coyn_thesis', defaultPath: 'items/commentary/README.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'Constitutional commentary — COYN Thesis paper series', color: 'violet' },
+    },
+    {
+      id: 'polity-core-commentary-polity',
+      label: 'The Polity',
+      slug: 'commentary-polity',
+      enabled: true,
+      group: 'commentary',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_commentary_polity', defaultPath: 'items/commentary/README.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'Constitutional commentary — the Polity paper series', color: 'violet' },
     },
     {
       id: 'polity-core-agent-charter',

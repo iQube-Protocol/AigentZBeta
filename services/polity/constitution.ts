@@ -23,6 +23,8 @@ import standingCharterV1 from './frameworks/standing-charter.v1.json';
 import metacommonsCharterV1 from './frameworks/metacommons-charter.v1.json';
 import founderOfficeCharterV1 from './frameworks/founder-office-charter.v1.json';
 import ventureQubeSpecV1 from './frameworks/ventureqube-spec.v1.json';
+import polityPapersCommentaryV1 from './frameworks/polity-papers-commentary.v1.json';
+import constitutionAgenticPolityV1 from './frameworks/constitution-agentic-polity.v1.json';
 import autodriveCids from './frameworks/autodrive-cids.json';
 
 export type RevocationState =
@@ -80,6 +82,29 @@ export function getVentureQubeSpec() {
 }
 
 /**
+ * The Polity Paper series as constitutional COMMENTARY — interpretive,
+ * authoritative, and cross-referenced from the charters (PoWP, PoTS, Time
+ * Sovereignty, Experience Sovereignty, …). Not ratified law and not in the
+ * Agent Passport binding triple. The `series[].papers[]` index is populated by
+ * scripts/ingest-polity-papers.mjs; the `concepts` block gives agents direction
+ * even before the full papers are ingested.
+ */
+export function getPolityPapersCommentary() {
+  return polityPapersCommentaryV1;
+}
+
+/**
+ * The Constitution of the Agentic Polity — the foundational constitutional text
+ * (4th paper of the Polity series), elevated to ratified status in Polity Core.
+ * NOTE: the operative binding triple still references constitution.v1.json;
+ * adding this to CURRENT_CONSTITUTIONAL_VERSIONS re-binds every Agent Passport
+ * and is a deliberate governance act, not done here.
+ */
+export function getConstitutionOfAgenticPolity() {
+  return constitutionAgenticPolityV1;
+}
+
+/**
  * Autodrive (Autonomys) CID records proving content-addressed immutability of
  * the published frameworks. Empty until `scripts/publish-polity-core.mjs` runs.
  */
@@ -99,6 +124,10 @@ export function getConstitutionalFramework() {
     founderOfficeCharter: founderOfficeCharterV1,
     // WIP — recorded for legibility; not ratified, not in the binding triple.
     ventureQubeSpec: ventureQubeSpecV1,
+    // The Constitution of the Agentic Polity (ratified foundational text) +
+    // the Polity Paper series as constitutional commentary (interpretive).
+    constitutionOfAgenticPolity: constitutionAgenticPolityV1,
+    polityPapersCommentary: polityPapersCommentaryV1,
     autodrive: autodriveCids,
   };
 }
