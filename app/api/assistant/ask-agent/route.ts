@@ -32,6 +32,62 @@ import {
   type SpecialistId,
   type SpecialistContext,
 } from '@/services/agents/specialistRouter';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+// ─── Contact context injection ───────────────────────────────────────────────
+// When the user's prompt mentions a person, company, or contacts-related
+// keyword, query persona_contacts and prepend a data block to the rationale
+// so the LLM answers with real data instead of claiming it has no access.
+
+const CONTACT_INTENT_RE = /\b(contact|contacts|email|phone|reach|who\s+is|find.*person|people|colleague|team|organisation|organization|company|firm|crm)\b/i;
+
+async function maybeInjectContactContext(
+  personaId: string,
+  prompt: string,
+): Promise<string | null> {
+  if (!CONTACT_INTENT_RE.test(prompt)) return null;
+
+  // Extract likely search terms: strip common question words, keep nouns
+  const q = prompt
+    .replace(/\b(who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with)\b/gi, ' ')
+    .replace(/[^\w\s]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(w => w.length > 2)
+    .slice(0, 6)
+    .join(' ');
+
+  if (!q) return null;
+
+  try {
+    const supabase = getSupabaseServer();
+    const { data } = await supabase
+      .from('persona_contacts')
+      .select('display_name, organization, job_title, email, email_2, phone, phone_2, source')
+      .eq('persona_id', personaId)
+      .textSearch('fts', q.split(/\s+/).map(w => w + ':*').join(' & '), { config: 'english', type: 'websearch' })
+      .limit(20);
+
+    if (!data || data.length === 0) return null;
+
+    const rows = data.map((c: any) => {
+      const parts = [c.display_name];
+      if (c.organization) parts.push(`(${c.organization}${c.job_title ? `, ${c.job_title}` : ''})`);
+      if (c.email) parts.push(c.email);
+      if (c.phone) parts.push(c.phone);
+      return parts.filter(Boolean).join(' — ');
+    });
+
+    return [
+      `Address book results for "${q}" (${rows.length} contact${rows.length !== 1 ? 's' : ''}):`,
+      ...rows.map(r => `  • ${r}`),
+      '',
+      'Use these contacts to answer the user\'s question directly.',
+    ].join('\n');
+  } catch {
+    return null;
+  }
+}
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { runPreflightGather } from '@/services/capabilities/preflight';
 
@@ -157,7 +213,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ? `Hand-off from ${handoffFrom}${handoffPriorTitle ? ` (prior take: "${handoffPriorTitle}")` : ''}.`
       : null;
 
+    // Inject contact context when the prompt is contact-related
+    const lookupQuery = body.prompt?.trim() || intentName;
+    const contactContext = await maybeInjectContactContext(context.personaId, lookupQuery).catch(() => null);
+
     const rationaleParts: string[] = [];
+    if (contactContext) rationaleParts.push(contactContext);
     if (preflight) rationaleParts.push(`Pre-flight gather (workOrder=${preflight.workOrderId}): ${preflight.summary}`);
     if (handoffNote) rationaleParts.push(handoffNote);
     if (intentRationale) rationaleParts.push(intentRationale);
