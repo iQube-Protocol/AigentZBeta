@@ -953,16 +953,27 @@ export default function SmartWalletDrawer({
     return () => { cancelled = true; };
   }, [walletNode?.personaContext?.activePersona?.personaId]);
 
-  const handleStageMint = useCallback(async () => {
+  const handleStageMint = useCallback(async (opts?: { chain?: string; strategy?: string }) => {
     setMintStatus("staging");
     setMintError(null);
     try {
       const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
-      const res = await fetch("/api/iqube/persona/passport/mint", { method: "POST", headers });
+      // Default to the Base mainnet rail (immediate) so the wallet's primary
+      // mint button lands the PersonaQube ERC-721 on Base — matching the
+      // AgentiQ OS mint path. Sui/Walrus still runs server-side as the
+      // encrypted locker the Base token bears.
+      const res = await fetch("/api/iqube/persona/passport/mint", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          chain: opts?.chain ?? "base",
+          strategy: opts?.strategy ?? "immediate",
+        }),
+      });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
         setMintError(data?.error ?? "Mint failed — please try again.");
@@ -1033,6 +1044,36 @@ export default function SmartWalletDrawer({
   interface SponsorshipCapacity { base: number; earned: number; used: number; remaining: number }
   const [sponsorshipCapacity, setSponsorshipCapacity] = useState<SponsorshipCapacity | null>(null);
 
+  // aigentMe bounded-delegation awareness. The delegation is keyed by the
+  // active persona (the human delegating to aigentMe / Aigent C). Surfaced on
+  // the aigentMe agent card so the operator sees, in the wallet, whether
+  // delegation is live, what it's scoped to, and how much budget remains.
+  interface DelegationState {
+    active?: boolean;
+    suspended?: boolean;
+    expired?: boolean;
+    trust_band?: string;
+    allowed_actions?: string[];
+    expires_at?: string | null;
+    actions_taken?: number;
+    max_actions?: number;
+  }
+  const [aigentMeDelegation, setAigentMeDelegation] = useState<DelegationState | null>(null);
+  const loadAigentMeDelegation = useCallback(async () => {
+    if (!effectivePersonaId) { setAigentMeDelegation(null); return; }
+    try {
+      const res = await fetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(effectivePersonaId)}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as DelegationState;
+      setAigentMeDelegation(data ?? null);
+    } catch {
+      // Silent — wallet survives endpoint failure.
+    }
+  }, [effectivePersonaId]);
+
   const loadSponsoredAgents = useCallback(async () => {
     setSponsoredAgentsLoading(true);
     try {
@@ -1058,7 +1099,8 @@ export default function SmartWalletDrawer({
   useEffect(() => {
     if (activeTab !== "iqube") return;
     void loadSponsoredAgents();
-  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId, loadSponsoredAgents]);
+    void loadAigentMeDelegation();
+  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId, loadSponsoredAgents, loadAigentMeDelegation]);
 
   // World ID strong-verification state — per passport. 'busy' shows the
   // spinner while the verification round-trip is in flight; 'error' surfaces
@@ -4652,12 +4694,18 @@ export default function SmartWalletDrawer({
                     )}
                     <button
                       type="button"
-                      onClick={handleStageMint}
+                      onClick={() => handleStageMint({ chain: "base", strategy: "immediate" })}
                       disabled={mintStatus === "staging"}
                       className="w-full rounded-lg border border-violet-500/40 bg-violet-600/20 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {mintStatus === "staging" ? "Minting…" : "Mint PersonaQube"}
+                      {mintStatus === "staging" ? "Minting…" : "Mint Persona to Base"}
                     </button>
+                    <p className="text-[10px] text-white/30 leading-relaxed">
+                      Mints the PersonaQube as an ERC-721 on Base mainnet (the canonical
+                      bearer token). If the on-chain rail is unconfigured, the mint is
+                      queued for the batch minter and the locker is staged on Sui/Walrus
+                      in the meantime.
+                    </p>
                   </div>
                 )}
                 </>}
@@ -4842,6 +4890,74 @@ export default function SmartWalletDrawer({
                         <p className="text-[10px] text-white/50 leading-relaxed line-clamp-2">
                           {sa.description}
                         </p>
+                        {/* Bounded-delegation awareness — only on the aigentMe
+                            card, scoped to the active persona's delegation. */}
+                        {sa.isAigentMe && (
+                          <div className="rounded-lg border border-white/10 bg-white/5 p-2 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase tracking-wider text-white/50">
+                                Bounded delegation
+                              </span>
+                              {aigentMeDelegation?.active ? (
+                                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] text-emerald-300">
+                                  Active
+                                </span>
+                              ) : aigentMeDelegation?.suspended ? (
+                                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-300">
+                                  Suspended · budget spent
+                                </span>
+                              ) : (
+                                <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] text-white/40">
+                                  {aigentMeDelegation?.expired ? "Expired" : "Not delegated"}
+                                </span>
+                              )}
+                            </div>
+                            {(aigentMeDelegation?.active || aigentMeDelegation?.suspended) ? (
+                              <div className="space-y-1 text-[10px] text-white/50">
+                                {aigentMeDelegation.trust_band && (
+                                  <div className="flex items-center justify-between">
+                                    <span>Trust band</span>
+                                    <span className="font-mono text-violet-300">{aigentMeDelegation.trust_band}</span>
+                                  </div>
+                                )}
+                                {typeof aigentMeDelegation.max_actions === "number" && (
+                                  <div className="flex items-center justify-between">
+                                    <span>Actions</span>
+                                    <span className="font-mono text-white/70">
+                                      {aigentMeDelegation.actions_taken ?? 0}/{aigentMeDelegation.max_actions}
+                                    </span>
+                                  </div>
+                                )}
+                                {aigentMeDelegation.expires_at && (
+                                  <div className="flex items-center justify-between">
+                                    <span>Expires</span>
+                                    <span className="text-white/70">
+                                      {new Date(aigentMeDelegation.expires_at).toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                                {aigentMeDelegation.allowed_actions && aigentMeDelegation.allowed_actions.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 pt-0.5">
+                                    {aigentMeDelegation.allowed_actions.map((a) => (
+                                      <span
+                                        key={a}
+                                        className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-200"
+                                      >
+                                        {a}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-white/40 leading-relaxed">
+                                No work is currently delegated to aigentMe. Grant bounded
+                                delegation from AgentiQ OS → Bounded Delegation to let it act
+                                under your authority.
+                              </p>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 text-[10px] text-white/50 flex-wrap">
                           {sa.passport ? (
                             <>
