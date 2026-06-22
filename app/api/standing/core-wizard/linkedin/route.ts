@@ -18,7 +18,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { ensureCoreProfile, type StandingCoreAnswers } from '@/services/standing/standingCore';
 import { extractFactsFromText, type ExtractedFact } from '@/services/standing/extractFacts';
-import { fetchLinkedInProfileText, isEnrichConfigured } from '@/services/standing/linkedinProfile';
+import { fetchProfile, isEnrichConfigured } from '@/services/standing/linkedinProfile';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -59,31 +59,42 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseServer();
   if (!admin) return NextResponse.json({ ok: false, error: 'database unavailable' }, { status: 503 });
 
-  const body = (await req.json().catch(() => ({}))) as { url?: string; profileText?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    url?: string;
+    profileText?: string;
+    workEmail?: string;
+    name?: string;
+    company?: string;
+  };
   let profileText = (body.profileText ?? '').trim();
   const url = (body.url ?? '').trim();
+  const workEmail = (body.workEmail ?? '').trim();
+  const name = (body.name ?? '').trim();
+  const company = (body.company ?? '').trim();
+  const hasFetchInput = !!(url || workEmail || (name && company));
   let source: 'paste' | 'auto' = 'paste';
 
-  // Auto-fetch from the public URL via the configured enrichment provider when
-  // no text was pasted. Paste always wins (operator-provided source of truth).
-  if (!profileText && url) {
-    const fetched = await fetchLinkedInProfileText(url);
+  // Auto-fetch via the configured enrichment provider when no text was pasted.
+  // Paste always wins (operator-provided source of truth). NinjaPear keys on
+  // work email (best) or name+company; a generic URL provider keys on the URL.
+  if (!profileText && hasFetchInput) {
+    const fetched = await fetchProfile({ url, workEmail, name, company });
     if (fetched.ok) {
       profileText = fetched.text;
       source = 'auto';
     } else if (fetched.reason === 'no-provider') {
       return NextResponse.json(
-        { ok: false, error: 'Automatic fetch isn’t configured (no LinkedIn enrichment provider set). Paste your LinkedIn profile text instead.' },
+        { ok: false, error: 'Automatic fetch isn’t configured (no profile-enrichment provider set). Paste your LinkedIn profile text instead.' },
         { status: 400 },
       );
-    } else if (fetched.reason === 'bad-url') {
+    } else if (fetched.reason === 'insufficient-input') {
       return NextResponse.json(
-        { ok: false, error: 'That doesn’t look like a LinkedIn profile URL (e.g. https://www.linkedin.com/in/your-handle).' },
+        { ok: false, error: fetched.error || 'Provide a work email (best), or name + company, or a LinkedIn URL — or paste your profile text.' },
         { status: 400 },
       );
     } else {
       return NextResponse.json(
-        { ok: false, error: 'Couldn’t fetch that LinkedIn profile automatically — paste your profile text instead.', detail: fetched.error },
+        { ok: false, error: 'Couldn’t fetch that profile automatically — paste your profile text instead.', detail: fetched.error },
         { status: 502 },
       );
     }
@@ -94,7 +105,7 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         error: isEnrichConfigured()
-          ? 'Provide your LinkedIn profile URL to auto-fetch, or paste your profile text.'
+          ? 'Provide a work email (or name + company, or a LinkedIn URL) to auto-fetch, or paste your profile text.'
           : 'Paste your LinkedIn profile text to import.',
       },
       { status: 400 },

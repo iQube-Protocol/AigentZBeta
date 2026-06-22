@@ -88,6 +88,7 @@ export function StandingCoreWizard({
 
   // LinkedIn import panel.
   const [liOpen, setLiOpen] = useState(false);
+  const [liEmail, setLiEmail] = useState("");
   const [liUrl, setLiUrl] = useState("");
   const [liText, setLiText] = useState("");
   const [liBusy, setLiBusy] = useState(false);
@@ -155,14 +156,21 @@ export function StandingCoreWizard({
   };
 
   const importLinkedIn = async () => {
-    if (!liText.trim() && !liUrl.trim()) { setLiMsg("Add your LinkedIn URL or paste your profile text."); return; }
+    if (!liText.trim() && !liEmail.trim() && !liUrl.trim()) {
+      setLiMsg("Add your work email (best) or LinkedIn URL, or paste your profile text.");
+      return;
+    }
     setLiBusy(true);
     setLiMsg(null);
     try {
       const res = await personaFetch("/api/standing/core-wizard/linkedin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: liUrl.trim() || undefined, profileText: liText }),
+        body: JSON.stringify({
+          workEmail: liEmail.trim() || undefined,
+          url: liUrl.trim() || undefined,
+          profileText: liText,
+        }),
         personaIdHint: personaId,
       });
       const data = await res.json();
@@ -241,20 +249,26 @@ export function StandingCoreWizard({
           {liOpen && (
             <div className="mt-2 rounded-lg border border-sky-500/25 bg-slate-900/60 p-2.5 space-y-2">
               <input
+                value={liEmail}
+                onChange={(e) => setLiEmail(e.target.value)}
+                placeholder="Work email (best match) — e.g. you@company.com"
+                className="w-full text-xs rounded p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-sky-500/60 focus:outline-none"
+              />
+              <input
                 value={liUrl}
                 onChange={(e) => setLiUrl(e.target.value)}
-                placeholder="https://www.linkedin.com/in/your-handle"
+                placeholder="…or LinkedIn profile URL (https://www.linkedin.com/in/your-handle)"
                 className="w-full text-xs rounded p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-sky-500/60 focus:outline-none"
               />
               <textarea
                 value={liText}
                 onChange={(e) => setLiText(e.target.value)}
                 rows={4}
-                placeholder="…or paste your LinkedIn profile text (About + experience + education)."
+                placeholder="…or paste your profile text (About + experience + education)."
                 className="w-full text-xs rounded p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-sky-500/60 focus:outline-none"
               />
               <p className="text-[10px] text-slate-500">
-                Add your public URL to fetch automatically, or paste your profile text. We extract your facts and pre-fill the wizard. Your data stays in your Standing profile.
+                Your work email gives the best auto-match; a profile URL or pasted text also work. We extract your facts and pre-fill the wizard. Your data stays in your Standing profile.
               </p>
               {liMsg && <p className="text-[11px] text-amber-300">{liMsg}</p>}
               <div className="flex items-center gap-2">

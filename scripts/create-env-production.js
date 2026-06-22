@@ -202,12 +202,17 @@ const envVars = [
   // actor intakes). Same generation pattern as CRON_TRIGGER_TOKEN.
   // Spec: AGENTIQ_INTENT_CHAINS_SPEC.md §7 + advancer.ts.
   'ORCHESTRATOR_SERVICE_TOKEN',
-  // LinkedIn profile enrichment for the Standing Core wizard (auto-fetch the
-  // public profile's experience/education — LinkedIn OAuth no longer exposes
-  // them). Provider-agnostic + OPTIONAL: when unset the wizard falls back to the
-  // manual profile-text paste. Set LINKEDIN_ENRICH_URL ({url} placeholder) +
-  // LINKEDIN_ENRICH_KEY for whichever provider you choose. PROXYCURL_API_KEY is
-  // honoured as a back-compat key alias. Never expose as NEXT_PUBLIC_.
+  // Profile enrichment for the Standing Core wizard (auto-fetch experience/
+  // education — LinkedIn OAuth no longer exposes them). Provider-agnostic +
+  // OPTIONAL: when unset the wizard falls back to the manual profile-text paste.
+  // RECOMMENDED provider is NinjaPear (nubela.co) — the Proxycurl founder's
+  // successor; public-sourced, does NOT scrape LinkedIn; keyed on work email or
+  // name+company. Set NINJAPEAR_API_KEY (and that's it). NINJAPEAR_BASE_URL is
+  // optional (default https://nubela.co). Alternatively, a generic URL provider:
+  // LINKEDIN_ENRICH_URL ({url} placeholder) + LINKEDIN_ENRICH_KEY (PROXYCURL_API_KEY
+  // honoured as a key alias). Never expose any of these as NEXT_PUBLIC_.
+  'NINJAPEAR_API_KEY',
+  'NINJAPEAR_BASE_URL',
   'LINKEDIN_ENRICH_URL',
   'LINKEDIN_ENRICH_KEY',
   'PROXYCURL_API_KEY',
