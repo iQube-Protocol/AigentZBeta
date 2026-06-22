@@ -123,6 +123,26 @@ function havePoppler() {
   catch { return false; }
 }
 
+/** Verify the Anthropic key up front so a bad key fails clearly (not per-paper). */
+async function preflightAnthropicKey() {
+  if (!ANTHROPIC_KEY) return { ok: true };
+  if (/your-real-key|\.\.\.|REPLACE|PASTE|sk-ant-\.\.\./i.test(ANTHROPIC_KEY)) {
+    return { ok: false, msg: `ANTHROPIC_API_KEY looks like the placeholder ("${ANTHROPIC_KEY.slice(0, 14)}…"). Export your REAL key from console.anthropic.com → API Keys, in THIS terminal.` };
+  }
+  try {
+    const res = await fetchWithTimeout('https://api.anthropic.com/v1/models', {
+      headers: { 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+    }, 20000);
+    if (res.status === 401) {
+      return { ok: false, msg: 'ANTHROPIC_API_KEY was rejected (401 invalid x-api-key). Check `echo $ANTHROPIC_API_KEY` in THIS terminal shows your real sk-ant-… key (export is per-shell — set it in the same window you run node from).' };
+    }
+    if (!res.ok) return { ok: true, warn: `Anthropic /models returned ${res.status} (continuing).` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: true, warn: `Anthropic /models check failed (${e.message}); continuing.` };
+  }
+}
+
 async function fetchWithTimeout(url, opts = {}, ms = 60000) {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), ms);
@@ -301,6 +321,10 @@ async function main() {
       console.error('[ingest] OpenAI fallback needs poppler (brew install poppler) — or just set ANTHROPIC_API_KEY (no poppler needed).');
       process.exit(1);
     }
+    const pf = await preflightAnthropicKey();
+    if (!pf.ok) { console.error(`[ingest] ${pf.msg}`); process.exit(1); }
+    if (pf.warn) console.warn(`[ingest] ${pf.warn}`);
+    if (ANTHROPIC_KEY) console.log(`[ingest] ANTHROPIC_API_KEY verified (…${ANTHROPIC_KEY.slice(-4)}, len ${ANTHROPIC_KEY.length})`);
     console.log(`[ingest] vision model: ${VISION_MODEL}${ANTHROPIC_KEY ? ' (PDF→Claude, no poppler)' : ` (OpenAI images, DPI ${DPI})`}`);
     for (const s of Object.values(SERIES)) {
       const d = join(COMMENTARY_DIR, s.dir);

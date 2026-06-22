@@ -38,7 +38,14 @@ import {
   type ExperienceStage,
 } from '@/services/iqube/experienceQube';
 import { parseVentureQube } from '@/services/iqube/ventureQubeSchema';
-import type { MyCartridgeBlock } from '@/types/ventureQube';
+import type { MyCartridgeBlock, VentureQubeV1, VentureStage } from '@/types/ventureQube';
+import {
+  createVentureQube,
+  updateVentureQube,
+  getVentureQube,
+  listVentureQubes,
+} from '@/services/venture/ventureQubeService';
+import { saveVenturePortfolio } from '@/services/venture/venturePortfolio';
 import { saveStandingCore, type StandingCoreAnswers } from '@/services/standing/standingCore';
 import {
   SPHERE_AXES,
@@ -60,7 +67,27 @@ type SchemaVersion =
   | 'venture-iqube/v0.2'
   | 'venture-iqube/v0.3'
   | 'venture-iqube/v0.4'
-  | 'venture-iqube/v0.5';
+  | 'venture-iqube/v0.5'
+  | 'venture-iqube-pro/v1.0'
+  | 'venture-iqube-portfolio/v1.0';
+
+const PRO_VERSIONS: SchemaVersion[] = ['venture-iqube-pro/v1.0', 'venture-iqube-portfolio/v1.0'];
+const isProVersion = (v: SchemaVersion) => PRO_VERSIONS.includes(v);
+
+/** Pro/Portfolio venture — the 13-layer VentureQube shape (loose; mapped + Zod-validated downstream). */
+interface ProVentureUpload {
+  identity?: { name?: string; slug?: string; stage?: string };
+  thesis?: Record<string, unknown>;
+  intent?: { founderIntents?: string[]; ventureIntents?: string[]; citizenIntents?: string[]; commonsIntents?: string[] };
+  [layer: string]: unknown;
+}
+
+/** Portfolio-only block (Venture Portfolio schema). */
+interface PortfolioBlock {
+  thesis?: string;
+  notes?: string;
+  priorities?: string[];
+}
 
 /** v0.5 — ExperienceGuide (PersonalGuide sphere lattice). */
 interface ExperienceGuideBlock {
@@ -116,6 +143,8 @@ interface VentureIqube {
   experienceGoals?: string[];
   priorityPartners?: string[];
   standing?: StandingBlock;
+  // Pro/Portfolio (v1.0) — portfolio-only block.
+  portfolio?: PortfolioBlock;
 }
 
 interface IngestPreview {
@@ -156,14 +185,13 @@ interface IngestPreview {
 function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { ok: false; error: string } {
   if (!payload || typeof payload !== 'object') return { ok: false, error: 'payload must be a JSON object' };
   const p = payload as Partial<VentureIqube>;
-  if (
-    p.schemaVersion !== 'venture-iqube/v0.1' &&
-    p.schemaVersion !== 'venture-iqube/v0.2' &&
-    p.schemaVersion !== 'venture-iqube/v0.3' &&
-    p.schemaVersion !== 'venture-iqube/v0.4' &&
-    p.schemaVersion !== 'venture-iqube/v0.5'
-  ) {
-    return { ok: false, error: `schemaVersion must be 'venture-iqube/v0.1'…'v0.5' (got ${JSON.stringify(p.schemaVersion)})` };
+  const KNOWN: SchemaVersion[] = [
+    'venture-iqube/v0.1', 'venture-iqube/v0.2', 'venture-iqube/v0.3',
+    'venture-iqube/v0.4', 'venture-iqube/v0.5',
+    'venture-iqube-pro/v1.0', 'venture-iqube-portfolio/v1.0',
+  ];
+  if (!p.schemaVersion || !KNOWN.includes(p.schemaVersion)) {
+    return { ok: false, error: `schemaVersion must be one of ${KNOWN.join(', ')} (got ${JSON.stringify(p.schemaVersion)})` };
   }
   if (!p.operator?.displayLabel) return { ok: false, error: 'operator.displayLabel is required' };
   if (!p.strategy?.headline) return { ok: false, error: 'strategy.headline is required' };
@@ -173,9 +201,22 @@ function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { o
   for (const horizon of ['today', 'next24h', 'next7d', 'next30d', 'next90d']) {
     if (!(horizon in p.plan)) return { ok: false, error: `plan.${horizon} is required` };
   }
-  for (const v of p.ventures) {
-    if (!v.id || !v.name || !Array.isArray(v.objectives)) {
-      return { ok: false, error: `ventures[].id, .name, and .objectives[] are required (offending venture: ${v.id ?? v.name ?? 'unknown'})` };
+  if (isProVersion(p.schemaVersion)) {
+    // Pro/Portfolio ventures carry the 13-layer shape: require identity.name.
+    const pros = p.ventures as unknown as ProVentureUpload[];
+    for (const v of pros) {
+      if (!v.identity?.name) {
+        return { ok: false, error: 'each Pro venture requires identity.name' };
+      }
+    }
+    if (p.schemaVersion === 'venture-iqube-portfolio/v1.0' && !p.portfolio?.thesis) {
+      return { ok: false, error: 'venture-iqube-portfolio/v1.0 requires a portfolio.thesis' };
+    }
+  } else {
+    for (const v of p.ventures) {
+      if (!v.id || !v.name || !Array.isArray(v.objectives)) {
+        return { ok: false, error: `ventures[].id, .name, and .objectives[] are required (offending venture: ${v.id ?? v.name ?? 'unknown'})` };
+      }
     }
   }
   // v0.4 — run the strict Zod schema to validate the nested myCartridge
@@ -209,6 +250,24 @@ function extractMyCartridge(data: VentureIqube): MyCartridgeBlock | null {
 }
 
 function preview(data: VentureIqube): IngestPreview {
+  // Pro/Portfolio ventures have the 13-layer shape (no top-level objectives/
+  // cartridgeBindings/partners), so the legacy preview loops don't apply.
+  if (isProVersion(data.schemaVersion)) {
+    return {
+      schemaVersion: data.schemaVersion,
+      operatorDisplayLabel: data.operator.displayLabel,
+      experienceQubeHydrate: {
+        experienceName: data.strategy.headline.slice(0, 140),
+        primaryGoal: data.strategy.headline.slice(0, 200),
+        currentStage: data.strategy.currentStage ?? null,
+        activeCartridges: ['mvl'],
+      },
+      intentQubeQueue: [],
+      kpiCount: data.kpiBoard?.length ?? 0,
+      partnerCount: 0,
+      warnings: [],
+    };
+  }
   const warnings: string[] = [];
   const allBindings = new Set<string>();
   for (const v of data.ventures) {
@@ -338,6 +397,116 @@ function mapKpiBoard(kpiBoard: NonNullable<VentureIqube['kpiBoard']>): Record<st
   return out;
 }
 
+// ── Pro/Portfolio venture materialisation ───────────────────────────────────
+
+function mergeObj<T>(cur: T, up: unknown): T {
+  return up && typeof up === 'object' && !Array.isArray(up) ? { ...(cur as object), ...(up as object) } as T : cur;
+}
+
+/** Build a venture-tier seed (thesis + intent) for createVentureQube. */
+function buildSeed(pv: ProVentureUpload) {
+  const t = (pv.thesis ?? {}) as Record<string, string | undefined>;
+  const it = pv.intent ?? {};
+  return {
+    problemStatement: t.problemStatement,
+    valueProposition: t.valueProposition,
+    mission: t.mission,
+    consequenceThesis: t.consequenceThesis,
+    founderIntents: Array.isArray(it.founderIntents) ? it.founderIntents : [],
+    ventureIntents: Array.isArray(it.ventureIntents) ? it.ventureIntents : [],
+  };
+}
+
+/** Deep-merge uploaded layers onto a venture's current (valid) layers. Object
+ *  layers spread-merge (required fields survive from the scaffold); array-bearing
+ *  layers replace when an array is supplied. Zod (in updateVentureQube) strips
+ *  unknowns and validates the result. */
+function buildLayersPatch(current: VentureQubeV1, pv: ProVentureUpload): Partial<VentureQubeV1> {
+  const patch: Record<string, unknown> = {};
+  patch.thesis = mergeObj(current.thesis, pv.thesis);
+  patch.intent = mergeObj(current.intent, pv.intent);
+  patch.signalEvidence = mergeObj(current.signalEvidence, pv.signalEvidence);
+  patch.commercialModel = mergeObj(current.commercialModel, pv.commercialModel);
+  patch.capability = mergeObj(current.capability, pv.capability);
+  patch.resource = mergeObj(current.resource, pv.resource);
+  patch.delegation = mergeObj(current.delegation, pv.delegation);
+  patch.outcome = mergeObj(current.outcome, pv.outcome);
+  patch.governance = mergeObj(current.governance, pv.governance);
+  patch.institutional = mergeObj(current.institutional, pv.institutional);
+  if (Array.isArray(pv.archetypes)) patch.archetypes = pv.archetypes;
+  const engines = (pv.revenueArchitecture as { engines?: unknown } | undefined)?.engines;
+  if (Array.isArray(engines)) patch.revenueArchitecture = { engines };
+  const phases = (pv.execution as { phases?: unknown } | undefined)?.phases;
+  if (Array.isArray(phases)) patch.execution = { phases };
+  return patch as Partial<VentureQubeV1>;
+}
+
+interface VentureMaterializeResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  portfolioSaved: boolean;
+  errors: string[];
+}
+
+async function materializeProVentures(
+  admin: NonNullable<ReturnType<typeof getSupabaseServer>>,
+  personaId: string,
+  isAdmin: boolean,
+  pros: ProVentureUpload[],
+  portfolioBlock: PortfolioBlock | undefined,
+): Promise<VentureMaterializeResult> {
+  const existing = await listVentureQubes(personaId);
+  const bySlug = new Map(existing.map((v) => [v.slug, v]));
+  const byName = new Map(existing.map((v) => [v.name.toLowerCase(), v]));
+  let created = 0, updated = 0, skipped = 0;
+  const errors: string[] = [];
+
+  for (const pv of pros) {
+    const name = pv.identity?.name?.trim();
+    if (!name) { skipped += 1; continue; }
+    const slug = pv.identity?.slug?.trim();
+    const stage = pv.identity?.stage as VentureStage | undefined;
+
+    const match = (slug && bySlug.get(slug)) || byName.get(name.toLowerCase());
+    let ventureId: string;
+    if (match) {
+      ventureId = match.id;
+    } else {
+      const res = await createVentureQube({ personaId, isAdmin, name, slug, stage, path: 'architect', seed: buildSeed(pv) });
+      if (!res.ok) { errors.push(`${name}: ${res.error}`); skipped += 1; continue; }
+      ventureId = res.record.id;
+      created += 1;
+    }
+
+    const current = await getVentureQube(personaId, ventureId);
+    if (!current) { errors.push(`${name}: not found after create`); continue; }
+    const upd = await updateVentureQube(personaId, ventureId, buildLayersPatch(current.layers, pv), stage ? { stage } : undefined);
+    if (!upd.ok) errors.push(`${name}: ${upd.error}`);
+    else if (match) updated += 1;
+  }
+
+  // Portfolio block — resolve priority names/slugs to venture ids.
+  let portfolioSaved = false;
+  if (portfolioBlock && (portfolioBlock.thesis || (portfolioBlock.priorities?.length ?? 0) > 0)) {
+    const refreshed = await listVentureQubes(personaId);
+    const idByKey = new Map<string, string>();
+    for (const v of refreshed) { idByKey.set(v.slug, v.id); idByKey.set(v.name.toLowerCase(), v.id); }
+    const priorities = (portfolioBlock.priorities ?? [])
+      .map((k) => idByKey.get(k) ?? idByKey.get(k.toLowerCase()))
+      .filter((x): x is string => !!x);
+    const r = await saveVenturePortfolio(admin, personaId, {
+      thesis: portfolioBlock.thesis ?? null,
+      notes: portfolioBlock.notes ?? null,
+      priorities,
+    });
+    portfolioSaved = r.ok;
+    if (!r.ok) errors.push(`portfolio: ${r.error}`);
+  }
+
+  return { created, updated, skipped, portfolioSaved, errors };
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const persona = await getActivePersona(req);
   if (!persona) {
@@ -437,9 +606,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Objective titles seed experienceGoals; v0.5 lets the operator also
     // declare explicit experienceGoals, which take precedence and are merged.
-    const derivedGoals = validated.data.ventures
-      .flatMap((v) => v.objectives.map((o) => o.title))
-      .map((s) => s.slice(0, 200));
+    // Pro/Portfolio ventures carry no top-level objectives — goals come from
+    // the explicit experienceGoals block (and the venture intents are handled
+    // by the VentureQube layers below).
+    const isPro = isProVersion(validated.data.schemaVersion);
+    const derivedGoals = isPro
+      ? []
+      : validated.data.ventures.flatMap((v) => v.objectives.map((o) => o.title)).map((s) => s.slice(0, 200));
     const explicitGoals = (validated.data.experienceGoals ?? []).map((s) => s.slice(0, 200));
     const experienceGoals = Array.from(new Set([...explicitGoals, ...derivedGoals])).slice(0, 30);
 
@@ -483,12 +656,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
+    // Pro/Portfolio — materialise the full 13-layer VentureQube(s) + portfolio.
+    let ventureResult: VentureMaterializeResult | null = null;
+    if (isPro) {
+      const admin = getSupabaseServer();
+      if (admin) {
+        try {
+          ventureResult = await materializeProVentures(
+            admin,
+            persona.personaId,
+            Boolean(persona.cartridgeFlags?.isAdmin) || ((persona.cartridgeFlags?.adminCartridges?.length ?? 0) > 0),
+            validated.data.ventures as unknown as ProVentureUpload[],
+            validated.data.portfolio,
+          );
+        } catch (e) {
+          console.error('[venture-iqube/ingest] venture materialise failed', e instanceof Error ? e.message : e);
+        }
+      }
+    }
+
     const hydratedParts = [
       'ExperienceModel',
       personalGuide ? 'ExperienceGuide' : null,
       activeKpis ? 'KPIs' : null,
       priorityPartners.length > 0 ? 'priority partners' : null,
       standingFactCount > 0 ? `Standing (${standingFactCount} facts)` : null,
+      ventureResult ? `${ventureResult.created + ventureResult.updated} VentureQube(s)` : null,
+      ventureResult?.portfolioSaved ? 'portfolio' : null,
     ].filter(Boolean);
 
     return NextResponse.json(
@@ -507,6 +701,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           activeCartridges: hydrated.meta.activeCartridges,
         },
         standingFactCount,
+        ...(ventureResult ? { ventures: ventureResult } : {}),
       },
       { headers: { 'Cache-Control': 'no-store' } },
     );
