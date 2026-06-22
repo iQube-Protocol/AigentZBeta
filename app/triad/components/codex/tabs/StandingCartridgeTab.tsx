@@ -6,8 +6,9 @@ import {
   Star, Plus, CheckCircle2, XCircle,
   Edit2, RefreshCw, Link2, FileText, Loader2, AlertCircle,
   Lock, Package, GitBranch, Sparkles, ChevronDown, ChevronRight,
-  Upload, X as XIcon,
+  Upload, X as XIcon, Wand2, ShieldCheck, Rocket, Layers,
 } from 'lucide-react';
+import { StandingCoreWizard } from '@/components/metame/setup/StandingCoreWizard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -251,6 +252,23 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
   const [cases, setCases] = useState<MobilityCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Wizard launcher — parity with aigentMe. Citizens can build their Standing
+  // Graph via the guided wizards here too. Gated by wizardAccess from the plan.
+  const [wizardAccess, setWizardAccess] = useState<{
+    core: boolean; light: boolean; pro: boolean; portfolio: boolean;
+  } | null>(null);
+  const [coreWizardOpen, setCoreWizardOpen] = useState(false);
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await personaFetch('/api/billing/plan', { personaIdHint: _personaId, cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.ok && data.wizardAccess) setWizardAccess(data.wizardAccess);
+      } catch { /* best-effort */ }
+    })();
+  }, [_personaId]);
 
   // Create profile form
   const [showCreate, setShowCreate] = useState(false);
@@ -658,6 +676,64 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
           </button>
         )}
       </div>
+
+      {/* Guided wizards — parity with aigentMe. Build your Standing Graph via
+          the guided flow, or use the manual evidence intake below. The venture
+          wizards unlock with Founder Office / Venture Lab access. */}
+      <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Wand2 className="w-4 h-4 text-violet-400" />
+          <h2 className="text-sm font-semibold text-white">Guided wizards</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <button
+            type="button"
+            onClick={() => setCoreWizardOpen(true)}
+            className="text-left rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 hover:bg-violet-500/20 transition-colors"
+          >
+            <div className="flex items-center gap-1.5 text-sm font-medium text-violet-200">
+              <ShieldCheck className="w-3.5 h-3.5" /> Standing Core
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Attest who you are + your intent → Standing Graph.</p>
+            <span className="inline-block mt-1.5 text-[9px] uppercase tracking-wider text-emerald-300">Free · available</span>
+          </button>
+
+          {[
+            { key: 'light' as const, label: 'Venture Light', icon: Sparkles, desc: 'Incubate one venture (simplified).', free: true },
+            { key: 'pro' as const, label: 'Venture Pro', icon: Rocket, desc: 'Full 13-layer VentureQube.', free: false },
+            { key: 'portfolio' as const, label: 'Venture Portfolio', icon: Layers, desc: 'Multiple ventures, cross-venture.', free: false },
+          ].map(({ key, label, icon: Icon, desc, free }) => {
+            const allowed = wizardAccess?.[key] ?? free;
+            return (
+              <div
+                key={key}
+                className={`text-left rounded-lg border p-3 ${
+                  allowed
+                    ? 'border-slate-600 bg-slate-800/60'
+                    : 'border-slate-700/60 bg-slate-900/40 opacity-70'
+                }`}
+                title={allowed ? `${label} — coming in a later phase` : `${label} — upgrade to unlock`}
+              >
+                <div className="flex items-center gap-1.5 text-sm font-medium text-slate-200">
+                  <Icon className="w-3.5 h-3.5" /> {label}
+                  {!allowed && <Lock className="w-3 h-3 text-slate-500" />}
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">{desc}</p>
+                <span className="inline-block mt-1.5 text-[9px] uppercase tracking-wider text-slate-500">
+                  {allowed ? 'Coming soon' : 'Upgrade to unlock'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <StandingCoreWizard
+        open={coreWizardOpen}
+        onOpenChange={setCoreWizardOpen}
+        personaId={_personaId}
+        onSaved={() => { void loadProfiles(); }}
+      />
 
       {/* Error */}
       {error && (
