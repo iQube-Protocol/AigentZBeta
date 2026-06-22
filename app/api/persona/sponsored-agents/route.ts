@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,13 +85,8 @@ export async function GET(req: NextRequest) {
 
     const agentRows = rows ?? [];
 
-    // For each agent with a bound passport, fetch the passport row to surface
-    // the credential state. Batched to a single in-query.
-    const passportIds = agentRows
-      .map((r) => r.bound_passport_id as string | null)
-      .filter((p): p is string => typeof p === 'string' && p.length > 0);
-
-    const passportById: Record<string, {
+    type PassportRow = {
+      passport_id: string;
       passport_class: string;
       passport_grade: string | null;
       citizen_status: string | null;
@@ -100,21 +96,71 @@ export async function GET(req: NextRequest) {
       kybe_did_public_ref: string | null;
       issued_at: string | null;
       world_id_verified_at: string | null;
-    }> = {};
+    };
+    const PASSPORT_COLS =
+      'passport_id, passport_class, passport_grade, citizen_status, participant_status, credential_claimed_at, persona_public_ref, kybe_did_public_ref, issued_at, world_id_verified_at, application_id';
+
+    // For each agent with a bound passport, fetch the passport row to surface
+    // the credential state. Batched to a single in-query.
+    const passportIds = agentRows
+      .map((r) => r.bound_passport_id as string | null)
+      .filter((p): p is string => typeof p === 'string' && p.length > 0);
+
+    const passportById: Record<string, PassportRow> = {};
 
     if (passportIds.length > 0) {
       const { data: pps } = await admin
         .from('polity_passport_records')
-        .select('passport_id, passport_class, passport_grade, citizen_status, participant_status, credential_claimed_at, persona_public_ref, kybe_did_public_ref, issued_at, world_id_verified_at')
+        .select(PASSPORT_COLS)
         .in('passport_id', passportIds);
-      for (const p of pps ?? []) {
+      for (const p of (pps ?? []) as PassportRow[]) {
         passportById[p.passport_id] = p;
+      }
+    }
+
+    // bound_passport_id is only set when the agent's participant passport is
+    // CLAIMED. An approved-but-unclaimed passport leaves bound_passport_id
+    // null, which previously rendered as "Awaiting issuance" even though the
+    // passport had been issued. Resolve those via the application linkage:
+    //   agent_card_url → polity_passport_applications → application_id →
+    //   polity_passport_records — so issued passports surface (claimable)
+    //   before the claim binds them.
+    const unboundCardUrls = agentRows
+      .filter((r) => !(r.bound_passport_id as string | null) && (r.agent_card_url as string | null))
+      .map((r) => r.agent_card_url as string);
+    // agent_card_url → most-recent issued passport row
+    const passportByCardUrl: Record<string, PassportRow> = {};
+    if (unboundCardUrls.length > 0) {
+      const { data: apps } = await admin
+        .from('polity_passport_applications')
+        .select('id, agent_card_url')
+        .in('agent_card_url', unboundCardUrls);
+      const appIdToCardUrl: Record<string, string> = {};
+      for (const a of apps ?? []) {
+        if (a.agent_card_url) appIdToCardUrl[String(a.id)] = String(a.agent_card_url);
+      }
+      const appIds = Object.keys(appIdToCardUrl);
+      if (appIds.length > 0) {
+        const { data: pps } = await admin
+          .from('polity_passport_records')
+          .select(PASSPORT_COLS)
+          .in('application_id', appIds)
+          .order('issued_at', { ascending: false });
+        for (const p of (pps ?? []) as Array<PassportRow & { application_id: string | null }>) {
+          const cardUrl = p.application_id ? appIdToCardUrl[String(p.application_id)] : undefined;
+          // Keep the first (most-recent) issued passport per card url.
+          if (cardUrl && !passportByCardUrl[cardUrl]) passportByCardUrl[cardUrl] = p;
+        }
       }
     }
 
     const agents = agentRows.map((row) => {
       const boundPassportId = (row.bound_passport_id as string | null) ?? null;
-      const passport = boundPassportId ? passportById[boundPassportId] : undefined;
+      const cardUrl = (row.agent_card_url as string | null) ?? null;
+      const passport =
+        (boundPassportId ? passportById[boundPassportId] : undefined) ??
+        (cardUrl ? passportByCardUrl[cardUrl] : undefined);
+      const resolvedPassportId = boundPassportId ?? passport?.passport_id ?? null;
       return {
         agentRootId: row.id,
         agentId: row.agent_id,
@@ -129,7 +175,7 @@ export async function GET(req: NextRequest) {
         boundPassportId,
         passport: passport
           ? {
-              passportId: boundPassportId,
+              passportId: resolvedPassportId,
               passportClass: passport.passport_class,
               passportGrade: passport.passport_grade,
               passportStatus: passport.citizen_status ?? passport.participant_status,
@@ -159,6 +205,22 @@ export async function GET(req: NextRequest) {
       const earned = Number(capacityRow.sponsorship_capacity_earned ?? 0);
       const used = agentRows.length;
       capacity = { base, earned, used, remaining: Math.max(0, base + earned - used) };
+    }
+
+    // Self-heal: ensure the aigentMe (if any) has its wallet persona so it
+    // surfaces in the persona switcher. Idempotent + best-effort — covers
+    // aigentMe agents designated before wallet-persona provisioning shipped.
+    const aigentMeRow = agentRows.find((r) => Boolean(r.is_aigent_me));
+    if (aigentMeRow) {
+      await provisionAigentMePersona({
+        admin,
+        callerAuthProfileId: persona.authProfileId,
+        agentRoot: {
+          did_uri: String(aigentMeRow.did_uri),
+          display_name: String(aigentMeRow.display_name),
+          agent_card_slug: aigentMeRow.agent_card_slug ? String(aigentMeRow.agent_card_slug) : null,
+        },
+      });
     }
 
     return NextResponse.json(

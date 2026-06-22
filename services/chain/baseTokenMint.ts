@@ -348,3 +348,85 @@ export async function mintMasterQube(input: MintMasterInput): Promise<MintMaster
     return { ok: false, error: message };
   }
 }
+
+// ─── PersonaQube (Base mainnet ERC-721) ─────────────────────────────────────────
+//
+// iQube is the first-class primitive; persona is a derivative tokenQube, so it
+// mints against the SAME iQube NFT contract (IQUBE_NFT_CONTRACT_ADDRESS). The
+// on-chain token id is a one-way commitment over the persona id (T2-safe) —
+// mirroring the locker-UUID protocol. The raw persona id NEVER goes on-chain.
+
+/** Derive a deterministic, T2-safe uint256 token id from the persona id. */
+function derivePersonaTokenId(personaId: string): bigint {
+  const digest = crypto.createHash('sha256').update(`iqube:persona:${personaId}`).digest('hex');
+  return BigInt('0x' + digest);
+}
+
+/** Public hex form of the persona token-id commitment (used by deferred mints). */
+export function derivePersonaTokenIdHex(personaId: string): string {
+  return '0x' + derivePersonaTokenId(personaId).toString(16);
+}
+
+export interface MintPersonaQubeInput {
+  /** T0 persona id — used ONLY as the one-way token-id hash input. Never on-chain. */
+  personaId: string;
+  /** EVM address that will own the PersonaQube NFT. */
+  ownerAddress: string;
+}
+
+export interface MintPersonaQubeResult {
+  ok: boolean;
+  /** Hex uint256 token id (T2-safe commitment). Set on success / already-minted. */
+  tokenId?: string;
+  txHash?: string;
+  ownerAddress?: string;
+  alreadyMinted?: boolean;
+  skipped?: 'contract_unconfigured' | 'no_owner_address';
+  error?: string;
+}
+
+export async function mintPersonaQubeToBase(input: MintPersonaQubeInput): Promise<MintPersonaQubeResult> {
+  const { personaId, ownerAddress } = input;
+
+  if (!ownerAddress || !/^0x[0-9a-fA-F]{40}$/.test(ownerAddress)) {
+    return { ok: true, skipped: 'no_owner_address' };
+  }
+
+  const contractAddress = resolveErc721Address();
+  if (!contractAddress) {
+    console.warn('[baseTokenMint] IQUBE_NFT_CONTRACT_ADDRESS not configured; persona Base mint deferred');
+    return { ok: true, skipped: 'contract_unconfigured' };
+  }
+
+  const conn = buildBaseSigner();
+  if (!conn) {
+    console.warn('[baseTokenMint] BASE_MINTER_PRIVATE_KEY / RPC not configured; persona Base mint deferred');
+    return { ok: true, skipped: 'contract_unconfigured' };
+  }
+
+  const chainCheck = await assertConnectedToBaseMainnet(conn.provider);
+  if (!chainCheck.ok) {
+    console.error('[baseTokenMint] wrong-chain refusal (persona):', chainCheck.error);
+    return { ok: false, error: chainCheck.error };
+  }
+
+  const tokenId = derivePersonaTokenId(personaId);
+  const tokenIdHex = '0x' + tokenId.toString(16);
+
+  try {
+    const contract = new Contract(contractAddress, new Interface(ERC721_SAFE_MINT_ABI as any), conn.signer);
+    const tx = await contract.safeMint(ownerAddress, tokenId);
+    const rcpt = await tx.wait(1);
+    const txHash = (rcpt?.hash ?? tx.hash) as string;
+    return { ok: true, tokenId: tokenIdHex, txHash, ownerAddress };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // safeMint reverts if the token id already exists — the PersonaQube is
+    // already minted on-chain (deterministic id), so treat as idempotent success.
+    if (/already minted|already exists|token already|ERC721.*minted/i.test(message)) {
+      return { ok: true, tokenId: tokenIdHex, ownerAddress, alreadyMinted: true };
+    }
+    console.error('[baseTokenMint] mintPersonaQubeToBase failed', { message });
+    return { ok: false, error: message };
+  }
+}

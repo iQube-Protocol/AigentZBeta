@@ -41,6 +41,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { sponsorPolityAgent } from '@/services/agents/sponsorPolityAgent';
+import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 
 export const dynamic = 'force-dynamic';
@@ -51,6 +52,9 @@ interface GenesisBody {
   description: string;
   agentClass?: 'polity_bound' | 'polity_autonomous';
   sponsorPassportId: string;
+  // When true, the generated agent is flagged as the citizen's aigentMe (their
+  // primary personal delegate). One per persona — enforced server-side.
+  isAigentMe?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = (await req.json()) as GenesisBody;
-    const { slug, displayName, description, agentClass, sponsorPassportId } = body;
+    const { slug, displayName, description, agentClass, sponsorPassportId, isAigentMe } = body;
 
     const admin = getSupabaseServer();
     if (!admin) {
@@ -76,6 +80,7 @@ export async function POST(req: NextRequest) {
       displayName,
       description,
       agentClass,
+      isAigentMe: Boolean(isAigentMe),
       origin: resolveRequestOrigin(req),
     });
 
@@ -84,10 +89,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(rest, { status });
     }
 
+    // If this genesis designated the agent as the citizen's aigentMe, surface
+    // it as a wallet persona too (best-effort — never fails the genesis).
+    let walletPersona = null;
+    if (outcome.agent.isAigentMe) {
+      walletPersona = await provisionAigentMePersona({
+        admin,
+        callerAuthProfileId: persona.authProfileId,
+        agentRoot: {
+          did_uri: outcome.agent.didUri,
+          display_name: outcome.agent.displayName,
+          agent_card_slug: outcome.agent.agentCardSlug,
+        },
+      });
+    }
+
     const { agentCardUrl, agentRootId } = outcome.agent;
     return NextResponse.json({
       ok: true,
       agent: outcome.agent,
+      walletPersona,
       nextSteps: [
         'Submit a Participant Passport application at /api/polity-passport/submit using agent_card_url=' + agentCardUrl,
         'Once issued, create the agent persona at POST /api/identity/persona/agent with agentRootId=' + agentRootId,

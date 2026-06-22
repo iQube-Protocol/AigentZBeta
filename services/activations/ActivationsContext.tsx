@@ -219,12 +219,13 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
           }
           throw new Error((body as { detail?: string }).detail ?? `mutation failed (${res.status})`);
         }
-        // Server confirms — bump gen again so the refresh we fire is the
-        // authoritative read. Short delay lets Supabase read-after-write
-        // settle across connections before we re-sync.
-        mutationGenRef.current += 1;
-        await new Promise((r) => setTimeout(r, 300));
-        await refresh();
+        // Server confirmed the write (POST ok). The optimistic state for THIS
+        // item is now authoritative — keep it. We deliberately do NOT run a
+        // full-list refresh here: a refresh re-reads every surface and, due to
+        // Supabase read-after-write lag on a *different* connection, can return
+        // a stale status for a PREVIOUSLY-toggled item and clobber it (the
+        // "second toggle reactivates the first" bug). The baseline is synced on
+        // mount / persona change; per-toggle we trust the confirmed write.
       } catch (err) {
         // Revert optimistic write.
         setSurfaces(snapshot);

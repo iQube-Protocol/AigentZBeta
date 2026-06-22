@@ -281,6 +281,8 @@ export default function SmartWalletDrawer({
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [dismissed, setDismissed] = useState(false);
   const [localPersonaId, setLocalPersonaId] = useState<string | null>(null);
+  // The persona to return to after "Act as aigentMe" (B+). Captured on switch.
+  const [preActAsPersonaId, setPreActAsPersonaId] = useState<string | null>(null);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
   const bals = useBalances(
     {
@@ -911,10 +913,13 @@ export default function SmartWalletDrawer({
   const [mintResult, setMintResult] = useState<{
     suiObjectId: string | null;
     walrusBlobId: string | null;
-    mode: "stub" | "sui-walrus" | null;
+    baseTokenId: string | null;
+    baseTxHash: string | null;
+    mode: "stub" | "sui-walrus" | "base" | null;
     onChain: boolean;
+    deferred: boolean;
     mintedAt: string | null;
-  }>({ suiObjectId: null, walrusBlobId: null, mode: null, onChain: false, mintedAt: null });
+  }>({ suiObjectId: null, walrusBlobId: null, baseTokenId: null, baseTxHash: null, mode: null, onChain: false, deferred: false, mintedAt: null });
 
   // Load any existing mint on mount / persona change so the UI shows
   // "minted" without making the operator re-mint.
@@ -935,8 +940,11 @@ export default function SmartWalletDrawer({
         setMintResult({
           suiObjectId: data.suiObjectId ?? null,
           walrusBlobId: data.walrusBlobId ?? null,
+          baseTokenId: data.baseTokenId ?? null,
+          baseTxHash: data.baseTxHash ?? null,
           mode: data.mode ?? null,
           onChain: Boolean(data.onChain),
+          deferred: Boolean(data.deferred),
           mintedAt: data.mintedAt ?? null,
         });
         setMintStatus("minted");
@@ -947,16 +955,38 @@ export default function SmartWalletDrawer({
     return () => { cancelled = true; };
   }, [walletNode?.personaContext?.activePersona?.personaId]);
 
-  const handleStageMint = useCallback(async () => {
+  const handleStageMint = useCallback(async (opts?: { chain?: string; strategy?: string }) => {
     setMintStatus("staging");
     setMintError(null);
     try {
       const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
-      const res = await fetch("/api/iqube/persona/passport/mint", { method: "POST", headers });
+      // Owner = the persona's wallet (x402) EVM address. Send it so a persona
+      // with no server-stored evm_address can still mint to its own wallet —
+      // the route falls back to this and persists it for the deferred batch
+      // processor. Prefer the connected external wallet, then the persona's
+      // own EVM address.
+      const ownerAddress =
+        externalEvmAddress ||
+        personaEvmOverride ||
+        walletNodePersonaEvmAddress ||
+        undefined;
+      // Default to the Base mainnet rail (immediate) so the wallet's primary
+      // mint button lands the PersonaQube ERC-721 on Base — matching the
+      // AgentiQ OS mint path. Sui/Walrus still runs server-side as the
+      // encrypted locker the Base token bears.
+      const res = await fetch("/api/iqube/persona/passport/mint", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          chain: opts?.chain ?? "base",
+          strategy: opts?.strategy ?? "immediate",
+          ...(ownerAddress ? { ownerAddress } : {}),
+        }),
+      });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
         setMintError(data?.error ?? "Mint failed — please try again.");
@@ -966,8 +996,11 @@ export default function SmartWalletDrawer({
       setMintResult({
         suiObjectId: data.suiObjectId ?? null,
         walrusBlobId: data.walrusBlobId ?? null,
+        baseTokenId: data.baseTokenId ?? null,
+        baseTxHash: data.baseTxHash ?? null,
         mode: data.mode ?? null,
         onChain: Boolean(data.onChain),
+        deferred: Boolean(data.deferred),
         mintedAt: data.mintedAt ?? null,
       });
       setMintStatus("minted");
@@ -975,7 +1008,7 @@ export default function SmartWalletDrawer({
       setMintError("Network error — please try again.");
       setMintStatus("error");
     }
-  }, []);
+  }, [externalEvmAddress, personaEvmOverride, walletNodePersonaEvmAddress]);
 
   // PassportQube wallet state
   interface PassportQubeItem {
@@ -1005,6 +1038,7 @@ export default function SmartWalletDrawer({
     description: string;
     agentCardUrl: string;
     agentCardSlug: string;
+    isAigentMe?: boolean;
     sponsorPassportId: string | null;
     boundPassportId: string | null;
     passport: {
@@ -1024,32 +1058,63 @@ export default function SmartWalletDrawer({
   interface SponsorshipCapacity { base: number; earned: number; used: number; remaining: number }
   const [sponsorshipCapacity, setSponsorshipCapacity] = useState<SponsorshipCapacity | null>(null);
 
+  // aigentMe bounded-delegation awareness. The delegation is keyed by the
+  // active persona (the human delegating to aigentMe / Aigent C). Surfaced on
+  // the aigentMe agent card so the operator sees, in the wallet, whether
+  // delegation is live, what it's scoped to, and how much budget remains.
+  interface DelegationState {
+    active?: boolean;
+    suspended?: boolean;
+    expired?: boolean;
+    trust_band?: string;
+    allowed_actions?: string[];
+    expires_at?: string | null;
+    actions_taken?: number;
+    max_actions?: number;
+  }
+  const [aigentMeDelegation, setAigentMeDelegation] = useState<DelegationState | null>(null);
+  const loadAigentMeDelegation = useCallback(async () => {
+    if (!effectivePersonaId) { setAigentMeDelegation(null); return; }
+    try {
+      const res = await fetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(effectivePersonaId)}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as DelegationState;
+      setAigentMeDelegation(data ?? null);
+    } catch {
+      // Silent — wallet survives endpoint failure.
+    }
+  }, [effectivePersonaId]);
+
+  const loadSponsoredAgents = useCallback(async () => {
+    setSponsoredAgentsLoading(true);
+    try {
+      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch("/api/persona/sponsored-agents", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.ok) return;
+      setSponsoredAgents(data.agents ?? []);
+      setSponsorshipCapacity(data.capacity ?? null);
+    } catch {
+      // Silent — wallet survives endpoint failure.
+    } finally {
+      setSponsoredAgentsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab !== "iqube") return;
-    let cancelled = false;
-    void (async () => {
-      setSponsoredAgentsLoading(true);
-      try {
-        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
-        if (!session?.access_token) return;
-        const res = await fetch("/api/persona/sponsored-agents", {
-          method: "GET",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          cache: "no-store",
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled || !data?.ok) return;
-        setSponsoredAgents(data.agents ?? []);
-        setSponsorshipCapacity(data.capacity ?? null);
-      } catch {
-        // Silent — wallet survives endpoint failure.
-      } finally {
-        if (!cancelled) setSponsoredAgentsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId]);
+    void loadSponsoredAgents();
+    void loadAigentMeDelegation();
+  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId, loadSponsoredAgents, loadAigentMeDelegation]);
 
   // World ID strong-verification state — per passport. 'busy' shows the
   // spinner while the verification round-trip is in flight; 'error' surfaces
@@ -2158,9 +2223,9 @@ export default function SmartWalletDrawer({
                   <User className="w-4 h-4 text-cyan-400" />
                 )}
               </div>
-              {(activePersona?.fioHandle || agent.fioHandle || effectivePersonaId) && (
+              {(activePersona?.displayName || activePersona?.fioHandle || agent.fioHandle || effectivePersonaId) && (
                 <span className={`text-xs font-medium truncate max-w-[110px] ${activePersona?.isAgent ? "text-amber-300" : "text-cyan-300"}`}>
-                  {activePersona?.fioHandle || agent.fioHandle || effectivePersonaId}
+                  {activePersona?.displayName || activePersona?.fioHandle || agent.fioHandle || effectivePersonaId}
                 </span>
               )}
               <ChevronDown className={`w-3 h-3 text-white/50 transition-transform ${personaMenuOpen ? "rotate-180" : ""}`} />
@@ -2351,6 +2416,26 @@ export default function SmartWalletDrawer({
                       const isConfirming = confirmDeletePersonaId === persona.id;
                       const isPending = personaActionPending === persona.id;
                       const isArchived = (persona as Record<string, unknown>).status === 'inactive';
+                      // aigentMe persona — the citizen's delegate. Default tap is
+                      // "engage" (B), NOT a spine identity swap. The explicit
+                      // "Act as" control performs the full switch (B+).
+                      const isAigentMePersona =
+                        (persona as { appOrigin?: string }).appOrigin === 'aigent-me';
+                      const switchToPersona = () => {
+                        setLocalPersonaId(persona.id);
+                        ctxSetActivePersonaId(persona.id);
+                        onPersonaChange?.(persona.id);
+                        setPersonaMenuOpen(false);
+                        window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
+                      };
+                      const engageAigentMe = () => {
+                        // B — engage as delegate/chief-of-staff without changing
+                        // the active spine persona. Runtime can route through it.
+                        setPersonaMenuOpen(false);
+                        window.dispatchEvent(
+                          new CustomEvent("aigentme-engaged", { detail: { personaId: persona.id } }),
+                        );
+                      };
                       return (
                         <div
                           key={persona.id}
@@ -2359,13 +2444,7 @@ export default function SmartWalletDrawer({
                           } ${isArchived ? 'opacity-50' : ''}`}
                         >
                           <button
-                            onClick={() => {
-                              setLocalPersonaId(persona.id);
-                              ctxSetActivePersonaId(persona.id);
-                              onPersonaChange?.(persona.id);
-                              setPersonaMenuOpen(false);
-                              window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
-                            }}
+                            onClick={isAigentMePersona ? engageAigentMe : switchToPersona}
                             className="flex items-center gap-2 flex-1 min-w-0 text-left"
                           >
                             {persona.isAgent ? (
@@ -2374,8 +2453,17 @@ export default function SmartWalletDrawer({
                               <User className="w-4 h-4 text-cyan-400 shrink-0" />
                             )}
                             <div className="text-left min-w-0 flex-1">
-                              <p className="text-sm text-white/90 truncate">{persona.displayName || "Persona"}</p>
-                              <p className="text-xs text-white/50 truncate">{persona.fioHandle || "No handle"}</p>
+                              <p className="text-sm text-white/90 truncate flex items-center gap-1.5">
+                                {persona.displayName || "Persona"}
+                                {isAigentMePersona && (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0 text-[9px] font-medium text-amber-300">
+                                    <Star className="w-2.5 h-2.5" /> aigentMe
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-white/50 truncate">
+                                {isAigentMePersona ? 'Your delegate · tap to engage' : (persona.fioHandle || "No handle")}
+                              </p>
                             </div>
                             {effectivePersonaId === persona.id && !isConfirming && (
                               <Check className="w-3 h-3 text-emerald-400 shrink-0" />
@@ -2385,6 +2473,18 @@ export default function SmartWalletDrawer({
                           {/* Manage actions — revealed on hover */}
                           {!isConfirming && !isPending && (
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              {isAigentMePersona && effectivePersonaId !== persona.id && (
+                                <button
+                                  title="Act as your aigentMe (advanced — occupy the agent seat)"
+                                  onClick={() => {
+                                    setPreActAsPersonaId(effectivePersonaId ?? null);
+                                    switchToPersona();
+                                  }}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+                                >
+                                  Act as
+                                </button>
+                              )}
                               {cartridgeSlug && (() => {
                                 const isDefault = getCartridgeDefault(cartridgeSlug) === persona.id;
                                 return (
@@ -2612,6 +2712,47 @@ export default function SmartWalletDrawer({
             </Tooltip>
           </div>
         </header>
+
+        {/* Acting-as-aigentMe banner (B+) — visible while the active persona is
+            an aigentMe, with a one-tap return to the citizen persona. */}
+        {(() => {
+          const activeRow = allAvailablePersonas.find((p) => p.id === effectivePersonaId);
+          if ((activeRow as { appOrigin?: string } | undefined)?.appOrigin !== 'aigent-me') return null;
+          const returnTarget =
+            allAvailablePersonas.find(
+              (p) => p.id === preActAsPersonaId && (p as { appOrigin?: string }).appOrigin !== 'aigent-me',
+            ) ||
+            allAvailablePersonas.find(
+              (p) => (p as { appOrigin?: string }).appOrigin !== 'aigent-me' && !p.isAgent,
+            ) ||
+            null;
+          return (
+            <div className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Bot className="w-4 h-4 text-amber-400 shrink-0" />
+                <p className="text-xs text-amber-200 truncate">
+                  Acting as your aigentMe{activeRow?.displayName ? ` (${activeRow.displayName})` : ''} — you are in the agent seat.
+                </p>
+              </div>
+              {returnTarget && (
+                <button
+                  onClick={() => {
+                    setLocalPersonaId(returnTarget.id);
+                    ctxSetActivePersonaId(returnTarget.id);
+                    onPersonaChange?.(returnTarget.id);
+                    setPreActAsPersonaId(null);
+                    window.dispatchEvent(
+                      new CustomEvent("persona-switched", { detail: { personaId: returnTarget.id } }),
+                    );
+                  }}
+                  className="shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium text-amber-200 hover:bg-amber-500/25 transition-colors"
+                >
+                  Return to {returnTarget.displayName || 'my persona'}
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Tab Navigation */}
         <div className="wallet-tab-nav px-3 py-2 bg-black/20">
@@ -4509,33 +4650,59 @@ export default function SmartWalletDrawer({
                 )}
                 {/* Mint action */}
                 {mintStatus === "minted" ? (
-                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
+                  <div className={`rounded-lg border p-3 space-y-2 ${
+                    mintResult.deferred
+                      ? "border-amber-500/30 bg-amber-500/10"
+                      : "border-emerald-500/30 bg-emerald-500/10"
+                  }`}>
                     <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span className="text-sm font-medium text-emerald-300">
-                        PersonaQube minted {mintResult.onChain ? "(on-chain)" : "(stub mode)"}
+                      {mintResult.deferred ? (
+                        <Clock className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Check className="w-4 h-4 text-emerald-400" />
+                      )}
+                      <span className={`text-sm font-medium ${mintResult.deferred ? "text-amber-300" : "text-emerald-300"}`}>
+                        {mintResult.deferred
+                          ? "PersonaQube queued for batch mint"
+                          : `PersonaQube minted ${mintResult.onChain ? "(on-chain)" : "(stub mode)"}`}
                       </span>
                     </div>
                     <p className="text-xs text-white/50 leading-relaxed">
-                      Persona descriptor encrypted client-side, published to Walrus, and bound to a Sui object representing your PersonaQube. The (Sui object, Walrus blob) pair anchors to your DVN receipt trail.
+                      {mintResult.deferred
+                        ? "Your PersonaQube bearer token is queued for the next batch mint on Base. The encrypted persona locker is staged now; the on-chain token id + tx hash land here once the batch is processed."
+                        : mintResult.mode === "base"
+                        ? "Persona minted as a PersonaQube (a derivative of the iQube primitive) — an ERC-721 on Base mainnet against the iQube NFT contract. The token id is a one-way commitment over your persona (T0-safe), anchored to your DVN receipt trail."
+                        : "Persona descriptor encrypted client-side, published to Walrus, and bound to a Sui object representing your PersonaQube. The (Sui object, Walrus blob) pair anchors to your DVN receipt trail."}
                     </p>
                     <div className="space-y-1">
-                      {mintResult.suiObjectId && (
+                      {mintResult.baseTokenId && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">PersonaQube NFT</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.baseTokenId}</code>
+                        </div>
+                      )}
+                      {mintResult.baseTxHash && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Base tx</span>
+                          <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.baseTxHash}</code>
+                        </div>
+                      )}
+                      {!mintResult.baseTokenId && mintResult.suiObjectId && (
                         <div className="flex items-start gap-2">
                           <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Sui object</span>
                           <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.suiObjectId}</code>
                         </div>
                       )}
-                      {mintResult.walrusBlobId && (
+                      {!mintResult.baseTokenId && mintResult.walrusBlobId && (
                         <div className="flex items-start gap-2">
                           <span className="text-[10px] uppercase tracking-wider text-white/40 shrink-0 mt-0.5">Walrus blob</span>
                           <code className="text-[10px] text-emerald-200/80 font-mono break-all">{mintResult.walrusBlobId}</code>
                         </div>
                       )}
                     </div>
-                    {!mintResult.onChain && (
+                    {!mintResult.onChain && !mintResult.deferred && (
                       <p className="text-[10px] text-amber-300/70 leading-relaxed">
-                        Stub mode — set SUI_PACKAGE_ID + WALRUS_PUBLISHER_URL in Amplify and install @mysten/sui + @mysten/walrus to enable on-chain mint.
+                        Stub mode — set IQUBE_NFT_CONTRACT_ADDRESS + BASE_MINTER_PRIVATE_KEY (Base mainnet) to mint the PersonaQube on-chain, or SUI_PACKAGE_ID + WALRUS_PUBLISHER_URL for the Sui/Walrus rail.
                       </p>
                     )}
                   </div>
@@ -4553,12 +4720,18 @@ export default function SmartWalletDrawer({
                     )}
                     <button
                       type="button"
-                      onClick={handleStageMint}
+                      onClick={() => handleStageMint({ chain: "base", strategy: "deferred" })}
                       disabled={mintStatus === "staging"}
                       className="w-full rounded-lg border border-violet-500/40 bg-violet-600/20 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {mintStatus === "staging" ? "Minting…" : "Mint PersonaQube"}
+                      {mintStatus === "staging" ? "Queuing…" : "Mint PersonaQube"}
                     </button>
+                    <p className="text-[10px] text-white/30 leading-relaxed">
+                      The PersonaQube is the on-chain bearer token (an ERC-721, minted on
+                      Base today — multi-chain ready). Sui/Walrus holds the encrypted
+                      persona locker the token bears. Your mint is queued and minted in the
+                      next batch against your wallet's EVM address.
+                    </p>
                   </div>
                 )}
                 </>}
@@ -4728,6 +4901,11 @@ export default function SmartWalletDrawer({
                           <div className="flex items-center gap-2">
                             <Bot className="h-4 w-4 text-violet-400" />
                             <span className="text-sm font-medium text-violet-300">{sa.displayName}</span>
+                            {sa.isAigentMe && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0 text-[9px] font-medium text-amber-300">
+                                <Star className="h-2.5 w-2.5" /> aigentMe
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-white/40 font-mono">{sa.agentClass}</span>
@@ -4738,6 +4916,74 @@ export default function SmartWalletDrawer({
                         <p className="text-[10px] text-white/50 leading-relaxed line-clamp-2">
                           {sa.description}
                         </p>
+                        {/* Bounded-delegation awareness — only on the aigentMe
+                            card, scoped to the active persona's delegation. */}
+                        {sa.isAigentMe && (
+                          <div className="rounded-lg border border-white/10 bg-white/5 p-2 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase tracking-wider text-white/50">
+                                Bounded delegation
+                              </span>
+                              {aigentMeDelegation?.active ? (
+                                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] text-emerald-300">
+                                  Active
+                                </span>
+                              ) : aigentMeDelegation?.suspended ? (
+                                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-300">
+                                  Suspended · budget spent
+                                </span>
+                              ) : (
+                                <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] text-white/40">
+                                  {aigentMeDelegation?.expired ? "Expired" : "Not delegated"}
+                                </span>
+                              )}
+                            </div>
+                            {(aigentMeDelegation?.active || aigentMeDelegation?.suspended) ? (
+                              <div className="space-y-1 text-[10px] text-white/50">
+                                {aigentMeDelegation.trust_band && (
+                                  <div className="flex items-center justify-between">
+                                    <span>Trust band</span>
+                                    <span className="font-mono text-violet-300">{aigentMeDelegation.trust_band}</span>
+                                  </div>
+                                )}
+                                {typeof aigentMeDelegation.max_actions === "number" && (
+                                  <div className="flex items-center justify-between">
+                                    <span>Actions</span>
+                                    <span className="font-mono text-white/70">
+                                      {aigentMeDelegation.actions_taken ?? 0}/{aigentMeDelegation.max_actions}
+                                    </span>
+                                  </div>
+                                )}
+                                {aigentMeDelegation.expires_at && (
+                                  <div className="flex items-center justify-between">
+                                    <span>Expires</span>
+                                    <span className="text-white/70">
+                                      {new Date(aigentMeDelegation.expires_at).toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                                {aigentMeDelegation.allowed_actions && aigentMeDelegation.allowed_actions.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 pt-0.5">
+                                    {aigentMeDelegation.allowed_actions.map((a) => (
+                                      <span
+                                        key={a}
+                                        className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-200"
+                                      >
+                                        {a}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-white/40 leading-relaxed">
+                                No work is currently delegated to aigentMe. Grant bounded
+                                delegation from AgentiQ OS → Bounded Delegation to let it act
+                                under your authority.
+                              </p>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 text-[10px] text-white/50 flex-wrap">
                           {sa.passport ? (
                             <>
@@ -4895,6 +5141,11 @@ export default function SmartWalletDrawer({
               fioHandle: updated.fioHandle,
             });
             setPersonaEditModalOpen(false);
+            // Refresh the dropdown so the renamed persona reflects immediately;
+            // also refresh sponsored agents so an aigentMe rename propagates to
+            // its Bound Delegates card.
+            refreshPersonas();
+            void loadSponsoredAgents();
           }}
         />
       )}

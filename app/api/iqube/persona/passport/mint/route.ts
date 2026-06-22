@@ -27,6 +27,11 @@ import { createCipheriv, createHash, randomBytes } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { mintPersonaToSui } from '@/services/persona/mintPersonaToSui';
+import { derivePersonaTokenIdHex } from '@/services/chain/baseTokenMint';
+import { DEFAULT_MINT_CHAIN, isChainLive, isMintChain, type MintChain } from '@/services/chain/mintChains';
+import { mintTokenQubeOnChain } from '@/services/chain/tokenQubeMintDispatch';
+import { enqueueDeferredMint } from '@/services/chain/deferredMint';
+import { registerPersonaIqube } from '@/services/persona/registerPersonaIqube';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,25 +91,127 @@ export async function POST(req: NextRequest) {
       encryptionAuthTag: authTag,
     });
 
-    // Upsert the mint row (uniq on persona_id).
-    const { data: mintRow, error: insertErr } = await admin
+    // Mint strategy + target chain (multi-chain ready; Base is the only live
+    // mainnet today). Deferred strategy or a non-live chain queue the mint.
+    const body = (await req.json().catch(() => ({}))) as {
+      chain?: string;
+      strategy?: string;
+      ownerAddress?: string;
+    };
+    const targetChain: MintChain =
+      body.chain && isMintChain(body.chain) ? body.chain : DEFAULT_MINT_CHAIN;
+    const strategy = body.strategy === 'deferred' ? 'deferred' : 'immediate';
+
+    // Owner = the persona's EVM address. Prefer the server-stored address;
+    // fall back to the wallet-provided x402 EVM address the client sends so a
+    // persona without a persisted evm_address can still mint to its own
+    // wallet. The address is a public T1 value (it ends up on-chain), so it's
+    // safe to accept from the client. Validate the 0x40-hex shape before use.
+    const isEvmAddress = (v: string): v is `0x${string}` => /^0x[a-fA-F0-9]{40}$/.test(v);
+    const { data: pRow } = await admin
+      .from('personas')
+      .select('evm_address, evm_key')
+      .eq('id', persona.personaId)
+      .maybeSingle();
+    const storedOwner =
+      (pRow?.evm_address as string | null) ||
+      ((pRow?.evm_key as { address?: string } | null)?.address ?? '');
+    const clientOwner =
+      typeof body.ownerAddress === 'string' && isEvmAddress(body.ownerAddress.trim())
+        ? body.ownerAddress.trim()
+        : '';
+    const ownerAddress = storedOwner || clientOwner;
+
+    // Persist the wallet-provided owner when the persona has none stored, so
+    // future mints + the deferred batch processor (which skips owner-less
+    // rows) can resolve the same address without re-sending it.
+    if (!storedOwner && clientOwner) {
+      await admin
+        .from('personas')
+        .update({ evm_address: clientOwner })
+        .eq('id', persona.personaId);
+    }
+
+    // The Base ERC-721 tokenQube is the canonical bearer token — minted on
+    // EVERY persona mint (not a fallback). Sui/Walrus, when present, is the
+    // encrypted locker it bears. Token id is a one-way commitment over the
+    // persona id (T2-safe). Deferred strategy / non-live chains queue instead.
+    const tokenCommitment = derivePersonaTokenIdHex(persona.personaId);
+    let baseTokenId: string | null = null;
+    let baseTxHash: string | null = null;
+    let deferred = false;
+    let effectiveMode = result.mode as string;
+    let effectiveOnChain = result.onChain;
+
+    if (strategy === 'immediate' && isChainLive(targetChain) && ownerAddress) {
+      const minted = await mintTokenQubeOnChain(targetChain, { personaId: persona.personaId, ownerAddress });
+      if (minted.ok && (minted.tokenId || minted.alreadyMinted)) {
+        baseTokenId = minted.tokenId ?? tokenCommitment;
+        baseTxHash = minted.txHash ?? null;
+        effectiveMode = targetChain;
+        effectiveOnChain = true;
+      } else {
+        // env unconfigured / minter skipped → defer for the batch mint process.
+        deferred = true;
+        await enqueueDeferredMint({
+          admin, iqubeId: null, personaId: persona.personaId, targetChain,
+          tokenIdCommitment: tokenCommitment, ownerAddress: ownerAddress || null,
+          reason: 'env_unconfigured',
+        });
+      }
+    } else {
+      // Deferred strategy OR a non-live reference chain (Optimism/Solana/BTC/…).
+      deferred = true;
+      await enqueueDeferredMint({
+        admin, iqubeId: null, personaId: persona.personaId, targetChain,
+        tokenIdCommitment: tokenCommitment, ownerAddress: ownerAddress || null,
+        reason: strategy === 'deferred' ? 'batch' : 'chain_not_live',
+      });
+    }
+
+    // Register the persona as a canonical iQube (DataQube) in the registry SoT —
+    // on every mint, immediate or deferred. T2-safe: public meta + commitments
+    // only; the BlakQube payload stays encrypted in the locker.
+    const reg = await registerPersonaIqube({
+      admin,
+      personaId: persona.personaId,
+      personaPublicRef,
+      kybeDidPublicRef,
+      tokenId: baseTokenId,
+      chain: targetChain,
+      suiObjectId: result.suiObjectId,
+      walrusBlobId: result.walrusBlobId,
+    });
+    const iqubeId = reg?.iqubeId ?? null;
+
+    // Upsert the mint row (uniq on persona_id). base_token_id/base_tx_hash are a
+    // later migration — retry without them if the columns aren't present yet.
+    const baseRow = {
+      persona_id: persona.personaId,
+      persona_public_ref: personaPublicRef,
+      kybe_did_public_ref: kybeDidPublicRef,
+      sui_object_id: result.suiObjectId,
+      walrus_blob_id: result.walrusBlobId,
+      mint_mode: effectiveMode,
+      on_chain: effectiveOnChain,
+      minted_at: result.mintedAt,
+      updated_at: new Date().toISOString(),
+    };
+    let { data: mintRow, error: insertErr } = await admin
       .from('persona_qube_mints')
       .upsert(
-        {
-          persona_id: persona.personaId,
-          persona_public_ref: personaPublicRef,
-          kybe_did_public_ref: kybeDidPublicRef,
-          sui_object_id: result.suiObjectId,
-          walrus_blob_id: result.walrusBlobId,
-          mint_mode: result.mode,
-          on_chain: result.onChain,
-          minted_at: result.mintedAt,
-          updated_at: new Date().toISOString(),
-        },
+        { ...baseRow, base_token_id: baseTokenId, base_tx_hash: baseTxHash, iqube_id: iqubeId },
         { onConflict: 'persona_id' },
       )
       .select('mint_id')
       .single();
+    if (insertErr && (insertErr.message.includes('base_token_id') || insertErr.message.includes('iqube_id'))) {
+      ({ data: mintRow, error: insertErr } = await admin
+        .from('persona_qube_mints')
+        .upsert(baseRow, { onConflict: 'persona_id' })
+        .select('mint_id')
+        .single());
+    }
 
     if (insertErr) {
       return NextResponse.json({ ok: false, error: insertErr.message }, { status: 500 });
@@ -116,10 +223,15 @@ export async function POST(req: NextRequest) {
       ok: true,
       mintId: mintRow?.mint_id,
       status: 'minted',
-      mode: result.mode,
-      onChain: result.onChain,
+      mode: effectiveMode,
+      onChain: effectiveOnChain,
       suiObjectId: result.suiObjectId,
       walrusBlobId: result.walrusBlobId,
+      baseTokenId,
+      baseTxHash,
+      chain: targetChain,
+      deferred,
+      iqubeId,
       personaPublicRef,
       mintedAt: result.mintedAt,
       note: result.note,
@@ -152,11 +264,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
     }
 
-    const { data, error } = await admin
+    const COLS_WITH_BASE =
+      'mint_id, persona_public_ref, sui_object_id, walrus_blob_id, mint_mode, on_chain, minted_at, base_token_id, base_tx_hash';
+    let { data, error } = await admin
       .from('persona_qube_mints')
-      .select('mint_id, persona_public_ref, sui_object_id, walrus_blob_id, mint_mode, on_chain, minted_at')
+      .select(COLS_WITH_BASE)
       .eq('persona_id', persona.personaId)
       .maybeSingle();
+    // base_token_id/base_tx_hash are a later migration — retry without them.
+    if (error && error.message.includes('base_token_id')) {
+      ({ data, error } = await admin
+        .from('persona_qube_mints')
+        .select('mint_id, persona_public_ref, sui_object_id, walrus_blob_id, mint_mode, on_chain, minted_at')
+        .eq('persona_id', persona.personaId)
+        .maybeSingle());
+    }
 
     if (error && !error.message.includes('persona_qube_mints')) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -166,16 +288,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: true, minted: false });
     }
 
+    const row = data as Record<string, unknown>;
+    const baseTokenId = (row.base_token_id as string | null) ?? null;
+    // The bearer (Base) token is still queued when it hasn't minted on-chain
+    // yet — i.e. no base_token_id and the mode isn't 'base'. Surfaced so the
+    // wallet shows "queued for batch mint" instead of a misleading stub state.
+    const deferred = !baseTokenId && row.mint_mode !== 'base';
     return NextResponse.json({
       ok: true,
       minted: true,
-      mintId: data.mint_id,
-      mode: data.mint_mode,
-      onChain: data.on_chain,
-      suiObjectId: data.sui_object_id,
-      walrusBlobId: data.walrus_blob_id,
-      personaPublicRef: data.persona_public_ref,
-      mintedAt: data.minted_at,
+      mintId: row.mint_id,
+      mode: row.mint_mode,
+      onChain: row.on_chain,
+      deferred,
+      suiObjectId: row.sui_object_id,
+      walrusBlobId: row.walrus_blob_id,
+      baseTokenId,
+      baseTxHash: (row.base_tx_hash as string | null) ?? null,
+      personaPublicRef: row.persona_public_ref,
+      mintedAt: row.minted_at,
     });
   } catch (e) {
     return NextResponse.json(

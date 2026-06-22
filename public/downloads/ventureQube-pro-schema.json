@@ -1,0 +1,306 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aigentz.me/downloads/ventureQube-pro-schema.json",
+  "title": "Venture Pro iQube (v1.0)",
+  "description": "PREMIUM, CUMULATIVE upload schema for Venture Lab Lite/Pro/Elite. It is a strict SUPERSET of the Venture Light schema (v0.5): it carries everything Light does (operator, strategy, experienceModel, experienceGuide, standing, plan) PLUS the full 13-layer VentureQube per venture. A premium operator downloads and maintains ONLY this one file — they never also need the Light schema.",
+  "_agent_briefing": {
+    "audience": "An off-platform AI assistant helping a premium operator prepare a Venture Pro iQube to upload into their aigentMe / Venture Lab.",
+    "cumulative_design": "Schemas are cumulative. Venture Light (v0.5) is the base. Venture Pro (this file, v1.0) = Light + the full per-venture 13-layer VentureQube. Venture Portfolio = Pro + multiple ventures + a portfolio block. So each tier's download is a superset of the tier below; a Pro user uploads this single file to populate ExperienceModel, ExperienceGuide, Standing AND the full venture blueprint.",
+    "what_to_produce": "A single JSON file conforming to this schema. Fill the base blocks (operator/strategy/experienceModel/experienceGuide/standing/plan) exactly as in Venture Light, then fill each venture's 13 layers. Use concrete, verifiable content; leave a layer's optional fields out rather than inventing them.",
+    "the_13_layers": [
+      "1 identity — name, slug, stage",
+      "2 thesis — mission, vision, problem, value proposition, market/industry tags",
+      "3 intent — founder/venture/citizen/commons intents",
+      "4 signalEvidence — demand/capability/opportunity signals (confidence is Standing-calibrated server-side; you may leave confidences null)",
+      "5 archetypes — customer kinds, pains, willingness to pay",
+      "6 revenueArchitecture — revenue engines + pricing",
+      "7 commercialModel — targets (passports/citizens/creators/…), conversion + revenue/MRR/ARR targets",
+      "8 capability — required/available/gap/priority capabilities (Standing auto-fills 'available')",
+      "9 resource — people, agents, tools, iqubes, capital",
+      "10 execution — phases with objectives, deliverables, success metrics",
+      "11 delegation — which agents (aigentMe, devon, marketa, venture-lab, investor-office) execute what",
+      "12 outcome — outcomes, proof of time saved, standing changes, lessons",
+      "13 governance — risk/sensitivity/accuracy/verifiability + ventureConfidence (mostly server-calibrated; leave null)",
+      "14 institutional — venture-lab/investment status, commons + public visibility, readiness"
+    ],
+    "calibration_note": "signalEvidence.* and governance.* confidence scores are calibrated by Standing + metaCommons signals on the server; you may set them or leave them null. capability.availableCapabilities is auto-filled from the operator's Standing — leave it empty unless the operator wants to override."
+  },
+  "type": "object",
+  "required": ["schemaVersion", "operator", "strategy", "ventures", "plan"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "enum": ["venture-iqube-pro/v1.0"],
+      "description": "Use 'venture-iqube-pro/v1.0' for premium uploads."
+    },
+    "emittedAt": { "type": "string", "format": "date-time" },
+    "operator": {
+      "type": "object",
+      "required": ["displayLabel", "archetype"],
+      "additionalProperties": false,
+      "properties": {
+        "displayLabel": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "archetype": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "tagline": { "type": "string", "maxLength": 280 },
+        "fioHandle": { "type": "string", "maxLength": 128 }
+      },
+      "description": "Same as Venture Light."
+    },
+    "strategy": {
+      "type": "object",
+      "required": ["headline", "thesis"],
+      "additionalProperties": false,
+      "properties": {
+        "headline": { "type": "string", "minLength": 1, "maxLength": 280 },
+        "thesis": { "type": "string", "minLength": 1, "maxLength": 8000 },
+        "currentStage": { "type": "string", "maxLength": 64 },
+        "blockers": { "type": "array", "items": { "type": "string" } },
+        "constraints": { "type": "array", "items": { "type": "string" } }
+      },
+      "description": "Same as Venture Light."
+    },
+    "experienceGoals": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 30, "description": "Same as Venture Light (v0.5)." },
+    "priorityPartners": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12, "description": "Same as Venture Light (v0.5)." },
+    "experienceGuide": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Same as Venture Light (v0.5): sphereMaturity / sphereAlignment (energy, body, mind, emotion, relationship, community, legacy), precedenceMode, focusIntent."
+    },
+    "standing": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Same as Venture Light (v0.5): standing.core (whoYouAre, whatYouKnow, whatYouveDone, interests, intentions, experiencesThatMatter, accomplish) + optional linkedInUrl."
+    },
+    "plan": {
+      "type": "object",
+      "description": "Same as Venture Light — horizons today/next24h/next7d/next30d/next90d, each { focus, actions[] }.",
+      "additionalProperties": true
+    },
+    "kpiBoard": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true },
+      "description": "Same as Venture Light — cross-venture KPI rows that hydrate the cockpit's Active KPIs."
+    },
+    "ventures": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Pro ventures — each carries the full 13-layer VentureQube. (Lite tier: 1 venture; Pro: up to 3; Elite: unlimited — enforced server-side.)",
+      "items": { "$ref": "#/definitions/ventureProV1" }
+    }
+  },
+  "definitions": {
+    "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "0–100, or null to let Standing/metaCommons calibrate it server-side." },
+    "ventureProV1": {
+      "type": "object",
+      "required": ["identity", "thesis", "intent"],
+      "additionalProperties": true,
+      "properties": {
+        "identity": {
+          "type": "object",
+          "required": ["name", "stage"],
+          "additionalProperties": true,
+          "properties": {
+            "name": { "type": "string", "maxLength": 200 },
+            "slug": { "type": "string", "maxLength": 80 },
+            "stage": { "type": "string", "enum": ["concept", "validation", "formation", "launch", "growth", "scale", "institution"] }
+          }
+        },
+        "thesis": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "mission": { "type": "string", "maxLength": 2000 },
+            "vision": { "type": "string", "maxLength": 2000 },
+            "problemStatement": { "type": "string", "maxLength": 4000 },
+            "consequenceThesis": { "type": "string", "maxLength": 4000 },
+            "valueProposition": { "type": "string", "maxLength": 4000 },
+            "ventureCategory": { "type": "string", "maxLength": 120 },
+            "industryTags": { "type": "array", "items": { "type": "string" } },
+            "marketTags": { "type": "array", "items": { "type": "string" } },
+            "geographicScope": { "type": "string", "maxLength": 200 }
+          }
+        },
+        "intent": {
+          "type": "object",
+          "required": ["founderIntents", "ventureIntents"],
+          "additionalProperties": true,
+          "properties": {
+            "founderIntents": { "type": "array", "items": { "type": "string" } },
+            "ventureIntents": { "type": "array", "items": { "type": "string" } },
+            "citizenIntents": { "type": "array", "items": { "type": "string" } },
+            "commonsIntents": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "signalEvidence": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "items": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+            "demandConfidence": { "$ref": "#/definitions/confidence" },
+            "capabilityConfidence": { "$ref": "#/definitions/confidence" },
+            "opportunityConfidence": { "$ref": "#/definitions/confidence" },
+            "signalConfidence": { "$ref": "#/definitions/confidence" }
+          }
+        },
+        "archetypes": {
+          "type": "array",
+          "description": "Customer archetypes.",
+          "items": {
+            "type": "object",
+            "required": ["kind", "label"],
+            "additionalProperties": true,
+            "properties": {
+              "kind": { "type": "string", "enum": ["citizen", "creator", "founder_operator", "executive", "investor", "institution", "other"] },
+              "label": { "type": "string" },
+              "description": { "type": "string" },
+              "painPoints": { "type": "array", "items": { "type": "string" } },
+              "desiredOutcomes": { "type": "array", "items": { "type": "string" } },
+              "valueReceived": { "type": "string" },
+              "willingnessToPay": { "type": "string" },
+              "priorityScore": { "$ref": "#/definitions/confidence" }
+            }
+          }
+        },
+        "revenueArchitecture": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "engines": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["engineType", "engineName"],
+                "additionalProperties": true,
+                "properties": {
+                  "engineType": { "type": "string", "enum": ["subscription", "services", "licensing", "commerce", "transaction_fees", "intelligence_services", "venture_participation", "other"] },
+                  "engineName": { "type": "string" },
+                  "targetArchetypes": { "type": "array", "items": { "type": "string" } },
+                  "pricingModel": { "type": "string" },
+                  "pricingAssumptions": { "type": "string" },
+                  "priorityLevel": { "type": "number" },
+                  "estimatedRevenue": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "commercialModel": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "targetPassports": { "type": "number" },
+            "targetCitizens": { "type": "number" },
+            "targetCreators": { "type": "number" },
+            "targetFounders": { "type": "number" },
+            "targetExecutives": { "type": "number" },
+            "targetInvestors": { "type": "number" },
+            "conversionAssumptions": { "type": "array", "items": { "type": "string" } },
+            "acquisitionAssumptions": { "type": "array", "items": { "type": "string" } },
+            "revenueTargets": { "type": "array", "items": { "type": "string" } },
+            "mrrTargets": { "type": "array", "items": { "type": "string" } },
+            "arrTargets": { "type": "array", "items": { "type": "string" } },
+            "growthAssumptions": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "capability": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "requiredCapabilities": { "type": "array", "items": { "type": "string" } },
+            "availableCapabilities": { "type": "array", "items": { "type": "string" }, "description": "Leave empty — auto-filled from the operator's Standing." },
+            "capabilityGaps": { "type": "array", "items": { "type": "string" } },
+            "capabilityPriorities": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "resource": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "requiredPeople": { "type": "array", "items": { "type": "string" } },
+            "requiredAgents": { "type": "array", "items": { "type": "string" } },
+            "requiredTools": { "type": "array", "items": { "type": "string" } },
+            "requiredIqubes": { "type": "array", "items": { "type": "string" } },
+            "requiredCapital": { "type": "string" }
+          }
+        },
+        "execution": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "phases": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["phaseName", "objectives", "deliverables"],
+                "additionalProperties": true,
+                "properties": {
+                  "phaseName": { "type": "string" },
+                  "startDate": { "type": "string" },
+                  "endDate": { "type": "string" },
+                  "objectives": { "type": "array", "items": { "type": "string" } },
+                  "deliverables": { "type": "array", "items": { "type": "string" } },
+                  "dependencies": { "type": "array", "items": { "type": "string" } },
+                  "successMetrics": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "delegation": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "assignments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "agent": { "type": "string", "enum": ["aigentMe", "devon", "marketa", "venture-lab", "investor-office"] },
+                  "responsibility": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "outcome": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "outcomes": { "type": "array", "items": { "type": "string" } },
+            "proofOfTimeSaved": { "type": "string" },
+            "standingChanges": { "type": "array", "items": { "type": "string" } },
+            "lessonsLearned": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "governance": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Mostly server-calibrated — leave null unless overriding.",
+          "properties": {
+            "riskScore": { "$ref": "#/definitions/confidence" },
+            "sensitivityScore": { "$ref": "#/definitions/confidence" },
+            "accuracyScore": { "$ref": "#/definitions/confidence" },
+            "verifiabilityScore": { "$ref": "#/definitions/confidence" },
+            "standingConfidence": { "$ref": "#/definitions/confidence" },
+            "proofOfWorkPotential": { "$ref": "#/definitions/confidence" },
+            "ventureConfidence": { "$ref": "#/definitions/confidence" }
+          }
+        },
+        "institutional": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "ventureLabStatus": { "type": "string" },
+            "investmentStatus": { "type": "string" },
+            "commonsVisibility": { "type": "string" },
+            "publicVisibility": { "type": "string" },
+            "institutionalReadiness": { "type": "string" },
+            "classification": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

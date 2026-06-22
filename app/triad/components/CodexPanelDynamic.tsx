@@ -228,6 +228,13 @@ export default function CodexPanelDynamic({
     void activateActivation(autoActivate).catch(() => {});
   }, [autoActivate, activeActivations, activateActivation]);
 
+  // NOTE: cartridge access (the paywall) is enforced at the ELIGIBILITY layer
+  // (who may activate a gated premium activation — admin or plan), NOT here.
+  // Rendering follows the persona's actual activation toggles (activeActivations)
+  // so the Activations tab can deactivate them. (An earlier version injected
+  // plan/admin grants into the render set, which forced premium cartridges
+  // always-on and broke deactivation — regression fixed 2026-06-21.)
+
   // Per-cartridge admin grants — fail-CLOSED while loading so the
   // adminOfCartridge tabs (e.g. mirrored KNYT Admin inside metaMe's
   // Order group) stay hidden during the brief fetch window for

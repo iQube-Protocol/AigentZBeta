@@ -40,6 +40,28 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-21_standing-integration-tiers-sovereign-assets.md",
+        "updates/2026-06-21_venture-tier-cartridge-paywall.md",
+        "updates/2026-06-21_step4-plan-tiers-gating.md",
+        "updates/2026-06-21_venture-office-followon-backlog.md",
+        "updates/2026-06-21_ventureqube-lite-pro-step4-scope.md",
+        "updates/2026-06-21_experience-guide-sot-matrix-calibration.md",
+        "updates/2026-06-21_generalized-customer-matrix-funnel.md",
+        "updates/2026-06-21_standing-score-commercial-spine.md",
+        "updates/2026-06-21_founder-office-ventureqube.md",
+        "updates/2026-06-17_founder-office-charter.md",
+        "updates/2026-06-17_standing-and-metacommons-charters.md",
+        "updates/2026-06-17_polity-paper-series-ingest-backlog.md",
+        "updates/2026-06-17_deferred-mint-processor-and-chain-dispatch.md",
+        "updates/2026-06-17_personaqube-registry-sot-trinity-multichain.md",
+        "updates/2026-06-17_personaqube-base-mint-fallback.md",
+        "updates/2026-06-17_aigentme-wallet-polish-registry-badge-rename-header.md",
+        "updates/2026-06-17_aigentme-wallet-persona-selfheal-and-registry-delegation-awareness.md",
+        "updates/2026-06-17_option-a-autonomous-agents-and-dvn-audit-fix.md",
+        "updates/2026-06-17_polity-core-cartridge-constitutional-framework.md",
+        "updates/2026-06-17_aigentme-wallet-persona-b-bplus-optiona-stub.md",
+        "updates/2026-06-17_fix-delegate-passport-awaiting-issuance.md",
+        "updates/2026-06-17_registry-sponsor-hub-genesis-aigentme.md",
         "updates/2026-06-17_mobility-tracks-and-aigentme-delegation.md",
         "updates/2026-06-17_hms-pdep-adtf-progressive-disclosure-doctrine.md",
         "updates/2026-06-17_human-mobility-services-psc001-cartridge.md",
@@ -200,7 +222,8 @@
         "updates/2026-06-12_operator-batch-passport-wizard-polity-menu-kb-default-marketa-polish.md",
         "updates/2026-06-12_passport-claim-flow-passportqube-wallet-metame-mirror.md",
         "updates/2026-06-13_hackathon-submission-sprints-1-7-complete.md",
-        "updates/2026-06-13_aletheon-activation-walkthrough.md"
+        "updates/2026-06-13_aletheon-activation-walkthrough.md",
+        "updates/2026-06-22_polity-papers-constitutional-commentary.md"
       ]
     },
     {

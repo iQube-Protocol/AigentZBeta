@@ -1470,6 +1470,22 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
     {
+      // VL Admin — first-class menu item grouping the admin-only Venture Lab
+      // tabs (α Programme, AgentiQ OS α, α Docs). Lazy getter: VENTURE_LAB_CODEX
+      // + the mirror helper are declared later in this module.
+      id: 'aiq-vl-admin',
+      label: 'VL Admin',
+      slug: 'vl-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'projects',
+      order: 3,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Venture Lab admin — α Programme, AgentiQ OS α, α Docs.', color: 'amber' },
+      get subTabs() { return ventureLabAdminTabsForMetameVl(); },
+    },
+    {
       id: 'alpha-program',
       label: 'AgentiQ α',
       slug: 'alpha-program',
@@ -2362,12 +2378,48 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   },
   tabs: [
     {
+      id: 'founder-office',
+      label: 'Founder Office',
+      slug: 'founder-office',
+      enabled: true,
+      adminOnly: false,
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'FounderOfficeTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Rocket',
+        description: 'Venture formation OS — Discover / Validate / Architect a venture into an executable Venture Blueprint (VentureQube v1.0)',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'commercial-funnel',
+      label: 'Commercial Funnel',
+      slug: 'commercial-funnel',
+      enabled: true,
+      adminOnly: false,
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'VentureFunnelTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Grid3x3',
+        description: 'Matrix funnel — venture progress (maturity × commercialization) consolidated with customer progress (engagement × sovereignty journey)',
+        color: 'amber'
+      }
+    },
+    {
       id: 'alpha-programme',
       label: 'α Programme',
       slug: 'alpha-programme',
       enabled: true,
       adminOnly: true,
-      order: 1,
+      order: 2,
       type: 'static',
       config: {
         component: 'AlphaProgrammeTab',
@@ -2402,7 +2454,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Relationship Builder',
       slug: 'relationship-builder',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 3,
       type: 'static',
       config: {
@@ -2438,7 +2490,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Growth Matrix',
       slug: 'growth-matrix',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 5,
       type: 'static',
       config: {
@@ -2456,7 +2508,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Portfolio',
       slug: 'portfolio',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 6,
       type: 'static',
       config: {
@@ -2521,6 +2573,23 @@ const knytOrderTabs = () =>
 // automatically. The per-cartridge admin gate stays — it's set on the
 // order-admin tab inside KNYT, not in the metaMe mirror.)
 
+// Mirror the OPERATOR-facing Venture Lab cartridge tabs into metaMe's "Venture
+// Lab" (vl) group as first-class items (Founder Office, Commercial Funnel,
+// Relationship Builder, Growth Matrix, Portfolio — anything not adminOnly).
+// Admin-only VL tabs are grouped separately under the VL Admin item via
+// ventureLabAdminTabsForMetameVl(). Same mirror pattern as aiqOsTabsByGroup.
+const ventureLabTabsForMetameVl = () =>
+  VENTURE_LAB_CODEX.tabs
+    .filter((t) => t.enabled && !t.adminOnly)
+    .sort((a, b) => a.order - b.order)
+    .map((t, i) => ({
+      ...t,
+      id: `vl-${t.id}`,
+      slug: `vl-${t.slug}`,
+      group: 'vl',
+      order: 10 + i,
+    }));
+
 // Qriptopian admin tabs mirrored into metaMe's qriptopia group. Qripto's
 // admin tabs live at top level (no group), gated by adminOnly: true. We
 // filter on adminOnly === true to pick them up. Same clone pattern as
@@ -2582,24 +2651,21 @@ const agentiqOsAdminTabsForMetameAgentiqos = () =>
 // placeholder "VL Admin" entry for now. When VL grows a proper
 // adminOnly tabGroup like KNYT's, swap this stub for the same clone
 // pattern used above.
-const ventureLabAdminTabsForMetameVl = () => [
-  {
-    id: 'metame-vl-admin-placeholder',
-    label: 'Venture Lab Admin',
-    slug: 'vl-admin-placeholder',
-    enabled: true,
-    adminOfCartridge: 'venture-lab',
-    group: 'vl',
-    order: 0,
-    type: 'static' as const,
-    config: { component: 'TabRendererFallback', props: {} },
-    metadata: {
-      icon: 'Settings',
-      description: 'Placeholder Venture Lab admin surface — full admin tabs to be wired when the VL cartridge ships its adminOnly tabGroup.',
-      color: 'amber',
-    },
-  },
-];
+// Mirror the ADMIN-only Venture Lab cartridge tabs (α Programme, AgentiQ OS α,
+// α Docs) as sub-items grouped under the "VL Admin" surface — used both by
+// metaMe's VL group and the AgentiQ cartridge's VL Admin tab. adminOnly is
+// preserved so the gating travels with each tab.
+const ventureLabAdminTabsForMetameVl = () =>
+  VENTURE_LAB_CODEX.tabs
+    .filter((t) => t.enabled && t.adminOnly)
+    .sort((a, b) => a.order - b.order)
+    .map((t, i) => ({
+      ...t,
+      id: `vl-admin-${t.id}`,
+      slug: `vl-admin-${t.slug}`,
+      group: 'vl',
+      order: i,
+    }));
 
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
@@ -2625,6 +2691,8 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
+    { id: 'hms',          label: 'Human Mobility',   icon: 'Plane',      order: 3.5, activationId: 'human-mobility-services' },
+    { id: 'polity-core',  label: 'Polity Core',      icon: 'Landmark',   order: 0.55, activationId: 'polity-core' },
     { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
     { id: 'passport',     label: 'Passport',          icon: 'ShieldCheck',order: -0.5 },
     { id: 'standing',     label: 'Standing',         icon: 'Star',       order: 4.6, activationId: 'standing-cartridge' },
@@ -2886,29 +2954,12 @@ export const METAME_CODEX: CodexConfig = {
       subTabs: knytOrderTabs(),
     },
 
-    // ── VL group (activation-gated) ───────────────────────────────────────
-    {
-      id: 'vl-growth-matrix',
-      label: 'Growth Matrix',
-      slug: 'vl-growth-matrix',
-      enabled: true,
-      group: 'vl',
-      order: 10,
-      type: 'static',
-      config: { component: 'VentureLabGrowthMatrixTab', props: {} },
-      metadata: { icon: 'Grid3x3', description: 'Venture Lab growth matrix', color: 'violet' }
-    },
-    {
-      id: 'vl-relationship-builder',
-      label: 'Relationship Builder',
-      slug: 'vl-relationship-builder',
-      enabled: true,
-      group: 'vl',
-      order: 11,
-      type: 'static',
-      config: { component: 'RelationshipBuilderTab', props: {} },
-      metadata: { icon: 'Users', description: 'Partner / relationship builder', color: 'violet' }
-    },
+    // ── VL group (activation-gated) — full mirror of the Venture Lab cartridge ──
+    // Renders every first-class VL tab natively under metaMe → Venture Lab
+    // (Founder Office, Commercial Funnel, α Programme, AgentiQ OS α, Relationship
+    // Builder, α Docs, Growth Matrix, Portfolio). Each tab's adminOnly /
+    // adminOfCartridge gating is preserved by the mirror.
+    ...ventureLabTabsForMetameVl(),
     // Venture Lab admin stub — VL doesn't yet have a dedicated
     // adminOnly tabGroup on its own cartridge, so we ship a single
     // placeholder admin tab here gated by adminOfCartridge: 'venture-lab'.
@@ -2921,11 +2972,99 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       adminOfCartridge: 'venture-lab',
       group: 'vl',
-      order: 12,
+      order: 90,
       type: 'static',
       config: { component: 'TabRendererFallback', props: {} },
       metadata: { icon: 'Settings', description: 'Venture Lab admin surface — stubbed until VL ships its own adminOnly tabGroup. Visible only when the active persona admins the Venture Lab cartridge.', color: 'amber' },
       subTabs: ventureLabAdminTabsForMetameVl(),
+    },
+
+    // ── Human Mobility group (payment-gated via activationId) ────────────────
+    // Flat tabs, each a real registered component (the proven pattern — no
+    // parent/ghost-subtab nesting). Group activationId gates access.
+    {
+      id: 'hms-services', label: 'Mobility Services', slug: 'hms', enabled: true, group: 'hms', order: 0,
+      type: 'static', config: { component: 'HumanMobilityServicesTab', props: {} },
+      metadata: { icon: 'Plane', description: 'Human Mobility Services — business + emergency mobility', color: 'cyan' },
+    },
+    {
+      id: 'hms-doctrine', label: 'Doctrine', slug: 'hms-doctrine', enabled: true, group: 'hms', order: 1,
+      type: 'static', config: { component: 'MobilityDoctrineTab', props: {} },
+      metadata: { icon: 'BookOpen', description: 'Mobility doctrine', color: 'cyan' },
+    },
+    {
+      id: 'hms-activations', label: 'Activations', slug: 'hms-activations', enabled: true, group: 'hms', order: 2,
+      type: 'static', config: { component: 'MobilityActivationsTab', props: {} },
+      metadata: { icon: 'Zap', description: 'Mobility activations', color: 'cyan' },
+    },
+    {
+      id: 'hms-housing', label: 'Housing', slug: 'hms-housing', enabled: true, group: 'hms', order: 3,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'housing' } },
+      metadata: { icon: 'Home', description: 'Housing workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-education', label: 'Education', slug: 'hms-education', enabled: true, group: 'hms', order: 4,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'education' } },
+      metadata: { icon: 'GraduationCap', description: 'Education workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-relocation', label: 'Relocation', slug: 'hms-relocation', enabled: true, group: 'hms', order: 5,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'relocation' } },
+      metadata: { icon: 'Map', description: 'Relocation workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-business', label: 'Business', slug: 'hms-business', enabled: true, group: 'hms', order: 6,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'business' } },
+      metadata: { icon: 'Briefcase', description: 'Business mobility workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-economic', label: 'Emergency', slug: 'hms-economic', enabled: true, group: 'hms', order: 7,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'economic' } },
+      metadata: { icon: 'LifeBuoy', description: 'Emergency / economic mobility workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-family', label: 'Family', slug: 'hms-family', enabled: true, group: 'hms', order: 8,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'family' } },
+      metadata: { icon: 'Users', description: 'Family mobility workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-case-management', label: 'Case Management', slug: 'hms-case-management', enabled: true, group: 'hms', order: 9,
+      type: 'static', config: { component: 'MobilityCaseManagementTab', props: {} },
+      metadata: { icon: 'ClipboardList', description: 'Mobility case management', color: 'cyan' },
+    },
+
+    // ── Polity Core group (FREE — open activation) ───────────────────────────
+    // Flat AgentiqCartridgeTab tabs per collection (real component, each with
+    // its own doc sidebar). No ghost tabs.
+    {
+      id: 'pc-constitution', label: 'Constitution', slug: 'polity-core', enabled: true, group: 'polity-core', order: 0,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_constitution', defaultPath: 'items/CONSTITUTION.md' } },
+      metadata: { icon: 'Landmark', description: 'The Polity Constitution', color: 'violet' },
+    },
+    {
+      id: 'pc-agent-charter', label: 'Agent Charter', slug: 'pc-agent-charter', enabled: true, group: 'polity-core', order: 1,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_agent_charter', defaultPath: 'items/AGENT_CHARTER.md' } },
+      metadata: { icon: 'Bot', description: 'Autonomous Agent Charter', color: 'violet' },
+    },
+    {
+      id: 'pc-standing-charter', label: 'Standing Charter', slug: 'pc-standing-charter', enabled: true, group: 'polity-core', order: 2,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_standing_charter', defaultPath: 'items/STANDING_CHARTER.md' } },
+      metadata: { icon: 'Award', description: 'The Standing Charter', color: 'violet' },
+    },
+    {
+      id: 'pc-metacommons-charter', label: 'metaCommons Charter', slug: 'pc-metacommons-charter', enabled: true, group: 'polity-core', order: 3,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_metacommons_charter', defaultPath: 'items/METACOMMONS_CHARTER.md' } },
+      metadata: { icon: 'Globe', description: 'The metaCommons Charter', color: 'violet' },
+    },
+    {
+      id: 'pc-founder-office-charter', label: 'Founder Office Charter', slug: 'pc-founder-office-charter', enabled: true, group: 'polity-core', order: 4,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_founder_office_charter', defaultPath: 'items/FOUNDER_OFFICE_CHARTER.md' } },
+      metadata: { icon: 'Rocket', description: 'Founder Office Charter (sub-metaCommons)', color: 'violet' },
+    },
+    {
+      id: 'pc-amendments', label: 'Amendment Records', slug: 'pc-amendments', enabled: true, group: 'polity-core', order: 5,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_amendment_records', defaultPath: 'items/AMENDMENT_RECORDS.md' } },
+      metadata: { icon: 'FileText', description: 'Amendment Records', color: 'violet' },
     },
 
     // ── Marketa group (admin-gated; Partner sub-tabs) ────────────────────────
@@ -4157,6 +4296,249 @@ export const STANDING_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString(),
 };
 
+// ───────────────────────────────────────────────────────────────────────────
+// POLITY CORE CARTRIDGE
+// The authoritative constitutional repository + machine-readable source of
+// legitimacy for autonomous agents. Human-readable docs live in the
+// codexes/packs/polity-core/ pack; machine-readable frameworks live in
+// services/polity/frameworks/*.json and are served at
+// GET /api/polity-core/constitution. Pack auto-generation is suppressed for
+// 'polity-core' in packRegistry so this hand-curated surface is canonical.
+// ───────────────────────────────────────────────────────────────────────────
+export const POLITY_CORE_CARTRIDGE: CodexConfig = {
+  id: 'polity-core-cartridge',
+  name: 'Polity Core',
+  slug: 'polity-core',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'The authoritative constitutional repository — Constitution, Charters, Governance, Agent, and Standing frameworks, and Amendment Records. The machine-readable source of legitimacy for autonomous agents.',
+    icon: 'Landmark',
+    color: 'violet',
+    category: 'platform',
+    tags: ['polity', 'constitution', 'governance', 'agent', 'legitimacy'],
+  },
+  tabGroups: [
+    { id: 'constitution', label: 'Constitution', icon: 'Landmark', order: 0 },
+    { id: 'frameworks', label: 'Frameworks', icon: 'BookOpen', order: 1 },
+    { id: 'commentary', label: 'Commentary', icon: 'BookOpen', order: 2 },
+    { id: 'records', label: 'Records', icon: 'FileText', order: 3 },
+  ],
+  tabs: [
+    {
+      id: 'polity-core-constitution',
+      label: 'Constitution',
+      slug: 'constitution',
+      enabled: true,
+      group: 'constitution',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_constitution', defaultPath: 'items/CONSTITUTION.md' },
+      },
+      metadata: { icon: 'Landmark', description: 'The Polity Constitution — sovereignty and the chain of legitimacy', color: 'violet' },
+    },
+    {
+      id: 'polity-core-constitution-agentic-polity',
+      label: 'Constitution of the Agentic Polity',
+      slug: 'constitution-agentic-polity',
+      enabled: true,
+      group: 'constitution',
+      order: 0.5,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_constitution_agentic_polity', defaultPath: 'items/CONSTITUTION_OF_AGENTIC_POLITY.md' },
+      },
+      metadata: { icon: 'Landmark', description: 'The foundational constitutional text — 4th paper of the Polity series, elevated to ratified status', color: 'violet' },
+    },
+    {
+      id: 'polity-core-commentary-experience-sovereignty',
+      label: 'Experience Sovereignty',
+      slug: 'commentary-experience-sovereignty',
+      enabled: true,
+      group: 'commentary',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_commentary_experience_sovereignty', defaultPath: 'items/commentary/README.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'Constitutional commentary — Experience Sovereignty paper series', color: 'violet' },
+    },
+    {
+      id: 'polity-core-commentary-coyn-thesis',
+      label: 'COYN Thesis',
+      slug: 'commentary-coyn-thesis',
+      enabled: true,
+      group: 'commentary',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_commentary_coyn_thesis', defaultPath: 'items/commentary/README.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'Constitutional commentary — COYN Thesis paper series', color: 'violet' },
+    },
+    {
+      id: 'polity-core-commentary-polity',
+      label: 'The Polity',
+      slug: 'commentary-polity',
+      enabled: true,
+      group: 'commentary',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_commentary_polity', defaultPath: 'items/commentary/README.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'Constitutional commentary — the Polity paper series', color: 'violet' },
+    },
+    {
+      id: 'polity-core-agent-charter',
+      label: 'Agent Charter',
+      slug: 'agent-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_agent_charter', defaultPath: 'items/AGENT_CHARTER.md' },
+      },
+      metadata: { icon: 'Bot', description: 'Autonomous Agent Constitutional Charter — ADID class and Phase 1 guardrails', color: 'violet' },
+    },
+    {
+      id: 'polity-core-delegation',
+      label: 'Delegation',
+      slug: 'delegation-framework',
+      enabled: true,
+      group: 'frameworks',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_delegation_framework', defaultPath: 'items/DELEGATION_FRAMEWORK.md' },
+      },
+      metadata: { icon: 'Link2', description: 'Bounded delegation framework', color: 'violet' },
+    },
+    {
+      id: 'polity-core-standing-charter',
+      label: 'Standing Charter',
+      slug: 'standing-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_standing_charter', defaultPath: 'items/STANDING_CHARTER.md' },
+      },
+      metadata: { icon: 'Award', description: 'Standing as confidence in the veracity of declarations', color: 'violet' },
+    },
+    {
+      id: 'polity-core-metacommons-charter',
+      label: 'metaCommons Charter',
+      slug: 'metacommons-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_metacommons_charter', defaultPath: 'items/METACOMMONS_CHARTER.md' },
+      },
+      metadata: { icon: 'Globe', description: 'The second institution — sovereign signals into collective intelligence', color: 'violet' },
+    },
+    {
+      id: 'polity-core-founder-office',
+      label: 'Founder Office Charter',
+      slug: 'founder-office-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_founder_office_charter', defaultPath: 'items/FOUNDER_OFFICE_CHARTER.md' },
+      },
+      metadata: { icon: 'Rocket', description: 'Sub-metaCommons artefact — capability discovery, opportunity intelligence, venture formation', color: 'violet' },
+    },
+    {
+      id: 'polity-core-standing',
+      label: 'Standing Framework',
+      slug: 'standing-framework',
+      enabled: true,
+      group: 'frameworks',
+      order: 5,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_standing_framework', defaultPath: 'items/STANDING_FRAMEWORK.md' },
+      },
+      metadata: { icon: 'Award', description: 'Operational companion to the Standing Charter', color: 'violet' },
+    },
+    {
+      id: 'polity-core-governance',
+      label: 'Governance',
+      slug: 'governance-framework',
+      enabled: true,
+      group: 'frameworks',
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_governance_framework', defaultPath: 'items/GOVERNANCE_FRAMEWORK.md' },
+      },
+      metadata: { icon: 'Scale', description: 'Governance authority is reserved to citizens', color: 'violet' },
+    },
+    {
+      id: 'polity-core-ventureqube-spec',
+      label: 'VentureQube Spec (WIP)',
+      slug: 'ventureqube-spec',
+      enabled: true,
+      group: 'records',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_ventureqube_spec', defaultPath: 'items/VENTUREQUBE_SPEC.md' },
+      },
+      metadata: { icon: 'Layers', description: 'Work-in-progress constitutional primitive — VentureQube v1 (stubbed for canonization)', color: 'amber' },
+    },
+    {
+      id: 'polity-core-amendments',
+      label: 'Amendment Records',
+      slug: 'amendment-records',
+      enabled: true,
+      group: 'records',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_amendment_records', defaultPath: 'items/AMENDMENT_RECORDS.md' },
+      },
+      metadata: { icon: 'FileText', description: 'Append-only ledger of constitutional changes + Autodrive CIDs', color: 'violet' },
+    },
+    {
+      id: 'polity-core-machine-readable',
+      label: 'Machine-Readable',
+      slug: 'machine-readable',
+      enabled: true,
+      group: 'records',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_machine_readable', defaultPath: 'items/MACHINE_READABLE.md' },
+      },
+      metadata: { icon: 'Code', description: 'Machine-readable source of legitimacy — endpoint, sources, accessor', color: 'violet' },
+    },
+  ],
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
@@ -4179,6 +4561,7 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   POLITY_PASSPORT_BUREAU_CARTRIDGE,
   HUMAN_MOBILITY_SERVICES_CARTRIDGE,
   STANDING_CARTRIDGE,
+  POLITY_CORE_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {

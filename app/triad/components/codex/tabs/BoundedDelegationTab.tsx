@@ -210,6 +210,18 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const maxGrantableBand = BUCKET_TO_BAND[activePersona?.reputationBucket ?? 0] ?? "L1_EXPERIMENTAL";
   const bandIndex = TRUST_BANDS.indexOf(maxGrantableBand);
 
+  // Clamp the selected trust band to what the persona can actually grant. The
+  // default (L2) exceeds a fresh citizen's reputation (bucket 0 → L1), which
+  // otherwise fails the grant with "Insufficient reputation". Runs when the
+  // persona's reputation resolves.
+  useEffect(() => {
+    if (TRUST_BANDS.indexOf(selectedTrustBand) > bandIndex) {
+      const clamped = TRUST_BANDS[bandIndex] ?? "L1_EXPERIMENTAL";
+      setSelectedTrustBand(clamped);
+      setSelectedActions(TRUST_BAND_ACTIONS[clamped] ?? []);
+    }
+  }, [bandIndex, selectedTrustBand]);
+
   const loadDelegation = useCallback(async () => {
     setLoading(true);
     setError(null);

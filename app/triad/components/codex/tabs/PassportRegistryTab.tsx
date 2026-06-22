@@ -17,10 +17,11 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
-import { BookOpenCheck, RefreshCw, Loader2, AlertCircle, ShieldCheck, Bot, Wallet, Link2, ChevronDown, ChevronUp } from 'lucide-react';
+import { BookOpenCheck, RefreshCw, Loader2, AlertCircle, ShieldCheck, Bot, Wallet, Link2, ChevronDown, ChevronUp, Star } from 'lucide-react';
 import { SubHeaderSlotContext } from '../SubHeaderSlot';
 import { PassportClaimModal } from './PassportClaimModal';
 import { personaFetch } from '@/utils/personaSpine';
+import { useSupabaseSessionPersonas } from '@/app/hooks/useSupabaseSessionPersonas';
 
 const WorldIdButton = dynamic(
   () => import('@/components/passport/WorldIdButton').then((m) => ({ default: m.WorldIdButton })),
@@ -55,8 +56,10 @@ interface OwnPassport {
 interface SponsoredAgent {
   agentRootId: string;
   displayName: string;
+  didUri?: string;
   agentCardUrl: string;
   agentClass: string;
+  isAigentMe?: boolean;
   boundPassportId: string | null;
   sponsorPassportId: string;
   passport: {
@@ -66,6 +69,13 @@ interface SponsoredAgent {
     passportStatus: string | null;
     claimedAt: string | null;
   } | null;
+}
+
+interface SponsorshipCapacity {
+  base: number;
+  earned: number;
+  used: number;
+  remaining: number;
 }
 
 const CLASS_FILTERS = [
@@ -80,7 +90,7 @@ function cls(...xs: Array<string | false | undefined>) {
   return xs.filter(Boolean).join(' ');
 }
 
-export function PassportRegistryTab() {
+export function PassportRegistryTab({ personaId }: { personaId?: string }) {
   const [passports, setPassports] = useState<PublicPassport[]>([]);
   const [classFilter, setClassFilter] = useState('');
   const [loading, setLoading] = useState(true);
@@ -89,8 +99,16 @@ export function PassportRegistryTab() {
 
   const [ownPassports, setOwnPassports] = useState<OwnPassport[]>([]);
   const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgent[]>([]);
+  const [capacity, setCapacity] = useState<SponsorshipCapacity | null>(null);
   const [sponsoredOpen, setSponsoredOpen] = useState(true);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [promoteError, setPromoteError] = useState<string | null>(null);
   const [claimTarget, setClaimTarget] = useState<{ passportId: string; passportClass: string } | null>(null);
+  // The agent_root_did currently holding the active delegation for this persona
+  // (one active delegation at a time). Used to show "Delegation active" instead
+  // of "Set up Delegation" on the matching agent row.
+  const { sessionPersonas } = useSupabaseSessionPersonas();
+  const [activeDelegationDid, setActiveDelegationDid] = useState<string | null>(null);
   const [worldIdBusy, setWorldIdBusy] = useState<string | null>(null);
   const [worldIdError, setWorldIdError] = useState<Record<string, string | null>>({});
 
@@ -154,17 +172,70 @@ export function PassportRegistryTab() {
       }
       if (agentsRes.ok) {
         const json = await agentsRes.json();
-        if (json.ok) setSponsoredAgents(json.agents ?? []);
+        if (json.ok) {
+          setSponsoredAgents(json.agents ?? []);
+          setCapacity(json.capacity ?? null);
+        }
       }
     } catch {
       // Silent — user may not be authenticated
     }
   }, []);
 
+  // Promote an existing sponsored delegate to be the citizen's aigentMe —
+  // carries that agent's card + bound passport into the aigentMe role.
+  const promoteToAigentMe = useCallback(
+    async (agentRootId: string) => {
+      setPromotingId(agentRootId);
+      setPromoteError(null);
+      try {
+        const res = await personaFetch('/api/agents/aigentme', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentRootId }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.ok) {
+          setPromoteError(data?.error ?? 'Could not assign aigentMe');
+          return;
+        }
+        await loadOwn();
+      } catch (e) {
+        setPromoteError(e instanceof Error ? e.message : 'Could not assign aigentMe');
+      } finally {
+        setPromotingId(null);
+      }
+    },
+    [loadOwn],
+  );
+
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadOwn(); }, [loadOwn]);
 
+  // Resolve the active delegation so agent rows reflect "already delegated".
+  const loadActiveDelegation = useCallback(async () => {
+    try {
+      const pid =
+        personaId ||
+        (typeof window !== 'undefined' && window.localStorage.getItem('currentPersonaId')) ||
+        sessionPersonas[0]?.id ||
+        '';
+      if (!pid) return;
+      const res = await fetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`,
+        { cache: 'no-store' },
+      );
+      const data = await res.json();
+      setActiveDelegationDid(data?.active && data?.agent_root_did ? String(data.agent_root_did) : null);
+    } catch {
+      setActiveDelegationDid(null);
+    }
+  }, [personaId, sessionPersonas]);
+  useEffect(() => { void loadActiveDelegation(); }, [loadActiveDelegation]);
+
   const ownMap = new Map(ownPassports.map((p) => [p.passportId, p]));
+  const hasAigentMe = sponsoredAgents.some((a) => a.isAigentMe);
+  const citizenPassport = ownPassports.find((p) => p.passportClass === 'citizen');
 
   const filterChips = (
     <div className="flex gap-1 flex-wrap items-center">
@@ -215,8 +286,8 @@ export function PassportRegistryTab() {
         </div>
       )}
 
-      {/* My Sponsored Agents — passport claim + delegation flow */}
-      {sponsoredAgents.length > 0 && (
+      {/* My Citizen Passport & Sponsored Delegates — claim + delegation flow */}
+      {(citizenPassport || sponsoredAgents.length > 0) && (
         <div className="rounded-xl border border-violet-700/40 bg-violet-950/20 p-4 space-y-3">
           <button
             type="button"
@@ -225,7 +296,7 @@ export function PassportRegistryTab() {
           >
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-violet-400" />
-              <span className="text-sm font-semibold text-slate-200">My Sponsored Agents</span>
+              <span className="text-sm font-semibold text-slate-200">My Citizen Passport &amp; Sponsored Delegates</span>
               <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
                 {sponsoredAgents.length}
               </span>
@@ -238,10 +309,59 @@ export function PassportRegistryTab() {
           </button>
           {sponsoredOpen && (
             <div className="space-y-2">
+              {/* Sponsoring credential — the citizen's own passport */}
+              {citizenPassport && (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                      <span className="text-sm font-medium text-slate-100">My Citizen Passport</span>
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                        {citizenPassport.passportGrade ?? 'citizen'}
+                      </span>
+                    </div>
+                    {citizenPassport.claimedAt ? (
+                      <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                        <Wallet className="h-3 w-3" /> In Wallet
+                      </span>
+                    ) : citizenPassport.claimable ? (
+                      <button
+                        onClick={() => setClaimTarget({ passportId: citizenPassport.passportId, passportClass: 'citizen' })}
+                        className="flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-500/30 px-2.5 py-0.5 text-xs text-violet-300 hover:bg-violet-500/25 animate-pulse"
+                      >
+                        <Wallet className="h-3 w-3" /> Claim
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="font-mono text-[10px] text-slate-500 break-all">{citizenPassport.passportId}</p>
+                  <p className="text-[11px] text-slate-400">
+                    The credential that sponsors your delegates below.
+                    {capacity && (
+                      <>
+                        {' '}Sponsorship capacity: <span className="text-slate-200">{capacity.used}</span> of{' '}
+                        <span className="text-slate-200">{capacity.base + capacity.earned}</span> used
+                        {capacity.remaining <= 0
+                          ? ' — exhausted.'
+                          : ` — ${capacity.remaining} remaining.`}
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {promoteError && (
+                <div className="flex items-start gap-2 rounded-lg border border-rose-700 bg-rose-950/40 p-2 text-xs text-rose-300">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{promoteError}</span>
+                </div>
+              )}
               {sponsoredAgents.map((agent) => {
                 const hasPassport = !!agent.passport;
                 const isClaimed = !!agent.passport?.claimedAt;
                 const passportStatus = agent.passport?.passportStatus;
+                const isDelegated =
+                  !!activeDelegationDid &&
+                  (activeDelegationDid === agent.didUri || activeDelegationDid === agent.agentRootId);
                 return (
                   <div
                     key={agent.agentRootId}
@@ -258,6 +378,11 @@ export function PassportRegistryTab() {
                       <div className="flex items-center gap-2">
                         <Bot className="h-4 w-4 text-violet-400" />
                         <span className="text-sm font-medium text-slate-100">{agent.displayName}</span>
+                        {agent.isAigentMe && (
+                          <span className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                            <Star className="h-2.5 w-2.5" /> aigentMe
+                          </span>
+                        )}
                         <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
                           {agent.agentClass}
                         </span>
@@ -296,6 +421,22 @@ export function PassportRegistryTab() {
                         </span>
                       )}
                     </div>
+                    {/* Assign this delegate (and its passport) to the aigentMe role —
+                        only when the user hasn't designated an aigentMe yet. */}
+                    {!agent.isAigentMe && !hasAigentMe && (
+                      <button
+                        onClick={() => void promoteToAigentMe(agent.agentRootId)}
+                        disabled={promotingId === agent.agentRootId}
+                        className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+                      >
+                        {promotingId === agent.agentRootId ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Star className="h-3 w-3" />
+                        )}
+                        Assign as my aigentMe
+                      </button>
+                    )}
                     {isClaimed && (
                       <div className="flex items-center gap-2 pt-1">
                         <button
@@ -309,19 +450,32 @@ export function PassportRegistryTab() {
                         >
                           <Wallet className="h-3 w-3" /> View Credential
                         </button>
-                        <a
-                          href="#delegation"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
-                            if (tabButtons.length > 0) {
-                              (tabButtons[0] as HTMLElement).click();
-                            }
-                          }}
-                          className="flex items-center gap-1 rounded bg-violet-600/20 border border-violet-500/30 px-2.5 py-1 text-xs text-violet-300 hover:bg-violet-600/30"
-                        >
-                          <Link2 className="h-3 w-3" /> Set up Delegation
-                        </a>
+                        {isDelegated ? (
+                          <a
+                            href="#delegation"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
+                              if (tabButtons.length > 0) (tabButtons[0] as HTMLElement).click();
+                            }}
+                            title="This agent holds your active delegation — open the Delegation tab to manage or revoke"
+                            className="flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300 hover:bg-emerald-500/20"
+                          >
+                            <ShieldCheck className="h-3 w-3" /> Delegation active
+                          </a>
+                        ) : (
+                          <a
+                            href="#delegation"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
+                              if (tabButtons.length > 0) (tabButtons[0] as HTMLElement).click();
+                            }}
+                            className="flex items-center gap-1 rounded bg-violet-600/20 border border-violet-500/30 px-2.5 py-1 text-xs text-violet-300 hover:bg-violet-600/30"
+                          >
+                            <Link2 className="h-3 w-3" /> Set up Delegation
+                          </a>
+                        )}
                       </div>
                     )}
                   </div>

@@ -18,7 +18,13 @@ export type VentureQubeSchemaVersion =
   | "venture-iqube/v0.1"
   | "venture-iqube/v0.2"
   | "venture-iqube/v0.3"
-  | "venture-iqube/v0.4";
+  | "venture-iqube/v0.4"
+  // v1.0 — the canonical 13-layer per-venture formation primitive (Founder
+  // Office PRD v3 + VentureQube Spec v1). v0.1→v0.4 remain the operator
+  // portfolio wrapper integrated with the aigentMe experience model; v1.0 is
+  // the per-venture object a wrapper venture can graduate into. See the v1.0
+  // section at the bottom of this file.
+  | "venture-iqube/v1.0";
 
 export type CartridgeSlugV04 =
   | "metame"
@@ -308,3 +314,342 @@ export interface VentureQube {
 
 // Convenience alias — most callers care only about the v0.4 shape.
 export type VentureQubeV04 = VentureQube & { schemaVersion: "venture-iqube/v0.4" };
+
+// ───────────────────────────────────────────────────────────────────────────
+// Product tiers (the operator-facing names for the two VentureQube schemas).
+//
+//   VentureQube Lite = the v0.1–v0.4 operator wrapper. The STANDARD / FREE path,
+//     wired into the aigentMe experience-model onboarding (single-venture idea
+//     incubation; position derived in the Lite experience-guide flow).
+//   VentureQube Pro  = the v1.0 per-venture formation primitive. The PREMIUM
+//     path (Step 4 gating): multi-venture/portfolio, advanced Pro experience-
+//     guide intake fed by Standing declarations, Venture Lab Pro surfaces, and
+//     multiple metaMe venture views in the Studio.
+//
+// The `venture-iqube/vX` schema versions remain the canonical protocol IDs;
+// Lite/Pro are display labels mapped onto them.
+// ───────────────────────────────────────────────────────────────────────────
+
+export type VentureQubeTier = "lite" | "pro";
+
+export const VENTUREQUBE_TIER_LABEL: Record<VentureQubeTier, string> = {
+  lite: "VentureQube Lite",
+  pro: "VentureQube Pro",
+};
+
+/** Map a schema version to its product tier. v1.0 = Pro; everything else = Lite. */
+export function ventureQubeTier(schemaVersion: VentureQubeSchemaVersion): VentureQubeTier {
+  return schemaVersion === "venture-iqube/v1.0" ? "pro" : "lite";
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// VentureQube v1.0 — "VentureQube Pro" — the canonical 13-layer
+// venture-formation primitive (the premium / Step-4 path).
+//
+// Classification: ClusterQube specialization (registered in the iQube registry
+// SoT with primitive_type='ClusterQube'). One VentureQube === one venture.
+//
+// Relationship to v0.4: v0.4 is the operator-centric portfolio wrapper wired
+// into the aigentMe experience-model onboarding (idea incubation). A wrapper's
+// ventures[] entry can GRADUATE into a full v1.0 VentureQube when the operator
+// moves from incubating an idea to blueprinting a venture in the Venture Lab
+// cartridge. The two coexist; v1.0 never replaces v0.4.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Venture lifecycle stage (Layer 1 / lifecycle). */
+export type VentureStage =
+  | "concept"
+  | "validation"
+  | "formation"
+  | "launch"
+  | "growth"
+  | "scale"
+  | "institution";
+
+/** The Founder Office workflow path that produced or last advanced the venture. */
+export type FounderPath = "discover" | "validate" | "architect";
+
+/** Customer archetypes (Layer 4 examples — open-ended via `label`). */
+export type VentureArchetypeKind =
+  | "citizen"
+  | "creator"
+  | "founder_operator"
+  | "executive"
+  | "investor"
+  | "institution"
+  | "other";
+
+/** Revenue model kinds (Layer 5). */
+export type RevenueModelKind =
+  | "subscription"
+  | "services"
+  | "licensing"
+  | "commerce"
+  | "transaction_fees"
+  | "intelligence_services"
+  | "venture_participation"
+  | "other";
+
+/** Agent consumers of the Delegation layer (Layer 9). */
+export type VentureAgentConsumer =
+  | "aigentMe"
+  | "devon"
+  | "marketa"
+  | "venture-lab"
+  | "investor-office";
+
+/** A 0–100 confidence score; null when not yet estimated. */
+export type ConfidenceScore = number | null;
+
+// ── Layer 1 — Identity ──────────────────────────────────────────────────────
+export interface VentureIdentityLayer {
+  ventureName: string;
+  ventureSlug: string;
+  ventureDescription?: string;
+  stage: VentureStage;
+  // T2-safe public references only — never raw personaId/passportId.
+  founderPublicRefs: string[];
+  passportPublicRefs?: string[];
+  standingPublicRefs?: string[];
+  associatedIqubeIds?: string[];
+}
+
+// ── Layer 2 — Venture Thesis ────────────────────────────────────────────────
+export interface VentureThesisLayer {
+  mission?: string;
+  vision?: string;
+  problemStatement?: string;
+  consequenceThesis?: string;
+  valueProposition?: string;
+  ventureCategory?: string;
+  industryTags?: string[];
+  marketTags?: string[];
+  geographicScope?: string;
+}
+
+// ── Layer 3 — Intent ────────────────────────────────────────────────────────
+export interface VentureIntentLayer {
+  founderIntents: string[];
+  ventureIntents: string[];
+  citizenIntents?: string[];
+  commonsIntents?: string[];
+}
+
+// ── Layer 4 — Signal Evidence ───────────────────────────────────────────────
+export interface VentureSignalEvidenceItem {
+  signalId: string;
+  signalType: string;
+  signalSource: string;
+  confidenceScore: ConfidenceScore;
+  standingScore: ConfidenceScore;
+  proofOfWorkPotential?: ConfidenceScore;
+  timestamp: string;
+}
+
+export interface VentureSignalEvidenceLayer {
+  items: VentureSignalEvidenceItem[];
+  // Roll-up confidence outputs (Standing-calibrated; computed, not declared).
+  signalConfidence: ConfidenceScore;
+  opportunityConfidence: ConfidenceScore;
+  demandConfidence: ConfidenceScore;
+  capabilityConfidence: ConfidenceScore;
+}
+
+// ── Layer 5 — Customer Archetype ────────────────────────────────────────────
+export interface VentureArchetype {
+  kind: VentureArchetypeKind;
+  label: string;
+  description?: string;
+  painPoints?: string[];
+  desiredOutcomes?: string[];
+  valueReceived?: string;
+  willingnessToPay?: string;
+  priorityScore?: ConfidenceScore;
+}
+
+// ── Layer 6 — Revenue Architecture ──────────────────────────────────────────
+export interface VentureRevenueEngine {
+  engineType: RevenueModelKind;
+  engineName: string;
+  targetArchetypes?: string[];
+  pricingModel?: string;
+  pricingAssumptions?: string;
+  priorityLevel?: number;
+  estimatedRevenue?: string;
+}
+
+export interface VentureRevenueArchitectureLayer {
+  engines: VentureRevenueEngine[];
+}
+
+// ── Layer 7 — Commercial Operating Model ────────────────────────────────────
+export interface VentureCommercialModelLayer {
+  targetPassports?: number;
+  targetCitizens?: number;
+  targetCreators?: number;
+  targetFounders?: number;
+  targetExecutives?: number;
+  targetInvestors?: number;
+  conversionAssumptions?: string[];
+  acquisitionAssumptions?: string[];
+  revenueTargets?: string[];
+  mrrTargets?: string[];
+  arrTargets?: string[];
+  growthAssumptions?: string[];
+}
+
+// ── Layer 8 — Capability ────────────────────────────────────────────────────
+export interface VentureCapabilityLayer {
+  requiredCapabilities: string[];
+  availableCapabilities: string[];
+  capabilityGaps: string[];
+  capabilityPriorities: string[];
+}
+
+// ── Layer 8b — Resource (canonical schema "Resource Layer") ─────────────────
+export interface VentureResourceLayer {
+  requiredPeople?: string[];
+  requiredAgents?: string[];
+  requiredTools?: string[];
+  requiredIqubes?: string[];
+  requiredCapital?: string[];
+}
+
+// ── Layer 9 — Execution ─────────────────────────────────────────────────────
+export interface VentureExecutionPhase {
+  phaseName: string;
+  startDate?: string;
+  endDate?: string;
+  objectives: string[];
+  deliverables: string[];
+  dependencies?: string[];
+  successMetrics?: string[];
+}
+
+export interface VentureExecutionLayer {
+  phases: VentureExecutionPhase[];
+}
+
+// ── Layer 10 — Delegation (agent handoff) ───────────────────────────────────
+export interface VentureAgentAssignment {
+  agentType: VentureAgentConsumer;
+  agentId?: string;
+  responsibility: string;
+  deliverables: string[];
+  successMetrics?: string[];
+}
+
+export interface VentureDelegationLayer {
+  assignments: VentureAgentAssignment[];
+}
+
+// ── Layer 11 — Outcome ──────────────────────────────────────────────────────
+export interface VentureOutcomeLayer {
+  outcomes?: string[];
+  proofOfTimeSaved?: string[];
+  standingChanges?: string[];
+  lessonsLearned?: string[];
+}
+
+// ── Layer 12 — Governance ───────────────────────────────────────────────────
+export interface VentureGovernanceLayer {
+  riskScore?: ConfidenceScore;
+  sensitivityScore?: ConfidenceScore;
+  accuracyScore?: ConfidenceScore;
+  verifiabilityScore?: ConfidenceScore;
+  standingConfidence?: ConfidenceScore;
+  proofOfWorkPotential?: ConfidenceScore;
+  ventureConfidence?: ConfidenceScore;
+}
+
+// ── Layer 13 — Institutional ────────────────────────────────────────────────
+export interface VentureInstitutionalLayer {
+  ventureLabStatus?: string;
+  investmentStatus?: string;
+  commonsVisibility?: "private" | "commons" | "public";
+  publicVisibility?: boolean;
+  institutionalReadiness?: ConfidenceScore;
+  institutionalClassification?: string;
+}
+
+/**
+ * VentureQube v1.0 — the canonical per-venture formation primitive.
+ *
+ * `ventureId` is the registry-canonical UUID; T0 owner identity lives only on
+ * the server-side `venture_qubes` row and is never embedded here (the layers
+ * carry T2-safe public refs only).
+ */
+export interface VentureQubeV1 {
+  schemaVersion: "venture-iqube/v1.0";
+  ventureId: string;
+  emittedAt?: string;
+  lastPath?: FounderPath;
+  identity: VentureIdentityLayer;
+  thesis: VentureThesisLayer;
+  intent: VentureIntentLayer;
+  signalEvidence: VentureSignalEvidenceLayer;
+  archetypes: VentureArchetype[];
+  revenueArchitecture: VentureRevenueArchitectureLayer;
+  commercialModel: VentureCommercialModelLayer;
+  capability: VentureCapabilityLayer;
+  resource: VentureResourceLayer;
+  execution: VentureExecutionLayer;
+  delegation: VentureDelegationLayer;
+  outcome: VentureOutcomeLayer;
+  governance: VentureGovernanceLayer;
+  institutional: VentureInstitutionalLayer;
+}
+
+export const VENTURE_STAGES: VentureStage[] = [
+  "concept",
+  "validation",
+  "formation",
+  "launch",
+  "growth",
+  "scale",
+  "institution",
+];
+
+/** Build an empty v1.0 VentureQube scaffold for a new venture. */
+export function emptyVentureQubeV1(
+  ventureId: string,
+  name: string,
+  slug: string,
+  stage: VentureStage = "concept",
+): VentureQubeV1 {
+  return {
+    schemaVersion: "venture-iqube/v1.0",
+    ventureId,
+    emittedAt: new Date().toISOString(),
+    identity: {
+      ventureName: name,
+      ventureSlug: slug,
+      stage,
+      founderPublicRefs: [],
+    },
+    thesis: {},
+    intent: { founderIntents: [], ventureIntents: [] },
+    signalEvidence: {
+      items: [],
+      signalConfidence: null,
+      opportunityConfidence: null,
+      demandConfidence: null,
+      capabilityConfidence: null,
+    },
+    archetypes: [],
+    revenueArchitecture: { engines: [] },
+    commercialModel: {},
+    capability: {
+      requiredCapabilities: [],
+      availableCapabilities: [],
+      capabilityGaps: [],
+      capabilityPriorities: [],
+    },
+    resource: {},
+    execution: { phases: [] },
+    delegation: { assignments: [] },
+    outcome: {},
+    governance: {},
+    institutional: {},
+  };
+}

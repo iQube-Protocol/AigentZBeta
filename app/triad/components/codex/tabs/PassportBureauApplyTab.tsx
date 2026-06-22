@@ -181,6 +181,84 @@ export function PassportBureauApplyTab() {
   const [genesisBusy, setGenesisBusy] = useState(false);
   const [genesisCompleted, setGenesisCompleted] = useState(false);
 
+  // aigentMe designation — when checked, the generated agent (card + the
+  // participant passport it earns) becomes the citizen's aigentMe, mapped to
+  // their persona + citizen passport + wallet via the is_aigent_me flag. One
+  // per persona; the toggle disables when an aigentMe already exists.
+  const [makeAigentMe, setMakeAigentMe] = useState(false);
+  const [existingAigentMe, setExistingAigentMe] = useState<{ displayName: string } | null>(null);
+  // Admin gate for the Option A (autonomous agent) stub.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    authedFetchHeaders()
+      .then((headers) =>
+        Promise.all([
+          fetch('/api/agents/aigentme', { headers, cache: 'no-store' })
+            .then((r) => r.json())
+            .then((j) => {
+              if (!cancelled && j?.ok && j.agent) {
+                setExistingAigentMe({ displayName: String(j.agent.displayName ?? 'aigentMe') });
+              }
+            })
+            .catch(() => {}),
+          fetch('/api/wallet/active-persona', { headers, cache: 'no-store' })
+            .then((r) => r.json())
+            .then((j) => {
+              if (!cancelled) setIsAdmin(Boolean(j?.cartridgeFlags?.isAdmin));
+            })
+            .catch(() => {}),
+        ]),
+      )
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Option A (admin-only) — deploy an autonomous agent. Binds to the current
+  // constitution; agent class only (no kybe / citizenship), enforced server-side.
+  const [autonomousBusy, setAutonomousBusy] = useState(false);
+  const [autonomousDeployed, setAutonomousDeployed] = useState<string | null>(null);
+  const handleDeployAutonomous = useCallback(async () => {
+    setAutonomousBusy(true);
+    setError(null);
+    try {
+      const headers = await authedFetchHeaders();
+      const walletRes = await fetch('/api/polity-passport/wallet', { headers, cache: 'no-store' });
+      const walletData = await walletRes.json();
+      const claimed = (walletData?.passportQubes ?? []).find(
+        (pq: { claimedAt: string | null; passportClass?: string }) => pq.claimedAt && pq.passportClass === 'citizen',
+      ) ?? (walletData?.passportQubes ?? []).find((pq: { claimedAt: string | null }) => pq.claimedAt);
+      if (!claimed) {
+        setError('A claimed Citizen Passport is required to sponsor an autonomous agent (no orphaned agents).');
+        return;
+      }
+      const name = agentName.trim() || 'Autonomous Agent';
+      const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'autonomous-agent';
+      const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+      const r = await fetch('/api/agents/autonomous', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          slug,
+          displayName: name,
+          description: agentDescription.trim() || 'Autonomous agent — delegated instrument, no sovereignty.',
+          sponsorPassportId: claimed.passportId,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data?.ok) {
+        setError(data?.error ?? 'Autonomous agent deploy failed');
+        return;
+      }
+      setAutonomousDeployed(data.agent.agentCardUrl);
+      setNotice(`Autonomous agent deployed — Agent Card live at ${data.agent.agentCardUrl}. Bound to Constitution ${data.constitutionalBinding?.constitutionVersion}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setAutonomousBusy(false);
+    }
+  }, [agentName, agentDescription]);
+
   const handleQuickAgent = useCallback(async () => {
     setGenesisBusy(true);
     setError(null);
@@ -208,6 +286,7 @@ export function PassportBureauApplyTab() {
           displayName: name,
           description: desc,
           sponsorPassportId: claimed.passportId,
+          isAigentMe: makeAigentMe,
         }),
       });
       const data = await r.json();
@@ -221,13 +300,18 @@ export function PassportBureauApplyTab() {
       setGenesisSponsorPassportId(claimed.passportId);
       setAgentCardUrl(data.agent.agentCardUrl);
       setGenesisCompleted(true);
-      setNotice(`Agent Card live at ${data.agent.agentCardUrl}`);
+      if (data.agent.isAigentMe) setExistingAigentMe({ displayName: name });
+      setNotice(
+        data.agent.isAigentMe
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — its participant passport will map to your aigentMe.`
+          : `Agent Card live at ${data.agent.agentCardUrl}`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
     } finally {
       setGenesisBusy(false);
     }
-  }, [agentName, agentDescription]);
+  }, [agentName, agentDescription, makeAigentMe]);
 
   const handleGenesisAgent = useCallback(async () => {
     if (!agentName.trim() || !agentDescription.trim() || !genesisSlug.trim() || !genesisSponsorPassportId.trim()) {
@@ -246,6 +330,7 @@ export function PassportBureauApplyTab() {
           displayName: agentName.trim(),
           description: agentDescription.trim(),
           sponsorPassportId: genesisSponsorPassportId.trim(),
+          isAigentMe: makeAigentMe,
         }),
       });
       const data = await r.json();
@@ -255,13 +340,18 @@ export function PassportBureauApplyTab() {
       }
       setAgentCardUrl(data.agent.agentCardUrl);
       setGenesisCompleted(true);
-      setNotice(`Agent Card live at ${data.agent.agentCardUrl} — submit below to issue Aletheon a Participant Passport.`);
+      if (data.agent.isAigentMe) setExistingAigentMe({ displayName: agentName.trim() });
+      setNotice(
+        data.agent.isAigentMe
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — submit below to issue your aigentMe its Participant Passport.`
+          : `Agent Card live at ${data.agent.agentCardUrl} — submit below to issue ${agentName.trim()} a Participant Passport.`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
     } finally {
       setGenesisBusy(false);
     }
-  }, [agentName, agentDescription, genesisSlug, genesisSponsorPassportId]);
+  }, [agentName, agentDescription, genesisSlug, genesisSponsorPassportId, makeAigentMe]);
 
   // Step 1 — account
   const [username, setUsername] = useState('');
@@ -734,6 +824,77 @@ export function PassportBureauApplyTab() {
               Paste existing Agent Card URL
             </button>
           </div>
+
+          {/* aigentMe designation — only for generated cards (quick/genesis). */}
+          {(agentCardSource === 'quick' || agentCardSource === 'genesis') && (
+            <label
+              className={cls(
+                'flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs',
+                existingAigentMe
+                  ? 'border-slate-700/60 bg-slate-900/40 cursor-not-allowed'
+                  : 'border-amber-500/40 bg-amber-500/5 cursor-pointer',
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={makeAigentMe && !existingAigentMe}
+                disabled={!!existingAigentMe}
+                onChange={(e) => setMakeAigentMe(e.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 rounded accent-amber-500"
+              />
+              <span className="flex items-center gap-1.5">
+                <Star className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                {existingAigentMe ? (
+                  <span className="text-slate-400">
+                    You already have an aigentMe ({existingAigentMe.displayName}). Only one aigentMe is allowed per persona.
+                  </span>
+                ) : (
+                  <span className="text-amber-200/90">
+                    <strong className="text-amber-200">This is my aigentMe.</strong> The generated agent card and the
+                    participant passport it earns will become your aigentMe — your primary personal delegate — mapped to
+                    your persona, your citizen passport, and your wallet.
+                  </span>
+                )}
+              </span>
+            </label>
+          )}
+
+          {/* Option A (advanced, admin-only) — autonomous agent deployment.
+              The agent binds to the current constitution and is agent-class
+              only: NO kybe DID, never presents as a human/citizen, cannot hold a
+              citizen passport (enforced server-side in sponsorPolityAgent). */}
+          {isAdmin && (agentCardSource === 'quick' || agentCardSource === 'genesis') && (
+            <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 px-3 py-2.5 text-xs space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 font-medium text-purple-200">
+                  <GitBranch className="h-3.5 w-3.5 text-purple-400" />
+                  Deploy as autonomous agent (Option A)
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-300">
+                  Admin only
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Advanced: deploy a fully autonomous agent that can occupy the agent seat and act
+                directly under bounded delegation. <strong className="text-slate-300">Guardrails:</strong> no
+                kybe DID, never presents as a human/citizen, always identifiable as an agent, cannot
+                hold a citizen passport, and binds to the current Constitution / Agent Charter /
+                Delegation Framework with an immediate-effect revocation authority.
+              </p>
+              <button
+                type="button"
+                onClick={handleDeployAutonomous}
+                disabled={autonomousBusy || !!autonomousDeployed}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-[11px] font-medium text-purple-200 hover:bg-purple-500/20 disabled:opacity-50 transition-colors"
+              >
+                {autonomousBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitBranch className="h-3.5 w-3.5" />}
+                {autonomousDeployed ? 'Autonomous agent deployed' : 'Deploy autonomous agent'}
+              </button>
+              {autonomousDeployed && (
+                <code className="block text-[10px] text-purple-300 font-mono break-all">{autonomousDeployed}</code>
+              )}
+            </div>
+          )}
 
           {agentCardSource === 'quick' ? (
             <div className="space-y-3 rounded-lg border border-emerald-700/40 bg-emerald-900/10 p-3">

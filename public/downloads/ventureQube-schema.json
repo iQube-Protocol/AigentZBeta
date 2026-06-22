@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://aigentz.me/downloads/ventureQube-schema.json",
-  "title": "Venture iQube (v0.4)",
-  "description": "Self-sovereign upload format used by aigentMe to populate ExperienceModel + ExperienceGuide + myCartridge wizard in one shot.",
+  "title": "Venture iQube (v0.5)",
+  "description": "Self-sovereign upload format used by aigentMe to populate the operator's ExperienceModel (strategy, ventures, goals, KPIs, priority partners), ExperienceGuide (the 7-sphere lived-state lattice), Standing (self-attested capability declarations), and optionally a myCartridge — in one upload. v0.5 adds the experienceGuide, standing, experienceGoals, and priorityPartners blocks so the upload mirrors the full in-app setup process.",
   "_agent_briefing": {
     "audience": "An off-platform AI assistant (ChatGPT, Claude, Gemini, etc.) helping a user prepare a Venture iQube to upload back into their own aigentMe.",
     "what_this_is": "A Venture iQube is a structured snapshot of who the operator is, what they're building, and the work in front of them. It travels with them across the AgentiQ platform and populates: (1) their ExperienceModel (the cockpit's strategy + ventures + KPI rails), (2) their ExperienceGuide (the per-venture progressive coaching surface), and (3) their myCartridge wizard (the operator's own first cartridge inside AgentiQ).",
@@ -28,9 +28,14 @@
     ],
     "refresh_cadence": "Re-upload as often as you like — daily standup, weekly review, after a major pivot. Each upload is a snapshot; the system records what changed via DVN receipts. The operator's emittedAt timestamp helps the runtime decide whether to merge or supersede prior plan blocks.",
     "experience_guide_explainer": {
-      "what_it_is": "The ExperienceGuide is the per-venture progressive coaching surface aigentMe renders inside the venture cockpit. It walks the operator through their next-best-action sequence (Brief Me → Move Forward → Engage Specialist → Approve Action → Mark Complete) for each declared objective.",
-      "how_to_help_the_operator_populate_it": "The schema doesn't include a literal 'ExperienceGuide' field — the guide is derived at runtime from `ventures[].objectives[]` + `plan` horizons. To maximise coaching quality, encourage the operator to: (1) write `successCriteria[]` for each objective in concrete, observable terms (e.g. 'partner signs LOI', not 'partner is happy'), (2) declare `blockers[]` and `dependencies[]` honestly — the system uses these to suggest the right specialist, (3) split `plan.today` into 1–3 concrete `actions[]` with `owner` + `due`, (4) pick a `specialistHint` per objective (marketa for outreach/PR, quill for content, kn0w1 for research/synthesis).",
-      "guide_personality": "The guide is direct. It tells the operator the ONE thing to do next, surfaces blockers, and asks 'do you want me to liaise with X?' before triggering a specialist chain. The richer the success criteria + dependencies, the better the guide's recommendations."
+      "what_it_is": "The ExperienceGuide has two parts. (1) The per-venture progressive coaching surface aigentMe renders inside the venture cockpit — it walks the operator through their next-best-action sequence (Brief Me → Move Forward → Engage Specialist → Approve Action → Mark Complete) for each declared objective, derived at runtime from `ventures[].objectives[]` + `plan`. (2) v0.5: the operator's 7-sphere 'lived-state' self-assessment (the PersonalGuide lattice), captured in the top-level `experienceGuide` block — the same thing the in-app ExperienceGuide wizard sets up.",
+      "how_to_help_the_operator_populate_it": "For the coaching surface: (1) write `successCriteria[]` for each objective in concrete, observable terms ('partner signs LOI', not 'partner is happy'), (2) declare `dependencies[]` honestly — the system uses these to suggest the right specialist, (3) split `plan.today` into 1–3 concrete `actions[]` with `owner` + `due`, (4) pick a `specialistHint` per objective (marketa for outreach/PR, quill for content, kn0w1 for research/synthesis). For the lived-state lattice (v0.5): fill `experienceGuide.sphereMaturity` / `sphereAlignment` for the seven spheres (energy, body, mind, emotion, relationship, community, legacy) only where the operator has a real read — unspecified spheres default sensibly. Set `experienceGuide.focusIntent` to what they're focused on now.",
+      "guide_personality": "The guide is direct. It tells the operator the ONE thing to do next, surfaces blockers, and asks 'do you want me to liaise with X?' before triggering a specialist chain. The richer the success criteria + dependencies + sphere assessment, the better the guide's recommendations."
+    },
+    "standing_explainer": {
+      "what_it_is": "Standing is the operator's attestation of who they are, what they know and have done, and what they intend — the basis on which the platform helps them achieve their intent. The top-level `standing.core` block holds the seven Standing Core declarations; on upload they are written as PRINCIPAL_VERIFIED self-attested facts and compiled into the operator's Standing Asset Graph (a capability graph) that calibrates venture confidence.",
+      "how_to_help_the_operator_populate_it": "Fill `standing.core` honestly and specifically — whoYouAre, whatYouKnow, whatYouveDone, interests, intentions, experiencesThatMatter, accomplish. Concrete, verifiable statements produce a stronger Standing Graph than vague ones. Standing is about veracity, not self-promotion: only state what is true. If the operator has a public LinkedIn, put it in `standing.linkedInUrl` — but note the automatic LinkedIn enrichment runs interactively via the wizard's 'Connect LinkedIn' button, not during this upload.",
+      "relationship_to_ventures": "Standing calibrates ventures: capabilities the operator can stand behind raise venture confidence. It never gates — a venture works without Standing, but Standing makes the system's guidance sharper."
     },
     "my_cartridge_explainer": {
       "what_it_is": "myCartridge is the operator's own first cartridge inside AgentiQ — a public-or-private surface they author for an audience (their team, customers, community, or themselves). When the operator wants to ship a cartridge, fill the optional `ventures[].myCartridge` block on the venture that will own it.",
@@ -48,9 +53,10 @@
         "venture-iqube/v0.1",
         "venture-iqube/v0.2",
         "venture-iqube/v0.3",
-        "venture-iqube/v0.4"
+        "venture-iqube/v0.4",
+        "venture-iqube/v0.5"
       ],
-      "description": "Use v0.4 for new uploads. Earlier versions are accepted for backwards-compatible reads but lack the myCartridge nested block."
+      "description": "Use v0.5 for new uploads — it adds the experienceGuide, standing, experienceGoals, and priorityPartners blocks. v0.4 adds the myCartridge nested block. Earlier versions remain accepted for backwards-compatible reads."
     },
     "emittedAt": {
       "type": "string",
@@ -147,10 +153,103 @@
     "kpiBoard": {
       "type": "array",
       "items": { "$ref": "#/definitions/kpiRow" },
-      "description": "Optional cross-venture KPI rollup. The cockpit renders this on the home panel."
+      "description": "Optional cross-venture KPI rollup. v0.5: these now hydrate the cockpit's Active KPIs rail (blak.activeKpis) as manual-source metrics, in addition to rendering on the home panel."
+    },
+    "experienceGoals": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 200 },
+      "maxItems": 30,
+      "description": "v0.5. Explicit ExperienceModel goals (the operator's working goal list). Merged with the titles derived from ventures[].objectives. These are what the next-best-experience catalog scores against."
+    },
+    "priorityPartners": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 200 },
+      "maxItems": 12,
+      "description": "v0.5. The operator's priority partners/relationships at the ExperienceModel level (distinct from per-venture partners). Surfaces in Marketa relationship flows."
+    },
+    "experienceGuide": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v0.5. The ExperienceGuide — the operator's 7-sphere 'lived state' self-assessment (the PersonalGuide lattice). Optional; when present it hydrates the same surface the metaMe ExperienceGuide wizard sets up, so the off-platform agent can prepare it too. Every sphere is optional; unspecified spheres default sensibly.",
+      "properties": {
+        "sphereMaturity": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-sphere maturity self-assessment. Each value is one of the 7 maturity levels.",
+          "properties": {
+            "energy": { "$ref": "#/definitions/maturityLevel" },
+            "body": { "$ref": "#/definitions/maturityLevel" },
+            "mind": { "$ref": "#/definitions/maturityLevel" },
+            "emotion": { "$ref": "#/definitions/maturityLevel" },
+            "relationship": { "$ref": "#/definitions/maturityLevel" },
+            "community": { "$ref": "#/definitions/maturityLevel" },
+            "legacy": { "$ref": "#/definitions/maturityLevel" }
+          }
+        },
+        "sphereAlignment": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-sphere alignment posture.",
+          "properties": {
+            "energy": { "$ref": "#/definitions/alignmentState" },
+            "body": { "$ref": "#/definitions/alignmentState" },
+            "mind": { "$ref": "#/definitions/alignmentState" },
+            "emotion": { "$ref": "#/definitions/alignmentState" },
+            "relationship": { "$ref": "#/definitions/alignmentState" },
+            "community": { "$ref": "#/definitions/alignmentState" },
+            "legacy": { "$ref": "#/definitions/alignmentState" }
+          }
+        },
+        "precedenceMode": {
+          "type": "string",
+          "enum": ["auto", "energy", "body", "mind", "emotion", "relationship", "community", "legacy"],
+          "description": "Which sphere takes precedence when the guide resolves priorities. 'auto' lets the system pick."
+        },
+        "focusIntent": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Free-text statement of what the operator is focused on right now — frames the guide's coaching."
+        }
+      }
+    },
+    "standing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v0.5. Standing — the operator's self-attestation of who they are and what they intend (Standing Core). When present, the `core` answers are written as PRINCIPAL_VERIFIED self-attested facts that feed the Standing Asset Graph (capability graph) used to calibrate ventures. This is the same surface the Standing Core wizard captures.",
+      "properties": {
+        "core": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The seven Standing Core declarations. All optional — fill what's true.",
+          "properties": {
+            "whoYouAre": { "type": "string", "maxLength": 4000, "description": "Who are you? Identity in your own words." },
+            "whatYouKnow": { "type": "string", "maxLength": 4000, "description": "What do you know? Domains, skills, expertise." },
+            "whatYouveDone": { "type": "string", "maxLength": 4000, "description": "What have you done? Track record." },
+            "interests": { "type": "string", "maxLength": 4000, "description": "What are your interests?" },
+            "intentions": { "type": "string", "maxLength": 4000, "description": "What are your intentions? The direction you're attesting to." },
+            "experiencesThatMatter": { "type": "string", "maxLength": 4000, "description": "What experiences matter to you? Formative experiences." },
+            "accomplish": { "type": "string", "maxLength": 4000, "description": "What would you like to accomplish? The outcome you want help achieving." }
+          }
+        },
+        "linkedInUrl": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "Optional public LinkedIn URL. Note: automatic enrichment runs interactively via the Standing Core wizard's 'Connect LinkedIn' button (it is NOT fetched during this upload). Included here so your agent can carry it forward."
+        }
+      }
     }
   },
   "definitions": {
+    "maturityLevel": {
+      "type": "string",
+      "enum": ["noticing", "exploring", "experimenting", "practicing", "integrating", "sustaining", "stewarding"],
+      "description": "ExperienceGuide maturity level for a sphere (lowest → highest)."
+    },
+    "alignmentState": {
+      "type": "string",
+      "enum": ["aligned", "drifting", "at_risk", "repair"],
+      "description": "ExperienceGuide alignment posture for a sphere."
+    },
     "venture": {
       "type": "object",
       "required": ["id", "name", "objectives"],
@@ -495,8 +594,8 @@
   },
   "examples": [
     {
-      "schemaVersion": "venture-iqube/v0.4",
-      "emittedAt": "2026-06-03T14:00:00Z",
+      "schemaVersion": "venture-iqube/v0.5",
+      "emittedAt": "2026-06-22T14:00:00Z",
       "operator": {
         "displayLabel": "Alex Founder",
         "archetype": "sovereign founder",
@@ -509,6 +608,42 @@
         "currentStage": "pre-revenue",
         "blockers": ["need a launch partner with existing artist roster", "no public technical credibility"],
         "constraints": ["6 months runway", "team of 3"]
+      },
+      "experienceGoals": [
+        "Sign one flagship label as launch partner",
+        "Onboard 500 artists to the closed beta",
+        "Establish public technical credibility"
+      ],
+      "priorityPartners": [
+        "Flagship indie label (launch partner)",
+        "Token infrastructure provider",
+        "Three superfan community leads"
+      ],
+      "experienceGuide": {
+        "sphereMaturity": {
+          "mind": "practicing",
+          "community": "experimenting",
+          "legacy": "exploring"
+        },
+        "sphereAlignment": {
+          "mind": "aligned",
+          "community": "drifting",
+          "energy": "at_risk"
+        },
+        "precedenceMode": "auto",
+        "focusIntent": "Land the launch partner and ship the closed beta without burning out the 3-person team."
+      },
+      "standing": {
+        "core": {
+          "whoYouAre": "A product-led founder with a decade in music tech and two prior creator-economy startups.",
+          "whatYouKnow": "Marketplace design, token incentive mechanics, music licensing, community-led growth.",
+          "whatYouveDone": "Built and sold a playlisting analytics tool; ran growth for an indie distribution platform to 50k artists.",
+          "interests": "Creator ownership, cooperative economics, rights tokenisation.",
+          "intentions": "Flip streaming economics in favour of independent musicians via a creator-owned co-op.",
+          "experiencesThatMatter": "Watching independent artists lose 70% of revenue to intermediaries shaped this thesis.",
+          "accomplish": "A self-sustaining creator-owned distribution network with 500+ artists by end of Q3."
+        },
+        "linkedInUrl": "https://www.linkedin.com/in/alex-founder"
       },
       "ventures": [
         {

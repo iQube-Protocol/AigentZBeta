@@ -22,6 +22,7 @@
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getPersonaPlan, type PersonaPlan } from '@/services/billing/personaPlan';
 import {
   emitContentQubeTransferReceipt,
 } from '@/services/access/contentQubeReceiptEmitter';
@@ -30,6 +31,28 @@ import {
   type ActivationCatalogEntry,
   type ActivationGate,
 } from '@/data/activation-catalog';
+
+// Premium cartridge activations whose self-activation is gated by the persona's
+// PLAN (the paywall). A persona may self-activate one of these gated activations
+// when their plan grants the matching entitlement (or they're an admin).
+const PLAN_ENTITLEMENT: Record<string, (p: PersonaPlan) => boolean> = {
+  'venture-lab': (p) => p.ventureLabAccess,
+  'marketa': (p) => p.marketaAccess,
+  'metame-studio': (p) => p.studioAccess,
+  'human-mobility-services': (p) => p.hmsAccess,
+};
+
+async function planAllowsSelfActivate(personaId: string, activationId: string): Promise<boolean> {
+  const entitled = PLAN_ENTITLEMENT[activationId];
+  if (!entitled) return false;
+  const admin = getSupabaseServer();
+  if (!admin) return false;
+  try {
+    return entitled(await getPersonaPlan(admin, personaId));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Activations use a dedicated rarity sentinel — 'activation' — that's
@@ -150,11 +173,12 @@ function rowToSurface(
   qube: ActivationQubeRow | undefined,
   isAdmin: boolean,
   hasPendingRequest: boolean = false,
+  planEntitled: boolean = false,
 ): ActivationSurface {
   const gateFromPolicy: ActivationGate =
     qube?.gating_kind === 'free' ? 'open' : 'gated';
   const gate: ActivationGate = entry.gate ?? gateFromPolicy;
-  const canSelfActivate = gate === 'open' || isAdmin || !!edition;
+  const canSelfActivate = gate === 'open' || isAdmin || planEntitled || !!edition;
 
   // Truth table:
   //   row present, released_at NULL    → active
@@ -346,15 +370,29 @@ export async function listActivations(
   // content_qube_editions for non-granted lifecycle states (pending).
   const pendingIds = await readPendingActivationIds(personaId);
 
+  // Resolve the plan once so premium cartridges show as self-activatable for
+  // entitled personas (the paywall affordance in the Activations tab).
+  let plan: PersonaPlan | null = null;
+  const planClient = getSupabaseServer();
+  if (planClient) {
+    try {
+      plan = await getPersonaPlan(planClient, personaId);
+    } catch {
+      /* plan unavailable — premium gated as usual */
+    }
+  }
+
   return ACTIVATION_CATALOG.map((entry) => {
     const qube = qubeIndex.get(entry.id);
     const edition = qube ? heldEditions.get(qube.qube_id) : undefined;
+    const planEntitled = !!plan && !!PLAN_ENTITLEMENT[entry.id]?.(plan);
     return rowToSurface(
       entry,
       edition,
       qube,
       options?.isAdmin ?? false,
       pendingIds.has(entry.id),
+      planEntitled,
     );
   });
 }
@@ -403,7 +441,11 @@ export async function activate(
   const entry = catalogEntryFor(activationId);
   if (!entry) return { ok: false, reason: 'unknown-activation' };
   if (entry.gate === 'gated' && !options.isAdmin) {
-    return { ok: false, reason: 'gated — use request-access instead' };
+    // Plan-based eligibility (the paywall): premium cartridges may be
+    // self-activated when the persona's plan grants them; else request access.
+    if (!(await planAllowsSelfActivate(personaId, activationId))) {
+      return { ok: false, reason: 'gated — upgrade required (or request access)' };
+    }
   }
   const qubeIndex = await readActivationQubes();
   const qube = qubeIndex.get(activationId);

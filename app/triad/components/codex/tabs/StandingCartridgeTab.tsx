@@ -6,8 +6,12 @@ import {
   Star, Plus, CheckCircle2, XCircle,
   Edit2, RefreshCw, Link2, FileText, Loader2, AlertCircle,
   Lock, Package, GitBranch, Sparkles, ChevronDown, ChevronRight,
-  Upload, X as XIcon,
+  Upload, X as XIcon, Wand2, ShieldCheck, Rocket, Layers,
 } from 'lucide-react';
+import { StandingCoreWizard } from '@/components/metame/setup/StandingCoreWizard';
+import { VentureLightWizard } from '@/components/metame/setup/VentureLightWizard';
+import { VentureProWizard } from '@/components/metame/setup/VentureProWizard';
+import { VenturePortfolioWizard } from '@/components/metame/setup/VenturePortfolioWizard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -251,6 +255,26 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
   const [cases, setCases] = useState<MobilityCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Wizard launcher — parity with aigentMe. Citizens can build their Standing
+  // Graph via the guided wizards here too. Gated by wizardAccess from the plan.
+  const [wizardAccess, setWizardAccess] = useState<{
+    core: boolean; light: boolean; pro: boolean; portfolio: boolean;
+  } | null>(null);
+  const [coreWizardOpen, setCoreWizardOpen] = useState(false);
+  const [lightWizardOpen, setLightWizardOpen] = useState(false);
+  const [proWizardOpen, setProWizardOpen] = useState(false);
+  const [portfolioWizardOpen, setPortfolioWizardOpen] = useState(false);
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await personaFetch('/api/billing/plan', { personaIdHint: _personaId, cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.ok && data.wizardAccess) setWizardAccess(data.wizardAccess);
+      } catch { /* best-effort */ }
+    })();
+  }, [_personaId]);
 
   // Create profile form
   const [showCreate, setShowCreate] = useState(false);
@@ -658,6 +682,110 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
           </button>
         )}
       </div>
+
+      {/* Guided wizards — parity with aigentMe. Build your Standing Graph via
+          the guided flow, or use the manual evidence intake below. The venture
+          wizards unlock with Founder Office / Venture Lab access. */}
+      <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Wand2 className="w-4 h-4 text-violet-400" />
+          <h2 className="text-sm font-semibold text-white">Guided wizards</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <button
+            type="button"
+            onClick={() => setCoreWizardOpen(true)}
+            className="text-left rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 hover:bg-violet-500/20 transition-colors"
+          >
+            <div className="flex items-center gap-1.5 text-sm font-medium text-violet-200">
+              <ShieldCheck className="w-3.5 h-3.5" /> Standing Core
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Attest who you are + your intent → Standing Graph.</p>
+            <span className="inline-block mt-1.5 text-[9px] uppercase tracking-wider text-emerald-300">Free · available</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setLightWizardOpen(true)}
+            className="text-left rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 hover:bg-violet-500/20 transition-colors"
+          >
+            <div className="flex items-center gap-1.5 text-sm font-medium text-violet-200">
+              <Sparkles className="w-3.5 h-3.5" /> Venture Light
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Incubate one venture (the essentials).</p>
+            <span className="inline-block mt-1.5 text-[9px] uppercase tracking-wider text-emerald-300">Free · available</span>
+          </button>
+
+          {/* Venture Pro — gated by wizardAccess.pro (Venture Lab Lite+). The
+              wizard itself shows a locked upgrade panel when access is absent,
+              so the card always opens it (discoverable paywall). */}
+          <button
+            type="button"
+            onClick={() => setProWizardOpen(true)}
+            className={`text-left rounded-lg border p-3 transition-colors ${
+              wizardAccess?.pro
+                ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20'
+                : 'border-slate-700/60 bg-slate-900/40 hover:bg-slate-800/60'
+            }`}
+            title={wizardAccess?.pro ? 'Venture Pro' : 'Venture Pro — upgrade to unlock'}
+          >
+            <div className="flex items-center gap-1.5 text-sm font-medium text-slate-200">
+              <Rocket className="w-3.5 h-3.5" /> Venture Pro
+              {!wizardAccess?.pro && <Lock className="w-3 h-3 text-slate-500" />}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Full 13-layer VentureQube.</p>
+            <span className={`inline-block mt-1.5 text-[9px] uppercase tracking-wider ${wizardAccess?.pro ? 'text-emerald-300' : 'text-slate-500'}`}>
+              {wizardAccess?.pro ? 'Available' : 'Upgrade to unlock'}
+            </span>
+          </button>
+
+          {/* Venture Portfolio — Pro/Elite. The wizard shows a locked upgrade
+              panel without access, so the card always opens it. */}
+          <button
+            type="button"
+            onClick={() => setPortfolioWizardOpen(true)}
+            className={`text-left rounded-lg border p-3 transition-colors ${
+              wizardAccess?.portfolio
+                ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20'
+                : 'border-slate-700/60 bg-slate-900/40 hover:bg-slate-800/60'
+            }`}
+            title={wizardAccess?.portfolio ? 'Venture Portfolio' : 'Venture Portfolio — upgrade to unlock'}
+          >
+            <div className="flex items-center gap-1.5 text-sm font-medium text-slate-200">
+              <Layers className="w-3.5 h-3.5" /> Venture Portfolio
+              {!wizardAccess?.portfolio && <Lock className="w-3 h-3 text-slate-500" />}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Multiple ventures, cross-venture.</p>
+            <span className={`inline-block mt-1.5 text-[9px] uppercase tracking-wider ${wizardAccess?.portfolio ? 'text-emerald-300' : 'text-slate-500'}`}>
+              {wizardAccess?.portfolio ? 'Available' : 'Upgrade to unlock'}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <StandingCoreWizard
+        open={coreWizardOpen}
+        onOpenChange={setCoreWizardOpen}
+        personaId={_personaId}
+        onSaved={() => { void loadProfiles(); }}
+      />
+      <VentureLightWizard
+        open={lightWizardOpen}
+        onOpenChange={setLightWizardOpen}
+        personaId={_personaId}
+      />
+      <VentureProWizard
+        open={proWizardOpen}
+        onOpenChange={setProWizardOpen}
+        personaId={_personaId}
+        hasProAccess={!!wizardAccess?.pro}
+      />
+      <VenturePortfolioWizard
+        open={portfolioWizardOpen}
+        onOpenChange={setPortfolioWizardOpen}
+        personaId={_personaId}
+        hasPortfolioAccess={!!wizardAccess?.portfolio}
+      />
 
       {/* Error */}
       {error && (

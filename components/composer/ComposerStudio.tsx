@@ -17,6 +17,7 @@ import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTempl
 import { resolveLiquidTemplateId } from "@/services/composer/composerRegistryMapping";
 import type { SmartContentQube } from "@/types/smartContent";
 import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
+import { personaFetch } from "@/utils/personaSpine";
 import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
@@ -1867,6 +1868,10 @@ export const ComposerStudio = () => {
   }>>([]);
   const [matrixDataLoading, setMatrixDataLoading] = useState(false);
   const [matrixDataFetched, setMatrixDataFetched] = useState(false);
+  // The active persona's OWN derived matrix cell, from the experience-guide
+  // source of truth (/api/experience/matrix-calibration). Aligns the Studio
+  // matrix with aigentMe + Venture Lab on one position.
+  const [studioCalibration, setStudioCalibration] = useState<{ engagement: string; sovereignty: string } | null>(null);
   const [pendingProductionConfig, setPendingProductionConfig] = useState<{
     templateKey: string;
     seedData: Record<string, unknown>;
@@ -1922,7 +1927,30 @@ export const ComposerStudio = () => {
   // investors: 500 investor names for the individual lens carousel
   useEffect(() => {
     if (copilotContextId !== "knyt-codex") {
-      setMatrixCellCounts({}); setMatrixTotalUsers(0); setMatrixIndividuals([]); setMatrixDataFetched(false); return;
+      // Non-KNYT cartridges (metaMe, etc.) use the GENERALIZED customer-matrix
+      // feed (journey_states) instead of the KNYT-only nakamoto feed. It emits
+      // cells in the same `Engagement:Sovereignty` key vocabulary the grid reads,
+      // so it is drop-in. Admin-gated → personaFetch (Bearer); non-admins simply
+      // see no live counts (same as before). KNYT branch below is untouched.
+      setMatrixIndividuals([]);
+      const tenantId = copilotContextId === "metame-codex" ? "metame" : null;
+      const matrixUrl = tenantId
+        ? `/api/venture/customer-matrix?tenantId=${encodeURIComponent(tenantId)}`
+        : "/api/venture/customer-matrix";
+      setMatrixDataLoading(true);
+      personaFetch(matrixUrl, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.ok && data.cells) {
+            setMatrixCellCounts(data.cells as Record<string, number>);
+            setMatrixTotalUsers((data.total as number) ?? 0);
+          } else {
+            setMatrixCellCounts({}); setMatrixTotalUsers(0);
+          }
+        })
+        .catch(() => { setMatrixCellCounts({}); setMatrixTotalUsers(0); })
+        .finally(() => { setMatrixDataLoading(false); setMatrixDataFetched(false); });
+      return;
     }
     if (matrixDataFetched) return;
     setMatrixDataLoading(true);
@@ -1976,6 +2004,25 @@ export const ComposerStudio = () => {
       .catch(() => {})
       .finally(() => setMatrixDataLoading(false));
   }, [copilotContextId, matrixDataFetched]);
+
+  // Derive the active persona's own matrix cell from the experience-guide SoT,
+  // so the Studio matrix highlights where THIS persona sits (aligned with
+  // aigentMe + Venture Lab). Persona-scoped → personaFetch (Bearer).
+  useEffect(() => {
+    let cancelled = false;
+    personaFetch("/api/experience/matrix-calibration", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.ok && data.experience) {
+          setStudioCalibration({
+            engagement: String(data.experience.engagement),
+            sovereignty: String(data.experience.sovereignty),
+          });
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [copilotContextId]);
 
   // Reset cohort selection when switching cartridges (stale name would mismatch new x_stages)
   useEffect(() => {
@@ -10548,7 +10595,7 @@ export const ComposerStudio = () => {
                                                 <button
                                                   type="button"
                                                   onClick={() => hasPrescription && openPopup(key)}
-                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""} ${isPeakCohortCell ? "ring-2 ring-cyan-400/70 !bg-cyan-950/25 !border-cyan-500/30" : ""}`}
+                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""} ${isPeakCohortCell ? "ring-2 ring-cyan-400/70 !bg-cyan-950/25 !border-cyan-500/30" : ""} ${studioCalibration && key === `${studioCalibration.engagement}:${studioCalibration.sovereignty}` ? "ring-2 ring-amber-400/70" : ""}`}
                                                   title={`${y} × ${x}${cellCount ? ` · ${cellCount} user${cellCount > 1 ? "s" : ""}` : ""}${prescription ? `\n${prescription}` : ""}`}
                                                 >
                                                   {prescription ? prescription.split(": ").pop() : "·"}
