@@ -23,7 +23,8 @@
       "13 governance — risk/sensitivity/accuracy/verifiability + ventureConfidence (mostly server-calibrated; leave null)",
       "14 institutional — venture-lab/investment status, commons + public visibility, readiness"
     ],
-    "calibration_note": "signalEvidence.* and governance.* confidence scores are calibrated by Standing + metaCommons signals on the server; you may set them or leave them null. capability.availableCapabilities is auto-filled from the operator's Standing — leave it empty unless the operator wants to override."
+    "calibration_note": "signalEvidence.* and governance.* confidence scores are calibrated by Standing + metaCommons signals on the server; you may set them or leave them null. capability.availableCapabilities is auto-filled from the operator's Standing — leave it empty unless the operator wants to override.",
+    "knowledge_artifact_vs_operating_artifact": "There are two distinct concerns and you must not collapse them. The CORE VentureQube (operator/strategy/experience/standing/ventures) is a KNOWLEDGE ARTIFACT — a general-purpose primitive that a student, founder, creator, venture studio, family office, or polity steward can all use unchanged. Do NOT hardwire daily actions / campaigns / commercial-operating goals into it. The OPTIONAL top-level `operatingModel` block is the OPERATING ARTIFACT — the living brief aigentMe runs as Chief of Staff (mission, successMetrics, activeObjectives, priorityPartners, priorityActions, reviewCadence, primaryMetric). Three concerns, three homes: Experience captures intent; Ventures capture execution structure; operatingModel captures action. Fill operatingModel only if the operator wants aigentMe operating against a daily brief; otherwise omit it."
   },
   "type": "object",
   "required": ["schemaVersion", "operator", "strategy", "ventures", "plan"],
@@ -81,6 +82,20 @@
       "type": "array",
       "items": { "type": "object", "additionalProperties": true },
       "description": "Same as Venture Light — cross-venture KPI rows that hydrate the cockpit's Active KPIs."
+    },
+    "operatingModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL operating-artifact layer (Pro/Portfolio only). The living operational brief aigentMe executes against as your Chief of Staff. This is the ONE place day-to-day operations live — the core VentureQube stays a general-purpose primitive (intent in Experience, structure in Ventures); operations live here. Leave it out entirely if you only want the knowledge artifact.",
+      "properties": {
+        "mission": { "type": "string", "maxLength": 2000, "description": "The operating mission for this cycle (e.g. \"Operation Leap\")." },
+        "successMetrics": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "What success looks like, concretely — e.g. \"4,000 Passport holders\", \"$100K MRR\", \"25 Founder Office conversions\"." },
+        "activeObjectives": { "type": "array", "items": { "type": "string", "maxLength": 280 }, "maxItems": 30, "description": "Objectives currently in flight." },
+        "priorityPartners": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "Strategic partners this operating brief depends on." },
+        "priorityActions": { "type": "array", "items": { "type": "string", "maxLength": 280 }, "maxItems": 30, "description": "The next concrete actions, highest-priority first." },
+        "reviewCadence": { "type": "string", "maxLength": 64, "description": "Operating review cycle — e.g. \"weekly\", \"biweekly\", \"monthly\"." },
+        "primaryMetric": { "type": "string", "maxLength": 280, "description": "The single north-star KPI. Default framing is Net Value Acceleration — \"did this action reduce the time required to achieve meaningful value?\" — which rolls up every venture's verified outcome accrual. Name a different north star only if Time-to-Value isn't yours." }
+      }
     },
     "ventures": {
       "type": "array",
