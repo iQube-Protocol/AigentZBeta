@@ -78,7 +78,13 @@ const SERIES = {
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const VISION_MODEL = process.env.VISION_MODEL || (ANTHROPIC_KEY ? 'claude-sonnet-4-6' : 'gpt-4o-mini');
+const VENICE_KEY = process.env.VENICE_API_KEY;
+const VISION_MODEL = process.env.VISION_MODEL || 'claude-sonnet-4-6';
+const OPENAI_BASE = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+const OPENAI_VISION_MODEL = process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini';
+const VENICE_BASE = process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1';
+const VENICE_MODEL = process.env.VENICE_MODEL || 'qwen-2.5-vl';
+const providerOrder = [ANTHROPIC_KEY && 'anthropic', OPENAI_KEY && 'openai', VENICE_KEY && 'venice'].filter(Boolean);
 // Output cap for a whole-document transcription. Sonnet 4.x supports a large
 // output window; long papers (20–30pp) need it to avoid truncation. Override
 // with VISION_MAX_TOKENS if your model rejects this value.
@@ -150,48 +156,56 @@ async function fetchWithTimeout(url, opts = {}, ms = 60000) {
   finally { clearTimeout(id); }
 }
 
-async function transcribePageImage(b64) {
-  if (ANTHROPIC_KEY) {
-    const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: VISION_MODEL,
-        max_tokens: 4096,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: b64 } },
-            { type: 'text', text: TRANSCRIBE_PROMPT },
-          ],
-        }],
-      }),
-    }, 120000);
-    if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
-    const data = await res.json();
-    return (data.content || []).map((b) => b.text || '').join('').trim();
+/** One OpenAI-compatible chat transcription with a PDF document content block. */
+async function openaiCompatPdfTranscribe(base, key, model, fileBlock) {
+  const res = await fetchWithTimeout(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model,
+      max_tokens: VISION_MAX_TOKENS,
+      messages: [{ role: 'user', content: [fileBlock, { type: 'text', text: DOC_TRANSCRIBE_PROMPT }] }],
+    }),
+  }, 300000);
+  if (!res.ok) {
+    const e = new Error(`${res.status}: ${(await res.text()).slice(0, 200).replace(/\s+/g, ' ')}`);
+    e.status = res.status;
+    throw e;
   }
-  if (OPENAI_KEY) {
-    const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
-      body: JSON.stringify({
-        model: VISION_MODEL,
-        max_tokens: 4096,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: TRANSCRIBE_PROMPT },
-            { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } },
-          ],
-        }],
-      }),
-    }, 120000);
-    if (!res.ok) throw new Error(`openai ${res.status}: ${(await res.text()).slice(0, 200)}`);
-    const data = await res.json();
-    return (data.choices?.[0]?.message?.content || '').trim();
+  const data = await res.json();
+  return cleanText(data.choices?.[0]?.message?.content || '');
+}
+
+/** Upload a PDF to OpenAI Files (for large PDFs) → file_id. */
+async function uploadPdfToOpenAI(buf) {
+  const fd = new FormData();
+  fd.append('purpose', 'user_data');
+  fd.append('file', new Blob([buf], { type: 'application/pdf' }), 'paper.pdf');
+  const res = await fetchWithTimeout(`${OPENAI_BASE}/files`, { method: 'POST', headers: { Authorization: `Bearer ${OPENAI_KEY}` }, body: fd }, 120000);
+  if (!res.ok) throw new Error(`openai files ${res.status}: ${(await res.text()).slice(0, 160).replace(/\s+/g, ' ')}`);
+  return (await res.json()).id;
+}
+
+/** OpenAI PDF transcription — inline file_data first, Files API for large PDFs. */
+async function transcribePdfViaOpenAI(buf) {
+  const b64 = buf.toString('base64');
+  try {
+    return await openaiCompatPdfTranscribe(OPENAI_BASE, OPENAI_KEY, OPENAI_VISION_MODEL, {
+      type: 'file', file: { filename: 'paper.pdf', file_data: `data:application/pdf;base64,${b64}` },
+    });
+  } catch (e) {
+    if (!/413|too.large|maximum size/i.test(e.message)) throw e;
   }
-  throw new Error('no vision API key (set ANTHROPIC_API_KEY or OPENAI_API_KEY)');
+  const fileId = await uploadPdfToOpenAI(buf);
+  return openaiCompatPdfTranscribe(OPENAI_BASE, OPENAI_KEY, OPENAI_VISION_MODEL, { type: 'file', file: { file_id: fileId } });
+}
+
+/** Venice (OpenAI-compatible) PDF transcription — best effort; PDF support varies. */
+async function transcribePdfViaVenice(buf) {
+  const b64 = buf.toString('base64');
+  return openaiCompatPdfTranscribe(VENICE_BASE, VENICE_KEY, VENICE_MODEL, {
+    type: 'file', file: { filename: 'paper.pdf', file_data: `data:application/pdf;base64,${b64}` },
+  });
 }
 
 /** One Anthropic transcription call given a document source block. */
@@ -246,60 +260,46 @@ async function uploadPdfToAnthropic(buf) {
  *   2. Files API     (upload → file_id; robust for large image PDFs)
  *   3. base64 inline (works for small PDFs)
  */
-async function transcribePdfViaAnthropic(pdfUrl, buf, label) {
-  process.stdout.write(`\r[ingest]   transcribing ${label} (PDF → Claude)…  `);
+async function transcribePdfViaAnthropic(pdfUrl, buf) {
   const errs = [];
   try {
-    const t = await anthropicTranscribe({ type: 'document', source: { type: 'url', url: pdfUrl } });
-    process.stdout.write('\n');
-    return t;
+    return await anthropicTranscribe({ type: 'document', source: { type: 'url', url: pdfUrl } });
   } catch (e) { errs.push(`url(${e.message})`); }
   try {
     const fileId = await uploadPdfToAnthropic(buf);
-    const t = await anthropicTranscribe(
+    return await anthropicTranscribe(
       { type: 'document', source: { type: 'file', file_id: fileId } },
       { 'anthropic-beta': 'files-api-2025-04-14' },
     );
-    process.stdout.write('\n');
-    return t;
   } catch (e) { errs.push(`files(${e.message})`); }
   try {
-    const t = await anthropicTranscribe({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buf.toString('base64') } });
-    process.stdout.write('\n');
-    return t;
+    return await anthropicTranscribe({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buf.toString('base64') } });
   } catch (e) { errs.push(`base64(${e.message})`); }
-  process.stdout.write('\n');
-  throw new Error(`all Anthropic delivery methods failed — ${errs.join(' · ')}`);
+  throw new Error(errs.join(' · '));
 }
 
-/** Dispatch the no-text-layer path: Anthropic PDF (no poppler) or OpenAI images. */
+/**
+ * Transcribe a no-text-layer PDF via the provider chain (Anthropic → OpenAI →
+ * Venice), falling through on any failure (e.g. Anthropic out of credits). All
+ * providers take the PDF directly — no poppler / page rendering.
+ */
 async function extractNonTextLayer(buf, label, url) {
-  if (ANTHROPIC_KEY) return transcribePdfViaAnthropic(url, buf, label);
-  return visionTranscribe(buf, label); // OpenAI image path (requires poppler)
-}
-
-/** Render a PDF buffer to page PNGs (poppler) and vision-transcribe each. */
-async function visionTranscribe(buf, label) {
-  const work = mkdtempSync(join(tmpdir(), 'polity-'));
-  const pdfPath = join(work, 'in.pdf');
-  writeFileSync(pdfPath, buf);
-  try {
-    execFileSync('pdftoppm', ['-png', '-r', String(DPI), pdfPath, join(work, 'page')], { stdio: 'ignore' });
-    const pages = readdirSync(work)
-      .filter((f) => f.startsWith('page') && f.endsWith('.png'))
-      .sort((a, b) => (Number(a.match(/(\d+)\.png$/)?.[1] ?? 0)) - (Number(b.match(/(\d+)\.png$/)?.[1] ?? 0)));
-    const parts = [];
-    for (let i = 0; i < pages.length; i += 1) {
-      process.stdout.write(`\r[ingest]   transcribing ${label} page ${i + 1}/${pages.length}  `);
-      const b64 = readFileSync(join(work, pages[i])).toString('base64');
-      try { const md = await transcribePageImage(b64); if (md) parts.push(md); }
-      catch (e) { parts.push(`<!-- page ${i + 1} transcription failed: ${e.message} -->`); }
+  const errs = [];
+  for (const provider of providerOrder) {
+    process.stdout.write(`\r[ingest]   transcribing ${label} via ${provider}…            `);
+    try {
+      const t =
+        provider === 'anthropic' ? await transcribePdfViaAnthropic(url, buf)
+        : provider === 'openai' ? await transcribePdfViaOpenAI(buf)
+        : await transcribePdfViaVenice(buf);
+      if (t && t.trim()) { process.stdout.write('\n'); return t; }
+      errs.push(`${provider}(empty)`);
+    } catch (e) {
+      errs.push(`${provider}(${e.message})`);
     }
-    process.stdout.write('\n');
-    return cleanText(parts.join('\n\n'));
-  } finally {
-    rmSync(work, { recursive: true, force: true });
   }
+  process.stdout.write('\n');
+  throw new Error(`all vision providers failed — ${errs.join(' | ')}`);
 }
 
 async function main() {
@@ -312,20 +312,19 @@ async function main() {
   console.log(`[ingest] ${papers.length} papers total · processing ${inScope.length} in the three constitutional series`);
   if (inScope.length === 0) { console.warn('[ingest] nothing in scope.'); return; }
 
-  const popplerOk = havePoppler();
-  const keyOk = !!(ANTHROPIC_KEY || OPENAI_KEY);
+  const keyOk = providerOrder.length > 0;
   if (!DRY) {
-    if (!keyOk) { console.error('[ingest] no vision API key. Export ANTHROPIC_API_KEY (preferred) or OPENAI_API_KEY.'); process.exit(1); }
-    // poppler is ONLY needed for the OpenAI image-rendering fallback.
-    if (!ANTHROPIC_KEY && OPENAI_KEY && !popplerOk) {
-      console.error('[ingest] OpenAI fallback needs poppler (brew install poppler) — or just set ANTHROPIC_API_KEY (no poppler needed).');
-      process.exit(1);
-    }
+    if (!keyOk) { console.error('[ingest] no vision provider key. Export ANTHROPIC_API_KEY, OPENAI_API_KEY, or VENICE_API_KEY.'); process.exit(1); }
+    // Preflight Anthropic — non-fatal if a fallback provider is configured.
     const pf = await preflightAnthropicKey();
-    if (!pf.ok) { console.error(`[ingest] ${pf.msg}`); process.exit(1); }
-    if (pf.warn) console.warn(`[ingest] ${pf.warn}`);
-    if (ANTHROPIC_KEY) console.log(`[ingest] ANTHROPIC_API_KEY verified (…${ANTHROPIC_KEY.slice(-4)}, len ${ANTHROPIC_KEY.length})`);
-    console.log(`[ingest] vision model: ${VISION_MODEL}${ANTHROPIC_KEY ? ' (PDF→Claude, no poppler)' : ` (OpenAI images, DPI ${DPI})`}`);
+    if (!pf.ok) {
+      const fallbacks = [OPENAI_KEY && 'OpenAI', VENICE_KEY && 'Venice'].filter(Boolean);
+      if (fallbacks.length) console.warn(`[ingest] Anthropic unavailable (${pf.msg}) — falling back to ${fallbacks.join(' → ')}.`);
+      else { console.error(`[ingest] ${pf.msg}`); process.exit(1); }
+    } else if (pf.warn) {
+      console.warn(`[ingest] ${pf.warn}`);
+    }
+    console.log(`[ingest] vision providers (fallback order): ${providerOrder.join(' → ')} · models: anthropic=${VISION_MODEL} openai=${OPENAI_VISION_MODEL} venice=${VENICE_MODEL}`);
     for (const s of Object.values(SERIES)) {
       const d = join(COMMENTARY_DIR, s.dir);
       if (existsSync(d)) rmSync(d, { recursive: true, force: true });
@@ -434,12 +433,7 @@ async function main() {
   if (DRY) {
     console.log(`\n[ingest] DRY RUN — no files written, no vision calls.`);
     console.log(`[ingest]   would use pdf-parse: ${textCount} · would vision-transcribe: ${visionCount}`);
-    const readiness = ANTHROPIC_KEY
-      ? 'Anthropic key OK — PDF→Claude, no poppler needed'
-      : OPENAI_KEY
-        ? `OpenAI key OK — needs ${havePoppler() ? 'poppler OK' : 'brew install poppler'}`
-        : 'no API key — export ANTHROPIC_API_KEY (preferred)';
-    console.log(`[ingest]   vision readiness: ${readiness}`);
+    console.log(`[ingest]   vision providers (fallback order): ${providerOrder.length ? providerOrder.join(' → ') : 'NONE — export ANTHROPIC_API_KEY / OPENAI_API_KEY / VENICE_API_KEY'}`);
     return;
   }
 
