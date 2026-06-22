@@ -30,6 +30,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import {
   upsertExperienceQube,
@@ -38,6 +39,19 @@ import {
 } from '@/services/iqube/experienceQube';
 import { parseVentureQube } from '@/services/iqube/ventureQubeSchema';
 import type { MyCartridgeBlock } from '@/types/ventureQube';
+import { saveStandingCore, type StandingCoreAnswers } from '@/services/standing/standingCore';
+import {
+  SPHERE_AXES,
+  MATURITY_LEVELS,
+  defaultSphereMaturity,
+  defaultSphereAlignment,
+  deriveOverallAlignment,
+  type SphereAxis,
+  type MaturityLevel,
+  type AlignmentState,
+  type PrecedenceMode,
+  type PersonalGuideData,
+} from '@/types/experienceGuide';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +59,22 @@ type SchemaVersion =
   | 'venture-iqube/v0.1'
   | 'venture-iqube/v0.2'
   | 'venture-iqube/v0.3'
-  | 'venture-iqube/v0.4';
+  | 'venture-iqube/v0.4'
+  | 'venture-iqube/v0.5';
+
+/** v0.5 — ExperienceGuide (PersonalGuide sphere lattice). */
+interface ExperienceGuideBlock {
+  sphereMaturity?: Partial<Record<SphereAxis, MaturityLevel>>;
+  sphereAlignment?: Partial<Record<SphereAxis, AlignmentState>>;
+  precedenceMode?: PrecedenceMode;
+  focusIntent?: string;
+}
+
+/** v0.5 — Standing Core attestation (feeds the Standing Asset Graph). */
+interface StandingBlock {
+  core?: StandingCoreAnswers;
+  linkedInUrl?: string;
+}
 
 interface VentureIqube {
   schemaVersion: SchemaVersion;
@@ -82,6 +111,11 @@ interface VentureIqube {
   plan: Record<string, { focus: string; actions: Array<{ title: string; ventureId: string; objectiveId?: string; owner?: string; due?: string; blocker?: string }> }>;
   specialistPreferences?: Record<string, string>;
   kpiBoard?: Array<{ name: string; metric: string; current?: string | number | null; target: string | number; horizon: string; ventureId?: string }>;
+  // v0.5 — experience-framework + standing blocks (all optional).
+  experienceGuide?: ExperienceGuideBlock;
+  experienceGoals?: string[];
+  priorityPartners?: string[];
+  standing?: StandingBlock;
 }
 
 interface IngestPreview {
@@ -126,9 +160,10 @@ function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { o
     p.schemaVersion !== 'venture-iqube/v0.1' &&
     p.schemaVersion !== 'venture-iqube/v0.2' &&
     p.schemaVersion !== 'venture-iqube/v0.3' &&
-    p.schemaVersion !== 'venture-iqube/v0.4'
+    p.schemaVersion !== 'venture-iqube/v0.4' &&
+    p.schemaVersion !== 'venture-iqube/v0.5'
   ) {
-    return { ok: false, error: `schemaVersion must be 'venture-iqube/v0.1', 'v0.2', 'v0.3', or 'v0.4' (got ${JSON.stringify(p.schemaVersion)})` };
+    return { ok: false, error: `schemaVersion must be 'venture-iqube/v0.1'…'v0.5' (got ${JSON.stringify(p.schemaVersion)})` };
   }
   if (!p.operator?.displayLabel) return { ok: false, error: 'operator.displayLabel is required' };
   if (!p.strategy?.headline) return { ok: false, error: 'strategy.headline is required' };
@@ -259,6 +294,50 @@ function preview(data: VentureIqube): IngestPreview {
   };
 }
 
+/**
+ * Build a full PersonalGuideData (ExperienceGuide) from the v0.5
+ * experienceGuide block, filling unspecified spheres with defaults and
+ * deriving the overall alignment + assessment timestamp.
+ */
+function buildPersonalGuide(block: ExperienceGuideBlock): PersonalGuideData {
+  const maturity = defaultSphereMaturity();
+  const alignment = defaultSphereAlignment();
+  for (const sphere of SPHERE_AXES) {
+    const m = block.sphereMaturity?.[sphere];
+    if (m && (MATURITY_LEVELS as readonly string[]).includes(m)) maturity[sphere] = m;
+    const a = block.sphereAlignment?.[sphere];
+    if (a && ['aligned', 'drifting', 'at_risk', 'repair'].includes(a)) alignment[sphere] = a;
+  }
+  return {
+    sphereMaturity: maturity,
+    sphereAlignment: alignment,
+    alignmentState: deriveOverallAlignment(alignment),
+    repairRisks: [],
+    precedenceMode: block.precedenceMode ?? 'auto',
+    lastAssessedAt: new Date().toISOString(),
+    ...(block.focusIntent ? { focusIntent: block.focusIntent.slice(0, 2000) } : {}),
+  };
+}
+
+/** Map the kpiBoard into the rich activeKpis record the cockpit consumes. */
+function mapKpiBoard(kpiBoard: NonNullable<VentureIqube['kpiBoard']>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  kpiBoard.slice(0, 12).forEach((k, i) => {
+    const id = `kpi_${i + 1}`;
+    out[id] = {
+      id,
+      name: k.name,
+      target: String(k.target),
+      current: typeof k.current === 'number' ? k.current : null,
+      trend: 'unknown',
+      lastUpdatedAt: null,
+      source: { kind: 'manual' },
+      class: 'activity',
+    };
+  });
+  return out;
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const persona = await getActivePersona(req);
   if (!persona) {
@@ -356,10 +435,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .map((s) => s.slice(0, 200)),
     ].slice(0, 10);
 
-    const experienceGoals = validated.data.ventures
+    // Objective titles seed experienceGoals; v0.5 lets the operator also
+    // declare explicit experienceGoals, which take precedence and are merged.
+    const derivedGoals = validated.data.ventures
       .flatMap((v) => v.objectives.map((o) => o.title))
-      .map((s) => s.slice(0, 200))
-      .slice(0, 30);
+      .map((s) => s.slice(0, 200));
+    const explicitGoals = (validated.data.experienceGoals ?? []).map((s) => s.slice(0, 200));
+    const experienceGoals = Array.from(new Set([...explicitGoals, ...derivedGoals])).slice(0, 30);
+
+    // v0.5 — experience-framework + standing blocks.
+    const priorityPartners = (validated.data.priorityPartners ?? []).map((s) => s.slice(0, 200)).slice(0, 12);
+    const personalGuide = validated.data.experienceGuide
+      ? buildPersonalGuide(validated.data.experienceGuide)
+      : undefined;
+    const activeKpis = validated.data.kpiBoard && validated.data.kpiBoard.length > 0
+      ? mapKpiBoard(validated.data.kpiBoard)
+      : undefined;
 
     const hydrated = await upsertExperienceQube(persona.personaId, {
       experienceName: validated.data.strategy.headline.slice(0, 140),
@@ -370,15 +461,44 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         strategicGoals,
         experienceGoals,
         confidentialStrategyNotes: validated.data.strategy.thesis.slice(0, 4000),
+        ...(priorityPartners.length > 0 ? { priorityPartners } : {}),
+        ...(personalGuide ? { personalGuide } : {}),
+        ...(activeKpis ? { activeKpis } : {}),
       },
     });
+
+    // v0.5 — Standing Core attestation (writes self-attested vsp_facts +
+    // feeds the Standing Asset Graph). Best-effort; never fails the ingest.
+    let standingFactCount = 0;
+    const standingCore = validated.data.standing?.core;
+    if (standingCore && Object.values(standingCore).some((v) => typeof v === 'string' && v.trim())) {
+      try {
+        const admin = getSupabaseServer();
+        if (admin) {
+          const saved = await saveStandingCore(admin, persona.personaId, standingCore);
+          standingFactCount = saved.factCount;
+        }
+      } catch (e) {
+        console.error('[venture-iqube/ingest] standing hydrate failed', e instanceof Error ? e.message : e);
+      }
+    }
+
+    const hydratedParts = [
+      'ExperienceModel',
+      personalGuide ? 'ExperienceGuide' : null,
+      activeKpis ? 'KPIs' : null,
+      priorityPartners.length > 0 ? 'priority partners' : null,
+      standingFactCount > 0 ? `Standing (${standingFactCount} facts)` : null,
+    ].filter(Boolean);
 
     return NextResponse.json(
       {
         ok: true,
         phase: 'hydrated',
         message:
-          'ExperienceQube hydrated. Next Brief / Move-forward / Venture progress / Ask specialists render will ground in the ingested strategy. PersonalGuide + Matrix still need the wizard. IntentQube row creation deferred — objectives are queued in the preview payload only.',
+          `Hydrated: ${hydratedParts.join(', ')}. Next Brief / Move-forward / Venture progress / Ask specialists render will ground in the ingested strategy. ` +
+          (personalGuide ? '' : 'PersonalGuide + Matrix still need the wizard (or an experienceGuide block). ') +
+          'IntentQube row creation deferred — objectives are queued in the preview payload only.',
         result,
         experienceQube: {
           experienceName: hydrated.meta.experienceName,
@@ -386,6 +506,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           currentStage: hydrated.meta.currentStage,
           activeCartridges: hydrated.meta.activeCartridges,
         },
+        standingFactCount,
       },
       { headers: { 'Cache-Control': 'no-store' } },
     );

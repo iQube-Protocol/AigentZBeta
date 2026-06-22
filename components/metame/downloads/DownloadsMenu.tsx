@@ -41,9 +41,9 @@ const DOWNLOADS: DownloadItem[] = [
   {
     id: "venture-iqube-schema",
     filename: "ventureQube-schema.json",
-    title: "Venture iQube — JSON Schema (v0.4)",
-    description: "Auto-populates your ExperienceModel, ExperienceGuide, and myCartridge wizard when you upload it back.",
-    purpose: "Share this with your off-platform agent (ChatGPT, Claude, etc.). The schema explains what AgentiQ is, the sovereignty principles, and exactly what content to put where. Your agent produces a Venture iQube JSON file; you upload it via the upload icon → aigentMe lights up. Re-upload daily, weekly, or after any pivot — every upload is a snapshot, and the system records what changed via DVN receipts.",
+    title: "Venture iQube — JSON Schema (v0.5)",
+    description: "Auto-populates your ExperienceModel, ExperienceGuide, Standing, KPIs, and myCartridge when you upload it back.",
+    purpose: "Share this with your off-platform agent (ChatGPT, Claude, etc.). The schema explains what AgentiQ is, the sovereignty principles, and exactly what content to put where. v0.5 mirrors the full in-app setup: strategy + ventures + goals + KPIs + priority partners (ExperienceModel), your 7-sphere lived-state self-assessment (ExperienceGuide), and your Standing Core declarations (who you are / what you know / what you intend → your Standing Asset Graph). Your agent produces one JSON file; you upload it via the upload icon → aigentMe lights up. Re-upload daily, weekly, or after any pivot — every upload is a snapshot, and the system records what changed via DVN receipts.",
     Icon: FileJson,
   },
   {
