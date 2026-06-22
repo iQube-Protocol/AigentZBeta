@@ -19,7 +19,8 @@
     },
     "proof_of_time_saved": {
       "abbrev": "PoTS",
-      "definition": "Verification of realized value by reference to time saved. PoTS improves the Polity's ability to understand how capability emerges from truthful information.",
+      "definition": "Verification of realized value, refined as Net Value Acceleration: time-to-value saved NET OF the time spent repairing the risk a venture introduced (Net Value Acceleration = max(0, time saved − risk repair)). Proof of Time Saved is ONE dimension of outcome accrual, not the whole story — an outcome claim also carries claimed value and a risk profile. Outcome claims are self-declared but accrue NOTHING to Standing until verified; verification is the accrual gate. PoTS improves the Polity's ability to understand how realized capability emerges from truthful information.",
+      "implementedAs": "Outcome Accrual Evidence — the proofOfOutcomeClaims block on the VentureQube outcome layer (types/ventureQube.ts), verified via /api/venture/qubes/[ventureId]/verify-outcome, accrued into Personal Standing by services/venture/ventureOutcomeAccrual.ts.",
       "crossReferencedBy": ["standing-charter", "metacommons-charter"],
       "fullText": "papers/polity (Polity Paper series) — see series[].papers[] once ingested."
     },
