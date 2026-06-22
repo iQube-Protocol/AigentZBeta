@@ -18,7 +18,8 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Download, X, FileJson, FileText, ExternalLink } from "lucide-react";
+import { Download, X, FileJson, FileText, ExternalLink, Lock } from "lucide-react";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface DownloadItem {
   /** Stable id — also used as React key. */
@@ -35,16 +36,36 @@ interface DownloadItem {
   Icon: React.ComponentType<{ className?: string }>;
   /** When true, item is listed but disabled with a "coming soon" badge. */
   comingSoon?: boolean;
+  /** Premium gate — requires the matching wizardAccess flag to download. */
+  lockedBy?: "pro" | "portfolio";
 }
 
 const DOWNLOADS: DownloadItem[] = [
   {
     id: "venture-iqube-schema",
     filename: "ventureQube-schema.json",
-    title: "Venture iQube — JSON Schema (v0.5)",
-    description: "Auto-populates your ExperienceModel, ExperienceGuide, Standing, KPIs, and myCartridge when you upload it back.",
-    purpose: "Share this with your off-platform agent (ChatGPT, Claude, etc.). The schema explains what AgentiQ is, the sovereignty principles, and exactly what content to put where. v0.5 mirrors the full in-app setup: strategy + ventures + goals + KPIs + priority partners (ExperienceModel), your 7-sphere lived-state self-assessment (ExperienceGuide), and your Standing Core declarations (who you are / what you know / what you intend → your Standing Asset Graph). Your agent produces one JSON file; you upload it via the upload icon → aigentMe lights up. Re-upload daily, weekly, or after any pivot — every upload is a snapshot, and the system records what changed via DVN receipts.",
+    title: "Venture Light iQube — JSON Schema (v0.5)",
+    description: "Free tier. Auto-populates your ExperienceModel, ExperienceGuide, Standing, KPIs, and one Light venture when you upload it back.",
+    purpose: "Share this with your off-platform agent (ChatGPT, Claude, etc.). v0.5 mirrors the full free-tier setup: strategy + one venture (essentials) + goals + KPIs + priority partners (ExperienceModel), your 7-sphere lived-state self-assessment (ExperienceGuide), and your Standing Core declarations (who you are / what you know / what you intend → your Standing Asset Graph). Your agent produces one JSON file; you upload it via the upload icon → aigentMe lights up. The premium schemas (Pro, Portfolio) are CUMULATIVE supersets of this one — if you upgrade, you maintain only the higher-tier file.",
     Icon: FileJson,
+  },
+  {
+    id: "venture-pro-schema",
+    filename: "ventureQube-pro-schema.json",
+    title: "Venture Pro iQube — JSON Schema (v1.0)",
+    description: "Premium. The full 13-layer VentureQube — and a superset of Venture Light, so it's the only file you maintain at Lite/Pro/Elite.",
+    purpose: "Unlocked with Founder Office (Venture Lab Lite and above). A strict SUPERSET of the Venture Light schema: everything Light has PLUS each venture's full 13-layer blueprint — thesis, intent, customer archetypes, revenue architecture, commercial model, capability, resource, execution phases, delegation, outcome, governance, and institutional layers. Standing + metaCommons signals calibrate the confidence layers server-side. Download and maintain ONLY this file at premium tiers — it includes the Light base.",
+    Icon: FileJson,
+    lockedBy: "pro",
+  },
+  {
+    id: "venture-portfolio-schema",
+    filename: "ventureQube-portfolio-schema.json",
+    title: "Venture Portfolio iQube — JSON Schema (v1.0)",
+    description: "Premium (Pro/Elite). Multiple full ventures + a portfolio thesis — a superset of Venture Pro.",
+    purpose: "Unlocked with Venture Lab Pro (3 ventures) or Elite (unlimited). A strict SUPERSET of the Venture Pro schema: every venture carries the full 13-layer blueprint, PLUS a portfolio block — a thesis that spans all ventures, an explicit prioritisation order, and notes. Cross-venture intelligence (shared capabilities, stage spread) is derived server-side. This is the single file a portfolio operator maintains.",
+    Icon: FileJson,
+    lockedBy: "portfolio",
   },
   {
     id: "agent-runbook",
@@ -72,6 +93,22 @@ interface Props {
 
 export function DownloadsMenu({ open, onClose, theme = "dark" }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  // Premium gating for the Pro / Portfolio schema downloads.
+  const [wizardAccess, setWizardAccess] = useState<{ pro: boolean; portfolio: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        const res = await personaFetch("/api/billing/plan", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.ok && data.wizardAccess) {
+          setWizardAccess({ pro: !!data.wizardAccess.pro, portfolio: !!data.wizardAccess.portfolio });
+        }
+      } catch { /* non-fatal — locked items stay locked */ }
+    })();
+  }, [open]);
 
   // Close on Escape.
   useEffect(() => {
@@ -128,7 +165,9 @@ export function DownloadsMenu({ open, onClose, theme = "dark" }: Props) {
         <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
           {DOWNLOADS.map((item) => {
             const isExpanded = expanded === item.id;
-            const isAvailable = !item.comingSoon;
+            const locked = !!item.lockedBy && !(wizardAccess?.[item.lockedBy] ?? false);
+            const isAvailable = !item.comingSoon && !locked;
+            const unlockLabel = item.lockedBy === "portfolio" ? "Venture Lab Pro / Elite" : "Founder Office (Venture Lab Lite+)";
             return (
               <article key={item.id} className={`rounded-lg border ${cardClass} overflow-hidden transition-colors`}>
                 <div className="p-4">
@@ -142,6 +181,11 @@ export function DownloadsMenu({ open, onClose, theme = "dark" }: Props) {
                         {item.comingSoon && (
                           <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${isDark ? "border-slate-600 text-slate-400" : "border-slate-300 text-slate-600"}`}>
                             coming soon
+                          </span>
+                        )}
+                        {locked && (
+                          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300 inline-flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5" /> premium
                           </span>
                         )}
                       </div>
@@ -172,6 +216,14 @@ export function DownloadsMenu({ open, onClose, theme = "dark" }: Props) {
                         <Download className="w-3.5 h-3.5" />
                         Download
                       </a>
+                    ) : locked ? (
+                      <span
+                        title={`Unlock with ${unlockLabel}`}
+                        className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs ${isDark ? "border-amber-500/40 bg-amber-500/10 text-amber-300" : "border-amber-300 bg-amber-50 text-amber-700"}`}
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        Upgrade
+                      </span>
                     ) : (
                       <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs ${isDark ? "border-slate-700 text-slate-500" : "border-slate-300 text-slate-500"}`}>
                         soon
