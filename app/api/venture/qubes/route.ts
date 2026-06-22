@@ -41,7 +41,11 @@ export async function POST(req: NextRequest) {
   }
   const result = await createVentureQube({
     personaId: persona.personaId,
-    isAdmin: persona.cartridgeFlags.isAdmin,
+    // Admin override — global admin OR a per-cartridge Venture Lab admin bypasses
+    // the venture-tier limit (admins have full cartridge access).
+    isAdmin:
+      persona.cartridgeFlags.isAdmin ||
+      persona.cartridgeFlags.adminCartridges.includes('venture-lab'),
     name: body.name,
     slug: body.slug,
     path: body.path,
