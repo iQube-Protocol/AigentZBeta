@@ -220,7 +220,7 @@ const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }
   { key: "wallet", label: "Wallet", icon: <Wallet className="w-4 h-4" /> },
   { key: "library", label: "Library", icon: <BookOpen className="w-4 h-4" /> },
   { key: "tasks", label: "Tasks", icon: <CheckSquare className="w-4 h-4" /> },
-  { key: "reputation", label: "Reputation", icon: <Trophy className="w-4 h-4" /> },
+  { key: "reputation", label: "Reputation & Standing", icon: <Trophy className="w-4 h-4" /> },
   { key: "rewards", label: "Rewards", icon: <Gift className="w-4 h-4" /> },
   { key: "payments", label: "Payments", icon: <CreditCard className="w-4 h-4" /> },
   { key: "connections", label: "Connections", icon: <Link className="w-4 h-4" /> },
@@ -4371,7 +4371,7 @@ export default function SmartWalletDrawer({
                 )}
               </section>
 
-              {/* Standing (Phase 2 keystone) — Personal/Delegated/Stewardship */}
+              {/* Standing — Personal/Delegated/Stewardship + Overall */}
               {walletTasksData?.standing && (
                 <section className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 ring-1 ring-emerald-500/20 p-3">
                   <div className="flex items-center justify-between mb-3">
@@ -4391,18 +4391,24 @@ export default function SmartWalletDrawer({
                   </div>
                   <div className="space-y-2.5">
                     {([
-                      { label: 'Personal',     value: walletTasksData.standing.personal,     color: 'bg-emerald-500' },
-                      { label: 'Delegated',    value: walletTasksData.standing.delegated,    color: 'bg-teal-500' },
-                      { label: 'Stewardship',  value: walletTasksData.standing.stewardship,  color: 'bg-cyan-500' },
-                    ] as { label: string; value: number; color: string }[]).map(({ label, value, color }) => (
+                      { label: 'Personal',     value: walletTasksData.standing.personal,     color: 'bg-emerald-500', tip: 'Accrues from completed tasks' },
+                      { label: 'Delegated',    value: walletTasksData.standing.delegated,    color: 'bg-teal-500',    tip: 'Accrues when your sponsored citizen completes tasks' },
+                      { label: 'Stewardship',  value: walletTasksData.standing.stewardship,  color: 'bg-cyan-500',    tip: 'Accrues from community contributions' },
+                    ] as { label: string; value: number; color: string; tip: string }[]).map(({ label, value, color, tip }) => (
                       <div key={label}>
                         <div className="flex items-center justify-between text-[10px] mb-1">
                           <span className="text-white/60">{label}</span>
-                          <span className="text-white/80 font-medium">{value.toFixed(1)}</span>
+                          <span className={`font-medium ${value > 0 ? 'text-white/80' : 'text-white/30'}`}>
+                            {value > 0 ? value.toFixed(1) : '—'}
+                          </span>
                         </div>
-                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div className={`h-full ${color}`} style={{ width: `${Math.min(100, value)}%` }} />
-                        </div>
+                        {value > 0 ? (
+                          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                            <div className={`h-full ${color}`} style={{ width: `${Math.min(100, value)}%` }} />
+                          </div>
+                        ) : (
+                          <div className="text-[9px] text-white/25 italic">{tip}</div>
+                        )}
                       </div>
                     ))}
                     <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">

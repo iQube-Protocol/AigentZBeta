@@ -12,6 +12,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { personaFetch } from "@/utils/personaSpine";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import {
   Bot,
@@ -65,6 +66,8 @@ interface Partner {
   next_action: string | null;
   assigned_agent: string;
   notes: string | null;
+  /** Derived from notes "[scope:X]" prefix — not a DB column. */
+  ventureScope?: string;
 }
 
 interface PartnerSummary {
@@ -164,6 +167,40 @@ const COHORT_STYLES: Record<string, string> = {
   reactivation: "border-sky-700/40 text-sky-400",
   ks_backers:   "border-violet-700/40 text-violet-400",
 };
+
+// ─── Venture scope helpers for partner cards ──────────────────────────────────
+// Venture scope is encoded as a "[scope:X]" prefix in the partner's notes field.
+// X is one of: "all" | "portfolio" | any venture name slug.
+
+const SCOPE_PREFIX_RE = /^\[scope:([^\]]+)\]\s*/;
+
+function parseScope(notes: string | null): string {
+  if (!notes) return "all";
+  const m = notes.match(SCOPE_PREFIX_RE);
+  return m ? m[1] : "all";
+}
+
+function stripScope(notes: string | null): string {
+  return (notes ?? "").replace(SCOPE_PREFIX_RE, "");
+}
+
+function encodeScope(scope: string, notes: string | null): string {
+  const clean = stripScope(notes);
+  return scope === "all" ? clean : `[scope:${scope}] ${clean}`;
+}
+
+const SCOPE_STYLE: Record<string, string> = {
+  all:       "border-slate-600/40 text-slate-400",
+  portfolio: "border-cyan-600/40 text-cyan-400",
+};
+
+function scopeLabel(scope: string): string {
+  if (scope === "all") return "All ventures";
+  if (scope === "portfolio") return "Portfolio";
+  return scope;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function normalizeTierKey(raw: string): string {
   const c = raw.toUpperCase().replace(/[^A-Z]/g, "");
@@ -272,12 +309,13 @@ function InlineField({
   );
 }
 
-function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () => void }) {
+function PartnerCard({ partner, ventureNames, onRefresh }: { partner: Partner; ventureNames: string[]; onRefresh: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const stageStyle = BD_STAGE_STYLES[partner.bd_stage] ?? BD_STAGE_STYLES.uncontacted;
   const stageLabel = BD_STAGE_LABEL[partner.bd_stage] ?? partner.bd_stage;
+  const scope = partner.ventureScope ?? "all";
 
   const patchPartner = useCallback(async (fields: Record<string, unknown>) => {
     setSaving(true);
@@ -315,6 +353,11 @@ function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () =
               W{partner.wave}
             </Badge>
             <TierStars tier={partner.strategic_value_tier} />
+            {scope !== "all" && (
+              <Badge variant="outline" className={`text-[9px] py-0 px-1.5 ${SCOPE_STYLE[scope] ?? "border-violet-700/40 text-violet-400"}`}>
+                {scopeLabel(scope)}
+              </Badge>
+            )}
           </div>
           {partner.audience_overlap_notes && (
             <p className="text-[10px] text-slate-500 mt-0.5 leading-snug line-clamp-1">{partner.audience_overlap_notes}</p>
@@ -356,6 +399,30 @@ function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () =
           <div className="flex gap-2">
             <span className="text-slate-600 w-20 shrink-0">Agent</span>
             <span className="text-slate-400">{partner.assigned_agent}</span>
+          </div>
+          {/* Venture scope selector */}
+          <div className="flex gap-2 items-start pt-1 border-t border-white/[0.04] mt-1">
+            <span className="text-slate-600 w-20 shrink-0 pt-0.5">Venture</span>
+            <div className="flex items-center gap-1 flex-wrap">
+              {["all", "portfolio", ...ventureNames].map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    const newNotes = encodeScope(opt, partner.notes);
+                    void patchPartner({ notes: newNotes });
+                  }}
+                  className={`text-[9px] rounded-full border px-2 py-0.5 transition-colors ${
+                    scope === opt
+                      ? (SCOPE_STYLE[opt] ?? "border-violet-600/60 text-violet-300 bg-violet-500/10")
+                      : "border-white/10 text-slate-600 hover:text-slate-300"
+                  }`}
+                >
+                  {scopeLabel(opt)}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -426,12 +493,13 @@ function AddPartnerForm({ onSaved }: { onSaved: () => void }) {
   );
 }
 
-function PartnersPanel() {
-  const [partners,   setPartners]   = useState<Partner[]>([]);
-  const [summary,    setSummary]    = useState<PartnerSummary | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [waveFilter, setWaveFilter] = useState<"" | "1" | "2">("");
-  const [addingNew,  setAddingNew]  = useState(false);
+function PartnersPanel({ personaId, ventureNames }: { personaId?: string; ventureNames: string[] }) {
+  const [partners,     setPartners]     = useState<Partner[]>([]);
+  const [summary,      setSummary]      = useState<PartnerSummary | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [waveFilter,   setWaveFilter]   = useState<"" | "1" | "2">("");
+  const [scopeFilter,  setScopeFilter]  = useState<string>("all");
+  const [addingNew,    setAddingNew]    = useState(false);
 
   const load = useCallback(async (wave: "" | "1" | "2") => {
     setLoading(true);
@@ -440,7 +508,8 @@ function PartnersPanel() {
       const res = await fetch(url);
       const json = await res.json() as { ok: boolean; data?: { partners: Partner[]; summary: PartnerSummary } };
       if (json.ok && json.data) {
-        setPartners(json.data.partners);
+        const enriched = json.data.partners.map((p) => ({ ...p, ventureScope: parseScope(p.notes) }));
+        setPartners(enriched);
         setSummary(json.data.summary);
       }
     } finally {
@@ -449,6 +518,10 @@ function PartnersPanel() {
   }, []);
 
   useEffect(() => { void load(waveFilter); }, [load, waveFilter]);
+
+  const visiblePartners = scopeFilter === "all"
+    ? partners
+    : partners.filter((p) => (p.ventureScope ?? "all") === scopeFilter);
 
   return (
     <div className="space-y-3">
@@ -468,8 +541,8 @@ function PartnersPanel() {
         </div>
       )}
 
-      {/* Wave filter */}
-      <div className="flex items-center gap-1.5">
+      {/* Wave filter + venture scope filter */}
+      <div className="flex items-center gap-1.5 flex-wrap">
         {([["", "All"], ["1", "Wave 1"], ["2", "Wave 2"]] as const).map(([val, label]) => (
           <button
             key={val}
@@ -482,6 +555,21 @@ function PartnersPanel() {
             }`}
           >
             {label}
+          </button>
+        ))}
+        <div className="w-px h-3 bg-white/10 mx-0.5" />
+        {(["all", "portfolio", ...ventureNames] as string[]).map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => setScopeFilter(opt)}
+            className={`text-[10px] rounded-full px-2.5 py-0.5 border transition-colors ${
+              scopeFilter === opt
+                ? (opt === "all" ? "border-slate-600/60 bg-slate-700/30 text-slate-300" : "border-violet-600/60 bg-violet-500/10 text-violet-300")
+                : "border-white/10 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {scopeLabel(opt)}
           </button>
         ))}
         <Button
@@ -509,11 +597,13 @@ function PartnersPanel() {
           <Loader2 className="h-4 w-4 animate-spin" />
           <span className="text-xs">Loading partners…</span>
         </div>
-      ) : partners.length === 0 ? (
-        <div className="text-center py-8 text-slate-600 text-sm">No partners found.</div>
+      ) : visiblePartners.length === 0 ? (
+        <div className="text-center py-8 text-slate-600 text-sm">
+          {scopeFilter !== "all" ? `No partners assigned to "${scopeLabel(scopeFilter)}" yet. Assign venture scope on each partner card.` : "No partners found."}
+        </div>
       ) : (
         <div className="space-y-2">
-          {partners.map((p) => <PartnerCard key={p.id} partner={p} onRefresh={() => void load(waveFilter)} />)}
+          {visiblePartners.map((p) => <PartnerCard key={p.id} partner={p} ventureNames={ventureNames} onRefresh={() => void load(waveFilter)} />)}
         </div>
       )}
     </div>
@@ -627,14 +717,15 @@ function CustomerCard({ customer }: { customer: Customer }) {
   );
 }
 
-function CustomersPanel() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [total,     setTotal]     = useState(0);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState("");
-  const [cohort,    setCohort]    = useState("");
-  const [sort,      setSort]      = useState("tier");
-  const [page,      setPage]      = useState(0);
+function CustomersPanel({ ventureNames }: { ventureNames: string[] }) {
+  const [customers,      setCustomers]      = useState<Customer[]>([]);
+  const [total,          setTotal]          = useState(0);
+  const [loading,        setLoading]        = useState(true);
+  const [search,         setSearch]         = useState("");
+  const [cohort,         setCohort]         = useState("");
+  const [sort,           setSort]           = useState("tier");
+  const [page,           setPage]           = useState(0);
+  const [ventureFilter,  setVentureFilter]  = useState<string>("all");
   const PAGE_SIZE = 50;
 
   const load = useCallback(async (opts: { search: string; cohort: string; sort: string; offset: number }) => {
@@ -723,6 +814,35 @@ function CustomersPanel() {
           <option value="activated">By Status</option>
         </select>
       </div>
+
+      {/* Venture filter */}
+      {ventureNames.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Filter className="h-3 w-3 text-slate-600" />
+          <span className="text-[10px] text-slate-600">Venture:</span>
+          {(["all", ...ventureNames] as string[]).map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => setVentureFilter(opt)}
+              className={`text-[10px] rounded-full px-2.5 py-0.5 border transition-colors ${
+                ventureFilter === opt
+                  ? "border-amber-600/60 bg-amber-500/10 text-amber-300"
+                  : "border-white/10 text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              {opt === "all" ? "All" : opt}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Venture filter info banner */}
+      {ventureFilter !== "all" && (
+        <div className="px-3 py-2 rounded-lg bg-amber-900/10 border border-amber-500/20 text-[10px] text-amber-300/70">
+          Customer → venture assignment is coming in the next release. Showing all contacts — filter by "{ventureFilter}" will narrow results once linkage is added.
+        </div>
+      )}
 
       {/* Customer list */}
       {loading ? (
@@ -1118,6 +1238,7 @@ interface RelationshipBuilderTabProps {
 export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProps) {
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
+  const [ventureNames, setVentureNames] = useState<string[]>([]);
 
   const [activeNav, setActiveNav]  = useState<"partners" | "customers" | "compose" | "qubetalk">("partners");
   const [feed,      setFeed]       = useState<FeedMessage[]>([]);
@@ -1128,6 +1249,21 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
   const [draft,      setDraft]      = useState("");
   const [sending,    setSending]    = useState(false);
   const [recipient,  setRecipient]  = useState("aigent-z");
+
+  useEffect(() => {
+    if (!personaId) return;
+    personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        const all = Array.isArray(data?.ventures) ? [...data.ventures] : [];
+        const sorted = all.sort((a: { createdAt?: string }, b: { createdAt?: string }) =>
+          (a.createdAt ?? '').localeCompare(b.createdAt ?? ''),
+        );
+        setVentureNames(sorted.map((v: { name?: string }) => v.name ?? "Unnamed").filter(Boolean));
+      })
+      .catch(() => {/* best-effort */});
+  }, [personaId]);
 
   const load = useCallback(async (selectedThread: string) => {
     setLoading(true);
@@ -1227,10 +1363,10 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
       </div>
 
       {/* Partners panel */}
-      {activeNav === "partners" && <PartnersPanel />}
+      {activeNav === "partners" && <PartnersPanel personaId={personaId} ventureNames={ventureNames} />}
 
       {/* Customers panel */}
-      {activeNav === "customers" && <CustomersPanel />}
+      {activeNav === "customers" && <CustomersPanel ventureNames={ventureNames} />}
 
       {/* Compose panel */}
       {activeNav === "compose" && <ComposerPanel />}
