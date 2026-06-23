@@ -12,6 +12,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listVentureQubes, type VentureQubeRecord } from './ventureQubeService';
+import type { VentureOperatingModel } from '@/types/ventureQube';
 
 export interface PortfolioVentureSummary {
   id: string;
@@ -32,6 +33,13 @@ export interface VenturePortfolio {
   sharedCapabilities: string[];
   stageSpread: Record<string, number>;
   ventureCount: number;
+  /**
+   * The OPTIONAL operating-artifact layer (Pro/Portfolio only) — the living
+   * operational brief aigentMe executes against as Chief of Staff. Stored in
+   * the portfolio row's `payload` jsonb (no schema change); null when the
+   * operator hasn't authored one.
+   */
+  operatingModel: VentureOperatingModel | null;
 }
 
 function summarise(v: VentureQubeRecord): PortfolioVentureSummary {
@@ -65,7 +73,7 @@ export async function getVenturePortfolio(
 
   const { data: row } = await admin
     .from('venture_portfolios')
-    .select('thesis, notes, priorities')
+    .select('thesis, notes, priorities, payload')
     .eq('owner_persona_id', personaId)
     .maybeSingle();
 
@@ -85,6 +93,12 @@ export async function getVenturePortfolio(
   const stageSpread: Record<string, number> = {};
   for (const v of ventures) stageSpread[v.stage] = (stageSpread[v.stage] ?? 0) + 1;
 
+  const payload = (row?.payload ?? {}) as Record<string, unknown>;
+  const operatingModel =
+    payload.operatingModel && typeof payload.operatingModel === 'object'
+      ? (payload.operatingModel as VentureOperatingModel)
+      : null;
+
   return {
     thesis: (row?.thesis as string | null) ?? null,
     notes: (row?.notes as string | null) ?? null,
@@ -93,26 +107,46 @@ export async function getVenturePortfolio(
     sharedCapabilities: deriveSharedCapabilities(ventures),
     stageSpread,
     ventureCount: ventures.length,
+    operatingModel,
   };
 }
 
 export async function saveVenturePortfolio(
   admin: SupabaseClient,
   personaId: string,
-  input: { thesis?: string | null; notes?: string | null; priorities?: string[] },
+  input: {
+    thesis?: string | null;
+    notes?: string | null;
+    priorities?: string[];
+    /** Pro/Portfolio-only operating-artifact layer; merged into payload. */
+    operatingModel?: VentureOperatingModel | null;
+  },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const row: Record<string, unknown> = {
+    owner_persona_id: personaId,
+    thesis: input.thesis ?? null,
+    notes: input.notes ?? null,
+    priorities: input.priorities ?? [],
+    updated_at: new Date().toISOString(),
+  };
+
+  // Only touch payload when an operatingModel is supplied — read-merge so we
+  // never clobber other (future) payload keys.
+  if (input.operatingModel !== undefined) {
+    const { data: existing } = await admin
+      .from('venture_portfolios')
+      .select('payload')
+      .eq('owner_persona_id', personaId)
+      .maybeSingle();
+    const payload = (existing?.payload ?? {}) as Record<string, unknown>;
+    if (input.operatingModel === null) delete payload.operatingModel;
+    else payload.operatingModel = input.operatingModel;
+    row.payload = payload;
+  }
+
   const { error } = await admin
     .from('venture_portfolios')
-    .upsert(
-      {
-        owner_persona_id: personaId,
-        thesis: input.thesis ?? null,
-        notes: input.notes ?? null,
-        priorities: input.priorities ?? [],
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'owner_persona_id' },
-    );
+    .upsert(row, { onConflict: 'owner_persona_id' });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }

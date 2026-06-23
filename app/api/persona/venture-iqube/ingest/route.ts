@@ -38,7 +38,7 @@ import {
   type ExperienceStage,
 } from '@/services/iqube/experienceQube';
 import { parseVentureQube } from '@/services/iqube/ventureQubeSchema';
-import type { MyCartridgeBlock, VentureQubeV1, VentureStage } from '@/types/ventureQube';
+import type { MyCartridgeBlock, VentureQubeV1, VentureStage, VentureOperatingModel } from '@/types/ventureQube';
 import {
   createVentureQube,
   updateVentureQube,
@@ -145,6 +145,8 @@ interface VentureIqube {
   standing?: StandingBlock;
   // Pro/Portfolio (v1.0) — portfolio-only block.
   portfolio?: PortfolioBlock;
+  // Pro/Portfolio (v1.0) — optional operating-artifact layer (Chief-of-Staff brief).
+  operatingModel?: VentureOperatingModel;
 }
 
 interface IngestPreview {
@@ -209,8 +211,15 @@ function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { o
         return { ok: false, error: 'each Pro venture requires identity.name' };
       }
     }
-    if (p.schemaVersion === 'venture-iqube-portfolio/v1.0' && !p.portfolio?.thesis) {
-      return { ok: false, error: 'venture-iqube-portfolio/v1.0 requires a portfolio.thesis' };
+    if (p.schemaVersion === 'venture-iqube-portfolio/v1.0') {
+      if (!p.portfolio?.thesis) {
+        return { ok: false, error: 'venture-iqube-portfolio/v1.0 requires a portfolio.thesis' };
+      }
+      // A portfolio without an operating model is just a collection of ventures;
+      // with one it is an operating system aigentMe can execute. Require it.
+      if (!p.operatingModel?.mission) {
+        return { ok: false, error: 'venture-iqube-portfolio/v1.0 requires operatingModel.mission (the operational expression of the portfolio thesis)' };
+      }
     }
   } else {
     for (const v of p.ventures) {
@@ -480,6 +489,7 @@ async function materializeProVentures(
   isAdmin: boolean,
   pros: ProVentureUpload[],
   portfolioBlock: PortfolioBlock | undefined,
+  operatingModel: VentureOperatingModel | undefined,
 ): Promise<VentureMaterializeResult> {
   const existing = await listVentureQubes(personaId);
   const bySlug = new Map(existing.map((v) => [v.slug, v]));
@@ -511,19 +521,27 @@ async function materializeProVentures(
     else if (match) updated += 1;
   }
 
-  // Portfolio block — resolve priority names/slugs to venture ids.
+  // Portfolio block + operating model — resolve priority names/slugs to venture
+  // ids and persist. Fires when either a portfolio thesis/priorities OR an
+  // operating model is present (the operatingModel layer can ship on a Pro
+  // upload that has no portfolio block).
   let portfolioSaved = false;
-  if (portfolioBlock && (portfolioBlock.thesis || (portfolioBlock.priorities?.length ?? 0) > 0)) {
+  const hasPortfolioBlock = Boolean(
+    portfolioBlock && (portfolioBlock.thesis || (portfolioBlock.priorities?.length ?? 0) > 0),
+  );
+  const hasOperatingModel = Boolean(operatingModel && Object.keys(operatingModel).length > 0);
+  if (hasPortfolioBlock || hasOperatingModel) {
     const refreshed = await listVentureQubes(personaId);
     const idByKey = new Map<string, string>();
     for (const v of refreshed) { idByKey.set(v.slug, v.id); idByKey.set(v.name.toLowerCase(), v.id); }
-    const priorities = (portfolioBlock.priorities ?? [])
+    const priorities = (portfolioBlock?.priorities ?? [])
       .map((k) => idByKey.get(k) ?? idByKey.get(k.toLowerCase()))
       .filter((x): x is string => !!x);
     const r = await saveVenturePortfolio(admin, personaId, {
-      thesis: portfolioBlock.thesis ?? null,
-      notes: portfolioBlock.notes ?? null,
+      thesis: portfolioBlock?.thesis ?? null,
+      notes: portfolioBlock?.notes ?? null,
       priorities,
+      operatingModel: hasOperatingModel ? operatingModel : undefined,
     });
     portfolioSaved = r.ok;
     if (!r.ok) errors.push(`portfolio: ${r.error}`);
@@ -693,6 +711,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             Boolean(persona.cartridgeFlags?.isAdmin) || ((persona.cartridgeFlags?.adminCartridges?.length ?? 0) > 0),
             validated.data.ventures as unknown as ProVentureUpload[],
             validated.data.portfolio,
+            validated.data.operatingModel,
           );
         } catch (e) {
           console.error('[venture-iqube/ingest] venture materialise failed', e instanceof Error ? e.message : e);

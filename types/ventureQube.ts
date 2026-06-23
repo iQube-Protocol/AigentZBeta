@@ -330,6 +330,73 @@ export type VentureQubeV04 = VentureQube & { schemaVersion: "venture-iqube/v0.4"
 // Lite/Pro are display labels mapped onto them.
 // ───────────────────────────────────────────────────────────────────────────
 
+// ───────────────────────────────────────────────────────────────────────────
+// Operating Model — the OPTIONAL "operating artifact" layer (Pro/Portfolio only)
+//
+// The core VentureQube (both the v0.x operator wrapper and the 13-layer v1.0
+// venture) is a GENERAL-PURPOSE primitive: a student, founder, creator, venture
+// studio, family office, or polity steward can all use it unchanged. It captures
+// intent (Experience), execution structure (Venture), and Standing — but
+// deliberately NOT day-to-day operations. Hardwiring "daily actions / campaigns
+// / commercial goals" into the core would over-specialise what is becoming a
+// powerful general-purpose operating primitive.
+//
+// The Operating Model is the separate, optional layer that turns a portfolio
+// brief into a *living operational brief* aigentMe can execute against as a
+// Chief of Staff. It lives ONLY on Venture Pro + Venture Portfolio — never on
+// Lite / Core Experience, and never inside a VentureQubeV1. Three concerns,
+// three homes:
+//
+//   Experience layer  → captures intent
+//   Venture layer     → captures execution structure
+//   Operating layer   → captures action            ← this
+// ───────────────────────────────────────────────────────────────────────────
+
+export interface OperatingObjective {
+  objective: string;
+  /**
+   * Lifecycle so aigentMe can distinguish what to act on. Not a PM system —
+   * just enough state to drive a daily brief.
+   */
+  status: "active" | "completed" | "blocked" | "deferred";
+}
+
+export interface VentureOperatingModel {
+  /**
+   * The OPERATIONAL expression of `portfolio.thesis` — what we are doing right
+   * now in service of that Why. There is deliberately NO separate operating
+   * thesis: `portfolio.thesis` is the single highest-order statement of intent
+   * (the Why), and `mission` is the What-right-now. Keeping one thesis prevents
+   * strategic and operating intent from drifting apart (tactical drift).
+   */
+  mission?: string;
+  /**
+   * The success metrics the operator steers toward — e.g. "4,000 Passport
+   * holders", "$100K MRR", "25 Founder Office conversions". These are outcomes.
+   */
+  successMetrics?: string[];
+  /** Objectives currently in flight, each with a lifecycle status. */
+  activeObjectives?: OperatingObjective[];
+  /** Strategic partners the operating brief depends on. */
+  priorityPartners?: string[];
+  /** The next concrete actions, in priority order. */
+  priorityActions?: string[];
+  /** Operating review cycle — how often: "weekly", "biweekly", "monthly". */
+  reviewCadence?: string;
+  /** When the next review is due (ISO date) — lets aigentMe auto-generate review briefs. */
+  nextReviewDate?: string;
+  /**
+   * The single primary KPI the brief is judged against. Layered framing:
+   *   • public mental model  → Time-to-Value (instantly understood)
+   *   • internal metric      → Proof of Time Saved (PoTS, measurable)
+   *   • constitutional principle → Net Value Acceleration (Time-to-Value minus
+   *     Risk Repair Burden), which rolls up every venture's verified outcome
+   *     accrual (see ProofOfOutcomeClaim). Free-text so an operator can name a
+   *     different north star, but Net Value Acceleration is the default.
+   */
+  primaryMetric?: string;
+}
+
 export type VentureQubeTier = "lite" | "pro";
 
 export const VENTUREQUBE_TIER_LABEL: Record<VentureQubeTier, string> = {

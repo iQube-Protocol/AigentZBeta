@@ -13,6 +13,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getPersonaPlan } from '@/services/billing/personaPlan';
 import { getVenturePortfolio, saveVenturePortfolio } from '@/services/venture/venturePortfolio';
+import type { VentureOperatingModel } from '@/types/ventureQube';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
     thesis?: string | null;
     notes?: string | null;
     priorities?: string[];
+    operatingModel?: VentureOperatingModel | null;
   };
   const result = await saveVenturePortfolio(g.admin, g.personaId, body);
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
