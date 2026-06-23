@@ -66,6 +66,8 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'agent_revocation_state_changed',
   // Founder Office — Venture Blueprint handed to execution agents
   'venture_blueprint_handoff',
+  // Standing accrual — NVA-backed outcome credit anchored for audit trail
+  'standing_accrued',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
