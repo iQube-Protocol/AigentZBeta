@@ -108,10 +108,13 @@ async function crmPersonaIdForIdentityPersonaId(identityPersonaId: string): Prom
  * owner's Personal Standing once for the aggregate Net Value Acceleration, and
  * stamp each accrued claim `accruedAt`. Best-effort and idempotent.
  *
- * Sprint 2: also credits the delegation chain participants (delegate + workers)
- * at their respective lane multipliers (0.5× delegated, 0.25× stewardship) when
- * the VentureQube delegation layer carries agentId values that resolve to CRM
- * personas. Participants without a CRM record are silently skipped.
+ * Sprint 2 (corrected Sprint 4): delegation chain participants each earn
+ * Personal Standing — the keystone auto-resolves their citizen sponsor via the
+ * identity spine and credits the citizen Delegated (0.5×) + Stewardship (0.25×)
+ * implicitly. CVS portions: delegate = 0.5× cvsTotal, workers = 0.25×.
+ * This avoids double-counting: citizen owner already earned the full cvsTotal
+ * in the Personal lane above; the fractions here represent the agent's own
+ * contribution signal, not a duplicate of the citizen's.
  */
 export async function accrueVentureOutcomes(
   ventureId: string,
@@ -173,10 +176,13 @@ export async function accrueVentureOutcomes(
     }
   }
 
-  // Sprint 2 — Delegation chain accrual.
-  // Credit the delegate and workers from the VentureQube delegation layer at
-  // their respective lane multipliers. Silently skips agents without agentId
-  // or without a CRM record (common for system agents during Alpha).
+  // Sprint 4 (corrects Sprint 2) — Delegation chain accrual.
+  // Each agent earns Personal Standing for their portion of the verified CVS.
+  // The standing keystone auto-resolves their citizen sponsor via the identity
+  // spine (agent_root_identity → sponsor_persona_id → crm_persona) and credits
+  // the citizen Delegated/Stewardship implicitly — no double-counting of the
+  // citizen's own Personal accrual above.
+  // Delegate (aigentMe): 0.5× cvsTotal. Workers: 0.25× cvsTotal.
   const delegationLayer = layers.delegation as VentureDelegationLayer | undefined;
   const chainAccruals: OutcomeAccrualResult['delegationChainAccruals'] = [];
   if (cvsTotal > 0 && Array.isArray(delegationLayer?.assignments)) {
@@ -188,6 +194,9 @@ export async function accrueVentureOutcomes(
       const isWorker = WORKER_AGENT_TYPES.has(assignment.agentType);
       if (!isDelegate && !isWorker) continue;
 
+      // Lane tag returned to the caller for audit; the actual accrual is always
+      // Personal (the agent earns their own signal; citizen sponsor gets credit
+      // through the keystone's auto-resolved sponsor logic).
       const lane: 'delegated' | 'stewardship' = isDelegate ? 'delegated' : 'stewardship';
       const factor = isDelegate ? DELEGATED_CVS_FACTOR : STEWARDSHIP_CVS_FACTOR;
       const agentCvs = cvsTotal * factor;
@@ -198,7 +207,7 @@ export async function accrueVentureOutcomes(
       const accrual = await accrueStanding({
         crmPersonaId: agentCrmId,
         cvs: agentCvs,
-        standingType: lane,
+        standingType: 'personal', // agent earns Personal; keystone auto-credits citizen sponsor
       }).catch(() => null);
 
       chainAccruals.push({

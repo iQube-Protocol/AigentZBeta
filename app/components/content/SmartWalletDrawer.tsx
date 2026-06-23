@@ -1050,6 +1050,14 @@ export default function SmartWalletDrawer({
       claimedAt: string | null;
       worldIdVerified: boolean;
     } | null;
+    /** Sprint 4 — aigentMe Standing lanes (null for non-aigentMe agents). */
+    standing: {
+      personal: number;
+      delegated: number;
+      stewardship: number;
+      overall: number;
+      bucket: number;
+    } | null;
     createdAt: string;
   }
   const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgentItem[]>([]);
@@ -4924,6 +4932,39 @@ export default function SmartWalletDrawer({
                         </p>
                         {/* Bounded-delegation awareness — only on the aigentMe
                             card, scoped to the active persona's delegation. */}
+                        {/* Sprint 4 — aigentMe Standing lanes */}
+                        {sa.isAigentMe && sa.standing && (
+                          <div className="rounded-lg border border-violet-500/15 bg-violet-500/5 p-2 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase tracking-wider text-violet-300/70">
+                                Standing signal
+                              </span>
+                              <span className="text-[10px] font-semibold text-violet-200">
+                                {sa.standing.overall.toFixed(1)}
+                              </span>
+                            </div>
+                            {(
+                              [
+                                { label: 'Personal', value: sa.standing.personal, color: 'bg-emerald-400' },
+                                { label: 'Delegated', value: sa.standing.delegated, color: 'bg-violet-400' },
+                                { label: 'Stewardship', value: sa.standing.stewardship, color: 'bg-sky-400' },
+                              ] as { label: string; value: number; color: string }[]
+                            ).map(({ label, value, color }) => (
+                              <div key={label} className="space-y-0.5">
+                                <div className="flex items-center justify-between text-[9px] text-white/40">
+                                  <span>{label}</span>
+                                  <span>{value.toFixed(1)}</span>
+                                </div>
+                                <div className="h-1 w-full rounded-full bg-white/10">
+                                  <div
+                                    className={`h-1 rounded-full ${color} transition-all duration-500`}
+                                    style={{ width: `${Math.min(100, (value / Math.max(1, sa.standing!.overall || 100)) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {sa.isAigentMe && (
                           <div className="rounded-lg border border-white/10 bg-white/5 p-2 space-y-1.5">
                             <div className="flex items-center justify-between">
