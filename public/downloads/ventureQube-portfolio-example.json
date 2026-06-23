@@ -1,246 +1,106 @@
 {
   "schemaVersion": "venture-iqube-portfolio/v1.0",
-  "emittedAt": "2026-06-23T00:00:00.000Z",
+  "emittedAt": "2026-01-01T00:00:00.000Z",
   "operator": {
-    "displayLabel": "mansaMeta",
-    "archetype": "founder_operator",
-    "tagline": "Building the sovereign human agency ecosystem"
+    "displayLabel": "Example Founder",
+    "archetype": "Founder",
+    "tagline": "A generic reference portfolio — replace with your own."
   },
   "strategy": {
-    "headline": "Operation Leap — economic autonomy for the Polity",
-    "thesis": "Achieve economic autonomy for the Polity through Passport adoption, Founder Office conversion, strategic partnerships, and measurable Time-to-Value acceleration.",
+    "headline": "Example Portfolio — reference operating brief",
+    "thesis": "A worked, non-proprietary example showing how a multi-venture operator fills the Venture Portfolio schema: a portfolio thesis, an operating model, and two fully-formed ventures. Replace every field with your own content.",
     "currentStage": "growth",
-    "blockers": ["Founder Operator identification pipeline not yet running"],
-    "constraints": ["Pre-revenue", "Small core team"]
+    "constraints": ["Small team", "Limited runway"]
   },
-  "experienceGoals": [
-    "Stand up the Founder Operator identification pipeline",
-    "Convert qualified Passport holders into the Founder Office",
-    "Activate strategic partnerships"
-  ],
-  "priorityPartners": ["Project Liberty", "Horizen", "Lamina1"],
+  "experienceGoals": ["Reach product-market fit on the lead venture", "Build a repeatable acquisition motion", "Sign the first strategic partnerships"],
+  "priorityPartners": ["A channel partner", "A platform integration", "A distribution partner"],
   "experienceGuide": {
-    "sphereMaturity": {
-      "energy": "practicing",
-      "body": "exploring",
-      "mind": "integrating",
-      "emotion": "practicing",
-      "relationship": "practicing",
-      "community": "experimenting",
-      "legacy": "exploring"
-    },
-    "sphereAlignment": {
-      "energy": "aligned",
-      "body": "drifting",
-      "mind": "aligned",
-      "emotion": "aligned",
-      "relationship": "drifting",
-      "community": "at_risk",
-      "legacy": "drifting"
-    },
-    "precedenceMode": "auto",
-    "focusIntent": "Collapse time-to-value across the Polity's onboarding funnel."
+    "focusIntent": "Concentrate effort on the lead venture's path to product-market fit."
   },
   "standing": {
     "core": {
-      "whoYouAre": "Founder operator building the sovereign human agency ecosystem.",
-      "whatYouKnow": "Identity, standing, agentic systems, venture formation, commercial activation.",
-      "whatYouveDone": "Shipped the Polity Passport Bureau, metaMe, and metaKnyt to dev.",
-      "interests": "Sovereignty, agency, time-to-value, the agentic polity.",
-      "intentions": "Establish economic autonomy for the Polity.",
-      "experiencesThatMatter": "Operating ventures from zero to activation.",
-      "accomplish": "4,000 Passport holders and $100K MRR via Founder Office conversion."
-    },
-    "linkedInUrl": "https://www.linkedin.com/in/example"
-  },
-  "plan": {
-    "today": {
-      "focus": "Stand up Objective Zero — Founder Operator identification.",
-      "actions": [
-        { "title": "Query existing Passport holders + CRM for Founder Operator signals", "ventureId": "polity-passport-bureau" }
-      ]
-    },
-    "next24h": {
-      "focus": "Shortlist the first cohort of candidate Founder Operators.",
-      "actions": [
-        { "title": "Score candidates against the Founder Operator archetype", "ventureId": "polity-passport-bureau" }
-      ]
-    },
-    "next7d": {
-      "focus": "Move the first 25 candidates toward the Founder Office.",
-      "actions": [
-        { "title": "Draft and send Founder Office invitations", "ventureId": "metame" }
-      ]
-    },
-    "next30d": {
-      "focus": "Activate strategic partnerships.",
-      "actions": [
-        { "title": "Open partnership conversations with Project Liberty, Horizen, Lamina1", "ventureId": "metame" }
-      ]
-    },
-    "next90d": {
-      "focus": "Reach 4,000 Passport holders and $100K MRR.",
-      "actions": [
-        { "title": "Scale Passport adoption via metaKnyt activation", "ventureId": "metaknyt" }
-      ]
+      "whoYouAre": "A founder operator building a small portfolio of software ventures.",
+      "whatYouKnow": "Product, go-to-market, and small-team operating.",
+      "whatYouveDone": "Shipped early versions of two products and run them to first users.",
+      "interests": "Product strategy, distribution, operating leverage.",
+      "intentions": "Reach sustainable revenue across the portfolio.",
+      "experiencesThatMatter": "Taking products from zero to first paying customers.",
+      "accomplish": "Product-market fit on the lead venture and a validated path to recurring revenue."
     }
   },
+  "plan": {
+    "today": { "focus": "Talk to five prospective customers.", "actions": [ { "title": "Run five discovery calls", "ventureId": "atlas-crm" } ] },
+    "next24h": { "focus": "Summarise discovery insights.", "actions": [ { "title": "Synthesize call notes into top three needs", "ventureId": "atlas-crm" } ] },
+    "next7d": { "focus": "Ship the most-requested improvement.", "actions": [ { "title": "Build and release the top feature request", "ventureId": "atlas-crm" } ] },
+    "next30d": { "focus": "Stand up a repeatable acquisition channel.", "actions": [ { "title": "Launch one acquisition experiment", "ventureId": "beacon-analytics" } ] },
+    "next90d": { "focus": "Reach the first revenue milestone across the portfolio.", "actions": [ { "title": "Convert the first cohort of paying customers", "ventureId": "atlas-crm" } ] }
+  },
   "kpiBoard": [
-    { "name": "Passport holders", "metric": "count", "current": 0, "target": 4000, "horizon": "next90d" },
-    { "name": "MRR", "metric": "USD", "current": 0, "target": "$100K", "horizon": "next90d" },
-    { "name": "Founder Operators identified", "metric": "count", "current": 0, "target": 100, "horizon": "next30d" },
-    { "name": "Founder Office conversions", "metric": "count", "current": 0, "target": 25, "horizon": "next90d" }
+    { "name": "Active users", "metric": "count", "current": 0, "target": 1000, "horizon": "next90d" },
+    { "name": "MRR", "metric": "USD", "current": 0, "target": "$10k", "horizon": "next90d" },
+    { "name": "Partnerships signed", "metric": "count", "current": 0, "target": 3, "horizon": "next90d" }
   ],
   "operatingModel": {
-    "mission": "Achieve 4,000 Passport holders and $100K MRR through Passport adoption, Founder Office conversion and strategic partnerships.",
-    "successMetrics": [
-      "4,000 Passport holders",
-      "$100K MRR",
-      "100 Founder Operators identified",
-      "25 Founder Office conversions"
-    ],
+    "mission": "Reach a validated path to recurring revenue across the portfolio through focused product iteration and a repeatable acquisition motion.",
+    "successMetrics": ["1,000 active users", "$10k MRR", "3 partnerships signed"],
     "activeObjectives": [
-      { "objective": "Objective Zero — identify the first 100 Founder Operators from existing Passport holders and CRM contacts", "status": "active" },
-      { "objective": "Convert 25 Founder Operators into the Founder Office", "status": "active" },
-      { "objective": "Activate Project Liberty, Horizen, and Lamina1 partnerships", "status": "active" }
+      { "objective": "Identify your first 50 customers", "status": "active" },
+      { "objective": "Ship the most-requested feature on the lead venture", "status": "active" },
+      { "objective": "Launch one acquisition experiment", "status": "active" }
     ],
-    "priorityPartners": ["Project Liberty", "Horizen", "Lamina1"],
-    "priorityActions": [
-      "Run the Founder Operator identification query against Passport + CRM",
-      "Send the first cohort of Founder Office invitations",
-      "Open the three strategic partnership conversations"
-    ],
+    "priorityPartners": ["A channel partner", "A platform integration", "A distribution partner"],
+    "priorityActions": ["Run customer discovery", "Ship the top feature request", "Launch an acquisition experiment"],
     "reviewCadence": "weekly",
-    "nextReviewDate": "2026-06-30",
-    "primaryMetric": "Net Value Acceleration — have our actions collapsed time to value?"
+    "primaryMetric": "Net Value Acceleration — did our actions reduce time-to-value?"
   },
   "ventures": [
     {
-      "identity": { "name": "Polity Passport Bureau", "slug": "polity-passport-bureau", "stage": "growth" },
+      "identity": { "name": "Atlas CRM", "slug": "atlas-crm", "stage": "growth" },
       "thesis": {
-        "mission": "Give every human a sovereign, verifiable Polity identity.",
-        "vision": "A Polity where identity, standing and agency are self-owned.",
-        "problemStatement": "People have no portable, sovereign identity that carries standing and agency across agentic systems.",
-        "valueProposition": "A verifiable Polity Passport that reduces time-to-citizenship and anchors standing.",
-        "ventureCategory": "identity",
-        "industryTags": ["identity", "web3", "agentic"],
-        "marketTags": ["sovereignty", "citizenship"],
-        "geographicScope": "global"
+        "ventureCategory": "B2B SaaS",
+        "mission": "Give small teams a CRM they actually keep up to date.",
+        "valueProposition": "A lightweight CRM that reduces admin time so teams spend more time selling.",
+        "industryTags": ["saas", "sales"],
+        "marketTags": ["smb"]
       },
-      "intent": {
-        "founderIntents": ["Make sovereign identity the default"],
-        "ventureIntents": ["Issue verifiable Polity Passports at scale"],
-        "citizenIntents": ["Establish my identity and standing"],
-        "commonsIntents": ["A trustworthy Polity identity layer"]
-      },
+      "intent": { "founderIntents": ["Reach product-market fit"], "ventureIntents": ["Win the first 100 paying teams"] },
       "signalEvidence": { "items": [], "demandConfidence": null, "capabilityConfidence": null, "opportunityConfidence": null, "signalConfidence": null },
-      "archetypes": [
-        { "kind": "citizen", "label": "Prospective Citizen", "painPoints": ["No portable sovereign identity"], "desiredOutcomes": ["Verifiable citizenship"], "willingnessToPay": "low-to-moderate" }
-      ],
-      "revenueArchitecture": {
-        "engines": [
-          { "engineType": "subscription", "engineName": "Passport membership", "pricingModel": "monthly", "estimatedRevenue": "scales with adoption" }
-        ]
-      },
-      "commercialModel": { "targetPassports": 4000, "revenueTargets": ["$100K MRR"], "mrrTargets": ["$100K"] },
-      "capability": { "requiredCapabilities": ["identity issuance", "verification"], "availableCapabilities": [], "capabilityGaps": ["scale onboarding"], "capabilityPriorities": ["onboarding pipeline"] },
-      "resource": { "requiredAgents": ["aigentMe"], "requiredTools": ["CRM", "verification service"] },
-      "execution": {
-        "phases": [
-          { "phaseName": "Founder Operator identification", "objectives": ["Identify first 100 Founder Operators"], "deliverables": ["Scored candidate list"] }
-        ]
-      },
-      "delegation": {
-        "assignments": [
-          { "agentType": "aigentMe", "responsibility": "Drive Founder Operator identification + outreach", "deliverables": ["Candidate cohort", "Invitations sent"] }
-        ]
-      },
+      "archetypes": [ { "kind": "executive", "label": "Sales Lead", "painPoints": ["CRM data goes stale"], "desiredOutcomes": ["Less admin"], "willingnessToPay": "moderate" } ],
+      "revenueArchitecture": { "engines": [ { "engineType": "subscription", "engineName": "Team subscription", "pricingModel": "per-seat", "estimatedRevenue": "primary" } ] },
+      "commercialModel": { "revenueTargets": ["$10k MRR"], "mrrTargets": ["$10k"] },
+      "capability": { "requiredCapabilities": ["product", "go-to-market"], "availableCapabilities": [], "capabilityGaps": ["scaled onboarding"], "capabilityPriorities": ["onboarding"] },
+      "resource": { "requiredTools": ["analytics", "email"] },
+      "execution": { "phases": [ { "phaseName": "Product-market fit", "objectives": ["Win first 100 paying teams"], "deliverables": ["Validated onboarding flow"] } ] },
+      "delegation": { "assignments": [ { "agentType": "aigentMe", "responsibility": "Customer discovery and follow-up", "deliverables": ["Discovery summaries"] } ] },
       "outcome": { "outcomes": [], "proofOfOutcomeClaims": [] },
       "governance": {},
-      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "public" }
+      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "private" }
     },
     {
-      "identity": { "name": "metaMe", "slug": "metame", "stage": "growth" },
+      "identity": { "name": "Beacon Analytics", "slug": "beacon-analytics", "stage": "launch" },
       "thesis": {
-        "mission": "Give every citizen a sovereign agentic self.",
-        "valueProposition": "aigentMe reduces time-to-agency by acting as the citizen's sovereign agent.",
-        "ventureCategory": "agentic",
-        "industryTags": ["agentic", "ai"],
-        "marketTags": ["agency", "sovereignty"]
+        "ventureCategory": "Analytics",
+        "valueProposition": "Plain-language analytics for non-technical operators.",
+        "industryTags": ["analytics"],
+        "marketTags": ["smb"]
       },
-      "intent": {
-        "founderIntents": ["Make sovereign agency universal"],
-        "ventureIntents": ["Activate aigentMe for every citizen"]
-      },
+      "intent": { "founderIntents": ["Validate demand"], "ventureIntents": ["Ship a usable v1 and find early adopters"] },
       "signalEvidence": { "items": [], "demandConfidence": null, "capabilityConfidence": null, "opportunityConfidence": null, "signalConfidence": null },
-      "archetypes": [
-        { "kind": "founder_operator", "label": "Founder Operator", "painPoints": ["No operating leverage"], "desiredOutcomes": ["A Chief-of-Staff agent"], "willingnessToPay": "moderate-to-high" }
-      ],
-      "revenueArchitecture": {
-        "engines": [
-          { "engineType": "subscription", "engineName": "Founder Office tiers", "pricingModel": "tiered", "estimatedRevenue": "primary MRR driver" }
-        ]
-      },
-      "commercialModel": { "targetFounders": 100, "revenueTargets": ["$100K MRR"], "mrrTargets": ["$100K"] },
-      "capability": { "requiredCapabilities": ["agent orchestration"], "availableCapabilities": [], "capabilityGaps": ["daily-brief generation"], "capabilityPriorities": ["operating brief execution"] },
-      "resource": { "requiredAgents": ["aigentMe", "marketa"] },
-      "execution": {
-        "phases": [
-          { "phaseName": "Founder Office conversion", "objectives": ["Convert 25 Founder Operators"], "deliverables": ["25 active Founder Office operators"] }
-        ]
-      },
-      "delegation": {
-        "assignments": [
-          { "agentType": "aigentMe", "responsibility": "Run the operating brief as Chief of Staff", "deliverables": ["Daily review briefs"] }
-        ]
-      },
+      "archetypes": [ { "kind": "other", "label": "Operations Manager", "desiredOutcomes": ["Answers without a data team"], "willingnessToPay": "low-to-moderate" } ],
+      "revenueArchitecture": { "engines": [ { "engineType": "subscription", "engineName": "Monthly plan", "pricingModel": "tiered" } ] },
+      "commercialModel": { "growthAssumptions": ["Atlas CRM users adopt Beacon for reporting"] },
+      "capability": { "requiredCapabilities": ["data", "product"], "availableCapabilities": [], "capabilityGaps": ["distribution"], "capabilityPriorities": ["distribution"] },
+      "resource": { "requiredTools": ["data warehouse"] },
+      "execution": { "phases": [ { "phaseName": "Launch", "objectives": ["Ship v1", "Find 10 early adopters"], "deliverables": ["v1 release"] } ] },
+      "delegation": { "assignments": [ { "agentType": "marketa", "responsibility": "Run the acquisition experiment", "deliverables": ["Experiment results"] } ] },
       "outcome": { "outcomes": [], "proofOfOutcomeClaims": [] },
       "governance": {},
-      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "public" }
-    },
-    {
-      "identity": { "name": "metaKnyt", "slug": "metaknyt", "stage": "validation" },
-      "thesis": {
-        "mission": "Activate the Polity through narrative and collectible experience.",
-        "valueProposition": "metaKnyt reduces time-to-fulfilment via an engaging activation surface.",
-        "ventureCategory": "media",
-        "industryTags": ["media", "collectibles"],
-        "marketTags": ["activation", "community"]
-      },
-      "intent": {
-        "founderIntents": ["Make Polity activation joyful"],
-        "ventureIntents": ["Drive Passport adoption through metaKnyt"]
-      },
-      "signalEvidence": { "items": [], "demandConfidence": null, "capabilityConfidence": null, "opportunityConfidence": null, "signalConfidence": null },
-      "archetypes": [
-        { "kind": "creator", "label": "Collector / Creator", "desiredOutcomes": ["Belonging + collectible value"], "willingnessToPay": "moderate" }
-      ],
-      "revenueArchitecture": {
-        "engines": [
-          { "engineType": "commerce", "engineName": "metaKnyt store", "pricingModel": "unit", "estimatedRevenue": "secondary" }
-        ]
-      },
-      "commercialModel": { "targetPassports": 4000, "growthAssumptions": ["metaKnyt drives Passport adoption"] },
-      "capability": { "requiredCapabilities": ["content", "activation"], "availableCapabilities": [], "capabilityGaps": ["scale activation"], "capabilityPriorities": ["activation funnel"] },
-      "resource": { "requiredAgents": ["marketa"] },
-      "execution": {
-        "phases": [
-          { "phaseName": "Activation", "objectives": ["Drive Passport adoption"], "deliverables": ["Activation campaign live"] }
-        ]
-      },
-      "delegation": {
-        "assignments": [
-          { "agentType": "marketa", "responsibility": "Run the metaKnyt activation campaign", "deliverables": ["Campaign + conversions"] }
-        ]
-      },
-      "outcome": { "outcomes": [], "proofOfOutcomeClaims": [] },
-      "governance": {},
-      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "public" }
+      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "private" }
     }
   ],
   "portfolio": {
-    "thesis": "Build a sovereign human agency ecosystem that enables citizens to establish identity, standing, agency and economic autonomy.",
-    "priorities": ["Polity Passport Bureau", "metaMe", "metaKnyt"],
-    "notes": "Passport (time to citizenship) → metaMe (time to agency) → metaKnyt (time to fulfilment). Standing compounds across all three; the bottleneck is Founder Operator identification (Objective Zero)."
+    "thesis": "Two complementary software ventures that share a customer base: Atlas CRM is the lead revenue venture; Beacon Analytics extends it with reporting. The portfolio compounds because the same small teams need both.",
+    "priorities": ["Atlas CRM", "Beacon Analytics"],
+    "notes": "This is a generic reference example — replace all content with your own ventures, thesis, and operating model. The lead venture gets the operating focus; the second is sequenced behind it."
   }
 }

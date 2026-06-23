@@ -51,13 +51,19 @@ export async function ensureCoreProfile(
   supabase: SupabaseClient,
   personaId: string,
 ): Promise<string> {
-  const { data: existing } = await supabase
+  // Reuse the EARLIEST existing Standing Core profile. We intentionally avoid
+  // .maybeSingle() here: if a duplicate "Standing Core" ever exists (e.g. a
+  // manually-created profile plus an auto-created one), maybeSingle() errors on
+  // >1 rows and the caller would then create yet another duplicate. order +
+  // limit(1) always converges on one profile and never spawns more.
+  const { data: existingRows } = await supabase
     .from('vsp_profiles')
     .select('id')
     .eq('owner_persona_id', personaId)
     .eq('label', CORE_PROFILE_LABEL)
-    .maybeSingle();
-  if (existing?.id) return existing.id as string;
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (existingRows && existingRows.length > 0) return existingRows[0].id as string;
 
   const { data: created, error } = await supabase
     .from('vsp_profiles')

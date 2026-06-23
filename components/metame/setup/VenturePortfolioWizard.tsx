@@ -367,7 +367,7 @@ export function VenturePortfolioWizard({
                     value={omMission}
                     onChange={(e) => setOmMission(e.target.value)}
                     rows={2}
-                    placeholder="e.g. Operation Leap — what we are doing right now in service of the portfolio thesis."
+                    placeholder="e.g. what you are doing right now in service of your portfolio thesis."
                     className="w-full text-sm rounded-lg p-2.5 pr-10 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
                   />
                   <div className="absolute top-1.5 right-1.5">
@@ -381,7 +381,7 @@ export function VenturePortfolioWizard({
                 <input
                   value={omPrimaryMetric}
                   onChange={(e) => setOmPrimaryMetric(e.target.value)}
-                  placeholder="Net Value Acceleration — have our actions collapsed time to value?"
+                  placeholder="e.g. Net Value Acceleration — did our actions reduce time-to-value?"
                   className="w-full text-sm rounded-lg p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
                 />
               </div>
@@ -392,7 +392,7 @@ export function VenturePortfolioWizard({
                   value={omSuccessMetrics}
                   onChange={(e) => setOmSuccessMetrics(e.target.value)}
                   rows={3}
-                  placeholder={"4,000 Passport holders\n$100K MRR\n25 Founder Office conversions"}
+                  placeholder={"e.g. 1,000 active users\n$10k MRR\n3 partnerships signed"}
                   className="w-full text-sm rounded-lg p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
                 />
               </div>
@@ -418,7 +418,7 @@ export function VenturePortfolioWizard({
                         <input
                           value={o.objective}
                           onChange={(e) => setOmObjectives((p) => p.map((x, j) => (j === i ? { ...x, objective: e.target.value } : x)))}
-                          placeholder="e.g. Identify the first 100 Founder Operators"
+                          placeholder="e.g. Identify your first 50 customers"
                           className="flex-1 text-sm rounded-lg p-1.5 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
                         />
                         <select
@@ -446,7 +446,7 @@ export function VenturePortfolioWizard({
                     value={omPriorityPartners}
                     onChange={(e) => setOmPriorityPartners(e.target.value)}
                     rows={3}
-                    placeholder={"Project Liberty\nHorizon\nLamina1"}
+                    placeholder={"e.g. a channel partner\na platform integration\na distribution partner"}
                     className="w-full text-sm rounded-lg p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
                   />
                 </div>
