@@ -343,6 +343,11 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
         personaId={personaId}
         hasProAccess={Boolean(isAdmin) || (plan?.wizardAccess?.pro ?? false)}
         onSaved={() => { void loadVentures(); }}
+        onOpenOperatingBrief={
+          Boolean(isAdmin) || (plan?.wizardAccess?.portfolio ?? false)
+            ? () => { setProWizardOpen(false); setPortfolioWizardOpen(true); }
+            : undefined
+        }
       />
       <VenturePortfolioWizard
         open={portfolioWizardOpen}

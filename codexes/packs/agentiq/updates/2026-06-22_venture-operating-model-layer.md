@@ -107,6 +107,23 @@ and in the polity-papers PoTS commentary.
   refreshed after a wizard save. So the brief has a persistent home, not just an
   edit modal.
 
+## Convenience entry point + tier gating
+
+The operating brief is **portfolio-scoped** (one per persona on
+`venture_portfolios`) and gated to **Pro / Elite** only —
+`portfolioWizard = ventureTier === 'pro' || 'elite'` (Lite gets the Pro wizard
+and one venture, but NOT the Portfolio view/iQube). So it is authored in the
+Portfolio wizard, not the per-venture Pro wizard.
+
+To bridge the two without duplicating data, the Venture Pro wizard now takes an
+optional `onOpenOperatingBrief` callback. When the operator has Portfolio access
+(Pro/Elite, or admin), the Founder Office and Standing-cartridge launchers pass
+it, rendering a link in the Pro wizard — "This is one venture — set the
+portfolio-wide operating brief →" — that closes Pro and opens the Portfolio
+wizard. Lite-tier operators (no Portfolio access) never see the link, matching
+the tier model. The nested Pro wizard inside the Portfolio wizard does not get
+the link (it would be circular).
+
 ## Not done (follow-on)
 
 - Load the operating brief into aigentMe's grounding context so it generates
