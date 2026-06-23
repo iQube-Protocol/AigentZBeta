@@ -22,6 +22,9 @@ import { submitPendingAccessReceipts } from '@/services/dvn/accessReceiptBatcher
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Give the canister submission loop as much headroom as possible.
+// API Gateway hard limit is 29 s; the batcher's own deadline fires at 20 s.
+export const maxDuration = 28;
 
 export async function POST(req: NextRequest) {
   const expected = process.env.ADMIN_OPS_TOKEN;

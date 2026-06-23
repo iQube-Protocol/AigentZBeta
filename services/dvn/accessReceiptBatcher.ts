@@ -56,7 +56,7 @@ export async function submitPendingAccessReceipts(
 ): Promise<AccessReceiptBatchResult> {
   const limit = opts.limit ?? 20;
   const minAgeSeconds = opts.minAgeSeconds ?? 60;
-  const maxFunctionMs = opts.maxFunctionMs ?? 22_000;
+  const maxFunctionMs = opts.maxFunctionMs ?? 20_000;
   const deadline = Date.now() + maxFunctionMs;
   const result: AccessReceiptBatchResult = {
     ok: false,
@@ -136,7 +136,14 @@ export async function submitPendingAccessReceipts(
 
       const payloadBytes = Array.from(new TextEncoder().encode(payload));
       const messageId = `access_receipt_${row.event_id}`;
-      const submitResponse = await dvn.submit_dvn_message(0, 0, payloadBytes, messageId);
+      // Per-call timeout: abort if the canister doesn't respond within 8 s so
+      // one hung submission doesn't consume the entire function window.
+      const submitResponse = await Promise.race([
+        dvn.submit_dvn_message(0, 0, payloadBytes, messageId),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('canister call timeout (8 s)')), 8_000),
+        ),
+      ]);
 
       const onChainTxId =
         typeof submitResponse === 'string' ? submitResponse : messageId;
