@@ -89,7 +89,14 @@ export function MetaMeRuntimeSettingsTab() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ context: value }),
-    }).catch(() => {});
+    }).then(async (res) => {
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        console.error("[runtime-context] PUT failed", res.status, detail);
+      }
+    }).catch((err) => {
+      console.error("[runtime-context] PUT network error", err);
+    });
     // Notify same-document listeners too — the native `storage` event does not
     // fire in the document that performed the write, only in sibling documents.
     try {
