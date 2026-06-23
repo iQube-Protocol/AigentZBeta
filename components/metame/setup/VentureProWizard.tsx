@@ -27,7 +27,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, ChevronLeft, ChevronRight, Check, Lock } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Check, Lock, Compass } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { MicButton } from "@/components/ui/MicButton";
 
@@ -66,6 +66,7 @@ export function VentureProWizard({
   ventureId: targetVentureId,
   hasProAccess,
   onSaved,
+  onOpenOperatingBrief,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -75,6 +76,13 @@ export function VentureProWizard({
   /** When false the wizard shows a locked upgrade panel. */
   hasProAccess: boolean;
   onSaved?: (result: { ventureId: string }) => void;
+  /**
+   * Optional convenience entry point to the portfolio-wide operating brief
+   * (which lives in the Portfolio wizard, not here — this wizard is per-venture).
+   * Only provide it when the operator has Portfolio access (Pro/Elite); the link
+   * is hidden when omitted.
+   */
+  onOpenOperatingBrief?: () => void;
 }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Form>(EMPTY);
@@ -245,6 +253,18 @@ export function VentureProWizard({
               Step {step + 1} of {total} · {current.title}
               {ventureId ? <span className="ml-2 text-emerald-300/80">editing your venture</span> : <span className="ml-2 text-slate-500">a new venture will be created on save</span>}
             </div>
+
+            {onOpenOperatingBrief && (
+              <button
+                type="button"
+                onClick={onOpenOperatingBrief}
+                className="flex items-center gap-1.5 text-[11px] text-violet-300/90 hover:text-violet-200 self-start"
+                title="The operating brief is portfolio-wide — it lives in your Venture Portfolio, not on a single venture."
+              >
+                <Compass className="w-3 h-3" />
+                This is one venture — set the portfolio-wide operating brief →
+              </button>
+            )}
 
             {loading ? (
               <div className="flex items-center gap-2 py-10 justify-center text-slate-400 text-sm">
