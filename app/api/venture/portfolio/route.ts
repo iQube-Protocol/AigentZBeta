@@ -9,11 +9,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getPersonaPlan } from '@/services/billing/personaPlan';
 import { getVenturePortfolio, saveVenturePortfolio } from '@/services/venture/venturePortfolio';
-import type { VentureOperatingModel } from '@/types/ventureQube';
+import { listVentureQubes } from '@/services/venture/ventureQubeService';
+import type { VentureOperatingModel, VentureQubeV1, ProofOfOutcomeClaim } from '@/types/ventureQube';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,8 +62,103 @@ export async function POST(req: NextRequest) {
   const input = g.canPortfolio
     ? body
     : { operatingModel: body.operatingModel };
+
+  // Sprint 3b — detect objectives newly moved to 'completed' so we can
+  // auto-generate a ProofOfOutcomeClaim in the primary VentureQube.
+  // Read the PREVIOUS objectives before the save to diff against the incoming.
+  let prevCompletedLabels: Set<string> = new Set();
+  if (body.operatingModel?.activeObjectives) {
+    const prev = await getVenturePortfolio(g.admin, g.personaId).catch(() => null);
+    prevCompletedLabels = new Set(
+      (prev?.operatingModel?.activeObjectives ?? [])
+        .filter((o) => o.status === 'completed')
+        .map((o) => o.objective),
+    );
+  }
+
   const result = await saveVenturePortfolio(g.admin, g.personaId, input);
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
+
+  // Auto-claim: for each objective that is now 'completed' but wasn't before,
+  // create a self-declared ProofOfOutcomeClaim in the persona's primary VentureQube.
+  // The claim starts as 'claimed' — it accrues NOTHING to Standing until an
+  // admin verifier moves it to 'verified'. This maintains the verification gate.
+  if (body.operatingModel?.activeObjectives) {
+    const newlyCompleted = body.operatingModel.activeObjectives.filter(
+      (o) => o.status === 'completed' && !prevCompletedLabels.has(o.objective),
+    );
+    if (newlyCompleted.length > 0) {
+      await createAutoClaimsForCompletedObjectives(g.personaId, newlyCompleted).catch(() => {
+        // Best-effort — never block the portfolio save response on claim creation.
+      });
+    }
+  }
+
   const portfolio = await getVenturePortfolio(g.admin, g.personaId);
   return NextResponse.json({ ok: true, ...portfolio });
+}
+
+/**
+ * Auto-generate self-declared ProofOfOutcomeClaims for operating objectives
+ * that were just marked 'completed'. Claims start as 'claimed' — they are
+ * surfaced to the operator in the cockpit with a "pending verification" badge
+ * so they know to request steward verification before Standing accrues.
+ *
+ * T0 safety: personaId never enters the venture layers or the claim payload.
+ * A T2-safe commitment ref is used where a trace is needed.
+ */
+async function createAutoClaimsForCompletedObjectives(
+  personaId: string,
+  objectives: Array<{ objective: string; status: string }>,
+): Promise<void> {
+  const admin = getSupabaseServer();
+  if (!admin) return;
+
+  // Find the primary active VentureQube for this persona.
+  const ventures = await listVentureQubes(personaId);
+  const primary = ventures.find((v) => v.status === 'active') ?? ventures[0];
+  if (!primary?.id) return;
+
+  const { data: row } = await admin
+    .from('venture_qubes')
+    .select('layers')
+    .eq('id', primary.id)
+    .maybeSingle();
+  if (!row) return;
+
+  const layers = (row.layers ?? {}) as VentureQubeV1;
+  const existing = layers.outcome?.proofOfOutcomeClaims ?? [];
+
+  // Skip objectives that already have a matching claim (idempotency by description prefix).
+  const existingDescriptions = new Set(existing.map((c) => c.description));
+
+  const now = new Date().toISOString();
+  const newClaims: ProofOfOutcomeClaim[] = [];
+  for (const obj of objectives) {
+    const description = `[Auto] Objective completed: ${obj.objective}`;
+    if (existingDescriptions.has(description)) continue;
+    // T2-safe idempotency key: hash of the objective text, not the personaId.
+    const claimId = createHash('sha256')
+      .update(`auto-claim:${primary.id}:${obj.objective}`)
+      .digest('hex')
+      .slice(0, 16);
+    const claim: ProofOfOutcomeClaim = {
+      claimId,
+      description,
+      verificationStatus: 'claimed',
+      createdAt: now,
+    };
+    newClaims.push(claim);
+  }
+
+  if (newClaims.length === 0) return;
+
+  const nextLayers: VentureQubeV1 = {
+    ...layers,
+    outcome: {
+      ...layers.outcome,
+      proofOfOutcomeClaims: [...existing, ...newClaims],
+    },
+  };
+  await admin.from('venture_qubes').update({ layers: nextLayers }).eq('id', primary.id);
 }

@@ -149,7 +149,14 @@ export interface VentureProgressShape {
   /** Thesis mission + problem statement for cockpit header strip. */
   thesisSummary: { mission: string | null; problem: string | null } | null;
   /** Signal Evidence aggregate — avg confidence + count. */
-  signalSummary: { confidence: number | null; count: number } | null;
+  signalSummary: {
+    confidence: number | null;
+    count: number;
+    /** Four roll-up confidence dimensions from the signal evidence layer (0–100). */
+    opportunityConfidence: number | null;
+    demandConfidence: number | null;
+    capabilityConfidence: number | null;
+  } | null;
   /** Operating model active objectives (active/blocked/completed). */
   operatingObjectives: OperatingObjectiveSummary[];
   /** Sum of NVA hours across all verified ProofOfOutcomeClaims. */
@@ -424,19 +431,21 @@ export async function buildVentureProgress(
         };
       }
 
-      // Signal Evidence layer — aggregate per-item confidence scores.
-      if (Array.isArray(vl?.signalEvidence?.items) && vl.signalEvidence.items.length > 0) {
-        const items = vl.signalEvidence.items;
+      // Signal Evidence layer — aggregate per-item confidence + four roll-up dimensions.
+      const se = vl?.signalEvidence;
+      if (se) {
+        const items = Array.isArray(se.items) ? se.items : [];
         const withScore = items.filter((s) => typeof s.confidenceScore === 'number');
+        const avgConfidence = withScore.length > 0
+          ? withScore.reduce((sum, s) => sum + (s.confidenceScore as number), 0) / withScore.length
+          : (typeof se.signalConfidence === 'number' ? se.signalConfidence : null);
         signalSummary = {
           count: items.length,
-          confidence: withScore.length > 0
-            ? withScore.reduce((sum, s) => sum + (s.confidenceScore as number), 0) / withScore.length
-            : null,
+          confidence: avgConfidence,
+          opportunityConfidence: typeof se.opportunityConfidence === 'number' ? se.opportunityConfidence : null,
+          demandConfidence: typeof se.demandConfidence === 'number' ? se.demandConfidence : null,
+          capabilityConfidence: typeof se.capabilityConfidence === 'number' ? se.capabilityConfidence : null,
         };
-      } else if (typeof vl?.signalEvidence?.signalConfidence === 'number') {
-        // Fall back to the roll-up score when no items are populated.
-        signalSummary = { count: 0, confidence: vl.signalEvidence.signalConfidence };
       }
 
       // Commercial Model layer — revenue targets as synthetic KPIs.

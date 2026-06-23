@@ -79,7 +79,7 @@ export interface VentureProgressData {
   // VentureQube-layer enrichment (Sprint 1)
   venturePublicRef?: string | null;
   thesisSummary?: { mission: string | null; problem: string | null } | null;
-  signalSummary?: { confidence: number | null; count: number } | null;
+  signalSummary?: { confidence: number | null; count: number; opportunityConfidence: number | null; demandConfidence: number | null; capabilityConfidence: number | null } | null;
   operatingObjectives?: import('@/services/orchestration/ventureProgressBuilder').OperatingObjectiveSummary[];
   nvaTotal?: number;
   standingGovScore?: number | null;

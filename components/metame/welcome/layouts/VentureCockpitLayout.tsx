@@ -183,6 +183,16 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
               )}
             </div>
 
+            {/* Signal quality strip — four confidence dimensions from VentureQube signal evidence */}
+            {data.signalSummary && (
+              data.signalSummary.opportunityConfidence !== null ||
+              data.signalSummary.demandConfidence !== null ||
+              data.signalSummary.capabilityConfidence !== null ||
+              data.signalSummary.confidence !== null
+            ) && (
+              <SignalQualityStrip signal={data.signalSummary} isDark={isDark} />
+            )}
+
             {/* Row 1 — KPIs (cyan accent) */}
             <Row
               title="KPIs"
@@ -231,6 +241,10 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                 {/* NVA total chip — from verified ProofOfOutcomeClaims */}
                 {data.nvaTotal > 0 && (
                   <NvaChip nvaTotal={data.nvaTotal} isDark={isDark} />
+                )}
+                {/* Governance standing score — from VentureQube governance layer */}
+                {typeof data.standingGovScore === 'number' && (
+                  <StandingGovChip score={data.standingGovScore} isDark={isDark} />
                 )}
               </Carousel>
             </Row>
@@ -641,6 +655,90 @@ function ActivityChip({
   );
 }
 
+/**
+ * SignalQualityStrip — four-dimension confidence bar for the venture's signal
+ * evidence layer. Renders a compact horizontal strip of labelled score bars
+ * (0–100 scale) so the operator sees market signal quality at a glance without
+ * opening the full signal evidence panel.
+ *
+ * Dimensions:
+ *   Signal (overall)   — avg across all signal items
+ *   Opportunity        — addressable market + timing
+ *   Demand             — validated pull from the archetype
+ *   Capability         — internal ability to execute
+ *
+ * Colour ramp (matches the metaMe R/T dot spec):
+ *   ≤ 33  → rose-500  (weak)
+ *   ≤ 66  → amber-500 (moderate)
+ *   > 66  → emerald-500 (strong)
+ */
+function SignalQualityStrip({
+  signal,
+  isDark,
+}: {
+  signal: {
+    confidence: number | null;
+    opportunityConfidence: number | null;
+    demandConfidence: number | null;
+    capabilityConfidence: number | null;
+    count: number;
+  };
+  isDark: boolean;
+}) {
+  const dims: Array<{ label: string; value: number | null }> = [
+    { label: 'Signal', value: signal.confidence },
+    { label: 'Opportunity', value: signal.opportunityConfidence },
+    { label: 'Demand', value: signal.demandConfidence },
+    { label: 'Capability', value: signal.capabilityConfidence },
+  ].filter((d) => d.value !== null);
+
+  if (dims.length === 0) return null;
+
+  const barColor = (v: number) =>
+    v <= 33 ? 'bg-rose-500' : v <= 66 ? 'bg-amber-500' : 'bg-emerald-500';
+  const textColor = (v: number) =>
+    v <= 33
+      ? (isDark ? 'text-rose-300' : 'text-rose-700')
+      : v <= 66
+        ? (isDark ? 'text-amber-300' : 'text-amber-700')
+        : (isDark ? 'text-emerald-300' : 'text-emerald-700');
+  const wrapClass = isDark
+    ? 'bg-slate-900/40 border-slate-800/60'
+    : 'bg-slate-50 border-slate-200';
+
+  return (
+    <div className={`rounded-lg border p-3 ${wrapClass}`}>
+      <div className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+        Signal quality
+        {signal.count > 0 && (
+          <span className={`ml-1.5 normal-case tracking-normal font-normal ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+            · {signal.count} signal{signal.count === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        {dims.map(({ label, value }) => {
+          const pct = Math.max(0, Math.min(100, Math.round(value!)));
+          return (
+            <div key={label}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{label}</span>
+                <span className={`text-[10px] font-semibold tabular-nums ${textColor(pct)}`}>{pct}</span>
+              </div>
+              <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${barColor(pct)}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SignalChip({
   count,
   confidence,
@@ -675,6 +773,18 @@ function NvaChip({ nvaTotal, isDark }: { nvaTotal: number; isDark: boolean }) {
       <div className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>NVA accrued</div>
       <div className={`text-lg font-semibold leading-tight mt-0.5 ${tint.text}`}>{display} hrs</div>
       <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>verified</div>
+    </div>
+  );
+}
+
+function StandingGovChip({ score, isDark }: { score: number; isDark: boolean }) {
+  // Governance standing score — amber accent; 0–100 range.
+  const tint = accent('amber', isDark ? 'dark' : 'light');
+  return (
+    <div className={`rounded-lg border p-2.5 min-w-[8rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+      <div className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Standing</div>
+      <div className={`text-lg font-semibold leading-tight mt-0.5 ${tint.text}`}>{Math.round(score)}</div>
+      <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>governance</div>
     </div>
   );
 }
