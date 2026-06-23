@@ -1140,9 +1140,14 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>, 
     }
     if (name === 'search_contacts') {
       if (!personaId) return JSON.stringify({ error: 'No active persona — cannot search contacts' });
-      const q = String(input.query ?? '').trim();
+      const rawQ = String(input.query ?? '').trim();
       const source = typeof input.source === 'string' ? input.source : '';
       const limit = Math.min(Number(input.limit ?? 20), 100);
+      // Strip meta-words that describe the query type but won't appear in
+      // contact records (e.g. "contacts", "people", "email") so they don't
+      // create impossible AND conditions in the FTS query.
+      const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with)\b/gi;
+      const q = rawQ.replace(STRIP_WORDS, ' ').replace(/\s+/g, ' ').trim();
       let query = supabase
         .from('persona_contacts')
         .select('display_name, first_name, last_name, organization, job_title, email, email_2, phone, phone_2, address, source')
@@ -1152,7 +1157,7 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>, 
       if (q) {
         query = (query as any).textSearch(
           'fts',
-          q.split(/\s+/).map((w: string) => w + ':*').join(' & '),
+          q.split(/\s+/).filter((w: string) => w.length > 1).map((w: string) => w + ':*').join(' & '),
           { config: 'english', type: 'plain' },
         );
       } else {

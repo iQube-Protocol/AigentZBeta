@@ -41,7 +41,9 @@ registerTool({
       };
     }
 
-    const q = typeof input.query === 'string' ? input.query.trim() : '';
+    const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with)\b/gi;
+    const q = (typeof input.query === 'string' ? input.query : '')
+      .replace(STRIP_WORDS, ' ').replace(/\s+/g, ' ').trim();
     const source = typeof input.source === 'string' ? input.source.trim() : '';
     const limit = Math.min(Number(input.limit ?? 20), 100);
 
@@ -59,7 +61,7 @@ registerTool({
       if (q) {
         query = (query as any).textSearch(
           'fts',
-          q.split(/\s+/).map((w: string) => w + ':*').join(' & '),
+          q.split(/\s+/).filter((w: string) => w.length > 1).map((w: string) => w + ':*').join(' & '),
           { config: 'english', type: 'plain' },
         );
       } else {

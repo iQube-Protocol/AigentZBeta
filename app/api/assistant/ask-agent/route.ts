@@ -47,13 +47,16 @@ async function maybeInjectContactContext(
 ): Promise<string | null> {
   if (!CONTACT_INTENT_RE.test(prompt)) return null;
 
-  // Extract likely search terms: strip common question words, keep nouns
+  // Extract likely search terms: strip common question words AND contact-domain
+  // meta-words (contact, contacts, people, email, phone) that won't appear in
+  // any contact record field, which would create impossible AND conditions in FTS.
+  const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with)\b/gi;
   const q = prompt
-    .replace(/\b(who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with)\b/gi, ' ')
+    .replace(STRIP_WORDS, ' ')
     .replace(/[^\w\s]/g, ' ')
     .trim()
     .split(/\s+/)
-    .filter(w => w.length > 2)
+    .filter(w => w.length > 1)
     .slice(0, 6)
     .join(' ');
 
