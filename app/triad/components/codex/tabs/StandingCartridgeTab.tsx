@@ -779,6 +779,11 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
         onOpenChange={setProWizardOpen}
         personaId={_personaId}
         hasProAccess={!!wizardAccess?.pro}
+        onOpenOperatingBrief={
+          wizardAccess?.portfolio
+            ? () => { setProWizardOpen(false); setPortfolioWizardOpen(true); }
+            : undefined
+        }
       />
       <VenturePortfolioWizard
         open={portfolioWizardOpen}
