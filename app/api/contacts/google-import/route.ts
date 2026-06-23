@@ -35,9 +35,9 @@ export async function POST(req: NextRequest) {
   }
 
   const tokenResult = await resolveAccessToken(persona.personaId, 'contacts');
-  if (tokenResult.status !== 'ok') {
+  if (!tokenResult.ok) {
     return NextResponse.json(
-      { ok: false, error: 'Google Contacts not connected', detail: tokenResult.status },
+      { ok: false, error: 'Google Contacts not connected', detail: tokenResult.code },
       { status: 403 },
     );
   }
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       if (pageToken) url.searchParams.set('pageToken', pageToken);
 
       const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${tokenResult.accessToken}` },
+        headers: { Authorization: `Bearer ${tokenResult.token}` },
       });
 
       if (!res.ok) {
