@@ -113,13 +113,20 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
   const [spine, setSpine] = useState<SpineState | null>(null);
   const [plan, setPlan] = useState<{
     ventureTier: string; ventureLabAccess: boolean; ventureTierLabel: string; planLabel: string;
-    wizardAccess?: { core: boolean; light: boolean; pro: boolean; portfolio: boolean };
+    wizardAccess?: { core: boolean; light: boolean; pro: boolean; operatingModel: boolean; portfolio: boolean };
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Guided wizards (parity with the Standing cartridge launcher).
   const [proWizardOpen, setProWizardOpen] = useState(false);
   const [portfolioWizardOpen, setPortfolioWizardOpen] = useState(false);
+  // The Portfolio wizard doubles as the Operating Brief surface (operating mode
+  // is available to any Founder Office tier; portfolio mode is Operator Pro/Elite).
+  const [portfolioWizardMode, setPortfolioWizardMode] = useState<'portfolio' | 'operating'>('portfolio');
+  const operatingAccess = Boolean(isAdmin) || (plan?.wizardAccess?.operatingModel ?? false);
+  const portfolioAccess = Boolean(isAdmin) || (plan?.wizardAccess?.portfolio ?? false);
+  const openOperatingBrief = () => { setPortfolioWizardMode('operating'); setPortfolioWizardOpen(true); };
+  const openPortfolio = () => { setPortfolioWizardMode('portfolio'); setPortfolioWizardOpen(true); };
 
   const loadVentures = useCallback(async () => {
     setLoading(true);
@@ -263,7 +270,7 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-slate-100">
-              Founder Office <span className="text-[10px] font-medium align-middle px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">{plan ? (plan.ventureTier.charAt(0).toUpperCase() + plan.ventureTier.slice(1)) : 'Lite'}</span>
+              Founder Office <span className="text-[10px] font-medium align-middle px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">{plan?.ventureTierLabel ?? 'Operator'}</span>
             </h2>
             <p className="text-xs text-slate-400">
               Venture formation operating system — turn an idea into an executable Venture Blueprint (VentureQube Pro).
@@ -302,7 +309,13 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
               <Rocket className="w-3.5 h-3.5" /> Venture Pro wizard
             </button>
             <button
-              onClick={() => setPortfolioWizardOpen(true)}
+              onClick={openOperatingBrief}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/15 border border-violet-500/40 text-violet-200 hover:bg-violet-500/25"
+            >
+              <Compass className="w-3.5 h-3.5" /> Operating Brief
+            </button>
+            <button
+              onClick={openPortfolio}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/15 border border-violet-500/40 text-violet-200 hover:bg-violet-500/25"
             >
               <Layers className="w-3.5 h-3.5" /> Venture Portfolio
@@ -344,8 +357,8 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
         hasProAccess={Boolean(isAdmin) || (plan?.wizardAccess?.pro ?? false)}
         onSaved={() => { void loadVentures(); }}
         onOpenOperatingBrief={
-          Boolean(isAdmin) || (plan?.wizardAccess?.portfolio ?? false)
-            ? () => { setProWizardOpen(false); setPortfolioWizardOpen(true); }
+          operatingAccess
+            ? () => { setProWizardOpen(false); openOperatingBrief(); }
             : undefined
         }
       />
@@ -353,7 +366,9 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
         open={portfolioWizardOpen}
         onOpenChange={setPortfolioWizardOpen}
         personaId={personaId}
-        hasPortfolioAccess={Boolean(isAdmin) || (plan?.wizardAccess?.portfolio ?? false)}
+        mode={portfolioWizardMode}
+        hasOperatingAccess={operatingAccess}
+        hasPortfolioAccess={portfolioAccess}
         onSaved={() => { void loadVentures(); }}
       />
     </div>

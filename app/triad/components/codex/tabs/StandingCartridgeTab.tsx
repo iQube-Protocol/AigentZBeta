@@ -6,7 +6,7 @@ import {
   Star, Plus, CheckCircle2, XCircle,
   Edit2, RefreshCw, Link2, FileText, Loader2, AlertCircle,
   Lock, Package, GitBranch, Sparkles, ChevronDown, ChevronRight,
-  Upload, X as XIcon, Wand2, ShieldCheck, Rocket, Layers,
+  Upload, X as XIcon, Wand2, ShieldCheck, Rocket, Layers, Compass,
 } from 'lucide-react';
 import { StandingCoreWizard } from '@/components/metame/setup/StandingCoreWizard';
 import { VentureLightWizard } from '@/components/metame/setup/VentureLightWizard';
@@ -259,12 +259,15 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
   // Wizard launcher — parity with aigentMe. Citizens can build their Standing
   // Graph via the guided wizards here too. Gated by wizardAccess from the plan.
   const [wizardAccess, setWizardAccess] = useState<{
-    core: boolean; light: boolean; pro: boolean; portfolio: boolean;
+    core: boolean; light: boolean; pro: boolean; operatingModel: boolean; portfolio: boolean;
   } | null>(null);
   const [coreWizardOpen, setCoreWizardOpen] = useState(false);
   const [lightWizardOpen, setLightWizardOpen] = useState(false);
   const [proWizardOpen, setProWizardOpen] = useState(false);
   const [portfolioWizardOpen, setPortfolioWizardOpen] = useState(false);
+  // Portfolio wizard doubles as the Operating Brief surface (operating mode is
+  // any Founder Office tier; portfolio mode is Operator Pro/Elite).
+  const [portfolioWizardMode, setPortfolioWizardMode] = useState<'portfolio' | 'operating'>('portfolio');
   useEffect(() => {
     void (async () => {
       try {
@@ -739,11 +742,33 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
             </span>
           </button>
 
-          {/* Venture Portfolio — Pro/Elite. The wizard shows a locked upgrade
-              panel without access, so the card always opens it. */}
+          {/* Operating Brief — any Founder Office tier (Operator+). Ships with the
+              Pro schema; not gated behind the portfolio. */}
           <button
             type="button"
-            onClick={() => setPortfolioWizardOpen(true)}
+            onClick={() => { setPortfolioWizardMode('operating'); setPortfolioWizardOpen(true); }}
+            className={`text-left rounded-lg border p-3 transition-colors ${
+              wizardAccess?.operatingModel
+                ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20'
+                : 'border-slate-700/60 bg-slate-900/40 hover:bg-slate-800/60'
+            }`}
+            title={wizardAccess?.operatingModel ? 'Operating Brief' : 'Operating Brief — enter the Founder Office to unlock'}
+          >
+            <div className="flex items-center gap-1.5 text-sm font-medium text-slate-200">
+              <Compass className="w-3.5 h-3.5" /> Operating Brief
+              {!wizardAccess?.operatingModel && <Lock className="w-3 h-3 text-slate-500" />}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Your Chief-of-Staff operating brief.</p>
+            <span className={`inline-block mt-1.5 text-[9px] uppercase tracking-wider ${wizardAccess?.operatingModel ? 'text-emerald-300' : 'text-slate-500'}`}>
+              {wizardAccess?.operatingModel ? 'Available' : 'Enter Founder Office'}
+            </span>
+          </button>
+
+          {/* Venture Portfolio — Operator Pro/Elite. The wizard shows a locked
+              upgrade panel without access, so the card always opens it. */}
+          <button
+            type="button"
+            onClick={() => { setPortfolioWizardMode('portfolio'); setPortfolioWizardOpen(true); }}
             className={`text-left rounded-lg border p-3 transition-colors ${
               wizardAccess?.portfolio
                 ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20'
@@ -780,8 +805,8 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
         personaId={_personaId}
         hasProAccess={!!wizardAccess?.pro}
         onOpenOperatingBrief={
-          wizardAccess?.portfolio
-            ? () => { setProWizardOpen(false); setPortfolioWizardOpen(true); }
+          wizardAccess?.operatingModel
+            ? () => { setProWizardOpen(false); setPortfolioWizardMode('operating'); setPortfolioWizardOpen(true); }
             : undefined
         }
       />
@@ -789,6 +814,8 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
         open={portfolioWizardOpen}
         onOpenChange={setPortfolioWizardOpen}
         personaId={_personaId}
+        mode={portfolioWizardMode}
+        hasOperatingAccess={!!wizardAccess?.operatingModel}
         hasPortfolioAccess={!!wizardAccess?.portfolio}
       />
 

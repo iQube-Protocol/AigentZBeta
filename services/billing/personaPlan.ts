@@ -6,10 +6,21 @@
  *   - plan_tier (citizen ladder, free today): citizen | citizen_plus |
  *     sovereign_citizen | first_citizen — room for future premium citizen levels.
  *   - venture_tier (gates Venture Lab access):
- *       none  → free Citizen: NO Venture Lab cartridge, 0 ventures (glimpse only)
- *       lite  → 1 venture + Venture Lab + Marketa
- *       pro   → 3 ventures
- *       elite → unlimited ventures
+ *       none  → free Citizen: NO Founder Office. Venture Light only — the
+ *               freemium experience-card extension: 1 venture, idea incubation,
+ *               the v0.x wrapper. No 13-layer schema, no operating model.
+ *       lite  → "Operator": Founder Office tier 1. The VentureQube Pro 13-layer
+ *               schema + operating model, for 1 venture. NO portfolio.
+ *       pro   → "Operator Pro": 3 ventures + portfolio.
+ *               (Tier names use "Operator", not "Founder", to avoid colliding
+ *               with the Founder Operator archetype/class.)
+ *       elite → "Operator Elite": unlimited ventures + portfolio.
+ *
+ * The line of demarcation is the FOUNDER OFFICE, not the portfolio: the moment a
+ * citizen enters the Founder Office (any paid tier) they are on the Pro schema
+ * AND get the operating model. The portfolio (multi-venture thesis/priorities)
+ * is a second unlock at Founder Pro/Elite. "Light" never appears inside the
+ * Founder Office — it is purely the freemium, pre-Founder-Office tier.
  *
  * Venture Lab cartridge ACCESS is the paywall (venture_tier != none). A free
  * citizen still gets the persona-anchored experience + a venture *glimpse* badge
@@ -27,11 +38,15 @@ export type StandingTier = 'standing' | 'professional';
 
 /**
  * Which Standing/Venture wizard templates a persona may launch.
- *   - core      → Standing Core wizard (every citizen, free)
- *   - light     → Venture Light wizard (every citizen, free — 1 light venture)
- *   - pro       → Venture Pro wizard + the 13-layer VentureQube Pro schema
- *                 (unlocks at Venture Lab Lite and above)
- *   - portfolio → Venture Portfolio wizard, cross-venture (unlocks at Pro/Elite)
+ *   - core          → Standing Core wizard (every citizen, free)
+ *   - light         → Venture Light wizard (every citizen, free — 1 light venture,
+ *                     OUTSIDE the Founder Office)
+ *   - pro           → Venture Pro wizard + the 13-layer VentureQube Pro schema
+ *                     (unlocks on entering the Founder Office — "Founder" tier 1+)
+ *   - operatingModel→ the operating brief (Chief-of-Staff layer). Unlocks WITH the
+ *                     Founder Office (tier 1+) — it ships with the Pro schema, NOT
+ *                     gated behind the portfolio.
+ *   - portfolio     → Venture Portfolio wizard, cross-venture (Founder Pro/Elite)
  * The schema a persona may WRITE follows from this: `pro` access ⇒ may write the
  * Pro schema; otherwise the Light schema only.
  */
@@ -39,6 +54,7 @@ export interface WizardAccess {
   core: boolean;
   light: boolean;
   pro: boolean;
+  operatingModel: boolean;
   portfolio: boolean;
 }
 
@@ -78,7 +94,7 @@ const FREE_PLAN: PersonaPlan = {
   professionalStanding: false,
   // Free Citizens may incubate ONE venture with the Venture Light wizard.
   ventureLimit: 1,
-  wizardAccess: { core: true, light: true, pro: false, portfolio: false },
+  wizardAccess: { core: true, light: true, pro: false, operatingModel: false, portfolio: false },
   ventureSchemaTier: 'lite',
 };
 
@@ -89,11 +105,15 @@ export const PLAN_LABEL: Record<AgencyPlanTier, string> = {
   first_citizen: 'First Citizen',
 };
 
+// Display labels. "Light" is reserved for the freemium, pre-Founder-Office tier;
+// the three Founder Office tiers never use it. We use "Operator" (not "Founder")
+// to avoid colliding with the Founder Operator archetype/class. The surface
+// itself stays "Founder Office".
 export const VENTURE_TIER_LABEL: Record<VentureTier, string> = {
-  none: 'Citizen (free)',
-  lite: 'Venture Lab Lite',
-  pro: 'Venture Lab Pro',
-  elite: 'Venture Lab Elite',
+  none: 'Venture Light',
+  lite: 'Operator',
+  pro: 'Operator Pro',
+  elite: 'Operator Elite',
 };
 
 export const STANDING_TIER_LABEL: Record<StandingTier, string> = {
@@ -102,10 +122,10 @@ export const STANDING_TIER_LABEL: Record<StandingTier, string> = {
 };
 
 const VENTURE_LIMIT: Record<VentureTier, number> = {
-  none: 1, // free Citizen: one Light venture
-  lite: 1, // one venture, Pro schema
-  pro: 3,
-  elite: 9999,
+  none: 1, // Venture Light: one venture, idea incubation, outside the Founder Office
+  lite: 1, // Operator: one venture on the Pro schema + operating model
+  pro: 3, // Operator Pro: three ventures + portfolio
+  elite: 9999, // Operator Elite: unlimited ventures + portfolio
 };
 
 function resolve(row: {
@@ -120,8 +140,11 @@ function resolve(row: {
   // Professional Standing: own subscription OR bundled with Founder Office Pro/Elite.
   const professionalStanding =
     standingTier === 'professional' || ventureTier === 'pro' || ventureTier === 'elite';
-  // Pro wizard/schema unlocks at Lite and above; Portfolio wizard at Pro/Elite.
-  const proWizard = paid; // lite | pro | elite
+  // Pro schema + operating model unlock on entering the Founder Office (any paid
+  // tier = "Founder" and up); the Portfolio is a second unlock at Founder
+  // Pro/Elite. The operating model is NOT gated behind the portfolio.
+  const proWizard = paid; // Operator | Operator Pro | Operator Elite
+  const operatingModel = paid; // ships with the Founder Office (tier 1+)
   const portfolioWizard = ventureTier === 'pro' || ventureTier === 'elite';
   return {
     planTier: (row.plan_tier as AgencyPlanTier) ?? 'citizen',
@@ -134,7 +157,7 @@ function resolve(row: {
     hmsAccess: paid,
     professionalStanding,
     ventureLimit: VENTURE_LIMIT[ventureTier] ?? 1,
-    wizardAccess: { core: true, light: true, pro: proWizard, portfolio: portfolioWizard },
+    wizardAccess: { core: true, light: true, pro: proWizard, operatingModel, portfolio: portfolioWizard },
     ventureSchemaTier: proWizard ? 'pro' : 'lite',
   };
 }

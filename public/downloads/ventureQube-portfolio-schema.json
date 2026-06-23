@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://aigentz.me/downloads/ventureQube-portfolio-schema.json",
   "title": "Venture Portfolio iQube (v1.0)",
-  "description": "PREMIUM, CUMULATIVE upload schema for Venture Lab Pro/Elite. It is a strict SUPERSET of the Venture Pro schema (v1.0): everything Pro has (operator, strategy, experienceModel, experienceGuide, standing, plan, and full 13-layer ventures) PLUS multiple ventures and a portfolio block (thesis, prioritisation, cross-venture intelligence). A Pro/Elite operator downloads and maintains ONLY this one file.",
+  "description": "The multi-venture upload schema for Operator Pro / Operator Elite. It is a strict SUPERSET of the Pro schema (v1.0): everything the Pro schema has (operator, strategy, experienceModel, experienceGuide, standing, plan, full 13-layer ventures, and the operating model) PLUS multiple ventures and a portfolio block (thesis, prioritisation, cross-venture intelligence). An Operator Pro/Elite operator downloads and maintains ONLY this one file.",
   "_agent_briefing": {
     "audience": "An off-platform AI assistant helping a Pro/Elite operator prepare a Venture Portfolio iQube.",
     "cumulative_design": "Schemas are cumulative supersets: Venture Light (v0.5) ⊂ Venture Pro (v1.0) ⊂ Venture Portfolio (this file). A portfolio operator uploads this single file — it populates ExperienceModel, ExperienceGuide, Standing, every venture's full 13-layer VentureQube, AND the portfolio-level thesis + priority order. There is no need to also upload the Light or Pro files.",

@@ -124,6 +124,38 @@ wizard. Lite-tier operators (no Portfolio access) never see the link, matching
 the tier model. The nested Pro wizard inside the Portfolio wizard does not get
 the link (it would be circular).
 
+## Tier rename + operating-model access correction
+
+The "Lite" tier label inside the Founder Office collided with "Venture Light"
+(the freemium tier). The line of demarcation is the **Founder Office**, not the
+portfolio: the moment a citizen enters the Founder Office they are on the Pro
+13-layer schema AND get the operating model. So:
+
+- **Venture Light** — freemium, outside the Founder Office (1 venture, idea
+  incubation, v0.x wrapper). No 13 layers, no operating model.
+- **Operator** (`ventureTier='lite'`) — Founder Office tier 1: Pro schema +
+  operating model, 1 venture, NO portfolio.
+- **Operator Pro** (`'pro'`) — 3 ventures + portfolio.
+- **Operator Elite** (`'elite'`) — unlimited ventures + portfolio.
+
+"Operator" (not "Founder") avoids colliding with the Founder Operator
+archetype/class. Internal enum values are unchanged (no migration) — only the
+display labels (`VENTURE_TIER_LABEL`) and the access logic moved.
+
+**Access correction:** the operating model is now gated on Founder Office entry
+(`wizardAccess.operatingModel = paid`), NOT on `portfolio`. A new
+`wizardAccess.operatingModel` flag was added. `/api/venture/portfolio` now
+admits any Founder Office tier for the operating brief and strips
+thesis/notes/priorities for non-portfolio (Operator-tier) callers, so a tier-1
+operator persists only the brief.
+
+**Surfaces:** `VenturePortfolioWizard` gained a `mode` prop — `'operating'`
+(operating brief only, any Operator tier) vs `'portfolio'` (full surface,
+Operator Pro/Elite). The Founder Office, Standing cartridge, and Portfolio tab
+each expose an "Operating Brief" entry (Operator+) alongside "Venture Portfolio"
+(Operator Pro/Elite); the Pro-wizard link now opens the operating brief and is
+gated to Operator+ (was wrongly gated to portfolio).
+
 ## Not done (follow-on)
 
 - Load the operating brief into aigentMe's grounding context so it generates

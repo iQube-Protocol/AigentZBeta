@@ -23,13 +23,19 @@ async function gate(req: NextRequest) {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false as const, status: 503, error: 'database unavailable' };
   const isAdmin = persona.cartridgeFlags?.isAdmin === true;
+  let canPortfolio = isAdmin;
   if (!isAdmin) {
     const plan = await getPersonaPlan(admin, persona.personaId);
-    if (!plan.wizardAccess.portfolio) {
-      return { ok: false as const, status: 403, error: 'Venture Portfolio requires Venture Lab Pro or Elite.' };
+    // The Founder Office (any paid tier) unlocks the operating model; this row
+    // also holds it, so any Founder Office tier may read/write here. The
+    // portfolio-specific surfaces (multi-venture priorities/thesis) are gated in
+    // the UI by `portfolio` access.
+    if (!plan.wizardAccess.operatingModel) {
+      return { ok: false as const, status: 403, error: 'The operating brief requires entering the Founder Office (Founder tier or above).' };
     }
+    canPortfolio = plan.wizardAccess.portfolio;
   }
-  return { ok: true as const, personaId: persona.personaId, admin };
+  return { ok: true as const, personaId: persona.personaId, admin, canPortfolio };
 }
 
 export async function GET(req: NextRequest) {
@@ -48,7 +54,13 @@ export async function POST(req: NextRequest) {
     priorities?: string[];
     operatingModel?: VentureOperatingModel | null;
   };
-  const result = await saveVenturePortfolio(g.admin, g.personaId, body);
+  // The operating model is available to any Founder Office tier; the portfolio
+  // fields (thesis/notes/priorities) are Founder Pro/Elite only. Strip them for
+  // Founder-tier callers so a tier-1 save persists only the operating brief.
+  const input = g.canPortfolio
+    ? body
+    : { operatingModel: body.operatingModel };
+  const result = await saveVenturePortfolio(g.admin, g.personaId, input);
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
   const portfolio = await getVenturePortfolio(g.admin, g.personaId);
   return NextResponse.json({ ok: true, ...portfolio });

@@ -56,14 +56,31 @@ export function VenturePortfolioWizard({
   onOpenChange,
   personaId,
   hasPortfolioAccess,
+  hasOperatingAccess,
+  mode = "portfolio",
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   personaId?: string;
+  /** Founder Pro/Elite — unlocks the multi-venture portfolio surfaces. */
   hasPortfolioAccess: boolean;
+  /**
+   * Founder Office (any paid tier) — unlocks the operating brief. Defaults to
+   * hasPortfolioAccess for back-compat when a caller only passes the latter.
+   */
+  hasOperatingAccess?: boolean;
+  /**
+   * 'portfolio' (default) = full surface (ventures + thesis + priorities +
+   * operating brief), Founder Pro/Elite. 'operating' = operating brief only,
+   * available to any Founder Office tier (the tier-1 value-add).
+   */
+  mode?: "portfolio" | "operating";
   onSaved?: () => void;
 }) {
+  const operatingMode = mode === "operating";
+  const canOperate = hasOperatingAccess ?? hasPortfolioAccess;
+  const accessGranted = operatingMode ? canOperate : hasPortfolioAccess;
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [order, setOrder] = useState<VentureSummary[]>([]);
   const [thesis, setThesis] = useState("");
@@ -87,7 +104,7 @@ export function VenturePortfolioWizard({
   const wasOpen = useRef(false);
 
   const load = useCallback(async () => {
-    if (!hasPortfolioAccess) return;
+    if (!accessGranted) return;
     setLoading(true);
     try {
       const res = await personaFetch("/api/venture/portfolio", { personaIdHint: personaId, cache: "no-store" });
@@ -115,7 +132,7 @@ export function VenturePortfolioWizard({
     } finally {
       setLoading(false);
     }
-  }, [personaId, hasPortfolioAccess]);
+  }, [personaId, accessGranted]);
 
   useEffect(() => {
     if (!open || wasOpen.current) { wasOpen.current = open; return; }
@@ -165,16 +182,21 @@ export function VenturePortfolioWizard({
     setSaving(true);
     setError(null);
     try {
+      // Operating mode persists only the operating brief; portfolio mode also
+      // saves the multi-venture thesis/notes/priorities.
+      const payload = operatingMode
+        ? { operatingModel: buildOperatingModel() }
+        : {
+            thesis: thesis.trim() || null,
+            notes: notes.trim() || null,
+            priorities: order.map((v) => v.id),
+            operatingModel: buildOperatingModel(),
+          };
       const res = await personaFetch("/api/venture/portfolio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         personaIdHint: personaId,
-        body: JSON.stringify({
-          thesis: thesis.trim() || null,
-          notes: notes.trim() || null,
-          priorities: order.map((v) => v.id),
-          operatingModel: buildOperatingModel(),
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) throw new Error(data?.error || `Save failed (${res.status})`);
@@ -191,20 +213,24 @@ export function VenturePortfolioWizard({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Venture Portfolio</DialogTitle>
+          <DialogTitle>{operatingMode ? "Operating Brief" : "Venture Portfolio"}</DialogTitle>
           <DialogDescription>
-            Prioritise your ventures, set a portfolio thesis, and see the capabilities
-            they share. Built from your own VentureQubes.
+            {operatingMode
+              ? "Your living operational brief — what aigentMe runs as Chief of Staff. Available the moment you enter the Founder Office."
+              : "Prioritise your ventures, set a portfolio thesis, and see the capabilities they share. Built from your own VentureQubes."}
           </DialogDescription>
         </DialogHeader>
 
-        {!hasPortfolioAccess ? (
+        {!accessGranted ? (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-5 text-center space-y-2">
             <Lock className="w-5 h-5 text-amber-300 mx-auto" />
-            <p className="text-sm font-medium text-amber-200">Venture Portfolio is a Pro / Elite wizard</p>
+            <p className="text-sm font-medium text-amber-200">
+              {operatingMode ? "The Operating Brief is a Founder Office feature" : "Venture Portfolio is an Operator Pro / Elite surface"}
+            </p>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Upgrade to Venture Lab Pro (3 ventures) or Elite (unlimited) to manage a venture
-              portfolio with cross-venture intelligence.
+              {operatingMode
+                ? "Enter the Founder Office (Operator tier or above) to set the operating brief aigentMe executes against."
+                : "Upgrade to Operator Pro (3 ventures) or Operator Elite (unlimited) to manage a venture portfolio with cross-venture intelligence."}
             </p>
           </div>
         ) : loading ? (
@@ -213,6 +239,9 @@ export function VenturePortfolioWizard({
           </div>
         ) : (
           <div className="space-y-4 py-1">
+            {/* Portfolio-only surfaces (Operator Pro/Elite) — hidden in operating mode. */}
+            {!operatingMode && (
+            <>
             {/* Cross-venture summary */}
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-2">
@@ -318,6 +347,8 @@ export function VenturePortfolioWizard({
                 </div>
               </div>
             </div>
+            </>
+            )}
 
             {/* Operating brief — the Chief-of-Staff layer aigentMe executes against. */}
             <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-3">
@@ -465,13 +496,13 @@ export function VenturePortfolioWizard({
                 className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-1.5 rounded-lg bg-violet-600/30 border border-violet-500/50 text-violet-100 hover:bg-violet-600/50 disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                {saving ? "Saving…" : "Save portfolio"}
+                {saving ? "Saving…" : operatingMode ? "Save operating brief" : "Save portfolio"}
               </button>
             </DialogFooter>
           </div>
         )}
 
-        {!hasPortfolioAccess && (
+        {!accessGranted && (
           <DialogFooter>
             <button type="button" onClick={() => onOpenChange(false)} className="text-sm px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800">
               Close
