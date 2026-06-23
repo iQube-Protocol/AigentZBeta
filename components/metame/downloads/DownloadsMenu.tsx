@@ -53,8 +53,8 @@ const DOWNLOADS: DownloadItem[] = [
     id: "venture-pro-schema",
     filename: "ventureQube-pro-schema.json",
     title: "Venture Pro iQube — JSON Schema (v1.0)",
-    description: "Premium. The full 13-layer VentureQube — and a superset of Venture Light, so it's the only file you maintain at Lite/Pro/Elite.",
-    purpose: "Unlocked with Founder Office (Venture Lab Lite and above). A strict SUPERSET of the Venture Light schema: everything Light has PLUS each venture's full 13-layer blueprint — thesis, intent, customer archetypes, revenue architecture, commercial model, capability, resource, execution phases, delegation, outcome, governance, and institutional layers. Standing + metaCommons signals calibrate the confidence layers server-side. Download and maintain ONLY this file at premium tiers — it includes the Light base.",
+    description: "The Founder Office schema. The full 13-layer VentureQube + operating model — and a superset of Venture Light, so it's the only file you maintain at every Operator tier.",
+    purpose: "Unlocked the moment you enter the Founder Office (Operator tier and above). A strict SUPERSET of the Venture Light schema: everything Light has PLUS each venture's full 13-layer blueprint — thesis, intent, customer archetypes, revenue architecture, commercial model, capability, resource, execution phases, delegation, outcome, governance, and institutional layers — AND the operating model. Standing + metaCommons signals calibrate the confidence layers server-side. Download and maintain ONLY this file in the Founder Office — it includes the Light base.",
     Icon: FileJson,
     lockedBy: "pro",
   },
@@ -62,8 +62,8 @@ const DOWNLOADS: DownloadItem[] = [
     id: "venture-portfolio-schema",
     filename: "ventureQube-portfolio-schema.json",
     title: "Venture Portfolio iQube — JSON Schema (v1.0)",
-    description: "Premium (Pro/Elite). Multiple full ventures + a portfolio thesis — a superset of Venture Pro.",
-    purpose: "Unlocked with Venture Lab Pro (3 ventures) or Elite (unlimited). A strict SUPERSET of the Venture Pro schema: every venture carries the full 13-layer blueprint, PLUS a portfolio block — a thesis that spans all ventures, an explicit prioritisation order, and notes. Cross-venture intelligence (shared capabilities, stage spread) is derived server-side. This is the single file a portfolio operator maintains.",
+    description: "Operator Pro / Elite. Multiple full ventures + a portfolio thesis — a superset of the Pro schema.",
+    purpose: "Unlocked with Operator Pro (3 ventures) or Operator Elite (unlimited). A strict SUPERSET of the Pro schema: every venture carries the full 13-layer blueprint, PLUS a portfolio block — a thesis that spans all ventures, an explicit prioritisation order, and notes. Cross-venture intelligence (shared capabilities, stage spread) is derived server-side. This is the single file a portfolio operator maintains.",
     Icon: FileJson,
     lockedBy: "portfolio",
   },
@@ -167,7 +167,7 @@ export function DownloadsMenu({ open, onClose, theme = "dark" }: Props) {
             const isExpanded = expanded === item.id;
             const locked = !!item.lockedBy && !(wizardAccess?.[item.lockedBy] ?? false);
             const isAvailable = !item.comingSoon && !locked;
-            const unlockLabel = item.lockedBy === "portfolio" ? "Venture Lab Pro / Elite" : "Founder Office (Venture Lab Lite+)";
+            const unlockLabel = item.lockedBy === "portfolio" ? "Operator Pro / Elite" : "Founder Office (Operator+)";
             return (
               <article key={item.id} className={`rounded-lg border ${cardClass} overflow-hidden transition-colors`}>
                 <div className="p-4">
