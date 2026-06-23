@@ -694,11 +694,11 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
           <Wand2 className="w-4 h-4 text-violet-400" />
           <h2 className="text-sm font-semibold text-white">Guided wizards</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 snap-x [scrollbar-width:thin]">
           <button
             type="button"
             onClick={() => setCoreWizardOpen(true)}
-            className="text-left rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 hover:bg-violet-500/20 transition-colors"
+            className="text-left rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 hover:bg-violet-500/20 transition-colors shrink-0 w-56 snap-start"
           >
             <div className="flex items-center gap-1.5 text-sm font-medium text-violet-200">
               <ShieldCheck className="w-3.5 h-3.5" /> Standing Core
@@ -710,7 +710,7 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
           <button
             type="button"
             onClick={() => setLightWizardOpen(true)}
-            className="text-left rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 hover:bg-violet-500/20 transition-colors"
+            className="text-left rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 hover:bg-violet-500/20 transition-colors shrink-0 w-56 snap-start"
           >
             <div className="flex items-center gap-1.5 text-sm font-medium text-violet-200">
               <Sparkles className="w-3.5 h-3.5" /> Venture Light
@@ -725,7 +725,7 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
           <button
             type="button"
             onClick={() => setProWizardOpen(true)}
-            className={`text-left rounded-lg border p-3 transition-colors ${
+            className={`text-left rounded-lg border p-3 transition-colors shrink-0 w-56 snap-start ${
               wizardAccess?.pro
                 ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20'
                 : 'border-slate-700/60 bg-slate-900/40 hover:bg-slate-800/60'
@@ -747,7 +747,7 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
           <button
             type="button"
             onClick={() => { setPortfolioWizardMode('operating'); setPortfolioWizardOpen(true); }}
-            className={`text-left rounded-lg border p-3 transition-colors ${
+            className={`text-left rounded-lg border p-3 transition-colors shrink-0 w-56 snap-start ${
               wizardAccess?.operatingModel
                 ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20'
                 : 'border-slate-700/60 bg-slate-900/40 hover:bg-slate-800/60'
@@ -769,7 +769,7 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
           <button
             type="button"
             onClick={() => { setPortfolioWizardMode('portfolio'); setPortfolioWizardOpen(true); }}
-            className={`text-left rounded-lg border p-3 transition-colors ${
+            className={`text-left rounded-lg border p-3 transition-colors shrink-0 w-56 snap-start ${
               wizardAccess?.portfolio
                 ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20'
                 : 'border-slate-700/60 bg-slate-900/40 hover:bg-slate-800/60'

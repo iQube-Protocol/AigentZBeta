@@ -70,9 +70,9 @@ const DOWNLOADS: DownloadItem[] = [
   {
     id: "venture-portfolio-example",
     filename: "ventureQube-portfolio-example.json",
-    title: "Venture Portfolio iQube — worked example (Operation Leap)",
-    description: "A complete, validator-passing portfolio file you can diff against. Three ventures + portfolio thesis + operating model, populated for the \"Operation Leap\" brief.",
-    purpose: "A reference you (or your off-platform agent) can copy and adapt. It conforms to the Venture Portfolio schema and imports cleanly: schemaVersion + operator + strategy + ExperienceGuide + Standing + plan (all five horizons) + KPIs + the operating model (mission, success metrics, active objectives with status, priority partners, priority actions, review cadence/date, primary metric = Net Value Acceleration) + three full 13-layer ventures (Polity Passport Bureau, metaMe, metaKnyt) + the portfolio block. To import: upload it via the upload icon with use-kind \"Ingest as Venture iQube\", then click the ✨ ingest action — from an Operator Pro/Elite (or admin) persona so the portfolio block lands. Do NOT paste it into the SQL editor; it is an app import, not a database query.",
+    title: "Venture Portfolio iQube — worked example",
+    description: "A complete, validator-passing GENERIC portfolio file you can diff against and adapt. Two example ventures + portfolio thesis + operating model — fictional content, not a real portfolio.",
+    purpose: "A non-proprietary reference you (or your off-platform agent) can copy and replace with your own content. It conforms to the Venture Portfolio schema and imports cleanly: schemaVersion + operator + strategy + ExperienceGuide + Standing + plan (all five horizons) + KPIs + the operating model (mission, success metrics, active objectives with status, priority partners, priority actions, review cadence, primary metric) + two full 13-layer ventures + the portfolio block. To import: upload it via the upload icon with use-kind \"Ingest as Venture iQube\", then click the ✨ ingest action — from an Operator Pro/Elite (or admin) persona so the portfolio block lands. Do NOT paste it into the SQL editor; it is an app import, not a database query.",
     Icon: FileJson,
   },
   {

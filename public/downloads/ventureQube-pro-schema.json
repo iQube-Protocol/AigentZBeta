@@ -88,8 +88,8 @@
       "additionalProperties": false,
       "description": "OPTIONAL operating-artifact layer (Pro/Portfolio only). The living operational brief aigentMe executes against as your Chief of Staff. This is the ONE place day-to-day operations live — the core VentureQube stays a general-purpose primitive (intent in Experience, structure in Ventures); operations live here. Leave it out entirely if you only want the knowledge artifact.",
       "properties": {
-        "mission": { "type": "string", "maxLength": 2000, "description": "The OPERATIONAL expression of your strategy/portfolio thesis — what you are doing right now in service of that Why (e.g. \"Operation Leap\"). Do NOT write a second thesis here; the strategy/portfolio thesis is the single Why." },
-        "successMetrics": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "What success looks like, concretely — e.g. \"4,000 Passport holders\", \"$100K MRR\", \"25 Founder Office conversions\". These are outcomes." },
+        "mission": { "type": "string", "maxLength": 2000, "description": "The OPERATIONAL expression of your strategy/portfolio thesis — what you are doing right now in service of that Why. Do NOT write a second thesis here; the strategy/portfolio thesis is the single Why." },
+        "successMetrics": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "What success looks like, concretely — e.g. \"1,000 active users\", \"$10k MRR\", \"3 partnerships signed\". These are outcomes." },
         "activeObjectives": {
           "type": "array",
           "maxItems": 30,
