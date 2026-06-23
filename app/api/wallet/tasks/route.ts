@@ -25,6 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { computeStandingScore } from '@/services/standing/standingScore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -153,7 +154,7 @@ export async function GET(req: NextRequest) {
   const { data: reputation } = crmPersonaId
     ? await supabase
         .from('crm_persona_reputation')
-        .select('rep_overall, rep_technical, rep_creative, rep_entrepreneurial, rep_data_arch, rep_community, lifetime_cvs, total_tasks_completed, standing_personal, standing_delegated, standing_stewardship, standing_overall, standing_bucket')
+        .select('rep_overall, rep_technical, rep_creative, rep_entrepreneurial, rep_data_arch, rep_community, lifetime_cvs, total_tasks_completed, standing_personal, standing_delegated, standing_stewardship, standing_capability, standing_overall, standing_bucket')
         .eq('persona_id', crmPersonaId)
         .maybeSingle()
     : { data: null };
@@ -251,6 +252,15 @@ export async function GET(req: NextRequest) {
       };
     });
 
+  // Veracity-led standing score (VSP facts + accrual contribution). Best-effort.
+  let standingScore: { score: number; veracity: number; contribution: number } | null = null;
+  try {
+    const breakdown = await computeStandingScore(supabase, personaId);
+    standingScore = { score: breakdown.score, veracity: breakdown.veracity, contribution: breakdown.contribution };
+  } catch {
+    /* migration pending or unavailable — omit gracefully */
+  }
+
   // T1-only response. Per the privacy contract, the JSON the browser sees
   // must not carry personaId / crmPersonaId / authProfileId / rootDid /
   // cross-persona fioHandle. The wallet UI binds reads to "the active
@@ -291,8 +301,10 @@ export async function GET(req: NextRequest) {
       personal: Number(reputation.standing_personal) || 0,
       delegated: Number(reputation.standing_delegated) || 0,
       stewardship: Number(reputation.standing_stewardship) || 0,
+      capability: Number((reputation as Record<string, unknown>).standing_capability) || 0,
       overall: Number(reputation.standing_overall) || 0,
       bucket: Number(reputation.standing_bucket) || 0,
     } : null,
+    standingScore,
   });
 }

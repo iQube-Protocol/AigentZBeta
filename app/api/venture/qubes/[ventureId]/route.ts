@@ -117,7 +117,14 @@ async function recomputeVentureCapabilityStanding(
       : null,
   );
 
-  const intentClarity = computeIntentClarity(thesisLayer, 0);
+  // Count populated intent strings across both intent lists as "active objectives".
+  const intentLayer = layers.intent ?? null;
+  const founderIntents = Array.isArray(intentLayer?.founderIntents) ? intentLayer.founderIntents : [];
+  const ventureIntents = Array.isArray(intentLayer?.ventureIntents) ? intentLayer.ventureIntents : [];
+  const activeObjectiveCount = [...founderIntents, ...ventureIntents].filter(
+    (s) => typeof s === 'string' && s.trim().length > 0,
+  ).length;
+  const intentClarity = computeIntentClarity(thesisLayer, activeObjectiveCount);
 
   await accrueCapabilityStanding(crmPersonaId, {
     demandConfidence: signalEvidence?.demandConfidence ?? null,

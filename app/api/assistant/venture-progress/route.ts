@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { buildVentureProgress } from '@/services/orchestration/ventureProgressBuilder';
 import { runPreflightGather } from '@/services/capabilities/preflight';
+import { refreshCapabilityStandingFromActivity } from '@/services/crm/standingAccrualService';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
@@ -78,6 +79,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       query: `venture progress review${cartridge ? ` for ${cartridge} cartridge` : ''}`,
       cartridge: cartridge ?? 'metame',
     });
+
+    // Refresh Capability Standing from live VentureQube signals on each engagement.
+    void refreshCapabilityStandingFromActivity(context.personaId);
 
     const result = await buildVentureProgress({
       personaId: context.personaId,

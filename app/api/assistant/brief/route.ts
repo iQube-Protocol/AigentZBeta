@@ -32,6 +32,7 @@ import {
 } from '@/services/orchestration/briefBuilder';
 import { runPreflightGather } from '@/services/capabilities/preflight';
 import { summarizeCartridgeAdminContext } from '@/services/orchestration/adminContextSummarizer';
+import { refreshCapabilityStandingFromActivity } from '@/services/crm/standingAccrualService';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
@@ -110,6 +111,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const liveContext = [preflight?.summary, adminSummary]
       .filter((s): s is string => typeof s === 'string' && s.length > 0)
       .join('\n\n') || null;
+
+    // Refresh Capability Standing from live VentureQube signals on each Brief engagement.
+    void refreshCapabilityStandingFromActivity(context.personaId);
 
     const brief = await buildBrief({
       personaId: context.personaId,

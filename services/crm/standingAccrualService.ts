@@ -514,3 +514,73 @@ export async function accrueCapabilityStanding(
     return null;
   }
 }
+
+/**
+ * Fire-and-forget Capability Standing refresh triggered by aigentMe activity
+ * (brief requests, venture-progress reviews, etc.). Reads the persona's
+ * primary VentureQube + passport state and recomputes accrual.
+ *
+ * Call this from any aigentMe API route after resolving the persona — swallows
+ * all errors so it never breaks the calling route.
+ */
+export async function refreshCapabilityStandingFromActivity(
+  personaId: string,
+): Promise<void> {
+  try {
+    const admin = getSupabaseServer();
+    if (!admin) return;
+
+    // CRM persona lookup
+    const crm = getCrmClient();
+    const { data: crmPersona } = await crm
+      .from('crm_personas')
+      .select('id')
+      .eq('identity_persona_id', personaId)
+      .maybeSingle();
+    const crmPersonaId = crmPersona?.id ? String(crmPersona.id) : null;
+    if (!crmPersonaId) return;
+
+    // Primary VentureQube — oldest (first created) is the orchestrating venture
+    const { data: ventures } = await admin
+      .from('venture_qubes')
+      .select('id, layers, created_at')
+      .eq('persona_id', personaId)
+      .order('created_at', { ascending: true })
+      .limit(1);
+    const venture = ventures?.[0] ?? null;
+    const layers = (venture?.layers ?? {}) as Record<string, unknown>;
+    const thesis = (layers.thesis ?? null) as Parameters<typeof computeIntentClarity>[0] | null;
+    const signalEvidence = (layers.signalEvidence ?? null) as Record<string, number | null> | null;
+    const intent = (layers.intent ?? null) as { founderIntents?: unknown[]; ventureIntents?: unknown[] } | null;
+
+    const founderIntents = Array.isArray(intent?.founderIntents) ? intent.founderIntents : [];
+    const ventureIntents = Array.isArray(intent?.ventureIntents) ? intent.ventureIntents : [];
+    const activeObjectiveCount = [...founderIntents, ...ventureIntents].filter(
+      (s) => typeof s === 'string' && (s as string).trim().length > 0,
+    ).length;
+    const intentClarity = computeIntentClarity(thesis, activeObjectiveCount);
+
+    // Passport depth
+    const { data: passport } = await admin
+      .from('polity_passport_records')
+      .select('issued_at, world_id_verified_at, passport_grade')
+      .eq('persona_id', personaId)
+      .eq('passport_class', 'citizen')
+      .maybeSingle();
+    const identityDepth = computeIdentityDepth(
+      passport
+        ? { issued: Boolean(passport.issued_at), worldIdVerified: Boolean(passport.world_id_verified_at), gradeA: passport.passport_grade === 'A' }
+        : null,
+    );
+
+    await accrueCapabilityStanding(crmPersonaId, {
+      demandConfidence: signalEvidence?.demandConfidence ?? null,
+      opportunityConfidence: signalEvidence?.opportunityConfidence ?? null,
+      capabilityConfidence: signalEvidence?.capabilityConfidence ?? null,
+      intentClarity,
+      identityDepth,
+    });
+  } catch {
+    /* best-effort — never propagate */
+  }
+}
