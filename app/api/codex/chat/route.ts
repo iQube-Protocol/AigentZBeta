@@ -2317,14 +2317,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve the active persona once so both the upload block and the
+    // search_contacts tool handler have a reliable personaId from the spine.
+    // The body's `personaId` field is used as fallback for callers that don't
+    // attach a Bearer token (e.g. embed surfaces).
+    const activePersonaCtx = await getActivePersona(request).catch(() => null);
+    const resolvedCallerPersonaId: string | undefined =
+      activePersonaCtx?.personaId ?? (typeof personaId === 'string' ? personaId : undefined);
+
     // Resolve attached-upload contents through the spine. Ownership
     // is enforced by the persona service — uploadIds that don't
     // belong to the active persona are silently skipped.
     let attachedUploadsBlock = '';
     if (Array.isArray(attachedUploadIds) && attachedUploadIds.length > 0) {
       try {
-        const activePersona = await getActivePersona(request);
-        const resolvedPersonaId = activePersona?.personaId ?? personaId;
+        const resolvedPersonaId = resolvedCallerPersonaId;
         if (resolvedPersonaId) {
           attachedUploadsBlock = await composeAttachedUploadsBlock(resolvedPersonaId, attachedUploadIds);
         }
@@ -2505,7 +2512,7 @@ export async function POST(request: NextRequest) {
           conversationHistory,
           message,
           isMarketa,
-          persona?.personaId,
+          resolvedCallerPersonaId,
         );
         console.log('[CodexChat] Provider success:', {
           providerId: executionResult.providerId,
