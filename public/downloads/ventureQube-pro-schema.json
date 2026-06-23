@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://aigentz.me/downloads/ventureQube-pro-schema.json",
   "title": "Venture Pro iQube (v1.0)",
-  "description": "PREMIUM, CUMULATIVE upload schema for Venture Lab Lite/Pro/Elite. It is a strict SUPERSET of the Venture Light schema (v0.5): it carries everything Light does (operator, strategy, experienceModel, experienceGuide, standing, plan) PLUS the full 13-layer VentureQube per venture. A premium operator downloads and maintains ONLY this one file — they never also need the Light schema.",
+  "description": "The Founder Office upload schema for all Operator tiers (Operator / Operator Pro / Operator Elite). The moment you enter the Founder Office you are on this Pro schema. It is a strict SUPERSET of the Venture Light schema (v0.5 — the freemium, pre-Founder-Office tier): it carries everything Light does (operator, strategy, experienceModel, experienceGuide, standing, plan) PLUS the full 13-layer VentureQube per venture AND the operating model. An Operator downloads and maintains ONLY this one file — they never also need the Light schema.",
   "_agent_briefing": {
     "audience": "An off-platform AI assistant helping a premium operator prepare a Venture Pro iQube to upload into their aigentMe / Venture Lab.",
     "cumulative_design": "Schemas are cumulative. Venture Light (v0.5) is the base. Venture Pro (this file, v1.0) = Light + the full per-venture 13-layer VentureQube. Venture Portfolio = Pro + multiple ventures + a portfolio block. So each tier's download is a superset of the tier below; a Pro user uploads this single file to populate ExperienceModel, ExperienceGuide, Standing AND the full venture blueprint.",
@@ -114,7 +114,7 @@
     "ventures": {
       "type": "array",
       "minItems": 1,
-      "description": "Pro ventures — each carries the full 13-layer VentureQube. (Lite tier: 1 venture; Pro: up to 3; Elite: unlimited — enforced server-side.)",
+      "description": "Ventures — each carries the full 13-layer VentureQube. (Operator: 1 venture; Operator Pro: up to 3; Operator Elite: unlimited — enforced server-side.)",
       "items": { "$ref": "#/definitions/ventureProV1" }
     }
   },

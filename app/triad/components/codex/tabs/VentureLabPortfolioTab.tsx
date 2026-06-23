@@ -443,6 +443,10 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
   // scorecard board), managed via the Venture Portfolio wizard.
   const [myPortfolioOpen, setMyPortfolioOpen] = useState(false);
   const [portfolioAccess, setPortfolioAccess] = useState(false);
+  // Operating brief is available to any Founder Office tier (Operator+); the
+  // portfolio surfaces are Operator Pro/Elite.
+  const [operatingAccess, setOperatingAccess] = useState(false);
+  const [myPortfolioMode, setMyPortfolioMode] = useState<'portfolio' | 'operating'>('portfolio');
   const [operatingBrief, setOperatingBrief] = useState<VentureOperatingModel | null>(null);
 
   const loadOperatingBrief = useCallback(async () => {
@@ -473,9 +477,11 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
         if (!res.ok) return;
         const data = await res.json();
         if (data?.ok) {
-          const access = !!data.wizardAccess?.portfolio || !!isAdmin;
-          setPortfolioAccess(access);
-          if (access) void loadOperatingBrief();
+          const portfolio = !!data.wizardAccess?.portfolio || !!isAdmin;
+          const operating = !!data.wizardAccess?.operatingModel || !!isAdmin;
+          setPortfolioAccess(portfolio);
+          setOperatingAccess(operating);
+          if (operating) void loadOperatingBrief();
         }
       } catch { /* non-fatal */ }
     })();
@@ -530,13 +536,25 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
           ))}
         </div>
 
-        <button
-          onClick={() => setMyPortfolioOpen(true)}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25 hover:bg-violet-500/20"
-          title="Manage your own venture portfolio"
-        >
-          <Layers className="w-3.5 h-3.5" /> My Portfolio
-        </button>
+        {operatingAccess && (
+          <button
+            onClick={() => { setMyPortfolioMode('operating'); setMyPortfolioOpen(true); }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25 hover:bg-violet-500/20"
+            title="Set your Chief-of-Staff operating brief"
+          >
+            <Compass className="w-3.5 h-3.5" /> Operating Brief
+          </button>
+        )}
+
+        {portfolioAccess && (
+          <button
+            onClick={() => { setMyPortfolioMode('portfolio'); setMyPortfolioOpen(true); }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25 hover:bg-violet-500/20"
+            title="Manage your own venture portfolio"
+          >
+            <Layers className="w-3.5 h-3.5" /> My Portfolio
+          </button>
+        )}
 
         <button
           onClick={load}
@@ -550,6 +568,8 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
       <VenturePortfolioWizard
         open={myPortfolioOpen}
         onOpenChange={setMyPortfolioOpen}
+        mode={myPortfolioMode}
+        hasOperatingAccess={operatingAccess}
         hasPortfolioAccess={portfolioAccess}
         onSaved={() => void loadOperatingBrief()}
       />
