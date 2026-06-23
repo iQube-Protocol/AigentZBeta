@@ -270,7 +270,7 @@ export async function updateVentureQube(
   personaId: string,
   ventureId: string,
   patch: Partial<VentureQubeV1>,
-  opts?: { stage?: VentureStage; path?: FounderPath; recalibrate?: boolean },
+  opts?: { stage?: VentureStage; path?: FounderPath; recalibrate?: boolean; name?: string },
 ): Promise<{ ok: true; record: VentureQubeRecord } | { ok: false; error: string }> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'database unavailable' };
@@ -293,6 +293,7 @@ export async function updateVentureQube(
   const update: Record<string, unknown> = { layers: merged, venture_confidence: ventureConfidence };
   if (opts?.stage) update.venture_stage = opts.stage;
   if (opts?.path) update.last_path = opts.path;
+  if (opts?.name) update.venture_name = opts.name;
 
   const { data, error } = await admin
     .from('venture_qubes')

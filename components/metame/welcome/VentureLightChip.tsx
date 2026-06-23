@@ -21,7 +21,10 @@ export function VentureLightChip({ personaId }: { personaId?: string }) {
       const res = await personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        const v = Array.isArray(data?.ventures) && data.ventures.length > 0 ? data.ventures[0] : null;
+        const all = Array.isArray(data?.ventures) ? [...data.ventures] : [];
+        const v = all.sort((a: { createdAt?: string }, b: { createdAt?: string }) =>
+          (a.createdAt ?? '').localeCompare(b.createdAt ?? ''),
+        )[0] ?? null;
         setVentureName(v?.name ?? null);
       }
     } catch { /* best-effort */ } finally {
