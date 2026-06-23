@@ -117,6 +117,7 @@ const AGENT_COLOURS: Record<string, string> = {
   "openai-codex":   "bg-blue-900/40 text-blue-300 border-blue-800/50",
   "aigent-z":       "bg-amber-900/40 text-amber-300 border-amber-800/50",
   "aigent-marketa": "bg-emerald-900/40 text-emerald-300 border-emerald-800/50",
+  "aigent-me":      "bg-cyan-900/40 text-cyan-300 border-cyan-800/50",
 };
 
 const BD_STAGE_STYLES: Record<string, string> = {
@@ -1123,9 +1124,10 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
   const [loading,   setLoading]    = useState(true);
   const [sources,   setSources]    = useState<{ bridge: number; live: number }>({ bridge: 0, live: 0 });
   const [thread,    setThread]     = useState("");
-  const [composing, setComposing]  = useState(false);
-  const [draft,     setDraft]      = useState("");
-  const [sending,   setSending]    = useState(false);
+  const [composing,  setComposing]  = useState(false);
+  const [draft,      setDraft]      = useState("");
+  const [sending,    setSending]    = useState(false);
+  const [recipient,  setRecipient]  = useState("aigent-z");
 
   const load = useCallback(async (selectedThread: string) => {
     setLoading(true);
@@ -1160,7 +1162,7 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
           channel_id: "venture-lab",
           tenant_id: "nakamoto",
           message: draft,
-          recipient_agent: "aigent-z",
+          recipient_agent: recipient,
         }),
       });
       setDraft("");
@@ -1261,9 +1263,31 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
           {/* Compose */}
           {composing && (
             <div className="rounded-xl border border-violet-800/40 bg-violet-950/10 p-3 space-y-2">
+              {/* Recipient selector */}
+              <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                <span>To:</span>
+                {[
+                  { id: "aigent-z",       label: "Aigent Z" },
+                  { id: "aigent-me",      label: "aigentMe" },
+                  { id: "aigent-marketa", label: "Marketa" },
+                ].map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setRecipient(id)}
+                    className={`rounded-full border px-2 py-0.5 transition-colors ${
+                      recipient === id
+                        ? agentStyle(id)
+                        : "border-white/10 text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <textarea
                 className="w-full bg-transparent text-xs text-slate-200 placeholder:text-slate-600 resize-none outline-none border-b border-white/[0.06] pb-2"
-                placeholder="Message Aigent Z on the venture-lab channel…"
+                placeholder={`Message ${recipient === "aigent-me" ? "aigentMe" : recipient === "aigent-marketa" ? "Marketa" : "Aigent Z"} on the venture-lab channel…`}
                 rows={3}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -1285,6 +1309,7 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
               { id: "claude-code",    label: "Claude Code" },
               { id: "aigent-z",       label: "Aigent Z" },
               { id: "aigent-marketa", label: "Marketa" },
+              { id: "aigent-me",      label: "aigentMe" },
             ].map(({ id, label }) => (
               <span key={id} className={`rounded-full border px-2 py-0.5 ${agentStyle(id)}`}>{label}</span>
             ))}

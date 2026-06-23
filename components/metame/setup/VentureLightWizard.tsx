@@ -133,14 +133,23 @@ export function VentureLightWizard({
           const res = await personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" });
           if (res.ok) {
             const data = await res.json();
-            const v = Array.isArray(data?.ventures) && data.ventures.length > 0 ? data.ventures[0] : null;
+            // The primary orchestrating venture is the first-created one — sort by
+            // createdAt ascending so the portfolio-level venture loads reliably,
+            // regardless of which was most recently edited.
+            const all = Array.isArray(data?.ventures) ? [...data.ventures] : [];
+            const v = all.sort((a: { createdAt?: string }, b: { createdAt?: string }) =>
+              (a.createdAt ?? '').localeCompare(b.createdAt ?? ''),
+            )[0] ?? null;
             if (v) { existingId = v.id; loadVentureInto(v, next); }
           }
         }
       } catch { /* best-effort */ }
 
-      // Cross-feed prefill (create mode only) from Standing Core + Experience Model.
-      if (!existingId) {
+      // Cross-feed from Standing Core + Experience Model into any blank fields.
+      // Runs for both create mode AND edit mode — existing ventures may have been
+      // created before thesis/intent fields were filled in.
+      const needsPrefill = !next.problemStatement || !next.valueProposition || !next.mission || !next.founderIntents;
+      if (needsPrefill) {
         try {
           const [scRes, emRes] = await Promise.all([
             personaFetch("/api/standing/core-wizard", { personaIdHint: personaId, cache: "no-store" }),
@@ -192,6 +201,7 @@ export function VentureLightWizard({
           headers: { "Content-Type": "application/json" },
           personaIdHint: personaId,
           body: JSON.stringify({
+            name: form.name.trim() || undefined,
             stage: form.stage,
             layers: {
               thesis: {

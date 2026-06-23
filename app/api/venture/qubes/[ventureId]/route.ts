@@ -56,6 +56,7 @@ export async function PATCH(
     layers?: Partial<VentureQubeV1>;
     stage?: VentureStage;
     path?: FounderPath;
+    name?: string;
   } = {};
   try {
     body = await req.json();
@@ -65,6 +66,7 @@ export async function PATCH(
   const result = await updateVentureQube(persona.personaId, ventureId, body.layers ?? {}, {
     stage: body.stage,
     path: body.path,
+    name: typeof body.name === 'string' && body.name.trim() ? body.name.trim() : undefined,
   });
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
