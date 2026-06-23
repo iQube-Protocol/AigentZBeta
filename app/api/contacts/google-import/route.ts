@@ -63,8 +63,13 @@ export async function POST(req: NextRequest) {
       if (!res.ok) {
         const body = await res.text();
         console.error('[contacts/google-import] People API error:', res.status, body);
+        let detail = `HTTP ${res.status}`;
+        try {
+          const parsed = JSON.parse(body);
+          detail = parsed?.error?.message ?? parsed?.error ?? detail;
+        } catch { /* use raw status */ }
         return NextResponse.json(
-          { ok: false, error: 'Google People API error', detail: `${res.status}` },
+          { ok: false, error: 'Google People API error', detail, status: res.status },
           { status: 502 },
         );
       }
