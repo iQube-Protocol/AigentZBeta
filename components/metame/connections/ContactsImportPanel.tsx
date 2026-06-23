@@ -41,6 +41,7 @@ interface ImportResult {
   skipped: number;
   total: number;
   error?: string;
+  detail?: string;
 }
 
 interface ContactSummary {
@@ -397,7 +398,7 @@ export function ContactsImportPanel({ theme = "dark" }: Props) {
                   : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
                 {result.ok
                   ? `${result.imported} imported, ${result.skipped} skipped (${result.total} total)`
-                  : (result.error ?? "Import failed")}
+                  : (result.detail ?? result.error ?? "Import failed")}
               </div>
             )}
           </div>
