@@ -142,7 +142,7 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
           <CockpitEmpty isDark={isDark} mutedClass={mutedClass} />
         ) : (
           <div className="space-y-5">
-            {/* Top strip — stage + primary goal */}
+            {/* Top strip — stage + primary goal + thesis */}
             <div className={`rounded-lg border p-3 lg:p-4 ${stripClass}`}>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
@@ -160,6 +160,27 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                   </div>
                 )}
               </div>
+              {/* Thesis mission line — from VentureQube thesis layer */}
+              {data.thesisSummary?.mission && (
+                <div className={`mt-2 pt-2 border-t ${isDark ? 'border-slate-700/60' : 'border-slate-200'}`}>
+                  <div className={`text-[10px] uppercase tracking-[0.16em] mb-0.5 ${mutedClass}`}>
+                    Mission
+                  </div>
+                  <div className={`text-xs leading-snug ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    {data.thesisSummary.mission}
+                  </div>
+                </div>
+              )}
+              {data.thesisSummary?.problem && !data.thesisSummary.mission && (
+                <div className={`mt-2 pt-2 border-t ${isDark ? 'border-slate-700/60' : 'border-slate-200'}`}>
+                  <div className={`text-[10px] uppercase tracking-[0.16em] mb-0.5 ${mutedClass}`}>
+                    Problem
+                  </div>
+                  <div className={`text-xs leading-snug ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    {data.thesisSummary.problem}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Row 1 — KPIs (cyan accent) */}
@@ -199,8 +220,34 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                 {data.kpiSummary.hasConfidentialNotes && (
                   <PillChip label="Confidential notes" isDark={isDark} accentId="slate" />
                 )}
+                {/* Signal confidence chip — from VentureQube signal evidence layer */}
+                {data.signalSummary && data.signalSummary.count > 0 && (
+                  <SignalChip
+                    count={data.signalSummary.count}
+                    confidence={data.signalSummary.confidence}
+                    isDark={isDark}
+                  />
+                )}
+                {/* NVA total chip — from verified ProofOfOutcomeClaims */}
+                {data.nvaTotal > 0 && (
+                  <NvaChip nvaTotal={data.nvaTotal} isDark={isDark} />
+                )}
               </Carousel>
             </Row>
+
+            {/* Row 1b — Operating Objectives (amber accent — in-flight work items) */}
+            {data.operatingObjectives && data.operatingObjectives.length > 0 && (
+              <Row
+                title="Operating objectives"
+                accentClass={isDark ? "text-amber-300/90" : "text-amber-700"}
+              >
+                <Carousel>
+                  {data.operatingObjectives.map((obj) => (
+                    <ObjectiveChip key={obj.id} objective={obj} isDark={isDark} />
+                  ))}
+                </Carousel>
+              </Row>
+            )}
 
             {/* Row 2 — Active Work (emerald accent) */}
             <Row
@@ -591,6 +638,77 @@ function ActivityChip({
         {activity.status}
       </div>
     </button>
+  );
+}
+
+function SignalChip({
+  count,
+  confidence,
+  isDark,
+}: {
+  count: number;
+  confidence: number | null;
+  isDark: boolean;
+}) {
+  // Signal evidence aggregate — cyan accent, shows count + avg confidence.
+  const tint = accent('cyan', isDark ? 'dark' : 'light');
+  const pct = confidence !== null ? Math.round(confidence) : null;
+  return (
+    <div className={`rounded-lg border p-2.5 min-w-[8rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+      <div className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Signal evidence</div>
+      <div className={`text-lg font-semibold leading-tight mt-0.5 ${tint.text}`}>{count}</div>
+      {pct !== null && (
+        <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          {pct}% confidence
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NvaChip({ nvaTotal, isDark }: { nvaTotal: number; isDark: boolean }) {
+  // NVA total from verified outcome claims — violet accent (outcome class).
+  const tint = accent('violet', isDark ? 'dark' : 'light');
+  const display = nvaTotal >= 1000 ? `${(nvaTotal / 1000).toFixed(1)}k` : String(Math.round(nvaTotal));
+  return (
+    <div className={`rounded-lg border p-2.5 min-w-[8rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+      <div className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>NVA accrued</div>
+      <div className={`text-lg font-semibold leading-tight mt-0.5 ${tint.text}`}>{display} hrs</div>
+      <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>verified</div>
+    </div>
+  );
+}
+
+function ObjectiveChip({
+  objective,
+  isDark,
+}: {
+  objective: import('@/services/orchestration/ventureProgressBuilder').OperatingObjectiveSummary;
+  isDark: boolean;
+}) {
+  // Operating objective chip — amber for active, emerald for completed,
+  // rose for blocked, slate for deferred.
+  const accentId: Accent =
+    objective.status === 'completed' ? 'emerald'
+    : objective.status === 'blocked' ? 'rose'
+    : objective.status === 'deferred' ? 'slate'
+    : 'amber';
+  const tint = accent(accentId, isDark ? 'dark' : 'light');
+  const statusLabel =
+    objective.status === 'completed' ? 'Done'
+    : objective.status === 'blocked' ? 'Blocked'
+    : objective.status === 'deferred' ? 'Deferred'
+    : 'Active';
+  return (
+    <div className={`rounded-lg border p-2.5 min-w-[12rem] max-w-[18rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+      <div className={`text-xs leading-snug truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+        {objective.label}
+      </div>
+      <div className={`text-[10px] uppercase tracking-[0.12em] mt-1 font-medium ${tint.text}`}>
+        {statusLabel}
+        {objective.targetDate && ` · ${objective.targetDate}`}
+      </div>
+    </div>
   );
 }
 
