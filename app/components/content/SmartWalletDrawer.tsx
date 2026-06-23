@@ -4391,20 +4391,21 @@ export default function SmartWalletDrawer({
                   </div>
                   <div className="space-y-2.5">
                     {([
-                      { label: 'Personal',     value: walletTasksData.standing.personal,     color: 'bg-emerald-500', tip: 'Accrues from completed tasks' },
-                      { label: 'Delegated',    value: walletTasksData.standing.delegated,    color: 'bg-teal-500',    tip: 'Accrues when your sponsored citizen completes tasks' },
-                      { label: 'Stewardship',  value: walletTasksData.standing.stewardship,  color: 'bg-cyan-500',    tip: 'Accrues from community contributions' },
-                    ] as { label: string; value: number; color: string; tip: string }[]).map(({ label, value, color, tip }) => (
+                      { label: 'Personal',     value: walletTasksData.standing.personal,                                   color: 'bg-emerald-500', tip: 'Accrues from completed tasks' },
+                      { label: 'Delegated',    value: walletTasksData.standing.delegated,                                   color: 'bg-teal-500',    tip: 'Accrues when your sponsored citizen completes tasks' },
+                      { label: 'Stewardship',  value: walletTasksData.standing.stewardship,                                 color: 'bg-cyan-500',    tip: 'Accrues from community contributions' },
+                      { label: 'Capability',   value: (walletTasksData.standing as Record<string, number>).capability ?? 0, color: 'bg-violet-500',  tip: 'Builds from VentureQube signals — mission, intents, identity depth', cap: 40 },
+                    ] as { label: string; value: number; color: string; tip: string; cap?: number }[]).map(({ label, value, color, tip, cap }) => (
                       <div key={label}>
                         <div className="flex items-center justify-between text-[10px] mb-1">
                           <span className="text-white/60">{label}</span>
                           <span className={`font-medium ${value > 0 ? 'text-white/80' : 'text-white/30'}`}>
-                            {value > 0 ? value.toFixed(1) : '—'}
+                            {value > 0 ? `${value.toFixed(1)}${cap ? ` / ${cap}` : ''}` : '—'}
                           </span>
                         </div>
                         {value > 0 ? (
                           <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                            <div className={`h-full ${color}`} style={{ width: `${Math.min(100, value)}%` }} />
+                            <div className={`h-full ${color}`} style={{ width: `${Math.min(100, cap ? (value / cap) * 100 : value)}%` }} />
                           </div>
                         ) : (
                           <div className="text-[9px] text-white/25 italic">{tip}</div>
@@ -4412,9 +4413,15 @@ export default function SmartWalletDrawer({
                       </div>
                     ))}
                     <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">
-                      <span className="text-white/50">Overall Standing</span>
+                      <span className="text-white/50">Overall Accrual</span>
                       <span className="text-white/90 font-semibold">{walletTasksData.standing.overall.toFixed(1)}</span>
                     </div>
+                    {walletTasksData.standingScore != null && (
+                      <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">
+                        <span className="text-white/50">Standing Score <span className="text-white/25 italic">(veracity-led)</span></span>
+                        <span className="text-white/90 font-semibold">{(walletTasksData.standingScore as { score: number }).score.toFixed(0)} / 100</span>
+                      </div>
+                    )}
                   </div>
                 </section>
               )}
