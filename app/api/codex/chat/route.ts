@@ -1165,7 +1165,17 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>, 
       }
       const { data, error } = await query;
       if (error) return JSON.stringify({ error: error.message });
-      if (!data || data.length === 0) return JSON.stringify({ contacts: [], message: `No contacts found matching "${q}"` });
+      if (!data || data.length === 0) {
+        // Check if address book is empty vs just no matches for this query
+        const { count } = await supabase
+          .from('persona_contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('persona_id', personaId);
+        if (!count || count === 0) {
+          return JSON.stringify({ contacts: [], total: 0, message: 'Address book is empty — no contacts have been imported yet. Ask the user to import contacts from Google, iPhone, or CSV via the Contacts section in the aigentMe right pane.' });
+        }
+        return JSON.stringify({ contacts: [], total: 0, message: `No contacts matched "${q || '(all)'}". The address book has ${count} contact${count !== 1 ? 's' : ''} total.` });
+      }
       return JSON.stringify({
         contacts: data.map((c: any) => ({
           name: c.display_name,
