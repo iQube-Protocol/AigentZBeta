@@ -2429,8 +2429,12 @@ export default function SmartWalletDrawer({
                         window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
                       };
                       const engageAigentMe = () => {
-                        // B — engage as delegate/chief-of-staff without changing
-                        // the active spine persona. Runtime can route through it.
+                        // B — engage as delegate/chief-of-staff. Updates the local
+                        // UI state so the dropdown shows aigentMe as selected, but
+                        // does NOT swap the spine Bearer token (that's B+ via "Act as").
+                        setLocalPersonaId(persona.id);
+                        ctxSetActivePersonaId(persona.id);
+                        onPersonaChange?.(persona.id);
                         setPersonaMenuOpen(false);
                         window.dispatchEvent(
                           new CustomEvent("aigentme-engaged", { detail: { personaId: persona.id } }),
@@ -2462,7 +2466,9 @@ export default function SmartWalletDrawer({
                                 )}
                               </p>
                               <p className="text-xs text-white/50 truncate">
-                                {isAigentMePersona ? 'Your delegate · tap to engage' : (persona.fioHandle || "No handle")}
+                                {isAigentMePersona
+                                  ? (effectivePersonaId === persona.id ? 'Delegate · engaged' : 'Your delegate · tap to engage')
+                                  : (persona.fioHandle || "No handle")}
                               </p>
                             </div>
                             {effectivePersonaId === persona.id && !isConfirming && (
