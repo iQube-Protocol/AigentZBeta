@@ -1,0 +1,246 @@
+{
+  "schemaVersion": "venture-iqube-portfolio/v1.0",
+  "emittedAt": "2026-06-23T00:00:00.000Z",
+  "operator": {
+    "displayLabel": "mansaMeta",
+    "archetype": "founder_operator",
+    "tagline": "Building the sovereign human agency ecosystem"
+  },
+  "strategy": {
+    "headline": "Operation Leap — economic autonomy for the Polity",
+    "thesis": "Achieve economic autonomy for the Polity through Passport adoption, Founder Office conversion, strategic partnerships, and measurable Time-to-Value acceleration.",
+    "currentStage": "growth",
+    "blockers": ["Founder Operator identification pipeline not yet running"],
+    "constraints": ["Pre-revenue", "Small core team"]
+  },
+  "experienceGoals": [
+    "Stand up the Founder Operator identification pipeline",
+    "Convert qualified Passport holders into the Founder Office",
+    "Activate strategic partnerships"
+  ],
+  "priorityPartners": ["Project Liberty", "Horizen", "Lamina1"],
+  "experienceGuide": {
+    "sphereMaturity": {
+      "energy": "practicing",
+      "body": "exploring",
+      "mind": "integrating",
+      "emotion": "practicing",
+      "relationship": "practicing",
+      "community": "experimenting",
+      "legacy": "exploring"
+    },
+    "sphereAlignment": {
+      "energy": "aligned",
+      "body": "drifting",
+      "mind": "aligned",
+      "emotion": "aligned",
+      "relationship": "drifting",
+      "community": "at_risk",
+      "legacy": "drifting"
+    },
+    "precedenceMode": "auto",
+    "focusIntent": "Collapse time-to-value across the Polity's onboarding funnel."
+  },
+  "standing": {
+    "core": {
+      "whoYouAre": "Founder operator building the sovereign human agency ecosystem.",
+      "whatYouKnow": "Identity, standing, agentic systems, venture formation, commercial activation.",
+      "whatYouveDone": "Shipped the Polity Passport Bureau, metaMe, and metaKnyt to dev.",
+      "interests": "Sovereignty, agency, time-to-value, the agentic polity.",
+      "intentions": "Establish economic autonomy for the Polity.",
+      "experiencesThatMatter": "Operating ventures from zero to activation.",
+      "accomplish": "4,000 Passport holders and $100K MRR via Founder Office conversion."
+    },
+    "linkedInUrl": "https://www.linkedin.com/in/example"
+  },
+  "plan": {
+    "today": {
+      "focus": "Stand up Objective Zero — Founder Operator identification.",
+      "actions": [
+        { "title": "Query existing Passport holders + CRM for Founder Operator signals", "ventureId": "polity-passport-bureau" }
+      ]
+    },
+    "next24h": {
+      "focus": "Shortlist the first cohort of candidate Founder Operators.",
+      "actions": [
+        { "title": "Score candidates against the Founder Operator archetype", "ventureId": "polity-passport-bureau" }
+      ]
+    },
+    "next7d": {
+      "focus": "Move the first 25 candidates toward the Founder Office.",
+      "actions": [
+        { "title": "Draft and send Founder Office invitations", "ventureId": "metame" }
+      ]
+    },
+    "next30d": {
+      "focus": "Activate strategic partnerships.",
+      "actions": [
+        { "title": "Open partnership conversations with Project Liberty, Horizen, Lamina1", "ventureId": "metame" }
+      ]
+    },
+    "next90d": {
+      "focus": "Reach 4,000 Passport holders and $100K MRR.",
+      "actions": [
+        { "title": "Scale Passport adoption via metaKnyt activation", "ventureId": "metaknyt" }
+      ]
+    }
+  },
+  "kpiBoard": [
+    { "name": "Passport holders", "metric": "count", "current": 0, "target": 4000, "horizon": "next90d" },
+    { "name": "MRR", "metric": "USD", "current": 0, "target": "$100K", "horizon": "next90d" },
+    { "name": "Founder Operators identified", "metric": "count", "current": 0, "target": 100, "horizon": "next30d" },
+    { "name": "Founder Office conversions", "metric": "count", "current": 0, "target": 25, "horizon": "next90d" }
+  ],
+  "operatingModel": {
+    "mission": "Achieve 4,000 Passport holders and $100K MRR through Passport adoption, Founder Office conversion and strategic partnerships.",
+    "successMetrics": [
+      "4,000 Passport holders",
+      "$100K MRR",
+      "100 Founder Operators identified",
+      "25 Founder Office conversions"
+    ],
+    "activeObjectives": [
+      { "objective": "Objective Zero — identify the first 100 Founder Operators from existing Passport holders and CRM contacts", "status": "active" },
+      { "objective": "Convert 25 Founder Operators into the Founder Office", "status": "active" },
+      { "objective": "Activate Project Liberty, Horizen, and Lamina1 partnerships", "status": "active" }
+    ],
+    "priorityPartners": ["Project Liberty", "Horizen", "Lamina1"],
+    "priorityActions": [
+      "Run the Founder Operator identification query against Passport + CRM",
+      "Send the first cohort of Founder Office invitations",
+      "Open the three strategic partnership conversations"
+    ],
+    "reviewCadence": "weekly",
+    "nextReviewDate": "2026-06-30",
+    "primaryMetric": "Net Value Acceleration — have our actions collapsed time to value?"
+  },
+  "ventures": [
+    {
+      "identity": { "name": "Polity Passport Bureau", "slug": "polity-passport-bureau", "stage": "growth" },
+      "thesis": {
+        "mission": "Give every human a sovereign, verifiable Polity identity.",
+        "vision": "A Polity where identity, standing and agency are self-owned.",
+        "problemStatement": "People have no portable, sovereign identity that carries standing and agency across agentic systems.",
+        "valueProposition": "A verifiable Polity Passport that reduces time-to-citizenship and anchors standing.",
+        "ventureCategory": "identity",
+        "industryTags": ["identity", "web3", "agentic"],
+        "marketTags": ["sovereignty", "citizenship"],
+        "geographicScope": "global"
+      },
+      "intent": {
+        "founderIntents": ["Make sovereign identity the default"],
+        "ventureIntents": ["Issue verifiable Polity Passports at scale"],
+        "citizenIntents": ["Establish my identity and standing"],
+        "commonsIntents": ["A trustworthy Polity identity layer"]
+      },
+      "signalEvidence": { "items": [], "demandConfidence": null, "capabilityConfidence": null, "opportunityConfidence": null, "signalConfidence": null },
+      "archetypes": [
+        { "kind": "citizen", "label": "Prospective Citizen", "painPoints": ["No portable sovereign identity"], "desiredOutcomes": ["Verifiable citizenship"], "willingnessToPay": "low-to-moderate" }
+      ],
+      "revenueArchitecture": {
+        "engines": [
+          { "engineType": "subscription", "engineName": "Passport membership", "pricingModel": "monthly", "estimatedRevenue": "scales with adoption" }
+        ]
+      },
+      "commercialModel": { "targetPassports": 4000, "revenueTargets": ["$100K MRR"], "mrrTargets": ["$100K"] },
+      "capability": { "requiredCapabilities": ["identity issuance", "verification"], "availableCapabilities": [], "capabilityGaps": ["scale onboarding"], "capabilityPriorities": ["onboarding pipeline"] },
+      "resource": { "requiredAgents": ["aigentMe"], "requiredTools": ["CRM", "verification service"] },
+      "execution": {
+        "phases": [
+          { "phaseName": "Founder Operator identification", "objectives": ["Identify first 100 Founder Operators"], "deliverables": ["Scored candidate list"] }
+        ]
+      },
+      "delegation": {
+        "assignments": [
+          { "agentType": "aigentMe", "responsibility": "Drive Founder Operator identification + outreach", "deliverables": ["Candidate cohort", "Invitations sent"] }
+        ]
+      },
+      "outcome": { "outcomes": [], "proofOfOutcomeClaims": [] },
+      "governance": {},
+      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "public" }
+    },
+    {
+      "identity": { "name": "metaMe", "slug": "metame", "stage": "growth" },
+      "thesis": {
+        "mission": "Give every citizen a sovereign agentic self.",
+        "valueProposition": "aigentMe reduces time-to-agency by acting as the citizen's sovereign agent.",
+        "ventureCategory": "agentic",
+        "industryTags": ["agentic", "ai"],
+        "marketTags": ["agency", "sovereignty"]
+      },
+      "intent": {
+        "founderIntents": ["Make sovereign agency universal"],
+        "ventureIntents": ["Activate aigentMe for every citizen"]
+      },
+      "signalEvidence": { "items": [], "demandConfidence": null, "capabilityConfidence": null, "opportunityConfidence": null, "signalConfidence": null },
+      "archetypes": [
+        { "kind": "founder_operator", "label": "Founder Operator", "painPoints": ["No operating leverage"], "desiredOutcomes": ["A Chief-of-Staff agent"], "willingnessToPay": "moderate-to-high" }
+      ],
+      "revenueArchitecture": {
+        "engines": [
+          { "engineType": "subscription", "engineName": "Founder Office tiers", "pricingModel": "tiered", "estimatedRevenue": "primary MRR driver" }
+        ]
+      },
+      "commercialModel": { "targetFounders": 100, "revenueTargets": ["$100K MRR"], "mrrTargets": ["$100K"] },
+      "capability": { "requiredCapabilities": ["agent orchestration"], "availableCapabilities": [], "capabilityGaps": ["daily-brief generation"], "capabilityPriorities": ["operating brief execution"] },
+      "resource": { "requiredAgents": ["aigentMe", "marketa"] },
+      "execution": {
+        "phases": [
+          { "phaseName": "Founder Office conversion", "objectives": ["Convert 25 Founder Operators"], "deliverables": ["25 active Founder Office operators"] }
+        ]
+      },
+      "delegation": {
+        "assignments": [
+          { "agentType": "aigentMe", "responsibility": "Run the operating brief as Chief of Staff", "deliverables": ["Daily review briefs"] }
+        ]
+      },
+      "outcome": { "outcomes": [], "proofOfOutcomeClaims": [] },
+      "governance": {},
+      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "public" }
+    },
+    {
+      "identity": { "name": "metaKnyt", "slug": "metaknyt", "stage": "validation" },
+      "thesis": {
+        "mission": "Activate the Polity through narrative and collectible experience.",
+        "valueProposition": "metaKnyt reduces time-to-fulfilment via an engaging activation surface.",
+        "ventureCategory": "media",
+        "industryTags": ["media", "collectibles"],
+        "marketTags": ["activation", "community"]
+      },
+      "intent": {
+        "founderIntents": ["Make Polity activation joyful"],
+        "ventureIntents": ["Drive Passport adoption through metaKnyt"]
+      },
+      "signalEvidence": { "items": [], "demandConfidence": null, "capabilityConfidence": null, "opportunityConfidence": null, "signalConfidence": null },
+      "archetypes": [
+        { "kind": "creator", "label": "Collector / Creator", "desiredOutcomes": ["Belonging + collectible value"], "willingnessToPay": "moderate" }
+      ],
+      "revenueArchitecture": {
+        "engines": [
+          { "engineType": "commerce", "engineName": "metaKnyt store", "pricingModel": "unit", "estimatedRevenue": "secondary" }
+        ]
+      },
+      "commercialModel": { "targetPassports": 4000, "growthAssumptions": ["metaKnyt drives Passport adoption"] },
+      "capability": { "requiredCapabilities": ["content", "activation"], "availableCapabilities": [], "capabilityGaps": ["scale activation"], "capabilityPriorities": ["activation funnel"] },
+      "resource": { "requiredAgents": ["marketa"] },
+      "execution": {
+        "phases": [
+          { "phaseName": "Activation", "objectives": ["Drive Passport adoption"], "deliverables": ["Activation campaign live"] }
+        ]
+      },
+      "delegation": {
+        "assignments": [
+          { "agentType": "marketa", "responsibility": "Run the metaKnyt activation campaign", "deliverables": ["Campaign + conversions"] }
+        ]
+      },
+      "outcome": { "outcomes": [], "proofOfOutcomeClaims": [] },
+      "governance": {},
+      "institutional": { "ventureLabStatus": "active", "commonsVisibility": "public" }
+    }
+  ],
+  "portfolio": {
+    "thesis": "Build a sovereign human agency ecosystem that enables citizens to establish identity, standing, agency and economic autonomy.",
+    "priorities": ["Polity Passport Bureau", "metaMe", "metaKnyt"],
+    "notes": "Passport (time to citizenship) → metaMe (time to agency) → metaKnyt (time to fulfilment). Standing compounds across all three; the bottleneck is Founder Operator identification (Objective Zero)."
+  }
+}
