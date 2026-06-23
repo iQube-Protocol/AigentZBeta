@@ -352,29 +352,47 @@ export type VentureQubeV04 = VentureQube & { schemaVersion: "venture-iqube/v0.4"
 //   Operating layer   → captures action            ← this
 // ───────────────────────────────────────────────────────────────────────────
 
+export interface OperatingObjective {
+  objective: string;
+  /**
+   * Lifecycle so aigentMe can distinguish what to act on. Not a PM system —
+   * just enough state to drive a daily brief.
+   */
+  status: "active" | "completed" | "blocked" | "deferred";
+}
+
 export interface VentureOperatingModel {
-  /** The portfolio-wide operating mission (e.g. "Operation Leap"). */
+  /**
+   * The OPERATIONAL expression of `portfolio.thesis` — what we are doing right
+   * now in service of that Why. There is deliberately NO separate operating
+   * thesis: `portfolio.thesis` is the single highest-order statement of intent
+   * (the Why), and `mission` is the What-right-now. Keeping one thesis prevents
+   * strategic and operating intent from drifting apart (tactical drift).
+   */
   mission?: string;
   /**
    * The success metrics the operator steers toward — e.g. "4,000 Passport
-   * holders", "$100K MRR", "25 Founder Office conversions".
+   * holders", "$100K MRR", "25 Founder Office conversions". These are outcomes.
    */
   successMetrics?: string[];
-  /** Objectives currently in flight. */
-  activeObjectives?: string[];
+  /** Objectives currently in flight, each with a lifecycle status. */
+  activeObjectives?: OperatingObjective[];
   /** Strategic partners the operating brief depends on. */
   priorityPartners?: string[];
   /** The next concrete actions, in priority order. */
   priorityActions?: string[];
-  /** Operating review cycle — e.g. "weekly", "biweekly", "monthly". */
+  /** Operating review cycle — how often: "weekly", "biweekly", "monthly". */
   reviewCadence?: string;
+  /** When the next review is due (ISO date) — lets aigentMe auto-generate review briefs. */
+  nextReviewDate?: string;
   /**
-   * The single primary KPI the brief is judged against. The canonical
-   * portfolio-level metric is Net Value Acceleration — "did this action reduce
-   * the time required to achieve meaningful value?" — which ties together every
-   * venture's outcome accrual (see ProofOfOutcomeClaim / Net Value
-   * Acceleration). Free-text so an operator can name a different north star,
-   * but Time-to-Value / Net Value Acceleration is the default framing.
+   * The single primary KPI the brief is judged against. Layered framing:
+   *   • public mental model  → Time-to-Value (instantly understood)
+   *   • internal metric      → Proof of Time Saved (PoTS, measurable)
+   *   • constitutional principle → Net Value Acceleration (Time-to-Value minus
+   *     Risk Repair Burden), which rolls up every venture's verified outcome
+   *     accrual (see ProofOfOutcomeClaim). Free-text so an operator can name a
+   *     different north star, but Net Value Acceleration is the default.
    */
   primaryMetric?: string;
 }

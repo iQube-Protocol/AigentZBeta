@@ -20,11 +20,12 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Check, Lock, ArrowUp, ArrowDown, Layers, Plus, Rocket } from "lucide-react";
+import { Loader2, Check, Lock, ArrowUp, ArrowDown, Layers, Plus, Rocket, X, Compass } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { MicButton } from "@/components/ui/MicButton";
 import { VentureLightWizard } from "./VentureLightWizard";
 import { VentureProWizard } from "./VentureProWizard";
+import type { VentureOperatingModel, OperatingObjective } from "@/types/ventureQube";
 
 interface VentureSummary {
   id: string;
@@ -40,7 +41,15 @@ interface Portfolio {
   sharedCapabilities: string[];
   stageSpread: Record<string, number>;
   ventureCount: number;
+  operatingModel: VentureOperatingModel | null;
 }
+
+const OBJECTIVE_STATUSES: OperatingObjective["status"][] = ["active", "completed", "blocked", "deferred"];
+
+/** newline-delimited text ↔ trimmed string[] (the light-touch list UX). */
+const linesToArray = (s: string): string[] =>
+  s.split("\n").map((x) => x.trim()).filter(Boolean);
+const arrayToLines = (a?: string[]): string => (a ?? []).join("\n");
 
 export function VenturePortfolioWizard({
   open,
@@ -59,6 +68,15 @@ export function VenturePortfolioWizard({
   const [order, setOrder] = useState<VentureSummary[]>([]);
   const [thesis, setThesis] = useState("");
   const [notes, setNotes] = useState("");
+  // Operating brief (Chief-of-Staff layer).
+  const [omMission, setOmMission] = useState("");
+  const [omPrimaryMetric, setOmPrimaryMetric] = useState("");
+  const [omSuccessMetrics, setOmSuccessMetrics] = useState("");
+  const [omPriorityPartners, setOmPriorityPartners] = useState("");
+  const [omPriorityActions, setOmPriorityActions] = useState("");
+  const [omObjectives, setOmObjectives] = useState<OperatingObjective[]>([]);
+  const [omReviewCadence, setOmReviewCadence] = useState("");
+  const [omNextReviewDate, setOmNextReviewDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +97,15 @@ export function VenturePortfolioWizard({
         setOrder(data.ventures ?? []);
         setThesis(data.thesis ?? "");
         setNotes(data.notes ?? "");
+        const om = data.operatingModel ?? null;
+        setOmMission(om?.mission ?? "");
+        setOmPrimaryMetric(om?.primaryMetric ?? "");
+        setOmSuccessMetrics(arrayToLines(om?.successMetrics));
+        setOmPriorityPartners(arrayToLines(om?.priorityPartners));
+        setOmPriorityActions(arrayToLines(om?.priorityActions));
+        setOmObjectives(om?.activeObjectives ?? []);
+        setOmReviewCadence(om?.reviewCadence ?? "");
+        setOmNextReviewDate(om?.nextReviewDate ?? "");
       } else {
         const b = await res.json().catch(() => ({}));
         setError(b?.error || `Could not load portfolio (${res.status})`);
@@ -107,6 +134,33 @@ export function VenturePortfolioWizard({
     });
   };
 
+  const buildOperatingModel = (): VentureOperatingModel | null => {
+    const objectives = omObjectives
+      .map((o) => ({ objective: o.objective.trim(), status: o.status }))
+      .filter((o) => o.objective);
+    const om: VentureOperatingModel = {
+      mission: omMission.trim() || undefined,
+      primaryMetric: omPrimaryMetric.trim() || undefined,
+      successMetrics: linesToArray(omSuccessMetrics),
+      priorityPartners: linesToArray(omPriorityPartners),
+      priorityActions: linesToArray(omPriorityActions),
+      activeObjectives: objectives,
+      reviewCadence: omReviewCadence.trim() || undefined,
+      nextReviewDate: omNextReviewDate.trim() || undefined,
+    };
+    // Drop empty arrays/undefined so a blank brief persists as null.
+    const hasContent =
+      om.mission ||
+      om.primaryMetric ||
+      om.reviewCadence ||
+      om.nextReviewDate ||
+      (om.successMetrics?.length ?? 0) > 0 ||
+      (om.priorityPartners?.length ?? 0) > 0 ||
+      (om.priorityActions?.length ?? 0) > 0 ||
+      (om.activeObjectives?.length ?? 0) > 0;
+    return hasContent ? om : null;
+  };
+
   const save = async () => {
     setSaving(true);
     setError(null);
@@ -119,6 +173,7 @@ export function VenturePortfolioWizard({
           thesis: thesis.trim() || null,
           notes: notes.trim() || null,
           priorities: order.map((v) => v.id),
+          operatingModel: buildOperatingModel(),
         }),
       });
       const data = await res.json();
@@ -260,6 +315,140 @@ export function VenturePortfolioWizard({
                 />
                 <div className="absolute top-1.5 right-1.5">
                   <MicButton onTranscript={(t) => setNotes((v) => (v ? `${v.trimEnd()} ${t}` : t))} size="sm" theme="dark" />
+                </div>
+              </div>
+            </div>
+
+            {/* Operating brief — the Chief-of-Staff layer aigentMe executes against. */}
+            <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-3">
+              <div className="flex items-center gap-1.5">
+                <Compass className="w-4 h-4 text-violet-300" />
+                <h4 className="text-sm font-semibold text-violet-100">Operating brief</h4>
+                <span className="text-[10px] text-slate-400">— what aigentMe runs as your Chief of Staff</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Operating mission <span className="text-slate-500">— the operational expression of your thesis (the What-right-now)</span>
+                </label>
+                <div className="relative">
+                  <textarea
+                    value={omMission}
+                    onChange={(e) => setOmMission(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Operation Leap — what we are doing right now in service of the portfolio thesis."
+                    className="w-full text-sm rounded-lg p-2.5 pr-10 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                  />
+                  <div className="absolute top-1.5 right-1.5">
+                    <MicButton onTranscript={(t) => setOmMission((v) => (v ? `${v.trimEnd()} ${t}` : t))} size="sm" theme="dark" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Primary metric</label>
+                <input
+                  value={omPrimaryMetric}
+                  onChange={(e) => setOmPrimaryMetric(e.target.value)}
+                  placeholder="Net Value Acceleration — have our actions collapsed time to value?"
+                  className="w-full text-sm rounded-lg p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Success metrics <span className="text-slate-500">— one per line</span></label>
+                <textarea
+                  value={omSuccessMetrics}
+                  onChange={(e) => setOmSuccessMetrics(e.target.value)}
+                  rows={3}
+                  placeholder={"4,000 Passport holders\n$100K MRR\n25 Founder Office conversions"}
+                  className="w-full text-sm rounded-lg p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                />
+              </div>
+
+              {/* Active objectives — text + lifecycle status. */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-slate-300">Active objectives</label>
+                  <button
+                    type="button"
+                    onClick={() => setOmObjectives((p) => [...p, { objective: "", status: "active" }])}
+                    className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-violet-500/40 text-violet-200 hover:bg-violet-500/15"
+                  >
+                    <Plus className="w-3 h-3" /> Objective
+                  </button>
+                </div>
+                {omObjectives.length === 0 ? (
+                  <p className="text-[11px] text-slate-500">No objectives yet. Add the ones in flight so aigentMe knows what to act on.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {omObjectives.map((o, i) => (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <input
+                          value={o.objective}
+                          onChange={(e) => setOmObjectives((p) => p.map((x, j) => (j === i ? { ...x, objective: e.target.value } : x)))}
+                          placeholder="e.g. Identify the first 100 Founder Operators"
+                          className="flex-1 text-sm rounded-lg p-1.5 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                        />
+                        <select
+                          value={o.status}
+                          onChange={(e) => setOmObjectives((p) => p.map((x, j) => (j === i ? { ...x, status: e.target.value as OperatingObjective["status"] } : x)))}
+                          className="text-xs rounded-lg p-1.5 border bg-slate-900/60 border-slate-700 text-slate-200 focus:border-violet-500/60 focus:outline-none capitalize"
+                        >
+                          {OBJECTIVE_STATUSES.map((s) => (
+                            <option key={s} value={s} className="capitalize">{s}</option>
+                          ))}
+                        </select>
+                        <button type="button" onClick={() => setOmObjectives((p) => p.filter((_, j) => j !== i))} className="text-slate-500 hover:text-rose-300">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Priority partners <span className="text-slate-500">— one per line</span></label>
+                  <textarea
+                    value={omPriorityPartners}
+                    onChange={(e) => setOmPriorityPartners(e.target.value)}
+                    rows={3}
+                    placeholder={"Project Liberty\nHorizon\nLamina1"}
+                    className="w-full text-sm rounded-lg p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Priority actions <span className="text-slate-500">— one per line</span></label>
+                  <textarea
+                    value={omPriorityActions}
+                    onChange={(e) => setOmPriorityActions(e.target.value)}
+                    rows={3}
+                    placeholder={"Next concrete steps, highest-priority first"}
+                    className="w-full text-sm rounded-lg p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Review cadence</label>
+                  <input
+                    value={omReviewCadence}
+                    onChange={(e) => setOmReviewCadence(e.target.value)}
+                    placeholder="weekly"
+                    className="w-full text-sm rounded-lg p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Next review date</label>
+                  <input
+                    type="date"
+                    value={omNextReviewDate}
+                    onChange={(e) => setOmNextReviewDate(e.target.value)}
+                    className="w-full text-sm rounded-lg p-2 border bg-slate-900/60 border-slate-700 text-slate-100 focus:border-violet-500/60 focus:outline-none"
+                  />
                 </div>
               </div>
             </div>

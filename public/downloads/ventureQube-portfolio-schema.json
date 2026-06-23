@@ -12,7 +12,7 @@
     "what_to_produce": "A single JSON file: the Pro base + the ventures array (full 13-layer each) + the portfolio block (+ optionally the operatingModel block)."
   },
   "type": "object",
-  "required": ["schemaVersion", "operator", "strategy", "ventures", "plan", "portfolio"],
+  "required": ["schemaVersion", "operator", "strategy", "ventures", "plan", "portfolio", "operatingModel"],
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
@@ -53,15 +53,30 @@
     "operatingModel": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL operating-artifact layer (Pro/Portfolio only). The portfolio's living operational brief — the place a multi-venture operating thesis like \"Operation Leap\" lives so aigentMe can execute against it daily as Chief of Staff. The core schema stays a general-purpose knowledge artifact; operations live here.",
+      "required": ["mission"],
+      "description": "REQUIRED operating-artifact layer at Portfolio level. A portfolio without an operating model is just a collection of ventures; with one it is an operating system aigentMe can execute daily as Chief of Staff. The core schema stays a general-purpose knowledge artifact; operations live here.",
       "properties": {
-        "mission": { "type": "string", "maxLength": 2000, "description": "Portfolio-wide operating mission (e.g. \"Operation Leap\")." },
-        "successMetrics": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "Concrete portfolio success metrics — e.g. \"4,000 Passport holders\", \"$100K MRR\", \"100 Founder Operators identified\", \"25 Founder Office conversions\"." },
-        "activeObjectives": { "type": "array", "items": { "type": "string", "maxLength": 280 }, "maxItems": 30, "description": "Cross-venture objectives currently in flight." },
+        "mission": { "type": "string", "maxLength": 2000, "description": "The OPERATIONAL expression of portfolio.thesis — what we are doing right now in service of that Why (e.g. \"Operation Leap\"). There is no separate operating thesis; portfolio.thesis is the single Why, mission is the What-right-now." },
+        "successMetrics": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "Concrete portfolio success metrics — e.g. \"4,000 Passport holders\", \"$100K MRR\", \"100 Founder Operators identified\", \"25 Founder Office conversions\". These are outcomes." },
+        "activeObjectives": {
+          "type": "array",
+          "maxItems": 30,
+          "description": "Cross-venture objectives currently in flight, each with a lifecycle status so aigentMe can distinguish active / completed / blocked / deferred.",
+          "items": {
+            "type": "object",
+            "required": ["objective", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "objective": { "type": "string", "maxLength": 280 },
+              "status": { "type": "string", "enum": ["active", "completed", "blocked", "deferred"] }
+            }
+          }
+        },
         "priorityPartners": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "Strategic partners across the portfolio (e.g. Project Liberty, Horizon, Lamina1)." },
         "priorityActions": { "type": "array", "items": { "type": "string", "maxLength": 280 }, "maxItems": 30, "description": "Next concrete actions across the portfolio, highest-priority first." },
-        "reviewCadence": { "type": "string", "maxLength": 64, "description": "Operating review cycle — e.g. \"weekly\"." },
-        "primaryMetric": { "type": "string", "maxLength": 280, "description": "The portfolio north-star KPI. Default framing is Net Value Acceleration — \"have our actions collapsed time to value?\" — which aligns every venture (Passport → time to citizenship, aigentMe → time to agency, Standing → time to trust, Founder Office → time to venture readiness)." }
+        "reviewCadence": { "type": "string", "maxLength": 64, "description": "How often you review — e.g. \"weekly\"." },
+        "nextReviewDate": { "type": "string", "format": "date", "description": "When the next review is due (ISO date). Cadence is how often; this is when — lets aigentMe auto-generate the next review brief." },
+        "primaryMetric": { "type": "string", "maxLength": 280, "description": "The portfolio north-star KPI. Layered framing: public mental model = Time-to-Value (\"have our actions collapsed time to value?\"); internal metric = Proof of Time Saved (PoTS); constitutional principle = Net Value Acceleration (Time-to-Value minus Risk Repair Burden). Aligns every venture: Passport → time to citizenship, aigentMe → time to agency, Standing → time to trust, Founder Office → time to venture readiness." }
       }
     },
     "ventures": {

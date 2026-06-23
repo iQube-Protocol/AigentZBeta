@@ -211,8 +211,15 @@ function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { o
         return { ok: false, error: 'each Pro venture requires identity.name' };
       }
     }
-    if (p.schemaVersion === 'venture-iqube-portfolio/v1.0' && !p.portfolio?.thesis) {
-      return { ok: false, error: 'venture-iqube-portfolio/v1.0 requires a portfolio.thesis' };
+    if (p.schemaVersion === 'venture-iqube-portfolio/v1.0') {
+      if (!p.portfolio?.thesis) {
+        return { ok: false, error: 'venture-iqube-portfolio/v1.0 requires a portfolio.thesis' };
+      }
+      // A portfolio without an operating model is just a collection of ventures;
+      // with one it is an operating system aigentMe can execute. Require it.
+      if (!p.operatingModel?.mission) {
+        return { ok: false, error: 'venture-iqube-portfolio/v1.0 requires operatingModel.mission (the operational expression of the portfolio thesis)' };
+      }
     }
   } else {
     for (const v of p.ventures) {

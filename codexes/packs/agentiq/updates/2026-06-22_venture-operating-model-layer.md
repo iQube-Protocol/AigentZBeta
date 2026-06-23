@@ -70,8 +70,46 @@ to this framing and rolls up every venture's verified outcome accrual (the
   `operatingModel` through `materializeProVentures` → `saveVenturePortfolio`.
   It persists even on a Pro upload with no `portfolio` block.
 
+## Refinements (operator architecture review)
+
+Three small adjustments after review, plus the UI surface:
+
+1. **No separate operating thesis.** `portfolio.thesis` is the single
+   highest-order statement of intent (the Why); `operatingModel.mission` is its
+   operational expression (the What-right-now). One thesis prevents strategic
+   and operating intent from drifting apart (tactical drift).
+2. **`operatingModel` is REQUIRED at Portfolio level** (still optional on Pro).
+   A portfolio without an operating model is just a collection of ventures; with
+   one it is an operating system aigentMe can execute. Enforced in the portfolio
+   download schema (`required: [...,"operatingModel"]` + `operatingModel.required:
+   ["mission"]`) and in the ingest validator (`operatingModel.mission` required
+   for `venture-iqube-portfolio/v1.0`).
+3. **`activeObjectives` gains lifecycle status** — now
+   `{ objective, status: 'active'|'completed'|'blocked'|'deferred' }[]` so
+   aigentMe can distinguish what to act on. **`nextReviewDate`** added alongside
+   `reviewCadence` (cadence = how often; date = when → auto-generated review
+   briefs). No task/PM/CRM/Kanban constructs — it stays an iQube.
+
+**PoTS / Time-to-Value layering (closure):** one idea, three framings, no new
+primitives — public mental model = Time-to-Value; internal metric = Proof of
+Time Saved (PoTS); constitutional principle = Net Value Acceleration
+(Time-to-Value minus Risk Repair Burden). Reflected in `primaryMetric`'s default
+and in the polity-papers PoTS commentary.
+
+## The surface (shipped)
+
+- **Author** — the Venture Portfolio wizard ("My Portfolio") gains an
+  *Operating brief* section: mission (+ mic), primary metric, success metrics,
+  active objectives (text + status), priority partners, priority actions, review
+  cadence, next review date. Saves through `POST /api/venture/portfolio`.
+- **Display** — `VentureLabPortfolioTab` renders a read-only *Operating Brief*
+  panel (fed by `GET /api/venture/portfolio`) at the top of the portfolio view,
+  refreshed after a wizard save. So the brief has a persistent home, not just an
+  edit modal.
+
 ## Not done (follow-on)
 
-- A wizard/cockpit UI surface to author + display the operatingModel brief (the
-  schema, persistence, and API are ready). Today it round-trips via upload +
-  the portfolio API.
+- Load the operating brief into aigentMe's grounding context so it generates
+  daily review briefs against it (the data + API are ready). This is the
+  "load into aigentMe → generate daily briefs → run 30 days" execution step —
+  no longer schema work.

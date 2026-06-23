@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Briefcase, ClipboardList, Users, Activity, Plus, ChevronDown, ChevronUp, RefreshCw, X, Save, Layers } from 'lucide-react';
+import { Briefcase, ClipboardList, Users, Activity, Plus, ChevronDown, ChevronUp, RefreshCw, X, Save, Layers, Compass, CalendarClock } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { VenturePortfolioWizard } from '@/components/metame/setup/VenturePortfolioWizard';
+import type { VentureOperatingModel, OperatingObjective } from '@/types/ventureQube';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -343,6 +344,94 @@ function ActionsView({ ventures }: { ventures: Venture[] }) {
   );
 }
 
+// ── Operating Brief (read-only) ──────────────────────────────────────────────
+// The Chief-of-Staff layer: the citizen's own operating brief from
+// venture_portfolios.payload.operatingModel, shown at a glance. Authored in the
+// Venture Portfolio wizard ("My Portfolio").
+
+const OBJ_STATUS_COLOR: Record<OperatingObjective['status'], string> = {
+  active:    'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
+  completed: 'text-slate-400  border-slate-600/40   bg-slate-700/20',
+  blocked:   'text-rose-300   border-rose-500/30    bg-rose-500/10',
+  deferred:  'text-amber-300  border-amber-500/30   bg-amber-500/10',
+};
+
+function OperatingBrief({ om }: { om: VentureOperatingModel }) {
+  const objectives = om.activeObjectives ?? [];
+  return (
+    <div className="mb-5 rounded-xl border border-violet-500/25 bg-violet-500/[0.06] p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Compass className="w-4 h-4 text-violet-300" />
+        <h3 className="text-sm font-semibold text-violet-100">Operating Brief</h3>
+        <span className="text-[10px] text-slate-500">— what aigentMe runs as Chief of Staff</span>
+        {om.reviewCadence && (
+          <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-slate-400">
+            <CalendarClock className="w-3 h-3" />
+            {om.reviewCadence}{om.nextReviewDate ? ` · next ${om.nextReviewDate}` : ''}
+          </span>
+        )}
+      </div>
+
+      {om.mission && <p className="text-sm text-slate-200 leading-relaxed">{om.mission}</p>}
+
+      {om.primaryMetric && (
+        <p className="text-xs text-violet-200/90">
+          <span className="uppercase tracking-wide text-[10px] text-slate-500">Primary metric · </span>
+          {om.primaryMetric}
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {(om.successMetrics?.length ?? 0) > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Success metrics</p>
+            <ul className="space-y-0.5">
+              {om.successMetrics!.map((m, i) => (
+                <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><span className="text-emerald-400/60 mt-0.5">·</span>{m}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {(om.priorityPartners?.length ?? 0) > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Priority partners</p>
+            <div className="flex flex-wrap gap-1">
+              {om.priorityPartners!.map((p, i) => (
+                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-200">{p}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {objectives.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Active objectives</p>
+          <div className="space-y-1">
+            {objectives.map((o, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className={`text-[9px] px-1.5 py-0.5 rounded border capitalize ${OBJ_STATUS_COLOR[o.status]}`}>{o.status}</span>
+                <span className="text-xs text-slate-300">{o.objective}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(om.priorityActions?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Priority actions</p>
+          <ul className="space-y-0.5">
+            {om.priorityActions!.map((a, i) => (
+              <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><span className="text-amber-400/60 mt-0.5">→</span>{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function VentureLabPortfolioTab({ isAdmin }: Props) {
@@ -354,6 +443,16 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
   // scorecard board), managed via the Venture Portfolio wizard.
   const [myPortfolioOpen, setMyPortfolioOpen] = useState(false);
   const [portfolioAccess, setPortfolioAccess] = useState(false);
+  const [operatingBrief, setOperatingBrief] = useState<VentureOperatingModel | null>(null);
+
+  const loadOperatingBrief = useCallback(async () => {
+    try {
+      const res = await personaFetch('/api/venture/portfolio', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.ok) setOperatingBrief(data.operatingModel ?? null);
+    } catch { /* non-fatal */ }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -373,10 +472,14 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
         const res = await personaFetch('/api/billing/plan', { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
-        if (data?.ok) setPortfolioAccess(!!data.wizardAccess?.portfolio || !!isAdmin);
+        if (data?.ok) {
+          const access = !!data.wizardAccess?.portfolio || !!isAdmin;
+          setPortfolioAccess(access);
+          if (access) void loadOperatingBrief();
+        }
       } catch { /* non-fatal */ }
     })();
-  }, [isAdmin]);
+  }, [isAdmin, loadOperatingBrief]);
 
   const saveScorecard = async (id: string, payload: Venture['payload']) => {
     const res = await fetch(`/api/venture-lab/portfolio/${id}`, {
@@ -448,10 +551,12 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
         open={myPortfolioOpen}
         onOpenChange={setMyPortfolioOpen}
         hasPortfolioAccess={portfolioAccess}
+        onSaved={() => void loadOperatingBrief()}
       />
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto p-5">
+        {operatingBrief && <OperatingBrief om={operatingBrief} />}
         {loading ? (
           <div className="flex items-center justify-center h-32">
             <RefreshCw className="w-5 h-5 text-slate-600 animate-spin" />
