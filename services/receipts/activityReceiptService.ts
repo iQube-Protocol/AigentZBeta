@@ -50,7 +50,10 @@ export type ActivityActionType =
   // Consumer task runner (DVN-anchorable; Workstream C-b)
   | 'experience_task_completed'
   // Autonomous agent lifecycle (DVN-anchorable; Option A revocation framework)
-  | 'agent_revocation_state_changed';
+  | 'agent_revocation_state_changed'
+  // Bounded delegation lifecycle (DVN-anchorable)
+  | 'agent_delegated'
+  | 'agent_delegation_revoked';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

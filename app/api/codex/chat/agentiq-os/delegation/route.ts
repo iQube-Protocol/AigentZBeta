@@ -23,6 +23,8 @@ import {
   revokeActiveGrant,
   markGrantExpired,
 } from '@/services/delegation/delegationGrantStore';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { enqueueActivityReceiptAnchor } from '@/services/dvn/activityReceiptDvnPipeline';
 
 // ============================================================================
 // Types
@@ -452,6 +454,25 @@ export async function POST(request: NextRequest) {
       explain_before_acting: explain_before_acting ?? false,
     });
 
+    // Create an activity receipt so the delegation is anchored in the DVN pipeline.
+    // The receipt is fire-and-forget for the DVN submission but must be awaited
+    // for the DB write itself (serverless function freezes after response returns).
+    try {
+      const receipt = await createActivityReceipt({
+        personaId: persona_id,
+        activeCartridge: 'agentiq-os-cartridge',
+        actionType: 'agent_delegated',
+        summary: `Bounded delegation granted to ${agentRootDid} (trust band: ${trust_band}, allowed: ${allowedActions.join(', ')})`,
+        agentsInvoked: [agentRootDid],
+        toolsUsed: allowedActions,
+        contextShared: [`handoff_id:${handoffId}`, `trust_band:${trust_band}`, `expires_at:${expiresAt}`],
+      });
+      if (receipt) enqueueActivityReceiptAnchor(receipt, persona_id);
+    } catch (receiptErr) {
+      // Soft-fail — the delegation itself succeeded; only the receipt is affected.
+      console.error('[Delegation POST] Activity receipt creation failed:', receiptErr);
+    }
+
     return NextResponse.json({
       ok: true,
       handoff_id: handoffId,
@@ -506,6 +527,21 @@ export async function DELETE(request: NextRequest) {
       reason: 'User revoked delegation',
       actions_taken: record.actions_taken,
     });
+
+    // Activity receipt for revocation — anchored in the DVN pipeline.
+    try {
+      const revokeReceipt = await createActivityReceipt({
+        personaId: persona_id,
+        activeCartridge: 'agentiq-os-cartridge',
+        actionType: 'agent_delegation_revoked',
+        summary: `Delegation revoked for ${record.handoff.to_agent} after ${record.actions_taken} of ${record.max_actions} actions`,
+        agentsInvoked: [record.handoff.to_agent],
+        contextShared: [`handoff_id:${record.handoff.handoff_id}`, `actions_taken:${record.actions_taken}`],
+      });
+      if (revokeReceipt) enqueueActivityReceiptAnchor(revokeReceipt, persona_id);
+    } catch (receiptErr) {
+      console.error('[Delegation DELETE] Activity receipt creation failed:', receiptErr);
+    }
 
     return NextResponse.json({
       ok: true,
