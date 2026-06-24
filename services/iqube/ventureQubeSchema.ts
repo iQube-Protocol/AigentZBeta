@@ -593,11 +593,27 @@ const institutionalLayerSchema = z.object({
   institutionalClassification: z.string().max(200).optional(),
 });
 
+// Communication identity — the voice + signatory aigentMe uses in delegated
+// authority for a venture. Optional; survives Zod's unknown-key stripping so it
+// persists into venture_qubes.layers.
+const communicationContextSchema = z.object({
+  voiceEntity: z.string().min(1).max(200),
+  parentOrganization: z.string().max(200).optional(),
+  signatoryName: z.string().max(200).optional(),
+  signatoryTitle: z.string().max(200).optional(),
+  strategicPartner: z.string().max(200).optional(),
+  primaryThemes: z.array(z.string().max(120)).max(24).optional(),
+  positioning: z.string().max(2000).optional(),
+  communicationRules: z.array(z.string().max(280)).max(24).optional(),
+  isInternalOnly: z.boolean().optional(),
+});
+
 export const ventureQubeV1Schema = z.object({
   schemaVersion: z.literal("venture-iqube/v1.0"),
   ventureId: z.string().min(1),
   emittedAt: z.string().optional(),
   lastPath: founderPathEnum.optional(),
+  communicationContext: communicationContextSchema.optional(),
   identity: identityLayerSchema,
   thesis: thesisLayerSchema,
   intent: intentLayerSchema,

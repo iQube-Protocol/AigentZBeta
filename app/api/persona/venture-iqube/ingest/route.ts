@@ -469,6 +469,11 @@ function buildLayersPatch(current: VentureQubeV1, pv: ProVentureUpload): Partial
   patch.governance = mergeObj(current.governance, pv.governance);
   patch.institutional = mergeObj(current.institutional, pv.institutional);
   if (Array.isArray(pv.archetypes)) patch.archetypes = pv.archetypes;
+  // Communication identity — the voice/signatory aigentMe uses for this venture.
+  // Top-level field (not a layer); replace-on-supply.
+  if (pv.communicationContext && typeof pv.communicationContext === 'object') {
+    patch.communicationContext = pv.communicationContext;
+  }
   const engines = (pv.revenueArchitecture as { engines?: unknown } | undefined)?.engines;
   if (Array.isArray(engines)) patch.revenueArchitecture = { engines };
   const phases = (pv.execution as { phases?: unknown } | undefined)?.phases;

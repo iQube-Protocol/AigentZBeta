@@ -12,6 +12,38 @@
     "priorityPartners": ["A channel partner", "A platform integration", "A distribution partner"],
     "priorityActions": ["Run customer discovery", "Ship the top feature request", "Launch an acquisition experiment"],
     "reviewCadence": "weekly",
-    "primaryMetric": "Net Value Acceleration — did our actions reduce time-to-value?"
+    "primaryMetric": "Net Value Acceleration — did our actions reduce time-to-value?",
+    "operatorMode": "portfolio-operator",
+    "portfolioCommunication": {
+      "leadEntity": "Your lead brand",
+      "unifiedMessage": "The one core message every brand in your portfolio shares — replace with your own.",
+      "laneRoles": [
+        { "entity": "Your lead brand", "role": "What this brand leads with in partner conversations." },
+        { "entity": "Your second brand", "role": "The role this brand plays in the unified story." }
+      ],
+      "contexts": [
+        {
+          "voiceEntity": "Your lead brand",
+          "parentOrganization": "Your parent company",
+          "signatoryName": "Your name",
+          "signatoryTitle": "Your title, Your company",
+          "strategicPartner": "A strategic partner for this brand",
+          "primaryThemes": ["Theme one", "Theme two", "Theme three"],
+          "positioning": "A one-line positioning statement for this brand.",
+          "communicationRules": [
+            "Lead with this brand.",
+            "Reference the parent organization when useful.",
+            "Do not communicate as any internal codename."
+          ],
+          "isInternalOnly": false
+        },
+        {
+          "voiceEntity": "Your internal codename",
+          "positioning": "Internal program name — no external voice.",
+          "communicationRules": ["Internal reference only — never use externally."],
+          "isInternalOnly": true
+        }
+      ]
+    }
   }
 }

@@ -41,7 +41,60 @@
         "priorityActions": { "type": "array", "items": { "type": "string", "maxLength": 280 }, "maxItems": 30, "description": "Next concrete actions, highest-priority first." },
         "reviewCadence": { "type": "string", "maxLength": 64, "description": "How often you review — e.g. \"weekly\"." },
         "nextReviewDate": { "type": "string", "format": "date", "description": "When the next review is due (ISO date)." },
-        "primaryMetric": { "type": "string", "maxLength": 280, "description": "The single north-star KPI. Layered framing: public = Time-to-Value; internal = Proof of Time Saved (PoTS); constitutional = Net Value Acceleration (Time-to-Value minus Risk Repair Burden)." }
+        "primaryMetric": { "type": "string", "maxLength": 280, "description": "The single north-star KPI. Layered framing: public = Time-to-Value; internal = Proof of Time Saved (PoTS); constitutional = Net Value Acceleration (Time-to-Value minus Risk Repair Burden)." },
+        "operatorMode": {
+          "type": "string",
+          "enum": ["operator", "portfolio-operator"],
+          "description": "How aigentMe interprets this operating layer. 'operator' = single venture being incubated (the seed venture matures into a VentureQube Pro). 'portfolio-operator' = the operating layer IS the portfolio orchestration layer — the Why spanning every VentureQube Pro in the portfolio, not a venture being incubated. Defaults to 'operator' when absent."
+        },
+        "portfolioCommunication": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Portfolio-wide communication doctrine (portfolio-operator case) — which voice aigentMe leads with, the unified message every lane shares, the role each lane plays, and the per-venture/partner voices aigentMe uses when acting in delegated authority.",
+          "properties": {
+            "leadEntity": { "type": "string", "maxLength": 200, "description": "The lead primitive/voice across partner conversations — e.g. \"Polity Passport\"." },
+            "unifiedMessage": { "type": "string", "maxLength": 2000, "description": "The core message every lane carries (e.g. ownership, accountability, progressive sovereignty)." },
+            "laneRoles": {
+              "type": "array",
+              "maxItems": 12,
+              "description": "The role each lane plays in the unified narrative.",
+              "items": {
+                "type": "object",
+                "required": ["entity", "role"],
+                "additionalProperties": false,
+                "properties": {
+                  "entity": { "type": "string", "maxLength": 200 },
+                  "role": { "type": "string", "maxLength": 280 }
+                }
+              }
+            },
+            "contexts": {
+              "type": "array",
+              "maxItems": 24,
+              "description": "Per-venture/partner communication contexts.",
+              "items": { "$ref": "#/$defs/communicationContext" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "communicationContext": {
+      "type": "object",
+      "required": ["voiceEntity"],
+      "additionalProperties": false,
+      "description": "The voice + signatory aigentMe MUST use when communicating in delegated authority. aigentMe never invents a voice — it reads this.",
+      "properties": {
+        "voiceEntity": { "type": "string", "maxLength": 200, "description": "The brand/entity aigentMe speaks AS — e.g. \"Polity Passport Bureau\", \"metaMe\", \"metaKnyt\"." },
+        "parentOrganization": { "type": "string", "maxLength": 200, "description": "Parent org referenced when useful — e.g. \"metaProof\"." },
+        "signatoryName": { "type": "string", "maxLength": 200, "description": "Default signatory name." },
+        "signatoryTitle": { "type": "string", "maxLength": 200, "description": "Default signatory title." },
+        "strategicPartner": { "type": "string", "maxLength": 200, "description": "The strategic partner this voice is anchored to — e.g. \"Project Liberty\"." },
+        "primaryThemes": { "type": "array", "items": { "type": "string", "maxLength": 120 }, "maxItems": 24, "description": "Themes the voice leads with." },
+        "positioning": { "type": "string", "maxLength": 2000, "description": "One-line positioning statement for the voice." },
+        "communicationRules": { "type": "array", "items": { "type": "string", "maxLength": 280 }, "maxItems": 24, "description": "Hard rules — e.g. \"Lead with Polity Passport\", \"Do not communicate as an internal codename\"." },
+        "isInternalOnly": { "type": "boolean", "description": "When true, aigentMe MUST NOT autonomously send external communications under this context — operator-review-only. Internal codenames set this true and have no external voiceEntity." }
       }
     }
   }
