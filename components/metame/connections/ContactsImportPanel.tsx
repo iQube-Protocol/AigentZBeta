@@ -44,6 +44,28 @@ interface ImportResult {
   detail?: string;
 }
 
+// Renders an error message, turning any https://console.developers.google.com/...
+// URL embedded by Google's API error response into a clickable link.
+function ErrorWithLink({ message }: { message: string }) {
+  const urlMatch = message.match(/(https:\/\/console\.(?:developers|cloud)\.google\.com\/[^\s]+)/);
+  if (!urlMatch) return <span>{message}</span>;
+  const [before, ...rest] = message.split(urlMatch[1]);
+  return (
+    <span>
+      {before}
+      <a
+        href={urlMatch[1]}
+        target="_blank"
+        rel="noreferrer"
+        className="underline underline-offset-2 hover:opacity-80"
+      >
+        Enable People API
+      </a>
+      {rest.join(urlMatch[1])}
+    </span>
+  );
+}
+
 interface ContactSummary {
   total: number;
   google: number;
@@ -392,13 +414,13 @@ export function ContactsImportPanel({ theme = "dark" }: Props) {
             />
 
             {result && (
-              <div className={`mt-2 flex items-center gap-2 text-xs ${result.ok ? "text-emerald-400" : "text-rose-400"}`}>
+              <div className={`mt-2 flex items-start gap-2 text-xs ${result.ok ? "text-emerald-400" : "text-rose-400"}`}>
                 {result.ok
-                  ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
+                  ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  : <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
                 {result.ok
                   ? `${result.imported} imported, ${result.skipped} skipped (${result.total} total)`
-                  : (result.detail ?? result.error ?? "Import failed")}
+                  : <ErrorWithLink message={result.detail ?? result.error ?? "Import failed"} />}
               </div>
             )}
           </div>
