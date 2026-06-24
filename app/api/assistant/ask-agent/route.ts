@@ -40,6 +40,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 // so the LLM answers with real data instead of claiming it has no access.
 
 const CONTACT_INTENT_RE = /\b(contact|contacts|email|phone|reach|who\s+is|find.*person|people|colleague|team|organisation|organization|company|firm|crm)\b/i;
+const CONTACT_COUNT_RE = /\b(how many|count|total|number of)\b.*\b(contact|contacts|people|crm)\b/i;
 
 async function maybeInjectContactContext(
   personaId: string,
@@ -47,23 +48,40 @@ async function maybeInjectContactContext(
 ): Promise<string | null> {
   if (!CONTACT_INTENT_RE.test(prompt)) return null;
 
-  // Extract likely search terms: strip common question words AND contact-domain
-  // meta-words (contact, contacts, people, email, phone) that won't appear in
-  // any contact record field, which would create impossible AND conditions in FTS.
-  const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with)\b/gi;
-  const q = prompt
-    .replace(STRIP_WORDS, ' ')
-    .replace(/[^\w\s]/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(w => w.length > 1)
-    .slice(0, 6)
-    .join(' ');
-
-  if (!q) return null;
-
   try {
     const supabase = getSupabaseServer();
+
+    // Count query — "how many contacts", "total contacts", etc.
+    if (CONTACT_COUNT_RE.test(prompt)) {
+      const { count } = await supabase
+        .from('persona_contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('persona_id', personaId);
+      return `The user has ${count ?? 0} contacts in their address book (persona_contacts table). Answer their count question directly using this number.`;
+    }
+
+    // Extract likely search terms: strip common question words AND contact-domain
+    // meta-words (contact, contacts, people, email, phone) that won't appear in
+    // any contact record field, which would create impossible AND conditions in FTS.
+    const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with|crm)\b/gi;
+    const q = prompt
+      .replace(STRIP_WORDS, ' ')
+      .replace(/[^\w\s]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+      .slice(0, 6)
+      .join(' ');
+
+    // No meaningful search term — return total count as context
+    if (!q) {
+      const { count } = await supabase
+        .from('persona_contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('persona_id', personaId);
+      return `The user has ${count ?? 0} contacts in their address book. Answer their question using this count.`;
+    }
+
     const { data } = await supabase
       .from('persona_contacts')
       .select('display_name, organization, job_title, email, email_2, phone, phone_2, source')
