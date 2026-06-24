@@ -76,6 +76,22 @@ const DOWNLOADS: DownloadItem[] = [
     Icon: FileJson,
   },
   {
+    id: "operating-model-schema",
+    filename: "ventureQube-operating-model-schema.json",
+    title: "Operating Model iQube — JSON Schema (v1.0)",
+    description: "ATOMIC update of just your operating brief. Carries only the operatingModel — never touches your venture or portfolio Qubes.",
+    purpose: "Use this when you want to iterate on your Chief-of-Staff operating brief (mission, success metrics, active objectives, priority partners, priority actions, review cadence, primary metric) WITHOUT re-ingesting your whole portfolio. Importing a 'venture-operating-model/v1.0' file updates only the operating brief on your portfolio row and leaves every venture Qube and the portfolio thesis/priorities exactly as they were. Requires a Founder Office tier (Operator and above). Import via the upload icon with use-kind \"Ingest as Venture iQube\".",
+    Icon: FileJson,
+  },
+  {
+    id: "operating-model-example",
+    filename: "ventureQube-operating-model-example.json",
+    title: "Operating Model iQube — worked example",
+    description: "A generic, non-proprietary operating brief you can copy and adapt for an atomic operating-model update.",
+    purpose: "A fictional reference conforming to the Operating Model schema. Replace the content with your own, then import it to update only your operating brief — your ventures and portfolio thesis stay untouched.",
+    Icon: FileJson,
+  },
+  {
     id: "agent-runbook",
     filename: "aigentme-agent-runbook.md",
     title: "aigentMe Agent Runbook",

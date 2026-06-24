@@ -122,13 +122,18 @@ export async function saveVenturePortfolio(
     operatingModel?: VentureOperatingModel | null;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  // Partial upsert: only include the columns the caller actually provided, so
+  // an operating-model-only save (input = { operatingModel }) never clobbers an
+  // existing thesis / notes / priorities, and a portfolio save never wipes the
+  // operating model. Omitted columns are left untouched on UPDATE (and fall to
+  // their table defaults on a first INSERT).
   const row: Record<string, unknown> = {
     owner_persona_id: personaId,
-    thesis: input.thesis ?? null,
-    notes: input.notes ?? null,
-    priorities: input.priorities ?? [],
     updated_at: new Date().toISOString(),
   };
+  if (input.thesis !== undefined) row.thesis = input.thesis;
+  if (input.notes !== undefined) row.notes = input.notes;
+  if (input.priorities !== undefined) row.priorities = input.priorities;
 
   // Only touch payload when an operatingModel is supplied — read-merge so we
   // never clobber other (future) payload keys.
