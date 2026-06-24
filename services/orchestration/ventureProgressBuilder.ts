@@ -46,6 +46,7 @@ import {
   actionsForActiveActivations,
   type ActivationAction,
 } from '@/data/activation-catalog';
+import { listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public shape — matches the Venture Progress Card render contract.
@@ -104,6 +105,21 @@ export interface VentureProgressShape {
 
   /** Most recent IntentQubes acted upon by this persona. */
   recentActivity: VentureProgressRecentActivity[];
+
+  /**
+   * Verified work done — operator-logged actions + proof-of-work documents
+   * (the Standing signals). This is the ONLY evidence of PROGRESS from the
+   * ingested baseline; a grounded report cites these instead of inventing
+   * metrics. Empty ⇒ the report must say "no verified activity yet", not
+   * fabricate movement.
+   */
+  standingSignals: Array<{
+    id: string;
+    kind: 'operator_action_logged' | 'standing_document_added';
+    summary: string;
+    ventureRef: string | null;
+    createdAt: string;
+  }>;
 
   /** Pending blockers count. Alpha: 0; Phase 6 populates from approvals. */
   blockersCount: number;
@@ -370,6 +386,26 @@ export async function buildVentureProgress(
     ),
   );
 
+  // Standing signals — verified work done (operator-logged actions + proof-of-
+  // work documents). This is the progress-from-baseline evidence; the report
+  // cites these instead of inventing movement. Best-effort; never blocks.
+  let standingSignals: VentureProgressShape['standingSignals'] = [];
+  try {
+    const sigs = await listActivityReceiptsForPersona(input.personaId, {
+      actionTypes: ['operator_action_logged', 'standing_document_added'],
+      limit: 10,
+    });
+    standingSignals = sigs.map((r) => ({
+      id: r.id,
+      kind: r.actionType as 'operator_action_logged' | 'standing_document_added',
+      summary: r.summary,
+      ventureRef: r.contextShared?.[0] ?? null,
+      createdAt: r.createdAt,
+    }));
+  } catch {
+    standingSignals = [];
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     ventureName,
@@ -382,6 +418,7 @@ export async function buildVentureProgress(
     operationalGoalsCount,
     commercialGoalsCount,
     recentActivity,
+    standingSignals,
     blockersCount: 0, // Phase 6 wires this from the approval queue.
     recommendedActions,
     nbaPromptHints,

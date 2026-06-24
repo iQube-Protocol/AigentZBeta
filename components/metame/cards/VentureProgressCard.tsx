@@ -70,6 +70,14 @@ export interface VentureProgressData {
   operationalGoalsCount: number;
   commercialGoalsCount: number;
   recentActivity: VentureProgressRecentActivity[];
+  /** Verified work done — the progress-from-baseline evidence (Standing signals). */
+  standingSignals?: Array<{
+    id: string;
+    kind: "operator_action_logged" | "standing_document_added";
+    summary: string;
+    ventureRef: string | null;
+    createdAt: string;
+  }>;
   blockersCount: number;
   recommendedActions: NextBestActionData[];
   suggestedArtifacts: string[];
@@ -303,6 +311,36 @@ export function VentureProgressCard({
                   <span className={mutedClass}>
                     {" · "}{CARTRIDGE_LABELS[a.cartridge] ?? a.cartridge}
                     {" · "}{a.status}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Verified work done — progress from the ingested baseline (Standing signals) */}
+      <section>
+        <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+          Verified work done
+        </h4>
+        {(data.standingSignals?.length ?? 0) === 0 ? (
+          <p className={`text-sm ${mutedClass}`}>
+            No verified activity logged since your baseline. Log work in the Standing
+            tab’s Work Log — progress is reported from what you’ve actually done, not
+            estimated.
+          </p>
+        ) : (
+          <ul className={`text-sm space-y-1 ${mutedClass}`}>
+            {data.standingSignals!.map((s) => (
+              <li key={s.id} className="flex items-start gap-2">
+                <Activity className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-400" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-slate-200">{s.summary}</span>
+                  <span className={mutedClass}>
+                    {" · "}{s.kind === "standing_document_added" ? "document" : "action"}
+                    {s.ventureRef ? ` · ${s.ventureRef}` : ""}
+                    {" · "}{new Date(s.createdAt).toLocaleDateString()}
                   </span>
                 </div>
               </li>
