@@ -126,6 +126,7 @@ export async function POST(req: NextRequest) {
   // Upsert in batches of 200
   const BATCH = 200;
   let imported = 0;
+  let firstError: string | null = null;
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
     const { error } = await supabase
@@ -133,15 +134,23 @@ export async function POST(req: NextRequest) {
       .upsert(batch, { onConflict: 'persona_id,source,source_id', ignoreDuplicates: false });
     if (error) {
       console.error('[contacts/google-import] upsert error:', error.message);
+      firstError ??= error.message;
     } else {
       imported += batch.length;
     }
   }
 
+  if (firstError && imported === 0) {
+    return NextResponse.json(
+      { ok: false, error: 'Import failed', detail: firstError, imported: 0, skipped: rows.length, total: allContacts.length },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     imported,
-    skipped: allContacts.length - rows.length,
+    skipped: allContacts.length - rows.length + (rows.length - imported),
     total: allContacts.length,
   });
 }
