@@ -361,6 +361,72 @@ export interface OperatingObjective {
   status: "active" | "completed" | "blocked" | "deferred";
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// Operator mode + Communication identity
+//
+// `operatorMode` flips how the operating layer is INTERPRETED — same schema,
+// two utilizations:
+//   • "operator"           — single-venture focus. The Lite/Experience venture
+//                            is a SEED venture being incubated; it matures into
+//                            a VentureQube Pro.
+//   • "portfolio-operator" — multi-venture coordination (the "Operation Leap"
+//                            shape). The Lite/operating layer is read as the
+//                            PORTFOLIO ORCHESTRATION layer — the Why that spans
+//                            every VentureQube Pro in the portfolio, not a venture
+//                            being incubated. aigentMe uses this flag to decide
+//                            whether to treat the operating brief as a single
+//                            venture's plan or as portfolio-wide doctrine.
+// ───────────────────────────────────────────────────────────────────────────
+export type OperatorMode = "operator" | "portfolio-operator";
+
+/**
+ * CommunicationContext — the voice + signatory aigentMe MUST use when acting in
+ * delegated authority for a given venture / partner conversation. aigentMe never
+ * invents a voice; it reads this. Lives per-venture (the canonical home, for the
+ * single-venture operator case) and aggregated into PortfolioCommunication.contexts
+ * (the portfolio-operator case).
+ */
+export interface CommunicationContext {
+  /** The brand/entity aigentMe speaks AS — e.g. "Polity Passport Bureau", "metaMe", "metaKnyt". */
+  voiceEntity: string;
+  /** Parent org referenced when useful — e.g. "metaProof". */
+  parentOrganization?: string;
+  /** Default signatory name — e.g. "Dele Atanda". */
+  signatoryName?: string;
+  /** Default signatory title — e.g. "CEO, metaProof". */
+  signatoryTitle?: string;
+  /** The strategic partner this voice is anchored to — e.g. "Project Liberty". */
+  strategicPartner?: string;
+  /** Themes the voice leads with. */
+  primaryThemes?: string[];
+  /** One-line positioning statement for the voice. */
+  positioning?: string;
+  /** Hard rules — e.g. "Lead with Polity Passport", "Do not communicate as Operation Leap". */
+  communicationRules?: string[];
+  /**
+   * When true, aigentMe MUST NOT autonomously send external communications under
+   * this context — it produces operator-review-only work. Internal codenames
+   * (e.g. "Operation Leap") set this true and have no external voiceEntity.
+   */
+  isInternalOnly?: boolean;
+}
+
+/**
+ * PortfolioCommunication — portfolio-wide communication doctrine for the
+ * portfolio-operator case. Captures which voice LEADS, the unified core message
+ * all lanes share, the role each lane plays, and the per-venture voices.
+ */
+export interface PortfolioCommunication {
+  /** The lead primitive/voice across partner conversations — e.g. "Polity Passport". */
+  leadEntity?: string;
+  /** The unified core message every lane carries (ownership, accountability, progressive sovereignty). */
+  unifiedMessage?: string;
+  /** The role each lane plays in the unified narrative (e.g. Passport = launch primitive; metaMe = execution env; metaKnyt = cultural context). */
+  laneRoles?: { entity: string; role: string }[];
+  /** The per-venture/partner communication contexts. */
+  contexts?: CommunicationContext[];
+}
+
 export interface VentureOperatingModel {
   /**
    * The OPERATIONAL expression of `portfolio.thesis` — what we are doing right
@@ -395,6 +461,18 @@ export interface VentureOperatingModel {
    *     different north star, but Net Value Acceleration is the default.
    */
   primaryMetric?: string;
+  /**
+   * How this operating layer is interpreted (see OperatorMode). Defaults to
+   * "operator" (single venture) when absent; set "portfolio-operator" for a
+   * portfolio orchestration brief.
+   */
+  operatorMode?: OperatorMode;
+  /**
+   * Portfolio-wide communication doctrine — which voice leads, the unified
+   * message, lane roles, and the per-venture communication contexts aigentMe
+   * uses when speaking in delegated authority. Portfolio-operator case.
+   */
+  portfolioCommunication?: PortfolioCommunication;
 }
 
 export type VentureQubeTier = "lite" | "pro";
@@ -695,6 +773,13 @@ export interface VentureQubeV1 {
   ventureId: string;
   emittedAt?: string;
   lastPath?: FounderPath;
+  /**
+   * The voice + signatory aigentMe MUST use when communicating in delegated
+   * authority for this venture (single-venture operator case). For a portfolio,
+   * the per-venture voices are also aggregated into the operating model's
+   * portfolioCommunication.contexts.
+   */
+  communicationContext?: CommunicationContext;
   identity: VentureIdentityLayer;
   thesis: VentureThesisLayer;
   intent: VentureIntentLayer;
