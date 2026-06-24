@@ -205,22 +205,23 @@ export async function POST(req: NextRequest) {
   );
   const crossSourceSkipped = rows.length - dedupedRows.length;
 
-  const BATCH = 200;
+  const BATCH = 50;  // smaller batches — one collision fails fewer contacts
   let imported = 0;
-  let firstError: string | null = null;
+  const batchErrors: string[] = [];
   for (let i = 0; i < dedupedRows.length; i += BATCH) {
     const batch = dedupedRows.slice(i, i + BATCH);
     const { error } = await supabase
       .from('persona_contacts')
       .upsert(batch, { onConflict: 'persona_id,source,source_id', ignoreDuplicates: false });
     if (error) {
-      console.error('[contacts/vcard-import] upsert error:', error.message);
-      firstError ??= error.message;
+      console.error('[contacts/vcard-import] upsert error (batch ' + Math.floor(i / BATCH) + '):', error.message);
+      batchErrors.push(`batch ${Math.floor(i / BATCH)}: ${error.message}`);
     } else {
       imported += batch.length;
     }
   }
 
+  const firstError = batchErrors[0] ?? null;
   if (firstError && imported === 0) {
     return NextResponse.json(
       { ok: false, error: 'Import failed', detail: firstError, imported: 0, skipped: parsed.length, total: parsed.length },
@@ -233,5 +234,7 @@ export async function POST(req: NextRequest) {
     imported,
     skipped: crossSourceSkipped + (dedupedRows.length - imported),
     total: parsed.length,
+    // Surface any partial errors so the operator can see what's still failing
+    ...(batchErrors.length > 0 ? { warnings: batchErrors.slice(0, 5) } : {}),
   });
 }
