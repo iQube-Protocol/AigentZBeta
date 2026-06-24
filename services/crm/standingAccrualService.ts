@@ -27,6 +27,7 @@
 
 import { getCrmClient } from './crmDataAccess';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 const STANDING_CVS_FACTOR = 1; // 1:1 — CVS is the canonical contribution score
 const DELEGATED_FACTOR = 0.5;   // sponsor gets half-credit on sponsored Personal
@@ -340,6 +341,32 @@ export async function accrueStanding(input: AccrueStandingInput): Promise<Standi
         .eq('id', input.sourceEventId);
     }
 
+    // Create a standing_accrued activity receipt so the accrual flows through
+    // the DVN pipeline. Resolve the identity persona from the CRM row
+    // (crmPersonaId → identity_persona_id). Fire-and-forget — never throws.
+    void (async () => {
+      try {
+        const { data: crmRow } = await client
+          .from('crm_personas')
+          .select('identity_persona_id')
+          .eq('id', input.crmPersonaId)
+          .maybeSingle();
+        const identityPersonaId = crmRow?.identity_persona_id;
+        if (!identityPersonaId) return;
+        await createActivityReceipt({
+          personaId: identityPersonaId,
+          actionType: 'standing_accrued',
+          activeCartridge: 'metame',
+          summary: `Standing accrued: +${personalDelta.toFixed(2)} ${category} (overall ${newOverall.toFixed(1)}, bucket ${bucketFor(newOverall)})`,
+          agentsInvoked: ['aigent-z'],
+          iqubesUsed: ['VentureQube'],
+          contextShared: ['standing_category', 'standing_delta', 'standing_overall'],
+        });
+      } catch {
+        /* best-effort — receipt failure must never block standing accrual */
+      }
+    })();
+
     return {
       personal: next.personal,
       delegated: next.delegated,
@@ -494,6 +521,32 @@ export async function accrueCapabilityStanding(
       overall: 0, // recomputed in writeStanding
     };
     const writeResult = await writeStanding(client, crmPersonaId, next);
+
+    // Create a standing_accrued receipt for the DVN pipeline. Resolve identity
+    // persona from CRM row. Fire-and-forget — never blocks.
+    void (async () => {
+      try {
+        const { data: crmRow } = await client
+          .from('crm_personas')
+          .select('identity_persona_id')
+          .eq('id', crmPersonaId)
+          .maybeSingle();
+        const identityPersonaId = crmRow?.identity_persona_id;
+        if (!identityPersonaId) return;
+        await createActivityReceipt({
+          personaId: identityPersonaId,
+          actionType: 'standing_accrued',
+          activeCartridge: 'metame',
+          summary: `Capability Standing accrued: +${delta.toFixed(2)} (score ${nextCapability.toFixed(1)} / ${CAPABILITY_CEILING}, overall ${writeResult.overall.toFixed(1)})`,
+          agentsInvoked: ['aigent-z'],
+          iqubesUsed: ['VentureQube'],
+          contextShared: ['capability_score', 'standing_delta', 'standing_overall'],
+        });
+      } catch {
+        /* best-effort */
+      }
+    })();
+
     return {
       capabilityScore: nextCapability,
       delta,
