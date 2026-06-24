@@ -40,7 +40,10 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 // so the LLM answers with real data instead of claiming it has no access.
 
 const CONTACT_INTENT_RE = /\b(contact|contacts|email|phone|reach|who\s+is|find.*person|people|colleague|team|organisation|organization|company|firm|crm)\b/i;
-const CONTACT_COUNT_RE = /\b(how many|count|total|number of)\b.*\b(contact|contacts|people|crm)\b/i;
+// Matches "how many", "hw many", "how mny", "count", "total", "number of"
+const CONTACT_COUNT_RE = /\b(h\w*\s+m\w+|count|total|number\s+of)\b.*\b(contact|contacts|people|crm)\b|\b(contact|contacts|crm)\b.*\b(h\w*\s+m\w+|count|total)\b/i;
+// Words that survive the strip but are not useful contact search terms
+const FILLER_WORDS = new Set(['many', 'some', 'all', 'much', 'more', 'give', 'have', 'show', 'list', 'tell', 'much', 'few', 'any']);
 
 async function maybeInjectContactContext(
   personaId: string,
@@ -69,7 +72,7 @@ async function maybeInjectContactContext(
       .replace(/[^\w\s]/g, ' ')
       .trim()
       .split(/\s+/)
-      .filter(w => w.length > 2)
+      .filter(w => w.length > 2 && !FILLER_WORDS.has(w.toLowerCase()))
       .slice(0, 6)
       .join(' ');
 
