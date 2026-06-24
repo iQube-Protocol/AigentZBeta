@@ -24,7 +24,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, ChevronLeft, ChevronRight, Check, Sparkles, Lock } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Check, Sparkles, Lock, Compass } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { MicButton } from "@/components/ui/MicButton";
 
@@ -100,6 +100,10 @@ export function VentureLightWizard({
   const [form, setForm] = useState<Form>(EMPTY);
   const [prefilled, setPrefilled] = useState<Partial<Record<keyof Form, boolean>>>({});
   const [ventureId, setVentureId] = useState<string | null>(null);
+  // True when opened with no explicit target but the persona runs a portfolio
+  // (multiple ventures). Venture Light then creates a NEW venture rather than
+  // editing one — portfolio orchestration belongs in the Operating Brief.
+  const [portfolioNote, setPortfolioNote] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +117,7 @@ export function VentureLightWizard({
     wasOpen.current = true;
     setStep(0);
     setError(null);
+    setPortfolioNote(false);
     setLoading(true);
 
     void (async () => {
@@ -133,8 +138,18 @@ export function VentureLightWizard({
           const res = await personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" });
           if (res.ok) {
             const data = await res.json();
-            const v = Array.isArray(data?.ventures) && data.ventures.length > 0 ? data.ventures[0] : null;
-            if (v) { existingId = v.id; loadVentureInto(v, next); }
+            const list = Array.isArray(data?.ventures) ? data.ventures : [];
+            // Only auto-bind to the existing venture when there is EXACTLY one
+            // (operator mode — the single seed venture). With multiple ventures
+            // this is portfolio mode: Venture Light must NOT silently overwrite a
+            // Pro venture (the old `ventures[0]` bug). Stay in create mode and
+            // surface a note pointing to the Operating Brief.
+            if (list.length === 1) {
+              existingId = list[0].id;
+              loadVentureInto(list[0], next);
+            } else if (list.length > 1) {
+              setPortfolioNote(true);
+            }
           }
         }
       } catch { /* best-effort */ }
@@ -292,6 +307,13 @@ export function VentureLightWizard({
           Step {step + 1} of {total} · {current.title}
           {ventureId && <span className="ml-2 text-emerald-300/80">editing your venture</span>}
         </div>
+
+        {portfolioNote && (
+          <p className="text-[11px] text-cyan-200 bg-cyan-500/10 border border-cyan-500/30 rounded px-3 py-2 flex items-center gap-1.5">
+            <Compass className="w-3.5 h-3.5 shrink-0" />
+            You’re running a portfolio. Venture Light here adds a <strong>new</strong> venture — it won’t change your existing ones. To edit your portfolio-wide brief, use the Operating Brief.
+          </p>
+        )}
 
         {loading ? (
           <div className="flex items-center gap-2 py-10 justify-center text-slate-400 text-sm">

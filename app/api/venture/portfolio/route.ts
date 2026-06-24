@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   const g = await gate(req);
   if (!g.ok) return NextResponse.json({ ok: false, error: g.error }, { status: g.status });
   const portfolio = await getVenturePortfolio(g.admin, g.personaId);
-  return NextResponse.json({ ok: true, ...portfolio });
+  return NextResponse.json({ ok: true, canPortfolio: g.canPortfolio, ...portfolio });
 }
 
 export async function POST(req: NextRequest) {
