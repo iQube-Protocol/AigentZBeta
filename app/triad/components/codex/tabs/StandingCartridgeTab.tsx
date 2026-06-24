@@ -12,6 +12,7 @@ import { StandingCoreWizard } from '@/components/metame/setup/StandingCoreWizard
 import { VentureLightWizard } from '@/components/metame/setup/VentureLightWizard';
 import { VentureProWizard } from '@/components/metame/setup/VentureProWizard';
 import { VenturePortfolioWizard } from '@/components/metame/setup/VenturePortfolioWizard';
+import { StandingSignalsPanel } from '@/components/metame/standing/StandingSignalsPanel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -917,6 +918,9 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
           ))}
         </div>
       )}
+
+      {/* Work log — operator-logged actions + standing documents → progress signals */}
+      <StandingSignalsPanel personaId={_personaId} />
 
       {/* No profiles empty state */}
       {profiles.length === 0 && !showCreate && (
