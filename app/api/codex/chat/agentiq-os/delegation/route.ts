@@ -517,9 +517,15 @@ export async function DELETE(request: NextRequest) {
     await revokeActiveGrant(persona_id, 'User revoked delegation');
 
     if (!record) {
-      // The cache may be cold while a durable grant existed; the revoke above
-      // covers that case. Nothing more to emit without a handoff_id.
-      return NextResponse.json({ ok: true, message: 'No active delegation to revoke.' });
+      // The durable ledger was revoked above, but we MUST still emit
+      // control_returned_to_metame. The GET handler's orchestration_events
+      // fallback (for cold-start rehydration) finds the most recent event of
+      // either type — if no revoke event exists, it reconstructs from the stale
+      // z_delegated event and incorrectly returns active: true.
+      await emitDelegationEvent('control_returned_to_metame', persona_id, {
+        reason: 'User revoked delegation',
+      });
+      return NextResponse.json({ ok: true, message: 'Delegation revoked.' });
     }
 
     delegationStore.delete(persona_id);
