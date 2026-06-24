@@ -50,7 +50,13 @@ export type ActivityActionType =
   // Consumer task runner (DVN-anchorable; Workstream C-b)
   | 'experience_task_completed'
   // Autonomous agent lifecycle (DVN-anchorable; Option A revocation framework)
-  | 'agent_revocation_state_changed';
+  | 'agent_revocation_state_changed'
+  // Operator-logged work + standing documents (DVN-anchorable). The feedback
+  // loop: an action the operator took (on- or off-platform) or a proof-of-work
+  // document uploaded becomes a verified Standing signal that grounded progress
+  // reports read as PROGRESS from the ingested baseline.
+  | 'operator_action_logged'
+  | 'standing_document_added';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

@@ -66,6 +66,10 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'agent_revocation_state_changed',
   // Founder Office — Venture Blueprint handed to execution agents
   'venture_blueprint_handoff',
+  // Standing signals — operator-logged work + proof-of-work documents. These
+  // are the verified-progress provenance the grounded progress report reads.
+  'operator_action_logged',
+  'standing_document_added',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
