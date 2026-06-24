@@ -389,9 +389,10 @@ function parseEmailDraft(text: string): { subject: string; bodyText: string; rec
   const subjectIndex = text.indexOf(subjectMatch[0]);
   const afterSubject = text.slice(subjectIndex + subjectMatch[0].length).replace(/^\s*\n/, '');
   if (!afterSubject.trim()) return null;
-  // Extract recipient name from greeting line e.g. "Hi David," / "Dear Dr. Chaum,"
-  const greetingMatch = afterSubject.match(/^(?:Hi|Hello|Dear|Hey)\s+(?:Dr\.?\s+|Prof\.?\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)[,!]/m);
-  const recipientHint = greetingMatch ? greetingMatch[1] : undefined;
+  // Extract recipient name from greeting e.g. "Hi David Chaum," / "Dear Dr. Chaum,"
+  // Captures up to 3 capitalised words so "David Chaum" and "Dr. David Chaum" both work.
+  const greetingMatch = afterSubject.match(/^(?:Hi|Hello|Dear|Hey)[,\s]+(?:(?:Dr|Prof|Mr|Mrs|Ms)\.?\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})[,!]/m);
+  const recipientHint = greetingMatch ? greetingMatch[1].trim() : undefined;
   return { subject, bodyText: afterSubject.trim(), recipientHint };
 }
 
