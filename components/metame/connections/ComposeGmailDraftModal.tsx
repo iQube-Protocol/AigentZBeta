@@ -69,6 +69,12 @@ interface Props {
   inline?: boolean;
   /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
   initialPrompt?: string;
+  /**
+   * When set, pre-populates all fields directly without calling the draft-email
+   * API. Used for "send it again" / resend flows where the email was already
+   * drafted in a prior turn. Takes precedence over initialPrompt.
+   */
+  prefill?: { to: string; cc?: string; bcc?: string; subject: string; bodyText: string } | null;
   /** Active persona — required by UploadAttachmentPicker so it fetches
    *  the operator's uploads (not the spine's default persona). Without
    *  this prop the picker falls back to localStorage-based persona
@@ -94,6 +100,7 @@ export function ComposeGmailDraftModal({
   theme = "dark",
   inline = false,
   initialPrompt,
+  prefill,
   personaId,
   initialAttachmentUploadIds,
 }: Props) {
@@ -149,15 +156,31 @@ export function ComposeGmailDraftModal({
     void draftWithPrompt(aiPrompt);
   }, [aiPrompt, draftWithPrompt]);
 
-  // Mount-fire from initialPrompt — see ComposeGoogleDocModal.
+  // Prefill — when a prior draft is available (e.g. "send it again" resend flow),
+  // populate fields directly without calling the draft-email API. Takes
+  // precedence: if prefill is set on mount, skip the initialPrompt auto-draft.
+  const prefillAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!prefill || prefillAppliedRef.current) return;
+    prefillAppliedRef.current = true;
+    setTo(prefill.to ?? '');
+    setCc(prefill.cc ?? '');
+    setBcc(prefill.bcc ?? '');
+    setSubject(prefill.subject ?? '');
+    setBodyText(prefill.bodyText ?? '');
+  }, [prefill]);
+
+  // Mount-fire from initialPrompt — see ComposeGoogleDocModal. Skipped when
+  // prefill is set so the resend path doesn't overwrite the restored content.
   const lastInitialPromptRef = useRef<string | null>(null);
   useEffect(() => {
+    if (prefill) return; // prefill path takes precedence
     if (!initialPrompt || !initialPrompt.trim()) return;
     if (lastInitialPromptRef.current === initialPrompt) return;
     lastInitialPromptRef.current = initialPrompt;
     setAiPrompt(initialPrompt);
     void draftWithPrompt(initialPrompt);
-  }, [initialPrompt, draftWithPrompt]);
+  }, [initialPrompt, prefill, draftWithPrompt]);
 
   const isDark = theme === "dark";
   const overlayClass = "fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4";

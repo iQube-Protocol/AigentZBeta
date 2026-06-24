@@ -73,6 +73,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
     composerHandlers,
     composerInitialPrompt,
     composerInitialAttachmentUploadIds,
+    composerPrefill,
     onComposerClose,
     personaId,
   } = props;
@@ -121,7 +122,8 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             onCreate={composerHandlers.onCreateGmail}
             onDraftWithAigentMe={composerHandlers.onDraftGmail}
             theme={theme}
-            initialPrompt={composerInitialPrompt ?? undefined}
+            initialPrompt={composerPrefill ? undefined : (composerInitialPrompt ?? undefined)}
+            prefill={composerPrefill ?? undefined}
             initialAttachmentUploadIds={composerInitialAttachmentUploadIds ?? undefined}
             personaId={personaId}
           />

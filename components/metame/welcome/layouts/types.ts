@@ -97,6 +97,12 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
    */
   composerInitialPrompt?: string | null;
   /**
+   * When set, pre-populates the Gmail composer fields directly without
+   * calling the draft-email API. Used for "send it again" flows where
+   * the email was already drafted in a prior turn.
+   */
+  composerPrefill?: { to: string; cc?: string; bcc?: string; subject: string; bodyText: string } | null;
+  /**
    * Case A — operator-attached upload ids escrowed from the chat
    * copilot's last successful turn. When the composer opens for an
    * email-class surface (Gmail / Marketa), the modal seeds its

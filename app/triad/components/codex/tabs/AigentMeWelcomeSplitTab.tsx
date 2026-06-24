@@ -1337,6 +1337,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
+    // Save draft so "send it again" / resend can restore the composer without re-drafting.
+    setComposerPrefill({ to: input.to, cc: input.cc, bcc: input.bcc, subject: input.subject, bodyText: input.bodyText });
     void fetchReceipts();
   }, [personaId, fetchReceipts, composerSourceIntentId]);
 
@@ -1852,6 +1854,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   //     workflow; operator re-attaches if they want to compose.
   const [composerEscrowAttachments, setComposerEscrowAttachments] = useState<string[]>([]);
 
+  // Saves the last submitted email draft so "send it again" can pre-populate
+  // the composer without calling the draft-email API a second time.
+  const [composerPrefill, setComposerPrefill] = useState<{ to: string; cc?: string; bcc?: string; subject: string; bodyText: string } | null>(null);
+
   // Clear the composer's parent-intent binding whenever the composer
   // is dismissed (composerKind flips to null on backdrop click,
   // onCreate success, overlay X). Without this, a subsequent
@@ -1885,7 +1891,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     // operator's last message; when present we pre-fill the inline form
     // (composerInitialPrompt) so the LLM-draft fires immediately on
     // mount. Manual chip clicks pass no hint → empty form.
-    setComposerInitialPrompt(promptHint && promptHint.trim().length > 0 ? promptHint.trim() : null);
+    const resolvedPrompt = promptHint && promptHint.trim().length > 0 ? promptHint.trim() : null;
+    setComposerInitialPrompt(resolvedPrompt);
+    // A fresh prompt means a new draft — clear the resend prefill so the
+    // prior email doesn't bleed into the new compose session.
+    if (resolvedPrompt) setComposerPrefill(null);
     setComposerKind(kind);
     // No more setActiveLayoutId('composer') — the overlay handles
     // rendering on top of whatever foreground layout is active. The
@@ -2991,6 +3001,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 // path so the next composer mount starts empty unless a
                 // suggested-artifact explicitly seeded a prompt.
                 composerInitialPrompt,
+                // Pre-filled draft content for resend flows — takes precedence
+                // over composerInitialPrompt in the Gmail composer.
+                composerPrefill,
                 // Case A — chat-attachment escrow. Threaded into the
                 // email-class compose modals (Gmail + Marketa) so the
                 // attachment picker seeds with the file the operator
