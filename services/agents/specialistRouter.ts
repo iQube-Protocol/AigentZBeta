@@ -32,6 +32,7 @@
 
 import { personas } from '@/app/data/personas';
 import type { PreflightContext } from '@/services/capabilities/preflight';
+import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types — public surface.
@@ -180,20 +181,21 @@ function redact(text: string): string {
 
 function systemPromptFor(specialistId: SpecialistId): string {
   const key = SPECIALIST_PERSONA_KEY[specialistId];
-  if (key && personas[key]?.systemPrompt) {
-    return personas[key].systemPrompt;
-  }
-  // Quill (and any future specialist without a registered persona yet)
-  // gets a tight default rooted in the locked decisions.
-  if (specialistId === 'quill') {
-    return [
-      'You are Quill, editor of The Qriptopian, powered by Aigent Q.',
-      'You frame the metaMe ecosystem\'s active work as editorial moments — angles,',
-      'article briefs, issue placements. You speak with editorial clarity and never',
-      'overpromise. You return structured recommendations only.',
-    ].join(' ');
-  }
-  return 'You are an Aigent Me specialist.';
+  const base =
+    key && personas[key]?.systemPrompt
+      ? personas[key].systemPrompt
+      : specialistId === 'quill'
+        ? [
+            'You are Quill, editor of The Qriptopian, powered by Aigent Q.',
+            'You frame the metaMe ecosystem\'s active work as editorial moments — angles,',
+            'article briefs, issue placements. You speak with editorial clarity and never',
+            'overpromise. You return structured recommendations only.',
+          ].join(' ')
+        : 'You are an Aigent Me specialist.';
+  // Every specialist is bound by the no-hallucination mandate: recommendations
+  // must be grounded in the supplied context, never in invented metrics or
+  // fabricated names/incidents.
+  return `${base}\n\n${GROUNDING_MANDATE}`;
 }
 
 function userPromptFor(ctx: SpecialistContext, requestType: SpecialistRequestType): string {

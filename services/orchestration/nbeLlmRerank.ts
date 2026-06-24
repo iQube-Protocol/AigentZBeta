@@ -17,6 +17,7 @@
 import type { NbeCandidate } from '@/services/orchestration/nbeCatalog';
 import type { InferredStrategy } from '@/services/strategy/strategyInference';
 import type { ActiveCartridgeSlug, ExperienceStage } from '@/services/iqube/experienceQube';
+import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_MODEL =
@@ -79,7 +80,9 @@ Rules:
     * Skip the hint (omit the key) ONLY when you genuinely have no
       grounded signal for that NBA — never invent a name or number.
     * No markdown, no JSON-escaped newlines, no T0 ids (personaId /
-      auth_profile_id / tenant_id / kybe_did).`;
+      auth_profile_id / tenant_id / kybe_did).
+
+${GROUNDING_MANDATE}`;
 
 interface RerankContext {
   currentStage: ExperienceStage;
