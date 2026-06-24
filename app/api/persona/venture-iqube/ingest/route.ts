@@ -69,7 +69,8 @@ type SchemaVersion =
   | 'venture-iqube/v0.4'
   | 'venture-iqube/v0.5'
   | 'venture-iqube-pro/v1.0'
-  | 'venture-iqube-portfolio/v1.0';
+  | 'venture-iqube-portfolio/v1.0'
+  | 'venture-operating-model/v1.0';
 
 const PRO_VERSIONS: SchemaVersion[] = ['venture-iqube-pro/v1.0', 'venture-iqube-portfolio/v1.0'];
 const isProVersion = (v: SchemaVersion) => PRO_VERSIONS.includes(v);
@@ -585,6 +586,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   } else {
     return NextResponse.json({ error: 'missing-payload-or-uploadId' }, { status: 400 });
+  }
+
+  // Atomic operating-model update. `venture-operating-model/v1.0` carries ONLY
+  // the operatingModel; it updates the operating brief on the persona's
+  // portfolio row and never touches the venture or portfolio Qubes (no venture
+  // create/update, no thesis/priorities change). Lets an operator iterate on
+  // the brief without re-ingesting the whole portfolio.
+  if ((payload as { schemaVersion?: string })?.schemaVersion === 'venture-operating-model/v1.0') {
+    const om = (payload as { operatingModel?: unknown }).operatingModel;
+    if (!om || typeof om !== 'object' || Array.isArray(om) || !(om as { mission?: unknown }).mission) {
+      return NextResponse.json(
+        { error: 'schema-validation-failed', detail: 'venture-operating-model/v1.0 requires operatingModel.mission' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+    const admin = getSupabaseServer();
+    if (!admin) {
+      return NextResponse.json({ error: 'database-unavailable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+    }
+    const saved = await saveVenturePortfolio(admin, persona.personaId, { operatingModel: om as VentureOperatingModel });
+    if (!saved.ok) {
+      return NextResponse.json({ error: 'operating-model-save-failed', detail: saved.error }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    }
+    return NextResponse.json(
+      { ok: true, phase: 'operating-model-updated', message: 'Operating brief updated atomically. Venture and portfolio Qubes unchanged.' },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 
   const validated = validateShape(payload);

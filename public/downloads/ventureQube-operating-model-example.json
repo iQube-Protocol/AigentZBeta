@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "venture-operating-model/v1.0",
+  "emittedAt": "2026-01-01T00:00:00.000Z",
+  "operatingModel": {
+    "mission": "A generic reference operating brief — replace with your own. Example: reach a validated path to recurring revenue through focused product iteration and a repeatable acquisition motion.",
+    "successMetrics": ["1,000 active users", "$10k MRR", "3 partnerships signed"],
+    "activeObjectives": [
+      { "objective": "Identify your first 50 customers", "status": "active" },
+      { "objective": "Ship the most-requested feature", "status": "active" },
+      { "objective": "Launch one acquisition experiment", "status": "active" }
+    ],
+    "priorityPartners": ["A channel partner", "A platform integration", "A distribution partner"],
+    "priorityActions": ["Run customer discovery", "Ship the top feature request", "Launch an acquisition experiment"],
+    "reviewCadence": "weekly",
+    "primaryMetric": "Net Value Acceleration — did our actions reduce time-to-value?"
+  }
+}
