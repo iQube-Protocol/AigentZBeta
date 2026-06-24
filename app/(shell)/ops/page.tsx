@@ -1524,6 +1524,8 @@ export default function OpsPage() {
                   <span className="text-slate-400">DVN Pending:</span>
                   <span className="text-xs text-slate-300">{dvnCount}</span>
                 </div>
+                {/* Activity receipts feeding the DVN pipeline — entry point view */}
+                <ActivityReceiptsDvnPanel />
                 {drift > 0 && !isLegitimate && (
                   <div className="pt-2">
                     <button
@@ -1619,8 +1621,6 @@ export default function OpsPage() {
                   <span className="text-slate-400">Unlock Height:</span>
                   <span className="text-xs text-slate-300">{unlockHeight}</span>
                 </div>
-                {/* Activity receipts pending DVN — shows delegation + other anchorable actions */}
-                <ActivityReceiptsDvnPanel />
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Last Check:</span>
                   <span className="text-xs text-slate-500">{timeSince(at)}</span>
