@@ -17,7 +17,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
 import { HttpAgent, Actor } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import fetch from 'cross-fetch';
@@ -62,10 +61,6 @@ function formatCycles(n: number): string {
 }
 
 export async function POST(request: NextRequest) {
-  const persona = await getActivePersona(request);
-  if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  if (!persona.cartridgeFlags?.isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-
   let body: any;
   try {
     body = await request.json();

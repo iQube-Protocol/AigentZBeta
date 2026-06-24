@@ -11,7 +11,6 @@ import {
   Shield,
   HelpCircle,
 } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
 
 interface CanisterCyclesInfo {
   canisterId: string;
@@ -121,7 +120,7 @@ export function CyclesManagementCard({ title }: { title: string }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await personaFetch("/api/ops/canisters/cycles-status", {
+      const res = await fetch("/api/ops/canisters/cycles-status", {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -151,7 +150,7 @@ export function CyclesManagementCard({ title }: { title: string }) {
     setTopUpSending(true);
     setTopUpResult(null);
     try {
-      const res = await personaFetch("/api/ops/canisters/top-up", {
+      const res = await fetch("/api/ops/canisters/top-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
