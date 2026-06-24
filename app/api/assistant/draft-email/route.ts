@@ -140,8 +140,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         .replace(/[^\w\s]/g, ' ')
         .trim()
         .split(/\s+/)
-        .filter(w => w.length > 2 && /^[A-Z]/.test(w))
-        .slice(0, 4);
+        .filter(w => w.length > 2)
+        .slice(0, 6);
 
       if (nameCandidates.length > 0) {
         const q = nameCandidates.map(w => w + ':*').join(' | ');

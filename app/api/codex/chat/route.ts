@@ -338,6 +338,12 @@ export interface SuggestedLayoutHint {
   reason: string;
   /** Pre-fill text the chip click should feed into the layout's auto-seed. */
   promptHint: string;
+  /** Parsed email draft extracted from conversation history — bypasses draft-email API when present. */
+  parsedDraft?: {
+    subject: string;
+    bodyText: string;
+    recipientHint?: string; // name extracted from salutation e.g. "Hi David,"
+  };
 }
 
 const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = [
@@ -373,9 +379,26 @@ const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string
   { id: 'project-overview',  pattern: /(project overview|where are we|status update|dev loop status|what stage|current (stage|progress)|how far along)/i, reason: 'Operator wants a project overview' },
 ];
 
+/** Detect a structured email draft in an assistant message. Returns subject + body or null. */
+function parseEmailDraft(text: string): { subject: string; bodyText: string; recipientHint?: string } | null {
+  // Look for "Subject:" line — the canonical signal an email draft is present
+  const subjectMatch = text.match(/^Subject:\s*(.+)$/im);
+  if (!subjectMatch) return null;
+  const subject = subjectMatch[1].trim();
+  // Body is everything after the subject line (skip the blank separator line)
+  const subjectIndex = text.indexOf(subjectMatch[0]);
+  const afterSubject = text.slice(subjectIndex + subjectMatch[0].length).replace(/^\s*\n/, '');
+  if (!afterSubject.trim()) return null;
+  // Extract recipient name from greeting line e.g. "Hi David," / "Dear Dr. Chaum,"
+  const greetingMatch = afterSubject.match(/^(?:Hi|Hello|Dear|Hey)\s+(?:Dr\.?\s+|Prof\.?\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)[,!]/m);
+  const recipientHint = greetingMatch ? greetingMatch[1] : undefined;
+  return { subject, bodyText: afterSubject.trim(), recipientHint };
+}
+
 function inferSuggestedLayouts(
   message: string,
   assistantMessage: string,
+  history?: ChatMessage[],
 ): SuggestedLayoutHint[] {
   const hints: SuggestedLayoutHint[] = [];
   const seen = new Set<ChipTargetId>();
@@ -390,12 +413,31 @@ function inferSuggestedLayouts(
   const TRIVIAL_ACK = /^(yes|yep|yeah|ok|okay|sure|go|do it|let'?s go|please|cool|thx|thanks?|go ahead|y|n|no)[!.?]*$/i;
   const baseHint = TRIVIAL_ACK.test(trimmedMessage) ? '' : trimmedMessage.slice(0, 240);
 
+  // Scan recent assistant messages (newest first) for a structured email draft
+  let historyEmailDraft: { subject: string; bodyText: string; recipientHint?: string } | undefined;
+  if (history && history.length > 0) {
+    for (let i = history.length - 1; i >= 0 && i >= history.length - 6; i--) {
+      const msg = history[i];
+      if (msg.role !== 'assistant') continue;
+      const draft = parseEmailDraft(msg.content);
+      if (draft) { historyEmailDraft = draft; break; }
+    }
+    // Also check the current assistant message
+    if (!historyEmailDraft) {
+      const draft = parseEmailDraft(assistantMessage);
+      if (draft) historyEmailDraft = draft;
+    }
+  }
+
   const register = (id: ChipTargetId, reason: string, promptHint: string) => {
     if (seen.has(id) || hints.length >= MAX) return;
     seen.add(id);
     // LLM-tag substance wins; fall back to baseHint when the tag wasn't
     // emitted (keyword sweep) or the tag had no substance.
-    hints.push({ layoutId: id, reason, promptHint: promptHint.trim() || baseHint });
+    const hint: SuggestedLayoutHint = { layoutId: id, reason, promptHint: promptHint.trim() || baseHint };
+    // Attach parsed email draft to gmail hints so the composer can bypass draft-email API
+    if (id === 'gmail' && historyEmailDraft) hint.parsedDraft = historyEmailDraft;
+    hints.push(hint);
   };
 
   // Explicit tags — `[layout:<id>|<substance>]`. The system prompt
@@ -2564,7 +2606,7 @@ export async function POST(request: NextRequest) {
           })
         : generateFallbackResponse(message, metadata as CodexMetadata, persona);
       const walletActions = inferWalletActions(message, fallbackResponse);
-      const suggestedLayouts = inferSuggestedLayouts(message, fallbackResponse);
+      const suggestedLayouts = inferSuggestedLayouts(message, fallbackResponse, chatHistory);
       const responseForClient = stripLayoutTags(fallbackResponse);
       return NextResponse.json({
         response: responseForClient,
@@ -2588,7 +2630,7 @@ export async function POST(request: NextRequest) {
         ? extractStageProposals(assistantMessage)
         : { cleanText: assistantMessage, proposals: [] };
     const walletActions = inferWalletActions(message, messageSansStageData);
-    const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData);
+    const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData, chatHistory);
     const responseForClient = stripLayoutTags(messageSansStageData);
 
     console.log('[CodexChat] Response length:', responseForClient.length);
