@@ -205,11 +205,21 @@ export async function POST(req: NextRequest) {
   );
   const crossSourceSkipped = rows.length - dedupedRows.length;
 
+  // Deduplicate within the import set by source_id — if two contacts in the
+  // same vCard file hash to the same source_id (e.g. two entries with the
+  // same name and phone, no UID), PostgreSQL throws "ON CONFLICT DO UPDATE
+  // command cannot affect row a second time". Last occurrence wins.
+  const seenSourceIds = new Map<string, typeof dedupedRows[number]>();
+  for (const row of dedupedRows) {
+    seenSourceIds.set(row.source_id, row);
+  }
+  const uniqueRows = Array.from(seenSourceIds.values());
+
   const BATCH = 50;  // smaller batches — one collision fails fewer contacts
   let imported = 0;
   const batchErrors: string[] = [];
-  for (let i = 0; i < dedupedRows.length; i += BATCH) {
-    const batch = dedupedRows.slice(i, i + BATCH);
+  for (let i = 0; i < uniqueRows.length; i += BATCH) {
+    const batch = uniqueRows.slice(i, i + BATCH);
     const { error } = await supabase
       .from('persona_contacts')
       .upsert(batch, { onConflict: 'persona_id,source,source_id', ignoreDuplicates: false });
@@ -232,7 +242,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     imported,
-    skipped: crossSourceSkipped + (dedupedRows.length - imported),
+    skipped: crossSourceSkipped + (uniqueRows.length - imported),
     total: parsed.length,
     // Surface any partial errors so the operator can see what's still failing
     ...(batchErrors.length > 0 ? { warnings: batchErrors.slice(0, 5) } : {}),
