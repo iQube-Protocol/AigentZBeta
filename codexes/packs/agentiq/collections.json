@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-24_qtalk-dvn-wiring-backlog.md",
         "updates/2026-06-24_proof-of-state-mainnet-deployment-backlog.md",
         "updates/2026-06-24_standing-reputation-correlation-backlog.md",
         "updates/2026-06-21_standing-integration-tiers-sovereign-assets.md",
