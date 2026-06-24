@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Plus, ClipboardList, FileUp, FileText, Activity } from "lucide-react";
+import { Loader2, Plus, ClipboardList, FileUp, FileText, Activity, CalendarDays, CalendarClock, Check } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 
 interface StandingSignal {
@@ -30,6 +30,16 @@ interface StandingSignal {
   createdAt: string;
 }
 
+interface CalendarEvent {
+  id: string;
+  summary: string;
+  startIso: string | null;
+  endIso: string | null;
+  isPast: boolean;
+  attendeeCount: number;
+  htmlLink: string | null;
+}
+
 export function StandingSignalsPanel({ personaId }: { personaId?: string }) {
   const [signals, setSignals] = useState<StandingSignal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +50,10 @@ export function StandingSignalsPanel({ personaId }: { personaId?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Calendar ingest (read-on-demand). null = not loaded / not connected → hidden.
+  const [calPast, setCalPast] = useState<CalendarEvent[] | null>(null);
+  const [calUpcoming, setCalUpcoming] = useState<CalendarEvent[] | null>(null);
+  const [loggedEventIds, setLoggedEventIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -56,7 +70,36 @@ export function StandingSignalsPanel({ personaId }: { personaId?: string }) {
     }
   }, [personaId]);
 
-  useEffect(() => { void load(); }, [load]);
+  const loadCalendar = useCallback(async () => {
+    try {
+      const res = await personaFetch("/api/assistant/calendar-events?days=30", {
+        personaIdHint: personaId,
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ok) { setCalPast(data.past ?? []); setCalUpcoming(data.upcoming ?? []); }
+      }
+      // 409 not-connected / errors → leave null so the section stays hidden.
+    } catch { /* calendar not connected — hidden */ }
+  }, [personaId]);
+
+  useEffect(() => { void load(); void loadCalendar(); }, [load, loadCalendar]);
+
+  const logEvent = async (ev: CalendarEvent) => {
+    try {
+      const res = await personaFetch("/api/assistant/standing-signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        personaIdHint: personaId,
+        body: JSON.stringify({ kind: "action", summary: ev.summary }),
+      });
+      if (res.ok) {
+        setLoggedEventIds((prev) => new Set(prev).add(ev.id));
+        void load();
+      }
+    } catch { /* best-effort */ }
+  };
 
   const reset = () => {
     setMode(null); setSummary(""); setVentureRef(""); setFile(null); setError(null);
@@ -184,6 +227,56 @@ export function StandingSignalsPanel({ personaId }: { personaId?: string }) {
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {/* From your calendar — past events to log, upcoming to prepare for */}
+      {calPast && calPast.length > 0 && (
+        <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-2.5 space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <CalendarDays className="w-3.5 h-3.5 text-emerald-300" />
+            <span className="text-[11px] uppercase tracking-wider text-slate-400">Recent meetings — log what you did</span>
+          </div>
+          {calPast.slice(0, 6).map((ev) => {
+            const logged = loggedEventIds.has(ev.id);
+            return (
+              <div key={ev.id} className="flex items-center gap-2">
+                <span className="text-xs text-slate-200 truncate flex-1">{ev.summary}</span>
+                <span className="text-[10px] text-slate-500 shrink-0">
+                  {ev.startIso ? new Date(ev.startIso).toLocaleDateString() : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { if (!logged) void logEvent(ev); }}
+                  disabled={logged}
+                  className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
+                    logged
+                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                      : "border-slate-600 text-slate-300 hover:border-emerald-500/50 hover:text-emerald-200"
+                  }`}
+                >
+                  {logged ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                  {logged ? "Logged" : "Log"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {calUpcoming && calUpcoming.length > 0 && (
+        <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-2.5 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <CalendarClock className="w-3.5 h-3.5 text-violet-300" />
+            <span className="text-[11px] uppercase tracking-wider text-slate-400">Coming up — prepare</span>
+          </div>
+          {calUpcoming.slice(0, 4).map((ev) => (
+            <div key={ev.id} className="flex items-center gap-2">
+              <span className="text-xs text-slate-300 truncate flex-1">{ev.summary}</span>
+              <span className="text-[10px] text-slate-500 shrink-0">
+                {ev.startIso ? new Date(ev.startIso).toLocaleDateString() : ""}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
