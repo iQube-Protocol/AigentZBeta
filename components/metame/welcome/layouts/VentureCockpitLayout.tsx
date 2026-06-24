@@ -298,9 +298,22 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                     const queued = queuedIntents?.[a.id];
                     if (queued) {
                       const artifactsForPill = artifactsByIntent[queued.intentId] ?? [];
+                      // For standing-cartridge add-evidence chips: inject a nav artifact
+                      // so the pill shows an "Open" link instead of an empty body.
+                      const isStandingNav = a.id.includes('standing-cartridge') && a.id.includes('add-evidence');
+                      const enrichedArtifacts = isStandingNav && artifactsForPill.length === 0
+                        ? [{
+                            artifactId: 'nav:standing-cartridge',
+                            intentId: queued.intentId,
+                            title: 'Standing Cartridge — upload evidence',
+                            kind: 'doc' as const,
+                            status: 'published' as const,
+                            locationUrl: '/triad/embed/codex/standing-cartridge?tab=standing',
+                          }]
+                        : artifactsForPill;
                       const matchedSecondTier =
                         secondTierApproval &&
-                        artifactsForPill.some((af) => af.artifactId === secondTierApproval.artifactId)
+                        enrichedArtifacts.some((af) => af.artifactId === secondTierApproval.artifactId)
                           ? secondTierApproval
                           : null;
                       return (
@@ -308,7 +321,7 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                           key={a.id}
                           action={a}
                           queued={queued}
-                          artifacts={artifactsForPill}
+                          artifacts={enrichedArtifacts}
                           secondTierApproval={matchedSecondTier}
                           actionPendingArtifactId={actionPendingArtifactId}
                           actionErrors={actionErrors}
