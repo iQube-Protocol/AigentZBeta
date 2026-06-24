@@ -156,9 +156,14 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabaseServer();
 
   const rows = parsed.map(c => {
-    // Derive a stable source_id: prefer UID, fall back to hash of name+email
+    // Derive a stable source_id: prefer UID, fall back to hash of
+    // name + email + phone so phone-only contacts (common in iPhone exports)
+    // each get a unique id rather than all hashing to sha256('').
     const sourceId = c.uid?.trim() ||
-      createHash('sha256').update((c.displayName ?? '') + (c.emails[0] ?? '')).digest('hex').slice(0, 24);
+      createHash('sha256')
+        .update((c.displayName ?? '') + '|' + (c.emails[0] ?? '') + '|' + (c.phones[0] ?? ''))
+        .digest('hex')
+        .slice(0, 24);
 
     return {
       persona_id: persona.personaId,
