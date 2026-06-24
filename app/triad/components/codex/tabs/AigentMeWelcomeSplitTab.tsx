@@ -1899,25 +1899,36 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // the overlay unmounts and the active Capsule remains visible
   // underneath (Brief / Move forward / Venture).
   const openComposeByKind = useCallback(async (kind: ComposeKind, promptHint?: string | null) => {
-    // Chat-suggested composer chips carry a promptHint derived from the
-    // operator's last message; when present we pre-fill the inline form
-    // (composerInitialPrompt) so the LLM-draft fires immediately on
-    // mount. Manual chip clicks pass no hint → empty form.
+    // Send-trigger phrases ("send it", "send it again", "resend that") are
+    // activation signals — they open the composer but must NOT be treated as
+    // new email descriptions that overwrite a chat-evolved draft.
+    const SEND_TRIGGER_RE = /^(send it( again)?|resend( that| it| the email)?|send that again|go ahead( and send)?|send now|send the email)[!.?]*$/i;
+
     const resolvedPrompt = promptHint && promptHint.trim().length > 0 ? promptHint.trim() : null;
-    setComposerInitialPrompt(resolvedPrompt);
-    // A fresh prompt means a new draft — clear the resend prefill so the
-    // prior email doesn't bleed into the new compose session.
-    if (resolvedPrompt) {
+    const isJustSendTrigger = resolvedPrompt !== null && SEND_TRIGGER_RE.test(resolvedPrompt);
+
+    // A genuinely new description (not a send trigger) means a fresh draft —
+    // clear any chat-evolved prefill so the new prompt drives the compose.
+    if (resolvedPrompt && !isJustSendTrigger) {
+      setComposerInitialPrompt(resolvedPrompt);
       setComposerPrefill(null);
       setPendingEmailDraft(null);
-    } else if (kind === 'gmail' && pendingEmailDraft && !composerPrefill) {
-      // No fresh prompt — use chat-evolved email draft directly in composer.
-      // Try to resolve the recipientHint (name) to an email address via contacts search.
-      let resolvedTo = pendingEmailDraft.recipientHint ?? '';
-      if (pendingEmailDraft.recipientHint) {
+    } else if (kind === 'gmail' && pendingEmailDraft) {
+      // Send trigger or no prompt — use the chat-evolved email draft directly.
+      // Build a search term: prefer full name from promptHint (e.g. "Draft email
+      // to David Chaum about...") over just the salutation hint ("David").
+      setComposerInitialPrompt(null);
+      let searchName = pendingEmailDraft.recipientHint ?? '';
+      if (resolvedPrompt) {
+        // Extract "to <First Last>" from the LLM tag substance
+        const toMatch = resolvedPrompt.match(/\bto\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/);
+        if (toMatch) searchName = toMatch[1];
+      }
+      let resolvedTo = searchName;
+      if (searchName) {
         try {
           const res = await personaFetch(
-            `/api/contacts?q=${encodeURIComponent(pendingEmailDraft.recipientHint)}&limit=1`,
+            `/api/contacts?q=${encodeURIComponent(searchName)}&limit=1`,
           );
           if (res.ok) {
             const data = await res.json() as { contacts?: Array<{ email?: string; display_name?: string }> };
@@ -1931,13 +1942,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         subject: pendingEmailDraft.subject,
         bodyText: pendingEmailDraft.bodyText,
       });
+    } else {
+      // No draft, no meaningful prompt — open empty composer
+      setComposerInitialPrompt(resolvedPrompt);
     }
     setComposerKind(kind);
-    // No more setActiveLayoutId('composer') — the overlay handles
-    // rendering on top of whatever foreground layout is active. The
-    // previous double-call mounted the composer twice (once via the
-    // foreground swap, once via the overlay), leaving an unresponsive
-    // second modal stuck behind the first when the operator closed it.
   }, [pendingEmailDraft, composerPrefill]);
 
   // SpecialistsLayout suggested-artifact button → open ComposerLayout
