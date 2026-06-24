@@ -27,6 +27,25 @@ interface VspProfile {
   standing_graph?: StandingGraph | null;
 }
 
+/** The auto-created Standing Core profile label (see services/standing/standingCore.ts). */
+const CORE_PROFILE_LABEL = 'Standing Core';
+
+/**
+ * Defensive dedupe: exactly one "Standing Core" profile should ever exist, but
+ * historical rows created before the backend dedupe fix can leave two. Collapse
+ * all "Standing Core" profiles to the earliest-created one so the UI never
+ * renders two Core tabs, regardless of DB state. Non-core profiles pass through
+ * untouched (operators may name custom profiles freely).
+ */
+function dedupeCoreProfiles(profiles: VspProfile[]): VspProfile[] {
+  const cores = profiles.filter((p) => p.label === CORE_PROFILE_LABEL);
+  if (cores.length <= 1) return profiles;
+  const keepId = cores
+    .slice()
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))[0].id;
+  return profiles.filter((p) => p.label !== CORE_PROFILE_LABEL || p.id === keepId);
+}
+
 interface VspEvidence {
   id: string;
   source_type: string;
@@ -351,9 +370,10 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
       const res = await personaFetch('/api/vsp/profiles');
       const json = await res.json();
       if (json.ok) {
-        setProfiles(json.profiles ?? []);
-        if (json.profiles?.length > 0) {
-          await loadProfile(json.profiles[0].id);
+        const deduped = dedupeCoreProfiles(json.profiles ?? []);
+        setProfiles(deduped);
+        if (deduped.length > 0) {
+          await loadProfile(deduped[0].id);
         }
       } else {
         setError(json.error ?? 'Failed to load profiles');
