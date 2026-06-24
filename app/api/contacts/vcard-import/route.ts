@@ -180,11 +180,31 @@ export async function POST(req: NextRequest) {
     };
   });
 
+  // Cross-source email dedup: skip contacts whose normalised email already
+  // exists for this persona under any source (prevents vCard + iCloud from
+  // creating duplicate rows for the same person).
+  const rowsWithEmail = rows.filter(r => r.email);
+  let existingEmailSet = new Set<string>();
+  if (rowsWithEmail.length > 0) {
+    const { data: existing } = await supabase
+      .from('persona_contacts')
+      .select('email')
+      .eq('persona_id', persona.personaId)
+      .not('email', 'is', null);
+    existingEmailSet = new Set(
+      (existing ?? []).map(e => (e.email as string).toLowerCase()),
+    );
+  }
+  const dedupedRows = rows.filter(
+    r => !r.email || !existingEmailSet.has(r.email.toLowerCase()),
+  );
+  const crossSourceSkipped = rows.length - dedupedRows.length;
+
   const BATCH = 200;
   let imported = 0;
   let firstError: string | null = null;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const batch = rows.slice(i, i + BATCH);
+  for (let i = 0; i < dedupedRows.length; i += BATCH) {
+    const batch = dedupedRows.slice(i, i + BATCH);
     const { error } = await supabase
       .from('persona_contacts')
       .upsert(batch, { onConflict: 'persona_id,source,source_id', ignoreDuplicates: false });
@@ -203,5 +223,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, imported, skipped: parsed.length - imported, total: parsed.length });
+  return NextResponse.json({
+    ok: true,
+    imported,
+    skipped: crossSourceSkipped + (dedupedRows.length - imported),
+    total: parsed.length,
+  });
 }
