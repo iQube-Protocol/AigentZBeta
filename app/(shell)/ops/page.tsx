@@ -696,7 +696,10 @@ export default function OpsPage() {
             const rpcHost = actualEndpoint;
             // Get block height from testnet data, not anchor data
             const blockHeight = typeof (btc.data as any)?.blockHeight === 'number' ? (btc.data as any).blockHeight : '—';
-            const latestTx = btc.anchor?.txid || btc.latestTx?.txid || '—';
+            const _rawTxid = btc.anchor?.txid || btc.latestTx?.txid;
+            // Only show real 64-char hex txids — mock/placeholder values produce 404s
+            const isRealTxid = (s: string | undefined) => typeof s === 'string' && /^[a-f0-9]{64}$/i.test(s);
+            const latestTx = isRealTxid(_rawTxid) ? (_rawTxid as string) : '—';
             const explorerBase = 'https://blockstream.info/testnet';
             const txUrl = (latestTx !== '—') ? `${explorerBase}/tx/${latestTx}` : undefined;
             return (
@@ -1104,11 +1107,12 @@ export default function OpsPage() {
             const latestTx = btc.latestTx;
             const explorer = 'https://blockstream.info/testnet';
             // Only use txid for display - lastAnchorId is a batch ID, not a Bitcoin txid
-            const displayTx = txid;
-            const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
-            const latestTxUrl = latestTx?.txid ? `${explorer.replace('/api','')}/tx/${latestTx.txid}` : undefined;
             // Helper to check if string is a valid Bitcoin txid (64 hex chars)
-            const isValidBitcoinTxid = (str: string) => /^[a-f0-9]{64}$/i.test(str);
+            const isValidBitcoinTxid = (str: string | undefined) => typeof str === 'string' && /^[a-f0-9]{64}$/i.test(str);
+            // Guard: never link mock/placeholder txids — they produce 404s on the explorer
+            const displayTx = isValidBitcoinTxid(txid) ? txid : undefined;
+            const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
+            const latestTxUrl = isValidBitcoinTxid(latestTx?.txid) ? `${explorer.replace('/api','')}/tx/${latestTx!.txid}` : undefined;
             async function doAnchor() {
               try {
                 const response = await fetch('/api/ops/btc/anchor', { method: 'POST' });
