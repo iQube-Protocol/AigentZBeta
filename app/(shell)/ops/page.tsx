@@ -460,6 +460,60 @@ function badgeClassFor(key: string): string {
   }
 }
 
+function ActivityReceiptsDvnPanel() {
+  const [receipts, setReceipts] = useState<Array<{
+    id: string;
+    action_type: string;
+    receipt_status: string;
+    summary: string | null;
+    created_at: string;
+    dvn_receipt_id: string | null;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/ops/dvn/activity-receipts')
+      .then(r => r.ok ? r.json() : { receipts: [] })
+      .then(d => setReceipts(d.receipts ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+  if (receipts.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-700">
+      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">Recent Delegation Receipts</p>
+      <div className="space-y-1.5">
+        {receipts.map(r => {
+          const label = r.action_type === 'agent_delegated' ? 'Delegated' : 'Revoked';
+          const statusColor = r.receipt_status === 'dvn_recorded'
+            ? 'text-emerald-400'
+            : r.receipt_status === 'dvn_pending'
+            ? 'text-amber-400'
+            : r.receipt_status === 'dvn_failed'
+            ? 'text-red-400'
+            : 'text-slate-400';
+          const ts = new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return (
+            <div key={r.id} className="flex items-start justify-between gap-2 text-xs">
+              <span className={`font-medium shrink-0 ${r.action_type === 'agent_delegated' ? 'text-emerald-300' : 'text-rose-300'}`}>
+                {label}
+              </span>
+              <span className="text-slate-400 truncate flex-1 min-w-0">
+                {r.summary ? r.summary.slice(0, 60) : r.id.slice(0, 8)}
+              </span>
+              <span className={`shrink-0 ${statusColor}`}>{r.receipt_status.replace('dvn_', '')}</span>
+              <span className="shrink-0 text-slate-500">{ts}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function OpsPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -1565,6 +1619,8 @@ export default function OpsPage() {
                   <span className="text-slate-400">Unlock Height:</span>
                   <span className="text-xs text-slate-300">{unlockHeight}</span>
                 </div>
+                {/* Activity receipts pending DVN — shows delegation + other anchorable actions */}
+                <ActivityReceiptsDvnPanel />
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Last Check:</span>
                   <span className="text-xs text-slate-500">{timeSince(at)}</span>
