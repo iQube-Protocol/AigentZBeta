@@ -606,7 +606,7 @@ When the user asks to draft, send, or resend an email (e.g. "draft an email to X
 
 Instead:
 1. Briefly confirm: "Opening the Gmail composer..." (one short sentence).
-2. Emit a `[layout:gmail|<substance>]` tag at the end of your reply where `<substance>` names the recipient and topic from the conversation (≤180 chars). Example: `[layout:gmail|Draft email to David Chaum about the X-Cash protocol collaboration]`.
+2. Emit a [layout:gmail|<substance>] tag at the end of your reply where <substance> names the recipient and topic from the conversation (180 chars max). Example: [layout:gmail|Draft email to David Chaum about the X-Cash protocol collaboration].
 3. If the conversation already established a recipient (a name or email from earlier turns), include that person's name in the substance so the composer can pre-populate the To field.
 4. If you don't know who the recipient is, still open the composer and let the user fill in the To field.
 
