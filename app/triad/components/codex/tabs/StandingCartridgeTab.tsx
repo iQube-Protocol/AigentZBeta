@@ -30,6 +30,11 @@ interface VspProfile {
 /** The auto-created Standing Core profile label (see services/standing/standingCore.ts). */
 const CORE_PROFILE_LABEL = 'Standing Core';
 
+/** Normalised match so trailing-space / case variants of the core label still collapse. */
+function isCoreLabel(label: string): boolean {
+  return (label ?? '').trim().toLowerCase() === CORE_PROFILE_LABEL.toLowerCase();
+}
+
 /**
  * Defensive dedupe: exactly one "Standing Core" profile should ever exist, but
  * historical rows created before the backend dedupe fix can leave two. Collapse
@@ -38,12 +43,12 @@ const CORE_PROFILE_LABEL = 'Standing Core';
  * untouched (operators may name custom profiles freely).
  */
 function dedupeCoreProfiles(profiles: VspProfile[]): VspProfile[] {
-  const cores = profiles.filter((p) => p.label === CORE_PROFILE_LABEL);
+  const cores = profiles.filter((p) => isCoreLabel(p.label));
   if (cores.length <= 1) return profiles;
   const keepId = cores
     .slice()
     .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))[0].id;
-  return profiles.filter((p) => p.label !== CORE_PROFILE_LABEL || p.id === keepId);
+  return profiles.filter((p) => !isCoreLabel(p.label) || p.id === keepId);
 }
 
 interface VspEvidence {

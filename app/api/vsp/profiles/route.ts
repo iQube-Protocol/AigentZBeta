@@ -20,13 +20,19 @@ export async function GET(req: NextRequest) {
 
     const supabase = getSupabaseServer();
     const isAdmin = persona.cartridgeFlags?.isAdmin === true;
+    // The personal Standing tab must show the CALLER's own profiles. The admin
+    // see-all is over-exposure here (it surfaced every persona's "Standing Core"
+    // in the operator's own tab, which read as duplicate Core tabs). Keep the
+    // admin-wide listing available, but only behind an explicit ?scope=all so no
+    // review surface that needs it breaks — the default is always own-persona.
+    const scopeAll = new URL(req.url).searchParams.get('scope') === 'all';
 
     let query = supabase
       .from('vsp_profiles')
       .select('id, label, profile_type, status, compiled_at, kybe_did_public_ref, created_at, updated_at')
       .order('created_at', { ascending: false });
 
-    if (!isAdmin) {
+    if (!(isAdmin && scopeAll)) {
       query = query.eq('owner_persona_id', persona.personaId);
     }
 
