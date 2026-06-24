@@ -28,6 +28,7 @@
 import { getCrmClient } from './crmDataAccess';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { syncStandingToRQH } from '@/services/crm/taskCanisterService';
 
 const STANDING_CVS_FACTOR = 1; // 1:1 — CVS is the canonical contribution score
 const DELEGATED_FACTOR = 0.5;   // sponsor gets half-credit on sponsored Personal
@@ -109,6 +110,7 @@ async function writeStanding(
   client: ReturnType<typeof getCrmClient>,
   crmPersonaId: string,
   next: ExistingStanding,
+  lane: 'consequence' | 'capability' = 'consequence',
 ): Promise<{ overall: number; bucket: number }> {
   // Consequence Standing (personal + delegated + stewardship) contributes 70%;
   // Capability Standing (front-half agency signal, ceiling 40) contributes 30%.
@@ -144,6 +146,35 @@ async function writeStanding(
       standing_bucket: bucket,
     });
   }
+
+  // Auto-sync to RQH canister — fire-and-forget, never blocks the write.
+  void (async () => {
+    try {
+      const { data: crmRow } = await client
+        .from('crm_personas')
+        .select('identity_persona_id')
+        .eq('id', crmPersonaId)
+        .maybeSingle();
+      const identityPersonaId = crmRow?.identity_persona_id;
+      if (!identityPersonaId) return;
+      await syncStandingToRQH({
+        crmPersonaId,
+        identityPersonaId,
+        standing: {
+          personal: next.personal,
+          delegated: next.delegated,
+          stewardship: next.stewardship,
+          capability: next.capability ?? 0,
+          overall,
+          bucket,
+        },
+        lane,
+      });
+    } catch {
+      /* best-effort — RQH sync failure never propagates */
+    }
+  })();
+
   return { overall, bucket };
 }
 
@@ -284,7 +315,7 @@ export async function accrueStanding(input: AccrueStandingInput): Promise<Standi
       capability: existing.capability,
       overall: 0, // recomputed in writeStanding
     };
-    const writeResult = await writeStanding(client, input.crmPersonaId, next);
+    const writeResult = await writeStanding(client, input.crmPersonaId, next, 'consequence');
     const newOverall = writeResult.overall;
     const thresholdCrossed =
       existing.overall < STANDING_THRESHOLD && newOverall >= STANDING_THRESHOLD;
@@ -520,7 +551,7 @@ export async function accrueCapabilityStanding(
       capability: nextCapability,
       overall: 0, // recomputed in writeStanding
     };
-    const writeResult = await writeStanding(client, crmPersonaId, next);
+    const writeResult = await writeStanding(client, crmPersonaId, next, 'capability');
 
     // Create a standing_accrued receipt for the DVN pipeline. Resolve identity
     // persona from CRM row. Fire-and-forget — never blocks.
