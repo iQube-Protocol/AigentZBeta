@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-25T18:01:10.589Z",
+  "last_updated": "2026-06-25T18:31:22.509Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "41ce391a2492f21e1aa144fea60c0545e3875e0a",
-  "latest_commit_short": "41ce391",
-  "latest_commit_title": "add Polity Participation Model v1.0 as constitutional primitive to polity-core",
+  "latest_commit": "bbd38c5638aa0d4cd3bd5b9e4e35f6de77c5cc6b",
+  "latest_commit_short": "bbd38c5",
+  "latest_commit_title": "fix move-forward NBE regression + add operator archetype to experience model setup",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bbd38c5",
+      "full_sha": "bbd38c5638aa0d4cd3bd5b9e4e35f6de77c5cc6b",
+      "title": "fix move-forward NBE regression + add operator archetype to experience model setup",
+      "author": "Claude",
+      "timestamp": "2026-06-25T18:29:07Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-bbd38c5.md"
+    },
     {
       "sha": "41ce391",
       "full_sha": "41ce391a2492f21e1aa144fea60c0545e3875e0a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-08T21:52:41Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5b7add3.md"
-    },
-    {
-      "sha": "f13d150",
-      "full_sha": "f13d150e51332a54be3a307e0b70fa8f1a739002",
-      "title": "fix LayerZero 504 timeout: parallelize attestation calls + cap batch size",
-      "author": "Claude",
-      "timestamp": "2026-06-08T21:20:31Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f13d150.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
