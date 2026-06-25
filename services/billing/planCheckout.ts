@@ -464,8 +464,12 @@ export function buildUsdcPaymentIntent(
   const cfg = usdcConfigForChain(chainId);
   if (!cfg) return { ok: false, error: `Unsupported chainId ${chainId} for USDC` };
   if (!cfg.tokenAddress) return { ok: false, error: `USDC token address not configured for chainId ${chainId}` };
-  const treasury = process.env.TREASURY_ADDRESS;
-  if (!treasury) return { ok: false, error: 'TREASURY_ADDRESS not configured' };
+  // TREASURY_ADDRESS is the canonical plan-payment destination.
+  // Falls back to NEXT_PUBLIC_KNYT_TREASURY_ADDRESS — the same AigentZ
+  // protocol treasury that receives KNYT deposits — so no extra env var is
+  // needed in environments where KNYT payments are already configured.
+  const treasury = process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_KNYT_TREASURY_ADDRESS;
+  if (!treasury) return { ok: false, error: 'Treasury address not configured (set TREASURY_ADDRESS or NEXT_PUBLIC_KNYT_TREASURY_ADDRESS)' };
   const pricing = priceTierRails(baseCents, knobs);
   return {
     ok: true,
@@ -492,8 +496,8 @@ export async function verifyUsdcTransfer(args: {
 }): Promise<{ ok: boolean; error?: string }> {
   const cfg = usdcConfigForChain(args.chainId);
   if (!cfg?.tokenAddress) return { ok: false, error: `USDC token not configured for chainId ${args.chainId}` };
-  const treasury = process.env.TREASURY_ADDRESS;
-  if (!treasury) return { ok: false, error: 'TREASURY_ADDRESS not configured' };
+  const treasury = process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_KNYT_TREASURY_ADDRESS;
+  if (!treasury) return { ok: false, error: 'Treasury address not configured (set TREASURY_ADDRESS or NEXT_PUBLIC_KNYT_TREASURY_ADDRESS)' };
   try {
     const res = await fetch(`${args.origin}/api/a2a/facilitator/verify`, {
       method: 'POST',
