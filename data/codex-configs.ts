@@ -2486,6 +2486,24 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'plan-pricing',
+      label: 'Plan Pricing',
+      slug: 'plan-pricing',
+      enabled: true,
+      adminOnly: true,
+      order: 4.5,
+      type: 'static',
+      config: {
+        component: 'PlanPriceConfigAdminTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'DollarSign',
+        description: 'Admin price editor — view and update tier prices for the Polity Alpha citizen and Founder Office subscription ladders',
+        color: 'amber'
+      }
+    },
+    {
       id: 'growth-matrix',
       label: 'Growth Matrix',
       slug: 'growth-matrix',

@@ -62,6 +62,7 @@ import { AgentiQOSTab } from "./tabs/AgentiQOSTab";
 import { RelationshipBuilderTab } from "./tabs/RelationshipBuilderTab";
 import { AlphaProgrammeTab } from "./tabs/AlphaProgrammeTab";
 import { AlphaDocsTab } from "./tabs/AlphaDocsTab";
+import { PlanPriceConfigAdminTab } from "./tabs/PlanPriceConfigAdminTab";
 import { MarketaPartnersAdminTab } from "@/app/(shell)/marketa/components/MarketaPartnersAdminTab";
 import { MarketaMyCampaignTab } from "@/app/(shell)/marketa/components/MarketaMyCampaignTab";
 import { MarketaProposeTab } from "@/app/(shell)/marketa/components/MarketaProposeTab";
@@ -238,6 +239,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   RelationshipBuilderTab,
   AlphaProgrammeTab,
   AlphaDocsTab,
+  PlanPriceConfigAdminTab,
   MarketaPartnersAdminTab,
   MarketaMyCampaignTab,
   MarketaProposeTab,

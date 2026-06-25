@@ -38,6 +38,9 @@ export async function GET(req: NextRequest) {
       ventureLimit: 9999,
       wizardAccess: { core: true, light: true, pro: true, operatingModel: true, portfolio: true },
       ventureSchemaTier: 'pro',
+      sovereignAccess: true,
+      stewardAccess: true,
+      aigentzLiteAccess: true,
     };
   }
   return NextResponse.json({

@@ -32,7 +32,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type AgencyPlanTier = 'citizen' | 'citizen_plus' | 'sovereign_citizen' | 'first_citizen';
+export type AgencyPlanTier = 'citizen' | 'citizen_plus' | 'sovereign_citizen' | 'steward' | 'first_citizen';
 export type VentureTier = 'none' | 'lite' | 'pro' | 'elite';
 export type StandingTier = 'standing' | 'professional';
 
@@ -80,6 +80,27 @@ export interface PersonaPlan {
   wizardAccess: WizardAccess;
   /** The richest VentureQube schema the persona may write ('pro' at lite+, else 'lite'). */
   ventureSchemaTier: 'lite' | 'pro';
+  /**
+   * True at Tier 1 (sovereign_citizen) and above.
+   * Unlocks: standing history/analytics, archetype-tagged standing scores,
+   * Sonnet AI tier, enhanced experience model, early Founder Office preview,
+   * DevOn/AigentZ lite (for developers to incubate pre-Founder-Office projects).
+   */
+  sovereignAccess: boolean;
+  /**
+   * True at Tier 2 (steward) and above.
+   * Unlocks: professional standing, steward privileges on passport_citizen_privileges,
+   * "Act as Aigent" delegation (evolves to deeper specialisation / consultant-for-hire),
+   * HMS discovery, community leadership roles.
+   */
+  stewardAccess: boolean;
+  /**
+   * True at Tier 1 (sovereign_citizen) and above.
+   * DevOn/AigentZ lite access — developers can incubate projects before
+   * entering the Founder Office, then graduate them as ventures when ready.
+   * Full DevOn operational access is Founder Office (venture_tier != none).
+   */
+  aigentzLiteAccess: boolean;
 }
 
 const FREE_PLAN: PersonaPlan = {
@@ -96,12 +117,16 @@ const FREE_PLAN: PersonaPlan = {
   ventureLimit: 1,
   wizardAccess: { core: true, light: true, pro: false, operatingModel: false, portfolio: false },
   ventureSchemaTier: 'lite',
+  sovereignAccess: false,
+  stewardAccess: false,
+  aigentzLiteAccess: false,
 };
 
 export const PLAN_LABEL: Record<AgencyPlanTier, string> = {
   citizen: 'Citizen',
   citizen_plus: 'Citizen Plus',
   sovereign_citizen: 'Sovereign Citizen',
+  steward: 'Steward',
   first_citizen: 'First Citizen',
 };
 
@@ -128,18 +153,28 @@ const VENTURE_LIMIT: Record<VentureTier, number> = {
   elite: 9999, // Operator Elite: unlimited ventures + portfolio
 };
 
+const SOVEREIGN_TIERS = new Set<string>(['sovereign_citizen', 'steward', 'first_citizen']);
+const STEWARD_TIERS = new Set<string>(['steward', 'first_citizen']);
+
 function resolve(row: {
   plan_tier?: string;
   venture_tier?: string;
   standing_tier?: string;
   status?: string;
 }): PersonaPlan {
+  const planTier = (row.plan_tier as AgencyPlanTier) ?? 'citizen';
   const ventureTier = (row.venture_tier as VentureTier) ?? 'none';
   const standingTier = (row.standing_tier as StandingTier) ?? 'standing';
-  const paid = ventureTier !== 'none';
-  // Professional Standing: own subscription OR bundled with Founder Office Pro/Elite.
+  const paid = ventureTier !== 'none'; // any Founder Office tier
+  // Citizen-ladder upgrade flags. Founder Office (paid) implies all citizen privileges.
+  const sovereignAccess = paid || SOVEREIGN_TIERS.has(planTier);
+  const stewardAccess = paid || STEWARD_TIERS.has(planTier);
+  // DevOn/AigentZ lite: Sovereignty tier + for developers to incubate pre-FO projects;
+  // full operational DevOn is Founder Office only.
+  const aigentzLiteAccess = sovereignAccess;
+  // Professional Standing: steward tier, own professional subscription, or FO Pro/Elite bundle.
   const professionalStanding =
-    standingTier === 'professional' || ventureTier === 'pro' || ventureTier === 'elite';
+    stewardAccess || standingTier === 'professional' || ventureTier === 'pro' || ventureTier === 'elite';
   // Pro schema + operating model unlock on entering the Founder Office (any paid
   // tier = "Founder" and up); the Portfolio is a second unlock at Founder
   // Pro/Elite. The operating model is NOT gated behind the portfolio.
@@ -147,7 +182,7 @@ function resolve(row: {
   const operatingModel = paid; // ships with the Founder Office (tier 1+)
   const portfolioWizard = ventureTier === 'pro' || ventureTier === 'elite';
   return {
-    planTier: (row.plan_tier as AgencyPlanTier) ?? 'citizen',
+    planTier,
     ventureTier,
     standingTier,
     status: (row.status as PersonaPlan['status']) ?? 'active',
@@ -159,6 +194,9 @@ function resolve(row: {
     ventureLimit: VENTURE_LIMIT[ventureTier] ?? 1,
     wizardAccess: { core: true, light: true, pro: proWizard, operatingModel, portfolio: portfolioWizard },
     ventureSchemaTier: proWizard ? 'pro' : 'lite',
+    sovereignAccess,
+    stewardAccess,
+    aigentzLiteAccess,
   };
 }
 
