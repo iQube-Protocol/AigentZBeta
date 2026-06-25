@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`bbd38c5`](https://github.com/iQube-Protocol/AigentZBeta/commit/bbd38c5638aa0d4cd3bd5b9e4e35f6de77c5cc6b) [feat] fix move-forward NBE regression + add operator archetype to experience model setup (Claude, 2026-06-25T18:29:07Z)
 - [`41ce391`](https://github.com/iQube-Protocol/AigentZBeta/commit/41ce391a2492f21e1aa144fea60c0545e3875e0a) [feat] add Polity Participation Model v1.0 as constitutional primitive to polity-core (Claude, 2026-06-25T17:58:36Z)
 - [`7febd30`](https://github.com/iQube-Protocol/AigentZBeta/commit/7febd30f68fff7c928a4cf7aede88725932023ff) [fix] fix standing_document upload constraint + ground all draft generators (Claude, 2026-06-25T02:08:03Z)
 - [`a1f4dc6`](https://github.com/iQube-Protocol/AigentZBeta/commit/a1f4dc6e0c1252a1b6ba3621de38147be96c837d) [push] separate VentureQube Lite from Pro ventures in portfolio mode (Claude, 2026-06-24T21:32:00Z)

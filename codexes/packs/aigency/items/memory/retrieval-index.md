@@ -2574,3 +2574,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-41ce391.md](../build_/COMMITS/COMMIT-41ce391.md)
 - Message: add Polity Participation Model v1.0 as constitutional primitive to polity-core
+
+## Commit `bbd38c5` — 2026-06-25T18:29:07Z
+- Type: `feat`
+- Brief: [COMMIT-bbd38c5.md](../build_/COMMITS/COMMIT-bbd38c5.md)
+- Message: fix move-forward NBE regression + add operator archetype to experience model setup
