@@ -2564,3 +2564,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-a1f4dc6.md](../build_/COMMITS/COMMIT-a1f4dc6.md)
 - Message: separate VentureQube Lite from Pro ventures in portfolio mode
+
+## Commit `7febd30` — 2026-06-25T02:08:03Z
+- Type: `fix`
+- Brief: [COMMIT-7febd30.md](../build_/COMMITS/COMMIT-7febd30.md)
+- Message: fix standing_document upload constraint + ground all draft generators

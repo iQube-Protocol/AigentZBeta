@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-25T01:02:15.586Z",
+  "last_updated": "2026-06-25T02:10:09.556Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a1f4dc6e0c1252a1b6ba3621de38147be96c837d",
-  "latest_commit_short": "a1f4dc6",
-  "latest_commit_title": "separate VentureQube Lite from Pro ventures in portfolio mode",
+  "latest_commit": "7febd30f68fff7c928a4cf7aede88725932023ff",
+  "latest_commit_short": "7febd30",
+  "latest_commit_title": "fix standing_document upload constraint + ground all draft generators",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7febd30",
+      "full_sha": "7febd30f68fff7c928a4cf7aede88725932023ff",
+      "title": "fix standing_document upload constraint + ground all draft generators",
+      "author": "Claude",
+      "timestamp": "2026-06-25T02:08:03Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-7febd30.md"
+    },
     {
       "sha": "a1f4dc6",
       "full_sha": "a1f4dc6e0c1252a1b6ba3621de38147be96c837d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-07T01:22:06Z",
       "type": "revert",
       "brief": "items/build_/COMMITS/COMMIT-fc9f447.md"
-    },
-    {
-      "sha": "403c789",
-      "full_sha": "403c7899e552a5bb943795e709a13e82f6dcbdb4",
-      "title": "fix chain timeline ordering: doc before analysis, original queue before specialist",
-      "author": "Claude",
-      "timestamp": "2026-06-05T22:04:04Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-403c789.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
