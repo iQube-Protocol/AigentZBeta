@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-19T16:19:00.563Z",
+  "last_updated": "2026-06-25T01:02:15.586Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "afdc85ff223adb53f3a50c7c2a5dcb7a66463064",
-  "latest_commit_short": "afdc85f",
-  "latest_commit_title": "seed standing-cartridge activation qube so the catalog card works",
+  "latest_commit": "a1f4dc6e0c1252a1b6ba3621de38147be96c837d",
+  "latest_commit_short": "a1f4dc6",
+  "latest_commit_title": "separate VentureQube Lite from Pro ventures in portfolio mode",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,96 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a1f4dc6",
+      "full_sha": "a1f4dc6e0c1252a1b6ba3621de38147be96c837d",
+      "title": "separate VentureQube Lite from Pro ventures in portfolio mode",
+      "author": "Claude",
+      "timestamp": "2026-06-24T21:32:00Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a1f4dc6.md"
+    },
+    {
+      "sha": "1129315",
+      "full_sha": "1129315c8a08bac44ddf90a2f6710ab3bc44b961",
+      "title": "enforce no-hallucination grounding on aigentMe narrative generators",
+      "author": "Claude",
+      "timestamp": "2026-06-24T22:04:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1129315.md"
+    },
+    {
+      "sha": "2abac0b",
+      "full_sha": "2abac0b3ce420130251eee585f17d5febdc83bb0",
+      "title": "dedupe duplicate Standing Core tab in the Standing cartridge",
+      "author": "Claude",
+      "timestamp": "2026-06-24T22:13:11Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2abac0b.md"
+    },
+    {
+      "sha": "016011e",
+      "full_sha": "016011e130b835de46ad499f28f82bd6fad6f9f6",
+      "title": "add standing-signal seam: log work done as verified progress signals",
+      "author": "Claude",
+      "timestamp": "2026-06-24T22:18:28Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-016011e.md"
+    },
+    {
+      "sha": "e72d35a",
+      "full_sha": "e72d35a2690ac10e40c1d66d1343930c28d8d292",
+      "title": "scope Standing profiles list to own persona (fixes duplicate Core tabs)",
+      "author": "Claude",
+      "timestamp": "2026-06-24T23:12:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e72d35a.md"
+    },
+    {
+      "sha": "1380547",
+      "full_sha": "1380547de3f4e347683ebcf47397f14596ef721a",
+      "title": "add standing-signal API route + standing_document upload kind",
+      "author": "Claude",
+      "timestamp": "2026-06-24T23:15:42Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1380547.md"
+    },
+    {
+      "sha": "640fc0f",
+      "full_sha": "640fc0f715135102f47aba1017e3b489f057a487",
+      "title": "add Work Log UI: log actions + standing documents in the Standing tab",
+      "author": "Claude",
+      "timestamp": "2026-06-24T23:18:29Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-640fc0f.md"
+    },
+    {
+      "sha": "a0a6b7d",
+      "full_sha": "a0a6b7d8a73d7f4466d9149a38fc37d57c1297d0",
+      "title": "surface verified work done in the Venture Progress report",
+      "author": "Claude",
+      "timestamp": "2026-06-24T23:20:26Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a0a6b7d.md"
+    },
+    {
+      "sha": "1b181d3",
+      "full_sha": "1b181d3e28d356d87a4ec1d3031f99b646600dd0",
+      "title": "add Google Calendar read ingest (past -> log, upcoming -> prepare)",
+      "author": "Claude",
+      "timestamp": "2026-06-24T23:24:58Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1b181d3.md"
+    },
+    {
+      "sha": "c5f03ee",
+      "full_sha": "c5f03eeb43dbeeaba96f02a20bf916caa00b0909",
+      "title": "add Google Tasks read ingest (completed -> log, pending -> to-dos)",
+      "author": "Claude",
+      "timestamp": "2026-06-25T00:35:17Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c5f03ee.md"
+    },
     {
       "sha": "afdc85f",
       "full_sha": "afdc85ff223adb53f3a50c7c2a5dcb7a66463064",
@@ -1162,96 +1252,6 @@
       "timestamp": "2026-06-05T22:04:04Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-403c789.md"
-    },
-    {
-      "sha": "46d4eeb",
-      "full_sha": "46d4eeb4de65d72c664b96b42beca7c439d39057",
-      "title": "improve chain panel legibility: copy, doc approval decoupling, timeline ordering",
-      "author": "Claude",
-      "timestamp": "2026-06-05T20:28:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-46d4eeb.md"
-    },
-    {
-      "sha": "d314131",
-      "full_sha": "d3141314c710aabb1847219f2ebf17f38a1f5b8e",
-      "title": "document capsule containment infraction pattern + fix in CLAUDE.md",
-      "author": "Claude",
-      "timestamp": "2026-06-05T18:14:15Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d314131.md"
-    },
-    {
-      "sha": "337282f",
-      "full_sha": "337282fcbd7c1c5a6ca12d3a2f35c9aaff943ce1",
-      "title": "add capsule containment golden rule to CLAUDE.md",
-      "author": "Claude",
-      "timestamp": "2026-06-05T18:01:33Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-337282f.md"
-    },
-    {
-      "sha": "1d0f4c0",
-      "full_sha": "1d0f4c092eedf69d3cd8d930d709b49f0d641f33",
-      "title": "feat(chain): auto-consult specialist on Queue — close the recursion loop",
-      "author": "Claude",
-      "timestamp": "2026-06-05T02:09:28Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-1d0f4c0.md"
-    },
-    {
-      "sha": "f4d58a0",
-      "full_sha": "f4d58a06bdf043bc8f338ae37f39ab81eeee905d",
-      "title": "trigger deploy: auto-consult on queue closes execution loop",
-      "author": "Claude",
-      "timestamp": "2026-06-05T02:09:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f4d58a0.md"
-    },
-    {
-      "sha": "f2824ee",
-      "full_sha": "f2824ee74ec0b07ea1bfedfd2f30afe6e76131db",
-      "title": "feat(chain): close execution loop — recommendations spawn child intents",
-      "author": "Claude",
-      "timestamp": "2026-06-04T19:43:19Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f2824ee.md"
-    },
-    {
-      "sha": "1ddb87c",
-      "full_sha": "1ddb87c7374a181cde71a51b571cabb372e2fcc2",
-      "title": "trigger deploy: queueable recommendations close execution loop (f2824ee7)",
-      "author": "Claude",
-      "timestamp": "2026-06-04T19:43:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1ddb87c.md"
-    },
-    {
-      "sha": "5caee4a",
-      "full_sha": "5caee4afff9fbb2cd566f86861a8a6ec03687e20",
-      "title": "feat(chain): operator-driven advance — Approve / Mark complete / Cancel",
-      "author": "Claude",
-      "timestamp": "2026-06-04T18:32:42Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5caee4a.md"
-    },
-    {
-      "sha": "1f160a2",
-      "full_sha": "1f160a24dd7ed6d046377c10e62981bedbc50ceb",
-      "title": "trigger deploy: operator-driven intent advance buttons (5caee4af)",
-      "author": "Claude",
-      "timestamp": "2026-06-04T18:32:48Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1f160a2.md"
-    },
-    {
-      "sha": "2dcff5e",
-      "full_sha": "2dcff5ed123474a6e7bf0605946dddcf6da2c5b0",
-      "title": "style(workspace): green container around expanded intent pills",
-      "author": "Claude",
-      "timestamp": "2026-06-04T04:06:48Z",
-      "type": "style",
-      "brief": "items/build_/COMMITS/COMMIT-2dcff5e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
