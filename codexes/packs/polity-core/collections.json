@@ -85,6 +85,18 @@
       ]
     },
     {
+      "id": "col_participation_model",
+      "title": "Participation Model",
+      "description": "The Polity Participation Model — the constitutional framework for how sovereign people engage with the Polity. Trilogy completion: Passport (identity) + Standing (credibility) + Participation Model (direction).",
+      "type": "static",
+      "order": 5.5,
+      "enabled": true,
+      "metadata": { "icon": "Users", "category": "main" },
+      "items": [
+        "items/PARTICIPATION_MODEL.md"
+      ]
+    },
+    {
       "id": "col_ventureqube_spec",
       "title": "VentureQube Spec (WIP)",
       "description": "Work-in-progress constitutional primitive — VentureQube v1 (ClusterQube specialization). Stubbed for canonization.",
