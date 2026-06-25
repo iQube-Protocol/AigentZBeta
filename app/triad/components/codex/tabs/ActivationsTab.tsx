@@ -197,7 +197,25 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
                       Activate
                     </button>
                   )}
-                  {!isActive && !isPending && !s.canSelfActivate && (
+                  {/* Plan-gated (paywall) → Upgrade. Other gated (grant /
+                      invite / cohort) → Request access. */}
+                  {!isActive && !isPending && !s.canSelfActivate && s.planGated && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openUpgrade(
+                          s.requiredTier
+                            ? { tiers: [s.requiredTier], defaultTierKey: s.requiredTier }
+                            : undefined,
+                        )
+                      }
+                      className="flex items-center gap-1 px-2.5 py-1 rounded border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-100 text-xs"
+                    >
+                      <ArrowUpCircle className="w-3 h-3" />
+                      Upgrade to unlock
+                    </button>
+                  )}
+                  {!isActive && !isPending && !s.canSelfActivate && !s.planGated && (
                     <button
                       type="button"
                       onClick={() => handleClick(s.id, "request")}

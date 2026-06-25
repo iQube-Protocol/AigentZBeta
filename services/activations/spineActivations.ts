@@ -32,23 +32,23 @@ import {
   type ActivationGate,
 } from '@/data/activation-catalog';
 
-// Premium cartridge activations whose self-activation is gated by the persona's
-// PLAN (the paywall). A persona may self-activate one of these gated activations
-// when their plan grants the matching entitlement (or they're an admin).
-const PLAN_ENTITLEMENT: Record<string, (p: PersonaPlan) => boolean> = {
-  'venture-lab': (p) => p.ventureLabAccess,
-  'marketa': (p) => p.marketaAccess,
-  'metame-studio': (p) => p.studioAccess,
-  'human-mobility-services': (p) => p.hmsAccess,
-};
+// Plan-gate map (which premium activations are paywalled + the tier that
+// unlocks each) is shared with personaActivations via activationPlanGate so
+// the rule never drifts between the two services.
+import {
+  ACTIVATION_PLAN_GATE,
+  isPlanEntitled,
+  resolveActivationPlanGate,
+} from '@/services/activations/activationPlanGate';
+import type { TierKey } from '@/services/billing/planCheckout';
 
 async function planAllowsSelfActivate(personaId: string, activationId: string): Promise<boolean> {
-  const entitled = PLAN_ENTITLEMENT[activationId];
-  if (!entitled) return false;
+  const gate = ACTIVATION_PLAN_GATE[activationId];
+  if (!gate) return false;
   const admin = getSupabaseServer();
   if (!admin) return false;
   try {
-    return entitled(await getPersonaPlan(admin, personaId));
+    return gate.entitled(await getPersonaPlan(admin, personaId));
   } catch {
     return false;
   }
@@ -88,6 +88,14 @@ export interface ActivationSurface {
   revokedAt: string | null;
   /** True when the caller is eligible to self-activate. */
   canSelfActivate: boolean;
+  /**
+   * True when this surface is blocked specifically by the persona's PLAN
+   * (paywall) — not by admin-grant / invite / cohort. Drives the catalogue's
+   * "Upgrade" affordance (vs "Request access").
+   */
+  planGated: boolean;
+  /** Tier whose checkout unlocks this surface, when planGated. */
+  requiredTier: TierKey | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -179,6 +187,13 @@ function rowToSurface(
     qube?.gating_kind === 'free' ? 'open' : 'gated';
   const gate: ActivationGate = entry.gate ?? gateFromPolicy;
   const canSelfActivate = gate === 'open' || isAdmin || planEntitled || !!edition;
+  // Plan-gate state: blocked specifically by the paywall (vs grant/invite/cohort).
+  // "Already available" = open gate, admin, plan-entitled, or already has an edition.
+  const planGate = resolveActivationPlanGate(
+    entry.id,
+    null,
+    gate === 'open' || isAdmin || planEntitled || !!edition,
+  );
 
   // Truth table:
   //   row present, released_at NULL    → active
@@ -209,6 +224,8 @@ function rowToSurface(
     grantedAt: edition?.issued_at ?? null,
     revokedAt: edition?.released_at ?? null,
     canSelfActivate,
+    planGated: planGate.planGated,
+    requiredTier: planGate.requiredTier,
   };
 }
 
@@ -385,7 +402,7 @@ export async function listActivations(
   return ACTIVATION_CATALOG.map((entry) => {
     const qube = qubeIndex.get(entry.id);
     const edition = qube ? heldEditions.get(qube.qube_id) : undefined;
-    const planEntitled = !!plan && !!PLAN_ENTITLEMENT[entry.id]?.(plan);
+    const planEntitled = isPlanEntitled(entry.id, plan);
     return rowToSurface(
       entry,
       edition,

@@ -20,18 +20,14 @@ import {
   type ActivationCatalogEntry,
   type ActivationGate,
 } from '@/data/activation-catalog';
-
-// Premium cartridge activations whose self-activation is gated by the persona's
-// PLAN (the paywall). A persona may self-activate one of these gated activations
-// when their plan grants the matching entitlement (or when they're an admin).
-// This is the eligibility layer — rendering still follows the persona's toggle
-// (persona_activations), so deactivation always works.
-const PLAN_ENTITLEMENT: Record<string, (p: PersonaPlan) => boolean> = {
-  'venture-lab': (p) => p.ventureLabAccess,
-  'marketa': (p) => p.marketaAccess,
-  'metame-studio': (p) => p.studioAccess,
-  'human-mobility-services': (p) => p.hmsAccess,
-};
+// Shared plan-gate map (which premium activations are paywalled + the unlocking
+// tier) — kept in one place so this service and spineActivations never drift.
+import {
+  ACTIVATION_PLAN_GATE,
+  isPlanEntitled,
+  resolveActivationPlanGate,
+} from '@/services/activations/activationPlanGate';
+import type { TierKey } from '@/services/billing/planCheckout';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public types — T1-safe.
@@ -57,6 +53,10 @@ export interface ActivationSurface {
   revokedAt: string | null;
   /** True when the caller is eligible to self-activate (open, or admin on a gated row). */
   canSelfActivate: boolean;
+  /** True when blocked specifically by the persona's PLAN (paywall). */
+  planGated: boolean;
+  /** Tier whose checkout unlocks this surface, when planGated. */
+  requiredTier: TierKey | null;
 }
 
 interface PersonaActivationRow {
@@ -157,9 +157,9 @@ function rowToSurface(
   isAdmin: boolean,
   plan: PersonaPlan | null,
 ): ActivationSurface {
-  const planEntitled = !!plan && !!PLAN_ENTITLEMENT[entry.id]?.(plan);
-  const canSelfActivate =
-    entry.gate === 'open' || isAdmin || planEntitled || row?.status === 'active';
+  const planEntitled = isPlanEntitled(entry.id, plan);
+  const available = entry.gate === 'open' || isAdmin || planEntitled || row?.status === 'active';
+  const planGate = resolveActivationPlanGate(entry.id, plan, available);
   return {
     id: entry.id,
     label: entry.label,
@@ -174,7 +174,9 @@ function rowToSurface(
     grantedVia: row?.granted_via ?? null,
     grantedAt: row?.granted_at ?? null,
     revokedAt: row?.revoked_at ?? null,
-    canSelfActivate,
+    canSelfActivate: available,
+    planGated: planGate.planGated,
+    requiredTier: planGate.requiredTier,
   };
 }
 
@@ -329,13 +331,13 @@ export async function activate(
   if (entry.gate === 'gated' && !options.isAdmin) {
     // Plan-based eligibility (the paywall): a premium cartridge activation may
     // be self-activated when the persona's plan grants it; otherwise gated.
-    const entitled = PLAN_ENTITLEMENT[activationId];
+    const gate = ACTIVATION_PLAN_GATE[activationId];
     let planAllows = false;
-    if (entitled) {
+    if (gate) {
       const sb = getSupabaseServer();
       if (sb) {
         try {
-          planAllows = entitled(await getPersonaPlan(sb, personaId));
+          planAllows = gate.entitled(await getPersonaPlan(sb, personaId));
         } catch {
           planAllows = false;
         }
