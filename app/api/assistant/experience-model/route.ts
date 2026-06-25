@@ -33,6 +33,7 @@ import {
   type ExperienceStage,
   type ConfidentialityDefault,
   type ActiveCartridgeSlug,
+  type OperatorArchetype,
 } from '@/services/iqube/experienceQube';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
@@ -53,6 +54,7 @@ interface ExperienceQubeApiSurface {
     progressModel: string;
     activeCartridges: ActiveCartridgeSlug[];
     confidentialityDefault: ConfidentialityDefault;
+    operatorArchetype: OperatorArchetype | null;
   } | null;
   /**
    * Counts-only view of the BlakQube — confirms presence without disclosing
@@ -83,7 +85,7 @@ function shape(record: ExperienceQubeRecord | null): ExperienceQubeApiSurface {
   const blak = record.blak;
   return {
     configured: true,
-    meta: record.meta,
+    meta: { ...record.meta },
     blakSummary: {
       goalsCount: blak.experienceGoals?.length ?? 0,
       strategicGoalsCount: blak.strategicGoals?.length ?? 0,
@@ -138,6 +140,7 @@ interface PostBody {
   progressModel?: string;
   activeCartridges?: ActiveCartridgeSlug[];
   confidentialityDefault?: ConfidentialityDefault;
+  operatorArchetype?: OperatorArchetype | null;
   blak?: {
     experienceGoals?: string[];
     strategicGoals?: string[];
@@ -176,6 +179,9 @@ function sanitiseBody(raw: unknown): ExperienceQubeUpsertInput {
   }
   if (typeof body.confidentialityDefault === 'string') {
     out.confidentialityDefault = body.confidentialityDefault as ConfidentialityDefault;
+  }
+  if (body.operatorArchetype !== undefined) {
+    out.operatorArchetype = (body.operatorArchetype as OperatorArchetype | null) ?? null;
   }
   if (body.blak && typeof body.blak === 'object') {
     out.blak = body.blak;

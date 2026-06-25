@@ -462,6 +462,7 @@ export function selectTopNbeForCartridge(
     workspaceConnected?: GoogleSource[];
     experienceGoals?: string[];
     stageAdvanceEligible?: boolean;
+    spineStagesComplete?: Record<string, boolean>;
   },
 ): NbeCandidate | null {
   const candidates = selectNbeCandidates({
@@ -472,6 +473,7 @@ export function selectTopNbeForCartridge(
     workspaceConnected: options?.workspaceConnected ?? [],
     experienceGoals: options?.experienceGoals ?? [],
     stageAdvanceEligible: options?.stageAdvanceEligible ?? false,
+    spineStagesComplete: options?.spineStagesComplete ?? {},
   });
   return candidates[0] ?? null;
 }

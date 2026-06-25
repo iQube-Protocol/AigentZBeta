@@ -16,7 +16,7 @@
 
 import type { NbeCandidate } from '@/services/orchestration/nbeCatalog';
 import type { InferredStrategy } from '@/services/strategy/strategyInference';
-import type { ActiveCartridgeSlug, ExperienceStage } from '@/services/iqube/experienceQube';
+import type { ActiveCartridgeSlug, ExperienceStage, OperatorArchetype } from '@/services/iqube/experienceQube';
 import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -91,6 +91,12 @@ interface RerankContext {
   experienceGoals: string[];
   strategy: InferredStrategy | null;
   /**
+   * Polity Participation Model archetype. When set, the reranker biases
+   * toward archetype-appropriate NBEs (e.g. Entrepreneurial → venture
+   * formation moves; Creative → content/cultural moves).
+   */
+  operatorArchetype?: OperatorArchetype | null;
+  /**
    * Optional Capability Gateway pre-flight summary (e.g. web-search
    * digest, owned-content-scan finding). Surfaces as a `liveContext`
    * field in the prompt body. Empty / null => omitted entirely so the
@@ -156,6 +162,7 @@ function summariseForPrompt(
         activeCartridges: ctx.activeCartridges,
         primaryGoal: ctx.primaryGoal,
         experienceGoals: ctx.experienceGoals.slice(0, 16),
+        ...(ctx.operatorArchetype ? { operatorArchetype: ctx.operatorArchetype } : {}),
       },
       strategy: ctx.strategy
         ? {

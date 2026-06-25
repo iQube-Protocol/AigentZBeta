@@ -44,6 +44,8 @@ import type { ExperienceModelCardData } from "@/components/metame/cards/Experien
 // Types — mirror the route's accepted body fields.
 // ─────────────────────────────────────────────────────────────────────────
 
+type OperatorArchetype = "citizen" | "entrepreneurial" | "technical" | "creative";
+
 type ExperienceType =
   | "personal"
   | "creative"
@@ -72,6 +74,7 @@ type ActiveCartridgeSlug =
   | "mvl";
 
 interface FormState {
+  operatorArchetype: OperatorArchetype;
   experienceName: string;
   experienceType: ExperienceType;
   primaryGoal: string;
@@ -85,7 +88,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Initial state — pre-fills from the existing ExperienceQube if any. */
-  initial?: Partial<FormState>;
+  initial?: Partial<FormState> & { operatorArchetype?: OperatorArchetype | null };
   /** Called with the GET response shape after a successful save. */
   onSaved: (data: ExperienceModelCardData) => void;
 }
@@ -93,6 +96,21 @@ interface Props {
 // ─────────────────────────────────────────────────────────────────────────
 // Static option catalogues — single source of truth for the wizard UI.
 // ─────────────────────────────────────────────────────────────────────────
+
+const OPERATOR_ARCHETYPES: Array<{ value: OperatorArchetype; label: string; hint: string }> = [
+  { value: "entrepreneurial", label: "Entrepreneurial", hint: "Founding or building ventures, commercial programs, or franchises" },
+  { value: "technical",       label: "Technical",       hint: "Protocol contribution, tooling, infrastructure, or development" },
+  { value: "creative",        label: "Creative",        hint: "Editorial, media, IP development, cultural contribution" },
+  { value: "citizen",         label: "Citizen",         hint: "Sovereignty journey, identity, governance participation" },
+];
+
+/** Archetype → sensible experienceType default. Overrideable by the operator. */
+const ARCHETYPE_DEFAULT_TYPE: Record<OperatorArchetype, ExperienceType> = {
+  entrepreneurial: "venture_building",
+  technical:       "venture_building",
+  creative:        "creative",
+  citizen:         "personal",
+};
 
 const EXPERIENCE_TYPES: Array<{ value: ExperienceType; label: string; hint: string }> = [
   { value: "venture_building", label: "Venture building", hint: "Active venture / franchise / commercial program" },
@@ -142,6 +160,7 @@ export function ExperienceModelSetupWizard({ open, onOpenChange, initial, onSave
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>({
+    operatorArchetype: (initial?.operatorArchetype as OperatorArchetype) ?? "entrepreneurial",
     experienceName: initial?.experienceName ?? "",
     experienceType: initial?.experienceType ?? "venture_building",
     primaryGoal: initial?.primaryGoal ?? "",
@@ -162,6 +181,7 @@ export function ExperienceModelSetupWizard({ open, onOpenChange, initial, onSave
     prevOpenRef.current = open;
     if (!justOpened) return;
     setForm({
+      operatorArchetype: (initial?.operatorArchetype as OperatorArchetype) ?? "entrepreneurial",
       experienceName: initial?.experienceName ?? "",
       experienceType: initial?.experienceType ?? "venture_building",
       primaryGoal: initial?.primaryGoal ?? "",
@@ -176,6 +196,19 @@ export function ExperienceModelSetupWizard({ open, onOpenChange, initial, onSave
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function selectArchetype(archetype: OperatorArchetype) {
+    setForm((f) => ({
+      ...f,
+      operatorArchetype: archetype,
+      // Auto-default experienceType from the archetype unless the operator
+      // has already moved away from the current archetype's default.
+      experienceType:
+        f.experienceType === ARCHETYPE_DEFAULT_TYPE[f.operatorArchetype]
+          ? ARCHETYPE_DEFAULT_TYPE[archetype]
+          : f.experienceType,
+    }));
   }
 
   function toggleCartridge(slug: ActiveCartridgeSlug) {
@@ -203,6 +236,7 @@ export function ExperienceModelSetupWizard({ open, onOpenChange, initial, onSave
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          operatorArchetype: form.operatorArchetype,
           experienceName: form.experienceName.trim(),
           experienceType: form.experienceType,
           primaryGoal: form.primaryGoal.trim(),
@@ -254,6 +288,17 @@ export function ExperienceModelSetupWizard({ open, onOpenChange, initial, onSave
         <div className="space-y-4 py-2 min-h-[280px]">
           {step === 0 && (
             <>
+              <Field label="How do you participate?">
+                <RadioGroup
+                  value={form.operatorArchetype}
+                  options={OPERATOR_ARCHETYPES}
+                  onChange={(v) => selectArchetype(v as OperatorArchetype)}
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  This shapes the recommendations and next-best actions aigentMe surfaces for you.
+                </p>
+              </Field>
+
               <Field label="What are you building or progressing?" required>
                 <div className="flex gap-2">
                   <input

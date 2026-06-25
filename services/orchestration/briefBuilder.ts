@@ -251,6 +251,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     primaryGoal,
     experienceGoals,
     strategy,
+    operatorArchetype: qube?.meta.operatorArchetype ?? null,
     liveContext: input.liveContext ?? null,
   });
   nbeCandidates = rerank.ranked;
@@ -348,13 +349,23 @@ export async function buildMoveForward(input: {
   /** See `BuildBriefInput.liveContext` — same meaning. */
   liveContext?: string | null;
 }): Promise<MoveForwardShape> {
-  const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
+  const adminClient = getSupabaseServer();
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
     inferStrategy(input.personaId).catch(() => null),
     evaluateStageProgression(input.personaId, { runAutoAdvance: false }).catch(() => null),
+    adminClient
+      ? getCommercialSpineState(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
   ]);
+
+  // Mirror buildBrief: populate spineStagesComplete so golden-path NBEs
+  // (establish-standing, open-founder-office, advance-venture-lab) surface
+  // correctly via their spineStagePrereq/spineStageNotComplete gates.
+  const spineStagesComplete: Record<string, boolean> = {};
+  for (const s of spine?.stages ?? []) spineStagesComplete[s.id] = s.complete;
 
   const activeCartridges = qube?.meta.activeCartridges ?? (input.cartridge ? [input.cartridge] : ['metame']);
   const currentStage: ExperienceStage = qube?.meta.currentStage ?? 'setup';
@@ -381,6 +392,7 @@ export async function buildMoveForward(input: {
       workspaceConnected,
       experienceGoals,
       stageAdvanceEligible,
+      spineStagesComplete,
     });
     altsRaw = selectNbeCandidates({
       activeCartridges,
@@ -390,6 +402,7 @@ export async function buildMoveForward(input: {
       workspaceConnected,
       experienceGoals,
       stageAdvanceEligible,
+      spineStagesComplete,
     }).filter((c) => c.id !== topCandidate?.id);
   } else {
     const baseline = selectNbeCandidates({
@@ -399,6 +412,7 @@ export async function buildMoveForward(input: {
       workspaceConnected,
       experienceGoals,
       stageAdvanceEligible,
+      spineStagesComplete,
     });
     const rerank = await llmRerankNbeCandidates(baseline, {
       currentStage,
@@ -406,6 +420,7 @@ export async function buildMoveForward(input: {
       primaryGoal,
       experienceGoals,
       strategy,
+      operatorArchetype: qube?.meta.operatorArchetype ?? null,
       liveContext: input.liveContext ?? null,
     });
     topCandidate = rerank.ranked[0] ?? null;
