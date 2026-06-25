@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getCrmClient } from '@/services/crm/crmDataAccess';
 import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
 
 export const dynamic = 'force-dynamic';
@@ -223,8 +224,72 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Sprint 4 — enrich aigentMe with Standing lanes. The standing numbers are
+    // T1-safe aggregate scores; only the internal CRM persona ID stays server-side.
+    // Resolution chain: agent_root_identity.agent_id → crm_personas.identity_persona_id
+    // → crm_persona_reputation.{standing_personal/delegated/stewardship/overall/bucket}.
+    const standingByAgentId: Record<
+      string,
+      {
+        personal: number;
+        delegated: number;
+        stewardship: number;
+        overall: number;
+        bucket: number;
+      }
+    > = {};
+
+    const aigentMeAgents = agentRows.filter((r) => Boolean(r.is_aigent_me) && r.agent_id);
+    if (aigentMeAgents.length > 0) {
+      try {
+        const crm = getCrmClient();
+        const agentIdentityIds = aigentMeAgents.map((r) => String(r.agent_id));
+        const { data: crmRows } = await crm
+          .from('crm_personas')
+          .select('id, identity_persona_id')
+          .in('identity_persona_id', agentIdentityIds);
+
+        if (crmRows && crmRows.length > 0) {
+          const crmIdToIdentityId: Record<string, string> = {};
+          for (const cr of crmRows) {
+            if (cr.id && cr.identity_persona_id) {
+              crmIdToIdentityId[String(cr.id)] = String(cr.identity_persona_id);
+            }
+          }
+          const crmIds = Object.keys(crmIdToIdentityId);
+          if (crmIds.length > 0) {
+            const { data: repRows } = await crm
+              .from('crm_persona_reputation')
+              .select('persona_id, standing_personal, standing_delegated, standing_stewardship, standing_overall, standing_bucket')
+              .in('persona_id', crmIds);
+            for (const rep of repRows ?? []) {
+              const identityId = crmIdToIdentityId[String(rep.persona_id)];
+              if (identityId) {
+                standingByAgentId[identityId] = {
+                  personal: Number(rep.standing_personal ?? 0),
+                  delegated: Number(rep.standing_delegated ?? 0),
+                  stewardship: Number(rep.standing_stewardship ?? 0),
+                  overall: Number(rep.standing_overall ?? 0),
+                  bucket: Number(rep.standing_bucket ?? 0),
+                };
+              }
+            }
+          }
+        }
+      } catch {
+        // Best-effort — standing is informational, never blocks agent listing.
+      }
+    }
+
+    const agentsWithStanding = agents.map((a) => ({
+      ...a,
+      standing: a.isAigentMe && (a.agentId as string | null)
+        ? (standingByAgentId[String(a.agentId)] ?? null)
+        : null,
+    }));
+
     return NextResponse.json(
-      { ok: true, agents, capacity },
+      { ok: true, agents: agentsWithStanding, capacity },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {

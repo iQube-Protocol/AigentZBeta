@@ -56,7 +56,10 @@ export type ActivityActionType =
   // document uploaded becomes a verified Standing signal that grounded progress
   // reports read as PROGRESS from the ingested baseline.
   | 'operator_action_logged'
-  | 'standing_document_added';
+  | 'standing_document_added'
+  // Bounded delegation lifecycle (DVN-anchorable)
+  | 'agent_delegated'
+  | 'agent_delegation_revoked';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

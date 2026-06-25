@@ -21,12 +21,22 @@
  * Reuse: this calls the existing `accrueStanding()` keystone (Personal lane);
  * it does not build a parallel Standing path. Sponsor Delegated/Stewardship
  * credit + capacity flow through that service exactly as for task completion.
+ *
+ * Sprint 2 — Delegation chain accrual:
+ * The delegation layer of the VentureQube carries the agentType + agentId for
+ * each bounded agent (aigentMe delegate, devon/marketa workers). When present,
+ * their identity persona IDs are resolved to CRM personas and credited at the
+ * delegation-lane multipliers:
+ *   Delegate (aigentMe)        → Delegated Standing  × 0.5 of CVS
+ *   Worker  (devon, marketa…)  → Stewardship Standing × 0.25 of CVS
+ * This flows verified venture outcomes through the full fulfilment chain as
+ * privacy-preserving Standing signals anchored on-chain via DVN receipts.
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
 import { accrueStanding } from '@/services/crm/standingAccrualService';
-import type { ProofOfOutcomeClaim, VentureQubeV1 } from '@/types/ventureQube';
+import type { ProofOfOutcomeClaim, VentureQubeV1, VentureDelegationLayer } from '@/types/ventureQube';
 
 /** Net Value Acceleration in hours = time-to-value saved net of risk repair. */
 export function netValueAccelerationHours(claim: ProofOfOutcomeClaim): number {
@@ -41,6 +51,15 @@ export function claimContributionScore(claim: ProofOfOutcomeClaim): number {
   return netValueAccelerationHours(claim) * confidence;
 }
 
+/** Delegation-lane multipliers per CLAUDE.md Standing architecture. */
+const DELEGATED_CVS_FACTOR = 0.5;
+const STEWARDSHIP_CVS_FACTOR = 0.25;
+
+/** VentureAgentConsumer values that map to the Delegated lane. */
+const DELEGATE_AGENT_TYPES = new Set(['aigentMe']);
+/** VentureAgentConsumer values that map to the Stewardship lane. */
+const WORKER_AGENT_TYPES = new Set(['devon', 'marketa', 'venture-lab', 'investor-office']);
+
 export interface OutcomeAccrualResult {
   ok: true;
   ventureId: string;
@@ -50,15 +69,52 @@ export interface OutcomeAccrualResult {
   netValueAccelerationHours: number;
   /** Contribution Value Score sent to the Standing keystone (NVA × confidence). */
   cvsAccrued: number;
-  /** Resulting Personal/overall Standing, when accrual ran; null when skipped. */
+  /** Resulting Personal/overall Standing for the owner, when accrual ran; null when skipped. */
   standingOverall: number | null;
   standingThresholdCrossed: boolean;
+  /**
+   * Sprint 2 — per-participant accrual results for the delegation chain.
+   * Array is empty when no delegation layer is populated on the venture.
+   */
+  delegationChainAccruals: Array<{
+    agentType: string;
+    agentId: string;
+    lane: 'delegated' | 'stewardship';
+    cvsAccrued: number;
+    standingOverall: number | null;
+  }>;
+}
+
+/**
+ * Resolve a CRM persona ID from an identity persona ID. Best-effort — returns
+ * null when the agent has no CRM record (common during Alpha for system agents).
+ */
+async function crmPersonaIdForIdentityPersonaId(identityPersonaId: string): Promise<string | null> {
+  try {
+    const crm = getCrmClient();
+    const { data } = await crm
+      .from('crm_personas')
+      .select('id')
+      .eq('identity_persona_id', identityPersonaId)
+      .maybeSingle();
+    return data?.id ? String(data.id) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Sweep a venture's verified-but-unaccrued ProofOfOutcomeClaims, credit the
  * owner's Personal Standing once for the aggregate Net Value Acceleration, and
  * stamp each accrued claim `accruedAt`. Best-effort and idempotent.
+ *
+ * Sprint 2 (corrected Sprint 4): delegation chain participants each earn
+ * Personal Standing — the keystone auto-resolves their citizen sponsor via the
+ * identity spine and credits the citizen Delegated (0.5×) + Stewardship (0.25×)
+ * implicitly. CVS portions: delegate = 0.5× cvsTotal, workers = 0.25×.
+ * This avoids double-counting: citizen owner already earned the full cvsTotal
+ * in the Personal lane above; the fractions here represent the agent's own
+ * contribution signal, not a duplicate of the citizen's.
  */
 export async function accrueVentureOutcomes(
   ventureId: string,
@@ -89,6 +145,7 @@ export async function accrueVentureOutcomes(
       cvsAccrued: 0,
       standingOverall: null,
       standingThresholdCrossed: false,
+      delegationChainAccruals: [],
     };
   }
 
@@ -119,6 +176,50 @@ export async function accrueVentureOutcomes(
     }
   }
 
+  // Sprint 4 (corrects Sprint 2) — Delegation chain accrual.
+  // Each agent earns Personal Standing for their portion of the verified CVS.
+  // The standing keystone auto-resolves their citizen sponsor via the identity
+  // spine (agent_root_identity → sponsor_persona_id → crm_persona) and credits
+  // the citizen Delegated/Stewardship implicitly — no double-counting of the
+  // citizen's own Personal accrual above.
+  // Delegate (aigentMe): 0.5× cvsTotal. Workers: 0.25× cvsTotal.
+  const delegationLayer = layers.delegation as VentureDelegationLayer | undefined;
+  const chainAccruals: OutcomeAccrualResult['delegationChainAccruals'] = [];
+  if (cvsTotal > 0 && Array.isArray(delegationLayer?.assignments)) {
+    for (const assignment of delegationLayer!.assignments) {
+      const agentPersonaId = assignment.agentId;
+      if (!agentPersonaId) continue;
+
+      const isDelegate = DELEGATE_AGENT_TYPES.has(assignment.agentType);
+      const isWorker = WORKER_AGENT_TYPES.has(assignment.agentType);
+      if (!isDelegate && !isWorker) continue;
+
+      // Lane tag returned to the caller for audit; the actual accrual is always
+      // Personal (the agent earns their own signal; citizen sponsor gets credit
+      // through the keystone's auto-resolved sponsor logic).
+      const lane: 'delegated' | 'stewardship' = isDelegate ? 'delegated' : 'stewardship';
+      const factor = isDelegate ? DELEGATED_CVS_FACTOR : STEWARDSHIP_CVS_FACTOR;
+      const agentCvs = cvsTotal * factor;
+
+      const agentCrmId = await crmPersonaIdForIdentityPersonaId(agentPersonaId);
+      if (!agentCrmId) continue; // no CRM record — skip silently
+
+      const accrual = await accrueStanding({
+        crmPersonaId: agentCrmId,
+        cvs: agentCvs,
+        standingType: 'personal', // agent earns Personal; keystone auto-credits citizen sponsor
+      }).catch(() => null);
+
+      chainAccruals.push({
+        agentType: assignment.agentType,
+        agentId: agentPersonaId,
+        lane,
+        cvsAccrued: agentCvs,
+        standingOverall: accrual?.overall ?? null,
+      });
+    }
+  }
+
   // Stamp accrued claims (idempotent) and persist the layers in place. Done
   // even when no CRM persona was found, so a later CRM link doesn't double-count
   // — verification is the accrual gate, and these claims are verified.
@@ -140,5 +241,6 @@ export async function accrueVentureOutcomes(
     cvsAccrued: cvsTotal,
     standingOverall,
     standingThresholdCrossed: thresholdCrossed,
+    delegationChainAccruals: chainAccruals,
   };
 }

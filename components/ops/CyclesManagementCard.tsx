@@ -10,8 +10,8 @@ import {
   Send,
   Shield,
   HelpCircle,
+  Copy,
 } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
 
 interface CanisterCyclesInfo {
   canisterId: string;
@@ -105,6 +105,31 @@ function truncateId(id: string | null): string {
   return `${id.slice(0, 8)}…${id.slice(-6)}`;
 }
 
+function WalletAddressCopy({ walletCanisterId }: { walletCanisterId: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(walletCanisterId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className="flex items-center gap-2 mb-3 p-2 rounded-md bg-slate-800/60 border border-slate-700/50">
+      <Shield size={12} className="text-slate-400 flex-shrink-0" />
+      <span className="text-[11px] text-slate-400 flex-shrink-0">Wallet canister:</span>
+      <span className="font-mono text-[11px] text-slate-200 flex-1 truncate">{walletCanisterId}</span>
+      <button
+        onClick={copy}
+        title="Copy wallet canister ID"
+        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] rounded border border-slate-600 bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-slate-100 transition-colors flex-shrink-0"
+      >
+        <Copy size={10} />
+        {copied ? "Copied!" : "Copy"}
+      </button>
+    </div>
+  );
+}
+
 export function CyclesManagementCard({ title }: { title: string }) {
   const [data, setData] = useState<CyclesStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,7 +146,7 @@ export function CyclesManagementCard({ title }: { title: string }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await personaFetch("/api/ops/canisters/cycles-status", {
+      const res = await fetch("/api/ops/canisters/cycles-status", {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -151,7 +176,7 @@ export function CyclesManagementCard({ title }: { title: string }) {
     setTopUpSending(true);
     setTopUpResult(null);
     try {
-      const res = await personaFetch("/api/ops/canisters/top-up", {
+      const res = await fetch("/api/ops/canisters/top-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -299,6 +324,10 @@ export function CyclesManagementCard({ title }: { title: string }) {
                   ({truncateId(topUpTarget)})
                 </span>
               </div>
+
+              {data?.walletCanisterId && (
+                <WalletAddressCopy walletCanisterId={data.walletCanisterId} />
+              )}
 
               <div className="flex items-center gap-2 mb-3">
                 <input

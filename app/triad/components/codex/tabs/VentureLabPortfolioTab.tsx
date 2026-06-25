@@ -263,10 +263,10 @@ function CouncilView({ ventures }: { ventures: Venture[] }) {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 space-y-1 border border-dashed border-white/[0.08] rounded-xl">
         <ClipboardList className="w-8 h-8 mx-auto mb-3 text-slate-700" />
-        <p className="text-sm text-slate-500">No council agenda items yet.</p>
-        <p className="text-xs text-slate-600 mt-1">Add items in each venture's scorecard.</p>
+        <p className="text-sm font-medium text-slate-400">Venture Council</p>
+        <p className="text-xs text-slate-600">Consolidated council agenda across all your ventures. Coming in the next release — agenda items added via Scorecards will surface here.</p>
       </div>
     );
   }
@@ -309,9 +309,10 @@ function ActionsView({ ventures }: { ventures: Venture[] }) {
 
   if (allActions.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 space-y-1 border border-dashed border-white/[0.08] rounded-xl">
         <Activity className="w-8 h-8 mx-auto mb-3 text-slate-700" />
-        <p className="text-sm text-slate-500">No actions tracked yet.</p>
+        <p className="text-sm font-medium text-slate-400">Portfolio Actions</p>
+        <p className="text-xs text-slate-600">Cross-venture action tracker by owner. Coming in the next release — actions tracked via Scorecards will roll up here.</p>
       </div>
     );
   }
@@ -603,7 +604,13 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
             )}
 
             {/* Scorecards view */}
-            {subView === 'scorecard' && (
+            {subView === 'scorecard' && ventures.length === 0 && (
+              <div className="text-center py-12 text-slate-500 text-sm border border-dashed border-white/[0.08] rounded-xl space-y-1">
+                <p className="font-medium text-slate-400">Venture Scorecards</p>
+                <p className="text-xs text-slate-500">Track focus area, KPIs, and risks for each venture. Coming in the next release — your VentureQubes will populate here automatically.</p>
+              </div>
+            )}
+            {subView === 'scorecard' && ventures.length > 0 && (
               <div className="space-y-4 max-w-2xl">
                 {ventures.map(v => (
                   editingId === v.id ? (

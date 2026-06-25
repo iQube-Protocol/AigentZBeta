@@ -138,7 +138,12 @@ export function VentureLightWizard({
           const res = await personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" });
           if (res.ok) {
             const data = await res.json();
-            const list = Array.isArray(data?.ventures) ? data.ventures : [];
+            // Sort by createdAt ascending so the canonical (first-created) venture
+            // is considered first.
+            const list = (Array.isArray(data?.ventures) ? [...data.ventures] : []).sort(
+              (a: { createdAt?: string }, b: { createdAt?: string }) =>
+                (a.createdAt ?? '').localeCompare(b.createdAt ?? ''),
+            );
             // Only auto-bind to the existing venture when there is EXACTLY one
             // (operator mode — the single seed venture). With multiple ventures
             // this is portfolio mode: Venture Light must NOT silently overwrite a
@@ -154,8 +159,11 @@ export function VentureLightWizard({
         }
       } catch { /* best-effort */ }
 
-      // Cross-feed prefill (create mode only) from Standing Core + Experience Model.
-      if (!existingId) {
+      // Cross-feed from Standing Core + Experience Model into any blank fields.
+      // Runs for both create mode AND edit mode — existing ventures may have been
+      // created before thesis/intent fields were filled in.
+      const needsPrefill = !next.problemStatement || !next.valueProposition || !next.mission || !next.founderIntents;
+      if (needsPrefill) {
         try {
           const [scRes, emRes] = await Promise.all([
             personaFetch("/api/standing/core-wizard", { personaIdHint: personaId, cache: "no-store" }),
@@ -207,6 +215,7 @@ export function VentureLightWizard({
           headers: { "Content-Type": "application/json" },
           personaIdHint: personaId,
           body: JSON.stringify({
+            name: form.name.trim() || undefined,
             stage: form.stage,
             layers: {
               thesis: {

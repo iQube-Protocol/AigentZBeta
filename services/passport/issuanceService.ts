@@ -19,7 +19,12 @@
 
 import { randomBytes } from 'crypto';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getCrmClient } from '@/services/crm/crmDataAccess';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import {
+  accrueCapabilityStanding,
+  computeIdentityDepth,
+} from '@/services/crm/standingAccrualService';
 import {
   citizenTransitionRule,
   participantTransitionRule,
@@ -194,6 +199,19 @@ export async function applyReviewDecision(
     actionType: rule.receipt === 'passport_issued' ? 'passport_issued' : 'passport_status_changed',
   });
 
+  // Sprint 4 — credit Capability Standing for passport issuance. Identity depth
+  // increases to 0.5 (issued) or 0.8 (World ID verified). Best-effort, never
+  // blocks the issuance response. Only applies to the citizen being issued the
+  // passport, not to the steward performing the action.
+  const recipientPersonaId = String(app.persona_id || '');
+  if (recipientPersonaId) {
+    void creditPassportCapabilityStanding(
+      recipientPersonaId,
+      Boolean(app.world_id_verified_at),
+      String(app.passport_grade ?? ''),
+    ).catch(() => {});
+  }
+
   return {
     ok: true,
     applicationStatus: 'approved',
@@ -201,6 +219,35 @@ export async function applyReviewDecision(
     passportRecordId: String(record.id),
     receiptId,
   };
+}
+
+async function creditPassportCapabilityStanding(
+  recipientPersonaId: string,
+  worldIdVerified: boolean,
+  passportGrade: string,
+): Promise<void> {
+  const crm = getCrmClient();
+  const { data: crmPersona } = await crm
+    .from('crm_personas')
+    .select('id')
+    .eq('identity_persona_id', recipientPersonaId)
+    .maybeSingle();
+  const crmPersonaId = crmPersona?.id ? String(crmPersona.id) : null;
+  if (!crmPersonaId) return;
+
+  const identityDepth = computeIdentityDepth({
+    issued: true,
+    worldIdVerified,
+    gradeA: passportGrade === 'A',
+  });
+
+  await accrueCapabilityStanding(crmPersonaId, {
+    demandConfidence: null,
+    opportunityConfidence: null,
+    capabilityConfidence: null,
+    intentClarity: null,
+    identityDepth,
+  });
 }
 
 async function writeReceipt(input: {

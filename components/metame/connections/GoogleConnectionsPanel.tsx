@@ -32,6 +32,7 @@ import {
   Presentation,
   Sheet,
   ListTodo,
+  Users,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -44,7 +45,7 @@ import { personaFetch } from "@/utils/personaSpine";
 // Types — match the shape returned by GET /api/assistant/google-status.
 // ─────────────────────────────────────────────────────────────────────────
 
-type GoogleSource = "gmail" | "calendar" | "drive" | "docs" | "slides" | "sheets" | "tasks";
+type GoogleSource = "gmail" | "calendar" | "drive" | "docs" | "slides" | "sheets" | "tasks" | "contacts";
 
 interface GoogleConnectionStatus {
   source: GoogleSource;
@@ -79,6 +80,7 @@ const SOURCE_META: Record<
   slides:   { label: "Slides",   description: "Create + edit presentations",            icon: <Presentation className="w-4 h-4" /> },
   sheets:   { label: "Sheets",   description: "Create + populate spreadsheets",         icon: <Sheet className="w-4 h-4" /> },
   tasks:    { label: "Tasks",    description: "Read your to-do list (read-only)",       icon: <ListTodo className="w-4 h-4" /> },
+  contacts: { label: "Contacts", description: "Import address book for aigentMe",       icon: <Users className="w-4 h-4" /> },
 };
 
 export function GoogleConnectionsPanel({ isAdmin = false, theme = "dark" }: Props) {

@@ -16,7 +16,6 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { RefreshCw, Pause, Play, Save, AlertTriangle, CheckCircle } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
 
 interface ConfigRow {
   batch_size_k: number;
@@ -98,8 +97,8 @@ export function AnchorCalibrationCard({ title }: { title: string }) {
     setError(null);
     try {
       const [cfgRes, histRes] = await Promise.all([
-        personaFetch("/api/ops/sync/calibration", { cache: "no-store" }),
-        personaFetch("/api/ops/sync/anchor-history?limit=20", { cache: "no-store" }),
+        fetch("/api/ops/sync/calibration", { cache: "no-store" }),
+        fetch("/api/ops/sync/anchor-history?limit=20", { cache: "no-store" }),
       ]);
       if (!cfgRes.ok) throw new Error(`config HTTP ${cfgRes.status}`);
       const cfg = (await cfgRes.json()) as ConfigRow;
@@ -135,7 +134,7 @@ export function AnchorCalibrationCard({ title }: { title: string }) {
     setSaving(true);
     setError(null);
     try {
-      const res = await personaFetch("/api/ops/sync/calibration", {
+      const res = await fetch("/api/ops/sync/calibration", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -167,7 +166,7 @@ export function AnchorCalibrationCard({ title }: { title: string }) {
     // Auto-save pause toggle for immediate effect
     setSaving(true);
     try {
-      const res = await personaFetch("/api/ops/sync/calibration", {
+      const res = await fetch("/api/ops/sync/calibration", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_paused: !config.is_paused }),

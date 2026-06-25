@@ -70,6 +70,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // are the verified-progress provenance the grounded progress report reads.
   'operator_action_logged',
   'standing_document_added',
+  // Standing accrual — NVA-backed outcome credit anchored for audit trail
+  'standing_accrued',
+  // Autonomous agent delegation lifecycle — provenance of who was delegated what
+  'agent_delegated',
+  'agent_delegation_revoked',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

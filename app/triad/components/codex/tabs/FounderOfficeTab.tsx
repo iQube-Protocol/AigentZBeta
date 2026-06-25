@@ -119,6 +119,8 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
   const [error, setError] = useState<string | null>(null);
   // Guided wizards (parity with the Standing cartridge launcher).
   const [proWizardOpen, setProWizardOpen] = useState(false);
+  const [proWizardVentureId, setProWizardVentureId] = useState<string | undefined>(undefined);
+  const [proWizardPicker, setProWizardPicker] = useState(false);
   const [portfolioWizardOpen, setPortfolioWizardOpen] = useState(false);
   // The Portfolio wizard doubles as the Operating Brief surface (operating mode
   // is available to any Founder Office tier; portfolio mode is Operator Pro/Elite).
@@ -303,7 +305,15 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
           <div className="flex items-center gap-2 flex-wrap mb-3">
             <span className="text-[11px] uppercase tracking-wider text-slate-500">Guided wizards</span>
             <button
-              onClick={() => setProWizardOpen(true)}
+              onClick={() => {
+                if (ventures.length > 1) {
+                  setProWizardVentureId(undefined);
+                  setProWizardPicker(true);
+                } else {
+                  setProWizardVentureId(ventures[0]?.id);
+                  setProWizardOpen(true);
+                }
+              }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-violet-500/15 border border-violet-500/40 text-violet-200 hover:bg-violet-500/25"
             >
               <Rocket className="w-3.5 h-3.5" /> Venture Pro wizard
@@ -354,6 +364,7 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
         open={proWizardOpen}
         onOpenChange={setProWizardOpen}
         personaId={personaId}
+        ventureId={proWizardVentureId}
         hasProAccess={Boolean(isAdmin) || (plan?.wizardAccess?.pro ?? false)}
         onSaved={() => { void loadVentures(); }}
         onOpenOperatingBrief={
@@ -362,6 +373,44 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
             : undefined
         }
       />
+      {/* Venture picker for Pro wizard when multiple ventures exist */}
+      {proWizardPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm mx-4 rounded-2xl bg-slate-900 border border-white/10 p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-100">Select a venture</h3>
+              <button onClick={() => setProWizardPicker(false)} className="text-slate-500 hover:text-slate-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">Choose which venture to open in the Venture Pro wizard.</p>
+            <div className="space-y-2">
+              {ventures.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => {
+                    setProWizardVentureId(v.id);
+                    setProWizardPicker(false);
+                    setProWizardOpen(true);
+                  }}
+                  className="w-full text-left px-3 py-2.5 rounded-xl bg-slate-800/60 border border-white/[0.06] hover:border-violet-500/40 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-slate-100 truncate">{v.name}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] border shrink-0 ${STAGE_COLOR[v.stage] ?? STAGE_COLOR.concept}`}>{v.stage}</span>
+                  </div>
+                  {(v.layers?.thesis?.valueProposition || v.layers?.thesis?.problemStatement) && (
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-1">
+                      {v.layers?.thesis?.valueProposition || v.layers?.thesis?.problemStatement}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <VenturePortfolioWizard
         open={portfolioWizardOpen}
         onOpenChange={setPortfolioWizardOpen}
@@ -450,7 +499,7 @@ function Workspace({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-200">Venture Portfolio</h3>
+        <h3 className="text-sm font-semibold text-slate-200">Current Ventures</h3>
         <button
           onClick={onNew}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 hover:bg-amber-500/25"
@@ -541,6 +590,9 @@ function PathForm({
 
   return (
     <div className="max-w-xl space-y-4">
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-semibold uppercase tracking-wider">
+        <Plus className="w-3 h-3" /> New Venture
+      </div>
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
           <Icon className="w-4.5 h-4.5 text-amber-300" />

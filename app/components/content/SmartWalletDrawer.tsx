@@ -220,7 +220,7 @@ const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }
   { key: "wallet", label: "Wallet", icon: <Wallet className="w-4 h-4" /> },
   { key: "library", label: "Library", icon: <BookOpen className="w-4 h-4" /> },
   { key: "tasks", label: "Tasks", icon: <CheckSquare className="w-4 h-4" /> },
-  { key: "reputation", label: "Reputation", icon: <Trophy className="w-4 h-4" /> },
+  { key: "reputation", label: "Reputation & Standing", icon: <Trophy className="w-4 h-4" /> },
   { key: "rewards", label: "Rewards", icon: <Gift className="w-4 h-4" /> },
   { key: "payments", label: "Payments", icon: <CreditCard className="w-4 h-4" /> },
   { key: "connections", label: "Connections", icon: <Link className="w-4 h-4" /> },
@@ -1049,6 +1049,14 @@ export default function SmartWalletDrawer({
       issuedAt: string | null;
       claimedAt: string | null;
       worldIdVerified: boolean;
+    } | null;
+    /** Sprint 4 — aigentMe Standing lanes (null for non-aigentMe agents). */
+    standing: {
+      personal: number;
+      delegated: number;
+      stewardship: number;
+      overall: number;
+      bucket: number;
     } | null;
     createdAt: string;
   }
@@ -2429,8 +2437,12 @@ export default function SmartWalletDrawer({
                         window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
                       };
                       const engageAigentMe = () => {
-                        // B — engage as delegate/chief-of-staff without changing
-                        // the active spine persona. Runtime can route through it.
+                        // B — engage as delegate/chief-of-staff. Updates the local
+                        // UI state so the dropdown shows aigentMe as selected, but
+                        // does NOT swap the spine Bearer token (that's B+ via "Act as").
+                        setLocalPersonaId(persona.id);
+                        ctxSetActivePersonaId(persona.id);
+                        onPersonaChange?.(persona.id);
                         setPersonaMenuOpen(false);
                         window.dispatchEvent(
                           new CustomEvent("aigentme-engaged", { detail: { personaId: persona.id } }),
@@ -2462,7 +2474,9 @@ export default function SmartWalletDrawer({
                                 )}
                               </p>
                               <p className="text-xs text-white/50 truncate">
-                                {isAigentMePersona ? 'Your delegate · tap to engage' : (persona.fioHandle || "No handle")}
+                                {isAigentMePersona
+                                  ? (effectivePersonaId === persona.id ? 'Delegate · engaged' : 'Your delegate · tap to engage')
+                                  : (persona.fioHandle || "No handle")}
                               </p>
                             </div>
                             {effectivePersonaId === persona.id && !isConfirming && (
@@ -4357,7 +4371,7 @@ export default function SmartWalletDrawer({
                 )}
               </section>
 
-              {/* Standing (Phase 2 keystone) — Personal/Delegated/Stewardship */}
+              {/* Standing — Personal/Delegated/Stewardship + Overall */}
               {walletTasksData?.standing && (
                 <section className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 ring-1 ring-emerald-500/20 p-3">
                   <div className="flex items-center justify-between mb-3">
@@ -4377,24 +4391,37 @@ export default function SmartWalletDrawer({
                   </div>
                   <div className="space-y-2.5">
                     {([
-                      { label: 'Personal',     value: walletTasksData.standing.personal,     color: 'bg-emerald-500' },
-                      { label: 'Delegated',    value: walletTasksData.standing.delegated,    color: 'bg-teal-500' },
-                      { label: 'Stewardship',  value: walletTasksData.standing.stewardship,  color: 'bg-cyan-500' },
-                    ] as { label: string; value: number; color: string }[]).map(({ label, value, color }) => (
+                      { label: 'Personal',     value: walletTasksData.standing.personal,                                   color: 'bg-emerald-500', tip: 'Accrues from completed tasks' },
+                      { label: 'Delegated',    value: walletTasksData.standing.delegated,                                   color: 'bg-teal-500',    tip: 'Accrues when your sponsored citizen completes tasks' },
+                      { label: 'Stewardship',  value: walletTasksData.standing.stewardship,                                 color: 'bg-cyan-500',    tip: 'Accrues from community contributions' },
+                      { label: 'Capability',   value: (walletTasksData.standing as Record<string, number>).capability ?? 0, color: 'bg-violet-500',  tip: 'Builds from VentureQube signals — mission, intents, identity depth', cap: 40 },
+                    ] as { label: string; value: number; color: string; tip: string; cap?: number }[]).map(({ label, value, color, tip, cap }) => (
                       <div key={label}>
                         <div className="flex items-center justify-between text-[10px] mb-1">
                           <span className="text-white/60">{label}</span>
-                          <span className="text-white/80 font-medium">{value.toFixed(1)}</span>
+                          <span className={`font-medium ${value > 0 ? 'text-white/80' : 'text-white/30'}`}>
+                            {value > 0 ? `${value.toFixed(1)}${cap ? ` / ${cap}` : ''}` : '—'}
+                          </span>
                         </div>
-                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div className={`h-full ${color}`} style={{ width: `${Math.min(100, value)}%` }} />
-                        </div>
+                        {value > 0 ? (
+                          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                            <div className={`h-full ${color}`} style={{ width: `${Math.min(100, cap ? (value / cap) * 100 : value)}%` }} />
+                          </div>
+                        ) : (
+                          <div className="text-[9px] text-white/25 italic">{tip}</div>
+                        )}
                       </div>
                     ))}
                     <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">
-                      <span className="text-white/50">Overall Standing</span>
+                      <span className="text-white/50">Overall Accrual</span>
                       <span className="text-white/90 font-semibold">{walletTasksData.standing.overall.toFixed(1)}</span>
                     </div>
+                    {walletTasksData.standingScore != null && (
+                      <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">
+                        <span className="text-white/50">Standing Score <span className="text-white/25 italic">(veracity-led)</span></span>
+                        <span className="text-white/90 font-semibold">{(walletTasksData.standingScore as { score: number }).score.toFixed(0)} / 100</span>
+                      </div>
+                    )}
                   </div>
                 </section>
               )}
@@ -4918,6 +4945,39 @@ export default function SmartWalletDrawer({
                         </p>
                         {/* Bounded-delegation awareness — only on the aigentMe
                             card, scoped to the active persona's delegation. */}
+                        {/* Sprint 4 — aigentMe Standing lanes */}
+                        {sa.isAigentMe && sa.standing && (
+                          <div className="rounded-lg border border-violet-500/15 bg-violet-500/5 p-2 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase tracking-wider text-violet-300/70">
+                                Standing signal
+                              </span>
+                              <span className="text-[10px] font-semibold text-violet-200">
+                                {sa.standing.overall.toFixed(1)}
+                              </span>
+                            </div>
+                            {(
+                              [
+                                { label: 'Personal', value: sa.standing.personal, color: 'bg-emerald-400' },
+                                { label: 'Delegated', value: sa.standing.delegated, color: 'bg-violet-400' },
+                                { label: 'Stewardship', value: sa.standing.stewardship, color: 'bg-sky-400' },
+                              ] as { label: string; value: number; color: string }[]
+                            ).map(({ label, value, color }) => (
+                              <div key={label} className="space-y-0.5">
+                                <div className="flex items-center justify-between text-[9px] text-white/40">
+                                  <span>{label}</span>
+                                  <span>{value.toFixed(1)}</span>
+                                </div>
+                                <div className="h-1 w-full rounded-full bg-white/10">
+                                  <div
+                                    className={`h-1 rounded-full ${color} transition-all duration-500`}
+                                    style={{ width: `${Math.min(100, (value / Math.max(1, sa.standing!.overall || 100)) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {sa.isAigentMe && (
                           <div className="rounded-lg border border-white/10 bg-white/5 p-2 space-y-1.5">
                             <div className="flex items-center justify-between">

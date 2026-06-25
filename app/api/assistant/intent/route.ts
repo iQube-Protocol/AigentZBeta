@@ -237,9 +237,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const queueMessage = candidate.approvalRequired
       ? 'Queued for aigentMe — approval required before any external action.'
-      : candidate.specialist
-        ? `Queued for Aigent Me — will coordinate with ${candidate.specialist} when Phase 5 specialist routing lands.`
-        : 'Queued for Aigent Me — will execute when Phase 5/6 ship the runtime pipeline.';
+      : candidate.rationale
+        ? candidate.rationale
+        : `${candidate.label} — queued as an internal action.`;
 
     const surface: IntentApiSurface = {
       intentId: intent.id,

@@ -36,12 +36,17 @@ export function VentureLightChip({ personaId }: { personaId?: string }) {
 
   const load = useCallback(async () => {
     try {
-      // Ventures (operator-mode display + count).
-      let ventures: Array<{ name?: string }> = [];
+      // Ventures (operator-mode display + count). Sort by createdAt ascending so
+      // the canonical (first-created) venture is ventures[0] regardless of which
+      // was most recently edited.
+      let ventures: Array<{ name?: string; createdAt?: string }> = [];
       const res = await personaFetch("/api/venture/qubes", { personaIdHint: personaId, cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        ventures = Array.isArray(data?.ventures) ? data.ventures : [];
+        const all = Array.isArray(data?.ventures) ? [...data.ventures] : [];
+        ventures = all.sort((a: { createdAt?: string }, b: { createdAt?: string }) =>
+          (a.createdAt ?? '').localeCompare(b.createdAt ?? ''),
+        );
       }
 
       // Portfolio (operating model + operatorMode). Only succeeds for Founder

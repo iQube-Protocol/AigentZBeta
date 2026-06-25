@@ -36,7 +36,7 @@ jobs:
             echo "::error::ADMIN_OPS_TOKEN secret not set in repo settings"
             exit 1
           fi
-          response=$(curl -fsS -X POST \
+          response=$(curl -fsS --max-time 30 -X POST \
             -H "Authorization: Bearer $ADMIN_OPS_TOKEN" \
             "https://dev-beta.aigentz.me/api/access/finalize-receipts")
           echo "Batcher response: $response"

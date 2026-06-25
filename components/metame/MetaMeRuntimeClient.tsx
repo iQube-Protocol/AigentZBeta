@@ -2393,7 +2393,14 @@ export default function MetaMeRuntimeClient() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ context: ctx }),
-    }).catch(() => {});
+    }).then(async (res) => {
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        console.error('[runtime-context] PUT failed', res.status, detail);
+      }
+    }).catch((err) => {
+      console.error('[runtime-context] PUT network error', err);
+    });
     try {
       window.dispatchEvent(
         new StorageEvent('storage', { key: RUNTIME_CONTEXT_PREF_KEY, newValue: ctx }),

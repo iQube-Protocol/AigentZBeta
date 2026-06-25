@@ -338,6 +338,12 @@ export interface SuggestedLayoutHint {
   reason: string;
   /** Pre-fill text the chip click should feed into the layout's auto-seed. */
   promptHint: string;
+  /** Parsed email draft extracted from conversation history — bypasses draft-email API when present. */
+  parsedDraft?: {
+    subject: string;
+    bodyText: string;
+    recipientHint?: string; // name extracted from salutation e.g. "Hi David,"
+  };
 }
 
 const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = [
@@ -353,7 +359,7 @@ const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string
   { id: 'decision-board',   pattern: /(next best action|move (this )?forward|what's next|next step|decision board|move my goals forward)/i, reason: 'Operator wants the next-action decision board' },
   { id: 'venture-cockpit',  pattern: /(venture progress|venture cockpit|kpi|metrics dashboard|where am i (on|with) my venture|venture status)/i, reason: 'Operator wants the venture progress cockpit' },
   { id: 'specialists',      pattern: /(specialist|consult marketa|consult quill|consult kn0w1|ask the team|ask marketa|ask quill|ask kn0w1|partner proposal|outreach play)/i, reason: 'Operator wants to consult a specialist' },
-  { id: 'gmail',            pattern: /(draft (an? )?email|gmail|send (an? )?email|outreach email|email draft|reply to|send (?:it|the (?:doc|deck|brief|file|presentation|proposal|report|link))\s+to\b|email (?:it|them|him|her|the team)\b)/i, reason: 'Operator wants to draft an email' },
+  { id: 'gmail',            pattern: /(draft (an? )?email|gmail|send (an? )?email|outreach email|email draft|reply to|send (?:it|the (?:doc|deck|brief|file|presentation|proposal|report|link))\s+to\b|email (?:it|them|him|her|the team)\b|\bsend it\b|send it again|resend( that| it| the email)?|send that again)/i, reason: 'Operator wants to draft an email' },
   { id: 'event',            pattern: /(schedule (a )?meeting|book (a )?call|calendar (event|invite)|set up (a )?meeting|set up (a )?call|create (a )?calendar|arrange (a )?meeting|find (a )?time|block (out )?(time|my calendar)|send (a )?invite)/i, reason: 'Operator wants to schedule a calendar event' },
   { id: 'doc',              pattern: /(google doc|create (a )?doc|write (up )?(a )?doc|memo|write (up )?(a )?memo|working doc|long-?form (write|document)|write (up )?(a )?(report|summary|proposal|write-up|writeup|brief|plan|strategy|roadmap))/i, reason: 'Operator wants to create a Google Doc' },
   { id: 'sheet',            pattern: /(spreadsheet|google sheet|create (a )?sheet|tracking sheet|cohort sheet|kpi sheet|tracker|build (a )?(table|tracker|list|grid))/i, reason: 'Operator wants to create a sheet' },
@@ -373,9 +379,27 @@ const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string
   { id: 'project-overview',  pattern: /(project overview|where are we|status update|dev loop status|what stage|current (stage|progress)|how far along)/i, reason: 'Operator wants a project overview' },
 ];
 
+/** Detect a structured email draft in an assistant message. Returns subject + body or null. */
+function parseEmailDraft(text: string): { subject: string; bodyText: string; recipientHint?: string } | null {
+  // Look for "Subject:" line — the canonical signal an email draft is present
+  const subjectMatch = text.match(/^Subject:\s*(.+)$/im);
+  if (!subjectMatch) return null;
+  const subject = subjectMatch[1].trim();
+  // Body is everything after the subject line (skip the blank separator line)
+  const subjectIndex = text.indexOf(subjectMatch[0]);
+  const afterSubject = text.slice(subjectIndex + subjectMatch[0].length).replace(/^\s*\n/, '');
+  if (!afterSubject.trim()) return null;
+  // Extract recipient name from greeting e.g. "Hi David Chaum," / "Dear Dr. Chaum,"
+  // Captures up to 3 capitalised words so "David Chaum" and "Dr. David Chaum" both work.
+  const greetingMatch = afterSubject.match(/^(?:Hi|Hello|Dear|Hey)[,\s]+(?:(?:Dr|Prof|Mr|Mrs|Ms)\.?\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})[,!]/m);
+  const recipientHint = greetingMatch ? greetingMatch[1].trim() : undefined;
+  return { subject, bodyText: afterSubject.trim(), recipientHint };
+}
+
 function inferSuggestedLayouts(
   message: string,
   assistantMessage: string,
+  history?: ChatMessage[],
 ): SuggestedLayoutHint[] {
   const hints: SuggestedLayoutHint[] = [];
   const seen = new Set<ChipTargetId>();
@@ -390,12 +414,31 @@ function inferSuggestedLayouts(
   const TRIVIAL_ACK = /^(yes|yep|yeah|ok|okay|sure|go|do it|let'?s go|please|cool|thx|thanks?|go ahead|y|n|no)[!.?]*$/i;
   const baseHint = TRIVIAL_ACK.test(trimmedMessage) ? '' : trimmedMessage.slice(0, 240);
 
+  // Scan recent assistant messages (newest first) for a structured email draft
+  let historyEmailDraft: { subject: string; bodyText: string; recipientHint?: string } | undefined;
+  if (history && history.length > 0) {
+    for (let i = history.length - 1; i >= 0 && i >= history.length - 6; i--) {
+      const msg = history[i];
+      if (msg.role !== 'assistant') continue;
+      const draft = parseEmailDraft(msg.content);
+      if (draft) { historyEmailDraft = draft; break; }
+    }
+    // Also check the current assistant message
+    if (!historyEmailDraft) {
+      const draft = parseEmailDraft(assistantMessage);
+      if (draft) historyEmailDraft = draft;
+    }
+  }
+
   const register = (id: ChipTargetId, reason: string, promptHint: string) => {
     if (seen.has(id) || hints.length >= MAX) return;
     seen.add(id);
     // LLM-tag substance wins; fall back to baseHint when the tag wasn't
     // emitted (keyword sweep) or the tag had no substance.
-    hints.push({ layoutId: id, reason, promptHint: promptHint.trim() || baseHint });
+    const hint: SuggestedLayoutHint = { layoutId: id, reason, promptHint: promptHint.trim() || baseHint };
+    // Attach parsed email draft to gmail hints so the composer can bypass draft-email API
+    if (id === 'gmail' && historyEmailDraft) hint.parsedDraft = historyEmailDraft;
+    hints.push(hint);
   };
 
   // Explicit tags — `[layout:<id>|<substance>]`. The system prompt
@@ -951,6 +994,28 @@ const MARKETA_TOOLS_ANTHROPIC = [
       },
     },
   },
+  {
+    name: 'search_contacts',
+    description: 'Search the persona\'s personal address book (imported from Google Contacts, iPhone, LinkedIn, Outlook, etc.). Use this whenever the user asks about a specific person, company, email address, phone number, or wants to find contacts affiliated with a project, organisation, or topic. Returns matching contacts with name, email, phone, organisation, and job title.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text search — name, email, company, job title, or any keyword. Pass the most specific term the user mentioned (e.g. "Project Liberty", "Goldman Sachs", "Alice").',
+        },
+        source: {
+          type: 'string',
+          description: 'Optional: filter by import source — google_contacts | vcard | icloud | linkedin | outlook | csv | manual. Omit to search all sources.',
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results to return. Default 20.',
+        },
+      },
+      required: ['query'],
+    },
+  },
 ];
 
 const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
@@ -962,7 +1027,7 @@ const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
   },
 }));
 
-async function executeMarketaTool(name: string, input: Record<string, unknown>): Promise<string> {
+async function executeMarketaTool(name: string, input: Record<string, unknown>, personaId?: string): Promise<string> {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   try {
     if (name === 'list_workflows') {
@@ -1116,6 +1181,61 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>):
       const json = await res.json();
       return JSON.stringify({ ready: json.ready, checks: json.checks, details: json.details, errors: json.errors });
     }
+    if (name === 'search_contacts') {
+      if (!personaId) return JSON.stringify({ error: 'No active persona — cannot search contacts' });
+      const rawQ = String(input.query ?? '').trim();
+      const source = typeof input.source === 'string' ? input.source : '';
+      const limit = Math.min(Number(input.limit ?? 20), 100);
+      // Strip meta-words that describe the query type but won't appear in
+      // contact records (e.g. "contacts", "people", "email") so they don't
+      // create impossible AND conditions in the FTS query.
+      const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with)\b/gi;
+      const q = rawQ.replace(STRIP_WORDS, ' ').replace(/\s+/g, ' ').trim();
+      let query = supabase
+        .from('persona_contacts')
+        .select('display_name, first_name, last_name, organization, job_title, email, email_2, phone, phone_2, address, source')
+        .eq('persona_id', personaId)
+        .limit(limit);
+      if (source) query = query.eq('source', source);
+      if (q) {
+        query = (query as any).textSearch(
+          'fts',
+          q.split(/\s+/).filter((w: string) => w.length > 1).map((w: string) => w + ':*').join(' & '),
+          { config: 'english', type: 'plain' },
+        );
+      } else {
+        query = query.order('display_name', { ascending: true });
+      }
+      const { data, error } = await query;
+      if (error) return JSON.stringify({ error: error.message });
+      if (!data || data.length === 0) {
+        // Check if address book is empty vs just no matches for this query
+        const { count } = await supabase
+          .from('persona_contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('persona_id', personaId);
+        if (!count || count === 0) {
+          return JSON.stringify({ contacts: [], total: 0, message: 'Address book is empty — no contacts have been imported yet. Ask the user to import contacts from Google, iPhone, or CSV via the Contacts section in the aigentMe right pane.' });
+        }
+        return JSON.stringify({ contacts: [], total: 0, message: `No contacts matched "${q || '(all)'}". The address book has ${count} contact${count !== 1 ? 's' : ''} total.` });
+      }
+      return JSON.stringify({
+        contacts: data.map((c: any) => ({
+          name: c.display_name,
+          firstName: c.first_name,
+          lastName: c.last_name,
+          organization: c.organization,
+          jobTitle: c.job_title,
+          email: c.email,
+          email2: c.email_2 ?? undefined,
+          phone: c.phone,
+          phone2: c.phone_2 ?? undefined,
+          address: c.address ?? undefined,
+          source: c.source,
+        })),
+        total: data.length,
+      });
+    }
     return JSON.stringify({ error: `Unknown tool: ${name}` });
   } catch (err: any) {
     return JSON.stringify({ error: err?.message ?? 'Tool execution failed' });
@@ -1127,6 +1247,7 @@ async function callAnthropicWithTools(
   history: ChatMessage[],
   message: string,
   modelId: string,
+  personaId?: string,
 ): Promise<ProviderExecutionResult> {
   const anthropicMessages: any[] = [
     ...history.filter((e) => e.role !== 'system').map((e) => ({ role: e.role, content: e.content })),
@@ -1164,7 +1285,7 @@ async function callAnthropicWithTools(
     const toolUseBlocks = (data.content ?? []).filter((b: any) => b.type === 'tool_use');
     const toolResults: any[] = [];
     for (const block of toolUseBlocks) {
-      const result = await executeMarketaTool(block.name, block.input ?? {});
+      const result = await executeMarketaTool(block.name, block.input ?? {}, personaId);
       toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
     }
     // Append assistant turn + tool results
@@ -1199,7 +1320,7 @@ async function callAnthropicWithTools(
   return { providerId: 'anthropic', modelId: mapAnthropicModelId(modelId || ANTHROPIC_MODEL), content };
 }
 
-async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Promise<ProviderExecutionResult> {
+async function callOpenAiWithTools(messages: ChatMessage[], modelId: string, personaId?: string): Promise<ProviderExecutionResult> {
   let currentMessages: any[] = messages;
 
   let response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1232,7 +1353,7 @@ async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Pr
     for (const tc of toolCalls) {
       let inputObj: Record<string, unknown> = {};
       try { inputObj = JSON.parse(tc.function?.arguments ?? '{}'); } catch { /* ignore */ }
-      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj);
+      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj, personaId);
       currentMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
     }
     response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1266,6 +1387,7 @@ async function executeProviderAttempt(
   history: ChatMessage[],
   message: string,
   isMarketa: boolean,
+  personaId?: string,
 ): Promise<ProviderExecutionResult> {
   switch (attempt.providerId) {
     case 'openai':
@@ -1273,6 +1395,7 @@ async function executeProviderAttempt(
         return callOpenAiWithTools(
           [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: message }],
           attempt.modelId,
+          personaId,
         );
       }
       return callOpenAi([...history, { role: 'user', content: message }], attempt.modelId);
@@ -1280,7 +1403,7 @@ async function executeProviderAttempt(
       return callVenice([...history, { role: 'user', content: message }], attempt.modelId);
     case 'anthropic':
       if (isMarketa) {
-        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId);
+        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId, personaId);
       }
       return callAnthropic(systemPrompt, history, message, attempt.modelId);
     case 'chaingpt':
@@ -2252,14 +2375,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve the active persona once so both the upload block and the
+    // search_contacts tool handler have a reliable personaId from the spine.
+    // The body's `personaId` field is used as fallback for callers that don't
+    // attach a Bearer token (e.g. embed surfaces).
+    const activePersonaCtx = await getActivePersona(request).catch(() => null);
+    const resolvedCallerPersonaId: string | undefined =
+      activePersonaCtx?.personaId ?? (typeof personaId === 'string' ? personaId : undefined);
+
     // Resolve attached-upload contents through the spine. Ownership
     // is enforced by the persona service — uploadIds that don't
     // belong to the active persona are silently skipped.
     let attachedUploadsBlock = '';
     if (Array.isArray(attachedUploadIds) && attachedUploadIds.length > 0) {
       try {
-        const activePersona = await getActivePersona(request);
-        const resolvedPersonaId = activePersona?.personaId ?? personaId;
+        const resolvedPersonaId = resolvedCallerPersonaId;
         if (resolvedPersonaId) {
           attachedUploadsBlock = await composeAttachedUploadsBlock(resolvedPersonaId, attachedUploadIds);
         }
@@ -2426,7 +2556,9 @@ export async function POST(request: NextRequest) {
       { role: 'system', content: systemPrompt },
       ...chatHistory.slice(-10), // Keep last 10 messages for context
     ];
-    const isMarketa = resolvedAgentId === 'aigent-marketa';
+    // Tool-calling is enabled for Marketa (full tool set) and all aigentMe
+    // agents that have contacts access (search_contacts tool).
+    const isMarketa = resolvedAgentId === 'aigent-marketa' || resolvedAgentId === 'aigent-me';
     let executionResult: ProviderExecutionResult | null = null;
     const providerErrors: Array<{ providerId: RuntimeProviderId; modelId: string; error: string }> = [];
 
@@ -2438,6 +2570,7 @@ export async function POST(request: NextRequest) {
           conversationHistory,
           message,
           isMarketa,
+          resolvedCallerPersonaId,
         );
         console.log('[CodexChat] Provider success:', {
           providerId: executionResult.providerId,
@@ -2474,7 +2607,7 @@ export async function POST(request: NextRequest) {
           })
         : generateFallbackResponse(message, metadata as CodexMetadata, persona);
       const walletActions = inferWalletActions(message, fallbackResponse);
-      const suggestedLayouts = inferSuggestedLayouts(message, fallbackResponse);
+      const suggestedLayouts = inferSuggestedLayouts(message, fallbackResponse, chatHistory);
       const responseForClient = stripLayoutTags(fallbackResponse);
       return NextResponse.json({
         response: responseForClient,
@@ -2498,7 +2631,7 @@ export async function POST(request: NextRequest) {
         ? extractStageProposals(assistantMessage)
         : { cleanText: assistantMessage, proposals: [] };
     const walletActions = inferWalletActions(message, messageSansStageData);
-    const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData);
+    const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData, chatHistory);
     const responseForClient = stripLayoutTags(messageSansStageData);
 
     console.log('[CodexChat] Response length:', responseForClient.length);

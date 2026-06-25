@@ -23,6 +23,8 @@ import {
   revokeActiveGrant,
   markGrantExpired,
 } from '@/services/delegation/delegationGrantStore';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { enqueueActivityReceiptAnchor } from '@/services/dvn/activityReceiptDvnPipeline';
 
 // ============================================================================
 // Types
@@ -176,23 +178,24 @@ export async function GET(request: NextRequest) {
   }
 
   // Fallback: if in-memory store lost state (server restart), reconstruct from latest
-  // z_delegated event in orchestration_events if it has not yet expired.
+  // z_delegated event in orchestration_events — but only if no revoke event is more recent.
   if (!record) {
     try {
       const db = getDb();
-      const { data: latest } = await db
+      // Fetch the most recent event of either type. If the latest is a revoke,
+      // the grant is inactive — never reconstruct from a stale z_delegated event.
+      const { data: latestAny } = await db
         .from('orchestration_events')
-        .select('metadata, created_at')
-        .eq('event_type', 'z_delegated')
+        .select('event_type, metadata, created_at')
         .eq('active_cartridge', 'agentiq-os-cartridge')
         .filter('metadata->>persona_id', 'eq', persona_id)
-        .filter('metadata->>handoff_id', 'not.is', null)
+        .in('event_type', ['z_delegated', 'control_returned_to_metame'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (latest?.metadata) {
-        const meta = latest.metadata as Record<string, unknown>;
+      if (latestAny?.event_type === 'z_delegated' && latestAny.metadata) {
+        const meta = latestAny.metadata as Record<string, unknown>;
         const expiresAt = typeof meta.expires_at === 'string' ? meta.expires_at : null;
         const handoffId = typeof meta.handoff_id === 'string' ? meta.handoff_id : null;
         const allowedActions = Array.isArray(meta.allowed_actions)
@@ -201,7 +204,6 @@ export async function GET(request: NextRequest) {
         const trustBand = typeof meta.trust_band === 'string' ? meta.trust_band : 'L2_VERIFIED_COMMUNITY';
 
         if (expiresAt && handoffId && new Date(expiresAt) > new Date()) {
-          // Reconstruct minimal record from event metadata and re-hydrate the store
           record = {
             handoff: {
               handoff_id: handoffId,
@@ -230,16 +232,18 @@ export async function GET(request: NextRequest) {
               },
               open_tasks: allowedActions,
               return_conditions: ['task_complete', 'session_end', 'policy_escalation', 'user_exit'],
-              timestamp: latest.created_at,
+              timestamp: latestAny.created_at,
             },
             expires_at: expiresAt,
             max_actions: 20,
             actions_taken: 0,
-            created_at: latest.created_at,
+            created_at: latestAny.created_at,
           };
           delegationStore.set(persona_id, record);
         }
       }
+      // else: latestAny is null (no events) or event_type is 'control_returned_to_metame'
+      // → no reconstruction, record stays null → GET returns { active: false }
     } catch {
       // Fallback reconstruction is non-fatal — return inactive state if it fails
     }
@@ -452,6 +456,25 @@ export async function POST(request: NextRequest) {
       explain_before_acting: explain_before_acting ?? false,
     });
 
+    // Create an activity receipt so the delegation is anchored in the DVN pipeline.
+    // The receipt is fire-and-forget for the DVN submission but must be awaited
+    // for the DB write itself (serverless function freezes after response returns).
+    try {
+      const receipt = await createActivityReceipt({
+        personaId: persona_id,
+        activeCartridge: 'agentiq-os-cartridge',
+        actionType: 'agent_delegated',
+        summary: `Bounded delegation granted to ${agentRootDid} (trust band: ${trust_band}, allowed: ${allowedActions.join(', ')})`,
+        agentsInvoked: [agentRootDid],
+        toolsUsed: allowedActions,
+        contextShared: [`handoff_id:${handoffId}`, `trust_band:${trust_band}`, `expires_at:${expiresAt}`],
+      });
+      if (receipt) enqueueActivityReceiptAnchor(receipt, persona_id);
+    } catch (receiptErr) {
+      // Soft-fail — the delegation itself succeeded; only the receipt is affected.
+      console.error('[Delegation POST] Activity receipt creation failed:', receiptErr);
+    }
+
     return NextResponse.json({
       ok: true,
       handoff_id: handoffId,
@@ -494,9 +517,15 @@ export async function DELETE(request: NextRequest) {
     await revokeActiveGrant(persona_id, 'User revoked delegation');
 
     if (!record) {
-      // The cache may be cold while a durable grant existed; the revoke above
-      // covers that case. Nothing more to emit without a handoff_id.
-      return NextResponse.json({ ok: true, message: 'No active delegation to revoke.' });
+      // The durable ledger was revoked above, but we MUST still emit
+      // control_returned_to_metame. The GET handler's orchestration_events
+      // fallback (for cold-start rehydration) finds the most recent event of
+      // either type — if no revoke event exists, it reconstructs from the stale
+      // z_delegated event and incorrectly returns active: true.
+      await emitDelegationEvent('control_returned_to_metame', persona_id, {
+        reason: 'User revoked delegation',
+      });
+      return NextResponse.json({ ok: true, message: 'Delegation revoked.' });
     }
 
     delegationStore.delete(persona_id);
@@ -506,6 +535,21 @@ export async function DELETE(request: NextRequest) {
       reason: 'User revoked delegation',
       actions_taken: record.actions_taken,
     });
+
+    // Activity receipt for revocation — anchored in the DVN pipeline.
+    try {
+      const revokeReceipt = await createActivityReceipt({
+        personaId: persona_id,
+        activeCartridge: 'agentiq-os-cartridge',
+        actionType: 'agent_delegation_revoked',
+        summary: `Delegation revoked for ${record.handoff.to_agent} after ${record.actions_taken} of ${record.max_actions} actions`,
+        agentsInvoked: [record.handoff.to_agent],
+        contextShared: [`handoff_id:${record.handoff.handoff_id}`, `actions_taken:${record.actions_taken}`],
+      });
+      if (revokeReceipt) enqueueActivityReceiptAnchor(revokeReceipt, persona_id);
+    } catch (receiptErr) {
+      console.error('[Delegation DELETE] Activity receipt creation failed:', receiptErr);
+    }
 
     return NextResponse.json({
       ok: true,

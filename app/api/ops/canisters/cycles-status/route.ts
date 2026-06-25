@@ -5,11 +5,11 @@
  * Also returns the server identity principal and ICP ledger balance so the
  * operator knows if top-ups are possible from the web UI.
  *
- * Admin-gated via getActivePersona.
+ * No spine auth — consistent with all other /api/ops/* endpoints which are
+ * protected by the ops page being accessible only to authenticated operators.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
 import { HttpAgent, Actor } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import fetch from 'cross-fetch';
@@ -181,21 +181,7 @@ async function queryCycles(
   }
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse<CyclesStatusResponse | { error: string; detail?: string }>> {
-  const context = await getActivePersona(request);
-  if (!context) {
-    return NextResponse.json(
-      { error: 'unauthenticated' },
-      { status: 401, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
-  if (!context.cartridgeFlags?.isAdmin) {
-    return NextResponse.json(
-      { error: 'forbidden', detail: 'Admin-only diagnostic.' },
-      { status: 403, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
-
+export async function GET(_request: NextRequest): Promise<NextResponse<CyclesStatusResponse | { error: string; detail?: string }>> {
   const [identityInfo, agentResult] = await Promise.all([
     detectIdentity(),
     buildAgent(),
