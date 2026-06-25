@@ -10,8 +10,9 @@
  */
 
 import React, { useCallback, useState } from "react";
-import { Loader2, Sparkles, ChevronRight, Lock, CheckCircle2, X, Hourglass, ExternalLink, Check } from "lucide-react";
+import { Loader2, Sparkles, ChevronRight, Lock, CheckCircle2, X, Hourglass, ExternalLink, Check, ArrowUpCircle } from "lucide-react";
 import { useActivations } from "@/services/activations/ActivationsContext";
+import { usePlanUpgradeModal } from "@/components/metame/billing/usePlanUpgradeModal";
 
 interface Props {
   personaId?: string;
@@ -34,7 +35,7 @@ function buildEmbedUrl(sourceCartridge: string, tabSlug: string): string {
   return `/triad/embed/codex/${slug}?tab=${encodeURIComponent(tabSlug)}&theme=dark&density=wide`;
 }
 
-export function ActivationsTab({ isAdmin = false, onOpenSurface, theme = "dark" }: Props) {
+export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, theme = "dark" }: Props) {
   const {
     surfaces,
     loading,
@@ -47,6 +48,7 @@ export function ActivationsTab({ isAdmin = false, onOpenSurface, theme = "dark" 
   } = useActivations();
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { openUpgrade, upgradeModal } = usePlanUpgradeModal({ personaId });
 
   const handleClick = useCallback(
     (id: string, action: "activate" | "request" | "revoke") => {
@@ -76,17 +78,30 @@ export function ActivationsTab({ isAdmin = false, onOpenSurface, theme = "dark" 
   return (
     <div className={`h-full overflow-y-auto px-4 sm:px-6 py-4 ${panelClass}`}>
       <header className="mb-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-violet-400" />
-          <h2 className="text-lg font-semibold">Activations</h2>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-violet-400" />
+            <h2 className="text-lg font-semibold">Activations</h2>
+          </div>
+          {!isAdmin && (
+            <button
+              type="button"
+              onClick={() => openUpgrade()}
+              className="flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-200 hover:bg-purple-500/20"
+            >
+              <ArrowUpCircle className="w-3.5 h-3.5" />
+              Upgrade plan
+            </button>
+          )}
         </div>
         <p className={`text-xs mt-0.5 ${mutedClass}`}>
           Switch on the surfaces you want active in your metaMe runtime. Open activations
           can be turned on at any time; gated activations require admin grant, invite, or
-          cohort assignment.
+          cohort assignment. Some premium surfaces unlock with a plan upgrade.
           {isAdmin && " As admin you can self-activate gated surfaces directly."}
         </p>
       </header>
+      {upgradeModal}
 
       {error && (
         <div className="mb-3 px-3 py-2 rounded border border-rose-500/50 bg-rose-500/10 text-sm text-rose-200 flex items-start gap-2">

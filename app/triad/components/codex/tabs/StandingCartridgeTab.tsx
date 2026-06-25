@@ -13,6 +13,8 @@ import { VentureLightWizard } from '@/components/metame/setup/VentureLightWizard
 import { VentureProWizard } from '@/components/metame/setup/VentureProWizard';
 import { VenturePortfolioWizard } from '@/components/metame/setup/VenturePortfolioWizard';
 import { StandingSignalsPanel } from '@/components/metame/standing/StandingSignalsPanel';
+import { usePlanUpgradeModal } from '@/components/metame/billing/usePlanUpgradeModal';
+import { ArrowUpCircle } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -286,6 +288,9 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
   const [wizardAccess, setWizardAccess] = useState<{
     core: boolean; light: boolean; pro: boolean; operatingModel: boolean; portfolio: boolean;
   } | null>(null);
+  // Plan-tier flags for the Sovereignty/Stewardship upgrade affordance.
+  const [planFlags, setPlanFlags] = useState<{ sovereignAccess: boolean; stewardAccess: boolean } | null>(null);
+  const { openUpgrade, upgradeModal } = usePlanUpgradeModal({ personaId: _personaId });
   const [coreWizardOpen, setCoreWizardOpen] = useState(false);
   const [lightWizardOpen, setLightWizardOpen] = useState(false);
   const [proWizardOpen, setProWizardOpen] = useState(false);
@@ -300,6 +305,12 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
         if (!res.ok) return;
         const data = await res.json();
         if (data?.ok && data.wizardAccess) setWizardAccess(data.wizardAccess);
+        if (data?.ok) {
+          setPlanFlags({
+            sovereignAccess: Boolean(data.sovereignAccess),
+            stewardAccess: Boolean(data.stewardAccess),
+          });
+        }
       } catch { /* best-effort */ }
     })();
   }, [_personaId]);
@@ -844,6 +855,38 @@ export function StandingCartridgeTab({ personaId: _personaId, isAdmin: _isAdmin 
         hasOperatingAccess={!!wizardAccess?.operatingModel}
         hasPortfolioAccess={!!wizardAccess?.portfolio}
       />
+      {upgradeModal}
+
+      {/* Sovereignty / Stewardship upgrade affordance. Hidden once the persona
+          already holds Stewardship (or admin). Sovereignty members are nudged
+          toward Stewardship; free Citizens toward Sovereignty. */}
+      {!_isAdmin && planFlags && !planFlags.stewardAccess && (
+        <div className="flex items-start justify-between gap-4 flex-wrap rounded-xl border border-purple-500/30 bg-purple-500/10 p-4">
+          <div>
+            <p className="text-sm font-semibold text-purple-100">
+              {planFlags.sovereignAccess ? 'Unlock Professional Standing' : 'Unlock Standing history & analytics'}
+            </p>
+            <p className="mt-0.5 max-w-xl text-xs text-purple-200/80">
+              {planFlags.sovereignAccess
+                ? 'Upgrade to Stewardship for Professional Standing, steward privileges, and Act-as-Aigent delegation.'
+                : 'Upgrade to Sovereignty for standing history, archetype-tagged scores, and the enhanced experience model.'}
+            </p>
+          </div>
+          <button
+            onClick={() =>
+              openUpgrade(
+                planFlags.sovereignAccess
+                  ? { tiers: ['steward'], defaultTierKey: 'steward' }
+                  : { tiers: ['sovereign_citizen', 'steward'], defaultTierKey: 'sovereign_citizen' },
+              )
+            }
+            className="shrink-0 flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500"
+          >
+            <ArrowUpCircle className="h-4 w-4" />
+            Upgrade
+          </button>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

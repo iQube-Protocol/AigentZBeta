@@ -22,6 +22,7 @@ import {
 import { personaFetch } from '@/utils/personaSpine';
 import { VentureProWizard } from '@/components/metame/setup/VentureProWizard';
 import { VenturePortfolioWizard } from '@/components/metame/setup/VenturePortfolioWizard';
+import { PlanUpgradeModal } from '@/components/metame/billing/PlanUpgradeModal';
 import type {
   VentureQubeV1, VentureStage, FounderPath, VentureAgentConsumer,
 } from '@/types/ventureQube';
@@ -113,8 +114,10 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
   const [spine, setSpine] = useState<SpineState | null>(null);
   const [plan, setPlan] = useState<{
     ventureTier: string; ventureLabAccess: boolean; ventureTierLabel: string; planLabel: string;
+    sovereignAccess?: boolean;
     wizardAccess?: { core: boolean; light: boolean; pro: boolean; operatingModel: boolean; portfolio: boolean };
   } | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Guided wizards (parity with the Standing cartridge launcher).
@@ -289,6 +292,16 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
         </div>
       )}
 
+      {/* Founder Office access / preview gate. Paid (ventureLabAccess) → no
+          banner. Tier 1 (sovereignAccess) → read-only preview affordance.
+          Free Tier 0 → locked, upgrade to preview. isAdmin always full. */}
+      {!isAdmin && plan && !plan.ventureLabAccess && (
+        <FounderOfficePreviewBanner
+          tier1Preview={Boolean(plan.sovereignAccess)}
+          onUpgrade={() => setUpgradeOpen(true)}
+        />
+      )}
+
       {/* Commercial spine progress */}
       {spine && view !== 'blueprint' && <SpineStrip spine={spine} />}
 
@@ -420,6 +433,47 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
         hasPortfolioAccess={portfolioAccess}
         onSaved={() => { void loadVentures(); }}
       />
+      <PlanUpgradeModal
+        open={upgradeOpen}
+        personaId={personaId}
+        tiers={['venture_lite', 'venture_pro', 'venture_elite']}
+        defaultTierKey="venture_lite"
+        onClose={() => setUpgradeOpen(false)}
+        onUpgraded={() => { setUpgradeOpen(false); void loadPlan(); void loadVentures(); }}
+      />
+    </div>
+  );
+}
+
+// ── Founder Office preview / upgrade banner ──────────────────────────────────
+function FounderOfficePreviewBanner({
+  tier1Preview,
+  onUpgrade,
+}: {
+  tier1Preview: boolean;
+  onUpgrade: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 flex-wrap rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+      <div className="flex items-start gap-3">
+        <Rocket className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+        <div>
+          <p className="text-sm font-semibold text-amber-100">
+            {tier1Preview ? 'Founder Office — Preview' : 'Founder Office is a paid surface'}
+          </p>
+          <p className="mt-0.5 max-w-xl text-xs text-amber-200/80">
+            {tier1Preview
+              ? 'Your Sovereignty plan lets you explore Discover and the venture surfaces read-only. Upgrade to Operator to create ventures, build the Pro Blueprint, and hand off to execution agents.'
+              : 'Upgrade to Operator to open the Founder Office — the venture-formation operating system. Sovereignty members get a read-only preview.'}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={onUpgrade}
+        className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-amber-400"
+      >
+        Upgrade
+      </button>
     </div>
   );
 }
