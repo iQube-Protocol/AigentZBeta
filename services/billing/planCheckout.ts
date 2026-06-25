@@ -66,6 +66,25 @@ export function tierLabel(tierKey: TierKey): string {
   return TIER_CONFIG[tierKey].label;
 }
 
+/**
+ * Reverse of TIER_CONFIG: given a persona_plans row, recover the priced
+ * tier_key (or null for a free plan with no renewal). Founder Office tiers
+ * (venture_tier) take precedence over the citizen ladder.
+ */
+export function tierKeyForPlanRow(row: { plan_tier?: string | null; venture_tier?: string | null }): TierKey | null {
+  switch (row.venture_tier) {
+    case 'elite':
+      return 'venture_elite';
+    case 'pro':
+      return 'venture_pro';
+    case 'lite':
+      return 'venture_lite';
+  }
+  if (row.plan_tier === 'steward') return 'steward';
+  if (row.plan_tier === 'sovereign_citizen') return 'sovereign_citizen';
+  return null; // free citizen — nothing to renew
+}
+
 // ── PayPal helpers (plan-specific) ───────────────────────────────────────────
 
 const PAYPAL_API =
