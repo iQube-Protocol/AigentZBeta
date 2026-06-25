@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`7febd30`](https://github.com/iQube-Protocol/AigentZBeta/commit/7febd30f68fff7c928a4cf7aede88725932023ff) [fix] fix standing_document upload constraint + ground all draft generators (Claude, 2026-06-25T02:08:03Z)
 - [`a1f4dc6`](https://github.com/iQube-Protocol/AigentZBeta/commit/a1f4dc6e0c1252a1b6ba3621de38147be96c837d) [push] separate VentureQube Lite from Pro ventures in portfolio mode (Claude, 2026-06-24T21:32:00Z)
 - [`1129315`](https://github.com/iQube-Protocol/AigentZBeta/commit/1129315c8a08bac44ddf90a2f6710ab3bc44b961) [push] enforce no-hallucination grounding on aigentMe narrative generators (Claude, 2026-06-24T22:04:42Z)
 - [`2abac0b`](https://github.com/iQube-Protocol/AigentZBeta/commit/2abac0b3ce420130251eee585f17d5febdc83bb0) [push] dedupe duplicate Standing Core tab in the Standing cartridge (Claude, 2026-06-24T22:13:11Z)
