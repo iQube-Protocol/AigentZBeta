@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Plus, ClipboardList, FileUp, FileText, Activity, CalendarDays, CalendarClock, Check } from "lucide-react";
+import { Loader2, Plus, ClipboardList, FileUp, FileText, Activity, CalendarDays, CalendarClock, Check, ListTodo } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 
 interface StandingSignal {
@@ -40,6 +40,15 @@ interface CalendarEvent {
   htmlLink: string | null;
 }
 
+interface GoogleTask {
+  id: string;
+  title: string;
+  status: "needsAction" | "completed";
+  dueIso: string | null;
+  completedIso: string | null;
+  notes: string | null;
+}
+
 export function StandingSignalsPanel({ personaId }: { personaId?: string }) {
   const [signals, setSignals] = useState<StandingSignal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +62,8 @@ export function StandingSignalsPanel({ personaId }: { personaId?: string }) {
   // Calendar ingest (read-on-demand). null = not loaded / not connected → hidden.
   const [calPast, setCalPast] = useState<CalendarEvent[] | null>(null);
   const [calUpcoming, setCalUpcoming] = useState<CalendarEvent[] | null>(null);
+  const [taskDone, setTaskDone] = useState<GoogleTask[] | null>(null);
+  const [taskPending, setTaskPending] = useState<GoogleTask[] | null>(null);
   const [loggedEventIds, setLoggedEventIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
@@ -84,18 +95,33 @@ export function StandingSignalsPanel({ personaId }: { personaId?: string }) {
     } catch { /* calendar not connected — hidden */ }
   }, [personaId]);
 
-  useEffect(() => { void load(); void loadCalendar(); }, [load, loadCalendar]);
+  const loadTasks = useCallback(async () => {
+    try {
+      const res = await personaFetch("/api/assistant/google-tasks", {
+        personaIdHint: personaId,
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ok) { setTaskDone(data.completed ?? []); setTaskPending(data.pending ?? []); }
+      }
+      // 409 not-connected / errors → leave null so the section stays hidden.
+    } catch { /* tasks not connected — hidden */ }
+  }, [personaId]);
 
-  const logEvent = async (ev: CalendarEvent) => {
+  useEffect(() => { void load(); void loadCalendar(); void loadTasks(); }, [load, loadCalendar, loadTasks]);
+
+  // Log a completed external item (calendar event / Google task) as a signal.
+  const logDone = async (id: string, summary: string) => {
     try {
       const res = await personaFetch("/api/assistant/standing-signal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         personaIdHint: personaId,
-        body: JSON.stringify({ kind: "action", summary: ev.summary }),
+        body: JSON.stringify({ kind: "action", summary }),
       });
       if (res.ok) {
-        setLoggedEventIds((prev) => new Set(prev).add(ev.id));
+        setLoggedEventIds((prev) => new Set(prev).add(id));
         void load();
       }
     } catch { /* best-effort */ }
@@ -247,7 +273,7 @@ export function StandingSignalsPanel({ personaId }: { personaId?: string }) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => { if (!logged) void logEvent(ev); }}
+                  onClick={() => { if (!logged) void logDone(ev.id, ev.summary); }}
                   disabled={logged}
                   className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
                     logged
@@ -274,6 +300,56 @@ export function StandingSignalsPanel({ personaId }: { personaId?: string }) {
               <span className="text-xs text-slate-300 truncate flex-1">{ev.summary}</span>
               <span className="text-[10px] text-slate-500 shrink-0">
                 {ev.startIso ? new Date(ev.startIso).toLocaleDateString() : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* From Google Tasks — completed to log, pending as suggestions */}
+      {taskDone && taskDone.length > 0 && (
+        <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-2.5 space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <ListTodo className="w-3.5 h-3.5 text-emerald-300" />
+            <span className="text-[11px] uppercase tracking-wider text-slate-400">Tasks you completed — log them</span>
+          </div>
+          {taskDone.slice(0, 6).map((tk) => {
+            const logged = loggedEventIds.has(tk.id);
+            return (
+              <div key={tk.id} className="flex items-center gap-2">
+                <span className="text-xs text-slate-200 truncate flex-1">{tk.title}</span>
+                <span className="text-[10px] text-slate-500 shrink-0">
+                  {tk.completedIso ? new Date(tk.completedIso).toLocaleDateString() : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { if (!logged) void logDone(tk.id, tk.title); }}
+                  disabled={logged}
+                  className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${
+                    logged
+                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                      : "border-slate-600 text-slate-300 hover:border-emerald-500/50 hover:text-emerald-200"
+                  }`}
+                >
+                  {logged ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                  {logged ? "Logged" : "Log"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {taskPending && taskPending.length > 0 && (
+        <div className="rounded-lg border border-slate-700/60 bg-slate-900/40 p-2.5 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <ListTodo className="w-3.5 h-3.5 text-violet-300" />
+            <span className="text-[11px] uppercase tracking-wider text-slate-400">To do (from Google Tasks)</span>
+          </div>
+          {taskPending.slice(0, 5).map((tk) => (
+            <div key={tk.id} className="flex items-center gap-2">
+              <span className="text-xs text-slate-300 truncate flex-1">{tk.title}</span>
+              <span className="text-[10px] text-slate-500 shrink-0">
+                {tk.dueIso ? new Date(tk.dueIso).toLocaleDateString() : ""}
               </span>
             </div>
           ))}

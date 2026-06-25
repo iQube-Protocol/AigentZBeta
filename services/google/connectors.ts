@@ -44,6 +44,7 @@ export type GoogleConnectorId =
   | 'google.calendar.create-event'
   | 'google.calendar.invite-external'
   | 'google.calendar.list-events'
+  | 'google.tasks.list'
   | 'google.drive.create-doc'
   | 'google.drive.share-doc'
   | 'google.drive.search'
@@ -615,6 +616,86 @@ const calendarListEvents: GoogleConnector<CalendarListEventsInput, CalendarListE
         };
       });
       return { ok: true, output: { events } };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, code: 'api-error', reason: msg };
+    }
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// Connector — Google Tasks list (READ-ONLY; no side effect, no approval).
+//
+// Reads the operator's default task list: completed tasks → proof-of-work
+// signals; pending tasks → suggested actions. Read-on-demand — nothing stored
+// unless the operator turns a task into a Standing signal. Scope: tasks.readonly.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface TasksListInput {
+  maxResults?: number; // default 25, capped 100
+}
+
+export interface GoogleTaskSummary {
+  id: string;
+  title: string;
+  status: 'needsAction' | 'completed';
+  dueIso: string | null;
+  completedIso: string | null;
+  notes: string | null;
+}
+
+interface TasksListOutput {
+  tasks: GoogleTaskSummary[];
+}
+
+const tasksList: GoogleConnector<TasksListInput, TasksListOutput> = {
+  id: 'google.tasks.list',
+  label: 'Tasks · List (read-only)',
+  description: 'Read your Google Tasks default list. Read-only; no changes.',
+  category: 'scheduling',
+  source: 'tasks',
+  requiredScopes: GOOGLE_SCOPES.tasks,
+  requiresApproval: false,
+  inputSchema: {
+    maxResults: { type: 'number', description: 'Max tasks (default 25, max 100)' },
+  },
+  outputSchema: {
+    tasks: { type: 'array', description: 'Task summaries (id, title, status, due, completed)' },
+  },
+  async execute(input, ctx) {
+    const t = await requireToken(ctx.personaId, 'tasks');
+    if (!t.ok) return t;
+    const url = new URL('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks');
+    url.searchParams.set('showCompleted', 'true');
+    url.searchParams.set('showHidden', 'true');
+    url.searchParams.set('maxResults', String(Math.min(Math.max(input.maxResults ?? 25, 1), 100)));
+    try {
+      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${t.token}` } });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        return { ok: false, code: 'api-error', reason: `tasks list failed (${res.status}): ${text.slice(0, 200)}` };
+      }
+      const data = (await res.json()) as {
+        items?: Array<{
+          id?: string;
+          title?: string;
+          status?: string;
+          due?: string;
+          completed?: string;
+          notes?: string;
+        }>;
+      };
+      const tasks: GoogleTaskSummary[] = (data.items ?? [])
+        .filter((it) => (it.title ?? '').trim().length > 0)
+        .map((it) => ({
+          id: it.id ?? '',
+          title: it.title ?? '',
+          status: it.status === 'completed' ? 'completed' : 'needsAction',
+          dueIso: it.due ?? null,
+          completedIso: it.completed ?? null,
+          notes: it.notes ?? null,
+        }));
+      return { ok: true, output: { tasks } };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { ok: false, code: 'api-error', reason: msg };
@@ -1437,6 +1518,7 @@ const GOOGLE_CONNECTORS: Record<GoogleConnectorId, GoogleConnector> = {
   'google.calendar.create-event': calendarCreateEvent as unknown as GoogleConnector,
   'google.calendar.invite-external': calendarInviteExternal as unknown as GoogleConnector,
   'google.calendar.list-events': calendarListEvents as unknown as GoogleConnector,
+  'google.tasks.list': tasksList as unknown as GoogleConnector,
   'google.drive.create-doc': driveCreateDoc as unknown as GoogleConnector,
   'google.drive.share-doc': driveShareDoc as unknown as GoogleConnector,
   'google.drive.search': driveSearch as unknown as GoogleConnector,
