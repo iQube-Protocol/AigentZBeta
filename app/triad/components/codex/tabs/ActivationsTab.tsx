@@ -9,7 +9,7 @@
  * events, no per-component fetches.
  */
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Sparkles, ChevronRight, Lock, CheckCircle2, X, Hourglass, ExternalLink, Check, ArrowUpCircle } from "lucide-react";
 import { useActivations } from "@/services/activations/ActivationsContext";
 import { usePlanUpgradeModal } from "@/components/metame/billing/usePlanUpgradeModal";
@@ -48,16 +48,38 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
   } = useActivations();
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Track which activation ID triggered the last activate() call so that an
+  // "upgrade required" error can auto-open the correct tier modal.
+  const [activatingId, setActivatingId] = useState<string | null>(null);
   const { openUpgrade, upgradeModal } = usePlanUpgradeModal({ personaId });
 
   const handleClick = useCallback(
     (id: string, action: "activate" | "request" | "revoke") => {
-      if (action === "activate") return void activate(id);
+      if (action === "activate") {
+        setActivatingId(id);
+        return void activate(id);
+      }
       if (action === "request") return void requestAccess(id);
       if (action === "revoke") return void revoke(id);
     },
     [activate, requestAccess, revoke],
   );
+
+  // When an activation error arrives for a plan-gated surface, auto-open the
+  // correct upgrade modal instead of leaving a red banner.
+  useEffect(() => {
+    if (!error || !activatingId) return;
+    const surface = surfaces.find((s) => s.id === activatingId);
+    if (surface?.planGated && error.toLowerCase().includes('upgrade required')) {
+      clearError();
+      setActivatingId(null);
+      openUpgrade(
+        surface.requiredTier
+          ? { defaultTierKey: surface.requiredTier }
+          : undefined,
+      );
+    }
+  }, [error, activatingId, surfaces, clearError, openUpgrade]);
 
   const handleCopyEmbed = useCallback((id: string, sourceCartridge: string, tabSlug: string) => {
     const path = buildEmbedUrl(sourceCartridge, tabSlug);

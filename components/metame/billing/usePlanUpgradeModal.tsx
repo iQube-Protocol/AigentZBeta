@@ -1,28 +1,37 @@
 'use client';
 
 /**
- * usePlanUpgradeModal — a one-line, reusable upgrade-modal trigger.
+ * usePlanUpgradeModal — unified upgrade-modal trigger with smart routing.
  *
- * Upgrade moments appear across many journeys (Founder Office locked state,
- * the Activations catalogue, Standing tab, experience-model caps, and inline
- * chips). Rather than each surface re-implementing modal state, this hook
- * owns the open/close state and renders the modal, exposing a single
- * `openUpgrade()` trigger any button or chip can call.
+ * Two modals live under this hook:
+ *   CitizenLadderModal  — sovereign_citizen / steward (3-column comparison)
+ *   PlanUpgradeModal    — venture_lite / venture_pro / venture_elite (FO)
+ *
+ * Smart routing: openUpgrade({ defaultTierKey: 'sovereign_citizen' }) routes to
+ * the CitizenLadder automatically; FO tiers go to the FO modal. Callers that
+ * know which modal they want can use openCitizenUpgrade() or openFoUpgrade()
+ * directly.
  *
  * Usage:
  *   const { openUpgrade, upgradeModal } = usePlanUpgradeModal({ personaId });
- *   // somewhere in JSX (rendered once): {upgradeModal}
- *   // any trigger: <button onClick={() => openUpgrade()}>Upgrade</button>
- *   // tier-scoped:  openUpgrade({ tiers: ['venture_lite'], defaultTierKey: 'venture_lite' })
+ *   // rendered once in host: {upgradeModal}
+ *   // trigger from any button: openUpgrade({ defaultTierKey: 'sovereign_citizen' })
  */
 
 import { useCallback, useMemo, useState } from 'react';
 import { PlanUpgradeModal, type PlanTierKey } from './PlanUpgradeModal';
+import { CitizenLadderModal, type CitizenTierKey } from './CitizenLadderModal';
 
 export interface OpenUpgradeOptions {
   tiers?: PlanTierKey[];
   defaultTierKey?: PlanTierKey;
 }
+
+export interface OpenCitizenUpgradeOptions {
+  defaultTierKey?: CitizenTierKey;
+}
+
+const CITIZEN_TIERS = new Set<PlanTierKey>(['sovereign_citizen', 'steward']);
 
 export interface UsePlanUpgradeModalArgs {
   personaId?: string;
@@ -30,32 +39,81 @@ export interface UsePlanUpgradeModalArgs {
 }
 
 export function usePlanUpgradeModal({ personaId, onUpgraded }: UsePlanUpgradeModalArgs) {
-  const [open, setOpen] = useState(false);
-  const [opts, setOpts] = useState<OpenUpgradeOptions>({});
+  // Founder Office modal state
+  const [foOpen, setFoOpen] = useState(false);
+  const [foOpts, setFoOpts] = useState<OpenUpgradeOptions>({});
 
-  const openUpgrade = useCallback((next?: OpenUpgradeOptions) => {
-    setOpts(next ?? {});
-    setOpen(true);
+  // Citizen ladder modal state
+  const [citizenOpen, setCitizenOpen] = useState(false);
+  const [citizenOpts, setCitizenOpts] = useState<OpenCitizenUpgradeOptions>({});
+
+  const openCitizenUpgrade = useCallback((next?: OpenCitizenUpgradeOptions) => {
+    setCitizenOpts(next ?? {});
+    setCitizenOpen(true);
   }, []);
 
-  const closeUpgrade = useCallback(() => setOpen(false), []);
+  const openFoUpgrade = useCallback((next?: OpenUpgradeOptions) => {
+    setFoOpts(next ?? {});
+    setFoOpen(true);
+  }, []);
 
-  const upgradeModal = useMemo(
-    () => (
-      <PlanUpgradeModal
-        open={open}
-        personaId={personaId}
-        tiers={opts.tiers}
-        defaultTierKey={opts.defaultTierKey}
-        onClose={closeUpgrade}
-        onUpgraded={(tierKey) => {
-          setOpen(false);
-          onUpgraded?.(tierKey);
-        }}
-      />
-    ),
-    [open, personaId, opts, closeUpgrade, onUpgraded],
+  // Smart router: citizen tiers → CitizenLadderModal; FO tiers → FO modal.
+  const openUpgrade = useCallback(
+    (next?: OpenUpgradeOptions) => {
+      const tier = next?.defaultTierKey ?? next?.tiers?.[0];
+      if (tier && CITIZEN_TIERS.has(tier)) {
+        openCitizenUpgrade({ defaultTierKey: tier as CitizenTierKey });
+      } else {
+        openFoUpgrade(next);
+      }
+    },
+    [openCitizenUpgrade, openFoUpgrade],
   );
 
-  return { openUpgrade, closeUpgrade, upgradeModal, isUpgradeOpen: open };
+  const closeUpgrade = useCallback(() => {
+    setFoOpen(false);
+    setCitizenOpen(false);
+  }, []);
+
+  const handleUpgraded = useCallback(
+    (tierKey: PlanTierKey) => {
+      setFoOpen(false);
+      setCitizenOpen(false);
+      onUpgraded?.(tierKey);
+    },
+    [onUpgraded],
+  );
+
+  // Renders both modals — host just mounts {upgradeModal} once.
+  const upgradeModal = useMemo(
+    () => (
+      <>
+        <CitizenLadderModal
+          open={citizenOpen}
+          personaId={personaId}
+          defaultTierKey={citizenOpts.defaultTierKey}
+          onClose={() => setCitizenOpen(false)}
+          onUpgraded={handleUpgraded}
+        />
+        <PlanUpgradeModal
+          open={foOpen}
+          personaId={personaId}
+          tiers={foOpts.tiers}
+          defaultTierKey={foOpts.defaultTierKey}
+          onClose={() => setFoOpen(false)}
+          onUpgraded={handleUpgraded}
+        />
+      </>
+    ),
+    [citizenOpen, foOpen, personaId, citizenOpts, foOpts, handleUpgraded],
+  );
+
+  return {
+    openUpgrade,
+    openCitizenUpgrade,
+    openFoUpgrade,
+    closeUpgrade,
+    upgradeModal,
+    isUpgradeOpen: foOpen || citizenOpen,
+  };
 }

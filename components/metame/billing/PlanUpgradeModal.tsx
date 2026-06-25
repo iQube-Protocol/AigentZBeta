@@ -40,12 +40,25 @@ interface TierMeta {
   blurb: string;
 }
 
+// Founder Office tiers only — sovereign_citizen / steward are handled by
+// CitizenLadderModal which shows the full 3-column comparison. Smart-routing
+// in usePlanUpgradeModal directs citizen-tier openUpgrade() calls there.
 const TIER_LADDER: TierMeta[] = [
-  { key: 'sovereign_citizen', name: 'Sovereignty', blurb: 'Standing history, Sonnet aigentMe, DevOn lite, Founder Office preview.' },
-  { key: 'steward', name: 'Stewardship', blurb: 'Professional Standing, steward privileges, Act as Aigent.' },
-  { key: 'venture_lite', name: 'Founder Office Operator', blurb: 'One venture on the Pro schema + operating model.' },
-  { key: 'venture_pro', name: 'Operator Plus', blurb: 'Three ventures + portfolio.' },
-  { key: 'venture_elite', name: 'Portfolio Operator', blurb: 'Unlimited ventures + portfolio. Opus aigentMe.' },
+  {
+    key: 'venture_lite',
+    name: 'Founder Office Operator',
+    blurb: 'One venture on the Pro schema + operating model. Marketa, metaMe Studio, pro AI.',
+  },
+  {
+    key: 'venture_pro',
+    name: 'Operator Plus',
+    blurb: 'Three ventures + portfolio view. HMS access. Everything in Operator.',
+  },
+  {
+    key: 'venture_elite',
+    name: 'Portfolio Operator',
+    blurb: 'Unlimited ventures + portfolio. Opus aigentMe. Full platform access.',
+  },
 ];
 
 type Rail = 'qc' | 'paypal' | 'usdc';
@@ -298,7 +311,7 @@ export function PlanUpgradeModal({
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
             <ArrowUpCircle className="h-5 w-5 text-purple-400" />
-            <h2 className="text-base font-semibold">Upgrade your plan</h2>
+            <h2 className="text-base font-semibold">Founder Office</h2>
           </div>
           <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-white">
             <X className="h-5 w-5" />
