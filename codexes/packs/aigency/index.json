@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-25T02:10:09.556Z",
+  "last_updated": "2026-06-25T18:01:10.589Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7febd30f68fff7c928a4cf7aede88725932023ff",
-  "latest_commit_short": "7febd30",
-  "latest_commit_title": "fix standing_document upload constraint + ground all draft generators",
+  "latest_commit": "41ce391a2492f21e1aa144fea60c0545e3875e0a",
+  "latest_commit_short": "41ce391",
+  "latest_commit_title": "add Polity Participation Model v1.0 as constitutional primitive to polity-core",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "41ce391",
+      "full_sha": "41ce391a2492f21e1aa144fea60c0545e3875e0a",
+      "title": "add Polity Participation Model v1.0 as constitutional primitive to polity-core",
+      "author": "Claude",
+      "timestamp": "2026-06-25T17:58:36Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-41ce391.md"
+    },
     {
       "sha": "7febd30",
       "full_sha": "7febd30f68fff7c928a4cf7aede88725932023ff",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-08T21:20:31Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-f13d150.md"
-    },
-    {
-      "sha": "fc9f447",
-      "full_sha": "fc9f447ac38f31e16199df9751e8454565cade89",
-      "title": "revert: drop CTA-title backstop work (8fc51aea + 69c75d81 + 14428e1d)",
-      "author": "Claude",
-      "timestamp": "2026-06-07T01:22:06Z",
-      "type": "revert",
-      "brief": "items/build_/COMMITS/COMMIT-fc9f447.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
