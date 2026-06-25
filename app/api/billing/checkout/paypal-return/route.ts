@@ -1,96 +1,116 @@
 /**
  * PayPal return handler — /api/billing/checkout/paypal-return
  *
- * PayPal redirects the buyer here after they approve the payment on
- * PayPal's hosted approval page. Query params carry `token` (the PayPal
- * orderId) and `tierKey` (packed into the `custom_id` of the order at
- * creation time via a redirect state cookie).
+ * PayPal redirects the buyer's popup here after they approve (or cancel) the
+ * plan payment. Flow:
+ *   1. Read `token` (PayPal orderId) from the query string.
+ *   2. Resolve the T0-safe checkout session by that order id → recover
+ *      personaId + tierKey (personaId never travelled to PayPal).
+ *   3. Capture the order, upsert persona_plans, write the plan_purchased
+ *      receipt, mark the session captured.
+ *   4. Return a tiny HTML page that postMessages the result to the opener
+ *      and closes the popup (matching the canonical purchase-return pattern).
  *
- * Flow:
- *   1. Read `token` (PayPal orderId) from query string
- *   2. Read `tierKey` from the `plan_billing_pending` session cookie set
- *      by the POST /api/billing/checkout step-1 response handler
- *   3. POST to /api/billing/checkout with { tierKey, rail:'paypal', paypalOrderId }
- *      — re-uses the capture + plan-upsert + receipt logic already there
- *   4. Redirect to /billing/upgrade?paypal=success or ?paypal=error
- *
- * The `plan_billing_pending` cookie carries { tierKey } and is set by the
- * client after receiving the step-1 redirect response. Server-side setting
- * is not feasible because the POST response is consumed by the browser
- * before the PayPal redirect — the cookie must be set in client JS after
- * receiving `approvalUrl`.
- *
- * T0 safety: personaId is resolved server-side inside the checkout POST;
- * this handler never touches T0 identifiers directly.
+ * T0 safety: personaId is recovered from the server-side session row, not
+ * from any PayPal-bound field. It never appears in the page output either.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  resolveCheckoutSessionByOrderId,
+  capturePayPalPlanOrder,
+  applyPlanPurchase,
+  markCheckoutSession,
+  priceTierRails,
+  getPlanPricingKnobs,
+  tierLabel,
+} from '@/services/billing/planCheckout';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_TIER_KEYS = new Set([
-  'sovereign_citizen',
-  'steward',
-  'venture_lite',
-  'venture_pro',
-  'venture_elite',
-]);
+/** Render a popup-closing page that messages the opener, with a redirect fallback. */
+function popupResponse(
+  message: { type: string; [k: string]: unknown },
+  fallbackPath: string,
+): NextResponse {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
+  const json = JSON.stringify(message);
+  return new NextResponse(
+    `<!doctype html><html><body><script>
+      (function () {
+        try {
+          if (window.opener) {
+            window.opener.postMessage(${json}, '*');
+            window.close();
+            return;
+          }
+        } catch (e) {}
+        window.location.href = ${JSON.stringify(baseUrl + fallbackPath)};
+      })();
+    </script></body></html>`,
+    { headers: { 'Content-Type': 'text/html' } },
+  );
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const token = searchParams.get('token'); // PayPal orderId
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
-  if (!token) {
-    return NextResponse.redirect(`${baseUrl}/billing/upgrade?paypal=error&reason=missing_token`);
-  }
-
-  // Read tierKey from the short-lived session cookie written by the client
-  // after receiving the step-1 approvalUrl.
-  const pendingCookie = req.cookies.get('plan_billing_pending')?.value;
-  let tierKey: string | null = null;
-  if (pendingCookie) {
-    try {
-      const parsed = JSON.parse(pendingCookie) as { tierKey?: string };
-      tierKey = parsed.tierKey ?? null;
-    } catch {
-      // malformed cookie — fall through to error redirect
-    }
-  }
-
-  if (!tierKey || !VALID_TIER_KEYS.has(tierKey)) {
-    return NextResponse.redirect(
-      `${baseUrl}/billing/upgrade?paypal=error&reason=missing_tier`,
+  // Cancel path — PayPal sent the buyer back without approving.
+  if (searchParams.get('cancelled') === '1') {
+    return popupResponse(
+      { type: 'plan-paypal-cancelled' },
+      '/?paypal=cancelled',
     );
   }
 
-  // Delegate capture + plan upsert + receipt to the checkout POST handler.
-  // We call it internally via fetch so the existing auth + debit logic
-  // runs once rather than being duplicated here.
-  try {
-    const checkoutRes = await fetch(`${baseUrl}/api/billing/checkout`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Forward cookies so the checkout route can resolve the persona.
-        Cookie: req.headers.get('cookie') ?? '',
-        Authorization: req.headers.get('authorization') ?? '',
-      },
-      body: JSON.stringify({ tierKey, rail: 'paypal', paypalOrderId: token }),
-    });
-
-    const data = (await checkoutRes.json()) as { ok?: boolean; error?: string };
-    if (!data.ok) {
-      const reason = encodeURIComponent(data.error ?? 'capture_failed');
-      return NextResponse.redirect(`${baseUrl}/billing/upgrade?paypal=error&reason=${reason}`);
-    }
-  } catch (e) {
-    const reason = encodeURIComponent(e instanceof Error ? e.message : 'unexpected');
-    return NextResponse.redirect(`${baseUrl}/billing/upgrade?paypal=error&reason=${reason}`);
+  const orderId = searchParams.get('token');
+  if (!orderId) {
+    return popupResponse(
+      { type: 'plan-paypal-error', error: 'missing_token' },
+      '/?paypal=error&reason=missing_token',
+    );
   }
 
-  // Clear the pending cookie and redirect to the success surface.
-  const res = NextResponse.redirect(`${baseUrl}/billing/upgrade?paypal=success&tier=${tierKey}`);
-  res.cookies.set('plan_billing_pending', '', { maxAge: 0, path: '/' });
-  return res;
+  // Recover the T0-safe session (personaId + tier) by the PayPal order id.
+  const session = await resolveCheckoutSessionByOrderId(orderId);
+  if (!session) {
+    return popupResponse(
+      { type: 'plan-paypal-error', error: 'session_not_found' },
+      '/?paypal=error&reason=session_not_found',
+    );
+  }
+
+  // Idempotent: a previously-captured session is treated as success.
+  if (session.status === 'captured') {
+    return popupResponse(
+      { type: 'plan-paypal-success', tierKey: session.tierKey, label: tierLabel(session.tierKey) },
+      '/?paypal=success',
+    );
+  }
+
+  try {
+    await capturePayPalPlanOrder(orderId);
+  } catch (e) {
+    await markCheckoutSession(session.checkoutId, 'failed');
+    return popupResponse(
+      { type: 'plan-paypal-error', error: e instanceof Error ? e.message : 'capture_failed' },
+      '/?paypal=error&reason=capture_failed',
+    );
+  }
+
+  // Receipt reflects the premium-inclusive amount actually charged by PayPal.
+  const usd = priceTierRails(session.cents, await getPlanPricingKnobs()).paypalUsd.toFixed(2);
+  await applyPlanPurchase({
+    personaId: session.personaId,
+    tierKey: session.tierKey,
+    source: 'paypal',
+    receiptSummary: `Plan upgraded to ${tierLabel(session.tierKey)} via PayPal ($${usd}, ref: ${session.checkoutId})`,
+    toolsUsed: ['billing-checkout', 'paypal'],
+  });
+  await markCheckoutSession(session.checkoutId, 'captured');
+
+  return popupResponse(
+    { type: 'plan-paypal-success', tierKey: session.tierKey, label: tierLabel(session.tierKey) },
+    '/?paypal=success',
+  );
 }

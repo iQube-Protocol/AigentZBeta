@@ -10,14 +10,15 @@
  * ── Q¢ flow (synchronous) ────────────────────────────────────────────────────
  *   1. Load price from plan_price_config (USD cents = Q¢ since $1 = 100 Q¢)
  *   2. debitQc(personaId, amountQc, 'plan_subscription', checkoutId)
- *   3. Upsert persona_plans with new tier columns + current_period_end (+30 days)
- *   4. createActivityReceipt('plan_purchased')
+ *   3. applyPlanPurchase — upsert persona_plans + plan_purchased receipt
  *
- * ── PayPal flow (two-step) ───────────────────────────────────────────────────
+ * ── PayPal flow (popup + postMessage) ────────────────────────────────────────
  *   Step 1 — POST { tierKey, rail:'paypal' } — no paypalOrderId:
- *     Create PayPal order → return { step:'redirect', approvalUrl, orderId }
- *   Step 2 — POST { tierKey, rail:'paypal', paypalOrderId } — on return:
- *     Capture PayPal order → upsert plan → createActivityReceipt('plan_purchased')
+ *     Create PayPal order → persist a T0-safe checkout session keyed by a
+ *     random checkoutId → return { step:'redirect', approvalUrl, orderId }.
+ *     The client opens approvalUrl in a popup; PayPal redirects the popup to
+ *     /api/billing/checkout/paypal-return, which captures + applies + posts a
+ *     message back to the opener. personaId never reaches PayPal.
  *
  * ── USDC ─────────────────────────────────────────────────────────────────────
  *   Stub → 501 Not Implemented (post-alpha).
@@ -27,206 +28,76 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { debitQc } from '@/app/api/community-content/_lib/generate';
-import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import {
+  type TierKey,
+  isValidTierKey,
+  listTierKeys,
+  tierLabel,
+  getTierPrice,
+  priceTierRails,
+  getPlanPricingKnobs,
+  createPayPalPlanOrder,
+  createCheckoutSession,
+  applyPlanPurchase,
+  buildUsdcPaymentIntent,
+  verifyUsdcTransfer,
+  resolveCheckoutSessionById,
+  markCheckoutSessionSettled,
+} from '@/services/billing/planCheckout';
 
 export const dynamic = 'force-dynamic';
 
-// ── Tier configuration ────────────────────────────────────────────────────────
-
-const TIER_CONFIG = {
-  sovereign_citizen: {
-    label: 'Tier 1 — Sovereignty',
-    planColumns: { plan_tier: 'sovereign_citizen' },
-  },
-  steward: {
-    label: 'Tier 2 — Stewardship',
-    planColumns: { plan_tier: 'steward', standing_tier: 'professional' },
-  },
-  venture_lite: {
-    label: 'Founder Office Operator',
-    planColumns: { venture_tier: 'lite', standing_tier: 'professional' },
-  },
-  venture_pro: {
-    label: 'Operator Plus',
-    planColumns: { venture_tier: 'pro', standing_tier: 'professional' },
-  },
-  venture_elite: {
-    label: 'Portfolio Operator',
-    planColumns: { venture_tier: 'elite', standing_tier: 'professional' },
-  },
-} as const;
-
-type TierKey = keyof typeof TIER_CONFIG;
-
-const VALID_TIER_KEYS = new Set(Object.keys(TIER_CONFIG));
-
-// ── PayPal helpers (plan-specific) ───────────────────────────────────────────
-
-const PAYPAL_API =
-  process.env.PAYPAL_MODE === 'sandbox'
-    ? 'https://api-m.sandbox.paypal.com'
-    : 'https://api-m.paypal.com';
-
-let _ppToken: { token: string; expiresAt: number } | null = null;
-
-async function getPayPalAccessToken(): Promise<string> {
-  if (_ppToken && Date.now() < _ppToken.expiresAt) return _ppToken.token;
-  const clientId = process.env.PAYPAL_CLIENT_ID?.trim();
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET?.trim();
-  if (!clientId || !clientSecret) throw new Error('PayPal credentials not configured');
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const res = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'grant_type=client_credentials',
-  });
-  if (!res.ok) throw new Error(`PayPal auth failed: ${res.status}`);
-  const data = (await res.json()) as { access_token: string; expires_in: number };
-  _ppToken = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
-  return _ppToken.token;
-}
-
-async function createPayPalPlanOrder(tierKey: TierKey, usdAmount: number, checkoutId: string) {
-  const token = await getPayPalAccessToken();
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${PAYPAL_API}/v2/checkout/orders`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      intent: 'CAPTURE',
-      purchase_units: [
-        {
-          amount: { currency_code: 'USD', value: usdAmount.toFixed(2) },
-          description: TIER_CONFIG[tierKey].label,
-          custom_id: checkoutId.slice(0, 127),
-        },
-      ],
-      application_context: {
-        brand_name: 'Polity Alpha',
-        user_action: 'PAY_NOW',
-        return_url: `${baseUrl}/api/billing/checkout/paypal-return`,
-        cancel_url: `${baseUrl}/billing/upgrade?paypal=cancelled`,
-      },
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(`PayPal order create failed: ${JSON.stringify(err)}`);
-  }
-  const order = (await res.json()) as {
-    id: string;
-    links: Array<{ rel: string; href: string }>;
-  };
-  const approvalUrl = order.links.find((l) => l.rel === 'approve')?.href ?? null;
-  return { orderId: order.id, approvalUrl };
-}
-
-async function capturePayPalPlanOrder(orderId: string) {
-  const token = await getPayPalAccessToken();
-  const res = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderId}/capture`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
-  const data = (await res.json()) as { status?: string; name?: string };
-  if (data.status !== 'COMPLETED' && data.name !== 'ORDER_ALREADY_CAPTURED') {
-    throw new Error(`PayPal capture failed: ${JSON.stringify(data)}`);
-  }
-  return true;
-}
-
-// ── Plan upsert ───────────────────────────────────────────────────────────────
-
-async function upsertPersonaPlan(
-  personaId: string,
-  tierKey: TierKey,
-  source: 'checkout' | 'paypal',
-) {
-  const admin = getSupabaseServer();
-  if (!admin) throw new Error('Database unavailable');
-
-  const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  const planColumns = TIER_CONFIG[tierKey].planColumns;
-
-  // Check if a plan row exists
-  const { data: existing } = await admin
-    .from('persona_plans')
-    .select('id')
-    .eq('persona_id', personaId)
-    .maybeSingle();
-
-  const updatePayload = {
-    ...planColumns,
-    status: 'active',
-    source,
-    current_period_end: periodEnd,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (existing?.id) {
-    const { error } = await admin
-      .from('persona_plans')
-      .update(updatePayload)
-      .eq('persona_id', personaId);
-    if (error) throw new Error(`Plan update failed: ${error.message}`);
-  } else {
-    const { error } = await admin.from('persona_plans').insert({
-      persona_id: personaId,
-      plan_tier: 'citizen',
-      venture_tier: 'none',
-      standing_tier: 'standing',
-      status: 'active',
-      source,
-      current_period_end: periodEnd,
-      ...planColumns,
-    });
-    if (error) throw new Error(`Plan insert failed: ${error.message}`);
-  }
+function newCheckoutId(): string {
+  return `billing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // ── GET — price quote ─────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   const tierKey = req.nextUrl.searchParams.get('tierKey') ?? '';
-  if (!VALID_TIER_KEYS.has(tierKey)) {
+  if (!isValidTierKey(tierKey)) {
     return NextResponse.json(
-      { ok: false, error: `Unknown tierKey: "${tierKey}". Valid keys: ${[...VALID_TIER_KEYS].join(', ')}` },
+      { ok: false, error: `Unknown tierKey: "${tierKey}". Valid keys: ${listTierKeys().join(', ')}` },
       { status: 400 },
     );
   }
 
-  const admin = getSupabaseServer();
-  if (!admin) return NextResponse.json({ ok: false, error: 'Database unavailable' }, { status: 503 });
-
-  const { data, error } = await admin
-    .from('plan_price_config')
-    .select('price_usd_cents, active')
-    .eq('tier_key', tierKey)
-    .maybeSingle();
-
-  if (error || !data) {
+  const price = await getTierPrice(tierKey);
+  if (!price) {
     return NextResponse.json({ ok: false, error: 'Price not configured for this tier' }, { status: 404 });
   }
-  if (!data.active) {
+  if (!price.active) {
     return NextResponse.json({ ok: false, error: 'This tier is not currently available for purchase' }, { status: 403 });
   }
 
-  const cents = data.price_usd_cents as number;
-  const usd = cents / 100;
+  const cents = price.cents;
+  const rails = priceTierRails(cents, await getPlanPricingKnobs());
 
   return NextResponse.json({
     ok: true,
     tierKey,
-    label: TIER_CONFIG[tierKey as TierKey].label,
+    label: tierLabel(tierKey),
+    // Base price (no premium). The Q¢ rail charges exactly this.
     priceUsdCents: cents,
     rails: {
-      // Q¢: $1 = 100 Q¢, so price_usd_cents Q¢ = price_usd_cents cents
-      qc: { priceCents: cents, currency: 'QC', note: `${cents} Q¢` },
-      // USDC: USD amount (stub for alpha)
-      usdc: { priceUsd: usd, currency: 'USDC', note: 'Coming soon' },
-      // PayPal: USD amount
-      paypal: { priceUsd: usd, currency: 'USD', note: `$${usd.toFixed(2)} USD via PayPal` },
+      // Q¢: house currency, no premium. $1 = 100 Q¢ ⇒ qcAmount = base cents.
+      qc: { priceCents: rails.qcAmount, currency: 'QC', note: `${rails.qcAmount} Q¢` },
+      // USDC: base + ~8% (USDC fee + fiat premium), live on Base mainnet.
+      usdc: {
+        priceUsd: rails.usdcUsd,
+        priceCents: rails.usdcCents,
+        currency: 'USDC',
+        note: `$${rails.usdcUsd.toFixed(2)} USDC (incl. premium)`,
+      },
+      // PayPal: base + ~10% (PayPal fee + fiat premium).
+      paypal: {
+        priceUsd: rails.paypalUsd,
+        priceCents: rails.paypalCents,
+        currency: 'USD',
+        note: `$${rails.paypalUsd.toFixed(2)} USD via PayPal (incl. premium)`,
+      },
     },
   });
 }
@@ -240,19 +111,23 @@ export async function POST(req: NextRequest) {
   }
 
   let body: unknown;
-  try { body = await req.json(); } catch {
+  try {
+    body = await req.json();
+  } catch {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { tierKey, rail, paypalOrderId } = body as {
+  const { tierKey, rail, txHash, chainId, checkoutId: bodyCheckoutId } = body as {
     tierKey?: string;
     rail?: string;
-    paypalOrderId?: string;
+    txHash?: string;
+    chainId?: number;
+    checkoutId?: string;
   };
 
-  if (!tierKey || !VALID_TIER_KEYS.has(tierKey)) {
+  if (!tierKey || !isValidTierKey(tierKey)) {
     return NextResponse.json(
-      { ok: false, error: `tierKey must be one of: ${[...VALID_TIER_KEYS].join(', ')}` },
+      { ok: false, error: `tierKey must be one of: ${listTierKeys().join(', ')}` },
       { status: 400 },
     );
   }
@@ -264,39 +139,90 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // USDC — stub for alpha
-  if (rail === 'usdc') {
-    return NextResponse.json(
-      { ok: false, error: 'USDC payments for plan subscriptions are not yet available. Please use Q¢ or PayPal.' },
-      { status: 501 },
-    );
-  }
-
-  // Load price
-  const admin = getSupabaseServer();
-  if (!admin) return NextResponse.json({ ok: false, error: 'Database unavailable' }, { status: 503 });
-
-  const { data: priceRow, error: priceErr } = await admin
-    .from('plan_price_config')
-    .select('price_usd_cents, active')
-    .eq('tier_key', tierKey)
-    .maybeSingle();
-
-  if (priceErr || !priceRow) {
+  const price = await getTierPrice(tierKey);
+  if (!price) {
     return NextResponse.json({ ok: false, error: 'Price not configured for this tier' }, { status: 404 });
   }
-  if (!priceRow.active) {
+  if (!price.active) {
     return NextResponse.json({ ok: false, error: 'This tier is not currently available for purchase' }, { status: 403 });
   }
 
-  const cents = priceRow.price_usd_cents as number;
-  const checkoutId = `billing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const cents = price.cents;
   const key = tierKey as TierKey;
+
+  // ── USDC rail (two-step, on-chain settlement on Base) ─────────────────────
+  if (rail === 'usdc') {
+    // Step 2 — verify the on-chain transfer and apply the plan.
+    if (txHash && typeof txHash === 'string' && txHash.trim()) {
+      if (!bodyCheckoutId) {
+        return NextResponse.json({ ok: false, error: 'checkoutId required to settle USDC' }, { status: 400 });
+      }
+      const session = await resolveCheckoutSessionById(bodyCheckoutId);
+      if (!session || session.personaId !== persona.personaId) {
+        return NextResponse.json({ ok: false, error: 'Checkout session not found' }, { status: 404 });
+      }
+      if (session.status === 'captured') {
+        return NextResponse.json({ ok: true, step: 'complete', tierKey, label: tierLabel(key), rail: 'usdc', checkoutId: bodyCheckoutId });
+      }
+      const resolvedChain = typeof chainId === 'number' ? chainId : 8453;
+      const rails = priceTierRails(session.cents, await getPlanPricingKnobs());
+      const verified = await verifyUsdcTransfer({
+        origin: req.nextUrl.origin,
+        txHash: txHash.trim(),
+        chainId: resolvedChain,
+        amountUsdcMicroUnits: rails.usdcMicroUnits,
+      });
+      if (!verified.ok) {
+        return NextResponse.json({ ok: false, error: verified.error ?? 'USDC verification failed' }, { status: 402 });
+      }
+      // Record the on-chain ref idempotently (unique index blocks tx reuse).
+      const settled = await markCheckoutSessionSettled(bodyCheckoutId, `usdc::${txHash.trim()}`);
+      if (!settled.ok) {
+        return NextResponse.json({ ok: false, error: settled.error ?? 'Settlement failed' }, { status: 409 });
+      }
+      await applyPlanPurchase({
+        personaId: persona.personaId,
+        tierKey: key,
+        source: 'checkout',
+        receiptSummary: `Plan upgraded to ${tierLabel(key)} via USDC ($${rails.usdcUsd.toFixed(2)}, tx: ${txHash.trim().slice(0, 18)}…)`,
+        toolsUsed: ['billing-checkout', 'usdc'],
+      });
+      return NextResponse.json({ ok: true, step: 'complete', tierKey, label: tierLabel(key), rail: 'usdc', checkoutId: bodyCheckoutId });
+    }
+
+    // Step 1 — build the server-authoritative USDC payment intent.
+    const resolvedChain = typeof chainId === 'number' ? chainId : 8453;
+    const intentResult = buildUsdcPaymentIntent(cents, await getPlanPricingKnobs(), resolvedChain);
+    if (!intentResult.ok) {
+      return NextResponse.json({ ok: false, error: intentResult.error }, { status: 500 });
+    }
+    const checkoutId = newCheckoutId();
+    await createCheckoutSession({
+      checkoutId,
+      personaId: persona.personaId,
+      tierKey: key,
+      rail: 'usdc',
+      cents,
+    });
+    return NextResponse.json({
+      ok: true,
+      step: 'usdc_pay',
+      tierKey,
+      label: tierLabel(key),
+      rail: 'usdc',
+      checkoutId,
+      usdc: intentResult.intent,
+    });
+  }
+
+  const checkoutId = newCheckoutId();
 
   // ── Q¢ rail ──────────────────────────────────────────────────────────────
   if (rail === 'qc') {
     // $1 = 100 Q¢ = 100 cents → price_usd_cents Q¢ directly
     const qcAmount = cents;
+    const admin = getSupabaseServer();
+    if (!admin) return NextResponse.json({ ok: false, error: 'Database unavailable' }, { status: 503 });
 
     const debitResult = await debitQc(admin, persona.personaId, qcAmount, 'plan_subscription', checkoutId, 'dvn');
     if (!debitResult.ok) {
@@ -311,80 +237,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await upsertPersonaPlan(persona.personaId, key, 'checkout');
-
-    // DVN receipt (best-effort — don't let receipt failure roll back the purchase)
-    try {
-      await createActivityReceipt({
-        personaId: persona.personaId,
-        activeCartridge: 'metame',
-        actionType: 'plan_purchased',
-        summary: `Plan upgraded to ${TIER_CONFIG[key].label} via Q¢ (${qcAmount} Q¢, ref: ${checkoutId})`,
-        toolsUsed: ['billing-checkout'],
-      });
-    } catch (e) {
-      console.error('[billing/checkout] receipt creation failed (non-fatal):', e);
-    }
+    await applyPlanPurchase({
+      personaId: persona.personaId,
+      tierKey: key,
+      source: 'checkout',
+      receiptSummary: `Plan upgraded to ${tierLabel(key)} via Q¢ (${qcAmount} Q¢, ref: ${checkoutId})`,
+      toolsUsed: ['billing-checkout'],
+    });
 
     return NextResponse.json({
       ok: true,
       step: 'complete',
       tierKey,
-      label: TIER_CONFIG[key].label,
+      label: tierLabel(key),
       rail: 'qc',
       qcDebited: qcAmount,
       checkoutId,
     });
   }
 
-  // ── PayPal rail ───────────────────────────────────────────────────────────
+  // ── PayPal rail — create order + T0-safe session (capture on return) ───────
   if (rail === 'paypal') {
-    const usd = cents / 100;
-
-    // Step 2 — capture an existing order
-    if (paypalOrderId && typeof paypalOrderId === 'string' && paypalOrderId.trim()) {
-      try {
-        await capturePayPalPlanOrder(paypalOrderId.trim());
-      } catch (e) {
-        return NextResponse.json(
-          { ok: false, error: e instanceof Error ? e.message : 'PayPal capture failed' },
-          { status: 402 },
-        );
-      }
-
-      await upsertPersonaPlan(persona.personaId, key, 'paypal');
-
-      try {
-        await createActivityReceipt({
-          personaId: persona.personaId,
-          activeCartridge: 'metame',
-          actionType: 'plan_purchased',
-          summary: `Plan upgraded to ${TIER_CONFIG[key].label} via PayPal ($${usd.toFixed(2)}, orderId: ${paypalOrderId})`,
-          toolsUsed: ['billing-checkout', 'paypal'],
-        });
-      } catch (e) {
-        console.error('[billing/checkout] receipt creation failed (non-fatal):', e);
-      }
-
-      return NextResponse.json({
-        ok: true,
-        step: 'complete',
-        tierKey,
-        label: TIER_CONFIG[key].label,
-        rail: 'paypal',
-        paypalOrderId,
-        checkoutId,
-      });
-    }
-
-    // Step 1 — create the PayPal order
+    // PayPal charges the premium-inclusive amount (base + ~10%).
+    const usd = priceTierRails(cents, await getPlanPricingKnobs()).paypalUsd;
     try {
       const { orderId, approvalUrl } = await createPayPalPlanOrder(key, usd, checkoutId);
+      // Persist personaId server-side keyed by checkoutId; tag with the
+      // PayPal order id so the return handler can recover it. personaId
+      // never travels to PayPal (only checkoutId rides in custom_id).
+      await createCheckoutSession({
+        checkoutId,
+        personaId: persona.personaId,
+        tierKey: key,
+        rail: 'paypal',
+        cents,
+        paypalOrderId: orderId,
+      });
       return NextResponse.json({
         ok: true,
         step: 'redirect',
         tierKey,
-        label: TIER_CONFIG[key].label,
+        label: tierLabel(key),
         rail: 'paypal',
         orderId,
         approvalUrl,
