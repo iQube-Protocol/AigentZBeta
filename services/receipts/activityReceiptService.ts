@@ -59,7 +59,10 @@ export type ActivityActionType =
   | 'standing_document_added'
   // Bounded delegation lifecycle (DVN-anchorable)
   | 'agent_delegated'
-  | 'agent_delegation_revoked';
+  | 'agent_delegation_revoked'
+  // Plan subscription lifecycle (DVN-anchorable)
+  | 'plan_purchased'
+  | 'plan_renewed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

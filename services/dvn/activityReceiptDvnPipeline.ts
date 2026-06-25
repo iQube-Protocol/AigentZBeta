@@ -75,6 +75,9 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // Autonomous agent delegation lifecycle — provenance of who was delegated what
   'agent_delegated',
   'agent_delegation_revoked',
+  // Plan subscription lifecycle — purchase / renewal provenance on-chain
+  'plan_purchased',
+  'plan_renewed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

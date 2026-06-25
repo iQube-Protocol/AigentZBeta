@@ -103,16 +103,23 @@ interface RerankContext {
    * prompt shape stays stable for callers that don't have a gather.
    */
   liveContext?: string | null;
+  /**
+   * Plan-tier model override from `getPlanModelId(personaPlan)`.
+   * Replaces the env-var default so sovereign/steward/FO personas get Sonnet
+   * while free citizens get Haiku — per the Polity Alpha pricing tiers.
+   */
+  modelOverride?: string | null;
 }
 
 function stripJsonFences(raw: string): string {
   return raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 }
 
-async function callAnthropic(userPrompt: string): Promise<string | null> {
+async function callAnthropic(userPrompt: string, modelId?: string | null): Promise<string | null> {
   if (!ANTHROPIC_API_KEY) return null;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 12_000);
+  const resolvedModel = modelId || ANTHROPIC_MODEL;
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -122,7 +129,7 @@ async function callAnthropic(userPrompt: string): Promise<string | null> {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
+        model: resolvedModel,
         // 1500-token ceiling — old budget was 400, which truncated the
         // response once nbaContextualTitles joined nbaPromptHints
         // (≤140 + ≤200 chars per candidate × 5 candidates ≈ 425 tokens
@@ -224,7 +231,7 @@ export async function llmRerankNbeCandidates(
   if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
   if (candidates.length < 2) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
 
-  const raw = await callAnthropic(summariseForPrompt(candidates, ctx));
+  const raw = await callAnthropic(summariseForPrompt(candidates, ctx), ctx.modelOverride);
   if (!raw) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
 
   let parsed: { order?: unknown; topReason?: unknown; nbaContextualTitles?: unknown; nbaPromptHints?: unknown };

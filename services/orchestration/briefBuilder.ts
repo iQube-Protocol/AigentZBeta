@@ -27,6 +27,8 @@ import { getConnectionStatuses, type GoogleSource } from '@/services/google/oaut
 import { inferStrategy } from '@/services/strategy/strategyInference';
 import { evaluateStageProgression } from '@/services/strategy/stageProgression';
 import { getCommercialSpineState } from '@/services/journey/commercialSpine';
+import { getPersonaPlan } from '@/services/billing/personaPlan';
+import { getPlanModelId } from '@/services/billing/planModelTier';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
 import type { PreflightContext } from '@/services/capabilities/preflight';
@@ -182,7 +184,7 @@ function buildGuidanceNote(
 
 export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   const adminClient = getSupabaseServer();
-  const [qube, guide, workspaceConnected, strategy, stageEval, spine] = await Promise.all([
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
@@ -191,7 +193,11 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     adminClient
       ? getCommercialSpineState(adminClient, input.personaId).catch(() => null)
       : Promise.resolve(null),
+    adminClient
+      ? getPersonaPlan(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
   ]);
+  const modelOverride = getPlanModelId(personaPlan);
 
   // Commercial-spine stage completion map — gates the golden-path NBE candidates.
   const spineStagesComplete: Record<string, boolean> = {};
@@ -253,6 +259,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     strategy,
     operatorArchetype: qube?.meta.operatorArchetype ?? null,
     liveContext: input.liveContext ?? null,
+    modelOverride,
   });
   nbeCandidates = rerank.ranked;
   const topNbeReason = rerank.topReason;
@@ -350,7 +357,7 @@ export async function buildMoveForward(input: {
   liveContext?: string | null;
 }): Promise<MoveForwardShape> {
   const adminClient = getSupabaseServer();
-  const [qube, guide, workspaceConnected, strategy, stageEval, spine] = await Promise.all([
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
@@ -359,7 +366,11 @@ export async function buildMoveForward(input: {
     adminClient
       ? getCommercialSpineState(adminClient, input.personaId).catch(() => null)
       : Promise.resolve(null),
+    adminClient
+      ? getPersonaPlan(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
   ]);
+  const modelOverride = getPlanModelId(personaPlan);
 
   // Mirror buildBrief: populate spineStagesComplete so golden-path NBEs
   // (establish-standing, open-founder-office, advance-venture-lab) surface
@@ -422,6 +433,7 @@ export async function buildMoveForward(input: {
       strategy,
       operatorArchetype: qube?.meta.operatorArchetype ?? null,
       liveContext: input.liveContext ?? null,
+      modelOverride,
     });
     topCandidate = rerank.ranked[0] ?? null;
     altsRaw = rerank.ranked.slice(1);

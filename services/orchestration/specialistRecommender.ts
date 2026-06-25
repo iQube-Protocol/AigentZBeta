@@ -21,6 +21,9 @@
 import { getExperienceQube } from '@/services/iqube/experienceQube';
 import { listRecentIntentsForPersona } from '@/services/iqube/intentQube';
 import { getActiveActivationIds } from '@/services/activations/spineActivations';
+import { getPersonaPlan } from '@/services/billing/personaPlan';
+import { getPlanModelId } from '@/services/billing/planModelTier';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { SpecialistId } from '@/services/agents/specialistRouter';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -274,10 +277,11 @@ Rules:
   in concrete terms — no marketing copy.
 - All strings ≤ 160 chars. No markdown.`;
 
-async function callRerank(prompt: string): Promise<LlmRerankPayload | null> {
+async function callRerank(prompt: string, modelId?: string | null): Promise<LlmRerankPayload | null> {
   if (!ANTHROPIC_API_KEY) return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 6_000);
+  const resolvedModel = modelId || ANTHROPIC_MODEL;
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -287,7 +291,7 @@ async function callRerank(prompt: string): Promise<LlmRerankPayload | null> {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
+        model: resolvedModel,
         max_tokens: 400,
         temperature: 0.2,
         system: RERANK_SYSTEM,
@@ -320,16 +324,28 @@ export interface RecommendSpecialistInput {
    * when the LLM pass is off.
    */
   liveContext?: string | null;
+  /**
+   * Plan-tier model override from `getPlanModelId(personaPlan)`.
+   * When set, replaces the env-var default for the LLM rerank call.
+   */
+  modelOverride?: string | null;
 }
 
 export async function recommendSpecialist(
   input: RecommendSpecialistInput,
 ): Promise<SpecialistRecommendation> {
-  const [qube, activeActivationIds, recentIntents] = await Promise.all([
+  const adminClient = getSupabaseServer();
+  const [qube, activeActivationIds, recentIntents, personaPlan] = await Promise.all([
     getExperienceQube(input.personaId).catch(() => null),
     getActiveActivationIds(input.personaId).catch(() => new Set<string>()),
     listRecentIntentsForPersona(input.personaId, { limit: 8 }).catch(() => []),
+    input.modelOverride != null
+      ? Promise.resolve(null)
+      : adminClient
+        ? getPersonaPlan(adminClient, input.personaId).catch(() => null)
+        : Promise.resolve(null),
   ]);
+  const modelOverride = input.modelOverride ?? getPlanModelId(personaPlan);
 
   const activeCartridges = qube?.meta.activeCartridges ?? [];
   const primaryGoal = qube?.meta.primaryGoal ?? null;
@@ -384,7 +400,7 @@ export async function recommendSpecialist(
     2,
   );
 
-  const llm = await callRerank(payload);
+  const llm = await callRerank(payload, modelOverride);
   if (!llm) {
     return { ...baseline, roster, llmApplied: false };
   }
