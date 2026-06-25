@@ -2569,3 +2569,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-7febd30.md](../build_/COMMITS/COMMIT-7febd30.md)
 - Message: fix standing_document upload constraint + ground all draft generators
+
+## Commit `41ce391` — 2026-06-25T17:58:36Z
+- Type: `feat`
+- Brief: [COMMIT-41ce391.md](../build_/COMMITS/COMMIT-41ce391.md)
+- Message: add Polity Participation Model v1.0 as constitutional primitive to polity-core
