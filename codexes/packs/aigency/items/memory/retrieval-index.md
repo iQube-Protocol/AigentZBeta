@@ -2514,3 +2514,53 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-afdc85f.md](../build_/COMMITS/COMMIT-afdc85f.md)
 - Message: seed standing-cartridge activation qube so the catalog card works
+
+## Commit `c5f03ee` — 2026-06-25T00:35:17Z
+- Type: `feat`
+- Brief: [COMMIT-c5f03ee.md](../build_/COMMITS/COMMIT-c5f03ee.md)
+- Message: add Google Tasks read ingest (completed -> log, pending -> to-dos)
+
+## Commit `1b181d3` — 2026-06-24T23:24:58Z
+- Type: `feat`
+- Brief: [COMMIT-1b181d3.md](../build_/COMMITS/COMMIT-1b181d3.md)
+- Message: add Google Calendar read ingest (past -> log, upcoming -> prepare)
+
+## Commit `a0a6b7d` — 2026-06-24T23:20:26Z
+- Type: `push`
+- Brief: [COMMIT-a0a6b7d.md](../build_/COMMITS/COMMIT-a0a6b7d.md)
+- Message: surface verified work done in the Venture Progress report
+
+## Commit `640fc0f` — 2026-06-24T23:18:29Z
+- Type: `feat`
+- Brief: [COMMIT-640fc0f.md](../build_/COMMITS/COMMIT-640fc0f.md)
+- Message: add Work Log UI: log actions + standing documents in the Standing tab
+
+## Commit `1380547` — 2026-06-24T23:15:42Z
+- Type: `feat`
+- Brief: [COMMIT-1380547.md](../build_/COMMITS/COMMIT-1380547.md)
+- Message: add standing-signal API route + standing_document upload kind
+
+## Commit `e72d35a` — 2026-06-24T23:12:09Z
+- Type: `push`
+- Brief: [COMMIT-e72d35a.md](../build_/COMMITS/COMMIT-e72d35a.md)
+- Message: scope Standing profiles list to own persona (fixes duplicate Core tabs)
+
+## Commit `016011e` — 2026-06-24T22:18:28Z
+- Type: `feat`
+- Brief: [COMMIT-016011e.md](../build_/COMMITS/COMMIT-016011e.md)
+- Message: add standing-signal seam: log work done as verified progress signals
+
+## Commit `2abac0b` — 2026-06-24T22:13:11Z
+- Type: `push`
+- Brief: [COMMIT-2abac0b.md](../build_/COMMITS/COMMIT-2abac0b.md)
+- Message: dedupe duplicate Standing Core tab in the Standing cartridge
+
+## Commit `1129315` — 2026-06-24T22:04:42Z
+- Type: `push`
+- Brief: [COMMIT-1129315.md](../build_/COMMITS/COMMIT-1129315.md)
+- Message: enforce no-hallucination grounding on aigentMe narrative generators
+
+## Commit `a1f4dc6` — 2026-06-24T21:32:00Z
+- Type: `push`
+- Brief: [COMMIT-a1f4dc6.md](../build_/COMMITS/COMMIT-a1f4dc6.md)
+- Message: separate VentureQube Lite from Pro ventures in portfolio mode
