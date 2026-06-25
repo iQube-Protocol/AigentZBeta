@@ -308,15 +308,31 @@ export interface PriceRow {
   active: boolean;
 }
 
+// Code-level default prices (USD cents). Used as a fallback when the
+// plan_price_config table hasn't been seeded yet so the upgrade modal
+// always shows prices and checkout can proceed.
+const CODE_LEVEL_TIER_PRICES: Readonly<Record<TierKey, number>> = {
+  sovereign_citizen: 2900,
+  steward: 9900,
+  venture_lite: 29900,
+  venture_pro: 99900,
+  venture_elite: 299900,
+};
+
 export async function getTierPrice(tierKey: TierKey): Promise<PriceRow | null> {
   const admin = getSupabaseServer();
-  if (!admin) return null;
+  const fallback = CODE_LEVEL_TIER_PRICES[tierKey] ?? null;
+  if (!admin) return fallback != null ? { cents: fallback, active: true } : null;
   const { data, error } = await admin
     .from('plan_price_config')
     .select('price_usd_cents, active')
     .eq('tier_key', tierKey)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error || !data) {
+    // Table not yet migrated or row missing — fall back to code-level defaults
+    // so the upgrade modal never shows blank pricing.
+    return fallback != null ? { cents: fallback, active: true } : null;
+  }
   return { cents: data.price_usd_cents as number, active: data.active as boolean };
 }
 

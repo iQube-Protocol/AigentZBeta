@@ -172,8 +172,8 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     label: 'aigentZ',
     description: 'Development Command Center — consequence-engineered building with aigentZ.',
     longDescription:
-      'Activate the aigentZ Development Command Center — the consequence-engineering workflow that turns raw intent into validated builds. Distill intents, assemble context packs, analyze capability gaps, model consequences, and validate implementations against them, with aigentZ as your copilot through the full dev loop.',
-    gate: 'open',
+      'Activate the aigentZ Development Command Center — the consequence-engineering workflow that turns raw intent into validated builds. Distill intents, assemble context packs, analyze capability gaps, model consequences, and validate implementations against them, with aigentZ as your copilot through the full dev loop. Requires Sovereignty (Tier 1) or above.',
+    gate: 'gated',
     tabSlug: 'aigent-z',
     sourceCartridge: 'metame',
     icon: 'Cpu',

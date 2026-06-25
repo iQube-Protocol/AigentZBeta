@@ -31,6 +31,9 @@ export interface ActivationPlanGate {
  * requiredTier to 'sovereign_citizen' / 'steward'.
  */
 export const ACTIVATION_PLAN_GATE: Record<string, ActivationPlanGate> = {
+  // Sovereignty tier (T1) — aigentZ lite + developer incubation
+  'aigent-z': { entitled: (p) => p.aigentzLiteAccess, requiredTier: 'sovereign_citizen' },
+  // Founder Office tiers (venture_lite+)
   'venture-lab': { entitled: (p) => p.ventureLabAccess, requiredTier: 'venture_lite' },
   'marketa': { entitled: (p) => p.marketaAccess, requiredTier: 'venture_lite' },
   'metame-studio': { entitled: (p) => p.studioAccess, requiredTier: 'venture_lite' },
