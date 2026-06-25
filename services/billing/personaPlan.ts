@@ -101,7 +101,22 @@ export interface PersonaPlan {
    * Full DevOn operational access is Founder Office (venture_tier != none).
    */
   aigentzLiteAccess: boolean;
+  /**
+   * Experience-model soft-caps. Tier 0 (free Citizen) is deliberately bounded
+   * so the experience model is a focused starter; Tier 1 (sovereignAccess)
+   * lifts the caps. Enforced at the experience-model write path.
+   *   experienceGoalLimit — max primary goals (free: 1)
+   *   kpiLimit            — max active KPIs (free: 3)
+   *   cartridgeLimit      — max active cartridges (free: 1)
+   * UNLIMITED (9999) once sovereignAccess is true.
+   */
+  experienceGoalLimit: number;
+  kpiLimit: number;
+  cartridgeLimit: number;
 }
+
+/** Sentinel for "no practical cap". */
+const UNLIMITED = 9999;
 
 const FREE_PLAN: PersonaPlan = {
   planTier: 'citizen',
@@ -120,6 +135,10 @@ const FREE_PLAN: PersonaPlan = {
   sovereignAccess: false,
   stewardAccess: false,
   aigentzLiteAccess: false,
+  // Tier 0 soft-caps: a focused starter experience model.
+  experienceGoalLimit: 1,
+  kpiLimit: 3,
+  cartridgeLimit: 1,
 };
 
 export const PLAN_LABEL: Record<AgencyPlanTier, string> = {
@@ -197,6 +216,10 @@ function resolve(row: {
     sovereignAccess,
     stewardAccess,
     aigentzLiteAccess,
+    // Tier 1+ lifts the experience-model soft-caps.
+    experienceGoalLimit: sovereignAccess ? UNLIMITED : 1,
+    kpiLimit: sovereignAccess ? UNLIMITED : 3,
+    cartridgeLimit: sovereignAccess ? UNLIMITED : 1,
   };
 }
 

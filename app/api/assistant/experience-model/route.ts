@@ -36,6 +36,8 @@ import {
   type OperatorArchetype,
 } from '@/services/iqube/experienceQube';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getPersonaPlan, type PersonaPlan } from '@/services/billing/personaPlan';
 
 export const dynamic = 'force-dynamic';
 
@@ -161,6 +163,36 @@ function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === 'string');
 }
 
+interface LimitViolation {
+  field: 'experienceGoals' | 'activeKpis' | 'activeCartridges';
+  label: string;
+  limit: number;
+  attempted: number;
+}
+
+/**
+ * Returns the first experience-model soft-cap the input would breach, or null.
+ * Only checks fields the caller actually set (replace-semantics editors), so a
+ * partial update that doesn't touch goals/KPIs/cartridges is never blocked.
+ */
+function checkExperienceLimits(input: ExperienceQubeUpsertInput, plan: PersonaPlan): LimitViolation | null {
+  const goals = input.blak?.experienceGoals;
+  if (Array.isArray(goals) && goals.length > plan.experienceGoalLimit) {
+    return { field: 'experienceGoals', label: 'experience goals', limit: plan.experienceGoalLimit, attempted: goals.length };
+  }
+  const kpis = input.blak?.activeKpis;
+  if (kpis && typeof kpis === 'object' && !Array.isArray(kpis)) {
+    const count = Object.keys(kpis).length;
+    if (count > plan.kpiLimit) {
+      return { field: 'activeKpis', label: 'KPIs', limit: plan.kpiLimit, attempted: count };
+    }
+  }
+  if (Array.isArray(input.activeCartridges) && input.activeCartridges.length > plan.cartridgeLimit) {
+    return { field: 'activeCartridges', label: 'active cartridges', limit: plan.cartridgeLimit, attempted: input.activeCartridges.length };
+  }
+  return null;
+}
+
 function sanitiseBody(raw: unknown): ExperienceQubeUpsertInput {
   if (!raw || typeof raw !== 'object') return {};
   const body = raw as PostBody;
@@ -209,6 +241,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const input = sanitiseBody(raw);
+
+  // ── Tier-0 soft-caps (lifted at Tier 1 / sovereignAccess) ──────────────────
+  // The goals / KPI / cartridge editors POST the full arrays (replace
+  // semantics), so the incoming lengths are the resulting counts. Reject an
+  // over-cap write with an upgrade signal rather than silently truncating.
+  const admin = getSupabaseServer();
+  if (admin) {
+    const plan = await getPersonaPlan(admin, context.personaId).catch(() => null);
+    if (plan) {
+      const overLimit = checkExperienceLimits(input, plan);
+      if (overLimit) {
+        return NextResponse.json(
+          {
+            error: 'plan-limit',
+            field: overLimit.field,
+            limit: overLimit.limit,
+            attempted: overLimit.attempted,
+            upgradeRequired: true,
+            message: `Your plan allows up to ${overLimit.limit} ${overLimit.label}. Upgrade to Sovereignty to lift this limit.`,
+          },
+          { status: 402, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+    }
+  }
 
   try {
     const record = await upsertExperienceQube(context.personaId, input);

@@ -18,6 +18,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { OperatorArchetype } from '@/services/iqube/experienceQube';
 
 /** Confidence-level weights for verified facts (Standing Charter veracity). */
 const CONFIDENCE_WEIGHT: Record<string, number> = {
@@ -26,6 +27,35 @@ const CONFIDENCE_WEIGHT: Record<string, number> = {
   AGENT_VERIFIED: 0.6,
   UNKNOWN: 0.3,
 };
+
+/**
+ * Archetype-pathway → the declaration domains that pathway most expresses.
+ * The unified Standing score is NOT split per archetype; these are filter tags
+ * that let a Tier 1+ persona read their single Standing through each pathway
+ * lens (e.g. "how much of my verified standing is entrepreneurial?"). A domain
+ * may belong to more than one pathway — pathways overlap by design.
+ */
+const ARCHETYPE_DOMAINS: Record<OperatorArchetype, string[]> = {
+  entrepreneurial: ['founder', 'professional', 'validation', 'recognition'],
+  technical: ['professional', 'education', 'publications', 'validation', 'extraordinary_ability'],
+  creative: ['media', 'publications', 'speaking', 'recognition'],
+  citizen: ['identity', 'validation', 'recognition', 'professional'],
+};
+
+export const ARCHETYPE_PATHWAYS = Object.keys(ARCHETYPE_DOMAINS) as OperatorArchetype[];
+
+/** A per-pathway view of the unified Standing — a filter tag, not a separate score. */
+export interface ArchetypePathwayTag {
+  pathway: OperatorArchetype;
+  /** Pathway veracity 0..100 — the veracity math restricted to this pathway's domains. */
+  pathwayScore: number;
+  /** Verified facts that fall in this pathway's domains. */
+  factCount: number;
+  /** Distinct pathway domains covered. */
+  domainsCovered: number;
+  /** True when this is the persona's declared operatorArchetype. */
+  isActive: boolean;
+}
 
 /** Declaration domains we expect a well-formed Standing profile to span. */
 const STANDING_DOMAINS = [
@@ -58,6 +88,19 @@ export interface StandingScoreBreakdown {
   hasCompiledVsp: boolean;
   /** Whether Standing is sufficient to qualify for downstream surfaces. */
   qualified: boolean;
+  /**
+   * Archetype-pathway filter tags over the SAME unified score. Populated only
+   * when `includePathwayTags` is set (a Tier 1 / sovereignAccess entitlement) —
+   * free Citizens get the unified score with no pathway breakdown.
+   */
+  pathwayTags?: ArchetypePathwayTag[];
+}
+
+export interface ComputeStandingOptions {
+  /** Tier 1+ entitlement — include the archetype-pathway breakdown. */
+  includePathwayTags?: boolean;
+  /** The persona's declared archetype, used to flag the active pathway tag. */
+  operatorArchetype?: OperatorArchetype | null;
 }
 
 const clamp = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
@@ -68,12 +111,16 @@ const QUALIFY_THRESHOLD = 25;
 export async function computeStandingScore(
   admin: SupabaseClient,
   personaId: string,
+  options?: ComputeStandingOptions,
 ): Promise<StandingScoreBreakdown> {
   let veracityScore = 0;
   let contributionScore = 0;
   let domainsCovered = 0;
   let verifiedFactCount = 0;
   let hasCompiledVsp = false;
+  // Per-domain accumulators for the archetype-pathway breakdown.
+  const domainWeight = new Map<string, number>();
+  const domainCount = new Map<string, number>();
 
   // ── Veracity from VSP facts ────────────────────────────────────────────────
   try {
@@ -99,8 +146,12 @@ export async function computeStandingScore(
       let weightSum = 0;
       for (const f of verified) {
         const conf = String((f as { confidence?: string }).confidence ?? 'UNKNOWN');
-        weightSum += CONFIDENCE_WEIGHT[conf] ?? CONFIDENCE_WEIGHT.UNKNOWN;
-        domains.add(String((f as { domain?: string }).domain ?? 'other'));
+        const w = CONFIDENCE_WEIGHT[conf] ?? CONFIDENCE_WEIGHT.UNKNOWN;
+        weightSum += w;
+        const domain = String((f as { domain?: string }).domain ?? 'other');
+        domains.add(domain);
+        domainWeight.set(domain, (domainWeight.get(domain) ?? 0) + w);
+        domainCount.set(domain, (domainCount.get(domain) ?? 0) + 1);
       }
       domainsCovered = domains.size;
 
@@ -147,6 +198,44 @@ export async function computeStandingScore(
   const bucket = Math.min(4, Math.floor(score / 25) + (score > 0 && score < 25 ? 1 : 0));
   const qualified = hasCompiledVsp || score >= QUALIFY_THRESHOLD;
 
+  // ── Archetype-pathway tags (Tier 1+ only) ──────────────────────────────────
+  // A filter over the SAME unified standing: for each pathway, score the
+  // veracity contributed by that pathway's domains. Reuses the same
+  // quality/coverage/volume blend as the unified veracity, restricted to the
+  // pathway's domain set. The unified score is unchanged.
+  let pathwayTags: ArchetypePathwayTag[] | undefined;
+  if (options?.includePathwayTags) {
+    const active = options.operatorArchetype ?? null;
+    pathwayTags = ARCHETYPE_PATHWAYS.map((pathway) => {
+      const domains = ARCHETYPE_DOMAINS[pathway];
+      let wSum = 0;
+      let count = 0;
+      let covered = 0;
+      for (const d of domains) {
+        const c = domainCount.get(d) ?? 0;
+        if (c > 0) {
+          covered += 1;
+          count += c;
+          wSum += domainWeight.get(d) ?? 0;
+        }
+      }
+      let pathwayScore = 0;
+      if (count > 0) {
+        const avgConfidence = wSum / count;
+        const coverage = Math.min(1, covered / domains.length);
+        const volume = Math.min(1, count / 8); // pathways saturate sooner than the whole
+        pathwayScore = clamp((avgConfidence * 0.55 + coverage * 0.3 + volume * 0.15) * 100);
+      }
+      return {
+        pathway,
+        pathwayScore,
+        factCount: count,
+        domainsCovered: covered,
+        isActive: active === pathway,
+      };
+    });
+  }
+
   return {
     score,
     veracityScore,
@@ -156,5 +245,6 @@ export async function computeStandingScore(
     verifiedFactCount,
     hasCompiledVsp,
     qualified,
+    ...(pathwayTags ? { pathwayTags } : {}),
   };
 }
