@@ -22,7 +22,7 @@ const VALID_TIER_KEYS = [
 type TierKey = (typeof VALID_TIER_KEYS)[number];
 
 export async function GET(req: NextRequest) {
-  const gate = await requireCartridgeAdmin(req, 'venture-lab');
+  const gate = await requireCartridgeAdmin(req, 'metame');
   if (gate instanceof NextResponse) return gate;
 
   const supabase = getSupabaseServer();
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const gate = await requireCartridgeAdmin(req, 'venture-lab');
+  const gate = await requireCartridgeAdmin(req, 'metame');
   if (gate instanceof NextResponse) return gate;
 
   const supabase = getSupabaseServer();

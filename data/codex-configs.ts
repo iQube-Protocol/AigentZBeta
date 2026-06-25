@@ -2499,7 +2499,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'DollarSign',
-        description: 'Admin price editor — view and update tier prices for the Polity Alpha citizen and Founder Office subscription ladders',
+        description: 'Plan price editor (mirror of canonical metaMe Admin → Plan Pricing) — view and update tier prices for the Polity Alpha citizen and Founder Office ladders',
         color: 'amber'
       }
     },
@@ -3583,6 +3583,22 @@ export const METAME_CODEX: CodexConfig = {
         icon: 'Layers',
         description: 'Canonical experience framework — strategy, model, matrix, ladder, governance',
         color: 'violet'
+      }
+    },
+    {
+      id: 'admin-plan-pricing',
+      label: 'Plan Pricing',
+      slug: 'plan-pricing',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 64,
+      type: 'static',
+      config: { component: 'PlanPriceConfigAdminTab', props: {} },
+      metadata: {
+        icon: 'DollarSign',
+        description: 'Canonical pricing admin — view and update tier prices for the Polity Alpha citizen and Founder Office subscription ladders. Accepted rails: Q¢ · USDC · PayPal.',
+        color: 'amber'
       }
     }
   ],
