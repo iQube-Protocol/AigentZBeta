@@ -366,12 +366,16 @@ export function CitizenLadderModal({
                 <FeatureRow label="AgentiQ OS" a={true} b={true} c={true} />
                 <FeatureRow label="DevOn (aigentZ)" a={null} b="Lite" c="Full" />
 
+                <GroupHeader label="Personas & delegation" />
+                <FeatureRow label="Personas" a="1" b="3" c="8" />
+                <FeatureRow label="Bounded delegate aigents" a="3" b="10" c="28" />
+
                 <GroupHeader label="Intelligence" />
                 <FeatureRow
                   label="AI model (or comparable class)"
                   a={<ModelCell primary="Haiku" alts={['GPT-4o mini', 'Gemini Flash', 'Venice SM']} />}
                   b={<ModelCell primary="Sonnet" alts={['GPT-4o', 'Gemini Pro', 'Venice MD']} />}
-                  c={<ModelCell primary="Sonnet" alts={['GPT-4o', 'Gemini Pro', 'Venice LG']} />}
+                  c={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra', 'Venice LG']} />}
                 />
                 <FeatureRow label="Standing analytics" a={null} b={true} c={true} />
                 <FeatureRow label="Archetype pathways" a={null} b={true} c={true} />
@@ -381,7 +385,7 @@ export function CitizenLadderModal({
                 <FeatureRow label="Goals" a="1" b="5" c="∞" />
                 <FeatureRow label="KPIs" a="3" b="7" c="∞" />
                 <FeatureRow label="myCartridges" a="1" b="Up to 5" c="∞" />
-                <FeatureRow label="Intent-chain tracking" a="1 generation" b="2" c="3" />
+                <FeatureRow label="Intent-chain generations" a="1" b="2" c="3" />
 
                 <GroupHeader label="Stewardship" />
                 <FeatureRow label="Professional Standing" a={null} b={null} c={true} />

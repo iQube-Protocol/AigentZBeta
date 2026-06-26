@@ -4,13 +4,13 @@
  *
  * Tier → Model:
  *   Free (citizen, venture=none)  → Haiku  (low-cost inference)
- *   Sovereignty ($29) and above   → Sonnet (higher quality)
- *   Portfolio Operator ($2,999)   → Opus   (executive aigentMe)
+ *   Sovereignty ($29)             → Sonnet (higher quality)
+ *   Stewardship + all Founder      → Opus   (premium / executive aigentMe)
+ *     Office tiers
  *
- * The `sovereignAccess` flag is the gate: it is true at sovereign_citizen and
- * above (including all Founder Office tiers), so Sonnet applies to every
- * paying citizen. Only the free Citizen tier receives Haiku.
- * Opus is reserved for venture_tier='elite' (Portfolio Operator) only.
+ * Gates: `stewardAccess` (true at steward + every paid Founder Office tier)
+ * unlocks Opus — premium model access across Stewardship and all FO tiers.
+ * `sovereignAccess` (sovereign_citizen) gets Sonnet. Free Citizen gets Haiku.
  *
  * Call sites: nbeLlmRerank, specialistRecommender, briefBuilder.
  * Override the result via env (NBE_RERANK_LLM_MODEL_ANTHROPIC etc.) if
@@ -34,18 +34,18 @@ export type PlanModelTier = keyof typeof PLAN_MODELS;
  */
 export function getPlanModelId(plan: PersonaPlan | null | undefined): string {
   if (!plan) return PLAN_MODELS.free;
-  // Portfolio Operator: Executive aigentMe — Opus
-  if (plan.ventureTier === 'elite') return PLAN_MODELS.executive;
-  // Sovereignty tier and above (sovereign_citizen, steward, all FO tiers): Sonnet
+  // Stewardship + every paid Founder Office tier: premium Opus model.
+  if (plan.stewardAccess) return PLAN_MODELS.executive;
+  // Sovereignty (sovereign_citizen): Sonnet.
   if (plan.sovereignAccess) return PLAN_MODELS.sovereign;
-  // Free Citizen: Haiku
+  // Free Citizen: Haiku.
   return PLAN_MODELS.free;
 }
 
 /** Human-readable tier name for logging / receipts. */
 export function getPlanModelTierLabel(plan: PersonaPlan | null | undefined): PlanModelTier {
   if (!plan) return 'free';
-  if (plan.ventureTier === 'elite') return 'executive';
+  if (plan.stewardAccess) return 'executive';
   if (plan.sovereignAccess) return 'sovereign';
   return 'free';
 }

@@ -396,6 +396,10 @@ export function PlanUpgradeModal({
                 <FeatureRow label="VentureQube Pro 13-layer schema" a={true} b={true} c={true} />
                 <FeatureRow label="Operating model (Chief-of-Staff)" a={true} b={true} c={true} />
 
+                <GroupHeader label="Personas & delegation" />
+                <FeatureRow label="Personas" a="10" b="15" c="Unlimited" />
+                <FeatureRow label="Bounded delegate aigents" a="35" b="50" c="Unlimited" />
+
                 <GroupHeader label="Studios & services" />
                 <FeatureRow label="Venture Lab" a={true} b={true} c={true} />
                 <FeatureRow label="Marketa" a={true} b={true} c={true} />
@@ -404,9 +408,9 @@ export function PlanUpgradeModal({
 
                 <GroupHeader label="Intelligence & standing" />
                 <FeatureRow
-                  label="aigentMe model (or comparable class)"
-                  a={<ModelCell primary="Sonnet" alts={['GPT-4o', 'Gemini Pro']} />}
-                  b={<ModelCell primary="Sonnet" alts={['GPT-4o', 'Gemini Pro']} />}
+                  label="Premium aigentMe model (or comparable class)"
+                  a={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
+                  b={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
                   c={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
                 />
                 <FeatureRow label="Professional Standing" a={true} b={true} c={true} />

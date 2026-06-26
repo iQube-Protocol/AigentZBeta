@@ -13,6 +13,35 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Sparkles, ChevronRight, Lock, CheckCircle2, X, Hourglass, ExternalLink, Check, ArrowUpCircle } from "lucide-react";
 import { useActivations } from "@/services/activations/ActivationsContext";
 import { usePlanUpgradeModal } from "@/components/metame/billing/usePlanUpgradeModal";
+import type { PlanTierKey } from "@/components/metame/billing/PlanUpgradeModal";
+import { personaFetch } from "@/utils/personaSpine";
+
+// Display labels for the "Upgrade to <next tier>" recommendation chip.
+const NEXT_TIER_LABEL: Record<PlanTierKey, string> = {
+  sovereign_citizen: "Sovereignty",
+  steward: "Stewardship",
+  venture_lite: "Operator",
+  venture_pro: "Operator+",
+  venture_elite: "Portfolio Operator",
+};
+
+interface PlanResponse {
+  ok?: boolean;
+  ventureTier?: string;
+  sovereignAccess?: boolean;
+  stewardAccess?: boolean;
+}
+
+/** The single next tier up from the persona's current plan, or null at the top. */
+function nextTierFor(plan: PlanResponse | null): PlanTierKey | null {
+  if (!plan) return "sovereign_citizen";
+  if (plan.ventureTier === "elite") return null; // Portfolio Operator — already top
+  if (plan.ventureTier === "pro") return "venture_elite";
+  if (plan.ventureTier === "lite") return "venture_pro";
+  if (plan.stewardAccess) return "venture_lite"; // Steward → enter Founder Office
+  if (plan.sovereignAccess) return "steward"; // Sovereignty → Stewardship
+  return "sovereign_citizen"; // Free → Sovereignty
+}
 
 interface Props {
   personaId?: string;
@@ -51,7 +80,29 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
   // Track which activation ID triggered the last activate() call so that an
   // "upgrade required" error can auto-open the correct tier modal.
   const [activatingId, setActivatingId] = useState<string | null>(null);
+  // The next tier up from the persona's current plan — drives the header
+  // "Upgrade to <tier>" recommendation. null = top tier (or still loading).
+  const [recommendedTier, setRecommendedTier] = useState<PlanTierKey | null>(null);
   const { openUpgrade, upgradeModal } = usePlanUpgradeModal({ personaId });
+
+  // Resolve the persona's current plan so the upgrade chip recommends the
+  // next step up rather than always defaulting to Founder Office.
+  React.useEffect(() => {
+    if (isAdmin) return; // admins see no upgrade chip
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/billing/plan', { cache: 'no-store' });
+        const data = (await res.json()) as PlanResponse;
+        if (!cancelled) setRecommendedTier(nextTierFor(data?.ok ? data : null));
+      } catch {
+        if (!cancelled) setRecommendedTier('sovereign_citizen');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, personaId]);
 
   const handleClick = useCallback(
     (id: string, action: "activate" | "request" | "revoke") => {
@@ -109,14 +160,14 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
             <Sparkles className="w-4 h-4 text-violet-400" />
             <h2 className="text-lg font-semibold">Activations</h2>
           </div>
-          {!isAdmin && (
+          {!isAdmin && recommendedTier && (
             <button
               type="button"
-              onClick={() => openUpgrade()}
+              onClick={() => openUpgrade({ defaultTierKey: recommendedTier })}
               className="flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-200 hover:bg-purple-500/20"
             >
               <ArrowUpCircle className="w-3.5 h-3.5" />
-              Upgrade plan
+              Upgrade to {NEXT_TIER_LABEL[recommendedTier]}
             </button>
           )}
         </div>
