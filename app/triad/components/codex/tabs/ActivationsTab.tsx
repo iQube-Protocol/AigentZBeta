@@ -65,20 +65,24 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
     [activate, requestAccess, revoke],
   );
 
-  // When an activation error arrives for a plan-gated surface, auto-open the
-  // correct upgrade modal instead of leaving a red banner.
+  // When the server rejects a self-activation as plan-gated ("upgrade
+  // required"), auto-open the correct upgrade modal instead of leaving a red
+  // banner. We key off the error STRING — not surface.planGated — because a
+  // stale/revoked edition can make the client think a surface is
+  // self-activatable (planGated=false) even though the server still gates it on
+  // plan. requiredTier is populated regardless of planGated, so it routes to
+  // the right modal (sovereign_citizen/steward → CitizenLadder, venture → FO).
   useEffect(() => {
     if (!error || !activatingId) return;
+    if (!error.toLowerCase().includes('upgrade required')) return;
     const surface = surfaces.find((s) => s.id === activatingId);
-    if (surface?.planGated && error.toLowerCase().includes('upgrade required')) {
-      clearError();
-      setActivatingId(null);
-      openUpgrade(
-        surface.requiredTier
-          ? { defaultTierKey: surface.requiredTier }
-          : undefined,
-      );
-    }
+    // Only auto-open the upgrade modal when there's a tier to upgrade to. A
+    // pure invite/cohort surface (requiredTier=null) keeps its banner so the
+    // user routes to "Request access" instead.
+    if (!surface?.requiredTier) return;
+    clearError();
+    setActivatingId(null);
+    openUpgrade({ defaultTierKey: surface.requiredTier });
   }, [error, activatingId, surfaces, clearError, openUpgrade]);
 
   const handleCopyEmbed = useCallback((id: string, sourceCartridge: string, tabSlug: string) => {

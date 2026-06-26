@@ -186,14 +186,16 @@ function rowToSurface(
   const gateFromPolicy: ActivationGate =
     qube?.gating_kind === 'free' ? 'open' : 'gated';
   const gate: ActivationGate = entry.gate ?? gateFromPolicy;
-  const canSelfActivate = gate === 'open' || isAdmin || planEntitled || !!edition;
+  // Only a CURRENTLY-HELD edition (not a revoked one) makes a surface
+  // self-available. A revoked edition left over from when a surface was 'open'
+  // must NOT keep the surface self-activatable after it's been re-gated to a
+  // plan — otherwise the catalogue shows "Activate" on a surface the server
+  // will reject with "upgrade required", and the upgrade affordance never shows.
+  const hasActiveEdition = !!edition && !edition.released_at;
+  const alreadyAvailable = gate === 'open' || isAdmin || planEntitled || hasActiveEdition;
+  const canSelfActivate = alreadyAvailable;
   // Plan-gate state: blocked specifically by the paywall (vs grant/invite/cohort).
-  // "Already available" = open gate, admin, plan-entitled, or already has an edition.
-  const planGate = resolveActivationPlanGate(
-    entry.id,
-    null,
-    gate === 'open' || isAdmin || planEntitled || !!edition,
-  );
+  const planGate = resolveActivationPlanGate(entry.id, null, alreadyAvailable);
 
   // Truth table:
   //   row present, released_at NULL    → active
