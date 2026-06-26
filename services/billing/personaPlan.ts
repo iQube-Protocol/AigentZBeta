@@ -83,7 +83,7 @@ export interface PersonaPlan {
   /**
    * True at Tier 1 (sovereign_citizen) and above.
    * Unlocks: standing history/analytics, archetype-tagged standing scores,
-   * Sonnet AI tier, enhanced experience model, early Founder Office preview,
+   * Sonnet AI tier, enhanced experience model (goals 5 / KPIs 7 / cartridges 5),
    * DevOn/AigentZ lite (for developers to incubate pre-Founder-Office projects).
    */
   sovereignAccess: boolean;
@@ -91,7 +91,8 @@ export interface PersonaPlan {
    * True at Tier 2 (steward) and above.
    * Unlocks: professional standing, steward privileges on passport_citizen_privileges,
    * "Act as Aigent" delegation (evolves to deeper specialisation / consultant-for-hire),
-   * HMS discovery, community leadership roles.
+   * HMS discovery, community leadership roles, early Founder Office preview,
+   * unlimited experience-model (goals / KPIs / cartridges).
    */
   stewardAccess: boolean;
   /**
@@ -216,10 +217,13 @@ function resolve(row: {
     sovereignAccess,
     stewardAccess,
     aigentzLiteAccess,
-    // Tier 1+ lifts the experience-model soft-caps.
-    experienceGoalLimit: sovereignAccess ? UNLIMITED : 1,
-    kpiLimit: sovereignAccess ? UNLIMITED : 3,
-    cartridgeLimit: sovereignAccess ? UNLIMITED : 1,
+    // Experience-model soft-caps ladder:
+    //   Free      → goals 1, KPIs 3, cartridges 1
+    //   Sovereign → goals 5, KPIs 7, cartridges 5
+    //   Steward+  → unlimited (steward tier or any paid Founder Office tier)
+    experienceGoalLimit: stewardAccess ? UNLIMITED : sovereignAccess ? 5 : 1,
+    kpiLimit: stewardAccess ? UNLIMITED : sovereignAccess ? 7 : 3,
+    cartridgeLimit: stewardAccess ? UNLIMITED : sovereignAccess ? 5 : 1,
   };
 }
 

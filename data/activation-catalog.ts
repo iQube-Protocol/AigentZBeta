@@ -93,7 +93,7 @@ export interface ActivationCatalogEntry {
 export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
   {
     id: 'mycanvas',
-    label: 'myCanvas',
+    label: 'myCluster',
     description: 'Your private publishing surface for works-in-progress and ideas.',
     longDescription:
       'A personal surface to publish drafts, half-formed thoughts, and works-in-progress that aigentMe or the Studio produces with you. Private by default — invite specific people, or later republish into a community surface or social platform.',

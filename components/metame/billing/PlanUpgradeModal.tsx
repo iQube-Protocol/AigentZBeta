@@ -21,9 +21,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Coins, CreditCard, Wallet, Check, Loader2, Sparkles, ArrowUpCircle } from 'lucide-react';
+import { X, Coins, CreditCard, Wallet, Check, Loader2, ArrowUpCircle } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { useEvmUsdcPayment, type UsdcPaymentIntent } from '@/app/hooks/useEvmUsdcPayment';
+import { CompAccessRequest } from './CompAccessRequest';
+import { FeatureRow, GroupHeader, ModelCell, TierCard, usd } from './comparisonTable';
 
 // The tier ladder this modal can sell. Order is the display order. Labels +
 // blurbs are UI copy; the authoritative price comes from the quote endpoint.
@@ -88,9 +90,19 @@ export interface PlanUpgradeModalProps {
   onUpgraded?: (tierKey: PlanTierKey) => void;
 }
 
-function usd(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+const FO_TIER_LABEL: Record<string, string> = {
+  venture_lite: 'Operator',
+  venture_pro: 'Operator+',
+  venture_elite: 'Portfolio Operator',
+};
+
+// Code-level price fallbacks so the header cards always show a figure even
+// before the quote endpoint resolves (or if plan_price_config is unmigrated).
+const FO_PRICE_FALLBACK: Record<string, string> = {
+  venture_lite: '$299/mo',
+  venture_pro: '$999/mo',
+  venture_elite: '$2,999/mo',
+};
 
 export function PlanUpgradeModal({
   open,
@@ -100,7 +112,11 @@ export function PlanUpgradeModal({
   onClose,
   onUpgraded,
 }: PlanUpgradeModalProps) {
-  const ladder = tiers && tiers.length > 0 ? TIER_LADDER.filter((t) => tiers.includes(t.key)) : TIER_LADDER;
+  // Always show all three Founder Office tiers in the comparison, regardless of
+  // any `tiers` restriction passed by a scoped CTA — the operator chooses which
+  // package to buy/apply for. `defaultTierKey` still controls pre-selection.
+  const ladder = TIER_LADDER;
+  void tiers;
 
   const [quotes, setQuotes] = useState<Record<string, TierQuote>>({});
   const [loadingQuotes, setLoadingQuotes] = useState(false);
@@ -304,7 +320,7 @@ export function PlanUpgradeModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div
-        className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0f] text-slate-100 shadow-2xl"
+        className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0f] text-slate-100 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -336,49 +352,69 @@ export function PlanUpgradeModal({
             </button>
           </div>
         ) : (
-          <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
-            {/* Tier ladder */}
-            <div className="space-y-2">
+          <div className="max-h-[82vh] overflow-y-auto px-5 py-5">
+            <p className="mb-4 text-xs text-slate-400">
+              The Founder Office runs your ventures on the VentureQube Pro schema with the
+              operating model. Choose a package to buy — or request complimentary access below.
+            </p>
+
+            {/* Tier header cards */}
+            <div className="mb-5 grid grid-cols-3 gap-3">
               {ladder.map((t) => {
                 const q = quotes[t.key];
-                const selected = selectedTier === t.key;
+                const price = q ? `${usd(q.priceUsdCents)}/mo` : (loadingQuotes ? '…' : (FO_PRICE_FALLBACK[t.key] ?? '—'));
                 return (
-                  <button
+                  <TierCard
                     key={t.key}
-                    onClick={() => {
+                    label={FO_TIER_LABEL[t.key] ?? t.name}
+                    price={price}
+                    selected={selectedTier === t.key}
+                    onSelect={() => {
                       setSelectedTier(t.key);
                       setError(null);
                       setNeedsBuyQc(false);
                     }}
-                    className={`flex w-full items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
-                      selected
-                        ? 'border-purple-500 bg-purple-500/10'
-                        : 'border-white/10 bg-white/[0.02] hover:border-white/20'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{t.name}</span>
-                        {selected && <Sparkles className="h-3.5 w-3.5 text-purple-300" />}
-                      </div>
-                      <p className="mt-0.5 text-xs text-slate-400">{t.blurb}</p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      {q ? (
-                        <>
-                          <div className="text-sm font-semibold">{usd(q.priceUsdCents)}</div>
-                          <div className="text-[11px] text-slate-500">{q.priceUsdCents} Q¢ /mo</div>
-                        </>
-                      ) : loadingQuotes ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
-                      ) : (
-                        <span className="text-[11px] text-slate-600">—</span>
-                      )}
-                    </div>
-                  </button>
+                  />
                 );
               })}
             </div>
+
+            {/* Feature comparison table */}
+            <table className="w-full table-fixed text-left">
+              <thead>
+                <tr>
+                  <th className="w-[46%] pb-2 text-[11px] text-slate-600">Feature</th>
+                  <th className="w-[18%] pb-2 text-center text-[11px] text-slate-400">Operator</th>
+                  <th className="w-[18%] pb-2 text-center text-[11px] text-purple-300">Operator+</th>
+                  <th className="w-[18%] pb-2 text-center text-[11px] text-purple-200">Portfolio</th>
+                </tr>
+              </thead>
+              <tbody>
+                <GroupHeader label="Ventures" />
+                <FeatureRow label="Active ventures" a="1" b="3" c="Unlimited" />
+                <FeatureRow label="Portfolio view" a={null} b={true} c={true} />
+                <FeatureRow label="VentureQube Pro 13-layer schema" a={true} b={true} c={true} />
+                <FeatureRow label="Operating model (Chief-of-Staff)" a={true} b={true} c={true} />
+
+                <GroupHeader label="Studios & services" />
+                <FeatureRow label="Venture Lab" a={true} b={true} c={true} />
+                <FeatureRow label="Marketa" a={true} b={true} c={true} />
+                <FeatureRow label="metaMe Studio" a={true} b={true} c={true} />
+                <FeatureRow label="Human Mobility Services" a={true} b={true} c={true} />
+
+                <GroupHeader label="Intelligence & standing" />
+                <FeatureRow
+                  label="aigentMe model (or comparable class)"
+                  a={<ModelCell primary="Sonnet" alts={['GPT-4o', 'Gemini Pro']} />}
+                  b={<ModelCell primary="Sonnet" alts={['GPT-4o', 'Gemini Pro']} />}
+                  c={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
+                />
+                <FeatureRow label="Professional Standing" a={true} b={true} c={true} />
+                <FeatureRow label="All citizen + Stewardship privileges" a={true} b={true} c={true} />
+              </tbody>
+            </table>
+
+            <div className="mt-5 border-t border-white/10 pt-5" />
 
             {/* Rail picker — only when a tier is selected and priced */}
             {selectedTier && quote && (
@@ -450,7 +486,15 @@ export function PlanUpgradeModal({
               </button>
             )}
 
-            <p className="mt-3 text-center text-[11px] text-slate-600">
+            {/* Complimentary / admin access request — routes to the admin
+                approval queue for qualified users who shouldn't pay. */}
+            <CompAccessRequest
+              personaId={personaId}
+              tierKey={selectedTier ?? 'venture_lite'}
+              tierLabel={FO_TIER_LABEL[selectedTier ?? 'venture_lite'] ?? 'Founder Office'}
+            />
+
+            <p className="mt-4 text-center text-[11px] text-slate-600">
               Billed monthly · cancel anytime · KNYT is not used for plan payments
             </p>
           </div>

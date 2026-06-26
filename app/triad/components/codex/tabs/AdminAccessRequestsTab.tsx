@@ -22,7 +22,7 @@ interface AccessRequest {
   requesterDisplayLabel: string | null;
   requesterEmail: string | null;
   requestedCartridgeSlug: string | null;
-  requestType: 'cartridge_access' | 'cartridge_admin' | 'global_admin';
+  requestType: 'cartridge_access' | 'cartridge_admin' | 'global_admin' | 'plan_grant';
   message: string | null;
   status: 'pending' | 'approved' | 'denied' | 'cancelled';
   requestedAt: string;
@@ -42,12 +42,14 @@ const REQUEST_TYPE_LABEL: Record<AccessRequest['requestType'], string> = {
   cartridge_access: 'Access',
   cartridge_admin: 'Admin',
   global_admin: 'Global admin',
+  plan_grant: 'Plan comp',
 };
 
 const REQUEST_TYPE_TONE: Record<AccessRequest['requestType'], string> = {
   cartridge_access: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
   cartridge_admin: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
   global_admin: 'bg-rose-500/15 text-rose-300 border-rose-500/40',
+  plan_grant: 'bg-purple-500/15 text-purple-300 border-purple-500/40',
 };
 
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
@@ -274,7 +276,9 @@ export function AdminAccessRequestsTab() {
                             ? 'Runtime access to the cartridge. No admin scope. Approval writes a persona_activations row.'
                             : req.requestType === 'cartridge_admin'
                               ? 'Admin privileges on the cartridge. Includes adminOnly tabs. Approval writes a crm_admin_roles row.'
-                              : 'Platform-wide admin (uber / global). Approval writes a platform_super_admin role.'
+                              : req.requestType === 'plan_grant'
+                                ? 'Complimentary plan-tier comp. Approval writes the persona_plans row for the requested tier (see plan:<tier> slug).'
+                                : 'Platform-wide admin (uber / global). Approval writes a platform_super_admin role.'
                         }
                       >
                         {REQUEST_TYPE_LABEL[req.requestType]}

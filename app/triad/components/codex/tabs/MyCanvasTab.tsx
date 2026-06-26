@@ -517,7 +517,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
                     ? 'myWorkspace'
                     : surface === 'workbench'
                       ? 'myWorkbench'
-                      : 'myCanvas'}
+                      : 'myCluster'}
                 </h2>
               </div>
               <span className="text-[10px] uppercase tracking-wider text-slate-500 pl-6">

@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { isValidTierKey, upsertPersonaPlan } from '@/services/billing/planCheckout';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -106,6 +107,49 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const requestType = (existing.request_type as string | undefined) ?? 'cartridge_access';
 
   let grantedRoleId: string | null = null;
+
+  // Plan-grant path — a complimentary tier comp filed via /api/billing/comp-request.
+  // The target tier is encoded as `plan:<tierKey>` in the slug (so it works even
+  // when the request_type column is absent). Approval writes persona_plans.
+  if (cartridgeSlug && cartridgeSlug.startsWith('plan:')) {
+    const tierKey = cartridgeSlug.slice('plan:'.length);
+    if (!isValidTierKey(tierKey)) {
+      return NextResponse.json(
+        { error: 'invalid-tier', message: `Plan grant slug '${cartridgeSlug}' does not name a valid tier.` },
+        { status: 422 },
+      );
+    }
+    try {
+      await upsertPersonaPlan(existing.persona_id as string, tierKey, 'grant');
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      console.error('[access-requests/decide] plan grant error', detail);
+      return NextResponse.json({ error: 'grant-failed', detail }, { status: 500 });
+    }
+    const { data: updated, error: updErr } = await admin
+      .from('admin_access_requests')
+      .update({
+        status: 'approved',
+        decided_at: new Date().toISOString(),
+        decided_by_persona_id: persona.personaId,
+        decision_reason: reason,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (updErr) {
+      console.error('[access-requests/decide] plan grant approve update error', updErr);
+      return NextResponse.json({ error: 'update-failed' }, { status: 500 });
+    }
+    return NextResponse.json({
+      ok: true,
+      decision: 'approved',
+      grantKind: 'persona_plan',
+      tierKey,
+      request: updated,
+    });
+  }
 
   if (requestType === 'cartridge_access') {
     // Non-admin access path. Map cartridge slug → activation id and

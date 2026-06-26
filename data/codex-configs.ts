@@ -2884,7 +2884,7 @@ export const METAME_CODEX: CodexConfig = {
     //                 artifacts (formerly myWorkbench's content).
     {
       id: 'mycanvas',
-      label: 'myCanvas',
+      label: 'myCluster',
       slug: 'mycanvas',
       enabled: true,
       activationId: 'mycanvas',

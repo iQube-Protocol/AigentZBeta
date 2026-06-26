@@ -238,7 +238,7 @@ export async function markCheckoutSession(
 export async function upsertPersonaPlan(
   personaId: string,
   tierKey: TierKey,
-  source: 'checkout' | 'paypal',
+  source: 'checkout' | 'paypal' | 'grant',
 ): Promise<void> {
   const admin = getSupabaseServer();
   if (!admin) throw new Error('Database unavailable');

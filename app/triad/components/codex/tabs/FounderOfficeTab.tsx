@@ -293,11 +293,11 @@ export function FounderOfficeTab({ personaId, isAdmin }: Props) {
       )}
 
       {/* Founder Office access / preview gate. Paid (ventureLabAccess) → no
-          banner. Tier 1 (sovereignAccess) → read-only preview affordance.
-          Free Tier 0 → locked, upgrade to preview. isAdmin always full. */}
+          banner. Tier 2 (stewardAccess) → read-only preview affordance.
+          Free / Sovereignty → locked, upgrade to preview. isAdmin always full. */}
       {!isAdmin && plan && !plan.ventureLabAccess && (
         <FounderOfficePreviewBanner
-          tier1Preview={Boolean(plan.sovereignAccess)}
+          tier1Preview={Boolean(plan.stewardAccess)}
           onUpgrade={() => setUpgradeOpen(true)}
         />
       )}

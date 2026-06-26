@@ -13,10 +13,17 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Check, Loader2, Coins, CreditCard, Wallet, ArrowUpCircle, Minus } from 'lucide-react';
+import { X, Check, Loader2, Coins, CreditCard, Wallet, ArrowUpCircle } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { useEvmUsdcPayment, type UsdcPaymentIntent } from '@/app/hooks/useEvmUsdcPayment';
 import type { PlanTierKey } from './PlanUpgradeModal';
+import { CompAccessRequest } from './CompAccessRequest';
+import { FeatureRow, GroupHeader, ModelCell, TierCard, usd } from './comparisonTable';
+
+const CITIZEN_TIER_LABEL: Record<CitizenTierKey, string> = {
+  sovereign_citizen: 'Sovereignty',
+  steward: 'Stewardship',
+};
 
 export type CitizenTierKey = 'sovereign_citizen' | 'steward';
 
@@ -45,42 +52,9 @@ export interface CitizenLadderModalProps {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Small table-cell helpers (defined outside the component for stable refs)
+// Table-cell helpers are shared with the Founder Office modal — see
+// comparisonTable.tsx. RailButton (below) is payment-specific and stays local.
 // ──────────────────────────────────────────────────────────────────────────────
-
-function CellValue({ v }: { v: string | boolean | null }) {
-  if (v === true) return <Check className="mx-auto h-4 w-4 text-emerald-400" />;
-  if (v === false || v === null) return <Minus className="mx-auto h-3 w-3 text-slate-600" />;
-  return <span className="text-xs text-slate-300">{v}</span>;
-}
-
-function FeatureRow({
-  label, free, sov, ste,
-}: {
-  label: string;
-  free: string | boolean | null;
-  sov: string | boolean | null;
-  ste: string | boolean | null;
-}) {
-  return (
-    <tr className="border-t border-white/5">
-      <td className="py-2 pr-3 text-xs text-slate-400">{label}</td>
-      <td className="py-2 text-center"><CellValue v={free} /></td>
-      <td className="py-2 text-center"><CellValue v={sov} /></td>
-      <td className="py-2 text-center"><CellValue v={ste} /></td>
-    </tr>
-  );
-}
-
-function GroupHeader({ label }: { label: string }) {
-  return (
-    <tr>
-      <td colSpan={4} className="pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-        {label}
-      </td>
-    </tr>
-  );
-}
 
 function RailButton({
   active, onClick, icon, label, sub,
@@ -105,45 +79,6 @@ function RailButton({
       <span className="text-[10px] text-slate-500">{sub}</span>
     </button>
   );
-}
-
-function TierCard({
-  label, price, isFree, selected, onSelect,
-}: {
-  label: string;
-  price: string;
-  isFree?: boolean;
-  selected: boolean;
-  onSelect?: () => void;
-}) {
-  return (
-    <div
-      className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-center transition-colors ${
-        selected ? 'border-purple-500 bg-purple-500/10' : 'border-white/10 bg-white/[0.02]'
-      }`}
-    >
-      <div className="text-xs font-semibold text-slate-300">{label}</div>
-      <div className="text-lg font-bold">{price}</div>
-      {isFree ? (
-        <div className="text-[11px] text-emerald-400">Always free</div>
-      ) : (
-        <button
-          onClick={onSelect}
-          className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-            selected
-              ? 'bg-purple-600 text-white hover:bg-purple-500'
-              : 'border border-white/20 text-slate-200 hover:bg-white/10'
-          }`}
-        >
-          {selected ? 'Selected ✓' : 'Select'}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function usd(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -356,7 +291,7 @@ export function CitizenLadderModal({
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
             <ArrowUpCircle className="h-5 w-5 text-purple-400" />
-            <h2 className="text-base font-semibold">Citizenship tier</h2>
+            <h2 className="text-base font-semibold">Citizen services tiers</h2>
           </div>
           <button
             onClick={onClose}
@@ -423,27 +358,36 @@ export function CitizenLadderModal({
               </thead>
               <tbody>
                 <GroupHeader label="Identity & Activations" />
-                <FeatureRow label="Polity Passport" free={true} sov={true} ste={true} />
-                <FeatureRow label="Standing Cartridge" free={true} sov={true} ste={true} />
-                <FeatureRow label="myCanvas · KNYT · AgentiQ" free={true} sov={true} ste={true} />
-                <FeatureRow label="aigentZ access" free={null} sov="Lite" ste="Full" />
+                <FeatureRow label="Polity Passport" a={true} b={true} c={true} />
+                <FeatureRow label="Standing Cartridge" a={true} b={true} c={true} />
+                <FeatureRow label="Core content (KNYT · Qriptopian · Polity Core)" a={true} b={true} c={true} />
+                <FeatureRow label="aigentMe" a={true} b={true} c={true} />
+                <FeatureRow label="myCluster" a={true} b={true} c={true} />
+                <FeatureRow label="AgentiQ OS" a={true} b={true} c={true} />
+                <FeatureRow label="DevOn (aigentZ)" a={null} b="Lite" c="Full" />
 
                 <GroupHeader label="Intelligence" />
-                <FeatureRow label="AI model" free="Haiku" sov="Sonnet" ste="Sonnet" />
-                <FeatureRow label="Standing analytics" free={null} sov={true} ste={true} />
-                <FeatureRow label="Archetype pathways" free={null} sov={true} ste={true} />
-                <FeatureRow label="Founder Office preview" free={null} sov={true} ste={true} />
+                <FeatureRow
+                  label="AI model (or comparable class)"
+                  a={<ModelCell primary="Haiku" alts={['GPT-4o mini', 'Gemini Flash', 'Venice SM']} />}
+                  b={<ModelCell primary="Sonnet" alts={['GPT-4o', 'Gemini Pro', 'Venice MD']} />}
+                  c={<ModelCell primary="Sonnet" alts={['GPT-4o', 'Gemini Pro', 'Venice LG']} />}
+                />
+                <FeatureRow label="Standing analytics" a={null} b={true} c={true} />
+                <FeatureRow label="Archetype pathways" a={null} b={true} c={true} />
+                <FeatureRow label="Founder Office preview" a={null} b={null} c={true} />
 
                 <GroupHeader label="Experience model" />
-                <FeatureRow label="Goals" free="1" sov="∞" ste="∞" />
-                <FeatureRow label="KPIs" free="3" sov="∞" ste="∞" />
-                <FeatureRow label="Cartridges" free="1" sov="∞" ste="∞" />
+                <FeatureRow label="Goals" a="1" b="5" c="∞" />
+                <FeatureRow label="KPIs" a="3" b="7" c="∞" />
+                <FeatureRow label="myCartridges" a="1" b="Up to 5" c="∞" />
+                <FeatureRow label="Intent-chain tracking" a="1 generation" b="2" c="3" />
 
                 <GroupHeader label="Stewardship" />
-                <FeatureRow label="Professional Standing" free={null} sov={null} ste={true} />
-                <FeatureRow label="HMS discovery" free={null} sov={null} ste={true} />
-                <FeatureRow label="Steward privileges" free={null} sov={null} ste={true} />
-                <FeatureRow label="Act as Aigent" free={null} sov={null} ste={true} />
+                <FeatureRow label="Professional Standing" a={null} b={null} c={true} />
+                <FeatureRow label="HMS discovery" a={null} b={null} c={true} />
+                <FeatureRow label="Steward privileges" a={null} b={null} c={true} />
+                <FeatureRow label="Act as Aigent" a={null} b={null} c={true} />
               </tbody>
             </table>
 
@@ -515,6 +459,14 @@ export function CitizenLadderModal({
                 </button>
               </div>
             )}
+
+            {/* Complimentary / admin access request — routes to the admin
+                approval queue for qualified users who shouldn't pay. */}
+            <CompAccessRequest
+              personaId={personaId}
+              tierKey={selectedTier ?? 'sovereign_citizen'}
+              tierLabel={CITIZEN_TIER_LABEL[selectedTier ?? 'sovereign_citizen']}
+            />
 
             <p className="mt-4 text-center text-[11px] text-slate-600">
               Billed monthly · cancel anytime · KNYT is not used for plan payments
