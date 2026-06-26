@@ -44,6 +44,8 @@ export async function GET(req: NextRequest) {
       experienceGoalLimit: 9999,
       kpiLimit: 9999,
       cartridgeLimit: 9999,
+      personaLimit: 9999,
+      boundedDelegateLimit: 9999,
     };
   }
   return NextResponse.json({

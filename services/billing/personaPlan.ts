@@ -114,6 +114,19 @@ export interface PersonaPlan {
   experienceGoalLimit: number;
   kpiLimit: number;
   cartridgeLimit: number;
+  /**
+   * Max personas this plan may own. Free 1 → Sovereign 3 → Steward 8 →
+   * Operator 10 → Operator+ 15 → Portfolio Operator unlimited (9999).
+   * Enforced at the persona-creation path; over-limit personas are flagged
+   * (not auto-deleted) when a subscription lapses.
+   */
+  personaLimit: number;
+  /**
+   * Max active bounded delegate aigents this plan may hold. Free 3 →
+   * Sovereign 10 → Steward 28 → Operator 35 → Operator+ 50 → Portfolio
+   * unlimited (9999). Enforced at the delegation-grant path.
+   */
+  boundedDelegateLimit: number;
 }
 
 /** Sentinel for "no practical cap". */
@@ -140,6 +153,8 @@ const FREE_PLAN: PersonaPlan = {
   experienceGoalLimit: 1,
   kpiLimit: 3,
   cartridgeLimit: 1,
+  personaLimit: 1,
+  boundedDelegateLimit: 3,
 };
 
 export const PLAN_LABEL: Record<AgencyPlanTier, string> = {
@@ -224,6 +239,24 @@ function resolve(row: {
     experienceGoalLimit: stewardAccess ? UNLIMITED : sovereignAccess ? 5 : 1,
     kpiLimit: stewardAccess ? UNLIMITED : sovereignAccess ? 7 : 3,
     cartridgeLimit: stewardAccess ? UNLIMITED : sovereignAccess ? 5 : 1,
+    // Persona + bounded-delegate ladder (Founder Office tiers resolve first
+    // because a paid venture tier outranks the citizen plan_tier):
+    //   Free 1/3 · Sovereign 3/10 · Steward 8/28
+    //   Operator 10/35 · Operator+ 15/50 · Portfolio ∞/∞
+    personaLimit:
+      ventureTier === 'elite' ? UNLIMITED
+      : ventureTier === 'pro' ? 15
+      : ventureTier === 'lite' ? 10
+      : STEWARD_TIERS.has(planTier) ? 8
+      : SOVEREIGN_TIERS.has(planTier) ? 3
+      : 1,
+    boundedDelegateLimit:
+      ventureTier === 'elite' ? UNLIMITED
+      : ventureTier === 'pro' ? 50
+      : ventureTier === 'lite' ? 35
+      : STEWARD_TIERS.has(planTier) ? 28
+      : SOVEREIGN_TIERS.has(planTier) ? 10
+      : 3,
   };
 }
 
