@@ -277,3 +277,44 @@ export async function getPersonaPlan(
     return { ...FREE_PLAN };
   }
 }
+
+/**
+ * Subscriber-scoped persona allowance. The persona-count cap is a per-HUMAN
+ * concept, but persona_plans is keyed per-persona, so a subscriber's effective
+ * personaLimit is the highest active plan across all personas they own
+ * (auth_profile_id). past_due plans keep their tier (grace); cancelled plans
+ * fall to free. Returns the free baseline (1) when no active paid plan exists.
+ */
+export async function getSubscriberPersonaLimit(
+  admin: SupabaseClient,
+  authProfileId: string,
+): Promise<{ personaLimit: number; planLabel: string }> {
+  const free = { personaLimit: FREE_PLAN.personaLimit, planLabel: PLAN_LABEL.citizen };
+  if (!authProfileId) return free;
+  try {
+    const { data: personas } = await admin
+      .from('personas')
+      .select('id')
+      .eq('auth_profile_id', authProfileId);
+    const ids = (personas ?? []).map((p) => (p as { id: string }).id).filter(Boolean);
+    if (ids.length === 0) return free;
+
+    const { data: plans } = await admin
+      .from('persona_plans')
+      .select('plan_tier, venture_tier, standing_tier, status')
+      .in('persona_id', ids);
+
+    let best = free;
+    for (const row of (plans ?? []) as Array<{ status?: string }>) {
+      // cancelled → free (no contribution); past_due → grace, keep tier.
+      if (row.status === 'cancelled') continue;
+      const plan = resolve(row);
+      if (plan.personaLimit > best.personaLimit) {
+        best = { personaLimit: plan.personaLimit, planLabel: PLAN_LABEL[plan.planTier] };
+      }
+    }
+    return best;
+  } catch {
+    return free;
+  }
+}

@@ -17,6 +17,7 @@ import {
   getAgentPassportBinding,
   checkAgentClassConstraints,
 } from '@/services/polity/constitution';
+import { getPersonaPlan } from '@/services/billing/personaPlan';
 
 export const SLUG_RE = /^[a-z][a-z0-9-]{2,40}$/;
 
@@ -152,8 +153,14 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
     return { ok: false, status: 400, error: 'Only citizen passports may sponsor agent genesis' };
   }
 
-  // 1b. Sponsorship Capacity Protocol (Phase 3). Soft-fail if the capacity
-  // migration hasn't been applied yet (treats capacity as unbounded).
+  // 1b. Bounded-delegate capacity = plan tier (authoritative base) + Phase-3
+  // Standing-earned capacity. The plan's boundedDelegateLimit is the tier
+  // allowance (Free 3 → Sovereign 10 → Steward 28 → Operator 35 → Operator+ 50
+  // → Portfolio unlimited); an admin-granted sponsorship_capacity_base still
+  // wins if higher. Capacity COLUMNS soft-fail if their migration is absent,
+  // but the plan cap is always enforced. past_due keeps the tier (grace);
+  // cancelled falls to the free cap of 3 via getPersonaPlan.
+  const sponsorPlan = await getPersonaPlan(admin, sponsorPersonaId);
   const { data: capacityRow, error: capacityErr } = await admin
     .from('personas')
     .select('sponsorship_capacity_base, sponsorship_capacity_earned')
@@ -166,9 +173,10 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
   ) {
     return { ok: false, status: 500, error: capacityErr.message };
   }
-  if (capacityRow?.sponsorship_capacity_base != null) {
-    const base = Number(capacityRow.sponsorship_capacity_base);
-    const earned = Number(capacityRow.sponsorship_capacity_earned ?? 0);
+  const storedBase = Number(capacityRow?.sponsorship_capacity_base ?? 0);
+  const earned = Number(capacityRow?.sponsorship_capacity_earned ?? 0);
+  const base = Math.max(sponsorPlan.boundedDelegateLimit, storedBase);
+  {
     const { count: usedCount } = await admin
       .from('agent_root_identity')
       .select('id', { count: 'exact', head: true })
@@ -181,7 +189,8 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
         status: 409,
         code: 'sponsorship_capacity_exhausted',
         error:
-          'Sponsorship capacity exhausted. Earn additional capacity when a sponsored participant reaches Standing.',
+          `Bounded delegate capacity reached for your plan (${base}). Upgrade your tier, ` +
+          'or earn additional capacity when a sponsored participant reaches Standing.',
         capacity: { base, earned, used, remaining: 0 },
       };
     }
