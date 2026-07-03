@@ -671,14 +671,12 @@ export function initializeDefaultTemplates(): void {
             {
               id: 'duration', name: 'Duration (seconds)', type: 'select', required: false,
               default_value: '12',
-              // Providers only accept discrete durations: Sora → 4/8/12s, Venice → 5/10s.
-              // The invoke route snaps any value to the nearest supported one per provider.
+              // Sora and Venice (incl. Wan) both accept 4/8/12s. The invoke route
+              // snaps any value to the nearest supported one per provider.
               options: [
-                { value: '4', label: '4s — Sora' },
-                { value: '5', label: '5s — Venice' },
-                { value: '8', label: '8s — Sora' },
-                { value: '10', label: '10s — Venice (max)' },
-                { value: '12', label: '12s — Sora (max)' },
+                { value: '4', label: '4 seconds' },
+                { value: '8', label: '8 seconds' },
+                { value: '12', label: '12 seconds' },
               ],
             },
             {

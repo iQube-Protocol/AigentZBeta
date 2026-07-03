@@ -584,7 +584,7 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
       trust_override: skillSel.trust_override === true,
       venice_model: skillSel.venice_model || null,
       prompt: videoPrompt.prompt || "",
-      duration: videoPrompt.duration || 10,
+      duration: videoPrompt.duration || 12,
       aspect_ratio: videoPrompt.aspect_ratio || "16:9",
       style: videoPrompt.style || "cinematic",
       creative_pack: intent.creative_pack || null,
@@ -610,7 +610,7 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
           props: {
             skill_id: skillId,
             prompt: videoPrompt.prompt || "",
-            duration: videoPrompt.duration || 10,
+            duration: videoPrompt.duration || 12,
             aspect_ratio: videoPrompt.aspect_ratio || "16:9",
             style: videoPrompt.style || "cinematic",
             creative_pack: intent.creative_pack || null,

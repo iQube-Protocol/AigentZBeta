@@ -104,7 +104,7 @@ function isLegacyVideoProxyUrl(uri: string | undefined) {
 export default function SkillVideoPlayer({
   skill_id,
   prompt,
-  duration = 10,
+  duration = 12,
   aspect_ratio = "16:9",
   style = "cinematic",
   creative_pack,

@@ -4343,20 +4343,15 @@ export const ComposerStudio = () => {
           },
           video_prompt: {
             prompt: suggestedPrompt,
-            // Provider-aware default: Sora supports 4/8/12s (default 12), Venice
-            // supports 5/10s (default 10). Explicit numbers in the prompt win.
-            duration:
-              providerId === "venice"
-                ? /\b5s?\b|5 ?sec/.test(lower)
-                  ? 5
-                  : 10
-                : /\b12s?\b/.test(lower)
-                  ? 12
-                  : /\b4s?\b/.test(lower)
-                    ? 4
-                    : /\b8s?\b/.test(lower)
-                      ? 8
-                      : 12,
+            // Both Sora and Venice (incl. Wan) support 4/8/12s. Default to the
+            // 12s max; an explicit 4 or 8 in the prompt wins.
+            duration: /\b12s?\b/.test(lower)
+              ? 12
+              : /\b4s?\b/.test(lower)
+                ? 4
+                : /\b8s?\b/.test(lower)
+                  ? 8
+                  : 12,
             aspect_ratio: /portrait|vertical|9:16/.test(lower) ? "9:16" : "16:9",
             style:
               inferVisualStyleFromPrompt(effectivePrompt) === "editorial"
