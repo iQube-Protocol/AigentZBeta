@@ -42,6 +42,30 @@ export {
 } from './comparison';
 
 export {
+  createCollection,
+  getCollection,
+  listCollections,
+  addMembers,
+  removeMember,
+  listMembers,
+  type CreateCollectionInput,
+} from './collections';
+
+export {
+  aggregateConfidence,
+  aggregateStanding,
+  checkCoherence,
+  composeManifest,
+  publishInvariantQube,
+  getInvariantQube,
+  listInvariantQubes,
+  deriveInvariantQubePublicRef,
+  type CoherenceResult,
+  type PublishInvariantQubeInput,
+  type PublishInvariantQubeResult,
+} from './publish';
+
+export {
   canonicalizeStatement,
   discoverInvariant,
   validateInvariant,

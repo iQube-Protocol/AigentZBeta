@@ -18,6 +18,12 @@ import {
 } from '@/services/invariants/lifecycle';
 import { normalizeStatement, similarity } from '@/services/invariants/comparison';
 import {
+  aggregateConfidence,
+  aggregateStanding,
+  checkCoherence,
+} from '@/services/invariants/publish';
+import type { InvariantEdgeRecord } from '@/types/invariants';
+import {
   ACYCLIC_EDGE_TYPES,
   CONFIDENCE_BASIS_WEIGHT,
   INVARIANT_EDGE_TYPES,
@@ -144,5 +150,42 @@ describe('Invariant Standing (CFS-001 §6)', () => {
     const buried = computeStandingScore({ timesValidated: 5, timesReferenced: 10, timesUsed: 20, timesContradicted: 50 });
     expect(contested).toBeLessThan(clean);
     expect(buried).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('InvariantQube composition (CFS-003 §5, CFS-004 §3)', () => {
+  it('aggregate confidence is the weakest link', () => {
+    expect(aggregateConfidence([0.9, 0.85, 0.6])).toBe(0.6);
+    expect(aggregateConfidence([])).toBe(0);
+    expect(aggregateConfidence([1.0])).toBe(1);
+  });
+
+  it('aggregate standing is the mean of member standings', () => {
+    expect(aggregateStanding([90, 80, 70])).toBe(80);
+    expect(aggregateStanding([])).toBe(0);
+    expect(aggregateStanding([95.4])).toBe(95.4);
+  });
+
+  const edge = (from: string, to: string, edgeType: InvariantEdgeRecord['edgeType']): InvariantEdgeRecord => ({
+    id: `${from}-${to}`, fromInvariantId: from, toInvariantId: to, edgeType,
+    weight: 1, contextId: null, rationale: null, provenance: {}, reasoningProvenance: {},
+    dvnReceiptId: null, createdAt: '2026-07-03T00:00:00Z',
+  });
+
+  it('a bundle is coherent when members do not contradict', () => {
+    const result = checkCoherence(['a', 'b', 'c'], [edge('a', 'b', 'supports'), edge('b', 'c', 'depends_on')]);
+    expect(result.coherent).toBe(true);
+    expect(result.conflicts).toHaveLength(0);
+  });
+
+  it('a bundle is incoherent when two members contradict', () => {
+    const result = checkCoherence(['a', 'b', 'c'], [edge('a', 'c', 'contradicts')]);
+    expect(result.coherent).toBe(false);
+    expect(result.conflicts).toEqual([{ fromInvariantId: 'a', toInvariantId: 'c' }]);
+  });
+
+  it('a contradicts edge to a non-member does not break coherence', () => {
+    const result = checkCoherence(['a', 'b'], [edge('a', 'z', 'contradicts')]);
+    expect(result.coherent).toBe(true);
   });
 });

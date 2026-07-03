@@ -165,6 +165,74 @@ export interface OntologyClassRecord {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Level 2 — Invariant Collections (CFS-001 §1). Public (T1-safe): no T0.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface InvariantCollectionRecord {
+  id: string;
+  slug: string;
+  name: string;
+  namespace: InvariantNamespace | null;
+  description: string | null;
+  status: 'active' | 'archived';
+  curatorAliasCommitment: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvariantCollectionMember {
+  invariantId: string;
+  position: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Level 3 — InvariantQube (CFS-001 §1, CFS-004 §3). The published, versioned,
+// provenance-bearing package of compressed expertise — what becomes mintable.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * The composition manifest (CFS-003 §5): members + the internal edge subgraph
+ * + contexts, with aggregate confidence (weakest-link) and aggregate standing.
+ */
+export interface InvariantQubeManifest {
+  members: {
+    invariantId: string;
+    statement: string;
+    namespace: InvariantNamespace;
+    confidence: number;
+    standing: number;
+  }[];
+  /** Edges whose endpoints are both members of the bundle. */
+  internalEdges: {
+    fromInvariantId: string;
+    toInvariantId: string;
+    edgeType: InvariantEdgeType;
+  }[];
+  contexts: string[]; // union of member context domains
+  aggregateConfidence: number;
+  aggregateStanding: number;
+}
+
+export interface InvariantQubeRecord {
+  id: string;
+  iqubeId: string | null;
+  collectionId: string | null;
+  publicRef: string;
+  title: string;
+  version: number;
+  manifest: InvariantQubeManifest;
+  aggregateConfidence: number;
+  aggregateStanding: number;
+  memberCount: number;
+  status: 'draft' | 'published' | 'superseded';
+  supersedesId: string | null;
+  creatorAliasCommitment: string | null;
+  dvnReceiptId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Graph traversal (CFS-003 §4)
 // ─────────────────────────────────────────────────────────────────────────
 

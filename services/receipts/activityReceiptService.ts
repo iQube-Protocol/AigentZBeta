@@ -69,7 +69,10 @@ export type ActivityActionType =
   | 'invariant_discovered'
   | 'invariant_validated'
   | 'invariant_canonized'
-  | 'invariant_superseded';
+  | 'invariant_superseded'
+  // InvariantQube publication (Chrysalis Foundation Phase 2; CFS-004 §3) —
+  // compressed expertise published into constitutional memory. DVN-anchorable.
+  | 'invariant_qube_published';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
