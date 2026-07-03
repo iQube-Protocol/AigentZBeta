@@ -95,9 +95,21 @@ Confidence adopts the platform's existing verification-weight ladder (`services/
 
 Confidence is not static: the Knowledge Evolution stage of the operating model (CFS-006a §"Knowledge Evolution") adjusts confidence as observed consequences confirm or contradict the invariant. Contradiction edges (CFS-003) depress confidence; validated predictions raise it.
 
-## 6. Standing
+## 6. Standing — two distinct concepts
 
+### 6.1 Discoverer standing
 Discovery and validation of invariants are standing-bearing acts. The existing standing signal pipeline (`services/standing/standingSignalService.ts`, DVN-anchored via `standing_accrued`) gains invariant signal kinds. Standing calibrates confidence in the discoverer's future proposals — it never gates the truth of a statement (per the Standing Charter: standing is confidence in veracity, not status).
+
+### 6.2 Invariant Standing — the invariant as constitutional actor
+**Every invariant itself accrues Standing. Not merely confidence — Standing.**
+
+Confidence measures how sure we are the statement is true. Standing measures the invariant's **constitutional weight in the knowledge system**: how frequently it is reused, how repeatedly it is validated, how rarely it is contradicted, how foundational it is to other invariants and capabilities. An invariant with standing 95, referenced by hundreds of invariants and cited by dozens of runtime components, is a different constitutional object from a freshly validated statement — even at equal confidence.
+
+Ledger and view (implemented in the substrate):
+- **Accumulators** (the ledger): `times_validated`, `times_contradicted`, `times_referenced` (inbound graph edges), `times_used` (runtime citations from grounding/forecasting)
+- **Standing** (the derived view): a 0–100 score recomputed by the Invariant Service — saturating growth over the accumulators, with a contradiction penalty (formula documented in `services/invariants/lifecycle.ts::computeStandingScore`; tuning the formula is a constitutional change, not a code preference)
+
+The consequence: **the Registry becomes self-organizing.** High-standing invariants naturally migrate toward the constitutional core; low-standing invariants remain experimental — exactly like scientific theories. Listing surfaces order by standing. This is constitutional peer review, computed from provenance rather than committee.
 
 ## 7. Validation
 
