@@ -255,26 +255,41 @@ export async function transitionInvariant(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Invariant Standing (CFS-001 §6) — constitutional capital of the invariant
-// itself. The accumulators are the ledger; standing is the derived view.
+// Invariant Standing & Reach (CFS-001 §6, Law XII) — orthogonal dimensions,
+// never conflated. The accumulators are the ledger; each score is a derived
+// view over its OWN signal class:
 //
-// v1 formula (documented; tune by canonization, not ad-hoc edit):
-//   base   = times_validated * 8 + times_referenced * 2 + times_used * 0.5
-//   score  = 100 * base / (base + 40)          — saturating growth
-//   penalty = min(0.8, times_contradicted * 0.15)
-//   standing = round(score * (1 - penalty), 1)
+//   Standing (validation-class only — constitutional confidence):
+//     base    = times_validated * 8
+//     score   = 100 * base / (base + 40)        — saturating growth
+//     penalty = min(0.8, times_contradicted * 0.15)
+//     standing = round(score * (1 - penalty), 1)
+//
+//   Reach (adoption-class only — never a truth signal):
+//     base  = times_referenced * 2 + times_used * 0.5
+//     reach = round(100 * base / (base + 40), 1)
+//
+// Truth is never a stored number — validation estimates it, bounded by
+// confidence and domain. Tune these formulas by canonization, not ad-hoc edit.
 // ─────────────────────────────────────────────────────────────────────────
 
 export function computeStandingScore(input: {
   timesValidated: number;
-  timesReferenced: number;
-  timesUsed: number;
   timesContradicted: number;
 }): number {
-  const base = input.timesValidated * 8 + input.timesReferenced * 2 + input.timesUsed * 0.5;
+  const base = input.timesValidated * 8;
   const score = base <= 0 ? 0 : (100 * base) / (base + 40);
   const penalty = Math.min(0.8, input.timesContradicted * 0.15);
   return Math.round(score * (1 - penalty) * 10) / 10;
+}
+
+export function computeReachScore(input: {
+  timesReferenced: number;
+  timesUsed: number;
+}): number {
+  const base = input.timesReferenced * 2 + input.timesUsed * 0.5;
+  const score = base <= 0 ? 0 : (100 * base) / (base + 40);
+  return Math.round(score * 10) / 10;
 }
 
 export async function recomputeStanding(invariantId: string): Promise<InvariantRecord> {
@@ -283,12 +298,15 @@ export async function recomputeStanding(invariantId: string): Promise<InvariantR
   const inbound = await listEdgesForInvariants([invariantId], 'in');
   const standing = computeStandingScore({
     timesValidated: invariant.timesValidated,
+    timesContradicted: invariant.timesContradicted,
+  });
+  const reach = computeReachScore({
     timesReferenced: inbound.length,
     timesUsed: invariant.timesUsed,
-    timesContradicted: invariant.timesContradicted,
   });
   return updateInvariant(invariantId, {
     standing,
+    reach,
     times_referenced: inbound.length,
   });
 }

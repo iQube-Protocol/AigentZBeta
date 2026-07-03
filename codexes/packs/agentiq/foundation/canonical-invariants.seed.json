@@ -827,6 +827,50 @@
       "provenance": {
         "source": "CFS-001 §6.2 Invariant Standing"
       }
+    },
+    {
+      "id": "inv.constitutional.060",
+      "namespace": "constitutional",
+      "semantic_type": "epistemic",
+      "statement": "Truth is established through validation within a domain of applicability, not by popularity.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "governance"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XII — Truth, Standing and Reach"
+      }
+    },
+    {
+      "id": "inv.constitutional.061",
+      "namespace": "constitutional",
+      "semantic_type": "epistemic",
+      "statement": "Standing expresses constitutional confidence in an invariant and shall never be interpreted as a measure of truth.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "governance",
+        "registry"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XII — Truth, Standing and Reach"
+      }
+    },
+    {
+      "id": "inv.constitutional.062",
+      "namespace": "constitutional",
+      "semantic_type": "epistemic",
+      "statement": "Reach measures adoption rather than validity; constitutional knowledge preserves the distinction between Truth, Standing, and Reach.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "governance",
+        "registry"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XII — Truth, Standing and Reach"
+      }
     }
   ]
 }

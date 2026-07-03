@@ -72,6 +72,7 @@ export {
   canonizeInvariant,
   transitionInvariant,
   computeStandingScore,
+  computeReachScore,
   recomputeStanding,
   recordConsequence,
   recordUsage,

@@ -14,6 +14,7 @@ import {
 } from '@/services/invariants/store';
 import {
   canonicalizeStatement,
+  computeReachScore,
   computeStandingScore,
 } from '@/services/invariants/lifecycle';
 import { normalizeStatement, similarity } from '@/services/invariants/comparison';
@@ -129,27 +130,43 @@ describe('comparison (CFS-003a §2.3)', () => {
   });
 });
 
-describe('Invariant Standing (CFS-001 §6)', () => {
-  it('is zero with no history', () => {
-    expect(
-      computeStandingScore({ timesValidated: 0, timesReferenced: 0, timesUsed: 0, timesContradicted: 0 }),
-    ).toBe(0);
+describe('Invariant Standing & Reach (CFS-001 §6, Law XII)', () => {
+  it('both are zero with no history', () => {
+    expect(computeStandingScore({ timesValidated: 0, timesContradicted: 0 })).toBe(0);
+    expect(computeReachScore({ timesReferenced: 0, timesUsed: 0 })).toBe(0);
   });
 
-  it('grows with validation/reference/use, saturating below 100', () => {
-    const low = computeStandingScore({ timesValidated: 1, timesReferenced: 2, timesUsed: 5, timesContradicted: 0 });
-    const high = computeStandingScore({ timesValidated: 100, timesReferenced: 421, timesUsed: 847, timesContradicted: 0 });
+  it('standing grows with validation only, saturating below 100', () => {
+    const low = computeStandingScore({ timesValidated: 1, timesContradicted: 0 });
+    const high = computeStandingScore({ timesValidated: 847, timesContradicted: 0 });
     expect(low).toBeGreaterThan(0);
     expect(high).toBeGreaterThan(low);
     expect(high).toBeLessThanOrEqual(100);
   });
 
   it('contradictions depress standing but never below zero', () => {
-    const clean = computeStandingScore({ timesValidated: 5, timesReferenced: 10, timesUsed: 20, timesContradicted: 0 });
-    const contested = computeStandingScore({ timesValidated: 5, timesReferenced: 10, timesUsed: 20, timesContradicted: 3 });
-    const buried = computeStandingScore({ timesValidated: 5, timesReferenced: 10, timesUsed: 20, timesContradicted: 50 });
+    const clean = computeStandingScore({ timesValidated: 5, timesContradicted: 0 });
+    const contested = computeStandingScore({ timesValidated: 5, timesContradicted: 3 });
+    const buried = computeStandingScore({ timesValidated: 5, timesContradicted: 50 });
     expect(contested).toBeLessThan(clean);
     expect(buried).toBeGreaterThanOrEqual(0);
+  });
+
+  it('Law XII orthogonality — standing is blind to adoption; reach is blind to validation', () => {
+    // A wildly adopted but never-validated invariant has reach, no standing.
+    expect(computeStandingScore({ timesValidated: 0, timesContradicted: 0 })).toBe(0);
+    expect(computeReachScore({ timesReferenced: 421, timesUsed: 847 })).toBeGreaterThan(90);
+    // A deeply validated but unadopted invariant has standing, no reach.
+    expect(computeStandingScore({ timesValidated: 50, timesContradicted: 0 })).toBeGreaterThan(80);
+    expect(computeReachScore({ timesReferenced: 0, timesUsed: 0 })).toBe(0);
+  });
+
+  it('reach grows with adoption and saturates below 100', () => {
+    const low = computeReachScore({ timesReferenced: 2, timesUsed: 5 });
+    const high = computeReachScore({ timesReferenced: 1000, timesUsed: 5000 });
+    expect(low).toBeGreaterThan(0);
+    expect(high).toBeGreaterThan(low);
+    expect(high).toBeLessThanOrEqual(100);
   });
 });
 

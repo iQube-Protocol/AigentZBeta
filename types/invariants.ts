@@ -43,7 +43,8 @@ export type InvariantSemanticType =
   | 'constraint'
   | 'definition'
   | 'heuristic'
-  | 'law';
+  | 'law'
+  | 'epistemic'; // ratified by Law XII (CFS-009 amendment)
 
 /** CFS-001 §5 — the confidence ladder, mirroring standingScore.ts weights. */
 export type InvariantConfidenceBasis =
@@ -110,8 +111,13 @@ export interface InvariantRecord {
   status: InvariantStatus;
   confidence: number;
   confidenceBasis: InvariantConfidenceBasis;
-  /** CFS-001 §6 — Invariant Standing: constitutional capital of the invariant itself. */
+  /**
+   * CFS-001 §6 / Law XII — Standing: constitutional confidence from
+   * validation-class signals ONLY (never adoption).
+   */
   standing: number;
+  /** Law XII — Reach: adoption (references + usage). Orthogonal to standing. */
+  reach: number;
   timesValidated: number;
   timesContradicted: number;
   timesReferenced: number;

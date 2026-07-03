@@ -19,6 +19,10 @@ Read this page and you understand the philosophy behind every implementation dec
 
 ---
 
+The canonical paragraph — if you read only one:
+
+> Information becomes knowledge through reasoning. Reasoning discovers invariants. Validation establishes their standing. Civilization advances by preserving, composing, and extending them.
+
 And the method by which this platform evolves:
 
 > Every major advance emerges by discovering the invariant already present, preserving it, and extending its composition rather than replacing it.

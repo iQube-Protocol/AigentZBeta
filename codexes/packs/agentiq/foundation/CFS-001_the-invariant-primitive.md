@@ -105,9 +105,13 @@ Discovery and validation of invariants are standing-bearing acts. The existing s
 
 Confidence measures how sure we are the statement is true. Standing measures the invariant's **constitutional weight in the knowledge system**: how frequently it is reused, how repeatedly it is validated, how rarely it is contradicted, how foundational it is to other invariants and capabilities. An invariant with standing 95, referenced by hundreds of invariants and cited by dozens of runtime components, is a different constitutional object from a freshly validated statement — even at equal confidence.
 
-Ledger and view (implemented in the substrate):
-- **Accumulators** (the ledger): `times_validated`, `times_contradicted`, `times_referenced` (inbound graph edges), `times_used` (runtime citations from grounding/forecasting)
-- **Standing** (the derived view): a 0–100 score recomputed by the Invariant Service — saturating growth over the accumulators, with a contradiction penalty (formula documented in `services/invariants/lifecycle.ts::computeStandingScore`; tuning the formula is a constitutional change, not a code preference)
+**Law XII (CFS-009 amendment) governs this section: Truth, Standing, and Reach are orthogonal and never conflated.** Standing is validation-class confidence only; Reach is the adoption dimension; Truth is never a stored number — validation estimates it within a domain of applicability.
+
+Ledger and views (implemented in the substrate):
+- **Accumulators** (the ledger): `times_validated`, `times_contradicted` (validation-class) · `times_referenced` (inbound graph edges), `times_used` (runtime citations) (adoption-class)
+- **Standing** (0–100): derived from validation-class signals only — saturating growth over `times_validated` with a contradiction penalty (`computeStandingScore`)
+- **Reach** (0–100): derived from adoption-class signals only (`computeReachScore`)
+- Formulas live in `services/invariants/lifecycle.ts`; tuning them is a constitutional change, not a code preference
 
 The consequence: **the Registry becomes self-organizing.** High-standing invariants naturally migrate toward the constitutional core; low-standing invariants remain experimental — exactly like scientific theories. Listing surfaces order by standing. This is constitutional peer review, computed from provenance rather than committee.
 

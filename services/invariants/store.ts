@@ -48,6 +48,7 @@ export function mapInvariantRow(row: Record<string, unknown>): InvariantRecord {
     confidence: Number(row.confidence),
     confidenceBasis: row.confidence_basis as InvariantConfidenceBasis,
     standing: Number(row.standing ?? 0),
+    reach: Number(row.reach ?? 0),
     timesValidated: Number(row.times_validated ?? 0),
     timesContradicted: Number(row.times_contradicted ?? 0),
     timesReferenced: Number(row.times_referenced ?? 0),

@@ -88,6 +88,14 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 58. *(engineering)* The Polity defines why; AgentiQ defines how; Chrysalis defines how it evolves.
 59. *(constitutional)* Invariants themselves accrue Standing.
 
+## Additions — Law XII amendment (Truth, Standing and Reach)
+
+*Semantic type `epistemic` ratified with this amendment. (Proposed as INV-055–057; issued as 060–062 — ids 055–059 were already taken and the append-only rule forbids renumbering.)*
+
+60. *(constitutional · epistemic)* Truth is established through validation within a domain of applicability, not by popularity.
+61. *(constitutional · epistemic)* Standing expresses constitutional confidence in an invariant and shall never be interpreted as a measure of truth.
+62. *(constitutional · epistemic)* Reach measures adoption rather than validity; constitutional knowledge preserves the distinction between Truth, Standing, and Reach.
+
 ---
 
 ## Maintenance

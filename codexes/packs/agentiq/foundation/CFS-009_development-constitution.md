@@ -40,6 +40,39 @@ Each change either adds validated invariants, raises confidence in existing ones
 ## Law XI — Humans define semantics. AI should optimize implementation.
 Meaning is ratified by humans (canonization queue, operator approval, the Polity). Agents propose, extract, compare, and optimize — they do not decide what is true or what words mean. This law is the bridge to the Polity's own constitution: authority may be delegated; sovereignty may not.
 
+## Law XII — Truth, Standing and Reach
+*(Amendment, ratified by operator direction 2026-07-03.)*
+
+Truth is not established by Standing. Standing is established through the repeated validation of truth within its domain of applicability. Reach measures adoption, not validity.
+
+Standing shall never be interpreted as a measure of popularity, consensus, commercial success, or frequency of use. It represents the accumulated constitutional confidence earned through evidence, reasoning, validation, successful consequence, and durable application.
+
+Accordingly, every invariant possesses three independent constitutional dimensions:
+
+- **Truth** — the extent to which the invariant accurately represents reality, constitutional principle, or operational law within its stated domain of applicability.
+- **Standing** — the constitutional confidence earned through repeated validation, successful composition, consequence, and enduring coherence over time.
+- **Reach** — the extent to which the invariant has been adopted, referenced, implemented, or utilized across systems, communities, or applications.
+
+These dimensions are orthogonal and shall never be conflated. High Reach does not imply Truth. High Standing does not imply universal applicability. Low Reach does not diminish foundational truth. Emerging invariants may possess profound truth before they have accumulated Standing, while established invariants may retain high Standing within a limited domain of applicability even as broader invariants are subsequently discovered.
+
+### Corollary I — Domains of Applicability
+Every invariant exists within one or more domains of applicability. The discovery of a broader or more general invariant does not invalidate narrower invariants operating within their appropriate domains — broader invariants generalize, contextualize, or extend prior understanding. Scientific progress proceeds through progressive generalization rather than wholesale replacement (classical mechanics remains operationally valid within its domain after relativity).
+
+### Corollary II — Constitutional Evolution
+Invariant Intelligence treats knowledge as an evolving constitutional system. Candidate invariants emerge through reasoning; validation establishes constitutional confidence; Standing accumulates through durable validation; knowledge evolves through refinement, contextualization, and generalization. No invariant is immutable solely by virtue of historical standing; no newly discovered invariant is dismissed solely because it has not yet accumulated standing. The constitutional process exists to let knowledge mature without conflating novelty, popularity, authority, or utility with truth.
+
+### Corollary III — Constitutional Responsibility
+Constitutional actors — humans, organizations, and agents — may contribute to the discovery, refinement, validation, and composition of invariants. Once established, an invariant stands independently of its discoverer. Its provenance shall always be preserved. Its contributors shall always be acknowledged. Its Standing shall accrue through constitutional validation rather than authorship. Knowledge belongs to civilization; provenance belongs to its contributors.
+
+### Implementation consequence
+The substrate separates the dimensions structurally: Standing is computed only from validation-class signals (`times_validated`, `times_contradicted`); **Reach** is a distinct computed dimension over adoption-class signals (`times_referenced`, `times_used`). See `services/invariants/lifecycle.ts` (`computeStandingScore`, `computeReachScore`) and migration `20260703230000_law_xii_truth_standing_reach.sql`. Truth is never a stored number — it is what validation estimates, bounded by confidence and domain.
+
+---
+
+## The canonical paragraph
+
+> Information becomes knowledge through reasoning. Reasoning discovers invariants. Validation establishes their standing. Civilization advances by preserving, composing, and extending them.
+
 ---
 
 ## Enforcement
