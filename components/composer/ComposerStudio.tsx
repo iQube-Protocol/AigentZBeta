@@ -2620,6 +2620,7 @@ export const ComposerStudio = () => {
       aspectRatio?: string | null;
       style?: string | null;
       trustOverride?: boolean;
+      veniceModel?: string | null;
     }) => {
       const prompt = params.prompt.trim();
       if (!prompt) return null;
@@ -2634,11 +2635,12 @@ export const ComposerStudio = () => {
         body: JSON.stringify({
           skill_id: skillId,
           prompt,
-          duration: params.duration ?? 10,
+          duration: params.duration ?? 12,
           aspect_ratio: params.aspectRatio || "16:9",
           style: params.style || "cinematic",
           experience_id: params.experienceId,
           trust_override: params.trustOverride ?? false,
+          venice_model: params.veniceModel || undefined,
         }),
       }).finally(() => clearTimeout(invokeTimeout));
       const data = (await response.json().catch(() => null)) as {
@@ -5156,29 +5158,45 @@ export const ComposerStudio = () => {
         const rawSkillId = skillSelectionRecord?.skill_id;
         const skillId = typeof rawSkillId === "string" && rawSkillId.trim() ? rawSkillId.trim() : "venice_video_gen";
         const trustOverride = skillSelectionRecord?.trust_override === true;
+        const veniceModel =
+          typeof skillSelectionRecord?.venice_model === "string" && skillSelectionRecord.venice_model.trim()
+            ? (skillSelectionRecord.venice_model as string).trim()
+            : null;
         const videoPrompt = typeof videoPromptRecord?.prompt === "string" ? (videoPromptRecord.prompt as string).trim() : "";
-        const duration = typeof videoPromptRecord?.duration === "number" ? (videoPromptRecord.duration as number) : 10;
+        // The manual form stores duration as a string ("24"); the old
+        // typeof==="number" guard silently fell back to 10 (which Sora snaps to
+        // 8) — that was the "8-second video" bug. Coerce instead.
+        const parsedDuration = Number(videoPromptRecord?.duration);
+        const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 12;
         const aspectRatio = typeof videoPromptRecord?.aspect_ratio === "string" ? (videoPromptRecord.aspect_ratio as string) : "16:9";
         const style = typeof videoPromptRecord?.style === "string" ? (videoPromptRecord.style as string) : "cinematic";
-        await requestVideoBundleArtifacts({
-          experienceId: imageBundleTargetId,
-          skillId,
-          prompt: videoPrompt,
-          duration,
-          aspectRatio,
-          style,
-          trustOverride,
-        }).catch(() => null);
-        const refreshedCompletedExperience =
-          (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
-        if (refreshedCompletedExperience) {
-          completedExperience = {
-            ...refreshedCompletedExperience,
-            configuration: {
-              ...refreshedCompletedExperience.configuration,
-              ...(articleDraftToPreserve ? { article_draft: articleDraftToPreserve } : {}),
-            },
-          };
+        // Videos longer than a single 12s generation are produced by
+        // SkillVideoPlayer on demand (generate N clips → /api/skills/video/stitch).
+        // Skip server-side pre-generation for those, otherwise we'd pre-render a
+        // single truncated clip that becomes the packet's video_url and masks
+        // the stitch path entirely.
+        if (duration <= 12) {
+          await requestVideoBundleArtifacts({
+            experienceId: imageBundleTargetId,
+            skillId,
+            prompt: videoPrompt,
+            duration,
+            aspectRatio,
+            style,
+            trustOverride,
+            veniceModel,
+          }).catch(() => null);
+          const refreshedCompletedExperience =
+            (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
+          if (refreshedCompletedExperience) {
+            completedExperience = {
+              ...refreshedCompletedExperience,
+              configuration: {
+                ...refreshedCompletedExperience.configuration,
+                ...(articleDraftToPreserve ? { article_draft: articleDraftToPreserve } : {}),
+              },
+            };
+          }
         }
       }
       setExperience(completedExperience);
