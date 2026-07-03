@@ -227,6 +227,11 @@ export type OrchestrationEventType =
   | 'iqube_library_added'
   | 'iqube_revoke_requested'
   | 'mint_batch_initiated'
+  // Consequence Operating Model chain step outcomes (Chrysalis Phase 3b;
+  // CFS-006a §4). Emitted by /api/consequence/steps to advance the
+  // consequence-operating-model.v1 chain.
+  | 'consequence_preflight_completed'
+  | 'consequence_flywheel_completed'
 
 export interface OrchestrationEvent {
   event_id: string

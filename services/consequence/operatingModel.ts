@@ -37,7 +37,12 @@ export interface RunPipelineInput {
   intentRef: string;
   contextDomain?: string | null;
   namespace?: InvariantNamespace;
-  actor: { personaId: string; sessionId?: string };
+  /**
+   * Acting persona (T0, never placed on the returned run). Pass null in
+   * chain mode — the intent_chains layer emits its own step receipts and
+   * carries only the T2 alias commitment.
+   */
+  actor: { personaId: string; sessionId?: string } | null;
 }
 
 export async function runConsequencePipeline(
@@ -52,6 +57,10 @@ export async function runConsequencePipeline(
     actionType: Parameters<typeof createActivityReceipt>[0]['actionType'],
     summary: string,
   ) => {
+    if (!input.actor) {
+      stageReceipts.push({ stage, receiptId: null, summary });
+      return;
+    }
     const receipt = await createActivityReceipt({
       personaId: input.actor.personaId,
       sessionId: input.actor.sessionId,
@@ -148,7 +157,8 @@ export async function runConsequencePipeline(
 export interface ExecuteApprovedInput {
   run: ConsequenceRun;
   outcome: 'confirmed' | 'contradicted';
-  actor: { personaId: string; sessionId?: string };
+  /** Null in chain mode — see RunPipelineInput.actor. */
+  actor: { personaId: string; sessionId?: string } | null;
   note?: string;
 }
 
@@ -165,14 +175,17 @@ export async function executeApproved(
     throw new Error(`run disposition '${run.disposition}' is not executable`);
   }
 
-  // Execution + Observation receipts.
-  await createActivityReceipt({
-    personaId: actor.personaId,
-    sessionId: actor.sessionId,
-    actionType: 'experience_task_completed',
-    summary: `Consequence plan executed for intent ${run.intentRef}; observed ${outcome}`,
-    activeCartridge: 'agentiq',
-  }).catch((err) => console.error('[consequence] execution receipt failed', err));
+  // Execution + Observation receipts (persona mode only; chain mode's
+  // receipts come from the intent_chains layer).
+  if (actor) {
+    await createActivityReceipt({
+      personaId: actor.personaId,
+      sessionId: actor.sessionId,
+      actionType: 'experience_task_completed',
+      summary: `Consequence plan executed for intent ${run.intentRef}; observed ${outcome}`,
+      activeCartridge: 'agentiq',
+    }).catch((err) => console.error('[consequence] execution receipt failed', err));
+  }
 
   // Knowledge Evolution — feed the outcome back into every grounding invariant.
   const evolved: string[] = [];
@@ -183,14 +196,16 @@ export async function executeApproved(
     evolved.push(invariantId);
   }
 
-  await createActivityReceipt({
-    personaId: actor.personaId,
-    sessionId: actor.sessionId,
-    actionType: 'knowledge_evolved',
-    summary: `Knowledge evolution: ${evolved.length} invariant(s) ${outcome} by observed consequence of intent ${run.intentRef}`,
-    activeCartridge: 'agentiq',
-    iqubesUsed: run.capabilityQubeId ? [run.capabilityQubeId] : [],
-  }).catch((err) => console.error('[consequence] evolution receipt failed', err));
+  if (actor) {
+    await createActivityReceipt({
+      personaId: actor.personaId,
+      sessionId: actor.sessionId,
+      actionType: 'knowledge_evolved',
+      summary: `Knowledge evolution: ${evolved.length} invariant(s) ${outcome} by observed consequence of intent ${run.intentRef}`,
+      activeCartridge: 'agentiq',
+      iqubesUsed: run.capabilityQubeId ? [run.capabilityQubeId] : [],
+    }).catch((err) => console.error('[consequence] evolution receipt failed', err));
+  }
 
   return { evolved, observation: outcome };
 }

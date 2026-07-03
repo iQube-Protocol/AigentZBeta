@@ -1,0 +1,66 @@
+{
+  "id": "consequence-operating-model",
+  "version": "v1",
+  "label": "Consequence Operating Model",
+  "description": "CFS-006a as a dispatchable chain: preflight (Intent → Knowledge Curation → Knowledge Compression → Risk → Value → Consequence Forecasting → Planning) → disposition-gated approval → flywheel (Execution → Observation → Standing → Registry Update → Knowledge Evolution). Chain context must carry intentRef (and optionally contextDomain, namespace) at dispatch.",
+  "cartridge_scope": ["agentiq", "metame"],
+  "triggered_by_nbe": ["consequence.run-operating-model"],
+  "receipt_eligible": true,
+  "on_failure": "halt",
+  "cost_qc": 0,
+  "steps": [
+    {
+      "id": "preflight",
+      "label": "Ground intent in validated knowledge and forecast consequences",
+      "actor": "aigent-z",
+      "kind": "rpc",
+      "rpc": {
+        "endpoint": "/api/consequence/steps",
+        "method": "POST",
+        "body_from": "chain_context",
+        "body_static": { "phase": "preflight" },
+        "expected_outcome_event_type": "consequence_preflight_completed",
+        "timeout_minutes": 10
+      },
+      "next": "review-plan",
+      "branches": [
+        { "if": "disposition == 'deny'", "terminate": true },
+        { "if": "disposition == 'ask'", "terminate": true },
+        { "if": "disposition == 'act'", "next": "execute-flywheel" }
+      ],
+      "receipt_metadata_keys": ["run_id", "disposition", "risk_score", "knowledge_size", "forecast_rationale"]
+    },
+    {
+      "id": "review-plan",
+      "label": "Escalated: forecast implicates a constraint — human ratification required",
+      "actor": "user",
+      "kind": "approve",
+      "approve": {
+        "artifact_ref": "$chain.forecast_rationale",
+        "confirm_label": "Approve and execute",
+        "reject_label": "Reject plan"
+      },
+      "next": "execute-flywheel",
+      "branches": [
+        { "if": "decision == 'reject'", "terminate": true }
+      ],
+      "receipt_metadata_keys": ["run_id", "decision"]
+    },
+    {
+      "id": "execute-flywheel",
+      "label": "Execute, observe, and evolve the invariant graph",
+      "actor": "aigent-z",
+      "kind": "rpc",
+      "rpc": {
+        "endpoint": "/api/consequence/steps",
+        "method": "POST",
+        "body_from": "chain_context",
+        "body_static": { "phase": "flywheel" },
+        "expected_outcome_event_type": "consequence_flywheel_completed",
+        "timeout_minutes": 15
+      },
+      "next": null,
+      "receipt_metadata_keys": ["run_id", "observation", "evolved_count"]
+    }
+  ]
+}

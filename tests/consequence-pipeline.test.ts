@@ -7,6 +7,9 @@
  * verified in the operator environment.
  */
 
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 import {
   CONSEQUENCE_PIPELINE,
@@ -16,6 +19,8 @@ import {
   stageDefinition,
 } from '@/services/consequence/pipeline';
 import { assessRiskHeuristic, assessValueHeuristic } from '@/services/consequence/stages';
+import { validateTemplate } from '@/services/intentChains/registry';
+import type { ChainTemplate } from '@/types/intentChains';
 
 const NOW = '2026-07-03T00:00:00Z';
 
@@ -76,5 +81,40 @@ describe('risk/value heuristics (v1; phase2 wiring point)', () => {
     const low = assessValueHeuristic({ iqubeId: 'i', aggregateStanding: 10, knowledgeSize: 1, now: NOW });
     const high = assessValueHeuristic({ iqubeId: 'i', aggregateStanding: 90, knowledgeSize: 8, now: NOW });
     expect(high.work_potential_qc!).toBeGreaterThan(low.work_potential_qc!);
+  });
+});
+
+describe('Phase 3b — consequence-operating-model.v1 chain template', () => {
+  const templatePath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    'services/intentChains/templates/consequence-operating-model.v1.json',
+  );
+  const template = JSON.parse(readFileSync(templatePath, 'utf-8')) as ChainTemplate;
+
+  it('passes the chain registry validator', () => {
+    expect(validateTemplate(template)).toEqual([]);
+  });
+
+  it('gates the flywheel behind the disposition/approval seam', () => {
+    const preflight = template.steps.find((s) => s.id === 'preflight')!;
+    // deny and ask terminate; act skips straight to the flywheel; the default
+    // next (escalate) routes through the human approval step.
+    expect(preflight.branches?.some((b) => b.if.includes("'deny'") && b.terminate)).toBe(true);
+    expect(preflight.branches?.some((b) => b.if.includes("'act'") && b.next === 'execute-flywheel')).toBe(true);
+    expect(preflight.next).toBe('review-plan');
+    const review = template.steps.find((s) => s.id === 'review-plan')!;
+    expect(review.kind).toBe('approve');
+    expect(review.branches?.some((b) => b.if.includes("'reject'") && b.terminate)).toBe(true);
+  });
+
+  it('rpc steps target the step adapter with matching outcome events', () => {
+    const rpcSteps = template.steps.filter((s) => s.kind === 'rpc');
+    expect(rpcSteps).toHaveLength(2);
+    for (const step of rpcSteps) {
+      expect(step.rpc!.endpoint).toBe('/api/consequence/steps');
+    }
+    expect(rpcSteps[0].rpc!.expected_outcome_event_type).toBe('consequence_preflight_completed');
+    expect(rpcSteps[1].rpc!.expected_outcome_event_type).toBe('consequence_flywheel_completed');
   });
 });
