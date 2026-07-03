@@ -611,7 +611,7 @@ export function resolveExperienceBundleFlowTarget(
     return {
       blockKind,
       templateId: "sora-video-generation",
-      templateLabel: "Sora Video Generation",
+      templateLabel: "AI Video Generation",
       label: "video generation flow",
       summary: "Open the video skill flow to generate or refine the primary motion asset.",
     };
@@ -640,7 +640,7 @@ export function resolveExperienceBundleFlowTarget(
   return {
     blockKind,
     templateId: bundle.presetId === "video_article_bundle" ? "sora-video-generation" : "qriptopian_reading_sprint_v0",
-    templateLabel: bundle.presetId === "video_article_bundle" ? "Sora Video Generation" : "Qriptopian Reading Sprint",
+    templateLabel: bundle.presetId === "video_article_bundle" ? "AI Video Generation" : "Qriptopian Reading Sprint",
     label: "deployment flow",
     summary: "Return to the bundle source experience and finish deployment and reward configuration.",
   };
