@@ -79,6 +79,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-03_law-xii-experiments-phase-3b.md",
         "updates/2026-07-03_consequence-operating-model-phase-2-3.md",
         "updates/2026-07-03_invariant-substrate-phase-1.md",
         "updates/2026-07-03_new-session-setup-notes.md",
@@ -365,7 +366,7 @@
     {
       "id": "col_network_economics",
       "title": "Network Economics",
-      "description": "Canonical reference for what it costs to run the AgentiQ network \u2014 anchor + cross-chain cost model, K/T policy, calibration knobs, and cost-per-receipt projections at mainnet cutover.",
+      "description": "Canonical reference for what it costs to run the AgentiQ network — anchor + cross-chain cost model, K/T policy, calibration knobs, and cost-per-receipt projections at mainnet cutover.",
       "items": [
         "items/AGENTIQ_NETWORK_COSTS.md"
       ]
@@ -373,7 +374,7 @@
     {
       "id": "col_intent_chains",
       "title": "Intent Chains",
-      "description": "Spec + reference for the metaMe/aigentMe intent-chain orchestrator \u2014 turns CTAs into stateful multi-step workflows with DVN-receipt-anchored provenance. Draft spec awaiting operator confirmation before build.",
+      "description": "Spec + reference for the metaMe/aigentMe intent-chain orchestrator — turns CTAs into stateful multi-step workflows with DVN-receipt-anchored provenance. Draft spec awaiting operator confirmation before build.",
       "items": [
         "items/AGENTIQ_INTENT_CHAINS_SPEC.md"
       ]
