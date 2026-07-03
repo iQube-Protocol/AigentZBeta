@@ -21,6 +21,7 @@ remain readable for audit; agents must bind to the current approved versions.
 | Date | Primitive | Version | Status | Note |
 |---|---|---|---|---|
 | 2026-06-21 | VentureQube Specification | 1.0.0-wip | draft_wip | Stubbed constitutional primitive (ClusterQube specialization). Recorded for legibility while the Founder Office / Venture Lab engine is built; NOT in the Agent Passport binding triple; NOT yet published to Autodrive. Engineering SoT: `types/ventureQube.ts` (v1.0). Promote to ratified once the engine is operational and the spec is locked. |
+| 2026-07-03 | Invariant Intelligence (Foundational Constitutional Record) | 0.1 | canonical_foundational | Foundational Constitutional Record establishing the constitutional origin of the Invariant Intelligence model within the Polity Canon; project Chrysalis Foundation. Records the first-principle discoveries (seven Constitutional Principles) and the foundational computational objects (Invariant, Invariant Ontology, Invariant Graph, iQube, Registry). Constitutional anchor for the Chrysalis Foundation Specification Bundle. NOT yet published to Autodrive; NOT part of the Agent Passport binding triple. |
 
 ## Immutability
 

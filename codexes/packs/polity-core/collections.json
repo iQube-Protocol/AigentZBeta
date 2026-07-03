@@ -25,6 +25,18 @@
       ]
     },
     {
+      "id": "col_invariant_intelligence",
+      "title": "Invariant Intelligence",
+      "description": "Foundational Constitutional Record (v0.1) — the constitutional origin of the Invariant Intelligence model and the anchor for the Chrysalis Foundation Specification Bundle.",
+      "type": "static",
+      "order": 0.75,
+      "enabled": true,
+      "metadata": { "icon": "Infinity", "category": "main" },
+      "items": [
+        "items/INVARIANT_INTELLIGENCE.md"
+      ]
+    },
+    {
       "id": "col_agent_charter",
       "title": "Agent Charter",
       "description": "The Autonomous Agent Constitutional Charter — ADID class, Phase 1 restrictions, sponsorship, revocation, and binding.",
