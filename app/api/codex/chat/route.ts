@@ -698,7 +698,7 @@ const MARKETA_TOOLS_ANTHROPIC = [
       properties: {
         prompt: { type: 'string', description: 'Detailed description of the video to generate' },
         skill_id: { type: 'string', enum: ['sora_video_gen_curated', 'venice_video_gen'], description: 'Video provider — use sora_video_gen_curated for high quality, venice_video_gen as alternative' },
-        duration: { type: 'number', description: 'Duration in seconds (4-12 for Sora, 5-10 for Venice)' },
+        duration: { type: 'number', description: 'Duration in seconds. Sora accepts 4, 8, or 12 (default 12); Venice accepts 5 or 10 (default 10). Values are snapped to the nearest supported duration per provider.' },
         aspect_ratio: { type: 'string', enum: ['16:9', '9:16', '1:1'], description: 'Video aspect ratio' },
         style: { type: 'string', enum: ['cinematic', 'animation', 'comic', 'photorealistic'], description: 'Visual style' },
         experience_id: { type: 'string', description: 'Optional experience ID' },
