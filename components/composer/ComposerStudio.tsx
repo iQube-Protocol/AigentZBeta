@@ -1683,8 +1683,8 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
   },
   {
     id: "sora-video-generation",
-    name: "Sora Video Generation",
-    description: "Generate AI video using OpenAI Sora skill — curated or community. Full supply chain with trust badges, PoSR, and DVN receipts.",
+    name: "AI Video Generation",
+    description: "Generate standalone AI video — no article. OpenAI Sora, Venice, or community provider. Full supply chain with trust badges, PoSR, and DVN receipts.",
     category: "task",
     complexity: "intermediate",
     estimated_time: 15,
@@ -2667,6 +2667,7 @@ export const ComposerStudio = () => {
       aspectRatio?: string | null;
       style?: string | null;
       trustOverride?: boolean;
+      veniceModel?: string | null;
     }) => {
       const prompt = params.prompt.trim();
       if (!prompt) return null;
@@ -2681,11 +2682,12 @@ export const ComposerStudio = () => {
         body: JSON.stringify({
           skill_id: skillId,
           prompt,
-          duration: params.duration ?? 10,
+          duration: params.duration ?? 12,
           aspect_ratio: params.aspectRatio || "16:9",
           style: params.style || "cinematic",
           experience_id: params.experienceId,
           trust_override: params.trustOverride ?? false,
+          venice_model: params.veniceModel || undefined,
         }),
       }).finally(() => clearTimeout(invokeTimeout));
       const data = (await response.json().catch(() => null)) as {
@@ -4979,33 +4981,44 @@ export const ComposerStudio = () => {
           : typeof copilotOutputStep.takeaways_count === "number"
             ? copilotOutputStep.takeaways_count
             : undefined;
-      const articleTitle =
-        firstNonEmptyString([articleDraftStep.title, returnedExperience?.metadata?.article_title, returnedExperience?.name]) ||
-        null;
-      const articlePrompt =
-        firstNonEmptyString([
-          articleDraftStep.prompt,
-          returnedExperience?.metadata?.article_prompt,
-          asRecord(mergedData.intent_timebox)?.goal,
-          returnedExperience?.description,
-        ]) || null;
-      const existingBundleState = asRecord(returnedExperience?.metadata?.composition_bundle_state) || {};
-      const existingMakeBundle = asRecord(returnedExperience?.configuration?.make_bundle) || {};
       const editingExpForBundleCheck = editingExperienceId
         ? experiences.find((e) => e.id === editingExperienceId) ?? null
         : null;
       const preAppliedBundleBlockKinds =
         getAppliedExperienceBundle(editingExpForBundleCheck ?? returnedExperience)?.blockKinds ?? null;
+      const bundleWantsArticle = Boolean(preAppliedBundleBlockKinds?.includes("article_draft"));
+      // Whether THIS template's own article_draft step carried real submitted
+      // data (true for the standalone "ai-article-draft" template and for
+      // bundle experiences). Without this gate, articleTitle/articlePrompt
+      // below would fall back to fields every template always has
+      // (experience_name, description, intent_timebox.goal) and silently
+      // attach an LLM-drafted article to plain video/image sessions — that
+      // was the "video skill also generates an article" bug.
+      const hasArticleDraftStepData = Boolean(
+        articleDraftStep.title || articleDraftStep.prompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number",
+      );
+      const shouldGenerateArticle = hasArticleDraftStepData || bundleWantsArticle;
+      const articleTitle = shouldGenerateArticle
+        ? firstNonEmptyString([articleDraftStep.title, returnedExperience?.metadata?.article_title, returnedExperience?.name]) ||
+          null
+        : null;
+      const articlePrompt = shouldGenerateArticle
+        ? firstNonEmptyString([
+            articleDraftStep.prompt,
+            returnedExperience?.metadata?.article_prompt,
+            asRecord(mergedData.intent_timebox)?.goal,
+            returnedExperience?.description,
+          ]) || null
+        : null;
+      const existingBundleState = asRecord(returnedExperience?.metadata?.composition_bundle_state) || {};
+      const existingMakeBundle = asRecord(returnedExperience?.configuration?.make_bundle) || {};
       const mergedBlockStatuses = {
         ...(asRecord(existingMakeBundle.block_statuses) || {}),
         ...(asRecord(existingBundleState.block_statuses) || {}),
-        ...(articleTitle || articlePrompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
-          ? { article_draft: "ready_for_review" }
-          : {}),
+        ...(shouldGenerateArticle ? { article_draft: "ready_for_review" } : {}),
       };
-      const articleGenerated =
-        articleTitle || articlePrompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
-          ? await requestArticleDraftArtifact({
+      const articleGenerated = shouldGenerateArticle
+        ? await requestArticleDraftArtifact({
               experienceName: returnedExperience?.name,
               title: articleTitle,
               prompt: articlePrompt,
@@ -5203,29 +5216,45 @@ export const ComposerStudio = () => {
         const rawSkillId = skillSelectionRecord?.skill_id;
         const skillId = typeof rawSkillId === "string" && rawSkillId.trim() ? rawSkillId.trim() : "venice_video_gen";
         const trustOverride = skillSelectionRecord?.trust_override === true;
+        const veniceModel =
+          typeof skillSelectionRecord?.venice_model === "string" && skillSelectionRecord.venice_model.trim()
+            ? (skillSelectionRecord.venice_model as string).trim()
+            : null;
         const videoPrompt = typeof videoPromptRecord?.prompt === "string" ? (videoPromptRecord.prompt as string).trim() : "";
-        const duration = typeof videoPromptRecord?.duration === "number" ? (videoPromptRecord.duration as number) : 10;
+        // The manual form stores duration as a string ("24"); the old
+        // typeof==="number" guard silently fell back to 10 (which Sora snaps to
+        // 8) — that was the "8-second video" bug. Coerce instead.
+        const parsedDuration = Number(videoPromptRecord?.duration);
+        const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 12;
         const aspectRatio = typeof videoPromptRecord?.aspect_ratio === "string" ? (videoPromptRecord.aspect_ratio as string) : "16:9";
         const style = typeof videoPromptRecord?.style === "string" ? (videoPromptRecord.style as string) : "cinematic";
-        await requestVideoBundleArtifacts({
-          experienceId: imageBundleTargetId,
-          skillId,
-          prompt: videoPrompt,
-          duration,
-          aspectRatio,
-          style,
-          trustOverride,
-        }).catch(() => null);
-        const refreshedCompletedExperience =
-          (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
-        if (refreshedCompletedExperience) {
-          completedExperience = {
-            ...refreshedCompletedExperience,
-            configuration: {
-              ...refreshedCompletedExperience.configuration,
-              ...(articleDraftToPreserve ? { article_draft: articleDraftToPreserve } : {}),
-            },
-          };
+        // Videos longer than a single 12s generation are produced by
+        // SkillVideoPlayer on demand (generate N clips → /api/skills/video/stitch).
+        // Skip server-side pre-generation for those, otherwise we'd pre-render a
+        // single truncated clip that becomes the packet's video_url and masks
+        // the stitch path entirely.
+        if (duration <= 12) {
+          await requestVideoBundleArtifacts({
+            experienceId: imageBundleTargetId,
+            skillId,
+            prompt: videoPrompt,
+            duration,
+            aspectRatio,
+            style,
+            trustOverride,
+            veniceModel,
+          }).catch(() => null);
+          const refreshedCompletedExperience =
+            (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
+          if (refreshedCompletedExperience) {
+            completedExperience = {
+              ...refreshedCompletedExperience,
+              configuration: {
+                ...refreshedCompletedExperience.configuration,
+                ...(articleDraftToPreserve ? { article_draft: articleDraftToPreserve } : {}),
+              },
+            };
+          }
         }
       }
       setExperience(completedExperience);
@@ -6503,6 +6532,23 @@ export const ComposerStudio = () => {
       (asRecord(articleDraft.generated) as Record<string, any> | null) ||
       (asRecord(metadataEditable.article_draft)?.generated as Record<string, any> | null) ||
       null;
+    // Same gate as handleComplete: only treat this as an article-bearing
+    // experience if the article_draft step itself carried real data, or a
+    // video/image+article bundle preset is actually applied. Otherwise
+    // articleTitle/articlePrompt below would fall back to fields every
+    // experience always has (name/description/goal), making the "Article
+    // Draft" editing panel appear for plain video/image experiences too.
+    const hasArticleDraftStepData = Boolean(
+      articleDraft.title ||
+        articleDraft.prompt ||
+        articleOutputs.length > 0 ||
+        typeof articleDraft.takeaways_count === "number" ||
+        typeof copilotOutput.takeaways_count === "number",
+    );
+    const bundleWantsArticle = Boolean(
+      getAppliedExperienceBundle(activeExperienceForEditing)?.blockKinds.includes("article_draft"),
+    );
+    const shouldShowArticle = hasArticleDraftStepData || bundleWantsArticle;
 
     return {
       experienceName:
@@ -6521,15 +6567,17 @@ export const ComposerStudio = () => {
           : "") || "",
       videoPrompt:
         (typeof videoPrompt.prompt === "string" && videoPrompt.prompt.trim() ? videoPrompt.prompt : "") || "",
-      articleTitle:
-        firstNonEmptyString([articleDraft.title, activeMetadata.article_title, activeExperienceForEditing?.name]) || "",
-      articlePrompt:
-        firstNonEmptyString([
-          articleDraft.prompt,
-          activeMetadata.article_prompt,
-          intentTimebox.goal,
-          activeExperienceForEditing?.description,
-        ]) || "",
+      articleTitle: shouldShowArticle
+        ? firstNonEmptyString([articleDraft.title, activeMetadata.article_title, activeExperienceForEditing?.name]) || ""
+        : "",
+      articlePrompt: shouldShowArticle
+        ? firstNonEmptyString([
+            articleDraft.prompt,
+            activeMetadata.article_prompt,
+            intentTimebox.goal,
+            activeExperienceForEditing?.description,
+          ]) || ""
+        : "",
       articleOutputs,
       articleTakeawaysCount:
         typeof takeawaysCount === "number" && Number.isFinite(takeawaysCount) ? takeawaysCount : 3,

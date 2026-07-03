@@ -2579,3 +2579,18 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-bbd38c5.md](../build_/COMMITS/COMMIT-bbd38c5.md)
 - Message: fix move-forward NBE regression + add operator archetype to experience model setup
+
+## Commit `f3969d9` — 2026-07-03T20:38:22Z
+- Type: `push`
+- Brief: [COMMIT-f3969d9.md](../build_/COMMITS/COMMIT-f3969d9.md)
+- Message: record chrysalis phase 2-3 session doc
+
+## Commit `f6bfcd6` — 2026-07-03T20:38:15Z
+- Type: `feat`
+- Brief: [COMMIT-f6bfcd6.md](../build_/COMMITS/COMMIT-f6bfcd6.md)
+- Message: implement consequence engineering operating model (chrysalis phase 3)
+
+## Commit `e9c64f2` — 2026-07-03T20:30:22Z
+- Type: `feat`
+- Brief: [COMMIT-e9c64f2.md](../build_/COMMITS/COMMIT-e9c64f2.md)
+- Message: implement invariant collections + invariantqube publication (chrysalis phase 2)

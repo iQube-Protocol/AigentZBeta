@@ -586,11 +586,13 @@ export function initializeDefaultTemplates(): void {
     tags: ['qriptopian', 'reading', 'smarttriad'],
   };
 
-  // Sora Video Generation Template (Skill-backed)
+  // AI Video Generation Template (Skill-backed) — supports OpenAI Sora and
+  // Venice (incl. Wan) providers; template id kept as 'sora-video-generation'
+  // for backward compatibility with existing persisted experiences.
   const soraVideoGeneration: TemplateData = {
     id: 'sora-video-generation',
-    name: 'Sora Video Generation',
-    description: 'Generate AI video using OpenAI Sora skill — curated or community. Full supply chain with trust badges, PoSR, and DVN receipts.',
+    name: 'AI Video Generation',
+    description: 'Generate standalone AI video — no article. OpenAI Sora, Venice, or community provider. Full supply chain with trust badges, PoSR, and DVN receipts.',
     category: 'interactive',
     complexity: 'intermediate',
     estimated_time: 15,

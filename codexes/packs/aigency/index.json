@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-25T18:31:22.509Z",
+  "last_updated": "2026-07-03T20:40:34.653Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bbd38c5638aa0d4cd3bd5b9e4e35f6de77c5cc6b",
-  "latest_commit_short": "bbd38c5",
-  "latest_commit_title": "fix move-forward NBE regression + add operator archetype to experience model setup",
+  "latest_commit": "e9c64f2adc10aa5f7198ff0864ded5396b7c668c",
+  "latest_commit_short": "e9c64f2",
+  "latest_commit_title": "implement invariant collections + invariantqube publication (chrysalis phase 2)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e9c64f2",
+      "full_sha": "e9c64f2adc10aa5f7198ff0864ded5396b7c668c",
+      "title": "implement invariant collections + invariantqube publication (chrysalis phase 2)",
+      "author": "Claude",
+      "timestamp": "2026-07-03T20:30:22Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e9c64f2.md"
+    },
+    {
+      "sha": "f6bfcd6",
+      "full_sha": "f6bfcd6f2c0ef9b138abaa67afb4a110780eee53",
+      "title": "implement consequence engineering operating model (chrysalis phase 3)",
+      "author": "Claude",
+      "timestamp": "2026-07-03T20:38:15Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f6bfcd6.md"
+    },
+    {
+      "sha": "f3969d9",
+      "full_sha": "f3969d987fcafd07f43bbe9c4242148c07e9da83",
+      "title": "record chrysalis phase 2-3 session doc",
+      "author": "Claude",
+      "timestamp": "2026-07-03T20:38:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f3969d9.md"
+    },
     {
       "sha": "bbd38c5",
       "full_sha": "bbd38c5638aa0d4cd3bd5b9e4e35f6de77c5cc6b",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-06-09T03:54:22Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-dc6a5b2.md"
-    },
-    {
-      "sha": "14e72e9",
-      "full_sha": "14e72e9169f972e585e6d522ce88264386641faa",
-      "title": "fix PEM parsing: install @dfinity/identity-secp256k1 and route all callers through it",
-      "author": "Claude",
-      "timestamp": "2026-06-09T02:27:33Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-14e72e9.md"
-    },
-    {
-      "sha": "8ae23a4",
-      "full_sha": "8ae23a46e20ab98271b467bae5b5fb3a5cd9370f",
-      "title": "add /api/admin/debug/pem-status diagnostic for PEM parse failures",
-      "author": "Claude",
-      "timestamp": "2026-06-09T01:13:50Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8ae23a4.md"
-    },
-    {
-      "sha": "5b7add3",
-      "full_sha": "5b7add3411e079ff7738331089f3a56aa113acc0",
-      "title": "normalize DFX_IDENTITY_PEM to handle Amplify env-var whitespace mangling",
-      "author": "Claude",
-      "timestamp": "2026-06-08T21:52:41Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5b7add3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
