@@ -1,0 +1,193 @@
+/**
+ * Invariant Intelligence substrate — type contract.
+ *
+ * Chrysalis Foundation Phase 1. Specs:
+ *   CFS-001 (invariant primitive, three levels, Invariant Context, Invariant Standing)
+ *   CFS-002 (ontology), CFS-003 (graph), CFS-003a (Invariant Service)
+ * Constitutional anchor:
+ *   codexes/packs/polity-core/constitutional-records/invariant-intelligence.md
+ *
+ * Identifier tiering (Identity & Access Spine):
+ *   creator_persona_id is T0 — it exists on the DB row but is DELIBERATELY
+ *   ABSENT from every record type in this file. The public surface carries
+ *   only creator_alias_commitment (T2). Do not add a personaId field to any
+ *   record type here.
+ */
+
+export type InvariantNamespace =
+  | 'constitutional'
+  | 'reasoning'
+  | 'engineering'
+  | 'experience'
+  | 'capability';
+
+export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
+  'constitutional',
+  'reasoning',
+  'engineering',
+  'experience',
+  'capability',
+];
+
+export type InvariantStatus =
+  | 'draft'
+  | 'proposed'
+  | 'validated'
+  | 'canonical'
+  | 'rejected'
+  | 'deprecated'
+  | 'superseded';
+
+export type InvariantSemanticType =
+  | 'principle'
+  | 'constraint'
+  | 'definition'
+  | 'heuristic'
+  | 'law';
+
+/** CFS-001 §5 — the confidence ladder, mirroring standingScore.ts weights. */
+export type InvariantConfidenceBasis =
+  | 'document_verified'   // 1.0
+  | 'principal_verified'  // 0.85
+  | 'agent_verified'      // 0.6
+  | 'unknown';            // 0.3
+
+export const CONFIDENCE_BASIS_WEIGHT: Record<InvariantConfidenceBasis, number> = {
+  document_verified: 1.0,
+  principal_verified: 0.85,
+  agent_verified: 0.6,
+  unknown: 0.3,
+};
+
+/** CFS-003 §2 — the twelve canonical edge types. */
+export type InvariantEdgeType =
+  | 'derives_from'
+  | 'enables'
+  | 'constrains'
+  | 'contradicts'
+  | 'supersedes'
+  | 'generalizes'
+  | 'specializes'
+  | 'depends_on'
+  | 'supports'
+  | 'validates'
+  | 'explains'
+  | 'composes';
+
+export const INVARIANT_EDGE_TYPES: readonly InvariantEdgeType[] = [
+  'derives_from',
+  'enables',
+  'constrains',
+  'contradicts',
+  'supersedes',
+  'generalizes',
+  'specializes',
+  'depends_on',
+  'supports',
+  'validates',
+  'explains',
+  'composes',
+];
+
+/** CFS-003 §3 — edge types that must remain acyclic (service-enforced). */
+export const ACYCLIC_EDGE_TYPES: readonly InvariantEdgeType[] = [
+  'depends_on',
+  'derives_from',
+  'supersedes',
+];
+
+// ─────────────────────────────────────────────────────────────────────────
+// Records — the public (T1-safe) surface. No T0 fields.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface InvariantRecord {
+  id: string;
+  seedId: string | null;
+  statement: string;
+  namespace: InvariantNamespace;
+  ontologyClassId: string | null;
+  semanticType: InvariantSemanticType | null;
+  status: InvariantStatus;
+  confidence: number;
+  confidenceBasis: InvariantConfidenceBasis;
+  /** CFS-001 §6 — Invariant Standing: constitutional capital of the invariant itself. */
+  standing: number;
+  timesValidated: number;
+  timesContradicted: number;
+  timesReferenced: number;
+  timesUsed: number;
+  version: number;
+  supersedesId: string | null;
+  ratifiedSource: string | null;
+  provenance: Record<string, unknown>;
+  reasoningProvenance: Record<string, unknown>;
+  creatorAliasCommitment: string | null;
+  dvnReceiptId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvariantContextRecord {
+  id: string;
+  invariantId: string;
+  domain: string;
+  interpretation: string | null;
+  applicabilityConditions: Record<string, unknown> | null;
+  retrievalTags: string[];
+  createdAt: string;
+}
+
+export interface InvariantEdgeRecord {
+  id: string;
+  fromInvariantId: string;
+  toInvariantId: string;
+  edgeType: InvariantEdgeType;
+  weight: number;
+  contextId: string | null;
+  rationale: string | null;
+  provenance: Record<string, unknown>;
+  reasoningProvenance: Record<string, unknown>;
+  dvnReceiptId: string | null;
+  createdAt: string;
+}
+
+export interface OntologyClassRecord {
+  id: string;
+  namespace: InvariantNamespace;
+  slug: string;
+  name: string;
+  parentId: string | null;
+  semanticType: InvariantSemanticType | null;
+  description: string | null;
+  status: 'active' | 'deprecated';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Graph traversal (CFS-003 §4)
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface TraversalOptions {
+  edgeTypes?: InvariantEdgeType[];
+  direction?: 'out' | 'in' | 'both';
+  maxDepth?: number;        // default 4, hard cap 8
+  minWeight?: number;
+  minConfidence?: number;
+  /** Only follow edges that are global or scoped to a context with this domain. */
+  contextDomain?: string;
+}
+
+export interface TraversalNode {
+  invariant: InvariantRecord;
+  depth: number;
+  /** Edge that reached this node (null for roots). */
+  viaEdge: InvariantEdgeRecord | null;
+}
+
+export interface TraversalResult {
+  roots: string[];
+  nodes: TraversalNode[];
+  edges: InvariantEdgeRecord[];
+  truncated: boolean;
+}

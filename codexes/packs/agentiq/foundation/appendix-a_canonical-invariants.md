@@ -80,6 +80,14 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 53. Standing converts consequence into constitutional capital.
 54. New knowledge from consequence feeds the next intent.
 
+## Additions — v0.1 amendment (the Manifesto + the Three Orders)
+
+55. *(reasoning)* Civilization accumulates invariants, not information.
+56. *(reasoning)* Knowledge enables capability.
+57. *(capability)* Capability creates consequence.
+58. *(engineering)* The Polity defines why; AgentiQ defines how; Chrysalis defines how it evolves.
+59. *(constitutional)* Invariants themselves accrue Standing.
+
 ---
 
 ## Maintenance
