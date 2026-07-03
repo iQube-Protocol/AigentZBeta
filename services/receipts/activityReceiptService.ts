@@ -62,7 +62,14 @@ export type ActivityActionType =
   | 'agent_delegation_revoked'
   // Plan subscription lifecycle (DVN-anchorable)
   | 'plan_purchased'
-  | 'plan_renewed';
+  | 'plan_renewed'
+  // Invariant lifecycle (Chrysalis Foundation Phase 1; CFS-001 §7).
+  // validated/canonized/superseded are DVN-anchorable constitutional-memory
+  // events; discovered stays local (high volume, pre-validation).
+  | 'invariant_discovered'
+  | 'invariant_validated'
+  | 'invariant_canonized'
+  | 'invariant_superseded';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

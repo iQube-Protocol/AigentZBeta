@@ -78,6 +78,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // Plan subscription lifecycle — purchase / renewal provenance on-chain
   'plan_purchased',
   'plan_renewed',
+  // Invariant lifecycle (Chrysalis Foundation Phase 1) — constitutional-
+  // memory provenance for the invariant substrate (CFS-001 §7)
+  'invariant_validated',
+  'invariant_canonized',
+  'invariant_superseded',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
