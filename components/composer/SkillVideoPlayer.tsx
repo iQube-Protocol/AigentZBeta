@@ -101,6 +101,48 @@ function isLegacyVideoProxyUrl(uri: string | undefined) {
   return typeof uri === "string" && /\/api\/skills\/video\//i.test(uri);
 }
 
+// --- Multi-clip stitching (videos > 12s) ---------------------------------
+// Sora and Venice each cap a single generation at 12s. To reach longer videos
+// we generate N ≤12s clips and stitch them via /api/skills/video/stitch.
+const SEGMENT_SECONDS = 12;
+const MAX_SEGMENTS = 2; // 2×12 = 24s ceiling
+const SEGMENT_POLL_INTERVAL_MS = 15_000;
+const SEGMENT_MAX_POLL_ATTEMPTS = 24; // ~6 min per clip
+
+function segmentsForDuration(seconds: number): number {
+  const n = Number(seconds);
+  if (!Number.isFinite(n) || n <= SEGMENT_SECONDS) return 1;
+  return Math.min(MAX_SEGMENTS, Math.ceil(n / SEGMENT_SECONDS));
+}
+
+/** Poll a single generation's status route until it yields a playable URL. */
+async function pollSegmentToUrl(
+  genId: string,
+  provider: "venice" | "openai",
+  veniceModel: string | undefined,
+): Promise<string> {
+  const base =
+    provider === "venice"
+      ? `/api/skills/video/venice/${genId}/status?model=${encodeURIComponent(veniceModel || "")}`
+      : `/api/skills/video/${genId}/status`;
+  for (let i = 0; i < SEGMENT_MAX_POLL_ATTEMPTS; i += 1) {
+    const sep = base.includes("?") ? "&" : "?";
+    let data: any = null;
+    try {
+      const res = await fetch(`${base}${sep}_ts=${Date.now()}`, { cache: "no-store" });
+      data = await res.json().catch(() => null);
+    } catch {
+      data = null;
+    }
+    if (data?.ready && data?.video_url) return data.video_url as string;
+    if (data?.status === "failed" || data?.status === "error") {
+      throw new Error(data?.error || "segment generation failed");
+    }
+    await new Promise((r) => setTimeout(r, SEGMENT_POLL_INTERVAL_MS));
+  }
+  throw new Error("segment generation timed out");
+}
+
 export default function SkillVideoPlayer({
   skill_id,
   prompt,
@@ -197,8 +239,104 @@ export default function SkillVideoPlayer({
     setAutoPollPaused(false);
   }, [initialProvider, initial_venice_model, resolvedInitialGenerationId]);
 
+  const segmentCount = segmentsForDuration(duration);
+
+  // Long-video path: generate `segments` clips (≤12s each) then stitch them.
+  const invokeMultiSegment = useCallback(async (segments: number) => {
+    setState("invoking");
+    setResult(null);
+    setPlaybackRetryCount(0);
+    setPersistedVideoKey(null);
+    setResultSource("none");
+    setPollAttempts(0);
+    setAutoPollPaused(false);
+    setStatusMessage(
+      `Generating ${segments} clips to stitch into a ~${segments * SEGMENT_SECONDS}s video…`,
+    );
+    try {
+      // 1. Submit every segment in parallel (each a 12s generation).
+      const submits = await Promise.all(
+        Array.from({ length: segments }, async () => {
+          const res = await fetch("/api/skills/invoke", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              skill_id,
+              prompt,
+              duration: SEGMENT_SECONDS,
+              aspect_ratio,
+              style,
+              creative_pack: creative_pack || undefined,
+              experience_id: experience_id || undefined,
+              trust_override,
+              venice_model: venice_model || undefined,
+            }),
+          });
+          return res
+            .json()
+            .catch(() => ({ ok: false, error: "Invalid response from skill API" }));
+        }),
+      );
+
+      const failed = submits.find((s) => !s.ok || s.mode !== "live");
+      if (failed) {
+        throw new Error(
+          failed.error || failed.fallback_reason || "One or more clips could not be generated live.",
+        );
+      }
+
+      // 2. Resolve each segment to a completed URL (immediate or via polling).
+      setStatusMessage(`Rendering ${segments} clips… this can take a few minutes.`);
+      const urls = await Promise.all(
+        submits.map((s) =>
+          s.video_url
+            ? Promise.resolve(s.video_url as string)
+            : pollSegmentToUrl(s.generation_id, s.provider || resolvedProvider, s.venice_model),
+        ),
+      );
+
+      // 3. Stitch the clips into one file.
+      setStatusMessage("Stitching clips into the final video…");
+      const stitchRes = await fetch("/api/skills/video/stitch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clips: urls, experience_id: experience_id || undefined }),
+      })
+        .then((r) => r.json())
+        .catch(() => ({ ok: false, error: "Stitch request failed" }));
+
+      if (!stitchRes.ok || !stitchRes.video_url) {
+        throw new Error(stitchRes.error || "Failed to stitch clips into the final video");
+      }
+
+      setStatusMessage(null);
+      setResult({
+        ok: true,
+        mode: "live",
+        provider: resolvedProvider,
+        video_url: stitchRes.video_url,
+        invocation_phase: "completed",
+        skill_composite: 78,
+      });
+      setState("done");
+      setResultSource("generated");
+    } catch (err: any) {
+      setResult({
+        ok: false,
+        error: err?.message || "Multi-clip generation failed",
+        invocation_phase: "failed",
+      });
+      setState("error");
+      setResultSource("none");
+      setStatusMessage(null);
+    }
+  }, [skill_id, prompt, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, resolvedProvider]);
+
   const invoke = useCallback(async () => {
     if (!skill_id) return;
+    if (segmentCount > 1) {
+      return invokeMultiSegment(segmentCount);
+    }
     setState("invoking");
     setResult(null);
     setPlaybackRetryCount(0);
@@ -271,7 +409,7 @@ export default function SkillVideoPlayer({
       setState("error");
       setResultSource("none");
     }
-  }, [skill_id, prompt, duration, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model]);
+  }, [skill_id, prompt, duration, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, segmentCount, invokeMultiSegment]);
 
   const checkStatus = useCallback(async () => {
     if (!result?.generation_id) return;

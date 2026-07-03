@@ -671,12 +671,14 @@ export function initializeDefaultTemplates(): void {
             {
               id: 'duration', name: 'Duration (seconds)', type: 'select', required: false,
               default_value: '12',
-              // Sora and Venice (incl. Wan) both accept 4/8/12s. The invoke route
-              // snaps any value to the nearest supported one per provider.
+              // Sora and Venice (incl. Wan) both accept 4/8/12s in a single call.
+              // 24s is produced by generating two 12s clips and stitching them
+              // (SkillVideoPlayer → /api/skills/video/stitch).
               options: [
                 { value: '4', label: '4 seconds' },
                 { value: '8', label: '8 seconds' },
                 { value: '12', label: '12 seconds' },
+                { value: '24', label: '24 seconds (2 clips, stitched)' },
               ],
             },
             {

@@ -4390,15 +4390,18 @@ export const ComposerStudio = () => {
           },
           video_prompt: {
             prompt: suggestedPrompt,
-            // Both Sora and Venice (incl. Wan) support 4/8/12s. Default to the
-            // 12s max; an explicit 4 or 8 in the prompt wins.
-            duration: /\b12s?\b/.test(lower)
-              ? 12
-              : /\b4s?\b/.test(lower)
-                ? 4
-                : /\b8s?\b/.test(lower)
-                  ? 8
-                  : 12,
+            // Both Sora and Venice (incl. Wan) support 4/8/12s in a single call;
+            // 24s is produced by stitching two 12s clips. Default to the 12s
+            // single-clip max; an explicit 24/4/8 in the prompt wins.
+            duration: /\b24s?\b/.test(lower)
+              ? 24
+              : /\b12s?\b/.test(lower)
+                ? 12
+                : /\b4s?\b/.test(lower)
+                  ? 4
+                  : /\b8s?\b/.test(lower)
+                    ? 8
+                    : 12,
             aspect_ratio: /portrait|vertical|9:16/.test(lower) ? "9:16" : "16:9",
             style:
               inferVisualStyleFromPrompt(effectivePrompt) === "editorial"
