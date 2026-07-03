@@ -836,12 +836,161 @@ export function initializeDefaultTemplates(): void {
     tags: ['article', 'editorial', 'writing', 'draft'],
   };
 
+  // AI Video + Article Bundle Template — first-class starting point for the
+  // video_article_bundle preset (services/composer/experienceBundlePresets.ts).
+  // Steps mirror soraVideoGeneration's video steps + aiArticleDraft's article
+  // step. On completion, ComposerStudio.tsx applies the same
+  // buildExperienceBundlePresetPatch used by the Template tab's manual
+  // "Apply bundle preset" flow, so the resulting experience is identical to
+  // one created via video-first-then-apply-bundle.
+  const videoArticleBundle: TemplateData = {
+    id: 'video-article-bundle',
+    name: 'AI Video + Article Bundle',
+    description: 'Generate an AI video with a companion article draft in one flow. OpenAI Sora, Venice, or community provider for the video; structured editorial copy for the article.',
+    category: 'interactive',
+    complexity: 'intermediate',
+    estimated_time: 30,
+    required_components: ['ToolQube', 'ContentQube'],
+    optional_components: ['DataQube'],
+    steps: [
+      {
+        id: 'intent_timebox',
+        title: 'Video Intent',
+        description: 'Define the video generation goal and creative context.',
+        type: 'selection',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'experience_name', name: 'Experience Name', type: 'text', required: true },
+            { id: 'goal', name: 'Creative Goal', type: 'textarea', required: false },
+            {
+              id: 'creative_pack', name: 'Creative Pack', type: 'select', required: false,
+              options: [
+                { value: 'metaKnyts_motion_comic', label: 'metaKnyts Motion Comic' },
+                { value: 'synthsimms_trailer', label: 'SynthSimms Trailer' },
+                { value: 'penny_drops_explainer', label: 'Penny Drops Explainer' },
+                { value: 'custom', label: 'Custom / Freeform' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: 'skill_selection',
+        title: 'Skill Selection',
+        description: 'Choose between OpenAI, Venice, or community-backed video generation skills.',
+        type: 'selection',
+        required: true,
+        component_type: 'ToolQube',
+        ui_config: {
+          layout: 'form',
+          fields: [
+            {
+              id: 'skill_id', name: 'Sora Skill', type: 'select', required: true,
+              default_value: 'sora_video_gen_curated',
+              options: [
+                { value: 'sora_video_gen_curated', label: 'Sora Video Gen (Curated) — Badge A, Trusted' },
+                { value: 'venice_video_gen', label: 'Venice Video Gen — Badge A, Trusted' },
+                { value: 'sora_video_gen_community', label: 'Sora Video Gen (Community) — Badge C, Basic' },
+              ],
+            },
+            { id: 'trust_override', name: 'Accept lower trust badge?', type: 'checkbox', required: false },
+            {
+              id: 'venice_model', name: 'Venice model (optional)', type: 'select', required: false,
+              options: [
+                { value: '', label: 'Auto (server priority)' },
+                { value: 'ltx-2-19b-full-text-to-video', label: 'LTX-2 19B' },
+                { value: 'kling-2.6-pro-text-to-video', label: 'Kling 2.6 Pro' },
+                { value: 'kling-2.5-turbo-pro-text-to-video', label: 'Kling 2.5 Turbo Pro' },
+                { value: 'veo3.1-fast-text-to-video', label: 'Veo 3.1 Fast' },
+                { value: 'wan-2.6-text-to-video', label: 'Wan 2.6' },
+                { value: 'wan-2.5-preview-text-to-video', label: 'Wan 2.5 (preview)' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: 'video_prompt',
+        title: 'Video Prompt',
+        description: 'Describe the video you want to generate.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'prompt', name: 'Video Prompt', type: 'textarea', required: true },
+            {
+              id: 'duration', name: 'Duration (seconds)', type: 'select', required: false,
+              default_value: '12',
+              options: [
+                { value: '4', label: '4 seconds' },
+                { value: '8', label: '8 seconds' },
+                { value: '12', label: '12 seconds' },
+                { value: '24', label: '24 seconds (2 clips, stitched)' },
+              ],
+            },
+            {
+              id: 'aspect_ratio', name: 'Aspect Ratio', type: 'select', required: false,
+              options: [
+                { value: '16:9', label: 'Landscape (16:9)' },
+                { value: '9:16', label: 'Portrait (9:16)' },
+                { value: '1:1', label: 'Square (1:1)' },
+              ],
+            },
+            {
+              id: 'style', name: 'Visual Style', type: 'select', required: false,
+              options: [
+                { value: 'cinematic', label: 'Cinematic' },
+                { value: 'animation', label: 'Animation' },
+                { value: 'comic', label: 'Comic Book' },
+                { value: 'photorealistic', label: 'Photorealistic' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: 'article_draft',
+        title: 'Article Draft',
+        description: 'Configure the companion article title, prompt, and structure.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'title', name: 'Article title', type: 'text', required: true },
+            { id: 'prompt', name: 'Article prompt', type: 'textarea', required: true, help_text: 'What should the article cover? Include tone, audience, and key points.' },
+            { id: 'outputs', name: 'Include sections', type: 'multiselect', required: false, options: [{ value: 'takeaways', label: 'Key takeaways' }, { value: 'next_action', label: 'Next action' }, { value: 'summary', label: 'Summary' }] },
+            { id: 'takeaways_count', name: 'Number of takeaways', type: 'slider', required: false, validation: { min: 1, max: 5, step: 1 } },
+          ],
+        },
+      },
+      {
+        id: 'wallet_rewards',
+        title: 'Rewards (Optional)',
+        description: 'Configure optional rewards for this experience.',
+        type: 'configuration',
+        required: false,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'reward_amount', name: 'Reward amount (Q¢)', type: 'text', required: false },
+          ],
+        },
+      },
+    ],
+    tags: ['video', 'article', 'bundle', 'sora', 'venice', 'ai-generation'],
+  };
+
   createTemplate(contentAnalysisTemplate);
   createTemplate(interactiveStoryTemplate);
   createTemplate(qriptopianReadingSprint);
   createTemplate(soraVideoGeneration);
   createTemplate(aiImageGeneration);
   createTemplate(aiArticleDraft);
+  createTemplate(videoArticleBundle);
 }
 
 // Initialize default templates on import
