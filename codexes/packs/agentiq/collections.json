@@ -9,6 +9,28 @@
       ]
     },
     {
+      "id": "col_foundation",
+      "title": "Foundation",
+      "description": "Chrysalis Foundation — the Invariant Intelligence Specification Bundle (CFS-000..010). The programme under which AgentiQ evolves. Constitutional anchor: polity-core/constitutional-records/invariant-intelligence.md",
+      "items": [
+        "foundation/constitutional-record.md",
+        "foundation/CFS-000_vision-and-computational-architecture.md",
+        "foundation/CFS-001_the-invariant-primitive.md",
+        "foundation/CFS-002_the-invariant-ontology.md",
+        "foundation/CFS-003_the-invariant-graph.md",
+        "foundation/CFS-003a_the-invariant-service.md",
+        "foundation/CFS-004_iqube-evolution.md",
+        "foundation/CFS-005_registry-evolution.md",
+        "foundation/CFS-006_adaptive-runtime.md",
+        "foundation/CFS-006a_consequence-operating-model.md",
+        "foundation/CFS-007_adaptive-experience-rendering.md",
+        "foundation/CFS-008_reasoning-compression.md",
+        "foundation/CFS-009_development-constitution.md",
+        "foundation/CFS-010_migration-strategy.md",
+        "foundation/appendix-a_canonical-invariants.md"
+      ]
+    },
+    {
       "id": "col_system_map",
       "title": "System Map",
       "items": [
