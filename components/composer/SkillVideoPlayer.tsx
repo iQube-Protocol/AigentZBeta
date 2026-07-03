@@ -315,6 +315,7 @@ export default function SkillVideoPlayer({
         mode: "live",
         provider: resolvedProvider,
         video_url: stitchRes.video_url,
+        ...(typeof stitchRes.thumbnail_url === "string" ? { thumbnail_url: stitchRes.thumbnail_url } : {}),
         invocation_phase: "completed",
         skill_composite: 78,
       });
@@ -851,8 +852,18 @@ export default function SkillVideoPlayer({
           <div className="space-y-3">
             <video
               src={result.video_url}
+              // Poster = the persisted thumbnail so the preview shows a frame
+              // before playback. Unmuted autoplay is blocked by most browsers,
+              // so without this the preview renders as a black frame — the exact
+              // bug where the thin client (which sets a poster) shows a thumb but
+              // the Studio preview did not. preload="metadata" also nudges the
+              // browser to paint the first frame when no thumbnail exists yet.
+              poster={result.thumbnail_url || undefined}
               controls
               autoPlay
+              muted
+              playsInline
+              preload="metadata"
               className="w-full rounded-xl border border-slate-700/50"
               style={{
                 aspectRatio: aspect_ratio === "9:16" ? "9/16" : aspect_ratio === "1:1" ? "1/1" : "16/9",

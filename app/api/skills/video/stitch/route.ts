@@ -209,14 +209,22 @@ export async function POST(request: NextRequest) {
 
     const videoUrl = await uploadToSupabase(storagePath, stitchedBuffer, "video/mp4");
 
-    // Thumbnail — fire-and-forget so it never blocks the response.
-    extractThumbnailFromBuffer(stitched, stitchId)
-      .then((thumb) => (thumb ? persistThumbnailAsset(thumb, stitchId, "stitched") : null))
-      .catch(() => null);
+    // Thumbnail — awaited so we can return it (one-frame extraction is ~1s,
+    // well within maxDuration). Returning it lets the player set a <video>
+    // poster and persist the companion thumbnail the thin client reads. Any
+    // failure is swallowed so it never blocks the stitched video.
+    let thumbnailUrl: string | null = null;
+    try {
+      const thumb = await extractThumbnailFromBuffer(stitched, stitchId);
+      if (thumb) thumbnailUrl = await persistThumbnailAsset(thumb, stitchId, "stitched");
+    } catch {
+      thumbnailUrl = null;
+    }
 
     return NextResponse.json({
       ok: true,
       video_url: videoUrl,
+      thumbnail_url: thumbnailUrl || undefined,
       stitch_id: stitchId,
       segments: clipUrls.length,
       experience_id: experienceId || undefined,
