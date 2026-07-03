@@ -85,6 +85,9 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'invariant_superseded',
   // InvariantQube publication (Phase 2) — compressed-expertise provenance
   'invariant_qube_published',
+  // Consequence Operating Model (Phase 3) — forecast + flywheel evolution
+  'consequence_forecast_recorded',
+  'knowledge_evolved',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

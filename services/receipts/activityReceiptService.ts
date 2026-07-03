@@ -72,7 +72,13 @@ export type ActivityActionType =
   | 'invariant_superseded'
   // InvariantQube publication (Chrysalis Foundation Phase 2; CFS-004 §3) —
   // compressed expertise published into constitutional memory. DVN-anchorable.
-  | 'invariant_qube_published';
+  | 'invariant_qube_published'
+  // Consequence Operating Model stages (Chrysalis Foundation Phase 3; CFS-006a).
+  // forecast + evolved are DVN-anchorable (the flywheel's constitutional arc);
+  // curated stays local (high volume, pre-decision).
+  | 'knowledge_curated'
+  | 'consequence_forecast_recorded'
+  | 'knowledge_evolved';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
