@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`e9c64f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/e9c64f2adc10aa5f7198ff0864ded5396b7c668c) [feat] implement invariant collections + invariantqube publication (chrysalis phase 2) (Claude, 2026-07-03T20:30:22Z)
+- [`f6bfcd6`](https://github.com/iQube-Protocol/AigentZBeta/commit/f6bfcd6f2c0ef9b138abaa67afb4a110780eee53) [feat] implement consequence engineering operating model (chrysalis phase 3) (Claude, 2026-07-03T20:38:15Z)
+- [`f3969d9`](https://github.com/iQube-Protocol/AigentZBeta/commit/f3969d987fcafd07f43bbe9c4242148c07e9da83) [push] record chrysalis phase 2-3 session doc (Claude, 2026-07-03T20:38:22Z)
 - [`bbd38c5`](https://github.com/iQube-Protocol/AigentZBeta/commit/bbd38c5638aa0d4cd3bd5b9e4e35f6de77c5cc6b) [feat] fix move-forward NBE regression + add operator archetype to experience model setup (Claude, 2026-06-25T18:29:07Z)
 - [`41ce391`](https://github.com/iQube-Protocol/AigentZBeta/commit/41ce391a2492f21e1aa144fea60c0545e3875e0a) [feat] add Polity Participation Model v1.0 as constitutional primitive to polity-core (Claude, 2026-06-25T17:58:36Z)
 - [`7febd30`](https://github.com/iQube-Protocol/AigentZBeta/commit/7febd30f68fff7c928a4cf7aede88725932023ff) [fix] fix standing_document upload constraint + ground all draft generators (Claude, 2026-06-25T02:08:03Z)
