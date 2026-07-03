@@ -640,6 +640,21 @@ export function initializeDefaultTemplates(): void {
               ],
             },
             { id: 'trust_override', name: 'Accept lower trust badge?', type: 'checkbox', required: false },
+            {
+              id: 'venice_model', name: 'Venice model (optional)', type: 'select', required: false,
+              // Only applies when the Venice skill is selected. Empty = let the
+              // server pick by priority. Values mirror VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS
+              // in app/api/skills/invoke/route.ts — do not add models not registered there.
+              options: [
+                { value: '', label: 'Auto (server priority)' },
+                { value: 'ltx-2-19b-full-text-to-video', label: 'LTX-2 19B' },
+                { value: 'kling-2.6-pro-text-to-video', label: 'Kling 2.6 Pro' },
+                { value: 'kling-2.5-turbo-pro-text-to-video', label: 'Kling 2.5 Turbo Pro' },
+                { value: 'veo3.1-fast-text-to-video', label: 'Veo 3.1 Fast' },
+                { value: 'wan-2.6-text-to-video', label: 'Wan 2.6' },
+                { value: 'wan-2.5-preview-text-to-video', label: 'Wan 2.5 (preview)' },
+              ],
+            },
           ],
         },
       },
@@ -653,7 +668,19 @@ export function initializeDefaultTemplates(): void {
           layout: 'form',
           fields: [
             { id: 'prompt', name: 'Video Prompt', type: 'textarea', required: true },
-            { id: 'duration', name: 'Duration (seconds)', type: 'slider', required: false, validation: { min: 5, max: 60, step: 5 } },
+            {
+              id: 'duration', name: 'Duration (seconds)', type: 'select', required: false,
+              default_value: '12',
+              // Sora and Venice (incl. Wan) both accept 4/8/12s in a single call.
+              // 24s is produced by generating two 12s clips and stitching them
+              // (SkillVideoPlayer → /api/skills/video/stitch).
+              options: [
+                { value: '4', label: '4 seconds' },
+                { value: '8', label: '8 seconds' },
+                { value: '12', label: '12 seconds' },
+                { value: '24', label: '24 seconds (2 clips, stitched)' },
+              ],
+            },
             {
               id: 'aspect_ratio', name: 'Aspect Ratio', type: 'select', required: false,
               options: [

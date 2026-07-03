@@ -127,6 +127,19 @@ async function createSoraJob(
  * Queue a Venice video generation job.
  * POST /api/v1/video/queue — returns { model, queue_id }
  */
+// Venice video models accept discrete durations 4/8/12s (same set as Sora),
+// sent as an "<n>s" string. Older launch models only accepted 5s/10s — if the
+// queue call rejects the 4/8/12 value we retry once with the legacy 10s so a
+// live, credit-costing feature never hard-fails on a duration mismatch.
+const VENICE_VALID_SECONDS = [4, 8, 12];
+
+function snapVeniceDuration(seconds: number): string {
+  const snapped = VENICE_VALID_SECONDS.reduce((prev, curr) =>
+    Math.abs(curr - seconds) < Math.abs(prev - seconds) ? curr : prev
+  );
+  return `${snapped}s`;
+}
+
 async function createVeniceJob(
   apiKey: string,
   prompt: string,
@@ -135,55 +148,79 @@ async function createVeniceJob(
   model?: string,
 ): Promise<{ queue_id: string; model: string }> {
   const veniceModel = (model || VENICE_DEFAULT_MODEL).trim();
-  const dur: "5s" | "10s" = seconds <= 5 ? "5s" : "10s";
-  // Quote pre-flight removed — the queue call itself returns a clear error
-  // for insufficient balance, saving up to 10 s of extra round-trip latency.
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  // Attempt a queue call with a specific duration string. Returns the parsed
+  // body on success, or a structured failure so the caller can decide to retry.
+  async function attempt(
+    durationStr: string,
+  ): Promise<{ ok: true; data: any } | { ok: false; status: number; msg: string }> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
 
-  const res = await fetch(`${VENICE_VIDEO_BASE}/queue`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: veniceModel,
-      prompt,
-      duration: dur,
-      aspect_ratio: aspectRatio,
-      resolution: "720p",
-    }),
-    signal: controller.signal,
-  }).finally(() => clearTimeout(timeout));
+    const res = await fetch(`${VENICE_VIDEO_BASE}/queue`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: veniceModel,
+        prompt,
+        duration: durationStr,
+        aspect_ratio: aspectRatio,
+        resolution: "720p",
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
 
-  const rawText = await res.text().catch(() => "");
-  let data: any = null;
-  try {
-    data = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    data = rawText || null;
-  }
-
-  if (!res.ok) {
-    const msg =
-      (typeof data?.error?.message === "string" && data.error.message) ||
-      (typeof data?.message === "string" && data.message) ||
-      (typeof data?.error === "string" && data.error) ||
-      (typeof data === "string" && data) ||
-      `Venice API ${res.status}: ${res.statusText}`;
-    if (isVeniceInsufficientBalanceError(msg)) {
-      throw new Error(`Venice account has insufficient credits for video generation. ${msg}`);
+    const rawText = await res.text().catch(() => "");
+    let data: any = null;
+    try {
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      data = rawText || null;
     }
-    throw new Error(`${veniceModel}: (${res.status}) ${msg}`);
+
+    if (!res.ok) {
+      const msg =
+        (typeof data?.error?.message === "string" && data.error.message) ||
+        (typeof data?.message === "string" && data.message) ||
+        (typeof data?.error === "string" && data.error) ||
+        (typeof data === "string" && data) ||
+        `Venice API ${res.status}: ${res.statusText}`;
+      return { ok: false, status: res.status, msg };
+    }
+    return { ok: true, data };
   }
 
-  if (!data?.queue_id) {
+  const primaryDur = snapVeniceDuration(seconds);
+  let result = await attempt(primaryDur);
+
+  // Legacy fallback: if the model rejected the 4/8/12 value with a validation
+  // error (and we weren't already asking for 10s), retry once with 10s.
+  if (
+    !result.ok &&
+    result.status === 400 &&
+    primaryDur !== "10s" &&
+    !isVeniceInsufficientBalanceError(result.msg) &&
+    /duration|invalid|support|allowed|enum/i.test(result.msg)
+  ) {
+    console.warn(`[SkillInvoke] Venice rejected duration ${primaryDur} (${result.msg}); retrying with 10s`);
+    result = await attempt("10s");
+  }
+
+  if (!result.ok) {
+    if (isVeniceInsufficientBalanceError(result.msg)) {
+      throw new Error(`Venice account has insufficient credits for video generation. ${result.msg}`);
+    }
+    throw new Error(`${veniceModel}: (${result.status}) ${result.msg}`);
+  }
+
+  if (!result.data?.queue_id) {
     throw new Error(`${veniceModel}: Venice API returned no queue_id`);
   }
 
-  return { queue_id: data.queue_id, model: data.model || veniceModel };
+  return { queue_id: result.data.queue_id, model: result.data.model || veniceModel };
 }
 
 async function resolveVeniceVideoModels(apiKey: string, requestedModel?: string): Promise<string[]> {
@@ -325,7 +362,7 @@ export async function POST(request: NextRequest) {
     const {
       skill_id,
       prompt,
-      duration = 10,
+      duration = 12,
       aspect_ratio = "16:9",
       style = "cinematic",
       creative_pack,

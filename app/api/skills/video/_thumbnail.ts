@@ -43,7 +43,7 @@ async function ensureBucket(bucket: string) {
   if (error && !/already exists|duplicate/i.test(error.message)) throw error;
 }
 
-async function getFfmpegPath(): Promise<string> {
+export async function getFfmpegPath(): Promise<string> {
   // ffmpeg-static ships a pre-compiled binary at this path.
   // Will throw on require() if the package isn't installed.
   // Will throw on access() if binary wasn't downloaded (e.g. proxy issues in dev).
