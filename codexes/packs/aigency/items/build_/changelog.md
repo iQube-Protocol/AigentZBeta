@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`dffa601`](https://github.com/iQube-Protocol/AigentZBeta/commit/dffa60181506e605ca5acea12f6d86d13b8eca41) [push] Draft CFS-008a reasoning-compression paper + amend CFS-008 with evidence (Claude, 2026-07-04T07:27:26Z)
 - [`f0ba5c7`](https://github.com/iQube-Protocol/AigentZBeta/commit/f0ba5c7d11998b3bcaca50464a822355f9399c91) [feat] add EXP-003 run-1 raw results json (venice/llama-3.3-70b) (Kn0w-1, 2026-07-04T03:07:36-04:00)
 - [`c68ef28`](https://github.com/iQube-Protocol/AigentZBeta/commit/c68ef28a4f7e756828dfd88599dc4af0328e35a2) [push] Record EXP-003 run 1 results: hypothesis confirmed on all four measures (Claude, 2026-07-04T07:05:03Z)
 - [`0b24d33`](https://github.com/iQube-Protocol/AigentZBeta/commit/0b24d33e0c2051f413cf1dffbd89d7ce5412910f) [feat] Add provider fallback to EXP-003 benchmark (openai/venice via --provider) (Claude, 2026-07-04T06:36:45Z)

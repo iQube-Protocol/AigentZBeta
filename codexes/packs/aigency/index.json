@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T07:13:07.025Z",
+  "last_updated": "2026-07-04T07:29:18.071Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f0ba5c7d11998b3bcaca50464a822355f9399c91",
-  "latest_commit_short": "f0ba5c7",
-  "latest_commit_title": "add EXP-003 run-1 raw results json (venice/llama-3.3-70b)",
+  "latest_commit": "dffa60181506e605ca5acea12f6d86d13b8eca41",
+  "latest_commit_short": "dffa601",
+  "latest_commit_title": "Draft CFS-008a reasoning-compression paper + amend CFS-008 with evidence",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "dffa601",
+      "full_sha": "dffa60181506e605ca5acea12f6d86d13b8eca41",
+      "title": "Draft CFS-008a reasoning-compression paper + amend CFS-008 with evidence",
+      "author": "Claude",
+      "timestamp": "2026-07-04T07:27:26Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-dffa601.md"
+    },
     {
       "sha": "f0ba5c7",
       "full_sha": "f0ba5c7d11998b3bcaca50464a822355f9399c91",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T17:41:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e86dfe4.md"
-    },
-    {
-      "sha": "9a7e4e9",
-      "full_sha": "9a7e4e9f578397e072d455ed38ded2237445f2f2",
-      "title": "sprint 4 — polity passport locker + qubetalk channel bridge",
-      "author": "Claude",
-      "timestamp": "2026-06-13T17:37:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9a7e4e9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
