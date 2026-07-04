@@ -292,6 +292,18 @@ function buildArticleDraftContext(experience: any) {
 }
 
 function shouldIncludeArticleDraft(experience: any, compositionBundle: ReturnType<typeof getAppliedExperienceBundle>) {
+  // A plain video template with no applied bundle must NEVER surface a
+  // companion article — even if the row carries a residual
+  // article_draft.generated from the pre-2026-07-04 bug (where video
+  // completion wrote an article unconditionally by falling back to the
+  // experience name/description). Suppress it here so stale rows stop
+  // rendering an article without needing a data migration. The standalone
+  // article template (ai-article-draft) is a different template_id, and the
+  // video+article bundle applies a composition_bundle (compositionBundle
+  // truthy) — both are unaffected by this guard.
+  if (!compositionBundle && experience?.template_id === "sora-video-generation") {
+    return false;
+  }
   if (compositionBundle?.blockKinds.includes("article_draft")) return true;
   const acceptedArticleDraft = getBundleOutputRecord(experience, "article_draft");
   if (acceptedArticleDraft && typeof acceptedArticleDraft === "object") return true;
