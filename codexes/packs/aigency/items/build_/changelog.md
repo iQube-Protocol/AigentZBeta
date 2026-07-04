@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`569205f`](https://github.com/iQube-Protocol/AigentZBeta/commit/569205f53ca826a60c33504e6239f15c1fef5cc3) [feat] add single-invariant detail api route for the registry browser (Claude, 2026-07-04T03:06:27Z)
 - [`128b9c1`](https://github.com/iQube-Protocol/AigentZBeta/commit/128b9c1ddf3204b0770407e850fbf72ac456a9db) [push] ratify cfs-013 composition laws + cfs-014/law xiv constitutional coherence engine (Claude, 2026-07-04T02:11:37Z)
 - [`98507b9`](https://github.com/iQube-Protocol/AigentZBeta/commit/98507b96a04426d1d40e79c7249ab188f3490ecf) [push] surface chrysalis work in cartridges: foundation/experiments tabs (agentiq) + invariant intelligence tab (polity core) (Claude, 2026-07-04T02:11:49Z)
 - [`4f5ded4`](https://github.com/iQube-Protocol/AigentZBeta/commit/4f5ded4e1518e49b7f9126c2396b7f3a410b347b) [fix] fix video stitch pipeline: distinct per-segment prompts + 4-segment hierarchical stitching (Claude, 2026-07-04T01:23:11Z)
