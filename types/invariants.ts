@@ -19,7 +19,9 @@ export type InvariantNamespace =
   | 'reasoning'
   | 'engineering'
   | 'experience'
-  | 'capability';
+  | 'capability'
+  | 'style'      // CFS-011 — Style Invariants: visual/cinematographic continuity (ratified 2026-07-04)
+  | 'narrative'; // CFS-012 — Narrative Invariants: fixed structural beats (ratified 2026-07-04)
 
 export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
   'constitutional',
@@ -27,6 +29,8 @@ export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
   'engineering',
   'experience',
   'capability',
+  'style',
+  'narrative',
 ];
 
 export type InvariantStatus =
