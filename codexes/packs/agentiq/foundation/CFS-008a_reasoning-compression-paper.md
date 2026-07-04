@@ -131,9 +131,26 @@ We label them the **Foundational Validation Series**:
 
 | Experiment | Property | Question | Status |
 |---|---|---|---|
-| **EXP-001** | Semantic preservation | Can one invariant collection render faithfully across modalities (article, report, story, infographic, video)? | Artifacts authored; independent-judge evaluation pending |
+| **EXP-001** | Semantic preservation | Can one invariant collection render faithfully across modalities (article, report, story, infographic, video)? | **Run 1 complete + human-adjudicated — confirmed on all four measures** |
 | **EXP-002** | Temporal preservation | Can invariants sustain coherent, style- and narrative-constrained productions across time (multi-segment video)? | Composition pipeline shipped; production run pending |
 | **EXP-003** | Rediscovery savings | Do invariants reduce reasoning cost while improving epistemic fidelity? | **Run 1 complete — hypothesis confirmed on all four measures** |
+
+### 6.0 EXP-001 results (run 1, 2026-07-04 — independent judge: llama-3.3-70b)
+
+Four text artifacts + a combined pass, 15 questions including three adversarial
+hallucination probes. Adjudicated scores: consistency 1.83 (target ≥ 1.8),
+explainability 1.95 (≥ 1.6), artifact-attributable hallucinations 0 (= 0), coherence
+2.00 (= 2.0), all probes clean. Every derivable question produced the same substantive
+answer across every rendering — semantic preservation at or near ceiling. The two
+machine-raised hallucination flags both dissolved under human adjudication in
+instructive ways: one was the judge misreading the story's own correctly-marked
+narrative sentence as an extra-canonical claim (false positive); the other was a judge
+*retrieval failure* — the story renders the expected invariants precisely, the judge
+missed the line and derived a canon-contradicting answer, which we scored honestly
+*against the run's consistency* (2 → 0 on that question) rather than against the
+artifacts. Fourteen of eighteen invariants earned validation events; two were held back
+pending a stronger judge and two await question-bank coverage
+(`experiments/exp-001-living-knowledgeqube/README.md#results`).
 
 ### 6.1 EXP-003 design
 
@@ -210,9 +227,10 @@ it operating inside a machine.
   Law XII rediscovery is strong evidence *because* the failure arose unprompted in the
   cold arm; still, task-collection affinity is by design and generalization across
   domains is untested.
-- **EXP-001's evaluation protocol has not yet been executed**, and EXP-002's full
-  production run is pending — the series is one confirmed quantitative result plus two
-  in-flight validations, not three completed ones.
+- **EXP-002's full production run is pending** — the series stands at two confirmed
+  legs (EXP-001 semantic preservation, EXP-003 rediscovery savings) plus one in flight,
+  not three completed. EXP-001's judge (an OSS model) produced one retrieval failure
+  that human adjudication caught; stronger judges are queued for run 2.
 - A confirmed hypothesis validates the *initialization mechanism*; it does not by
   itself ratify any individual invariant. Standing accrues per-invariant through the
   consequence flywheel, never through benchmark aggregates.
@@ -223,8 +241,8 @@ it operating inside a machine.
    experiment instances, never merged rows.
 2. **Cross-domain task sets** (engineering-namespace invariants against code-design
    tasks) to test generalization beyond the constitutional domain.
-3. **Execute EXP-001's independent-judge evaluation** and EXP-002's production run,
-   completing the series.
+3. **EXP-002's production run** (the composition pipeline is deployed) and EXP-001
+   run 2 (Q16/Q17 covering C-024/C-059; a stronger judge), completing the series.
 4. **Production reuse curves** — with `invariants_used` on the receipt spine and Reach
    accruing through runtime citation, the reuse count of CFS-008 §2 becomes a
    longitudinal production measurement, not a benchmark.

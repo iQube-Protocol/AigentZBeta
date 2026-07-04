@@ -1,6 +1,6 @@
 # EXP-001 — The First Living KnowledgeQube
 
-**Chrysalis Foundation · Experiment 001 · Status: artifacts authored; evaluation harness shipped 2026-07-04 — first run pending**
+**Chrysalis Foundation · Experiment 001 · Status: run 1 complete + human-adjudicated — hypothesis confirmed on all four measures (see Results)**
 Domain: **The Constitutional Internet**
 Constitutional anchor: `codexes/packs/polity-core/constitutional-records/invariant-intelligence.md`
 
@@ -81,3 +81,62 @@ After evaluation, feed results back through the operating model: confirmed answe
 2. Publish: `POST /api/registry/invariant-qube` `{ "collectionId": "...", "title": "The Constitutional Internet — KnowledgeQube 001" }`.
 3. Hand `evaluation-protocol.md` + one artifact at a time to an independent model; record scores.
 4. Feed outcomes back: `POST /api/consequence/run` with `execute=true` / `outcome` per finding — or via the Phase 3b chain.
+
+## Results
+
+### Run 1 — 2026-07-04 · judge: venice/llama-3.3-70b (independent — non-Anthropic) · 4 text artifacts + combined
+
+Raw data: `evaluation-results-2026-07-04.json`. Machine-assisted scoring, then human
+adjudication of every flag per the protocol ("human scorer applies the rubric").
+
+| Metric | Machine | Adjudicated | Target | Met |
+|---|---|---|---|---|
+| Consistency (avg, Q1–12) | 2.00 | **1.83** ¹ | ≥ 1.8 | ✅ |
+| Explainability (avg) | 1.95 | 1.95 | ≥ 1.6 | ✅ |
+| Hallucination — artifact-attributable | 2 | **0** ² | 0 | ✅ |
+| Coherence (avg) | 2.00 | 2.00 | 2.0 | ✅ |
+| Adversarial probes Q13–15 | clean ×3 | clean ×3 | NOT DERIVABLE | ✅ |
+
+**Verdict: hypothesis confirmed on all four measures.** Every derivable question
+produced the same substantive answer across article, report, story, infographic, and
+combined — semantic preservation across modalities held at or near ceiling — and not
+one of the fifteen probes-and-questions elicited a claim attributable to the artifacts
+that lies outside the 18-invariant collection.
+
+**¹ ² Flag adjudication (both flags localized to the story artifact):**
+
+- **Q4 flag — FALSE POSITIVE (dismissed).** The evaluator's answer quoted the story's
+  own correctly-marked sentence ("the network refused to let her hand anything over
+  forever `[C-020]`", story line 13). The judge flagged the narrative
+  anthropomorphization as untraceable; it is the artifact's C-020 rendering, introducing
+  no extra-canonical fact. Q4 is clean → **C-020 joins the flywheel set**.
+- **Q12 flag — EVALUATOR RETRIEVAL FAILURE (artifact intact; scores adjusted against
+  the run, not the artifacts).** The story renders both expected invariants precisely
+  ("the meaning of *approved* belonged to humans `[C-021]`, and the record would only
+  admit her judgment through her own hand `[C-022]`", story line 25). The judge model
+  missed that line and over-derived "the network defines what words mean" from the
+  validation themes — an answer that *contradicts* C-021. The artifacts carry no
+  out-of-canon claim here, so artifact-attributable hallucination = 0; but honesty cuts
+  the other way on consistency: the story-derived *answer* genuinely diverged, so Q12
+  consistency is downgraded 2 → 0, giving the adjudicated 1.83 average — still above
+  target. **C-021/C-022 are held back from this run's flywheel closure** (they validate
+  on a rerun or stronger judge, not by adjudicative fiat).
+
+### Flywheel closure — run 1
+
+Fourteen invariants validated (consistent, hallucination-free across all artifacts,
+post-adjudication): C-011, C-012, C-013, C-014, C-015, C-016, C-017, C-018, C-019,
+**C-020**, C-023, C-060, C-061, C-062. Validation events are applied via
+`POST /api/invariants/[id]/consequence` `{ "outcome": "confirmed", "note": "EXP-001 run 1" }`
+(admin-gated; calls `recordConsequence` — Standing accrues on the validation axis only,
+Law XII). Held back: C-021/C-022 (evaluator failure, above); C-024/C-059 (no question
+in the bank targets them — a question-bank gap to close in run 2).
+
+### Run-2 improvements queued
+
+1. Add Q16/Q17 targeting C-024 (identifier tiering) and C-059 (invariants accrue
+   Standing) so the whole collection is exercised.
+2. Stronger judge (gpt-4o-mini or Sonnet-class) to reduce retrieval noise of the kind
+   that produced the Q12 flag.
+3. The video artifact joins once EXP-002's production run lands (4-of-5 evaluated in
+   run 1, recorded as pending — never silently skipped).
