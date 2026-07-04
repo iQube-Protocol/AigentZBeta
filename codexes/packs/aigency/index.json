@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T06:28:53.733Z",
+  "last_updated": "2026-07-04T06:38:25.810Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2fd27d5c94523658e9bf1b04f279367fadea4413",
-  "latest_commit_short": "2fd27d5",
-  "latest_commit_title": "Add session-start knowledge initialization to copilot chat (CFS-006 §3)",
+  "latest_commit": "0b24d33e0c2051f413cf1dffbd89d7ce5412910f",
+  "latest_commit_short": "0b24d33",
+  "latest_commit_title": "Add provider fallback to EXP-003 benchmark (openai/venice via --provider)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0b24d33",
+      "full_sha": "0b24d33e0c2051f413cf1dffbd89d7ce5412910f",
+      "title": "Add provider fallback to EXP-003 benchmark (openai/venice via --provider)",
+      "author": "Claude",
+      "timestamp": "2026-07-04T06:36:45Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0b24d33.md"
+    },
     {
       "sha": "2fd27d5",
       "full_sha": "2fd27d5c94523658e9bf1b04f279367fadea4413",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T16:39:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-25260eb.md"
-    },
-    {
-      "sha": "8a41c01",
-      "full_sha": "8a41c0185a06034c24e41301ccb54cfffdb53b1f",
-      "title": "move citizen/participant application badge to tier-3 right-justified",
-      "author": "Claude",
-      "timestamp": "2026-06-13T16:27:38Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-8a41c01.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

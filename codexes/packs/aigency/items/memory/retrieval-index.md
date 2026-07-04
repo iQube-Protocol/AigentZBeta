@@ -2699,3 +2699,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-2fd27d5.md](../build_/COMMITS/COMMIT-2fd27d5.md)
 - Message: Add session-start knowledge initialization to copilot chat (CFS-006 §3)
+
+## Commit `0b24d33` — 2026-07-04T06:36:45Z
+- Type: `feat`
+- Brief: [COMMIT-0b24d33.md](../build_/COMMITS/COMMIT-0b24d33.md)
+- Message: Add provider fallback to EXP-003 benchmark (openai/venice via --provider)

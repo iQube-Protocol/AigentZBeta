@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0b24d33`](https://github.com/iQube-Protocol/AigentZBeta/commit/0b24d33e0c2051f413cf1dffbd89d7ce5412910f) [feat] Add provider fallback to EXP-003 benchmark (openai/venice via --provider) (Claude, 2026-07-04T06:36:45Z)
 - [`2fd27d5`](https://github.com/iQube-Protocol/AigentZBeta/commit/2fd27d5c94523658e9bf1b04f279367fadea4413) [feat] Add session-start knowledge initialization to copilot chat (CFS-006 §3) (Claude, 2026-07-04T06:19:41Z)
 - [`d5c8929`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5c8929237ec331f65348d20295c31d00637785a) [feat] Add EXP-003 rediscovery-savings benchmark harness (CFS-008 §2) (Claude, 2026-07-04T06:20:50Z)
 - [`2aa5335`](https://github.com/iQube-Protocol/AigentZBeta/commit/2aa5335344fc76d5544b868190264e5ac60f04bd) [feat] Add CFS-007 renderer seam: ExperienceRenderer + liquid/a2ui adapters (Claude, 2026-07-04T06:27:00Z)
