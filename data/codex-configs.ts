@@ -1692,6 +1692,46 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
     {
+      id: 'foundation',
+      label: 'Foundation',
+      slug: 'foundation',
+      enabled: true,
+      group: 'memory',
+      order: 2.1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_foundation'
+        }
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'Chrysalis Foundation — Invariant Intelligence Specification Bundle (CFS-000..014)'
+      }
+    },
+    {
+      id: 'experiments',
+      label: 'Experiments',
+      slug: 'experiments',
+      enabled: true,
+      group: 'memory',
+      order: 2.2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_experiments'
+        }
+      },
+      metadata: {
+        icon: 'Target',
+        description: 'Chrysalis flywheel experiments — Living KnowledgeQube + Invariant Video'
+      }
+    },
+    {
       id: 'retrieval-index',
       label: 'Retrieval Index',
       slug: 'retrieval-index',
@@ -3058,6 +3098,11 @@ export const METAME_CODEX: CodexConfig = {
       id: 'pc-constitution', label: 'Constitution', slug: 'polity-core', enabled: true, group: 'polity-core', order: 0,
       type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_constitution', defaultPath: 'items/CONSTITUTION.md' } },
       metadata: { icon: 'Landmark', description: 'The Polity Constitution', color: 'violet' },
+    },
+    {
+      id: 'pc-invariant-intelligence', label: 'Invariant Intelligence', slug: 'pc-invariant-intelligence', enabled: true, group: 'polity-core', order: 0.5,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_invariant_intelligence', defaultPath: 'constitutional-records/invariant-intelligence.md' } },
+      metadata: { icon: 'BookMarked', description: 'Foundational Constitutional Record — Invariant Intelligence (Chrysalis anchor)', color: 'violet' },
     },
     {
       id: 'pc-agent-charter', label: 'Agent Charter', slug: 'pc-agent-charter', enabled: true, group: 'polity-core', order: 1,

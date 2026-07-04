@@ -11,7 +11,7 @@
     {
       "id": "col_foundation",
       "title": "Foundation",
-      "description": "Chrysalis Foundation — the Invariant Intelligence Specification Bundle (CFS-000..010). The programme under which AgentiQ evolves. Constitutional anchor: polity-core/constitutional-records/invariant-intelligence.md",
+      "description": "Chrysalis Foundation — the Invariant Intelligence Specification Bundle (CFS-000..014). The programme under which AgentiQ evolves. Constitutional anchor: polity-core/constitutional-records/invariant-intelligence.md",
       "items": [
         "foundation/constitutional-record.md",
         "foundation/CFS-000a_invariant-manifesto.md",
@@ -30,6 +30,8 @@
         "foundation/CFS-010_migration-strategy.md",
         "foundation/CFS-011_style-invariant-specification.md",
         "foundation/CFS-012_narrative-invariant-specification.md",
+        "foundation/CFS-013_invariant-composition-laws.md",
+        "foundation/CFS-014_constitutional-coherence-engine.md",
         "foundation/appendix-a_canonical-invariants.md"
       ]
     },
@@ -81,6 +83,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-04_cfs-013-014-coherence-cartridge-tabs.md",
         "updates/2026-07-04_law-xiii-style-invariants-video-fix.md",
         "updates/2026-07-03_law-xii-experiments-phase-3b.md",
         "updates/2026-07-03_consequence-operating-model-phase-2-3.md",
