@@ -2669,3 +2669,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-4b45166.md](../build_/COMMITS/COMMIT-4b45166.md)
 - Message: Add missing Invariant Intelligence tab to Polity Core cartridge
+
+## Commit `5132d14` — 2026-07-04T05:23:45Z
+- Type: `feat`
+- Brief: [COMMIT-5132d14.md](../build_/COMMITS/COMMIT-5132d14.md)
+- Message: Add Overview/Ontology/Graph views to Invariant Registry
