@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T09:38:22.651Z",
+  "last_updated": "2026-07-04T19:39:13.986Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "30c0148b9f9154bc76add549cd2d50ec45949f91",
-  "latest_commit_short": "30c0148",
-  "latest_commit_title": "Render invariant Standing/Reach dots in positive hues, not the R/T ramp",
+  "latest_commit": "df9a9ef93e96bfd16d07d7dfb27468d2f904dca6",
+  "latest_commit_short": "df9a9ef",
+  "latest_commit_title": "Add video skill + Venice model selectors to invariant video runner",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "df9a9ef",
+      "full_sha": "df9a9ef93e96bfd16d07d7dfb27468d2f904dca6",
+      "title": "Add video skill + Venice model selectors to invariant video runner",
+      "author": "Claude",
+      "timestamp": "2026-07-04T19:37:27Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-df9a9ef.md"
+    },
     {
       "sha": "30c0148",
       "full_sha": "30c0148b9f9154bc76add549cd2d50ec45949f91",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T21:01:10Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-cdfe373.md"
-    },
-    {
-      "sha": "99334b6",
-      "full_sha": "99334b6e04b4b5247b80dcb6079ffe709d283428",
-      "title": "go live — walrus http publisher + real worldid idkit widget",
-      "author": "Claude",
-      "timestamp": "2026-06-13T20:48:41Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-99334b6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
