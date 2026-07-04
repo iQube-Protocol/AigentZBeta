@@ -147,11 +147,12 @@ async function createVeniceJob(
   aspectRatio: string,
   model?: string,
 ): Promise<{ queue_id: string; model: string }> {
-  const veniceModel = (model || VENICE_DEFAULT_MODEL).trim();
+  const requestedModel = (model || VENICE_DEFAULT_MODEL).trim();
 
-  // Attempt a queue call with a specific duration string. Returns the parsed
-  // body on success, or a structured failure so the caller can decide to retry.
+  // Attempt a queue call with a specific model + duration string. Returns the
+  // parsed body on success, or a structured failure so we can decide to retry.
   async function attempt(
+    attemptModel: string,
     durationStr: string,
   ): Promise<{ ok: true; data: any } | { ok: false; status: number; msg: string }> {
     const controller = new AbortController();
@@ -164,7 +165,7 @@ async function createVeniceJob(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: veniceModel,
+        model: attemptModel,
         prompt,
         duration: durationStr,
         aspect_ratio: aspectRatio,
@@ -194,33 +195,45 @@ async function createVeniceJob(
   }
 
   const primaryDur = snapVeniceDuration(seconds);
-  let result = await attempt(primaryDur);
+  const legacyDur = seconds <= 7 ? "5s" : "10s";
+  let usedModel = requestedModel;
+  let result = await attempt(requestedModel, primaryDur);
 
-  // Legacy fallback: if the model rejected the 4/8/12 value with a validation
-  // error (and we weren't already asking for 10s), retry once with 10s.
+  // A Venice 400 has two likely causes and Venice often returns a bare
+  // "Bad Request" with no machine-readable reason, so we can't discriminate:
+  //   (a) the model rejects the 4/8/12 duration (older models want 5s/10s), or
+  //   (b) the model id is deprecated/unavailable.
+  // One combined recovery covers both: resolve a currently-available
+  // text-to-video model from Venice's live catalog and retry with the legacy
+  // duration. This never masks an insufficient-credits error.
   if (
     !result.ok &&
     result.status === 400 &&
-    primaryDur !== "10s" &&
-    !isVeniceInsufficientBalanceError(result.msg) &&
-    /duration|invalid|support|allowed|enum/i.test(result.msg)
+    !isVeniceInsufficientBalanceError(result.msg)
   ) {
-    console.warn(`[SkillInvoke] Venice rejected duration ${primaryDur} (${result.msg}); retrying with 10s`);
-    result = await attempt("10s");
+    const available = await resolveVeniceVideoModels(apiKey, requestedModel).catch(() => [requestedModel]);
+    const fallbackModel = available.find(Boolean) || requestedModel;
+    if (fallbackModel !== requestedModel || legacyDur !== primaryDur) {
+      console.warn(
+        `[SkillInvoke] Venice 400 (${requestedModel}/${primaryDur}: ${result.msg}); retrying with ${fallbackModel}/${legacyDur}`,
+      );
+      result = await attempt(fallbackModel, legacyDur);
+      usedModel = fallbackModel;
+    }
   }
 
   if (!result.ok) {
     if (isVeniceInsufficientBalanceError(result.msg)) {
       throw new Error(`Venice account has insufficient credits for video generation. ${result.msg}`);
     }
-    throw new Error(`${veniceModel}: (${result.status}) ${result.msg}`);
+    throw new Error(`${usedModel}: (${result.status}) ${result.msg}`);
   }
 
   if (!result.data?.queue_id) {
-    throw new Error(`${veniceModel}: Venice API returned no queue_id`);
+    throw new Error(`${usedModel}: Venice API returned no queue_id`);
   }
 
-  return { queue_id: result.data.queue_id, model: result.data.model || veniceModel };
+  return { queue_id: result.data.queue_id, model: result.data.model || usedModel };
 }
 
 async function resolveVeniceVideoModels(apiKey: string, requestedModel?: string): Promise<string[]> {
