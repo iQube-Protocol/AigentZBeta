@@ -2614,3 +2614,23 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-a6ce101.md](../build_/COMMITS/COMMIT-a6ce101.md)
 - Message: ratify law xii: truth, standing and reach — canon + code (standing/reach split, epistemic type)
+
+## Commit `4a2365f` — 2026-07-04T01:23:42Z
+- Type: `fix`
+- Brief: [COMMIT-4a2365f.md](../build_/COMMITS/COMMIT-4a2365f.md)
+- Message: record law xiii + style/narrative invariants + video fix session doc
+
+## Commit `8c77033` — 2026-07-04T01:23:36Z
+- Type: `feat`
+- Brief: [COMMIT-8c77033.md](../build_/COMMITS/COMMIT-8c77033.md)
+- Message: add style + narrative invariant classes (CFS-011/012): brief generator, api, studio runner
+
+## Commit `43d0aa6` — 2026-07-04T01:23:20Z
+- Type: `push`
+- Brief: [COMMIT-43d0aa6.md](../build_/COMMITS/COMMIT-43d0aa6.md)
+- Message: ratify law xiii: individualization (the constitutional subject model)
+
+## Commit `4f5ded4` — 2026-07-04T01:23:11Z
+- Type: `fix`
+- Brief: [COMMIT-4f5ded4.md](../build_/COMMITS/COMMIT-4f5ded4.md)
+- Message: fix video stitch pipeline: distinct per-segment prompts + 4-segment hierarchical stitching
