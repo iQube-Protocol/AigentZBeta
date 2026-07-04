@@ -53,16 +53,18 @@ frontend:
         - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
 
         - echo ".env.production created. Building Next.js..."
-        # Next 15 heap tuning — the value is a BALANCE, not "bigger is better":
-        #   3072 (Next 14 value): compile OOM'd (V8 "Ineffective mark-compacts")
-        #   6144: compile passed but `spawn ENOMEM` — the main process ballooned
-        #         to the cap and left no instance RAM to fork the page-data worker
-        #   4096: compile fits (verified locally, and webpackMemoryOptimizations in
-        #         next.config.js lowers the peak further) while leaving ~half the
-        #         8GB build instance for the worker fork + OS.
-        # If spawn ENOMEM recurs at 4096, the fix is a larger Amplify build
-        # instance (console → App settings → Build settings), not a bigger heap.
-        - export NODE_OPTIONS="--max-old-space-size=4096"
+        # Next 15 heap tuning — a BALANCE between compile and the page-data fork:
+        #   3072 (Next 14, no memory flag): compile OOM'd (V8 mark-compacts)
+        #   6144 / 4096 (+ flag): compile passed but `spawn ENOMEM` — the large
+        #         main process left no instance RAM to fork the page-data worker
+        #   3072 + experimental.webpackMemoryOptimizations (next.config.js):
+        #         VERIFIED locally to compile AND generate all 368 static pages.
+        #         The flag makes compile fit in 3072 (which it couldn't without),
+        #         and the smaller parent leaves room for the worker fork.
+        # If this ever OOMs again, raise Amplify build compute (console →
+        # App settings → Build settings) rather than the heap — a bigger heap
+        # reintroduces the fork ENOMEM.
+        - export NODE_OPTIONS="--max-old-space-size=3072"
         - export NEXT_PRIVATE_BUILD_WORKER=1
         - npm run build
 
