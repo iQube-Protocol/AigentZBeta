@@ -1,3 +1,6 @@
+"use client";
+
+// Next 15: next/dynamic with ssr:false is only allowed in a Client Component.
 import dynamic from "next/dynamic";
 
 const ComposerStudio = dynamic(
