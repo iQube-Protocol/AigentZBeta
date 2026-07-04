@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T01:25:46.783Z",
+  "last_updated": "2026-07-04T02:13:48.670Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4f5ded4e1518e49b7f9126c2396b7f3a410b347b",
-  "latest_commit_short": "4f5ded4",
-  "latest_commit_title": "fix video stitch pipeline: distinct per-segment prompts + 4-segment hierarchical stitching",
+  "latest_commit": "128b9c1ddf3204b0770407e850fbf72ac456a9db",
+  "latest_commit_short": "128b9c1",
+  "latest_commit_title": "ratify cfs-013 composition laws + cfs-014/law xiv constitutional coherence engine",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "128b9c1",
+      "full_sha": "128b9c1ddf3204b0770407e850fbf72ac456a9db",
+      "title": "ratify cfs-013 composition laws + cfs-014/law xiv constitutional coherence engine",
+      "author": "Claude",
+      "timestamp": "2026-07-04T02:11:37Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-128b9c1.md"
+    },
+    {
+      "sha": "98507b9",
+      "full_sha": "98507b96a04426d1d40e79c7249ab188f3490ecf",
+      "title": "surface chrysalis work in cartridges: foundation/experiments tabs (agentiq) + invariant intelligence tab (polity core)",
+      "author": "Claude",
+      "timestamp": "2026-07-04T02:11:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-98507b9.md"
+    },
     {
       "sha": "4f5ded4",
       "full_sha": "4f5ded4e1518e49b7f9126c2396b7f3a410b347b",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-12T18:32:25Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6ebdc7a.md"
-    },
-    {
-      "sha": "bc20c54",
-      "full_sha": "bc20c54a4b9fc039fa504ae7d7ef629c54fffe8f",
-      "title": "stage 7 discovery surfaces: .well-known bureau document + llms.txt orientation",
-      "author": "Claude",
-      "timestamp": "2026-06-10T22:44:04Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bc20c54.md"
-    },
-    {
-      "sha": "98f76cf",
-      "full_sha": "98f76cf328da4920f634e2fbad2cc1afb3b415ec",
-      "title": "stage 4 agent flow HTTP-first: schema serving, validate/submit/status machine surfaces",
-      "author": "Claude",
-      "timestamp": "2026-06-10T21:34:37Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-98f76cf.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

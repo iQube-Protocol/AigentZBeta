@@ -2634,3 +2634,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-4f5ded4.md](../build_/COMMITS/COMMIT-4f5ded4.md)
 - Message: fix video stitch pipeline: distinct per-segment prompts + 4-segment hierarchical stitching
+
+## Commit `98507b9` — 2026-07-04T02:11:49Z
+- Type: `push`
+- Brief: [COMMIT-98507b9.md](../build_/COMMITS/COMMIT-98507b9.md)
+- Message: surface chrysalis work in cartridges: foundation/experiments tabs (agentiq) + invariant intelligence tab (polity core)
+
+## Commit `128b9c1` — 2026-07-04T02:11:37Z
+- Type: `push`
+- Brief: [COMMIT-128b9c1.md](../build_/COMMITS/COMMIT-128b9c1.md)
+- Message: ratify cfs-013 composition laws + cfs-014/law xiv constitutional coherence engine
