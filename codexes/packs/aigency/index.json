@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T09:10:21.688Z",
+  "last_updated": "2026-07-04T09:26:33.864Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7475a6f4c06dc52d69aec6b17b6f33598bae949b",
-  "latest_commit_short": "7475a6f",
-  "latest_commit_title": "Ratify Law XV: Compositional Fields — canon, seeds, and code canary",
+  "latest_commit": "82bd64b2785bbab49522a79d517dcd766566cffd",
+  "latest_commit_short": "82bd64b",
+  "latest_commit_title": "Ground consequence engineering in Law XV + ratify Constitutional Evolution principle",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "82bd64b",
+      "full_sha": "82bd64b2785bbab49522a79d517dcd766566cffd",
+      "title": "Ground consequence engineering in Law XV + ratify Constitutional Evolution principle",
+      "author": "Claude",
+      "timestamp": "2026-07-04T09:25:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-82bd64b.md"
+    },
     {
       "sha": "7475a6f",
       "full_sha": "7475a6f4c06dc52d69aec6b17b6f33598bae949b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T20:31:30Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-72dde3e.md"
-    },
-    {
-      "sha": "84f45d6",
-      "full_sha": "84f45d6040febc440eb1c22ca69ebcb078a5fdb7",
-      "title": "fix passport bureau copilot — wire CodexCopilotLayer for polity-passport-bureau-cartridge (aigent-z default)",
-      "author": "Claude",
-      "timestamp": "2026-06-13T20:28:27Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-84f45d6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
