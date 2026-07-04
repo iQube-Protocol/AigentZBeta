@@ -28,7 +28,22 @@ export const GROUNDING_MANDATE = `GROUNDING MANDATE — NON-NEGOTIABLE:
 - NEVER invent, estimate, extrapolate, or imply any of: metrics, percentages, counts, revenue, user/customer/holder numbers, growth or decline rates, dates, timelines, durations, or status/progress claims ("we have seen", "rising by", "steady increase", "delays due to", "X% over the past quarter") that are not EXPLICITLY present in the input.
 - The input is a DECLARED BASELINE — intent and targets the operator wrote down. It is NOT a record of achievement. Do not describe targets as achieved. Do not report progress, traction, momentum, or trends unless verified activity/receipt data is explicitly supplied in the input.
 - If you lack data to describe a dimension, OMIT it or state plainly that there is no data yet. "No verified activity yet" is a correct, required answer. Inventing plausible prose to fill the gap is a critical failure.
-- Reference only the actual names (goals, partners, cartridges, stage) given in the input. Never fabricate a partner, customer, product, incident, or number.`;
+- Reference only the actual names (goals, partners, cartridges, stage) given in the input. Never fabricate a partner, customer, product, incident, or number.
+- When validated invariants are supplied as grounding, treat them as the platform's canonical memory: reason FROM them, never contradict one, and cite the ones you rely on by their id. Do not assert a principle, constraint, or definition that is not present in the input or in a supplied invariant.`;
+
+/**
+ * The invariant-grounding clause (CFS-006 §2). Appended to a system prompt by
+ * any surface that renders a ranked invariant slice into the prompt body
+ * (specialist packets, grounded briefs). Extends the mandate's "ground on
+ * retrieved documents" to "ground on validated invariants, cite their ids."
+ * Kept separate from GROUNDING_MANDATE so surfaces that do NOT supply a slice
+ * don't carry an instruction they can't honour.
+ */
+export const INVARIANT_GROUNDING_CLAUSE = `VALIDATED INVARIANTS — CANONICAL MEMORY:
+- The invariants listed below are validated, standing-ranked constitutional memory. They are authoritative: reason FROM them rather than re-deriving from scratch.
+- NEVER contradict a listed invariant. If the ask conflicts with one, say so and treat it as a reason to escalate, not something to work around.
+- Cite the invariant markers (the [inv.namespace.NNN] codes) you actually rely on in your answer. Do not cite one you did not use, and do not invent a marker.
+- Listed invariants are meta only — statements, not underlying private data. Never infer or assert anything about the confidential payload behind them.`;
 
 // Numbers / percentages, e.g. "15%", "4,000", "3.5", "$100K", "100".
 const NUMERIC_RE = /\$?\b\d[\d,]*(?:\.\d+)?\s?%?\b[kKmMbB]?/g;

@@ -22,6 +22,7 @@ import { randomUUID } from 'crypto';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { getInvariantsByIds } from '@/services/invariants/store';
 import { recordConsequence } from '@/services/invariants/lifecycle';
+import { citeInvariants } from '@/services/invariants/grounding';
 import { aggregateConfidence, aggregateStanding } from '@/services/invariants/publish';
 import type { AgentDisposition } from '@/types/orchestration';
 import type { ConsequenceRun, StageReceiptRef } from '@/types/consequence';
@@ -188,6 +189,8 @@ export async function executeApproved(
   }
 
   // Knowledge Evolution — feed the outcome back into every grounding invariant.
+  // This closes the STANDING arc (Law XII validation-class): a confirmed/
+  // contradicted consequence adjusts confidence + timesValidated/Contradicted.
   const evolved: string[] = [];
   for (const invariantId of run.compressedInvariantIds) {
     await recordConsequence(invariantId, outcome, { note: input.note }).catch((err) =>
@@ -195,6 +198,14 @@ export async function executeApproved(
     );
     evolved.push(invariantId);
   }
+
+  // Close the REACH arc (Law XII adoption-class, orthogonal to standing):
+  // the plan was grounded in these invariants and has now been executed, so
+  // record their usage (CFS-006 §4 / CFS-008 §2 reuse count). Sequenced AFTER
+  // the evolution loop so the two read-modify-write arcs never race on a row.
+  // Without this the runtime only ever spent knowledge and never recorded
+  // that it earned adoption — recordUsage was previously dead code.
+  await citeInvariants(run.compressedInvariantIds);
 
   if (actor) {
     await createActivityReceipt({

@@ -32,7 +32,7 @@
 
 import { personas } from '@/app/data/personas';
 import type { PreflightContext } from '@/services/capabilities/preflight';
-import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
+import { GROUNDING_MANDATE, INVARIANT_GROUNDING_CLAUSE } from '@/services/orchestration/groundingContract';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types — public surface.
@@ -78,6 +78,14 @@ export interface SpecialistContext {
    * Optional freeform prompt the user attached when asking the specialist.
    */
   userPrompt?: string;
+  /**
+   * Invariant slice (CFS-006 §2) — the context-filtered, standing-ranked
+   * validated invariants applicable to this intent. Statement-level meta only
+   * (T1-safe); assembled by the Invariant Service's buildInvariantSlice at the
+   * call site. When present, the specialist is bound to ground on and cite
+   * these (INVARIANT_GROUNDING_CLAUSE).
+   */
+  invariantSlice?: { seedId: string | null; statement: string; namespace: string }[];
 }
 
 export interface SpecialistResponse {
@@ -179,7 +187,7 @@ function redact(text: string): string {
 // Prompt assembly.
 // ─────────────────────────────────────────────────────────────────────────
 
-function systemPromptFor(specialistId: SpecialistId): string {
+function systemPromptFor(specialistId: SpecialistId, hasInvariantSlice = false): string {
   const key = SPECIALIST_PERSONA_KEY[specialistId];
   const base =
     key && personas[key]?.systemPrompt
@@ -194,8 +202,11 @@ function systemPromptFor(specialistId: SpecialistId): string {
         : 'You are an Aigent Me specialist.';
   // Every specialist is bound by the no-hallucination mandate: recommendations
   // must be grounded in the supplied context, never in invented metrics or
-  // fabricated names/incidents.
-  return `${base}\n\n${GROUNDING_MANDATE}`;
+  // fabricated names/incidents. When the packet carries a validated invariant
+  // slice (CFS-006 §2), the specialist is additionally bound to ground on and
+  // cite those invariants as canonical memory.
+  const clause = hasInvariantSlice ? `\n\n${INVARIANT_GROUNDING_CLAUSE}` : '';
+  return `${base}\n\n${GROUNDING_MANDATE}${clause}`;
 }
 
 function userPromptFor(ctx: SpecialistContext, requestType: SpecialistRequestType): string {
@@ -209,6 +220,17 @@ function userPromptFor(ctx: SpecialistContext, requestType: SpecialistRequestTyp
   ];
   if (ctx.intentRationale) lines.push(`Rationale: ${ctx.intentRationale}`);
   if (ctx.userPrompt) lines.push(`User asked: ${ctx.userPrompt}`);
+  if (ctx.invariantSlice && ctx.invariantSlice.length > 0) {
+    lines.push('');
+    lines.push('Validated invariants applicable to this intent (canonical memory — reason from these, cite the markers you use):');
+    for (const inv of ctx.invariantSlice) {
+      // Cite by seedId (e.g. inv.constitutional.001) — a stable, human-legible
+      // marker that survives the UUID-stripping redaction pass below, unlike
+      // the raw invariant UUID.
+      const marker = inv.seedId ? `[${inv.seedId}] ` : '';
+      lines.push(`- ${marker}(${inv.namespace}) ${inv.statement}`);
+    }
+  }
   lines.push('');
   lines.push(
     `Return a JSON object matching this exact shape (no prose outside the JSON):`,
@@ -582,7 +604,7 @@ export async function askSpecialist(
   const generatedAt = new Date().toISOString();
 
   // Try live LLM first.
-  const system = systemPromptFor(specialistId);
+  const system = systemPromptFor(specialistId, (context.invariantSlice?.length ?? 0) > 0);
   const user = userPromptFor(context, requestType);
   const raw = await callLlmChain(system, user);
 

@@ -83,6 +83,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-04_phase-4-runtime-adoption-grounding-return-arc.md",
         "updates/2026-07-04_invariant-data-browser-overview-ontology-graph.md",
         "updates/2026-07-04_tab-shadowing-fix-and-runner-namespace-grounding.md",
         "updates/2026-07-04_invariant-registry-tab.md",
