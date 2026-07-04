@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T03:13:23.104Z",
+  "last_updated": "2026-07-04T03:29:41.480Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "802b6906b6b679b685470766b37e3ffb52bf04c9",
-  "latest_commit_short": "802b690",
-  "latest_commit_title": "add invariant registry browsing tab: list, filter, standing/reach, detail view",
+  "latest_commit": "a180ab59e88b250864c680b2a58d0a4864c6fd76",
+  "latest_commit_short": "a180ab5",
+  "latest_commit_title": "move invariant registry to canonical home: iqube registry cartridge, sibling tab",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a180ab5",
+      "full_sha": "a180ab59e88b250864c680b2a58d0a4864c6fd76",
+      "title": "move invariant registry to canonical home: iqube registry cartridge, sibling tab",
+      "author": "Claude",
+      "timestamp": "2026-07-04T03:27:46Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-a180ab5.md"
+    },
     {
       "sha": "802b690",
       "full_sha": "802b6906b6b679b685470766b37e3ffb52bf04c9",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-12T18:11:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3372c92.md"
-    },
-    {
-      "sha": "df0c5c3",
-      "full_sha": "df0c5c3fdbac97c3fb5fe253ec5a28f21621bb5e",
-      "title": "add Sessions placeholder tab to metaMe aigentZ group so the sub-menu row renders in line with aigentMe",
-      "author": "Claude",
-      "timestamp": "2026-06-12T18:14:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-df0c5c3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
