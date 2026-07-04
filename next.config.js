@@ -53,6 +53,11 @@ const nextConfig = {
     // Limit worker parallelism on Amplify to avoid ENOMEM when forking page-data workers.
     // The main build process consumes ~3 GB; each forked worker needs additional RAM.
     cpus: isAmplifyBuild ? 1 : undefined,
+    // Next 15's build is heavier than 14's and OOM'd Amplify at the old 3 GB
+    // heap cap. This flag trades a little build speed for a materially lower
+    // peak webpack memory footprint — the primary lever for the OOM fix
+    // (paired with a raised --max-old-space-size in amplify.yml).
+    webpackMemoryOptimizations: true,
   },
   transpilePackages: [
     "@qriptoagentiq/core-client",
