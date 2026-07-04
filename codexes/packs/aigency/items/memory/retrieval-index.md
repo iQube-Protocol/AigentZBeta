@@ -2644,3 +2644,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-128b9c1.md](../build_/COMMITS/COMMIT-128b9c1.md)
 - Message: ratify cfs-013 composition laws + cfs-014/law xiv constitutional coherence engine
+
+## Commit `569205f` — 2026-07-04T03:06:27Z
+- Type: `feat`
+- Brief: [COMMIT-569205f.md](../build_/COMMITS/COMMIT-569205f.md)
+- Message: add single-invariant detail api route for the registry browser

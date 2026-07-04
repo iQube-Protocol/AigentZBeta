@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T02:13:48.670Z",
+  "last_updated": "2026-07-04T03:08:15.529Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "128b9c1ddf3204b0770407e850fbf72ac456a9db",
-  "latest_commit_short": "128b9c1",
-  "latest_commit_title": "ratify cfs-013 composition laws + cfs-014/law xiv constitutional coherence engine",
+  "latest_commit": "569205f53ca826a60c33504e6239f15c1fef5cc3",
+  "latest_commit_short": "569205f",
+  "latest_commit_title": "add single-invariant detail api route for the registry browser",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "569205f",
+      "full_sha": "569205f53ca826a60c33504e6239f15c1fef5cc3",
+      "title": "add single-invariant detail api route for the registry browser",
+      "author": "Claude",
+      "timestamp": "2026-07-04T03:06:27Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-569205f.md"
+    },
     {
       "sha": "128b9c1",
       "full_sha": "128b9c1ddf3204b0770407e850fbf72ac456a9db",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-12T18:17:44Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-10210ed.md"
-    },
-    {
-      "sha": "6ebdc7a",
-      "full_sha": "6ebdc7a20f0052c2b1b62ebd1601e428b43e8df8",
-      "title": "extract 6 capsule layout templates for dev command center with CTA chip row, LayoutShell chrome, and pending proposal cards — mirrors aigentMe capsule layout pattern",
-      "author": "Claude",
-      "timestamp": "2026-06-12T18:32:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6ebdc7a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
