@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T05:56:24.808Z",
+  "last_updated": "2026-07-04T06:28:53.733Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "86eb2e51c1ee6bb8c2d72a48e0cf6a203b934f56",
-  "latest_commit_short": "86eb2e5",
-  "latest_commit_title": "Phase 5: CFS-008 measurement on receipt spine + CFS-010 plan-to-record",
+  "latest_commit": "2fd27d5c94523658e9bf1b04f279367fadea4413",
+  "latest_commit_short": "2fd27d5",
+  "latest_commit_title": "Add session-start knowledge initialization to copilot chat (CFS-006 §3)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2fd27d5",
+      "full_sha": "2fd27d5c94523658e9bf1b04f279367fadea4413",
+      "title": "Add session-start knowledge initialization to copilot chat (CFS-006 §3)",
+      "author": "Claude",
+      "timestamp": "2026-07-04T06:19:41Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2fd27d5.md"
+    },
+    {
+      "sha": "d5c8929",
+      "full_sha": "d5c8929237ec331f65348d20295c31d00637785a",
+      "title": "Add EXP-003 rediscovery-savings benchmark harness (CFS-008 §2)",
+      "author": "Claude",
+      "timestamp": "2026-07-04T06:20:50Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d5c8929.md"
+    },
+    {
+      "sha": "2aa5335",
+      "full_sha": "2aa5335344fc76d5544b868190264e5ac60f04bd",
+      "title": "Add CFS-007 renderer seam: ExperienceRenderer + liquid/a2ui adapters",
+      "author": "Claude",
+      "timestamp": "2026-07-04T06:27:00Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2aa5335.md"
+    },
     {
       "sha": "86eb2e5",
       "full_sha": "86eb2e51c1ee6bb8c2d72a48e0cf6a203b934f56",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-06-13T16:27:38Z",
       "type": "refactor",
       "brief": "items/build_/COMMITS/COMMIT-8a41c01.md"
-    },
-    {
-      "sha": "554aab0",
-      "full_sha": "554aab0458621779a92d90e3adfcc1722744dde3",
-      "title": "sprint 1 step 2 — complete PersonaQube mint to Sui+Walrus (stub mode pending packages)",
-      "author": "Claude",
-      "timestamp": "2026-06-13T16:34:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-554aab0.md"
-    },
-    {
-      "sha": "d520569",
-      "full_sha": "d520569c35ff12a445bb4e9b559c16acc764acd8",
-      "title": "refine aletheon card: the first citizen's constitutional companion intelligence",
-      "author": "Claude",
-      "timestamp": "2026-06-13T08:36:41Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d520569.md"
-    },
-    {
-      "sha": "71ca12a",
-      "full_sha": "71ca12a55607f825c65f1aa68f7f6289cc615b74",
-      "title": "amend passport bureau prd: add hackathon extension narrative, provekit zk layer, dvn stub, human mobility demo flows, prize alignment",
-      "author": "Claude",
-      "timestamp": "2026-06-13T07:01:32Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-71ca12a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
