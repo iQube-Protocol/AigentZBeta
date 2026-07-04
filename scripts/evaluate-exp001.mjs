@@ -462,6 +462,15 @@ async function main() {
   const hallucinationTotal = questionScores.reduce((a, s) => a + s.hallucinations, 0);
   const coherenceAvg = avg(Object.values(coherence).map((c) => Number(c.coherence ?? 0)));
 
+  // Constitutional restraint (CFS-008 §2, ratified 2026-07-04): the proportion
+  // of probe-answer pairs that correctly return NOT DERIVABLE. Distinct from
+  // hallucination — restraint measures what the system refuses to invent.
+  const probeQs = questionScores.filter((s) => s.probe);
+  const probePairs = probeQs.flatMap((s) => Object.values(s.perDoc));
+  const restraint = probePairs.length
+    ? probePairs.filter((d) => d.notDerivable).length / probePairs.length
+    : null;
+
   // Flywheel-eligible: derivable questions answered consistently (2) with no
   // hallucination anywhere → validation events for their expected invariants.
   // NOT applied here — recordConsequence belongs to the Invariant Service.
@@ -489,7 +498,7 @@ async function main() {
         artifactsPending: ['video (EXP-002 production pending)'],
         questionScores,
         coherence,
-        aggregates: { consistencyAvg, explainAvg, hallucinationTotal, coherenceAvg },
+        aggregates: { consistencyAvg, explainAvg, hallucinationTotal, coherenceAvg, restraint },
         flywheelEligible,
       },
       null,
@@ -504,6 +513,7 @@ async function main() {
   console.log(`| Explainability (avg) | ${explainAvg?.toFixed(2)} | ≥ 1.6 | ${explainAvg >= 1.6 ? '✅' : '❌'} |`);
   console.log(`| Hallucination (total) | ${hallucinationTotal} | 0 | ${hallucinationTotal === 0 ? '✅' : '❌'} |`);
   console.log(`| Coherence (avg) | ${coherenceAvg?.toFixed(2)} | 2.0 | ${coherenceAvg === 2 ? '✅' : '❌'} |`);
+  console.log(`| Constitutional restraint (probes) | ${restraint === null ? 'n/a' : `${Math.round(restraint * 100)}%`} | 100% | ${restraint === 1 ? '✅' : '❌'} |`);
 
   console.log('\nPer-question consistency (Q1–12):');
   for (const s of derivableQs) {

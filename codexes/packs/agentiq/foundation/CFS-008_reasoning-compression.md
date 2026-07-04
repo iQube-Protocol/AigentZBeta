@@ -27,6 +27,7 @@ The research question: how much reasoning cost does a validated invariant amorti
 - **Rediscovery savings** — tokens/steps an agent spends solving a problem cold vs. initialized with the relevant invariant closure
 - **Reuse count** — times an invariant appears in reasoning paths of successful executions
 - **Consequence accuracy** — forecast-vs-observed deltas for plans grounded in the invariant (the Knowledge Evolution signal, CFS-006a)
+- **Constitutional restraint** *(ratified 2026-07-04 from EXP-001 run 1)* — the proportion of questions OUTSIDE the invariant collection that correctly produce NOT DERIVABLE. Distinct from hallucination: hallucination measures false assertions; restraint measures constitutional discipline — what the system *refuses to invent*. Most generation research celebrates what a model can produce; restraint measures the harder property.
 
 The platform's receipt spine makes these measurable in production, not just in benchmarks — every execution already emits `toolsUsed`, `iqubesUsed`, `agentsInvoked`, and outcome receipts.
 
@@ -70,9 +71,25 @@ EXP-003 (rediscovery savings) run 1 confirmed the hypothesis on all four measure
 spec from that result:
 
 **7.1 The Foundational Validation Series.** EXP-001/002/003 are formally one series —
-three orthogonal validations of the same computational model, not isolated demos:
-EXP-001 *semantic preservation* (across modalities), EXP-002 *temporal preservation*
-(across time), EXP-003 *rediscovery savings* (reasoning cost + epistemic fidelity).
+three orthogonal validations of the same computational primitive, not isolated demos:
+
+```
+                    Invariant Collection
+                           │
+      ┌────────────────────┼────────────────────┐
+      │                    │                    │
+Semantic Fidelity   Temporal Fidelity   Computational Efficiency
+     EXP-001             EXP-002              EXP-003
+ (confirmed run 1)   (pipeline shipped;   (confirmed run 1)
+                     production pending)
+```
+
+Together they establish three independent properties of the same primitive: knowledge
+survives modality changes (semantic preservation), knowledge survives sequential
+composition (temporal preservation — in flight), and knowledge prevents repeated
+rediscovery (reasoning preservation). The series is the research programme's first
+chapter; subsequent experiments explore scale, domains, and model families rather than
+new property classes.
 
 **7.2 Terminology: reasoning debt / reasoning capital.** Cold inference carries
 **reasoning debt** — the un-amortised cost of re-deriving already-validated principles,

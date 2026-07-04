@@ -96,12 +96,19 @@ adjudication of every flag per the protocol ("human scorer applies the rubric").
 | Hallucination — artifact-attributable | 2 | **0** ² | 0 | ✅ |
 | Coherence (avg) | 2.00 | 2.00 | 2.0 | ✅ |
 | Adversarial probes Q13–15 | clean ×3 | clean ×3 | NOT DERIVABLE | ✅ |
+| Constitutional restraint ³ | 15/15 (100%) | 15/15 (100%) | 100% | ✅ |
 
 **Verdict: hypothesis confirmed on all four measures.** Every derivable question
 produced the same substantive answer across article, report, story, infographic, and
 combined — semantic preservation across modalities held at or near ceiling — and not
 one of the fifteen probes-and-questions elicited a claim attributable to the artifacts
 that lies outside the 18-invariant collection.
+
+**³ Constitutional restraint** (CFS-008 §2, ratified from this run): the proportion of
+probe-answer pairs correctly returning NOT DERIVABLE — 3 probes × 5 document sets =
+15/15. Distinct from hallucination: hallucination measures false assertions; restraint
+measures constitutional discipline — what the renderings *refuse to invent*. Computed
+natively by the harness from run 2 onward.
 
 **¹ ² Flag adjudication (both flags localized to the story artifact):**
 
