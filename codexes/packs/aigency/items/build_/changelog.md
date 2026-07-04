@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`5152d1f`](https://github.com/iQube-Protocol/AigentZBeta/commit/5152d1f52a0757679eccbe6d3ae7060a42c8dde1) [feat] Add Experiment Lab: run EXP-001/002/003 from the front end + cartridge tab (Claude, 2026-07-04T20:33:51Z)
 - [`9f9f38e`](https://github.com/iQube-Protocol/AigentZBeta/commit/9f9f38eee39463ecfc10d007c57d47b9ecbff4c1) [feat] Add trust-override checkbox to invariant video runner (Claude, 2026-07-04T20:17:08Z)
 - [`df9a9ef`](https://github.com/iQube-Protocol/AigentZBeta/commit/df9a9ef93e96bfd16d07d7dfb27468d2f904dca6) [feat] Add video skill + Venice model selectors to invariant video runner (Claude, 2026-07-04T19:37:27Z)
 - [`30c0148`](https://github.com/iQube-Protocol/AigentZBeta/commit/30c0148b9f9154bc76add549cd2d50ec45949f91) [push] Render invariant Standing/Reach dots in positive hues, not the R/T ramp (Claude, 2026-07-04T09:36:42Z)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T20:18:59.317Z",
+  "last_updated": "2026-07-04T20:35:39.169Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9f9f38eee39463ecfc10d007c57d47b9ecbff4c1",
-  "latest_commit_short": "9f9f38e",
-  "latest_commit_title": "Add trust-override checkbox to invariant video runner",
+  "latest_commit": "5152d1f52a0757679eccbe6d3ae7060a42c8dde1",
+  "latest_commit_short": "5152d1f",
+  "latest_commit_title": "Add Experiment Lab: run EXP-001/002/003 from the front end + cartridge tab",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5152d1f",
+      "full_sha": "5152d1f52a0757679eccbe6d3ae7060a42c8dde1",
+      "title": "Add Experiment Lab: run EXP-001/002/003 from the front end + cartridge tab",
+      "author": "Claude",
+      "timestamp": "2026-07-04T20:33:51Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5152d1f.md"
+    },
     {
       "sha": "9f9f38e",
       "full_sha": "9f9f38eee39463ecfc10d007c57d47b9ecbff4c1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T21:19:31Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5406314.md"
-    },
-    {
-      "sha": "1abc8ec",
-      "full_sha": "1abc8ec9c1872909eb96ae9bb4b10401da6186ae",
-      "title": "add polity passport as first-class metaMe activation + embed link on all activation cards",
-      "author": "Claude",
-      "timestamp": "2026-06-13T21:09:18Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-1abc8ec.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

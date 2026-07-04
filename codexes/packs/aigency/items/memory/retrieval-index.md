@@ -2779,3 +2779,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-9f9f38e.md](../build_/COMMITS/COMMIT-9f9f38e.md)
 - Message: Add trust-override checkbox to invariant video runner
+
+## Commit `5152d1f` — 2026-07-04T20:33:51Z
+- Type: `feat`
+- Brief: [COMMIT-5152d1f.md](../build_/COMMITS/COMMIT-5152d1f.md)
+- Message: Add Experiment Lab: run EXP-001/002/003 from the front end + cartridge tab
