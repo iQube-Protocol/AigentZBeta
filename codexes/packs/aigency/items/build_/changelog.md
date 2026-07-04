@@ -1,4 +1,8 @@
 # Build — Changelog
+- [`a6ce101`](https://github.com/iQube-Protocol/AigentZBeta/commit/a6ce101a3d1b27709911b7b03eaf77c3d30551b8) [push] ratify law xii: truth, standing and reach — canon + code (standing/reach split, epistemic type) (Claude, 2026-07-03T23:18:50Z)
+- [`dfbd730`](https://github.com/iQube-Protocol/AigentZBeta/commit/dfbd730f20ee7c96c1f51ac419d88c3f0234f8ef) [push] author flywheel experiments: exp-001 living knowledgeqube + exp-002 invariant video briefs (Claude, 2026-07-03T23:26:44Z)
+- [`cd3cdb7`](https://github.com/iQube-Protocol/AigentZBeta/commit/cd3cdb71c921afe767931c7045cf25cc1b077124) [push] deploy consequence operating model as intent chain template (chrysalis phase 3b) (Claude, 2026-07-03T23:26:44Z)
+- [`0d44b4d`](https://github.com/iQube-Protocol/AigentZBeta/commit/0d44b4d0c360fbb181cc87f3185b6db5e94a4ada) [push] record law xii + experiments + phase 3b session doc (Claude, 2026-07-03T23:27:23Z)
 - [`e9c64f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/e9c64f2adc10aa5f7198ff0864ded5396b7c668c) [feat] implement invariant collections + invariantqube publication (chrysalis phase 2) (Claude, 2026-07-03T20:30:22Z)
 - [`f6bfcd6`](https://github.com/iQube-Protocol/AigentZBeta/commit/f6bfcd6f2c0ef9b138abaa67afb4a110780eee53) [feat] implement consequence engineering operating model (chrysalis phase 3) (Claude, 2026-07-03T20:38:15Z)
 - [`f3969d9`](https://github.com/iQube-Protocol/AigentZBeta/commit/f3969d987fcafd07f43bbe9c4242148c07e9da83) [push] record chrysalis phase 2-3 session doc (Claude, 2026-07-03T20:38:22Z)

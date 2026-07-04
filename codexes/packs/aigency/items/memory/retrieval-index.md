@@ -2594,3 +2594,23 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-e9c64f2.md](../build_/COMMITS/COMMIT-e9c64f2.md)
 - Message: implement invariant collections + invariantqube publication (chrysalis phase 2)
+
+## Commit `0d44b4d` — 2026-07-03T23:27:23Z
+- Type: `push`
+- Brief: [COMMIT-0d44b4d.md](../build_/COMMITS/COMMIT-0d44b4d.md)
+- Message: record law xii + experiments + phase 3b session doc
+
+## Commit `cd3cdb7` — 2026-07-03T23:26:44Z
+- Type: `push`
+- Brief: [COMMIT-cd3cdb7.md](../build_/COMMITS/COMMIT-cd3cdb7.md)
+- Message: deploy consequence operating model as intent chain template (chrysalis phase 3b)
+
+## Commit `dfbd730` — 2026-07-03T23:26:44Z
+- Type: `push`
+- Brief: [COMMIT-dfbd730.md](../build_/COMMITS/COMMIT-dfbd730.md)
+- Message: author flywheel experiments: exp-001 living knowledgeqube + exp-002 invariant video briefs
+
+## Commit `a6ce101` — 2026-07-03T23:18:50Z
+- Type: `push`
+- Brief: [COMMIT-a6ce101.md](../build_/COMMITS/COMMIT-a6ce101.md)
+- Message: ratify law xii: truth, standing and reach — canon + code (standing/reach split, epistemic type)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-03T20:40:34.653Z",
+  "last_updated": "2026-07-03T23:29:31.452Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e9c64f2adc10aa5f7198ff0864ded5396b7c668c",
-  "latest_commit_short": "e9c64f2",
-  "latest_commit_title": "implement invariant collections + invariantqube publication (chrysalis phase 2)",
+  "latest_commit": "a6ce101a3d1b27709911b7b03eaf77c3d30551b8",
+  "latest_commit_short": "a6ce101",
+  "latest_commit_title": "ratify law xii: truth, standing and reach — canon + code (standing/reach split, epistemic type)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a6ce101",
+      "full_sha": "a6ce101a3d1b27709911b7b03eaf77c3d30551b8",
+      "title": "ratify law xii: truth, standing and reach — canon + code (standing/reach split, epistemic type)",
+      "author": "Claude",
+      "timestamp": "2026-07-03T23:18:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a6ce101.md"
+    },
+    {
+      "sha": "dfbd730",
+      "full_sha": "dfbd730f20ee7c96c1f51ac419d88c3f0234f8ef",
+      "title": "author flywheel experiments: exp-001 living knowledgeqube + exp-002 invariant video briefs",
+      "author": "Claude",
+      "timestamp": "2026-07-03T23:26:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-dfbd730.md"
+    },
+    {
+      "sha": "cd3cdb7",
+      "full_sha": "cd3cdb71c921afe767931c7045cf25cc1b077124",
+      "title": "deploy consequence operating model as intent chain template (chrysalis phase 3b)",
+      "author": "Claude",
+      "timestamp": "2026-07-03T23:26:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cd3cdb7.md"
+    },
+    {
+      "sha": "0d44b4d",
+      "full_sha": "0d44b4d0c360fbb181cc87f3185b6db5e94a4ada",
+      "title": "record law xii + experiments + phase 3b session doc",
+      "author": "Claude",
+      "timestamp": "2026-07-03T23:27:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0d44b4d.md"
+    },
     {
       "sha": "e9c64f2",
       "full_sha": "e9c64f2adc10aa5f7198ff0864ded5396b7c668c",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-06-10T17:56:12Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-78516b6.md"
-    },
-    {
-      "sha": "fec591f",
-      "full_sha": "fec591fd253084417752c8145e624eedc4ccb274",
-      "title": "land polity passport schema bundle v0.1 with vault, irrevocability + reputation addenda applied",
-      "author": "Claude",
-      "timestamp": "2026-06-10T17:19:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fec591f.md"
-    },
-    {
-      "sha": "6456e27",
-      "full_sha": "6456e2713b320550dcb2d949485cf3126913c9a0",
-      "title": "add polity passport bureau PRD v1 + reuse/extend/new implementation plan docs",
-      "author": "Claude",
-      "timestamp": "2026-06-10T17:02:38Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6456e27.md"
-    },
-    {
-      "sha": "a0a21f3",
-      "full_sha": "a0a21f3c96e305e1fadd15295a582536863af2fc",
-      "title": "receipt card: show full card collapsed, gate only chain-of-intent; fix cycles card layout + error surfacing",
-      "author": "Claude",
-      "timestamp": "2026-06-09T04:21:40Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-a0a21f3.md"
-    },
-    {
-      "sha": "dc6a5b2",
-      "full_sha": "dc6a5b2fa45b4672d889bb8487f2fef157421cf0",
-      "title": "fix PEM normalizer: strip all non-base64 chars from body lines",
-      "author": "Claude",
-      "timestamp": "2026-06-09T03:54:22Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-dc6a5b2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
