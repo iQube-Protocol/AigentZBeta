@@ -2714,3 +2714,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-f0ba5c7.md](../build_/COMMITS/COMMIT-f0ba5c7.md)
 - Message: add EXP-003 run-1 raw results json (venice/llama-3.3-70b)
+
+## Commit `dffa601` — 2026-07-04T07:27:26Z
+- Type: `push`
+- Brief: [COMMIT-dffa601.md](../build_/COMMITS/COMMIT-dffa601.md)
+- Message: Draft CFS-008a reasoning-compression paper + amend CFS-008 with evidence
