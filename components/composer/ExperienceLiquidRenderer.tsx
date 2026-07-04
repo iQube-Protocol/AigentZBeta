@@ -615,6 +615,9 @@ export function ExperienceLiquidRenderer({
           persona_id={personaId}
           initial_generation_id={packet.skill.generation_id}
           initial_venice_model={packet.skill.venice_model_for_status}
+          segment_prompts={
+            Array.isArray(packet.skill.segment_prompts) ? packet.skill.segment_prompts : undefined
+          }
           packet={packet}
           experience={experience}
         />
