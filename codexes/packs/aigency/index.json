@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T04:04:58.361Z",
+  "last_updated": "2026-07-04T04:30:36.205Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ebd2caf9df85cd88a571456691408d63316abc05",
-  "latest_commit_short": "ebd2caf",
-  "latest_commit_title": "Fix static tabs shadowed by DB codex_tabs and ground runner on namespaces",
+  "latest_commit": "4b451661d4ce69144fee2af3b57d210eb3a9e834",
+  "latest_commit_short": "4b45166",
+  "latest_commit_title": "Add missing Invariant Intelligence tab to Polity Core cartridge",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4b45166",
+      "full_sha": "4b451661d4ce69144fee2af3b57d210eb3a9e834",
+      "title": "Add missing Invariant Intelligence tab to Polity Core cartridge",
+      "author": "Claude",
+      "timestamp": "2026-07-04T04:28:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-4b45166.md"
+    },
     {
       "sha": "ebd2caf",
       "full_sha": "ebd2caf9df85cd88a571456691408d63316abc05",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-12T16:32:46Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d885aba.md"
-    },
-    {
-      "sha": "17ef7bd",
-      "full_sha": "17ef7bddfdf965ba54383fda7d97ea15d9ced8ac",
-      "title": "document ICE engine phase 1a session in agentiq updates pack",
-      "author": "Claude",
-      "timestamp": "2026-06-12T16:33:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-17ef7bd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
