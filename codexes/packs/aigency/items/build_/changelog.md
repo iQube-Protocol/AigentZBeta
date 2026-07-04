@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ebd2caf`](https://github.com/iQube-Protocol/AigentZBeta/commit/ebd2caf9df85cd88a571456691408d63316abc05) [fix] Fix static tabs shadowed by DB codex_tabs and ground runner on namespaces (Claude, 2026-07-04T04:02:47Z)
 - [`a180ab5`](https://github.com/iQube-Protocol/AigentZBeta/commit/a180ab59e88b250864c680b2a58d0a4864c6fd76) [refactor] move invariant registry to canonical home: iqube registry cartridge, sibling tab (Claude, 2026-07-04T03:27:46Z)
 - [`802b690`](https://github.com/iQube-Protocol/AigentZBeta/commit/802b6906b6b679b685470766b37e3ffb52bf04c9) [feat] add invariant registry browsing tab: list, filter, standing/reach, detail view (Claude, 2026-07-04T03:11:24Z)
 - [`569205f`](https://github.com/iQube-Protocol/AigentZBeta/commit/569205f53ca826a60c33504e6239f15c1fef5cc3) [feat] add single-invariant detail api route for the registry browser (Claude, 2026-07-04T03:06:27Z)
