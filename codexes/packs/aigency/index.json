@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T07:52:49.574Z",
+  "last_updated": "2026-07-04T08:27:50.378Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2a8431886d01bb43f57418cf5e2d044b4beb3a13",
-  "latest_commit_short": "2a84318",
-  "latest_commit_title": "Harden EXP-001 harness JSON parsing against OSS-judge output",
+  "latest_commit": "e01bed96fe3a748848cd1b1f1b799bc36832c0d2",
+  "latest_commit_short": "e01bed9",
+  "latest_commit_title": "add EXP-001 run-1 evaluation results json (venice/llama-3.3-70b judge)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e01bed9",
+      "full_sha": "e01bed96fe3a748848cd1b1f1b799bc36832c0d2",
+      "title": "add EXP-001 run-1 evaluation results json (venice/llama-3.3-70b judge)",
+      "author": "Kn0w-1",
+      "timestamp": "2026-07-04T04:26:09-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e01bed9.md"
+    },
     {
       "sha": "2a84318",
       "full_sha": "2a8431886d01bb43f57418cf5e2d044b4beb3a13",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T17:48:11Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-ce27071.md"
-    },
-    {
-      "sha": "2371300",
-      "full_sha": "237130046dec79f8d20695016c5d03e1fcc58a8c",
-      "title": "sprint 7 — ens subnames for personas + lockers via namestone",
-      "author": "Claude",
-      "timestamp": "2026-06-13T17:45:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2371300.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -2729,3 +2729,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2a84318.md](../build_/COMMITS/COMMIT-2a84318.md)
 - Message: Harden EXP-001 harness JSON parsing against OSS-judge output
+
+## Commit `e01bed9` — 2026-07-04T04:26:09-04:00
+- Type: `feat`
+- Brief: [COMMIT-e01bed9.md](../build_/COMMITS/COMMIT-e01bed9.md)
+- Message: add EXP-001 run-1 evaluation results json (venice/llama-3.3-70b judge)
