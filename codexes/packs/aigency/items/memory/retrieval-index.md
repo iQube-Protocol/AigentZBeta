@@ -2774,3 +2774,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-df9a9ef.md](../build_/COMMITS/COMMIT-df9a9ef.md)
 - Message: Add video skill + Venice model selectors to invariant video runner
+
+## Commit `9f9f38e` — 2026-07-04T20:17:08Z
+- Type: `feat`
+- Brief: [COMMIT-9f9f38e.md](../build_/COMMITS/COMMIT-9f9f38e.md)
+- Message: Add trust-override checkbox to invariant video runner
