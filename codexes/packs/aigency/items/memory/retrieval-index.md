@@ -2749,3 +2749,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-3fdab36.md](../build_/COMMITS/COMMIT-3fdab36.md)
 - Message: Fix terminal-beat drop in narrative mapping (caught by Coherence Engine)
+
+## Commit `7475a6f` — 2026-07-04T09:08:34Z
+- Type: `push`
+- Brief: [COMMIT-7475a6f.md](../build_/COMMITS/COMMIT-7475a6f.md)
+- Message: Ratify Law XV: Compositional Fields — canon, seeds, and code canary
