@@ -181,9 +181,12 @@ describe('narrative grounding (CFS-012) — sequential, never round-robin', () =
       useLlm: false,
     });
     const mapped = brief.segments.map((s) => s.narrativeInvariantId);
-    // floor(i*5/4) for i=0..3 → 0,1,2,3 → narr-1..narr-4 (narr-5 compressed out
-    // at this segment count — never reordered, always monotonic non-decreasing).
-    expect(mapped).toEqual(['narr-1', 'narr-2', 'narr-3', 'narr-4']);
+    // Endpoint-anchored round(i*(5-1)/(4-1)) for i=0..3 → 0,1,3,4 → the arc
+    // opens on narr-1 and CLOSES on narr-5; the interior beat narr-3 is the
+    // one compressed out — a fixed arc sacrifices interior beats before its
+    // resolution (fix 2026-07-04, found by the Coherence Engine on EXP-002's
+    // first production brief). Never reordered, always monotonic.
+    expect(mapped).toEqual(['narr-1', 'narr-2', 'narr-4', 'narr-5']);
     const ordinals = mapped.map((id) => Number(id!.split('-')[1]));
     for (let i = 1; i < ordinals.length; i++) {
       expect(ordinals[i]).toBeGreaterThanOrEqual(ordinals[i - 1]); // monotonic — never goes backward

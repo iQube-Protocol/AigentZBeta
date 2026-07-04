@@ -52,7 +52,24 @@ The storyteller is the KnowledgeQube. The director is the Narrative Invariants. 
 
 Knowledge invariants distribute across segments **without inherent order** (round-robin, CFS-011/CFS-006a's Knowledge Curation); style invariants apply **identically to every segment** (the continuity block). Narrative invariants do neither — they are **strictly sequential**: beat *k* belongs at story-position *k*, and segment *i* of *N* renders whichever beat the story has reached at that point in the arc.
 
-When segment count does not equal beat count, beats map onto segments **proportionally**: segment *i* (0-indexed, of *N*) renders the beat at arc-position `floor(i × beatCount / N)`. A 5-beat arc over 4 segments compresses two adjacent beats into fewer segments (never reorders them); a 5-beat arc over 5 segments is 1:1. This is a v1 heuristic — tune by canonization (Law XI), not ad-hoc edit — implemented in `services/video/invariantVideoBrief.ts`.
+When segment count does not equal beat count, beats map onto segments **proportionally
+and endpoint-anchored**: segment *i* (0-indexed, of *N*) renders the beat at
+arc-position `round(i × (beatCount − 1) / (N − 1))` — the first segment always renders
+the opening beat, the last segment always renders the closing beat, and interior beats
+compress or stretch between them (never reordered; the position is monotonic in *i*).
+A single-segment production renders the opening beat (an arc cannot traverse in one
+segment; the coherence validator warns). Implemented in
+`services/video/invariantVideoBrief.ts`.
+
+*Amendment 2026-07-04 (evidence-driven, per this section's own tuning rule):* v1
+specified `floor(i × beatCount / N)`, which silently dropped the TERMINAL beat whenever
+beats exceeded segments — a 5-beat arc over 4 segments rendered beats 1–4 and the
+transformation never resolved. The Constitutional Coherence Engine (CFS-014) flagged
+exactly this on EXP-002's first production brief ("arc does not open on the first beat
+and close on the last", narrative score 80, CCS 93.3), and the mapping was corrected to
+the endpoint-anchored form above: a fixed arc sacrifices interior beats before its
+resolution. This amendment is itself flywheel output — the validator validating the
+composition law.
 
 ## 5. The canonical 5-beat arc (seed)
 

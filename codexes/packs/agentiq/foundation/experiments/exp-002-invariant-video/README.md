@@ -1,7 +1,38 @@
 # EXP-002 — Invariant-Carried Video
 
-**Chrysalis Foundation · Experiment 002 · Status: briefs authored; generator + runner shipped 2026-07-04; production pending**
+**Chrysalis Foundation · Experiment 002 · Status: composition + coherence half VALIDATED in production 2026-07-04; video generation blocked on Venice credits — final render pending**
 Companion to EXP-001 (same KnowledgeQube 001 collection — the video artifacts of the Living KnowledgeQube).
+
+## Production run 1 (partial) — 2026-07-04: the brief pipeline validated, and the Coherence Engine earned its keep
+
+The operator ran `/admin/studio/invariant-video` end-to-end up to the generation call
+(4 segments, constitutional namespace, style + narrative layers on). Everything up to
+the video provider worked in production:
+
+- **Grounding resolved live** — semantic invariants distributed round-robin across 4
+  distinct segment prompts (the original "same clip twice" defect visibly gone), the
+  7-invariant style continuity block rendered identically into every segment, and the
+  5-beat narrative arc mapped sequentially.
+- **CCS 93.3 — PASS** (semantic 100, style 100, narrative 80), with one warning that
+  turned out to be **a real defect, correctly caught by CFS-014 on its first production
+  use**: *"arc does not open on the first beat and close on the last."* The v1
+  proportional mapping `floor(i × beatCount / N)` dropped the TERMINAL beat whenever
+  beats exceeded segments — 5 beats over 4 segments rendered N-001..N-004 and the
+  transformation (N-005) never resolved. The validator saw the missing resolution the
+  humans reading the brief did not.
+- **Fixed same day** (endpoint-anchored mapping — first and last beats always anchor;
+  interior beats compress first; CFS-012 §4 amended per its own evidence-driven tuning
+  rule; canary test updated). Post-fix, the same brief maps N-001, N-002, N-004, N-005
+  and should score narrative 100 / CCS 100.
+- **Blocked at the provider**: Venice video generation returned insufficient-credits;
+  the final render awaits credits at venice.ai/settings/api. The LLM prose pass also
+  fell back to the deterministic template (grounding-only by construction) — expected
+  behaviour with providers down.
+
+This partial run is itself flywheel evidence: the composition laws (CFS-013), the
+coherence field (CFS-014), and the fix loop operated exactly as specified — a
+constitutional validator catching a constitutional-composition bug before a single
+frame was generated.
 
 ## Update 2026-07-04 — the bug this experiment surfaced, and the fix
 
