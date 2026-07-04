@@ -2679,3 +2679,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e8372a5.md](../build_/COMMITS/COMMIT-e8372a5.md)
 - Message: Phase 4 runtime adoption: grounding slice, constitutional veto, Reach arc
+
+## Commit `86eb2e5` — 2026-07-04T05:54:52Z
+- Type: `push`
+- Brief: [COMMIT-86eb2e5.md](../build_/COMMITS/COMMIT-86eb2e5.md)
+- Message: Phase 5: CFS-008 measurement on receipt spine + CFS-010 plan-to-record
