@@ -1790,6 +1790,24 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         color: 'emerald'
       }
     },
+    {
+      id: 'invariant-registry',
+      label: 'Invariant Registry',
+      slug: 'invariant-registry',
+      enabled: true,
+      group: 'registry',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'InvariantRegistryTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'Browse the live invariant substrate (CFS-001..014) — namespace, status, Standing, Reach, contexts, graph edges',
+        color: 'violet'
+      }
+    },
 
     // ── Governance group (Operation Chrysalis Phase 0) ────────
     {

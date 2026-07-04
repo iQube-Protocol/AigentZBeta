@@ -83,6 +83,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-04_invariant-registry-tab.md",
         "updates/2026-07-04_cfs-013-014-coherence-cartridge-tabs.md",
         "updates/2026-07-04_law-xiii-style-invariants-video-fix.md",
         "updates/2026-07-03_law-xii-experiments-phase-3b.md",
@@ -280,7 +281,7 @@
         "updates/2026-06-22_proof-of-outcome-claims-standing-edge.md",
         "updates/2026-06-22_delegation-grants-persistence.md",
         "updates/2026-06-22_venture-operating-model-layer.md",
-                "updates/2026-07-04_nextjs-15-upgrade-plan.md"
+        "updates/2026-07-04_nextjs-15-upgrade-plan.md"
       ]
     },
     {
