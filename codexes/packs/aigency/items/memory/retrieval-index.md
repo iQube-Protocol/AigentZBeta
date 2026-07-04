@@ -2659,3 +2659,8 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-a180ab5.md](../build_/COMMITS/COMMIT-a180ab5.md)
 - Message: move invariant registry to canonical home: iqube registry cartridge, sibling tab
+
+## Commit `ebd2caf` — 2026-07-04T04:02:47Z
+- Type: `fix`
+- Brief: [COMMIT-ebd2caf.md](../build_/COMMITS/COMMIT-ebd2caf.md)
+- Message: Fix static tabs shadowed by DB codex_tabs and ground runner on namespaces

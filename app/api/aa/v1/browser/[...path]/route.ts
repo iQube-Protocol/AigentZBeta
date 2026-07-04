@@ -403,7 +403,8 @@ async function handleSessionGet(
 
 async function handleRequest(request: NextRequest, context: RouteContext): Promise<Response> {
   const auth = resolveAuthScope(request);
-  const path = context.params.path ?? [];
+  const params = await context.params;
+  const path = params.path ?? [];
 
   try {
     if (request.method === "OPTIONS") {
@@ -457,16 +458,13 @@ async function handleRequest(request: NextRequest, context: RouteContext): Promi
 }
 
 export async function GET(request: NextRequest, context: RouteContext): Promise<Response> {
-  return handleRequest(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
-  context);
+  return handleRequest(request, context);
 }
 
 export async function POST(request: NextRequest, context: RouteContext): Promise<Response> {
-  return handleRequest(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
-  context);
+  return handleRequest(request, context);
 }
 
 export async function OPTIONS(request: NextRequest, context: RouteContext): Promise<Response> {
-  return handleRequest(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
-  context);
+  return handleRequest(request, context);
 }

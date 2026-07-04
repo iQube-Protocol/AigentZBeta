@@ -7,50 +7,52 @@ const EMBED_CSP = `frame-ancestors ${embedPolicy.frameAncestors.join(" ")};`;
 const nextConfig = {
   // Disable double-invocation and extra checks in dev to speed up refresh
   reactStrictMode: !isDev,
-  swcMinify: true,
+  // swcMinify removed in Next 15 (SWC minification is the default).
   // Keep standalone only for Amplify build environments to avoid local tracing edge-cases.
   output: isAmplifyBuild ? "standalone" : undefined,
   // Prevent playwright and other native/large packages from being bundled in server routes.
   // This reduces per-page memory pressure and avoids "Critical dependency" warnings.
   serverExternalPackages: ["playwright", "playwright-core", "pdf-parse", "@napi-rs/canvas", "ffmpeg-static"],
+  // Promoted from experimental in Next 15 — these entries carry the codex-pack
+  // markdown/JSON into the standalone Lambda bundle. A silent miss here breaks
+  // /api/codex/chat pack search and the docs tab at runtime, so it MUST stay at
+  // the top level (Next 15 ignores experimental.outputFileTracingIncludes).
+  outputFileTracingIncludes: {
+    "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
+    // Stage 8+ docs tab — markdown reader serves the legibility profile
+    // (docs/) + the PRD trail (codexes/packs/agentiq/updates/). Without
+    // these the Lambda bundle ships without the .md files and the route
+    // returns HTTP 500 read_failed.
+    "/api/admin/registry/docs": [
+      "./docs/iqube-agent-legibility-profile.md",
+      "./docs/iqube-score-derivation.md",
+      "./codexes/packs/agentiq/updates/**/*.md",
+    ],
+    // Copilot chat routes read the aigency + agentiq packs at runtime via
+    // services/knowledge/agentiqPackSearch (aigent-z platform knowledge and
+    // the AgentiQ cartridge copilot). Without these entries the Lambda
+    // bundle ships without the pack files and searchCodex returns nothing —
+    // the copilot then answers "[NOT DOCUMENTED]" for documented topics.
+    // Scoped to aigency + agentiq only — the wildcard ./codexes/packs/**
+    // follows the alpha-knyt symlink and collides with the bundler's
+    // directory-vs-non-directory check on Amplify.
+    "/api/codex/chat": [
+      "./codexes/packs/aigency/**/*.md",
+      "./codexes/packs/aigency/**/*.json",
+      "./codexes/packs/agentiq/**/*.md",
+      "./codexes/packs/agentiq/**/*.json",
+    ],
+    "/api/codex/chat/aigentiq": [
+      "./codexes/packs/aigency/**/*.md",
+      "./codexes/packs/aigency/**/*.json",
+      "./codexes/packs/agentiq/**/*.md",
+      "./codexes/packs/agentiq/**/*.json",
+    ],
+  },
   experimental: {
     // Limit worker parallelism on Amplify to avoid ENOMEM when forking page-data workers.
     // The main build process consumes ~3 GB; each forked worker needs additional RAM.
     cpus: isAmplifyBuild ? 1 : undefined,
-    // Ensure codex pack files (markdown + JSON) are included in the standalone bundle
-    // so that /api/codex/packs/[packId]/file can read them at runtime on Lambda.
-    outputFileTracingIncludes: {
-      "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
-      // Stage 8+ docs tab — markdown reader serves the legibility profile
-      // (docs/) + the PRD trail (codexes/packs/agentiq/updates/). Without
-      // these the Lambda bundle ships without the .md files and the route
-      // returns HTTP 500 read_failed.
-      "/api/admin/registry/docs": [
-        "./docs/iqube-agent-legibility-profile.md",
-        "./docs/iqube-score-derivation.md",
-        "./codexes/packs/agentiq/updates/**/*.md",
-      ],
-      // Copilot chat routes read the aigency + agentiq packs at runtime via
-      // services/knowledge/agentiqPackSearch (aigent-z platform knowledge and
-      // the AgentiQ cartridge copilot). Without these entries the Lambda
-      // bundle ships without the pack files and searchCodex returns nothing —
-      // the copilot then answers "[NOT DOCUMENTED]" for documented topics.
-      // Scoped to aigency + agentiq only — the wildcard ./codexes/packs/**
-      // follows the alpha-knyt symlink and collides with the bundler's
-      // directory-vs-non-directory check on Amplify.
-      "/api/codex/chat": [
-        "./codexes/packs/aigency/**/*.md",
-        "./codexes/packs/aigency/**/*.json",
-        "./codexes/packs/agentiq/**/*.md",
-        "./codexes/packs/agentiq/**/*.json",
-      ],
-      "/api/codex/chat/aigentiq": [
-        "./codexes/packs/aigency/**/*.md",
-        "./codexes/packs/aigency/**/*.json",
-        "./codexes/packs/agentiq/**/*.md",
-        "./codexes/packs/agentiq/**/*.json",
-      ],
-    },
   },
   transpilePackages: [
     "@qriptoagentiq/core-client",
