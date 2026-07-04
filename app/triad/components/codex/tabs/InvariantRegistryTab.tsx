@@ -278,8 +278,8 @@ export function InvariantRegistryTab() {
                   </div>
                   <p className="text-sm text-slate-200 line-clamp-3">{inv.statement}</p>
                   <div className="mt-2 flex items-center gap-4">
-                    <Dots value={inv.standing / 10} kind="reliability" title="Standing" size="xs" />
-                    <Dots value={inv.reach / 10} kind="trust" title="Reach" size="xs" />
+                    <Dots value={inv.standing / 10} colorClass="text-emerald-400" title="Standing" size="xs" />
+                    <Dots value={inv.reach / 10} colorClass="text-cyan-400" title="Reach" size="xs" />
                   </div>
                 </button>
               ))}
@@ -319,10 +319,10 @@ export function InvariantRegistryTab() {
                         </span>
                       </td>
                       <td className="px-3 py-2">
-                        <Dots value={inv.standing / 10} kind="reliability" title="Standing" size="xs" />
+                        <Dots value={inv.standing / 10} colorClass="text-emerald-400" title="Standing" size="xs" />
                       </td>
                       <td className="px-3 py-2">
-                        <Dots value={inv.reach / 10} kind="trust" title="Reach" size="xs" />
+                        <Dots value={inv.reach / 10} colorClass="text-cyan-400" title="Reach" size="xs" />
                       </td>
                     </tr>
                   ))}
