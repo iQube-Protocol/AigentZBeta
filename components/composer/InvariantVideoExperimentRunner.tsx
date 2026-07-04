@@ -53,6 +53,29 @@ const SEGMENT_COUNT_OPTIONS = [2, 3, 4];
 
 // Namespaces usable as the SEMANTIC grounding (the principles each segment
 // dramatizes). style/narrative are handled by their own toggles below.
+
+// The Studio's integrated video skills (services/composer/studioSkillCatalog.ts).
+// Provider is inferred from the id by SkillVideoPlayer (contains 'venice' →
+// Venice; else OpenAI Sora).
+const VIDEO_SKILLS = [
+  { id: "venice_video_gen", label: "Venice Video (privacy · Badge A)" },
+  { id: "sora_video_gen_curated", label: "OpenAI Sora (curated · Badge A)" },
+  { id: "sora_video_gen_community", label: "Sora (community · Badge C)" },
+];
+
+// Venice model options — mirror the curated select in composerStore.ts, which
+// itself mirrors VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS in
+// app/api/skills/invoke/route.ts. Do not add models not registered there.
+// Empty = let the server pick by priority.
+const VENICE_VIDEO_MODELS = [
+  { value: "", label: "Auto (server priority)" },
+  { value: "ltx-2-19b-full-text-to-video", label: "LTX-2 19B" },
+  { value: "kling-2.6-pro-text-to-video", label: "Kling 2.6 Pro" },
+  { value: "kling-2.5-turbo-pro-text-to-video", label: "Kling 2.5 Turbo Pro" },
+  { value: "veo3.1-fast-text-to-video", label: "Veo 3.1 Fast" },
+  { value: "wan-2.6-text-to-video", label: "Wan 2.6" },
+  { value: "wan-2.5-preview-text-to-video", label: "Wan 2.5 (preview)" },
+];
 const SEMANTIC_NAMESPACES = [
   "constitutional",
   "reasoning",
@@ -80,6 +103,7 @@ export default function InvariantVideoExperimentRunner() {
   const [productionTitle, setProductionTitle] = useState<string>("");
   const [useLlm, setUseLlm] = useState<boolean>(true);
   const [skillId, setSkillId] = useState<string>("venice_video_gen");
+  const [veniceModel, setVeniceModel] = useState<string>("");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
   const [visualStyle, setVisualStyle] = useState<string>("cinematic");
 
@@ -279,14 +303,32 @@ export default function InvariantVideoExperimentRunner() {
             </div>
           ))}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <label className="text-sm text-slate-300">
-              Skill
-              <input
+              Video skill / provider
+              <select
                 className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
                 value={skillId}
                 onChange={(e) => setSkillId(e.target.value)}
-              />
+              >
+                {VIDEO_SKILLS.map((s) => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className={`text-sm ${skillId.includes("venice") ? "text-slate-300" : "text-slate-600"}`}>
+              Venice model
+              <select
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 disabled:opacity-50"
+                value={veniceModel}
+                onChange={(e) => setVeniceModel(e.target.value)}
+                disabled={!skillId.includes("venice")}
+                title={skillId.includes("venice") ? undefined : "Applies to the Venice skill only"}
+              >
+                {VENICE_VIDEO_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
             </label>
             <label className="text-sm text-slate-300">
               Aspect ratio
@@ -310,15 +352,20 @@ export default function InvariantVideoExperimentRunner() {
             <p className="text-xs text-slate-500 mb-2">
               This mounts the real video skill player, seeded with the {brief.segments.length} distinct
               segment prompts above. Use its own "Generate Video" button below to run the live
-              generation + stitch pipeline.
+              generation + stitch pipeline. Cross-model runs are separate experiment instances —
+              record the skill/model alongside each result, never as comparable rows.
             </p>
+            {/* Keyed remount so switching skill/model between runs resets the
+                player's job state instead of mixing providers mid-flight. */}
             <SkillVideoPlayer
+              key={`${skillId}:${veniceModel}`}
               skill_id={skillId}
               prompt={brief.segments[0]?.prompt ?? ""}
               duration={brief.segments.length * 12}
               aspect_ratio={aspectRatio}
               style={visualStyle}
               segment_prompts={brief.segments.map((s) => s.prompt)}
+              venice_model={skillId.includes("venice") && veniceModel ? veniceModel : undefined}
             />
           </div>
         </div>
