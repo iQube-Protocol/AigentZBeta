@@ -2649,3 +2649,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-569205f.md](../build_/COMMITS/COMMIT-569205f.md)
 - Message: add single-invariant detail api route for the registry browser
+
+## Commit `802b690` — 2026-07-04T03:11:24Z
+- Type: `feat`
+- Brief: [COMMIT-802b690.md](../build_/COMMITS/COMMIT-802b690.md)
+- Message: add invariant registry browsing tab: list, filter, standing/reach, detail view
