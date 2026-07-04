@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T20:35:39.169Z",
+  "last_updated": "2026-07-04T20:39:07.382Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5152d1f52a0757679eccbe6d3ae7060a42c8dde1",
-  "latest_commit_short": "5152d1f",
-  "latest_commit_title": "Add Experiment Lab: run EXP-001/002/003 from the front end + cartridge tab",
+  "latest_commit": "fba56dc87ce552d9c4b78f289a31778010527abb",
+  "latest_commit_short": "fba56dc",
+  "latest_commit_title": "Add model dropdowns to EXP-001/003 lab runners (allowlisted per provider)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fba56dc",
+      "full_sha": "fba56dc87ce552d9c4b78f289a31778010527abb",
+      "title": "Add model dropdowns to EXP-001/003 lab runners (allowlisted per provider)",
+      "author": "Claude",
+      "timestamp": "2026-07-04T20:37:24Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-fba56dc.md"
+    },
     {
       "sha": "5152d1f",
       "full_sha": "5152d1f52a0757679eccbe6d3ae7060a42c8dde1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T23:10:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-dafd44c.md"
-    },
-    {
-      "sha": "5406314",
-      "full_sha": "54063144f36a193f745f937fe672a40d62a1728c",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-06-13T21:19:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5406314.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

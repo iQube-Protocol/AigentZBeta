@@ -2784,3 +2784,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5152d1f.md](../build_/COMMITS/COMMIT-5152d1f.md)
 - Message: Add Experiment Lab: run EXP-001/002/003 from the front end + cartridge tab
+
+## Commit `fba56dc` — 2026-07-04T20:37:24Z
+- Type: `feat`
+- Brief: [COMMIT-fba56dc.md](../build_/COMMITS/COMMIT-fba56dc.md)
+- Message: Add model dropdowns to EXP-001/003 lab runners (allowlisted per provider)
