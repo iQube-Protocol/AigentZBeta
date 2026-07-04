@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`3fdab36`](https://github.com/iQube-Protocol/AigentZBeta/commit/3fdab366b9604b092cfc879ff4523bd6781c8b27) [fix] Fix terminal-beat drop in narrative mapping (caught by Coherence Engine) (Claude, 2026-07-04T08:55:58Z)
 - [`d9b6560`](https://github.com/iQube-Protocol/AigentZBeta/commit/d9b6560024f49a1b96181ec3302450c61e5f2233) [push] Ratify constitutional-restraint metric + series framing into CFS-008/008a (Claude, 2026-07-04T08:45:49Z)
 - [`b1039a9`](https://github.com/iQube-Protocol/AigentZBeta/commit/b1039a9b1536afb4dcf0c7998c25a8d74e1d513c) [feat] Adjudicate EXP-001 run 1 (confirmed) + add consequence evolution route (Claude, 2026-07-04T08:40:07Z)
 - [`e01bed9`](https://github.com/iQube-Protocol/AigentZBeta/commit/e01bed96fe3a748848cd1b1f1b799bc36832c0d2) [feat] add EXP-001 run-1 evaluation results json (venice/llama-3.3-70b judge) (Kn0w-1, 2026-07-04T04:26:09-04:00)

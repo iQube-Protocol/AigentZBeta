@@ -2744,3 +2744,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d9b6560.md](../build_/COMMITS/COMMIT-d9b6560.md)
 - Message: Ratify constitutional-restraint metric + series framing into CFS-008/008a
+
+## Commit `3fdab36` — 2026-07-04T08:55:58Z
+- Type: `fix`
+- Brief: [COMMIT-3fdab36.md](../build_/COMMITS/COMMIT-3fdab36.md)
+- Message: Fix terminal-beat drop in narrative mapping (caught by Coherence Engine)
