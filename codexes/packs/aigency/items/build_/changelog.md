@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`128b9c1`](https://github.com/iQube-Protocol/AigentZBeta/commit/128b9c1ddf3204b0770407e850fbf72ac456a9db) [push] ratify cfs-013 composition laws + cfs-014/law xiv constitutional coherence engine (Claude, 2026-07-04T02:11:37Z)
+- [`98507b9`](https://github.com/iQube-Protocol/AigentZBeta/commit/98507b96a04426d1d40e79c7249ab188f3490ecf) [push] surface chrysalis work in cartridges: foundation/experiments tabs (agentiq) + invariant intelligence tab (polity core) (Claude, 2026-07-04T02:11:49Z)
 - [`4f5ded4`](https://github.com/iQube-Protocol/AigentZBeta/commit/4f5ded4e1518e49b7f9126c2396b7f3a410b347b) [fix] fix video stitch pipeline: distinct per-segment prompts + 4-segment hierarchical stitching (Claude, 2026-07-04T01:23:11Z)
 - [`43d0aa6`](https://github.com/iQube-Protocol/AigentZBeta/commit/43d0aa64d5d48c10db763a0970625c43f6da65f0) [push] ratify law xiii: individualization (the constitutional subject model) (Claude, 2026-07-04T01:23:20Z)
 - [`8c77033`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c7703310e6e3cc0b999b82e8baf751c1fd1b109) [feat] add style + narrative invariant classes (CFS-011/012): brief generator, api, studio runner (Claude, 2026-07-04T01:23:36Z)
