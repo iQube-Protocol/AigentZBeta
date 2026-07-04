@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T06:38:25.810Z",
+  "last_updated": "2026-07-04T07:06:54.807Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0b24d33e0c2051f413cf1dffbd89d7ce5412910f",
-  "latest_commit_short": "0b24d33",
-  "latest_commit_title": "Add provider fallback to EXP-003 benchmark (openai/venice via --provider)",
+  "latest_commit": "c68ef28a4f7e756828dfd88599dc4af0328e35a2",
+  "latest_commit_short": "c68ef28",
+  "latest_commit_title": "Record EXP-003 run 1 results: hypothesis confirmed on all four measures",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c68ef28",
+      "full_sha": "c68ef28a4f7e756828dfd88599dc4af0328e35a2",
+      "title": "Record EXP-003 run 1 results: hypothesis confirmed on all four measures",
+      "author": "Claude",
+      "timestamp": "2026-07-04T07:05:03Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c68ef28.md"
+    },
     {
       "sha": "0b24d33",
       "full_sha": "0b24d33e0c2051f413cf1dffbd89d7ce5412910f",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T16:47:32Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-69905ac.md"
-    },
-    {
-      "sha": "25260eb",
-      "full_sha": "25260ebb5ed51e788c9529fa711b4f71e4748cc1",
-      "title": "sprint 2 — world id strong verification for citizen passports",
-      "author": "Claude",
-      "timestamp": "2026-06-13T16:39:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-25260eb.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

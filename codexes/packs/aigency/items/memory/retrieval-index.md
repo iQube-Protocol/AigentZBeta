@@ -2704,3 +2704,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-0b24d33.md](../build_/COMMITS/COMMIT-0b24d33.md)
 - Message: Add provider fallback to EXP-003 benchmark (openai/venice via --provider)
+
+## Commit `c68ef28` — 2026-07-04T07:05:03Z
+- Type: `push`
+- Brief: [COMMIT-c68ef28.md](../build_/COMMITS/COMMIT-c68ef28.md)
+- Message: Record EXP-003 run 1 results: hypothesis confirmed on all four measures
