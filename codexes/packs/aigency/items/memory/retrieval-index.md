@@ -2769,3 +2769,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-30c0148.md](../build_/COMMITS/COMMIT-30c0148.md)
 - Message: Render invariant Standing/Reach dots in positive hues, not the R/T ramp
+
+## Commit `df9a9ef` — 2026-07-04T19:37:27Z
+- Type: `feat`
+- Brief: [COMMIT-df9a9ef.md](../build_/COMMITS/COMMIT-df9a9ef.md)
+- Message: Add video skill + Venice model selectors to invariant video runner
