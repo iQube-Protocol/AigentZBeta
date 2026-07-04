@@ -131,6 +131,17 @@ Individualization's continuity must be maintained without requiring re-identific
 ### Implementation consequence
 `creator_persona_id` / `curator_persona_id` (T0) on the invariant substrate, and `persona_id` across the platform generally, are the current engineering approximation of individualization: continuity maintained server-side, pending the ZK continuity layer that removes even that reversibility. No code introduced under this law may treat T0 server-visibility as constitutionally required — it is scaffolding. Standing computations (Law XII) already depend only on validation signals attached to a continuous subject reference, never on that subject's identity — this law names why that separation was correct.
 
+*(Amendment note, 2026-07-04: the Constitutional Subject Model diagram above is the canonical constitutional ordering — it strengthens and supersedes the shorthand "personhood precedes identity" as the ordering statement. Identity is one possible manifestation of an individual; Standing is another; the two branches never collapse into one another. That non-collapse is what makes anonymous constitutional participation possible.)*
+
+## Law XIV — Constitutional Coherence
+*(Amendment, ratified by operator direction 2026-07-04. Full executable specification: CFS-014.)*
+
+**Every constitutional experience shall be rendered as a coherent composition of multiple invariant classes operating simultaneously within a shared constitutional context.**
+
+Ontology defines meaning. Graph defines relationships. Composition Laws (CFS-013) define local computation. **Constitutional Coherence ensures they collectively express a single constitutional reality.**
+
+Individual invariant classes may compose correctly in isolation while failing collectively — the failure living in no invariant but in the interaction between them. Coherence is therefore evaluated over the complete experience as a field, never as a sum of independently validated layers. No renderer executes until Constitutional Coherence succeeds (fail-closed; operator waiver per Law XI). Knowledge composes locally; experiences succeed globally through coherence.
+
 ---
 
 ## The canonical paragraph

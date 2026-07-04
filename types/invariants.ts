@@ -33,6 +33,32 @@ export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
   'narrative',
 ];
 
+/**
+ * CFS-013 — Invariant Composition Laws. Every invariant class defines not
+ * only a semantic domain but a lawful method by which its members compose.
+ * The Record is exhaustive over InvariantNamespace, so a new class cannot
+ * be added without declaring its algebra (CFS-013 §3, enforced at compile
+ * time). Future invariant classes shall define their composition law
+ * before entering canonical status.
+ */
+export type CompositionLaw =
+  | 'distributive'  // members distribute across units; each unit foregrounds a subset
+  | 'sequential'    // members carry fixed order; proportional monotonic mapping
+  | 'global'        // members apply identically to every unit
+  | 'contextual'    // members resolve per-context at render time
+  | 'causal'        // members compose by dependency-graph traversal
+  | 'normative';    // members bind every act simultaneously (law-like)
+
+export const COMPOSITION_LAWS: Record<InvariantNamespace, CompositionLaw> = {
+  constitutional: 'distributive',
+  reasoning: 'causal',
+  engineering: 'normative',
+  experience: 'contextual',
+  capability: 'distributive',
+  style: 'global',
+  narrative: 'sequential',
+};
+
 export type InvariantStatus =
   | 'draft'
   | 'proposed'

@@ -104,6 +104,13 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 66. *(constitutional · principle)* Identity is a branch of individualization, not its gate; it yields reputation, not standing.
 67. *(constitutional · principle)* Individualization's continuity shall be maintained without requiring re-identification by any party, including the server — a target which current server-internal (T0) implementations approximate but do not define the limit of.
 
+## Additions — CFS-013 (Composition Laws) + CFS-014 / Law XIV (Constitutional Coherence)
+
+68. *(engineering · law)* Every invariant class shall define its composition law before entering canonical status.
+69. *(engineering · principle)* The runtime is closed; the ontology is open — new capability enters by ratifying a new invariant class, not by rewriting the engine.
+70. *(experience · principle)* Every experience is the coherent composition of multiple invariant classes operating simultaneously within a shared constitutional context.
+71. *(reasoning · principle)* Knowledge composes locally; experiences succeed globally through coherence.
+
 ---
 
 ## Maintenance

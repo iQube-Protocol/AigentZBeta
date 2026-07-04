@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { validateVideoBriefCoherence } from '@/services/coherence';
 import { buildVideoInvariantBrief, type GroundingRef } from '@/services/video/invariantVideoBrief';
 
 export const dynamic = 'force-dynamic';
@@ -60,7 +61,11 @@ export async function POST(request: NextRequest) {
       productionTitle: body.productionTitle,
       useLlm: body.useLlm,
     });
-    return NextResponse.json({ ok: true, brief });
+    // CFS-014 §7 — the Coherence Engine sits between Composition and
+    // Rendering: the brief ships with its CoherenceResult so the renderer
+    // (and the operator) see pass/violations before any generation runs.
+    const coherence = validateVideoBriefCoherence(brief);
+    return NextResponse.json({ ok: true, brief, coherence });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'brief_failed';
     console.error('[api/video/invariant-brief] failed', error);

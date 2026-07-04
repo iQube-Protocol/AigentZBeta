@@ -42,6 +42,14 @@ interface BriefView {
   segments: SegmentBriefView[];
 }
 
+interface CoherenceView {
+  constitutionalScore: number | null;
+  pass: boolean;
+  violations: { dimension: string; severity: string; message: string; segmentIndex?: number }[];
+  recommendations: { dimension: string; message: string }[];
+  dimensions: Record<string, { score: number | null; evaluated: boolean }>;
+}
+
 const SEGMENT_COUNT_OPTIONS = [2, 3, 4];
 
 export default function InvariantVideoExperimentRunner() {
@@ -60,6 +68,7 @@ export default function InvariantVideoExperimentRunner() {
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefError, setBriefError] = useState<string | null>(null);
   const [brief, setBrief] = useState<BriefView | null>(null);
+  const [coherence, setCoherence] = useState<CoherenceView | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +97,7 @@ export default function InvariantVideoExperimentRunner() {
     setBriefLoading(true);
     setBriefError(null);
     setBrief(null);
+    setCoherence(null);
     try {
       const groundings = [
         ...(styleCollectionId ? [{ collectionId: styleCollectionId, role: "style" }] : []),
@@ -107,6 +117,7 @@ export default function InvariantVideoExperimentRunner() {
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to generate brief");
       setBrief(data.brief as BriefView);
+      setCoherence((data.coherence as CoherenceView) ?? null);
     } catch (err) {
       setBriefError(err instanceof Error ? err.message : "Failed to generate brief");
     } finally {
@@ -230,6 +241,40 @@ export default function InvariantVideoExperimentRunner() {
             <h3 className="text-sm font-semibold text-slate-200">Continuity block</h3>
             <pre className="mt-1 whitespace-pre-wrap text-xs text-slate-400">{brief.continuityBlock}</pre>
           </div>
+
+          {coherence && (
+            <div
+              className={`rounded-lg border p-3 ${
+                coherence.pass ? "border-emerald-800 bg-emerald-950/30" : "border-rose-800 bg-rose-950/30"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-200">
+                  Constitutional Coherence {coherence.pass ? "— PASS" : "— FAIL (rendering gated, CFS-014)"}
+                </span>
+                <span className="text-sm text-slate-300">
+                  CCS: {coherence.constitutionalScore ?? "—"}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-400">
+                {Object.entries(coherence.dimensions).map(([dim, d]) => (
+                  <span key={dim}>
+                    {dim}: {d.evaluated ? d.score : "unevaluated"}
+                  </span>
+                ))}
+              </div>
+              {coherence.violations.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs">
+                  {coherence.violations.map((v, i) => (
+                    <li key={i} className={v.severity === "error" ? "text-rose-300" : "text-amber-300"}>
+                      [{v.severity}/{v.dimension}
+                      {typeof v.segmentIndex === "number" ? ` · seg ${v.segmentIndex + 1}` : ""}] {v.message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {brief.segments.map((segment) => (
             <div key={segment.index} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
               <div className="flex items-center justify-between text-xs text-slate-500">

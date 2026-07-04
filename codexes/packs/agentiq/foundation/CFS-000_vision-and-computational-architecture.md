@@ -85,10 +85,22 @@ Invariant Intelligence is founded upon these constitutional primitives:
 2. **Invariant Context** — the domains in which an invariant applies; the invariant doesn't change, its context does (CFS-001 §4)
 3. **Invariant Ontology** — the semantic classification system (CFS-002)
 4. **Invariant Graph** — the relational structure over invariants (CFS-003)
-5. **iQube** — the publication/encapsulation primitive (CFS-004)
-6. **Registry** — constitutional memory (CFS-005)
+5. **Invariant Composition Laws** — the algebra by which each invariant class composes (CFS-013)
+6. **iQube** — the publication/encapsulation primitive (CFS-004)
+7. **Registry** — constitutional memory (CFS-005)
 
 And one foundational service: the **Invariant Service** (CFS-003a) — the runtime authority over the ontology and graph. Everything else consumes it.
+
+*(Amendment, 2026-07-04.)* The complete computational model requires the trilogy plus its field:
+
+```
+Invariant Ontology            defines what exists          (meaning)
+Invariant Graph               defines relationships        (topology)
+Invariant Composition Laws    define behaviour             (computation)
+Constitutional Coherence      ensures collective expression (the field — CFS-014)
+```
+
+Ontology without composition is taxonomy; graph without composition is topology; composition is what makes the system executable; coherence is what makes the execution *one experience*. The Registry is the constitutional memory of these; every renderer, agent, workflow, or experience is a lawful execution of the same invariant substrate.
 
 ## 7. Terminology bridge — spec vocabulary ↔ existing platform vocabulary
 

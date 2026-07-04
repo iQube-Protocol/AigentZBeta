@@ -1112,6 +1112,62 @@
       "provenance": {
         "source": "CFS-012 §5, beat 5/5"
       }
+    },
+    {
+      "id": "inv.engineering.068",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Every invariant class shall define its composition law before entering canonical status.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "ontology"
+      ],
+      "provenance": {
+        "source": "CFS-013 §3 — Invariant Composition Laws"
+      }
+    },
+    {
+      "id": "inv.engineering.069",
+      "namespace": "engineering",
+      "semantic_type": "principle",
+      "statement": "The runtime is closed; the ontology is open — new capability enters by ratifying a new invariant class, not by rewriting the engine.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "ontology"
+      ],
+      "provenance": {
+        "source": "CFS-013 §3 — the Open/Closed Principle applied constitutionally"
+      }
+    },
+    {
+      "id": "inv.experience.070",
+      "namespace": "experience",
+      "semantic_type": "principle",
+      "statement": "Every experience is the coherent composition of multiple invariant classes operating simultaneously within a shared constitutional context.",
+      "status": "proposed",
+      "contexts": [
+        "experience",
+        "rendering"
+      ],
+      "provenance": {
+        "source": "CFS-014 / Law XIV — Constitutional Coherence"
+      }
+    },
+    {
+      "id": "inv.reasoning.071",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Knowledge composes locally; experiences succeed globally through coherence.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "rendering"
+      ],
+      "provenance": {
+        "source": "CFS-014 — the coherence field"
+      }
     }
   ]
 }
