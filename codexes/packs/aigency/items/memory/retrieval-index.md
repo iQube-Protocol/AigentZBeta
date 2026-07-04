@@ -2719,3 +2719,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-dffa601.md](../build_/COMMITS/COMMIT-dffa601.md)
 - Message: Draft CFS-008a reasoning-compression paper + amend CFS-008 with evidence
+
+## Commit `d1289ff` — 2026-07-04T07:35:58Z
+- Type: `feat`
+- Brief: [COMMIT-d1289ff.md](../build_/COMMITS/COMMIT-d1289ff.md)
+- Message: Add EXP-001 independent-judge evaluation harness
