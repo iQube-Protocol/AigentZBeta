@@ -48,7 +48,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
  */
 async function buildSpecialistInvariantSlice(
   domains: string[],
-): Promise<SpecialistContext['invariantSlice']> {
+): Promise<{ packetSlice: SpecialistContext['invariantSlice']; invariantIds: string[] }> {
   try {
     const scoped = domains.length
       ? await buildInvariantSlice({ domains, limit: 8 })
@@ -56,14 +56,20 @@ async function buildSpecialistInvariantSlice(
     const slice = scoped && scoped.items.length > 0
       ? scoped
       : await buildInvariantSlice({ limit: 8 });
-    return slice.items.map((i) => ({
-      seedId: i.seedId,
-      statement: i.statement,
-      namespace: i.namespace,
-    }));
+    return {
+      // Packet slice cites by seedId (UUIDs are stripped by the router's
+      // redaction net); the raw ids stay server-side for the receipt's
+      // CFS-008 invariantsUsed instrumentation.
+      packetSlice: slice.items.map((i) => ({
+        seedId: i.seedId,
+        statement: i.statement,
+        namespace: i.namespace,
+      })),
+      invariantIds: slice.citedIds,
+    };
   } catch (err) {
     console.error('[ask-agent] invariant slice build failed (non-fatal)', err);
-    return undefined;
+    return { packetSlice: undefined, invariantIds: [] };
   }
 }
 
@@ -287,7 +293,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       activeCartridge,
       ...(qube?.meta.activeCartridges ?? []),
     ].filter((d, i, a): d is string => Boolean(d) && a.indexOf(d) === i);
-    const invariantSlice = await buildSpecialistInvariantSlice(groundingDomains);
+    const { packetSlice: invariantSlice, invariantIds: groundingInvariantIds } =
+      await buildSpecialistInvariantSlice(groundingDomains);
 
     const specialistContext: SpecialistContext = {
       activeCartridge,
@@ -320,6 +327,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       agentsInvoked: ['aigent-me', resolvedSpecialistId],
       toolsUsed: [response.source === 'llm' ? 'openai' : 'template'],
       iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+      // CFS-008 §2 — the invariants this consultation was grounded in.
+      // Receipt-side instrumentation only: a consult is advisory, so this
+      // does NOT bump usage/Reach (that's reserved for executions).
+      invariantsUsed: groundingInvariantIds,
       contextShared: handoffFrom
         ? ['intent-summary', 'experience-meta-slice', 'specialist-handoff']
         : ['intent-summary', 'experience-meta-slice'],

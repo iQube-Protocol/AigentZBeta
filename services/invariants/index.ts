@@ -90,3 +90,10 @@ export {
   type InvariantSlice,
   type InvariantSliceItem,
 } from './grounding';
+
+export {
+  computeMeasurementRollup,
+  type MeasurementRollup,
+  type NamespaceMeasurement,
+  type TopReusedInvariant,
+} from './measurement';
