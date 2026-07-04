@@ -2764,3 +2764,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e706e47.md](../build_/COMMITS/COMMIT-e706e47.md)
 - Message: Record the day: validation series runs 1-2 confirmed + Law XV + principle
+
+## Commit `30c0148` — 2026-07-04T09:36:42Z
+- Type: `push`
+- Brief: [COMMIT-30c0148.md](../build_/COMMITS/COMMIT-30c0148.md)
+- Message: Render invariant Standing/Reach dots in positive hues, not the R/T ramp

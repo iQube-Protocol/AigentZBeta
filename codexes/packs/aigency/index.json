@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T09:34:39.969Z",
+  "last_updated": "2026-07-04T09:38:22.651Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e706e47dc601d6fe549b86d94c24074da6a5c93d",
-  "latest_commit_short": "e706e47",
-  "latest_commit_title": "Record the day: validation series runs 1-2 confirmed + Law XV + principle",
+  "latest_commit": "30c0148b9f9154bc76add549cd2d50ec45949f91",
+  "latest_commit_short": "30c0148",
+  "latest_commit_title": "Render invariant Standing/Reach dots in positive hues, not the R/T ramp",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "30c0148",
+      "full_sha": "30c0148b9f9154bc76add549cd2d50ec45949f91",
+      "title": "Render invariant Standing/Reach dots in positive hues, not the R/T ramp",
+      "author": "Claude",
+      "timestamp": "2026-07-04T09:36:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-30c0148.md"
+    },
     {
       "sha": "e706e47",
       "full_sha": "e706e47dc601d6fe549b86d94c24074da6a5c93d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T20:48:41Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-99334b6.md"
-    },
-    {
-      "sha": "914c081",
-      "full_sha": "914c08124f7996047bf0900c2e339a29742bec72",
-      "title": "polish step strip to rounded-rect boxes + surface world id upgrade on registry",
-      "author": "Claude",
-      "timestamp": "2026-06-13T20:35:04Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-914c081.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
