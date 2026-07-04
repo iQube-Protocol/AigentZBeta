@@ -57,6 +57,7 @@ export async function runConsequencePipeline(
     stage: StageReceiptRef['stage'],
     actionType: Parameters<typeof createActivityReceipt>[0]['actionType'],
     summary: string,
+    invariantsUsed: string[] = [],
   ) => {
     if (!input.actor) {
       stageReceipts.push({ stage, receiptId: null, summary });
@@ -68,6 +69,9 @@ export async function runConsequencePipeline(
       actionType,
       summary,
       activeCartridge: 'agentiq',
+      // CFS-008 §2 — the reuse-count instrumentation: every grounded stage
+      // receipt names the invariants it was grounded in.
+      invariantsUsed,
     }).catch((err) => {
       console.error(`[consequence] ${stage} receipt failed`, err);
       return null;
@@ -85,6 +89,7 @@ export async function runConsequencePipeline(
     'knowledge_curation',
     'knowledge_curated',
     `Curated ${knowledge.invariantIds.length} invariant(s) (+${knowledge.closureIds.length} closure) for intent ${input.intentRef}${knowledge.coherent ? '' : ' — INCOHERENT'}`,
+    knowledge.invariantIds,
   );
 
   // ── Knowledge Compression ───────────────────────────────────────────
@@ -124,6 +129,7 @@ export async function runConsequencePipeline(
     'consequence_forecasting',
     'consequence_forecast_recorded',
     forecast.rationale,
+    compressedInvariantIds,
   );
 
   // ── Planning (disposition) ──────────────────────────────────────────
@@ -215,6 +221,9 @@ export async function executeApproved(
       summary: `Knowledge evolution: ${evolved.length} invariant(s) ${outcome} by observed consequence of intent ${run.intentRef}`,
       activeCartridge: 'agentiq',
       iqubesUsed: run.capabilityQubeId ? [run.capabilityQubeId] : [],
+      // CFS-008 §2 — the executed plan's grounding set, queryable from the
+      // receipt spine (reuse count = receipts whose invariants_used ∋ id).
+      invariantsUsed: run.compressedInvariantIds,
     }).catch((err) => console.error('[consequence] evolution receipt failed', err));
   }
 

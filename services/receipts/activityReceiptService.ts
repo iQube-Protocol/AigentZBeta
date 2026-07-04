@@ -114,6 +114,11 @@ export interface ActivityReceiptRecord {
   agentsInvoked: string[];
   toolsUsed: string[];
   iqubesUsed: string[];
+  /**
+   * Invariant ids this receipted act was grounded in (CFS-008 §2 reuse-count
+   * instrumentation, Chrysalis Phase 5). Empty for ungrounded acts.
+   */
+  invariantsUsed: string[];
   contextShared: string[];
   artifactsCreated: string[];
   approvalsGranted: string[];
@@ -144,6 +149,7 @@ interface DbRow {
   agents_invoked: string[];
   tools_used: string[];
   iqubes_used: string[];
+  invariants_used: string[];
   context_shared: string[];
   artifacts_created: string[];
   approvals_granted: string[];
@@ -168,6 +174,7 @@ function rowToRecord(row: Partial<DbRow> & { id: string; created_at: string }): 
     agentsInvoked: row.agents_invoked ?? [],
     toolsUsed: row.tools_used ?? [],
     iqubesUsed: row.iqubes_used ?? [],
+    invariantsUsed: row.invariants_used ?? [],
     contextShared: row.context_shared ?? [],
     artifactsCreated: row.artifacts_created ?? [],
     approvalsGranted: row.approvals_granted ?? [],
@@ -202,6 +209,8 @@ export interface CreateActivityReceiptInput {
   agentsInvoked?: string[];
   toolsUsed?: string[];
   iqubesUsed?: string[];
+  /** CFS-008 §2 — invariant ids this act was grounded in (reuse-count instrumentation). */
+  invariantsUsed?: string[];
   contextShared?: string[];
   artifactsCreated?: string[];
   approvalsGranted?: string[];
@@ -261,6 +270,9 @@ export async function createActivityReceipt(
   if (input.actionConnectorId !== undefined) optionalRow.action_connector_id = input.actionConnectorId;
   if (input.actionConnectorLabel !== undefined) optionalRow.action_connector_label = input.actionConnectorLabel;
   if (input.actionInput !== undefined) optionalRow.action_input = input.actionInput;
+  if (input.invariantsUsed !== undefined && input.invariantsUsed.length > 0) {
+    optionalRow.invariants_used = input.invariantsUsed;
+  }
 
   async function insertWith(row: Record<string, unknown>) {
     return admin.from('activity_receipts').insert(row).select('*').single();
@@ -271,7 +283,8 @@ export async function createActivityReceipt(
   if (error && isMissingColumn(error) && Object.keys(optionalRow).length > 0) {
     console.warn(
       '[ActivityReceipts] optional column missing — retrying without it. ' +
-        'Apply supabase/migrations/20260606120000_activity_receipts_connector_fields.sql to enable dispatch persistence.',
+        'Apply supabase/migrations/20260606120000_activity_receipts_connector_fields.sql (dispatch persistence) ' +
+        'and/or 20260704100000_activity_receipts_invariants_used.sql (CFS-008 measurement).',
     );
     ({ data, error } = await insertWith(baseRow));
   }

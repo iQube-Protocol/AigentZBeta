@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T05:46:09.987Z",
+  "last_updated": "2026-07-04T05:56:24.808Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e8372a57294201f3a576c53398d53ebf12cc5baf",
-  "latest_commit_short": "e8372a5",
-  "latest_commit_title": "Phase 4 runtime adoption: grounding slice, constitutional veto, Reach arc",
+  "latest_commit": "86eb2e51c1ee6bb8c2d72a48e0cf6a203b934f56",
+  "latest_commit_short": "86eb2e5",
+  "latest_commit_title": "Phase 5: CFS-008 measurement on receipt spine + CFS-010 plan-to-record",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "86eb2e5",
+      "full_sha": "86eb2e51c1ee6bb8c2d72a48e0cf6a203b934f56",
+      "title": "Phase 5: CFS-008 measurement on receipt spine + CFS-010 plan-to-record",
+      "author": "Claude",
+      "timestamp": "2026-07-04T05:54:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-86eb2e5.md"
+    },
     {
       "sha": "e8372a5",
       "full_sha": "e8372a57294201f3a576c53398d53ebf12cc5baf",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T07:01:32Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-71ca12a.md"
-    },
-    {
-      "sha": "d9014b6",
-      "full_sha": "d9014b6c7ee6993b6baf646b85459e6efeb4efd8",
-      "title": "fix Amplify build: scope outputFileTracingIncludes to aigency + agentiq packs only — wildcard glob follows alpha-knyt symlink causing directory collision",
-      "author": "Claude",
-      "timestamp": "2026-06-13T05:10:09Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d9014b6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
