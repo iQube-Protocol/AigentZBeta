@@ -198,20 +198,66 @@ async function callChat(system, user, maxTokens) {
   return data.choices?.[0]?.message?.content ?? '';
 }
 
+/**
+ * OSS-model JSON repair (observed llama-3.3-70b failures): unquoted [C-NNN]
+ * citation tokens, literal newlines/tabs inside strings, trailing commas.
+ * Walks strings character-wise so repairs never touch structural JSON.
+ */
+function repairJson(raw) {
+  let out = '';
+  let seg = ''; // current structural (non-string) run
+  let inStr = false;
+  let esc = false;
+  const flushSeg = () => {
+    // These repairs apply ONLY to structural runs — never inside strings
+    // (answers legitimately contain [C-NNN] markers in prose).
+    // Quote bare marker tokens inside arrays: [C-011, C-016] → ["C-011","C-016"]
+    seg = seg.replace(/([[,]\s*)(C-\d{3})(?=\s*[,\]])/g, '$1"$2"');
+    // Strip trailing commas before a closing bracket/brace.
+    seg = seg.replace(/,\s*([\]}])/g, '$1');
+    out += seg;
+    seg = '';
+  };
+  for (const ch of raw) {
+    if (inStr) {
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === '\\') { out += ch; esc = true; continue; }
+      if (ch === '"') { inStr = false; out += ch; continue; }
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') continue;
+      if (ch === '\t') { out += '\\t'; continue; }
+      out += ch;
+      continue;
+    }
+    if (ch === '"') { flushSeg(); inStr = true; out += ch; continue; }
+    seg += ch;
+  }
+  flushSeg();
+  return out;
+}
+
 function parseJson(text) {
   const fenced = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/);
   const raw = fenced ? fenced[1].trim() : text.trim();
   // Some OSS models prepend prose — recover the outermost JSON object.
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
-  return JSON.parse(start > -1 && end > start ? raw.slice(start, end + 1) : raw);
+  const sliced = start > -1 && end > start ? raw.slice(start, end + 1) : raw;
+  try {
+    return JSON.parse(sliced);
+  } catch {
+    return JSON.parse(repairJson(sliced));
+  }
 }
 
 const ANSWER_SYSTEM =
   'You are an exacting document analyst. Answer strictly from the provided document. ' +
   'If the document does not contain the answer, the answer field must be exactly "NOT DERIVABLE". ' +
-  'Cite the [C-NNN] markers supporting each answer in the citations array (empty when NOT DERIVABLE). ' +
-  'Respond with ONLY a JSON object: {"answers":[{"q":1,"answer":"...","citations":["C-011"]}, ...]} covering every question.';
+  'Support each answer with the invariant markers it relies on, listed in the citations array. ' +
+  'STRICT OUTPUT RULES: respond with ONLY one valid JSON object, shape ' +
+  '{"answers":[{"q":1,"answer":"...","citations":["C-011","C-016"]}, ...]} covering every question. ' +
+  'Every citation is a QUOTED string like "C-011" — never bare, never wrapped in square brackets. ' +
+  'Each answer value is ONE line of at most 60 words — no literal newlines inside strings, escape any double quotes.';
 
 async function answerPass(label, documentText) {
   const user = [
@@ -221,8 +267,21 @@ async function answerPass(label, documentText) {
     'QUESTIONS:',
     ...QUESTIONS.map((qq) => `${qq.q}. ${qq.text}`),
   ].join('\n');
-  const text = await callChat(ANSWER_SYSTEM, user, 2500);
-  const parsed = parseJson(text);
+  // OSS judges intermittently emit malformed JSON even when instructed —
+  // one retry with a harder reminder before giving up.
+  let parsed;
+  try {
+    parsed = parseJson(await callChat(ANSWER_SYSTEM, user, 2500));
+  } catch {
+    console.log(' (malformed JSON — retrying once)');
+    parsed = parseJson(
+      await callChat(
+        `${ANSWER_SYSTEM} Your previous attempt produced invalid JSON. Output MUST parse with JSON.parse — quoted citation strings, one-line answers, no trailing commas.`,
+        user,
+        2500,
+      ),
+    );
+  }
   const byQ = new Map((parsed.answers ?? []).map((a) => [Number(a.q), a]));
   return QUESTIONS.map((qq) => {
     const a = byQ.get(qq.q) ?? { answer: 'NO ANSWER RETURNED', citations: [] };
@@ -262,8 +321,22 @@ async function judgeQuestion(question, collection, answersByArtifact) {
     'DOCUMENT ANSWERS:',
     ...Object.entries(answersByArtifact).map(([docId, a]) => `--- ${docId} ---\n${a.answer}`),
   ].join('\n');
-  const text = await callChat(system, user, 500);
-  return parseJson(text);
+  return callJsonWithRetry(system, user, 500);
+}
+
+/** parseJson with one strict-reminder retry — OSS judges intermittently emit malformed JSON. */
+async function callJsonWithRetry(system, user, maxTokens) {
+  try {
+    return parseJson(await callChat(system, user, maxTokens));
+  } catch {
+    return parseJson(
+      await callChat(
+        `${system} Your previous attempt produced invalid JSON. Output MUST parse with JSON.parse — no trailing commas, no bare tokens, no literal newlines inside strings.`,
+        user,
+        maxTokens,
+      ),
+    );
+  }
 }
 
 async function judgeCoherence(label, answers) {
@@ -272,8 +345,7 @@ async function judgeCoherence(label, answers) {
     'another answer from the same document. Respond ONLY with JSON: {"coherence": 0|1|2, "notes": "one sentence"} ' +
     'where 2 = no contradictions, 1 = tension short of contradiction, 0 = at least one contradiction.';
   const user = answers.map((a) => `Q${a.q}: ${a.answer}`).join('\n');
-  const text = await callChat(system, user, 300);
-  return parseJson(text);
+  return callJsonWithRetry(system, user, 300);
 }
 
 function scoreExplainability(question, answerRow, judgedCorrect) {
