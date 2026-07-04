@@ -96,6 +96,14 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 61. *(constitutional · epistemic)* Standing expresses constitutional confidence in an invariant and shall never be interpreted as a measure of truth.
 62. *(constitutional · epistemic)* Reach measures adoption rather than validity; constitutional knowledge preserves the distinction between Truth, Standing, and Reach.
 
+## Additions — Law XIII amendment (Individualization)
+
+63. *(constitutional · principle)* Personhood precedes individualization. Individualization precedes standing. Identity is an optional derivative of individualization rather than a prerequisite for constitutional participation.
+64. *(constitutional · definition)* Individualization is the establishment of a constitutional subject capable of accruing Standing without that subject being identifiable.
+65. *(constitutional · principle)* Individualization is defined by continuity, not disclosure — a constitutional subject's persistence across time and interaction is what allows validated action to accumulate into Standing, independent of whether that subject is ever identified.
+66. *(constitutional · principle)* Identity is a branch of individualization, not its gate; it yields reputation, not standing.
+67. *(constitutional · principle)* Individualization's continuity shall be maintained without requiring re-identification by any party, including the server — a target which current server-internal (T0) implementations approximate but do not define the limit of.
+
 ---
 
 ## Maintenance

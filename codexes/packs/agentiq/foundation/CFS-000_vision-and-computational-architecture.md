@@ -70,7 +70,7 @@ Three interacting computational layers, plus the rendered surface:
 
 | Layer | Governs | Contents |
 |---|---|---|
-| **Constitutional Intelligence** | Legitimacy | Personhood, Standing, Identity, Delegation, Agency, Authority, Constitution |
+| **Constitutional Intelligence** | Legitimacy | Personhood, Individualization, Standing, Identity, Delegation, Agency, Authority, Constitution |
 | **Invariant Intelligence** | Understanding | Reasoning, Knowledge, Ontology, Graph, iQubes, Registry |
 | **Consequence Intelligence** | Action | Intent, Planning, Capability, Execution, Observation, Standing, Evolution |
 | **Adaptive Experience** | Rendering | Experience architecture rendered contextually per citizen |

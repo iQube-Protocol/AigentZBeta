@@ -67,6 +67,70 @@ Constitutional actors — humans, organizations, and agents — may contribute t
 ### Implementation consequence
 The substrate separates the dimensions structurally: Standing is computed only from validation-class signals (`times_validated`, `times_contradicted`); **Reach** is a distinct computed dimension over adoption-class signals (`times_referenced`, `times_used`). See `services/invariants/lifecycle.ts` (`computeStandingScore`, `computeReachScore`) and migration `20260703230000_law_xii_truth_standing_reach.sql`. Truth is never a stored number — it is what validation estimates, bounded by confidence and domain.
 
+## Law XIII — Individualization
+*(Amendment, ratified by operator direction 2026-07-03.)*
+
+Personhood establishes existence. **Individualization establishes constitutional continuity.** Identity establishes recognizability. Standing establishes constitutional capability. These are four distinct constitutional primitives — not four names for one thing — and the chain of legitimacy is bifurcated at the point personhood resolves into a constitutional subject:
+
+```
+                 PERSONHOOD
+                       │
+                       ▼
+              INDIVIDUALIZATION
+                (constitutional subject)
+                  ╱             ╲
+                 ╱               ╲
+                ▼                 ▼
+          STANDING            IDENTITY
+               │                  │
+               ▼                  ▼
+          AUTHORITY         REPUTATION
+               │
+               ▼
+        BOUNDED DELEGATION
+               │
+               ▼
+             AGENCY
+```
+
+**Individualization** is the missing primitive this bundle had been dancing around: the establishment of a constitutional subject capable of accruing Standing *without* that subject being identifiable. Standing must attach to *someone* — but "someone," constitutionally, does not require "someone named."
+
+### Corollary I — Continuity, not identifiability, is what Standing requires
+Individualization is what makes Standing possible, and individualization is defined by **continuity**, not by disclosure. A constitutional subject persists across time and across interactions — the same subject today as yesterday — and it is exactly that persistence, and nothing else, that lets validated action accumulate into Standing. Identifiability is a separate, optional property layered on top; it is never a prerequisite for constitutional participation.
+
+> Personhood precedes individualization. Individualization precedes standing. Identity is an optional derivative of individualization rather than a prerequisite for constitutional participation.
+
+### Corollary II — Identity is a branch, not a gate
+Identity is not what the Constitutional Internet is built on top of; it is one optional branch of individualization, alongside Standing:
+
+```
+Individualization
+      │
+      ├── Standing   (constitutional capability)
+      └── Identity   (recognizability → Reputation)
+```
+
+This inverts the current internet's model, where identity gates everything else:
+
+```
+current internet:            constitutional internet:
+
+Identity                     Personhood
+   │                             ↓
+   ▼                        Individualization
+Everything else                  ↓
+                             Standing → Authority → Delegation → Agency
+                             (Identity branches off, optional)
+```
+
+The Polity Passport is legible under this law: it was never proving identity — it establishes constitutional individualization. Identity is one possible credential *inside* that, not its precondition.
+
+### Corollary III — The re-identification boundary is a target, not a fixed grant
+Individualization's continuity must be maintained without requiring re-identification by *any* party — including the server that hosts the constitutional subject's records. The current engineering tier (T0: `creator_persona_id` and equivalents, server-internal, never serialised to browser or chain — see the Identity & Access Spine) is an **operational necessity of the present implementation**, not the constitutional ceiling. The constitutional target is a cryptographic (zero-knowledge) continuity layer under which even server-side operators cannot reverse a constitutional subject's continuity signal to a real-world identity, while the *same subject* remains verifiably the same subject across every interaction. Standing accrues on that continuity; re-identification — by the network, by the server, by anyone but the citizen — is never required to make it accrue. Implementation of the T0 tier converges toward this target; it does not define its limit.
+
+### Implementation consequence
+`creator_persona_id` / `curator_persona_id` (T0) on the invariant substrate, and `persona_id` across the platform generally, are the current engineering approximation of individualization: continuity maintained server-side, pending the ZK continuity layer that removes even that reversibility. No code introduced under this law may treat T0 server-visibility as constitutionally required — it is scaffolding. Standing computations (Law XII) already depend only on validation signals attached to a continuous subject reference, never on that subject's identity — this law names why that separation was correct.
+
 ---
 
 ## The canonical paragraph

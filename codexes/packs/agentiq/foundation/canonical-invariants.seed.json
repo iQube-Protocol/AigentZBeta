@@ -7,7 +7,9 @@
     "constitutional",
     "engineering",
     "experience",
-    "capability"
+    "capability",
+    "style",
+    "narrative"
   ],
   "notes": "Seed crystal for the Invariant Ontology (CFS-002). status=proposed until ratified via canonization; ratified_source marks statements drawn verbatim from ratified Polity documents.",
   "invariants": [
@@ -870,6 +872,245 @@
       ],
       "provenance": {
         "source": "CFS-009 Law XII — Truth, Standing and Reach"
+      }
+    },
+    {
+      "id": "inv.constitutional.063",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Personhood precedes individualization. Individualization precedes standing. Identity is an optional derivative of individualization rather than a prerequisite for constitutional participation.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII — Individualization"
+      }
+    },
+    {
+      "id": "inv.constitutional.064",
+      "namespace": "constitutional",
+      "semantic_type": "definition",
+      "statement": "Individualization is the establishment of a constitutional subject capable of accruing Standing without that subject being identifiable.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII — Individualization"
+      }
+    },
+    {
+      "id": "inv.constitutional.065",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Individualization is defined by continuity, not disclosure — a constitutional subject's persistence across time and interaction is what allows validated action to accumulate into Standing, independent of whether that subject is ever identified.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII, Corollary I"
+      }
+    },
+    {
+      "id": "inv.constitutional.066",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Identity is a branch of individualization, not its gate; it yields reputation, not standing.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII, Corollary II"
+      }
+    },
+    {
+      "id": "inv.constitutional.067",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Individualization's continuity shall be maintained without requiring re-identification by any party, including the server — a target which current server-internal (T0) implementations approximate but do not define the limit of.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity",
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII, Corollary III"
+      }
+    },
+    {
+      "id": "inv.style.001",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "The protagonist's appearance, wardrobe, and age remain identical across every segment of a production.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "visual"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.1 Visual Identity"
+      }
+    },
+    {
+      "id": "inv.style.002",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "Lighting language, colour palette, and camera language remain identical across every segment of a production.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "visual"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.1 Visual Identity"
+      }
+    },
+    {
+      "id": "inv.style.003",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "Aspect ratio, rendering quality, and typography remain identical across every segment of a production.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "visual"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.1 Visual Identity"
+      }
+    },
+    {
+      "id": "inv.style.004",
+      "namespace": "style",
+      "semantic_type": "principle",
+      "statement": "Every segment shares the same protagonist, the same constitutional world, and one continuous timeline.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.2 Narrative Identity"
+      }
+    },
+    {
+      "id": "inv.style.005",
+      "namespace": "style",
+      "semantic_type": "principle",
+      "statement": "A recurring visual motif and a recurring constitutional symbol persist across every segment.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.2 Narrative Identity"
+      }
+    },
+    {
+      "id": "inv.style.006",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "Every visual metaphor corresponds to one or more grounding invariants; no visual element implies a principle absent from the originating collection.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "semantic"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.3 Semantic Identity"
+      }
+    },
+    {
+      "id": "inv.style.007",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "Each segment begins from the final semantic state of the preceding segment, preserving character position, environmental state, lighting direction, and active motifs.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "transition"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.4 Transition Identity"
+      }
+    },
+    {
+      "id": "inv.narrative.001",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "The production opens by establishing the subject's state before any constitutional change.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 1/5"
+      }
+    },
+    {
+      "id": "inv.narrative.002",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "An inciting realization introduces the constitutional principle the production will test.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 2/5"
+      }
+    },
+    {
+      "id": "inv.narrative.003",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "The subject moves through constitutional tension between the old order and the principle introduced.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 3/5"
+      }
+    },
+    {
+      "id": "inv.narrative.004",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "The tension resolves — the constitutional principle prevails, fails, or is qualified.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 4/5"
+      }
+    },
+    {
+      "id": "inv.narrative.005",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "The subject's constitutional transformation is shown as the production's final state.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 5/5"
       }
     }
   ]
