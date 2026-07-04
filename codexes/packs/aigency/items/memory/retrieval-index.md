@@ -2664,3 +2664,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-ebd2caf.md](../build_/COMMITS/COMMIT-ebd2caf.md)
 - Message: Fix static tabs shadowed by DB codex_tabs and ground runner on namespaces
+
+## Commit `4b45166` — 2026-07-04T04:28:43Z
+- Type: `feat`
+- Brief: [COMMIT-4b45166.md](../build_/COMMITS/COMMIT-4b45166.md)
+- Message: Add missing Invariant Intelligence tab to Polity Core cartridge

@@ -4468,6 +4468,20 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Landmark', description: 'The foundational constitutional text — 4th paper of the Polity series, elevated to ratified status', color: 'violet' },
     },
     {
+      id: 'polity-core-invariant-intelligence',
+      label: 'Invariant Intelligence',
+      slug: 'invariant-intelligence',
+      enabled: true,
+      group: 'constitution',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_invariant_intelligence', defaultPath: 'constitutional-records/invariant-intelligence.md' },
+      },
+      metadata: { icon: 'BookMarked', description: 'Foundational Constitutional Record — Invariant Intelligence (Chrysalis anchor)', color: 'violet' },
+    },
+    {
       id: 'polity-core-commentary-experience-sovereignty',
       label: 'Experience Sovereignty',
       slug: 'commentary-experience-sovereignty',
