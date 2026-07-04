@@ -38,7 +38,7 @@
     {
       "id": "col_experiments",
       "title": "Experiments",
-      "description": "Chrysalis Foundation flywheel experiments — EXP-001 The First Living KnowledgeQube (Constitutional Internet, five renderings + evaluation protocol) and EXP-002 Invariant-Carried Video (24s/48s briefs).",
+      "description": "Chrysalis Foundation flywheel experiments — EXP-001 The First Living KnowledgeQube (Constitutional Internet, five renderings + evaluation protocol), EXP-002 Invariant-Carried Video (24s/48s briefs), and EXP-003 Rediscovery Savings (cold vs initialized benchmark).",
       "items": [
         "foundation/experiments/exp-001-living-knowledgeqube/README.md",
         "foundation/experiments/exp-001-living-knowledgeqube/canonical-article.md",
@@ -48,7 +48,8 @@
         "foundation/experiments/exp-001-living-knowledgeqube/evaluation-protocol.md",
         "foundation/experiments/exp-002-invariant-video/README.md",
         "foundation/experiments/exp-002-invariant-video/video-brief-24s.md",
-        "foundation/experiments/exp-002-invariant-video/video-brief-48s.md"
+        "foundation/experiments/exp-002-invariant-video/video-brief-48s.md",
+        "foundation/experiments/exp-003-rediscovery-savings/README.md"
       ]
     },
     {
