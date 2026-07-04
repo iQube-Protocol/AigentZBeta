@@ -2674,3 +2674,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5132d14.md](../build_/COMMITS/COMMIT-5132d14.md)
 - Message: Add Overview/Ontology/Graph views to Invariant Registry
+
+## Commit `e8372a5` — 2026-07-04T05:44:23Z
+- Type: `push`
+- Brief: [COMMIT-e8372a5.md](../build_/COMMITS/COMMIT-e8372a5.md)
+- Message: Phase 4 runtime adoption: grounding slice, constitutional veto, Reach arc
