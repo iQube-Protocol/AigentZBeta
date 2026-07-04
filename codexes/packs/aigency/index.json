@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T08:47:31.692Z",
+  "last_updated": "2026-07-04T08:57:44.282Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d9b6560024f49a1b96181ec3302450c61e5f2233",
-  "latest_commit_short": "d9b6560",
-  "latest_commit_title": "Ratify constitutional-restraint metric + series framing into CFS-008/008a",
+  "latest_commit": "3fdab366b9604b092cfc879ff4523bd6781c8b27",
+  "latest_commit_short": "3fdab36",
+  "latest_commit_title": "Fix terminal-beat drop in narrative mapping (caught by Coherence Engine)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3fdab36",
+      "full_sha": "3fdab366b9604b092cfc879ff4523bd6781c8b27",
+      "title": "Fix terminal-beat drop in narrative mapping (caught by Coherence Engine)",
+      "author": "Claude",
+      "timestamp": "2026-07-04T08:55:58Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-3fdab36.md"
+    },
     {
       "sha": "d9b6560",
       "full_sha": "d9b6560024f49a1b96181ec3302450c61e5f2233",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T20:10:42Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-afdf02d.md"
-    },
-    {
-      "sha": "a1c80a0",
-      "full_sha": "a1c80a0e978f73d4344b85688c5fc960875ea514",
-      "title": "add hackathon submission note explaining cumulative build provenance",
-      "author": "Claude",
-      "timestamp": "2026-06-13T19:58:41Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a1c80a0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
