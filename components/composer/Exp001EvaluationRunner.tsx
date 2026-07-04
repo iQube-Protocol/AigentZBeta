@@ -43,7 +43,9 @@ export default function Exp001EvaluationRunner() {
   const [artifacts, setArtifacts] = useState<string[]>([]);
   const [questions, setQuestions] = useState<QuestionMeta[]>([]);
   const [providers, setProviders] = useState<Record<string, boolean>>({});
+  const [models, setModels] = useState<Record<string, { id: string; label: string }[]>>({});
   const [provider, setProvider] = useState<Provider>("venice");
+  const [model, setModel] = useState<string>("");
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +63,7 @@ export default function Exp001EvaluationRunner() {
         setArtifacts(data.artifacts);
         setQuestions(data.questions);
         setProviders(data.providers ?? {});
+        setModels(data.models ?? {});
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load config");
       }
@@ -91,7 +94,7 @@ export default function Exp001EvaluationRunner() {
       for (const docId of docs) {
         if (abortRef.current) throw new Error("aborted by operator");
         setProgress(`answer pass: ${docId}…`);
-        const data = await step({ action: "answers", provider, artifactId: docId });
+        const data = await step({ action: "answers", provider, artifactId: docId, ...(model ? { model } : {}) });
         answers[docId] = data.answers;
       }
       setAnswersByArtifact(answers);
@@ -107,7 +110,7 @@ export default function Exp001EvaluationRunner() {
             return [docId, { answer: row.answer, citations: row.citations }];
           }),
         );
-        const { verdict } = await step({ action: "judge", provider, q: question.q, answersByDoc });
+        const { verdict } = await step({ action: "judge", provider, q: question.q, answersByDoc, ...(model ? { model } : {}) });
 
         const perDoc: QuestionScore["perDoc"] = {};
         let hallucinations = 0;
@@ -149,6 +152,7 @@ export default function Exp001EvaluationRunner() {
           action: "coherence",
           provider,
           answers: answers[docId].map((a) => ({ q: a.q, answer: a.answer })),
+          ...(model ? { model } : {}),
         });
         coh[docId] = verdict;
         setCoherence({ ...coh });
@@ -160,7 +164,7 @@ export default function Exp001EvaluationRunner() {
     } finally {
       setRunning(false);
     }
-  }, [artifacts, questions, provider, step]);
+  }, [artifacts, questions, provider, model, step]);
 
   // Aggregates (mirror the terminal harness).
   const derivable = scores.filter((s) => !s.probe);
@@ -186,6 +190,7 @@ export default function Exp001EvaluationRunner() {
       [JSON.stringify({
         experiment: "EXP-001",
         provider,
+        model: model || "(provider default)",
         ranAt: new Date().toISOString(),
         note: "Machine-assisted scoring; human scorer holds final rubric authority — review before ratifying.",
         aggregates: { consistencyAvg, explainAvg, hallucinationTotal, coherenceAvg, restraint },
@@ -221,13 +226,27 @@ export default function Exp001EvaluationRunner() {
           <select
             className="ml-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
             value={provider}
-            onChange={(e) => setProvider(e.target.value as Provider)}
+            onChange={(e) => { setProvider(e.target.value as Provider); setModel(""); }}
             disabled={running}
           >
             {(["venice", "openai", "anthropic"] as Provider[]).map((p) => (
               <option key={p} value={p} disabled={providers[p] === false}>
                 {p}{providers[p] === false ? " (no key)" : ""}{p === "anthropic" ? " (⚠ not independent)" : ""}
               </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm text-slate-300">
+          Model
+          <select
+            className="ml-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            disabled={running}
+          >
+            <option value="">Provider default</option>
+            {(models[provider] ?? []).map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
             ))}
           </select>
         </label>

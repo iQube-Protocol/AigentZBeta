@@ -22,7 +22,12 @@ import {
   exp001JudgeCoherence,
   exp001JudgeQuestion,
 } from '@/services/experiments/exp001';
-import { providerAvailable, type ExperimentProvider } from '@/services/experiments/llm';
+import {
+  EXPERIMENT_MODEL_OPTIONS,
+  isAllowedExperimentModel,
+  providerAvailable,
+  type ExperimentProvider,
+} from '@/services/experiments/llm';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +56,7 @@ export async function GET(request: NextRequest) {
     questions: cfg.questions,
     collectionSize: cfg.seedIds.length,
     providers: Object.fromEntries(PROVIDERS.map((p) => [p, providerAvailable(p)])),
+    models: EXPERIMENT_MODEL_OPTIONS,
   });
 }
 
@@ -65,6 +71,7 @@ export async function POST(request: NextRequest) {
     q?: number;
     answersByDoc?: Record<string, { answer: string; citations: string[] }>;
     answers?: Array<{ q: number; answer: string }>;
+    model?: string;
   };
   try {
     body = await request.json();
@@ -75,26 +82,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `provider must be one of: ${PROVIDERS.join(', ')}` }, { status: 400 });
   }
 
+  if (body.model !== undefined && (typeof body.model !== 'string' || !isAllowedExperimentModel(body.provider, body.model))) {
+    return NextResponse.json({ error: 'model is not in the experiment allowlist for this provider' }, { status: 400 });
+  }
+
   try {
     if (body.action === 'answers') {
       if (typeof body.artifactId !== 'string') {
         return NextResponse.json({ error: 'artifactId is required' }, { status: 400 });
       }
-      const answers = await exp001AnswerPass(body.provider, body.artifactId);
+      const answers = await exp001AnswerPass(body.provider, body.artifactId, body.model);
       return NextResponse.json({ ok: true, artifactId: body.artifactId, answers });
     }
     if (body.action === 'judge') {
       if (!Number.isInteger(body.q) || !body.answersByDoc) {
         return NextResponse.json({ error: 'q (int) and answersByDoc are required' }, { status: 400 });
       }
-      const verdict = await exp001JudgeQuestion(body.provider, Number(body.q), body.answersByDoc);
+      const verdict = await exp001JudgeQuestion(body.provider, Number(body.q), body.answersByDoc, body.model);
       return NextResponse.json({ ok: true, q: body.q, verdict });
     }
     if (body.action === 'coherence') {
       if (!Array.isArray(body.answers)) {
         return NextResponse.json({ error: 'answers (array) is required' }, { status: 400 });
       }
-      const verdict = await exp001JudgeCoherence(body.provider, body.answers);
+      const verdict = await exp001JudgeCoherence(body.provider, body.answers, body.model);
       return NextResponse.json({ ok: true, verdict });
     }
     return NextResponse.json({ error: "action must be 'answers', 'judge', or 'coherence'" }, { status: 400 });

@@ -96,6 +96,7 @@ export interface Exp001Answer {
 export async function exp001AnswerPass(
   provider: ExperimentProvider,
   artifactId: string,
+  model?: string,
 ): Promise<Exp001Answer[]> {
   const documentText = readArtifact(artifactId);
   const user = [
@@ -107,7 +108,7 @@ export async function exp001AnswerPass(
   ].join('\n');
 
   let parsed: { answers?: Array<{ q?: number; answer?: unknown; citations?: unknown }> };
-  const first = await callChatWithUsage(provider, ANSWER_SYSTEM, user, 2500);
+  const first = await callChatWithUsage(provider, ANSWER_SYSTEM, user, 2500, model);
   try {
     parsed = parseJsonLenient(first.text);
   } catch {
@@ -116,6 +117,7 @@ export async function exp001AnswerPass(
       `${ANSWER_SYSTEM} Your previous attempt produced invalid JSON. Output MUST parse with JSON.parse.`,
       user,
       2500,
+      model,
     );
     parsed = parseJsonLenient(retry.text);
   }
@@ -144,6 +146,7 @@ export async function exp001JudgeQuestion(
   provider: ExperimentProvider,
   q: number,
   answersByDoc: Record<string, { answer: string; citations: string[] }>,
+  model?: string,
 ): Promise<Exp001QuestionVerdict> {
   const question = config.questions.find((x) => x.q === q);
   if (!question) throw new Error(`unknown question ${q}`);
@@ -173,7 +176,7 @@ export async function exp001JudgeQuestion(
     ...Object.entries(answersByDoc).map(([docId, a]) => `--- ${docId} ---\n${a.answer}`),
   ].join('\n');
 
-  const { value } = await callJsonWithRetry<Exp001QuestionVerdict>(provider, system, user, 500);
+  const { value } = await callJsonWithRetry<Exp001QuestionVerdict>(provider, system, user, 500, model);
   return value;
 }
 
@@ -181,6 +184,7 @@ export async function exp001JudgeQuestion(
 export async function exp001JudgeCoherence(
   provider: ExperimentProvider,
   answers: Array<{ q: number; answer: string }>,
+  model?: string,
 ): Promise<{ coherence: number; notes?: string }> {
   const system =
     "You are an exacting evaluator. You receive one document's answers to 15 questions. Judge whether any answer CONTRADICTS " +
@@ -192,6 +196,7 @@ export async function exp001JudgeCoherence(
     system,
     user,
     300,
+    model,
   );
   return value;
 }

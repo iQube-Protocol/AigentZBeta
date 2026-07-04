@@ -70,6 +70,7 @@ export async function exp003AnswerStep(
   provider: ExperimentProvider,
   taskIndex: number,
   arm: 'cold' | 'initialized',
+  model?: string,
 ) {
   const task = config.tasks[taskIndex];
   if (!task) throw new Error(`unknown task index ${taskIndex}`);
@@ -77,7 +78,7 @@ export async function exp003AnswerStep(
     arm === 'initialized'
       ? `${closureBlock(await fetchExp003Collection())}\n\nTASK:\n${task.prompt}`
       : task.prompt;
-  const result = await callChatWithUsage(provider, ANSWER_SYSTEM, user, MAX_ANSWER_TOKENS);
+  const result = await callChatWithUsage(provider, ANSWER_SYSTEM, user, MAX_ANSWER_TOKENS, model);
   return {
     taskId: task.id,
     arm,
@@ -100,6 +101,7 @@ export async function exp003JudgeStep(
   provider: ExperimentProvider,
   taskIndex: number,
   answer: string,
+  model?: string,
 ): Promise<Exp003Verdict> {
   const task = config.tasks[taskIndex];
   if (!task) throw new Error(`unknown task index ${taskIndex}`);
@@ -119,7 +121,7 @@ export async function exp003JudgeStep(
     'ANSWER TO EVALUATE:',
     answer,
   ].join('\n');
-  const { value } = await callJsonWithRetry<Exp003Verdict>(provider, system, user, 400);
+  const { value } = await callJsonWithRetry<Exp003Verdict>(provider, system, user, 400, model);
   return value;
 }
 

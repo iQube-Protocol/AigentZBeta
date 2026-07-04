@@ -22,7 +22,12 @@ import {
   exp003JudgeStep,
   fetchExp003Collection,
 } from '@/services/experiments/exp003';
-import { providerAvailable, type ExperimentProvider } from '@/services/experiments/llm';
+import {
+  EXPERIMENT_MODEL_OPTIONS,
+  isAllowedExperimentModel,
+  providerAvailable,
+  type ExperimentProvider,
+} from '@/services/experiments/llm';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +55,7 @@ export async function GET(request: NextRequest) {
     tasks: tasks.map((t) => ({ id: t.id, prompt: t.prompt })),
     collectionSize: seedIds.length,
     providers: Object.fromEntries(PROVIDERS.map((p) => [p, providerAvailable(p)])),
+    models: EXPERIMENT_MODEL_OPTIONS,
   });
 }
 
@@ -63,6 +69,7 @@ export async function POST(request: NextRequest) {
     taskIndex?: number;
     arm?: string;
     answer?: string;
+    model?: string;
   };
   try {
     body = await request.json();
@@ -71,6 +78,9 @@ export async function POST(request: NextRequest) {
   }
   if (!isProvider(body.provider)) {
     return NextResponse.json({ error: `provider must be one of: ${PROVIDERS.join(', ')}` }, { status: 400 });
+  }
+  if (body.model !== undefined && (typeof body.model !== 'string' || !isAllowedExperimentModel(body.provider, body.model))) {
+    return NextResponse.json({ error: 'model is not in the experiment allowlist for this provider' }, { status: 400 });
   }
   const taskIndex = Number(body.taskIndex);
   if (!Number.isInteger(taskIndex) || taskIndex < 0) {
@@ -82,7 +92,7 @@ export async function POST(request: NextRequest) {
       if (body.arm !== 'cold' && body.arm !== 'initialized') {
         return NextResponse.json({ error: "arm must be 'cold' or 'initialized'" }, { status: 400 });
       }
-      const result = await exp003AnswerStep(body.provider, taskIndex, body.arm);
+      const result = await exp003AnswerStep(body.provider, taskIndex, body.arm, body.model);
       const collection = await fetchExp003Collection();
       return NextResponse.json({
         ok: true,
@@ -94,7 +104,7 @@ export async function POST(request: NextRequest) {
       if (typeof body.answer !== 'string' || body.answer.length === 0) {
         return NextResponse.json({ error: 'answer (string) is required' }, { status: 400 });
       }
-      const verdict = await exp003JudgeStep(body.provider, taskIndex, body.answer);
+      const verdict = await exp003JudgeStep(body.provider, taskIndex, body.answer, body.model);
       return NextResponse.json({ ok: true, verdict });
     }
     return NextResponse.json({ error: "action must be 'answer' or 'judge'" }, { status: 400 });

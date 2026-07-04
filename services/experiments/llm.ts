@@ -22,6 +22,34 @@ export function providerAvailable(provider: ExperimentProvider): boolean {
   return Boolean(process.env[EXPERIMENT_PROVIDERS[provider].keyEnv]);
 }
 
+/**
+ * Per-provider model allowlist for experiment runs — every id here has a real
+ * call site or registration elsewhere in the codebase (llmDraftHelper env
+ * defaults, agentLlmOrchestra ModelQubes, codex chat). Overrides are validated
+ * against this list server-side; arbitrary model strings are rejected. First
+ * entry = the platform's draft default for that provider.
+ */
+export const EXPERIMENT_MODEL_OPTIONS: Record<ExperimentProvider, { id: string; label: string }[]> = {
+  anthropic: [
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (default)' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+    { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+  ],
+  openai: [
+    { id: 'gpt-4o-mini', label: 'GPT-4o Mini (default)' },
+    { id: 'gpt-4o', label: 'GPT-4o' },
+  ],
+  venice: [
+    { id: 'llama-3.3-70b', label: 'Llama 3.3 70B (default)' },
+    { id: 'venice-uncensored', label: 'Venice Uncensored' },
+    { id: 'venice-reasoning', label: 'Venice Reasoning' },
+  ],
+};
+
+export function isAllowedExperimentModel(provider: ExperimentProvider, model: string): boolean {
+  return EXPERIMENT_MODEL_OPTIONS[provider].some((m) => m.id === model);
+}
+
 export interface ChatResult {
   text: string;
   inputTokens: number | null;
@@ -35,11 +63,15 @@ export async function callChatWithUsage(
   system: string,
   user: string,
   maxTokens: number,
+  modelOverride?: string,
 ): Promise<ChatResult> {
   const conf = EXPERIMENT_PROVIDERS[provider];
   const apiKey = process.env[conf.keyEnv];
   if (!apiKey) throw new Error(`${conf.keyEnv} is not configured`);
-  const model = conf.model();
+  if (modelOverride && !isAllowedExperimentModel(provider, modelOverride)) {
+    throw new Error(`model '${modelOverride}' is not in the ${provider} experiment allowlist`);
+  }
+  const model = modelOverride || conf.model();
 
   if (provider === 'anthropic') {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -155,8 +187,9 @@ export async function callJsonWithRetry<T = unknown>(
   system: string,
   user: string,
   maxTokens: number,
+  modelOverride?: string,
 ): Promise<{ value: T; usage: { inputTokens: number | null; outputTokens: number | null } }> {
-  const first = await callChatWithUsage(provider, system, user, maxTokens);
+  const first = await callChatWithUsage(provider, system, user, maxTokens, modelOverride);
   try {
     return { value: parseJsonLenient<T>(first.text), usage: first };
   } catch {
@@ -165,6 +198,7 @@ export async function callJsonWithRetry<T = unknown>(
       `${system} Your previous attempt produced invalid JSON. Output MUST parse with JSON.parse — no trailing commas, no bare tokens, no literal newlines inside strings.`,
       user,
       maxTokens,
+      modelOverride,
     );
     return { value: parseJsonLenient<T>(retry.text), usage: retry };
   }

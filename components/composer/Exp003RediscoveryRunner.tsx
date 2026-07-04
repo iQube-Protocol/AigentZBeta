@@ -39,7 +39,9 @@ interface TaskResult {
 export default function Exp003RediscoveryRunner() {
   const [tasks, setTasks] = useState<TaskMeta[]>([]);
   const [providers, setProviders] = useState<Record<string, boolean>>({});
+  const [models, setModels] = useState<Record<string, { id: string; label: string }[]>>({});
   const [provider, setProvider] = useState<Provider>("venice");
+  const [model, setModel] = useState<string>("");
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export default function Exp003RediscoveryRunner() {
         if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load config");
         setTasks(data.tasks);
         setProviders(data.providers ?? {});
+        setModels(data.models ?? {});
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load config");
       }
@@ -84,10 +87,10 @@ export default function Exp003RediscoveryRunner() {
         for (const arm of ["cold", "initialized"] as const) {
           if (abortRef.current) throw new Error("aborted by operator");
           setProgress(`${tasks[i].id} — ${arm} answer…`);
-          const a = await step({ action: "answer", provider, taskIndex: i, arm });
+          const a = await step({ action: "answer", provider, taskIndex: i, arm, ...(model ? { model } : {}) });
           if (abortRef.current) throw new Error("aborted by operator");
           setProgress(`${tasks[i].id} — judging ${arm}…`);
-          const j = await step({ action: "judge", provider, taskIndex: i, answer: a.answer });
+          const j = await step({ action: "judge", provider, taskIndex: i, answer: a.answer, ...(model ? { model } : {}) });
           acc[i][arm] = {
             answer: a.answer,
             inputTokens: a.inputTokens,
@@ -106,7 +109,7 @@ export default function Exp003RediscoveryRunner() {
     } finally {
       setRunning(false);
     }
-  }, [tasks, provider, step]);
+  }, [tasks, provider, model, step]);
 
   const sum = (arm: "cold" | "initialized", f: (a: ArmResult) => number) =>
     results.reduce((acc, r) => acc + (r[arm] ? f(r[arm] as ArmResult) : 0), 0);
@@ -117,7 +120,7 @@ export default function Exp003RediscoveryRunner() {
 
   const download = () => {
     const blob = new Blob(
-      [JSON.stringify({ experiment: "EXP-003", provider, ranAt: new Date().toISOString(), results }, null, 2)],
+      [JSON.stringify({ experiment: "EXP-003", provider, model: model || "(provider default)", ranAt: new Date().toISOString(), results }, null, 2)],
       { type: "application/json" },
     );
     const url = URL.createObjectURL(blob);
@@ -149,13 +152,27 @@ export default function Exp003RediscoveryRunner() {
           <select
             className="ml-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
             value={provider}
-            onChange={(e) => setProvider(e.target.value as Provider)}
+            onChange={(e) => { setProvider(e.target.value as Provider); setModel(""); }}
             disabled={running}
           >
             {(["venice", "openai", "anthropic"] as Provider[]).map((p) => (
               <option key={p} value={p} disabled={providers[p] === false}>
                 {p}{providers[p] === false ? " (no key)" : ""}
               </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm text-slate-300">
+          Model
+          <select
+            className="ml-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            disabled={running}
+          >
+            <option value="">Provider default</option>
+            {(models[provider] ?? []).map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
             ))}
           </select>
         </label>
