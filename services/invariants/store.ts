@@ -402,3 +402,22 @@ export async function listOntologyClasses(
   if (error) throw new Error(`ontology class list failed: ${error.message}`);
   return (data ?? []).map((r) => mapOntologyClassRow(r as Record<string, unknown>));
 }
+
+/**
+ * Canon version stamp (CFS-006 §3 / CFS-008 §5) — the max updated_at across
+ * the knowledge-bearing statuses. Canonical objects change only by
+ * supersession, so this stamp changes iff the canon changed; it is the
+ * invalidation key for knowledge-initialization manifests.
+ */
+export async function getCanonVersionStamp(): Promise<string> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('invariants')
+    .select('updated_at')
+    .in('status', ['canonical', 'validated'])
+    .order('updated_at', { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`canon version stamp failed: ${error.message}`);
+  const stamp = data?.[0]?.updated_at;
+  return stamp ? String(stamp) : 'empty-canon';
+}

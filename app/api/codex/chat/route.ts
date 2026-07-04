@@ -35,6 +35,7 @@ import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapte
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
 import { buildStageInstructionBlock, extractStageProposals } from '@/services/devCommandCenter/stageOrchestrator';
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
+import { initializeKnowledge, type KnowledgeManifest } from '@/services/invariants';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1868,6 +1869,7 @@ function buildSystemPrompt(
   liveContext?: KnytLiveContext,
   activeSkill?: Know1SkillId | null,
   platformKnowledgeBlock?: string,
+  knowledgeInit?: KnowledgeManifest | null,
 ): string {
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
   const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
@@ -2249,7 +2251,26 @@ After your response, add:
   const platformBlock =
     resolvedPersonaId === 'aigent-z' && platformKnowledgeBlock ? platformKnowledgeBlock : '';
 
-  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}`;
+  // Knowledge initialization (CFS-006 §3) — the canonical invariant closure
+  // for this context, injected for the platform/system agents so every turn
+  // begins already knowing what the platform has validated. Statements cite
+  // by seedId marker (same convention as the specialist router); the model
+  // is bound to reason from these, never contradict one, and cite what it
+  // relies on. KNYT content personas keep their tighter prompt budget.
+  const canonBlock =
+    knowledgeInit && knowledgeInit.nodes.length > 0
+      ? `
+
+## Validated Invariants — Canonical Memory (knowledge initialization)
+
+Reason FROM these validated invariants rather than re-deriving from scratch. Never contradict one; if the ask conflicts with an invariant, say so. Cite the markers of the invariants you rely on.
+
+${knowledgeInit.nodes
+          .map((n) => `- ${n.seedId ? `[${n.seedId}] ` : ''}(${n.namespace}) ${n.statement}`)
+          .join('\n')}`
+      : '';
+
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}${canonBlock}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -2505,7 +2526,7 @@ export async function POST(request: NextRequest) {
 
       // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
       // state, and aigent-z platform knowledge + stage ground data in parallel
-      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData] = await Promise.all([
+      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData, resolvedKnowledgeInit] = await Promise.all([
         fetchCodexMetadata(domain),
         searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
         needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
@@ -2522,6 +2543,18 @@ export async function POST(request: NextRequest) {
               return '';
             })
           : Promise.resolve(''),
+        // Knowledge initialization (CFS-006 §3): the canonical invariant
+        // closure for this context. Cached per (context, canon version) in
+        // the Invariant Service, so warm turns cost no extra queries.
+        // Enrichment-only — any failure yields null and the turn proceeds.
+        initializeKnowledge({
+          domains: [domain, cartridgeContext?.cartridgeSlug].filter(
+            (d, i, a): d is string => Boolean(d) && a.indexOf(d) === i,
+          ),
+        }).catch((err) => {
+          console.warn('[CodexChat] knowledge initialization failed (non-fatal):', err);
+          return null;
+        }),
       ]);
       const platformKnowledgeBlock = `${resolvedPlatformKnowledge}${resolvedStageGroundData}`;
       metadata = resolvedMetadata;
@@ -2536,7 +2569,7 @@ export async function POST(request: NextRequest) {
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined);
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit);
     }
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);
