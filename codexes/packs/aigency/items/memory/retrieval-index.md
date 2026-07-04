@@ -2709,3 +2709,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c68ef28.md](../build_/COMMITS/COMMIT-c68ef28.md)
 - Message: Record EXP-003 run 1 results: hypothesis confirmed on all four measures
+
+## Commit `f0ba5c7` — 2026-07-04T03:07:36-04:00
+- Type: `feat`
+- Brief: [COMMIT-f0ba5c7.md](../build_/COMMITS/COMMIT-f0ba5c7.md)
+- Message: add EXP-003 run-1 raw results json (venice/llama-3.3-70b)

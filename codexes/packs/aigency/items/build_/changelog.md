@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f0ba5c7`](https://github.com/iQube-Protocol/AigentZBeta/commit/f0ba5c7d11998b3bcaca50464a822355f9399c91) [feat] add EXP-003 run-1 raw results json (venice/llama-3.3-70b) (Kn0w-1, 2026-07-04T03:07:36-04:00)
 - [`c68ef28`](https://github.com/iQube-Protocol/AigentZBeta/commit/c68ef28a4f7e756828dfd88599dc4af0328e35a2) [push] Record EXP-003 run 1 results: hypothesis confirmed on all four measures (Claude, 2026-07-04T07:05:03Z)
 - [`0b24d33`](https://github.com/iQube-Protocol/AigentZBeta/commit/0b24d33e0c2051f413cf1dffbd89d7ce5412910f) [feat] Add provider fallback to EXP-003 benchmark (openai/venice via --provider) (Claude, 2026-07-04T06:36:45Z)
 - [`2fd27d5`](https://github.com/iQube-Protocol/AigentZBeta/commit/2fd27d5c94523658e9bf1b04f279367fadea4413) [feat] Add session-start knowledge initialization to copilot chat (CFS-006 §3) (Claude, 2026-07-04T06:19:41Z)
