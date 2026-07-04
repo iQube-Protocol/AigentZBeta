@@ -1211,6 +1211,48 @@
       "provenance": {
         "source": "Law XV class-purity corollary — the v1 Continuity Block (CFS-011 backlog)"
       }
+    },
+    {
+      "id": "inv.constitutional.075",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Constitutional evolution occurs when the constitutional system detects a coherent pattern that no individual field reveals, and that pattern is subsequently ratified by human constitutional authority.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "evolution"
+      ],
+      "provenance": {
+        "source": "CFS-009 constitutional principle — Constitutional Evolution (first instance: Law XV, revealed by CFS-014, ratified 2026-07-04)"
+      }
+    },
+    {
+      "id": "inv.reasoning.076",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Consequences are emergent properties of composition; they arise from interactions between fields, not from fields in isolation.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "consequence-engineering"
+      ],
+      "provenance": {
+        "source": "CFS-006a §7 — the compositional grounding of consequence engineering (type specimen: the terminal-beat defect)"
+      }
+    },
+    {
+      "id": "inv.engineering.077",
+      "namespace": "engineering",
+      "semantic_type": "definition",
+      "statement": "Consequence engineering is the discipline of composing fields whose interaction reliably produces desirable consequences — architecture, not forecasting.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "consequence-engineering"
+      ],
+      "provenance": {
+        "source": "CFS-006a §7 — restated under Law XV"
+      }
     }
   ]
 }

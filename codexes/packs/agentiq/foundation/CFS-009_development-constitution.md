@@ -163,6 +163,21 @@ The experience and context fields are named slots, not yet implemented — exper
 
 ---
 
+## Constitutional principle — Constitutional Evolution
+*(Ratified by operator direction 2026-07-04. A principle, not a law: it describes how laws come to be, so it stands above the numbered sequence rather than inside it.)*
+
+**Constitutional evolution occurs when the constitutional system detects a coherent pattern that no individual field reveals, and that pattern is subsequently ratified by human constitutional authority.**
+
+This is neither autonomous legislation nor autonomous governance. It is autonomous
+constitutional *discovery* followed by human ratification: the system reveals; humans
+ratify; the constitution evolves. First instance: Law XV itself — the Coherence Engine
+(CFS-014) detected an interaction pattern (the terminal-beat defect) that no individual
+field revealed, and the pattern it exposed was ratified into law the same day. The
+validator did not legislate. It revealed. The division of authority is Law XI's:
+humans define semantics — including, and especially, the semantics of new laws.
+
+---
+
 ## The canonical paragraph
 
 > Information becomes knowledge through reasoning. Reasoning discovers invariants. Validation establishes their standing. Civilization advances by preserving, composing, and extending them.

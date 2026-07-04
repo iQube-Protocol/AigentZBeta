@@ -86,3 +86,53 @@ Stages inherit the platform's containment rules: derivative products of a capsul
 ## 6. Current substrate index
 
 `services/iqube/intentQube.ts`, `services/intentChains/`, `app/api/assistant/{intent,intent-advance,intent-queue-next,ask-agent,approve-action}/`, `services/receipts/activityReceiptService.ts`, `services/dvn/activityReceiptDvnPipeline.ts`, `services/standing/standingSignalService.ts`, `services/registry/phase2/{risk,value}`, `nbe_plans` + `analysis_cards` + `orchestration_events` tables.
+
+## 7. The compositional grounding — amendment 2026-07-04 (Law XV)
+
+Law XV's ratification revealed what this operating model *is* underneath: the 13-stage
+pipeline (§1) is the **application layer** of consequence engineering; the **substrate**
+is field composition.
+
+```
+Fields → Composition → Interactions → Consequences → Standing → Evolution
+```
+
+not
+
+```
+Fields → Consequences
+```
+
+**Consequences are emergent properties of composition.** EXP-002's terminal-beat defect
+is the type specimen: the semantic, style, and narrative fields each passed
+independently, and the failure existed only in an interaction between fields (narrative
+mapping × segmentation). Consequences do not emerge from fields; they emerge from
+interactions between fields. Two corollaries, both already reflected in code rather
+than requiring new code (Law II):
+
+- **Consequence forecasting is interaction analysis.** `forecastConsequences` traverses
+  the edges *between* invariants (enables/constrains/contradicts) — it was always
+  reading interactions, never fields in isolation. Law XV explains why that was the
+  correct design.
+- **Consequence observation is field evaluation.** CFS-014's coherence engine observes
+  the consequence *in the composed field* before execution — consequence is not only
+  predicted, it is observed in composition. The Composition Engine is therefore also a
+  Consequence Engine: the same operation that produces the experience surfaces its
+  emergent defects.
+
+**The discipline, restated.** Consequence engineering is not consequence *forecasting*.
+It is the discipline of **composing fields whose interaction reliably produces
+desirable consequences** — architecture, not prediction. One does not predict that a
+bridge will stand; one composes materials, geometry, constraints, and forces so that
+standing is an emergent property. The operating model's stages are how the platform
+performs that composition with receipts.
+
+**What the Registry stores, restated.** Not content, not prompts, not even knowledge
+as documents: **stable fields**. Fields recompose indefinitely; every composition
+creates a new experiential state; every state generates consequences; consequences feed
+Standing; Standing evolves the fields. The recursion of §2 is this loop — which is what
+"a living constitution" means literally: the constitution is continuously refined by
+observing the consequences of compositions built from its own fields.
+
+*The 13 canonical stages and their pinned tests are unchanged by this amendment — it
+grounds them; it does not reorder them.*
