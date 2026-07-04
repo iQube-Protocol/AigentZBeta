@@ -19,6 +19,14 @@ The gap flagged in the previous session doc — "the live invariant DATA has no 
 
 **New API:** `GET /api/invariants/[id]` — invariant + contexts + edges + neighbor summaries, one round trip. Spine-gated, read-only.
 
+## Canonical home — corrected same session
+
+The AgentiQ tab above is a **mirror**. On review of a live screenshot of the deployed iQube Registry cartridge (`dev-beta.aigentz.me/codex/viewer`), the canonical home is the **iQube Registry cartridge**, and — after discussion — as a **sibling tab**, not a filter pill inside "Browse iQubes."
+
+The reasoning for sibling-tab over pill: raw invariants (Level 1, CFS-001) are **not** `iqube_id_map` rows at all. Only *published* Level-3 InvariantQubes register there, and they register as `primitive_type='DataQube'` (CFS-004 §3 Stage 1 staging — promotion to a genuine 7th primitive is deferred to a future canonization request). A pill sitting next to ContentQube/ToolQube/AigentQube/DataQube/ClusterQube/ModelQube inside "Browse iQubes" would visually claim Invariant is already a 7th canonical primitive, which is constitutionally premature. A sibling tab in the same `browse` tab-group avoids that claim entirely — it's its own first-class browsing surface, correctly co-located with the registry rather than merged into its closed primitive-type filter set.
+
+**Landed:** `data/codex-configs.ts` → `IQUBE_REGISTRY_CARTRIDGE.tabs` gains `iqube-registry-invariants` (label "Invariants", `group: 'browse'`, order 3 — after Browse iQubes / Intake / DVN Receipts / Passports), `component: 'InvariantRegistryTab'`. No new component registration needed — already wired into `TabRenderer.tsx`'s `componentRegistry` earlier this session. `IQubeRegistryBrowseTab.tsx` itself was read for reference only and left untouched.
+
 ## Why it took this shape (Law II compliance)
 
 A research pass across `TabRenderer.tsx`, `IQubeRegistryBrowseTab.tsx`, and `components/registry/*` confirmed the exact mechanism before writing anything:

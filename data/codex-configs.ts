@@ -4043,6 +4043,22 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'BookOpenCheck', description: 'Public Polity Passport registry — issued citizen + participant passports', color: 'violet' },
     },
     {
+      id: 'iqube-registry-invariants',
+      label: 'Invariants',
+      slug: 'invariants',
+      enabled: true,
+      group: 'browse',
+      order: 3,
+      type: 'static',
+      config: { component: 'InvariantRegistryTab' },
+      metadata: {
+        icon: 'BookMarked',
+        description:
+          'The constitutional substrate (CFS-001..014) — namespace/status/Standing/Reach, contexts, graph edges. Distinct from iQube primitives: raw invariants are pre-iQube rows, not iqube_id_map entries (only published InvariantQubes register there, staged as DataQube per CFS-004 §3).',
+        color: 'violet',
+      },
+    },
+    {
       id: 'iqube-registry-docs',
       label: 'PRD + Docs',
       slug: 'docs',
