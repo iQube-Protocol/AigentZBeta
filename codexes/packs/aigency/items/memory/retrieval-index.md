@@ -2734,3 +2734,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-e01bed9.md](../build_/COMMITS/COMMIT-e01bed9.md)
 - Message: add EXP-001 run-1 evaluation results json (venice/llama-3.3-70b judge)
+
+## Commit `b1039a9` — 2026-07-04T08:40:07Z
+- Type: `feat`
+- Brief: [COMMIT-b1039a9.md](../build_/COMMITS/COMMIT-b1039a9.md)
+- Message: Adjudicate EXP-001 run 1 (confirmed) + add consequence evolution route
