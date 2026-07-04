@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`86eb2e5`](https://github.com/iQube-Protocol/AigentZBeta/commit/86eb2e51c1ee6bb8c2d72a48e0cf6a203b934f56) [push] Phase 5: CFS-008 measurement on receipt spine + CFS-010 plan-to-record (Claude, 2026-07-04T05:54:52Z)
 - [`e8372a5`](https://github.com/iQube-Protocol/AigentZBeta/commit/e8372a57294201f3a576c53398d53ebf12cc5baf) [push] Phase 4 runtime adoption: grounding slice, constitutional veto, Reach arc (Claude, 2026-07-04T05:44:23Z)
 - [`5132d14`](https://github.com/iQube-Protocol/AigentZBeta/commit/5132d14c2ddccf5ae15082e753d4a45fb432bd1d) [feat] Add Overview/Ontology/Graph views to Invariant Registry (Claude, 2026-07-04T05:23:45Z)
 - [`4b45166`](https://github.com/iQube-Protocol/AigentZBeta/commit/4b451661d4ce69144fee2af3b57d210eb3a9e834) [feat] Add missing Invariant Intelligence tab to Polity Core cartridge (Claude, 2026-07-04T04:28:43Z)

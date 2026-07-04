@@ -13,6 +13,27 @@ const nextConfig = {
   // Prevent playwright and other native/large packages from being bundled in server routes.
   // This reduces per-page memory pressure and avoids "Critical dependency" warnings.
   serverExternalPackages: ["playwright", "playwright-core", "pdf-parse", "@napi-rs/canvas", "ffmpeg-static"],
+  // Next 15's standalone output is larger than 14's and pushed the Amplify SSR
+  // deploy package past its 220 MiB limit. The bulk was DEAD-WEIGHT native
+  // binaries: Next traces BOTH glibc (gnu / linux-x64) AND musl (linuxmusl)
+  // prebuilt binaries for @napi-rs/canvas and sharp, but the Amplify/Lambda
+  // runtime is Amazon Linux (glibc) and never loads the musl copies (~47 MB).
+  // Dropping them is safe — the glibc variants remain and the loaders resolve
+  // those at runtime. If canvas/sharp ever fail at runtime with a "module not
+  // found" for a platform binary, the runtime moved off glibc — revisit here.
+  outputFileTracingExcludes: {
+    "*": [
+      // musl native binaries — Lambda is glibc, never loads these (~48 MB)
+      "node_modules/@napi-rs/canvas-linux-x64-musl/**",
+      "node_modules/@img/sharp-libvips-linuxmusl-x64/**",
+      "node_modules/@img/sharp-linuxmusl-x64/**",
+      // Build-time-only deps Next conservatively traces but the runtime never
+      // executes: the TypeScript compiler (no runtime import in this app) and
+      // browserslist's caniuse-lite data. ~11 MB more headroom under the limit.
+      "node_modules/typescript/**",
+      "node_modules/caniuse-lite/**",
+    ],
+  },
   // Promoted from experimental in Next 15 — these entries carry the codex-pack
   // markdown/JSON into the standalone Lambda bundle. A silent miss here breaks
   // /api/codex/chat pack search and the docs tab at runtime, so it MUST stay at

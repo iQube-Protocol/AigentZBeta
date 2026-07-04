@@ -53,18 +53,19 @@ frontend:
         - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
 
         - echo ".env.production created. Building Next.js..."
-        # Next 15 heap tuning — a BALANCE between compile and the page-data fork:
-        #   3072 (Next 14, no memory flag): compile OOM'd (V8 mark-compacts)
-        #   6144 / 4096 (+ flag): compile passed but `spawn ENOMEM` — the large
-        #         main process left no instance RAM to fork the page-data worker
-        #   3072 + experimental.webpackMemoryOptimizations (next.config.js):
-        #         VERIFIED locally to compile AND generate all 368 static pages.
-        #         The flag makes compile fit in 3072 (which it couldn't without),
-        #         and the smaller parent leaves room for the worker fork.
-        # If this ever OOMs again, raise Amplify build compute (console →
-        # App settings → Build settings) rather than the heap — a bigger heap
-        # reintroduces the fork ENOMEM.
-        - export NODE_OPTIONS="--max-old-space-size=3072"
+        # Next 15 build memory. Empirically on the CURRENT (small) Amplify build
+        # instance no single heap value works — the instance itself is the limit:
+        #   3072: compile is FLAKY — sometimes fits, sometimes OOMs mid-compile
+        #         (V8 "Ineffective mark-compacts"); Next 15 compile peaks ~3.2 GB.
+        #   4096/6144: compile reliable, but then `spawn ENOMEM` — the ~4 GB
+        #         parent can't fork the page-data worker within the instance RAM.
+        # 6144: comfortable compile headroom (~2x Next 15's ~3.2GB peak) on the
+        # enlarged Amplify build instance. Parent (~6GB) + page-data worker fork
+        # still sit well under a 16GB instance, so no spawn ENOMEM. Kept below
+        # the instance ceiling so the fork always has room; if a future build
+        # needs more, raise the instance tier rather than the heap past ~half of
+        # instance RAM (that reintroduces the fork squeeze).
+        - export NODE_OPTIONS="--max-old-space-size=6144"
         - export NEXT_PRIVATE_BUILD_WORKER=1
         - npm run build
 
