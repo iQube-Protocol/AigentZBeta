@@ -81,6 +81,15 @@ export interface ConsequenceForecast {
   contradicts: number;
   /** True when a canonical constraint/contradiction is implicated → escalate. */
   forcesEscalation: boolean;
+  /**
+   * True when the reachable constraint is a `constitutional`-namespace
+   * constraint/law invariant (CFS-006 §2 — the guardian's constitutional veto).
+   * A subset of forcesEscalation: the strongest, constitutionally-legible
+   * reason to escalate, distinguished from an ordinary canonical constraint.
+   */
+  constitutionalConstraint: boolean;
+  /** The constitutional constraint/law invariant ids that bound the action. */
+  constitutionalConstraintIds: string[];
   rationale: string;
 }
 

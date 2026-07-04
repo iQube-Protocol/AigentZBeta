@@ -92,6 +92,8 @@ export async function forecastConsequences(
       constrains: 0,
       contradicts: 0,
       forcesEscalation: false,
+      constitutionalConstraint: false,
+      constitutionalConstraintIds: [],
       rationale: 'no seed knowledge — nothing to forecast',
     };
   }
@@ -131,6 +133,21 @@ export async function forecastConsequences(
   );
   const forcesEscalation = contradicts > 0 || constrainingCanonical;
 
+  // CFS-006 §2 — the constitutional veto: a reachable constraint/law invariant
+  // in the `constitutional` namespace is the strongest, constitutionally-legible
+  // reason to escalate. A subset of forcesEscalation (never widens it), surfaced
+  // distinctly so the disposition/guardian can name the constitutional basis.
+  const constitutionalConstraintIds = result.nodes
+    .filter(
+      (n) =>
+        n.viaEdge?.edgeType === 'constrains' &&
+        n.invariant.status === 'canonical' &&
+        n.invariant.namespace === 'constitutional' &&
+        (n.invariant.semanticType === 'constraint' || n.invariant.semanticType === 'law'),
+    )
+    .map((n) => n.invariant.id);
+  const constitutionalConstraint = constitutionalConstraintIds.length > 0;
+
   return {
     seedInvariantIds,
     nodes,
@@ -138,10 +155,14 @@ export async function forecastConsequences(
     constrains,
     contradicts,
     forcesEscalation,
+    constitutionalConstraint,
+    constitutionalConstraintIds,
     rationale: forcesEscalation
-      ? contradicts > 0
-        ? `forecast reaches ${contradicts} contradiction(s) — escalate for human ratification`
-        : 'forecast is bounded by a canonical constraint — escalate'
+      ? constitutionalConstraint
+        ? `forecast is bounded by ${constitutionalConstraintIds.length} constitutional constraint(s) — escalate for ratification`
+        : contradicts > 0
+          ? `forecast reaches ${contradicts} contradiction(s) — escalate for human ratification`
+          : 'forecast is bounded by a canonical constraint — escalate'
       : `forecast enables ${enables} downstream outcome(s) with no reachable contradiction`,
   };
 }

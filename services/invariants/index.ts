@@ -82,3 +82,11 @@ export {
   type DiscoverInvariantResult,
   type ValidationVerdict,
 } from './lifecycle';
+
+export {
+  buildInvariantSlice,
+  citeInvariants,
+  type GroundingContext,
+  type InvariantSlice,
+  type InvariantSliceItem,
+} from './grounding';

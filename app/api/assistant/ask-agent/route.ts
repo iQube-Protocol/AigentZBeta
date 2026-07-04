@@ -32,7 +32,40 @@ import {
   type SpecialistId,
   type SpecialistContext,
 } from '@/services/agents/specialistRouter';
+import { buildInvariantSlice } from '@/services/invariants';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+/**
+ * Build the validated-invariant grounding slice for a specialist consultation
+ * (CFS-006 §2). Context-domain-scoped first (the active cartridges), falling
+ * back to the platform's highest-standing validated knowledge so the slice is
+ * never empty on a seeded substrate. Enrichment-only: any failure yields an
+ * empty slice and the consultation proceeds ungrounded (never breaks the ask).
+ *
+ * This path only GROUNDS — it does not record usage/Reach. A specialist
+ * consult is advisory, not an execution; CFS-008 §2 scopes reuse-count to
+ * executions, which the consequence runner (executeApproved) records.
+ */
+async function buildSpecialistInvariantSlice(
+  domains: string[],
+): Promise<SpecialistContext['invariantSlice']> {
+  try {
+    const scoped = domains.length
+      ? await buildInvariantSlice({ domains, limit: 8 })
+      : null;
+    const slice = scoped && scoped.items.length > 0
+      ? scoped
+      : await buildInvariantSlice({ limit: 8 });
+    return slice.items.map((i) => ({
+      seedId: i.seedId,
+      statement: i.statement,
+      namespace: i.namespace,
+    }));
+  } catch (err) {
+    console.error('[ask-agent] invariant slice build failed (non-fatal)', err);
+    return undefined;
+  }
+}
 
 // ─── Contact context injection ───────────────────────────────────────────────
 // When the user's prompt mentions a person, company, or contacts-related
@@ -248,6 +281,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (intentRationale) rationaleParts.push(intentRationale);
     const enrichedRationale = rationaleParts.length > 0 ? rationaleParts.join('\n\n') : intentRationale;
 
+    // Invariant grounding slice (CFS-006 §2) — validated constitutional memory
+    // applicable to this consultation, scoped to the active cartridges.
+    const groundingDomains = [
+      activeCartridge,
+      ...(qube?.meta.activeCartridges ?? []),
+    ].filter((d, i, a): d is string => Boolean(d) && a.indexOf(d) === i);
+    const invariantSlice = await buildSpecialistInvariantSlice(groundingDomains);
+
     const specialistContext: SpecialistContext = {
       activeCartridge,
       experienceName: qube?.meta.experienceName ?? null,
@@ -258,6 +299,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       intentName,
       intentRationale: enrichedRationale,
       ...(body.prompt ? { userPrompt: body.prompt } : {}),
+      ...(invariantSlice && invariantSlice.length > 0 ? { invariantSlice } : {}),
     };
 
     const response = await askSpecialist({

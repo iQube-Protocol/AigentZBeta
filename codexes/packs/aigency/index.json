@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T05:25:34.860Z",
+  "last_updated": "2026-07-04T05:46:09.987Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5132d14c2ddccf5ae15082e753d4a45fb432bd1d",
-  "latest_commit_short": "5132d14",
-  "latest_commit_title": "Add Overview/Ontology/Graph views to Invariant Registry",
+  "latest_commit": "e8372a57294201f3a576c53398d53ebf12cc5baf",
+  "latest_commit_short": "e8372a5",
+  "latest_commit_title": "Phase 4 runtime adoption: grounding slice, constitutional veto, Reach arc",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e8372a5",
+      "full_sha": "e8372a57294201f3a576c53398d53ebf12cc5baf",
+      "title": "Phase 4 runtime adoption: grounding slice, constitutional veto, Reach arc",
+      "author": "Claude",
+      "timestamp": "2026-07-04T05:44:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e8372a5.md"
+    },
     {
       "sha": "5132d14",
       "full_sha": "5132d14c2ddccf5ae15082e753d4a45fb432bd1d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T05:10:09Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-d9014b6.md"
-    },
-    {
-      "sha": "9945b46",
-      "full_sha": "9945b46cb762a095e2af9e1793541566822267b0",
-      "title": "document aigent-z platform ground knowledge session in agentiq updates pack",
-      "author": "Claude",
-      "timestamp": "2026-06-12T16:00:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9945b46.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
