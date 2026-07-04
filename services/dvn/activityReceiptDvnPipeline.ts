@@ -70,6 +70,10 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // are the verified-progress provenance the grounded progress report reads.
   'operator_action_logged',
   'standing_document_added',
+  // Foundational Validation Series — published experiment results carry a
+  // sha256 content commitment in the summary; anchoring makes the commitment
+  // tamper-evident (added per the permitted action-type-addition rule).
+  'experiment_result_published',
   // Standing accrual — NVA-backed outcome credit anchored for audit trail
   'standing_accrued',
   // Autonomous agent delegation lifecycle — provenance of who was delegated what

@@ -11,17 +11,19 @@
  */
 
 import React, { Suspense, useState } from "react";
-import { Beaker, Clapperboard, Scale } from "lucide-react";
+import { Beaker, Clapperboard, Scale, ShieldCheck } from "lucide-react";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
 import Exp001EvaluationRunner from "./Exp001EvaluationRunner";
 import Exp003RediscoveryRunner from "./Exp003RediscoveryRunner";
+import ExperimentResultsTab from "./ExperimentResultsTab";
 
-type LabTab = "video" | "bundle" | "rediscovery";
+type LabTab = "video" | "bundle" | "rediscovery" | "results";
 
 const TABS: { id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "video", label: "EXP-002 · Video", icon: Clapperboard },
   { id: "bundle", label: "EXP-001 · Bundle Evaluation", icon: Scale },
   { id: "rediscovery", label: "EXP-003 · Rediscovery", icon: Beaker },
+  { id: "results", label: "Results · Canonical", icon: ShieldCheck },
 ];
 
 export default function InvariantExperimentLab() {
@@ -66,6 +68,7 @@ export default function InvariantExperimentLab() {
       )}
       {tab === "bundle" && <Exp001EvaluationRunner />}
       {tab === "rediscovery" && <Exp003RediscoveryRunner />}
+      {tab === "results" && <ExperimentResultsTab />}
     </div>
   );
 }

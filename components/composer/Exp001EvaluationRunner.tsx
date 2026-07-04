@@ -52,6 +52,7 @@ export default function Exp001EvaluationRunner() {
   const [scores, setScores] = useState<QuestionScore[]>([]);
   const [coherence, setCoherence] = useState<Record<string, { coherence: number; notes?: string }>>({});
   const [answersByArtifact, setAnswersByArtifact] = useState<Record<string, AnswerRow[]>>({});
+  const [publishState, setPublishState] = useState<string | null>(null);
   const abortRef = useRef(false);
 
   useEffect(() => {
@@ -185,6 +186,38 @@ export default function Exp001EvaluationRunner() {
 
   const complete = !running && scores.length === questions.length && Object.keys(coherence).length > 0;
 
+
+  const publish = async () => {
+    setPublishState("publishing");
+    try {
+      const res = await personaFetch("/api/experiments/results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          experiment: "EXP-001",
+          provider,
+          model: model || "(provider default)",
+          aggregates: { consistencyAvg, explainAvg, hallucinationTotal, coherenceAvg, restraint },
+          results: {
+            experiment: "EXP-001",
+            provider,
+            model: model || "(provider default)",
+            note: "Machine-assisted scoring; human scorer holds final rubric authority.",
+            aggregates: { consistencyAvg, explainAvg, hallucinationTotal, coherenceAvg, restraint },
+            questionScores: scores,
+            coherence,
+            answersByArtifact,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "publish failed");
+      setPublishState(`published — sha256 ${String(data.contentHash).slice(0, 16)}… (receipt ${data.receiptStatus ?? "created"})`);
+    } catch (err) {
+      setPublishState(`publish failed: ${err instanceof Error ? err.message : "error"}`);
+    }
+  };
+
   const download = () => {
     const blob = new Blob(
       [JSON.stringify({
@@ -274,12 +307,25 @@ export default function Exp001EvaluationRunner() {
             <Download className="h-3.5 w-3.5" /> Download results JSON
           </button>
         )}
+        {complete && (
+          <button
+            onClick={publish}
+            disabled={publishState === "publishing"}
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+            title="Human adjudication of machine flags still applies — the published record notes it"
+          >
+            Publish canonically
+          </button>
+        )}
       </div>
 
       {running && (
         <div className="flex items-center gap-2 text-sm text-slate-300">
           <Loader2 className="h-4 w-4 animate-spin" /> {progress}
         </div>
+      )}
+      {publishState && (
+        <div className="text-xs text-indigo-300">{publishState} — see the Results tab for the auditable record.</div>
       )}
       {error && (
         <div className="rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-300">{error}</div>

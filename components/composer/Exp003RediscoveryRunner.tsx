@@ -46,6 +46,7 @@ export default function Exp003RediscoveryRunner() {
   const [progress, setProgress] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<TaskResult[]>([]);
+  const [publishState, setPublishState] = useState<string | null>(null);
   const abortRef = useRef(false);
 
   useEffect(() => {
@@ -116,6 +117,37 @@ export default function Exp003RediscoveryRunner() {
   const groundedShare = (arm: "cold" | "initialized") => {
     const total = sum(arm, (a) => a.judge?.claimsTotal ?? 0);
     return total > 0 ? (sum(arm, (a) => a.judge?.consistent ?? 0) / total) * 100 : null;
+  };
+
+
+  const publish = async () => {
+    setPublishState("publishing");
+    try {
+      const aggregates = {
+        coldOutputTokens: sum("cold", (a) => a.outputTokens ?? 0),
+        initializedOutputTokens: sum("initialized", (a) => a.outputTokens ?? 0),
+        coldGroundedShare: groundedShare("cold"),
+        initializedGroundedShare: groundedShare("initialized"),
+        coldContradictions: sum("cold", (a) => a.judge?.contradicting ?? 0),
+        initializedContradictions: sum("initialized", (a) => a.judge?.contradicting ?? 0),
+      };
+      const res = await personaFetch("/api/experiments/results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          experiment: "EXP-003",
+          provider,
+          model: model || "(provider default)",
+          aggregates,
+          results: { experiment: "EXP-003", provider, model: model || "(provider default)", results },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "publish failed");
+      setPublishState(`published — sha256 ${String(data.contentHash).slice(0, 16)}… (receipt ${data.receiptStatus ?? "created"})`);
+    } catch (err) {
+      setPublishState(`publish failed: ${err instanceof Error ? err.message : "error"}`);
+    }
   };
 
   const download = () => {
@@ -200,12 +232,24 @@ export default function Exp003RediscoveryRunner() {
             <Download className="h-3.5 w-3.5" /> Download results JSON
           </button>
         )}
+        {complete && (
+          <button
+            onClick={publish}
+            disabled={publishState === "publishing"}
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          >
+            Publish canonically
+          </button>
+        )}
       </div>
 
       {running && (
         <div className="flex items-center gap-2 text-sm text-slate-300">
           <Loader2 className="h-4 w-4 animate-spin" /> {progress}
         </div>
+      )}
+      {publishState && (
+        <div className="text-xs text-indigo-300">{publishState} — see the Results tab for the auditable record.</div>
       )}
       {error && (
         <div className="rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-300">{error}</div>

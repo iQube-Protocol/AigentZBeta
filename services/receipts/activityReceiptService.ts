@@ -78,7 +78,11 @@ export type ActivityActionType =
   // curated stays local (high volume, pre-decision).
   | 'knowledge_curated'
   | 'consequence_forecast_recorded'
-  | 'knowledge_evolved';
+  | 'knowledge_evolved'
+  // Foundational Validation Series — canonical result publication (Experiment
+  // Lab). Summary carries the sha256 content commitment of the results JSON;
+  // DVN-anchorable so the commitment lands in tamper-evident memory.
+  | 'experiment_result_published';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
