@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T07:29:18.071Z",
+  "last_updated": "2026-07-04T07:37:51.877Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "dffa60181506e605ca5acea12f6d86d13b8eca41",
-  "latest_commit_short": "dffa601",
-  "latest_commit_title": "Draft CFS-008a reasoning-compression paper + amend CFS-008 with evidence",
+  "latest_commit": "d1289ff2b2e08aa49a46039c0cea8eb4d694deb5",
+  "latest_commit_short": "d1289ff",
+  "latest_commit_title": "Add EXP-001 independent-judge evaluation harness",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d1289ff",
+      "full_sha": "d1289ff2b2e08aa49a46039c0cea8eb4d694deb5",
+      "title": "Add EXP-001 independent-judge evaluation harness",
+      "author": "Claude",
+      "timestamp": "2026-07-04T07:35:58Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d1289ff.md"
+    },
     {
       "sha": "dffa601",
       "full_sha": "dffa60181506e605ca5acea12f6d86d13b8eca41",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T17:43:19Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-16d854f.md"
-    },
-    {
-      "sha": "e86dfe4",
-      "full_sha": "e86dfe4a059d8813ab25e19d6e3da65872e63f15",
-      "title": "sprint 5 — delegation tab in passport + agentkit attestation bridge",
-      "author": "Claude",
-      "timestamp": "2026-06-13T17:41:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e86dfe4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
