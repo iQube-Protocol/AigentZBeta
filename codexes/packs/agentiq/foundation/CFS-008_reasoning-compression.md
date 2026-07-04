@@ -57,3 +57,34 @@ The practical payoff. At intent start, the runtime loads the dependency closure 
 5. The consequence flywheel: standing as epistemic feedback
 6. Production evidence from the AgentiQ substrate (receipts, forecasts, evolution deltas)
 7. Related work: knowledge graphs, ontologies, memory architectures, amortised inference — and where invariant intelligence differs (constitutional validation, standing-weighted confidence, consequence feedback)
+
+*The paper draft realizing this skeleton is CFS-008a
+(`CFS-008a_reasoning-compression-paper.md`), v0.1 as of 2026-07-04.*
+
+## 7. First experimental evidence — amendment, 2026-07-04
+
+EXP-003 (rediscovery savings) run 1 confirmed the hypothesis on all four measures:
+26.7% fewer output tokens with every task individually cheaper, grounded-claim share
+78.4% → 100%, canon contradictions 2 → 0, and 28 traceable citations vs 0
+(`experiments/exp-003-rediscovery-savings/`). Three additions are ratified into this
+spec from that result:
+
+**7.1 The Foundational Validation Series.** EXP-001/002/003 are formally one series —
+three orthogonal validations of the same computational model, not isolated demos:
+EXP-001 *semantic preservation* (across modalities), EXP-002 *temporal preservation*
+(across time), EXP-003 *rediscovery savings* (reasoning cost + epistemic fidelity).
+
+**7.2 Terminology: reasoning debt / reasoning capital.** Cold inference carries
+**reasoning debt** — the un-amortised cost of re-deriving already-validated principles,
+paid in tokens, error, and unexplainable output. Initialized inference inherits
+**reasoning capital** — the validated closure loaded before generation. The delta is the
+reasoning the system no longer repeats. Canonical invariants are thereby **pre-paid
+reasoning**, and EXP-003's Law XII finding (the cold arm spontaneously committed exactly
+the reputation→truth conflation Law XII forecloses; the closure eliminated it) shows
+they act as **active constraints on inference**, not passive reference.
+
+**7.3 The experimental conclusion** (stated carefully; supported by run 1, subject to
+cross-model replication):
+
+> **Invariant Intelligence reduces computational effort not by replacing reasoning, but
+> by preserving validated reasoning so that it need not be repeatedly rediscovered.**
