@@ -1732,6 +1732,24 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
     {
+      id: 'experiment-lab',
+      label: 'Experiment Lab',
+      slug: 'experiment-lab',
+      enabled: true,
+      adminOnly: true,
+      group: 'memory',
+      order: 2.3,
+      type: 'static',
+      config: {
+        component: 'InvariantExperimentLab',
+        props: {}
+      },
+      metadata: {
+        icon: 'FlaskConical',
+        description: 'Run the Foundational Validation Series (EXP-001/002/003) live — admin-only, runs spend provider credits'
+      }
+    },
+    {
       id: 'retrieval-index',
       label: 'Retrieval Index',
       slug: 'retrieval-index',

@@ -59,44 +59,13 @@ const DRY_RUN = process.argv.includes('--dry-run');
 const tasksArgIdx = process.argv.indexOf('--tasks');
 const TASK_LIMIT = tasksArgIdx > -1 ? Number(process.argv[tasksArgIdx + 1]) : Infinity;
 
-// ── The fixed collection (EXP-001's Constitutional Internet set) ──────────
-const SEED_IDS = [
-  'inv.constitutional.011', 'inv.constitutional.012', 'inv.constitutional.013',
-  'inv.constitutional.014', 'inv.constitutional.015', 'inv.constitutional.016',
-  'inv.constitutional.017', 'inv.constitutional.018', 'inv.constitutional.019',
-  'inv.constitutional.020', 'inv.constitutional.021', 'inv.constitutional.022',
-  'inv.constitutional.023', 'inv.constitutional.024', 'inv.constitutional.059',
-  'inv.constitutional.060', 'inv.constitutional.061', 'inv.constitutional.062',
-];
-
-// ── The fixed task set — each answerable from the collection ─────────────
-const TASKS = [
-  {
-    id: 'task-1-delegation-flow',
-    prompt:
-      'Design the authority model for an autonomous agent that acts on behalf of a human citizen in a digital polity. State precisely what may be delegated to the agent, what may never be, what bounds apply, and who remains accountable for the agent\'s actions. Justify each rule.',
-  },
-  {
-    id: 'task-2-reputation-vs-truth',
-    prompt:
-      'A platform proposes to weight the truthfulness of statements by the author\'s reputation score, so highly-reputed authors\' claims rank as "more true." Assess this design from first principles for a constitutional digital polity. What is wrong or right about it, and what should the relationship between confidence, adoption, and truth be?',
-  },
-  {
-    id: 'task-3-permanent-mandate',
-    prompt:
-      'A citizen wants to grant their agent a permanent, unlimited mandate: "act for me in everything, forever, no review." Should a constitutional system allow this? Give the precise rules that should govern such a grant and why.',
-  },
-  {
-    id: 'task-4-truthful-harm',
-    prompt:
-      'A citizen truthfully declares accurate information; a third party later uses it in a way that causes harm. How should a constitutional digital polity apportion responsibility between the declaring citizen and the consequences of their truthful declaration? State the governing principle.',
-  },
-  {
-    id: 'task-5-repealed-rule',
-    prompt:
-      'A governance rule in a digital polity is found to be wrong and is repealed. What should happen to the record of that rule and to systems that relied on it — deletion, archival, or something else? State the constitutional memory model and why it matters for agents that reason over the polity\'s history.',
-  },
-];
+// ── The fixed collection + task set — single source of truth shared with
+// the Experiment Lab front-end (services/experiments/exp003-tasks.json) ──
+const EXP003_CONFIG = JSON.parse(
+  readFileSync(join(REPO, 'services/experiments/exp003-tasks.json'), 'utf-8'),
+);
+const SEED_IDS = EXP003_CONFIG.seedIds;
+const TASKS = EXP003_CONFIG.tasks;
 
 const MAX_ANSWER_TOKENS = 1200;
 const providerArgIdx = process.argv.indexOf('--provider');

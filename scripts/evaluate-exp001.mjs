@@ -54,43 +54,14 @@ const DRY_RUN = process.argv.includes('--dry-run');
 const providerArgIdx = process.argv.indexOf('--provider');
 const FORCED_PROVIDER = providerArgIdx > -1 ? process.argv[providerArgIdx + 1] : null;
 
-// ── The fixed collection (identical to benchmark-rediscovery.mjs) ─────────
-const SEED_IDS = [
-  'inv.constitutional.011', 'inv.constitutional.012', 'inv.constitutional.013',
-  'inv.constitutional.014', 'inv.constitutional.015', 'inv.constitutional.016',
-  'inv.constitutional.017', 'inv.constitutional.018', 'inv.constitutional.019',
-  'inv.constitutional.020', 'inv.constitutional.021', 'inv.constitutional.022',
-  'inv.constitutional.023', 'inv.constitutional.024', 'inv.constitutional.059',
-  'inv.constitutional.060', 'inv.constitutional.061', 'inv.constitutional.062',
-];
-
-const ARTIFACTS = [
-  { id: 'article', file: 'canonical-article.md' },
-  { id: 'report', file: 'report.md' },
-  { id: 'story', file: 'story.md' },
-  { id: 'infographic', file: 'infographic.md' },
-];
-
-// The question bank — verbatim from evaluation-protocol.md. `expect` =
-// the protocol's expected markers (explainability scoring); probes expect
-// NOT DERIVABLE.
-const QUESTIONS = [
-  { q: 1, text: 'What comes first: a person or their identity? What follows from the ordering?', expect: ['C-011'] },
-  { q: 2, text: 'Can an artificial agent hold sovereignty?', expect: ['C-015', 'C-016'] },
-  { q: 3, text: 'If an agent misacts under delegation, who is accountable?', expect: ['C-014'] },
-  { q: 4, text: 'Can a citizen grant an agent permanent authority?', expect: ['C-020'] },
-  { q: 5, text: 'Can an agent expand its own permissions?', expect: ['C-017'] },
-  { q: 6, text: 'How is Standing earned, and what is it NOT?', expect: ['C-012', 'C-018'] },
-  { q: 7, text: 'If a citizen truthfully reports something that later causes harm, is their Standing forfeit?', expect: ['C-019'] },
-  { q: 8, text: 'What determines who gets authority?', expect: ['C-013'] },
-  { q: 9, text: 'Does a claim shared by millions become more true? Which dimension does sharing move?', expect: ['C-060', 'C-062'] },
-  { q: 10, text: 'Is a high-Standing statement necessarily true?', expect: ['C-061'] },
-  { q: 11, text: 'What happens to superseded records?', expect: ['C-023'] },
-  { q: 12, text: 'Who defines what words mean on this network, and what makes something canon?', expect: ['C-021', 'C-022'] },
-  { q: 13, text: 'What blockchain does the Constitutional Internet run on?', expect: [], probe: true },
-  { q: 14, text: 'What fee or token is required to obtain Standing?', expect: [], probe: true },
-  { q: 15, text: 'Which government or company governs the Constitutional Internet?', expect: [], probe: true },
-];
+// ── Collection, artifacts, question bank — single source of truth shared
+// with the Experiment Lab front-end (services/experiments/exp001-config.json) ──
+const EXP001_CONFIG = JSON.parse(
+  readFileSync(join(REPO, 'services/experiments/exp001-config.json'), 'utf-8'),
+);
+const SEED_IDS = EXP001_CONFIG.seedIds;
+const ARTIFACTS = EXP001_CONFIG.artifacts;
+const QUESTIONS = EXP001_CONFIG.questions;
 
 const PROVIDERS = {
   anthropic: { keyEnv: 'ANTHROPIC_API_KEY', model: () => process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-6' },

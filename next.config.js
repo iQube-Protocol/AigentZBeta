@@ -40,6 +40,12 @@ const nextConfig = {
   // the top level (Next 15 ignores experimental.outputFileTracingIncludes).
   outputFileTracingIncludes: {
     "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
+    // EXP-001 evaluation step API reads the Living KnowledgeQube artifact
+    // markdown at runtime (services/experiments/exp001.ts). Without this the
+    // Lambda ships without the files and every 'answers' step 500s.
+    "/api/experiments/exp001": [
+      "./codexes/packs/agentiq/foundation/experiments/exp-001-living-knowledgeqube/*.md",
+    ],
     // Stage 8+ docs tab — markdown reader serves the legibility profile
     // (docs/) + the PRD trail (codexes/packs/agentiq/updates/). Without
     // these the Lambda bundle ships without the .md files and the route
