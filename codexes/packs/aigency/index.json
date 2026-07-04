@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T19:39:13.986Z",
+  "last_updated": "2026-07-04T20:18:59.317Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "df9a9ef93e96bfd16d07d7dfb27468d2f904dca6",
-  "latest_commit_short": "df9a9ef",
-  "latest_commit_title": "Add video skill + Venice model selectors to invariant video runner",
+  "latest_commit": "9f9f38eee39463ecfc10d007c57d47b9ecbff4c1",
+  "latest_commit_short": "9f9f38e",
+  "latest_commit_title": "Add trust-override checkbox to invariant video runner",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9f9f38e",
+      "full_sha": "9f9f38eee39463ecfc10d007c57d47b9ecbff4c1",
+      "title": "Add trust-override checkbox to invariant video runner",
+      "author": "Claude",
+      "timestamp": "2026-07-04T20:17:08Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9f9f38e.md"
+    },
     {
       "sha": "df9a9ef",
       "full_sha": "df9a9ef93e96bfd16d07d7dfb27468d2f904dca6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T21:09:18Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-1abc8ec.md"
-    },
-    {
-      "sha": "cdfe373",
-      "full_sha": "cdfe3730dd7c8c9c04c3d7638da5e926489bc8b3",
-      "title": "add polity passport bureau doctrine, ens, and being tabs",
-      "author": "Claude",
-      "timestamp": "2026-06-13T21:01:10Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-cdfe373.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
