@@ -53,7 +53,12 @@ frontend:
         - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
 
         - echo ".env.production created. Building Next.js..."
-        - export NODE_OPTIONS="--max-old-space-size=3072"
+        # Next 15's build needs more heap than 14 — the old 3072 cap OOM'd on
+        # Amplify. Raised to 6144; paired with experimental.webpackMemoryOptimizations
+        # in next.config.js which lowers peak webpack memory. If this ever OOMs
+        # again with an OS kill (exit 137) rather than a V8 heap error, the build
+        # instance itself is memory-bound — raise Amplify build compute.
+        - export NODE_OPTIONS="--max-old-space-size=6144"
         - export NEXT_PRIVATE_BUILD_WORKER=1
         - npm run build
 
