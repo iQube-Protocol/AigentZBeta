@@ -23,12 +23,24 @@
  *
  * Requires (from .env.local or the environment):
  *   NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) + SUPABASE_SERVICE_ROLE_KEY
- *   ANTHROPIC_API_KEY  (model: ANTHROPIC_DRAFT_MODEL or claude-sonnet-4-6)
+ *   plus ONE provider key. Providers mirror the platform's LLM chain
+ *   (services/agents/_lib/llmDraftHelper.ts) exactly — same env names,
+ *   endpoints, and default models:
+ *     anthropic — ANTHROPIC_API_KEY  (ANTHROPIC_DRAFT_MODEL, default claude-sonnet-4-6)
+ *     openai    — OPENAI_API_KEY    (OPENAI_DRAFT_MODEL,    default gpt-4o-mini)
+ *     venice    — VENICE_API_KEY    (VENICE_DRAFT_MODEL,    default llama-3.3-70b,
+ *                 at VENICE_BASE_URL or https://api.venice.ai/api/v1)
  *
  * Usage:
- *   node scripts/benchmark-rediscovery.mjs --dry-run     # print plan, no API calls
- *   node scripts/benchmark-rediscovery.mjs               # full run (~30 API calls)
- *   node scripts/benchmark-rediscovery.mjs --tasks 2     # first N tasks only
+ *   node scripts/benchmark-rediscovery.mjs --dry-run             # print plan, no API calls
+ *   node scripts/benchmark-rediscovery.mjs                       # full run (~20 API calls)
+ *   node scripts/benchmark-rediscovery.mjs --provider openai     # force a provider
+ *   node scripts/benchmark-rediscovery.mjs --tasks 2             # first N tasks only
+ *
+ * Without --provider the first provider with a key (platform order:
+ * anthropic → openai → venice) is used. Both arms and the judge always run
+ * on the SAME provider+model — never mix providers within a run, the
+ * comparison would be meaningless.
  *
  * Output: codexes/packs/agentiq/foundation/experiments/exp-003-rediscovery-savings/
  *   results-<UTC date>.json  (raw)  +  a summary table on stdout to paste
@@ -86,8 +98,46 @@ const TASKS = [
   },
 ];
 
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-6';
 const MAX_ANSWER_TOKENS = 1200;
+const providerArgIdx = process.argv.indexOf('--provider');
+const FORCED_PROVIDER = providerArgIdx > -1 ? process.argv[providerArgIdx + 1] : null;
+
+/**
+ * Provider table — env names, endpoints, and default models mirror
+ * services/agents/_lib/llmDraftHelper.ts verbatim. Order = the platform's
+ * fallback chain.
+ */
+const PROVIDERS = {
+  anthropic: {
+    keyEnv: 'ANTHROPIC_API_KEY',
+    model: () => process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-6',
+  },
+  openai: {
+    keyEnv: 'OPENAI_API_KEY',
+    model: () => process.env.OPENAI_DRAFT_MODEL || 'gpt-4o-mini',
+  },
+  venice: {
+    keyEnv: 'VENICE_API_KEY',
+    model: () => process.env.VENICE_DRAFT_MODEL || 'llama-3.3-70b',
+  },
+};
+
+function resolveProvider() {
+  if (FORCED_PROVIDER) {
+    if (!PROVIDERS[FORCED_PROVIDER]) {
+      throw new Error(`unknown --provider '${FORCED_PROVIDER}' (anthropic | openai | venice)`);
+    }
+    if (!process.env[PROVIDERS[FORCED_PROVIDER].keyEnv] && !DRY_RUN) {
+      throw new Error(`--provider ${FORCED_PROVIDER} but ${PROVIDERS[FORCED_PROVIDER].keyEnv} is not set (checked env + .env.local)`);
+    }
+    return FORCED_PROVIDER;
+  }
+  for (const name of ['anthropic', 'openai', 'venice']) {
+    if (process.env[PROVIDERS[name].keyEnv]) return name;
+  }
+  if (DRY_RUN) return 'anthropic';
+  throw new Error('no provider key found — set ANTHROPIC_API_KEY, OPENAI_API_KEY, or VENICE_API_KEY (or pass --provider)');
+}
 
 function loadEnvLocal() {
   for (const file of ['.env.local', '.env.local.temp']) {
@@ -131,29 +181,65 @@ function closureBlock(collection) {
   ].join('\n');
 }
 
-async function callAnthropic(system, user, maxTokens) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+let ACTIVE_PROVIDER = 'anthropic';
+let ACTIVE_MODEL = '';
+
+/** One chat call on the active provider. Same shape for both arms + judge. */
+async function callChat(system, user, maxTokens) {
+  if (ACTIVE_PROVIDER === 'anthropic') {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: ACTIVE_MODEL,
+        max_tokens: maxTokens,
+        temperature: 0,
+        system,
+        messages: [{ role: 'user', content: user }],
+      }),
+    });
+    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const data = await res.json();
+    const text = (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    return {
+      text,
+      inputTokens: data.usage?.input_tokens ?? null,
+      outputTokens: data.usage?.output_tokens ?? null,
+    };
+  }
+
+  // openai + venice — both OpenAI-compatible chat/completions with `usage`.
+  const baseUrl =
+    ACTIVE_PROVIDER === 'venice'
+      ? `${process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1'}`
+      : 'https://api.openai.com/v1';
+  const apiKey = process.env[PROVIDERS[ACTIVE_PROVIDER].keyEnv];
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: maxTokens,
+      model: ACTIVE_MODEL,
       temperature: 0,
-      system,
-      messages: [{ role: 'user', content: user }],
+      max_tokens: maxTokens,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
     }),
   });
-  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) throw new Error(`${ACTIVE_PROVIDER} ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
-  const text = (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('');
   return {
-    text,
-    inputTokens: data.usage?.input_tokens ?? null,
-    outputTokens: data.usage?.output_tokens ?? null,
+    text: data.choices?.[0]?.message?.content ?? '',
+    inputTokens: data.usage?.prompt_tokens ?? null,
+    outputTokens: data.usage?.completion_tokens ?? null,
   };
 }
 
@@ -176,7 +262,7 @@ async function judge(collection, taskPrompt, answer) {
     'ANSWER TO EVALUATE:',
     answer,
   ].join('\n');
-  const { text } = await callAnthropic(system, user, 400);
+  const { text } = await callChat(system, user, 400);
   const fenced = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/);
   const raw = fenced ? fenced[1].trim() : text.trim();
   return JSON.parse(raw);
@@ -201,10 +287,8 @@ async function main() {
     console.error('Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (checked env + .env.local)');
     process.exit(1);
   }
-  if (!DRY_RUN && !process.env.ANTHROPIC_API_KEY) {
-    console.error('Missing ANTHROPIC_API_KEY (checked env + .env.local)');
-    process.exit(1);
-  }
+  ACTIVE_PROVIDER = resolveProvider();
+  ACTIVE_MODEL = PROVIDERS[ACTIVE_PROVIDER].model();
 
   const supabase = createClient(url, key);
   const collection = await fetchCollection(supabase);
@@ -212,7 +296,7 @@ async function main() {
   const block = closureBlock(collection);
 
   console.log(`EXP-003 rediscovery-savings benchmark`);
-  console.log(`model=${ANTHROPIC_MODEL} temperature=0 tasks=${tasks.length} collection=${collection.length} invariants`);
+  console.log(`provider=${ACTIVE_PROVIDER} model=${ACTIVE_MODEL} temperature=0 tasks=${tasks.length} collection=${collection.length} invariants`);
 
   if (DRY_RUN) {
     console.log('\n--dry-run: no API calls. Closure block preview:\n');
@@ -226,11 +310,11 @@ async function main() {
     console.log(`\n── ${task.id} ──`);
 
     process.stdout.write('  cold …');
-    const cold = await callAnthropic(ANSWER_SYSTEM, task.prompt, MAX_ANSWER_TOKENS);
+    const cold = await callChat(ANSWER_SYSTEM, task.prompt, MAX_ANSWER_TOKENS);
     console.log(` ${cold.outputTokens} output tokens`);
 
     process.stdout.write('  initialized …');
-    const init = await callAnthropic(ANSWER_SYSTEM, `${block}\n\nTASK:\n${task.prompt}`, MAX_ANSWER_TOKENS);
+    const init = await callChat(ANSWER_SYSTEM, `${block}\n\nTASK:\n${task.prompt}`, MAX_ANSWER_TOKENS);
     console.log(` ${init.outputTokens} output tokens`);
 
     process.stdout.write('  judging …');
@@ -260,7 +344,7 @@ async function main() {
   mkdirSync(OUT_DIR, { recursive: true });
   const stamp = new Date().toISOString().slice(0, 10);
   const outPath = join(OUT_DIR, `results-${stamp}.json`);
-  writeFileSync(outPath, JSON.stringify({ model: ANTHROPIC_MODEL, ranAt: new Date().toISOString(), collectionSeeds: SEED_IDS, results }, null, 2));
+  writeFileSync(outPath, JSON.stringify({ provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL, ranAt: new Date().toISOString(), collectionSeeds: SEED_IDS, results }, null, 2));
 
   // Summary table (paste into README results section).
   console.log('\n| Task | Arm | Out tokens | Claims | Consistent | Contradicting | Outside | Cited |');

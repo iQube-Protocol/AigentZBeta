@@ -29,8 +29,11 @@ over time:
 - **Task set** — five fixed design/assessment tasks, each answerable from the
   collection: delegation flow, reputation-vs-truth, permanent mandate, truthful-harm
   responsibility, repealed-rule memory.
-- **Arms** — same model (`ANTHROPIC_DRAFT_MODEL`, default `claude-sonnet-4-6`),
-  temperature 0, same max tokens:
+- **Arms** — same provider + model for both arms AND the judge (never mixed within a
+  run), temperature 0, same max tokens. Providers mirror the platform's LLM chain
+  (`llmDraftHelper.ts`) — `anthropic` (`claude-sonnet-4-6`), `openai` (`gpt-4o-mini`),
+  or `venice` (`llama-3.3-70b`), selected by `--provider` or by the first available key
+  in platform order:
   - **A (cold):** task only.
   - **B (initialized):** knowledge-initialization block (the closure with `[C-NNN]`
     markers + the citation instruction) prepended to the same task.
@@ -53,12 +56,15 @@ over time:
 ```bash
 cd /Users/hal1/CascadeProjects/AigentZBeta && git pull && \
 node scripts/benchmark-rediscovery.mjs --dry-run && \
-node scripts/benchmark-rediscovery.mjs
+node scripts/benchmark-rediscovery.mjs --provider openai
 ```
 
-Requires `ANTHROPIC_API_KEY` + Supabase env in `.env.local` (already present for the
-seed ingest). Full run ≈ 20 answer/judge calls. Raw results land in this directory as
-`results-<date>.json`; the script prints a markdown summary table to paste below.
+Requires ONE provider key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `VENICE_API_KEY`)
+plus Supabase env in `.env.local` (already present for the seed ingest). Omit
+`--provider` to auto-pick the first available key in platform order. Full run ≈ 20
+answer/judge calls. Raw results land in this directory as `results-<date>.json`; the
+script prints a markdown summary table to paste below. Note the run's provider+model
+alongside the table — cross-provider runs are separate experiments, not comparable rows.
 
 ## Results
 
