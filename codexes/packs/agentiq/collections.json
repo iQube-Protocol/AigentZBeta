@@ -28,6 +28,8 @@
         "foundation/CFS-008_reasoning-compression.md",
         "foundation/CFS-009_development-constitution.md",
         "foundation/CFS-010_migration-strategy.md",
+        "foundation/CFS-011_style-invariant-specification.md",
+        "foundation/CFS-012_narrative-invariant-specification.md",
         "foundation/appendix-a_canonical-invariants.md"
       ]
     },
@@ -79,6 +81,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-04_law-xiii-style-invariants-video-fix.md",
         "updates/2026-07-03_law-xii-experiments-phase-3b.md",
         "updates/2026-07-03_consequence-operating-model-phase-2-3.md",
         "updates/2026-07-03_invariant-substrate-phase-1.md",
