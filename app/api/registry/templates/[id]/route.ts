@@ -9,8 +9,8 @@ function notFound() {
   return NextResponse.json({ error: 'Not found' }, { status: 404 });
 }
 
-async function _GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
+async function _GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const { id } = await props.params;
   try {
     const supabase = getSupabaseServer();
     if (supabase) {
@@ -59,8 +59,8 @@ async function _GET(_req: NextRequest, { params }: { params: { id: string } }) {
   }
 }
 
-async function _PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
+async function _PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const { id } = await props.params;
   try {
     const body = await req.json();
     const supabase = getSupabaseServer();
@@ -208,8 +208,8 @@ async function _PATCH(req: NextRequest, { params }: { params: { id: string } }) 
   }
 }
 
-async function _DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
+async function _DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const { id } = await props.params;
   try {
     const supabase = getSupabaseServer();
     if (supabase) {

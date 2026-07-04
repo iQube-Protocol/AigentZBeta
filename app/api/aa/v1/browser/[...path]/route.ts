@@ -16,9 +16,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type RouteContext = {
-  params: {
+  params: Promise<{
     path?: string[];
-  };
+  }>;
 };
 
 type BrowserSessionServiceApi = {
@@ -457,13 +457,16 @@ async function handleRequest(request: NextRequest, context: RouteContext): Promi
 }
 
 export async function GET(request: NextRequest, context: RouteContext): Promise<Response> {
-  return handleRequest(request, context);
+  return handleRequest(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
+  context);
 }
 
 export async function POST(request: NextRequest, context: RouteContext): Promise<Response> {
-  return handleRequest(request, context);
+  return handleRequest(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
+  context);
 }
 
 export async function OPTIONS(request: NextRequest, context: RouteContext): Promise<Response> {
-  return handleRequest(request, context);
+  return handleRequest(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
+  context);
 }

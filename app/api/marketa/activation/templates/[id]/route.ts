@@ -15,7 +15,8 @@ function jsonError(error: string, status = 400, detail?: string) {
   return NextResponse.json({ ok: false, error, ...(detail ? { detail } : {}) }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) return jsonError('DB unavailable', 503);
 

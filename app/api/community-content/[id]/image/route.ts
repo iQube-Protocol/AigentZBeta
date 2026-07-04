@@ -31,8 +31,9 @@ const PUBLIC_STATUSES = new Set(['shared', 'runtime_promoted']);
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } },
+  props: { params: Promise<Promise<{ id: string }> | { id: string }> }
 ) {
+  const params = await props.params;
   const { id } = await Promise.resolve(params);
   if (!id) return new NextResponse('id required', { status: 400 });
 

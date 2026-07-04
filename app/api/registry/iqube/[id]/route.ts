@@ -27,9 +27,9 @@ function isValidProjection(value: string | null): value is ResolverProjection {
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> | { id: string } },
+  context: { params: Promise<Promise<{ id: string }> | { id: string }> },
 ) {
-  const params = await Promise.resolve(context.params);
+  const params = await Promise.resolve((await context.params));
   const iqubeId = params.id;
 
   if (!iqubeId || typeof iqubeId !== 'string' || iqubeId.length < 4) {
@@ -120,7 +120,7 @@ function clampAxis(v: unknown): number | null {
  */
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> | { id: string } },
+  context: { params: Promise<Promise<{ id: string }> | { id: string }> },
 ) {
   // 1. Auth
   const persona = await getActivePersona(request);
@@ -132,7 +132,7 @@ export async function PATCH(
   }
 
   // 2. Resolve target
-  const params = await Promise.resolve(context.params);
+  const params = await Promise.resolve((await context.params));
   const iqubeId = params.id;
   if (!iqubeId || typeof iqubeId !== 'string' || iqubeId.length < 4) {
     return NextResponse.json({ error: 'invalid_iqube_id' }, { status: 400 });

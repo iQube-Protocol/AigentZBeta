@@ -40,7 +40,8 @@ async function canAccess(
 }
 
 /** GET — return current professional_profile from capability_profile.professionalProfile */
-export async function GET(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
@@ -62,7 +63,8 @@ export async function GET(req: NextRequest, { params }: { params: { caseId: stri
 }
 
 /** PATCH — save updated professionalProfile back into capability_profile */
-export async function PATCH(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
@@ -97,7 +99,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { caseId: st
 }
 
 /** POST — extract structured facts from source text (SOURCE_DERIVED confidence) */
-export async function POST(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });

@@ -10,10 +10,8 @@ function computeZone(y: number, x: number): string {
   return 'scale';
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = getSupabaseServer();
     if (!supabase) return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });
@@ -33,10 +31,8 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = getSupabaseServer();
     if (!supabase) return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });

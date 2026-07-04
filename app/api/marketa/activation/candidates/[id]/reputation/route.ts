@@ -162,11 +162,13 @@ async function syncCandidateReputation(candidateId: string, actor = "marketa") {
   };
 }
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return (await syncCandidateReputation(params.id)).response;
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const body = (await request.json().catch(() => ({}))) as { actorId?: string };
   return (await syncCandidateReputation(params.id, body.actorId || "marketa")).response;
 }

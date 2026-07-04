@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 interface RouteParams {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 function shapeRequest(row: {
@@ -46,7 +46,7 @@ function shapeRequest(row: {
 }
 
 export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
-  const guard = await cartridgeManageGuard(req, ctx.params.slug, { requireWrite: true });
+  const guard = await cartridgeManageGuard(req, (await ctx.params).slug, { requireWrite: true });
   if (guard instanceof NextResponse) return guard;
 
   let message: string | null = null;
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResp
   const { data: cfg, error: cfgErr } = await db
     .from("codex_configs")
     .select("name")
-    .eq("slug", ctx.params.slug)
+    .eq("slug", (await ctx.params).slug)
     .maybeSingle();
   if (cfgErr || !cfg) {
     return NextResponse.json(
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResp
   const { data: inserted, error: insErr } = await db
     .from("cartridge_catalogue_requests")
     .insert({
-      cartridge_slug: ctx.params.slug,
+      cartridge_slug: (await ctx.params).slug,
       cartridge_title: (cfg as { name: string }).name,
       persona_id: guard.persona.personaId,
       auth_profile_id: guard.persona.authProfileId,
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResp
 }
 
 export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
-  const guard = await cartridgeManageGuard(req, ctx.params.slug, { requireWrite: false });
+  const guard = await cartridgeManageGuard(req, (await ctx.params).slug, { requireWrite: false });
   if (guard instanceof NextResponse) return guard;
 
   const db = getSupabaseServer();
@@ -150,7 +150,7 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
   const { data, error } = await db
     .from("cartridge_catalogue_requests")
     .select("id, status, message, requested_at, decided_at, decision_reason")
-    .eq("cartridge_slug", ctx.params.slug)
+    .eq("cartridge_slug", (await ctx.params).slug)
     .eq("persona_id", guard.persona.personaId)
     .order("requested_at", { ascending: false })
     .limit(1)

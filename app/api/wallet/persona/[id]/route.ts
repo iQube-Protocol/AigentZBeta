@@ -19,7 +19,7 @@ const supabase = createClient(
 );
 
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 function toOwnerSafePersona(record: any) {
@@ -69,10 +69,8 @@ function toPublicSafePersona(record: any, fioVisible: boolean) {
  * GET /api/wallet/persona/[id]
  * Get a single persona by ID
  */
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, props: RouteParams) {
+  const params = await props.params;
   try {
     const callerAuthProfileId = await getCallerAuthProfileId(request);
     if (!callerAuthProfileId) {
@@ -134,10 +132,8 @@ export async function GET(
  * PATCH /api/wallet/persona/[id]
  * Update a persona
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PATCH(request: NextRequest, props: RouteParams) {
+  const params = await props.params;
   try {
     const callerAuthProfileId = await getCallerAuthProfileId(request);
     if (!callerAuthProfileId) {
@@ -220,10 +216,8 @@ export async function PATCH(
  * DELETE /api/wallet/persona/[id]
  * Delete a persona (soft delete - sets status to 'deleted')
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(request: NextRequest, props: RouteParams) {
+  const params = await props.params;
   try {
     const callerAuthProfileId = await getCallerAuthProfileId(request);
     if (!callerAuthProfileId) {

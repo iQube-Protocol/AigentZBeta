@@ -49,10 +49,8 @@ function pathFromStorageUrl(url: string): string | null {
   return m ? m[1] : null;
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { masterId: string } },
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ masterId: string }> }) {
+  const params = await props.params;
   try {
     const masterId = params.masterId;
     if (!masterId) {

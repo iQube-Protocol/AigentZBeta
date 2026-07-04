@@ -34,14 +34,14 @@ interface RevokeBody {
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> | { id: string } },
+  context: { params: Promise<Promise<{ id: string }> | { id: string }> },
 ) {
   const persona = await getActivePersona(request);
   if (!persona) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
 
-  const params = await Promise.resolve(context.params);
+  const params = await Promise.resolve((await context.params));
   const iqubeId = params.id;
   if (!iqubeId || typeof iqubeId !== 'string' || iqubeId.length < 4) {
     return NextResponse.json({ error: 'invalid_iqube_id' }, { status: 400 });

@@ -9,11 +9,11 @@ import { getInvariantQube } from '@/services/invariants';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   try {
-    const invariantQube = await getInvariantQube(context.params.id);
+    const invariantQube = await getInvariantQube((await context.params).id);
     if (!invariantQube) return NextResponse.json({ error: 'not_found' }, { status: 404 });
     return NextResponse.json({ ok: true, invariantQube });
   } catch (error) {

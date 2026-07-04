@@ -19,8 +19,8 @@ function sanitizePath(filePath: string): string | null {
   return normalized;
 }
 
-export async function GET(request: NextRequest, context: { params: { packId: string } }) {
-  const { packId } = context.params;
+export async function GET(request: NextRequest, context: { params: Promise<{ packId: string }> }) {
+  const { packId } = (await context.params);
 
   if (!isValidPackId(packId)) {
     return NextResponse.json({ ok: false, error: "Invalid packId." }, { status: 400 });

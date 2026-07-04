@@ -18,11 +18,11 @@ import { cartridgeManageGuard } from "@/services/cartridge/manageGuard";
 export const dynamic = "force-dynamic";
 
 interface RouteParams {
-  params: { slug: string; personaId: string };
+  params: Promise<{ slug: string; personaId: string }>;
 }
 
 export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
-  const guard = await cartridgeManageGuard(req, ctx.params.slug, { requireWrite: true });
+  const guard = await cartridgeManageGuard(req, (await ctx.params).slug, { requireWrite: true });
   if (guard instanceof NextResponse) return guard;
 
   const db = getSupabaseServer();
@@ -34,8 +34,8 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextRe
   const { data: existing, error: readErr } = await db
     .from("cartridge_memberships")
     .select("role")
-    .eq("cartridge_slug", ctx.params.slug)
-    .eq("persona_id", ctx.params.personaId)
+    .eq("cartridge_slug", (await ctx.params).slug)
+    .eq("persona_id", (await ctx.params).personaId)
     .maybeSingle();
   if (readErr) {
     return NextResponse.json(
@@ -60,8 +60,8 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextRe
   const { error: delErr } = await db
     .from("cartridge_memberships")
     .delete()
-    .eq("cartridge_slug", ctx.params.slug)
-    .eq("persona_id", ctx.params.personaId);
+    .eq("cartridge_slug", (await ctx.params).slug)
+    .eq("persona_id", (await ctx.params).personaId);
   if (delErr) {
     return NextResponse.json(
       { ok: false, error: "delete-failed", detail: delErr.message },
@@ -70,7 +70,7 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextRe
   }
 
   return NextResponse.json(
-    { ok: true, cartridgeSlug: ctx.params.slug, revokedPersonaId: ctx.params.personaId },
+    { ok: true, cartridgeSlug: (await ctx.params).slug, revokedPersonaId: (await ctx.params).personaId },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

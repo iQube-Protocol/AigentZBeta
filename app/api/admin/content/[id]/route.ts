@@ -8,10 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
@@ -30,10 +28,8 @@ export async function GET(
   return NextResponse.json({ data });
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
@@ -66,10 +62,8 @@ export async function PATCH(
   return NextResponse.json({ data });
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function DELETE(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 });

@@ -2654,3 +2654,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-802b690.md](../build_/COMMITS/COMMIT-802b690.md)
 - Message: add invariant registry browsing tab: list, filter, standing/reach, detail view
+
+## Commit `a180ab5` — 2026-07-04T03:27:46Z
+- Type: `refactor`
+- Brief: [COMMIT-a180ab5.md](../build_/COMMITS/COMMIT-a180ab5.md)
+- Message: move invariant registry to canonical home: iqube registry cartridge, sibling tab

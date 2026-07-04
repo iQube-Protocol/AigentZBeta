@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPipelineRun, listPipelineRunEvents } from "@/services/pipeline/persistence";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { runId: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ runId: string }> }) {
+  const params = await props.params;
   try {
     const [run, events] = await Promise.all([
       getPipelineRun(params.runId),

@@ -14,10 +14,8 @@ function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { personaId: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ personaId: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });

@@ -21,7 +21,8 @@ function jsonError(error: string, status = 400, detail?: string) {
   );
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) return jsonError("DB unavailable", 503);
 

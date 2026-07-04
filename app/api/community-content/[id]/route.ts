@@ -25,8 +25,9 @@ const PUBLIC_STATUSES = ['shared', 'runtime_promoted'] as const;
 
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<{ id: string }> | { id: string } },
+  props: { params: Promise<Promise<{ id: string }> | { id: string }> }
 ) {
+  const params = await props.params;
   const resolved = await Promise.resolve(params);
   const id = resolved.id;
   if (!id) return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 });
@@ -142,8 +143,9 @@ export async function GET(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } },
+  props: { params: Promise<Promise<{ id: string }> | { id: string }> }
 ): Promise<NextResponse> {
+  const params = await props.params;
   const resolved = await Promise.resolve(params);
   const id = resolved.id;
   if (!id) return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 });

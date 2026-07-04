@@ -1,13 +1,14 @@
 "use client";
 import { notFound } from "next/navigation";
-import React from "react";
+import React, { use } from "react";
 import { personas } from "@/app/data/personas";
 import { ContextPanel } from "@/components/ContextPanel";
 import AgentWalletDrawer from "@/components/AgentWalletDrawer";
 import AigentZSystemChat from "@/components/AigentZSystemChat";
 import { getAgentConfig } from "@/app/data/agentConfig";
 
-export default function AgentPage({ params }: { params: { agentKey: string } }) {
+export default function AgentPage(props: { params: Promise<{ agentKey: string }> }) {
+  const params = use(props.params);
   const persona = personas[params.agentKey as keyof typeof personas];
   const agentConfig = getAgentConfig(params.agentKey);
   const [walletOpen, setWalletOpen] = React.useState(false);

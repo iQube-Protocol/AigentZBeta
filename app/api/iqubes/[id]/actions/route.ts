@@ -29,7 +29,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 function withCors(res: NextResponse): NextResponse {
@@ -43,7 +43,8 @@ export async function OPTIONS() {
   return withCors(new NextResponse(null, { status: 204 }));
 }
 
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(_req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const id = params.id?.trim();
   if (!id) {
     return withCors(NextResponse.json({ error: 'Missing id' }, { status: 400 }));

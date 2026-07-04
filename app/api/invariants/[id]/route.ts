@@ -20,12 +20,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 
   try {
-    const invariant = await getInvariantById(context.params.id);
+    const invariant = await getInvariantById((await context.params).id);
     if (!invariant) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
     const [contexts, edges] = await Promise.all([

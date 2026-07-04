@@ -129,7 +129,8 @@ const MANDATORY_CONSENTS = [
   "review_process_accepted",
 ] as const;
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) return jsonError("DB unavailable", 503);
 

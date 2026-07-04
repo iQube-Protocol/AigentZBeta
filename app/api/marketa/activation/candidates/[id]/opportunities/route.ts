@@ -75,7 +75,8 @@ async function syncRevenueRollUp(
   return { candidate: dbToCandidate(updated as Record<string, unknown>), opportunities };
 }
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) return jsonError("DB unavailable", 503);
   try {
@@ -89,7 +90,8 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) return jsonError("DB unavailable", 503);
 
@@ -142,7 +144,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) return jsonError("DB unavailable", 503);
 

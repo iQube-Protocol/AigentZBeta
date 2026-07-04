@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listReceiptsForAsset } from "@/services/registry/persistence";
 
-type Params = { params: { assetId: string } };
+type Params = { params: Promise<{ assetId: string }> };
 
 /** GET /api/registry/assets/[assetId]/receipts */
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const { searchParams } = new URL(req.url);
     const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!, 10) : 50;

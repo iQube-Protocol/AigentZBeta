@@ -18,7 +18,8 @@ import { getPersonaAssetGraph } from '@/services/identity/personaAssetGraph';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const persona = await getActivePersona(req);
   if (!persona) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`a180ab5`](https://github.com/iQube-Protocol/AigentZBeta/commit/a180ab59e88b250864c680b2a58d0a4864c6fd76) [refactor] move invariant registry to canonical home: iqube registry cartridge, sibling tab (Claude, 2026-07-04T03:27:46Z)
 - [`802b690`](https://github.com/iQube-Protocol/AigentZBeta/commit/802b6906b6b679b685470766b37e3ffb52bf04c9) [feat] add invariant registry browsing tab: list, filter, standing/reach, detail view (Claude, 2026-07-04T03:11:24Z)
 - [`569205f`](https://github.com/iQube-Protocol/AigentZBeta/commit/569205f53ca826a60c33504e6239f15c1fef5cc3) [feat] add single-invariant detail api route for the registry browser (Claude, 2026-07-04T03:06:27Z)
 - [`128b9c1`](https://github.com/iQube-Protocol/AigentZBeta/commit/128b9c1ddf3204b0770407e850fbf72ac456a9db) [push] ratify cfs-013 composition laws + cfs-014/law xiv constitutional coherence engine (Claude, 2026-07-04T02:11:37Z)
