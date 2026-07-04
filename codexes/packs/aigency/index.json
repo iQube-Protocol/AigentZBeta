@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T03:08:15.529Z",
+  "last_updated": "2026-07-04T03:13:23.104Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "569205f53ca826a60c33504e6239f15c1fef5cc3",
-  "latest_commit_short": "569205f",
-  "latest_commit_title": "add single-invariant detail api route for the registry browser",
+  "latest_commit": "802b6906b6b679b685470766b37e3ffb52bf04c9",
+  "latest_commit_short": "802b690",
+  "latest_commit_title": "add invariant registry browsing tab: list, filter, standing/reach, detail view",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "802b690",
+      "full_sha": "802b6906b6b679b685470766b37e3ffb52bf04c9",
+      "title": "add invariant registry browsing tab: list, filter, standing/reach, detail view",
+      "author": "Claude",
+      "timestamp": "2026-07-04T03:11:24Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-802b690.md"
+    },
     {
       "sha": "569205f",
       "full_sha": "569205f53ca826a60c33504e6239f15c1fef5cc3",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-12T18:14:20Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-df0c5c3.md"
-    },
-    {
-      "sha": "10210ed",
-      "full_sha": "10210ed413b646a7fc569913cf989750720ed48f",
-      "title": "fix aigentZ KB retrieval: trace codex packs into chat route Lambdas, add stopword filter + plural folding + term weighting to pack search",
-      "author": "Claude",
-      "timestamp": "2026-06-12T18:17:44Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-10210ed.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
