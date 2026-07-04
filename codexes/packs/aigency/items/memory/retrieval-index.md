@@ -2684,3 +2684,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-86eb2e5.md](../build_/COMMITS/COMMIT-86eb2e5.md)
 - Message: Phase 5: CFS-008 measurement on receipt spine + CFS-010 plan-to-record
+
+## Commit `2aa5335` — 2026-07-04T06:27:00Z
+- Type: `feat`
+- Brief: [COMMIT-2aa5335.md](../build_/COMMITS/COMMIT-2aa5335.md)
+- Message: Add CFS-007 renderer seam: ExperienceRenderer + liquid/a2ui adapters
+
+## Commit `d5c8929` — 2026-07-04T06:20:50Z
+- Type: `feat`
+- Brief: [COMMIT-d5c8929.md](../build_/COMMITS/COMMIT-d5c8929.md)
+- Message: Add EXP-003 rediscovery-savings benchmark harness (CFS-008 §2)
+
+## Commit `2fd27d5` — 2026-07-04T06:19:41Z
+- Type: `feat`
+- Brief: [COMMIT-2fd27d5.md](../build_/COMMITS/COMMIT-2fd27d5.md)
+- Message: Add session-start knowledge initialization to copilot chat (CFS-006 §3)
