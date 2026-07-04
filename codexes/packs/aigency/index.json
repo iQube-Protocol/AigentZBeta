@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-03T23:29:31.452Z",
+  "last_updated": "2026-07-04T01:25:46.783Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a6ce101a3d1b27709911b7b03eaf77c3d30551b8",
-  "latest_commit_short": "a6ce101",
-  "latest_commit_title": "ratify law xii: truth, standing and reach — canon + code (standing/reach split, epistemic type)",
+  "latest_commit": "4f5ded4e1518e49b7f9126c2396b7f3a410b347b",
+  "latest_commit_short": "4f5ded4",
+  "latest_commit_title": "fix video stitch pipeline: distinct per-segment prompts + 4-segment hierarchical stitching",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4f5ded4",
+      "full_sha": "4f5ded4e1518e49b7f9126c2396b7f3a410b347b",
+      "title": "fix video stitch pipeline: distinct per-segment prompts + 4-segment hierarchical stitching",
+      "author": "Claude",
+      "timestamp": "2026-07-04T01:23:11Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4f5ded4.md"
+    },
+    {
+      "sha": "43d0aa6",
+      "full_sha": "43d0aa64d5d48c10db763a0970625c43f6da65f0",
+      "title": "ratify law xiii: individualization (the constitutional subject model)",
+      "author": "Claude",
+      "timestamp": "2026-07-04T01:23:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-43d0aa6.md"
+    },
+    {
+      "sha": "8c77033",
+      "full_sha": "8c7703310e6e3cc0b999b82e8baf751c1fd1b109",
+      "title": "add style + narrative invariant classes (CFS-011/012): brief generator, api, studio runner",
+      "author": "Claude",
+      "timestamp": "2026-07-04T01:23:36Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8c77033.md"
+    },
+    {
+      "sha": "4a2365f",
+      "full_sha": "4a2365f155fcc85195e8f7d41ef1d0893759b3b9",
+      "title": "record law xiii + style/narrative invariants + video fix session doc",
+      "author": "Claude",
+      "timestamp": "2026-07-04T01:23:42Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4a2365f.md"
+    },
     {
       "sha": "a6ce101",
       "full_sha": "a6ce101a3d1b27709911b7b03eaf77c3d30551b8",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-06-10T21:34:37Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-98f76cf.md"
-    },
-    {
-      "sha": "5ffd3a5",
-      "full_sha": "5ffd3a5ba09b5e0b158f419ed4968e2b84f4d0f6",
-      "title": "stage 3 citizen flow server-side: self-custody vault, weak proof, application submit pipeline",
-      "author": "Claude",
-      "timestamp": "2026-06-10T21:30:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5ffd3a5.md"
-    },
-    {
-      "sha": "45137ac",
-      "full_sha": "45137acb998c3937b46b6e83f142720565895ff1",
-      "title": "stage 2 identity & auth: bureau synthetic-email sign-on + persona/KybeDID bind flow",
-      "author": "Claude",
-      "timestamp": "2026-06-10T21:25:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-45137ac.md"
-    },
-    {
-      "sha": "2312d95",
-      "full_sha": "2312d950523d3ac552b17c3ad7c255b7e249d5ba",
-      "title": "add per-class polity passport status machines with addendum D invariant tests",
-      "author": "Claude",
-      "timestamp": "2026-06-10T17:56:11Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2312d95.md"
-    },
-    {
-      "sha": "78516b6",
-      "full_sha": "78516b608a7a73b571029cdd02a6f58f9d590912",
-      "title": "add PRD addendum E: identity-surface separation — reputation at RootDID level, citizen credential forbids reputation binding",
-      "author": "Claude",
-      "timestamp": "2026-06-10T17:56:12Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-78516b6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

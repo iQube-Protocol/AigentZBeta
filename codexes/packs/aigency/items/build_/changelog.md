@@ -1,4 +1,8 @@
 # Build — Changelog
+- [`4f5ded4`](https://github.com/iQube-Protocol/AigentZBeta/commit/4f5ded4e1518e49b7f9126c2396b7f3a410b347b) [fix] fix video stitch pipeline: distinct per-segment prompts + 4-segment hierarchical stitching (Claude, 2026-07-04T01:23:11Z)
+- [`43d0aa6`](https://github.com/iQube-Protocol/AigentZBeta/commit/43d0aa64d5d48c10db763a0970625c43f6da65f0) [push] ratify law xiii: individualization (the constitutional subject model) (Claude, 2026-07-04T01:23:20Z)
+- [`8c77033`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c7703310e6e3cc0b999b82e8baf751c1fd1b109) [feat] add style + narrative invariant classes (CFS-011/012): brief generator, api, studio runner (Claude, 2026-07-04T01:23:36Z)
+- [`4a2365f`](https://github.com/iQube-Protocol/AigentZBeta/commit/4a2365f155fcc85195e8f7d41ef1d0893759b3b9) [fix] record law xiii + style/narrative invariants + video fix session doc (Claude, 2026-07-04T01:23:42Z)
 - [`a6ce101`](https://github.com/iQube-Protocol/AigentZBeta/commit/a6ce101a3d1b27709911b7b03eaf77c3d30551b8) [push] ratify law xii: truth, standing and reach — canon + code (standing/reach split, epistemic type) (Claude, 2026-07-03T23:18:50Z)
 - [`dfbd730`](https://github.com/iQube-Protocol/AigentZBeta/commit/dfbd730f20ee7c96c1f51ac419d88c3f0234f8ef) [push] author flywheel experiments: exp-001 living knowledgeqube + exp-002 invariant video briefs (Claude, 2026-07-03T23:26:44Z)
 - [`cd3cdb7`](https://github.com/iQube-Protocol/AigentZBeta/commit/cd3cdb71c921afe767931c7045cf25cc1b077124) [push] deploy consequence operating model as intent chain template (chrysalis phase 3b) (Claude, 2026-07-03T23:26:44Z)
