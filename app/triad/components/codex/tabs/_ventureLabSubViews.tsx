@@ -21,6 +21,19 @@ export function LadderView({ ventures, overlay }: LadderViewProps) {
   const [selY, setSelY] = useState<number | null>(null);
   const [selX, setSelX] = useState<number | null>(null);
 
+  // Plot ventures on the grid (parity with the Matrix tab): map each cell to
+  // the ventures sitting at that maturity × commercialization position.
+  const venturesByCell = React.useMemo(() => {
+    const m = new Map<string, Venture[]>();
+    for (const v of ventures) {
+      const k = `${v.y_maturity},${v.x_commercialization}`;
+      const arr = m.get(k) ?? [];
+      arr.push(v);
+      m.set(k, arr);
+    }
+    return m;
+  }, [ventures]);
+
   // Y rendered top-to-bottom as Y7 → Y1
   const yRows = [...Y_LABELS]; // already Y7..Y1
 
@@ -103,11 +116,21 @@ export function LadderView({ ventures, overlay }: LadderViewProps) {
                     const isColHighlight  = !isSelY && selX === col.n;
                     const isApexCell      = row.n >= 6 && col.n >= 6;
                     const hasLabel        = !!label;
+                    const cellVentures    = venturesByCell.get(key) ?? [];
+                    const ventureBadge = cellVentures.length > 0 ? (
+                      <span
+                        title={`Your venture${cellVentures.length === 1 ? '' : 's'} here: ${cellVentures.map(v => v.venture_name).join(', ')}`}
+                        className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-emerald-500 text-[9px] font-bold text-white flex items-center justify-center ring-1 ring-slate-950 z-10"
+                      >
+                        {cellVentures.length}
+                      </span>
+                    ) : null;
 
                     if (isIntersection) {
                       const zs = ZONE_STYLE[computeZone(row.n, col.n)] ?? ZONE_STYLE.formation;
                       return (
-                        <div key={xi} className={`rounded-lg border-2 ${isApexCell ? 'border-amber-500/70 bg-amber-950/30' : 'border-amber-500/60 bg-amber-950/20'} px-1.5 py-2 flex flex-col gap-0.5 text-center shadow-sm`}>
+                        <div key={xi} className={`relative rounded-lg border-2 ${isApexCell ? 'border-amber-500/70 bg-amber-950/30' : 'border-amber-500/60 bg-amber-950/20'} px-1.5 py-2 flex flex-col gap-0.5 text-center shadow-sm`}>
+                          {ventureBadge}
                           <div className="text-[9px] font-semibold text-amber-300 leading-tight">{row.label}</div>
                           <div className="text-[9px] font-semibold text-amber-300 leading-tight">{col.label}</div>
                           <div className={`text-[10px] font-mono leading-tight mt-0.5 ${zs.label}`}>{label || '—'}</div>
@@ -118,8 +141,10 @@ export function LadderView({ ventures, overlay }: LadderViewProps) {
                     return (
                       <div
                         key={xi}
-                        className={`rounded border px-0.5 py-1.5 text-center text-[11px] leading-tight font-medium transition-colors ${
-                          isRowHighlight
+                        className={`relative rounded border px-0.5 py-1.5 text-center text-[11px] leading-tight font-medium transition-colors ${
+                          cellVentures.length > 0
+                            ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300'
+                            : isRowHighlight
                             ? hasLabel
                               ? 'border-emerald-500/20 bg-emerald-950/15 text-emerald-400/70'
                               : 'border-emerald-500/10 bg-emerald-950/8 text-slate-700'
@@ -133,8 +158,9 @@ export function LadderView({ ventures, overlay }: LadderViewProps) {
                                   ? 'border-slate-700/40 bg-slate-900/20 text-slate-500'
                                   : 'border-slate-800/20 bg-slate-950/20 text-slate-800'
                         }`}
-                        title={`${row.label} × ${col.label}${label ? ` — ${label}` : ''}`}
+                        title={`${row.label} × ${col.label}${label ? ` — ${label}` : ''}${cellVentures.length ? ` · your venture${cellVentures.length === 1 ? '' : 's'}: ${cellVentures.map(v => v.venture_name).join(', ')}` : ''}`}
                       >
+                        {ventureBadge}
                         {label || '·'}
                       </div>
                     );
@@ -288,8 +314,11 @@ export function ModelView({ ventures, isAdmin, onSave }: ModelViewProps) {
           {ventures.map(v => <option key={v.id} value={v.id}>{v.venture_name}</option>)}
         </select>
         <span className={`px-2 py-0.5 rounded text-[10px] font-medium capitalize ${zs.label}`}>Y{venture.y_maturity} · X{venture.x_commercialization} · {venture.zone}</span>
-        {isAdmin && !editing && (
+        {isAdmin && !editing && !venture.id.startsWith('cal-') && (
           <button onClick={startEdit} className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all">Edit</button>
+        )}
+        {venture.id.startsWith('cal-') && (
+          <span className="text-[10px] text-slate-500" title="Plotted from your experience model / VentureQube. Edit it in Founder Office / the Venture wizards.">yours · view-only here</span>
         )}
         {editing && (
           <div className="flex gap-2">

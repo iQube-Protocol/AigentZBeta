@@ -52,7 +52,15 @@ import { SpecialistResponseCard, type SpecialistResponseData } from "@/component
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
+import { ContactsImportPanel } from "@/components/metame/connections/ContactsImportPanel";
 import type { SectionId } from "./useAigentMeCopilotBridge";
+import {
+  VenturePositionChip,
+  VenturePositionCapsule,
+  useVenturePosition,
+} from "./VenturePositionChip";
+import { StandingCoreChip } from "./StandingCoreChip";
+import { VentureLightChip } from "./VentureLightChip";
 
 interface Specialist {
   id: string;
@@ -496,6 +504,13 @@ export function WelcomeRightPane(props: Props) {
     setExpandedSectionId(expandedSectionId === id ? null : id);
   }, [expandedSectionId, setExpandedSectionId]);
 
+  // Venture-position glimpse — fetched once, shared by the carousel chip
+  // and the capsule rendered in the main flow below the CTAs. Clicking the
+  // chip toggles the capsule; it no longer opens a popover inside the
+  // (overflow-clipped) carousel.
+  const venturePosition = useVenturePosition(personaId);
+  const [venturePositionOpen, setVenturePositionOpen] = useState(false);
+
   const visibleCtas = ctas.filter((c) => !c.id.startsWith("ask-"));
 
   const topAction = moveForwardResult?.topAction ?? null;
@@ -551,7 +566,7 @@ export function WelcomeRightPane(props: Props) {
                 ? `ExperienceQube active${expModel.meta?.experienceName ? ` — ${expModel.meta.experienceName}` : ""}`
                 : "Set up your Experience Model"
             }
-            className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${
+            className={`text-xs px-2 py-0.5 rounded-full border shrink-0 max-w-[150px] truncate ${
               expModel.configured
                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                 : "bg-amber-500/10 border-amber-500/30 text-amber-300"
@@ -563,8 +578,15 @@ export function WelcomeRightPane(props: Props) {
           </span>
         )}
         <PersonalGuideChip personaId={personaId} />
+        <StandingCoreChip personaId={personaId} />
+        <VentureLightChip personaId={personaId} />
         <PersonaQubeBadge using={usingIqubes} theme={theme} />
         <StageProgressionChip evaluation={stageEval ?? null} />
+        <VenturePositionChip
+          data={venturePosition}
+          open={venturePositionOpen}
+          onToggle={() => setVenturePositionOpen((o) => !o)}
+        />
         <RequestAccessChip
           recommendedCartridgeSlug={recommendedAccessCartridgeSlug}
           recommendedCartridgeLabel={recommendedAccessCartridgeLabel}
@@ -608,6 +630,19 @@ export function WelcomeRightPane(props: Props) {
             );
           })}
         </div>
+      )}
+
+      {/* ── Venture-position capsule ───────────────────────────────
+          Rendered in the main viewport flow underneath the carousel
+          (NOT as a popover inside the carousel) when the operator
+          clicks the "Venture: …" chip above. Showcases the venture's
+          positioning along the same lines as the other capsule
+          layouts. */}
+      {venturePositionOpen && (
+        <VenturePositionCapsule
+          data={venturePosition}
+          onClose={() => setVenturePositionOpen(false)}
+        />
       )}
 
       {/* ── Session history strip ──────────────────────────────────
@@ -1043,6 +1078,17 @@ export function WelcomeRightPane(props: Props) {
           theme={theme}
         >
           <GoogleConnectionsPanel isAdmin={!!isAdmin} theme={theme} />
+        </AccordionRow>
+
+        <AccordionRow
+          id="contacts"
+          title="Contacts"
+          summary="Import from Google, iPhone, iCloud, LinkedIn, Outlook or CSV"
+          expanded={expandedSectionId === "contacts"}
+          onToggle={() => toggleSection("contacts")}
+          theme={theme}
+        >
+          <ContactsImportPanel theme={theme} />
         </AccordionRow>
 
         <AccordionRow

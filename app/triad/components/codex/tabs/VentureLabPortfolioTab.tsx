@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Briefcase, ClipboardList, Users, Activity, Plus, ChevronDown, ChevronUp, RefreshCw, X, Save } from 'lucide-react';
+import { Briefcase, ClipboardList, Users, Activity, Plus, ChevronDown, ChevronUp, RefreshCw, X, Save, Layers, Compass, CalendarClock } from 'lucide-react';
+import { personaFetch } from '@/utils/personaSpine';
+import { VenturePortfolioWizard } from '@/components/metame/setup/VenturePortfolioWizard';
+import type { VentureOperatingModel, OperatingObjective } from '@/types/ventureQube';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -260,10 +263,10 @@ function CouncilView({ ventures }: { ventures: Venture[] }) {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 space-y-1 border border-dashed border-white/[0.08] rounded-xl">
         <ClipboardList className="w-8 h-8 mx-auto mb-3 text-slate-700" />
-        <p className="text-sm text-slate-500">No council agenda items yet.</p>
-        <p className="text-xs text-slate-600 mt-1">Add items in each venture's scorecard.</p>
+        <p className="text-sm font-medium text-slate-400">Venture Council</p>
+        <p className="text-xs text-slate-600">Consolidated council agenda across all your ventures. Coming in the next release — agenda items added via Scorecards will surface here.</p>
       </div>
     );
   }
@@ -306,9 +309,10 @@ function ActionsView({ ventures }: { ventures: Venture[] }) {
 
   if (allActions.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 space-y-1 border border-dashed border-white/[0.08] rounded-xl">
         <Activity className="w-8 h-8 mx-auto mb-3 text-slate-700" />
-        <p className="text-sm text-slate-500">No actions tracked yet.</p>
+        <p className="text-sm font-medium text-slate-400">Portfolio Actions</p>
+        <p className="text-xs text-slate-600">Cross-venture action tracker by owner. Coming in the next release — actions tracked via Scorecards will roll up here.</p>
       </div>
     );
   }
@@ -341,6 +345,94 @@ function ActionsView({ ventures }: { ventures: Venture[] }) {
   );
 }
 
+// ── Operating Brief (read-only) ──────────────────────────────────────────────
+// The Chief-of-Staff layer: the citizen's own operating brief from
+// venture_portfolios.payload.operatingModel, shown at a glance. Authored in the
+// Venture Portfolio wizard ("My Portfolio").
+
+const OBJ_STATUS_COLOR: Record<OperatingObjective['status'], string> = {
+  active:    'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
+  completed: 'text-slate-400  border-slate-600/40   bg-slate-700/20',
+  blocked:   'text-rose-300   border-rose-500/30    bg-rose-500/10',
+  deferred:  'text-amber-300  border-amber-500/30   bg-amber-500/10',
+};
+
+function OperatingBrief({ om }: { om: VentureOperatingModel }) {
+  const objectives = om.activeObjectives ?? [];
+  return (
+    <div className="mb-5 rounded-xl border border-violet-500/25 bg-violet-500/[0.06] p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Compass className="w-4 h-4 text-violet-300" />
+        <h3 className="text-sm font-semibold text-violet-100">Operating Brief</h3>
+        <span className="text-[10px] text-slate-500">— what aigentMe runs as Chief of Staff</span>
+        {om.reviewCadence && (
+          <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-slate-400">
+            <CalendarClock className="w-3 h-3" />
+            {om.reviewCadence}{om.nextReviewDate ? ` · next ${om.nextReviewDate}` : ''}
+          </span>
+        )}
+      </div>
+
+      {om.mission && <p className="text-sm text-slate-200 leading-relaxed">{om.mission}</p>}
+
+      {om.primaryMetric && (
+        <p className="text-xs text-violet-200/90">
+          <span className="uppercase tracking-wide text-[10px] text-slate-500">Primary metric · </span>
+          {om.primaryMetric}
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {(om.successMetrics?.length ?? 0) > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Success metrics</p>
+            <ul className="space-y-0.5">
+              {om.successMetrics!.map((m, i) => (
+                <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><span className="text-emerald-400/60 mt-0.5">·</span>{m}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {(om.priorityPartners?.length ?? 0) > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Priority partners</p>
+            <div className="flex flex-wrap gap-1">
+              {om.priorityPartners!.map((p, i) => (
+                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-200">{p}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {objectives.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Active objectives</p>
+          <div className="space-y-1">
+            {objectives.map((o, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className={`text-[9px] px-1.5 py-0.5 rounded border capitalize ${OBJ_STATUS_COLOR[o.status]}`}>{o.status}</span>
+                <span className="text-xs text-slate-300">{o.objective}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(om.priorityActions?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Priority actions</p>
+          <ul className="space-y-0.5">
+            {om.priorityActions!.map((a, i) => (
+              <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><span className="text-amber-400/60 mt-0.5">→</span>{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function VentureLabPortfolioTab({ isAdmin }: Props) {
@@ -348,6 +440,24 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
   const [loading, setLoading]           = useState(true);
   const [subView, setSubView]           = useState<SubView>('board');
   const [editingId, setEditingId]       = useState<string | null>(null);
+  // "My Portfolio" — the citizen's OWN ventures (distinct from this admin
+  // scorecard board), managed via the Venture Portfolio wizard.
+  const [myPortfolioOpen, setMyPortfolioOpen] = useState(false);
+  const [portfolioAccess, setPortfolioAccess] = useState(false);
+  // Operating brief is available to any Founder Office tier (Operator+); the
+  // portfolio surfaces are Operator Pro/Elite.
+  const [operatingAccess, setOperatingAccess] = useState(false);
+  const [myPortfolioMode, setMyPortfolioMode] = useState<'portfolio' | 'operating'>('portfolio');
+  const [operatingBrief, setOperatingBrief] = useState<VentureOperatingModel | null>(null);
+
+  const loadOperatingBrief = useCallback(async () => {
+    try {
+      const res = await personaFetch('/api/venture/portfolio', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.ok) setOperatingBrief(data.operatingModel ?? null);
+    } catch { /* non-fatal */ }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -360,6 +470,23 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await personaFetch('/api/billing/plan', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.ok) {
+          const portfolio = !!data.wizardAccess?.portfolio || !!isAdmin;
+          const operating = !!data.wizardAccess?.operatingModel || !!isAdmin;
+          setPortfolioAccess(portfolio);
+          setOperatingAccess(operating);
+          if (operating) void loadOperatingBrief();
+        }
+      } catch { /* non-fatal */ }
+    })();
+  }, [isAdmin, loadOperatingBrief]);
 
   const saveScorecard = async (id: string, payload: Venture['payload']) => {
     const res = await fetch(`/api/venture-lab/portfolio/${id}`, {
@@ -410,6 +537,26 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
           ))}
         </div>
 
+        {operatingAccess && (
+          <button
+            onClick={() => { setMyPortfolioMode('operating'); setMyPortfolioOpen(true); }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25 hover:bg-violet-500/20"
+            title="Set your Chief-of-Staff operating brief"
+          >
+            <Compass className="w-3.5 h-3.5" /> Operating Brief
+          </button>
+        )}
+
+        {portfolioAccess && (
+          <button
+            onClick={() => { setMyPortfolioMode('portfolio'); setMyPortfolioOpen(true); }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25 hover:bg-violet-500/20"
+            title="Manage your own venture portfolio"
+          >
+            <Layers className="w-3.5 h-3.5" /> My Portfolio
+          </button>
+        )}
+
         <button
           onClick={load}
           className="text-slate-500 hover:text-slate-300 transition-colors"
@@ -419,8 +566,18 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
         </button>
       </div>
 
+      <VenturePortfolioWizard
+        open={myPortfolioOpen}
+        onOpenChange={setMyPortfolioOpen}
+        mode={myPortfolioMode}
+        hasOperatingAccess={operatingAccess}
+        hasPortfolioAccess={portfolioAccess}
+        onSaved={() => void loadOperatingBrief()}
+      />
+
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto p-5">
+        {operatingBrief && <OperatingBrief om={operatingBrief} />}
         {loading ? (
           <div className="flex items-center justify-center h-32">
             <RefreshCw className="w-5 h-5 text-slate-600 animate-spin" />
@@ -447,7 +604,13 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
             )}
 
             {/* Scorecards view */}
-            {subView === 'scorecard' && (
+            {subView === 'scorecard' && ventures.length === 0 && (
+              <div className="text-center py-12 text-slate-500 text-sm border border-dashed border-white/[0.08] rounded-xl space-y-1">
+                <p className="font-medium text-slate-400">Venture Scorecards</p>
+                <p className="text-xs text-slate-500">Track focus area, KPIs, and risks for each venture. Coming in the next release — your VentureQubes will populate here automatically.</p>
+              </div>
+            )}
+            {subView === 'scorecard' && ventures.length > 0 && (
               <div className="space-y-4 max-w-2xl">
                 {ventures.map(v => (
                   editingId === v.id ? (

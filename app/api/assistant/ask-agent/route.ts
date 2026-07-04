@@ -32,6 +32,86 @@ import {
   type SpecialistId,
   type SpecialistContext,
 } from '@/services/agents/specialistRouter';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+// ─── Contact context injection ───────────────────────────────────────────────
+// When the user's prompt mentions a person, company, or contacts-related
+// keyword, query persona_contacts and prepend a data block to the rationale
+// so the LLM answers with real data instead of claiming it has no access.
+
+const CONTACT_INTENT_RE = /\b(contact|contacts|email|phone|reach|who\s+is|find.*person|people|colleague|team|organisation|organization|company|firm|crm)\b/i;
+// Matches "how many", "hw many", "how mny", "count", "total", "number of"
+const CONTACT_COUNT_RE = /\b(h\w*\s+m\w+|count|total|number\s+of)\b.*\b(contact|contacts|people|crm)\b|\b(contact|contacts|crm)\b.*\b(h\w*\s+m\w+|count|total)\b/i;
+// Words that survive the strip but are not useful contact search terms
+const FILLER_WORDS = new Set(['many', 'some', 'all', 'much', 'more', 'give', 'have', 'show', 'list', 'tell', 'much', 'few', 'any']);
+
+async function maybeInjectContactContext(
+  personaId: string,
+  prompt: string,
+): Promise<string | null> {
+  if (!CONTACT_INTENT_RE.test(prompt)) return null;
+
+  try {
+    const supabase = getSupabaseServer();
+
+    // Count query — "how many contacts", "total contacts", etc.
+    if (CONTACT_COUNT_RE.test(prompt)) {
+      const { count } = await supabase
+        .from('persona_contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('persona_id', personaId);
+      return `The user has ${count ?? 0} contacts in their address book (persona_contacts table). Answer their count question directly using this number.`;
+    }
+
+    // Extract likely search terms: strip common question words AND contact-domain
+    // meta-words (contact, contacts, people, email, phone) that won't appear in
+    // any contact record field, which would create impossible AND conditions in FTS.
+    const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with|crm)\b/gi;
+    const q = prompt
+      .replace(STRIP_WORDS, ' ')
+      .replace(/[^\w\s]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !FILLER_WORDS.has(w.toLowerCase()))
+      .slice(0, 6)
+      .join(' ');
+
+    // No meaningful search term — return total count as context
+    if (!q) {
+      const { count } = await supabase
+        .from('persona_contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('persona_id', personaId);
+      return `The user has ${count ?? 0} contacts in their address book. Answer their question using this count.`;
+    }
+
+    const { data } = await supabase
+      .from('persona_contacts')
+      .select('display_name, organization, job_title, email, email_2, phone, phone_2, source')
+      .eq('persona_id', personaId)
+      .textSearch('fts', q.split(/\s+/).map(w => w + ':*').join(' & '), { config: 'english', type: 'plain' })
+      .limit(20);
+
+    if (!data || data.length === 0) return null;
+
+    const rows = data.map((c: any) => {
+      const parts = [c.display_name];
+      if (c.organization) parts.push(`(${c.organization}${c.job_title ? `, ${c.job_title}` : ''})`);
+      if (c.email) parts.push(c.email);
+      if (c.phone) parts.push(c.phone);
+      return parts.filter(Boolean).join(' — ');
+    });
+
+    return [
+      `Address book results for "${q}" (${rows.length} contact${rows.length !== 1 ? 's' : ''}):`,
+      ...rows.map(r => `  • ${r}`),
+      '',
+      'Use these contacts to answer the user\'s question directly.',
+    ].join('\n');
+  } catch {
+    return null;
+  }
+}
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { runPreflightGather } from '@/services/capabilities/preflight';
 
@@ -157,7 +237,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ? `Hand-off from ${handoffFrom}${handoffPriorTitle ? ` (prior take: "${handoffPriorTitle}")` : ''}.`
       : null;
 
+    // Inject contact context when the prompt is contact-related
+    const lookupQuery = body.prompt?.trim() || intentName;
+    const contactContext = await maybeInjectContactContext(context.personaId, lookupQuery).catch(() => null);
+
     const rationaleParts: string[] = [];
+    if (contactContext) rationaleParts.push(contactContext);
     if (preflight) rationaleParts.push(`Pre-flight gather (workOrder=${preflight.workOrderId}): ${preflight.summary}`);
     if (handoffNote) rationaleParts.push(handoffNote);
     if (intentRationale) rationaleParts.push(intentRationale);
@@ -181,6 +266,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
 
     // Emit a 'specialist_consulted' receipt. Best-effort; non-fatal.
+    // Persists the full SpecialistResponse body so the operator can
+    // re-read what the specialist said from any expand surface — the
+    // myWorkspace intent panel, the myLedger card, or a future Pill.
     await createActivityReceipt({
       personaId: context.personaId,
       intentId: body.intentId ?? null,
@@ -193,6 +281,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       contextShared: handoffFrom
         ? ['intent-summary', 'experience-meta-slice', 'specialist-handoff']
         : ['intent-summary', 'experience-meta-slice'],
+      specialistResponse: {
+        title: response.title,
+        summary: response.summary,
+        recommendations: response.recommendations,
+        suggestedArtifacts: response.suggestedArtifacts,
+        confidence: response.confidence,
+        source: response.source,
+      },
     }).catch(() => undefined);
 
     // Surface the hand-off on the response so the layout can show a

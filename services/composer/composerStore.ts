@@ -674,13 +674,17 @@ export function initializeDefaultTemplates(): void {
               id: 'duration', name: 'Duration (seconds)', type: 'select', required: false,
               default_value: '12',
               // Sora and Venice (incl. Wan) both accept 4/8/12s in a single call.
-              // 24s is produced by generating two 12s clips and stitching them
-              // (SkillVideoPlayer → /api/skills/video/stitch).
+              // 24s/48s are produced by generating 2/4 12s clips and stitching
+              // them hierarchically (SkillVideoPlayer → /api/skills/video/stitch,
+              // 2-3 clips per pass). A distinct prompt per segment (segment_prompts)
+              // is required for a true continuous story — see the Invariant Video
+              // Brief panel; a single repeated prompt produces duplicate clips.
               options: [
                 { value: '4', label: '4 seconds' },
                 { value: '8', label: '8 seconds' },
                 { value: '12', label: '12 seconds' },
                 { value: '24', label: '24 seconds (2 clips, stitched)' },
+                { value: '48', label: '48 seconds (4 clips, stitched)' },
               ],
             },
             {
@@ -929,6 +933,7 @@ export function initializeDefaultTemplates(): void {
                 { value: '8', label: '8 seconds' },
                 { value: '12', label: '12 seconds' },
                 { value: '24', label: '24 seconds (2 clips, stitched)' },
+                { value: '48', label: '48 seconds (4 clips, stitched)' },
               ],
             },
             {

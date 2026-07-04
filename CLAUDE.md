@@ -5,6 +5,76 @@ Update it as new patterns and rules are established.
 
 ---
 
+## Platform Ontology — MANDATORY READING (read before writing any code or copy)
+
+**All agents MUST read `docs/platform-ontology.md` before writing any code, UI copy, or documentation.**
+
+The ontology file defines the canonical spelling and meaning of core platform terms. Using a
+non-canonical spelling is a bug. Key terms governed by the ontology:
+
+- **BlakQube** — not "Black Cube", "Black Qube", or "black_cube" in display. BLAK = Binary Logic Avoiding Knowledge.
+- **aigentMe** — not "Agent Me", "AgentMe". The sovereign identity layer and confidentiality guardian.
+- **iQube** — not "iqube" or "IQube". The core data primitive.
+- **AigentZ** — the primary orchestration agent.
+- **PSC-001** — Polity Capability Preservation Standard. Governs all HMS cases.
+- **DVN** — Decentralised Verification Network. Never spell out differently.
+- **MAF** — Mobility Activation File. The HMS intake record.
+
+Full definitions, usage rules, and the complete classification ladder are in `docs/platform-ontology.md`.
+
+---
+
+## HMS Identifier Isolation — NO RAW IDs IN LOCKER, DVN, OR CHAIN (PARAMOUNT)
+
+**The case ID (`caseId`), persona ID (`personaId`), and any delegated agent identifier MUST NEVER appear in:**
+- Passport locker item `display_name` or any locker metadata
+- DVN receipt payloads
+- Walrus blob metadata or Sui chain records
+- Any network-bound or chain-bound data structure
+
+These are **T0 identifiers** — server-internal only. They are subject to the same protections as `personaId`, `authProfileId`, and `rootDid` (see Identity & Access Spine section below).
+
+### Required pattern — T2-safe commitment references
+
+All locker tagging, DVN receipt construction, and chain-bound metadata for HMS cases MUST use a **server-computed commitment reference** derived via a one-way hash function. This reference is:
+
+- **Deterministic**: same input always yields the same ref — idempotent re-tagging works
+- **One-way**: the commitment cannot be reversed to recover the source identifier
+- **T2-safe**: safe for DVN receipt payloads, Walrus blob metadata, and on-chain anchoring
+
+**Canonical implementation for case-scoped locker refs:**
+
+```ts
+// Server-side only — in an API route, NEVER in client code
+import { createHash } from 'crypto';
+const lockerRef = createHash('sha256')
+  .update('hms:locker:' + caseId)   // namespace prefix prevents cross-type collisions
+  .digest('hex')
+  .slice(0, 16);                     // 16-char hex commitment — T2-safe
+// Return only lockerRef to client — caseId NEVER leaves this function
+```
+
+**The client tags locker items as `[HMS:${lockerRef}] ${name}` — the lockerRef is the commitment, not the caseId.**
+
+### Applies to ALL identifiers in the HMS context
+
+| Identifier | Tier | What you MUST use instead |
+|---|---|---|
+| `caseId` (UUID) | T0 | `sha256('hms:locker:' + caseId).hex().slice(0,16)` commitment |
+| `personaId` (UUID) | T0 | T1 surface only — NEVER in DVN/chain/locker |
+| Delegated agent ID | T0 | Agent commitment derived the same way |
+| `authProfileId` | T0 | NEVER serialised — same rule as the spine |
+
+### Route that computes locker refs
+
+`GET /api/mobility/cases/[caseId]/locker-ref` — verifies caller owns the case, then returns the T2-safe commitment. **All client-side locker operations MUST fetch this ref first.** Never derive it client-side (that would expose caseId in network traffic or client state).
+
+### Why this is non-negotiable
+
+A locker item `display_name` containing a raw `caseId` UUID will appear in DVN receipt payloads and potentially on-chain. The `caseId` is a T0 identifier that carries subject re-identification risk — an observer who correlates two receipts with the same `caseId` can link mobility activities to the same family unit, defeating the BlakQube compartmentalisation guarantee. The same principle extends to any delegated agent identifier issued under the case.
+
+---
+
 ## Push Commit Messages — MANDATORY (top priority, do not override)
 
 **Every push to GitHub / dev / any deploy-triggering branch MUST carry a commit message that names the actual content being pushed. Generic merge messages are forbidden.**
@@ -60,6 +130,39 @@ This applies without exception to:
 **When a value cannot be found:** say exactly that — "I cannot find X in the codebase. Please provide it." Do not fill the gap with a plausible-sounding guess.
 
 Guessing critical values (especially URLs) wastes the operator's time, breaks integrations, and erodes trust. This rule is non-negotiable.
+
+---
+
+## Outbound Email Attachments — MUST INCLUDE URL (NON-NEGOTIABLE)
+
+**Any outbound email (Gmail draft, Marketa send, cohort blast, transactional reply, any other email surface) that references an attached artifact, document, deck, doc, sheet, PDF, image, or any other file MUST include the URL to that artifact in the email body. If the body says "attached" / "see attached" / "find attached" / "I've attached" / "please review the attached" / any equivalent phrase, the URL MUST be in the body next to the reference. There are no exceptions.**
+
+This rule applies to every code path that drafts or sends email on the platform — `services/google/gmail/*`, `services/marketa/*`, `services/connectors/gmail*`, `services/connectors/marketa*`, the campaign send scripts, the LLM email-drafter prompts, and any future surface that produces email body text.
+
+### Forbidden — never produce these:
+
+- A body that says "Please find the brief attached" with no link.
+- A body that lists "Attached: Strategic plan" with no link.
+- A body that says "I've attached the deck for your review" with no link.
+- A body that references a Google Doc / Sheet / Slides / PDF by name without the corresponding view link.
+
+### Required — every email body that references an attachment MUST:
+
+1. Include the artifact's accessible URL (the `locationUrl` field on `ArtifactCardData`, the Google Drive share URL, the Supabase Storage URL for gated content via the signed-redirect route, etc.) inline with the reference.
+2. Format the reference so a human reading the email knows what to click — e.g. "Please review the [Strategic Plan](https://docs.google.com/document/d/.../edit)" or "Strategic plan: https://docs.google.com/...".
+3. Never refer to an attachment that isn't actually attached AND doesn't have a URL. If neither is true, rewrite the body to not mention an attachment at all.
+
+### Enforcement layer in LLM email-drafters
+
+When the email body is drafted by an LLM (the `handleDraftEmail` / `handleDraftMarketa` paths), the system prompt MUST instruct the LLM that if it references an attached artifact in the body, it MUST also include the URL inline. If the LLM doesn't have a URL for what it's about to reference, it MUST omit the reference entirely — never write "attached" without a link.
+
+Server-side validation should reject any drafted body that contains an "attached"-class phrase but no URL in the body, and require a regeneration. This sanity-check belongs in the draft endpoint, not just the LLM prompt.
+
+### Why this is non-negotiable
+
+A recipient who reads "Please find the brief attached" and sees no attachment + no link experiences immediate trust erosion in the sender, the platform, and the underlying agent. It looks like a bot mistake or a phishing failure. Every email that ships with this defect costs the operator credibility we can't easily recover.
+
+This rule applies to every agent working on this repo (Claude Code, Codex, Lovable, any future agent) and every email-producing surface. There are no exceptions, no "alpha-phase" carve-outs, no "we'll add the link later" deferrals.
 
 ---
 
@@ -245,6 +348,46 @@ Supporting docs (in order):
 5. `codexes/packs/agentiq/updates/2026-05-05_unified-identity-content-access-foundation-plan.md` — plan v8 + decision log
 6. `codexes/packs/agentiq/updates/2026-05-08_phase-1-iam-spine-closure.md` — Phase 1 closure
 7. `codexes/packs/agentiq/updates/2026-05-09_phase-2-encryption-decisions.md` — Phase 2 decisions
+
+---
+
+## DVN Pipeline Protection — CRITICAL INFRASTRUCTURE (PARAMOUNT)
+
+**The DVN (Decentralised Verification Network) anchoring pipeline is critical infrastructure. Any DVN failure represents a break in the chain-of-provenance for operator actions. Failures MUST be escalated to the operator immediately — they are never silent or acceptable as "transient".**
+
+### Files you MUST NOT modify without explicit operator approval
+
+- `services/dvn/activityReceiptDvnPipeline.ts` — the core submission + finalizer logic
+- `services/ops/icAgent.ts` — the IC actor factory (shared by DVN + other canister calls)
+- `services/ops/idl/cross_chain_service.ts` — the Candid IDL binding
+
+### The ONLY permitted unilateral change
+
+Adding a new action type to `ANCHORABLE_ACTION_TYPES` in `activityReceiptDvnPipeline.ts`. This extends which receipt types get anchored on-chain. It does not modify the submission mechanism, state machine, or canister interaction.
+
+### Everything else requires operator approval BEFORE coding
+
+This includes but is not limited to:
+- Changing the state machine (`local → dvn_pending → dvn_recorded / dvn_failed`)
+- Modifying the payload shape sent to the canister
+- Changing the `hashPersonaRef` hashing logic (privacy-critical)
+- Modifying the canister call mechanism (actor, IDL, timeout)
+- Changing error handling paths or when `dvn_failed` is written
+- Modifying the finalizer (`finalizeReadyActivityReceipts`)
+- Changing the `shouldAnchorActionType` gate logic (beyond adding types)
+- Adding, removing, or reordering fields in the DVN JSON payload
+
+### DVN failure escalation contract
+
+When a DVN submission fails (canister returns an error, times out, or returns an unexpected shape):
+1. The pipeline logs at `console.error` level with prefix `[DVN ESCALATION]` — this surfaces in CloudWatch/Amplify error-level monitoring.
+2. The receipt row flips to `dvn_failed` so the operator can see it in the UI and trigger a retry.
+3. The retry route (`/api/assistant/receipts/[receiptId]/retry-dvn`) allows the operator to re-attempt submission from the receipts view.
+4. If failures are systemic (multiple receipts failing), the operator should check: canister health, DFX identity PEM validity, network reachability to ic0.app.
+
+### Why this is paramount
+
+Every `dvn_failed` receipt is a gap in the on-chain provenance trail. The DVN anchoring is what makes activity receipts auditable and tamper-evident — without it, receipts are local database rows with no cryptographic backing. A silent regression in this pipeline undermines the trust model of the entire metaMe system.
 
 ---
 
@@ -480,6 +623,69 @@ Mapping is defined once at `app/triad/components/codex/tabs/AigentMeWelcomeSplit
 - Architecture + repro recipe: `codexes/packs/agentiq/updates/2026-05-28_aigentme-capsule-layout-contract.md`
 - Layout registry types: `components/metame/welcome/layouts/types.ts`
 - Pill primitive: `components/metame/cards/ExpandedNBEPill.tsx`
+
+---
+
+## Content Capsule Containment — GOLDEN RULE (PARAMOUNT)
+
+**Any derivative content generated from actions taken WITHIN a capsule MUST be rendered inside that same capsule. It must never spawn orphan pills, chips, or capsules outside of it.**
+
+This is the cardinal rule for capsule-scoped execution. The capsule is the operator's work context — everything that flows from a CTA, specialist consultation, queued action, or approval within that capsule belongs inside it. Orphan output severs the causal chain and destroys the operator's ability to understand what produced what.
+
+### What this means in practice
+
+- **Approval actions** on an `intent_queued` chip must flip that chip's state in place (emerald/approved, rose/rejected) — they must not create a new standalone receipt card, pill, or capsule at the page level.
+- **Specialist responses** triggered from within a capsule render inside that capsule's chain timeline — not as new top-level cards in myLedger or myWorkspace.
+- **Artifacts created** from an approved child intent should surface as amber artifact rows inside the parent capsule's chain panel — not as new top-level activity cards.
+- **Stage strip advancement** (queued → approved → acted → complete) happens by updating the existing capsule's strip — not by spawning a new capsule with a higher stage.
+
+### When containment cannot be achieved
+
+If a downstream action genuinely cannot be rendered inside the originating capsule (e.g. a cross-cartridge artifact that has no representation in the chain model), **stop and ask the operator before executing**. Do not silently create orphan output.
+
+### Failure examples to avoid
+
+- Clicking "Approve" on an `intent_queued` chip → a new standalone `approval_granted` capsule appears outside the current capsule. **Wrong.**
+- Queuing a specialist recommendation → a second `specialist_consulted` card appears at the top level of myLedger. **Wrong.**
+- Marking a child intent complete → a new standalone receipt card renders in the myWorkspace active intents list alongside the parent. **Wrong.**
+
+### Canonical infraction pattern — and how it was fixed (2026-06-05)
+
+**The infraction:** Per-chip Approve/Reject buttons were added to `intent_queued` rows in `IntentChainPanel`. Each button called `intent-advance(approve)` on the CHILD intentId. `intent-advance` creates an `approval_granted` activity receipt scoped to that child intentId. The `/api/assistant/receipts` endpoint returned ALL receipts for the persona, and `MyLedgerTab` grouped them by `intentId`. Since the new `approval_granted` receipt carried the CHILD intentId (not the parent's), it landed in its own group → a brand new capsule appeared at the top of myLedger while the parent capsule's chip stayed violet.
+
+**What the operator saw:** They clicked Approve on a chip inside an open capsule. The chip stayed violet. A new emerald capsule labelled "Approved: Create visual aids..." appeared at the top of myLedger outside the originating capsule.
+
+**The fix — three parts working together:**
+
+1. **`/api/assistant/receipts`** — enriches every receipt with `parentIntentId` by batch-looking up each intent's `nbe_plans` rationale in one query (the `parentIntentId` is packed into the rationale JSON by `createIntentQube`).
+
+2. **`MyLedgerTab` grouping** — groups receipts by `parentIntentId || intentId` instead of just `intentId`. Child receipt with `parentIntentId = "abc"` now folds into the `"abc"` capsule group, not a new group for the child's own id.
+
+3. **`/api/assistant/workbench-ledger`** — filters `pillEntries` to root intents only (`!p.parentIntentId`) so child intents don't also appear as standalone Active Intents pills in myWorkspace. Child artifact receipts roll up to the parent pill via a `parentByChild` map.
+
+**The pattern to follow for any future action that operates on a child intent:**
+
+```
+// ✅ CORRECT — child action folds into parent capsule
+// 1. Action fires on child intentId (correct — targets the right DB row)
+// 2. The receipt created by that action carries the child's intentId
+// 3. /api/assistant/receipts enriches the receipt with parentIntentId
+// 4. MyLedgerTab groups by parentIntentId → receipt renders inside parent capsule
+// 5. Chip updates optimistically in-place via ChildIntentActionRow local state
+
+// ❌ WRONG — the bug pattern
+// 1. Action fires on child intentId ← same
+// 2. Receipt carries child intentId ← same
+// 3. No enrichment → no parentIntentId on the receipt
+// 4. MyLedgerTab groups by intentId → new standalone capsule spawned
+// 5. Parent capsule chip stays unchanged; operator sees orphan output
+```
+
+**Files that implement the fix:**
+- `app/api/assistant/receipts/route.ts` — `enrichWithParentIntentIds()` helper
+- `app/triad/components/codex/tabs/MyLedgerTab.tsx` — `groupKey = r.parentIntentId || r.intentId`
+- `app/api/assistant/workbench-ledger/route.ts` — `rootIntents` filter + `parentByChild` artifact rollup
+- `components/metame/workbench/IntentChainPanel.tsx` — `ChildIntentActionRow` optimistic in-place flip
 
 ---
 
@@ -951,6 +1157,59 @@ python3 scripts/qubetalk_bridge/apply_packets.py [--dry-run]
 - Always pass `--agent-id claude-code` (the default is `openai-codex`)
 - Always commit and push the outbox packet file — it is never delivered until it hits the remote
 - The bridge is **fire-and-forget**: Lovable relays asynchronously; Claude cannot confirm delivery from within the sandbox
+
+---
+
+## Worldcoin keys — which one goes where (DON'T CONFUSE THESE)
+
+Worldcoin uses three distinct credentials with overlapping names. Mixing them up causes silent verification failures.
+
+| Variable | Scope | Public? | Used by | What it does |
+|---|---|---|---|---|
+| `WORLD_ID_APP_ID` | server env (Amplify) | **public** (`app_xxx...`) | `services/passport/personhoodProof.ts` → POST to `developer.worldcoin.org/api/v2/verify/${app_id}` | Server-side proof verification. **No auth header required** — the proof itself is the credential. |
+| `NEXT_PUBLIC_WORLD_ID_APP_ID` | build-time env (Amplify) | **public** (same value as above) | `components/passport/WorldIdButton.tsx` IDKit modal | Browser-side — tells the IDKit modal which Worldcoin app to request a proof for. **Must be set to the same value as `WORLD_ID_APP_ID`** or the modal won't render. |
+| `WORLD_ID_ACTION_ID` | server env | **public** (e.g. `polity-passport-verify`) | Server verifier (default fallback) | Action slug. Set in Developer Portal → app → **Incognito Actions** → Create action. Scopes the nullifier hash: one verified proof per (action, human). |
+| `NEXT_PUBLIC_WORLD_ID_ACTION_ID` | build-time env | **public** (same value as above) | Browser-side IDKit modal | Same value, browser scope. |
+| `WORLD_DEVELOPER_API_KEY` | MCP server config | **secret** (`Bearer dev_xxx...`) | Only the Developer Portal **management** MCP (`mcp_servers.worldcoin-developer-portal`) — used to programmatically create apps, list events, etc. | **NOT used by the verification flow.** Setting this alone does nothing for passport verification. Only relevant if you're driving the Worldcoin dev portal from chat via MCP. |
+
+**TL;DR for the Polity Passport verification flow:** you need only the first four. Two values, four env vars (each value pasted both server-scope and `NEXT_PUBLIC_` scope). `WORLD_DEVELOPER_API_KEY` is a separate concern.
+
+**Why the `NEXT_PUBLIC_` duplication is required:** Next.js bakes `NEXT_PUBLIC_*` env vars into the client bundle at **build time**. Non-`NEXT_PUBLIC_` vars are runtime-only (server). The IDKit modal mounts in the browser — it can't read server env. If you set only the server vars, the browser-side button silently falls back to dev-worldid mode.
+
+**Provisioning steps:**
+1. developer.worldcoin.org → log in → **Create an app** → grab `app_xxx...` → that's both `WORLD_ID_APP_ID` and `NEXT_PUBLIC_WORLD_ID_APP_ID`.
+2. In the app → **Incognito Actions** → **Create action** → name it `polity-passport-verify` → that's both `WORLD_ID_ACTION_ID` and `NEXT_PUBLIC_WORLD_ID_ACTION_ID`.
+3. Optional, **separate**: under **API Keys** → generate a key → that's `WORLD_DEVELOPER_API_KEY`, used only by the MCP management server.
+
+After setting the four env vars in Amplify, **trigger a rebuild** — the `NEXT_PUBLIC_*` values won't reach the browser until the client bundle is rebuilt.
+
+---
+
+## Wallet-Over-Cartridge Overlay — CANONICAL PATTERN (must reuse)
+
+**Goal:** open the SmartWalletDrawer (PersonaQube, PassportQube, AgentQubes sections) on top of a cartridge layer without losing the cartridge content underneath.**The only path that works**: mount `<SmartWalletDrawer variant="embedded" />` INSIDE a `<CodexCopilotLayer>` flex container. Do NOT render the SmartWalletDrawer as a standalone slide-over on top of a cartridge — z-index conflicts make it unusable. The comment at `app/components/codex/CodexCopilotLayer.tsx:113` explicitly names this: "the parallel SmartWalletDrawer (which has z-index conflicts)."
+
+**Reference implementation:** `app/components/codex/CodexCopilotLayer.tsx:1700-1724` — the `walletPanelOpen` branch mounts `<SmartWalletDrawer variant="embedded" />` inside the copilot's flex layout. When the user clicks a wallet action chip in the copilot UI, `setWalletPanelOpen(true)` flips the panel on and the drawer slides in alongside (not on top of) the copilot. Both ride above the cartridge content via the copilot layer's overlay.
+
+**Reproducible recipe (use this anywhere you need cartridge + wallet overlay):**
+
+1. The host cartridge must already be wired in `CodexPanelDynamic.tsx` to render a `<CodexCopilotLayer />`. Today: `marketa-codex`, `knyt-codex`, `metame-codex`, and (as of 2026-06-13 Sprint 8) `polity-passport-bureau-cartridge`.
+2. Inside the copilot, the wallet panel is opened with `setWalletPanelOpen(true)` — triggered by clicking a wallet/library/tasks/reputation/rewards/payments action chip. Don't surface a separate wallet button; let the copilot own the activation.
+3. The SmartWalletDrawer renders with `variant="embedded"`, `embeddedAnchor`, `embeddedWidth`, and `codexMode={true}`. These four props are the difference between "wallet slides in alongside the copilot" and "wallet covers the cartridge with z-index fights."
+4. Cartridge content stays visible behind the copilot+wallet flex stack — that's why operators can see the Apply tab beneath aigentMe + PersonaQube in the canonical screenshot (2026-06-13).
+
+**Operator-confirmed working surfaces (the screenshot record):**
+- metaMe Cartridge → AgentiQ OS → Polity Passport → Apply tab → aigentMe copilot active → wallet open showing PersonaQube + PassportQube (2026-06-13)
+- AgentiQ OS → Registry → Persona → "Mint your persona as iQube" → wallet overlay above the cartridge (operator's original reference, 2026-06-13)
+
+**Anti-pattern (do NOT use):** rendering `<SmartWalletDrawer open={true} />` directly inside a tab component — this creates a standalone slide-over that competes with the cartridge's stacking context. Symptoms: drawer renders behind the cartridge, drawer renders but clicks pass through, drawer covers the copilot. All are the same root cause: parallel-mounting instead of embedded-mode-inside-the-copilot.
+
+**Rule for new cartridges that need wallet access:**
+1. Add the cartridge to the hardcoded `codexId` list in `CodexPanelDynamic.tsx:1071-1121`.
+2. Pick the copilot agent (the default agent for that cartridge's surface).
+3. Let the copilot own the wallet activation — no parallel wallet triggers.
+
+This is non-negotiable because it's the only path with a reproducible working precedent. Until a config-driven copilot+wallet system replaces the hardcoded `codexId` list (Phase B Sprint 8 follow-on), every new cartridge that needs in-place wallet access must follow this recipe.
 
 ---
 

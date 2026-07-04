@@ -80,7 +80,7 @@ function PackCatalogCard({
       className={cn(
         'rounded-xl border transition-all cursor-pointer group',
         isApproved
-          ? (dark ? 'border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10' : 'border-rose-300 bg-rose-50/50 hover:bg-rose-50')
+          ? (dark ? 'border-pink-400/30 bg-pink-400/5 hover:bg-pink-400/10' : 'border-pink-300 bg-pink-50/50 hover:bg-pink-50')
           : (dark ? 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]' : 'border-black/[0.06] bg-white hover:bg-black/[0.02]'),
       )}
       onClick={onSelect}
@@ -142,7 +142,7 @@ function PackCatalogCard({
           {isApproved && (
             <button
               onClick={(e) => { e.stopPropagation(); onSelect(); }}
-              className="flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors backdrop-blur-sm"
+              className="flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-pink-400/50 bg-pink-400/20 hover:bg-pink-400/30 text-pink-300 transition-colors backdrop-blur-sm"
             >
               <Send className="w-3 h-3" />
               Publish
@@ -163,7 +163,7 @@ function CopyVariantCard({ variant, dark }: { variant: CopyVariant; dark: boolea
     linkedin: 'text-blue-400',
     instagram: 'text-pink-400',
     newsletter: 'text-violet-400',
-    youtube: 'text-rose-400',
+    youtube: 'text-pink-300',
     tiktok: 'text-cyan-400',
     podcast: 'text-orange-400',
   };
@@ -324,7 +324,7 @@ function PackDetailView({
               <ul className="space-y-2">
                 {pack.objectives.map((obj, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className={cn('w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5', dark ? 'bg-rose-500/20 text-rose-300' : 'bg-rose-100 text-rose-600')}>
+                    <span className={cn('w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5', dark ? 'bg-pink-400/20 text-pink-300' : 'bg-pink-100 text-pink-500')}>
                       {i + 1}
                     </span>
                     <span className={cn('text-xs leading-relaxed', dark ? 'text-white/70' : 'text-black/70')}>{obj}</span>
@@ -368,7 +368,7 @@ function PackDetailView({
                   <button
                     onClick={handlePublish}
                     disabled={publishing}
-                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors disabled:opacity-60 backdrop-blur-sm"
+                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg border border-pink-400/50 bg-pink-400/20 hover:bg-pink-400/30 text-pink-300 transition-colors disabled:opacity-60 backdrop-blur-sm"
                   >
                     {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                     Publish to My Channels
@@ -479,7 +479,7 @@ export function MarketaMyPacksTab({ theme = 'dark', partnerId, personaId }: Prop
   if (loading) {
     return (
       <div className="flex items-center justify-center p-16">
-        <Loader2 className="w-6 h-6 animate-spin text-rose-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-pink-300" />
       </div>
     );
   }
@@ -506,7 +506,7 @@ export function MarketaMyPacksTab({ theme = 'dark', partnerId, personaId }: Prop
             </div>
             <button
               onClick={() => navigateToTab('propose-campaign')}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors whitespace-nowrap flex-shrink-0 backdrop-blur-sm"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-pink-400/50 bg-pink-400/20 hover:bg-pink-400/30 text-pink-300 transition-colors whitespace-nowrap flex-shrink-0 backdrop-blur-sm"
             >
               <Sparkles className="w-3 h-3" />
               Propose Content Pack
@@ -523,7 +523,7 @@ export function MarketaMyPacksTab({ theme = 'dark', partnerId, personaId }: Prop
             </p>
             <button
               onClick={() => navigateToTab('my-campaign')}
-              className={cn('text-xs flex items-center gap-1 ml-3 whitespace-nowrap', dark ? 'text-rose-400 hover:text-rose-300' : 'text-rose-600 hover:text-rose-700')}
+              className={cn('text-xs flex items-center gap-1 ml-3 whitespace-nowrap', dark ? 'text-pink-300 hover:text-pink-300' : 'text-pink-500 hover:text-pink-600')}
             >
               Campaigns <ChevronRight className="w-3 h-3" />
             </button>

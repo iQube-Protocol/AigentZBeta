@@ -26,9 +26,9 @@ import { createActivityReceipt } from '@/services/receipts/activityReceiptServic
 // Public types.
 // ─────────────────────────────────────────────────────────────────────────
 
-export type GoogleSource = 'gmail' | 'calendar' | 'drive' | 'docs' | 'slides' | 'sheets';
+export type GoogleSource = 'gmail' | 'calendar' | 'drive' | 'docs' | 'slides' | 'sheets' | 'tasks' | 'contacts';
 
-export const GOOGLE_SOURCES: GoogleSource[] = ['gmail', 'calendar', 'drive', 'docs', 'slides', 'sheets'];
+export const GOOGLE_SOURCES: GoogleSource[] = ['gmail', 'calendar', 'drive', 'docs', 'slides', 'sheets', 'tasks', 'contacts'];
 
 /** Per-source scope sets. Minimum-needed only. */
 export const GOOGLE_SCOPES: Record<GoogleSource, string[]> = {
@@ -38,6 +38,10 @@ export const GOOGLE_SCOPES: Record<GoogleSource, string[]> = {
   docs: ['https://www.googleapis.com/auth/documents'],
   slides: ['https://www.googleapis.com/auth/presentations'],
   sheets: ['https://www.googleapis.com/auth/spreadsheets'],
+  // Read-only: pull the operator's own to-do items (done = proof-of-work signal,
+  // pending = suggested action). No write access.
+  tasks: ['https://www.googleapis.com/auth/tasks.readonly'],
+  contacts: ['https://www.googleapis.com/auth/contacts.readonly'],
 };
 
 export interface GoogleConnectionStatus {

@@ -129,8 +129,8 @@ export function MarketaOperatorProposeTab({ theme = 'dark', personaId }: Props) 
   const baseTextClass  = d ? 'text-slate-100' : 'text-slate-900';
   const mutedTextClass = d ? 'text-slate-400' : 'text-slate-600';
   const inputClass = d
-    ? 'w-full rounded border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 focus:border-rose-500 focus:outline-none'
-    : 'w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-rose-500 focus:outline-none';
+    ? 'w-full rounded border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 focus:border-pink-400 focus:outline-none'
+    : 'w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-pink-400 focus:outline-none';
 
   if (submitted) {
     return (
@@ -148,9 +148,9 @@ export function MarketaOperatorProposeTab({ theme = 'dark', personaId }: Props) 
 
   return (
     <div className="p-4 space-y-4">
-      <div className={`rounded-xl border ${d ? 'border-rose-500/20 bg-slate-900/40' : 'border-rose-200 bg-white'} p-4`}>
+      <div className={`rounded-xl border ${d ? 'border-pink-400/20 bg-slate-900/40' : 'border-pink-200 bg-white'} p-4`}>
         <div className="flex items-center gap-2 mb-3">
-          <Sparkles className={`h-4 w-4 ${d ? 'text-rose-400' : 'text-rose-600'}`} />
+          <Sparkles className={`h-4 w-4 ${d ? 'text-pink-300' : 'text-pink-500'}`} />
           <p className={`text-sm font-semibold ${baseTextClass}`}>Operator Campaign Proposal</p>
         </div>
         <p className={`text-xs ${mutedTextClass} mb-4`}>Author a campaign brief, pick a cohort, and Marketa enriches it into a full pack. The pack lands in the approval queue tagged as operator-origin so it&apos;s distinguishable from partner submissions.</p>
@@ -182,7 +182,7 @@ export function MarketaOperatorProposeTab({ theme = 'dark', personaId }: Props) 
                     onClick={() => toggleChannel(c.key)}
                     className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                       active
-                        ? d ? 'border-rose-500/60 bg-rose-500/15 text-rose-200' : 'border-rose-500 bg-rose-50 text-rose-700'
+                        ? d ? 'border-pink-400/60 bg-pink-400/15 text-pink-200' : 'border-pink-400 bg-pink-50 text-pink-600'
                         : d ? 'border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >

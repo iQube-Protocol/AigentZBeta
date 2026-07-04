@@ -87,6 +87,10 @@ const envVars = [
   'MAILJET_TEMPLATE_REACTIVATION',
   'MAILJET_TEMPLATE_GENERAL',
   'MAILJET_BCC_EMAIL',
+  // Mailjet webhooks (CRM event tracking + activation inbound replies)
+  'MAILJET_WEBHOOK_SECRET',
+  // Activation outreach Reply-To — parse-routed inbox for reply auto-flip
+  'MARKETA_OUTREACH_REPLY_TO',
   // Campaign tracking
   'KICKSTARTER_CAMPAIGN_URL',
   'KNYT_WHEEL_TOTAL_SLOTS',
@@ -101,6 +105,50 @@ const envVars = [
   // Marketa portal
   'MARKETA_CREATOR_DID',
   'MARKETA_SYSTEM_AGENT_ID',
+  // Activation engine scheduled discovery — JSON array of { kind, url } sources
+  'MARKETA_DISCOVERY_SOURCES',
+  // Polity Passport Bureau — credential HMAC signing (Phase A stub)
+  'PASSPORT_BUREAU_CREDENTIAL_SECRET',
+  // PersonaQube — Sui + Walrus mint rail (Polity Passport rail).
+  // When unset, mintPersonaToSui falls back to stub mode (deterministic
+  // fake IDs). Setting all three switches the route to real on-chain mint.
+  'SUI_NETWORK',
+  'SUI_PACKAGE_ID',
+  'SUI_SPONSOR_KEY',
+  'WALRUS_PUBLISHER_URL',
+  'WALRUS_AGGREGATOR_URL',
+  // PersonaQube descriptor encryption — AES-256-GCM. 64 hex chars = 32 bytes.
+  'PERSONA_IQUBE_ENCRYPTION_KEY',
+  // World ID strong-proof upgrade — Worldcoin Cloud Verifier.
+  // When unset, verifyWorldIdProof accepts 'dev-worldid-*' tokens for
+  // local testing; production requires both.
+  'WORLD_ID_APP_ID',
+  'WORLD_ID_ACTION_ID',
+  // World ID — client-side IDKit widget needs the public app id.
+  'NEXT_PUBLIC_WORLD_ID_APP_ID',
+  'NEXT_PUBLIC_WORLD_ID_ACTION_ID',
+  // AgentKit policy attestation layer — wraps bounded delegation grants
+  // with a cryptographic attestation. Stub mode when unset.
+  'AGENTKIT_API_KEY',
+  'AGENTKIT_POLICY_ID',
+  'AGENTKIT_ATTEST_URL',
+  'AGENTKIT_STUB_KEY',
+  // ProveKit ZK proof rail — proof_of_personhood +
+  // proof_of_delegation_authority in the demo cut. Phase B circuits
+  // return shaped placeholders. Stub mode when unset.
+  'PROVEKIT_API_KEY',
+  'PROVEKIT_CIRCUIT_REGISTRY',
+  // ENS L2 subnames via Namestone (gasless). Stub mode when unset.
+  'NAMESTONE_API_KEY',
+  'NAMESTONE_API_BASE',
+  'ENS_PARENT_NAME',
+  // Polity Passport Bureau cryptographic issuer key — signs AgentKit
+  // attestations + ProveKit proof commitments with EIP-191. Generate
+  // once via `node -e "console.log(require('viem/accounts').generatePrivateKey())"`.
+  // Public address surfaces at GET /api/polity-passport/issuer.
+  'POLITY_ISSUER_PRIVATE_KEY',
+  // Walrus HTTP publisher (defaults to mysten public testnet).
+  'WALRUS_EPOCHS',
   'SEQUENCE_DISPATCH_SECRET',
   'LVB_BRIDGE_DEFAULT_PERSONA_ID',
   // iQubeNFT — ERC721 on-chain anchor
@@ -118,11 +166,23 @@ const envVars = [
   'BTC_NETWORK',
   'BTC_CUSTODIAN_KEY_REF',
   'BTC_SIGNER_CANISTER_ID',
+  // Polity Passport Bureau — CAPTCHA (Cloudflare Turnstile)
+  'TURNSTILE_SECRET_KEY',
+  'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
   // Wallet alias privacy refactor (2026-04-29)
   'WALLET_ALIAS_HMAC_KEY',
   'WALLET_ALIAS_CHALLENGE_DOMAIN',
   'ESCROW_CANISTER_ID',
   'ALLOW_LEGACY_PLAINTEXT_WALLET_WRITE',
+  // ICP canister ops — DFX identity PEM for cycle checks + top-ups,
+  // wallet canister for sending cycles, canister IDs for cross-chain service
+  'DFX_IDENTITY_PEM',
+  'DFX_IDENTITY_PEM_PATH',
+  'DFX_NETWORK',
+  'WALLET_CANISTER_ID',
+  'CROSS_CHAIN_SERVICE_CANISTER_ID',
+  'CYCLES_PROXY_URL',
+  'CYCLES_PROXY_KEY',
   // Operator ops bearer for backstop tools (paypal/recover, etc.).
   // Set to any random ≥32-char string. Generate locally with:
   //   openssl rand -hex 32
@@ -142,20 +202,43 @@ const envVars = [
   // actor intakes). Same generation pattern as CRON_TRIGGER_TOKEN.
   // Spec: AGENTIQ_INTENT_CHAINS_SPEC.md §7 + advancer.ts.
   'ORCHESTRATOR_SERVICE_TOKEN',
+  // Profile enrichment for the Standing Core wizard (auto-fetch experience/
+  // education — LinkedIn OAuth no longer exposes them). Provider-agnostic +
+  // OPTIONAL: when unset the wizard falls back to the manual profile-text paste.
+  // RECOMMENDED provider is NinjaPear (nubela.co) — the Proxycurl founder's
+  // successor; public-sourced, does NOT scrape LinkedIn; keyed on work email or
+  // name+company. Set NINJAPEAR_API_KEY (and that's it). NINJAPEAR_BASE_URL is
+  // optional (default https://nubela.co). Alternatively, a generic URL provider:
+  // LINKEDIN_ENRICH_URL ({url} placeholder) + LINKEDIN_ENRICH_KEY (PROXYCURL_API_KEY
+  // honoured as a key alias). Never expose any of these as NEXT_PUBLIC_.
+  'NINJAPEAR_API_KEY',
+  'NINJAPEAR_BASE_URL',
+  'LINKEDIN_ENRICH_URL',
+  'LINKEDIN_ENRICH_KEY',
+  'PROXYCURL_API_KEY',
 ];
 
 let content = '';
 
-// Write explicit vars
+// Write explicit vars — double-quote values that contain newlines,
+// quotes, or PEM markers so dotenv parses them correctly.
+function dotenvLine(key, value) {
+  if (value.includes('\n') || value.includes('"') || value.includes('-----')) {
+    const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    return `${key}="${escaped}"\n`;
+  }
+  return `${key}=${value}\n`;
+}
+
 for (const key of envVars) {
   const value = process.env[key] || '';
-  content += `${key}=${value}\n`;
+  content += dotenvLine(key, value);
 }
 
 // Add all NEXT_PUBLIC_ vars
 for (const key in process.env) {
   if (key.startsWith('NEXT_PUBLIC_')) {
-    content += `${key}=${process.env[key]}\n`;
+    content += dotenvLine(key, process.env[key]);
   }
 }
 

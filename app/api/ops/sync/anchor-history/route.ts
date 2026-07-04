@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
+
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export const runtime = 'nodejs';
@@ -19,9 +19,6 @@ export const dynamic = 'force-dynamic';
 const VALID_ACTIONS = new Set(['anchored', 'deferred', 'skipped', 'failed']);
 
 export async function GET(request: NextRequest) {
-  const persona = await getActivePersona(request);
-  if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  if (!persona.cartridgeFlags?.isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
   const url = new URL(request.url);
   const limit = Math.min(Math.max(Number.parseInt(url.searchParams.get('limit') ?? '50', 10), 1), 500);

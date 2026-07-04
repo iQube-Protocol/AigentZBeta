@@ -26,6 +26,10 @@ import {
 import { getConnectionStatuses, type GoogleSource } from '@/services/google/oauth';
 import { inferStrategy } from '@/services/strategy/strategyInference';
 import { evaluateStageProgression } from '@/services/strategy/stageProgression';
+import { getCommercialSpineState } from '@/services/journey/commercialSpine';
+import { getPersonaPlan } from '@/services/billing/personaPlan';
+import { getPlanModelId } from '@/services/billing/planModelTier';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
 import type { PreflightContext } from '@/services/capabilities/preflight';
 import {
@@ -179,13 +183,25 @@ function buildGuidanceNote(
 }
 
 export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
-  const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
+  const adminClient = getSupabaseServer();
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
     inferStrategy(input.personaId).catch(() => null),
     evaluateStageProgression(input.personaId, { runAutoAdvance: false }).catch(() => null),
+    adminClient
+      ? getCommercialSpineState(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
+    adminClient
+      ? getPersonaPlan(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
   ]);
+  const modelOverride = getPlanModelId(personaPlan);
+
+  // Commercial-spine stage completion map — gates the golden-path NBE candidates.
+  const spineStagesComplete: Record<string, boolean> = {};
+  for (const s of spine?.stages ?? []) spineStagesComplete[s.id] = s.complete;
 
   const activeCartridges =
     qube?.meta.activeCartridges ?? input.defaultActiveCartridges ?? ['metame'];
@@ -223,6 +239,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         workspaceConnected,
         experienceGoals,
         stageAdvanceEligible,
+        spineStagesComplete,
       })
     : selectNbeCandidates({
         activeCartridges,
@@ -231,6 +248,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         workspaceConnected,
         experienceGoals,
         stageAdvanceEligible,
+        spineStagesComplete,
       });
 
   const rerank = await llmRerankNbeCandidates(nbeCandidates, {
@@ -239,7 +257,9 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     primaryGoal,
     experienceGoals,
     strategy,
+    operatorArchetype: qube?.meta.operatorArchetype ?? null,
     liveContext: input.liveContext ?? null,
+    modelOverride,
   });
   nbeCandidates = rerank.ranked;
   const topNbeReason = rerank.topReason;
@@ -336,13 +356,27 @@ export async function buildMoveForward(input: {
   /** See `BuildBriefInput.liveContext` — same meaning. */
   liveContext?: string | null;
 }): Promise<MoveForwardShape> {
-  const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
+  const adminClient = getSupabaseServer();
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
     inferStrategy(input.personaId).catch(() => null),
     evaluateStageProgression(input.personaId, { runAutoAdvance: false }).catch(() => null),
+    adminClient
+      ? getCommercialSpineState(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
+    adminClient
+      ? getPersonaPlan(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
   ]);
+  const modelOverride = getPlanModelId(personaPlan);
+
+  // Mirror buildBrief: populate spineStagesComplete so golden-path NBEs
+  // (establish-standing, open-founder-office, advance-venture-lab) surface
+  // correctly via their spineStagePrereq/spineStageNotComplete gates.
+  const spineStagesComplete: Record<string, boolean> = {};
+  for (const s of spine?.stages ?? []) spineStagesComplete[s.id] = s.complete;
 
   const activeCartridges = qube?.meta.activeCartridges ?? (input.cartridge ? [input.cartridge] : ['metame']);
   const currentStage: ExperienceStage = qube?.meta.currentStage ?? 'setup';
@@ -369,6 +403,7 @@ export async function buildMoveForward(input: {
       workspaceConnected,
       experienceGoals,
       stageAdvanceEligible,
+      spineStagesComplete,
     });
     altsRaw = selectNbeCandidates({
       activeCartridges,
@@ -378,6 +413,7 @@ export async function buildMoveForward(input: {
       workspaceConnected,
       experienceGoals,
       stageAdvanceEligible,
+      spineStagesComplete,
     }).filter((c) => c.id !== topCandidate?.id);
   } else {
     const baseline = selectNbeCandidates({
@@ -387,6 +423,7 @@ export async function buildMoveForward(input: {
       workspaceConnected,
       experienceGoals,
       stageAdvanceEligible,
+      spineStagesComplete,
     });
     const rerank = await llmRerankNbeCandidates(baseline, {
       currentStage,
@@ -394,7 +431,9 @@ export async function buildMoveForward(input: {
       primaryGoal,
       experienceGoals,
       strategy,
+      operatorArchetype: qube?.meta.operatorArchetype ?? null,
       liveContext: input.liveContext ?? null,
+      modelOverride,
     });
     topCandidate = rerank.ranked[0] ?? null;
     altsRaw = rerank.ranked.slice(1);

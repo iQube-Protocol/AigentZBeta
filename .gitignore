@@ -11,6 +11,13 @@ develop-eggs/
 # SDK compiled output — built during publish workflow, not committed
 packages/agentiq-sdk/dist/
 downloads/
+# App download surfaces (operator-facing): keep these tracked. The bare
+# `downloads/` above is a leftover Python install-tooling exclusion that
+# would otherwise swallow these directories too.
+!public/downloads/
+!public/downloads/**
+!components/metame/downloads/
+!components/metame/downloads/**
 eggs/
 .eggs/
 lib/
@@ -117,3 +124,4 @@ capstone/**/env.body
 capstone/**/env.meta
 capstone/**/principal.body
 capstone/**/principal.meta
+.claude/worktrees/

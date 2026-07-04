@@ -97,6 +97,22 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
    */
   composerInitialPrompt?: string | null;
   /**
+   * When set, pre-populates the Gmail composer fields directly without
+   * calling the draft-email API. Used for "send it again" flows where
+   * the email was already drafted in a prior turn.
+   */
+  composerPrefill?: { to: string; cc?: string; bcc?: string; subject: string; bodyText: string } | null;
+  /**
+   * Case A — operator-attached upload ids escrowed from the chat
+   * copilot's last successful turn. When the composer opens for an
+   * email-class surface (Gmail / Marketa), the modal seeds its
+   * attachment picker from this list so the files the operator
+   * intended to ride with the email actually ride through to the
+   * outbound multipart MIME envelope. Optional; null / empty leaves
+   * the picker empty (existing behaviour).
+   */
+  composerInitialAttachmentUploadIds?: string[] | null;
+  /**
    * B.1: selected KPI id for the KpiDetailLayout. The cockpit chip
    * onClick sets this + activates 'kpi-detail'.
    */

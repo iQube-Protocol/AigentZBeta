@@ -81,7 +81,7 @@ export interface ActivationCatalogEntry {
   longDescription: string;
   gate: ActivationGate;
   tabSlug: string;
-  sourceCartridge: ActiveCartridgeSlug | 'metame';
+  sourceCartridge: ActiveCartridgeSlug | 'metame' | 'polity-passport-bureau' | 'standing-cartridge' | 'human-mobility-services' | 'polity-core';
   icon?: string;
   color?: string;
   /** KPI metrics this activation exposes. Empty / undefined = none. */
@@ -93,7 +93,7 @@ export interface ActivationCatalogEntry {
 export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
   {
     id: 'mycanvas',
-    label: 'myCanvas',
+    label: 'myCluster',
     description: 'Your private publishing surface for works-in-progress and ideas.',
     longDescription:
       'A personal surface to publish drafts, half-formed thoughts, and works-in-progress that aigentMe or the Studio produces with you. Private by default — invite specific people, or later republish into a community surface or social platform.',
@@ -165,6 +165,31 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     ],
     actions: [
       { action: 'build-agent',       label: 'Build a new agent', rationale: 'Spin up a custom agent and bind it to iQubes you own.', specialist: 'aigent-z' },
+    ],
+  },
+  {
+    id: 'aigent-z',
+    label: 'aigentZ',
+    description: 'Development Command Center — consequence-engineered building with aigentZ.',
+    longDescription:
+      'Activate the aigentZ Development Command Center — the consequence-engineering workflow that turns raw intent into validated builds. Distill intents, assemble context packs, analyze capability gaps, model consequences, and validate implementations against them, with aigentZ as your copilot through the full dev loop. Requires Sovereignty (Tier 1) or above.',
+    gate: 'gated',
+    tabSlug: 'aigent-z',
+    sourceCartridge: 'metame',
+    icon: 'Cpu',
+    color: 'green',
+    metrics: [
+      // Activity — dev loop motion
+      { metric: 'intents_distilled',    class: 'activity', label: 'Intents distilled',    defaultUnit: 'intents',     query: { kind: 'receipts', eventType: 'devloop.intent.distilled' } },
+      { metric: 'gap_analyses_run',     class: 'activity', label: 'Gap analyses run',     defaultUnit: 'analyses',    query: { kind: 'receipts', eventType: 'devloop.gap_analysis.completed' } },
+      { metric: 'canvases_modeled',     class: 'activity', label: 'Consequence canvases', defaultUnit: 'canvases',    query: { kind: 'receipts', eventType: 'devloop.canvas.modeled' } },
+      // Outcome — builds that landed
+      { metric: 'validations_passed',   class: 'outcome',  label: 'Validations passed',   defaultUnit: 'validations', query: { kind: 'receipts', eventType: 'devloop.validation.passed' } },
+      { metric: 'loops_completed',      class: 'outcome',  label: 'Dev loops completed',  defaultUnit: 'loops',       query: { kind: 'receipts', eventType: 'devloop.completed' } },
+    ],
+    actions: [
+      { action: 'start-dev-intent',   label: 'Start a development intent', rationale: 'aigentZ distills what you want to build into structured intent with users, constraints, and success criteria.', specialist: 'aigent-z' },
+      { action: 'validate-build',     label: 'Validate a build',           rationale: 'Run the post-prompt consequence validation against the active canvas.', specialist: 'aigent-z', approvalRequired: true },
     ],
   },
   {
@@ -270,6 +295,81 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
       { action: 'author-experience', label: 'Author a new experience', rationale: 'Open the Studio composer and start an ExperienceQube.', specialist: 'aigent-z' },
     ],
   },
+  {
+    id: 'polity-passport',
+    label: 'Polity Passport',
+    description: 'Identity sovereignty — apply for a Polity Passport, manage ENS, delegate to agents.',
+    longDescription:
+      'Activate the Polity Passport Bureau surfaces inside metaMe — apply for an anonymous Citizen Passport, mint a gasless ENS subname, manage your self-custody Locker, grant bounded delegations to agents, and access human mobility services. Irrevocable proof of personhood with privacy-preserving identity.',
+    gate: 'open',
+    tabSlug: 'passport-bureau-apply',
+    sourceCartridge: 'polity-passport-bureau',
+    icon: 'ShieldCheck',
+    color: 'violet',
+    metrics: [
+      { metric: 'passports_issued', class: 'outcome', label: 'Passports issued', defaultUnit: 'passports', query: { kind: 'receipts', eventType: 'passport.issued' } },
+      { metric: 'delegations_granted', class: 'activity', label: 'Delegations granted', defaultUnit: 'delegations', query: { kind: 'receipts', eventType: 'passport.delegation.granted' } },
+      { metric: 'ens_names_minted', class: 'outcome', label: 'ENS names minted', defaultUnit: 'names', query: { kind: 'receipts', eventType: 'passport.ens.minted' } },
+      { metric: 'locker_items_stored', class: 'activity', label: 'Locker items stored', defaultUnit: 'items', query: { kind: 'receipts', eventType: 'passport.locker.stored' } },
+    ],
+    actions: [
+      { action: 'apply-passport', label: 'Apply for a Citizen Passport', rationale: 'Start the passport application flow — anonymous, self-custody, irrevocable.', specialist: 'aigent-z' },
+      { action: 'mint-ens', label: 'Mint an ENS subname', rationale: 'Claim a gasless L2 ENS identity under polity.eth.', specialist: 'aigent-z' },
+    ],
+  },
+  {
+    id: 'standing-cartridge',
+    label: 'Standing Cartridge',
+    description: 'Your personal capability & standing ledger — evidence-derived, principal-verified, anchored to your Polity Passport.',
+    longDescription:
+      'The Standing Cartridge is your reusable capability and standing primitive. Upload evidence documents — CVs, publications, patents, media appearances, speaking engagements, reference letters — and the system extracts candidate facts for your review. Once approved and compiled, your Verified Standing Profile (VSP) becomes the authoritative source for mobility applications, immigration petitions, professional biographies, CVs, investor profiles, and future Polity services. The Standing Cartridge is anchored to your KybeDID and travels across your entire persona estate.',
+    gate: 'open',
+    tabSlug: 'standing',
+    sourceCartridge: 'standing-cartridge',
+    icon: 'Star',
+    color: 'violet',
+    metrics: [
+      { metric: 'facts_approved', class: 'outcome', label: 'Facts approved', defaultUnit: 'facts', query: { kind: 'receipts', eventType: 'vsp.fact.approved' } },
+      { metric: 'profiles_compiled', class: 'outcome', label: 'Profiles compiled', defaultUnit: 'profiles', query: { kind: 'receipts', eventType: 'vsp.profile.compiled' } },
+      { metric: 'outputs_generated', class: 'activity', label: 'Outputs generated', defaultUnit: 'outputs', query: { kind: 'receipts', eventType: 'vsp.output.generated' } },
+    ],
+    actions: [
+      { action: 'add-evidence', label: 'Add evidence document', rationale: 'Upload a document — CV, publication, patent, reference letter — for fact extraction.', specialist: 'aigent-z' },
+      { action: 'compile-vsp', label: 'Compile Verified Standing Profile', rationale: 'Lock approved facts into a portable VSP anchored to your Polity Passport.', specialist: 'aigent-z', approvalRequired: true },
+      { action: 'generate-output', label: 'Generate professional output', rationale: 'Derive a biography, CV, or capability assessment from your compiled VSP.', specialist: 'aigent-z' },
+    ],
+  },
+  {
+    id: 'human-mobility-services',
+    label: 'Human Mobility Services',
+    description: 'Mobility cases — business + emergency relocation, housing, education, and family support.',
+    longDescription:
+      'Activate the Human Mobility Services (HMS) surfaces — business mobility (executive relocation, global talent movement) and emergency mobility (crisis relocation, family relocation, vulnerable-citizen support), with housing, education, relocation, economic, and case-management workflows. A premium Founder/Operator service powered by your Standing and Polity Passport.',
+    gate: 'gated',
+    tabSlug: 'hms',
+    sourceCartridge: 'human-mobility-services',
+    icon: 'Plane',
+    color: 'cyan',
+    metrics: [
+      { metric: 'cases_opened', class: 'activity', label: 'Mobility cases opened', defaultUnit: 'cases', query: { kind: 'receipts', eventType: 'hms.case.opened' } },
+      { metric: 'cases_resolved', class: 'outcome', label: 'Cases resolved', defaultUnit: 'cases', query: { kind: 'receipts', eventType: 'hms.case.resolved' } },
+    ],
+    actions: [
+      { action: 'open-mobility-case', label: 'Open a mobility case', rationale: 'Start a business or emergency mobility case with HMS.', specialist: 'aigent-z' },
+    ],
+  },
+  {
+    id: 'polity-core',
+    label: 'Polity Core',
+    description: 'The constitutional repository — Constitution, charters, frameworks, and amendment records.',
+    longDescription:
+      'Open access to Polity Core — the authoritative, machine- and human-readable source of constitutional legitimacy: the Polity Constitution, the Agent / Standing / metaCommons / Founder Office charters, the delegation + governance frameworks, the VentureQube spec, and the append-only Amendment Records. Free for every citizen.',
+    gate: 'open',
+    tabSlug: 'polity-core',
+    sourceCartridge: 'polity-core',
+    icon: 'Landmark',
+    color: 'violet',
+  },
 ];
 
 export function getActivationEntry(id: string): ActivationCatalogEntry | null {
@@ -279,6 +379,16 @@ export function getActivationEntry(id: string): ActivationCatalogEntry | null {
 export function activationIdForTabSlug(slug: string): string | null {
   const hit = ACTIVATION_CATALOG.find((e) => e.tabSlug === slug);
   return hit?.id ?? null;
+}
+
+/**
+ * Return every activation id whose `gate` is `open` — these are the
+ * surfaces a persona auto-grants on first read (no explicit consent
+ * required). Used by the admin/assistant diag routes and the
+ * personaActivations bootstrap to populate the open-gate set.
+ */
+export function listAutoGrantActivationIds(): string[] {
+  return ACTIVATION_CATALOG.filter((e) => e.gate === 'open').map((e) => e.id);
 }
 
 /**
@@ -305,9 +415,9 @@ export function metricsForActiveActivations(
  */
 export function actionsForActiveActivations(
   activeIds: Iterable<string>,
-): Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> {
+): Array<{ activationId: string; activationLabel: string; cartridge: ActivationCatalogEntry['sourceCartridge']; action: ActivationAction }> {
   const set = new Set(activeIds);
-  const out: Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> = [];
+  const out: Array<{ activationId: string; activationLabel: string; cartridge: ActivationCatalogEntry['sourceCartridge']; action: ActivationAction }> = [];
   for (const entry of ACTIVATION_CATALOG) {
     if (!set.has(entry.id)) continue;
     for (const a of entry.actions ?? []) {

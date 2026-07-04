@@ -5,15 +5,15 @@
  *
  * Per metaMe Cartridge PRD (Personal ExperienceGuide layer).
  *
- * Seven steps. Each step is short — the user should complete onboarding
- * in under three minutes:
+ * Seven steps. The user should complete onboarding in a few minutes:
  *
  *   1. Focus — free-text intent ("what are you tending right now?")
- *   2. Energy + Body — self-assessed maturity per sphere
+ *   2. Energy + Body — per-sphere maturity AND alignment
  *   3. Mind + Emotion — same
  *   4. Relationship + Community — same
  *   5. Legacy — same
- *   6. Alignment self-check + precedence mode
+ *   6. Precedence — which sphere leads when several need attention (the
+ *      overall alignment headline is derived from the per-sphere data)
  *   7. Review & confirm
  *
  * Posts the complete payload to POST /api/assistant/experience-guide. The
@@ -38,6 +38,7 @@ import { Loader2, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { MicButton } from "@/components/ui/MicButton";
 import {
+  ALIGNMENT_DESCRIPTION,
   ALIGNMENT_LABEL,
   MATURITY_DESCRIPTION,
   MATURITY_LABEL,
@@ -45,13 +46,19 @@ import {
   SPHERE_DESCRIPTION,
   SPHERE_AXES,
   SPHERE_LABEL,
+  backfillSphereAlignment,
+  defaultSphereAlignment,
   defaultSphereMaturity,
+  deriveOverallAlignment,
+  explainOverallAlignment,
   type AlignmentState,
   type MaturityLevel,
   type PersonalGuideData,
   type PrecedenceMode,
   type SphereAxis,
 } from "@/types/experienceGuide";
+
+const ALIGNMENT_VALUES: AlignmentState[] = ['aligned', 'drifting', 'at_risk', 'repair'];
 
 interface Props {
   open: boolean;
@@ -65,16 +72,9 @@ interface Props {
 interface FormState {
   focusIntent: string;
   sphereMaturity: Record<SphereAxis, MaturityLevel>;
-  alignmentState: AlignmentState;
+  sphereAlignment: Record<SphereAxis, AlignmentState>;
   precedenceMode: PrecedenceMode;
 }
-
-const ALIGNMENT_OPTIONS: Array<{ value: AlignmentState; label: string; hint: string }> = [
-  { value: "aligned",  label: "Aligned",  hint: "Your spheres feel coherent — energy, attention and commitments line up." },
-  { value: "drifting", label: "Drifting", hint: "A couple of spheres are slipping — nothing urgent, but you can feel it." },
-  { value: "at_risk",  label: "At risk",  hint: "Real friction is building in one or more spheres; intervention soon would help." },
-  { value: "repair",   label: "Repair",   hint: "You need to repair an active rupture before you can move forward." },
-];
 
 const PRECEDENCE_OPTIONS: Array<{ value: PrecedenceMode; label: string; hint: string }> = [
   { value: "auto",         label: "Auto",         hint: "Let the guide pick — usually the lowest maturity or highest-risk sphere." },
@@ -93,7 +93,7 @@ const STEP_TITLES = [
   "Mind & Emotion",
   "Relationship & Community",
   "Legacy",
-  "Alignment",
+  "Precedence",
   "Review",
 ];
 
@@ -101,7 +101,12 @@ function emptyForm(initial?: PersonalGuideData | null): FormState {
   return {
     focusIntent: initial?.focusIntent ?? "",
     sphereMaturity: initial?.sphereMaturity ?? defaultSphereMaturity(),
-    alignmentState: initial?.alignmentState ?? "drifting",
+    // Backfill: if the saved guide only has the legacy overall alignmentState,
+    // mirror it across every sphere so the user sees their previous snapshot
+    // reflected and can refine it per sphere.
+    sphereAlignment:
+      initial?.sphereAlignment ??
+      (initial?.alignmentState ? backfillSphereAlignment(initial.alignmentState) : defaultSphereAlignment()),
     precedenceMode: initial?.precedenceMode ?? "auto",
   };
 }
@@ -129,6 +134,10 @@ export function PersonalGuideSetupWizard({ open, onOpenChange, initial, onSaved 
     setForm((f) => ({ ...f, sphereMaturity: { ...f.sphereMaturity, [sphere]: level } }));
   }
 
+  function setSphereAlignment(sphere: SphereAxis, state: AlignmentState) {
+    setForm((f) => ({ ...f, sphereAlignment: { ...f.sphereAlignment, [sphere]: state } }));
+  }
+
   const isLast = step === STEP_TITLES.length - 1;
 
   async function handleSave() {
@@ -140,7 +149,10 @@ export function PersonalGuideSetupWizard({ open, onOpenChange, initial, onSaved 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sphereMaturity: form.sphereMaturity,
-          alignmentState: form.alignmentState,
+          sphereAlignment: form.sphereAlignment,
+          // The server derives the overall too, but we send the rolled-up
+          // value so a stale client never desyncs from the rule.
+          alignmentState: deriveOverallAlignment(form.sphereAlignment),
           precedenceMode: form.precedenceMode,
           ...(form.focusIntent.trim() ? { focusIntent: form.focusIntent.trim() } : {}),
         }),
@@ -212,39 +224,42 @@ export function PersonalGuideSetupWizard({ open, onOpenChange, initial, onSaved 
 
           {step === 1 && (
             <>
-              <SphereStep sphere="energy" value={form.sphereMaturity.energy} onChange={(v) => setSphere("energy", v)} />
-              <SphereStep sphere="body"   value={form.sphereMaturity.body}   onChange={(v) => setSphere("body", v)} />
+              <SphereStep sphere="energy" maturity={form.sphereMaturity.energy} alignment={form.sphereAlignment.energy} onMaturity={(v) => setSphere("energy", v)} onAlignment={(v) => setSphereAlignment("energy", v)} />
+              <SphereStep sphere="body"   maturity={form.sphereMaturity.body}   alignment={form.sphereAlignment.body}   onMaturity={(v) => setSphere("body", v)}   onAlignment={(v) => setSphereAlignment("body", v)} />
             </>
           )}
 
           {step === 2 && (
             <>
-              <SphereStep sphere="mind"    value={form.sphereMaturity.mind}    onChange={(v) => setSphere("mind", v)} />
-              <SphereStep sphere="emotion" value={form.sphereMaturity.emotion} onChange={(v) => setSphere("emotion", v)} />
+              <SphereStep sphere="mind"    maturity={form.sphereMaturity.mind}    alignment={form.sphereAlignment.mind}    onMaturity={(v) => setSphere("mind", v)}    onAlignment={(v) => setSphereAlignment("mind", v)} />
+              <SphereStep sphere="emotion" maturity={form.sphereMaturity.emotion} alignment={form.sphereAlignment.emotion} onMaturity={(v) => setSphere("emotion", v)} onAlignment={(v) => setSphereAlignment("emotion", v)} />
             </>
           )}
 
           {step === 3 && (
             <>
-              <SphereStep sphere="relationship" value={form.sphereMaturity.relationship} onChange={(v) => setSphere("relationship", v)} />
-              <SphereStep sphere="community"    value={form.sphereMaturity.community}    onChange={(v) => setSphere("community", v)} />
+              <SphereStep sphere="relationship" maturity={form.sphereMaturity.relationship} alignment={form.sphereAlignment.relationship} onMaturity={(v) => setSphere("relationship", v)} onAlignment={(v) => setSphereAlignment("relationship", v)} />
+              <SphereStep sphere="community"    maturity={form.sphereMaturity.community}    alignment={form.sphereAlignment.community}    onMaturity={(v) => setSphere("community", v)}    onAlignment={(v) => setSphereAlignment("community", v)} />
             </>
           )}
 
           {step === 4 && (
-            <SphereStep sphere="legacy" value={form.sphereMaturity.legacy} onChange={(v) => setSphere("legacy", v)} />
+            <SphereStep sphere="legacy" maturity={form.sphereMaturity.legacy} alignment={form.sphereAlignment.legacy} onMaturity={(v) => setSphere("legacy", v)} onAlignment={(v) => setSphereAlignment("legacy", v)} />
           )}
 
           {step === 5 && (
             <>
-              <Field label="How aligned do your spheres feel right now?">
-                <RadioGroup
-                  value={form.alignmentState}
-                  options={ALIGNMENT_OPTIONS}
-                  onChange={(v) => setForm((f) => ({ ...f, alignmentState: v }))}
-                />
-              </Field>
+              <div className="rounded border border-slate-700 bg-slate-800/40 p-3 mb-3">
+                <p className="text-xs text-slate-400 mb-1">
+                  Your overall alignment is derived as the <span className="text-slate-200">average</span> of your seven per-sphere assessments — so the headline reflects your whole posture, not just the most acute sphere. The matrix tab still surfaces every sphere individually, so a single acute sphere is never hidden — just not allowed to dominate the average.
+                </p>
+                <Row label="Derived overall" value={ALIGNMENT_LABEL[deriveOverallAlignment(form.sphereAlignment)]} />
+                <p className="text-[11px] text-slate-500 mt-1">{explainOverallAlignment(form.sphereAlignment)}</p>
+              </div>
               <Field label="When the guide must choose between spheres, which one leads?">
+                <p className="text-xs text-slate-400 mb-2 -mt-1">
+                  Sets the default tie-break when several spheres need attention at once. Auto lets the guide pick — usually the lowest maturity or most at-risk sphere — which is the right answer for most operators.
+                </p>
                 <RadioGroup
                   value={form.precedenceMode}
                   options={PRECEDENCE_OPTIONS}
@@ -261,7 +276,8 @@ export function PersonalGuideSetupWizard({ open, onOpenChange, initial, onSaved 
               </p>
               <div className="rounded border border-slate-700 bg-slate-800/40 p-3 space-y-1.5">
                 <Row label="Focus" value={form.focusIntent.trim() || "—"} />
-                <Row label="Alignment" value={ALIGNMENT_LABEL[form.alignmentState]} />
+                <Row label="Overall alignment" value={ALIGNMENT_LABEL[deriveOverallAlignment(form.sphereAlignment)]} />
+                <p className="text-[11px] text-slate-500 -mt-0.5">{explainOverallAlignment(form.sphereAlignment)}</p>
                 <Row
                   label="Precedence"
                   value={
@@ -270,10 +286,17 @@ export function PersonalGuideSetupWizard({ open, onOpenChange, initial, onSaved 
                       : `${SPHERE_LABEL[form.precedenceMode]} first`
                   }
                 />
-                <div className="pt-2 border-t border-slate-700/60 grid grid-cols-2 gap-x-3 gap-y-1">
-                  {SPHERE_AXES.map((s) => (
-                    <Row key={s} label={SPHERE_LABEL[s]} value={MATURITY_LABEL[form.sphereMaturity[s]]} />
-                  ))}
+                <div className="pt-2 border-t border-slate-700/60 space-y-1">
+                  <p className="text-[11px] uppercase tracking-wider text-slate-500">Per sphere</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1">
+                    {SPHERE_AXES.map((s) => (
+                      <Row
+                        key={s}
+                        label={SPHERE_LABEL[s]}
+                        value={`${MATURITY_LABEL[form.sphereMaturity[s]]} · ${ALIGNMENT_LABEL[form.sphereAlignment[s]]}`}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -330,44 +353,104 @@ export function PersonalGuideSetupWizard({ open, onOpenChange, initial, onSaved 
 
 function SphereStep({
   sphere,
-  value,
-  onChange,
+  maturity,
+  alignment,
+  onMaturity,
+  onAlignment,
 }: {
   sphere: SphereAxis;
-  value: MaturityLevel;
-  onChange: (next: MaturityLevel) => void;
+  maturity: MaturityLevel;
+  alignment: AlignmentState;
+  onMaturity: (next: MaturityLevel) => void;
+  onAlignment: (next: AlignmentState) => void;
 }) {
   return (
-    <Field label={`${SPHERE_LABEL[sphere]} — where do you sit?`}>
-      <p className="text-xs text-slate-400 mb-2 -mt-1">{SPHERE_DESCRIPTION[sphere]}</p>
-      <div className="flex flex-wrap gap-1.5">
-        {MATURITY_LEVELS.map((m) => {
-          const selected = m === value;
-          return (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onChange(m)}
-              title={`${MATURITY_LABEL[m]} — ${MATURITY_DESCRIPTION[m]}`}
-              aria-label={`${MATURITY_LABEL[m]} — ${MATURITY_DESCRIPTION[m]}`}
-              className={`px-2.5 py-1 rounded-full border text-xs transition ${
-                selected
-                  ? "bg-violet-500/20 border-violet-500 text-violet-200"
-                  : "bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600"
-              }`}
-            >
-              {selected && <Check className="inline w-3 h-3 mr-1" />}
-              {MATURITY_LABEL[m]}
-            </button>
-          );
-        })}
+    <section className="space-y-3 pb-3 border-b border-slate-800/60 last:border-b-0 last:pb-0">
+      <header>
+        <h3 className="text-sm font-semibold text-slate-100">{SPHERE_LABEL[sphere]}</h3>
+        <p className="text-xs text-slate-400 mt-1 leading-snug">{SPHERE_DESCRIPTION[sphere]}</p>
+      </header>
+
+      <div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-xs font-medium text-slate-300">Maturity — how settled is your practice here?</span>
+          <span className="text-[10px] text-slate-500 italic">hover any chip for its meaning</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {MATURITY_LEVELS.map((m) => {
+            const selected = m === maturity;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => onMaturity(m)}
+                title={`${MATURITY_LABEL[m]} — ${MATURITY_DESCRIPTION[m]}`}
+                aria-label={`${MATURITY_LABEL[m]} — ${MATURITY_DESCRIPTION[m]}`}
+                className={`px-2.5 py-1 rounded-full border text-xs transition ${
+                  selected
+                    ? "bg-violet-500/20 border-violet-500 text-violet-200"
+                    : "bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600"
+                }`}
+              >
+                {selected && <Check className="inline w-3 h-3 mr-1" />}
+                {MATURITY_LABEL[m]}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <p className="text-[11px] text-slate-500 mt-1.5 italic">
-        Tip: hover any label to see what it means.
-      </p>
-    </Field>
+
+      <div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-xs font-medium text-slate-300">Alignment — how does this sphere feel right now?</span>
+          <span className="text-[10px] text-slate-500 italic">hover any chip for its meaning</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {ALIGNMENT_VALUES.map((a) => {
+            const selected = a === alignment;
+            const tone = ALIGNMENT_BUTTON_TONE[a];
+            return (
+              <button
+                key={a}
+                type="button"
+                onClick={() => onAlignment(a)}
+                title={`${ALIGNMENT_LABEL[a]} — ${ALIGNMENT_DESCRIPTION[a]}`}
+                aria-label={`${ALIGNMENT_LABEL[a]} — ${ALIGNMENT_DESCRIPTION[a]}`}
+                className={`px-2.5 py-1 rounded-full border text-xs transition ${selected ? tone.selected : tone.unselected}`}
+              >
+                {selected && <Check className="inline w-3 h-3 mr-1" />}
+                {ALIGNMENT_LABEL[a]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }
+
+// Per-state colour palette for the alignment chips — emerald (aligned),
+// amber (drifting), orange (at risk), rose (repair). Stays consistent with
+// the matrix tab and welcome chip so the operator reads the same colour
+// language across surfaces.
+const ALIGNMENT_BUTTON_TONE: Record<AlignmentState, { selected: string; unselected: string }> = {
+  aligned: {
+    selected: "bg-emerald-500/20 border-emerald-500 text-emerald-200",
+    unselected: "bg-slate-800/60 border-slate-700 text-slate-300 hover:border-emerald-500/50 hover:text-emerald-200",
+  },
+  drifting: {
+    selected: "bg-amber-500/20 border-amber-500 text-amber-200",
+    unselected: "bg-slate-800/60 border-slate-700 text-slate-300 hover:border-amber-500/50 hover:text-amber-200",
+  },
+  at_risk: {
+    selected: "bg-orange-500/20 border-orange-500 text-orange-200",
+    unselected: "bg-slate-800/60 border-slate-700 text-slate-300 hover:border-orange-500/50 hover:text-orange-200",
+  },
+  repair: {
+    selected: "bg-rose-500/20 border-rose-500 text-rose-200",
+    unselected: "bg-slate-800/60 border-slate-700 text-slate-300 hover:border-rose-500/50 hover:text-rose-200",
+  },
+};
 
 function Field({
   label,
@@ -402,6 +485,8 @@ function RadioGroup<T extends string>({
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
+            title={opt.hint}
+            aria-label={opt.hint ? `${opt.label} — ${opt.hint}` : opt.label}
             className={`w-full text-left px-3 py-2 rounded-md border transition ${
               selected
                 ? "bg-violet-500/15 border-violet-500/60"

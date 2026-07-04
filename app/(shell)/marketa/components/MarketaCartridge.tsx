@@ -27,6 +27,7 @@ import {
 import MarketaQubeTalk from './MarketaQubeTalk';
 import MarketaSmartTriad from './MarketaSmartTriad';
 import CRMIntegration from './CRMIntegration';
+import MarketaActivationEngineTab from './activation/MarketaActivationEngineTab';
 
 const GLASS_CARD = "bg-slate-950/60 backdrop-blur-xl ring-1 ring-white/10 shadow-xl";
 const GLASS_HOVER = "hover:bg-slate-900/80 hover:ring-white/20 transition-all duration-300";
@@ -225,7 +226,7 @@ export default function MarketaCartridge() {
       <GlassCard className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-rose-400 mb-2 flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-pink-300 mb-2 flex items-center gap-3">
               <TrendingUp className="w-6 h-6" />
               Aigent Marketa - CMO Console
             </h2>
@@ -292,10 +293,10 @@ export default function MarketaCartridge() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">QC Rewards</p>
-              <p className="text-2xl font-bold text-rose-400">{formatNumber(kpiStats.rewardsQc)}</p>
+              <p className="text-2xl font-bold text-pink-300">{formatNumber(kpiStats.rewardsQc)}</p>
             </div>
-            <div className="w-8 h-8 bg-rose-400/20 rounded-lg flex items-center justify-center">
-              <span className="text-rose-400 text-xs font-bold">QC</span>
+            <div className="w-8 h-8 bg-pink-300/20 rounded-lg flex items-center justify-center">
+              <span className="text-pink-300 text-xs font-bold">QC</span>
             </div>
           </div>
         </GlassCard>
@@ -304,36 +305,40 @@ export default function MarketaCartridge() {
       {/* Main Content */}
       <GlassCard className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8 bg-slate-800/50 border border-white/10">
-            <TabsTrigger value="dashboard" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+          <TabsList className="grid w-full grid-cols-9 bg-slate-800/50 border border-white/10">
+            <TabsTrigger value="dashboard" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <BarChart3 className="w-4 h-4 mr-2" />
               Dashboard
             </TabsTrigger>
-            <TabsTrigger value="campaigns" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="campaigns" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <Target className="w-4 h-4 mr-2" />
               Campaigns
             </TabsTrigger>
-            <TabsTrigger value="partners" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="partners" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <Users className="w-4 h-4 mr-2" />
               Partners
             </TabsTrigger>
-            <TabsTrigger value="publish" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="activation" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
+              <Bot className="w-4 h-4 mr-2" />
+              Activation Engine
+            </TabsTrigger>
+            <TabsTrigger value="publish" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <Package className="w-4 h-4 mr-2" />
               Publish
             </TabsTrigger>
-            <TabsTrigger value="qubetalk" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="qubetalk" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <MessageSquare className="w-4 h-4 mr-2" />
               QubeTalk
             </TabsTrigger>
-            <TabsTrigger value="smarttriad" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="smarttriad" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <Bot className="w-4 h-4 mr-2" />
               SmartTriad
             </TabsTrigger>
-            <TabsTrigger value="crm" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="crm" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <Users className="w-4 h-4 mr-2" />
               CRM
             </TabsTrigger>
-            <TabsTrigger value="settings" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="settings" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <Settings className="w-4 h-4 mr-2" />
               Settings
             </TabsTrigger>
@@ -363,7 +368,7 @@ export default function MarketaCartridge() {
               {knytCampaign && (
                 <GlassCard className="p-4 space-y-2">
                   <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-rose-400" />
+                    <Zap className="w-4 h-4 text-pink-300" />
                     <span className="font-semibold text-white text-sm">{knytCampaign.name}</span>
                   </div>
                   <div className="space-y-1">
@@ -447,7 +452,7 @@ export default function MarketaCartridge() {
               <GlassCard className="p-5 space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-rose-400" />
+                    <Zap className="w-5 h-5 text-pink-300" />
                     <div>
                       <h4 className="font-semibold text-white">{knytCampaign.name}</h4>
                       <p className="text-xs text-slate-400">{knytCampaign.description}</p>
@@ -483,12 +488,12 @@ export default function MarketaCartridge() {
                   ))}
                 </div>
                 {knytCampaign.send_command && (
-                  <div className="flex items-center justify-between rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5">
+                  <div className="flex items-center justify-between rounded-lg bg-pink-400/10 border border-pink-400/20 px-4 py-2.5">
                     <div>
-                      <p className="text-xs font-semibold text-rose-300">{knytCampaign.next_action}</p>
+                      <p className="text-xs font-semibold text-pink-300">{knytCampaign.next_action}</p>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">{knytCampaign.send_command}</p>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-rose-400 shrink-0" />
+                    <ArrowRight className="w-4 h-4 text-pink-300 shrink-0" />
                   </div>
                 )}
               </GlassCard>
@@ -553,6 +558,11 @@ export default function MarketaCartridge() {
           </TabsContent>
 
           {/* Publish Tab */}
+          {/* Activation Engine Tab */}
+          <TabsContent value="activation" className="space-y-4 mt-6">
+            <MarketaActivationEngineTab />
+          </TabsContent>
+
           <TabsContent value="publish" className="space-y-4 mt-6">
             <div className="text-center py-12">
               <Package className="w-12 h-12 mx-auto text-slate-500 mb-4" />
@@ -560,7 +570,7 @@ export default function MarketaCartridge() {
               <p className="text-slate-400 mb-4">
                 Multi-channel content publishing and distribution
               </p>
-              <Button className="bg-rose-500 hover:bg-rose-600 text-white">
+              <Button className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm">
                 Create Content Pack
               </Button>
             </div>
@@ -645,7 +655,7 @@ export default function MarketaCartridge() {
         onClose={() => setCopilotOpen(false)}
         onOpen={() => setCopilotOpen(true)}
         variant="floating"
-        accentColor="rose"
+        accentColor="pink"
         agent={{ id: 'aigent-marketa', name: 'Marketa' }}
         personaId="aigent-marketa"
         onUserPrompt={handleMarketaPrompt}

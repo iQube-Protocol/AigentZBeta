@@ -1393,14 +1393,42 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     category: 'cartridge',
     tags: ['agentiq', 'cartridge', 'platform', 'decisions', 'pr-briefs', 'architecture', 'knowledge']
   },
+  tabGroups: [
+    { id: 'agentz',      label: 'aigentZ',      icon: 'Cpu',      order: 0 },
+    { id: 'projects',    label: 'Projects',     icon: 'Target',   order: 1, adminOnly: true },
+    { id: 'development', label: 'Development',  icon: 'Code',     order: 2 },
+    { id: 'memory',      label: 'Memory',       icon: 'Brain',    order: 3 },
+    { id: 'registry',    label: 'Registry',     icon: 'Database', order: 4 },
+    { id: 'governance',  label: 'Governance',   icon: 'Scale',    order: 5 },
+    // Polity Passport replaces the former Operations menu (operator
+    // decision 2026-06-12). Group is NOT adminOnly — Apply + Registry are
+    // public; the Steward sub-tab carries its own adminOnly gate.
+    { id: 'passport',    label: 'Polity Passport', icon: 'ShieldCheck', order: 6 },
+    { id: 'ecosystem',   label: 'Ecosystem',    icon: 'Users',    order: 7 },
+  ],
   tabs: [
-    // ─── aigency pack — canonical engineering KB ──────────────────────────
+    // ── aigentZ group (front door) ─────────────────────────────
+    {
+      id: 'dev-command-center',
+      label: 'Command Center',
+      slug: 'dev-command-center',
+      enabled: true,
+      group: 'agentz',
+      order: 0,
+      type: 'static',
+      config: { component: 'DevCommandCenterTab', props: {} },
+      metadata: { icon: 'Cpu', description: 'aigentZ Development Command Center — consequence engineering workflow', color: 'green' }
+    },
+    // Start Here lives under Development so the aigentZ group has a single
+    // tab (Command Center) and the sub-menu row auto-hides — same
+    // screen-space treatment as the aigentMe tab.
     {
       id: 'start',
       label: 'Start Here',
       slug: 'start',
       enabled: true,
-      order: 0,
+      group: 'development',
+      order: -1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1416,149 +1444,16 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         color: 'blue'
       }
     },
-    {
-      id: 'architecture',
-      label: 'Architecture',
-      slug: 'architecture',
-      enabled: true,
-      order: 1,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_architecture'
-        }
-      },
-      metadata: {
-        icon: 'Layers',
-        description: 'System architecture: topology, data/identity, payments, protocols'
-      }
-    },
-    {
-      id: 'codebase',
-      label: 'Codebase',
-      slug: 'codebase',
-      enabled: true,
-      order: 2,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_codebase'
-        }
-      },
-      metadata: {
-        icon: 'Code',
-        description: 'Repo map, modules, conventions, release tracks'
-      }
-    },
-    {
-      id: 'knowledge',
-      label: 'Knowledge',
-      slug: 'knowledge',
-      enabled: true,
-      order: 3,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_knowledge'
-        }
-      },
-      metadata: {
-        icon: 'BookMarked',
-        description: 'API reference, schemas, docs, snippets, DVN, ICP, identity, operators manual'
-      }
-    },
-    {
-      id: 'decisions',
-      label: 'Decisions',
-      slug: 'decisions',
-      enabled: true,
-      order: 4,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_decisions'
-        }
-      },
-      metadata: {
-        icon: 'GitBranch',
-        description: 'Decision briefs, backlog, work allocation'
-      }
-    },
-    {
-      id: 'changelog',
-      label: 'Changelog',
-      slug: 'changelog',
-      enabled: true,
-      order: 5,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_changelog'
-        }
-      },
-      metadata: {
-        icon: 'GitCommit',
-        description: 'Release history and changelog'
-      }
-    },
-    {
-      id: 'pr-briefs',
-      label: 'PR Briefs',
-      slug: 'pr-briefs',
-      enabled: true,
-      order: 6,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_pr_briefs'
-        }
-      },
-      metadata: {
-        icon: 'FileText',
-        description: 'PR summaries and impact (PR-78 through PR-1)'
-      }
-    },
-    {
-      id: 'recent-commits',
-      label: 'Recent Commits',
-      slug: 'recent-commits',
-      enabled: true,
-      order: 7,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'aigency',
-          collectionId: 'col_recent_commits'
-        }
-      },
-      metadata: {
-        icon: 'GitBranch',
-        description: 'Latest direct-push commits with context'
-      }
-    },
-    // ─── Venture Lab α group — build-layer docs ───────────────────────────
-    // All three tabs live together: Venture Lab α (planning corpus), AgentiQ α
-    // (platform build programme), AgentiQ OS (builder layer).
+
+    // ── Projects group (Venture Lab, Alpha) ────────────────────
     {
       id: 'agentiq-knyt',
       label: 'Venture Lab α',
       slug: 'agentiq-knyt',
       enabled: true,
       adminOnly: true,
-      order: 8,
+      group: 'projects',
+      order: 0,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1575,12 +1470,29 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
     {
+      // VL Admin — first-class menu item grouping the admin-only Venture Lab
+      // tabs (α Programme, AgentiQ OS α, α Docs). Lazy getter: VENTURE_LAB_CODEX
+      // + the mirror helper are declared later in this module.
+      id: 'aiq-vl-admin',
+      label: 'VL Admin',
+      slug: 'vl-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'projects',
+      order: 3,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Venture Lab admin — α Programme, AgentiQ OS α, α Docs.', color: 'amber' },
+      get subTabs() { return ventureLabAdminTabsForMetameVl(); },
+    },
+    {
       id: 'alpha-program',
       label: 'AgentiQ α',
       slug: 'alpha-program',
       enabled: true,
       adminOnly: true,
-      order: 9,
+      group: 'projects',
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1602,7 +1514,8 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       slug: 'agentiq-os',
       enabled: true,
       adminOnly: true,
-      order: 10,
+      group: 'projects',
+      order: 2,
       type: 'static',
       config: {
         component: 'AgentiQOSTab',
@@ -1610,8 +1523,152 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       },
       metadata: {
         icon: 'Code',
-        description: 'AgentiQ OS — live builder substrate dashboard: agent registry, skill catalog, factory pipeline, contribution types',
+        description: 'AgentiQ OS — live builder substrate dashboard',
         color: 'green'
+      }
+    },
+
+    // ── Development group (architecture, codebase, commits) ────
+    {
+      id: 'architecture',
+      label: 'Architecture',
+      slug: 'architecture',
+      enabled: true,
+      group: 'development',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_architecture'
+        }
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'System architecture: topology, data/identity, payments, protocols'
+      }
+    },
+    {
+      id: 'codebase',
+      label: 'Codebase',
+      slug: 'codebase',
+      enabled: true,
+      group: 'development',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_codebase'
+        }
+      },
+      metadata: {
+        icon: 'Code',
+        description: 'Repo map, modules, conventions, release tracks'
+      }
+    },
+    {
+      id: 'changelog',
+      label: 'Changelog',
+      slug: 'changelog',
+      enabled: true,
+      group: 'development',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_changelog'
+        }
+      },
+      metadata: {
+        icon: 'GitCommit',
+        description: 'Release history and changelog'
+      }
+    },
+    {
+      id: 'pr-briefs',
+      label: 'PR Briefs',
+      slug: 'pr-briefs',
+      enabled: true,
+      group: 'development',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_pr_briefs'
+        }
+      },
+      metadata: {
+        icon: 'FileText',
+        description: 'PR summaries and impact (PR-78 through PR-1)'
+      }
+    },
+    {
+      id: 'recent-commits',
+      label: 'Recent Commits',
+      slug: 'recent-commits',
+      enabled: true,
+      group: 'development',
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_recent_commits'
+        }
+      },
+      metadata: {
+        icon: 'GitBranch',
+        description: 'Latest direct-push commits with context'
+      }
+    },
+
+    // ── Memory group (knowledge, decisions, updates) ───────────
+    {
+      id: 'knowledge',
+      label: 'Knowledge',
+      slug: 'knowledge',
+      enabled: true,
+      group: 'memory',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_knowledge'
+        }
+      },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'API reference, schemas, docs, snippets, DVN, ICP, identity, operators manual'
+      }
+    },
+    {
+      id: 'decisions',
+      label: 'Decisions',
+      slug: 'decisions',
+      enabled: true,
+      group: 'memory',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_decisions'
+        }
+      },
+      metadata: {
+        icon: 'GitBranch',
+        description: 'Decision briefs, backlog, work allocation'
       }
     },
     {
@@ -1619,7 +1676,8 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Updates',
       slug: 'updates',
       enabled: true,
-      order: 11,
+      group: 'memory',
+      order: 2,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1638,7 +1696,8 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Retrieval Index',
       slug: 'retrieval-index',
       enabled: true,
-      order: 12,
+      group: 'memory',
+      order: 3,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1652,14 +1711,16 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         description: 'Index schema and lookup'
       }
     },
-    // ─── static component tabs — Phase C ─────────────────────────────────
+
+    // ── Registry group (factory, supply) ───────────────────────
     {
       id: 'factory-intake',
       label: 'Factory',
       slug: 'factory-intake',
       enabled: true,
       adminOnly: true,
-      order: 13,
+      group: 'registry',
+      order: 0,
       type: 'static',
       config: {
         component: 'FactoryIntakeTab',
@@ -1676,7 +1737,8 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Registry',
       slug: 'registry-supply',
       enabled: true,
-      order: 14,
+      group: 'registry',
+      order: 1,
       type: 'static',
       config: {
         component: 'RegistrySupplyTab',
@@ -1688,13 +1750,74 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         color: 'emerald'
       }
     },
+
+    // ── Governance group (Operation Chrysalis Phase 0) ────────
+    {
+      id: 'governance-constitution',
+      label: 'Constitution',
+      slug: 'governance-constitution',
+      enabled: true,
+      group: 'governance',
+      order: 0,
+      type: 'static',
+      config: { component: 'GovernanceConstitutionTab', props: {} },
+      metadata: { icon: 'Scale', description: 'AgentiQ Constitution of Aigents — sovereign roles, authority matrix, and constitutional principles' }
+    },
+    {
+      id: 'governance-roles',
+      label: 'Roles',
+      slug: 'governance-roles',
+      enabled: true,
+      group: 'governance',
+      order: 1,
+      type: 'static',
+      config: { component: 'GovernanceRolesTab', props: {} },
+      metadata: { icon: 'Shield', description: 'Sovereign agent roles, authority domains, and escalation paths' }
+    },
+    {
+      id: 'governance-decisions',
+      label: 'Decision Log',
+      slug: 'governance-decisions',
+      enabled: true,
+      group: 'governance',
+      order: 2,
+      type: 'static',
+      config: { component: 'GovernanceDecisionLogTab', props: {} },
+      metadata: { icon: 'FileText', description: 'Ratified governance decisions and constitutional amendments' }
+    },
+    {
+      id: 'governance-authority-matrix',
+      label: 'Authority Matrix',
+      slug: 'governance-authority-matrix',
+      enabled: true,
+      group: 'governance',
+      order: 3,
+      type: 'static',
+      config: { component: 'GovernanceAuthorityMatrixTab', props: {} },
+      metadata: { icon: 'Grid3X3', description: 'Cross-reference: roles × authority domains' }
+    },
+    {
+      id: 'governance-receipts',
+      label: 'Receipts',
+      slug: 'governance-receipts',
+      enabled: true,
+      group: 'governance',
+      order: 4,
+      type: 'static',
+      config: { component: 'GovernanceReceiptsTab', props: {} },
+      metadata: { icon: 'Receipt', description: 'DVN-anchored governance decision receipts' }
+    },
+
+    // ── Operators manual — re-homed from the retired Operations group
+    // (Polity Passport took its menu slot, 2026-06-12). Stays admin-only.
     {
       id: 'operators-manual',
       label: 'Operators',
       slug: 'operators-manual',
       enabled: true,
       adminOnly: true,
-      order: 15,
+      group: 'governance',
+      order: 90,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1708,6 +1831,102 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         description: 'Operators manual — trust scoring, pipeline reference, Aigent roster',
         color: 'slate'
       }
+    },
+
+    // ── Polity Passport group — first-class mirror of the Polity
+    // Passport Bureau cartridge (operator decision 2026-06-12; replaced
+    // the placeholder Operations Hub). Each Bureau tabGroup becomes a
+    // tab here, with lazy subTabs cloning that group's Bureau tabs so
+    // sub-menus stay in lockstep with the canonical cartridge (3 levels:
+    // AgentiQ → Polity Passport → Apply/Registry/Steward → sub-tabs).
+    // Steward keeps its adminOnly gate at both levels. (Restored after
+    // the 2026-06-12 Chrysalis merge textually relocated these tabs
+    // into AGENTIQ_OS_CARTRIDGE, leaving this menu empty.)
+    {
+      // No subTabs getter — single-entry subTabs would block SubHeaderSlot,
+      // and the tab's own badge (Citizen / Participant Application) is now
+      // portaled into the tier-3 row right-justified by PassportBureauApplyTab.
+      id: 'agentiq-passport-apply',
+      label: 'Apply',
+      slug: 'passport-apply',
+      enabled: true,
+      group: 'passport',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood', color: 'violet' },
+    },
+    {
+      id: 'agentiq-passport-registry',
+      label: 'Registry',
+      slug: 'passport-registry',
+      enabled: true,
+      group: 'passport',
+      order: 1,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'agentiq-passport-locker',
+      label: 'Locker',
+      slug: 'passport-locker',
+      enabled: true,
+      group: 'passport',
+      order: 2,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
+    },
+    {
+      id: 'agentiq-passport-delegation',
+      label: 'Delegation',
+      slug: 'passport-delegation',
+      enabled: true,
+      group: 'passport',
+      order: 3,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — AgentKit attestation when sponsor is World ID verified', color: 'violet' },
+    },
+    {
+      id: 'agentiq-passport-steward',
+      label: 'Steward',
+      slug: 'passport-steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'passport',
+      order: 2,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — admin only', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('steward', 'agentiq-passport-steward');
+      },
+    },
+
+    // ── Ecosystem group ────────────────────────────────────────
+    {
+      id: 'dev-resources',
+      label: 'Dev Resources',
+      slug: 'dev-resources',
+      enabled: true,
+      group: 'ecosystem',
+      order: 0,
+      type: 'static',
+      config: { component: 'Kn0wdZTab', props: {} },
+      metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ' }
+    },
+    {
+      id: 'qriptopian',
+      label: 'Qriptopian',
+      slug: 'qriptopian',
+      enabled: true,
+      group: 'ecosystem',
+      order: 1,
+      type: 'static',
+      config: { component: 'FeaturesTab', props: {} },
+      metadata: { icon: 'Sparkles', description: 'Qriptopian editorial features' }
     }
   ],
   permissions: {
@@ -1742,28 +1961,27 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
     tags: ['agentiq-os', 'developer', 'sdk', 'open-source', 'protocols', 'delegation'],
   },
   tabGroups: [
-    { id: 'home',      label: 'Home',      icon: 'Home',     order: 0 },
-    { id: 'docs',      label: 'Docs',      icon: 'BookOpen', order: 1 },
-    { id: 'build',     label: 'Build',     icon: 'Code',     order: 2 },
-    { id: 'bind',      label: 'Bind',      icon: 'Link',     order: 3 },
-    { id: 'deploy',    label: 'Deploy',    icon: 'Rocket',   order: 4 },
-    { id: 'missions',  label: 'Missions',  icon: 'Target',   order: 5 },
-    { id: 'community', label: 'Community', icon: 'Users',    order: 6 },
-    // Admin group — stubbed 2026-05-26 so the chief-of-staff
-    // unlock has a real surface to mirror into metaMe's agentiqos
-    // group. Hidden from non-admins via the standard adminOnly gate;
-    // when AgentiQ OS grows real admin content, populate the existing
-    // 'aiqos-admin-home' stub with the proper tabs.
-    { id: 'admin',     label: 'Admin',     icon: 'Settings', order: 7, adminOnly: true },
+    // Operation Chrysalis target nav — constitutionally governed sovereign fulfillment system
+    // aigentZ Command Center is NOT mirrored here — it lives exclusively as a
+    // first-class metaMe menu item gated by the 'aigent-z' activation card.
+    { id: 'projects',    label: 'Projects',     icon: 'Target',     order: 1 },
+    { id: 'development', label: 'Development',  icon: 'Code',       order: 2 },
+    { id: 'memory',      label: 'Memory',       icon: 'Brain',      order: 3 },
+    { id: 'registry',    label: 'Registry',     icon: 'Database',   order: 4 },
+    { id: 'governance',  label: 'Governance',   icon: 'Scale',      order: 5 },
+    // Polity Passport replaces the (empty) Operations group — same operator
+    // decision as AGENTIQ_CARTRIDGE (2026-06-12): menu between Governance
+    // and Ecosystem; Apply + Registry public, Steward adminOnly on the tab.
+    { id: 'passport',    label: 'Polity Passport', icon: 'ShieldCheck', order: 6 },
+    { id: 'ecosystem',   label: 'Ecosystem',    icon: 'Users',      order: 7 },
   ],
   tabs: [
-    // ── Home group ─────────────────────────────────────────────
     {
       id: 'agentiq-os-start-here',
       label: 'Start Here',
       slug: 'start-here',
       enabled: true,
-      group: 'home',
+      group: 'development',
       order: 0,
       type: 'static',
       config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_start_here' } },
@@ -1774,171 +1992,20 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       label: 'Aigent C',
       slug: 'aigent-c',
       enabled: true,
-      group: 'home',
+      group: 'development',
       order: 1,
       type: 'static',
       config: { component: 'AigentCOSTab', props: {} },
       metadata: { icon: 'Bot', description: 'Your grounded onboarding copilot' },
     },
 
-    // ── Docs group ─────────────────────────────────────────────
-    {
-      id: 'agentiq-os-docs-kb',
-      label: 'Docs / KB',
-      slug: 'docs-kb',
-      enabled: true,
-      group: 'docs',
-      order: 0,
-      type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_docs_kb' } },
-      metadata: { icon: 'BookOpen', description: 'Protocol reference, identity sovereignty, dev standards' },
-    },
-
-    // ── Build group ────────────────────────────────────────────
-    {
-      id: 'agentiq-os-sdk-api',
-      label: 'SDK / API',
-      slug: 'sdk-api',
-      enabled: true,
-      group: 'build',
-      order: 0,
-      type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_sdk_api' } },
-      metadata: { icon: 'Code', description: 'AgentiQ SDK install, init, and API reference' },
-    },
-    {
-      id: 'agentiq-os-smarttriad',
-      label: 'SmartTriad',
-      slug: 'smarttriad',
-      enabled: true,
-      group: 'build',
-      order: 1,
-      type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_smarttriad' } },
-      metadata: { icon: 'Layers', description: 'SmartTriad menu and drawer primitives' },
-    },
-    {
-      id: 'agentiq-os-liquid-ui',
-      label: 'Liquid UI',
-      slug: 'liquid-ui',
-      enabled: true,
-      group: 'build',
-      order: 2,
-      type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_liquid_ui' } },
-      metadata: { icon: 'Sparkles', description: 'Liquid UI templates and motion patterns' },
-    },
-    {
-      id: 'agentiq-os-runtime-ref',
-      label: 'Runtime Ref',
-      slug: 'runtime-ref',
-      enabled: true,
-      group: 'build',
-      order: 3,
-      type: 'static',
-      config: { component: 'RefRuntimeTab', props: {} },
-      metadata: { icon: 'Zap', description: 'Reference runtime patterns' },
-    },
-    {
-      id: 'agentiq-os-studio-ref',
-      label: 'Studio Ref',
-      slug: 'studio-ref',
-      enabled: true,
-      group: 'build',
-      order: 4,
-      type: 'static',
-      config: { component: 'RefStudioTab', props: {} },
-      metadata: { icon: 'Wrench', description: 'Reference studio composer patterns' },
-    },
-    {
-      id: 'agentiq-os-aigent-ref',
-      label: 'Aigent Ref',
-      slug: 'aigent-ref',
-      enabled: true,
-      group: 'build',
-      order: 5,
-      type: 'static',
-      config: { component: 'RefAigentTab', props: {} },
-      metadata: { icon: 'Shield', description: 'Bounded delegation reference and demo' },
-    },
-
-    // ── Bind group ─────────────────────────────────────────────
-    {
-      id: 'agentiq-os-persona',
-      label: 'Persona',
-      slug: 'persona',
-      enabled: true,
-      group: 'bind',
-      order: 0,
-      type: 'static',
-      config: { component: 'DevPersonaTab', props: {} },
-      metadata: { icon: 'User', description: 'Create and manage your developer persona' },
-    },
-    {
-      id: 'agentiq-os-delegation',
-      label: 'Aigent Delegates',
-      slug: 'delegation',
-      enabled: true,
-      group: 'bind',
-      order: 1,
-      type: 'static',
-      config: { component: 'BoundedDelegationTab', props: {} },
-      metadata: { icon: 'Shield', description: 'Grant bounded authority to Aigent C with audit logs' },
-    },
-
-    // ── Deploy group ───────────────────────────────────────────
-    {
-      id: 'agentiq-os-ingestion-factory',
-      label: 'Ingestion Factory',
-      slug: 'ingestion-factory',
-      enabled: true,
-      group: 'deploy',
-      order: 0,
-      type: 'static',
-      config: { component: 'DevRegistryTab', props: {} },
-      metadata: { icon: 'Box', description: 'Type-aware iQube registration' },
-    },
-    {
-      id: 'agentiq-os-build-dashboard',
-      label: 'Build Dashboard',
-      slug: 'build-dashboard',
-      enabled: true,
-      group: 'deploy',
-      order: 1,
-      type: 'static',
-      config: { component: 'AgentiQOSTab', props: {} },
-      metadata: { icon: 'LayoutDashboard', description: 'Builder substrate dashboard' },
-    },
-    {
-      id: 'agentiq-os-nanos-bridge',
-      label: 'nanOS Bridge',
-      slug: 'nanos-bridge',
-      enabled: true,
-      group: 'deploy',
-      order: 2,
-      type: 'static',
-      config: { component: 'NanOSBridgeTab', props: {} },
-      metadata: { icon: 'Network', description: 'Open and proprietary nanOS bridge' },
-    },
-    {
-      id: 'agentiq-os-codex',
-      label: 'Codex',
-      slug: 'codex',
-      enabled: true,
-      group: 'deploy',
-      order: 3,
-      type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_codex' } },
-      metadata: { icon: 'BookOpen', description: 'Codex publishing and pack composition' },
-    },
-
-    // ── Missions group ─────────────────────────────────────────
+    // ── Projects group ─────────────────────────────────────────
     {
       id: 'agentiq-os-dev-missions',
       label: 'Dev Missions',
       slug: 'dev-missions',
       enabled: true,
-      group: 'missions',
+      group: 'projects',
       order: 0,
       type: 'static',
       config: { component: 'DevMissionBoardTab', props: { panel: 'your-missions' } },
@@ -1949,73 +2016,336 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       label: 'KNYT Missions',
       slug: 'knyt-missions',
       enabled: true,
-      group: 'missions',
+      group: 'projects',
       order: 1,
       type: 'static',
       config: { component: 'DevMissionBoardTab', props: { panel: 'knyt-reference' } },
       metadata: { icon: 'Award', description: 'KNYT Wheel — live reference cartridge' },
     },
 
-    // ── Community group ────────────────────────────────────────
+    // ── Development group ──────────────────────────────────────
     {
-      id: 'agentiq-os-dev-resources',
-      label: 'Dev Resources',
-      slug: 'dev-resources',
+      id: 'agentiq-os-sdk-api',
+      label: 'SDK / API',
+      slug: 'sdk-api',
       enabled: true,
-      group: 'community',
+      group: 'development',
+      order: 2,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_sdk_api' } },
+      metadata: { icon: 'Code', description: 'AgentiQ SDK install, init, and API reference' },
+    },
+    {
+      id: 'agentiq-os-smarttriad',
+      label: 'SmartTriad',
+      slug: 'smarttriad',
+      enabled: true,
+      group: 'development',
+      order: 3,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_smarttriad' } },
+      metadata: { icon: 'Layers', description: 'SmartTriad menu and drawer primitives' },
+    },
+    {
+      id: 'agentiq-os-liquid-ui',
+      label: 'Liquid UI',
+      slug: 'liquid-ui',
+      enabled: true,
+      group: 'development',
+      order: 4,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_liquid_ui' } },
+      metadata: { icon: 'Sparkles', description: 'Liquid UI templates and motion patterns' },
+    },
+    {
+      id: 'agentiq-os-runtime-ref',
+      label: 'Runtime Ref',
+      slug: 'runtime-ref',
+      enabled: true,
+      group: 'development',
+      order: 5,
+      type: 'static',
+      config: { component: 'RefRuntimeTab', props: {} },
+      metadata: { icon: 'Zap', description: 'Reference runtime patterns' },
+    },
+    {
+      id: 'agentiq-os-studio-ref',
+      label: 'Studio Ref',
+      slug: 'studio-ref',
+      enabled: true,
+      group: 'development',
+      order: 6,
+      type: 'static',
+      config: { component: 'RefStudioTab', props: {} },
+      metadata: { icon: 'Wrench', description: 'Reference studio composer patterns' },
+    },
+    {
+      id: 'agentiq-os-aigent-ref',
+      label: 'Aigent Ref',
+      slug: 'aigent-ref',
+      enabled: true,
+      group: 'development',
+      order: 7,
+      type: 'static',
+      config: { component: 'RefAigentTab', props: {} },
+      metadata: { icon: 'Shield', description: 'Bounded delegation reference and demo' },
+    },
+
+    // ── Memory group ───────────────────────────────────────────
+    {
+      id: 'agentiq-os-docs-kb',
+      label: 'Docs / KB',
+      slug: 'docs-kb',
+      enabled: true,
+      group: 'memory',
       order: 0,
       type: 'static',
-      config: { component: 'Kn0wdZTab', props: {} },
-      metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ' },
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_docs_kb' } },
+      metadata: { icon: 'BookOpen', description: 'Protocol reference, identity sovereignty, dev standards' },
     },
     {
       id: 'agentiq-os-updates',
       label: 'Updates',
       slug: 'updates',
       enabled: true,
-      group: 'community',
+      group: 'memory',
       order: 1,
       type: 'static',
       config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq', collectionId: 'col_updates' } },
       metadata: { icon: 'FileText', description: 'Platform updates and release notes' },
+    },
+
+    // ── Registry group ─────────────────────────────────────────
+    {
+      id: 'agentiq-os-ingestion-factory',
+      label: 'Ingestion Factory',
+      slug: 'ingestion-factory',
+      enabled: true,
+      group: 'registry',
+      order: 0,
+      type: 'static',
+      config: { component: 'DevRegistryTab', props: {} },
+      metadata: { icon: 'Box', description: 'Type-aware iQube registration' },
+    },
+    {
+      id: 'agentiq-os-build-dashboard',
+      label: 'Build Dashboard',
+      slug: 'build-dashboard',
+      enabled: true,
+      group: 'registry',
+      order: 1,
+      type: 'static',
+      config: { component: 'AgentiQOSTab', props: {} },
+      metadata: { icon: 'LayoutDashboard', description: 'Builder substrate dashboard' },
+    },
+    {
+      id: 'agentiq-os-nanos-bridge',
+      label: 'nanOS Bridge',
+      slug: 'nanos-bridge',
+      enabled: true,
+      group: 'registry',
+      order: 2,
+      type: 'static',
+      config: { component: 'NanOSBridgeTab', props: {} },
+      metadata: { icon: 'Network', description: 'Open and proprietary nanOS bridge' },
+    },
+    {
+      id: 'agentiq-os-codex',
+      label: 'Codex',
+      slug: 'codex',
+      enabled: true,
+      group: 'registry',
+      order: 3,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_codex' } },
+      metadata: { icon: 'BookOpen', description: 'Codex publishing and pack composition' },
+    },
+    {
+      id: 'agentiq-os-persona',
+      label: 'Persona',
+      slug: 'persona',
+      enabled: true,
+      group: 'registry',
+      order: 4,
+      type: 'static',
+      config: { component: 'DevPersonaTab', props: {} },
+      metadata: { icon: 'User', description: 'Create and manage your developer persona' },
+    },
+    {
+      id: 'agentiq-os-delegation',
+      label: 'Aigent Delegates',
+      slug: 'delegation',
+      enabled: true,
+      group: 'registry',
+      order: 5,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab', props: {} },
+      metadata: { icon: 'Shield', description: 'Grant bounded authority to Aigent C with audit logs' },
+    },
+
+    // ── Governance group (Operation Chrysalis Phase 0) ─────────
+    {
+      id: 'agentiq-os-constitution',
+      label: 'Constitution',
+      slug: 'constitution',
+      enabled: true,
+      group: 'governance',
+      order: 0,
+      type: 'static',
+      config: { component: 'GovernanceConstitutionTab', props: {} },
+      metadata: { icon: 'Scale', description: 'AgentiQ Constitution of Aigents — sovereign roles, authority matrix, and constitutional principles' },
+    },
+    {
+      id: 'agentiq-os-governance-roles',
+      label: 'Roles',
+      slug: 'governance-roles',
+      enabled: true,
+      group: 'governance',
+      order: 1,
+      type: 'static',
+      config: { component: 'GovernanceRolesTab', props: {} },
+      metadata: { icon: 'Shield', description: 'Sovereign agent roles, authority domains, and escalation paths' },
+    },
+    {
+      id: 'agentiq-os-governance-decisions',
+      label: 'Decision Log',
+      slug: 'governance-decisions',
+      enabled: true,
+      group: 'governance',
+      order: 2,
+      type: 'static',
+      config: { component: 'GovernanceDecisionLogTab', props: {} },
+      metadata: { icon: 'FileText', description: 'Ratified governance decisions and constitutional amendments' },
+    },
+    {
+      id: 'agentiq-os-authority-matrix',
+      label: 'Authority Matrix',
+      slug: 'authority-matrix',
+      enabled: true,
+      group: 'governance',
+      order: 3,
+      type: 'static',
+      config: { component: 'GovernanceAuthorityMatrixTab', props: {} },
+      metadata: { icon: 'Grid3X3', description: 'Cross-reference: roles × authority domains' },
+    },
+    {
+      id: 'agentiq-os-governance-receipts',
+      label: 'Receipts',
+      slug: 'governance-receipts',
+      enabled: true,
+      group: 'governance',
+      order: 4,
+      type: 'static',
+      config: { component: 'GovernanceReceiptsTab', props: {} },
+      metadata: { icon: 'Receipt', description: 'DVN-anchored governance decision receipts' },
+    },
+
+    // ── Polity Passport group — first-class mirror of the Polity
+    // Passport Bureau cartridge (operator decision 2026-06-12; replaced
+    // the empty Operations group). Same pattern as AGENTIQ_CARTRIDGE:
+    // lazy subTabs keep sub-menus in lockstep with the canonical
+    // cartridge; Steward keeps its adminOnly gate at both levels.
+    {
+      id: 'agentiq-os-passport-apply',
+      label: 'Apply',
+      slug: 'os-passport-apply',
+      enabled: true,
+      group: 'passport',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood', color: 'violet' },
+      // No subTabs getter — see note on agentiq-passport-apply above.
+    },
+    {
+      id: 'agentiq-os-passport-registry',
+      label: 'Registry',
+      slug: 'os-passport-registry',
+      enabled: true,
+      group: 'passport',
+      order: 1,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'agentiq-os-passport-locker',
+      label: 'Locker',
+      slug: 'os-passport-locker',
+      enabled: true,
+      group: 'passport',
+      order: 2,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
+    },
+    {
+      id: 'agentiq-os-passport-delegation',
+      label: 'Delegation',
+      slug: 'os-passport-delegation',
+      enabled: true,
+      group: 'passport',
+      order: 3,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — AgentKit attestation when sponsor is World ID verified', color: 'violet' },
+    },
+    {
+      id: 'agentiq-os-passport-steward',
+      label: 'Steward',
+      slug: 'os-passport-steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'passport',
+      order: 2,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — admin only', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('steward', 'agentiq-os-passport-steward');
+      },
+    },
+
+    // ── Standing group — first-class mirror of the Standing Cartridge
+    // (root-DID capability & standing ledger). Gated on the
+    // 'standing-cartridge' activation via the group's activationId so it
+    // only surfaces once the persona activates the surface. The
+    // StandingCartridgeTab component houses the evidence domains, fact
+    // review, compile, asset graph, and output generation in one surface.
+    {
+      id: 'metame-standing-ledger',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      group: 'standing',
+      order: 0,
+      type: 'static' as const,
+      config: { component: 'StandingCartridgeTab', props: {} },
+      metadata: { icon: 'Star', description: 'Verified Standing Profile — evidence-derived capability and reputation profile', color: 'violet' },
+    },
+
+    // ── Ecosystem group ───────────────────────────────────────
+    {
+      id: 'agentiq-os-dev-resources',
+      label: 'Dev Resources',
+      slug: 'dev-resources',
+      enabled: true,
+      group: 'ecosystem',
+      order: 0,
+      type: 'static',
+      config: { component: 'Kn0wdZTab', props: {} },
+      metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ' },
     },
     {
       id: 'agentiq-os-qriptopian',
       label: 'Qriptopian',
       slug: 'qriptopian',
       enabled: true,
-      group: 'community',
-      order: 2,
+      group: 'ecosystem',
+      order: 1,
       type: 'static',
       config: { component: 'FeaturesTab', props: {} },
       metadata: { icon: 'Sparkles', description: 'Qriptopian editorial features' },
-    },
-
-    // ── Admin group (stubbed 2026-05-26) ───────────────────────
-    // AgentiQ OS doesn't yet have admin content of its own. The
-    // placeholder below keeps the tabGroup non-empty so the
-    // chief-of-staff mirror into metaMe has something to render,
-    // and so the per-cartridge admin gate (adminOfCartridge:
-    // 'agentiq-os') has a concrete target. When real admin
-    // content lands, swap PlaceholderTab for the real component
-    // and add siblings here.
-    {
-      id: 'agentiq-os-admin-home',
-      label: 'AgentiQ OS Admin',
-      slug: 'admin-home',
-      enabled: true,
-      adminOnly: true,
-      group: 'admin',
-      order: 0,
-      type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'AgentiQ OS Admin',
-          description: 'AgentiQ OS admin surface — stubbed. Real admin content lands when the cartridge ships its first admin workflow (registry ops, agent lifecycle, etc.).',
-        },
-      },
-      metadata: { icon: 'Settings', description: 'AgentiQ OS admin surface (stub)', color: 'indigo' },
     },
   ],
   permissions: {
@@ -2048,12 +2378,48 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   },
   tabs: [
     {
+      id: 'founder-office',
+      label: 'Founder Office',
+      slug: 'founder-office',
+      enabled: true,
+      adminOnly: false,
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'FounderOfficeTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Rocket',
+        description: 'Venture formation OS — Discover / Validate / Architect a venture into an executable Venture Blueprint (VentureQube v1.0)',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'commercial-funnel',
+      label: 'Commercial Funnel',
+      slug: 'commercial-funnel',
+      enabled: true,
+      adminOnly: false,
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'VentureFunnelTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Grid3x3',
+        description: 'Matrix funnel — venture progress (maturity × commercialization) consolidated with customer progress (engagement × sovereignty journey)',
+        color: 'amber'
+      }
+    },
+    {
       id: 'alpha-programme',
       label: 'α Programme',
       slug: 'alpha-programme',
       enabled: true,
       adminOnly: true,
-      order: 1,
+      order: 2,
       type: 'static',
       config: {
         component: 'AlphaProgrammeTab',
@@ -2088,7 +2454,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Relationship Builder',
       slug: 'relationship-builder',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 3,
       type: 'static',
       config: {
@@ -2120,11 +2486,29 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'plan-pricing',
+      label: 'Plan Pricing',
+      slug: 'plan-pricing',
+      enabled: true,
+      adminOnly: true,
+      order: 4.5,
+      type: 'static',
+      config: {
+        component: 'PlanPriceConfigAdminTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'DollarSign',
+        description: 'Plan price editor (mirror of canonical metaMe Admin → Plan Pricing) — view and update tier prices for the Polity Alpha citizen and Founder Office ladders',
+        color: 'amber'
+      }
+    },
+    {
       id: 'growth-matrix',
       label: 'Growth Matrix',
       slug: 'growth-matrix',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 5,
       type: 'static',
       config: {
@@ -2142,7 +2526,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Portfolio',
       slug: 'portfolio',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
       order: 6,
       type: 'static',
       config: {
@@ -2168,6 +2552,24 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   updatedAt: new Date().toISOString()
 };
 
+// Pull Polity Passport Bureau tabs by group so AGENTIQ_CARTRIDGE's
+// Polity Passport menu can expose them as sub-tabs without modifying the
+// canonical Bureau cartridge. Function declaration (hoisted) because
+// AGENTIQ_CARTRIDGE is defined before POLITY_PASSPORT_BUREAU_CARTRIDGE;
+// the lazy `get subTabs()` callers only run at render time. adminOnly
+// gates are preserved on the clones (Steward stays admin-gated).
+function polityPassportTabsByGroup(groupId: string, idPrefix: string) {
+  return POLITY_PASSPORT_BUREAU_CARTRIDGE.tabs
+    .filter((t) => t.group === groupId && t.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((t) => ({
+      ...t,
+      id: `${idPrefix}-${t.id}`,
+      slug: `${idPrefix}-${t.slug}`,
+      group: 'passport',
+    }));
+}
+
 // Pull AgentiQ OS source tabs by group so the metaMe agentiqos tabs can
 // expose them as 3rd-tier sub-tabs without modifying the source cartridge.
 const aiqOsTabsByGroup = (groupId: string) =>
@@ -2188,6 +2590,23 @@ const knytOrderTabs = () =>
 // so the existing knytOrderTabs() mirror flows it through into metaMe
 // automatically. The per-cartridge admin gate stays — it's set on the
 // order-admin tab inside KNYT, not in the metaMe mirror.)
+
+// Mirror the OPERATOR-facing Venture Lab cartridge tabs into metaMe's "Venture
+// Lab" (vl) group as first-class items (Founder Office, Commercial Funnel,
+// Relationship Builder, Growth Matrix, Portfolio — anything not adminOnly).
+// Admin-only VL tabs are grouped separately under the VL Admin item via
+// ventureLabAdminTabsForMetameVl(). Same mirror pattern as aiqOsTabsByGroup.
+const ventureLabTabsForMetameVl = () =>
+  VENTURE_LAB_CODEX.tabs
+    .filter((t) => t.enabled && !t.adminOnly)
+    .sort((a, b) => a.order - b.order)
+    .map((t, i) => ({
+      ...t,
+      id: `vl-${t.id}`,
+      slug: `vl-${t.slug}`,
+      group: 'vl',
+      order: 10 + i,
+    }));
 
 // Qriptopian admin tabs mirrored into metaMe's qriptopia group. Qripto's
 // admin tabs live at top level (no group), gated by adminOnly: true. We
@@ -2225,19 +2644,18 @@ const qriptoCodexTabsForMetameQriptopia = () =>
       order: 40 + idx, // Sits ABOVE Features (50), Community (51), 21 Sats (52)
     }));
 
-// AgentiQ OS admin tabs mirrored into metaMe's agentiqos group.
-// Pulls from the AgentiQ OS cartridge's `admin` tabGroup (added
-// 2026-05-26) — currently a single stub PlaceholderTab; real
-// content lands when AgentiQ OS ships its admin workflows. Same
+// AgentiQ OS operations tabs mirrored into metaMe's agentiqos group.
+// Pulls from the AgentiQ OS cartridge's `operations` tabGroup — currently
+// a single stub PlaceholderTab; real content lands in Phase 1. Same
 // clone pattern as the KNYT mirror.
 const agentiqOsAdminTabsForMetameAgentiqos = () =>
   AGENTIQ_OS_CARTRIDGE.tabs
-    .filter((t) => t.group === 'admin' && t.enabled)
+    .filter((t) => t.group === 'operations' && t.enabled)
     .sort((a, b) => a.order - b.order)
     .map((t) => ({
       ...t,
-      id: `metame-aiqos-admin-${t.id}`,
-      slug: `aiqos-admin-${t.slug}`,
+      id: `metame-aiqos-ops-${t.id}`,
+      slug: `aiqos-ops-${t.slug}`,
       adminOnly: false,
       adminOfCartridge: 'agentiq-os',
       group: 'agentiqos',
@@ -2251,24 +2669,21 @@ const agentiqOsAdminTabsForMetameAgentiqos = () =>
 // placeholder "VL Admin" entry for now. When VL grows a proper
 // adminOnly tabGroup like KNYT's, swap this stub for the same clone
 // pattern used above.
-const ventureLabAdminTabsForMetameVl = () => [
-  {
-    id: 'metame-vl-admin-placeholder',
-    label: 'Venture Lab Admin',
-    slug: 'vl-admin-placeholder',
-    enabled: true,
-    adminOfCartridge: 'venture-lab',
-    group: 'vl',
-    order: 0,
-    type: 'static' as const,
-    config: { component: 'TabRendererFallback', props: {} },
-    metadata: {
-      icon: 'Settings',
-      description: 'Placeholder Venture Lab admin surface — full admin tabs to be wired when the VL cartridge ships its adminOnly tabGroup.',
-      color: 'amber',
-    },
-  },
-];
+// Mirror the ADMIN-only Venture Lab cartridge tabs (α Programme, AgentiQ OS α,
+// α Docs) as sub-items grouped under the "VL Admin" surface — used both by
+// metaMe's VL group and the AgentiQ cartridge's VL Admin tab. adminOnly is
+// preserved so the gating travels with each tab.
+const ventureLabAdminTabsForMetameVl = () =>
+  VENTURE_LAB_CODEX.tabs
+    .filter((t) => t.enabled && t.adminOnly)
+    .sort((a, b) => a.order - b.order)
+    .map((t, i) => ({
+      ...t,
+      id: `vl-admin-${t.id}`,
+      slug: `vl-admin-${t.slug}`,
+      group: 'vl',
+      order: i,
+    }));
 
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
@@ -2290,10 +2705,15 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'mycluster',    label: 'myCluster',        icon: 'PenSquare',  order: 0.5, activationId: 'mycanvas' },
     { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.6 },
     { id: 'order',        label: 'KNYT',             icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
+    { id: 'agentz',       label: 'aigentZ',          icon: 'Cpu',        order: 0.8, activationId: 'aigent-z' },
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
+    { id: 'hms',          label: 'Human Mobility',   icon: 'Plane',      order: 3.5, activationId: 'human-mobility-services' },
+    { id: 'polity-core',  label: 'Polity Core',      icon: 'Landmark',   order: 0.55, activationId: 'polity-core' },
     { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
+    { id: 'passport',     label: 'Passport',          icon: 'ShieldCheck',order: -0.5 },
+    { id: 'standing',     label: 'Standing',         icon: 'Star',       order: 4.6, activationId: 'standing-cartridge' },
     { id: 'qriptopia',    label: 'Qriptopia',        icon: 'Globe',      order: 5,   activationId: 'qriptopian' },
     { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
   ],
@@ -2464,7 +2884,7 @@ export const METAME_CODEX: CodexConfig = {
     //                 artifacts (formerly myWorkbench's content).
     {
       id: 'mycanvas',
-      label: 'myCanvas',
+      label: 'myCluster',
       slug: 'mycanvas',
       enabled: true,
       activationId: 'mycanvas',
@@ -2501,7 +2921,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       activationId: 'mycanvas',
       group: 'mycluster',
-      order: 2,
+      order: 3,
       type: 'static',
       config: { component: 'MyCartridgeTab', props: {} },
       metadata: {
@@ -2517,7 +2937,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       activationId: 'mycanvas',
       group: 'mycluster',
-      order: 3,
+      order: 2,
       type: 'static',
       config: { component: 'MyLedgerTab', props: {} },
       metadata: {
@@ -2552,29 +2972,12 @@ export const METAME_CODEX: CodexConfig = {
       subTabs: knytOrderTabs(),
     },
 
-    // ── VL group (activation-gated) ───────────────────────────────────────
-    {
-      id: 'vl-growth-matrix',
-      label: 'Growth Matrix',
-      slug: 'vl-growth-matrix',
-      enabled: true,
-      group: 'vl',
-      order: 10,
-      type: 'static',
-      config: { component: 'VentureLabGrowthMatrixTab', props: {} },
-      metadata: { icon: 'Grid3x3', description: 'Venture Lab growth matrix', color: 'violet' }
-    },
-    {
-      id: 'vl-relationship-builder',
-      label: 'Relationship Builder',
-      slug: 'vl-relationship-builder',
-      enabled: true,
-      group: 'vl',
-      order: 11,
-      type: 'static',
-      config: { component: 'RelationshipBuilderTab', props: {} },
-      metadata: { icon: 'Users', description: 'Partner / relationship builder', color: 'violet' }
-    },
+    // ── VL group (activation-gated) — full mirror of the Venture Lab cartridge ──
+    // Renders every first-class VL tab natively under metaMe → Venture Lab
+    // (Founder Office, Commercial Funnel, α Programme, AgentiQ OS α, Relationship
+    // Builder, α Docs, Growth Matrix, Portfolio). Each tab's adminOnly /
+    // adminOfCartridge gating is preserved by the mirror.
+    ...ventureLabTabsForMetameVl(),
     // Venture Lab admin stub — VL doesn't yet have a dedicated
     // adminOnly tabGroup on its own cartridge, so we ship a single
     // placeholder admin tab here gated by adminOfCartridge: 'venture-lab'.
@@ -2587,11 +2990,99 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       adminOfCartridge: 'venture-lab',
       group: 'vl',
-      order: 12,
+      order: 90,
       type: 'static',
       config: { component: 'TabRendererFallback', props: {} },
       metadata: { icon: 'Settings', description: 'Venture Lab admin surface — stubbed until VL ships its own adminOnly tabGroup. Visible only when the active persona admins the Venture Lab cartridge.', color: 'amber' },
       subTabs: ventureLabAdminTabsForMetameVl(),
+    },
+
+    // ── Human Mobility group (payment-gated via activationId) ────────────────
+    // Flat tabs, each a real registered component (the proven pattern — no
+    // parent/ghost-subtab nesting). Group activationId gates access.
+    {
+      id: 'hms-services', label: 'Mobility Services', slug: 'hms', enabled: true, group: 'hms', order: 0,
+      type: 'static', config: { component: 'HumanMobilityServicesTab', props: {} },
+      metadata: { icon: 'Plane', description: 'Human Mobility Services — business + emergency mobility', color: 'cyan' },
+    },
+    {
+      id: 'hms-doctrine', label: 'Doctrine', slug: 'hms-doctrine', enabled: true, group: 'hms', order: 1,
+      type: 'static', config: { component: 'MobilityDoctrineTab', props: {} },
+      metadata: { icon: 'BookOpen', description: 'Mobility doctrine', color: 'cyan' },
+    },
+    {
+      id: 'hms-activations', label: 'Activations', slug: 'hms-activations', enabled: true, group: 'hms', order: 2,
+      type: 'static', config: { component: 'MobilityActivationsTab', props: {} },
+      metadata: { icon: 'Zap', description: 'Mobility activations', color: 'cyan' },
+    },
+    {
+      id: 'hms-housing', label: 'Housing', slug: 'hms-housing', enabled: true, group: 'hms', order: 3,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'housing' } },
+      metadata: { icon: 'Home', description: 'Housing workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-education', label: 'Education', slug: 'hms-education', enabled: true, group: 'hms', order: 4,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'education' } },
+      metadata: { icon: 'GraduationCap', description: 'Education workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-relocation', label: 'Relocation', slug: 'hms-relocation', enabled: true, group: 'hms', order: 5,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'relocation' } },
+      metadata: { icon: 'Map', description: 'Relocation workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-business', label: 'Business', slug: 'hms-business', enabled: true, group: 'hms', order: 6,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'business' } },
+      metadata: { icon: 'Briefcase', description: 'Business mobility workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-economic', label: 'Emergency', slug: 'hms-economic', enabled: true, group: 'hms', order: 7,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'economic' } },
+      metadata: { icon: 'LifeBuoy', description: 'Emergency / economic mobility workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-family', label: 'Family', slug: 'hms-family', enabled: true, group: 'hms', order: 8,
+      type: 'static', config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'family' } },
+      metadata: { icon: 'Users', description: 'Family mobility workstream', color: 'cyan' },
+    },
+    {
+      id: 'hms-case-management', label: 'Case Management', slug: 'hms-case-management', enabled: true, group: 'hms', order: 9,
+      type: 'static', config: { component: 'MobilityCaseManagementTab', props: {} },
+      metadata: { icon: 'ClipboardList', description: 'Mobility case management', color: 'cyan' },
+    },
+
+    // ── Polity Core group (FREE — open activation) ───────────────────────────
+    // Flat AgentiqCartridgeTab tabs per collection (real component, each with
+    // its own doc sidebar). No ghost tabs.
+    {
+      id: 'pc-constitution', label: 'Constitution', slug: 'polity-core', enabled: true, group: 'polity-core', order: 0,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_constitution', defaultPath: 'items/CONSTITUTION.md' } },
+      metadata: { icon: 'Landmark', description: 'The Polity Constitution', color: 'violet' },
+    },
+    {
+      id: 'pc-agent-charter', label: 'Agent Charter', slug: 'pc-agent-charter', enabled: true, group: 'polity-core', order: 1,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_agent_charter', defaultPath: 'items/AGENT_CHARTER.md' } },
+      metadata: { icon: 'Bot', description: 'Autonomous Agent Charter', color: 'violet' },
+    },
+    {
+      id: 'pc-standing-charter', label: 'Standing Charter', slug: 'pc-standing-charter', enabled: true, group: 'polity-core', order: 2,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_standing_charter', defaultPath: 'items/STANDING_CHARTER.md' } },
+      metadata: { icon: 'Award', description: 'The Standing Charter', color: 'violet' },
+    },
+    {
+      id: 'pc-metacommons-charter', label: 'metaCommons Charter', slug: 'pc-metacommons-charter', enabled: true, group: 'polity-core', order: 3,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_metacommons_charter', defaultPath: 'items/METACOMMONS_CHARTER.md' } },
+      metadata: { icon: 'Globe', description: 'The metaCommons Charter', color: 'violet' },
+    },
+    {
+      id: 'pc-founder-office-charter', label: 'Founder Office Charter', slug: 'pc-founder-office-charter', enabled: true, group: 'polity-core', order: 4,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_founder_office_charter', defaultPath: 'items/FOUNDER_OFFICE_CHARTER.md' } },
+      metadata: { icon: 'Rocket', description: 'Founder Office Charter (sub-metaCommons)', color: 'violet' },
+    },
+    {
+      id: 'pc-amendments', label: 'Amendment Records', slug: 'pc-amendments', enabled: true, group: 'polity-core', order: 5,
+      type: 'static', config: { component: 'AgentiqCartridgeTab', props: { packId: 'polity-core', collectionId: 'col_amendment_records', defaultPath: 'items/AMENDMENT_RECORDS.md' } },
+      metadata: { icon: 'FileText', description: 'Amendment Records', color: 'violet' },
     },
 
     // ── Marketa group (admin-gated; Partner sub-tabs) ────────────────────────
@@ -2721,106 +3212,197 @@ export const METAME_CODEX: CodexConfig = {
       metadata: { icon: 'Settings', description: 'metaMe Studio admin surface — visible only to metaMe cartridge admins', color: 'indigo' },
     },
 
-    // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
+    // ── aigentZ group (first-class, activation-gated) ────────────────────────
+    // The Development Command Center as a top-level metaMe menu item.
+    // Gated by the 'aigent-z' activation. Multiple tabs so the sub-menu row
+    // renders, in line with aigentMe — additional tab content TBD.
     {
-      id: 'agentiqos-home',
-      label: 'Home',
-      slug: 'agentiqos-home',
+      id: 'metame-agentz-command-center',
+      label: 'Command Center',
+      slug: 'aigent-z',
       enabled: true,
-      group: 'agentiqos',
-      order: 40,
+      group: 'agentz',
+      order: 0,
       type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_start_here' } },
-      metadata: { icon: 'Home', description: 'AgentiQ OS — start here', color: 'emerald' },
-      subTabs: aiqOsTabsByGroup('home'),
+      config: { component: 'DevCommandCenterTab', props: {} },
+      metadata: { icon: 'Cpu', description: 'aigentZ Development Command Center — consequence engineering workflow', color: 'green' },
     },
     {
-      id: 'agentiqos-docs',
-      label: 'Docs',
-      slug: 'agentiqos-docs',
+      id: 'metame-agentz-sessions',
+      label: 'Sessions',
+      slug: 'aigent-z-sessions',
+      enabled: true,
+      group: 'agentz',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'aigentZ Sessions',
+          description: 'Dev loop session history — stub. Persisted ICE sessions (intents, context packs, gap reports, consequence canvases, validation reports) land here when Phase 2 session persistence ships.',
+        },
+      },
+      metadata: { icon: 'History', description: 'Dev loop session history — placeholder until Phase 2 session persistence', color: 'green' },
+    },
+
+    // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
+    // metaMe mirror of AgentiQ OS — Operation Chrysalis target nav.
+    // No aigentZ mirror here — the Command Center is accessed exclusively via
+    // the first-class metaMe aigentZ menu (agentz group, 'aigent-z' activation).
+    {
+      id: 'agentiqos-projects',
+      label: 'Projects',
+      slug: 'agentiqos-projects',
       enabled: true,
       group: 'agentiqos',
       order: 41,
       type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_docs_kb' } },
-      metadata: { icon: 'BookOpen', description: 'Protocol reference and developer standards', color: 'emerald' },
-      subTabs: aiqOsTabsByGroup('docs'),
+      config: { component: 'DevMissionBoardTab', props: { panel: 'your-missions' } },
+      metadata: { icon: 'Target', description: 'Projects and mission tracks', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('projects'),
     },
     {
-      id: 'agentiqos-build',
-      label: 'Build',
-      slug: 'agentiqos-build',
+      id: 'agentiqos-development',
+      label: 'Development',
+      slug: 'agentiqos-development',
       enabled: true,
       group: 'agentiqos',
       order: 42,
       type: 'static',
       config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_sdk_api' } },
-      metadata: { icon: 'Code', description: 'SDK / API reference', color: 'emerald' },
-      subTabs: aiqOsTabsByGroup('build'),
+      metadata: { icon: 'Code', description: 'SDK, SmartTriad, Liquid UI, reference patterns', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('development'),
     },
     {
-      id: 'agentiqos-bind',
-      label: 'Bind',
-      slug: 'agentiqos-bind',
+      id: 'agentiqos-memory',
+      label: 'Memory',
+      slug: 'agentiqos-memory',
       enabled: true,
       group: 'agentiqos',
       order: 43,
       type: 'static',
-      config: { component: 'DevPersonaTab', props: {} },
-      metadata: { icon: 'User', description: 'Persona and bounded delegation', color: 'emerald' },
-      subTabs: aiqOsTabsByGroup('bind'),
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_docs_kb' } },
+      metadata: { icon: 'Brain', description: 'Docs, KB, and platform updates', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('memory'),
     },
     {
-      id: 'agentiqos-deploy',
-      label: 'Deploy',
-      slug: 'agentiqos-deploy',
+      id: 'agentiqos-registry',
+      label: 'Registry',
+      slug: 'agentiqos-registry',
       enabled: true,
       group: 'agentiqos',
       order: 44,
       type: 'static',
       config: { component: 'DevRegistryTab', props: {} },
-      metadata: { icon: 'Package', description: 'Ingestion factory and registry', color: 'emerald' },
-      subTabs: aiqOsTabsByGroup('deploy'),
+      metadata: { icon: 'Database', description: 'Registry, persona, delegation, codex publishing', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('registry'),
     },
     {
-      id: 'agentiqos-missions',
-      label: 'Missions',
-      slug: 'agentiqos-missions',
+      id: 'agentiqos-governance',
+      label: 'Governance',
+      slug: 'agentiqos-governance',
       enabled: true,
       group: 'agentiqos',
       order: 45,
       type: 'static',
-      config: { component: 'DevMissionBoardTab', props: { panel: 'your-missions' } },
-      metadata: { icon: 'Target', description: 'Dev missions and learning tracks', color: 'emerald' },
-      subTabs: aiqOsTabsByGroup('missions'),
+      config: { component: 'GovernanceConstitutionTab', props: {} },
+      metadata: { icon: 'Scale', description: 'Constitution, roles, authority matrix, receipts', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('governance'),
     },
+    // Polity Passport — mirrored from AGENTIQ_OS_CARTRIDGE's passport group.
+    // Same pattern as the other agentiqos tabs: top-level tab in the metaMe
+    // agentiqos group with subTabs pulled from the source cartridge.
     {
-      id: 'agentiqos-community',
-      label: 'Community',
-      slug: 'agentiqos-community',
+      id: 'agentiqos-passport',
+      label: 'Polity Passport',
+      slug: 'agentiqos-passport',
       enabled: true,
       group: 'agentiqos',
-      order: 46,
+      order: 45.5,
       type: 'static',
-      config: { component: 'Kn0wdZTab', props: {} },
-      metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ', color: 'emerald' },
-      subTabs: aiqOsTabsByGroup('community'),
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'ShieldCheck', description: 'Polity Passport — apply, registry, steward', color: 'violet' },
+      subTabs: aiqOsTabsByGroup('passport'),
     },
-    // Chief-of-staff unlock: AgentiQ OS admin tabs mirrored into the
-    // metaMe agentiqos group. Visible only to personas admin of the
-    // agentiq-os cartridge.
+    // Chief-of-staff unlock: AgentiQ OS operations tabs mirrored into
+    // metaMe. Visible only to personas admin of the agentiq-os cartridge.
     {
-      id: 'agentiqos-admin',
-      label: 'AgentiQ OS Admin',
-      slug: 'agentiqos-admin',
+      id: 'agentiqos-operations',
+      label: 'Operations',
+      slug: 'agentiqos-operations',
       enabled: true,
       adminOfCartridge: 'agentiq-os',
       group: 'agentiqos',
-      order: 47,
+      order: 46,
       type: 'static',
       config: { component: 'TabRendererFallback', props: {} },
-      metadata: { icon: 'Settings', description: 'AgentiQ OS admin surface — visible only when the active persona admins the AgentiQ OS cartridge', color: 'indigo' },
+      metadata: { icon: 'Settings', description: 'AgentiQ OS operations — visible only when the active persona admins the AgentiQ OS cartridge', color: 'indigo' },
       subTabs: agentiqOsAdminTabsForMetameAgentiqos(),
+    },
+    {
+      id: 'agentiqos-ecosystem',
+      label: 'Ecosystem',
+      slug: 'agentiqos-ecosystem',
+      enabled: true,
+      group: 'agentiqos',
+      order: 47,
+      type: 'static',
+      config: { component: 'Kn0wdZTab', props: {} },
+      metadata: { icon: 'Users', description: 'Community resources and Qriptopian', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('ecosystem'),
+    },
+
+    // ── Passport group (permanently active) ──────────────────────────────────
+    // Mirrors the Polity Passport Bureau cartridge tabs so the full Bureau
+    // experience is available inside metaMe as a first-class tab.
+    // Uses the same polityPassportTabsByGroup() clone pattern as the
+    // AgentiQ / AgentiQ OS passport mirrors.
+    {
+      id: 'polity-passport',
+      label: 'Passport',
+      slug: 'polity-passport',
+      enabled: true,
+      group: 'passport',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab', props: {} },
+      metadata: {
+        icon: 'ShieldCheck',
+        description: 'Apply for an anonymous Citizen Passport — proof of personhood with self-custody privacy',
+        color: 'violet',
+      },
+      get subTabs() {
+        return polityPassportTabsByGroup('apply', 'metame-passport')
+          .concat(polityPassportTabsByGroup('doctrine', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('registry', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('locker', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('delegation', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('ens', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('being', 'metame-passport'))
+          .concat(polityPassportTabsByGroup('steward', 'metame-passport'));
+      },
+    },
+
+    // ── Standing group ───────────────────────────────────────────────────────
+    // First-class metaMe tab that mounts the StandingCartridgeTab component
+    // (evidence intake, fact review, compile, asset graph, output generation).
+    // The 'standing' group is declared in METAME_CODEX.tabGroups above; this
+    // tab is what handleGroupClick resolves to when the operator clicks the
+    // Standing label.
+    {
+      id: 'metame-standing-ledger',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      group: 'standing',
+      order: 0,
+      type: 'static' as const,
+      config: { component: 'StandingCartridgeTab', props: {} },
+      metadata: {
+        icon: 'Star',
+        description: 'Verified Standing Profile — evidence-derived capability and reputation profile',
+        color: 'violet',
+      },
     },
 
     // ── Qriptopia group ──────────────────────────────────────────────────────
@@ -2934,6 +3516,54 @@ export const METAME_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'admin-cartridge-catalogue',
+      label: 'Catalogue Requests',
+      slug: 'cartridge-catalogue-requests',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62.5,
+      type: 'static',
+      config: { component: 'CartridgeCatalogueAdminTab', props: {} },
+      metadata: {
+        icon: 'PackageCheck',
+        description: 'Review persona-submitted requests to publish their cartridge to the metaMe activations catalogue',
+        color: 'emerald'
+      }
+    },
+    {
+      id: 'admin-runtime-settings',
+      label: 'Runtime Settings',
+      slug: 'runtime-settings',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62.8,
+      type: 'static',
+      config: { component: 'MetaMeRuntimeSettingsTab', props: {} },
+      metadata: {
+        icon: 'Zap',
+        description: 'Set the default Runtime takeover context (metaMe / KNYT) — the same toggle the in-runtime ⚡ flips',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'admin-metame-pulse',
+      label: 'Runtime Content',
+      slug: 'metame-pulse',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62.9,
+      type: 'static',
+      config: { component: 'MetaMePulseAdminTab', props: {} },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'Controller for what surfaces in the metaMe Runtime — approve launches, assign be/make/play/earn/share placement, and publish/unpublish/archive live content',
+        color: 'emerald'
+      }
+    },
+    {
       id: 'admin-experience-framework',
       label: 'Experience Framework',
       slug: 'experience-framework',
@@ -2953,6 +3583,22 @@ export const METAME_CODEX: CodexConfig = {
         icon: 'Layers',
         description: 'Canonical experience framework — strategy, model, matrix, ladder, governance',
         color: 'violet'
+      }
+    },
+    {
+      id: 'admin-plan-pricing',
+      label: 'Plan Pricing',
+      slug: 'plan-pricing',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 64,
+      type: 'static',
+      config: { component: 'PlanPriceConfigAdminTab', props: {} },
+      metadata: {
+        icon: 'DollarSign',
+        description: 'Canonical pricing admin — view and update tier prices for the Polity Alpha citizen and Founder Office subscription ladders. Accepted rails: Q¢ · USDC · PayPal.',
+        color: 'amber'
       }
     }
   ],
@@ -2979,7 +3625,12 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
   metadata: {
     description: 'Venture Studio Partner OS — campaign management, partner co-design, and pack publishing',
     icon: 'TrendingUp',
-    color: 'rose',
+    // Tailwind JIT safelist for the dynamic `${accentColor}` chrome classes
+    // (only generated when the literal appears in scanned source):
+    // bg-pink-500/10 ring-pink-500/30 ring-pink-500/25 border-pink-500/30
+    // text-pink-200 text-pink-300 text-pink-400 text-pink-400/70 text-pink-600
+    // text-pink-700 border-pink-300 bg-pink-50
+    color: 'pink',
     category: 'campaign',
     tags: ['marketa', 'campaign', 'partners', 'packs'],
   },
@@ -3026,13 +3677,25 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Rocket', description: 'metaKnyt 30-day sprint board and readiness scoring' },
     },
     {
+      id: 'marketa-activation-engine',
+      label: 'Activation Engine',
+      slug: 'marketa-activation-engine',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 3,
+      type: 'static',
+      config: { component: 'MarketaActivationEngineTab', props: {} },
+      metadata: { icon: 'Bot', description: 'Candidate-agent recruitment: discovery, scoring, registry/reputation/passport/outreach handoffs' },
+    },
+    {
       id: 'marketa-partners',
       label: 'Partners',
       slug: 'marketa-partners',
       enabled: true,
       adminOnly: true,
       group: 'admin',
-      order: 3,
+      order: 4,
       type: 'static',
       config: { component: 'MarketaPartnersAdminTab', props: {} },
       metadata: { icon: 'Users', description: 'MVL pipeline, activation actions, wave management' },
@@ -3306,6 +3969,17 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Activity', description: 'Registry operational health', color: 'violet' },
     },
     {
+      id: 'iqube-registry-passports',
+      label: 'Passports',
+      slug: 'passports',
+      enabled: true,
+      group: 'browse',
+      order: 2,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public Polity Passport registry — issued citizen + participant passports', color: 'violet' },
+    },
+    {
       id: 'iqube-registry-docs',
       label: 'PRD + Docs',
       slug: 'docs',
@@ -3327,6 +4001,578 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString(),
 };
 
+// ───────────────────────────────────────────────────────────────────────────
+// POLITY_PASSPORT_BUREAU_CARTRIDGE — Stage 3/5/6 UI surface
+// PRD: codexes/packs/agentiq/updates/2026-06-10_polity-passport-bureau-prd-v1.md
+// The canonical application, registration, and issuance surface for Polity
+// Passports. Citizen apply flow + public registry + steward review queue.
+// Steward gate resolves server-side via admin-cartridge:polity-passport-bureau
+// (operator decision 3); adminOnly here is the optimistic client-side gate.
+// ───────────────────────────────────────────────────────────────────────────
+export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
+  id: 'polity-passport-bureau-cartridge',
+  name: 'Polity Passport Bureau',
+  slug: 'polity-passport-bureau',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'Apply for, issue, and steward Polity Passports — anonymous citizen personhood + conditional participant standing.',
+    icon: 'ShieldCheck',
+    color: 'violet',
+    category: 'platform',
+    tags: ['passport', 'identity', 'kybe', 'polity', 'registry'],
+  },
+  tabGroups: [
+    { id: 'doctrine', label: 'Doctrine', icon: 'BookOpen', order: 0, adminOnly: true },
+    { id: 'apply',   label: 'Apply',   icon: 'FileCheck2', order: 1 },
+    { id: 'registry', label: 'Registry', icon: 'BookOpenCheck', order: 2 },
+    { id: 'locker',  label: 'Locker',  icon: 'Lock', order: 3 },
+    { id: 'delegation', label: 'Delegation', icon: 'Link2', order: 4 },
+    { id: 'ens',     label: 'ENS',     icon: 'Globe', order: 5 },
+    { id: 'being',   label: 'Mobility Services',   icon: 'Home', order: 6, adminOnly: true },
+    { id: 'steward', label: 'Steward', icon: 'Gavel', order: 7, adminOnly: true },
+  ],
+  tabs: [
+    {
+      id: 'passport-bureau-doctrine',
+      label: 'Doctrine',
+      slug: 'doctrine',
+      enabled: true,
+      group: 'doctrine',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportDoctrineTab' },
+      metadata: { icon: 'BookOpen', description: 'Constitutional framework, passport types, identity model, rights and obligations', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-apply',
+      label: 'Citizen Application',
+      slug: 'apply',
+      enabled: true,
+      group: 'apply',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'ShieldCheck', description: 'Apply for an anonymous Citizen Passport — proof of personhood with self-custody privacy', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-locker',
+      label: 'Locker',
+      slug: 'locker',
+      enabled: true,
+      group: 'locker',
+      order: 0,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Holder-owned encrypted vault — Sui+Walrus storage, agent-gated access', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-delegation',
+      label: 'Delegation',
+      slug: 'delegation',
+      enabled: true,
+      group: 'delegation',
+      order: 0,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — AgentKit attestation when sponsor is World ID verified', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-ens',
+      label: 'ENS Identity',
+      slug: 'ens',
+      enabled: true,
+      group: 'ens',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportEnsTab' },
+      metadata: { icon: 'Globe', description: 'Mint a gasless ENS subname for your persona — discoverable, privacy-preserving', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-registry',
+      label: 'Passport Registry',
+      slug: 'registry',
+      enabled: true,
+      group: 'registry',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'passport-bureau-being',
+      label: 'Mobility Services',
+      slug: 'being',
+      enabled: true,
+      group: 'being',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBeingTab' },
+      metadata: { icon: 'Home', description: 'Mobility Services — immigration, housing, shelter, legal assistance routing', color: 'emerald' },
+    },
+    {
+      id: 'passport-bureau-steward',
+      label: 'Review Queue',
+      slug: 'steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'steward',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — approve, deny, request info', color: 'violet' },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z', 'admin'],
+    admin: ['aigent-z', 'admin'],
+  },
+  liquidUI: { enabled: false },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+// ─── HUMAN MOBILITY SERVICES CARTRIDGE ───────────────────────────────────────
+// PSC-001: Polity Capability Preservation — Strategic Repatriation.
+// Registered as adminOnly pending first citizen-facing release.
+export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
+  id: 'human-mobility-services-cartridge',
+  name: 'Human Mobility Services',
+  slug: 'human-mobility-services',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'Polity capability preservation — strategic repatriation, relocation, and family mobility services.',
+    icon: 'Home',
+    color: 'emerald',
+    category: 'platform',
+    tags: ['mobility', 'repatriation', 'housing', 'education', 'polity', 'psc-001'],
+  },
+  tabGroups: [
+    { id: 'activation', label: 'Activation',  icon: 'FolderOpen',    order: 1 },
+    { id: 'housing',    label: 'Housing',     icon: 'Home',          order: 2, adminOnly: true },
+    { id: 'education',  label: 'Education',   icon: 'GraduationCap', order: 3, adminOnly: true },
+    { id: 'relocation', label: 'Relocation',  icon: 'Package',       order: 4, adminOnly: true },
+    { id: 'business',   label: 'Business',    icon: 'Briefcase',     order: 5, adminOnly: true },
+    { id: 'economic',   label: 'Economic',    icon: 'TrendingUp',    order: 6, adminOnly: true },
+    { id: 'family',     label: 'Family',      icon: 'Heart',         order: 7, adminOnly: true },
+  ],
+  tabs: [
+    {
+      id: 'hms-standing',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'activation',
+      order: 0,
+      adminOnly: true,
+      config: { component: 'StandingCartridgeTab' },
+      metadata: { description: 'Verified Standing Profile — evidence-derived capability and reputation profile', icon: 'Star', color: 'violet', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-activation',
+      label: 'Cases',
+      slug: 'activation',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'activation',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'HumanMobilityServicesTab' },
+      metadata: { description: 'Mobility case list and MAF intake wizard', icon: 'FolderOpen', color: 'emerald', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-doctrine',
+      label: 'Doctrine',
+      slug: 'doctrine',
+      enabled: true,
+      type: 'static' as const,
+      group: 'activation',
+      order: 2,
+      adminOnly: true,
+      config: { component: 'MobilityDoctrineTab' },
+      metadata: { description: 'PSC-001 Polity Capability Preservation Standard', icon: 'Shield', color: 'violet', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-activations',
+      label: 'Engagements',
+      slug: 'engagements',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'activation',
+      order: 3,
+      adminOnly: true,
+      config: { component: 'MobilityActivationsTab' },
+      metadata: { description: 'PDEP-governed institutional engagement tracker', icon: 'Target', color: 'violet', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-housing',
+      label: 'Housing',
+      slug: 'housing',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'housing',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'housing' } },
+      metadata: { description: 'Workstream B — Housing acquisition and rental market strategy', icon: 'Home', color: 'emerald', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-education',
+      label: 'Education',
+      slug: 'education',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'education',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'education' } },
+      metadata: { description: 'Workstream C — Educational continuity and school placement', icon: 'GraduationCap', color: 'sky', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-relocation',
+      label: 'Relocation',
+      slug: 'relocation',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'relocation',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'relocation' } },
+      metadata: { description: 'Workstream D — Physical relocation logistics', icon: 'Package', color: 'amber', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-business',
+      label: 'Business',
+      slug: 'business',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'business',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'business' } },
+      metadata: { description: 'Workstream E — Business continuity and entity migration', icon: 'Briefcase', color: 'violet', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-economic',
+      label: 'Economic',
+      slug: 'economic',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'economic',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'economic' } },
+      metadata: { description: 'Workstream F — Economic reactivation and banking', icon: 'TrendingUp', color: 'emerald', category: 'platform', tags: [] },
+    },
+    {
+      id: 'hms-family',
+      label: 'Family',
+      slug: 'family',
+      enabled: true,
+      type: 'dynamic' as const,
+      group: 'family',
+      order: 1,
+      adminOnly: true,
+      config: { component: 'MobilityWorkstreamShellTab', props: { workstream: 'family' } },
+      metadata: { description: 'Workstream G — Family stabilization and wellbeing', icon: 'Heart', color: 'rose', category: 'platform', tags: [] },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z', 'admin'],
+    admin: ['aigent-z', 'admin'],
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+export const STANDING_CARTRIDGE: CodexConfig = {
+  id: 'standing-cartridge',
+  name: 'Standing Cartridge',
+  slug: 'standing-cartridge',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'Your personal capability & standing ledger — evidence-derived, principal-verified, anchored to your Polity Passport.',
+    icon: 'Star',
+    color: 'violet',
+    category: 'platform',
+    tags: ['standing', 'capability', 'vsp', 'evidence', 'identity', 'root-did'],
+  },
+  tabGroups: [
+    { id: 'ledger', label: 'Standing Ledger', icon: 'Star', order: 1 },
+  ],
+  tabs: [
+    {
+      id: 'standing-ledger',
+      label: 'Standing',
+      slug: 'standing',
+      enabled: true,
+      type: 'static' as const,
+      group: 'ledger',
+      order: 0,
+      config: { component: 'StandingCartridgeTab', props: {} },
+      metadata: { description: 'Verified Standing Profile — evidence-derived capability and reputation profile', icon: 'Star', color: 'violet', category: 'platform', tags: [] },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z', 'admin'],
+    admin: ['aigent-z', 'admin'],
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+// ───────────────────────────────────────────────────────────────────────────
+// POLITY CORE CARTRIDGE
+// The authoritative constitutional repository + machine-readable source of
+// legitimacy for autonomous agents. Human-readable docs live in the
+// codexes/packs/polity-core/ pack; machine-readable frameworks live in
+// services/polity/frameworks/*.json and are served at
+// GET /api/polity-core/constitution. Pack auto-generation is suppressed for
+// 'polity-core' in packRegistry so this hand-curated surface is canonical.
+// ───────────────────────────────────────────────────────────────────────────
+export const POLITY_CORE_CARTRIDGE: CodexConfig = {
+  id: 'polity-core-cartridge',
+  name: 'Polity Core',
+  slug: 'polity-core',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'The authoritative constitutional repository — Constitution, Charters, Governance, Agent, and Standing frameworks, and Amendment Records. The machine-readable source of legitimacy for autonomous agents.',
+    icon: 'Landmark',
+    color: 'violet',
+    category: 'platform',
+    tags: ['polity', 'constitution', 'governance', 'agent', 'legitimacy'],
+  },
+  tabGroups: [
+    { id: 'constitution', label: 'Constitution', icon: 'Landmark', order: 0 },
+    { id: 'frameworks', label: 'Frameworks', icon: 'BookOpen', order: 1 },
+    { id: 'commentary', label: 'Commentary', icon: 'BookOpen', order: 2 },
+    { id: 'records', label: 'Records', icon: 'FileText', order: 3 },
+  ],
+  tabs: [
+    {
+      id: 'polity-core-constitution',
+      label: 'Constitution',
+      slug: 'constitution',
+      enabled: true,
+      group: 'constitution',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_constitution', defaultPath: 'items/CONSTITUTION.md' },
+      },
+      metadata: { icon: 'Landmark', description: 'The Polity Constitution — sovereignty and the chain of legitimacy', color: 'violet' },
+    },
+    {
+      id: 'polity-core-constitution-agentic-polity',
+      label: 'Constitution of the Agentic Polity',
+      slug: 'constitution-agentic-polity',
+      enabled: true,
+      group: 'constitution',
+      order: 0.5,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_constitution_agentic_polity', defaultPath: 'items/CONSTITUTION_OF_AGENTIC_POLITY.md' },
+      },
+      metadata: { icon: 'Landmark', description: 'The foundational constitutional text — 4th paper of the Polity series, elevated to ratified status', color: 'violet' },
+    },
+    {
+      id: 'polity-core-commentary-experience-sovereignty',
+      label: 'Experience Sovereignty',
+      slug: 'commentary-experience-sovereignty',
+      enabled: true,
+      group: 'commentary',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_commentary_experience_sovereignty', defaultPath: 'items/commentary/README.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'Constitutional commentary — Experience Sovereignty paper series', color: 'violet' },
+    },
+    {
+      id: 'polity-core-commentary-coyn-thesis',
+      label: 'COYN Thesis',
+      slug: 'commentary-coyn-thesis',
+      enabled: true,
+      group: 'commentary',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_commentary_coyn_thesis', defaultPath: 'items/commentary/README.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'Constitutional commentary — COYN Thesis paper series', color: 'violet' },
+    },
+    {
+      id: 'polity-core-commentary-polity',
+      label: 'The Polity',
+      slug: 'commentary-polity',
+      enabled: true,
+      group: 'commentary',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_commentary_polity', defaultPath: 'items/commentary/README.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'Constitutional commentary — the Polity paper series', color: 'violet' },
+    },
+    {
+      id: 'polity-core-agent-charter',
+      label: 'Agent Charter',
+      slug: 'agent-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_agent_charter', defaultPath: 'items/AGENT_CHARTER.md' },
+      },
+      metadata: { icon: 'Bot', description: 'Autonomous Agent Constitutional Charter — ADID class and Phase 1 guardrails', color: 'violet' },
+    },
+    {
+      id: 'polity-core-delegation',
+      label: 'Delegation',
+      slug: 'delegation-framework',
+      enabled: true,
+      group: 'frameworks',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_delegation_framework', defaultPath: 'items/DELEGATION_FRAMEWORK.md' },
+      },
+      metadata: { icon: 'Link2', description: 'Bounded delegation framework', color: 'violet' },
+    },
+    {
+      id: 'polity-core-standing-charter',
+      label: 'Standing Charter',
+      slug: 'standing-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_standing_charter', defaultPath: 'items/STANDING_CHARTER.md' },
+      },
+      metadata: { icon: 'Award', description: 'Standing as confidence in the veracity of declarations', color: 'violet' },
+    },
+    {
+      id: 'polity-core-metacommons-charter',
+      label: 'metaCommons Charter',
+      slug: 'metacommons-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_metacommons_charter', defaultPath: 'items/METACOMMONS_CHARTER.md' },
+      },
+      metadata: { icon: 'Globe', description: 'The second institution — sovereign signals into collective intelligence', color: 'violet' },
+    },
+    {
+      id: 'polity-core-founder-office',
+      label: 'Founder Office Charter',
+      slug: 'founder-office-charter',
+      enabled: true,
+      group: 'frameworks',
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_founder_office_charter', defaultPath: 'items/FOUNDER_OFFICE_CHARTER.md' },
+      },
+      metadata: { icon: 'Rocket', description: 'Sub-metaCommons artefact — capability discovery, opportunity intelligence, venture formation', color: 'violet' },
+    },
+    {
+      id: 'polity-core-standing',
+      label: 'Standing Framework',
+      slug: 'standing-framework',
+      enabled: true,
+      group: 'frameworks',
+      order: 5,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_standing_framework', defaultPath: 'items/STANDING_FRAMEWORK.md' },
+      },
+      metadata: { icon: 'Award', description: 'Operational companion to the Standing Charter', color: 'violet' },
+    },
+    {
+      id: 'polity-core-governance',
+      label: 'Governance',
+      slug: 'governance-framework',
+      enabled: true,
+      group: 'frameworks',
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_governance_framework', defaultPath: 'items/GOVERNANCE_FRAMEWORK.md' },
+      },
+      metadata: { icon: 'Scale', description: 'Governance authority is reserved to citizens', color: 'violet' },
+    },
+    {
+      id: 'polity-core-ventureqube-spec',
+      label: 'VentureQube Spec (WIP)',
+      slug: 'ventureqube-spec',
+      enabled: true,
+      group: 'records',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_ventureqube_spec', defaultPath: 'items/VENTUREQUBE_SPEC.md' },
+      },
+      metadata: { icon: 'Layers', description: 'Work-in-progress constitutional primitive — VentureQube v1 (stubbed for canonization)', color: 'amber' },
+    },
+    {
+      id: 'polity-core-amendments',
+      label: 'Amendment Records',
+      slug: 'amendment-records',
+      enabled: true,
+      group: 'records',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_amendment_records', defaultPath: 'items/AMENDMENT_RECORDS.md' },
+      },
+      metadata: { icon: 'FileText', description: 'Append-only ledger of constitutional changes + Autodrive CIDs', color: 'violet' },
+    },
+    {
+      id: 'polity-core-machine-readable',
+      label: 'Machine-Readable',
+      slug: 'machine-readable',
+      enabled: true,
+      group: 'records',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'polity-core', collectionId: 'col_machine_readable', defaultPath: 'items/MACHINE_READABLE.md' },
+      },
+      metadata: { icon: 'Code', description: 'Machine-readable source of legitimacy — endpoint, sources, accessor', color: 'violet' },
+    },
+  ],
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
@@ -3346,6 +4592,10 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   METAME_CODEX,
   MARKETA_CARTRIDGE,
   IQUBE_REGISTRY_CARTRIDGE,
+  POLITY_PASSPORT_BUREAU_CARTRIDGE,
+  HUMAN_MOBILITY_SERVICES_CARTRIDGE,
+  STANDING_CARTRIDGE,
+  POLITY_CORE_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {

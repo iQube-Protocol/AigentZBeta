@@ -441,9 +441,22 @@ describe('evaluateAccess', () => {
 // ─────────────────────────────────────────────────────────────────────────
 
 describe('debugBypass', () => {
-  it('isDebugBypassEnabled is currently hardcoded ON (TEMPORARY DEBUG)', () => {
-    // Plan §11.e tracks this as a backlog item to retire.
-    expect(isDebugBypassEnabled()).toBe(true);
+  it('isDebugBypassEnabled is env-gated and OFF by default (fail closed)', () => {
+    // The original hardcoded-ON TEMPORARY DEBUG state (plan §11.e) was
+    // retired in favour of the ACCESS_DEBUG_OPEN env gate. Default must
+    // stay closed; only an explicit '1' opens the three debug endpoints.
+    const saved = process.env.ACCESS_DEBUG_OPEN;
+    try {
+      delete process.env.ACCESS_DEBUG_OPEN;
+      expect(isDebugBypassEnabled()).toBe(false);
+      process.env.ACCESS_DEBUG_OPEN = '1';
+      expect(isDebugBypassEnabled()).toBe(true);
+      process.env.ACCESS_DEBUG_OPEN = 'true';
+      expect(isDebugBypassEnabled()).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env.ACCESS_DEBUG_OPEN;
+      else process.env.ACCESS_DEBUG_OPEN = saved;
+    }
   });
 
   it('synthesised context has admin=true, identifiable, sentinel ids', () => {

@@ -63,7 +63,7 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
   const { data: cfg, error: cfgErr } = await db
     .from("codex_configs")
     .select(
-      "id,slug,name,enabled,metadata,owner_persona_id,primary_tab_slug,available_specialists,token_whitelist,smart_triad_config,created_at,updated_at",
+      "id,slug,name,enabled,metadata,owner_persona_id,primary_tab_slug,available_specialists,token_whitelist,smart_triad_config,published_to_cluster,created_at,updated_at",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -106,6 +106,46 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
       { status: 500 },
     );
   }
+  // Latest catalogue request by the calling persona — surfaced in
+  // MyCartridgeTab so the operator sees whether they have a pending or
+  // decided application without leaving the action panel. Best-effort:
+  // a missing table (pre-migration) yields a null status.
+  let catalogueRequest: {
+    id: string;
+    status: string;
+    requestedAt: string;
+    decidedAt: string | null;
+    decisionReason: string | null;
+  } | null = null;
+  try {
+    const { data: cReqRow } = await db
+      .from("cartridge_catalogue_requests")
+      .select("id, status, requested_at, decided_at, decision_reason")
+      .eq("cartridge_slug", slug)
+      .eq("persona_id", guard.persona.personaId)
+      .order("requested_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (cReqRow) {
+      const row = cReqRow as {
+        id: string;
+        status: string;
+        requested_at: string;
+        decided_at: string | null;
+        decision_reason: string | null;
+      };
+      catalogueRequest = {
+        id: row.id,
+        status: row.status,
+        requestedAt: row.requested_at,
+        decidedAt: row.decided_at,
+        decisionReason: row.decision_reason,
+      };
+    }
+  } catch {
+    catalogueRequest = null;
+  }
+
   const memberships = ((memRowsRaw ?? []) as Array<{
     persona_id?: string;
     role?: string;
@@ -131,6 +171,7 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
     available_specialists: string[] | null;
     token_whitelist: string[] | null;
     smart_triad_config: Record<string, unknown> | null;
+    published_to_cluster: boolean;
     created_at: string;
     updated_at: string;
   };
@@ -152,6 +193,8 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
         availableSpecialists: cfgTyped.available_specialists ?? [],
         tokenWhitelist: cfgTyped.token_whitelist ?? [],
         smartTriadConfig: cfgTyped.smart_triad_config ?? null,
+        publishedToCluster: cfgTyped.published_to_cluster ?? false,
+        catalogueRequest,
         createdAt: cfgTyped.created_at,
         updatedAt: cfgTyped.updated_at,
         // T0 owner_persona_id intentionally NOT echoed.
@@ -259,6 +302,132 @@ export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<NextRes
 
   return NextResponse.json(
     { ok: true, slug: ctx.params.slug, updated: Object.keys(patch) },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
+/**
+ * DELETE /api/cartridge/[slug]
+ *
+ * Safely deletes a personal cartridge. Guardrails:
+ *   - Only personal cartridges (owner_persona_id IS NOT NULL) can be deleted.
+ *     System cartridges are managed via /admin/codex, NEVER this endpoint.
+ *   - Caller must be the owner. Even uber-admins must use the explicit
+ *     admin surface — accidental deletes of someone else's personal
+ *     cartridge would be unrecoverable.
+ *   - Caller must include `confirmSlug: "<slug>"` in the body matching
+ *     the cartridge slug — typed-confirmation pattern so a stray fetch
+ *     can't wipe out a cartridge.
+ *
+ * Cascade behaviour:
+ *   - codex_tabs rows delete via FK ON DELETE CASCADE (from the
+ *     2025-01-01 registry migration).
+ *   - cartridge_memberships and cartridge_activations are keyed by slug
+ *     (no FK) so we delete them explicitly before the parent row.
+ *   - orchestration_events / persona_artifacts / receipts are preserved
+ *     intentionally — they are append-only audit trails that survive
+ *     cartridge deletion.
+ */
+export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
+  const { getActivePersona } = await import("@/services/identity/getActivePersona");
+  const personaCtx = await getActivePersona(req);
+  if (!personaCtx) {
+    return NextResponse.json(
+      { ok: false, error: "unauthenticated" },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  let body: { confirmSlug?: unknown } = {};
+  try {
+    body = await req.json();
+  } catch {
+    // empty body → confirmation will fail below
+  }
+  if (body.confirmSlug !== ctx.params.slug) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "confirmation-mismatch",
+        detail: "Body must include `confirmSlug` matching the slug parameter.",
+      },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const db = getDb();
+  const { data: cfg, error: readErr } = await db
+    .from("codex_configs")
+    .select("id, owner_persona_id, name")
+    .eq("slug", ctx.params.slug)
+    .maybeSingle();
+  if (readErr) {
+    return NextResponse.json(
+      { ok: false, error: "lookup-failed", detail: readErr.message },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  if (!cfg) {
+    return NextResponse.json({ ok: false, error: "not-found" }, { status: 404 });
+  }
+  const row = cfg as { id: string; owner_persona_id: string | null; name: string };
+
+  if (!row.owner_persona_id) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "system-cartridge-protected",
+        detail: "System cartridges are managed via /admin/codex, never deleted via this endpoint.",
+      },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  if (row.owner_persona_id !== personaCtx.personaId) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "forbidden",
+        detail: "Only the owner persona can delete a personal cartridge.",
+      },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const { error: memErr } = await db
+    .from("cartridge_memberships")
+    .delete()
+    .eq("cartridge_slug", ctx.params.slug);
+  if (memErr) {
+    return NextResponse.json(
+      { ok: false, error: "memberships-delete-failed", detail: memErr.message },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  const { error: actErr } = await db
+    .from("cartridge_activations")
+    .delete()
+    .eq("cartridge_slug", ctx.params.slug);
+  if (actErr) {
+    return NextResponse.json(
+      { ok: false, error: "activations-delete-failed", detail: actErr.message },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const { error: cfgErr } = await db
+    .from("codex_configs")
+    .delete()
+    .eq("id", row.id);
+  if (cfgErr) {
+    return NextResponse.json(
+      { ok: false, error: "config-delete-failed", detail: cfgErr.message },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  return NextResponse.json(
+    { ok: true, slug: ctx.params.slug, deletedTitle: row.name },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

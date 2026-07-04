@@ -1,0 +1,1117 @@
+{
+  "version": "0.1",
+  "source": "codexes/packs/agentiq/foundation/appendix-a_canonical-invariants.md",
+  "constitutional_anchor": "codexes/packs/polity-core/constitutional-records/invariant-intelligence.md",
+  "namespaces": [
+    "reasoning",
+    "constitutional",
+    "engineering",
+    "experience",
+    "capability",
+    "style",
+    "narrative"
+  ],
+  "notes": "Seed crystal for the Invariant Ontology (CFS-002). status=proposed until ratified via canonization; ratified_source marks statements drawn verbatim from ratified Polity documents.",
+  "invariants": [
+    {
+      "id": "inv.reasoning.001",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Reasoning discovers invariants.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics"
+      ],
+      "provenance": {
+        "source": "Invariant Intelligence FCR v0.1, Principle I"
+      }
+    },
+    {
+      "id": "inv.reasoning.002",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Invariants constitute knowledge.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics"
+      ],
+      "provenance": {
+        "source": "Invariant Intelligence FCR v0.1, Principle II"
+      }
+    },
+    {
+      "id": "inv.reasoning.003",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Knowledge precedes inference.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "runtime"
+      ],
+      "provenance": {
+        "source": "Invariant Intelligence FCR v0.1, Principle III"
+      }
+    },
+    {
+      "id": "inv.reasoning.004",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Compressed expertise is a reusable computational primitive.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "engineering"
+      ],
+      "provenance": {
+        "source": "Invariant Intelligence FCR v0.1, Principle IV"
+      }
+    },
+    {
+      "id": "inv.reasoning.005",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Adaptive systems compose validated primitives rather than rediscover them.",
+      "status": "proposed",
+      "contexts": [
+        "runtime",
+        "engineering"
+      ],
+      "provenance": {
+        "source": "Invariant Intelligence FCR v0.1, Principle V"
+      }
+    },
+    {
+      "id": "inv.reasoning.006",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Civilizational progress is the progressive accumulation of validated invariants.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics"
+      ],
+      "provenance": {
+        "source": "Invariant Intelligence FCR v0.1, Principle VII"
+      }
+    },
+    {
+      "id": "inv.reasoning.007",
+      "namespace": "reasoning",
+      "semantic_type": "definition",
+      "statement": "Reasoning is a process; knowledge is the product.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "operating-model"
+      ],
+      "provenance": {
+        "source": "CFS-006a stage-naming decision"
+      }
+    },
+    {
+      "id": "inv.reasoning.008",
+      "namespace": "reasoning",
+      "semantic_type": "definition",
+      "statement": "An invariant does not change with its domain; its context does.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "retrieval"
+      ],
+      "provenance": {
+        "source": "CFS-001 §3, Invariant Context"
+      }
+    },
+    {
+      "id": "inv.reasoning.009",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Explainability is retrieval of provenance, not post-hoc rationalisation.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "runtime"
+      ],
+      "provenance": {
+        "source": "CFS-008 §3"
+      }
+    },
+    {
+      "id": "inv.reasoning.010",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "A superseded belief's provenance is itself knowledge.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics"
+      ],
+      "provenance": {
+        "source": "CFS-008 §4"
+      }
+    },
+    {
+      "id": "inv.constitutional.011",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Personhood precedes identity.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity"
+      ],
+      "provenance": {
+        "source": "Chrysalis Foundation bundle v0.1, Appendix A"
+      }
+    },
+    {
+      "id": "inv.constitutional.012",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Standing follows action.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "organizations",
+        "agents",
+        "marketplaces"
+      ],
+      "provenance": {
+        "source": "Chrysalis Foundation bundle v0.1, Appendix A"
+      }
+    },
+    {
+      "id": "inv.constitutional.013",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Authority follows standing.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "organizations",
+        "agents",
+        "marketplaces"
+      ],
+      "provenance": {
+        "source": "Chrysalis Foundation bundle v0.1, Appendix A"
+      }
+    },
+    {
+      "id": "inv.constitutional.014",
+      "namespace": "constitutional",
+      "semantic_type": "constraint",
+      "statement": "Delegation never removes accountability.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "agents"
+      ],
+      "provenance": {
+        "source": "Chrysalis Foundation bundle v0.1, Appendix A"
+      }
+    },
+    {
+      "id": "inv.constitutional.015",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Authority may be delegated; sovereignty may not.",
+      "status": "proposed",
+      "ratified_source": "Polity Constitution v1.0.0",
+      "contexts": [
+        "governance",
+        "agents"
+      ],
+      "provenance": {
+        "source": "codexes/packs/polity-core/items/CONSTITUTION.md"
+      }
+    },
+    {
+      "id": "inv.constitutional.016",
+      "namespace": "constitutional",
+      "semantic_type": "constraint",
+      "statement": "Sovereignty remains exclusively with human citizens.",
+      "status": "proposed",
+      "ratified_source": "Polity Constitution v1.0.0",
+      "contexts": [
+        "governance"
+      ],
+      "provenance": {
+        "source": "codexes/packs/polity-core/items/CONSTITUTION.md"
+      }
+    },
+    {
+      "id": "inv.constitutional.017",
+      "namespace": "constitutional",
+      "semantic_type": "constraint",
+      "statement": "An agent may exercise delegated authority but may never create new authority.",
+      "status": "proposed",
+      "ratified_source": "Polity Constitution v1.0.0",
+      "contexts": [
+        "agents",
+        "governance"
+      ],
+      "provenance": {
+        "source": "codexes/packs/polity-core/items/CONSTITUTION.md"
+      }
+    },
+    {
+      "id": "inv.constitutional.018",
+      "namespace": "constitutional",
+      "semantic_type": "definition",
+      "statement": "Standing is confidence in the veracity of declarations, not reputation.",
+      "status": "proposed",
+      "ratified_source": "Standing Charter v1.0.0",
+      "contexts": [
+        "governance",
+        "organizations",
+        "agents",
+        "marketplaces"
+      ],
+      "provenance": {
+        "source": "codexes/packs/polity-core/items/STANDING_CHARTER.md"
+      }
+    },
+    {
+      "id": "inv.constitutional.019",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Citizens are responsible for veracity, not for predicting consequences of truthful information.",
+      "status": "proposed",
+      "ratified_source": "Standing Charter v1.0.0",
+      "contexts": [
+        "governance"
+      ],
+      "provenance": {
+        "source": "codexes/packs/polity-core/items/STANDING_CHARTER.md"
+      }
+    },
+    {
+      "id": "inv.constitutional.020",
+      "namespace": "constitutional",
+      "semantic_type": "constraint",
+      "statement": "Permanent and unlimited delegation is prohibited.",
+      "status": "proposed",
+      "ratified_source": "Delegation Framework v1.0.0",
+      "contexts": [
+        "agents",
+        "governance"
+      ],
+      "provenance": {
+        "source": "codexes/packs/polity-core/items/DELEGATION_FRAMEWORK.md"
+      }
+    },
+    {
+      "id": "inv.constitutional.021",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Humans define semantics; AI optimizes implementation.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XI"
+      }
+    },
+    {
+      "id": "inv.constitutional.022",
+      "namespace": "constitutional",
+      "semantic_type": "constraint",
+      "statement": "Canonical status requires human ratification.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "registry"
+      ],
+      "provenance": {
+        "source": "CFS-001 §7, CFS-005 §2"
+      }
+    },
+    {
+      "id": "inv.constitutional.023",
+      "namespace": "constitutional",
+      "semantic_type": "constraint",
+      "statement": "Constitutional memory is append-only; supersession replaces deletion.",
+      "status": "proposed",
+      "contexts": [
+        "registry",
+        "governance"
+      ],
+      "provenance": {
+        "source": "CFS-005 §2"
+      }
+    },
+    {
+      "id": "inv.constitutional.024",
+      "namespace": "constitutional",
+      "semantic_type": "constraint",
+      "statement": "Identifiers that re-identify a subject never leave the server.",
+      "status": "proposed",
+      "contexts": [
+        "identity",
+        "engineering"
+      ],
+      "provenance": {
+        "source": "Identity & Access Spine, T0 tier rule"
+      }
+    },
+    {
+      "id": "inv.engineering.025",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Preserve before replace.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law I"
+      }
+    },
+    {
+      "id": "inv.engineering.026",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Extend before recreate.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law II"
+      }
+    },
+    {
+      "id": "inv.engineering.027",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Compose before specialize.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law III"
+      }
+    },
+    {
+      "id": "inv.engineering.028",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Discover invariants before designing abstractions.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law IV"
+      }
+    },
+    {
+      "id": "inv.engineering.029",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Compress expertise before automating it.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law V"
+      }
+    },
+    {
+      "id": "inv.engineering.030",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Separate architecture from rendering.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "experience"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law VI"
+      }
+    },
+    {
+      "id": "inv.engineering.031",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Separate reasoning from inference.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "epistemics"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law VII"
+      }
+    },
+    {
+      "id": "inv.engineering.032",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Treat invariants as first-class computational primitives.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law VIII"
+      }
+    },
+    {
+      "id": "inv.engineering.033",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Adaptive systems render; canonical systems govern.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "runtime"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law IX"
+      }
+    },
+    {
+      "id": "inv.engineering.034",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Every evolution must strengthen the invariant ontology.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law X"
+      }
+    },
+    {
+      "id": "inv.engineering.035",
+      "namespace": "engineering",
+      "semantic_type": "heuristic",
+      "statement": "Three similar lines of code beat a premature abstraction.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CLAUDE.md, Change Sizing"
+      }
+    },
+    {
+      "id": "inv.engineering.036",
+      "namespace": "engineering",
+      "semantic_type": "principle",
+      "statement": "One authoritative location per concern.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CLAUDE.md, Core Principle"
+      }
+    },
+    {
+      "id": "inv.engineering.037",
+      "namespace": "engineering",
+      "semantic_type": "constraint",
+      "statement": "A parallel implementation of an existing capability is a defect.",
+      "status": "proposed",
+      "contexts": [
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CLAUDE.md, Identity & Access Spine; CFS-009 Law II"
+      }
+    },
+    {
+      "id": "inv.engineering.038",
+      "namespace": "engineering",
+      "semantic_type": "constraint",
+      "statement": "Never guess a value that cannot be verified from source.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "agents"
+      ],
+      "provenance": {
+        "source": "CLAUDE.md, No Guessing or Hallucinating"
+      }
+    },
+    {
+      "id": "inv.engineering.039",
+      "namespace": "engineering",
+      "semantic_type": "principle",
+      "statement": "Additive schema change precedes destructive schema change.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "migration"
+      ],
+      "provenance": {
+        "source": "CFS-010 §3; registry canonical plane precedent"
+      }
+    },
+    {
+      "id": "inv.engineering.040",
+      "namespace": "engineering",
+      "semantic_type": "principle",
+      "statement": "Every state transition of record emits a receipt.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "provenance"
+      ],
+      "provenance": {
+        "source": "activity receipt + orchestration event spine"
+      }
+    },
+    {
+      "id": "inv.engineering.041",
+      "namespace": "engineering",
+      "semantic_type": "constraint",
+      "statement": "A failure in the provenance chain is escalated, never silent.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "provenance"
+      ],
+      "provenance": {
+        "source": "CLAUDE.md, DVN Pipeline Protection"
+      }
+    },
+    {
+      "id": "inv.experience.042",
+      "namespace": "experience",
+      "semantic_type": "principle",
+      "statement": "Agency increases through progressive disclosure.",
+      "status": "proposed",
+      "contexts": [
+        "experience"
+      ],
+      "provenance": {
+        "source": "Chrysalis Foundation bundle v0.1, Appendix A"
+      }
+    },
+    {
+      "id": "inv.experience.043",
+      "namespace": "experience",
+      "semantic_type": "principle",
+      "statement": "Experience should adapt while architecture remains invariant.",
+      "status": "proposed",
+      "contexts": [
+        "experience",
+        "engineering"
+      ],
+      "provenance": {
+        "source": "Chrysalis Foundation bundle v0.1, Appendix A"
+      }
+    },
+    {
+      "id": "inv.experience.044",
+      "namespace": "experience",
+      "semantic_type": "principle",
+      "statement": "Rendering is contextual; primitives are constitutional.",
+      "status": "proposed",
+      "contexts": [
+        "experience",
+        "engineering"
+      ],
+      "provenance": {
+        "source": "Chrysalis Foundation bundle v0.1, Appendix A"
+      }
+    },
+    {
+      "id": "inv.experience.045",
+      "namespace": "experience",
+      "semantic_type": "constraint",
+      "statement": "Experience depth ascends one step at a time.",
+      "status": "proposed",
+      "contexts": [
+        "experience"
+      ],
+      "provenance": {
+        "source": "Experience depth ladder, types/orchestration.ts"
+      }
+    },
+    {
+      "id": "inv.experience.046",
+      "namespace": "experience",
+      "semantic_type": "constraint",
+      "statement": "Derivative content renders inside the context that produced it.",
+      "status": "proposed",
+      "contexts": [
+        "experience"
+      ],
+      "provenance": {
+        "source": "CLAUDE.md, Content Capsule Containment"
+      }
+    },
+    {
+      "id": "inv.experience.047",
+      "namespace": "experience",
+      "semantic_type": "heuristic",
+      "statement": "The operator reads posture at a glance; state must be legible before it is precise.",
+      "status": "proposed",
+      "contexts": [
+        "experience"
+      ],
+      "provenance": {
+        "source": "metaMe R/T dots protocol, CLAUDE.md"
+      }
+    },
+    {
+      "id": "inv.capability.048",
+      "namespace": "capability",
+      "semantic_type": "definition",
+      "statement": "Capability is composition over validated primitives.",
+      "status": "proposed",
+      "contexts": [
+        "capability",
+        "runtime"
+      ],
+      "provenance": {
+        "source": "CFS-006a Capability Composition stage"
+      }
+    },
+    {
+      "id": "inv.capability.049",
+      "namespace": "capability",
+      "semantic_type": "principle",
+      "statement": "A capability's trust is bounded by its least-trusted member.",
+      "status": "proposed",
+      "contexts": [
+        "capability"
+      ],
+      "provenance": {
+        "source": "CFS-003 §5 weakest-link aggregation; trust-band model"
+      }
+    },
+    {
+      "id": "inv.capability.050",
+      "namespace": "capability",
+      "semantic_type": "constraint",
+      "statement": "Consequence forecasting precedes irreversible action.",
+      "status": "proposed",
+      "contexts": [
+        "capability",
+        "governance"
+      ],
+      "provenance": {
+        "source": "CFS-006a §5"
+      }
+    },
+    {
+      "id": "inv.capability.051",
+      "namespace": "capability",
+      "semantic_type": "principle",
+      "statement": "Repair cost, uncertainty, and reversibility bound permissible autonomy.",
+      "status": "proposed",
+      "contexts": [
+        "capability",
+        "agents"
+      ],
+      "provenance": {
+        "source": "CFS-006a Risk stage; PSC-001 recovery-velocity classes"
+      }
+    },
+    {
+      "id": "inv.capability.052",
+      "namespace": "capability",
+      "semantic_type": "principle",
+      "statement": "Observed consequence is the final validator of forecast capability.",
+      "status": "proposed",
+      "contexts": [
+        "capability",
+        "epistemics"
+      ],
+      "provenance": {
+        "source": "CFS-006a Observation/Knowledge Evolution stages"
+      }
+    },
+    {
+      "id": "inv.capability.053",
+      "namespace": "capability",
+      "semantic_type": "principle",
+      "statement": "Standing converts consequence into constitutional capital.",
+      "status": "proposed",
+      "contexts": [
+        "capability",
+        "governance"
+      ],
+      "provenance": {
+        "source": "CFS-006a Standing stage"
+      }
+    },
+    {
+      "id": "inv.capability.054",
+      "namespace": "capability",
+      "semantic_type": "principle",
+      "statement": "New knowledge from consequence feeds the next intent.",
+      "status": "proposed",
+      "contexts": [
+        "capability",
+        "operating-model"
+      ],
+      "provenance": {
+        "source": "CFS-006a §2, the flywheel"
+      }
+    },
+    {
+      "id": "inv.reasoning.055",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Civilization accumulates invariants, not information.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics"
+      ],
+      "provenance": {
+        "source": "CFS-000a The Invariant Manifesto"
+      }
+    },
+    {
+      "id": "inv.reasoning.056",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Knowledge enables capability.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "capability"
+      ],
+      "provenance": {
+        "source": "CFS-000a The Invariant Manifesto"
+      }
+    },
+    {
+      "id": "inv.capability.057",
+      "namespace": "capability",
+      "semantic_type": "principle",
+      "statement": "Capability creates consequence.",
+      "status": "proposed",
+      "contexts": [
+        "capability",
+        "operating-model"
+      ],
+      "provenance": {
+        "source": "CFS-000a The Invariant Manifesto"
+      }
+    },
+    {
+      "id": "inv.engineering.058",
+      "namespace": "engineering",
+      "semantic_type": "principle",
+      "statement": "The Polity defines why; AgentiQ defines how; Chrysalis defines how it evolves.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "governance"
+      ],
+      "provenance": {
+        "source": "The Three Orders, constitutional-record.md"
+      }
+    },
+    {
+      "id": "inv.constitutional.059",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Invariants themselves accrue Standing.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "epistemics",
+        "registry"
+      ],
+      "provenance": {
+        "source": "CFS-001 §6.2 Invariant Standing"
+      }
+    },
+    {
+      "id": "inv.constitutional.060",
+      "namespace": "constitutional",
+      "semantic_type": "epistemic",
+      "statement": "Truth is established through validation within a domain of applicability, not by popularity.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "governance"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XII — Truth, Standing and Reach"
+      }
+    },
+    {
+      "id": "inv.constitutional.061",
+      "namespace": "constitutional",
+      "semantic_type": "epistemic",
+      "statement": "Standing expresses constitutional confidence in an invariant and shall never be interpreted as a measure of truth.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "governance",
+        "registry"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XII — Truth, Standing and Reach"
+      }
+    },
+    {
+      "id": "inv.constitutional.062",
+      "namespace": "constitutional",
+      "semantic_type": "epistemic",
+      "statement": "Reach measures adoption rather than validity; constitutional knowledge preserves the distinction between Truth, Standing, and Reach.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "governance",
+        "registry"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XII — Truth, Standing and Reach"
+      }
+    },
+    {
+      "id": "inv.constitutional.063",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Personhood precedes individualization. Individualization precedes standing. Identity is an optional derivative of individualization rather than a prerequisite for constitutional participation.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII — Individualization"
+      }
+    },
+    {
+      "id": "inv.constitutional.064",
+      "namespace": "constitutional",
+      "semantic_type": "definition",
+      "statement": "Individualization is the establishment of a constitutional subject capable of accruing Standing without that subject being identifiable.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII — Individualization"
+      }
+    },
+    {
+      "id": "inv.constitutional.065",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Individualization is defined by continuity, not disclosure — a constitutional subject's persistence across time and interaction is what allows validated action to accumulate into Standing, independent of whether that subject is ever identified.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII, Corollary I"
+      }
+    },
+    {
+      "id": "inv.constitutional.066",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Identity is a branch of individualization, not its gate; it yields reputation, not standing.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII, Corollary II"
+      }
+    },
+    {
+      "id": "inv.constitutional.067",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Individualization's continuity shall be maintained without requiring re-identification by any party, including the server — a target which current server-internal (T0) implementations approximate but do not define the limit of.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "identity",
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-009 Law XIII, Corollary III"
+      }
+    },
+    {
+      "id": "inv.style.001",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "The protagonist's appearance, wardrobe, and age remain identical across every segment of a production.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "visual"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.1 Visual Identity"
+      }
+    },
+    {
+      "id": "inv.style.002",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "Lighting language, colour palette, and camera language remain identical across every segment of a production.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "visual"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.1 Visual Identity"
+      }
+    },
+    {
+      "id": "inv.style.003",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "Aspect ratio, rendering quality, and typography remain identical across every segment of a production.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "visual"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.1 Visual Identity"
+      }
+    },
+    {
+      "id": "inv.style.004",
+      "namespace": "style",
+      "semantic_type": "principle",
+      "statement": "Every segment shares the same protagonist, the same constitutional world, and one continuous timeline.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.2 Narrative Identity"
+      }
+    },
+    {
+      "id": "inv.style.005",
+      "namespace": "style",
+      "semantic_type": "principle",
+      "statement": "A recurring visual motif and a recurring constitutional symbol persist across every segment.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.2 Narrative Identity"
+      }
+    },
+    {
+      "id": "inv.style.006",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "Every visual metaphor corresponds to one or more grounding invariants; no visual element implies a principle absent from the originating collection.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "semantic"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.3 Semantic Identity"
+      }
+    },
+    {
+      "id": "inv.style.007",
+      "namespace": "style",
+      "semantic_type": "constraint",
+      "statement": "Each segment begins from the final semantic state of the preceding segment, preserving character position, environmental state, lighting direction, and active motifs.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "transition"
+      ],
+      "provenance": {
+        "source": "CFS-011 §3.4 Transition Identity"
+      }
+    },
+    {
+      "id": "inv.narrative.001",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "The production opens by establishing the subject's state before any constitutional change.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 1/5"
+      }
+    },
+    {
+      "id": "inv.narrative.002",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "An inciting realization introduces the constitutional principle the production will test.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 2/5"
+      }
+    },
+    {
+      "id": "inv.narrative.003",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "The subject moves through constitutional tension between the old order and the principle introduced.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 3/5"
+      }
+    },
+    {
+      "id": "inv.narrative.004",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "The tension resolves — the constitutional principle prevails, fails, or is qualified.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 4/5"
+      }
+    },
+    {
+      "id": "inv.narrative.005",
+      "namespace": "narrative",
+      "semantic_type": "constraint",
+      "statement": "The subject's constitutional transformation is shown as the production's final state.",
+      "status": "proposed",
+      "contexts": [
+        "video",
+        "narrative-structure"
+      ],
+      "provenance": {
+        "source": "CFS-012 §5, beat 5/5"
+      }
+    }
+  ]
+}

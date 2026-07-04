@@ -13,6 +13,8 @@
  * is responsible for parsing it as JSON and handling the
  * shape-mismatch case (which counts as a fallback trigger).
  */
+import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
+
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const VENICE_API_KEY = process.env.VENICE_API_KEY;
@@ -207,9 +209,15 @@ export async function callDraftLlm(
   user: string,
   maxTokens = 1000,
 ): Promise<string | null> {
-  const anthropic = await callAnthropicJson(system, user, maxTokens);
+  // Every drafter (doc, email, slides, sheet, calendar) is bound by the
+  // no-hallucination mandate: it may COMPOSE prose, but must never fabricate
+  // metrics, percentages, counts, revenue, dates, or progress/trend claims that
+  // aren't in the supplied context. This stops e.g. a "venture progress report"
+  // doc from inventing "75% completion" / "20% increase".
+  const groundedSystem = `${system}\n\n${GROUNDING_MANDATE}`;
+  const anthropic = await callAnthropicJson(groundedSystem, user, maxTokens);
   if (anthropic) return anthropic;
-  const openai = await callOpenAiJson(system, user, maxTokens);
+  const openai = await callOpenAiJson(groundedSystem, user, maxTokens);
   if (openai) return openai;
-  return callVeniceJson(system, user, maxTokens);
+  return callVeniceJson(groundedSystem, user, maxTokens);
 }

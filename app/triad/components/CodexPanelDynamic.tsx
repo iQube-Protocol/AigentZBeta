@@ -19,6 +19,10 @@ const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
   { ssr: false }
 );
+const SmartWalletDrawer = dynamic(
+  () => import("@/app/components/content/SmartWalletDrawer"),
+  { ssr: false }
+);
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { personaFetch } from "@/utils/personaSpine";
@@ -44,6 +48,7 @@ interface CodexPanelDynamicProps {
   isPartner?: boolean;          // Partner identity — shows partnerOnly tabs, hides adminOnly tabs
   isInvestor?: boolean;         // Investor identity — shows investorOnly tabs (IAM service resolves this)
   partnerId?: string;           // avl_partner_contacts.id — passed to partner tab components
+  autoActivate?: string;        // Activation ID to auto-activate on mount (e.g. 'polity-passport')
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
   onClose?: () => void;         // Direct close callback (inline rendering)
@@ -102,6 +107,7 @@ export default function CodexPanelDynamic({
   isPartner: isPartnerProp,
   isInvestor = false,
   partnerId,
+  autoActivate,
   useDefaults = true,
   previewDevice,
   onClose,
@@ -115,6 +121,13 @@ export default function CodexPanelDynamic({
   // Resolve personaId: explicit prop wins; fall back to global PersonaContext
   const { activePersonaId: ctxPersonaId, setActivePersonaId } = usePersonaSafe();
   const resolvedPersonaId = personaId || ctxPersonaId || undefined;
+
+  // Direct SmartWallet overlay (variant="overlay") launched from the
+  // active-persona header badge — opens on the wallet tab so the operator
+  // can switch the active persona. This is the standalone wallet overlay
+  // (mirrors DevPersonaTab's "Open SmartWallet → iQube tab" gem), NOT the
+  // copilot-embedded wallet.
+  const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
 
   // When SmartWalletDrawer reports a persona switch, update the global context
   const handlePersonaChange = React.useCallback(
@@ -146,6 +159,8 @@ export default function CodexPanelDynamic({
   const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
   const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
   const [metameCopilotOpen, setMetameCopilotOpen] = useState(false);
+  const [passportCopilotOpen, setPassportCopilotOpen] = useState(false);
+  const [hmsCopilotOpen, setHmsCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -203,7 +218,22 @@ export default function CodexPanelDynamic({
   // wraps the embed/shell layouts. Single source of truth — the Activations
   // panel mutates via the same context, so optimistic updates propagate
   // through React's render cycle (no window events, no fetch race).
-  const { activeIds: activeActivations } = useActivations();
+  const { activeIds: activeActivations, activate: activateActivation } = useActivations();
+
+  const autoActivateRef = useRef(false);
+  useEffect(() => {
+    if (!autoActivate || autoActivateRef.current) return;
+    if (activeActivations.has(autoActivate)) return;
+    autoActivateRef.current = true;
+    void activateActivation(autoActivate).catch(() => {});
+  }, [autoActivate, activeActivations, activateActivation]);
+
+  // NOTE: cartridge access (the paywall) is enforced at the ELIGIBILITY layer
+  // (who may activate a gated premium activation — admin or plan), NOT here.
+  // Rendering follows the persona's actual activation toggles (activeActivations)
+  // so the Activations tab can deactivate them. (An earlier version injected
+  // plan/admin grants into the render set, which forced premium cartridges
+  // always-on and broke deactivation — regression fixed 2026-06-21.)
 
   // Per-cartridge admin grants — fail-CLOSED while loading so the
   // adminOfCartridge tabs (e.g. mirrored KNYT Admin inside metaMe's
@@ -211,9 +241,76 @@ export default function CodexPanelDynamic({
   // non-admin personas.
   const cartridgeAdminGrants = useCartridgeAdminGrants();
 
+  // Published personal cartridges — only fetched when rendering metame-codex.
+  // Each published cartridge surfaces as a dynamic sub-tab in the mycluster
+  // group strip (e.g. "metaWill" alongside myCanvas / myWorkspace / etc.).
+  // The mycluster group is activation-gated ('mycanvas'), so we apply the
+  // same gate before merging — tabs don't appear until the activation is on.
+  const isMetaMe = codexId === 'metame-codex';
+  const [publishedCartridgeTabs, setPublishedCartridgeTabs] = useState<CodexTab[]>([]);
+  // Bump this to force a refetch — MyCartridgeTab dispatches a window
+  // event ('mycluster:published-changed') after a successful publish/
+  // unpublish toggle so the new tab appears in the strip without a page
+  // reload.
+  const [publishedRefetchToken, setPublishedRefetchToken] = useState(0);
+
+  useEffect(() => {
+    if (!isMetaMe) return;
+    if (typeof window === 'undefined') return;
+    const handler = () => setPublishedRefetchToken((t) => t + 1);
+    window.addEventListener('mycluster:published-changed', handler);
+    return () => window.removeEventListener('mycluster:published-changed', handler);
+  }, [isMetaMe]);
+
+  useEffect(() => {
+    if (!isMetaMe) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/cartridge/published-for-cluster');
+        if (!res.ok) return;
+        const body = (await res.json()) as {
+          ok: boolean;
+          cartridges: Array<{ id: string; slug: string; title: string }>;
+        };
+        if (!body.ok || !Array.isArray(body.cartridges)) return;
+        if (cancelled) return;
+        setPublishedCartridgeTabs(
+          body.cartridges.map((c, idx) => ({
+            id: `personal-cluster-${c.slug}`,
+            slug: c.slug,
+            label: c.title,
+            enabled: true,
+            // After the 2026-06-07 swap, myLedger is at order 2 and
+            // myCartridge at order 3 — published cartridges land after
+            // both at order 10+.
+            order: 10 + idx,
+            type: 'static' as const,
+            group: 'mycluster',
+            config: {
+              component: 'PersonalCartridgeTab',
+              props: { cartridgeSlug: c.slug },
+            },
+            metadata: { icon: 'Boxes', color: 'violet' },
+          })),
+        );
+      } catch {
+        // best-effort — published tabs simply don't appear
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isMetaMe, publishedRefetchToken]);
+
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, hiddenTabSet]
+    () => [
+      ...getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+      // Inject published personal cartridge tabs into the mycluster group.
+      // Gated on 'mycanvas' activation to match the group's own activationId.
+      ...(activeActivations.has('mycanvas')
+        ? publishedCartridgeTabs.filter((t) => !hiddenTabSet.has(t.slug.toLowerCase()))
+        : []),
+    ],
+    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, hiddenTabSet, publishedCartridgeTabs]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -662,7 +759,7 @@ export default function CodexPanelDynamic({
                               onClick={() => handleGroupClick(group.id)}
                               title={group.iconOnly ? group.label : undefined}
                               aria-label={group.iconOnly ? group.label : undefined}
-                              className={`flex items-center ${group.iconOnly ? 'gap-0 px-2' : 'gap-1.5 px-3'} py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                              className={`flex items-center ${group.iconOnly ? 'gap-0 px-2' : 'gap-1.5 px-3'} py-1.5 text-[13px] font-medium transition-all whitespace-nowrap rounded-lg ${
                                 isActiveGroup
                                   ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                                   : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -682,7 +779,7 @@ export default function CodexPanelDynamic({
                           <button
                             key={tab.id}
                             onClick={() => setActiveTabSlug(tab.slug)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium transition-all whitespace-nowrap rounded-lg ${
                               isActive
                                 ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                                 : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -710,16 +807,19 @@ export default function CodexPanelDynamic({
                         On narrow screens the label truncates with an ellipsis
                         so a long FIO handle can't push the theme toggle off. */}
                     {headerPersonaLabel && (
-                      <div
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] md:text-xs font-medium max-w-[55vw] md:max-w-none ${
+                      <button
+                        type="button"
+                        onClick={() => setWalletDrawerOpen(true)}
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] md:text-xs font-medium max-w-[55vw] md:max-w-none transition-colors cursor-pointer ${
                           isDark
-                            ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200`
-                            : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700`
+                            ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200 hover:bg-${accentColor}-500/20 hover:border-${accentColor}-500/50`
+                            : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700 hover:bg-${accentColor}-100 hover:border-${accentColor}-400`
                         }`}
-                        title={`Active persona: ${headerPersonaLabel}`}
+                        title={`Active persona: ${headerPersonaLabel} — open wallet to switch persona`}
                       >
+                        <UserCircle2 className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">Welcome, {headerPersonaLabel}</span>
-                      </div>
+                      </button>
                     )}
                     {/* Theme toggle */}
                     <button
@@ -775,6 +875,10 @@ export default function CodexPanelDynamic({
                   Mobile: sub-tabs become a horizontal scroll carousel (flex-1 + overflow-x-auto + no-scrollbar)
                   so the row can't push the page beyond the viewport. The right-cluster title hides on mobile
                   (it duplicates the active sub-tab label anyway) so the carousel gets all available space. */}
+              {/* Hide the entire sub-header row when the group has a single
+                  tab and no sub-sub-tabs — the row adds nothing and wastes
+                  vertical space (aigentZ Command Center, for example). */}
+              {(activeGroupSubTabs.length > 1 || activeSubTabs.length > 0) && (
               <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
                 {activeGroup && activeGroupSubTabs.length > 1 ? (
                   <div className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
@@ -785,7 +889,7 @@ export default function CodexPanelDynamic({
                         <button
                           key={tab.id}
                           onClick={() => setActiveTabSlug(tab.slug)}
-                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
                             isActive
                               ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                               : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -810,7 +914,7 @@ export default function CodexPanelDynamic({
                         <button
                           key={sub.id}
                           onClick={() => setActiveSubSubTabSlug(sub.slug)}
-                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
                             isActive
                               ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                               : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -860,6 +964,7 @@ export default function CodexPanelDynamic({
                   )}
                 </div>
               </div>
+              )}
 
               {/*
                 Tier-3 sub-sub-tab row — rendered as a SEPARATE row below
@@ -884,7 +989,7 @@ export default function CodexPanelDynamic({
                       <button
                         key={sub.id}
                         onClick={() => setActiveSubSubTabSlug(sub.slug)}
-                        className={`flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                        className={`flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
                           isActive
                             ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                             : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -1045,6 +1150,76 @@ export default function CodexPanelDynamic({
           promptPlaceholder="Ask aigentMe about your ExperienceModel, briefs, or next move..."
           initialMessage="I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything."
           quickPrompts={['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1', 'Ask Nakamoto']}
+        />
+      )}
+
+      {/* Polity Passport Bureau — copilot on every passport tab.
+          Violet branding to match the cartridge accent. Agent: aigent-z
+          (system orchestrator + cartridge owner) — operator placeholder,
+          will reassign later. Per 2026-06-13 Sprint 8 plan. */}
+      {codexId === 'polity-passport-bureau-cartridge' && (
+        <CodexCopilotLayer
+          isOpen={passportCopilotOpen}
+          onClose={() => setPassportCopilotOpen(false)}
+          onOpen={() => setPassportCopilotOpen(true)}
+          variant="floating"
+          accentColor="violet"
+          agent={{ id: 'aigent-z', name: 'Aigent Z' }}
+          personaId={resolvedPersonaId ?? undefined}
+          enableInferenceRendering
+          contextId={`passport-${activeTabSlug}`}
+          promptPlaceholder="Ask about your passport, agent delegation, or locker…"
+          initialMessage="I'm Aigent Z — your guide through the Polity Passport Bureau. Citizen Passports, Participant Passports, agent genesis, bounded delegation, the Locker, ENS, and verifiable credentials — ask me anything."
+          quickPrompts={[
+            'How do I claim a Citizen Passport?',
+            'How do I sponsor an agent?',
+            'What does World ID verification add?',
+            'Show my bound agents',
+            'How does the Locker work?',
+          ]}
+        />
+      )}
+
+      {/* Human Mobility Services — aigentMe copilot.
+          Emerald branding. aigentMe is the sole disclosure broker for
+          BlakQube cases. Per PSC-001 / G5 gap closure 2026-06-17. */}
+      {codexId === 'human-mobility-services-cartridge' && (
+        <CodexCopilotLayer
+          isOpen={hmsCopilotOpen}
+          onClose={() => setHmsCopilotOpen(false)}
+          onOpen={() => setHmsCopilotOpen(true)}
+          variant="floating"
+          accentColor="emerald"
+          agent={{ id: 'aigent-z', name: 'aigentMe' }}
+          personaId={resolvedPersonaId ?? undefined}
+          enableInferenceRendering
+          contextId={`hms-${activeTabSlug}`}
+          promptPlaceholder="Ask about your case, workstreams, or critical dates…"
+          initialMessage="I'm aigentMe — your confidentiality guardian for this mobility case. BlakQube protocol is active. Ask me about housing, education, relocation timelines, or workstream status."
+          quickPrompts={[
+            'What are the most urgent deadlines?',
+            'What is the housing workstream status?',
+            'What school applications are pending?',
+            'Summarise the relocation timeline',
+            'What does BlakQube compartmentalisation mean for this case?',
+          ]}
+        />
+      )}
+
+      {/* Standalone SmartWallet overlay launched from the active-persona
+          header badge. variant="overlay" renders the full wallet on top of
+          the cartridge (not via the copilot layer); opens on the wallet tab
+          where the persona switcher lives. */}
+      {walletDrawerOpen && (
+        <SmartWalletDrawer
+          open={walletDrawerOpen}
+          onClose={() => setWalletDrawerOpen(false)}
+          variant="overlay"
+          initialTab="wallet"
+          personaId={resolvedPersonaId}
+          onPersonaChange={handlePersonaChange}
+          cartridgeSlug={codexId}
+          agent={{ id: resolvedPersonaId ?? codexId, name: headerPersonaLabel ?? 'Wallet' }}
         />
       )}
     </SmartTriadProvider>

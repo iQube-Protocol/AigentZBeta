@@ -30,6 +30,26 @@ const nextConfig = {
         "./docs/iqube-score-derivation.md",
         "./codexes/packs/agentiq/updates/**/*.md",
       ],
+      // Copilot chat routes read the aigency + agentiq packs at runtime via
+      // services/knowledge/agentiqPackSearch (aigent-z platform knowledge and
+      // the AgentiQ cartridge copilot). Without these entries the Lambda
+      // bundle ships without the pack files and searchCodex returns nothing —
+      // the copilot then answers "[NOT DOCUMENTED]" for documented topics.
+      // Scoped to aigency + agentiq only — the wildcard ./codexes/packs/**
+      // follows the alpha-knyt symlink and collides with the bundler's
+      // directory-vs-non-directory check on Amplify.
+      "/api/codex/chat": [
+        "./codexes/packs/aigency/**/*.md",
+        "./codexes/packs/aigency/**/*.json",
+        "./codexes/packs/agentiq/**/*.md",
+        "./codexes/packs/agentiq/**/*.json",
+      ],
+      "/api/codex/chat/aigentiq": [
+        "./codexes/packs/aigency/**/*.md",
+        "./codexes/packs/aigency/**/*.json",
+        "./codexes/packs/agentiq/**/*.md",
+        "./codexes/packs/agentiq/**/*.json",
+      ],
     },
   },
   transpilePackages: [

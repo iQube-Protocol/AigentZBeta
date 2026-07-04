@@ -42,8 +42,8 @@ function th(d: boolean) {
     textSubtle:  d ? 'text-slate-500' : 'text-slate-400',
     divider:     d ? 'border-white/[0.07]' : 'border-slate-200',
     inputBase:   d
-      ? 'bg-slate-900/60 border border-white/10 text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-rose-500/50 rounded-lg px-3 py-2 text-sm w-full'
-      : 'bg-white border border-slate-300 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-rose-500 rounded-lg px-3 py-2 text-sm w-full',
+      ? 'bg-slate-900/60 border border-white/10 text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-pink-400/50 rounded-lg px-3 py-2 text-sm w-full'
+      : 'bg-white border border-slate-300 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-pink-400 rounded-lg px-3 py-2 text-sm w-full',
     statusBadge: (s: string) => {
       if (s === 'pending_review') return d ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200';
       if (s === 'approved')       return d ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -263,7 +263,7 @@ export function MarketaApprovalQueueTab({ theme = 'dark' }: Props) {
       <div className={`rounded-xl ${s.card} p-3 sm:p-4`}>
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <ClipboardList className="w-4 h-4 text-rose-400" />
+            <ClipboardList className="w-4 h-4 text-pink-300" />
             <span className={`text-sm font-semibold ${s.textPrimary}`}>Approval Queue</span>
             {pendingCount > 0 && (
               <Badge className={d ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200'}>
@@ -291,7 +291,7 @@ export function MarketaApprovalQueueTab({ theme = 'dark' }: Props) {
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 flex-1 transition-colors capitalize ${
                 filter === f
-                  ? d ? 'bg-rose-500/10 text-rose-300 font-medium' : 'bg-rose-50 text-rose-700 font-medium'
+                  ? d ? 'bg-pink-400/10 text-pink-300 font-medium' : 'bg-pink-50 text-pink-600 font-medium'
                   : d ? 'bg-slate-900/60 text-slate-400 hover:text-slate-200' : 'bg-white text-slate-600 hover:text-slate-800'
               }`}
             >
@@ -304,7 +304,7 @@ export function MarketaApprovalQueueTab({ theme = 'dark' }: Props) {
       {/* Pack list */}
       {loading ? (
         <div className="flex items-center justify-center p-16">
-          <Loader2 className="w-6 h-6 animate-spin text-rose-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-pink-300" />
         </div>
       ) : filtered.length === 0 ? (
         <div className={`rounded-xl ${s.card} p-10 text-center`}>

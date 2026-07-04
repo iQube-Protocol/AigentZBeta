@@ -142,7 +142,7 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
           <CockpitEmpty isDark={isDark} mutedClass={mutedClass} />
         ) : (
           <div className="space-y-5">
-            {/* Top strip — stage + primary goal */}
+            {/* Top strip — stage + primary goal + thesis */}
             <div className={`rounded-lg border p-3 lg:p-4 ${stripClass}`}>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
@@ -160,7 +160,38 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                   </div>
                 )}
               </div>
+              {/* Thesis mission line — from VentureQube thesis layer */}
+              {data.thesisSummary?.mission && (
+                <div className={`mt-2 pt-2 border-t ${isDark ? 'border-slate-700/60' : 'border-slate-200'}`}>
+                  <div className={`text-[10px] uppercase tracking-[0.16em] mb-0.5 ${mutedClass}`}>
+                    Mission
+                  </div>
+                  <div className={`text-xs leading-snug ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    {data.thesisSummary.mission}
+                  </div>
+                </div>
+              )}
+              {data.thesisSummary?.problem && !data.thesisSummary.mission && (
+                <div className={`mt-2 pt-2 border-t ${isDark ? 'border-slate-700/60' : 'border-slate-200'}`}>
+                  <div className={`text-[10px] uppercase tracking-[0.16em] mb-0.5 ${mutedClass}`}>
+                    Problem
+                  </div>
+                  <div className={`text-xs leading-snug ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                    {data.thesisSummary.problem}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Signal quality strip — four confidence dimensions from VentureQube signal evidence */}
+            {data.signalSummary && (
+              data.signalSummary.opportunityConfidence !== null ||
+              data.signalSummary.demandConfidence !== null ||
+              data.signalSummary.capabilityConfidence !== null ||
+              data.signalSummary.confidence !== null
+            ) && (
+              <SignalQualityStrip signal={data.signalSummary} isDark={isDark} />
+            )}
 
             {/* Row 1 — KPIs (cyan accent) */}
             <Row
@@ -199,8 +230,38 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                 {data.kpiSummary.hasConfidentialNotes && (
                   <PillChip label="Confidential notes" isDark={isDark} accentId="slate" />
                 )}
+                {/* Signal confidence chip — from VentureQube signal evidence layer */}
+                {data.signalSummary && data.signalSummary.count > 0 && (
+                  <SignalChip
+                    count={data.signalSummary.count}
+                    confidence={data.signalSummary.confidence}
+                    isDark={isDark}
+                  />
+                )}
+                {/* NVA total chip — from verified ProofOfOutcomeClaims */}
+                {data.nvaTotal > 0 && (
+                  <NvaChip nvaTotal={data.nvaTotal} isDark={isDark} />
+                )}
+                {/* Governance standing score — from VentureQube governance layer */}
+                {typeof data.standingGovScore === 'number' && (
+                  <StandingGovChip score={data.standingGovScore} isDark={isDark} />
+                )}
               </Carousel>
             </Row>
+
+            {/* Row 1b — Operating Objectives (amber accent — in-flight work items) */}
+            {data.operatingObjectives && data.operatingObjectives.length > 0 && (
+              <Row
+                title="Operating objectives"
+                accentClass={isDark ? "text-amber-300/90" : "text-amber-700"}
+              >
+                <Carousel>
+                  {data.operatingObjectives.map((obj) => (
+                    <ObjectiveChip key={obj.id} objective={obj} isDark={isDark} />
+                  ))}
+                </Carousel>
+              </Row>
+            )}
 
             {/* Row 2 — Active Work (emerald accent) */}
             <Row
@@ -237,9 +298,22 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                     const queued = queuedIntents?.[a.id];
                     if (queued) {
                       const artifactsForPill = artifactsByIntent[queued.intentId] ?? [];
+                      // For standing-cartridge add-evidence chips: inject a nav artifact
+                      // so the pill shows an "Open" link instead of an empty body.
+                      const isStandingNav = a.id.includes('standing-cartridge') && a.id.includes('add-evidence');
+                      const enrichedArtifacts = isStandingNav && artifactsForPill.length === 0
+                        ? [{
+                            artifactId: 'nav:standing-cartridge',
+                            intentId: queued.intentId,
+                            title: 'Standing Cartridge — upload evidence',
+                            kind: 'doc' as const,
+                            status: 'published' as const,
+                            locationUrl: '/triad/embed/codex/standing-cartridge?tab=standing',
+                          }]
+                        : artifactsForPill;
                       const matchedSecondTier =
                         secondTierApproval &&
-                        artifactsForPill.some((af) => af.artifactId === secondTierApproval.artifactId)
+                        enrichedArtifacts.some((af) => af.artifactId === secondTierApproval.artifactId)
                           ? secondTierApproval
                           : null;
                       return (
@@ -247,7 +321,7 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                           key={a.id}
                           action={a}
                           queued={queued}
-                          artifacts={artifactsForPill}
+                          artifacts={enrichedArtifacts}
                           secondTierApproval={matchedSecondTier}
                           actionPendingArtifactId={actionPendingArtifactId}
                           actionErrors={actionErrors}
@@ -591,6 +665,173 @@ function ActivityChip({
         {activity.status}
       </div>
     </button>
+  );
+}
+
+/**
+ * SignalQualityStrip — four-dimension confidence bar for the venture's signal
+ * evidence layer. Renders a compact horizontal strip of labelled score bars
+ * (0–100 scale) so the operator sees market signal quality at a glance without
+ * opening the full signal evidence panel.
+ *
+ * Dimensions:
+ *   Signal (overall)   — avg across all signal items
+ *   Opportunity        — addressable market + timing
+ *   Demand             — validated pull from the archetype
+ *   Capability         — internal ability to execute
+ *
+ * Colour ramp (matches the metaMe R/T dot spec):
+ *   ≤ 33  → rose-500  (weak)
+ *   ≤ 66  → amber-500 (moderate)
+ *   > 66  → emerald-500 (strong)
+ */
+function SignalQualityStrip({
+  signal,
+  isDark,
+}: {
+  signal: {
+    confidence: number | null;
+    opportunityConfidence: number | null;
+    demandConfidence: number | null;
+    capabilityConfidence: number | null;
+    count: number;
+  };
+  isDark: boolean;
+}) {
+  const dims: Array<{ label: string; value: number | null }> = [
+    { label: 'Signal', value: signal.confidence },
+    { label: 'Opportunity', value: signal.opportunityConfidence },
+    { label: 'Demand', value: signal.demandConfidence },
+    { label: 'Capability', value: signal.capabilityConfidence },
+  ].filter((d) => d.value !== null);
+
+  if (dims.length === 0) return null;
+
+  const barColor = (v: number) =>
+    v <= 33 ? 'bg-rose-500' : v <= 66 ? 'bg-amber-500' : 'bg-emerald-500';
+  const textColor = (v: number) =>
+    v <= 33
+      ? (isDark ? 'text-rose-300' : 'text-rose-700')
+      : v <= 66
+        ? (isDark ? 'text-amber-300' : 'text-amber-700')
+        : (isDark ? 'text-emerald-300' : 'text-emerald-700');
+  const wrapClass = isDark
+    ? 'bg-slate-900/40 border-slate-800/60'
+    : 'bg-slate-50 border-slate-200';
+
+  return (
+    <div className={`rounded-lg border p-3 ${wrapClass}`}>
+      <div className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+        Signal quality
+        {signal.count > 0 && (
+          <span className={`ml-1.5 normal-case tracking-normal font-normal ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+            · {signal.count} signal{signal.count === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        {dims.map(({ label, value }) => {
+          const pct = Math.max(0, Math.min(100, Math.round(value!)));
+          return (
+            <div key={label}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{label}</span>
+                <span className={`text-[10px] font-semibold tabular-nums ${textColor(pct)}`}>{pct}</span>
+              </div>
+              <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${barColor(pct)}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SignalChip({
+  count,
+  confidence,
+  isDark,
+}: {
+  count: number;
+  confidence: number | null;
+  isDark: boolean;
+}) {
+  // Signal evidence aggregate — cyan accent, shows count + avg confidence.
+  const tint = accent('cyan', isDark ? 'dark' : 'light');
+  const pct = confidence !== null ? Math.round(confidence) : null;
+  return (
+    <div className={`rounded-lg border p-2.5 min-w-[8rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+      <div className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Signal evidence</div>
+      <div className={`text-lg font-semibold leading-tight mt-0.5 ${tint.text}`}>{count}</div>
+      {pct !== null && (
+        <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          {pct}% confidence
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NvaChip({ nvaTotal, isDark }: { nvaTotal: number; isDark: boolean }) {
+  // NVA total from verified outcome claims — violet accent (outcome class).
+  const tint = accent('violet', isDark ? 'dark' : 'light');
+  const display = nvaTotal >= 1000 ? `${(nvaTotal / 1000).toFixed(1)}k` : String(Math.round(nvaTotal));
+  return (
+    <div className={`rounded-lg border p-2.5 min-w-[8rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+      <div className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>NVA accrued</div>
+      <div className={`text-lg font-semibold leading-tight mt-0.5 ${tint.text}`}>{display} hrs</div>
+      <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>verified</div>
+    </div>
+  );
+}
+
+function StandingGovChip({ score, isDark }: { score: number; isDark: boolean }) {
+  // Governance standing score — amber accent; 0–100 range.
+  const tint = accent('amber', isDark ? 'dark' : 'light');
+  return (
+    <div className={`rounded-lg border p-2.5 min-w-[8rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+      <div className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Standing</div>
+      <div className={`text-lg font-semibold leading-tight mt-0.5 ${tint.text}`}>{Math.round(score)}</div>
+      <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>governance</div>
+    </div>
+  );
+}
+
+function ObjectiveChip({
+  objective,
+  isDark,
+}: {
+  objective: import('@/services/orchestration/ventureProgressBuilder').OperatingObjectiveSummary;
+  isDark: boolean;
+}) {
+  // Operating objective chip — amber for active, emerald for completed,
+  // rose for blocked, slate for deferred.
+  const accentId: Accent =
+    objective.status === 'completed' ? 'emerald'
+    : objective.status === 'blocked' ? 'rose'
+    : objective.status === 'deferred' ? 'slate'
+    : 'amber';
+  const tint = accent(accentId, isDark ? 'dark' : 'light');
+  const statusLabel =
+    objective.status === 'completed' ? 'Done'
+    : objective.status === 'blocked' ? 'Blocked'
+    : objective.status === 'deferred' ? 'Deferred'
+    : 'Active';
+  return (
+    <div className={`rounded-lg border p-2.5 min-w-[12rem] max-w-[18rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+      <div className={`text-xs leading-snug truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+        {objective.label}
+      </div>
+      <div className={`text-[10px] uppercase tracking-[0.12em] mt-1 font-medium ${tint.text}`}>
+        {statusLabel}
+        {objective.targetDate && ` · ${objective.targetDate}`}
+      </div>
+    </div>
   );
 }
 

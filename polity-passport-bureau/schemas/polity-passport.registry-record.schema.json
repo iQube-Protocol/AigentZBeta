@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.registry-record.schema.json",
+  "title": "Polity Passport iQube Registry Record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "registry_record_id",
+    "record_type",
+    "passport_type",
+    "status",
+    "visibility",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "registry_record_id": {
+      "type": "string"
+    },
+    "record_type": {
+      "const": "polity_passport_registry_record"
+    },
+    "passport_type": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/passportType"
+    },
+    "status": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/passportStatus"
+    },
+    "visibility": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/visibilityClass"
+    },
+    "public_identifier": {
+      "type": "string"
+    },
+    "public_display_name": {
+      "type": "string"
+    },
+    "persona_reference": {
+      "$comment": "T0 WARNING (CLAUDE.md identifier tiers): the public registry projection and any browser-bound payload MUST NOT carry a raw persona_id — substitute the public_identifier / a commitment hash, or omit. Raw persona_id is permitted only in server-internal storage.",
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/personaRef"
+    },
+    "agent_card_reference": {
+      "type": "string",
+      "format": "uri"
+    },
+    "agent_iqube_ref": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/qubeRef"
+    },
+    "application_iqube_ref": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/qubeRef"
+    },
+    "passport_iqube_ref": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/qubeRef"
+    },
+    "did_refs": {
+      "type": "object",
+      "$comment": "Public refs only: these MUST be commitment hashes / opaque public references, never raw kybe or root DIDs (both are server-internal tiers).",
+      "properties": {
+        "kybe_did_public_ref": {
+          "type": "string"
+        },
+        "root_did_public_ref": {
+          "type": "string"
+        },
+        "didqube_ref": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/qubeRef"
+        }
+      },
+      "additionalProperties": false
+    },
+    "passport_grade": {
+      "type": "string"
+    },
+    "passport_scope": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "reputation_binding_ref": {
+      "type": "string"
+    },
+    "standing_summary": {
+      "type": "object",
+      "properties": {
+        "passport_status": {
+          "type": "string"
+        },
+        "privilege_status": {
+          "type": "string"
+        },
+        "participant_standing_status": {
+          "type": "string"
+        },
+        "reputation_standing": {
+          "type": "string"
+        },
+        "citizen_passport_irrevocable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "review_state": {
+      "type": "object",
+      "properties": {
+        "automated_review_complete": {
+          "type": "boolean"
+        },
+        "steward_review_required": {
+          "type": "boolean"
+        },
+        "steward_review_complete": {
+          "type": "boolean"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "none",
+            "approved",
+            "provisional",
+            "restricted",
+            "needs_more_information",
+            "denied",
+            "suspended",
+            "revoked"
+          ]
+        },
+        "decision_at": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+        }
+      },
+      "additionalProperties": false
+    },
+    "public_metadata": {
+      "type": "object",
+      "properties": {
+        "identity_state": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/identityState"
+        },
+        "human_verified": {
+          "type": "boolean"
+        },
+        "agent_type": {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/agentType"
+        },
+        "supported_protocols": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/agentProtocol"
+          },
+          "uniqueItems": true
+        },
+        "domain_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "private_payload_map": {
+      "$comment": "For citizen passports the private payload is a self-custody blakQube; prefer selfCustodyBlakQubeRef. blackQubeDisclosureMap is retained for participant-class private review data.",
+      "anyOf": [
+        {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/selfCustodyBlakQubeRef"
+        },
+        {
+          "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/blackQubeDisclosureMap"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+    },
+    "updated_at": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/receiptRef"
+      }
+    }
+  },
+  "additionalProperties": false
+}

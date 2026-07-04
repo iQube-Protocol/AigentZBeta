@@ -32,6 +32,9 @@ import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experience
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
+import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
+import { buildStageInstructionBlock, extractStageProposals } from '@/services/devCommandCenter/stageOrchestrator';
+import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -285,6 +288,193 @@ function inferWalletActions(message: string, assistantMessage: string): WalletAc
   if (/(reputation|trust|score)/.test(combined)) register('reputation');
 
   return Array.from(requested).map((actionId) => buildWalletAction(actionId));
+}
+
+/**
+ * Suggested-layouts inference — mirrors the inferWalletActions pattern.
+ *
+ * Scans the user message + assistant response for explicit `[layout:<id>]`
+ * tags emitted by the LLM, then falls back to a keyword regex sweep. The
+ * resulting set drives the left-pane chip strip highlight: any returned id
+ * pulses emerald + scrolls into view so the operator can click to open
+ * the corresponding right-pane layout with the prompt context already
+ * captured by the auto-seed effects.
+ *
+ * The 12 chip targets cover every left-pane-driven right-pane surface:
+ *   - 4 Capsule layouts: brief, decision-board, venture-cockpit, specialists
+ *   - 6 Composer kinds:  gmail, event, doc, sheet, slides, marketa
+ *   - 2 utility drawers: upload, download
+ *
+ * Capping at 4 hints prevents the entire strip from pulsing on chatty
+ * turns. Order is insertion order; UI scrolls the first off-fold hit
+ * into view.
+ */
+export type ChipTargetId =
+  | 'brief'
+  | 'decision-board'
+  | 'venture-cockpit'
+  | 'specialists'
+  | 'gmail'
+  | 'event'
+  | 'doc'
+  | 'sheet'
+  | 'slides'
+  | 'marketa'
+  | 'upload'
+  | 'download'
+  | 'terminal'
+  | 'github'
+  | 'devtools'
+  | 'linear'
+  | 'intent'
+  | 'context'
+  | 'gap-analysis'
+  | 'consequence-canvas'
+  | 'validation'
+  | 'project-overview';
+
+export interface SuggestedLayoutHint {
+  layoutId: ChipTargetId;
+  reason: string;
+  /** Pre-fill text the chip click should feed into the layout's auto-seed. */
+  promptHint: string;
+  /** Parsed email draft extracted from conversation history — bypasses draft-email API when present. */
+  parsedDraft?: {
+    subject: string;
+    bodyText: string;
+    recipientHint?: string; // name extracted from salutation e.g. "Hi David,"
+  };
+}
+
+const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = [
+  'brief', 'decision-board', 'venture-cockpit', 'specialists',
+  'gmail', 'event', 'doc', 'sheet', 'slides', 'marketa',
+  'upload', 'download',
+  'terminal', 'github', 'devtools', 'linear',
+  'intent', 'context', 'gap-analysis', 'consequence-canvas', 'validation', 'project-overview',
+];
+
+const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string }> = [
+  { id: 'brief',            pattern: /(brief me|today'?s brief|my daily brief|what should i focus|top priorities|what's on (my )?plate)/i, reason: 'Operator wants a daily/contextual brief' },
+  { id: 'decision-board',   pattern: /(next best action|move (this )?forward|what's next|next step|decision board|move my goals forward)/i, reason: 'Operator wants the next-action decision board' },
+  { id: 'venture-cockpit',  pattern: /(venture progress|venture cockpit|kpi|metrics dashboard|where am i (on|with) my venture|venture status)/i, reason: 'Operator wants the venture progress cockpit' },
+  { id: 'specialists',      pattern: /(specialist|consult marketa|consult quill|consult kn0w1|ask the team|ask marketa|ask quill|ask kn0w1|partner proposal|outreach play)/i, reason: 'Operator wants to consult a specialist' },
+  { id: 'gmail',            pattern: /(draft (an? )?email|gmail|send (an? )?email|outreach email|email draft|reply to|send (?:it|the (?:doc|deck|brief|file|presentation|proposal|report|link))\s+to\b|email (?:it|them|him|her|the team)\b|\bsend it\b|send it again|resend( that| it| the email)?|send that again)/i, reason: 'Operator wants to draft an email' },
+  { id: 'event',            pattern: /(schedule (a )?meeting|book (a )?call|calendar (event|invite)|set up (a )?meeting|set up (a )?call|create (a )?calendar|arrange (a )?meeting|find (a )?time|block (out )?(time|my calendar)|send (a )?invite)/i, reason: 'Operator wants to schedule a calendar event' },
+  { id: 'doc',              pattern: /(google doc|create (a )?doc|write (up )?(a )?doc|memo|write (up )?(a )?memo|working doc|long-?form (write|document)|write (up )?(a )?(report|summary|proposal|write-up|writeup|brief|plan|strategy|roadmap))/i, reason: 'Operator wants to create a Google Doc' },
+  { id: 'sheet',            pattern: /(spreadsheet|google sheet|create (a )?sheet|tracking sheet|cohort sheet|kpi sheet|tracker|build (a )?(table|tracker|list|grid))/i, reason: 'Operator wants to create a sheet' },
+  { id: 'slides',           pattern: /(slide deck|presentation|create (a )?deck|pitch deck|slides outline|google slides|(?:proposal|partner|launch|investor|go-to-market|partnership|sales|marketing|strategy)\s+deck|build (a )?(deck|presentation|slides))/i, reason: 'Operator wants to create a slide deck' },
+  { id: 'marketa',          pattern: /(marketa (campaign|send|cohort)|send to cohort|campaign blast|cohort email|marketa email|email (the )?(cohort|list|subscribers|audience|community))/i, reason: 'Operator wants a Marketa campaign send' },
+  { id: 'upload',           pattern: /(upload (a |my )?(file|document|pdf|doc|image)|attach (a |my )?(file|doc|pdf|image)|drop (a |my )?file|share (a |my )?(file|document|pdf))/i, reason: 'Operator wants to upload a file' },
+  { id: 'download',         pattern: /(download|export (my )?(ledger|receipts|history|brief)|save (a )?(copy|pdf)|export the)/i, reason: 'Operator wants to download/export something' },
+  { id: 'terminal',          pattern: /(open (a |the )?terminal|terminal session|run (a )?command|shell|cli|command line)/i, reason: 'Operator wants a terminal session' },
+  { id: 'github',            pattern: /(open (the )?repo|github|pull request|PR|commit history|branches|merge)/i, reason: 'Operator wants to view the repository' },
+  { id: 'devtools',          pattern: /(build (log|error)|type error|diagnostic|dev ?tools|lint|compile|debug)/i, reason: 'Operator wants build diagnostics / devtools' },
+  { id: 'linear',            pattern: /(linear|issue tracker|tickets?|backlog|sprint|task board)/i, reason: 'Operator wants the issue tracker' },
+  { id: 'intent',            pattern: /(new intent|distill (my |the |an? )?intent|what am i (trying to )?build|capture (my |the )?intent|start (a |the )?dev (loop|session))/i, reason: 'Operator wants to distill a development intent' },
+  { id: 'context',           pattern: /(context pack|assemble context|relevant (code|files|docs)|codebase context|what (code |files )?do (i|we) (need|have))/i, reason: 'Operator wants to assemble a context pack' },
+  { id: 'gap-analysis',      pattern: /(gap analysis|capability gaps?|what (do we |is )missing|what can (we |i )reuse|existing (capabilities|code)|what needs to be built)/i, reason: 'Operator wants a capability gap analysis' },
+  { id: 'consequence-canvas', pattern: /(consequence|what should happen|what must never|model (the )?consequences|consequence canvas|should happen|should not happen|guardrails)/i, reason: 'Operator wants to model consequences' },
+  { id: 'validation',        pattern: /(validate|post-prompt validation|check (the )?build|verify (the )?(implementation|code|output)|consequence validation)/i, reason: 'Operator wants to validate against the consequence canvas' },
+  { id: 'project-overview',  pattern: /(project overview|where are we|status update|dev loop status|what stage|current (stage|progress)|how far along)/i, reason: 'Operator wants a project overview' },
+];
+
+/** Detect a structured email draft in an assistant message. Returns subject + body or null. */
+function parseEmailDraft(text: string): { subject: string; bodyText: string; recipientHint?: string } | null {
+  // Look for "Subject:" line — the canonical signal an email draft is present
+  const subjectMatch = text.match(/^Subject:\s*(.+)$/im);
+  if (!subjectMatch) return null;
+  const subject = subjectMatch[1].trim();
+  // Body is everything after the subject line (skip the blank separator line)
+  const subjectIndex = text.indexOf(subjectMatch[0]);
+  const afterSubject = text.slice(subjectIndex + subjectMatch[0].length).replace(/^\s*\n/, '');
+  if (!afterSubject.trim()) return null;
+  // Extract recipient name from greeting e.g. "Hi David Chaum," / "Dear Dr. Chaum,"
+  // Captures up to 3 capitalised words so "David Chaum" and "Dr. David Chaum" both work.
+  const greetingMatch = afterSubject.match(/^(?:Hi|Hello|Dear|Hey)[,\s]+(?:(?:Dr|Prof|Mr|Mrs|Ms)\.?\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})[,!]/m);
+  const recipientHint = greetingMatch ? greetingMatch[1].trim() : undefined;
+  return { subject, bodyText: afterSubject.trim(), recipientHint };
+}
+
+function inferSuggestedLayouts(
+  message: string,
+  assistantMessage: string,
+  history?: ChatMessage[],
+): SuggestedLayoutHint[] {
+  const hints: SuggestedLayoutHint[] = [];
+  const seen = new Set<ChipTargetId>();
+  const MAX = 4;
+
+  // baseHint — the user's prompt, used as a seed for downstream surfaces
+  // (composer "What's the deck for?", etc.) when the LLM didn't emit a
+  // [layout:<id>|<substance>] tag. Empty for trivial acknowledgements
+  // ("yes", "ok") so the composer doesn't end up pre-filled with a
+  // meta-instruction the user didn't intend as content.
+  const trimmedMessage = message.trim();
+  const TRIVIAL_ACK = /^(yes|yep|yeah|ok|okay|sure|go|do it|let'?s go|please|cool|thx|thanks?|go ahead|y|n|no)[!.?]*$/i;
+  const baseHint = TRIVIAL_ACK.test(trimmedMessage) ? '' : trimmedMessage.slice(0, 240);
+
+  // Scan recent assistant messages (newest first) for a structured email draft
+  let historyEmailDraft: { subject: string; bodyText: string; recipientHint?: string } | undefined;
+  if (history && history.length > 0) {
+    for (let i = history.length - 1; i >= 0 && i >= history.length - 6; i--) {
+      const msg = history[i];
+      if (msg.role !== 'assistant') continue;
+      const draft = parseEmailDraft(msg.content);
+      if (draft) { historyEmailDraft = draft; break; }
+    }
+    // Also check the current assistant message
+    if (!historyEmailDraft) {
+      const draft = parseEmailDraft(assistantMessage);
+      if (draft) historyEmailDraft = draft;
+    }
+  }
+
+  const register = (id: ChipTargetId, reason: string, promptHint: string) => {
+    if (seen.has(id) || hints.length >= MAX) return;
+    seen.add(id);
+    // LLM-tag substance wins; fall back to baseHint when the tag wasn't
+    // emitted (keyword sweep) or the tag had no substance.
+    const hint: SuggestedLayoutHint = { layoutId: id, reason, promptHint: promptHint.trim() || baseHint };
+    // Attach parsed email draft to gmail hints so the composer can bypass draft-email API
+    if (id === 'gmail' && historyEmailDraft) hint.parsedDraft = historyEmailDraft;
+    hints.push(hint);
+  };
+
+  // Explicit tags — `[layout:<id>|<substance>]`. The system prompt
+  // instructs the LLM to emit these whenever it proposes a concrete
+  // action, with substance = WHAT to do (distilled from conversation).
+  const tagMatches = Array.from(
+    assistantMessage.matchAll(/\[layout:([a-z-]+)(?:\|([^\]]+))?\]/gi),
+  );
+  for (const match of tagMatches) {
+    const raw = (match[1] || '').toLowerCase() as ChipTargetId;
+    if (!LAYOUT_TAG_IDS.includes(raw)) continue;
+    const hint = (match[2] || '').trim();
+    register(raw, 'LLM-tagged layout suggestion', hint);
+  }
+
+  // Keyword sweep over user message + assistant response — lights the
+  // chip even when the LLM didn't emit a tag; promptHint falls back to
+  // baseHint inside register() so the composer still gets a seed.
+  const combined = `${message}\n${assistantMessage}`;
+  for (const k of LAYOUT_KEYWORDS) {
+    if (k.pattern.test(combined)) register(k.id, k.reason, '');
+  }
+
+  return hints;
+}
+
+/**
+ * Strip `[layout:<id>|<substance>]` control tags from the user-facing
+ * assistant text so the operator never sees the chip-strip control codes.
+ */
+function stripLayoutTags(assistantMessage: string): string {
+  return assistantMessage
+    .replace(/\s*\[layout:[a-z-]+(?:\|[^\]]+)?\]\s*/gi, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function createEventMeta(source: string) {
@@ -804,6 +994,28 @@ const MARKETA_TOOLS_ANTHROPIC = [
       },
     },
   },
+  {
+    name: 'search_contacts',
+    description: 'Search the persona\'s personal address book (imported from Google Contacts, iPhone, LinkedIn, Outlook, etc.). Use this whenever the user asks about a specific person, company, email address, phone number, or wants to find contacts affiliated with a project, organisation, or topic. Returns matching contacts with name, email, phone, organisation, and job title.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text search — name, email, company, job title, or any keyword. Pass the most specific term the user mentioned (e.g. "Project Liberty", "Goldman Sachs", "Alice").',
+        },
+        source: {
+          type: 'string',
+          description: 'Optional: filter by import source — google_contacts | vcard | icloud | linkedin | outlook | csv | manual. Omit to search all sources.',
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results to return. Default 20.',
+        },
+      },
+      required: ['query'],
+    },
+  },
 ];
 
 const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
@@ -815,7 +1027,7 @@ const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
   },
 }));
 
-async function executeMarketaTool(name: string, input: Record<string, unknown>): Promise<string> {
+async function executeMarketaTool(name: string, input: Record<string, unknown>, personaId?: string): Promise<string> {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   try {
     if (name === 'list_workflows') {
@@ -969,6 +1181,61 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>):
       const json = await res.json();
       return JSON.stringify({ ready: json.ready, checks: json.checks, details: json.details, errors: json.errors });
     }
+    if (name === 'search_contacts') {
+      if (!personaId) return JSON.stringify({ error: 'No active persona — cannot search contacts' });
+      const rawQ = String(input.query ?? '').trim();
+      const source = typeof input.source === 'string' ? input.source : '';
+      const limit = Math.min(Number(input.limit ?? 20), 100);
+      // Strip meta-words that describe the query type but won't appear in
+      // contact records (e.g. "contacts", "people", "email") so they don't
+      // create impossible AND conditions in the FTS query.
+      const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with)\b/gi;
+      const q = rawQ.replace(STRIP_WORDS, ' ').replace(/\s+/g, ' ').trim();
+      let query = supabase
+        .from('persona_contacts')
+        .select('display_name, first_name, last_name, organization, job_title, email, email_2, phone, phone_2, address, source')
+        .eq('persona_id', personaId)
+        .limit(limit);
+      if (source) query = query.eq('source', source);
+      if (q) {
+        query = (query as any).textSearch(
+          'fts',
+          q.split(/\s+/).filter((w: string) => w.length > 1).map((w: string) => w + ':*').join(' & '),
+          { config: 'english', type: 'plain' },
+        );
+      } else {
+        query = query.order('display_name', { ascending: true });
+      }
+      const { data, error } = await query;
+      if (error) return JSON.stringify({ error: error.message });
+      if (!data || data.length === 0) {
+        // Check if address book is empty vs just no matches for this query
+        const { count } = await supabase
+          .from('persona_contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('persona_id', personaId);
+        if (!count || count === 0) {
+          return JSON.stringify({ contacts: [], total: 0, message: 'Address book is empty — no contacts have been imported yet. Ask the user to import contacts from Google, iPhone, or CSV via the Contacts section in the aigentMe right pane.' });
+        }
+        return JSON.stringify({ contacts: [], total: 0, message: `No contacts matched "${q || '(all)'}". The address book has ${count} contact${count !== 1 ? 's' : ''} total.` });
+      }
+      return JSON.stringify({
+        contacts: data.map((c: any) => ({
+          name: c.display_name,
+          firstName: c.first_name,
+          lastName: c.last_name,
+          organization: c.organization,
+          jobTitle: c.job_title,
+          email: c.email,
+          email2: c.email_2 ?? undefined,
+          phone: c.phone,
+          phone2: c.phone_2 ?? undefined,
+          address: c.address ?? undefined,
+          source: c.source,
+        })),
+        total: data.length,
+      });
+    }
     return JSON.stringify({ error: `Unknown tool: ${name}` });
   } catch (err: any) {
     return JSON.stringify({ error: err?.message ?? 'Tool execution failed' });
@@ -980,6 +1247,7 @@ async function callAnthropicWithTools(
   history: ChatMessage[],
   message: string,
   modelId: string,
+  personaId?: string,
 ): Promise<ProviderExecutionResult> {
   const anthropicMessages: any[] = [
     ...history.filter((e) => e.role !== 'system').map((e) => ({ role: e.role, content: e.content })),
@@ -1017,7 +1285,7 @@ async function callAnthropicWithTools(
     const toolUseBlocks = (data.content ?? []).filter((b: any) => b.type === 'tool_use');
     const toolResults: any[] = [];
     for (const block of toolUseBlocks) {
-      const result = await executeMarketaTool(block.name, block.input ?? {});
+      const result = await executeMarketaTool(block.name, block.input ?? {}, personaId);
       toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
     }
     // Append assistant turn + tool results
@@ -1052,7 +1320,7 @@ async function callAnthropicWithTools(
   return { providerId: 'anthropic', modelId: mapAnthropicModelId(modelId || ANTHROPIC_MODEL), content };
 }
 
-async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Promise<ProviderExecutionResult> {
+async function callOpenAiWithTools(messages: ChatMessage[], modelId: string, personaId?: string): Promise<ProviderExecutionResult> {
   let currentMessages: any[] = messages;
 
   let response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1085,7 +1353,7 @@ async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Pr
     for (const tc of toolCalls) {
       let inputObj: Record<string, unknown> = {};
       try { inputObj = JSON.parse(tc.function?.arguments ?? '{}'); } catch { /* ignore */ }
-      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj);
+      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj, personaId);
       currentMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
     }
     response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1119,6 +1387,7 @@ async function executeProviderAttempt(
   history: ChatMessage[],
   message: string,
   isMarketa: boolean,
+  personaId?: string,
 ): Promise<ProviderExecutionResult> {
   switch (attempt.providerId) {
     case 'openai':
@@ -1126,6 +1395,7 @@ async function executeProviderAttempt(
         return callOpenAiWithTools(
           [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: message }],
           attempt.modelId,
+          personaId,
         );
       }
       return callOpenAi([...history, { role: 'user', content: message }], attempt.modelId);
@@ -1133,7 +1403,7 @@ async function executeProviderAttempt(
       return callVenice([...history, { role: 'user', content: message }], attempt.modelId);
     case 'anthropic':
       if (isMarketa) {
-        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId);
+        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId, personaId);
       }
       return callAnthropic(systemPrompt, history, message, attempt.modelId);
     case 'chaingpt':
@@ -1392,15 +1662,13 @@ async function fetchCodexMetadata(domain: ContentDomain = 'metaKnyts'): Promise<
     };
   }
 
-  // Default: ONLY return metaKnyts content when the caller explicitly
-  // asked for the metaKnyts domain. The previous behaviour dumped
-  // KNYT characters / cards / episodes into the LLM prompt for EVERY
-  // domain that wasn't 'qriptopian' — including 'agentiq' (aigentMe
-  // copilot) — which produced KNYT-flavoured narrative on briefs that
-  // had nothing to do with KNYT. Fix 2026-05-26: any unrecognised
-  // domain returns an empty content scaffold so the LLM falls back to
-  // its general / persona-prompt knowledge instead of being primed
-  // with lore that doesn't apply.
+  // Global SmartTriad KB fallback chain (operator decision 2026-06-12):
+  //   aigentMe → metaMe → aigentC → aigentZ
+  // Only metaKnyts and qriptopian have populated KB content today.
+  // Every other domain (including the default 'aigentMe') returns an
+  // empty content scaffold so the LLM uses persona/cartridge context
+  // instead of KNYT lore. When aigentMe/metaMe KBs are populated,
+  // add their branches above this gate.
   if (domain !== 'metaKnyts') {
     return {
       characters: [],
@@ -1599,6 +1867,7 @@ function buildSystemPrompt(
   kbContext?: KBSearchResult[],
   liveContext?: KnytLiveContext,
   activeSkill?: Know1SkillId | null,
+  platformKnowledgeBlock?: string,
 ): string {
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
   const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
@@ -1687,8 +1956,8 @@ function buildSystemPrompt(
 
   // Right-pane ground truth — when the host surface tells us what's
   // currently on screen, the LLM MUST narrate that exact shape instead
-  // of inventing a generic template. Only emitted for aigent-me and
-  // only when groundContext carries usable structure. Skipped when the
+  // of inventing a generic template. Emitted for aigent-me (personal
+  // assistant) and aigent-z (dev command center). Skipped when the
   // payload is empty so we don't add noise.
   let groundContextBlock = '';
   if (resolvedPersonaId === 'aigent-me' && userContext?.groundContext) {
@@ -1769,6 +2038,71 @@ function buildSystemPrompt(
 
       if (lines.length > 0) {
         groundContextBlock = `\n\n## Right-pane ground truth — narrate THIS, do not invent\n\nThe operator's right pane is currently showing the structured data below. Your reply MUST mirror these exact rows — refer to each NBA by its label and rationale, cite the persona's primary goal / stage / active cartridges as the framing axis, and use the per-NBA hint (when present) as the starting frame for any "Act" guidance. NEVER emit placeholder strings like "[Priority 1]", "[Action 1]", or "[Event/Document/Message 1]" — those indicate you ignored this block. If the operator asks "give me my daily brief", paraphrase the brief below as a short narrative followed by 2-3 sentences of WHY each NBA is the move right now.\n\n${lines.join('\n')}`;
+      }
+    } catch {
+      // groundContext malformed — fall back to general narrative.
+    }
+  }
+
+  // aigent-z Dev Command Center ground truth — feeds the LLM with the
+  // current dev loop session state so it can give stage-aware advice,
+  // suggest the right capsule/tool, and reason about what's next.
+  if (resolvedPersonaId === 'aigent-z' && userContext?.groundContext) {
+    try {
+      const gc = userContext.groundContext as Record<string, unknown>;
+      if (gc.surface === 'dev-command-center') {
+        const lines: string[] = [];
+
+        lines.push(`### Dev Command Center session state`);
+        lines.push(`- Surface: Dev Command Center`);
+        lines.push(`- Current stage: **${gc.activeStage ?? 'unknown'}**`);
+        lines.push(`- Active layout: ${gc.activeLayout ?? 'stack'}`);
+        lines.push(`- Active capsule: ${gc.activeCapsule ?? 'none'}`);
+        lines.push(`- Session: ${gc.sessionId ?? 'unknown'}`);
+        lines.push(`- Can advance to next stage: ${gc.canAdvance ? 'yes' : 'no'}`);
+        lines.push(`- Implementation package: ${gc.implementationPackage ?? 'unknown'}`);
+
+        if (gc.intentSummary) {
+          lines.push('');
+          lines.push(gc.intentSummary as string);
+        }
+        if (gc.contextPackSummary) {
+          lines.push('');
+          lines.push(gc.contextPackSummary as string);
+        }
+        if (gc.gapAnalysisSummary) {
+          lines.push('');
+          lines.push(gc.gapAnalysisSummary as string);
+        }
+        if (gc.consequenceCanvasSummary) {
+          lines.push('');
+          lines.push(gc.consequenceCanvasSummary as string);
+        }
+        if (gc.validationSummary) {
+          lines.push('');
+          lines.push(gc.validationSummary as string);
+        }
+
+        groundContextBlock = `\n\n## Dev loop ground truth — narrate THIS, do not invent\n\nYou are aigentZ, the development command center agent. The operator's right pane shows the Dev Command Center with the session state below. Your replies MUST reference this exact state — cite the current stage, the intent goal, the gap analysis ratios, and consequence guardrails when relevant. Guide the operator through the dev loop: intent → context → gaps → consequences → implementation → validation → complete.\n\nWhen you suggest an action, emit a [layout:<id>|<substance>] tag (same format as aigent-me). Valid dev IDs: intent, context, gap-analysis, consequence-canvas, validation, project-overview, terminal, github, devtools, linear.\n\n${lines.join('\n')}`;
+
+        // ICE engine (Phase 1A): stage-specific execution instructions +
+        // the structured stage_data proposal contract for this stage.
+        // When the operator is viewing a specific capsule (activeCapsule),
+        // use that capsule's corresponding stage for the instruction block
+        // so aigentZ emits the right kind of proposal — not the session's
+        // official stage which may be behind the viewed capsule.
+        const CAPSULE_TO_STAGE: Record<string, string> = {
+          intent: 'intent_capture',
+          context: 'context_assembly',
+          'gap-analysis': 'gap_analysis',
+          'consequence-canvas': 'consequence_modeling',
+          validation: 'consequence_validation',
+        };
+        const viewedCapsule = typeof gc.activeCapsule === 'string' ? gc.activeCapsule : null;
+        const effectiveStage =
+          (viewedCapsule && CAPSULE_TO_STAGE[viewedCapsule]) ||
+          (typeof gc.activeStage === 'string' ? gc.activeStage : undefined);
+        groundContextBlock += buildStageInstructionBlock(effectiveStage);
       }
     } catch {
       // groundContext malformed — fall back to general narrative.
@@ -1889,8 +2223,8 @@ After your response, add:
   }
 
   // Platform/system agents: persona system prompt only, plus any KB hits.
-  // metameContextBlock + groundContextBlock are appended for aigent-me
-  // (empty strings for any other agent — adds nothing to their prompts).
+  // metameContextBlock is aigent-me only. groundContextBlock + layoutSuggestionsBlock
+  // are built for both aigent-me and aigent-z (empty strings for other agents).
   // Attached uploads block — only emitted for aigent-me (the only
   // surface that currently exposes the upload-attach UI). When the
   // POST handler resolved uploads against the persona, the block is
@@ -1900,7 +2234,22 @@ After your response, add:
       ? userContext.attachedUploadsBlock
       : '';
 
-  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${attachedUploadsBlock}${kbSection}`;
+  // Layout-suggestion control block — aigent-me only. Instructs the LLM
+  // to emit a [layout:<id>|<substance>] tag whenever it proposes a concrete
+  // action. Tags are stripped from the user-facing response before render.
+  const layoutSuggestionsBlock =
+    resolvedPersonaId === 'aigent-me'
+      ? `\n\n## Right-pane chip-strip control — append a layout tag when you propose an action\n\nThe operator's left pane (where you live) has a chip strip — and the right pane has matching surfaces. When YOU propose a concrete action in your reply, append a control tag at the end of your message in this exact form:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. Its only role is to make the matching chip pulse so the operator can one-click into the right-pane surface with the action substance already seeded.\n\nValid <id> values (12 total):\n- brief, decision-board, venture-cockpit, specialists  (Capsule chips, left strip)\n- gmail, event, doc, sheet, slides, marketa            (Composer chips, right strip)\n- upload, download                                     (Drawer chips, right strip)\n\n<substance> rules (NON-NEGOTIABLE):\n- ≤180 chars.\n- Describe WHAT to do, distilled from the conversation. Example: "Draft a partnership outreach to Lamina 1 framing the three-lane metaProof campaign and offering co-marketing on the KNYT Wheel launch".\n- NEVER restate the user's meta-instruction. "Ask Marketa to draft a plan" is WRONG — that's the request, not the substance. The substance is what the plan IS ABOUT.\n- NEVER use placeholder strings like "[partner name]" or "[your goal]" — if you don't have grounded content, omit the tag entirely.\n- One tag per action you propose. Maximum 2 tags per reply (the chip strip caps suggestions at 4 total; we leave headroom for the keyword classifier).\n- Tag goes at the END of your reply, on its own line.\n\nWhen NOT to emit a tag:\n- You're answering a question, not proposing an action.\n- You don't have enough conversation context to write a real substance (≥10 words of actual content).\n- The user is in mid-clarification ("yes", "ok", "go ahead") — wait until the next turn when you have something concrete to propose.`
+    : resolvedPersonaId === 'aigent-z'
+      ? `\n\n## Right-pane chip-strip control — append a layout tag when you suggest a dev action\n\nYou are aigentZ in the Development Command Center. The operator's left pane (your copilot) has capability quick-prompt chips, and the right pane has the Dev Command Center with capability capsules + an explore strip. When YOU propose a concrete next step, append a control tag:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble. Its role is to pulse the matching chip/button so the operator can one-click into the right surface.\n\nValid <id> values for dev surfaces:\n- intent, context, gap-analysis, consequence-canvas, validation, project-overview  (Capability capsules)\n- terminal, github, devtools, linear  (Explore strip tools)\n- upload, download  (Explore strip drawers)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions.\n\nExamples:\n- [layout:intent|Distill the Executive Mobility Travel booking service into structured intent with users, constraints, and success criteria]\n- [layout:gap-analysis|Analyze which existing services (Passport Bureau, CRM, Marketa) can be reused for the travel workflow]\n- [layout:consequence-canvas|Model what should happen when a booking completes and what must never happen with travel data sovereignty]\n- [layout:terminal|Open a terminal to run the spine verification script against the dev environment]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply.`
+      : '';
+
+  // Platform knowledge (repo map + pack excerpts + registry/network
+  // snapshots) — built async in the POST handler, aigent-z only.
+  const platformBlock =
+    resolvedPersonaId === 'aigent-z' && platformKnowledgeBlock ? platformKnowledgeBlock : '';
+
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -2026,14 +2375,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve the active persona once so both the upload block and the
+    // search_contacts tool handler have a reliable personaId from the spine.
+    // The body's `personaId` field is used as fallback for callers that don't
+    // attach a Bearer token (e.g. embed surfaces).
+    const activePersonaCtx = await getActivePersona(request).catch(() => null);
+    const resolvedCallerPersonaId: string | undefined =
+      activePersonaCtx?.personaId ?? (typeof personaId === 'string' ? personaId : undefined);
+
     // Resolve attached-upload contents through the spine. Ownership
     // is enforced by the persona service — uploadIds that don't
     // belong to the active persona are silently skipped.
     let attachedUploadsBlock = '';
     if (Array.isArray(attachedUploadIds) && attachedUploadIds.length > 0) {
       try {
-        const activePersona = await getActivePersona(request);
-        const resolvedPersonaId = activePersona?.personaId ?? personaId;
+        const resolvedPersonaId = resolvedCallerPersonaId;
         if (resolvedPersonaId) {
           attachedUploadsBlock = await composeAttachedUploadsBlock(resolvedPersonaId, attachedUploadIds);
         }
@@ -2116,6 +2472,7 @@ export async function POST(request: NextRequest) {
       const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
       const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
       const isAigentMe = resolvedAgentForFetch === 'aigent-me';
+      const isAigentZ = resolvedAgentForFetch === 'aigent-z';
       const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
       const needsProtocolKB = isProtocolQuery(message);
 
@@ -2128,13 +2485,45 @@ export async function POST(request: NextRequest) {
         if (ctx) userContext.metameContext = ctx;
       }
 
-      // Fetch codex metadata, KB results, protocol KB (when relevant), and live KNYT state in parallel
-      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext] = await Promise.all([
+      // ICE engine: the dev loop stage the calling surface reports — drives
+      // stage-specific live inventories (cartridges, API routes, registry).
+      // Prefer the viewed capsule's stage over the session's official stage
+      // so live inventories match what the operator is looking at.
+      const CAPSULE_STAGE_MAP: Record<string, string> = {
+        intent: 'intent_capture',
+        context: 'context_assembly',
+        'gap-analysis': 'gap_analysis',
+        'consequence-canvas': 'consequence_modeling',
+        validation: 'consequence_validation',
+      };
+      const gc_ = groundContext as Record<string, unknown> | undefined;
+      const viewedCapsule_ = gc_ && typeof gc_.activeCapsule === 'string' ? gc_.activeCapsule : null;
+      const devLoopStage = isAigentZ
+        ? (viewedCapsule_ && CAPSULE_STAGE_MAP[viewedCapsule_]) ||
+          (gc_ && typeof gc_.activeStage === 'string' ? gc_.activeStage as string : undefined)
+        : undefined;
+
+      // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
+      // state, and aigent-z platform knowledge + stage ground data in parallel
+      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData] = await Promise.all([
         fetchCodexMetadata(domain),
         searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
         needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
+        isAigentZ
+          ? buildAigentZPlatformKnowledge(message, new URL(request.url).origin).catch((err) => {
+              console.warn('[CodexChat] aigent-z platform knowledge failed:', err);
+              return '';
+            })
+          : Promise.resolve(''),
+        isAigentZ
+          ? buildStageGroundData(devLoopStage).catch((err) => {
+              console.warn('[CodexChat] aigent-z stage ground data failed:', err);
+              return '';
+            })
+          : Promise.resolve(''),
       ]);
+      const platformKnowledgeBlock = `${resolvedPlatformKnowledge}${resolvedStageGroundData}`;
       metadata = resolvedMetadata;
       // Merge domain KB + protocol KB results, deduplicated by content prefix
       const seen = new Set<string>();
@@ -2147,7 +2536,7 @@ export async function POST(request: NextRequest) {
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill);
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined);
     }
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);
@@ -2167,7 +2556,9 @@ export async function POST(request: NextRequest) {
       { role: 'system', content: systemPrompt },
       ...chatHistory.slice(-10), // Keep last 10 messages for context
     ];
-    const isMarketa = resolvedAgentId === 'aigent-marketa';
+    // Tool-calling is enabled for Marketa (full tool set) and all aigentMe
+    // agents that have contacts access (search_contacts tool).
+    const isMarketa = resolvedAgentId === 'aigent-marketa' || resolvedAgentId === 'aigent-me';
     let executionResult: ProviderExecutionResult | null = null;
     const providerErrors: Array<{ providerId: RuntimeProviderId; modelId: string; error: string }> = [];
 
@@ -2179,6 +2570,7 @@ export async function POST(request: NextRequest) {
           conversationHistory,
           message,
           isMarketa,
+          resolvedCallerPersonaId,
         );
         console.log('[CodexChat] Provider success:', {
           providerId: executionResult.providerId,
@@ -2215,10 +2607,13 @@ export async function POST(request: NextRequest) {
           })
         : generateFallbackResponse(message, metadata as CodexMetadata, persona);
       const walletActions = inferWalletActions(message, fallbackResponse);
+      const suggestedLayouts = inferSuggestedLayouts(message, fallbackResponse, chatHistory);
+      const responseForClient = stripLayoutTags(fallbackResponse);
       return NextResponse.json({
-        response: fallbackResponse,
+        response: responseForClient,
         persona,
         wallet_actions: walletActions,
+        suggested_layouts: suggestedLayouts,
         event_meta: eventMeta,
         fallback: true,
         provider_availability: providerAvailability,
@@ -2229,16 +2624,26 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
-    const walletActions = inferWalletActions(message, assistantMessage);
-    
-    console.log('[CodexChat] Response length:', assistantMessage.length);
-    console.log('[CodexChat] Response preview:', assistantMessage.substring(0, 200) + '...');
-    console.log('[CodexChat] Response ending:', assistantMessage.substring(assistantMessage.length - 200));
+    // ICE engine: pull structured stage_data proposals (aigent-z only) out of
+    // the reply before layout-tag stripping; they return as stage_proposals.
+    const { cleanText: messageSansStageData, proposals: stageProposals } =
+      resolvedAgentId === 'aigent-z'
+        ? extractStageProposals(assistantMessage)
+        : { cleanText: assistantMessage, proposals: [] };
+    const walletActions = inferWalletActions(message, messageSansStageData);
+    const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData, chatHistory);
+    const responseForClient = stripLayoutTags(messageSansStageData);
+
+    console.log('[CodexChat] Response length:', responseForClient.length);
+    console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');
+    console.log('[CodexChat] Response ending:', responseForClient.substring(responseForClient.length - 200));
 
     return NextResponse.json({
-      response: assistantMessage,
+      response: responseForClient,
       persona,
       wallet_actions: walletActions,
+      suggested_layouts: suggestedLayouts,
+      stage_proposals: stageProposals,
       event_meta: eventMeta,
       userContext: {
         domain: userContext.domain,

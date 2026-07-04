@@ -47,6 +47,17 @@ interface SkillVideoPlayerProps {
   initial_generation_id?: string;
   /** Venice model required for the status URL when resuming a Venice job. */
   initial_venice_model?: string;
+  /**
+   * Per-segment prompts for a multi-clip video (length must equal the
+   * segment count implied by `duration`). When provided, each ≤12s
+   * generation uses ITS OWN prompt instead of repeating `prompt` — this is
+   * what makes a continuous multi-segment story possible; without it every
+   * segment submits an identical request body (same prompt/duration/style),
+   * which produces duplicate/near-duplicate clips (Chrysalis EXP-002 finding,
+   * 2026-07-03). Falls back to repeating `prompt` when omitted, so existing
+   * callers are unaffected.
+   */
+  segment_prompts?: string[];
   packet?: Record<string, any>;
   experience?: { configuration?: Record<string, any>; metadata?: Record<string, any> };
 }
@@ -105,9 +116,60 @@ function isLegacyVideoProxyUrl(uri: string | undefined) {
 // Sora and Venice each cap a single generation at 12s. To reach longer videos
 // we generate N ≤12s clips and stitch them via /api/skills/video/stitch.
 const SEGMENT_SECONDS = 12;
-const MAX_SEGMENTS = 2; // 2×12 = 24s ceiling
+const MAX_SEGMENTS = 4; // 4×12 = 48s ceiling (Chrysalis EXP-002, 2026-07-03)
+// /api/skills/video/stitch accepts 2–3 clips per call. A 4-segment (48s)
+// video is stitched hierarchically: [0,1]→A, [2,3]→B, then [A,B]→final.
+const STITCH_MAX_CLIPS_PER_PASS = 3;
 const SEGMENT_POLL_INTERVAL_MS = 15_000;
 const SEGMENT_MAX_POLL_ATTEMPTS = 24; // ~6 min per clip
+
+/** Split N clip URLs into stitch passes honouring STITCH_MAX_CLIPS_PER_PASS,
+ * then stitch each pass and (if more than one pass) stitch the pass outputs
+ * together — a generic hierarchical reducer, so this works for any segment
+ * count without hardcoding the 2-pass/4-segment case. */
+async function stitchHierarchical(
+  urls: string[],
+  experienceId: string | undefined,
+): Promise<{ ok: boolean; video_url?: string; thumbnail_url?: string; error?: string }> {
+  const doStitch = async (clips: string[]) => {
+    const res = await fetch("/api/skills/video/stitch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clips, experience_id: experienceId || undefined }),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ ok: false, error: "Stitch request failed" }));
+    return res as { ok: boolean; video_url?: string; thumbnail_url?: string; error?: string };
+  };
+
+  if (urls.length <= STITCH_MAX_CLIPS_PER_PASS) {
+    return doStitch(urls);
+  }
+
+  let level = urls;
+  let lastResult: { ok: boolean; video_url?: string; thumbnail_url?: string; error?: string } | null = null;
+  while (level.length > 1) {
+    const nextLevel: string[] = [];
+    for (let i = 0; i < level.length; i += STITCH_MAX_CLIPS_PER_PASS) {
+      const chunk = level.slice(i, i + STITCH_MAX_CLIPS_PER_PASS);
+      if (chunk.length === 1) {
+        nextLevel.push(chunk[0]); // odd one out carries forward unstitched to the next level
+        continue;
+      }
+      const res = await doStitch(chunk);
+      if (!res.ok || !res.video_url) {
+        return { ok: false, error: res.error || "Hierarchical stitch pass failed" };
+      }
+      lastResult = res;
+      nextLevel.push(res.video_url);
+    }
+    level = nextLevel;
+  }
+  // level[0] is the final stitched URL; lastResult carries its thumbnail
+  // (the pass that produced level[0] was always a real 2–3-clip stitch call,
+  // since the loop only terminates once a single URL remains).
+  return { ok: true, video_url: level[0], thumbnail_url: lastResult?.thumbnail_url };
+}
 
 function segmentsForDuration(seconds: number): number {
   const n = Number(seconds);
@@ -158,6 +220,7 @@ export default function SkillVideoPlayer({
   persona_id,
   initial_generation_id,
   initial_venice_model,
+  segment_prompts,
   packet,
   experience,
 }: SkillVideoPlayerProps) {
@@ -254,15 +317,26 @@ export default function SkillVideoPlayer({
       `Generating ${segments} clips to stitch into a ~${segments * SEGMENT_SECONDS}s video…`,
     );
     try {
-      // 1. Submit every segment in parallel (each a 12s generation).
+      // 0. Resolve the per-segment prompt list. If the caller didn't supply
+      // distinct segment_prompts, every segment falls back to the same
+      // `prompt` — which is what caused the "segments are duplicate clips"
+      // defect: identical request bodies read as the same generation
+      // upstream. Callers producing a real multi-segment story (varied prose,
+      // same invariants) MUST pass segment_prompts.
+      const promptForSegment = (index: number): string =>
+        segment_prompts && segment_prompts.length === segments
+          ? segment_prompts[index]
+          : prompt;
+
+      // 1. Submit every segment in parallel (each a 12s generation, its own prompt).
       const submits = await Promise.all(
-        Array.from({ length: segments }, async () => {
+        Array.from({ length: segments }, async (_, index) => {
           const res = await fetch("/api/skills/invoke", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               skill_id,
-              prompt,
+              prompt: promptForSegment(index),
               duration: SEGMENT_SECONDS,
               aspect_ratio,
               style,
@@ -295,15 +369,11 @@ export default function SkillVideoPlayer({
         ),
       );
 
-      // 3. Stitch the clips into one file.
+      // 3. Stitch the clips into one file. >3 clips (e.g. a 48s/4-segment
+      // production) is stitched hierarchically since /api/skills/video/stitch
+      // accepts at most 3 clips per call.
       setStatusMessage("Stitching clips into the final video…");
-      const stitchRes = await fetch("/api/skills/video/stitch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clips: urls, experience_id: experience_id || undefined }),
-      })
-        .then((r) => r.json())
-        .catch(() => ({ ok: false, error: "Stitch request failed" }));
+      const stitchRes = await stitchHierarchical(urls, experience_id);
 
       if (!stitchRes.ok || !stitchRes.video_url) {
         throw new Error(stitchRes.error || "Failed to stitch clips into the final video");
@@ -331,7 +401,7 @@ export default function SkillVideoPlayer({
       setResultSource("none");
       setStatusMessage(null);
     }
-  }, [skill_id, prompt, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, resolvedProvider]);
+  }, [skill_id, prompt, segment_prompts, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, resolvedProvider]);
 
   const invoke = useCallback(async () => {
     if (!skill_id) return;

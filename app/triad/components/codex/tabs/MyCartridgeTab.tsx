@@ -35,7 +35,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Boxes, Loader2, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
+import { AlertTriangle, Boxes, Globe, GlobeLock, Loader2, PackageCheck, Plus, RefreshCcw, Sparkles, Trash2, UserPlus, Wand2 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { CartridgeSetupWizard } from "@/components/metame/setup/CartridgeSetupWizard";
 
@@ -83,6 +83,14 @@ interface CartridgeDetail {
   availableSpecialists: string[];
   tokenWhitelist: string[];
   smartTriadConfig: Record<string, unknown> | null;
+  publishedToCluster: boolean;
+  catalogueRequest: {
+    id: string;
+    status: "pending" | "approved" | "rejected" | "cancelled";
+    requestedAt: string;
+    decidedAt: string | null;
+    decisionReason: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
   isOwnerCaller: boolean;
@@ -324,6 +332,11 @@ export function MyCartridgeTab({ personaId: _personaId, theme: _theme }: Props) 
                 void refreshDetail(detail.cartridge.slug);
                 void refreshList();
               }}
+              onDeleted={() => {
+                setDetail(null);
+                setSelectedSlug(null);
+                void refreshList();
+              }}
             />
           )}
         </div>
@@ -344,15 +357,93 @@ export default MyCartridgeTab;
 function ManagerDetail({
   detail,
   onChanged,
+  onDeleted,
 }: {
   detail: DetailResponse;
   onChanged: () => void;
+  onDeleted: () => void;
 }) {
   const c = detail.cartridge;
   const canEdit = detail.caller.canEdit;
+  // Only the owner persona can delete — even uber-admins go through
+  // /admin/codex for cross-persona ops.
+  const canDelete = c.isOwnerCaller;
 
   const [savingId, setSavingId] = useState<string | null>(null);
   const [opError, setOpError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  async function doDelete() {
+    setDeleting(true);
+    setOpError(null);
+    try {
+      const res = await personaFetch(`/api/cartridge/${encodeURIComponent(c.slug)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmSlug: c.slug }),
+      });
+      const j = (await res.json()) as { ok: boolean; error?: string; detail?: string };
+      if (!res.ok || !j.ok) throw new Error(j.detail || j.error || `delete failed (${res.status})`);
+      setDeleteOpen(false);
+      setDeleteConfirmText("");
+      onDeleted();
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function doTogglePublish() {
+    setSavingId("publish");
+    setOpError(null);
+    try {
+      const res = await personaFetch(
+        `/api/cartridge/${encodeURIComponent(c.slug)}/publish-to-cluster`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ published: !c.publishedToCluster }),
+        },
+      );
+      const j = (await res.json()) as { ok: boolean; error?: string; detail?: string };
+      if (!res.ok || !j.ok) throw new Error(j.detail || j.error || `save failed (${res.status})`);
+      // Broadcast so CodexPanelDynamic re-fetches its published list and
+      // the new tab appears in the myCluster strip without a page reload.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("mycluster:published-changed"));
+      }
+      onChanged();
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function doApplyToCatalogue() {
+    setSavingId("catalogue");
+    setOpError(null);
+    try {
+      const res = await personaFetch(
+        `/api/cartridge/${encodeURIComponent(c.slug)}/request-catalogue`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      const j = (await res.json()) as { ok: boolean; error?: string; detail?: string };
+      if (!res.ok || !j.ok) throw new Error(j.detail || j.error || `apply failed (${res.status})`);
+      onChanged();
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   async function patchCartridge(body: Record<string, unknown>, opId: string) {
     setSavingId(opId);
@@ -402,8 +493,230 @@ function ManagerDetail({
           {c.visibility && <Chip>{c.visibility}</Chip>}
           <Chip>caller: {detail.caller.reason}</Chip>
           {!canEdit && <Chip className="text-amber-300">read-only</Chip>}
+          {c.publishedToCluster && (
+            <Chip className="text-emerald-400 border-emerald-500/30 bg-transparent">
+              live in myCluster
+            </Chip>
+          )}
+          {c.catalogueRequest?.status === "approved" && (
+            <Chip className="text-sky-400 border-sky-500/30 bg-transparent">
+              in metaMe catalogue
+            </Chip>
+          )}
+          {c.catalogueRequest?.status === "pending" && (
+            <Chip className="text-amber-400 border-amber-500/30 bg-transparent">
+              catalogue review pending
+            </Chip>
+          )}
         </div>
       </header>
+
+      {/* Cartridge actions — publish + apply to catalogue + delete. Sits
+          at the top so the operator can see at a glance whether the
+          cartridge is live in their myCluster, whether it's in the
+          catalogue review queue, and how to remove or destroy it. */}
+      <section className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium text-slate-200">Cartridge actions</h3>
+            <p className="text-xs text-slate-500">
+              Publish to myCluster, apply to the metaMe catalogue, or remove the cartridge entirely.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Publish — only shown when the cartridge is NOT live in
+              myCluster. Emerald text/border accent only. */}
+          {!c.publishedToCluster && (
+            <button
+              type="button"
+              disabled={!canEdit || savingId === "publish"}
+              onClick={() => void doTogglePublish()}
+              title="Publish to myCluster — adds a tab with your cartridge name in the myCluster group"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition disabled:opacity-40 border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:border-emerald-500/60"
+            >
+              {savingId === "publish" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Publishing…
+                </>
+              ) : (
+                <>
+                  <Globe className="w-4 h-4" />
+                  Publish to myCluster
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Status pill + Unpublish — only shown when the cartridge IS
+              live. Status is a non-interactive emerald chip; Unpublish
+              is the explicit removal affordance (amber so it's visibly
+              distinct from Publish and from Delete). */}
+          {c.publishedToCluster && (
+            <>
+              <span
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border border-emerald-500/30 text-emerald-400 ring-1 ring-emerald-500/30"
+                title="Your cartridge is currently live as a tab in your myCluster group."
+              >
+                <Globe className="w-4 h-4" />
+                Published to myCluster
+              </span>
+              <button
+                type="button"
+                disabled={!canEdit || savingId === "publish"}
+                onClick={() => void doTogglePublish()}
+                title="Unpublish — remove the cartridge tab from your myCluster group. The cartridge itself is preserved."
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition disabled:opacity-40 border-amber-500/30 text-amber-400 hover:text-amber-300 hover:border-amber-500/60"
+              >
+                {savingId === "publish" ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Unpublishing…
+                  </>
+                ) : (
+                  <>
+                    <GlobeLock className="w-4 h-4" />
+                    Unpublish from myCluster
+                  </>
+                )}
+              </button>
+            </>
+          )}
+
+          {/* Apply to metaMe Catalogue — sends a request for admin review. */}
+          {(() => {
+            const reqStatus = c.catalogueRequest?.status;
+            const isPending = reqStatus === "pending";
+            const isApproved = reqStatus === "approved";
+            const isRejected = reqStatus === "rejected" || reqStatus === "cancelled";
+            const disabled = !canEdit || savingId === "catalogue" || isPending || isApproved;
+            const label = (() => {
+              if (savingId === "catalogue") return "Submitting…";
+              if (isApproved) return "Listed in Catalogue";
+              if (isPending) return "Pending review";
+              if (isRejected) return "Re-apply to metaMe Catalogue";
+              return "Apply to Publish to metaMe Catalogue";
+            })();
+            const title = (() => {
+              if (isApproved) return "Your cartridge is live in the metaMe activations catalogue.";
+              if (isPending) return "A metaMe admin will review your application.";
+              if (isRejected && c.catalogueRequest?.decisionReason)
+                return `Previous decision: rejected — ${c.catalogueRequest.decisionReason}`;
+              return "Send a request to the metaMe admins to list this cartridge in the activations catalogue.";
+            })();
+            return (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => void doApplyToCatalogue()}
+                title={title}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition disabled:opacity-60 border-sky-500/30 text-sky-400 hover:text-sky-300 hover:border-sky-500/60 ${
+                  isApproved ? "ring-1 ring-sky-500/30" : ""
+                }`}
+              >
+                {savingId === "catalogue" ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <PackageCheck className="w-4 h-4" />
+                )}
+                {label}
+              </button>
+            );
+          })()}
+
+          <div className="flex-1" />
+          {/* Delete — lightweight rose text/border, no fill. */}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(true)}
+              title="Delete this cartridge — permanent, owner-only"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded border transition border-rose-500/30 text-rose-400 hover:text-rose-300 hover:border-rose-500/60"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete cartridge
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* Delete confirmation modal — typed-slug confirmation. */}
+      {deleteOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-lg border border-red-500/40 bg-slate-900 p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <h3 className="text-base font-semibold text-slate-100">
+                  Delete &ldquo;{c.title}&rdquo;?
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  This permanently deletes the cartridge, all its tabs, members,
+                  and activations. Receipts and audit trails are preserved.
+                  This cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-400">
+                Type the cartridge slug{" "}
+                <span className="font-mono text-red-300">{c.slug}</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={c.slug}
+                autoFocus
+                disabled={deleting}
+                className="w-full px-3 py-2 rounded bg-slate-800/60 border border-slate-700 text-sm font-mono"
+              />
+            </div>
+            {opError && (
+              <div className="px-3 py-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded">
+                {opError}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => {
+                  setDeleteOpen(false);
+                  setDeleteConfirmText("");
+                  setOpError(null);
+                }}
+                className="px-3 py-1.5 text-sm rounded border border-slate-600 text-slate-300 hover:bg-slate-700/40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting || deleteConfirmText !== c.slug}
+                onClick={() => void doDelete()}
+                className="px-3 py-1.5 text-sm rounded bg-red-500 text-white hover:bg-red-400 disabled:opacity-40 inline-flex items-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Deleting…
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete permanently
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {opError && (
         <div className="px-3 py-2 text-sm text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded">

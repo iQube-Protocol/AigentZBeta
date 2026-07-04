@@ -35,6 +35,7 @@ const VALID_USE_KINDS: UploadUseKind[] = [
   'email_attachment',
   'iqube_payload',
   'venture_iqube',
+  'standing_document',
 ];
 const VALID_STATUSES: UploadStatus[] = ['parsing', 'ready', 'archived', 'failed'];
 

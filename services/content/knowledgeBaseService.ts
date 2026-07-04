@@ -340,6 +340,74 @@ class KnowledgeBaseService {
   }
 
   /**
+   * Get a document by its source_id (idempotency for non-CID sources like
+   * markdown commentary documents keyed by a stable paper id).
+   */
+  async getDocumentBySourceId(sourceId: string): Promise<KBDocument | null> {
+    const { data } = await this.supabase
+      .from('codex_kb_documents')
+      .select('*')
+      .eq('source_id', sourceId)
+      .maybeSingle();
+    return (data as KBDocument | null) ?? null;
+  }
+
+  /**
+   * Delete a document and its chunks (used to re-ingest a markdown document
+   * idempotently by source_id).
+   */
+  async deleteDocument(documentId: string): Promise<void> {
+    await this.supabase.from('codex_kb_chunks').delete().eq('document_id', documentId);
+    await this.supabase.from('codex_kb_documents').delete().eq('id', documentId);
+  }
+
+  /**
+   * Ingest already-extracted plain text (e.g. a markdown commentary document)
+   * into the knowledge base: register the document, chunk the text, and store
+   * the chunks. Embeddings are generated separately by
+   * EmbeddingService.processUnembeddedChunks(). Re-ingests idempotently when a
+   * document with the same source_id already exists.
+   */
+  async ingestTextDocument(
+    text: string,
+    registration: Omit<DocumentRegistration, 'sourceType'> & { sourceType?: DocumentSourceType },
+  ): Promise<{ success: boolean; documentId?: string; chunkCount?: number; error?: string }> {
+    if (!text.trim()) return { success: false, error: 'empty text' };
+
+    // Idempotency — drop any prior document for this source_id first.
+    if (registration.sourceId) {
+      const existing = await this.getDocumentBySourceId(registration.sourceId);
+      if (existing) await this.deleteDocument(existing.id);
+    }
+
+    const document = await this.registerDocument({
+      ...registration,
+      sourceType: registration.sourceType ?? 'article',
+    });
+    if (!document) return { success: false, error: 'Failed to register document' };
+
+    await this.updateDocumentStatus(document.id, 'processing');
+    try {
+      const chunks = this.pdfService.chunkPlainText(text);
+      const stored = await this.storeChunks(document.id, chunks);
+      if (!stored) {
+        await this.updateDocumentStatus(document.id, 'failed', 'Failed to store chunks');
+        return { success: false, documentId: document.id, error: 'Failed to store chunks' };
+      }
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      await this.updateDocumentStatus(document.id, 'completed', undefined, {
+        wordCount,
+        chunkCount: chunks.length,
+      });
+      return { success: true, documentId: document.id, chunkCount: chunks.length };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      await this.updateDocumentStatus(document.id, 'failed', msg);
+      return { success: false, documentId: document.id, error: msg };
+    }
+  }
+
+  /**
    * Process a PDF from a buffer
    */
   async processPdfFromBuffer(

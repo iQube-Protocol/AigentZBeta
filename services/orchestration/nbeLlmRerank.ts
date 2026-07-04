@@ -16,7 +16,8 @@
 
 import type { NbeCandidate } from '@/services/orchestration/nbeCatalog';
 import type { InferredStrategy } from '@/services/strategy/strategyInference';
-import type { ActiveCartridgeSlug, ExperienceStage } from '@/services/iqube/experienceQube';
+import type { ActiveCartridgeSlug, ExperienceStage, OperatorArchetype } from '@/services/iqube/experienceQube';
+import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_MODEL =
@@ -79,7 +80,9 @@ Rules:
     * Skip the hint (omit the key) ONLY when you genuinely have no
       grounded signal for that NBA — never invent a name or number.
     * No markdown, no JSON-escaped newlines, no T0 ids (personaId /
-      auth_profile_id / tenant_id / kybe_did).`;
+      auth_profile_id / tenant_id / kybe_did).
+
+${GROUNDING_MANDATE}`;
 
 interface RerankContext {
   currentStage: ExperienceStage;
@@ -88,22 +91,35 @@ interface RerankContext {
   experienceGoals: string[];
   strategy: InferredStrategy | null;
   /**
+   * Polity Participation Model archetype. When set, the reranker biases
+   * toward archetype-appropriate NBEs (e.g. Entrepreneurial → venture
+   * formation moves; Creative → content/cultural moves).
+   */
+  operatorArchetype?: OperatorArchetype | null;
+  /**
    * Optional Capability Gateway pre-flight summary (e.g. web-search
    * digest, owned-content-scan finding). Surfaces as a `liveContext`
    * field in the prompt body. Empty / null => omitted entirely so the
    * prompt shape stays stable for callers that don't have a gather.
    */
   liveContext?: string | null;
+  /**
+   * Plan-tier model override from `getPlanModelId(personaPlan)`.
+   * Replaces the env-var default so sovereign/steward/FO personas get Sonnet
+   * while free citizens get Haiku — per the Polity Alpha pricing tiers.
+   */
+  modelOverride?: string | null;
 }
 
 function stripJsonFences(raw: string): string {
   return raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 }
 
-async function callAnthropic(userPrompt: string): Promise<string | null> {
+async function callAnthropic(userPrompt: string, modelId?: string | null): Promise<string | null> {
   if (!ANTHROPIC_API_KEY) return null;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 12_000);
+  const resolvedModel = modelId || ANTHROPIC_MODEL;
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -113,7 +129,7 @@ async function callAnthropic(userPrompt: string): Promise<string | null> {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
+        model: resolvedModel,
         // 1500-token ceiling — old budget was 400, which truncated the
         // response once nbaContextualTitles joined nbaPromptHints
         // (≤140 + ≤200 chars per candidate × 5 candidates ≈ 425 tokens
@@ -153,6 +169,7 @@ function summariseForPrompt(
         activeCartridges: ctx.activeCartridges,
         primaryGoal: ctx.primaryGoal,
         experienceGoals: ctx.experienceGoals.slice(0, 16),
+        ...(ctx.operatorArchetype ? { operatorArchetype: ctx.operatorArchetype } : {}),
       },
       strategy: ctx.strategy
         ? {
@@ -214,7 +231,7 @@ export async function llmRerankNbeCandidates(
   if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
   if (candidates.length < 2) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
 
-  const raw = await callAnthropic(summariseForPrompt(candidates, ctx));
+  const raw = await callAnthropic(summariseForPrompt(candidates, ctx), ctx.modelOverride);
   if (!raw) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
 
   let parsed: { order?: unknown; topReason?: unknown; nbaContextualTitles?: unknown; nbaPromptHints?: unknown };

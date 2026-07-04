@@ -12,6 +12,7 @@
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getPersonaPlan, type PersonaPlan } from '@/services/billing/personaPlan';
 import {
   ACTIVATION_CATALOG,
   getActivationEntry,
@@ -19,6 +20,14 @@ import {
   type ActivationCatalogEntry,
   type ActivationGate,
 } from '@/data/activation-catalog';
+// Shared plan-gate map (which premium activations are paywalled + the unlocking
+// tier) — kept in one place so this service and spineActivations never drift.
+import {
+  ACTIVATION_PLAN_GATE,
+  isPlanEntitled,
+  resolveActivationPlanGate,
+} from '@/services/activations/activationPlanGate';
+import type { TierKey } from '@/services/billing/planCheckout';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public types — T1-safe.
@@ -44,6 +53,10 @@ export interface ActivationSurface {
   revokedAt: string | null;
   /** True when the caller is eligible to self-activate (open, or admin on a gated row). */
   canSelfActivate: boolean;
+  /** True when blocked specifically by the persona's PLAN (paywall). */
+  planGated: boolean;
+  /** Tier whose checkout unlocks this surface, when planGated. */
+  requiredTier: TierKey | null;
 }
 
 interface PersonaActivationRow {
@@ -142,9 +155,11 @@ function rowToSurface(
   entry: ActivationCatalogEntry,
   row: PersonaActivationRow | undefined,
   isAdmin: boolean,
+  plan: PersonaPlan | null,
 ): ActivationSurface {
-  const canSelfActivate =
-    entry.gate === 'open' || isAdmin || row?.status === 'active';
+  const planEntitled = isPlanEntitled(entry.id, plan);
+  const available = entry.gate === 'open' || isAdmin || planEntitled || row?.status === 'active';
+  const planGate = resolveActivationPlanGate(entry.id, plan, available);
   return {
     id: entry.id,
     label: entry.label,
@@ -159,7 +174,9 @@ function rowToSurface(
     grantedVia: row?.granted_via ?? null,
     grantedAt: row?.granted_at ?? null,
     revokedAt: row?.revoked_at ?? null,
-    canSelfActivate,
+    canSelfActivate: available,
+    planGated: planGate.planGated,
+    requiredTier: planGate.requiredTier,
   };
 }
 
@@ -173,8 +190,19 @@ export async function listActivations(
 ): Promise<ActivationSurface[]> {
   const existing = await readRows(personaId);
   await ensureAutoGrants(personaId, existing);
+  // Resolve the plan once so premium cartridges show as self-activatable for
+  // entitled personas (the paywall affordance in the Activations tab).
+  let plan: PersonaPlan | null = null;
+  const admin = getSupabaseServer();
+  if (admin) {
+    try {
+      plan = await getPersonaPlan(admin, personaId);
+    } catch {
+      /* plan unavailable — premium gated as usual */
+    }
+  }
   return ACTIVATION_CATALOG.map((entry) =>
-    rowToSurface(entry, existing.get(entry.id), options?.isAdmin ?? false),
+    rowToSurface(entry, existing.get(entry.id), options?.isAdmin ?? false, plan),
   );
 }
 
@@ -299,12 +327,32 @@ export async function activate(
 ): Promise<{ ok: true; row: PersonaActivationRow } | { ok: false; reason: string }> {
   const entry = getActivationEntry(activationId);
   if (!entry) return { ok: false, reason: 'unknown-activation' };
+  let grantedVia: ActivationGrantedVia = 'self';
   if (entry.gate === 'gated' && !options.isAdmin) {
-    return { ok: false, reason: 'gated — use request-access instead' };
+    // Plan-based eligibility (the paywall): a premium cartridge activation may
+    // be self-activated when the persona's plan grants it; otherwise gated.
+    const gate = ACTIVATION_PLAN_GATE[activationId];
+    let planAllows = false;
+    if (gate) {
+      const sb = getSupabaseServer();
+      if (sb) {
+        try {
+          planAllows = gate.entitled(await getPersonaPlan(sb, personaId));
+        } catch {
+          planAllows = false;
+        }
+      }
+    }
+    if (!planAllows) {
+      return { ok: false, reason: 'gated — upgrade required' };
+    }
+    grantedVia = 'payment';
+  } else if (options.isAdmin && entry.gate === 'gated') {
+    grantedVia = 'admin';
   }
   const row = await upsertRow(personaId, activationId, {
     status: 'active',
-    granted_via: options.isAdmin && entry.gate === 'gated' ? 'admin' : 'self',
+    granted_via: grantedVia,
     revoked_at: null,
   });
   if (!row) return { ok: false, reason: 'persistence-failed' };

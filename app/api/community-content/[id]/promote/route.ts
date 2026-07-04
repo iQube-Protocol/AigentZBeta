@@ -4,7 +4,15 @@
  * Flips 'shared' → 'runtime_promoted' so the content becomes eligible
  * for the runtime takeover catalog.
  *
- * Body: { adminPersonaId: string }   // for audit trail
+ * Body: {
+ *   adminPersonaId: string,        // for audit trail
+ *   runtimeMenu?: string,          // metaMe Pulse: be|make|play|earn|share
+ *   runtimeSubmenu?: string,       // metaMe Pulse: submenu label (e.g. watch, goal)
+ * }
+ *
+ * runtimeMenu / runtimeSubmenu drive where a promoted row surfaces in the
+ * runtime menus (see services/community-content/promotedCapsules.ts). They are
+ * optional — KNYT / Qriptopian promotions omit them.
  *
  * Admin gating mirrors the rest of the codebase — UI gates this behind
  * the admin codex group; the route itself records who did it but does
@@ -27,13 +35,18 @@ export async function POST(
   const id = resolved.id;
   if (!id) return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 });
 
-  let body: { adminPersonaId?: string };
+  let body: { adminPersonaId?: string; runtimeMenu?: string; runtimeSubmenu?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
   const adminPersonaId = body.adminPersonaId?.trim() || null;
+
+  const VALID_MENUS = new Set(['be', 'make', 'play', 'earn', 'share']);
+  const runtimeMenuRaw = body.runtimeMenu?.trim().toLowerCase() || null;
+  const runtimeMenu = runtimeMenuRaw && VALID_MENUS.has(runtimeMenuRaw) ? runtimeMenuRaw : null;
+  const runtimeSubmenu = body.runtimeSubmenu?.trim() || null;
 
   const supabase = getCommunityContentSupabase();
 
@@ -66,6 +79,10 @@ export async function POST(
       status: 'runtime_promoted',
       runtime_promoted_at: new Date().toISOString(),
       runtime_promoted_by: adminPersonaId,
+      // Only overwrite menu placement when the admin supplied it — re-promoting
+      // without a menu must not wipe a prior assignment.
+      ...(runtimeMenu ? { runtime_menu: runtimeMenu } : {}),
+      ...(runtimeSubmenu ? { runtime_submenu: runtimeSubmenu } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);

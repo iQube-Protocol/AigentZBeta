@@ -158,9 +158,35 @@ export function ArtifactCard({
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
-  const surfaceClass = isDark
-    ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
-    : "bg-white border-slate-200 text-slate-900";
+  // Emerald-bordered "complete" state.
+  //
+  // 1. status='sent' / 'published' — the existing rule. Applies after the
+  //    operator clicks Send on Gmail / Marketa drafts, Send-invites on
+  //    Calendar events with external attendees, or Share on Doc / Sheet
+  //    / Slides with pending share suggestions.
+  //
+  // 2. completedOnCreation — destination-agnostic semantic rule that
+  //    covers compose surfaces with no follow-up action: the artifact
+  //    exists at an external locationUrl AND there is no pending
+  //    actionConnectorId waiting on the operator. This is exactly the
+  //    state Calendar (private) / Doc / Sheet / Slides / etc. land in
+  //    when created with no share suggestions or external attendees —
+  //    the act of creation IS the completion. Without this rule those
+  //    artifacts would stay grey forever despite being fully done.
+  //    Gmail and Marketa drafts always carry an actionConnectorId until
+  //    sent, so this branch correctly leaves them grey pre-Send.
+  const completedOnCreation =
+    data.status === "draft" &&
+    !!data.locationUrl &&
+    !data.actionConnectorId;
+  const isSent = data.status === "sent" || data.status === "published" || completedOnCreation;
+  const surfaceClass = isSent
+    ? isDark
+      ? "bg-emerald-500/5 border-emerald-500/60 text-slate-100"
+      : "bg-emerald-50 border-emerald-400 text-slate-900"
+    : isDark
+      ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
+      : "bg-white border-slate-200 text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const accentClass = isDark ? "text-violet-300" : "text-violet-700";
   const actionBtnClass = isDark
@@ -212,25 +238,7 @@ export function ArtifactCard({
                 </span>
               );
             })()}
-            {/*
-              Gmail / Drive / Calendar location link.
-              Shown when the resource is in its final viewable state:
-                - status is approved / sent / published (existing path
-                  for artifacts that went through a send-approval), OR
-                - there is no pending action connector (the artifact has
-                  no external "send / share / publish" step waiting on
-                  approval — e.g. a private Google Doc created in the
-                  operator's own Drive is already live).
-              The original "draft hides the link" rule existed to stop
-              operators from clicking "Open" instead of "Send draft" on
-              approval-gated Gmail drafts. That rule still holds for
-              the approval-gated path via `data.actionConnectorId`.
-            */}
-            {data.locationUrl &&
-              (data.status === "approved" ||
-                data.status === "sent" ||
-                data.status === "published" ||
-                !data.actionConnectorId) && (
+            {data.locationUrl && (
               <a
                 href={data.locationUrl}
                 target="_blank"

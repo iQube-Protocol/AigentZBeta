@@ -35,6 +35,7 @@ import {
   type KpiSource,
 } from "@/services/strategy/kpiTypes";
 import { ACTIVATION_CATALOG } from "@/data/activation-catalog";
+import { useActivations } from "@/services/activations/ActivationsContext";
 import {
   getActiveCartridge,
   tryOpenInMountedCartridge,
@@ -73,8 +74,8 @@ import type { StageEvaluation } from "@/services/strategy/stageProgression";
 // All six now mounted inline by ComposerLayout, not by this tab.
 
 import { ComposeQuickActionsStrip, type ComposeKind } from "@/components/metame/copilot/ComposeQuickActionsStrip";
-import AgentWalletDrawer from "@/components/AgentWalletDrawer";
 import { UploadDrawer } from "@/components/metame/uploads/UploadDrawer";
+import { DownloadsMenu } from "@/components/metame/downloads/DownloadsMenu";
 // WelcomeRightPane is composed by the layout registry now — `StackLayout`
 // wraps it identically so Phase 1 behavior is preserved while Phase 2
 // slices add intent-specific layouts alongside.
@@ -345,11 +346,22 @@ function buildPromptForSuggestedArtifact(
 function buildPromptForNbeAction(
   artifactType: string,
   action: NextBestActionData,
+  liveContext?: { experienceName?: string | null; primaryGoal?: string | null } | null,
 ): string {
   const kind = artifactType.toLowerCase() || 'doc';
   const lines: string[] = [];
   lines.push(`Draft a ${kind} that operationalises this next-best action: "${action.label}".`);
-  if (action.rationale) lines.push(`Context: ${action.rationale}`);
+  // Prefer live context (experience name / primary goal from the brief) over the
+  // static catalog rationale so the draft is specific to what the operator is
+  // actually working on rather than a generic template.
+  const contextLine = liveContext?.experienceName
+    ? `Context: Tailored for "${liveContext.experienceName}". ${action.rationale || ''}`
+    : liveContext?.primaryGoal
+    ? `Context: Focused on goal — "${liveContext.primaryGoal}". ${action.rationale || ''}`
+    : action.rationale
+    ? `Context: ${action.rationale}`
+    : null;
+  if (contextLine) lines.push(contextLine.trim());
   if (action.cartridge) lines.push(`Cartridge: ${action.cartridge}.`);
   if (action.suggestedArtifact) lines.push(`Artifact type requested: ${action.suggestedArtifact}.`);
   lines.push(`Keep it concrete, action-oriented, and ready for the operator to review, edit, and send.`);
@@ -438,13 +450,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     error: string | null;
   } | null>(null);
 
-  // Wallet drawer.
-  const [walletOpen, setWalletOpen] = useState(false);
   // Upload drawer — opens via the Upload icon in the compose strip.
   // Drives /api/uploads (persona_uploads + Supabase Storage) and the
   // parse-on-upload indexer that backs chat-context attach + email
   // attachment + iqube embed flows.
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+  // Downloads menu — opens via the Download icon in the compose strip.
+  // Lets the operator grab the VentureQube JSON schema (+ runbooks) to
+  // share with their off-platform agent. The agent prepares content
+  // that uploads cleanly back through the Upload icon next to it.
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
 
   // Compose modal open/close booleans.
   // Phase 2 Slice 4: compose-modal open booleans removed. The single
@@ -580,6 +595,94 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // the envelope and call setServerChips(). Server emission is the
   // follow-on slice — this slot makes the swap point ready.
   const [serverChips, setServerChips] = useState<NbeQuickChip[] | null>(null);
+
+  // LLM-suggested layouts from the most recent chat turn. Keyed by the
+  // 12 chip target ids; value is the promptHint to seed the layout
+  // with when the operator clicks the highlighted chip. Cleared on the
+  // next chat turn (the copilot fires onSuggestedLayouts([]) when no
+  // pattern matched, which we treat as authoritative).
+  type ChipTargetId =
+    | 'brief' | 'decision-board' | 'venture-cockpit' | 'specialists'
+    | 'gmail' | 'event' | 'doc' | 'sheet' | 'slides' | 'marketa'
+    | 'upload' | 'download';
+  const [suggestedLayoutHints, setSuggestedLayoutHints] = useState<
+    Partial<Record<ChipTargetId, string>>
+  >({});
+  // Email draft parsed from conversation history — when present, passed directly
+  // to the composer as composerPrefill (bypasses draft-email API).
+  const [pendingEmailDraft, setPendingEmailDraft] = useState<{
+    subject: string;
+    bodyText: string;
+    recipientHint?: string;
+  } | null>(null);
+  const handleSuggestedLayouts = useCallback(
+    (hints: Array<{ layoutId: ChipTargetId; promptHint: string; parsedDraft?: { subject: string; bodyText: string; recipientHint?: string } }>) => {
+      const next: Partial<Record<ChipTargetId, string>> = {};
+      for (const h of hints) next[h.layoutId] = h.promptHint;
+      setSuggestedLayoutHints(next);
+      // Stash any parsed email draft so the composer can use it directly
+      const gmailHint = hints.find(h => h.layoutId === 'gmail');
+      if (gmailHint?.parsedDraft) {
+        setPendingEmailDraft(gmailHint.parsedDraft);
+      }
+    },
+    [],
+  );
+  // After the operator engages a Capsule (or opens a composer / drawer)
+  // the matching chip's highlight clears so the strip returns to neutral
+  // FOR THAT CHIP. Other un-clicked suggestions stay pulsing — the
+  // operator may have intended to act on more than one (e.g. draft an
+  // email AND consult Marketa). They clear via: clicking the chip,
+  // clicking the Clear button on the compose strip, or the next chat
+  // turn replacing the whole map.
+  const consumeSuggestion = useCallback((id: ChipTargetId) => {
+    setSuggestedLayoutHints((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  // Manual clear for the compose strip's "Clear" button — wipes every
+  // compose-class suggestion (Email / Event / Doc / Sheet / Slides /
+  // Marketa + Upload / Download) so the strip can return to its idle
+  // COMPOSE badge. Capsule-class suggestions (Brief / Move / Venture /
+  // Specialists) are left intact since they live on a different strip
+  // with its own affordances.
+  const clearComposeSuggestions = useCallback(() => {
+    setSuggestedLayoutHints((prev) => {
+      const composeIds: ChipTargetId[] = [
+        'gmail', 'event', 'doc', 'sheet', 'slides', 'marketa', 'upload', 'download',
+      ];
+      const next = { ...prev };
+      let mutated = false;
+      for (const id of composeIds) {
+        if (id in next) { delete next[id]; mutated = true; }
+      }
+      return mutated ? next : prev;
+    });
+  }, []);
+
+  // Mirror Clear for the left strip's capsule chips — wipes only the
+  // 4 capsule-class suggestions (Brief / Decision Board / Venture
+  // Cockpit / Specialists). Surfaces in the copilot quick-prompt strip
+  // as a "Clear" pill that appears only while any capsule chip is
+  // pulsing. Leaves compose suggestions intact (they have their own
+  // Clear affordance on the right strip).
+  const clearCapsuleSuggestions = useCallback(() => {
+    setSuggestedLayoutHints((prev) => {
+      const capsuleIds: ChipTargetId[] = [
+        'brief', 'decision-board', 'venture-cockpit', 'specialists',
+      ];
+      const next = { ...prev };
+      let mutated = false;
+      for (const id of capsuleIds) {
+        if (id in next) { delete next[id]; mutated = true; }
+      }
+      return mutated ? next : prev;
+    });
+  }, []);
 
   // Phase 2 Slice 5: ApprovalLayout is INTERRUPT class — when a pending
   // approval arrives it overlays whatever layout is foreground. The
@@ -851,6 +954,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setVentureProgressLoading(false);
       setMoveForwardResult(null);
       setMoveForwardLoading(false);
+      // Recommendation fetch is fired by the effect below that watches
+      // activeCapsuleId. We can't call fetchSpecialistRecommendation
+      // directly here because it's declared further down the component
+      // body and would TDZ-error this useCallback's dep array.
       return;
     }
   }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsuleAndMount]);
@@ -1083,7 +1190,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           const seedPrompt =
             handoffHint && handoffHint.trim().length > 0
               ? handoffHint
-              : buildPromptForNbeAction(artifactType, action);
+              : buildPromptForNbeAction(artifactType, action, brief?.context);
           setComposerInitialPrompt(seedPrompt);
           setComposerKind(composeKind);
           // Bind the composer to this queued intent so the drafted
@@ -1193,18 +1300,43 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } catch { /* quota — silently degrade */ }
   }, [composerSourceIntentId, personaId]);
 
+  // Derive the workflow-scoped artifacts payload the email drafters
+  // (draft-email + draft-marketa-email) thread into the LLM prompt so
+  // body text that says "attached" can carry the artifact's URL inline.
+  // Source of truth is the existing `artifacts` state (sessionStorage-
+  // backed, slice(0,10) ordered newest-first). We only include entries
+  // with a real http(s) locationUrl — runtime-destination artifacts
+  // (status='draft' Gmail / Marketa) won't appear here because they
+  // have no public URL, which is the right behaviour: an email never
+  // links back to a draft email.
+  const buildRelatedArtifactsPayload = useCallback(() => {
+    return artifacts
+      .filter((a) => typeof a.locationUrl === 'string' && /^https?:\/\//i.test(a.locationUrl))
+      .slice(0, 5)
+      .map((a) => ({
+        artifactType: a.artifactType,
+        title: a.title,
+        locationUrl: a.locationUrl as string,
+      }));
+  }, [artifacts]);
+
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
   const handleDraftEmail = useCallback(async (prompt: string) => {
+    const relatedArtifacts = buildRelatedArtifactsPayload();
     const res = await personaFetch('/api/assistant/draft-email', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }), personaIdHint: personaId,
+      body: JSON.stringify({
+        prompt,
+        ...(relatedArtifacts.length > 0 ? { relatedArtifacts } : {}),
+      }),
+      personaIdHint: personaId,
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.error || `draft-email failed (${res.status})`);
     }
     return (await res.json()) as { to: string; cc: string; bcc: string; subject: string; bodyText: string; rationale: string; source: 'llm' | 'template' };
-  }, [personaId]);
+  }, [personaId, buildRelatedArtifactsPayload]);
 
   const handleComposeGmailDraft = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; attachmentUploadIds?: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
@@ -1217,6 +1349,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
+    // Save draft so "send it again" / resend can restore the composer without re-drafting.
+    setComposerPrefill({ to: input.to, cc: input.cc, bcc: input.bcc, subject: input.subject, bodyText: input.bodyText });
     void fetchReceipts();
   }, [personaId, fetchReceipts, composerSourceIntentId]);
 
@@ -1352,16 +1486,21 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftMarketa = useCallback(async (prompt: string) => {
+    const relatedArtifacts = buildRelatedArtifactsPayload();
     const res = await personaFetch('/api/assistant/draft-marketa-email', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }), personaIdHint: personaId,
+      body: JSON.stringify({
+        prompt,
+        ...(relatedArtifacts.length > 0 ? { relatedArtifacts } : {}),
+      }),
+      personaIdHint: personaId,
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.error || `draft-marketa-email failed (${res.status})`);
     }
     return (await res.json()) as { to: string; cc: string; bcc: string; subject: string; bodyText: string; rationale: string; source: 'llm' | 'template' };
-  }, [personaId]);
+  }, [personaId, buildRelatedArtifactsPayload]);
 
   const handleComposeMarketa = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; fromName?: string; campaignId?: string; cohortId?: string; attachmentUploadIds?: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
@@ -1554,16 +1693,26 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         & { preflightContext?: import("@/services/capabilities/preflight").PreflightContext };
       setSpecialistRecommendation(payload);
       setSpecialistRecommendationPreflight(payload.preflightContext);
-      // Auto-select the recommended specialist if none is selected yet,
-      // so the operator lands on a primed composer instead of an empty
-      // canvas. They can still pick another from the roster.
+      // Auto-select the top specialist so the operator lands on the right
+      // consultation card immediately. Only advances if nothing is selected yet.
       setSelectedSpecialistId((prev) => prev ?? payload.topSpecialistId);
+      // Auto-ask the specialist with the seed query so the response card
+      // populates immediately — with it come the suggested artifact chips
+      // (gmail-draft, marketa-email, etc.) the operator actually needs to act.
+      // Pre-populate the textarea with the query so the operator sees what
+      // was asked on their behalf rather than landing on an empty input.
+      // Only fires on the initial chip-click invocation when a query is present
+      // and no response exists yet for this specialist.
+      if (query && payload.topSpecialistId && !askSpecialistResponses[payload.topSpecialistId]) {
+        setAskSpecialistPrompt(query);
+        void handleAskSpecialist(payload.topSpecialistId, query);
+      }
     } catch (err) {
       setSpecialistRecommendationError(err instanceof Error ? err.message : String(err));
     } finally {
       setSpecialistRecommendationLoading(false);
     }
-  }, [personaId]);
+  }, [personaId, handleAskSpecialist, askSpecialistResponses]);
 
   const fetchSpecialistThread = useCallback(async (
     specialistId: import("@/services/agents/specialistRouter").SpecialistId,
@@ -1695,6 +1844,32 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } catch { /* quota — silently degrade */ }
   }, [composerInitialPrompt, personaId]);
 
+  // Case A — chat-attachment escrow.
+  //
+  // Holds the upload ids the operator paperclip-attached to the most
+  // recent CHAT turn that actually carried attachments. Threaded into
+  // ComposerLayout → email-class compose modals (Gmail + Marketa) so
+  // the attachment picker seeds itself with the file the operator
+  // intended to send. Modal local state owns the truth once the
+  // operator interacts with the picker; the escrow only seeds an
+  // empty picker on first mount.
+  //
+  // Lifecycle (sticky-on-non-empty):
+  //   - Replaced when SmartTriadCopilotLayer fires onSentAttachments
+  //     after a successful chat turn THAT CARRIED ATTACHMENTS. Turns
+  //     with no paperclip attachments leave the escrow alone — the
+  //     operator may be refining the email body across multiple
+  //     turns without re-attaching, and we don't want to clobber
+  //     their intent.
+  //   - Not persisted across page refresh — escrow is a transient
+  //     channel scoped to the current chat session. Refresh = fresh
+  //     workflow; operator re-attaches if they want to compose.
+  const [composerEscrowAttachments, setComposerEscrowAttachments] = useState<string[]>([]);
+
+  // Saves the last submitted email draft so "send it again" can pre-populate
+  // the composer without calling the draft-email API a second time.
+  const [composerPrefill, setComposerPrefill] = useState<{ to: string; cc?: string; bcc?: string; subject: string; bodyText: string } | null>(null);
+
   // Clear the composer's parent-intent binding whenever the composer
   // is dismissed (composerKind flips to null on backdrop click,
   // onCreate success, overlay X). Without this, a subsequent
@@ -1723,17 +1898,56 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // the overlay; submit creates the artifact + clears composerKind so
   // the overlay unmounts and the active Capsule remains visible
   // underneath (Brief / Move forward / Venture).
-  const openComposeByKind = useCallback((kind: ComposeKind) => {
-    // Clear any prior auto-draft prompt — manual chip-fired composer
-    // opens should land on an empty form, not re-run a previous draft.
-    setComposerInitialPrompt(null);
+  const openComposeByKind = useCallback(async (kind: ComposeKind, promptHint?: string | null) => {
+    // Send-trigger phrases ("send it", "send it again", "resend that") are
+    // activation signals — they open the composer but must NOT be treated as
+    // new email descriptions that overwrite a chat-evolved draft.
+    const SEND_TRIGGER_RE = /^(send it( again)?|resend( that| it| the email)?|send that again|go ahead( and send)?|send now|send the email)[!.?]*$/i;
+
+    const resolvedPrompt = promptHint && promptHint.trim().length > 0 ? promptHint.trim() : null;
+    const isJustSendTrigger = resolvedPrompt !== null && SEND_TRIGGER_RE.test(resolvedPrompt);
+
+    // A genuinely new description (not a send trigger) means a fresh draft —
+    // clear any chat-evolved prefill so the new prompt drives the compose.
+    if (resolvedPrompt && !isJustSendTrigger) {
+      setComposerInitialPrompt(resolvedPrompt);
+      setComposerPrefill(null);
+      setPendingEmailDraft(null);
+    } else if (kind === 'gmail' && pendingEmailDraft) {
+      // Send trigger or no prompt — use the chat-evolved email draft directly.
+      // Build a search term: prefer full name from promptHint (e.g. "Draft email
+      // to David Chaum about...") over just the salutation hint ("David").
+      setComposerInitialPrompt(null);
+      let searchName = pendingEmailDraft.recipientHint ?? '';
+      if (resolvedPrompt) {
+        // Extract "to <First Last>" from the LLM tag substance
+        const toMatch = resolvedPrompt.match(/\bto\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/);
+        if (toMatch) searchName = toMatch[1];
+      }
+      let resolvedTo = searchName;
+      if (searchName) {
+        try {
+          const res = await personaFetch(
+            `/api/contacts?q=${encodeURIComponent(searchName)}&limit=1`,
+          );
+          if (res.ok) {
+            const data = await res.json() as { contacts?: Array<{ email?: string; display_name?: string }> };
+            const hit = data.contacts?.[0];
+            if (hit?.email) resolvedTo = hit.email;
+          }
+        } catch { /* soft-fail — name stays as To value */ }
+      }
+      setComposerPrefill({
+        to: resolvedTo,
+        subject: pendingEmailDraft.subject,
+        bodyText: pendingEmailDraft.bodyText,
+      });
+    } else {
+      // No draft, no meaningful prompt — open empty composer
+      setComposerInitialPrompt(resolvedPrompt);
+    }
     setComposerKind(kind);
-    // No more setActiveLayoutId('composer') — the overlay handles
-    // rendering on top of whatever foreground layout is active. The
-    // previous double-call mounted the composer twice (once via the
-    // foreground swap, once via the overlay), leaving an unresponsive
-    // second modal stuck behind the first when the operator closed it.
-  }, []);
+  }, [pendingEmailDraft, composerPrefill]);
 
   // SpecialistsLayout suggested-artifact button → open ComposerLayout
   // with a pre-baked aigentMe draft prompt so the inline form
@@ -1941,25 +2155,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return null;
   }, [brief, moveForwardResult, activeCartridges]);
 
-  // Phase 2 B.1 3/3 — load the persona's active activation ids so the
-  // copilot bridge can expose the available KPI sources filtered to
-  // what's currently switched on.
-  const [activeActivationIds, setActiveActivationIds] = useState<string[]>([]);
-  useEffect(() => {
-    if (!personaId) return;
-    let cancelled = false;
-    void personaFetch('/api/assistant/activations', { personaIdHint: personaId })
-      .then((r) => r.json())
-      .then((d: { activations?: Array<{ id: string; status: string }> }) => {
-        if (cancelled) return;
-        const ids = (d.activations ?? [])
-          .filter((a) => a.status === 'active')
-          .map((a) => a.id);
-        setActiveActivationIds(ids);
-      })
-      .catch(() => undefined);
-    return () => { cancelled = true; };
-  }, [personaId]);
+  // Phase 2 B.1 3/3 — derive active activation ids from the shared
+  // ActivationsContext instead of a parallel fetch. The context already
+  // manages optimistic state and mutation guards, so reading from it
+  // avoids the race condition where a stale fetch overwrites state.
+  const { activeIds: activationsActiveIds } = useActivations();
+  const activeActivationIds = useMemo(
+    () => Array.from(activationsActiveIds),
+    [activationsActiveIds],
+  );
 
   // Phase 2 B.3 — live cockpit sync.
   //
@@ -2367,6 +2571,75 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // Effect: clicking "Brief me" no longer races the chat ahead of the
   // brief — the prompt loads into the input, the right pane shows a
   // skeleton, the user can edit, and Send fires both panes in sync.
+  // Derived context query for specialist recommendation — used as the implicit
+  // query when the operator clicks a specialist chip without having typed
+  // anything yet. Derived from the most specific available piece of context
+  // so the right pane lands on the right specialist rather than a generic pick.
+  const implicitSpecialistQuery = useMemo(() => {
+    const name = brief?.context?.experienceName;
+    if (name && name.length <= 80) return name;
+    const goal = brief?.context?.primaryGoal ?? (expModel?.meta?.primaryGoal as string | undefined);
+    if (goal && typeof goal === 'string' && goal.length <= 100) return goal;
+    return activeCartridges[0] ?? null;
+  }, [brief, expModel, activeCartridges]);
+
+  // When the Ask Specialists capsule becomes active and no specialist
+  // response has loaded yet, seed the right pane with a recommendation
+  // fetch. This used to live inside handleCtaClick but referencing
+  // fetchSpecialistRecommendation there caused a TDZ error (it's a const
+  // declared further down the component). Effect-based seeding keeps
+  // the declaration order legal and still fires on chip click.
+  // Per-activation seed gate. Without this, dismissing a capsule's data
+  // (e.g. closing the Move forward NBAs via onDismissMoveForward, which
+  // nulls moveForwardResult) re-triggers the auto-seed effects below
+  // because their guards rely on `<result> === null` to decide whether
+  // to fetch. Result: the dismissed CTAs re-appear instantly — a loop
+  // the operator can't escape without leaving the capsule entirely.
+  //
+  // The ref tracks the capsuleId we last seeded for. When activeCapsuleId
+  // changes (capsule swap or close), the ref clears so the next activation
+  // gets one fresh seed. Within a single activation, the effect runs at
+  // most once even if the data state oscillates.
+  const seededCapsuleRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (seededCapsuleRef.current !== null && seededCapsuleRef.current !== activeCapsuleId) {
+      seededCapsuleRef.current = null;
+    }
+  }, [activeCapsuleId]);
+
+  useEffect(() => {
+    if (activeCapsuleId !== 'ask-specialists') return;
+    if (seededCapsuleRef.current === 'ask-specialists') return;
+    if (specialistRecommendation) return;
+    if (specialistRecommendationLoading) return;
+    seededCapsuleRef.current = 'ask-specialists';
+    void fetchSpecialistRecommendation(implicitSpecialistQuery ?? undefined);
+  }, [activeCapsuleId, specialistRecommendation, specialistRecommendationLoading, fetchSpecialistRecommendation, implicitSpecialistQuery]);
+
+  // Same capsule-mount seed for Move forward and Venture progress so
+  // restoring those Capsules from history (or arriving via a quick
+  // prompt) repopulates the right pane the same way the left-pane
+  // chip click does. Without these, navigating back to a previously
+  // engaged Capsule shows whatever stale state happened to be in
+  // memory — or nothing at all on a fresh mount.
+  useEffect(() => {
+    if (activeCapsuleId !== 'move-forward') return;
+    if (seededCapsuleRef.current === 'move-forward') return;
+    if (moveForwardResult) return;
+    if (moveForwardLoading) return;
+    seededCapsuleRef.current = 'move-forward';
+    void fetchMoveForward();
+  }, [activeCapsuleId, moveForwardResult, moveForwardLoading, fetchMoveForward]);
+
+  useEffect(() => {
+    if (activeCapsuleId !== 'venture-progress') return;
+    if (seededCapsuleRef.current === 'venture-progress') return;
+    if (ventureProgress) return;
+    if (ventureProgressLoading) return;
+    seededCapsuleRef.current = 'venture-progress';
+    void fetchVentureProgress();
+  }, [activeCapsuleId, ventureProgress, ventureProgressLoading, fetchVentureProgress]);
+
   const copilotQuickPrompts = useMemo(() => {
     const layoutDispatchFor = (chip: NbeQuickChip) => () => {
       if (!chip.layoutDispatch) return;
@@ -2398,7 +2671,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         prompt: chip.copilotPrompt ?? "",
         skipInference: !chip.copilotPrompt,
         onSelect: layoutDispatchFor(chip),
-        onDispatchOnSend: fetchDispatchFor(chip),
+        // fetchDispatchFor ignores editedPrompt for server chips (the
+        // fetch kind drives what to load, not the input text).
+        onDispatchOnSend: (_editedPrompt: string) => fetchDispatchFor(chip)(),
       }));
     }
 
@@ -2416,36 +2691,121 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'brief',
         label: 'Brief me',
         prompt: 'Give me my daily brief.',
-        onSelect: () => engageCapsuleAndMount('brief'),
-        onDispatchOnSend: async () => { await fetchBrief(); },
+        highlight: 'brief' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('brief');
+          consumeSuggestion('brief');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchBrief(); },
       },
       {
         id: 'move',
         label: 'Move forward',
         prompt: 'What is the next best action I should take right now?',
-        onSelect: () => engageCapsuleAndMount('move-forward'),
-        onDispatchOnSend: async () => { await fetchMoveForward(); },
+        highlight: 'decision-board' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('move-forward');
+          consumeSuggestion('decision-board');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchMoveForward(); },
       },
       {
         id: 'venture',
         label: 'Venture progress',
         prompt: 'Where am I on my venture progress?',
-        onSelect: () => engageCapsuleAndMount('venture-progress'),
-        onDispatchOnSend: async () => { await fetchVentureProgress(); },
+        highlight: 'venture-cockpit' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('venture-progress');
+          consumeSuggestion('venture-cockpit');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => { await fetchVentureProgress(); },
       },
       {
         id: 'ask-specialists',
         label: 'Ask specialists',
-        // The copilot prompt frames the specialist roster so the LLM
-        // knows what's available; the right pane mounts the Phase 2
-        // SpecialistsLayout and fires the server-side recommender so
-        // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
-        onSelect: () => engageCapsuleAndMount('ask-specialists'),
-        onDispatchOnSend: async () => { await fetchSpecialistRecommendation(); },
+        highlight: 'specialists' in suggestedLayoutHints,
+        onSelect: () => {
+          engageCapsuleAndMount('ask-specialists');
+          // When a chat-driven hint exists, prefer it over the implicit
+          // experience query so the right pane focuses on what the
+          // operator actually just said.
+          const hinted = suggestedLayoutHints.specialists;
+          void fetchSpecialistRecommendation(hinted || implicitSpecialistQuery || undefined);
+          consumeSuggestion('specialists');
+        },
+        stickyOnSend: true,
+        onDispatchOnSend: async (editedPrompt: string) => {
+          await fetchSpecialistRecommendation(editedPrompt || undefined);
+        },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount]);
+  }, [serverChips, suggestedLayoutHints, consumeSuggestion, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);
+
+  // Context-inferred quick chips — derived from live brief/experience data.
+  // Each chip routes through the canonical engageCapsuleAndMount gateway and
+  // carries a context-specific seedPrompt the operator can edit before Send.
+  // Only produced when there's enough context to make the chip specific
+  // (experience name or primary goal) — cold/empty state shows nothing here.
+  const inferredQuickPrompts = useMemo(() => {
+    // Don't double-up when server chips are already driving the strip.
+    if (serverChips && serverChips.length > 0) return [];
+
+    const chips: Array<{
+      id: string;
+      label: string;
+      prompt: string;
+      seedPrompt: string;
+      stickyOnSend: boolean;
+      onSelect: () => void;
+      onDispatchOnSend: (editedPrompt: string) => Promise<void>;
+    }> = [];
+
+    // Derive the most specific entity name available so the seed reads
+    // "Draft Marketa outreach for Lamina 1" rather than something generic.
+    const experienceName = brief?.context?.experienceName ?? null;
+    const primaryGoal = brief?.context?.primaryGoal ?? (expModel?.meta?.primaryGoal as string | null ?? null);
+    const cartridge = activeCartridges[0] ?? null;
+
+    // Build Marketa seed — preference order: experience name > primary goal > cartridge name.
+    // Skip if none available (cold state shows no inferred chip).
+    let marketaSeed: string | null = null;
+    if (experienceName && experienceName.length <= 60) {
+      marketaSeed = `Draft Marketa partner outreach for ${experienceName}`;
+    } else if (primaryGoal && primaryGoal.length <= 80) {
+      marketaSeed = `Draft Marketa outreach: ${primaryGoal}`;
+    } else if (cartridge) {
+      marketaSeed = `Draft Marketa partner outreach for ${cartridge}`;
+    }
+
+    if (marketaSeed) {
+      chips.push({
+        id: 'marketa-inferred',
+        label: 'Draft with Marketa',
+        // prompt (sent as chat turn) mirrors the seed so the LLM narrates
+        // the same intent the right-pane recommender is acting on.
+        prompt: marketaSeed,
+        seedPrompt: marketaSeed,
+        // Sticky: subsequent chat turns refine Marketa's recommendation
+        // as the operator adds detail (specific partner, deal size, etc.).
+        stickyOnSend: true,
+        onSelect: () => {
+          engageCapsuleAndMount('ask-specialists');
+          // Fire the recommendation fetch with the seed prompt on click so
+          // Marketa is already surfaced in the right pane the moment the
+          // operator lands there — no need to hit Send first.
+          void fetchSpecialistRecommendation(marketaSeed || undefined);
+        },
+        onDispatchOnSend: async (editedPrompt: string) => {
+          // Re-fire with the edited prompt on Send so the recommendation
+          // tracks the operator's refined ask (specific partner, etc.).
+          await fetchSpecialistRecommendation(editedPrompt || marketaSeed || undefined);
+        },
+      });
+    }
+
+    return chips;
+  }, [serverChips, brief, expModel, activeCartridges, engageCapsuleAndMount, fetchSpecialistRecommendation, implicitSpecialistQuery]);
 
   return (
     <>
@@ -2461,12 +2821,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             <SmartTriadCopilotLayer
               isOpen
               variant="panel"
-              quickPrompts={copilotQuickPrompts}
+              quickPrompts={[...copilotQuickPrompts, ...inferredQuickPrompts]}
               promptPlaceholder="Ask aigentMe — brief, move forward, draft an email…"
               agent={{ id: 'aigent-me', name: 'aigentMe' }}
               agentSubtitle="metaMe · personal assistant"
               personaId={personaId}
               groundContext={copilotGroundContext}
+              onSuggestedLayouts={handleSuggestedLayouts}
+              onClearHighlights={clearCapsuleSuggestions}
+              onSentAttachments={setComposerEscrowAttachments}
               onClose={() => undefined}
             />
           </div>
@@ -2514,11 +2877,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               // capsule) and every NBE approval.
               const secondTierInCapsule = (() => {
                 if (!secondTierApproval) return false;
-                const queuedIntentIds = new Set(
-                  Object.values(queuedIntents).map((q) => q.intentId),
-                );
                 const artifact = artifacts.find(
                   (a) => a.artifactId === secondTierApproval.artifactId,
+                );
+                // Specialists capsule renders the inline SecondTierApprovalCard
+                // for any of its drafted artifacts (which carry no intentId
+                // because composerSourceIntentId is unset on the chip path).
+                // Suppress the overlay so the operator doesn't see a popup
+                // AND an inline card competing for the same approval.
+                if (activeLayoutId === 'specialists' && !artifact?.intentId) {
+                  return true;
+                }
+                const queuedIntentIds = new Set(
+                  Object.values(queuedIntents).map((q) => q.intentId),
                 );
                 return !!(artifact?.intentId && queuedIntentIds.has(artifact.intentId));
               })();
@@ -2675,6 +3046,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 // path so the next composer mount starts empty unless a
                 // suggested-artifact explicitly seeded a prompt.
                 composerInitialPrompt,
+                // Pre-filled draft content for resend flows — takes precedence
+                // over composerInitialPrompt in the Gmail composer.
+                composerPrefill,
+                // Case A — chat-attachment escrow. Threaded into the
+                // email-class compose modals (Gmail + Marketa) so the
+                // attachment picker seeds with the file the operator
+                // paperclip-attached to their last chat turn. The
+                // modals' useEffect only re-seeds when their local
+                // state is empty, so operator picker edits always win.
+                composerInitialAttachmentUploadIds: composerEscrowAttachments,
                 // ComposerLayout's X / Cancel calls this to clear the
                 // overlay state so the composer unmounts. Without it,
                 // the dismiss only swapped foreground layouts — a
@@ -2736,9 +3117,34 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-30">
               <div className="pointer-events-auto">
                 <ComposeQuickActionsStrip
-                  onOpen={openComposeByKind}
-                  onWalletOpen={() => setWalletOpen(true)}
-                  onUploadOpen={() => setUploadDrawerOpen(true)}
+                  onOpen={(kind) => {
+                    // When the chat copilot suggested this compose kind on the
+                    // last turn, ride the captured promptHint into the inline
+                    // composer form so the operator's intent (e.g. "draft an
+                    // outreach email to Lamina 1") drives the auto-draft.
+                    const hint = suggestedLayoutHints[kind];
+                    openComposeByKind(kind, hint ?? null);
+                    consumeSuggestion(kind);
+                  }}
+                  onUploadOpen={() => {
+                    setUploadDrawerOpen(true);
+                    consumeSuggestion('upload');
+                  }}
+                  onDownloadsOpen={() => {
+                    setDownloadsOpen(true);
+                    consumeSuggestion('download');
+                  }}
+                  onClearSuggestions={clearComposeSuggestions}
+                  suggested={{
+                    gmail:    'gmail'    in suggestedLayoutHints,
+                    event:    'event'    in suggestedLayoutHints,
+                    doc:      'doc'      in suggestedLayoutHints,
+                    sheet:    'sheet'    in suggestedLayoutHints,
+                    slides:   'slides'   in suggestedLayoutHints,
+                    marketa:  'marketa'  in suggestedLayoutHints,
+                    upload:   'upload'   in suggestedLayoutHints,
+                    download: 'download' in suggestedLayoutHints,
+                  }}
                   theme={theme}
                 />
               </div>
@@ -2815,15 +3221,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           the matching form, submit creates the artifact then flips
           composerKind→null so the same layout shows the draft
           preview with Send draft → unified ApprovalLayout overlay. */}
-      <AgentWalletDrawer
-        open={walletOpen}
-        onClose={() => setWalletOpen(false)}
-        agent={{ id: 'aigent-me', name: 'aigentMe' }}
-      />
       <UploadDrawer
         open={uploadDrawerOpen}
         onClose={() => setUploadDrawerOpen(false)}
         personaId={personaId}
+        theme={theme}
+      />
+      <DownloadsMenu
+        open={downloadsOpen}
+        onClose={() => setDownloadsOpen(false)}
         theme={theme}
       />
     </>

@@ -1,0 +1,24 @@
+{
+  "id": "constitution-agentic-polity",
+  "title": "The Constitution of the Agentic Polity",
+  "version": "1.0.0",
+  "status": "ratified",
+  "ratifiedAt": "2026-06-22",
+  "boundConstitutionVersion": "1.0.0",
+  "classification": "constitutional",
+  "source": {
+    "cartridge": "qripto-codex",
+    "series": "papers/polity",
+    "paperNumber": 4,
+    "note": "The fourth paper in the Polity series. This is the foundational constitutional text; the operative machine-readable constitution used in the Agent Passport binding triple remains constitution.v1.json. Adding this document to CURRENT_CONSTITUTIONAL_VERSIONS is a governance act (it would re-bind every Agent Passport) and is intentionally NOT done automatically here."
+  },
+  "purpose": "The foundational constitution of the Agentic Polity — the chain of legitimacy (Polity → Citizen → Delegation → Agent), the rights of constitutional persons, and the principles the Polity upholds.",
+  "summary": null,
+  "articles": [],
+  "fullTextPath": "items/CONSTITUTION_OF_AGENTIC_POLITY.md",
+  "sourceUrl": null,
+  "autoDriveCid": null,
+  "wordCount": null,
+  "generatedAt": null,
+  "generatedBy": "scripts/ingest-polity-papers.mjs"
+}

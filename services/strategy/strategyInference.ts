@@ -32,6 +32,11 @@ import {
   type PersonalGuideData,
   type SphereAxis,
 } from '@/types/experienceGuide';
+import {
+  GROUNDING_MANDATE,
+  collectGroundedNumbers,
+  groundProse,
+} from '@/services/orchestration/groundingContract';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public types — T1-safe.
@@ -280,7 +285,11 @@ Rules:
 - nbeHints.keywords: lowercase, 5-12 short terms drawn from goals and partners.
 - nbeHints.cartridgeBias: subset of ["metame","knyt","qriptopian","marketa","mvl"].
 - nbeHints.preferArtifacts: from ["google-doc","gmail-draft","calendar-block","brief","venture-report"].
-- No markdown, no prose outside JSON.`;
+- No markdown, no prose outside JSON.
+
+${GROUNDING_MANDATE}
+
+This input is a DECLARED BASELINE — goals, partners, cartridges, and stage the operator set up. It contains NO achievement, traction, or metric data. Therefore your paragraphs MUST stay qualitative: describe posture, intent, and how declared goals/partners relate. Do NOT state numbers, percentages, customer/holder counts, revenue, or progress over time. If you cannot say something concrete without inventing a figure, describe the intent instead or say the data is not yet available.`;
 
 function stripJsonFences(raw: string): string {
   return raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
@@ -301,7 +310,7 @@ async function callAnthropic(userPrompt: string): Promise<string | null> {
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
         max_tokens: 1400,
-        temperature: 0.4,
+        temperature: 0.2,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -361,16 +370,45 @@ function summariseForPrompt(
   );
 }
 
-function safeParseAndValidate(raw: string, baseline: InferredStrategy): InferredStrategy {
+function safeParseAndValidate(
+  raw: string,
+  baseline: InferredStrategy,
+  groundingSource: string,
+): InferredStrategy {
   try {
     const parsed = JSON.parse(raw) as Partial<InferredStrategy>;
+    // VALIDATION LAYER — reject any generated prose that introduces a number,
+    // percentage, or temporal-trend claim not present in the grounding data.
+    // The grounded set is drawn from the prompt input AND the deterministic
+    // baseline (which is computed from real qube data, so its numbers are
+    // legitimate). Scrubbed fields fall back to the grounded baseline prose.
+    const grounded = collectGroundedNumbers(groundingSource, JSON.stringify(baseline));
+    let scrubbed = false;
+    const scrub = (text: unknown, fallback: string): string => {
+      const r = groundProse(text, grounded, fallback);
+      if (r.scrubbed) scrubbed = true;
+      return r.text;
+    };
+    const headline = scrub(parsed.headline, baseline.headline);
+    const venturePara = scrub(parsed.venturePosture?.paragraph, baseline.venturePosture.paragraph);
+    const personalPara = scrub(parsed.personalPosture?.paragraph, baseline.personalPosture.paragraph);
+    const coherence = scrub(parsed.coherenceNote, baseline.coherenceNote);
+    // Drop any correlation whose explanation smuggles an ungrounded figure —
+    // fabricated "depends-on" claims with invented metrics are the riskiest.
+    const correlations = (Array.isArray(parsed.correlations)
+      ? (parsed.correlations as StrategyCorrelation[]).filter(
+          (c) => c && typeof c.from === 'string' && typeof c.to === 'string',
+        )
+      : baseline.correlations
+    ).filter((c) => {
+      const ok = groundProse(c.explanation, grounded, '').text !== '' || !c.explanation;
+      if (!ok) scrubbed = true;
+      return ok;
+    });
     return {
-      headline: typeof parsed.headline === 'string' ? parsed.headline : baseline.headline,
+      headline,
       venturePosture: {
-        paragraph:
-          typeof parsed.venturePosture?.paragraph === 'string'
-            ? parsed.venturePosture.paragraph
-            : baseline.venturePosture.paragraph,
+        paragraph: venturePara,
         primaryAxis:
           typeof parsed.venturePosture?.primaryAxis === 'string'
             ? parsed.venturePosture.primaryAxis
@@ -383,10 +421,7 @@ function safeParseAndValidate(raw: string, baseline: InferredStrategy): Inferred
           : baseline.venturePosture.unlocks,
       },
       personalPosture: {
-        paragraph:
-          typeof parsed.personalPosture?.paragraph === 'string'
-            ? parsed.personalPosture.paragraph
-            : baseline.personalPosture.paragraph,
+        paragraph: personalPara,
         driveLine:
           typeof parsed.personalPosture?.driveLine === 'string'
             ? parsed.personalPosture.driveLine
@@ -396,13 +431,8 @@ function safeParseAndValidate(raw: string, baseline: InferredStrategy): Inferred
             ? parsed.personalPosture.alignmentNote
             : baseline.personalPosture.alignmentNote,
       },
-      coherenceNote:
-        typeof parsed.coherenceNote === 'string' ? parsed.coherenceNote : baseline.coherenceNote,
-      correlations: Array.isArray(parsed.correlations)
-        ? (parsed.correlations as StrategyCorrelation[]).filter(
-            (c) => c && typeof c.from === 'string' && typeof c.to === 'string',
-          )
-        : baseline.correlations,
+      coherenceNote: coherence,
+      correlations,
       nbeHints: {
         keywords: Array.isArray(parsed.nbeHints?.keywords)
           ? (parsed.nbeHints!.keywords as string[]).filter((s) => typeof s === 'string')
@@ -419,8 +449,11 @@ function safeParseAndValidate(raw: string, baseline: InferredStrategy): Inferred
           ? (parsed.nbeHints!.avoidIds as string[]).filter((s) => typeof s === 'string')
           : baseline.nbeHints.avoidIds,
       },
-      confidence:
-        parsed.confidence === 'high' || parsed.confidence === 'medium' || parsed.confidence === 'low'
+      // When the guard scrubbed ungrounded prose, the enrichment is partly
+      // rejected — never report high confidence on a scrubbed result.
+      confidence: scrubbed
+        ? 'low'
+        : parsed.confidence === 'high' || parsed.confidence === 'medium' || parsed.confidence === 'low'
           ? parsed.confidence
           : baseline.confidence,
       generatedAt: new Date().toISOString(),
@@ -485,9 +518,10 @@ export async function inferStrategy(personaId: string): Promise<InferredStrategy
   const baseline = deterministicBaseline(qube, guide);
 
   let result = baseline;
-  const llmRaw = await callAnthropic(summariseForPrompt(qube, guide));
+  const groundingSource = summariseForPrompt(qube, guide);
+  const llmRaw = await callAnthropic(groundingSource);
   if (llmRaw) {
-    result = safeParseAndValidate(llmRaw, baseline);
+    result = safeParseAndValidate(llmRaw, baseline, groundingSource);
   }
 
   // Persist (best-effort; failure does not block the read).

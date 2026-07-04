@@ -96,7 +96,10 @@ export async function POST(
   // Cartridge defaults to 'knyt' for back-compat with rows created before
   // the Pulse cartridge split migration. The column was added with
   // DEFAULT 'knyt' so all existing rows are already KNYT-flavoured.
-  const cartridge: 'knyt' | 'qripto' = row.cartridge === 'qripto' ? 'qripto' : 'knyt';
+  const cartridge: 'knyt' | 'qripto' | 'metame-runtime' =
+    row.cartridge === 'qripto' ? 'qripto'
+    : row.cartridge === 'metame-runtime' ? 'metame-runtime'
+    : 'knyt';
   // Auth-profile-level ownership — accept any persona the caller's
   // auth profile owns (covers multi-persona users + content created
   // under stale defaults). Strict personaId equality used to reject
@@ -130,21 +133,27 @@ export async function POST(
   // Same UUID is used for both rows so the front-end can pass the
   // community_content.id straight through as publicationId. Best-effort —
   // non-fatal if the table or schema rejects.
-  const publicationTable = cartridge === 'qripto'
-    ? 'qripto_publication_states'
-    : 'knyt_publication_states';
-  await supabase.from(publicationTable).upsert(
-    {
-      id,
-      subject_type: 'community_content',
-      subject_id:   id,
-      branch:       'community',
-      state:        'submitted',
-      created_at:   new Date().toISOString(),
-      updated_at:   new Date().toISOString(),
-    },
-    { onConflict: 'id' },
-  );
+  //
+  // The 'metame-runtime' lane (metaMe Pulse) has no Living Canon surface —
+  // it feeds the runtime menus, not a publication/reaction spine — so it
+  // gets no publication-state mirror.
+  if (cartridge !== 'metame-runtime') {
+    const publicationTable = cartridge === 'qripto'
+      ? 'qripto_publication_states'
+      : 'knyt_publication_states';
+    await supabase.from(publicationTable).upsert(
+      {
+        id,
+        subject_type: 'community_content',
+        subject_id:   id,
+        branch:       'community',
+        state:        'submitted',
+        created_at:   new Date().toISOString(),
+        updated_at:   new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    );
+  }
 
   return NextResponse.json({ ok: true, status: 'shared', cartridge });
 }

@@ -30,7 +30,11 @@
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import type { PersonalGuideData } from '@/types/experienceGuide';
+import {
+  backfillSphereAlignment,
+  deriveOverallAlignment,
+  type PersonalGuideData,
+} from '@/types/experienceGuide';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types — meta (T1) vs blak (T0).
@@ -63,6 +67,12 @@ export type ActiveCartridgeSlug =
   | 'marketa'
   | 'mvl';
 
+/**
+ * Operator archetype from the Polity Participation Model. T1 (public-safe).
+ * Feeds NBE reranking so aigentMe biases toward archetype-appropriate moves.
+ */
+export type OperatorArchetype = 'citizen' | 'entrepreneurial' | 'technical' | 'creative';
+
 /** Public-safe slice — surfaces to the browser. T1. */
 export interface ExperienceQubeMeta {
   experienceModelId: string | null;
@@ -73,6 +83,8 @@ export interface ExperienceQubeMeta {
   progressModel: string;
   activeCartridges: ActiveCartridgeSlug[];
   confidentialityDefault: ConfidentialityDefault;
+  /** Polity Participation Model archetype. Null until the operator sets it. */
+  operatorArchetype: OperatorArchetype | null;
 }
 
 /** Private payload — server-side only. T0. PRD §7.2. */
@@ -137,6 +149,7 @@ interface DbRow {
   progress_model: string;
   active_cartridges: string[];
   confidentiality_default: string;
+  operator_archetype: string | null;
   blak_qube: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -144,6 +157,9 @@ interface DbRow {
 
 const VALID_TYPES = new Set<ExperienceType>([
   'personal', 'creative', 'venture', 'client', 'portfolio', 'venture_building',
+]);
+const VALID_ARCHETYPES = new Set<OperatorArchetype>([
+  'citizen', 'entrepreneurial', 'technical', 'creative',
 ]);
 const VALID_STAGES = new Set<ExperienceStage>([
   'setup', 'alpha_activation', 'launch', 'growth', 'scale',
@@ -172,6 +188,11 @@ function rowToRecord(row: DbRow): ExperienceQubeRecord {
       VALID_CARTRIDGES.has(slug as ActiveCartridgeSlug),
   );
 
+  const archetype: OperatorArchetype | null =
+    row.operator_archetype && VALID_ARCHETYPES.has(row.operator_archetype as OperatorArchetype)
+      ? (row.operator_archetype as OperatorArchetype)
+      : null;
+
   return {
     id: row.id,
     meta: {
@@ -183,6 +204,7 @@ function rowToRecord(row: DbRow): ExperienceQubeRecord {
       progressModel: row.progress_model,
       activeCartridges: cartridges,
       confidentialityDefault: conf,
+      operatorArchetype: archetype,
     },
     blak: (row.blak_qube ?? {}) as ExperienceQubeBlak,
     createdAt: row.created_at,
@@ -315,6 +337,7 @@ export interface ExperienceQubeUpsertInput {
   progressModel?: string;
   activeCartridges?: ActiveCartridgeSlug[];
   confidentialityDefault?: ConfidentialityDefault;
+  operatorArchetype?: OperatorArchetype | null;
   /**
    * BlakQube partial — merged into the existing payload. Only the keys
    * declared in ExperienceQubeBlak are persisted; unknown keys are dropped.
@@ -404,6 +427,11 @@ export async function upsertExperienceQube(
     ? input.activeCartridges.filter((s) => VALID_CARTRIDGES.has(s))
     : existing?.meta.activeCartridges ?? ['metame']);
 
+  const operatorArchetype: OperatorArchetype | null =
+    input.operatorArchetype !== undefined
+      ? (input.operatorArchetype && VALID_ARCHETYPES.has(input.operatorArchetype) ? input.operatorArchetype : null)
+      : existing?.meta.operatorArchetype ?? null;
+
   const row = {
     persona_id: personaId,
     experience_model_id:
@@ -424,6 +452,7 @@ export async function upsertExperienceQube(
       input.progressModel ?? existing?.meta.progressModel ?? 'brief_decide_create_coordinate_record',
     active_cartridges: activeCartridges,
     confidentiality_default: confidentialityDefault,
+    operator_archetype: operatorArchetype,
     blak_qube: mergedBlak as Record<string, unknown>,
   };
 
@@ -474,6 +503,15 @@ export async function getPersonalGuide(
   if (!record) return null;
   const guide = record.blak.personalGuide;
   if (!guide || typeof guide !== 'object') return null;
+  // Backfill `sphereAlignment` on read for legacy rows that only have the
+  // single overall `alignmentState`. Fans the global value out to every
+  // sphere so consumers can rely on the per-sphere map being present.
+  // Also re-derives the overall from the per-sphere map so the headline
+  // is always coherent with the parts.
+  if (!guide.sphereAlignment) {
+    guide.sphereAlignment = backfillSphereAlignment(guide.alignmentState);
+  }
+  guide.alignmentState = deriveOverallAlignment(guide.sphereAlignment);
   return guide;
 }
 

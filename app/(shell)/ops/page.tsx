@@ -37,6 +37,7 @@ import { DiDQubeIdentityCard } from "@/components/ops/DiDQubeIdentityCard";
 import { DiDQubeReputationCard } from "@/components/ops/DiDQubeReputationCard";
 import { FundingStatusCard } from "@/components/ops/FundingStatusCard";
 import { AnchorCalibrationCard } from "@/components/ops/AnchorCalibrationCard";
+import { CyclesManagementCard } from "@/components/ops/CyclesManagementCard";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -459,6 +460,60 @@ function badgeClassFor(key: string): string {
   }
 }
 
+function ActivityReceiptsDvnPanel() {
+  const [receipts, setReceipts] = useState<Array<{
+    id: string;
+    action_type: string;
+    receipt_status: string;
+    summary: string | null;
+    created_at: string;
+    dvn_receipt_id: string | null;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/ops/dvn/activity-receipts')
+      .then(r => r.ok ? r.json() : { receipts: [] })
+      .then(d => setReceipts(d.receipts ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+  if (receipts.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-700">
+      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">Recent Delegation Receipts</p>
+      <div className="space-y-1.5">
+        {receipts.map(r => {
+          const label = r.action_type === 'agent_delegated' ? 'Delegated' : 'Revoked';
+          const statusColor = r.receipt_status === 'dvn_recorded'
+            ? 'text-emerald-400'
+            : r.receipt_status === 'dvn_pending'
+            ? 'text-amber-400'
+            : r.receipt_status === 'dvn_failed'
+            ? 'text-red-400'
+            : 'text-slate-400';
+          const ts = new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return (
+            <div key={r.id} className="flex items-start justify-between gap-2 text-xs">
+              <span className={`font-medium shrink-0 ${r.action_type === 'agent_delegated' ? 'text-emerald-300' : 'text-rose-300'}`}>
+                {label}
+              </span>
+              <span className="text-slate-400 truncate flex-1 min-w-0">
+                {r.summary ? r.summary.slice(0, 60) : r.id.slice(0, 8)}
+              </span>
+              <span className={`shrink-0 ${statusColor}`}>{r.receipt_status.replace('dvn_', '')}</span>
+              <span className="shrink-0 text-slate-500">{ts}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function OpsPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -573,6 +628,7 @@ export default function OpsPage() {
     { key: "a2a_tests", title: "A2A Tx Tests" },
     { key: "a2a_dvn", title: "A2A DVN Integration" },
     { key: "anchor_calibration", title: "Anchor Calibration (K / T / cron)" },
+    { key: "cycles_management", title: "ICP Cycles Management" },
     { key: "base_mainnet", title: "Base Mainnet" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
@@ -637,6 +693,9 @@ export default function OpsPage() {
           if (key === "anchor_calibration") {
             return <AnchorCalibrationCard key={key} title={title} />;
           }
+          if (key === "cycles_management") {
+            return <CyclesManagementCard key={key} title={title} />;
+          }
           if (key === "a2a_tests") {
             return <A2ATestCard key={key} title={title} />;
           }
@@ -691,7 +750,10 @@ export default function OpsPage() {
             const rpcHost = actualEndpoint;
             // Get block height from testnet data, not anchor data
             const blockHeight = typeof (btc.data as any)?.blockHeight === 'number' ? (btc.data as any).blockHeight : '—';
-            const latestTx = btc.anchor?.txid || btc.latestTx?.txid || '—';
+            const _rawTxid = btc.anchor?.txid || btc.latestTx?.txid;
+            // Only show real 64-char hex txids — mock/placeholder values produce 404s
+            const isRealTxid = (s: string | undefined) => typeof s === 'string' && /^[a-f0-9]{64}$/i.test(s);
+            const latestTx = isRealTxid(_rawTxid) ? (_rawTxid as string) : '—';
             const explorerBase = 'https://blockstream.info/testnet';
             const txUrl = (latestTx !== '—') ? `${explorerBase}/tx/${latestTx}` : undefined;
             return (
@@ -1099,11 +1161,12 @@ export default function OpsPage() {
             const latestTx = btc.latestTx;
             const explorer = 'https://blockstream.info/testnet';
             // Only use txid for display - lastAnchorId is a batch ID, not a Bitcoin txid
-            const displayTx = txid;
-            const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
-            const latestTxUrl = latestTx?.txid ? `${explorer.replace('/api','')}/tx/${latestTx.txid}` : undefined;
             // Helper to check if string is a valid Bitcoin txid (64 hex chars)
-            const isValidBitcoinTxid = (str: string) => /^[a-f0-9]{64}$/i.test(str);
+            const isValidBitcoinTxid = (str: string | undefined) => typeof str === 'string' && /^[a-f0-9]{64}$/i.test(str);
+            // Guard: never link mock/placeholder txids — they produce 404s on the explorer
+            const displayTx = isValidBitcoinTxid(txid) ? txid : undefined;
+            const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
+            const latestTxUrl = isValidBitcoinTxid(latestTx?.txid) ? `${explorer.replace('/api','')}/tx/${latestTx!.txid}` : undefined;
             async function doAnchor() {
               try {
                 const response = await fetch('/api/ops/btc/anchor', { method: 'POST' });
@@ -1461,6 +1524,8 @@ export default function OpsPage() {
                   <span className="text-slate-400">DVN Pending:</span>
                   <span className="text-xs text-slate-300">{dvnCount}</span>
                 </div>
+                {/* Activity receipts feeding the DVN pipeline — entry point view */}
+                <ActivityReceiptsDvnPanel />
                 {drift > 0 && !isLegitimate && (
                   <div className="pt-2">
                     <button

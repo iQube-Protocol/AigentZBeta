@@ -96,7 +96,63 @@ interface SmartTriadCopilotLayerProps {
    * asynchronously after a chip click.
    */
   groundContext?: Record<string, unknown> | null;
+  /**
+   * Fired after each successful chat POST with the server-classified
+   * layout suggestions for the latest turn. The parent maps each hint
+   * to a left-pane chip (capsule or composer/upload/download) and
+   * pulses + scrolls the matching chip so the operator can click to
+   * open the right-pane layout with the prompt context attached.
+   */
+  onSuggestedLayouts?: (hints: SuggestedLayoutHint[]) => void;
+  /**
+   * Fired when the operator clicks the "Clear" pill that prepends the
+   * quick-prompts strip whenever any chip is pulsing a chat-driven
+   * suggestion. Parent should wipe the relevant suggestion slots so
+   * the strip's pulse stops. Mirrors the right-pane compose strip's
+   * COMPOSE → Clear toggle.
+   */
+  onClearHighlights?: () => void;
+  /**
+   * Fired AFTER a successful chat POST with the snapshot of upload ids
+   * that rode with the turn (operator-attached files via the paperclip
+   * picker). Parent escrows the snapshot so a subsequent compose chip
+   * (e.g. Email / Marketa) can seed its attachment picker — keeping
+   * the operator's intended attachment riding through to the outbound
+   * MIME multipart envelope. No-op when the operator didn't attach
+   * anything (empty array → callback skipped). Optional; existing
+   * callers that don't wire it stay unchanged.
+   */
+  onSentAttachments?: (uploadIds: string[]) => void;
+  /**
+   * ICE engine (Dev Command Center) — fired after each successful chat
+   * POST with the structured stage proposals the server extracted from
+   * the aigent-z reply's stage_data fences. The parent renders each as
+   * a pending approval card inside the matching capability capsule;
+   * approval commits the artifact to the DevLoopState. Optional; only
+   * the Dev Command Center wires it. Empty turns fire with [] so the
+   * parent can clear stale pulses.
+   */
+  onStageProposals?: (proposals: CopilotStageProposal[]) => void;
 }
+
+/** Loose mirror of services/devCommandCenter StageProposal — keeps this
+ *  shared layer free of dev-command-center type imports. */
+export type CopilotStageProposal = {
+  kind: string;
+  summary: string;
+  data: Record<string, unknown>;
+};
+
+export type SuggestedLayoutHint = {
+  layoutId:
+    | 'brief' | 'decision-board' | 'venture-cockpit' | 'specialists'
+    | 'gmail' | 'event' | 'doc' | 'sheet' | 'slides' | 'marketa'
+    | 'upload' | 'download'
+    | 'terminal' | 'github' | 'devtools' | 'linear'
+    | 'intent' | 'context' | 'gap-analysis' | 'consequence-canvas' | 'validation' | 'project-overview';
+  reason: string;
+  promptHint: string;
+};
 
 type CopilotMode = "chat" | "avatar";
 type QuickPrompt =
@@ -132,7 +188,24 @@ type QuickPrompt =
        * the alpha sequencing where chip click fired the fetch and
        * the chat 100ms later — leaving the LLM with no ground truth.
        */
-      onDispatchOnSend?: () => Promise<void> | void;
+      onDispatchOnSend?: (editedPrompt: string) => Promise<void> | void;
+      /**
+       * When true, the chip's onDispatchOnSend re-fires on EVERY
+       * subsequent Send until a different chip is clicked or the
+       * dispatch is explicitly cleared. Used for capsules where the
+       * right pane should track the ongoing conversation (e.g.
+       * Ask Specialists — re-rank as the operator refines their
+       * question) versus one-shot fetches (brief / move / venture).
+       */
+      stickyOnSend?: boolean;
+      /**
+       * Optional pre-filled text that populates the copilot input when
+       * the chip is clicked, instead of the chip's generic `prompt`.
+       * Lets the operator see — and edit — a context-specific seed
+       * (e.g. "Draft Marketa outreach for Lamina 1") before pressing
+       * Send. If absent, `prompt ?? label` is used as before.
+       */
+      seedPrompt?: string;
       /**
        * Render the chip with a subtle pulse highlight to draw the
        * operator's attention. Used by the "Request access" chip when
@@ -182,6 +255,10 @@ export function SmartTriadCopilotLayer({
   tenantConfig,
   enableAdvancedRendering = true,
   groundContext,
+  onSuggestedLayouts,
+  onStageProposals,
+  onClearHighlights,
+  onSentAttachments,
 }: SmartTriadCopilotLayerProps) {
   
   // Core state
@@ -312,14 +389,29 @@ export function SmartTriadCopilotLayer({
     if (onMessagesChange) onMessagesChange([...seedMessages]);
   }, [persistKey, seedMessages, onMessagesChange]);
 
+  // IMPORTANT: stale-closure trap.
+  //
+  // The previous implementation read `messages` from the useCallback
+  // dependency array, which captures the value at the moment the
+  // callback was created. handleSend invokes updateMessages TWICE in
+  // sequence (append user message, then append assistant message). The
+  // second invocation runs inside the same async closure as the first
+  // — it still holds the original `messages` snapshot. Result: the
+  // user message gets overwritten by the assistant message because
+  // both updaters operate on the same pre-send state.
+  //
+  // For the internal-state path we use the functional setState form so
+  // each update sees the freshest queued state from React. For the
+  // controlled (parent-driven) path we still rely on `messages` from
+  // the closure — that's the parent's contract, but no current caller
+  // uses it.
   const updateMessages = useCallback(
     (updater: (prev: SmartTriadMessage[]) => SmartTriadMessage[]) => {
-      const next = updater([...messages]);
       if (onMessagesChange) {
-        onMessagesChange(next);
+        onMessagesChange(updater(messages));
         return;
       }
-      setInternalMessages(next);
+      setInternalMessages((prev) => updater(prev));
     },
     [messages, onMessagesChange]
   );
@@ -339,7 +431,10 @@ export function SmartTriadCopilotLayer({
   // `onDispatchOnSend` callback. The dispatch fires inside handleSend
   // BEFORE the chat POST so the right-pane fetch lands first and the
   // chat sees the fresh groundContext. Cleared after dispatch.
-  const pendingDispatchRef = useRef<(() => Promise<void> | void) | null>(null);
+  const pendingDispatchRef = useRef<{
+    fn: (editedPrompt: string) => Promise<void> | void;
+    sticky: boolean;
+  } | null>(null);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -386,6 +481,10 @@ export function SmartTriadCopilotLayer({
     // Snapshot attachments for this turn THEN clear them so the next
     // turn starts fresh. The chat POST below uses the dependency-closure
     // snapshot; actual ids are already serialised into the request body.
+    // The explicit array copy is also what we hand to onSentAttachments
+    // below so the parent can escrow it for the composer pickers
+    // (Case A — operator-attached files riding through to outbound MIME).
+    const sentAttachmentSnapshot = [...attachedUploadIds];
     setAttachedUploadIds([]);
     setIsProcessing(true);
 
@@ -395,10 +494,18 @@ export function SmartTriadCopilotLayer({
       // chat POST captures the freshest groundContext. Errors swallow:
       // a failed dispatch shouldn't block the chat send.
       const dispatch = pendingDispatchRef.current;
-      pendingDispatchRef.current = null;
+      // Clear non-sticky dispatchers immediately; sticky ones survive
+      // so subsequent Sends keep refining the right pane (e.g. the
+      // specialists capsule re-ranks against the new chat input).
+      if (dispatch && !dispatch.sticky) {
+        pendingDispatchRef.current = null;
+      }
       if (dispatch) {
         try {
-          await dispatch();
+          // Pass the operator's (possibly edited) input so right-pane
+          // fetchers can use it as a context seed (e.g. Marketa outreach
+          // target). Fetchers that don't need it can ignore the arg.
+          await dispatch.fn(sentInput);
         } catch (err) {
           console.error('[copilot] pending dispatch failed', err);
         }
@@ -433,10 +540,16 @@ export function SmartTriadCopilotLayer({
         if (typeof personaId === 'string' && personaId.startsWith('aigent-')) return personaId;
         return 'aigent-z';
       })();
+      // KB domain resolution — cartridge-specific agents get their own
+      // content domain; everything else follows the global SmartTriad
+      // fallback chain: aigentMe → metaMe → aigentC → aigentZ.
+      // Today only metaKnyts and qriptopian have populated KB content;
+      // the default 'aigentMe' yields an empty content scaffold so the
+      // LLM relies on persona/cartridge context instead of lore.
       const domainForPersona = (() => {
-        if (resolvedPersona === 'aigent-kn0w1' || resolvedPersona === 'aigent-marketa') return 'metaKnyts';
+        if (resolvedPersona === 'aigent-kn0w1') return 'metaKnyts';
         if (resolvedPersona === 'aigent-moneypenny') return 'qriptopian';
-        return 'agentiq'; // aigent-z, aigent-c, metaMe, etc.
+        return 'aigentMe';
       })();
 
       // Read the freshest groundContext at POST time — a chip click
@@ -479,6 +592,35 @@ export function SmartTriadCopilotLayer({
       };
 
       updateMessages((prev) => [...prev, assistantMessage]);
+
+      // Fire layout suggestions to the parent so the chip strip can
+      // pulse the matching chip. Server returns an empty array when no
+      // pattern matched, so the parent should treat this as the authoritative
+      // "no suggestion this turn" signal too (clears prior highlights).
+      if (Array.isArray(data?.suggested_layouts)) {
+        onSuggestedLayouts?.(data.suggested_layouts as SuggestedLayoutHint[]);
+      } else {
+        onSuggestedLayouts?.([]);
+      }
+
+      // ICE engine — surface structured stage proposals to the parent
+      // (Dev Command Center) so they render as pending approval cards
+      // in the matching capability capsule. Same authoritative-empty
+      // semantics as suggested_layouts.
+      if (Array.isArray(data?.stage_proposals)) {
+        onStageProposals?.(data.stage_proposals as CopilotStageProposal[]);
+      } else {
+        onStageProposals?.([]);
+      }
+
+      // Case A — escrow the operator-attached uploads for the next
+      // composer chip click. Only fires when the operator actually
+      // attached something this turn; otherwise we skip the callback
+      // entirely so no spurious empty-array signal can clobber a
+      // prior escrow.
+      if (sentAttachmentSnapshot.length > 0) {
+        onSentAttachments?.(sentAttachmentSnapshot);
+      }
     } catch (error) {
       console.error('Failed to get response:', error);
 
@@ -518,15 +660,27 @@ export function SmartTriadCopilotLayer({
   //     just switch the layout and stop — same as before.
   const handleQuickPrompt = useCallback((prompt: QuickPrompt) => {
     const promptText = typeof prompt === 'string' ? prompt : prompt.prompt || prompt.label;
-    setInput(promptText);
-    onPrompt?.(promptText);
+    // seedPrompt, when present, is what goes into the input — the operator
+    // sees and can edit it before pressing Send. promptText remains what
+    // the chat POST submits as the user turn.
+    const inputSeed = typeof prompt === 'string' ? promptText : (prompt.seedPrompt ?? promptText);
+    setInput(inputSeed);
+    onPrompt?.(inputSeed);
 
     if (typeof prompt !== 'string' && prompt.onSelect) {
       prompt.onSelect();
     }
 
     if (typeof prompt !== 'string' && prompt.onDispatchOnSend) {
-      pendingDispatchRef.current = prompt.onDispatchOnSend;
+      pendingDispatchRef.current = {
+        fn: prompt.onDispatchOnSend,
+        sticky: !!prompt.stickyOnSend,
+      };
+    } else if (typeof prompt !== 'string') {
+      // A chip without a dispatcher (e.g. pure layout chip) overrides
+      // any previously-set sticky dispatcher so the right pane stops
+      // re-firing when the operator switches context.
+      pendingDispatchRef.current = null;
     }
 
     // Focus the input so the operator can immediately edit / press Enter.
@@ -585,6 +739,7 @@ export function SmartTriadCopilotLayer({
           showQuickPrompts={showQuickPrompts}
           setShowQuickPrompts={setShowQuickPrompts}
           onQuickPrompt={handleQuickPrompt}
+          onClearHighlights={onClearHighlights}
           onClose={onClose}
           mode={mode}
           setMode={setMode}
@@ -623,6 +778,7 @@ export function SmartTriadCopilotLayer({
           showQuickPrompts={showQuickPrompts}
           setShowQuickPrompts={setShowQuickPrompts}
           onQuickPrompt={handleQuickPrompt}
+          onClearHighlights={onClearHighlights}
           mode={mode}
           setMode={setMode}
           isAvatarActive={isAvatarActive}
@@ -667,6 +823,7 @@ function FloatingCopilot({
   showQuickPrompts,
   setShowQuickPrompts,
   onQuickPrompt,
+  onClearHighlights,
   onClose,
   mode,
   setMode,
@@ -737,6 +894,10 @@ function FloatingCopilot({
    *  open (or when there are selected chips to surface). */
   attachmentsPickerOpen: boolean;
   setAttachmentsPickerOpen: (next: boolean) => void;
+  /** When set, a Clear pill prepends the quick-prompts strip whenever
+   *  any chip is pulsing (highlight=true) and clicking it fires the
+   *  callback. Parent decides which suggestion slots to wipe. */
+  onClearHighlights?: () => void;
 }) {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
 
@@ -930,6 +1091,24 @@ function FloatingCopilot({
           {/* Quick prompts strip — above input, below messages */}
           {visibleQuickPrompts && (
             <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-wrap flex-shrink-0">
+              {/* Clear pill — only renders when any chip is pulsing a
+                  chat-driven suggestion AND the parent wired an
+                  onClearHighlights callback. Mirrors the right-pane
+                  compose strip's COMPOSE → Clear toggle so the
+                  operator can dismiss capsule suggestions without
+                  having to engage them. */}
+              {onClearHighlights &&
+                quickPrompts.some((qp) => typeof qp !== "string" && qp.highlight === true) && (
+                <button
+                  type="button"
+                  onClick={onClearHighlights}
+                  title="Clear pulsing capsule suggestions"
+                  aria-label="Clear pulsing capsule suggestions"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/40 hover:bg-emerald-500/20 hover:text-white"
+                >
+                  Clear
+                </button>
+              )}
               {quickPrompts.slice(0, 5).map((qp, i) => {
                 const label = typeof qp === "string" ? qp : qp.label;
                 const highlight = typeof qp !== "string" && qp.highlight === true;

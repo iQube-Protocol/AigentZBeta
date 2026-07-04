@@ -43,6 +43,8 @@ export type GoogleConnectorId =
   | 'google.gmail.send'
   | 'google.calendar.create-event'
   | 'google.calendar.invite-external'
+  | 'google.calendar.list-events'
+  | 'google.tasks.list'
   | 'google.drive.create-doc'
   | 'google.drive.share-doc'
   | 'google.drive.search'
@@ -520,6 +522,180 @@ const calendarCreateEvent: GoogleConnector<CalendarCreateEventInput, CalendarCre
       }
       const data = (await res.json()) as { id?: string; htmlLink?: string };
       return { ok: true, output: { eventId: data.id ?? '', htmlLink: data.htmlLink ?? null } };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, code: 'api-error', reason: msg };
+    }
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// Connector — Calendar list events (READ-ONLY; no side effect, no approval).
+//
+// Reads events from the primary calendar in a [timeMin, timeMax] window using
+// the existing calendar token (calendar.events already grants read). Used by
+// the standing-signal flow: PAST events → loggable actions taken; UPCOMING
+// events → prep suggestions. Read-on-demand — nothing is stored unless the
+// operator explicitly turns an event into a signal.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface CalendarListEventsInput {
+  timeMin?: string; // RFC3339; default: 30 days ago
+  timeMax?: string; // RFC3339; default: 30 days ahead
+  maxResults?: number; // default 25, capped 50
+}
+
+export interface CalendarEventSummary {
+  id: string;
+  summary: string;
+  startIso: string | null;
+  endIso: string | null;
+  isPast: boolean;
+  attendeeCount: number;
+  htmlLink: string | null;
+}
+
+interface CalendarListEventsOutput {
+  events: CalendarEventSummary[];
+}
+
+const calendarListEvents: GoogleConnector<CalendarListEventsInput, CalendarListEventsOutput> = {
+  id: 'google.calendar.list-events',
+  label: 'Calendar · List events (read-only)',
+  description: 'Read events from your primary calendar in a time window. Read-only; no changes.',
+  category: 'scheduling',
+  source: 'calendar',
+  requiredScopes: GOOGLE_SCOPES.calendar,
+  requiresApproval: false,
+  inputSchema: {
+    timeMin: { type: 'string', description: 'RFC3339 window start' },
+    timeMax: { type: 'string', description: 'RFC3339 window end' },
+    maxResults: { type: 'number', description: 'Max events (default 25, max 50)' },
+  },
+  outputSchema: {
+    events: { type: 'array', description: 'Event summaries (id, title, start/end, isPast)' },
+  },
+  async execute(input, ctx) {
+    const t = await requireToken(ctx.personaId, 'calendar');
+    if (!t.ok) return t;
+    const nowMs = Date.now();
+    const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');
+    url.searchParams.set('singleEvents', 'true');
+    url.searchParams.set('orderBy', 'startTime');
+    url.searchParams.set('maxResults', String(Math.min(Math.max(input.maxResults ?? 25, 1), 50)));
+    url.searchParams.set('timeMin', input.timeMin ?? new Date(nowMs - 30 * 864e5).toISOString());
+    url.searchParams.set('timeMax', input.timeMax ?? new Date(nowMs + 30 * 864e5).toISOString());
+    try {
+      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${t.token}` } });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        return { ok: false, code: 'api-error', reason: `calendar list events failed (${res.status}): ${text.slice(0, 200)}` };
+      }
+      const data = (await res.json()) as {
+        items?: Array<{
+          id?: string;
+          summary?: string;
+          start?: { dateTime?: string; date?: string };
+          end?: { dateTime?: string; date?: string };
+          attendees?: unknown[];
+          htmlLink?: string;
+        }>;
+      };
+      const events: CalendarEventSummary[] = (data.items ?? []).map((e) => {
+        const startIso = e.start?.dateTime ?? e.start?.date ?? null;
+        const endIso = e.end?.dateTime ?? e.end?.date ?? null;
+        const startMs = startIso ? Date.parse(startIso) : NaN;
+        return {
+          id: e.id ?? '',
+          summary: e.summary ?? '(no title)',
+          startIso,
+          endIso,
+          isPast: Number.isFinite(startMs) ? startMs < nowMs : false,
+          attendeeCount: Array.isArray(e.attendees) ? e.attendees.length : 0,
+          htmlLink: e.htmlLink ?? null,
+        };
+      });
+      return { ok: true, output: { events } };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, code: 'api-error', reason: msg };
+    }
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// Connector — Google Tasks list (READ-ONLY; no side effect, no approval).
+//
+// Reads the operator's default task list: completed tasks → proof-of-work
+// signals; pending tasks → suggested actions. Read-on-demand — nothing stored
+// unless the operator turns a task into a Standing signal. Scope: tasks.readonly.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface TasksListInput {
+  maxResults?: number; // default 25, capped 100
+}
+
+export interface GoogleTaskSummary {
+  id: string;
+  title: string;
+  status: 'needsAction' | 'completed';
+  dueIso: string | null;
+  completedIso: string | null;
+  notes: string | null;
+}
+
+interface TasksListOutput {
+  tasks: GoogleTaskSummary[];
+}
+
+const tasksList: GoogleConnector<TasksListInput, TasksListOutput> = {
+  id: 'google.tasks.list',
+  label: 'Tasks · List (read-only)',
+  description: 'Read your Google Tasks default list. Read-only; no changes.',
+  category: 'scheduling',
+  source: 'tasks',
+  requiredScopes: GOOGLE_SCOPES.tasks,
+  requiresApproval: false,
+  inputSchema: {
+    maxResults: { type: 'number', description: 'Max tasks (default 25, max 100)' },
+  },
+  outputSchema: {
+    tasks: { type: 'array', description: 'Task summaries (id, title, status, due, completed)' },
+  },
+  async execute(input, ctx) {
+    const t = await requireToken(ctx.personaId, 'tasks');
+    if (!t.ok) return t;
+    const url = new URL('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks');
+    url.searchParams.set('showCompleted', 'true');
+    url.searchParams.set('showHidden', 'true');
+    url.searchParams.set('maxResults', String(Math.min(Math.max(input.maxResults ?? 25, 1), 100)));
+    try {
+      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${t.token}` } });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        return { ok: false, code: 'api-error', reason: `tasks list failed (${res.status}): ${text.slice(0, 200)}` };
+      }
+      const data = (await res.json()) as {
+        items?: Array<{
+          id?: string;
+          title?: string;
+          status?: string;
+          due?: string;
+          completed?: string;
+          notes?: string;
+        }>;
+      };
+      const tasks: GoogleTaskSummary[] = (data.items ?? [])
+        .filter((it) => (it.title ?? '').trim().length > 0)
+        .map((it) => ({
+          id: it.id ?? '',
+          title: it.title ?? '',
+          status: it.status === 'completed' ? 'completed' : 'needsAction',
+          dueIso: it.due ?? null,
+          completedIso: it.completed ?? null,
+          notes: it.notes ?? null,
+        }));
+      return { ok: true, output: { tasks } };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { ok: false, code: 'api-error', reason: msg };
@@ -1341,6 +1517,8 @@ const GOOGLE_CONNECTORS: Record<GoogleConnectorId, GoogleConnector> = {
   'google.gmail.send': gmailSend as unknown as GoogleConnector,
   'google.calendar.create-event': calendarCreateEvent as unknown as GoogleConnector,
   'google.calendar.invite-external': calendarInviteExternal as unknown as GoogleConnector,
+  'google.calendar.list-events': calendarListEvents as unknown as GoogleConnector,
+  'google.tasks.list': tasksList as unknown as GoogleConnector,
   'google.drive.create-doc': driveCreateDoc as unknown as GoogleConnector,
   'google.drive.share-doc': driveShareDoc as unknown as GoogleConnector,
   'google.drive.search': driveSearch as unknown as GoogleConnector,

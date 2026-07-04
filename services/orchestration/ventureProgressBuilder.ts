@@ -46,6 +46,20 @@ import {
   actionsForActiveActivations,
   type ActivationAction,
 } from '@/data/activation-catalog';
+import { listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
+import { listVentureQubes } from '@/services/venture/ventureQubeService';
+import { getVenturePortfolio } from '@/services/venture/venturePortfolio';
+
+// ─────────────────────────────────────────────────────────────────────────
+// VentureQube-layer enrichment shapes (Sprint 1 — cockpit live data).
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface OperatingObjectiveSummary {
+  id: string;
+  label: string;
+  status: 'active' | 'completed' | 'blocked' | 'deferred';
+  targetDate: string | null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public shape — matches the Venture Progress Card render contract.
@@ -105,6 +119,21 @@ export interface VentureProgressShape {
   /** Most recent IntentQubes acted upon by this persona. */
   recentActivity: VentureProgressRecentActivity[];
 
+  /**
+   * Verified work done — operator-logged actions + proof-of-work documents
+   * (the Standing signals). This is the ONLY evidence of PROGRESS from the
+   * ingested baseline; a grounded report cites these instead of inventing
+   * metrics. Empty ⇒ the report must say "no verified activity yet", not
+   * fabricate movement.
+   */
+  standingSignals: Array<{
+    id: string;
+    kind: 'operator_action_logged' | 'standing_document_added';
+    summary: string;
+    ventureRef: string | null;
+    createdAt: string;
+  }>;
+
   /** Pending blockers count. Alpha: 0; Phase 6 populates from approvals. */
   blockersCount: number;
 
@@ -124,11 +153,32 @@ export interface VentureProgressShape {
   suggestedArtifacts: Array<NonNullable<NbeCandidate['suggestedArtifact']>>;
 
   /** iQube usage disclosure. */
-  using: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[];
+  using: ('PersonaQube' | 'ExperienceQube' | 'IntentQube' | 'VentureQube')[];
   /** Categories explicitly not shared. */
   notShared: string[];
   /** See `BriefShape.preflightContext` — same shape, same meaning. */
   preflightContext?: PreflightContext;
+
+  // ── VentureQube-layer enrichment (Sprint 1) ──────────────────────────
+  /** T1-safe public venture ref (not persona id, not raw venture id). */
+  venturePublicRef: string | null;
+  /** Thesis mission + problem statement for cockpit header strip. */
+  thesisSummary: { mission: string | null; problem: string | null } | null;
+  /** Signal Evidence aggregate — avg confidence + count. */
+  signalSummary: {
+    confidence: number | null;
+    count: number;
+    /** Four roll-up confidence dimensions from the signal evidence layer (0–100). */
+    opportunityConfidence: number | null;
+    demandConfidence: number | null;
+    capabilityConfidence: number | null;
+  } | null;
+  /** Operating model active objectives (active/blocked/completed). */
+  operatingObjectives: OperatingObjectiveSummary[];
+  /** Sum of NVA hours across all verified ProofOfOutcomeClaims. */
+  nvaTotal: number;
+  /** Governance layer standing score (0–100). */
+  standingGovScore: number | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -370,6 +420,138 @@ export async function buildVentureProgress(
     ),
   );
 
+  // Standing signals — verified work done (operator-logged actions + proof-of-
+  // work documents). This is the progress-from-baseline evidence; the report
+  // cites these instead of inventing movement. Best-effort; never blocks.
+  let standingSignals: VentureProgressShape['standingSignals'] = [];
+  try {
+    const sigs = await listActivityReceiptsForPersona(input.personaId, {
+      actionTypes: ['operator_action_logged', 'standing_document_added'],
+      limit: 10,
+    });
+    standingSignals = sigs.map((r) => ({
+      id: r.id,
+      kind: r.actionType as 'operator_action_logged' | 'standing_document_added',
+      summary: r.summary,
+      ventureRef: r.contextShared?.[0] ?? null,
+      createdAt: r.createdAt,
+    }));
+  } catch {
+    standingSignals = [];
+  }
+
+  // ── VentureQube enrichment (Sprint 1) ──────────────────────────────────
+  // Fetch the persona's primary active VentureQube and extract cockpit-
+  // relevant data from the 13 layers. Never blocks: all failures fall
+  // back to null / empty so the cockpit stays functional without a venture.
+  let venturePublicRef: string | null = null;
+  let thesisSummary: VentureProgressShape['thesisSummary'] = null;
+  let signalSummary: VentureProgressShape['signalSummary'] = null;
+  let operatingObjectives: OperatingObjectiveSummary[] = [];
+  let nvaTotal = 0;
+  let standingGovScore: number | null = null;
+
+  try {
+    const ventureRecords = await listVentureQubes(input.personaId).catch(() => []);
+    const primaryVenture = ventureRecords.find((v) => v.status === 'active') ?? ventureRecords[0] ?? null;
+
+    if (primaryVenture) {
+      venturePublicRef = primaryVenture.venturePublicRef ?? null;
+      const vl = primaryVenture.layers;
+
+      // Thesis layer — mission + problem statement for header strip.
+      if (vl?.thesis) {
+        thesisSummary = {
+          mission: vl.thesis.mission ?? null,
+          problem: vl.thesis.problemStatement ?? null,
+        };
+      }
+
+      // Signal Evidence layer — aggregate per-item confidence + four roll-up dimensions.
+      const se = vl?.signalEvidence;
+      if (se) {
+        const items = Array.isArray(se.items) ? se.items : [];
+        const withScore = items.filter((s) => typeof s.confidenceScore === 'number');
+        const avgConfidence = withScore.length > 0
+          ? withScore.reduce((sum, s) => sum + (s.confidenceScore as number), 0) / withScore.length
+          : (typeof se.signalConfidence === 'number' ? se.signalConfidence : null);
+        signalSummary = {
+          count: items.length,
+          confidence: avgConfidence,
+          opportunityConfidence: typeof se.opportunityConfidence === 'number' ? se.opportunityConfidence : null,
+          demandConfidence: typeof se.demandConfidence === 'number' ? se.demandConfidence : null,
+          capabilityConfidence: typeof se.capabilityConfidence === 'number' ? se.capabilityConfidence : null,
+        };
+      }
+
+      // Commercial Model layer — revenue targets as synthetic KPIs.
+      // Merge into resolvedKpis so the cockpit carousel shows them alongside
+      // activation-bound KPIs. source.kind='manual', current=null (targets only).
+      const com = vl?.commercialModel;
+      if (com) {
+        const revenueTargets: string[] = [
+          ...(Array.isArray(com.mrrTargets) ? com.mrrTargets : []),
+          ...(Array.isArray(com.arrTargets) ? com.arrTargets : []),
+          ...(Array.isArray(com.revenueTargets) ? com.revenueTargets : []),
+        ];
+        const syntheticKpis: KpiRecord[] = revenueTargets
+          .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+          .map((target, idx) => ({
+            id: `venture-revenue-${idx}`,
+            name: target,
+            target,
+            current: null,
+            unit: undefined,
+            trend: 'flat' as const,
+            lastUpdatedAt: null,
+            source: { kind: 'manual' as const },
+            class: 'outcome' as const,
+          }));
+        // Only append if not already present (deduplication by name).
+        const existingNames = new Set(resolvedKpis.map((k) => k.name));
+        for (const sk of syntheticKpis) {
+          if (!existingNames.has(sk.name)) {
+            resolvedKpis.push(sk);
+            existingNames.add(sk.name);
+          }
+        }
+      }
+
+      // Outcome layer — NVA sum from verified ProofOfOutcomeClaims.
+      // NVA = max(0, timeSavedHours − riskRepairHours) per verified claim.
+      if (Array.isArray(vl?.outcome?.proofOfOutcomeClaims)) {
+        nvaTotal = vl.outcome.proofOfOutcomeClaims
+          .filter((c) => c.verificationStatus === 'verified')
+          .reduce((sum, c) => {
+            const nva = Math.max(0, (c.timeSavedHours ?? 0) - (c.riskRepairHours ?? 0));
+            return sum + nva;
+          }, 0);
+      }
+
+      // Governance layer — standing score.
+      if (typeof vl?.governance?.standingScore === 'number') {
+        standingGovScore = vl.governance.standingScore;
+      }
+    }
+
+    // Portfolio operating model — active objectives come from the cross-venture
+    // portfolio layer (separate from per-venture VentureQube layers).
+    const supabase = getSupabaseServer();
+    if (supabase) {
+      const portfolio = await getVenturePortfolio(supabase, input.personaId).catch(() => null);
+      if (portfolio?.operatingModel?.activeObjectives) {
+        operatingObjectives = portfolio.operatingModel.activeObjectives.map((obj, idx) => ({
+          id: `obj-${idx}`,
+          label: obj.objective,
+          status: obj.status ?? 'active',
+          targetDate: null,
+        }));
+      }
+    }
+  } catch {
+    // Never block the cockpit on a VentureQube fetch failure.
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     ventureName,
@@ -382,17 +564,28 @@ export async function buildVentureProgress(
     operationalGoalsCount,
     commercialGoalsCount,
     recentActivity,
+    standingSignals,
     blockersCount: 0, // Phase 6 wires this from the approval queue.
     recommendedActions,
     nbaPromptHints,
     suggestedArtifacts,
-    using: experienceConfigured
-      ? ['PersonaQube', 'ExperienceQube', 'IntentQube']
-      : ['PersonaQube', 'IntentQube'],
+    using: [
+      'PersonaQube',
+      ...(experienceConfigured ? (['ExperienceQube'] as const) : []),
+      'IntentQube',
+      ...(venturePublicRef ? (['VentureQube'] as const) : []),
+    ] as ('PersonaQube' | 'ExperienceQube' | 'IntentQube' | 'VentureQube')[],
     notShared: [
       'confidential strategy notes',
       'private investor data',
       'unreleased IP',
     ],
+    // VentureQube-layer enrichment (Sprint 1)
+    venturePublicRef,
+    thesisSummary,
+    signalSummary,
+    operatingObjectives,
+    nvaTotal,
+    standingGovScore,
   };
 }

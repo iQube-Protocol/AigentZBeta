@@ -16,6 +16,7 @@
 import './tools/echo';
 import './tools/webSearch';
 import './tools/ownedContentScan';
+import './tools/searchContacts';
 
 export { getTool, listTools, listToolDescriptions, registerTool } from './registry';
 export type {

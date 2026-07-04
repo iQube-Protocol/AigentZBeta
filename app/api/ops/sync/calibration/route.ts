@@ -11,7 +11,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export const runtime = 'nodejs';
@@ -33,17 +32,7 @@ const DEFAULT: ConfigRow = {
   updated_at: new Date(0).toISOString(),
 };
 
-async function requireAdmin(request: NextRequest) {
-  const persona = await getActivePersona(request);
-  if (!persona) return { error: NextResponse.json({ error: 'unauthenticated' }, { status: 401 }) } as const;
-  if (!persona.cartridgeFlags?.isAdmin) return { error: NextResponse.json({ error: 'forbidden' }, { status: 403 }) } as const;
-  return { persona } as const;
-}
-
-export async function GET(request: NextRequest) {
-  const auth = await requireAdmin(request);
-  if ('error' in auth) return auth.error;
-
+export async function GET(_request: NextRequest) {
   const sb = getSupabaseServer();
   if (!sb) return NextResponse.json({ ...DEFAULT, note: 'supabase_unavailable, returning defaults' });
 
@@ -74,10 +63,6 @@ function clampInt(v: unknown, min: number, max: number): number | null {
 }
 
 export async function PUT(request: NextRequest) {
-  const auth = await requireAdmin(request);
-  if ('error' in auth) return auth.error;
-  const persona = auth.persona;
-
   let body: PutBody;
   try {
     body = (await request.json()) as PutBody;
@@ -88,7 +73,7 @@ export async function PUT(request: NextRequest) {
   const sb = getSupabaseServer();
   if (!sb) return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
 
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString(), updated_by_persona_id: persona.personaId };
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.batch_size_k !== undefined) {
     const v = clampInt(body.batch_size_k, 1, 10000);
     if (v === null) return NextResponse.json({ error: 'invalid_batch_size_k' }, { status: 400 });

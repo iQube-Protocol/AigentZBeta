@@ -1,0 +1,67 @@
+{
+  "id": "polity-papers-commentary",
+  "title": "Polity Paper Series — Constitutional Commentary",
+  "version": "1.0.0",
+  "status": "commentary",
+  "ratifiedAt": null,
+  "boundConstitutionVersion": "1.0.0",
+  "purpose": "The Polity Paper series is the interpretive, authoritative body of work underpinning the Polity. It is constitutional COMMENTARY — not ratified law — and the charters cross-reference it where their concepts (Proof of Work Potential, Proof of Time Saved, Time Sovereignty, Experience Sovereignty, and the rest of the series) are invoked. In the absence of a fully ratified concept paper, this commentary gives agents direction on constitutional compliance.",
+  "sourceCartridge": "qripto-codex",
+  "classification": "commentary",
+  "machineReadableNote": "Human-readable PDFs live in the Qriptopian codex (Papers tab). Machine-readable markdown extractions live in codexes/packs/polity-core/items/commentary/ and are enumerated in `series[].papers[]` below. Regenerate via scripts/ingest-polity-papers.mjs.",
+  "concepts": {
+    "proof_of_work_potential": {
+      "abbrev": "PoWP",
+      "definition": "An estimate of the capability latent within truthful information before that capability is applied. PoWP estimates potential, not realized outcomes.",
+      "contributesFrom": "Standing (veracity of declarations) plus the broader signal set defined in the Polity Paper series.",
+      "crossReferencedBy": ["standing-charter", "metacommons-charter"],
+      "fullText": "papers/polity (Polity Paper series) — see series[].papers[] once ingested."
+    },
+    "proof_of_time_saved": {
+      "abbrev": "PoTS",
+      "definition": "Verification of realized value, in three clearly-layered framings of one idea (no new primitives, no new ontology — just clearer layering): (1) PUBLIC MENTAL MODEL = Time-to-Value (instantly understood); (2) INTERNAL METRIC = Proof of Time Saved, PoTS (a measurable component); (3) CONSTITUTIONAL PRINCIPLE = Net Value Acceleration = Time-to-Value minus Risk Repair Burden (max(0, time saved − risk repair)). PoTS is ONE dimension of outcome accrual, not the whole story — an outcome claim also carries claimed value and a risk profile. Outcome claims are self-declared but accrue NOTHING to Standing until verified; verification is the accrual gate. PoTS improves the Polity's ability to understand how realized capability emerges from truthful information.",
+      "implementedAs": "Outcome Accrual Evidence — the proofOfOutcomeClaims block on the VentureQube outcome layer (types/ventureQube.ts), verified via /api/venture/qubes/[ventureId]/verify-outcome, accrued into Personal Standing by services/venture/ventureOutcomeAccrual.ts.",
+      "crossReferencedBy": ["standing-charter", "metacommons-charter"],
+      "fullText": "papers/polity (Polity Paper series) — see series[].papers[] once ingested."
+    },
+    "time_sovereignty": {
+      "definition": "The principle that an individual's time is theirs to direct — value accrues to those whose time and capability produced it, rather than being extracted by intermediaries.",
+      "fullText": "papers/experience-sovereignty + papers/coyn-thesis — see series[].papers[] once ingested."
+    },
+    "experience_sovereignty": {
+      "definition": "The principle that operators own and direct their experience — its model, its data, and its progression — rather than surrendering it to an extractive platform.",
+      "fullText": "papers/experience-sovereignty — see series[].papers[] once ingested."
+    }
+  },
+  "series": [
+    {
+      "id": "experience-sovereignty",
+      "scope": "papers/experience-sovereignty",
+      "title": "Experience Sovereignty Series",
+      "description": "Foundational papers on experience sovereignty and the operator's ownership of their experience model and progression.",
+      "papers": []
+    },
+    {
+      "id": "coyn-thesis",
+      "scope": "papers/coyn-thesis",
+      "title": "COYN Thesis Series",
+      "description": "The COYN thesis — the economic and value-accrual foundations of the Polity.",
+      "papers": []
+    },
+    {
+      "id": "polity",
+      "scope": "papers/polity",
+      "title": "The Polity Series",
+      "description": "The constitutional foundation of the Agentic Polity. The fourth paper, 'The Constitution of the Agentic Polity', is elevated to ratified constitutional status (see constitution-agentic-polity.v1.json).",
+      "constitutionalPaper": {
+        "title": "The Constitution of the Agentic Polity",
+        "paperNumber": 4,
+        "elevatedTo": "constitution-agentic-polity",
+        "status": "ratified"
+      },
+      "papers": []
+    }
+  ],
+  "generatedAt": null,
+  "generatedBy": "scripts/ingest-polity-papers.mjs"
+}

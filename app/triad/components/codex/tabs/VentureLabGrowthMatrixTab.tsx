@@ -3,11 +3,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Grid3x3, Layers, Briefcase, Target, RefreshCw, Plus, Route } from 'lucide-react';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
+import { personaFetch } from '@/utils/personaSpine';
 
 import {
   Venture, IndustryOverlay, MatrixSubTab,
   SAMPLE_VENTURES,
 } from './_ventureLabData';
+
+// Shape of /api/experience/matrix-calibration (the experience-guide SoT feed).
+interface MatrixCalibration {
+  growth: { yMaturity: number; xCommercialization: number; zone: string; label: string };
+  ventures: Array<{ ventureId: string; name: string; stage: string; yMaturity: number; xCommercialization: number; zone: string; derived?: boolean }>;
+  hasExperienceModel: boolean;
+  reason: string;
+}
 import { LadderView, ModelView, StrategyView } from './_ventureLabSubViews';
 import { MatrixView, AddVentureModal } from './_ventureLabMatrix';
 
@@ -39,6 +48,7 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
   const [addPreY,        setAddPreY]        = useState<number | undefined>();
   const [addPreX,        setAddPreX]        = useState<number | undefined>();
   const [copilotOpen,    setCopilotOpen]    = useState(false);
+  const [calibration,    setCalibration]    = useState<MatrixCalibration | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,7 +60,32 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Pull the active persona's matrix position derived from their experience
+  // guide / model (+ VentureQube). This is the experience-model → Venture Lab
+  // pass-through; the derived ventures are plotted alongside portfolio ventures.
+  const loadCalibration = useCallback(async () => {
+    try {
+      const res = await personaFetch('/api/experience/matrix-calibration', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok) setCalibration(data);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  useEffect(() => { load(); loadCalibration(); }, [load, loadCalibration]);
+
+  // Persona-derived ventures (from the experience guide SoT) mapped to the
+  // Venture shape so the existing MatrixView plots them automatically.
+  const personaVentures: Venture[] = (calibration?.ventures ?? []).map((p, i) => ({
+    id: `cal-${p.ventureId}`,
+    venture_name: `#${i + 1} ${p.name}${p.derived ? ' (experience model)' : ''}`,
+    venture_slug: `your-${p.ventureId}`,
+    y_maturity: p.yMaturity,
+    x_commercialization: p.xCommercialization,
+    zone: p.zone,
+    status: 'active',
+    payload: {},
+  }));
+  const mergedVentures = [...ventures, ...personaVentures];
 
   const addVenture = async (v: { venture_name: string; venture_slug: string; y_maturity: number; x_commercialization: number; payload: Record<string, unknown> }) => {
     const res  = await fetch('/api/venture-lab/portfolio', {
@@ -190,6 +225,30 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
         )}
       </div>
 
+      {/* Experience-guide pass-through banner */}
+      {calibration && (
+        <div className="flex-shrink-0 px-4 py-1.5 border-b border-amber-500/15 bg-amber-900/[0.07] text-[11px] text-amber-200/90 flex items-center gap-3 flex-wrap">
+          <span className="font-medium">Your position (from experience guide):</span>
+          <span>{calibration.growth.label} · zone {calibration.growth.zone}</span>
+          {personaVentures.length > 0
+            ? <span className="text-amber-300/80">{personaVentures.length} of your venture{personaVentures.length === 1 ? '' : 's'} plotted below</span>
+            : <span className="text-amber-300/60">set up your experience model / a VentureQube to plot here</span>}
+        </div>
+      )}
+      {/* Persona venture legend — shown when there are plotted persona ventures */}
+      {personaVentures.length > 0 && (
+        <div className="flex-shrink-0 px-4 py-1.5 border-b border-white/[0.04] bg-slate-950/50 flex items-center gap-3 flex-wrap text-[10px]">
+          <span className="text-slate-500">Your ventures:</span>
+          {personaVentures.map((v, i) => (
+            <span key={v.id} className="flex items-center gap-1 text-slate-300">
+              <span className="w-4 h-4 rounded-full bg-rose-500/30 border border-rose-500/30 text-rose-300 flex items-center justify-center text-[9px] font-bold shrink-0">{i + 1}</span>
+              {(calibration?.ventures[i]?.name) ?? v.venture_name.replace(' (yours)', '').replace(' (yours · experience model)', '')}
+              {calibration?.ventures[i]?.derived && <span className="text-slate-600 italic">· experience model</span>}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto relative">
         {loading ? (
@@ -200,7 +259,7 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
           <>
             {subTab === 'matrix' && (
               <MatrixView
-                ventures={ventures}
+                ventures={mergedVentures}
                 overlay={overlay}
                 showGoldenPath={showGoldenPath}
                 isAdmin={isAdmin}
@@ -209,13 +268,13 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
               />
             )}
             {subTab === 'ladder' && (
-              <LadderView ventures={ventures} overlay={overlay} />
+              <LadderView ventures={mergedVentures} overlay={overlay} />
             )}
             {subTab === 'model' && (
-              <ModelView ventures={ventures} isAdmin={isAdmin} onSave={savePayload} />
+              <ModelView ventures={mergedVentures} isAdmin={isAdmin} onSave={savePayload} />
             )}
             {subTab === 'strategy' && (
-              <StrategyView ventures={ventures} overlay={overlay} />
+              <StrategyView ventures={mergedVentures} overlay={overlay} />
             )}
           </>
         )}

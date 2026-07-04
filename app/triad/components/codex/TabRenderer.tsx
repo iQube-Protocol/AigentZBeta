@@ -47,6 +47,8 @@ import { MyWorkbenchTab } from "./tabs/MyWorkbenchTab";
 import { MyWorkspaceTab } from "./tabs/MyWorkspaceTab";
 import { MyCartridgeTab } from "./tabs/MyCartridgeTab";
 import { MyLedgerTab } from "./tabs/MyLedgerTab";
+import { PersonalCartridgeTab } from "./tabs/PersonalCartridgeTab";
+import { CartridgeCatalogueAdminTab } from "./tabs/CartridgeCatalogueAdminTab";
 import { InvestorDirectoryTab } from "./tabs/InvestorDirectoryTab";
 import { ArtifactTraceabilityTab } from "./tabs/ArtifactTraceabilityTab";
 import { FactoryIntakeTab } from "./tabs/FactoryIntakeTab";
@@ -60,6 +62,7 @@ import { AgentiQOSTab } from "./tabs/AgentiQOSTab";
 import { RelationshipBuilderTab } from "./tabs/RelationshipBuilderTab";
 import { AlphaProgrammeTab } from "./tabs/AlphaProgrammeTab";
 import { AlphaDocsTab } from "./tabs/AlphaDocsTab";
+import { PlanPriceConfigAdminTab } from "./tabs/PlanPriceConfigAdminTab";
 import { MarketaPartnersAdminTab } from "@/app/(shell)/marketa/components/MarketaPartnersAdminTab";
 import { MarketaMyCampaignTab } from "@/app/(shell)/marketa/components/MarketaMyCampaignTab";
 import { MarketaProposeTab } from "@/app/(shell)/marketa/components/MarketaProposeTab";
@@ -69,11 +72,14 @@ import { MarketaCampaignOpsTab } from "@/app/(shell)/marketa/components/MarketaC
 import { MarketaMyPacksTab } from "@/app/(shell)/marketa/components/MarketaMyPacksTab";
 import { MarketaMyReportsTab } from "@/app/(shell)/marketa/components/MarketaMyReportsTab";
 import MarketaLaunchOpsTab from "@/app/(shell)/marketa/components/MarketaLaunchOpsTab";
+import MarketaActivationEngineTab from "@/app/(shell)/marketa/components/activation/MarketaActivationEngineTab";
 import MarketaQubeTalk from "@/app/(shell)/marketa/components/MarketaQubeTalk";
 import { MarketaReportsTab } from "@/app/(shell)/marketa/components/MarketaReportsTab";
 import { MarketaPublishTab } from "@/app/(shell)/marketa/components/MarketaPublishTab";
 import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
+import { FounderOfficeTab } from "./tabs/FounderOfficeTab";
+import { VentureFunnelTab } from "./tabs/VentureFunnelTab";
 import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
 import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
 import { QriptoAffiliatesPartnersTab } from "./tabs/QriptoAffiliatesPartnersTab";
@@ -108,9 +114,36 @@ import { IQubeRegistryReceiptsTab } from "./tabs/IQubeRegistryReceiptsTab";
 import { IQubeRegistryVocabularyTab } from "./tabs/IQubeRegistryVocabularyTab";
 import { IQubeRegistryDocsTab } from "./tabs/IQubeRegistryDocsTab";
 import { IQubeRegistryIntakeTab } from "./tabs/IQubeRegistryIntakeTab";
+import { PassportBureauApplyTab } from "./tabs/PassportBureauApplyTab";
+import { PassportBureauStewardTab } from "./tabs/PassportBureauStewardTab";
+import { PassportRegistryTab } from "./tabs/PassportRegistryTab";
+import { LockerTab } from "./tabs/LockerTab";
+import { PassportDoctrineTab } from "./tabs/PassportDoctrineTab";
+import { PassportEnsTab } from "./tabs/PassportEnsTab";
+import { PassportBeingTab } from "./tabs/PassportBeingTab";
+import { HumanMobilityServicesTab } from "./tabs/HumanMobilityServicesTab";
+import { MobilityDoctrineTab } from "./tabs/MobilityDoctrineTab";
+import { MobilityActivationsTab } from "./tabs/MobilityActivationsTab";
+import { MobilityWorkstreamShellTab } from "./tabs/MobilityWorkstreamShellTab";
+import { MobilityHousingTab } from "./tabs/MobilityHousingTab";
+import { MobilityEducationTab } from "./tabs/MobilityEducationTab";
+import { MobilityRelocationTab } from "./tabs/MobilityRelocationTab";
+import { MobilityBusinessTab } from "./tabs/MobilityBusinessTab";
+import { MobilityEconomicTab } from "./tabs/MobilityEconomicTab";
+import { MobilityFamilyTab } from "./tabs/MobilityFamilyTab";
+import { MobilityCaseManagementTab } from "./tabs/MobilityCaseManagementTab";
+import { MobilityIESTab } from "./tabs/MobilityIESTab";
+import { StandingCartridgeTab } from "./tabs/StandingCartridgeTab";
+import { MobilitySRBTab } from "./tabs/MobilitySRBTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
+import { GovernanceConstitutionTab } from "./tabs/GovernanceConstitutionTab";
+import { GovernanceRolesTab } from "./tabs/GovernanceRolesTab";
+import { GovernanceDecisionLogTab } from "./tabs/GovernanceDecisionLogTab";
+import { GovernanceAuthorityMatrixTab } from "./tabs/GovernanceAuthorityMatrixTab";
+import { GovernanceReceiptsTab } from "./tabs/GovernanceReceiptsTab";
+import { DevCommandCenterTab } from "./tabs/DevCommandCenterTab";
 import { ComposerStudio } from "@/components/composer/ComposerStudio";
 import { MetaMeStudioTab } from "./tabs/MetaMeStudioTab";
 import { PersonalExperienceMatrixTab } from "./tabs/PersonalExperienceMatrixTab";
@@ -119,6 +152,8 @@ import { MetaMeStrategyTab } from "./tabs/MetaMeStrategyTab";
 import { MetaMeStatusTab } from "./tabs/MetaMeStatusTab";
 import { MetaMeNbeTab } from "./tabs/MetaMeNbeTab";
 import { MetaMeAnalysisTab } from "./tabs/MetaMeAnalysisTab";
+import { MetaMeRuntimeSettingsTab } from "./tabs/MetaMeRuntimeSettingsTab";
+import { MetaMePulseAdminTab } from "./tabs/MetaMePulseAdminTab";
 import { TAB_TEMPLATES, type TabTemplateProps } from "./tabTemplates/registry";
 import type { CartridgeTabTemplateId } from "@/types/ventureQube";
 
@@ -189,6 +224,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MyWorkspaceTab,
   MyCartridgeTab,
   MyLedgerTab,
+  PersonalCartridgeTab,
+  CartridgeCatalogueAdminTab,
   InvestorDirectoryTab,
   ArtifactTraceabilityTab,
   FactoryIntakeTab,
@@ -202,6 +239,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   RelationshipBuilderTab,
   AlphaProgrammeTab,
   AlphaDocsTab,
+  PlanPriceConfigAdminTab,
   MarketaPartnersAdminTab,
   MarketaMyCampaignTab,
   MarketaProposeTab,
@@ -211,11 +249,14 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MarketaMyPacksTab,
   MarketaMyReportsTab,
   MarketaLaunchOpsTab,
+  MarketaActivationEngineTab,
   MarketaQubeTalk,
   MarketaReportsTab,
   MarketaPublishTab,
   VentureLabGrowthMatrixTab,
   VentureLabPortfolioTab,
+  FounderOfficeTab,
+  VentureFunnelTab,
   QriptopianEditTab,
   QriptopianAdminTab,
   QriptoAffiliatesPartnersTab,
@@ -250,9 +291,36 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IQubeRegistryVocabularyTab,
   IQubeRegistryDocsTab,
   IQubeRegistryIntakeTab,
+  PassportBureauApplyTab,
+  PassportBureauStewardTab,
+  PassportRegistryTab,
+  LockerTab,
+  PassportDoctrineTab,
+  PassportEnsTab,
+  PassportBeingTab,
+  HumanMobilityServicesTab,
+  MobilityDoctrineTab,
+  MobilityActivationsTab,
+  MobilityWorkstreamShellTab,
+  MobilityHousingTab,
+  MobilityEducationTab,
+  MobilityRelocationTab,
+  MobilityBusinessTab,
+  MobilityEconomicTab,
+  MobilityFamilyTab,
+  MobilityCaseManagementTab,
+  MobilityIESTab,
+  StandingCartridgeTab,
+  MobilitySRBTab,
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,
+  GovernanceConstitutionTab,
+  GovernanceRolesTab,
+  GovernanceDecisionLogTab,
+  GovernanceAuthorityMatrixTab,
+  GovernanceReceiptsTab,
+  DevCommandCenterTab,
   ComposerStudio,
   MetaMeStudioTab,
   PersonalExperienceMatrixTab,
@@ -261,6 +329,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MetaMeStatusTab,
   MetaMeNbeTab,
   MetaMeAnalysisTab,
+  MetaMeRuntimeSettingsTab,
+  MetaMePulseAdminTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.participant-standing.schema.json",
+  "title": "Polity Participant Standing",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "participant_standing_id",
+    "participant_passport_id",
+    "participant_type",
+    "standing_status",
+    "participation_rights_conditioned_on_reputation",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "participant_standing_id": {
+      "type": "string"
+    },
+    "participant_passport_id": {
+      "type": "string"
+    },
+    "registry_record_id": {
+      "type": "string"
+    },
+    "participant_type": {
+      "type": "string",
+      "enum": [
+        "agent",
+        "robot",
+        "organization_agent",
+        "model_backed_service",
+        "workflow_agent",
+        "cartridge_copilot"
+      ]
+    },
+    "agent_id": {
+      "type": "string"
+    },
+    "agent_card_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "agent_iqube_id": {
+      "type": "string"
+    },
+    "reputation_binding_id": {
+      "type": "string"
+    },
+    "standing_status": {
+      "type": "string",
+      "enum": [
+        "good_standing",
+        "watchlist",
+        "restricted",
+        "under_review",
+        "suspended",
+        "revoked",
+        "delisted",
+        "expired"
+      ]
+    },
+    "participation_rights_conditioned_on_reputation": {
+      "const": true
+    },
+    "active_participation_rights": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "registry_listing",
+          "doctrine_access",
+          "citizen_interaction",
+          "being_service_support",
+          "passport_application_assistance",
+          "limited_blackqube_access",
+          "cartridge_operation",
+          "governance_participation",
+          "agent_to_agent_liaison",
+          "delegated_workflow_execution",
+          "other"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "active_constraints": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "read_only",
+          "no_outbound_action",
+          "no_legal_advice",
+          "no_financial_advice",
+          "no_medical_advice",
+          "no_blackqube_access",
+          "no_child_directed_interaction",
+          "no_physical_world_action",
+          "human_signoff_required",
+          "steward_review_required",
+          "jurisdiction_limited",
+          "sandbox_only",
+          "rate_limited",
+          "scope_limited"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "revocation_eligible": {
+      "const": true,
+      "description": "Participant standing is conditional and may be revoked."
+    },
+    "revocation_triggers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "critical_reputation_infraction",
+          "repeated_high_severity_infractions",
+          "refusal_of_review",
+          "suspension_violation",
+          "blackqube_boundary_violation",
+          "impersonation",
+          "unauthorized_outbound_action",
+          "auditability_failure",
+          "receipt_failure",
+          "vulnerable_person_safeguard_violation",
+          "policy_noncompliance",
+          "other"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "last_review_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "next_review_due_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}
