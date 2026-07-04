@@ -104,6 +104,7 @@ export default function InvariantVideoExperimentRunner() {
   const [useLlm, setUseLlm] = useState<boolean>(true);
   const [skillId, setSkillId] = useState<string>("venice_video_gen");
   const [veniceModel, setVeniceModel] = useState<string>("");
+  const [trustOverride, setTrustOverride] = useState<boolean>(false);
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
   const [visualStyle, setVisualStyle] = useState<string>("cinematic");
 
@@ -348,6 +349,21 @@ export default function InvariantVideoExperimentRunner() {
             </label>
           </div>
 
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={trustOverride}
+              onChange={(e) => setTrustOverride(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-700 bg-slate-900"
+            />
+            Accept lower trust badge
+            <span className="text-xs text-slate-500">
+              — required for Badge C skills (e.g. Sora community, composite 52 vs the 60 hydration
+              gate). The gate is the platform's trust posture doing its job; this is the explicit
+              operator waiver, per experiment run.
+            </span>
+          </label>
+
           <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
             <p className="text-xs text-slate-500 mb-2">
               This mounts the real video skill player, seeded with the {brief.segments.length} distinct
@@ -358,7 +374,7 @@ export default function InvariantVideoExperimentRunner() {
             {/* Keyed remount so switching skill/model between runs resets the
                 player's job state instead of mixing providers mid-flight. */}
             <SkillVideoPlayer
-              key={`${skillId}:${veniceModel}`}
+              key={`${skillId}:${veniceModel}:${trustOverride}`}
               skill_id={skillId}
               prompt={brief.segments[0]?.prompt ?? ""}
               duration={brief.segments.length * 12}
@@ -366,6 +382,7 @@ export default function InvariantVideoExperimentRunner() {
               style={visualStyle}
               segment_prompts={brief.segments.map((s) => s.prompt)}
               venice_model={skillId.includes("venice") && veniceModel ? veniceModel : undefined}
+              trust_override={trustOverride}
             />
           </div>
         </div>
