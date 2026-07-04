@@ -13,7 +13,7 @@ import React from "react";
 import type { CodexTab } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { AlertCircle } from "lucide-react";
-import { liquidTemplateRegistry } from "./liquidTemplates/registry";
+import { liquidExperienceRenderer } from "./liquidTemplates/liquidExperienceRenderer";
 
 // Import static tab components
 import { ScrollsTab } from "./tabs/ScrollsTab";
@@ -494,19 +494,18 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, 
       );
     }
 
-    const Template = liquidTemplate ? liquidTemplateRegistry[liquidTemplate] : undefined;
-    if (Template) {
-      return (
-        <Template
-          theme={theme}
-          density={density}
-          personaId={personaId}
-          issueSlug={issueSlug}
-          forcedDevice={previewDevice}
-          dataSource={dataSource}
-          {...tab.config.props}
-        />
-      );
+    // Resolve through the named rendering seam (CFS-007, Law VI) — the
+    // adapter owns template resolution + context binding; this component
+    // owns only JSX instantiation.
+    const rendered = liquidTemplate
+      ? liquidExperienceRenderer.render(
+          { surface: liquidTemplate, props: { issueSlug, dataSource, ...tab.config.props } },
+          { theme, density, personaId, device: previewDevice },
+        )
+      : null;
+    if (rendered) {
+      const { Component } = rendered;
+      return <Component {...rendered.props} />;
     }
 
     return (

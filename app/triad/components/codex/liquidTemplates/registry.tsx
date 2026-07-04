@@ -10,8 +10,16 @@ import {
   KnytRealmBridgeMapTemplate,
 } from "./KnytStageTemplates";
 import { LiquidUIPlaceholderTemplate } from "./LiquidUIPlaceholderTemplate";
+import { KnytLivingCanonTemplate } from "./KnytLivingCanonTemplate";
 
 export type LiquidTemplateComponent = React.ComponentType<any>;
+
+// NOTE (2026-07-04, CFS-007): this file is the ONE canonical registry. A
+// duplicate registry.ts existed alongside it and the two had diverged —
+// registry.ts registered knyt:living_canon_v1 but not cartridge_runtime_v1,
+// this file the reverse — so whichever won module resolution silently lost a
+// template. The duplicate was deleted and both entries live here. Never
+// recreate a parallel registry file; extend this one.
 
 export const liquidTemplateRegistry: Record<string, LiquidTemplateComponent> = {
   "qripto-codex-home": QriptoLiquidCodexTab,
@@ -50,5 +58,6 @@ export const liquidTemplateRegistry: Record<string, LiquidTemplateComponent> = {
   "knyt:motion_stage_v1": KnytMotionStageTemplate,
   "knyt:quest_hud_hub_v1": KnytQuestHudHubTemplate,
   "knyt:realm_bridge_map_v1": KnytRealmBridgeMapTemplate,
+  "knyt:living_canon_v1": KnytLivingCanonTemplate,
   "liquidui:cartridge_runtime_v1": CartridgeRuntimeTemplate,
 };
