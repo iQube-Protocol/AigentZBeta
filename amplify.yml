@@ -59,14 +59,14 @@ frontend:
         #         (V8 "Ineffective mark-compacts"); Next 15 compile peaks ~3.2 GB.
         #   4096/6144: compile reliable, but then `spawn ENOMEM` — the ~4 GB
         #         parent can't fork the page-data worker within the instance RAM.
-        # 3584 targets the narrow viable window on the current instance: high
-        # enough that compile (~3.2GB peak, with webpackMemoryOptimizations) has
-        # margin and won't flake like 3072 did, yet small enough that the parent
-        # can still fork the page-data worker (4096 could not). If this STILL
-        # fails — either a compile OOM or spawn ENOMEM — the instance is the hard
-        # limit: raise Amplify build compute (console → App settings → Build
-        # settings → larger memory tier), after which 4096+ sails through.
-        - export NODE_OPTIONS="--max-old-space-size=3584"
+        # 4096: reliable compile headroom over Next 15's ~3.2GB peak (with
+        # webpackMemoryOptimizations lowering it further). This requires the
+        # larger Amplify build instance (raised in the console) so the ~4GB
+        # parent can fork the page-data worker — on the previous small instance
+        # 4096 hit spawn ENOMEM. If a future build regresses on memory, bump the
+        # instance tier again rather than shrinking this below ~3.5GB (compile
+        # flakes under that).
+        - export NODE_OPTIONS="--max-old-space-size=4096"
         - export NEXT_PRIVATE_BUILD_WORKER=1
         - npm run build
 
