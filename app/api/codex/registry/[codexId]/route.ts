@@ -38,6 +38,39 @@ async function resolveCodex(codexId: string): Promise<CodexConfig | undefined> {
   );
 }
 
+type RegistryTab = CodexConfig['tabs'][number];
+
+/**
+ * Union-merge static (CODEX_DEFINITIONS) tabs with DB (codex_tabs) rows.
+ *
+ * The hand-written configs are canonical — they carry static component tabs
+ * (e.g. FactoryIntabeTab, AgentiqCartridgeTab, InvariantRegistryTab) that
+ * packs and DB rows cannot express — so static is the source of truth for
+ * structure/config; DB rows supply only the enabled-state override (matching
+ * the KNYT branch's `enabled: enabledBySlug[...] ?? tab.enabled` pattern).
+ * Genuinely DB-authored tabs (slug not present in the static set — e.g. tabs
+ * added via the Codex Manager) are appended.
+ *
+ * This fixes the prior `dbTabs.length > 0 ? dbTabs : static` logic, which let
+ * a stale DB tab set REPLACE the static set wholesale — so newly-added static
+ * tabs never appeared once any codex_tabs row existed for the cartridge.
+ * When there are no static tabs (a purely DB/pack cartridge) it returns the
+ * DB tabs unchanged, so behaviour is a strict no-op in that case.
+ */
+function mergeStaticAndDbTabs(staticTabs: RegistryTab[], dbTabs: RegistryTab[]): RegistryTab[] {
+  if (!staticTabs || staticTabs.length === 0) return dbTabs;
+  const dbBySlug = new Map(dbTabs.map((t) => [t.slug, t]));
+  const staticSlugs = new Set(staticTabs.map((t) => t.slug));
+  const merged: RegistryTab[] = staticTabs.map((tab) => {
+    const dbRow = dbBySlug.get(tab.slug);
+    return dbRow ? { ...tab, enabled: dbRow.enabled } : tab;
+  });
+  for (const dbRow of dbTabs) {
+    if (!staticSlugs.has(dbRow.slug)) merged.push(dbRow);
+  }
+  return merged;
+}
+
 export const dynamic = 'force-dynamic';
 
 interface RouteContext {
@@ -244,7 +277,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
             metadata: t.metadata
           }));
 
-          const mergedTabs = dbTabs.length > 0 ? dbTabs : (fallbackCodex?.tabs ?? []);
+          const mergedTabs = mergeStaticAndDbTabs(fallbackCodex?.tabs ?? [], dbTabs);
 
           const codex: CodexConfig = {
             id: config.id,
@@ -335,6 +368,21 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       }, { status: 500 });
     }
 
+    const dbTabsDirect: RegistryTab[] = (tabs || []).map(t => ({
+      id: t.id,
+      label: t.label,
+      slug: t.slug,
+      enabled: t.enabled,
+      order: t.order,
+      type: t.type,
+      config: t.config,
+      metadata: t.metadata
+    }));
+    // Static CODEX_DEFINITIONS tabs are canonical (carry component configs the
+    // DB can't express); DB rows override enabled-state + append DB-only tabs.
+    const fallbackDirect = await resolveCodex(codexId);
+    const mergedTabsDirect = mergeStaticAndDbTabs(fallbackDirect?.tabs ?? [], dbTabsDirect);
+
     const codex: CodexConfig = {
       id: config.id,
       name: config.name,
@@ -347,16 +395,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         visibilityDirect.callerPersonaId,
       ),
       metadata: config.metadata,
-      tabs: (tabs || []).map(t => ({
-        id: t.id,
-        label: t.label,
-        slug: t.slug,
-        enabled: t.enabled,
-        order: t.order,
-        type: t.type,
-        config: t.config,
-        metadata: t.metadata
-      })),
+      tabs: mergedTabsDirect,
       permissions: config.permissions,
       liquidUI: config.liquid_ui,
       createdAt: config.created_at,

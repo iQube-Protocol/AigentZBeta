@@ -83,6 +83,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-04_tab-shadowing-fix-and-runner-namespace-grounding.md",
         "updates/2026-07-04_invariant-registry-tab.md",
         "updates/2026-07-04_cfs-013-014-coherence-cartridge-tabs.md",
         "updates/2026-07-04_law-xiii-style-invariants-video-fix.md",

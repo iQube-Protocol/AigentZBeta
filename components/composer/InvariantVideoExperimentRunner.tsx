@@ -1,35 +1,33 @@
 "use client";
 
 /**
- * Invariant Video Experiment Runner (Chrysalis EXP-002, CFS-011 §6).
+ * Invariant Video Experiment Runner (Chrysalis EXP-002, CFS-011/012 §6).
  *
- * A self-contained Studio-adjacent surface for running the "coherence
- * across segments" test: pick a style-invariant grounding + a semantic
- * grounding, generate a per-segment brief, then hand it straight to the
- * (fixed) SkillVideoPlayer to actually produce and stitch the segments.
+ * A self-contained Studio-adjacent surface for the "coherence across
+ * segments" test: ground a multi-segment video in invariants, generate a
+ * per-segment brief, then hand it to the (fixed) SkillVideoPlayer to produce
+ * and stitch the segments.
  *
- * Deliberately NOT wired into ComposerStudio.tsx's manual-form state
- * machine — that file is ~9000 lines of interdependent state, and rewiring
- * its video-prompt path for invariant grounding is a larger, separately
- * reviewable change. This page exercises the real fix (segment_prompts on
- * SkillVideoPlayer + the brief generator) end-to-end today; deep composer
- * integration is tracked as a follow-up.
+ * Grounding is NAMESPACE-based by default — it resolves a namespace to its
+ * invariant ids client-side and passes them to the brief API as
+ * `invariantIds` groundings. This is what works against the seeded substrate
+ * (83 invariants, 0 collections): the earlier collection-picker build was a
+ * dead end because no Level-2 collections have been created yet. Curated
+ * collections remain supported by the brief API for when they exist.
+ *
+ * Deliberately NOT wired into ComposerStudio.tsx's ~9000-line manual-form
+ * state machine — deep composer integration is a separate follow-up.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { personaFetch } from "@/utils/personaSpine";
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 
-interface CollectionOption {
-  id: string;
-  name: string;
-  namespace: string | null;
-}
-
 interface SegmentBriefView {
   index: number;
   foregroundedInvariantIds: string[];
+  narrativeInvariantId: string | null;
   beat: string;
   prompt: string;
   composedBy: "llm" | "template";
@@ -38,6 +36,7 @@ interface SegmentBriefView {
 interface BriefView {
   continuityBlock: string;
   styleInvariantIds: string[];
+  narrativeInvariantIds: string[];
   semanticInvariantIds: string[];
   segments: SegmentBriefView[];
 }
@@ -52,12 +51,31 @@ interface CoherenceView {
 
 const SEGMENT_COUNT_OPTIONS = [2, 3, 4];
 
+// Namespaces usable as the SEMANTIC grounding (the principles each segment
+// dramatizes). style/narrative are handled by their own toggles below.
+const SEMANTIC_NAMESPACES = [
+  "constitutional",
+  "reasoning",
+  "capability",
+  "experience",
+  "engineering",
+] as const;
+
+// Resolve a namespace to its invariant ids (proposed/validated/canonical),
+// capped so a segment brief stays legible.
+async function idsForNamespace(namespace: string, limit = 40): Promise<string[]> {
+  const params = new URLSearchParams({ namespace, limit: String(limit) });
+  const res = await personaFetch(`/api/invariants?${params.toString()}`, { cache: "no-store" });
+  const data = await res.json();
+  if (!res.ok || !data.ok) throw new Error(data.error || `Failed to load ${namespace} invariants`);
+  return (data.invariants as { id: string }[]).map((i) => i.id);
+}
+
 export default function InvariantVideoExperimentRunner() {
-  const [collections, setCollections] = useState<CollectionOption[]>([]);
-  const [collectionsError, setCollectionsError] = useState<string | null>(null);
-  const [styleCollectionId, setStyleCollectionId] = useState<string>("");
-  const [narrativeCollectionId, setNarrativeCollectionId] = useState<string>("");
-  const [semanticCollectionId, setSemanticCollectionId] = useState<string>("");
+  const [semanticNamespace, setSemanticNamespace] = useState<string>("constitutional");
+  const [includeStyle, setIncludeStyle] = useState<boolean>(true);
+  const [includeNarrative, setIncludeNarrative] = useState<boolean>(true);
+  const [semanticLimit, setSemanticLimit] = useState<number>(12);
   const [segmentCount, setSegmentCount] = useState<number>(4);
   const [productionTitle, setProductionTitle] = useState<string>("");
   const [useLlm, setUseLlm] = useState<boolean>(true);
@@ -70,40 +88,30 @@ export default function InvariantVideoExperimentRunner() {
   const [brief, setBrief] = useState<BriefView | null>(null);
   const [coherence, setCoherence] = useState<CoherenceView | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await personaFetch("/api/invariants/collections", { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load collections");
-        if (!cancelled) setCollections(data.collections as CollectionOption[]);
-      } catch (err) {
-        if (!cancelled) {
-          setCollectionsError(err instanceof Error ? err.message : "Failed to load collections");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const generateBrief = useCallback(async () => {
-    if (!semanticCollectionId) {
-      setBriefError("Select a semantic (constitutional/knowledge) collection to ground the segments.");
-      return;
-    }
     setBriefLoading(true);
     setBriefError(null);
     setBrief(null);
     setCoherence(null);
     try {
-      const groundings = [
-        ...(styleCollectionId ? [{ collectionId: styleCollectionId, role: "style" }] : []),
-        ...(narrativeCollectionId ? [{ collectionId: narrativeCollectionId, role: "narrative" }] : []),
-        { collectionId: semanticCollectionId, role: "semantic" },
+      const semanticIds = await idsForNamespace(semanticNamespace, semanticLimit);
+      if (semanticIds.length === 0) {
+        throw new Error(
+          `No invariants found in the '${semanticNamespace}' namespace. Run the seed (scripts/ingest-canonical-invariants.mjs) first.`,
+        );
+      }
+      const groundings: { invariantIds: string[]; role: string }[] = [
+        { invariantIds: semanticIds, role: "semantic" },
       ];
+      if (includeStyle) {
+        const styleIds = await idsForNamespace("style");
+        if (styleIds.length) groundings.push({ invariantIds: styleIds, role: "style" });
+      }
+      if (includeNarrative) {
+        const narrativeIds = await idsForNamespace("narrative");
+        if (narrativeIds.length) groundings.push({ invariantIds: narrativeIds, role: "narrative" });
+      }
+
       const res = await personaFetch("/api/video/invariant-brief", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,72 +131,48 @@ export default function InvariantVideoExperimentRunner() {
     } finally {
       setBriefLoading(false);
     }
-  }, [styleCollectionId, narrativeCollectionId, semanticCollectionId, segmentCount, productionTitle, useLlm]);
+  }, [semanticNamespace, semanticLimit, includeStyle, includeNarrative, segmentCount, productionTitle, useLlm]);
 
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
         <h2 className="text-lg font-semibold text-slate-100">Invariant Video Experiment Runner</h2>
         <p className="text-sm text-slate-400 mt-1">
-          Chrysalis EXP-002 / CFS-011 (style) / CFS-012 (narrative) — ground a multi-segment
-          video in a style-invariant collection (cinematographic continuity, shared identically
-          across segments), an optional narrative-invariant collection (a fixed story arc,
-          mapped sequentially one beat per segment), and a semantic collection (the principles
-          each segment dramatizes, distributed round-robin), then run it through the real
-          generation + stitch pipeline to test coherence across segments.
+          Chrysalis EXP-002 / CFS-011 (style) / CFS-012 (narrative) — ground a multi-segment video
+          in the live invariant substrate: a semantic namespace (the principles each segment
+          dramatizes, distributed round-robin), an optional style layer (cinematographic continuity,
+          shared identically across segments), and an optional narrative arc (fixed story beats,
+          mapped sequentially). Generate the brief, review its coherence, then run it through the
+          real generation + stitch pipeline.
         </p>
       </div>
 
-      {collectionsError && (
-        <div className="rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-300">
-          {collectionsError}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label className="text-sm text-slate-300">
-          Style Invariant Collection (visual/narrative continuity — optional)
+          Semantic namespace (the principles — required)
           <select
             className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={styleCollectionId}
-            onChange={(e) => setStyleCollectionId(e.target.value)}
+            value={semanticNamespace}
+            onChange={(e) => setSemanticNamespace(e.target.value)}
           >
-            <option value="">None</option>
-            {collections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} {c.namespace ? `(${c.namespace})` : ""}
+            {SEMANTIC_NAMESPACES.map((ns) => (
+              <option key={ns} value={ns}>
+                {ns}
               </option>
             ))}
           </select>
         </label>
 
         <label className="text-sm text-slate-300">
-          Narrative Invariant Collection (fixed story arc — optional)
+          Max semantic invariants to ground on
           <select
             className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={narrativeCollectionId}
-            onChange={(e) => setNarrativeCollectionId(e.target.value)}
+            value={semanticLimit}
+            onChange={(e) => setSemanticLimit(Number(e.target.value))}
           >
-            <option value="">None</option>
-            {collections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} {c.namespace ? `(${c.namespace})` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-sm text-slate-300">
-          Semantic Collection (constitutional / knowledge invariants — required)
-          <select
-            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={semanticCollectionId}
-            onChange={(e) => setSemanticCollectionId(e.target.value)}
-          >
-            <option value="">Select a collection…</option>
-            {collections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} {c.namespace ? `(${c.namespace})` : ""}
+            {[6, 12, 20, 40].map((n) => (
+              <option key={n} value={n}>
+                {n} (highest-standing first)
               </option>
             ))}
           </select>
@@ -220,6 +204,16 @@ export default function InvariantVideoExperimentRunner() {
         </label>
 
         <label className="text-sm text-slate-300 flex items-center gap-2 mt-1">
+          <input type="checkbox" checked={includeStyle} onChange={(e) => setIncludeStyle(e.target.checked)} />
+          Include Style Invariants (7 seeded — cinematographic continuity, CFS-011)
+        </label>
+
+        <label className="text-sm text-slate-300 flex items-center gap-2 mt-1">
+          <input type="checkbox" checked={includeNarrative} onChange={(e) => setIncludeNarrative(e.target.checked)} />
+          Include Narrative Invariants (5 seeded — fixed story arc, CFS-012)
+        </label>
+
+        <label className="text-sm text-slate-300 flex items-center gap-2 mt-1 md:col-span-2">
           <input type="checkbox" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} />
           Compose cinematic prose with LLM (falls back to a structured template if unavailable)
         </label>
@@ -231,7 +225,7 @@ export default function InvariantVideoExperimentRunner() {
         </div>
       )}
 
-      <Button onClick={generateBrief} disabled={briefLoading || !semanticCollectionId}>
+      <Button onClick={generateBrief} disabled={briefLoading}>
         {briefLoading ? "Generating brief…" : "Generate Brief"}
       </Button>
 
@@ -252,9 +246,7 @@ export default function InvariantVideoExperimentRunner() {
                 <span className="text-sm font-semibold text-slate-200">
                   Constitutional Coherence {coherence.pass ? "— PASS" : "— FAIL (rendering gated, CFS-014)"}
                 </span>
-                <span className="text-sm text-slate-300">
-                  CCS: {coherence.constitutionalScore ?? "—"}
-                </span>
+                <span className="text-sm text-slate-300">CCS: {coherence.constitutionalScore ?? "—"}</span>
               </div>
               <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-400">
                 {Object.entries(coherence.dimensions).map(([dim, d]) => (
@@ -275,6 +267,7 @@ export default function InvariantVideoExperimentRunner() {
               )}
             </div>
           )}
+
           {brief.segments.map((segment) => (
             <div key={segment.index} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
               <div className="flex items-center justify-between text-xs text-slate-500">
@@ -315,9 +308,9 @@ export default function InvariantVideoExperimentRunner() {
 
           <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
             <p className="text-xs text-slate-500 mb-2">
-              This mounts the real video skill player, seeded with the {brief.segments.length}{" "}
-              distinct segment prompts above. Use its own "Generate" control below to run the
-              live generation + stitch pipeline.
+              This mounts the real video skill player, seeded with the {brief.segments.length} distinct
+              segment prompts above. Use its own "Generate Video" button below to run the live
+              generation + stitch pipeline.
             </p>
             <SkillVideoPlayer
               skill_id={skillId}
