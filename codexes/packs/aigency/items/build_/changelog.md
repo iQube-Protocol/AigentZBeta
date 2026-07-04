@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b1039a9`](https://github.com/iQube-Protocol/AigentZBeta/commit/b1039a9b1536afb4dcf0c7998c25a8d74e1d513c) [feat] Adjudicate EXP-001 run 1 (confirmed) + add consequence evolution route (Claude, 2026-07-04T08:40:07Z)
 - [`e01bed9`](https://github.com/iQube-Protocol/AigentZBeta/commit/e01bed96fe3a748848cd1b1f1b799bc36832c0d2) [feat] add EXP-001 run-1 evaluation results json (venice/llama-3.3-70b judge) (Kn0w-1, 2026-07-04T04:26:09-04:00)
 - [`2a84318`](https://github.com/iQube-Protocol/AigentZBeta/commit/2a8431886d01bb43f57418cf5e2d044b4beb3a13) [push] Harden EXP-001 harness JSON parsing against OSS-judge output (Claude, 2026-07-04T07:51:02Z)
 - [`d1289ff`](https://github.com/iQube-Protocol/AigentZBeta/commit/d1289ff2b2e08aa49a46039c0cea8eb4d694deb5) [feat] Add EXP-001 independent-judge evaluation harness (Claude, 2026-07-04T07:35:58Z)

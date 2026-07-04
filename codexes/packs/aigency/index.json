@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T08:27:50.378Z",
+  "last_updated": "2026-07-04T08:41:41.270Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e01bed96fe3a748848cd1b1f1b799bc36832c0d2",
-  "latest_commit_short": "e01bed9",
-  "latest_commit_title": "add EXP-001 run-1 evaluation results json (venice/llama-3.3-70b judge)",
+  "latest_commit": "b1039a9b1536afb4dcf0c7998c25a8d74e1d513c",
+  "latest_commit_short": "b1039a9",
+  "latest_commit_title": "Adjudicate EXP-001 run 1 (confirmed) + add consequence evolution route",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b1039a9",
+      "full_sha": "b1039a9b1536afb4dcf0c7998c25a8d74e1d513c",
+      "title": "Adjudicate EXP-001 run 1 (confirmed) + add consequence evolution route",
+      "author": "Claude",
+      "timestamp": "2026-07-04T08:40:07Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b1039a9.md"
+    },
     {
       "sha": "e01bed9",
       "full_sha": "e01bed96fe3a748848cd1b1f1b799bc36832c0d2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T19:48:50Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-841a64e.md"
-    },
-    {
-      "sha": "ce27071",
-      "full_sha": "ce27071e9b9a979eec0f6157595d71367590434c",
-      "title": "document hackathon submission build — sprints 1-7 complete",
-      "author": "Claude",
-      "timestamp": "2026-06-13T17:48:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ce27071.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
