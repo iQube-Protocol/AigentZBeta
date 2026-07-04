@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T08:57:44.282Z",
+  "last_updated": "2026-07-04T09:10:21.688Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3fdab366b9604b092cfc879ff4523bd6781c8b27",
-  "latest_commit_short": "3fdab36",
-  "latest_commit_title": "Fix terminal-beat drop in narrative mapping (caught by Coherence Engine)",
+  "latest_commit": "7475a6f4c06dc52d69aec6b17b6f33598bae949b",
+  "latest_commit_short": "7475a6f",
+  "latest_commit_title": "Ratify Law XV: Compositional Fields — canon, seeds, and code canary",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7475a6f",
+      "full_sha": "7475a6f4c06dc52d69aec6b17b6f33598bae949b",
+      "title": "Ratify Law XV: Compositional Fields — canon, seeds, and code canary",
+      "author": "Claude",
+      "timestamp": "2026-07-04T09:08:34Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7475a6f.md"
+    },
     {
       "sha": "3fdab36",
       "full_sha": "3fdab366b9604b092cfc879ff4523bd6781c8b27",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T20:28:27Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-84f45d6.md"
-    },
-    {
-      "sha": "afdf02d",
-      "full_sha": "afdf02d2dcb7460f866243c65b291ce721a4db65",
-      "title": "fix migrations — personas RLS uses auth_profile_id, not auth_user_id (operator unblock)",
-      "author": "Claude",
-      "timestamp": "2026-06-13T20:10:42Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-afdf02d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
