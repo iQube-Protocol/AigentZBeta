@@ -2739,3 +2739,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-b1039a9.md](../build_/COMMITS/COMMIT-b1039a9.md)
 - Message: Adjudicate EXP-001 run 1 (confirmed) + add consequence evolution route
+
+## Commit `d9b6560` — 2026-07-04T08:45:49Z
+- Type: `push`
+- Brief: [COMMIT-d9b6560.md](../build_/COMMITS/COMMIT-d9b6560.md)
+- Message: Ratify constitutional-restraint metric + series framing into CFS-008/008a

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T08:41:41.270Z",
+  "last_updated": "2026-07-04T08:47:31.692Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b1039a9b1536afb4dcf0c7998c25a8d74e1d513c",
-  "latest_commit_short": "b1039a9",
-  "latest_commit_title": "Adjudicate EXP-001 run 1 (confirmed) + add consequence evolution route",
+  "latest_commit": "d9b6560024f49a1b96181ec3302450c61e5f2233",
+  "latest_commit_short": "d9b6560",
+  "latest_commit_title": "Ratify constitutional-restraint metric + series framing into CFS-008/008a",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d9b6560",
+      "full_sha": "d9b6560024f49a1b96181ec3302450c61e5f2233",
+      "title": "Ratify constitutional-restraint metric + series framing into CFS-008/008a",
+      "author": "Claude",
+      "timestamp": "2026-07-04T08:45:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d9b6560.md"
+    },
     {
       "sha": "b1039a9",
       "full_sha": "b1039a9b1536afb4dcf0c7998c25a8d74e1d513c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T19:58:41Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-a1c80a0.md"
-    },
-    {
-      "sha": "841a64e",
-      "full_sha": "841a64e7b413ad40563f40cb6cfbd58f2824923d",
-      "title": "fix amplify build — remove literal @worldcoin/idkit dynamic import",
-      "author": "Claude",
-      "timestamp": "2026-06-13T19:48:50Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-841a64e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
