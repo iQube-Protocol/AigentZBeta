@@ -1752,6 +1752,98 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
       },
     ],
   },
+  {
+    id: "video-article-bundle",
+    name: "AI Video + Article Bundle",
+    description: "Generate an AI video with a companion article draft in one flow. OpenAI Sora, Venice, or community provider for the video; structured editorial copy for the article.",
+    category: "task",
+    complexity: "intermediate",
+    estimated_time: 30,
+    required_components: ["skill_invocation", "video_player", "article_reader"],
+    optional_components: ["rewards"],
+    tags: ["video", "article", "bundle", "ai-generation", "sora", "venice"],
+    steps: [
+      {
+        id: "intent_timebox",
+        title: "Video Intent",
+        description: "Name this video experience and set parameters.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "experience_name", name: "Experience name", type: "text", required: true },
+            { id: "goal", name: "Goal", type: "textarea", required: false },
+          ],
+        },
+      },
+      {
+        id: "skill_selection",
+        title: "Skill Selection",
+        description: "Choose between curated OpenAI Sora, Venice, or community OpenClaw-backed video generation.",
+        type: "selection",
+        required: true,
+        component_type: "ToolQube",
+        ui_config: {
+          layout: "form",
+          fields: [{ id: "skill_id", name: "Video Skill", type: "select", required: true, default_value: "sora_video_gen_curated", options: [{ value: "sora_video_gen_curated", label: "Sora Video Gen (Curated) — Badge A, Trusted", description: "First-party OpenAI curated skill. Stable CI, org-backed, high trust." }, { value: "venice_video_gen", label: "Venice Video Gen — Badge A, Trusted", description: "Alternative trusted provider path for video generation." }, { value: "sora_video_gen_community", label: "Sora Video Gen (Community) — Badge C, Basic", description: "Community-maintained OpenClaw skill. Variable review posture." }] }, { id: "trust_override", name: "Accept lower trust badge?", type: "checkbox", required: false, help_text: "Check to allow community skill even if below hydration threshold." }],
+        },
+      },
+      {
+        id: "video_prompt",
+        title: "Video Prompt",
+        description: "Describe the video you want to generate.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "prompt", name: "Video Prompt", type: "textarea", required: true },
+            {
+              id: "duration", name: "Duration (seconds)", type: "select", required: false,
+              default_value: "12",
+              options: [
+                { value: "4", label: "4 seconds" },
+                { value: "8", label: "8 seconds" },
+                { value: "12", label: "12 seconds" },
+                { value: "24", label: "24 seconds (2 clips, stitched)" },
+                { value: "48", label: "48 seconds (4 clips, stitched)" },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: "article_draft",
+        title: "Article Draft",
+        description: "Configure the companion article title, prompt, and structure.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "title", name: "Article title", type: "text", required: true },
+            { id: "prompt", name: "Article prompt", type: "textarea", required: true, help_text: "What should the article cover? Include tone, audience, and key points." },
+            { id: "outputs", name: "Include sections", type: "multiselect", required: false, options: [{ value: "takeaways", label: "Key takeaways" }, { value: "next_action", label: "Next action" }, { value: "summary", label: "Summary" }] },
+            { id: "takeaways_count", name: "Number of takeaways", type: "slider", required: false, validation: { min: 1, max: 5, step: 1 } },
+          ],
+        },
+      },
+      {
+        id: "wallet_rewards",
+        title: "Rewards (Optional)",
+        description: "Configure optional rewards for this experience.",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "reward_amount", name: "Reward amount (Q¢)", type: "text", required: false },
+          ],
+        },
+      },
+    ],
+  },
 ];
 
 export const ComposerStudio = () => {
@@ -4960,7 +5052,31 @@ export const ComposerStudio = () => {
       });
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
-      const returnedExperience = data.experience_qube || null;
+      let returnedExperience = data.experience_qube || null;
+      // The "AI Video + Article Bundle" template is a first-class starting
+      // choice in the New Experience picker, but it isn't a bundle preset
+      // itself — it's just a video template with an added article_draft step.
+      // Apply the SAME canonical video_article_bundle patch the Template
+      // tab's manual "Apply bundle preset" flow uses (handleApplyBundlePreset
+      // below), so this experience is indistinguishable downstream (video
+      // auto-gen, article auto-gen, Workflows tab, packet route) from one
+      // created via create-video-then-apply-bundle-after.
+      if (
+        returnedExperience &&
+        session.template_id === "video-article-bundle" &&
+        !getAppliedExperienceBundle(returnedExperience)
+      ) {
+        const manifest = buildExperienceBlockManifest(returnedExperience);
+        const preset = listExperienceBundlePresets(manifest).find((p) => p.id === "video_article_bundle");
+        if (preset) {
+          const bundlePatch = buildExperienceBundlePresetPatch(returnedExperience, manifest, preset);
+          returnedExperience = {
+            ...returnedExperience,
+            configuration: { ...(returnedExperience.configuration || {}), ...bundlePatch.configuration },
+            metadata: { ...(returnedExperience.metadata || {}), ...bundlePatch.metadata },
+          };
+        }
+      }
       if (data.pipeline_run_id) {
         setLastPipelineRunId(data.pipeline_run_id);
         setPipelineRunData(null);
