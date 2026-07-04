@@ -2724,3 +2724,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-d1289ff.md](../build_/COMMITS/COMMIT-d1289ff.md)
 - Message: Add EXP-001 independent-judge evaluation harness
+
+## Commit `2a84318` — 2026-07-04T07:51:02Z
+- Type: `push`
+- Brief: [COMMIT-2a84318.md](../build_/COMMITS/COMMIT-2a84318.md)
+- Message: Harden EXP-001 harness JSON parsing against OSS-judge output

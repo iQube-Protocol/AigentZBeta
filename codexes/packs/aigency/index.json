@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T07:37:51.877Z",
+  "last_updated": "2026-07-04T07:52:49.574Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d1289ff2b2e08aa49a46039c0cea8eb4d694deb5",
-  "latest_commit_short": "d1289ff",
-  "latest_commit_title": "Add EXP-001 independent-judge evaluation harness",
+  "latest_commit": "2a8431886d01bb43f57418cf5e2d044b4beb3a13",
+  "latest_commit_short": "2a84318",
+  "latest_commit_title": "Harden EXP-001 harness JSON parsing against OSS-judge output",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2a84318",
+      "full_sha": "2a8431886d01bb43f57418cf5e2d044b4beb3a13",
+      "title": "Harden EXP-001 harness JSON parsing against OSS-judge output",
+      "author": "Claude",
+      "timestamp": "2026-07-04T07:51:02Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2a84318.md"
+    },
     {
       "sha": "d1289ff",
       "full_sha": "d1289ff2b2e08aa49a46039c0cea8eb4d694deb5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-13T17:45:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-2371300.md"
-    },
-    {
-      "sha": "16d854f",
-      "full_sha": "16d854f482367b5166247f00565c00dfa8b3c38a",
-      "title": "sprint 6 — partial provekit zk for personhood + delegation authority",
-      "author": "Claude",
-      "timestamp": "2026-06-13T17:43:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-16d854f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
