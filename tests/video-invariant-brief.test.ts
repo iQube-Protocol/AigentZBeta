@@ -236,3 +236,59 @@ describe('narrative grounding (CFS-012) — sequential, never round-robin', () =
     expect(brief.segments.every((s) => s.narrativeInvariantId === null)).toBe(true);
   });
 });
+
+describe('Law XV — Compositional Fields: no field is inert (multiplicative composition)', () => {
+  // Law XV: experience = semantic × style × narrative — changing ANY field
+  // must change EVERY composed segment prompt (fields are locally independent,
+  // globally dependent; composition is multiplicative, not additive).
+  const base = {
+    groundings: [
+      { collectionId: 'style-collection', role: 'style' },
+      { collectionId: 'semantic-collection', role: 'semantic' },
+      { collectionId: 'narrative-collection', role: 'narrative' },
+    ],
+    segmentCount: 2,
+    useLlm: false,
+  } as const;
+
+  it('changing the style field changes every segment prompt', async () => {
+    const a = await buildVideoInvariantBrief({ ...base, groundings: [...base.groundings] });
+    const b = await buildVideoInvariantBrief({
+      ...base,
+      groundings: [
+        { invariantIds: ['style-1'], role: 'style' }, // style-2 removed
+        { collectionId: 'semantic-collection', role: 'semantic' },
+        { collectionId: 'narrative-collection', role: 'narrative' },
+      ],
+    });
+    for (let i = 0; i < base.segmentCount; i++) {
+      expect(a.segments[i].prompt).not.toEqual(b.segments[i].prompt);
+    }
+  });
+
+  it('changing the narrative field changes every segment prompt', async () => {
+    const a = await buildVideoInvariantBrief({ ...base, groundings: [...base.groundings] });
+    const b = await buildVideoInvariantBrief({
+      ...base,
+      groundings: base.groundings.filter((g) => g.role !== 'narrative'),
+    });
+    for (let i = 0; i < base.segmentCount; i++) {
+      expect(a.segments[i].prompt).not.toEqual(b.segments[i].prompt);
+    }
+  });
+
+  it('changing the semantic field changes every segment prompt', async () => {
+    const a = await buildVideoInvariantBrief({ ...base, groundings: [...base.groundings] });
+    const b = await buildVideoInvariantBrief({
+      ...base,
+      groundings: [
+        { collectionId: 'style-collection', role: 'style' },
+        { invariantIds: ['sem-1', 'sem-2'], role: 'semantic' }, // sem-3/sem-4 removed
+        { collectionId: 'narrative-collection', role: 'narrative' },
+      ],
+    });
+    for (let i = 0; i < base.segmentCount; i++) {
+      expect(a.segments[i].prompt).not.toEqual(b.segments[i].prompt);
+    }
+  });
+});

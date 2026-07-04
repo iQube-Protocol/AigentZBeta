@@ -64,3 +64,21 @@ The video brief generator (`services/video/invariantVideoBrief.ts`, CFS-011 §6)
 | `inv.style.007` | Transition | Each segment begins from the final semantic state of the preceding segment, preserving character position, environmental state, lighting direction, and active motifs. |
 
 Status `proposed`; namespace `style`; semantic type `constraint` for 001–003/007, `principle` for 004–005, and `constraint` for 006 (it bounds style invariants by semantic ones — see §3.3).
+
+## Backlog — Continuity Block dissolution (Law XV class-purity corollary, 2026-07-04)
+
+The v1 Continuity Block (S-001..S-007) spans FOUR invariant families masquerading as
+one style block:
+
+| Entries | Actual family |
+|---|---|
+| S-002, S-003 (lighting/camera/palette, aspect/typography) | style proper |
+| S-001, S-004 (same protagonist, same world, one timeline) | identity continuity |
+| S-006 (visual metaphors correspond to grounding invariants) | semantic constraint |
+| S-007 (each segment begins from the prior segment's final state) | state continuity |
+
+Per Law XV's class-purity corollary this mixed block is scaffolding: as identity-
+continuity, semantic-constraint, and state-continuity invariant classes are ratified
+(each with its own composition law per CFS-013 §3), the block dissolves into its
+constituent classes. Until then the block remains the operational unit — no code may
+treat its current mixed form as constitutionally final.

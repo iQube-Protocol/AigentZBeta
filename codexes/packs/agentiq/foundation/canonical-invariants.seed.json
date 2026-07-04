@@ -1168,6 +1168,49 @@
       "provenance": {
         "source": "CFS-014 — the coherence field"
       }
+    },
+    {
+      "id": "inv.experience.072",
+      "namespace": "experience",
+      "semantic_type": "law",
+      "statement": "Every constitutional experience is the multiplicative composition of independently verifiable invariant fields; changing any field changes the whole experience.",
+      "status": "proposed",
+      "contexts": [
+        "experience",
+        "rendering",
+        "composition"
+      ],
+      "provenance": {
+        "source": "Law XV — Compositional Fields (discovered by EXP-002's first production brief, 2026-07-04)"
+      }
+    },
+    {
+      "id": "inv.reasoning.073",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Invariant fields are locally independent and globally dependent; a compositional failure can live purely in an interaction while every field is individually correct.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "composition"
+      ],
+      "provenance": {
+        "source": "Law XV / CFS-013 §6 — evidenced by the terminal-beat defect caught by CFS-014"
+      }
+    },
+    {
+      "id": "inv.engineering.074",
+      "namespace": "engineering",
+      "semantic_type": "constraint",
+      "statement": "A composed block that spans invariant families is scaffolding; it dissolves into its constituent classes as those classes are ratified, and no code may treat the mixed block as constitutionally final.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "composition"
+      ],
+      "provenance": {
+        "source": "Law XV class-purity corollary — the v1 Continuity Block (CFS-011 backlog)"
+      }
     }
   ]
 }

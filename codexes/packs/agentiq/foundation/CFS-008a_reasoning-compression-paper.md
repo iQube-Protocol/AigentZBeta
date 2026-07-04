@@ -237,6 +237,16 @@ verified compilation fidelity the way a test suite verifies a build. Semantic
 preservation across modalities is, on this reading, the property one would demand of a
 compiler target — and the collection delivered it at ceiling.
 
+**Beyond storage: composition.** EXP-002's production brief (and the interaction
+defect its coherence field caught) sharpened the programme's self-description, ratified
+as Law XV: *Invariant Intelligence is not merely a system for storing knowledge. It is
+a system for composing coherent experiences from independently verifiable invariant
+fields.* The composition is multiplicative — semantic × style × narrative × experience
+× context — with fields locally independent and globally dependent, which is why
+correctness can only be judged over the composed whole (Law XIV) and why the same
+substrate generalizes past video to user interfaces, agent behaviour, workflows, and
+any experience the platform constructs.
+
 **The evaluation pipeline is itself the constitutional model.** EXP-001's method —
 LLM rendering → independent judge → human constitutional ratifier → canonical Standing —
 reproduces the platform's own governance chain (proposed → evaluated → ratified →

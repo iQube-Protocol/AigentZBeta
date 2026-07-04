@@ -57,3 +57,31 @@ Whether the output is prose, video, UI, an agent workflow, an infographic, speec
 ## 5. Code reflection
 
 The composition laws are pinned as a constitutional constant — `COMPOSITION_LAWS` in `types/invariants.ts` — mapping every namespace to its ratified law. A namespace without an entry cannot be added (the Record type is exhaustive over `InvariantNamespace`), which enforces §3 at compile time: you cannot introduce a class without declaring its algebra.
+
+## 6. The field equation — amendment 2026-07-04 (Law XV)
+
+EXP-002's first production brief taught the composition model its own generalization
+(ratified as Law XV — Compositional Fields). The composition is not a pipeline of
+independent layers; it is a **multiplicative field product**:
+
+```
+Semantic × Style × Narrative × Experience × Context  =  Experience
+```
+
+- Fields are **locally independent, globally dependent**: each is verifiable in
+  isolation, none is inert in composition — changing any field changes the entire
+  resulting experience.
+- The substrate is therefore a **constraint field**, not only a graph: the Composition
+  Engine (the invariant compiler of §4) does not concatenate fields, it **solves them
+  simultaneously** — semantic says *what may be expressed*, narrative *when*, style
+  *how*, experience *to whom* (slot — namespace exists, field unimplemented), context
+  *under which conditions* (slot).
+- Because a defect can live purely in an interaction (the terminal-beat defect:
+  every field locally correct, the arc's resolution lost between the narrative field
+  and segmentation), field-level evaluation (CFS-014 / Law XIV) is entailed by this
+  equation, not merely compatible with it.
+
+**Class-purity corollary (Law XV):** composed blocks that span invariant families —
+the v1 Continuity Block mixes style, identity continuity, semantic constraint, and
+state continuity (CFS-011 §backlog) — are scaffolding, and dissolve into their
+constituent classes as those classes are ratified.

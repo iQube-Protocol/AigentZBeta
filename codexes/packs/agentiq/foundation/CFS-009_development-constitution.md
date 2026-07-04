@@ -142,6 +142,25 @@ Ontology defines meaning. Graph defines relationships. Composition Laws (CFS-013
 
 Individual invariant classes may compose correctly in isolation while failing collectively — the failure living in no invariant but in the interaction between them. Coherence is therefore evaluated over the complete experience as a field, never as a sum of independently validated layers. No renderer executes until Constitutional Coherence succeeds (fail-closed; operator waiver per Law XI). Knowledge composes locally; experiences succeed globally through coherence.
 
+## Law XV — Compositional Fields
+*(Amendment, ratified by operator direction 2026-07-04 — discovered by the implementation teaching the theory: EXP-002's first production brief. Law XIV governs the judgment of a composed experience; this law names the object being judged.)*
+
+**Every constitutional experience is the composition of independently verifiable invariant fields, and the composition is multiplicative, not additive: changing any field changes the whole experience.**
+
+```
+Semantic × Style × Narrative × Experience × Context  =  Experience
+(what may   (how it is  (when it is   (to whom it    (under which
+be expressed) expressed)  expressed)    is expressed)   conditions)
+```
+
+Fields are **locally independent and globally dependent** — each verifiable in isolation, none inert in composition. The invariant substrate is therefore not only a graph (relationships) but a **constraint field**: the composition engine does not concatenate the fields, it solves them simultaneously. The graph is the substrate; composition is the operation; the Composition Engine (today: the brief generator executing CFS-013's per-namespace laws) is the named orchestrator over it.
+
+Because every field can be locally correct while the failure lives only in an interaction (evidence at ratification: EXP-002's terminal-beat defect — semantic, style, and narrative each individually correct; the arc's resolution lost in the mapping between the narrative field and segmentation — caught by CFS-014, fixed same day), correctness of a composition **cannot be evaluated locally**. This law entails Law XIV rather than duplicating it.
+
+**Corollary — class purity.** A composed block that spans invariant families is scaffolding. The v1 Continuity Block mixes four: style (lighting, camera, palette), identity continuity (same protagonist, world, timeline), semantic constraint (visual metaphors correspond to grounding invariants), and state continuity (each segment begins from the prior segment's final state). Such blocks dissolve into their constituent classes as those classes are ratified (Law X); no code may treat the mixed block as constitutionally final.
+
+The experience and context fields are named slots, not yet implemented — experience-namespace invariants will govern *to whom*, context invariants *under which conditions*. Naming them before building them is Law IV applied to this law itself.
+
 ---
 
 ## The canonical paragraph
