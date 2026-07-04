@@ -2789,3 +2789,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-fba56dc.md](../build_/COMMITS/COMMIT-fba56dc.md)
 - Message: Add model dropdowns to EXP-001/003 lab runners (allowlisted per provider)
+
+## Commit `42849c3` — 2026-07-04T20:41:43Z
+- Type: `feat`
+- Brief: [COMMIT-42849c3.md](../build_/COMMITS/COMMIT-42849c3.md)
+- Message: Add canonical results publication: hash-committed, DVN-anchored, verifiable
