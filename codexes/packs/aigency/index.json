@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T04:30:36.205Z",
+  "last_updated": "2026-07-04T05:25:34.860Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4b451661d4ce69144fee2af3b57d210eb3a9e834",
-  "latest_commit_short": "4b45166",
-  "latest_commit_title": "Add missing Invariant Intelligence tab to Polity Core cartridge",
+  "latest_commit": "5132d14c2ddccf5ae15082e753d4a45fb432bd1d",
+  "latest_commit_short": "5132d14",
+  "latest_commit_title": "Add Overview/Ontology/Graph views to Invariant Registry",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5132d14",
+      "full_sha": "5132d14c2ddccf5ae15082e753d4a45fb432bd1d",
+      "title": "Add Overview/Ontology/Graph views to Invariant Registry",
+      "author": "Claude",
+      "timestamp": "2026-07-04T05:23:45Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5132d14.md"
+    },
     {
       "sha": "4b45166",
       "full_sha": "4b451661d4ce69144fee2af3b57d210eb3a9e834",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-12T16:00:51Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-9945b46.md"
-    },
-    {
-      "sha": "d885aba",
-      "full_sha": "d885abafe6a5a31604c46139256915e48d99a3d1",
-      "title": "ICE engine phase 1a: stage orchestrator with structured proposals, approval cards in capability capsules, live stage inventories",
-      "author": "Claude",
-      "timestamp": "2026-06-12T16:32:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d885aba.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
