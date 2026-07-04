@@ -53,18 +53,19 @@ frontend:
         - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
 
         - echo ".env.production created. Building Next.js..."
-        # Next 15 heap tuning — a BALANCE between compile and the page-data fork:
-        #   3072 (Next 14, no memory flag): compile OOM'd (V8 mark-compacts)
-        #   6144 / 4096 (+ flag): compile passed but `spawn ENOMEM` — the large
-        #         main process left no instance RAM to fork the page-data worker
-        #   3072 + experimental.webpackMemoryOptimizations (next.config.js):
-        #         VERIFIED locally to compile AND generate all 368 static pages.
-        #         The flag makes compile fit in 3072 (which it couldn't without),
-        #         and the smaller parent leaves room for the worker fork.
-        # If this ever OOMs again, raise Amplify build compute (console →
-        # App settings → Build settings) rather than the heap — a bigger heap
-        # reintroduces the fork ENOMEM.
-        - export NODE_OPTIONS="--max-old-space-size=3072"
+        # Next 15 build memory. Empirically on the CURRENT (small) Amplify build
+        # instance no single heap value works — the instance itself is the limit:
+        #   3072: compile is FLAKY — sometimes fits, sometimes OOMs mid-compile
+        #         (V8 "Ineffective mark-compacts"); Next 15 compile peaks ~3.2 GB.
+        #   4096/6144: compile reliable, but then `spawn ENOMEM` — the ~4 GB
+        #         parent can't fork the page-data worker within the instance RAM.
+        # 4096 is the correct heap for reliable compile; it REQUIRES a larger
+        # Amplify build instance so the parent can fork. Raise build compute in
+        # the Amplify console (App settings → Build settings → build image /
+        # compute → the larger memory tier). With that, 4096 compiles reliably
+        # AND forks with headroom. (webpackMemoryOptimizations in next.config.js
+        # already lowers peak as far as a config change can.)
+        - export NODE_OPTIONS="--max-old-space-size=4096"
         - export NEXT_PRIVATE_BUILD_WORKER=1
         - npm run build
 
