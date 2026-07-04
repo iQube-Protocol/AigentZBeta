@@ -27,7 +27,8 @@ async function canAccess(
   return !!data;
 }
 
-export async function GET(req: NextRequest, { params }: { params: { profileId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ profileId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) {
@@ -73,7 +74,8 @@ export async function GET(req: NextRequest, { params }: { params: { profileId: s
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { profileId: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ profileId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) {

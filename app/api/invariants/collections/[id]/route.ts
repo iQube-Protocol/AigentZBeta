@@ -13,14 +13,14 @@ import { addMembers, getCollection, listMembers, removeMember } from '@/services
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 
   try {
-    const collection = await getCollection(context.params.id);
+    const collection = await getCollection((await context.params).id);
     if (!collection) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-    const members = await listMembers(context.params.id);
+    const members = await listMembers((await context.params).id);
     return NextResponse.json({ ok: true, collection, members });
   } catch (error) {
     console.error('[api/invariants/collections/[id]] read failed', error);
@@ -33,14 +33,14 @@ interface EditBody {
   removeMembers?: string[];
 }
 
-export async function POST(request: NextRequest, context: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   if (!persona.cartridgeFlags?.isAdmin) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  const collection = await getCollection(context.params.id);
+  const collection = await getCollection((await context.params).id);
   if (!collection) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
   let body: EditBody;
@@ -51,11 +51,11 @@ export async function POST(request: NextRequest, context: { params: { id: string
   }
 
   try {
-    if (body.addMembers?.length) await addMembers(context.params.id, body.addMembers);
+    if (body.addMembers?.length) await addMembers((await context.params).id, body.addMembers);
     for (const invariantId of body.removeMembers ?? []) {
-      await removeMember(context.params.id, invariantId);
+      await removeMember((await context.params).id, invariantId);
     }
-    const members = await listMembers(context.params.id);
+    const members = await listMembers((await context.params).id);
     return NextResponse.json({ ok: true, members });
   } catch (error) {
     console.error('[api/invariants/collections/[id]] edit failed', error);

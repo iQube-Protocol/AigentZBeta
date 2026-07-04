@@ -41,12 +41,12 @@ interface CompleteStepBody {
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ chain_id: string }> | { chain_id: string } },
+  context: { params: Promise<Promise<{ chain_id: string }> | { chain_id: string }> },
 ) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 
-  const params = await Promise.resolve(context.params);
+  const params = await Promise.resolve((await context.params));
   const chain_id = params.chain_id;
   if (!chain_id) return NextResponse.json({ error: 'invalid_chain_id' }, { status: 400 });
 

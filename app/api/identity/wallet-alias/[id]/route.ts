@@ -11,10 +11,8 @@ import { getCallerAuthUserId } from '../_lib/auth';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const aliasId = params.id;
   if (!aliasId) {
     return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 });

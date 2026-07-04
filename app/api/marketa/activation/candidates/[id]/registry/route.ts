@@ -17,13 +17,11 @@ function jsonError(error: string, status = 400, detail?: string) {
 }
 
 function slugify(value: string) {
-  return (
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 72) || "marketa-agent-candidate"
-  );
+  return (value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 72) || "marketa-agent-candidate");
 }
 
 function registryAssetId(candidate: CandidateAgent) {
@@ -52,7 +50,8 @@ function capabilityDescriptors(candidate: CandidateAgent) {
   }));
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) return jsonError("DB unavailable", 503);
 

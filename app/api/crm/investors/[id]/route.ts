@@ -33,10 +33,8 @@ const ALLOWED_FIELDS = new Set([
   'campaign_tags',
 ]);
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { id } = params;
   if (!id) {
     return NextResponse.json({ error: 'Missing investor id' }, { status: 400 });

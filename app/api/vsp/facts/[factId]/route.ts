@@ -11,7 +11,8 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(req: NextRequest, { params }: { params: { factId: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ factId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) {

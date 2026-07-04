@@ -52,8 +52,9 @@ async function canAccess(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { profileId: string; evidenceId: string } },
+  props: { params: Promise<{ profileId: string; evidenceId: string }> }
 ) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) {

@@ -25,9 +25,9 @@ interface MintBody {
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> | { id: string } },
+  context: { params: Promise<Promise<{ id: string }> | { id: string }> },
 ) {
-  const params = await Promise.resolve(context.params);
+  const params = await Promise.resolve((await context.params));
   const iqubeId = params.id;
   if (!iqubeId) {
     return NextResponse.json({ error: 'iqube_id required' }, { status: 400 });

@@ -44,10 +44,8 @@ function toIdentitySafePersona(record: any, fioVisible: boolean) {
  * GET /api/identity/persona/[id]
  * Fetch a single persona by ID or FIO handle
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = params;
 
@@ -132,10 +130,8 @@ const PLAINTEXT_WALLET_FIELDS = ['evm_address', 'btc_address', 'sol_address'] as
 const allowLegacyPlaintextWalletWrite = () =>
   (process.env.ALLOW_LEGACY_PLAINTEXT_WALLET_WRITE || '').toLowerCase() === 'true';
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = params;
     const body = await req.json();
@@ -310,10 +306,8 @@ export async function PATCH(
  * DELETE /api/identity/persona/[id]
  * Delete a persona
  */
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = params;
 

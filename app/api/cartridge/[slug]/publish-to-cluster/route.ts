@@ -17,11 +17,11 @@ import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
 export const dynamic = "force-dynamic";
 
 interface RouteParams {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
-  const guard = await cartridgeManageGuard(req, ctx.params.slug, { requireWrite: true });
+  const guard = await cartridgeManageGuard(req, (await ctx.params).slug, { requireWrite: true });
   if (guard instanceof NextResponse) return guard;
 
   let published = true;
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResp
   const { error } = await db
     .from("codex_configs")
     .update({ published_to_cluster: published, updated_at: new Date().toISOString() })
-    .eq("slug", ctx.params.slug);
+    .eq("slug", (await ctx.params).slug);
 
   if (error) {
     return NextResponse.json(
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResp
   }
 
   return NextResponse.json(
-    { ok: true, slug: ctx.params.slug, published },
+    { ok: true, slug: (await ctx.params).slug, published },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

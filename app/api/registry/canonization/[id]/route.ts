@@ -34,9 +34,9 @@ interface PatchBody {
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> | { id: string } },
+  context: { params: Promise<Promise<{ id: string }> | { id: string }> },
 ) {
-  const params = await Promise.resolve(context.params);
+  const params = await Promise.resolve((await context.params));
   const requestId = params.id;
   if (!requestId) {
     return NextResponse.json({ error: 'request_id required' }, { status: 400 });

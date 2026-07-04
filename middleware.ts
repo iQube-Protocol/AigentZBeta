@@ -102,8 +102,9 @@ export function middleware(request: NextRequest) {
 
   // ─── 2. API routes ──────────────────────────────────────────────────────────
   if (urlPath.startsWith('/api/')) {
-    // Rate limiting
-    const clientId = request.ip || 'unknown';
+    // Rate limiting. NextRequest.ip was removed in Next 15 — derive the client
+    // IP from the x-forwarded-for header (first hop) instead.
+    const clientId = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const now = Date.now();
     const windowStart = now - (60 * 1000); // 1 minute window
 

@@ -39,7 +39,7 @@ interface ForkRequest {
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> | { id: string } },
+  context: { params: Promise<Promise<{ id: string }> | { id: string }> },
 ) {
   // 1. Auth
   const persona = await getActivePersona(request);
@@ -51,7 +51,7 @@ export async function POST(
   }
 
   // 2. Resolve parent — internal projection gives meta_qube_id + lineage
-  const params = await Promise.resolve(context.params);
+  const params = await Promise.resolve((await context.params));
   const parentId = params.id;
   if (!parentId || typeof parentId !== 'string' || parentId.length < 4) {
     return NextResponse.json({ error: 'invalid_iqube_id' }, { status: 400 });

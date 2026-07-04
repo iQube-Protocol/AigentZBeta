@@ -45,11 +45,11 @@ const bodySchema = z.object({
 });
 
 interface RouteParams {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
-  const guard = await cartridgeManageGuard(req, ctx.params.slug, { requireWrite: true });
+  const guard = await cartridgeManageGuard(req, (await ctx.params).slug, { requireWrite: true });
   if (guard instanceof NextResponse) return guard;
 
   let body: unknown;
@@ -81,7 +81,7 @@ export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<NextRes
   const { data: cfg, error: cfgErr } = await db
     .from("codex_configs")
     .select("id")
-    .eq("slug", ctx.params.slug)
+    .eq("slug", (await ctx.params).slug)
     .maybeSingle();
   if (cfgErr || !cfg) {
     return NextResponse.json(

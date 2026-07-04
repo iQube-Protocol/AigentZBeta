@@ -41,7 +41,7 @@ async function resolveCodex(codexId: string): Promise<CodexConfig | undefined> {
 export const dynamic = 'force-dynamic';
 
 interface RouteContext {
-  params: { codexId: string };
+  params: Promise<{ codexId: string }>;
 }
 
 /**
@@ -143,7 +143,8 @@ function withKnytStaticTabs(codex: CodexConfig): CodexConfig {
  * GET /api/codex/registry/[codexId]
  * Get complete codex configuration including tabs
  */
-export async function GET(request: NextRequest, { params }: RouteContext) {
+export async function GET(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
     const searchParams = request.nextUrl.searchParams;
@@ -381,7 +382,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
  * PUT /api/codex/registry/[codexId]
  * Update codex configuration
  */
-export async function PUT(request: NextRequest, { params }: RouteContext) {
+export async function PUT(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
     const body: UpdateCodexRequest = await request.json();
@@ -488,7 +490,8 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
  * PATCH /api/codex/registry/[codexId]
  * Partial update - primarily for enable/disable
  */
-export async function PATCH(request: NextRequest, { params }: RouteContext) {
+export async function PATCH(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
     const body = await request.json();
@@ -543,7 +546,8 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
  * DELETE /api/codex/registry/[codexId]
  * Delete codex and all its tabs
  */
-export async function DELETE(request: NextRequest, { params }: RouteContext) {
+export async function DELETE(request: NextRequest, props: RouteContext) {
+  const params = await props.params;
   try {
     const { codexId } = params;
 

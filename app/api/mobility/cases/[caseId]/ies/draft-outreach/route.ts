@@ -162,10 +162,8 @@ function isAnonymousPackage(pkg: DisclosurePackage): boolean {
   return pkg === 'A' || pkg === 'B' || pkg === 'AB';
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { caseId: string } },
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) {

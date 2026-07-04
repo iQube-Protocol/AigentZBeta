@@ -23,7 +23,7 @@ const ACTIONS: AdvanceAction[] = ['propose', 'validate', 'canonize', 'reject', '
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } },
+  context: { params: Promise<{ id: string }> },
 ) {
   const persona = await getActivePersona(request);
   if (!persona) {
@@ -33,7 +33,7 @@ export async function POST(
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  const { id } = context.params;
+  const { id } = (await context.params);
   let body: { action?: string };
   try {
     body = (await request.json()) as { action?: string };

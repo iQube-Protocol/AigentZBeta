@@ -29,7 +29,8 @@ async function canAccess(
   return !!data;
 }
 
-export async function POST(req: NextRequest, { params }: { params: { profileId: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ profileId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) {

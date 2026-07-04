@@ -13,7 +13,8 @@ import { computeScores } from '@/app/api/mobility/_lib/computeScores';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const { caseId } = params;
 

@@ -22,10 +22,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const personaId = params.id;
   const client = getCrmClient();
 

@@ -24,7 +24,8 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const { caseId } = params;
 

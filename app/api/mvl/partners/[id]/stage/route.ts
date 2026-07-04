@@ -24,10 +24,8 @@ const VALID_STAGES = [
   'low_signal',
 ];
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });
@@ -97,10 +95,8 @@ export async function POST(
   }
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });

@@ -24,7 +24,8 @@ interface DecideBody {
   reason?: string | null;
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const persona = await getActivePersona(req);
   if (!persona) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });

@@ -43,7 +43,7 @@ const patchSchema = z
   .refine((v) => Object.keys(v).length > 0, { message: "patch body cannot be empty" });
 
 interface RouteParams {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 function getDb() {
@@ -53,11 +53,11 @@ function getDb() {
 }
 
 export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
-  const guard = await cartridgeManageGuard(req, ctx.params.slug, { requireWrite: false });
+  const guard = await cartridgeManageGuard(req, (await ctx.params).slug, { requireWrite: false });
   if (guard instanceof NextResponse) return guard;
 
   const db = getDb();
-  const slug = ctx.params.slug;
+  const slug = (await ctx.params).slug;
 
   // Config row.
   const { data: cfg, error: cfgErr } = await db
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<NextRespo
 }
 
 export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
-  const guard = await cartridgeManageGuard(req, ctx.params.slug, { requireWrite: true });
+  const guard = await cartridgeManageGuard(req, (await ctx.params).slug, { requireWrite: true });
   if (guard instanceof NextResponse) return guard;
 
   let body: unknown;
@@ -238,7 +238,7 @@ export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<NextRes
   const { data: current, error: readErr } = await db
     .from("codex_configs")
     .select("id,name,metadata,primary_tab_slug,available_specialists,token_whitelist")
-    .eq("slug", ctx.params.slug)
+    .eq("slug", (await ctx.params).slug)
     .maybeSingle();
   if (readErr || !current) {
     return NextResponse.json(
@@ -301,7 +301,7 @@ export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<NextRes
   }
 
   return NextResponse.json(
-    { ok: true, slug: ctx.params.slug, updated: Object.keys(patch) },
+    { ok: true, slug: (await ctx.params).slug, updated: Object.keys(patch) },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -344,7 +344,7 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextRe
   } catch {
     // empty body → confirmation will fail below
   }
-  if (body.confirmSlug !== ctx.params.slug) {
+  if (body.confirmSlug !== (await ctx.params).slug) {
     return NextResponse.json(
       {
         ok: false,
@@ -359,7 +359,7 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextRe
   const { data: cfg, error: readErr } = await db
     .from("codex_configs")
     .select("id, owner_persona_id, name")
-    .eq("slug", ctx.params.slug)
+    .eq("slug", (await ctx.params).slug)
     .maybeSingle();
   if (readErr) {
     return NextResponse.json(
@@ -397,7 +397,7 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextRe
   const { error: memErr } = await db
     .from("cartridge_memberships")
     .delete()
-    .eq("cartridge_slug", ctx.params.slug);
+    .eq("cartridge_slug", (await ctx.params).slug);
   if (memErr) {
     return NextResponse.json(
       { ok: false, error: "memberships-delete-failed", detail: memErr.message },
@@ -407,7 +407,7 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextRe
   const { error: actErr } = await db
     .from("cartridge_activations")
     .delete()
-    .eq("cartridge_slug", ctx.params.slug);
+    .eq("cartridge_slug", (await ctx.params).slug);
   if (actErr) {
     return NextResponse.json(
       { ok: false, error: "activations-delete-failed", detail: actErr.message },
@@ -427,7 +427,7 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<NextRe
   }
 
   return NextResponse.json(
-    { ok: true, slug: ctx.params.slug, deletedTitle: row.name },
+    { ok: true, slug: (await ctx.params).slug, deletedTitle: row.name },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

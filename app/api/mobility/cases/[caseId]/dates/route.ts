@@ -17,7 +17,8 @@ async function canAccess(personaId: string, caseId: string, isAdmin: boolean, su
   return !!data;
 }
 
-export async function GET(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
@@ -47,7 +48,8 @@ interface DateBody {
   workstream_key?: string;
 }
 
-export async function POST(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });

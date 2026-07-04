@@ -267,10 +267,8 @@ async function fetchSmartContentForSection(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { section: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ section: string }> }) {
+  const params = await props.params;
   try {
     const section = params.section;
     const { searchParams } = new URL(request.url);

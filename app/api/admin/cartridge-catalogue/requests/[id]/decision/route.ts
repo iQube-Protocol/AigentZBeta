@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResp
       decision_reason: reason,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", ctx.params.id)
+    .eq("id", (await ctx.params).id)
     .eq("status", "pending")
     .select("id, cartridge_slug, status")
     .maybeSingle();

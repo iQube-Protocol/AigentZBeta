@@ -36,11 +36,11 @@ const bodySchema = z.object({
 });
 
 interface RouteParams {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResponse> {
-  const guard = await cartridgeManageGuard(req, ctx.params.slug, { requireWrite: true });
+  const guard = await cartridgeManageGuard(req, (await ctx.params).slug, { requireWrite: true });
   if (guard instanceof NextResponse) return guard;
 
   let body: unknown;
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResp
   const nowIso = new Date().toISOString();
   const { error: upsertErr } = await db.from("cartridge_memberships").upsert(
     {
-      cartridge_slug: ctx.params.slug,
+      cartridge_slug: (await ctx.params).slug,
       persona_id: parsed.data.personaId,
       role: parsed.data.role,
       granted_at: nowIso,
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest, ctx: RouteParams): Promise<NextResp
   return NextResponse.json(
     {
       ok: true,
-      cartridgeSlug: ctx.params.slug,
+      cartridgeSlug: (await ctx.params).slug,
       role: parsed.data.role,
       // T0 personaId echoed only for debugging; the operator already
       // knows the id they passed in. Phase 7b will swap to a display

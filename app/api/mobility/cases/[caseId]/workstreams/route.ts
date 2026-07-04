@@ -17,7 +17,8 @@ async function canAccess(personaId: string, caseId: string, isAdmin: boolean, su
   return !!data;
 }
 
-export async function GET(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
@@ -46,7 +47,8 @@ interface WorkstreamPatch {
   assigned_agent_id?: string;
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const persona = await getActivePersona(req);
     if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
