@@ -1,8 +1,25 @@
 # EXP-001 — The First Living KnowledgeQube
 
-**Chrysalis Foundation · Experiment 001 · Status: artifacts authored, evaluation pending**
+**Chrysalis Foundation · Experiment 001 · Status: artifacts authored; evaluation harness shipped 2026-07-04 — first run pending**
 Domain: **The Constitutional Internet**
 Constitutional anchor: `codexes/packs/polity-core/constitutional-records/invariant-intelligence.md`
+
+**Run the evaluation (operator env — the sandbox has no outbound HTTPS):**
+
+```bash
+cd /Users/hal1/CascadeProjects/AigentZBeta && git pull && \
+node scripts/evaluate-exp001.mjs --dry-run && \
+node scripts/evaluate-exp001.mjs --provider venice
+```
+
+The harness executes `evaluation-protocol.md` end-to-end (~25 calls): per-artifact +
+combined answer passes over the 4 text artifacts (the video artifact awaits its EXP-002
+production run and is recorded as pending, not silently skipped), the Q13–15 adversarial
+probes, and machine-assisted rubric scoring — the protocol assigns final rubric authority
+to a human scorer, so review the per-answer JSON before ratifying. Prefer a non-Anthropic
+judge (`venice`/`openai`) for independence: the artifacts were authored by an Anthropic
+model. Prints the targets table + the flywheel-eligible invariant list; validation events
+are applied via the Invariant Service afterwards, never by the script.
 
 ## Hypothesis
 
