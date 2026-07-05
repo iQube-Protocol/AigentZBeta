@@ -2804,3 +2804,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-19211c3.md](../build_/COMMITS/COMMIT-19211c3.md)
 - Message: Ratify Constitutional Sequencing (Law XV corollary) + Constitutional Emergence principle
+
+## Commit `495307d` — 2026-07-05T18:59:03Z
+- Type: `fix`
+- Brief: [COMMIT-495307d.md](../build_/COMMITS/COMMIT-495307d.md)
+- Message: Fix ffmpeg-unavailable stitch failure + recover already-generated segments

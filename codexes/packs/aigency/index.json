@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T18:36:06.766Z",
+  "last_updated": "2026-07-05T19:00:44.378Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "19211c36a4645c6372955d1c6656058692e51dd0",
-  "latest_commit_short": "19211c3",
-  "latest_commit_title": "Ratify Constitutional Sequencing (Law XV corollary) + Constitutional Emergence principle",
+  "latest_commit": "495307d1a4006e680791dd9375a9c3287a4844e7",
+  "latest_commit_short": "495307d",
+  "latest_commit_title": "Fix ffmpeg-unavailable stitch failure + recover already-generated segments",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "495307d",
+      "full_sha": "495307d1a4006e680791dd9375a9c3287a4844e7",
+      "title": "Fix ffmpeg-unavailable stitch failure + recover already-generated segments",
+      "author": "Claude",
+      "timestamp": "2026-07-05T18:59:03Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-495307d.md"
+    },
     {
       "sha": "19211c3",
       "full_sha": "19211c36a4645c6372955d1c6656058692e51dd0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T01:40:31Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d5f5887.md"
-    },
-    {
-      "sha": "bf296b8",
-      "full_sha": "bf296b866fa56fa07ca7c627cba1084c374138f9",
-      "title": "add listAutoGrantActivationIds export to unblock amplify build",
-      "author": "Claude",
-      "timestamp": "2026-06-14T01:35:13Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-bf296b8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
