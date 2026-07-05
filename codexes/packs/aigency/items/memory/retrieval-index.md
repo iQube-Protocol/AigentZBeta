@@ -2834,3 +2834,8 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-5fea615.md](../build_/COMMITS/COMMIT-5fea615.md)
 - Message: Move segment-recovery panel above the brief config in EXP-002 runner
+
+## Commit `aef38a6` — 2026-07-05T20:38:15Z
+- Type: `push`
+- Brief: [COMMIT-aef38a6.md](../build_/COMMITS/COMMIT-aef38a6.md)
+- Message: Persist segments at completion + sequence manifests + sequencing control arm

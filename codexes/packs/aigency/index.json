@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T20:03:00.786Z",
+  "last_updated": "2026-07-05T20:40:07.691Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5fea6154100bf631ecf84431105f63c0a2ae25a5",
-  "latest_commit_short": "5fea615",
-  "latest_commit_title": "Move segment-recovery panel above the brief config in EXP-002 runner",
+  "latest_commit": "aef38a69337cde07cd3fbf6b8fba7ba77725b874",
+  "latest_commit_short": "aef38a6",
+  "latest_commit_title": "Persist segments at completion + sequence manifests + sequencing control arm",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "aef38a6",
+      "full_sha": "aef38a69337cde07cd3fbf6b8fba7ba77725b874",
+      "title": "Persist segments at completion + sequence manifests + sequencing control arm",
+      "author": "Claude",
+      "timestamp": "2026-07-05T20:38:15Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-aef38a6.md"
+    },
     {
       "sha": "5fea615",
       "full_sha": "5fea6154100bf631ecf84431105f63c0a2ae25a5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T05:28:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-180a967.md"
-    },
-    {
-      "sha": "d5aff7e",
-      "full_sha": "d5aff7e1771f07363a40f34503e4b02dd0df3eca",
-      "title": "fix two unblockers — viem.normalize import path + set-resolver prompts for key",
-      "author": "Claude",
-      "timestamp": "2026-06-14T05:24:56Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d5aff7e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
