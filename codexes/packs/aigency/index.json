@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T23:45:06.890Z",
+  "last_updated": "2026-07-05T23:55:42.229Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "aa493e6de2c5663ec4c5bd6c19c120d1834fc533",
-  "latest_commit_short": "aa493e6",
-  "latest_commit_title": "Record sequencing control arm results: prediction confirmed + graded refinement",
+  "latest_commit": "3a22c6f973739dc2f3dccf4ad2be8a2503740604",
+  "latest_commit_short": "3a22c6f",
+  "latest_commit_title": "Ratify temporal coherence field topology: sequence is scored, not validated",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3a22c6f",
+      "full_sha": "3a22c6f973739dc2f3dccf4ad2be8a2503740604",
+      "title": "Ratify temporal coherence field topology: sequence is scored, not validated",
+      "author": "Claude",
+      "timestamp": "2026-07-05T23:53:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3a22c6f.md"
+    },
     {
       "sha": "aa493e6",
       "full_sha": "aa493e6de2c5663ec4c5bd6c19c120d1834fc533",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T19:19:54Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-7dcfb89.md"
-    },
-    {
-      "sha": "15b39af",
-      "full_sha": "15b39af11208b9e69c7a59bba251016542e2aefb",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-06-14T19:20:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-15b39af.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -2854,3 +2854,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-aa493e6.md](../build_/COMMITS/COMMIT-aa493e6.md)
 - Message: Record sequencing control arm results: prediction confirmed + graded refinement
+
+## Commit `3a22c6f` — 2026-07-05T23:53:52Z
+- Type: `push`
+- Brief: [COMMIT-3a22c6f.md](../build_/COMMITS/COMMIT-3a22c6f.md)
+- Message: Ratify temporal coherence field topology: sequence is scored, not validated
