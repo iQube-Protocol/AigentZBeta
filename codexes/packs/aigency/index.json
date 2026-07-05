@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T14:48:51.703Z",
+  "last_updated": "2026-07-05T18:36:06.766Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7832d1a76b0f56bec914d075a4855c73cd989d3f",
-  "latest_commit_short": "7832d1a",
-  "latest_commit_title": "Harden experiment step transport against gateway timeouts (Safari fix)",
+  "latest_commit": "19211c36a4645c6372955d1c6656058692e51dd0",
+  "latest_commit_short": "19211c3",
+  "latest_commit_title": "Ratify Constitutional Sequencing (Law XV corollary) + Constitutional Emergence principle",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "19211c3",
+      "full_sha": "19211c36a4645c6372955d1c6656058692e51dd0",
+      "title": "Ratify Constitutional Sequencing (Law XV corollary) + Constitutional Emergence principle",
+      "author": "Claude",
+      "timestamp": "2026-07-05T18:34:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-19211c3.md"
+    },
     {
       "sha": "7832d1a",
       "full_sha": "7832d1a76b0f56bec914d075a4855c73cd989d3f",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T01:35:13Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-bf296b8.md"
-    },
-    {
-      "sha": "db509a3",
-      "full_sha": "db509a301c14e2ea6d5fbc6d4436744ea4d201ae",
-      "title": "add /api/ens/ccip-read/health diagnostic endpoint",
-      "author": "Claude",
-      "timestamp": "2026-06-14T00:39:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-db509a3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

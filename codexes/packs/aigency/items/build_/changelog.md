@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`19211c3`](https://github.com/iQube-Protocol/AigentZBeta/commit/19211c36a4645c6372955d1c6656058692e51dd0) [push] Ratify Constitutional Sequencing (Law XV corollary) + Constitutional Emergence principle (Claude, 2026-07-05T18:34:14Z)
 - [`7832d1a`](https://github.com/iQube-Protocol/AigentZBeta/commit/7832d1a76b0f56bec914d075a4855c73cd989d3f) [fix] Harden experiment step transport against gateway timeouts (Safari fix) (Claude, 2026-07-05T14:46:48Z)
 - [`42849c3`](https://github.com/iQube-Protocol/AigentZBeta/commit/42849c3939c0b750a15c4e1d5ba902d52756e92c) [feat] Add canonical results publication: hash-committed, DVN-anchored, verifiable (Claude, 2026-07-04T20:41:43Z)
 - [`fba56dc`](https://github.com/iQube-Protocol/AigentZBeta/commit/fba56dc87ce552d9c4b78f289a31778010527abb) [feat] Add model dropdowns to EXP-001/003 lab runners (allowlisted per provider) (Claude, 2026-07-04T20:37:24Z)
