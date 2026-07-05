@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`102508f`](https://github.com/iQube-Protocol/AigentZBeta/commit/102508f389536c02b117e29bf0b3fc54c5e7f142) [push] Ratify Invariant Fields ontology (CFS-002 §2a) + generalize Law XV (Claude, 2026-07-05T19:31:53Z)
+- [`eb7df70`](https://github.com/iQube-Protocol/AigentZBeta/commit/eb7df70111822300afa079833afa2bad449252bd) [push] Revert ffmpeg-static bundle tracing — broke Amplify build size cap (Claude, 2026-07-05T19:34:04Z)
 - [`495307d`](https://github.com/iQube-Protocol/AigentZBeta/commit/495307d1a4006e680791dd9375a9c3287a4844e7) [fix] Fix ffmpeg-unavailable stitch failure + recover already-generated segments (Claude, 2026-07-05T18:59:03Z)
 - [`19211c3`](https://github.com/iQube-Protocol/AigentZBeta/commit/19211c36a4645c6372955d1c6656058692e51dd0) [push] Ratify Constitutional Sequencing (Law XV corollary) + Constitutional Emergence principle (Claude, 2026-07-05T18:34:14Z)
 - [`7832d1a`](https://github.com/iQube-Protocol/AigentZBeta/commit/7832d1a76b0f56bec914d075a4855c73cd989d3f) [fix] Harden experiment step transport against gateway timeouts (Safari fix) (Claude, 2026-07-05T14:46:48Z)
