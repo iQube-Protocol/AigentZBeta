@@ -2824,3 +2824,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-ce76a9e.md](../build_/COMMITS/COMMIT-ce76a9e.md)
 - Message: Add local recovery script for orphaned video segments
+
+## Commit `bf669af` — 2026-07-05T19:49:47Z
+- Type: `fix`
+- Brief: [COMMIT-bf669af.md](../build_/COMMITS/COMMIT-bf669af.md)
+- Message: Fetch ffmpeg into /tmp at first use — bundle-size-safe stitch fix
