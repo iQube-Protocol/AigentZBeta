@@ -2819,3 +2819,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-102508f.md](../build_/COMMITS/COMMIT-102508f.md)
 - Message: Ratify Invariant Fields ontology (CFS-002 §2a) + generalize Law XV
+
+## Commit `ce76a9e` — 2026-07-05T19:41:32Z
+- Type: `feat`
+- Brief: [COMMIT-ce76a9e.md](../build_/COMMITS/COMMIT-ce76a9e.md)
+- Message: Add local recovery script for orphaned video segments
