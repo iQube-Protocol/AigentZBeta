@@ -125,7 +125,14 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    const clipUrls = (clips as string[]).map((c) => c.trim());
+    // Segment URLs from the status routes can be RELATIVE proxy paths
+    // (/api/skills/video/<id>, /api/skills/video/venice/<queueId>?model=…) —
+    // resolve them against this request's origin so the server-side download
+    // works for proxied clips, not just absolute storage/provider URLs.
+    const clipUrls = (clips as string[]).map((c) => {
+      const trimmed = c.trim();
+      return trimmed.startsWith("/") ? new URL(trimmed, request.nextUrl.origin).toString() : trimmed;
+    });
     if (clipUrls.length < MIN_CLIPS || clipUrls.length > MAX_CLIPS) {
       return NextResponse.json(
         { ok: false, error: `provide between ${MIN_CLIPS} and ${MAX_CLIPS} clips` },
@@ -136,9 +143,10 @@ export async function POST(request: NextRequest) {
     let ffmpegPath: string;
     try {
       ffmpegPath = await getFfmpegPath();
-    } catch {
+    } catch (ffmpegErr) {
+      const detail = ffmpegErr instanceof Error ? ffmpegErr.message : String(ffmpegErr);
       return NextResponse.json(
-        { ok: false, error: "ffmpeg binary unavailable — cannot stitch clips" },
+        { ok: false, error: `ffmpeg binary unavailable — cannot stitch clips (${detail})` },
         { status: 500 },
       );
     }

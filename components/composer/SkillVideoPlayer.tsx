@@ -126,8 +126,10 @@ const SEGMENT_MAX_POLL_ATTEMPTS = 24; // ~6 min per clip
 /** Split N clip URLs into stitch passes honouring STITCH_MAX_CLIPS_PER_PASS,
  * then stitch each pass and (if more than one pass) stitch the pass outputs
  * together — a generic hierarchical reducer, so this works for any segment
- * count without hardcoding the 2-pass/4-segment case. */
-async function stitchHierarchical(
+ * count without hardcoding the 2-pass/4-segment case.
+ * Exported for the Experiment Lab's segment-recovery panel, which re-stitches
+ * already-generated clips after a stitch-side failure. */
+export async function stitchHierarchical(
   urls: string[],
   experienceId: string | undefined,
 ): Promise<{ ok: boolean; video_url?: string; thumbnail_url?: string; error?: string }> {
@@ -268,6 +270,10 @@ export default function SkillVideoPlayer({
   const [pollAttempts, setPollAttempts] = useState(0);
   const [autoPollPaused, setAutoPollPaused] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // Clip URLs that generated successfully but whose stitch pass failed —
+  // retained so the stitch can be retried WITHOUT regenerating (regeneration
+  // is the token-expensive half; the clips persist server-side).
+  const [unstitchedUrls, setUnstitchedUrls] = useState<string[] | null>(null);
   const resolvedProvider = result?.provider || initialProvider;
   const providerLabel = getProviderLabel(resolvedProvider);
 
@@ -304,6 +310,43 @@ export default function SkillVideoPlayer({
 
   const segmentCount = segmentsForDuration(duration);
 
+  // Stitch already-generated clips into the final video. Separated from
+  // invokeMultiSegment so a failed stitch is retryable on its own — the error
+  // UI offers "Retry stitch" against the retained clip URLs instead of
+  // forcing a full (expensive) regeneration.
+  const stitchAndFinish = useCallback(async (urls: string[]) => {
+    setState("invoking");
+    setStatusMessage("Stitching clips into the final video…");
+    try {
+      const stitchRes = await stitchHierarchical(urls, experience_id);
+      if (!stitchRes.ok || !stitchRes.video_url) {
+        throw new Error(stitchRes.error || "Failed to stitch clips into the final video");
+      }
+      setUnstitchedUrls(null);
+      setStatusMessage(null);
+      setResult({
+        ok: true,
+        mode: "live",
+        provider: resolvedProvider,
+        video_url: stitchRes.video_url,
+        ...(typeof stitchRes.thumbnail_url === "string" ? { thumbnail_url: stitchRes.thumbnail_url } : {}),
+        invocation_phase: "completed",
+        skill_composite: 78,
+      });
+      setState("done");
+      setResultSource("generated");
+    } catch (err: any) {
+      setResult({
+        ok: false,
+        error: err?.message || "Failed to stitch clips into the final video",
+        invocation_phase: "failed",
+      });
+      setState("error");
+      setResultSource("none");
+      setStatusMessage(null);
+    }
+  }, [experience_id, resolvedProvider]);
+
   // Long-video path: generate `segments` clips (≤12s each) then stitch them.
   const invokeMultiSegment = useCallback(async (segments: number) => {
     setState("invoking");
@@ -313,6 +356,7 @@ export default function SkillVideoPlayer({
     setResultSource("none");
     setPollAttempts(0);
     setAutoPollPaused(false);
+    setUnstitchedUrls(null);
     setStatusMessage(
       `Generating ${segments} clips to stitch into a ~${segments * SEGMENT_SECONDS}s video…`,
     );
@@ -371,26 +415,11 @@ export default function SkillVideoPlayer({
 
       // 3. Stitch the clips into one file. >3 clips (e.g. a 48s/4-segment
       // production) is stitched hierarchically since /api/skills/video/stitch
-      // accepts at most 3 clips per call.
-      setStatusMessage("Stitching clips into the final video…");
-      const stitchRes = await stitchHierarchical(urls, experience_id);
-
-      if (!stitchRes.ok || !stitchRes.video_url) {
-        throw new Error(stitchRes.error || "Failed to stitch clips into the final video");
-      }
-
-      setStatusMessage(null);
-      setResult({
-        ok: true,
-        mode: "live",
-        provider: resolvedProvider,
-        video_url: stitchRes.video_url,
-        ...(typeof stitchRes.thumbnail_url === "string" ? { thumbnail_url: stitchRes.thumbnail_url } : {}),
-        invocation_phase: "completed",
-        skill_composite: 78,
-      });
-      setState("done");
-      setResultSource("generated");
+      // accepts at most 3 clips per call. The URLs are retained BEFORE the
+      // stitch so a stitch-side failure never discards the generated clips —
+      // the error UI can retry the stitch alone.
+      setUnstitchedUrls(urls);
+      await stitchAndFinish(urls);
     } catch (err: any) {
       setResult({
         ok: false,
@@ -401,7 +430,7 @@ export default function SkillVideoPlayer({
       setResultSource("none");
       setStatusMessage(null);
     }
-  }, [skill_id, prompt, segment_prompts, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, resolvedProvider]);
+  }, [skill_id, prompt, segment_prompts, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, resolvedProvider, stitchAndFinish]);
 
   const invoke = useCallback(async () => {
     if (!skill_id) return;
@@ -996,12 +1025,38 @@ export default function SkillVideoPlayer({
                     This skill is below the hydration threshold. Enable &quot;Accept lower trust level&quot; in the template to override.
                   </p>
                 )}
+                {unstitchedUrls && (
+                  <p className="text-[10px] text-emerald-300 mt-1">
+                    Your {unstitchedUrls.length} clips generated successfully and are safe — only the
+                    stitch failed. Retry the stitch below; nothing gets regenerated.
+                  </p>
+                )}
               </div>
             </div>
-            <Button size="sm" variant="ghost" className="text-xs text-slate-400" onClick={invoke}>
-              <RefreshCw className="h-3 w-3 mr-1" />
-              Retry
-            </Button>
+            {unstitchedUrls && (
+              <details className="text-[10px] text-slate-500">
+                <summary className="cursor-pointer">Generated clip URLs ({unstitchedUrls.length})</summary>
+                <pre className="mt-1 whitespace-pre-wrap break-all bg-black/30 rounded-lg p-2">
+                  {unstitchedUrls.join("\n")}
+                </pre>
+              </details>
+            )}
+            <div className="flex items-center gap-2">
+              {unstitchedUrls && (
+                <Button
+                  size="sm"
+                  className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white"
+                  onClick={() => stitchAndFinish(unstitchedUrls)}
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry stitch only
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="text-xs text-slate-400" onClick={invoke}>
+                <RefreshCw className="h-3 w-3 mr-1" />
+                {unstitchedUrls ? "Regenerate from scratch" : "Retry"}
+              </Button>
+            </div>
           </div>
         )}
       </div>

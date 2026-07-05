@@ -22,7 +22,8 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { personaFetch } from "@/utils/personaSpine";
-import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
+import SkillVideoPlayer, { stitchHierarchical } from "@/components/composer/SkillVideoPlayer";
+import { experimentGet } from "./experimentStepFetch";
 
 interface SegmentBriefView {
   index: number;
@@ -386,6 +387,172 @@ export default function InvariantVideoExperimentRunner() {
             />
           </div>
         </div>
+      )}
+
+      <SegmentRecoveryPanel veniceModel={veniceModel} />
+    </div>
+  );
+}
+
+// --- Segment recovery — re-stitch already-generated clips ------------------
+
+interface RecoverableSegment {
+  kind: "sora" | "venice";
+  name: string;
+  clipUrl: string;
+  thumbnailUrl: string | null;
+  createdAt: string | null;
+  sizeBytes: number | null;
+}
+
+/**
+ * Recovers orphaned segments from a run whose clips generated but whose stitch
+ * pass failed (e.g. the 2026-07-05 "ffmpeg binary unavailable" incident). The
+ * clips persist server-side — Sora in Supabase storage, Venice retrievable by
+ * queueId (recovered from the persisted thumbnails) — so re-stitching costs
+ * nothing; only regeneration is expensive. Select the clips IN PLAY ORDER,
+ * then stitch.
+ */
+function SegmentRecoveryPanel({ veniceModel }: { veniceModel: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [segments, setSegments] = useState<RecoverableSegment[] | null>(null);
+  // Clip URLs in play order.
+  const [selected, setSelected] = useState<string[]>([]);
+  const [stitching, setStitching] = useState(false);
+  const [stitchError, setStitchError] = useState<string | null>(null);
+  const [stitchedUrl, setStitchedUrl] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await experimentGet("/api/skills/video/recoverable-segments");
+      setSegments(data.segments as RecoverableSegment[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to list recoverable segments");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const toggleOpen = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && segments === null && !loading) void load();
+  };
+
+  // Venice clips need the model on the proxy URL for /retrieve; use the
+  // runner's Venice-model dropdown (must match the model the clips were
+  // generated with).
+  const urlFor = (seg: RecoverableSegment) =>
+    seg.kind === "venice" && veniceModel
+      ? `${seg.clipUrl}?model=${encodeURIComponent(veniceModel)}`
+      : seg.clipUrl;
+
+  const stitchSelected = async () => {
+    setStitching(true);
+    setStitchError(null);
+    setStitchedUrl(null);
+    const res = await stitchHierarchical(selected, undefined);
+    if (res.ok && res.video_url) setStitchedUrl(res.video_url);
+    else setStitchError(res.error || "Stitch failed");
+    setStitching(false);
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-3">
+      <button onClick={toggleOpen} className="text-sm text-slate-300 hover:text-slate-100 font-medium">
+        {open ? "▾" : "▸"} Recover unstitched segments
+        <span className="ml-2 text-xs text-slate-500 font-normal">
+          re-stitch clips from a run whose stitch pass failed — nothing gets regenerated
+        </span>
+      </button>
+
+      {open && (
+        <>
+          {loading && <p className="text-xs text-slate-500">Listing generated segments…</p>}
+          {error && <p className="text-xs text-rose-400">{error}</p>}
+          {segments !== null && segments.length === 0 && (
+            <p className="text-xs text-slate-500">No recoverable segments found in storage.</p>
+          )}
+
+          {segments !== null && segments.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500">
+                Newest first. Click <span className="text-slate-300">Add</span> on each clip of your
+                run <span className="text-slate-300">in play order</span> (Venice clips: make sure the
+                Venice model dropdown above matches the model the run used).
+              </p>
+              <div className="max-h-64 overflow-auto space-y-1">
+                {segments.map((seg) => {
+                  const url = urlFor(seg);
+                  const idx = selected.indexOf(url);
+                  return (
+                    <div key={`${seg.kind}:${seg.name}`} className="flex items-center gap-2 rounded border border-slate-800 bg-slate-950/50 px-2 py-1.5">
+                      {seg.thumbnailUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={seg.thumbnailUrl} alt="" className="h-8 w-14 rounded object-cover bg-slate-800" />
+                      ) : (
+                        <div className="h-8 w-14 rounded bg-slate-800" />
+                      )}
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] ${seg.kind === "sora" ? "bg-sky-950 text-sky-300" : "bg-violet-950 text-violet-300"}`}>
+                        {seg.kind}
+                      </span>
+                      <span className="flex-1 truncate text-[11px] text-slate-400" title={seg.name}>{seg.name}</span>
+                      <span className="text-[10px] text-slate-600">
+                        {seg.createdAt ? new Date(seg.createdAt).toLocaleString() : ""}
+                      </span>
+                      {idx >= 0 ? (
+                        <button
+                          onClick={() => setSelected(selected.filter((u) => u !== url))}
+                          className="rounded bg-emerald-900/60 px-2 py-0.5 text-[10px] text-emerald-300"
+                        >
+                          #{idx + 1} · remove
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setSelected([...selected, url])}
+                          className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800"
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={selected.length < 2 || stitching}
+                  onClick={stitchSelected}
+                  className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white"
+                >
+                  {stitching ? "Stitching…" : `Stitch ${selected.length} clips in order`}
+                </Button>
+                {selected.length > 0 && (
+                  <Button size="sm" variant="ghost" className="text-xs text-slate-400" onClick={() => setSelected([])}>
+                    Clear selection
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" className="text-xs text-slate-400" onClick={load}>
+                  Refresh list
+                </Button>
+              </div>
+
+              {stitchError && <p className="text-xs text-rose-400">{stitchError}</p>}
+              {stitchedUrl && (
+                <div className="space-y-1">
+                  <video src={stitchedUrl} controls className="w-full max-w-xl rounded border border-slate-800" />
+                  <p className="text-[10px] text-slate-500 break-all">Stitched: {stitchedUrl}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
