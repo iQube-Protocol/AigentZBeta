@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`642ac8c`](https://github.com/iQube-Protocol/AigentZBeta/commit/642ac8c7aa920a41dcf05b69483e160dd2bb32fb) [push] Record EXP-002 production run 2: full pipeline validated, 48s film rendered (Claude, 2026-07-05T23:20:03Z)
 - [`aef38a6`](https://github.com/iQube-Protocol/AigentZBeta/commit/aef38a69337cde07cd3fbf6b8fba7ba77725b874) [push] Persist segments at completion + sequence manifests + sequencing control arm (Claude, 2026-07-05T20:38:15Z)
 - [`5fea615`](https://github.com/iQube-Protocol/AigentZBeta/commit/5fea6154100bf631ecf84431105f63c0a2ae25a5) [refactor] Move segment-recovery panel above the brief config in EXP-002 runner (Claude, 2026-07-05T20:01:12Z)
 - [`bf669af`](https://github.com/iQube-Protocol/AigentZBeta/commit/bf669afceab82cfbfa40868fda35484b9ffa69be) [fix] Fetch ffmpeg into /tmp at first use — bundle-size-safe stitch fix (Claude, 2026-07-05T19:49:47Z)
