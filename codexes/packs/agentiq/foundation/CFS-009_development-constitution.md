@@ -161,7 +161,18 @@ Because every field can be locally correct while the failure lives only in an in
 
 The experience and context fields are named slots, not yet implemented — experience-namespace invariants will govern *to whom*, context invariants *under which conditions*. Naming them before building them is Law IV applied to this law itself.
 
----
+**Corollary — Constitutional Sequencing.**
+*(Amendment, ratified by operator direction 2026-07-05. A sub-law of composition, not a new primitive: it lives inside Law XV, beneath Law XIV's judgment.)*
+
+**Constitutional fields shall compose according to a constitutionally valid sequence. Correct components arranged in an invalid sequence do not constitute a coherent experience.**
+
+Composition answers *what belongs together*; sequencing answers *in what order it must unfold*; coherence (Law XIV) answers *whether the resulting whole faithfully expresses the constitutional intent*. These are three distinct kinds of correctness — local (is each field internally valid?), relational (do the fields agree with each other?), and temporal (do they occur in constitutional order?) — and a composition may satisfy any two while violating the third. Evidence at ratification: the EXP-002 terminal-beat defect, re-read. Nothing was wrong with any narrative beat, any style rule, any semantic grounding, or the rendering — every component was locally and relationally correct. The failure was purely temporal: completion never appeared, so transformation was left ungrounded. The full sequence specification lives in CFS-013 §7; the executable check is CFS-014's sequencing layer (first instance: the narrative monotonicity/endpoint validator that caught the defect, regression-pinned in `tests/video-invariant-brief.test.ts`).
+
+The progression this corollary completes:
+
+```
+Fields → Composition → Sequencing → Coherence → Experience
+```
 
 ## Constitutional principle — Constitutional Evolution
 *(Ratified by operator direction 2026-07-04. A principle, not a law: it describes how laws come to be, so it stands above the numbered sequence rather than inside it.)*
@@ -175,6 +186,15 @@ ratify; the constitution evolves. First instance: Law XV itself — the Coherenc
 field revealed, and the pattern it exposed was ratified into law the same day. The
 validator did not legislate. It revealed. The division of authority is Law XI's:
 humans define semantics — including, and especially, the semantics of new laws.
+
+---
+
+## Constitutional principle — Constitutional Emergence
+*(Ratified by operator direction 2026-07-05. A principle, not a law: it names the bridge between Law XV and Law XIV rather than adding a rung between them.)*
+
+**Constitutional coherence is not merely the presence of correct components, but the emergence of a valid whole through correct composition and correct sequence.**
+
+No individual field contains the final experience — and even the correct fields placed together are insufficient if they are assembled in the wrong order, because some constraints become unsatisfiable once others are fixed (the terminal-beat defect: once segmentation consumed the arc without anchoring its endpoint, no amount of local correction could restore completion). The valid whole emerges only when identity, relationship, and sequence are simultaneously respected. Law XV tells us what composes. Constitutional Sequencing (its corollary) tells us how it must unfold. Law XIV judges whether the resulting whole constitutes a coherent constitutional experience. Together they complete the logic of consequence engineering (CFS-006a §7): not just what exists, but how it comes into being.
 
 ---
 

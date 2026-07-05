@@ -85,3 +85,52 @@ Semantic × Style × Narrative × Experience × Context  =  Experience
 the v1 Continuity Block mixes style, identity continuity, semantic constraint, and
 state continuity (CFS-011 §backlog) — are scaffolding, and dissolve into their
 constituent classes as those classes are ratified.
+
+## 7. Constitutional Sequencing — the temporal law (amendment 2026-07-05)
+
+Not every valid composition is a coherent composition: **the sequence is part of the
+system**. Ratified as the sequencing corollary of Law XV (CFS-009):
+
+> Constitutional fields shall compose according to a constitutionally valid sequence.
+> Correct components arranged in an invalid sequence do not constitute a coherent
+> experience.
+
+This names a third kind of correctness, distinct from the two the field equation
+already covers:
+
+| Correctness | Question | Where it fails | Validated by |
+|---|---|---|---|
+| **Local** | Is this field internally valid? | inside one field | field integrity (per-class rules, CFS-011/012) |
+| **Relational** | Does this field agree with the others? | in an interaction (§6) | field composition (Law XIV / CFS-014) |
+| **Temporal** | Does this occur in the proper order? | in the unfolding | constitutional sequencing (CFS-014 sequencing layer) |
+
+A composition may satisfy any two while violating the third — the EXP-002
+terminal-beat defect is the type specimen for the third. Re-read through this lens:
+no narrative beat was wrong, no style rule was wrong, the semantic grounding was
+intact, the rendering was faithful. The failure was that **transformation appeared
+before completion had ever been rendered** — more precisely, completion never
+appeared at all. Every component correct; the sequence wrong. That is a different
+class of failure from §6's interaction defects, and it is why the fix was an
+*ordering* fix (endpoint-anchored `round(i·(B−1)/(N−1))` mapping) rather than a
+content fix.
+
+Sequencing was already latent in this specification: the narrative class's
+composition law (§1) is **Sequential** — order-preserving *within one class*. The
+corollary generalizes it **across fields**: the composed experience as a whole must
+unfold in constitutional order (completion before transformation; grounding before
+assertion; authority before delegation). §1's per-class algebra remains untouched;
+sequencing constrains the product, not the operands.
+
+The assembly-puzzle reading (how this was found): the pieces existing is not enough,
+and even correct pieces correctly paired are not enough, because **some pieces become
+inaccessible once others are fixed**. Ordering constraints are real constraints, not
+presentation. This is also why sequencing belongs to composition rather than to
+rendering: by render time, an invalid sequence has already destroyed information no
+renderer can recover.
+
+First executable instance: the CFS-014 narrative monotonicity/endpoint validator
+(the one that caught the defect), regression-pinned by the endpoint-anchoring
+assertions in `tests/video-invariant-brief.test.ts` (opening beat maps to the first
+unit, terminal beat to the last, order monotonic throughout). Cross-field sequencing
+validators (e.g. semantic grounding must precede the narrative beats that consume it)
+are future extension under CFS-014 §9.

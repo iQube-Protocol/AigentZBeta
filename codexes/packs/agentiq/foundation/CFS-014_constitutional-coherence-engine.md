@@ -57,6 +57,35 @@ The Constitutional Coherence Engine SHALL validate five dimensions:
 
 The engine evaluates the **complete experience**, never `semantic + narrative + style + experience` as independent sums. Coherence is an emergent property of constitutional composition — a field over the whole, in the same sense that gravity is not a property of any node in a particle graph but of the field acting across it.
 
+## 4a. Internal decomposition — amendment 2026-07-05 (Constitutional Sequencing)
+
+Coherence is not only "do these fields agree?" — it is also "**do they unfold
+constitutionally?**" Those are different questions, and the engine answers them in
+distinct layers:
+
+```
+Constitutional Coherence
+├── Field Integrity            — local correctness: is each field internally valid?
+├── Field Composition          — relational correctness: do the fields agree?
+├── Constitutional Sequencing  — temporal correctness: do they unfold in constitutional order?
+└── Constitutional Resolution  — the verdict: does the whole express the constitutional intent?
+```
+
+The three correctness kinds are ratified in CFS-013 §7 (sequencing corollary of
+Law XV); Constitutional Resolution is the judgment Law XIV already assigns to this
+engine, now named as the layer that consumes the other three. The v1 narrative
+monotonicity/coverage validator (§3.2) was, in retrospect, the first sequencing
+validator — it is the layer that caught the terminal-beat defect, a purely temporal
+failure invisible to integrity and composition checks. The Constitutional Emergence
+principle (CFS-009) states why all three layers are simultaneously required: the
+valid whole emerges only when identity, relationship, and sequence are all respected.
+
+Orientation note: coherence orients an experience in constitutional space (which
+invariants govern it) **and in constitutional progression** (where it stands in its
+own unfolding). Any instrument that reports constitutional bearing therefore carries
+both components — spatial orientation and temporal orientation. A navigator does not
+merely know where they are; they know where they are in the journey.
+
 ## 5. Constitutional Coherence Score (CCS)
 
 Every rendered artifact SHALL receive a CCS: per-dimension scores (semantic fidelity, narrative continuity, style continuity, experience alignment, reasoning explainability) with **renderer-configurable weights** but **constitutionally constant dimensions**. The prediction this spec commits to: coherence will become measurable, and when it does it becomes the criterion by which every generated *experience* — not just every artifact — is evaluated.

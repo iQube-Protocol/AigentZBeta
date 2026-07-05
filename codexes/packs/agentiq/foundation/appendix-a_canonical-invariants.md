@@ -111,6 +111,25 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 70. *(experience · principle)* Every experience is the coherent composition of multiple invariant classes operating simultaneously within a shared constitutional context.
 71. *(reasoning · principle)* Knowledge composes locally; experiences succeed globally through coherence.
 
+## Additions — Law XV amendment (Compositional Fields) + CFS-006a §7
+
+*(Backfilled 2026-07-05: these six were issued in the seed JSON on 2026-07-04 without the matching appendix entries — an infraction of the Maintenance rule below, corrected here without renumbering.)*
+
+72. *(experience · law)* Every constitutional experience is the multiplicative composition of independently verifiable invariant fields; changing any field changes the whole experience.
+73. *(reasoning · principle)* Invariant fields are locally independent and globally dependent; a compositional failure can live purely in an interaction while every field is individually correct.
+74. *(engineering · constraint)* A composed block that spans invariant families is scaffolding; it dissolves into its constituent classes as those classes are ratified, and no code may treat the mixed block as constitutionally final.
+75. *(constitutional · principle)* Constitutional evolution occurs when the constitutional system detects a coherent pattern that no individual field reveals, and that pattern is subsequently ratified by human constitutional authority.
+76. *(reasoning · principle)* Consequences are emergent properties of composition; they arise from interactions between fields, not from fields in isolation.
+77. *(engineering · definition)* Consequence engineering is the discipline of composing fields whose interaction reliably produces desirable consequences — architecture, not forecasting.
+
+## Additions — Constitutional Sequencing (Law XV corollary) + Constitutional Emergence
+
+*(Ratified 2026-07-05. Sequencing was proposed as INV-075; issued as 078 — 075 was already taken and the append-only rule forbids renumbering.)*
+
+78. *(constitutional · law)* Constitutional fields shall compose according to a constitutionally valid sequence; correct components arranged in an invalid sequence do not constitute a coherent experience.
+79. *(reasoning · principle)* Local, relational, and temporal correctness are distinct properties: a field may be internally valid, agree with the others, and still occur out of constitutional order — each failure class requires its own validation.
+80. *(constitutional · principle)* Constitutional coherence is not merely the presence of correct components, but the emergence of a valid whole through correct composition and correct sequence.
+
 ---
 
 ## Maintenance

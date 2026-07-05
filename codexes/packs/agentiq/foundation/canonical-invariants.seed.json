@@ -1253,6 +1253,50 @@
       "provenance": {
         "source": "CFS-006a §7 — restated under Law XV"
       }
+    },
+    {
+      "id": "inv.constitutional.078",
+      "namespace": "constitutional",
+      "semantic_type": "law",
+      "statement": "Constitutional fields shall compose according to a constitutionally valid sequence; correct components arranged in an invalid sequence do not constitute a coherent experience.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "sequencing"
+      ],
+      "provenance": {
+        "source": "Law XV sequencing corollary — Constitutional Sequencing (CFS-013 §7, ratified 2026-07-05). Proposed as INV-075; issued as 078 — 075 was already taken and the append-only rule forbids renumbering. Type specimen: the EXP-002 terminal-beat defect re-read as a temporal-correctness failure."
+      }
+    },
+    {
+      "id": "inv.reasoning.079",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Local, relational, and temporal correctness are distinct properties: a field may be internally valid, agree with the others, and still occur out of constitutional order — each failure class requires its own validation.",
+      "status": "proposed",
+      "contexts": [
+        "epistemics",
+        "composition",
+        "sequencing"
+      ],
+      "provenance": {
+        "source": "CFS-013 §7 — the three-correctness taxonomy (local = field integrity, relational = composition, temporal = sequencing)"
+      }
+    },
+    {
+      "id": "inv.constitutional.080",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Constitutional coherence is not merely the presence of correct components, but the emergence of a valid whole through correct composition and correct sequence.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "composition",
+        "sequencing"
+      ],
+      "provenance": {
+        "source": "CFS-009 constitutional principle — Constitutional Emergence (the bridge between Law XV and Law XIV, ratified 2026-07-05)"
+      }
     }
   ]
 }
