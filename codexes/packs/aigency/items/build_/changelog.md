@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`5fea615`](https://github.com/iQube-Protocol/AigentZBeta/commit/5fea6154100bf631ecf84431105f63c0a2ae25a5) [refactor] Move segment-recovery panel above the brief config in EXP-002 runner (Claude, 2026-07-05T20:01:12Z)
 - [`bf669af`](https://github.com/iQube-Protocol/AigentZBeta/commit/bf669afceab82cfbfa40868fda35484b9ffa69be) [fix] Fetch ffmpeg into /tmp at first use — bundle-size-safe stitch fix (Claude, 2026-07-05T19:49:47Z)
 - [`ce76a9e`](https://github.com/iQube-Protocol/AigentZBeta/commit/ce76a9e3535e5ac445b1223a9c39a3d4112847bd) [feat] Add local recovery script for orphaned video segments (Claude, 2026-07-05T19:41:32Z)
 - [`102508f`](https://github.com/iQube-Protocol/AigentZBeta/commit/102508f389536c02b117e29bf0b3fc54c5e7f142) [push] Ratify Invariant Fields ontology (CFS-002 §2a) + generalize Law XV (Claude, 2026-07-05T19:31:53Z)

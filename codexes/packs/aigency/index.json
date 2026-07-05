@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T19:51:28.846Z",
+  "last_updated": "2026-07-05T20:03:00.786Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bf669afceab82cfbfa40868fda35484b9ffa69be",
-  "latest_commit_short": "bf669af",
-  "latest_commit_title": "Fetch ffmpeg into /tmp at first use — bundle-size-safe stitch fix",
+  "latest_commit": "5fea6154100bf631ecf84431105f63c0a2ae25a5",
+  "latest_commit_short": "5fea615",
+  "latest_commit_title": "Move segment-recovery panel above the brief config in EXP-002 runner",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5fea615",
+      "full_sha": "5fea6154100bf631ecf84431105f63c0a2ae25a5",
+      "title": "Move segment-recovery panel above the brief config in EXP-002 runner",
+      "author": "Claude",
+      "timestamp": "2026-07-05T20:01:12Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-5fea615.md"
+    },
     {
       "sha": "bf669af",
       "full_sha": "bf669afceab82cfbfa40868fda35484b9ffa69be",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T05:24:56Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-d5aff7e.md"
-    },
-    {
-      "sha": "4f00c2c",
-      "full_sha": "4f00c2c9567678af40bd2aefcd3b36196a3346f9",
-      "title": "add programmatic resolver-set script — bypass ENS Manager UI",
-      "author": "Claude",
-      "timestamp": "2026-06-14T05:21:47Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-4f00c2c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

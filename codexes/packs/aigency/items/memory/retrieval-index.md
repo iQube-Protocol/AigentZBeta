@@ -2829,3 +2829,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-bf669af.md](../build_/COMMITS/COMMIT-bf669af.md)
 - Message: Fetch ffmpeg into /tmp at first use — bundle-size-safe stitch fix
+
+## Commit `5fea615` — 2026-07-05T20:01:12Z
+- Type: `refactor`
+- Brief: [COMMIT-5fea615.md](../build_/COMMITS/COMMIT-5fea615.md)
+- Message: Move segment-recovery panel above the brief config in EXP-002 runner
