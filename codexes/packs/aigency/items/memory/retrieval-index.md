@@ -2809,3 +2809,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-495307d.md](../build_/COMMITS/COMMIT-495307d.md)
 - Message: Fix ffmpeg-unavailable stitch failure + recover already-generated segments
+
+## Commit `eb7df70` — 2026-07-05T19:34:04Z
+- Type: `push`
+- Brief: [COMMIT-eb7df70.md](../build_/COMMITS/COMMIT-eb7df70.md)
+- Message: Revert ffmpeg-static bundle tracing — broke Amplify build size cap
+
+## Commit `102508f` — 2026-07-05T19:31:53Z
+- Type: `push`
+- Brief: [COMMIT-102508f.md](../build_/COMMITS/COMMIT-102508f.md)
+- Message: Ratify Invariant Fields ontology (CFS-002 §2a) + generalize Law XV

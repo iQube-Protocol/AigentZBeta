@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T19:00:44.378Z",
+  "last_updated": "2026-07-05T19:35:57.673Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "495307d1a4006e680791dd9375a9c3287a4844e7",
-  "latest_commit_short": "495307d",
-  "latest_commit_title": "Fix ffmpeg-unavailable stitch failure + recover already-generated segments",
+  "latest_commit": "102508f389536c02b117e29bf0b3fc54c5e7f142",
+  "latest_commit_short": "102508f",
+  "latest_commit_title": "Ratify Invariant Fields ontology (CFS-002 §2a) + generalize Law XV",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "102508f",
+      "full_sha": "102508f389536c02b117e29bf0b3fc54c5e7f142",
+      "title": "Ratify Invariant Fields ontology (CFS-002 §2a) + generalize Law XV",
+      "author": "Claude",
+      "timestamp": "2026-07-05T19:31:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-102508f.md"
+    },
+    {
+      "sha": "eb7df70",
+      "full_sha": "eb7df70111822300afa079833afa2bad449252bd",
+      "title": "Revert ffmpeg-static bundle tracing — broke Amplify build size cap",
+      "author": "Claude",
+      "timestamp": "2026-07-05T19:34:04Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-eb7df70.md"
+    },
     {
       "sha": "495307d",
       "full_sha": "495307d1a4006e680791dd9375a9c3287a4844e7",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-14T02:20:24Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-eda3879.md"
-    },
-    {
-      "sha": "86ea6e0",
-      "full_sha": "86ea6e021553f4f057befdf6519df25ecda37528",
-      "title": "add ccip-read ens operator runbook",
-      "author": "Claude",
-      "timestamp": "2026-06-14T01:42:34Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-86ea6e0.md"
-    },
-    {
-      "sha": "d5f5887",
-      "full_sha": "d5f588769358b57da5ff8b2553d685e4ed243023",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-06-14T01:40:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d5f5887.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
