@@ -173,6 +173,10 @@ export default function InvariantVideoExperimentRunner() {
         </p>
       </div>
 
+      {/* Recovery FIRST — repairing a previous run's failed stitch must never
+          require generating a new brief (that reads as a new experiment). */}
+      <SegmentRecoveryPanel veniceModel={veniceModel} />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label className="text-sm text-slate-300">
           Semantic namespace (the principles — required)
@@ -388,8 +392,6 @@ export default function InvariantVideoExperimentRunner() {
           </div>
         </div>
       )}
-
-      <SegmentRecoveryPanel veniceModel={veniceModel} />
     </div>
   );
 }
