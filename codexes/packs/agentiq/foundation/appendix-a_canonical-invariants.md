@@ -130,6 +130,23 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 79. *(reasoning · principle)* Local, relational, and temporal correctness are distinct properties: a field may be internally valid, agree with the others, and still occur out of constitutional order — each failure class requires its own validation.
 80. *(constitutional · principle)* Constitutional coherence is not merely the presence of correct components, but the emergence of a valid whole through correct composition and correct sequence.
 
+## Additions — CFS-002 §2a (Invariant Fields — the compositional primitive)
+
+*(Ratified 2026-07-06, operator + agent co-authored. Law XV legislated field behaviour; this closes the missing ontological layer — what a field is. Generalizes Law XV's statement from constitutional-experience-scoped to universal; `inv.experience.072` remains valid as the constitutional instance.)*
+
+81. *(reasoning · definition)* An Invariant Field is a coherent domain of interacting invariants that governs the behaviour of a system; fields are independently verifiable, composable, and give rise to emergent phenomena through their interaction with other fields.
+82. *(reasoning · constraint)* Every invariant field shall be coherent, independent, composable, versioned, and traceable.
+83. *(reasoning · law)* Every coherent system is the composition of independently verifiable invariant fields; constitutional experiences are one expression of this general principle.
+84. *(engineering · definition)* An Invariant Collection is a curated grouping of invariants; an Invariant Field is a functional role in composition that one or more collections occupy — a field is a role, not a container.
+85. *(reasoning · principle)* Invariant fields may be natural (discovered) or constitutional (ratified); both obey the same compositional mathematics, differing only in origin.
+86. *(constitutional · definition)* The Semantic Field defines what may be constitutionally expressed; without it there is no constitutional meaning.
+87. *(narrative · definition)* The Narrative Field defines when constitutional meaning is revealed; without it there is no constitutional journey.
+88. *(style · definition)* The Style Field defines how constitutional meaning is perceived; without it there is no constitutional identity.
+89. *(experience · definition)* The Experience Field defines how constitutional meaning is encountered by a constitutional subject; without it there is no constitutional interaction.
+90. *(constitutional · definition)* The Context Field defines the circumstances under which every other field operates — context determines applicability, never truth; without it there is no constitutional judgment.
+91. *(constitutional · principle)* A constitutional experience is an emergent property of field composition — it is not stored, it is composed.
+92. *(constitutional · constraint)* Every constitutional experience shall be decomposable back into the fields and invariants from which it was composed.
+
 ---
 
 ## Maintenance

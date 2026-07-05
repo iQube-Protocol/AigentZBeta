@@ -60,6 +60,11 @@ The composition laws are pinned as a constitutional constant — `COMPOSITION_LA
 
 ## 6. The field equation — amendment 2026-07-04 (Law XV)
 
+*(The ontological definition of "field" itself — what it is, independent of any
+particular system — lives in CFS-002 §2a. This section is that concept's
+constitutional-experience instantiation: the concrete equation this platform
+executes.)*
+
 EXP-002's first production brief taught the composition model its own generalization
 (ratified as Law XV — Compositional Fields). The composition is not a pipeline of
 independent layers; it is a **multiplicative field product**:

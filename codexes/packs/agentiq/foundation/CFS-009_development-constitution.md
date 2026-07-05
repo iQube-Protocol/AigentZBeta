@@ -143,9 +143,11 @@ Ontology defines meaning. Graph defines relationships. Composition Laws (CFS-013
 Individual invariant classes may compose correctly in isolation while failing collectively — the failure living in no invariant but in the interaction between them. Coherence is therefore evaluated over the complete experience as a field, never as a sum of independently validated layers. No renderer executes until Constitutional Coherence succeeds (fail-closed; operator waiver per Law XI). Knowledge composes locally; experiences succeed globally through coherence.
 
 ## Law XV — Compositional Fields
-*(Amendment, ratified by operator direction 2026-07-04 — discovered by the implementation teaching the theory: EXP-002's first production brief. Law XIV governs the judgment of a composed experience; this law names the object being judged.)*
+*(Ratified 2026-07-04 — discovered by the implementation teaching the theory: EXP-002's first production brief. Law XIV governs the judgment of a composed experience; this law names the object being judged. Generalized 2026-07-06 — operator + agent co-authored: the original statement scoped the law to constitutional experience; the same compositional mathematics turned out to govern biology, engineering, operating systems, civilization, and intelligence, so the statement below is now the universal form. The ontological definition of "field" itself — what it is, not merely how it behaves — now lives in CFS-002 §2a; it was the missing layer this generalization exposed.)*
 
-**Every constitutional experience is the composition of independently verifiable invariant fields, and the composition is multiplicative, not additive: changing any field changes the whole experience.**
+**Every coherent system is the composition of independently verifiable invariant fields, and the composition is multiplicative, not additive: changing any field changes the whole system. Constitutional experiences are one expression of this general principle.**
+
+*(The original 2026-07-04 statement — "every constitutional experience is the composition of independently verifiable invariant fields" — remains constitutionally recorded as `inv.experience.072` and stays true: it is the constitutional-scoped instance of the universal law above, not superseded content, only superseded scope.)*
 
 ```
 Semantic × Style × Narrative × Experience × Context  =  Experience

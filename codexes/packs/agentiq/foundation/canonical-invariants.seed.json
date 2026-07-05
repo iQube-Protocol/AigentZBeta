@@ -1297,6 +1297,175 @@
       "provenance": {
         "source": "CFS-009 constitutional principle — Constitutional Emergence (the bridge between Law XV and Law XIV, ratified 2026-07-05)"
       }
+    },
+    {
+      "id": "inv.reasoning.081",
+      "namespace": "reasoning",
+      "semantic_type": "definition",
+      "statement": "An Invariant Field is a coherent domain of interacting invariants that governs the behaviour of a system; fields are independently verifiable, composable, and give rise to emergent phenomena through their interaction with other fields.",
+      "status": "proposed",
+      "contexts": [
+        "ontology",
+        "composition"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — the universal Invariant Field definition, generalized from the constitutional-experience-scoped reading of Law XV after observing the same compositional mathematics governs biology, engineering, operating systems, civilization, and intelligence, not only constitutional experience (ratified 2026-07-06, operator + agent co-authored)."
+      }
+    },
+    {
+      "id": "inv.reasoning.082",
+      "namespace": "reasoning",
+      "semantic_type": "constraint",
+      "statement": "Every invariant field shall be coherent (governs one concern), independent (verifiable in isolation), composable (contributes to system behaviour only through composition), versioned (evolves by supersession), and traceable (every observable behaviour can identify the fields that composed it).",
+      "status": "proposed",
+      "contexts": [
+        "ontology",
+        "composition"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — the field properties."
+      }
+    },
+    {
+      "id": "inv.reasoning.083",
+      "namespace": "reasoning",
+      "semantic_type": "law",
+      "statement": "Every coherent system is the composition of independently verifiable invariant fields; constitutional experiences are one expression of this general principle.",
+      "status": "proposed",
+      "contexts": [
+        "ontology",
+        "composition"
+      ],
+      "provenance": {
+        "source": "Law XV, generalized 2026-07-06 (CFS-009 amendment). Broadens the SCOPE of inv.experience.072, not its content — 072 remains constitutionally recorded and true as the constitutional-scoped instance of this universal law."
+      }
+    },
+    {
+      "id": "inv.engineering.084",
+      "namespace": "engineering",
+      "semantic_type": "definition",
+      "statement": "An Invariant Collection is a curated grouping of invariants; an Invariant Field is a functional role in composition that one or more collections occupy — a field is a role, not a container.",
+      "status": "proposed",
+      "contexts": [
+        "ontology",
+        "composition"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — the Field/Collection/Namespace distinction, keeping storage, classification, and execution unconflated."
+      }
+    },
+    {
+      "id": "inv.reasoning.085",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Invariant fields may be natural (discovered — e.g. gravitation, genetics, thermodynamics) or constitutional (ratified — e.g. governance, protocols, experience architectures); both obey the same compositional mathematics, differing only in origin.",
+      "status": "proposed",
+      "contexts": [
+        "ontology",
+        "composition"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — natural vs. constitutional invariant fields."
+      }
+    },
+    {
+      "id": "inv.constitutional.086",
+      "namespace": "constitutional",
+      "semantic_type": "definition",
+      "statement": "The Semantic Field defines what may be constitutionally expressed — the principles, constraints, meanings, and invariants an experience draws on; without it there is no constitutional meaning.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "fields"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — the five constitutional fields (1/5)."
+      }
+    },
+    {
+      "id": "inv.narrative.087",
+      "namespace": "narrative",
+      "semantic_type": "definition",
+      "statement": "The Narrative Field defines when constitutional meaning is revealed — governing sequence, transformation, progression, and resolution; without it there is no constitutional journey.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "fields"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — the five constitutional fields (2/5)."
+      }
+    },
+    {
+      "id": "inv.style.088",
+      "namespace": "style",
+      "semantic_type": "definition",
+      "statement": "The Style Field defines how constitutional meaning is perceived — governing visual, linguistic, and aesthetic continuity; without it there is no constitutional identity.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "fields"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — the five constitutional fields (3/5)."
+      }
+    },
+    {
+      "id": "inv.experience.089",
+      "namespace": "experience",
+      "semantic_type": "definition",
+      "statement": "The Experience Field defines how constitutional meaning is encountered by a constitutional subject — governing personalization, agency, rendering, pacing, and orchestration; without it there is no constitutional interaction.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "fields"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — the five constitutional fields (4/5)."
+      }
+    },
+    {
+      "id": "inv.constitutional.090",
+      "namespace": "constitutional",
+      "semantic_type": "definition",
+      "statement": "The Context Field defines the circumstances under which every other field operates — context determines applicability, never truth; without it there is no constitutional judgment.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "fields"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — the five constitutional fields (5/5). Namespace remains unpopulated — Law XV's 'named slot' — pending ratified context invariants."
+      }
+    },
+    {
+      "id": "inv.constitutional.091",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "A constitutional experience is an emergent property of field composition — it is not stored, it is composed.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "fields"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — Corollary III (Experience Emergence)."
+      }
+    },
+    {
+      "id": "inv.constitutional.092",
+      "namespace": "constitutional",
+      "semantic_type": "constraint",
+      "statement": "Every constitutional experience shall be decomposable back into the fields and invariants from which it was composed.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "fields",
+        "explainability"
+      ],
+      "provenance": {
+        "source": "CFS-002 §2a — Corollary IV (Constitutional Explainability)."
+      }
     }
   ]
 }
