@@ -2794,3 +2794,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-42849c3.md](../build_/COMMITS/COMMIT-42849c3.md)
 - Message: Add canonical results publication: hash-committed, DVN-anchored, verifiable
+
+## Commit `7832d1a` — 2026-07-05T14:46:48Z
+- Type: `fix`
+- Brief: [COMMIT-7832d1a.md](../build_/COMMITS/COMMIT-7832d1a.md)
+- Message: Harden experiment step transport against gateway timeouts (Safari fix)

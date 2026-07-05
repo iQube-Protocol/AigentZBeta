@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T20:43:35.820Z",
+  "last_updated": "2026-07-05T14:48:51.703Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "42849c3939c0b750a15c4e1d5ba902d52756e92c",
-  "latest_commit_short": "42849c3",
-  "latest_commit_title": "Add canonical results publication: hash-committed, DVN-anchored, verifiable",
+  "latest_commit": "7832d1a76b0f56bec914d075a4855c73cd989d3f",
+  "latest_commit_short": "7832d1a",
+  "latest_commit_title": "Harden experiment step transport against gateway timeouts (Safari fix)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7832d1a",
+      "full_sha": "7832d1a76b0f56bec914d075a4855c73cd989d3f",
+      "title": "Harden experiment step transport against gateway timeouts (Safari fix)",
+      "author": "Claude",
+      "timestamp": "2026-07-05T14:46:48Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-7832d1a.md"
+    },
     {
       "sha": "42849c3",
       "full_sha": "42849c3939c0b750a15c4e1d5ba902d52756e92c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T00:39:03Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-db509a3.md"
-    },
-    {
-      "sha": "c4bb4ce",
-      "full_sha": "c4bb4cea824f0ee3b947f83d7f5731738b2337aa",
-      "title": "self-hosted ccip-read ens resolver — bypass namestone entirely",
-      "author": "Claude",
-      "timestamp": "2026-06-14T00:15:12Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c4bb4ce.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
