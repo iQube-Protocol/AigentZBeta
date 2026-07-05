@@ -15,7 +15,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Download, Loader2, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
+import { experimentGet } from "./experimentStepFetch";
 
 interface PublishedResult {
   id: string;
@@ -57,10 +57,8 @@ export default function ExperimentResultsTab() {
     setLoading(true);
     setError(null);
     try {
-      const res = await personaFetch("/api/experiments/results", { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load results");
-      setRows(data.results);
+      const data = await experimentGet("/api/experiments/results");
+      setRows(data.results as PublishedResult[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load results");
     } finally {

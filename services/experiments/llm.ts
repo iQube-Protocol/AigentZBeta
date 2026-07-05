@@ -57,6 +57,33 @@ export interface ChatResult {
   model: string;
 }
 
+/**
+ * Provider-call budget. The hosting gateway kills SSR requests at ~30s and
+ * answers with an EMPTY body — which Safari's res.json() surfaces as "The
+ * string did not match the expected pattern" (observed on the first
+ * cartridge-mounted EXP-003 run, 2026-07-05). Aborting the provider call at
+ * 25s lets the route return a clean JSON error the client's automatic step
+ * retry can act on, instead of an opaque gateway timeout.
+ */
+const PROVIDER_TIMEOUT_MS = 25_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit, provider: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(
+        `${provider} timed out after ${PROVIDER_TIMEOUT_MS / 1000}s — transient; the client retries this step automatically`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** One chat call, temperature 0 (benchmark discipline), usage returned. */
 export async function callChatWithUsage(
   provider: ExperimentProvider,
@@ -74,7 +101,7 @@ export async function callChatWithUsage(
   const model = modelOverride || conf.model();
 
   if (provider === 'anthropic') {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -88,7 +115,7 @@ export async function callChatWithUsage(
         system,
         messages: [{ role: 'user', content: user }],
       }),
-    });
+    }, 'anthropic');
     if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
     const text = (data.content ?? [])
@@ -107,7 +134,7 @@ export async function callChatWithUsage(
     provider === 'venice'
       ? `${process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1'}`
       : 'https://api.openai.com/v1';
-  const res = await fetch(`${baseUrl}/chat/completions`, {
+  const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -122,7 +149,7 @@ export async function callChatWithUsage(
         { role: 'user', content: user },
       ],
     }),
-  });
+  }, provider);
   if (!res.ok) throw new Error(`${provider} ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
   return {

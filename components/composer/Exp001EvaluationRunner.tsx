@@ -12,7 +12,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Loader2, Play, Square } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
+import { experimentGet, experimentStep } from "./experimentStepFetch";
 
 type Provider = "anthropic" | "openai" | "venice";
 
@@ -58,29 +58,21 @@ export default function Exp001EvaluationRunner() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await personaFetch("/api/experiments/exp001", { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load config");
-        setArtifacts(data.artifacts);
-        setQuestions(data.questions);
-        setProviders(data.providers ?? {});
-        setModels(data.models ?? {});
+        const data = await experimentGet("/api/experiments/exp001");
+        setArtifacts(data.artifacts as string[]);
+        setQuestions(data.questions as QuestionMeta[]);
+        setProviders((data.providers as Record<string, boolean>) ?? {});
+        setModels((data.models as Record<string, { id: string; label: string }[]>) ?? {});
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load config");
       }
     })();
   }, []);
 
-  const step = useCallback(async (body: Record<string, unknown>) => {
-    const res = await personaFetch("/api/experiments/exp001", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || "step failed");
-    return data;
-  }, []);
+  const step = useCallback(
+    (body: Record<string, unknown>) => experimentStep("/api/experiments/exp001", body),
+    [],
+  );
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -96,7 +88,7 @@ export default function Exp001EvaluationRunner() {
         if (abortRef.current) throw new Error("aborted by operator");
         setProgress(`answer pass: ${docId}…`);
         const data = await step({ action: "answers", provider, artifactId: docId, ...(model ? { model } : {}) });
-        answers[docId] = data.answers;
+        answers[docId] = data.answers as AnswerRow[];
       }
       setAnswersByArtifact(answers);
 
@@ -111,7 +103,7 @@ export default function Exp001EvaluationRunner() {
             return [docId, { answer: row.answer, citations: row.citations }];
           }),
         );
-        const { verdict } = await step({ action: "judge", provider, q: question.q, answersByDoc, ...(model ? { model } : {}) });
+        const { verdict } = (await step({ action: "judge", provider, q: question.q, answersByDoc, ...(model ? { model } : {}) })) as Record<string, any>;
 
         const perDoc: QuestionScore["perDoc"] = {};
         let hallucinations = 0;
@@ -149,12 +141,12 @@ export default function Exp001EvaluationRunner() {
       for (const docId of docs) {
         if (abortRef.current) throw new Error("aborted by operator");
         setProgress(`coherence: ${docId}…`);
-        const { verdict } = await step({
+        const { verdict } = (await step({
           action: "coherence",
           provider,
           answers: answers[docId].map((a) => ({ q: a.q, answer: a.answer })),
           ...(model ? { model } : {}),
-        });
+        })) as Record<string, any>;
         coh[docId] = verdict;
         setCoherence({ ...coh });
       }
@@ -190,10 +182,7 @@ export default function Exp001EvaluationRunner() {
   const publish = async () => {
     setPublishState("publishing");
     try {
-      const res = await personaFetch("/api/experiments/results", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await experimentStep("/api/experiments/results", {
           experiment: "EXP-001",
           provider,
           model: model || "(provider default)",
@@ -208,10 +197,7 @@ export default function Exp001EvaluationRunner() {
             coherence,
             answersByArtifact,
           },
-        }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "publish failed");
       setPublishState(`published — sha256 ${String(data.contentHash).slice(0, 16)}… (receipt ${data.receiptStatus ?? "created"})`);
     } catch (err) {
       setPublishState(`publish failed: ${err instanceof Error ? err.message : "error"}`);

@@ -12,7 +12,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Loader2, Play, Square } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
+import { experimentGet, experimentStep } from "./experimentStepFetch";
 
 type Provider = "anthropic" | "openai" | "venice";
 
@@ -52,28 +52,20 @@ export default function Exp003RediscoveryRunner() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await personaFetch("/api/experiments/exp003", { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load config");
-        setTasks(data.tasks);
-        setProviders(data.providers ?? {});
-        setModels(data.models ?? {});
+        const data = await experimentGet("/api/experiments/exp003");
+        setTasks(data.tasks as TaskMeta[]);
+        setProviders((data.providers as Record<string, boolean>) ?? {});
+        setModels((data.models as Record<string, { id: string; label: string }[]>) ?? {});
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load config");
       }
     })();
   }, []);
 
-  const step = useCallback(async (body: Record<string, unknown>) => {
-    const res = await personaFetch("/api/experiments/exp003", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || "step failed");
-    return data;
-  }, []);
+  const step = useCallback(
+    (body: Record<string, unknown>) => experimentStep("/api/experiments/exp003", body),
+    [],
+  );
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -88,10 +80,10 @@ export default function Exp003RediscoveryRunner() {
         for (const arm of ["cold", "initialized"] as const) {
           if (abortRef.current) throw new Error("aborted by operator");
           setProgress(`${tasks[i].id} — ${arm} answer…`);
-          const a = await step({ action: "answer", provider, taskIndex: i, arm, ...(model ? { model } : {}) });
+          const a = (await step({ action: "answer", provider, taskIndex: i, arm, ...(model ? { model } : {}) })) as Record<string, any>;
           if (abortRef.current) throw new Error("aborted by operator");
           setProgress(`${tasks[i].id} — judging ${arm}…`);
-          const j = await step({ action: "judge", provider, taskIndex: i, answer: a.answer, ...(model ? { model } : {}) });
+          const j = (await step({ action: "judge", provider, taskIndex: i, answer: a.answer, ...(model ? { model } : {}) })) as Record<string, any>;
           acc[i][arm] = {
             answer: a.answer,
             inputTokens: a.inputTokens,
@@ -131,19 +123,13 @@ export default function Exp003RediscoveryRunner() {
         coldContradictions: sum("cold", (a) => a.judge?.contradicting ?? 0),
         initializedContradictions: sum("initialized", (a) => a.judge?.contradicting ?? 0),
       };
-      const res = await personaFetch("/api/experiments/results", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await experimentStep("/api/experiments/results", {
           experiment: "EXP-003",
           provider,
           model: model || "(provider default)",
           aggregates,
           results: { experiment: "EXP-003", provider, model: model || "(provider default)", results },
-        }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "publish failed");
       setPublishState(`published — sha256 ${String(data.contentHash).slice(0, 16)}… (receipt ${data.receiptStatus ?? "created"})`);
     } catch (err) {
       setPublishState(`publish failed: ${err instanceof Error ? err.message : "error"}`);
