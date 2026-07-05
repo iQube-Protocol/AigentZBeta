@@ -409,6 +409,30 @@ export default function SkillVideoPlayer({
         );
       }
 
+      // 1b. Record the sequence manifest server-side BEFORE polling: whatever
+      // happens after this point (stitch failure, gateway timeout, tab close),
+      // the run's ordered clip membership is durably recoverable — the
+      // Experiment Lab's recovery panel stitches straight from this record.
+      // Fire-and-forget; a manifest miss never blocks the run.
+      const sequenceId = `vidseq-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      fetch("/api/skills/video/sequences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sequence_id: sequenceId,
+          skill_id,
+          provider: resolvedProvider,
+          venice_model: venice_model || undefined,
+          title: prompt.slice(0, 120),
+          segments: submits.map((s, i) => ({
+            index: i,
+            provider: s.provider || resolvedProvider,
+            generation_id: s.generation_id,
+            prompt: promptForSegment(i).slice(0, 300),
+          })),
+        }),
+      }).catch(() => {});
+
       // 2. Resolve each segment to a completed URL (immediate or via polling).
       setStatusMessage(`Rendering ${segments} clips… this can take a few minutes.`);
       const urls = await Promise.all(

@@ -74,3 +74,33 @@ Show the stitched video to the independent evaluator; ask: (a) which principles 
 ## Phase 3b hook
 
 The production run can be driven by the `consequence-operating-model.v1` chain: preflight grounds the intent in KnowledgeQube 001 (curation + forecast + disposition), the operator approves, generation/stitching executes, and the flywheel step records the observed outcome against the grounding invariants. The briefs are the `intentRef` payload.
+
+## Sequencing arm — extension of the coherence test (added 2026-07-05)
+
+Constitutional Sequencing (the Law XV corollary, `inv.constitutional.078`) predicts a
+failure class that EXP-002's coherence evaluation can test directly with **zero new
+generation cost**: correct components arranged in an invalid sequence do not
+constitute a coherent experience.
+
+**Design.** The Experiment Lab's recovery panel stitches a recorded sequence two ways
+from the identical clip set:
+
+1. **In recorded order** — the manifest's play order, honoured verbatim (the treatment).
+2. **Reversed** — the "Stitch reversed (sequencing control)" button: every segment
+   locally correct, every pairwise style/semantic relationship intact, only the
+   temporal ordering violated (transformation before establishment; completion never
+   arrives last).
+
+**Prediction.** The in-order stitch scores normally on the EXP-002 evaluation; the
+reversed stitch degrades specifically on the *narrative continuity / story
+coherence* questions while passing the hallucination and principle-recovery checks —
+i.e. the evaluator sees the right principles asserted with the story broken. That
+dissociation (semantic fidelity intact, temporal coherence destroyed) is the
+sequencing corollary's signature, and it isolates the third correctness kind
+(CFS-013 §7: temporal) from the two the original protocol already measures.
+
+**Protocol.** Score both stitches with the same evaluator questions as the main run,
+plus: (c) do events occur in an order that makes sense? Record the two as separate
+experiment instances sharing a `clipSetRef` (the sequence id). The reversed arm is a
+CONTROL — its receipts feed the flywheel as validation evidence for
+`inv.constitutional.078`, never as a production artifact.

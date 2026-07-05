@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
 
   const segments: RecoverableSegment[] = [];
   const errors: string[] = [];
+  const veniceIdsWithVideo = new Set<string>();
 
   for (const bucket of BUCKET_CANDIDATES) {
     // Sora — the completed videos themselves.
@@ -90,7 +91,38 @@ export async function GET(request: NextRequest) {
       errors.push(`${bucket}/openai: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    // Venice — queueIds recovered from the persisted companion thumbnails.
+    // Venice — persisted full videos (written by the status route on
+    // completion detection since 2026-07-05).
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .list("generated/venice/videos", {
+          limit: MAX_ITEMS,
+          sortBy: { column: "created_at", order: "desc" },
+        });
+      if (error) throw error;
+      for (const f of data ?? []) {
+        if (!f.name.endsWith(".mp4")) continue;
+        const path = `generated/venice/videos/${f.name}`;
+        const queueId = f.name.replace(/\.mp4$/, "");
+        veniceIdsWithVideo.add(queueId);
+        segments.push({
+          kind: "venice",
+          name: f.name,
+          clipUrl: supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl,
+          thumbnailUrl: supabase.storage
+            .from(bucket)
+            .getPublicUrl(`generated/venice/thumbnails/${queueId}-thumb.jpg`).data.publicUrl,
+          createdAt: f.created_at ?? null,
+          sizeBytes: (f.metadata as { size?: number } | null)?.size ?? null,
+        });
+      }
+    } catch (e) {
+      errors.push(`${bucket}/venice-videos: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    // Venice — queueIds recovered from the persisted companion thumbnails
+    // (legacy path for clips completed before full-video persistence landed).
     try {
       const { data, error } = await supabase.storage
         .from(bucket)
@@ -103,6 +135,7 @@ export async function GET(request: NextRequest) {
         const match = f.name.match(/^(.+)-thumb\.jpg$/);
         if (!match) continue;
         const queueId = match[1];
+        if (veniceIdsWithVideo.has(queueId)) continue; // persisted copy already listed
         segments.push({
           kind: "venice",
           name: f.name,

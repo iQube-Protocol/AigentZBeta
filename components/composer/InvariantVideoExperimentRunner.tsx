@@ -407,6 +407,16 @@ interface RecoverableSegment {
   sizeBytes: number | null;
 }
 
+interface SequenceView {
+  sequenceId: string;
+  createdAt: string;
+  skillId: string;
+  provider: "openai" | "venice";
+  veniceModel: string | null;
+  title: string | null;
+  segments: { index: number; provider: string; generationId: string; prompt?: string; clipUrl: string; persistedCopy: boolean }[];
+}
+
 /**
  * Recovers orphaned segments from a run whose clips generated but whose stitch
  * pass failed (e.g. the 2026-07-05 "ffmpeg binary unavailable" incident). The
@@ -420,6 +430,7 @@ function SegmentRecoveryPanel({ veniceModel }: { veniceModel: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [segments, setSegments] = useState<RecoverableSegment[] | null>(null);
+  const [sequences, setSequences] = useState<SequenceView[] | null>(null);
   // Clip URLs in play order.
   const [selected, setSelected] = useState<string[]>([]);
   const [stitching, setStitching] = useState(false);
@@ -430,8 +441,14 @@ function SegmentRecoveryPanel({ veniceModel }: { veniceModel: string }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await experimentGet("/api/skills/video/recoverable-segments");
-      setSegments(data.segments as RecoverableSegment[]);
+      // Sequences are the primary recovery unit (recorded at submit time,
+      // ordered); the raw clip list is the fallback for pre-manifest runs.
+      const [segData, seqData] = await Promise.all([
+        experimentGet("/api/skills/video/recoverable-segments"),
+        experimentGet("/api/skills/video/sequences").catch(() => ({ sequences: [] })),
+      ]);
+      setSegments(segData.segments as RecoverableSegment[]);
+      setSequences((seqData.sequences as SequenceView[]) ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to list recoverable segments");
     } finally {
@@ -453,15 +470,31 @@ function SegmentRecoveryPanel({ veniceModel }: { veniceModel: string }) {
       ? `${seg.clipUrl}?model=${encodeURIComponent(veniceModel)}`
       : seg.clipUrl;
 
-  const stitchSelected = async () => {
+  const stitchUrls = async (urls: string[]) => {
     setStitching(true);
     setStitchError(null);
     setStitchedUrl(null);
-    const res = await stitchHierarchical(selected, undefined);
+    const res = await stitchHierarchical(urls, undefined);
     if (res.ok && res.video_url) setStitchedUrl(res.video_url);
     else setStitchError(res.error || "Stitch failed");
     setStitching(false);
   };
+
+  const stitchSelected = () => stitchUrls(selected);
+
+  // Stitch a recorded sequence in its manifest order — the proposed play
+  // order is shown in the UI and honoured verbatim: Constitutional
+  // Sequencing (Law XV corollary) applied to the recovery path.
+  const stitchSequence = (seq: SequenceView) =>
+    stitchUrls([...seq.segments].sort((a, b) => a.index - b.index).map((s) => s.clipUrl));
+
+  // Sequencing control arm (EXP-002): same clips, deliberately REVERSED
+  // order. Every segment is locally correct; only the temporal ordering is
+  // violated — the composed film should read as incoherent (completion before
+  // establishment), demonstrating inv.constitutional.078 with the identical
+  // component set. Record results as a separate experiment instance.
+  const stitchSequenceReversed = (seq: SequenceView) =>
+    stitchUrls([...seq.segments].sort((a, b) => b.index - a.index).map((s) => s.clipUrl));
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-3">
@@ -476,8 +509,65 @@ function SegmentRecoveryPanel({ veniceModel }: { veniceModel: string }) {
         <>
           {loading && <p className="text-xs text-slate-500">Listing generated segments…</p>}
           {error && <p className="text-xs text-rose-400">{error}</p>}
-          {segments !== null && segments.length === 0 && (
+          {segments !== null && segments.length === 0 && (sequences?.length ?? 0) === 0 && (
             <p className="text-xs text-slate-500">No recoverable segments found in storage.</p>
+          )}
+
+          {/* Experiment sequences — recorded at submit time, in play order.
+              One click stitches the whole run; no picking clips from a pile. */}
+          {sequences !== null && sequences.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-slate-300">Experiment sequences (recorded play order)</p>
+              {sequences.map((seq) => (
+                <div key={seq.sequenceId} className="rounded border border-indigo-900/60 bg-indigo-950/20 px-2.5 py-2 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-indigo-950 border border-indigo-800 px-1.5 py-0.5 text-[10px] text-indigo-300">
+                      {seq.segments.length} segments
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {seq.provider}{seq.veniceModel ? ` / ${seq.veniceModel}` : ""}
+                    </span>
+                    <span className="text-[10px] text-slate-600">{new Date(seq.createdAt).toLocaleString()}</span>
+                  </div>
+                  {seq.title && <p className="text-[11px] text-slate-500 truncate" title={seq.title}>{seq.title}</p>}
+                  <ol className="space-y-0.5">
+                    {[...seq.segments].sort((a, b) => a.index - b.index).map((s) => (
+                      <li key={s.generationId} className="flex items-center gap-2 text-[10px] text-slate-500">
+                        <span className="rounded bg-slate-800 px-1 text-slate-300">#{s.index + 1}</span>
+                        <span className="truncate flex-1" title={s.generationId}>{s.generationId}</span>
+                        {s.persistedCopy ? (
+                          <span className="text-emerald-400">stored</span>
+                        ) : (
+                          <span className="text-amber-400" title="No persisted copy — stitches via the provider proxy while the provider retains the asset">
+                            provider-only
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={stitching}
+                      onClick={() => stitchSequence(seq)}
+                      className="text-xs bg-indigo-700 hover:bg-indigo-600 text-white"
+                    >
+                      {stitching ? "Stitching…" : `Stitch sequence in order (${seq.segments.length} clips)`}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={stitching}
+                      onClick={() => stitchSequenceReversed(seq)}
+                      className="text-xs text-amber-400 hover:text-amber-300"
+                      title="Sequencing control arm: identical clips, deliberately reversed order — every component locally correct, only the temporal ordering violated (inv.constitutional.078)"
+                    >
+                      Stitch reversed (sequencing control)
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
 
           {segments !== null && segments.length > 0 && (
