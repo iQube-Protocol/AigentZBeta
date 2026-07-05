@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0a51a11`](https://github.com/iQube-Protocol/AigentZBeta/commit/0a51a112dec469e76dec6b5e5e0819ed590d694d) [push] Record EXP-002 frame evidence: bearing mark persistence + duration-adherence gap (Claude, 2026-07-05T23:29:05Z)
 - [`642ac8c`](https://github.com/iQube-Protocol/AigentZBeta/commit/642ac8c7aa920a41dcf05b69483e160dd2bb32fb) [push] Record EXP-002 production run 2: full pipeline validated, 48s film rendered (Claude, 2026-07-05T23:20:03Z)
 - [`aef38a6`](https://github.com/iQube-Protocol/AigentZBeta/commit/aef38a69337cde07cd3fbf6b8fba7ba77725b874) [push] Persist segments at completion + sequence manifests + sequencing control arm (Claude, 2026-07-05T20:38:15Z)
 - [`5fea615`](https://github.com/iQube-Protocol/AigentZBeta/commit/5fea6154100bf631ecf84431105f63c0a2ae25a5) [refactor] Move segment-recovery panel above the brief config in EXP-002 runner (Claude, 2026-07-05T20:01:12Z)
