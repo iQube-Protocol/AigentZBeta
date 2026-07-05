@@ -143,7 +143,7 @@ Semantic Fidelity   Temporal Fidelity   Computational Efficiency
 | Experiment | Property | Question | Status |
 |---|---|---|---|
 | **EXP-001** | Semantic preservation | Can one invariant collection render faithfully across modalities (article, report, story, infographic, video)? | **Run 1 complete + human-adjudicated — confirmed on all four measures** |
-| **EXP-002** | Temporal preservation | Can invariants sustain coherent, style- and narrative-constrained productions across time (multi-segment video)? | Composition pipeline shipped; production run pending |
+| **EXP-002** | Temporal preservation | Can invariants sustain coherent, style- and narrative-constrained productions across time (multi-segment video)? | **Full production run complete 2026-07-05 (Sora, 4×12s, stitched) — operator evaluation confirms temporal continuity; formal judge scoring pending** |
 | **EXP-003** | Rediscovery savings | Do invariants reduce reasoning cost while improving epistemic fidelity? | **Run 1 complete — hypothesis confirmed on all four measures** |
 
 ### 6.0 EXP-001 results (run 1, 2026-07-04 — independent judge: llama-3.3-70b)
@@ -166,6 +166,28 @@ missed the line and derived a canon-contradicting answer, which we scored honest
 artifacts. Fourteen of eighteen invariants earned validation events; two were held back
 pending a stronger judge and two await question-bank coverage
 (`experiments/exp-001-living-knowledgeqube/README.md#results`).
+
+### 6.0a EXP-002 results (production run, 2026-07-05 — Sora, 4×12s)
+
+The temporal-fidelity leg completed its full production run: one invariant-composed
+brief (18-invariant semantic collection distributed round-robin, 7-invariant style
+continuity block shared identically, 5-beat narrative arc endpoint-anchored per the
+CFS-012 §4 fix) drove four independent 12-second Sora generations, stitched into a
+single 48-second film. Operator first-viewing evaluation: **complete continuity of
+narrative, protagonist, settings, and constitutional context across all four
+segments**. One instructive limitation surfaced: character persistence held at the
+*class* level (same person, consistent presentation) but not the *instance* level
+(facial phenotype varied between independent generations) — the v1 Continuity Block's
+prose-granularity ceiling, already earmarked by Law XV's class-purity corollary as
+the identity-continuity class awaiting its own ratification. Two prior failed runs
+the same day also earned their keep: they exposed and fixed the segment-persistence
+and sequence-ordering gaps, and the successful run's recovery-path stitch honoured
+the manifest's recorded play order against a reverse-chronological storage listing —
+Constitutional Sequencing (`inv.constitutional.078`) operating as infrastructure.
+Formal judge-protocol scoring (including the reversed-order sequencing control arm —
+identical clips, temporal order violated, predicting semantic fidelity intact with
+narrative coherence destroyed) remains open; first-viewing results are recorded in
+`experiments/exp-002-invariant-video/README.md`.
 
 ### 6.1 EXP-003 design
 
@@ -270,10 +292,13 @@ grounded, evaluated, and, where necessary, ratified.
   Law XII rediscovery is strong evidence *because* the failure arose unprompted in the
   cold arm; still, task-collection affinity is by design and generalization across
   domains is untested.
-- **EXP-002's full production run is pending** — the series stands at two confirmed
-  legs (EXP-001 semantic preservation, EXP-003 rediscovery savings) plus one in flight,
-  not three completed. EXP-001's judge (an OSS model) produced one retrieval failure
-  that human adjudication caught; stronger judges are queued for run 2.
+- **EXP-002's formal scoring is pending** — the production run is complete and the
+  operator's first-viewing evaluation confirms temporal continuity, but the series'
+  third leg closes only when the independent-evaluator protocol (including the
+  reversed-order sequencing control) is scored. The series stands at two confirmed
+  legs plus one production-complete/scoring-pending. EXP-001's judge (an OSS model)
+  produced one retrieval failure that human adjudication caught; stronger judges are
+  queued for run 2.
 - A confirmed hypothesis validates the *initialization mechanism*; it does not by
   itself ratify any individual invariant. Standing accrues per-invariant through the
   consequence flywheel, never through benchmark aggregates.
@@ -284,8 +309,9 @@ grounded, evaluated, and, where necessary, ratified.
    experiment instances, never merged rows.
 2. **Cross-domain task sets** (engineering-namespace invariants against code-design
    tasks) to test generalization beyond the constitutional domain.
-3. **EXP-002's production run** (the composition pipeline is deployed) and EXP-001
-   run 2 (Q16/Q17 covering C-024/C-059; a stronger judge), completing the series.
+3. **EXP-002's formal evaluation pass** (independent evaluator + the reversed-order
+   sequencing control arm; production run complete 2026-07-05) and EXP-001 run 2
+   (Q16/Q17 covering C-024/C-059; a stronger judge), completing the series.
 4. **Production reuse curves** — with `invariants_used` on the receipt spine and Reach
    accruing through runtime citation, the reuse count of CFS-008 §2 becomes a
    longitudinal production measurement, not a benchmark.

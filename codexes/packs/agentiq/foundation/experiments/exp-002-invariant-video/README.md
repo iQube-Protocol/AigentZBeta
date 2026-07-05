@@ -1,7 +1,64 @@
 # EXP-002 — Invariant-Carried Video
 
-**Chrysalis Foundation · Experiment 002 · Status: composition + coherence half VALIDATED in production 2026-07-04; video generation blocked on Venice credits — final render pending**
+**Chrysalis Foundation · Experiment 002 · Status: FULL PIPELINE VALIDATED IN PRODUCTION 2026-07-05 — 4×12s Sora render, stitched, operator first-viewing evaluation confirms temporal continuity. Formal judge-protocol scoring pending.**
 Companion to EXP-001 (same KnowledgeQube 001 collection — the video artifacts of the Living KnowledgeQube).
+
+## Production run 2 (complete) — 2026-07-05: the 48-second film exists
+
+Full end-to-end run on Sora (`openai`, 4×12s segments, constitutional namespace,
+style + narrative layers on, post-terminal-beat-fix brief). Sequence manifest
+`4 segments · openai · 2026-07-05 19:06` — segments
+`video_6a4ae370f6e…f84a6f`, `…f98c81909…a554`, `…7108108190918746e…fbbb9af`,
+`…d3dc8190a84ecc…f322e`, all four persisted to storage at completion (19:08:51–54).
+
+**Run timeline — and what each step validated:**
+
+1. **Generation succeeded on all 4 segments** with distinct per-segment prompts
+   from the invariant-composed brief.
+2. **The native in-run stitch failed** (first container's ffmpeg cold path) —
+   but unlike the two lost runs earlier the same day, **nothing was lost**:
+   completion-time persistence had already stored all four clips, and the
+   sequence manifest (written at submit time, before any segment completed)
+   had already recorded their play order.
+3. **On page refresh, the recovery panel presented the run as a sequence** with
+   its recorded order, and the one-click in-order stitch produced the final
+   48s film via the /tmp-fetched ffmpeg.
+4. **Sequencing carried as data, not inference**: the storage listing orders
+   clips newest-first — the reverse of play order. A recovery that inferred
+   order from timestamps would have assembled the film backwards; the stitch
+   honoured the manifest's recorded order instead. That is
+   `inv.constitutional.078` (Constitutional Sequencing) operating as
+   infrastructure: composition order is constitutional data that must travel
+   with the composition, never be reconstructed from storage artifacts.
+
+**Operator first-viewing evaluation (2026-07-05):**
+
+- **Complete continuity of narrative, protagonist, settings, and constitutional
+  context across all four segments** — the style continuity block (CFS-011) and
+  endpoint-anchored narrative mapping (CFS-012 §4, post-fix) held across four
+  independent 12-second generations stitched into one film.
+- **Character persistence held at the class level, not the instance level**: the
+  protagonist reads as the same person (a woman of African descent, consistent
+  presentation) across all segments, with slight wardrobe variance and
+  non-identical facial features between segments. This is exactly the v1
+  Continuity Block's known granularity ceiling — prose-level identity
+  description cannot pin instance-level phenotype across independent
+  inferences. It strengthens the Law XV class-purity case for dissolving the
+  mixed block: **identity continuity needs its own ratified invariant class**
+  (likely with reference-image or seed-carrying mechanics, beyond prose), per
+  the CFS-011 backlog.
+- Caveat, stated honestly: this is the operator's first-viewing assessment, not
+  the formal evaluation protocol below (independent evaluator, questions a/b/c,
+  segment→invariant map scoring). The formal pass — including the reversed-order
+  sequencing control arm — remains open; its result updates this section.
+
+**Infrastructure validated incidentally by this run** (each a same-day fix from
+the two failed runs earlier on 2026-07-05): completion-time segment persistence
+(both providers), submit-time sequence manifests, the recovery panel's
+sequence-first stitching, and the /tmp cold-start ffmpeg fetch. One open item:
+the native in-run stitch still failed once before the recovery path succeeded —
+suspected first-container race between the warm-up download and the stitch
+call's budget; watch the next run's logs before changing anything.
 
 ## Production run 1 (partial) — 2026-07-04: the brief pipeline validated, and the Coherence Engine earned its keep
 

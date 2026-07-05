@@ -80,13 +80,14 @@ three orthogonal validations of the same computational primitive, not isolated d
       │                    │                    │
 Semantic Fidelity   Temporal Fidelity   Computational Efficiency
      EXP-001             EXP-002              EXP-003
- (confirmed run 1)   (pipeline shipped;   (confirmed run 1)
-                     production pending)
+ (confirmed run 1)   (production run      (confirmed run 1)
+                     complete 2026-07-05;
+                     formal scoring pending)
 ```
 
 Together they establish three independent properties of the same primitive: knowledge
 survives modality changes (semantic preservation), knowledge survives sequential
-composition (temporal preservation — in flight), and knowledge prevents repeated
+composition (temporal preservation — production-validated, formal scoring pending), and knowledge prevents repeated
 rediscovery (reasoning preservation). The series is the research programme's first
 chapter; subsequent experiments explore scale, domains, and model families rather than
 new property classes.
