@@ -2839,3 +2839,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-aef38a6.md](../build_/COMMITS/COMMIT-aef38a6.md)
 - Message: Persist segments at completion + sequence manifests + sequencing control arm
+
+## Commit `642ac8c` — 2026-07-05T23:20:03Z
+- Type: `push`
+- Brief: [COMMIT-642ac8c.md](../build_/COMMITS/COMMIT-642ac8c.md)
+- Message: Record EXP-002 production run 2: full pipeline validated, 48s film rendered

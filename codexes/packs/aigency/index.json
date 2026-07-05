@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T20:40:07.691Z",
+  "last_updated": "2026-07-05T23:22:32.534Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "aef38a69337cde07cd3fbf6b8fba7ba77725b874",
-  "latest_commit_short": "aef38a6",
-  "latest_commit_title": "Persist segments at completion + sequence manifests + sequencing control arm",
+  "latest_commit": "642ac8c7aa920a41dcf05b69483e160dd2bb32fb",
+  "latest_commit_short": "642ac8c",
+  "latest_commit_title": "Record EXP-002 production run 2: full pipeline validated, 48s film rendered",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "642ac8c",
+      "full_sha": "642ac8c7aa920a41dcf05b69483e160dd2bb32fb",
+      "title": "Record EXP-002 production run 2: full pipeline validated, 48s film rendered",
+      "author": "Claude",
+      "timestamp": "2026-07-05T23:20:03Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-642ac8c.md"
+    },
     {
       "sha": "aef38a6",
       "full_sha": "aef38a69337cde07cd3fbf6b8fba7ba77725b874",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T08:05:19Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-79405af.md"
-    },
-    {
-      "sha": "180a967",
-      "full_sha": "180a96733ea5b3bd4b92b9ec984f6e795c7db6b9",
-      "title": "handle ens namewrapper — polity.eth is wrapped, registry.owner returns zero",
-      "author": "Claude",
-      "timestamp": "2026-06-14T05:28:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-180a967.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
