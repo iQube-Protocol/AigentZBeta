@@ -46,15 +46,14 @@ const nextConfig = {
     "/api/experiments/exp001": [
       "./codexes/packs/agentiq/foundation/experiments/exp-001-living-knowledgeqube/*.md",
     ],
-    // ffmpeg-static ships a pre-compiled binary that Next's file tracer does
-    // NOT follow (the path is computed at runtime inside the package). Without
-    // these entries the Lambda ships without the binary and the stitch route
-    // hard-fails with "ffmpeg binary unavailable" (observed in production on
-    // EXP-002's first stitched run, 2026-07-05); the two status routes then
-    // silently skip thumbnail extraction.
-    "/api/skills/video/stitch": ["./node_modules/ffmpeg-static/ffmpeg"],
-    "/api/skills/video/[id]/status": ["./node_modules/ffmpeg-static/ffmpeg"],
-    "/api/skills/video/venice/[queueId]/status": ["./node_modules/ffmpeg-static/ffmpeg"],
+    // NOTE: an attempt to trace ffmpeg-static's binary (~70-80MB) into the
+    // stitch/status routes here (2026-07-05) pushed the Amplify build output
+    // past its 220 MiB hard cap (230686720 bytes) and broke ALL deploys —
+    // reverted same day. The "ffmpeg binary unavailable" stitch failure needs
+    // a bundle-size-safe fix (e.g. a smaller binary, or fetching it into /tmp
+    // at cold start from an operator-approved source) rather than static
+    // tracing. Do not re-add a trace entry for ffmpeg-static here without
+    // first confirming headroom against the build-size cap.
     // Stage 8+ docs tab — markdown reader serves the legibility profile
     // (docs/) + the PRD trail (codexes/packs/agentiq/updates/). Without
     // these the Lambda bundle ships without the .md files and the route
