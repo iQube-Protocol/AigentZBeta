@@ -154,6 +154,13 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 93. *(reasoning · principle)* Temporal correctness is graded, not boolean: an experience's coherence varies with its composition order; the designed sequence is a coherence maximum, and alternative orderings may realise distinct coherent experiences at different coherence values.
 94. *(reasoning · principle)* Local coherence survives a global sequence violation: relational correctness is pairwise-local while temporal correctness is global, so adjacent units still agree even when the whole no longer unfolds in constitutional order.
 
+## Additions — CFS-013 §7 topological formalization (temporal coherence field)
+
+*(Ratified 2026-07-05, operator + agent co-authored — the "sequence is scored, not validated" formalization built on the control-arm evidence.)*
+
+95. *(reasoning · principle)* Sequence is scored, not validated: temporal correctness is a graded coherence field over the space of orderings, with the designed sequence as a global maximum, possible local maxima at alternative coherent orderings, and graded decay away from the optimum.
+96. *(reasoning · principle)* A remix does not change the work; it finds another coherent trajectory through the same invariant space — the invariants remain fixed, only the traversal changes.
+
 ---
 
 ## Maintenance

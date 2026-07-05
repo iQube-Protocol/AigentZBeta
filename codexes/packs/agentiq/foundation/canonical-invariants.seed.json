@@ -1494,6 +1494,35 @@
       "provenance": {
         "source": "CFS-013 §7 empirical refinement — EXP-002 sequencing control arm, 2026-07-05: the reversed cut's adjacent original pairs retained pairwise coherence while the global arc broke; the three-correctness taxonomy's rows are independently damageable and therefore independently validatable."
       }
+    },
+    {
+      "id": "inv.reasoning.095",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Sequence is scored, not validated: temporal correctness is a graded coherence field over the space of orderings, with the designed sequence as a global maximum, possible local maxima at alternative coherent orderings, and graded decay away from the optimum.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "sequencing"
+      ],
+      "provenance": {
+        "source": "CFS-013 §7 topological formalization (ratified 2026-07-05, operator + agent co-authored) — EXP-002 control arm evidence; supersedes the binary reading of the sequencing corollary's 'valid sequence', not the corollary itself."
+      }
+    },
+    {
+      "id": "inv.reasoning.096",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "A remix does not change the work; it finds another coherent trajectory through the same invariant space — the invariants remain fixed, only the traversal changes.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "sequencing",
+        "remix"
+      ],
+      "provenance": {
+        "source": "CFS-013 §7 topological formalization — the constitutional ground for CFS-006's remix-with-lineage path: derivative works as alternative traversals of a fixed invariant substrate."
+      }
     }
   ]
 }

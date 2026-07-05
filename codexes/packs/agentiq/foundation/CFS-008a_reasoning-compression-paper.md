@@ -329,10 +329,15 @@ grounded, evaluated, and, where necessary, ratified.
 3. **EXP-002's formal evaluation pass** (independent evaluator + the reversed-order
    sequencing control arm; production run complete 2026-07-05) and EXP-001 run 2
    (Q16/Q17 covering C-024/C-059; a stronger judge), completing the series.
-4. **Production reuse curves** — with `invariants_used` on the receipt spine and Reach
+4. **EXP-002b — perturbation mapping of the temporal coherence field**: adjacent-swap
+   orderings of the run-2 clip set (zero generation cost), scoring coherence against
+   distance from the canonical ordering. Confirming distance-correlated decay would
+   map the field's shape — per-dependency contribution of each temporal edge — and
+   elevate temporal composition to a measurable geometry of narrative (CFS-013 §7).
+5. **Production reuse curves** — with `invariants_used` on the receipt spine and Reach
    accruing through runtime citation, the reuse count of CFS-008 §2 becomes a
    longitudinal production measurement, not a benchmark.
-5. **Consequence-accuracy curves** — forecast-vs-observed deltas from the flywheel as
+6. **Consequence-accuracy curves** — forecast-vs-observed deltas from the flywheel as
    the third compression metric matures with usage.
 
 ## 10. Related work

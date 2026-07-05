@@ -245,3 +245,32 @@ from every other failure class.
 Status: the sequencing arm is operator-scored and confirmed in its central claim.
 An independent-evaluator pass over both cuts (questions a/b/c) remains available as
 the formal completion step for publication-grade rigor.
+
+### EXP-002b — perturbation mapping of the temporal coherence field (designed, open)
+
+Full reversal is the *maximum-distance* perturbation of a 4-clip ordering; it
+established that the coherence landscape slopes, not its shape. The follow-up maps
+the shape with *minimum-distance* perturbations — adjacent swaps:
+
+```
+ABCD   ← canonical (recorded manifest order)
+BACD   ← swap positions 1-2
+ACBD   ← swap positions 2-3
+ABDC   ← swap positions 3-4
+DCBA   ← full reversal (already run — the far anchor)
+```
+
+**Hypothesis:** coherence decays approximately with distance from the canonical
+ordering (swap distance / number of inverted pairs), rather than randomly. Each
+adjacent swap isolates ONE temporal dependency — `BACD` tests how much the
+establishment→realization edge contributes, `ABDC` how much resolution→
+transformation contributes — so the score-vs-distance curve doubles as a
+per-dependency contribution map.
+
+**Protocol:** same clip set (zero generation cost — the recovery panel's manifest
+stitching handles arbitrary orders via manual selection), same evaluator questions
+(a/b/c) per cut, each ordering a separate experiment instance sharing the
+`clipSetRef`. Confirming the decay hypothesis elevates temporal composition from a
+correctness test to a **measurable geometry of narrative** — the temporal coherence
+field's first contour map. Formalization: CFS-013 §7 ("sequence is scored, not
+validated"); seeds `inv.reasoning.095/.096`.

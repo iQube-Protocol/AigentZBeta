@@ -166,3 +166,46 @@ Neither refinement weakens the corollary: correct components in an invalid seque
 still failed to constitute the *designed* coherent experience. What they add is that
 "invalid" is measured, not declared — the constraint field has a shape, and the
 Coherence Engine is its instrument.
+
+**Formalization — the temporal coherence field is topological (ratified 2026-07-05,
+operator + agent co-authored).** The canonical sentence: **sequence is scored, not
+validated.** Temporal correctness is a graded coherence field over the space of
+orderings, not a binary predicate over one of them. For N units there are N!
+candidate orderings, and every one has a coherence value — the landscape has:
+
+- a **global maximum** — the designed sequence (the manifest's recorded order);
+- potentially **local maxima** — alternative orderings that remain internally
+  coherent as *different* trajectories (the constrained-resequencing operation);
+- **graded decay** away from the optimum rather than immediate collapse (observed:
+  the full reversal degraded without zeroing).
+
+So the Coherence Engine's sequencing question is not *"is this sequence valid?"* but
+*"how coherent is this sequence?"* — `CCS(ordering)` is a scoring function over
+sequence space, and the designed ordering is the highest-scoring point *observed so
+far*, not a categorical singleton. Two structural consequences:
+
+1. **Narrative is a hierarchical field, not a linear chain.** Coherence exists at
+   (at least) two scales — local (adjacent pairs) and global (the whole arc) — which
+   is why the reversal's adjacent pairs still "worked" while the arc broke
+   (`inv.reasoning.094`). A linear-chain model cannot produce that observation; a
+   hierarchical field requires it. This is also plausibly why CCS tracks human
+   narrative experience: humans routinely reconstruct out-of-order stories (film
+   grammar depends on it) — what matters is preserving enough invariant structure
+   for causal relationships to be reconstructed, which is what the field measures.
+2. **Remix becomes constitutional rather than destructive.** If multiple
+   high-scoring orderings exist, a remix does not *change the work* — it **finds
+   another coherent trajectory through the same invariant space**. The invariants
+   remain fixed; only the traversal changes (`inv.reasoning.096`). This gives
+   CFS-006's remix-with-lineage path its constitutional ground: derivative works
+   are alternative traversals, provenance-linked to the same substrate.
+
+**The next instrument — perturbation mapping (EXP-002b, designed).** Full reversal
+is the maximum-distance perturbation; it establishes that the landscape slopes but
+not its shape. Adjacent swaps (`BACD`, `ACBD`, `ABDC` against canonical `ABCD`) are
+minimum-distance perturbations: if the field hypothesis is right, coherence should
+decay approximately with *distance from the canonical ordering* (e.g. swap distance)
+rather than randomly. Mapping score against distance would reveal the field's shape
+— and how much each individual temporal dependency contributes to global coherence.
+At that point temporal composition stops being a correctness test and becomes a
+**measurable geometry of narrative**. Protocol registered in
+`experiments/exp-002-invariant-video/README.md`.
