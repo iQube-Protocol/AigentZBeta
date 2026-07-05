@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T23:30:54.534Z",
+  "last_updated": "2026-07-05T23:45:06.890Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0a51a112dec469e76dec6b5e5e0819ed590d694d",
-  "latest_commit_short": "0a51a11",
-  "latest_commit_title": "Record EXP-002 frame evidence: bearing mark persistence + duration-adherence gap",
+  "latest_commit": "aa493e6de2c5663ec4c5bd6c19c120d1834fc533",
+  "latest_commit_short": "aa493e6",
+  "latest_commit_title": "Record sequencing control arm results: prediction confirmed + graded refinement",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "aa493e6",
+      "full_sha": "aa493e6de2c5663ec4c5bd6c19c120d1834fc533",
+      "title": "Record sequencing control arm results: prediction confirmed + graded refinement",
+      "author": "Claude",
+      "timestamp": "2026-07-05T23:43:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-aa493e6.md"
+    },
     {
       "sha": "0a51a11",
       "full_sha": "0a51a112dec469e76dec6b5e5e0819ed590d694d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T19:20:10Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-15b39af.md"
-    },
-    {
-      "sha": "e4fff69",
-      "full_sha": "e4fff6987191afe424fab349d65af4dc44546e15",
-      "title": "fix ENS tab spinner + add QubeTalk channels to Locker",
-      "author": "Claude",
-      "timestamp": "2026-06-14T08:04:56Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e4fff69.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -2849,3 +2849,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0a51a11.md](../build_/COMMITS/COMMIT-0a51a11.md)
 - Message: Record EXP-002 frame evidence: bearing mark persistence + duration-adherence gap
+
+## Commit `aa493e6` — 2026-07-05T23:43:18Z
+- Type: `push`
+- Brief: [COMMIT-aa493e6.md](../build_/COMMITS/COMMIT-aa493e6.md)
+- Message: Record sequencing control arm results: prediction confirmed + graded refinement
