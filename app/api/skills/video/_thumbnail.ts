@@ -10,9 +10,10 @@
  */
 
 import { spawn } from "child_process";
-import { mkdtemp, writeFile, readFile, unlink, access } from "fs/promises";
+import { mkdtemp, writeFile, readFile, unlink, access, chmod, rename } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
+import { gunzipSync } from "zlib";
 import { StorageAdapterFactory } from "@/services/content/storageAdapter";
 import { createClient } from "@supabase/supabase-js";
 
@@ -43,13 +44,84 @@ async function ensureBucket(bucket: string) {
   if (error && !/already exists|duplicate/i.test(error.message)) throw error;
 }
 
+// --- ffmpeg resolution -----------------------------------------------------
+// The ffmpeg-static binary (~80MB) CANNOT be bundled into the Lambda: tracing
+// it via outputFileTracingIncludes pushed the Amplify build output past the
+// 220 MiB hard cap and broke all deploys (2026-07-05, reverted same day).
+// Instead, the binary is fetched into /tmp on first use and cached for the
+// container's lifetime. The download source is ffmpeg-static@5.3.0's OWN
+// pinned release (read from its package.json `ffmpeg-static` config +
+// install.js URL template — the same asset every `npm install` on the build
+// machine already fetches), and honours the same env overrides the package
+// defines: FFMPEG_BIN (direct path), FFMPEG_BINARIES_URL (mirror base),
+// FFMPEG_BINARY_RELEASE (tag).
+
+const FFMPEG_TMP_PATH = "/tmp/ffmpeg";
+const FFMPEG_DOWNLOAD_TIMEOUT_MS = 45_000;
+
+function ffmpegDownloadUrl(): string {
+  const base = process.env.FFMPEG_BINARIES_URL || "https://github.com/eugeneware/ffmpeg-static/releases/download";
+  const release = process.env.FFMPEG_BINARY_RELEASE || "b6.1.1";
+  return `${base}/${release}/ffmpeg-${process.platform}-${process.arch}.gz`;
+}
+
+// Dedup concurrent downloads within one warm container.
+let ffmpegDownloadInFlight: Promise<string> | null = null;
+
+async function downloadFfmpegToTmp(): Promise<string> {
+  if (!ffmpegDownloadInFlight) {
+    ffmpegDownloadInFlight = (async () => {
+      const url = ffmpegDownloadUrl();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FFMPEG_DOWNLOAD_TIMEOUT_MS);
+      try {
+        const res = await fetch(url, { redirect: "follow", signal: controller.signal });
+        if (!res.ok) throw new Error(`ffmpeg download ${res.status} from ${url}`);
+        const gz = Buffer.from(await res.arrayBuffer());
+        const binary = gunzipSync(gz);
+        // Write-then-rename so a concurrent reader never sees a partial binary.
+        const partial = `${FFMPEG_TMP_PATH}.${process.pid}.partial`;
+        await writeFile(partial, binary);
+        await chmod(partial, 0o755);
+        await rename(partial, FFMPEG_TMP_PATH);
+        console.log(`[ffmpeg] downloaded ${Math.round(binary.byteLength / 1024 / 1024)}MB binary to ${FFMPEG_TMP_PATH}`);
+        return FFMPEG_TMP_PATH;
+      } finally {
+        clearTimeout(timer);
+      }
+    })().catch((err) => {
+      ffmpegDownloadInFlight = null; // allow retry on the next call
+      throw err;
+    });
+  }
+  return ffmpegDownloadInFlight;
+}
+
 export async function getFfmpegPath(): Promise<string> {
-  // ffmpeg-static ships a pre-compiled binary at this path.
-  // Will throw on require() if the package isn't installed.
-  // Will throw on access() if binary wasn't downloaded (e.g. proxy issues in dev).
-  const p: string = require("ffmpeg-static");
-  await access(p); // throws if file missing
-  return p;
+  // 1. Operator-provided path (ffmpeg-static's own env convention).
+  const envPath = process.env.FFMPEG_BIN;
+  if (envPath) {
+    await access(envPath);
+    return envPath;
+  }
+  // 2. Bundled ffmpeg-static binary (works locally / anywhere node_modules
+  //    ships whole). Throws on require() if absent, access() if not downloaded.
+  try {
+    const p: string = require("ffmpeg-static");
+    await access(p);
+    return p;
+  } catch {
+    /* fall through to /tmp resolution */
+  }
+  // 3. Already fetched this container lifetime.
+  try {
+    await access(FFMPEG_TMP_PATH);
+    return FFMPEG_TMP_PATH;
+  } catch {
+    /* fall through to download */
+  }
+  // 4. Cold fetch into /tmp.
+  return downloadFfmpegToTmp();
 }
 
 /**

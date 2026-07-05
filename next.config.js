@@ -49,11 +49,11 @@ const nextConfig = {
     // NOTE: an attempt to trace ffmpeg-static's binary (~70-80MB) into the
     // stitch/status routes here (2026-07-05) pushed the Amplify build output
     // past its 220 MiB hard cap (230686720 bytes) and broke ALL deploys —
-    // reverted same day. The "ffmpeg binary unavailable" stitch failure needs
-    // a bundle-size-safe fix (e.g. a smaller binary, or fetching it into /tmp
-    // at cold start from an operator-approved source) rather than static
-    // tracing. Do not re-add a trace entry for ffmpeg-static here without
-    // first confirming headroom against the build-size cap.
+    // reverted same day. The bundle-size-safe fix now lives in
+    // app/api/skills/video/_thumbnail.ts:getFfmpegPath — the binary is
+    // fetched into /tmp on first use (ffmpeg-static's own pinned release,
+    // gzipped) and cached per container. Do not re-add a trace entry for
+    // ffmpeg-static here.
     // Stage 8+ docs tab — markdown reader serves the legibility profile
     // (docs/) + the PRD trail (codexes/packs/agentiq/updates/). Without
     // these the Lambda bundle ships without the .md files and the route

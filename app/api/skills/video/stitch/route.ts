@@ -111,6 +111,22 @@ function runFfmpeg(ffmpegPath: string, args: string[]): Promise<void> {
   });
 }
 
+/**
+ * GET /api/skills/video/stitch — warm-up. Resolves (downloading into /tmp if
+ * needed) the ffmpeg binary so the subsequent POST doesn't pay the ~30MB
+ * fetch inside its own request budget. Called best-effort by
+ * stitchHierarchical before the first stitch pass.
+ */
+export async function GET() {
+  try {
+    await getFfmpegPath();
+    return NextResponse.json({ ok: true, ffmpeg: "ready" });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ ok: false, error: `ffmpeg unavailable: ${detail}` }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   let tmpDir: string | null = null;
   try {

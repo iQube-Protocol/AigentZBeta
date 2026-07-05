@@ -133,6 +133,12 @@ export async function stitchHierarchical(
   urls: string[],
   experienceId: string | undefined,
 ): Promise<{ ok: boolean; video_url?: string; thumbnail_url?: string; error?: string }> {
+  // Warm-up: resolve/download the ffmpeg binary server-side BEFORE the first
+  // stitch pass, so the binary fetch doesn't eat into the stitch request's
+  // own time budget. Best-effort — a warm-up failure still lets the stitch
+  // attempt run (it resolves ffmpeg itself and reports the real error).
+  await fetch("/api/skills/video/stitch", { cache: "no-store" }).catch(() => {});
+
   const doStitch = async (clips: string[]) => {
     const res = await fetch("/api/skills/video/stitch", {
       method: "POST",
