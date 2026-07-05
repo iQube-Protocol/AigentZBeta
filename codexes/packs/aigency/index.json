@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T23:22:32.534Z",
+  "last_updated": "2026-07-05T23:30:54.534Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "642ac8c7aa920a41dcf05b69483e160dd2bb32fb",
-  "latest_commit_short": "642ac8c",
-  "latest_commit_title": "Record EXP-002 production run 2: full pipeline validated, 48s film rendered",
+  "latest_commit": "0a51a112dec469e76dec6b5e5e0819ed590d694d",
+  "latest_commit_short": "0a51a11",
+  "latest_commit_title": "Record EXP-002 frame evidence: bearing mark persistence + duration-adherence gap",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0a51a11",
+      "full_sha": "0a51a112dec469e76dec6b5e5e0819ed590d694d",
+      "title": "Record EXP-002 frame evidence: bearing mark persistence + duration-adherence gap",
+      "author": "Claude",
+      "timestamp": "2026-07-05T23:29:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0a51a11.md"
+    },
     {
       "sha": "642ac8c",
       "full_sha": "642ac8c7aa920a41dcf05b69483e160dd2bb32fb",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T08:04:56Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-e4fff69.md"
-    },
-    {
-      "sha": "79405af",
-      "full_sha": "79405af0b645613bea09e0c2e44db762f0aefc65",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-06-14T08:05:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-79405af.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

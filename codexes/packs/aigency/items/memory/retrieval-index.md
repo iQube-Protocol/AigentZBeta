@@ -2844,3 +2844,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-642ac8c.md](../build_/COMMITS/COMMIT-642ac8c.md)
 - Message: Record EXP-002 production run 2: full pipeline validated, 48s film rendered
+
+## Commit `0a51a11` — 2026-07-05T23:29:05Z
+- Type: `push`
+- Brief: [COMMIT-0a51a11.md](../build_/COMMITS/COMMIT-0a51a11.md)
+- Message: Record EXP-002 frame evidence: bearing mark persistence + duration-adherence gap
