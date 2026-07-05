@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T19:35:57.673Z",
+  "last_updated": "2026-07-05T19:43:13.749Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "102508f389536c02b117e29bf0b3fc54c5e7f142",
-  "latest_commit_short": "102508f",
-  "latest_commit_title": "Ratify Invariant Fields ontology (CFS-002 §2a) + generalize Law XV",
+  "latest_commit": "ce76a9e3535e5ac445b1223a9c39a3d4112847bd",
+  "latest_commit_short": "ce76a9e",
+  "latest_commit_title": "Add local recovery script for orphaned video segments",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ce76a9e",
+      "full_sha": "ce76a9e3535e5ac445b1223a9c39a3d4112847bd",
+      "title": "Add local recovery script for orphaned video segments",
+      "author": "Claude",
+      "timestamp": "2026-07-05T19:41:32Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ce76a9e.md"
+    },
     {
       "sha": "102508f",
       "full_sha": "102508f389536c02b117e29bf0b3fc54c5e7f142",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T05:14:24Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-604196e.md"
-    },
-    {
-      "sha": "eda3879",
-      "full_sha": "eda3879551eeead0fd80f103f40257e740f656d5",
-      "title": "interactive ccip-read deploy script — one command, prompts for missing keys",
-      "author": "Claude",
-      "timestamp": "2026-06-14T02:20:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eda3879.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
