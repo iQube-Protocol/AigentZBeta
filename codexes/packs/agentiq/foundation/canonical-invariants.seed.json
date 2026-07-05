@@ -1466,6 +1466,34 @@
       "provenance": {
         "source": "CFS-002 §2a — Corollary IV (Constitutional Explainability)."
       }
+    },
+    {
+      "id": "inv.reasoning.093",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Temporal correctness is graded, not boolean: an experience's coherence varies with its composition order; the designed sequence is a coherence maximum, and alternative orderings may realise distinct coherent experiences at different coherence values.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "sequencing"
+      ],
+      "provenance": {
+        "source": "CFS-013 §7 empirical refinement — EXP-002 sequencing control arm, 2026-07-05: reversed-order cut degraded coherence without zeroing it; operator insight that sequencing scores rather than passes/fails."
+      }
+    },
+    {
+      "id": "inv.reasoning.094",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Local coherence survives a global sequence violation: relational correctness is pairwise-local while temporal correctness is global, so adjacent units still agree even when the whole no longer unfolds in constitutional order.",
+      "status": "proposed",
+      "contexts": [
+        "composition",
+        "sequencing"
+      ],
+      "provenance": {
+        "source": "CFS-013 §7 empirical refinement — EXP-002 sequencing control arm, 2026-07-05: the reversed cut's adjacent original pairs retained pairwise coherence while the global arc broke; the three-correctness taxonomy's rows are independently damageable and therefore independently validatable."
+      }
     }
   ]
 }

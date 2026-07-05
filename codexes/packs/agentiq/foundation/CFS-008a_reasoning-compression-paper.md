@@ -194,9 +194,16 @@ the same day also earned their keep: they exposed and fixed the segment-persiste
 and sequence-ordering gaps, and the successful run's recovery-path stitch honoured
 the manifest's recorded play order against a reverse-chronological storage listing —
 Constitutional Sequencing (`inv.constitutional.078`) operating as infrastructure.
-Formal judge-protocol scoring (including the reversed-order sequencing control arm —
-identical clips, temporal order violated, predicting semantic fidelity intact with
-narrative coherence destroyed) remains open; first-viewing results are recorded in
+The reversed-order sequencing control arm ran same day (identical clips, order
+inverted): **the central prediction confirmed** — the reversed cut is distinctly less
+coherent while semantic/style fidelity remains intact, the dissociation signature of
+`inv.constitutional.078` — with two refinements ratified from the result: temporal
+correctness is *graded*, not boolean (the designed order is a coherence maximum over
+a field of orderings, opening constrained resequencing as a legitimate compositional
+operation), and local pairwise coherence survives a global order violation (the
+three-correctness taxonomy's kinds are independently damageable —
+`inv.reasoning.093/.094`, CFS-013 §7). An independent-evaluator pass over both cuts
+remains available for publication-grade rigor; results are recorded in
 `experiments/exp-002-invariant-video/README.md`.
 
 ### 6.1 EXP-003 design

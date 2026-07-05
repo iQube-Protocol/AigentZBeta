@@ -139,3 +139,30 @@ assertions in `tests/video-invariant-brief.test.ts` (opening beat maps to the fi
 unit, terminal beat to the last, order monotonic throughout). Cross-field sequencing
 validators (e.g. semantic grounding must precede the narrative beats that consume it)
 are future extension under CFS-014 §9.
+
+**Empirical refinement — 2026-07-05 (EXP-002 sequencing control arm).** The
+reversed-order control (identical clips, order inverted) confirmed the corollary's
+central prediction — designed order scores distinctly higher coherence, with
+semantic/style fidelity intact in both cuts — and taught the corollary two things
+about itself:
+
+1. **Temporal correctness is graded, not boolean.** Violating the sequence degraded
+   coherence without zeroing it; a residual coherence spanned the whole reversed
+   film. Sequencing validity is therefore a **field over the space of orderings**:
+   the designed sequence is the observed coherence *maximum*, not the sole
+   constitutionally coherent ordering. Alternative orderings may realise different
+   coherent experiences at different coherence values — **constrained resequencing**
+   is a legitimate compositional operation (scored by CCS, connected to the
+   remix-with-lineage path in CFS-006), not automatically a violation.
+2. **The three correctness kinds predicted the failure's shape.** Adjacent-pair
+   coherence survived the reversal (relational correctness is pairwise-local: each
+   neighbouring pair still agrees on world, style, and subject) while the global
+   arc broke (temporal correctness is global). Local coherence survives a global
+   sequence violation precisely because only one of the three kinds was violated —
+   the taxonomy's rows are independently damageable, which is what makes each
+   independently validatable.
+
+Neither refinement weakens the corollary: correct components in an invalid sequence
+still failed to constitute the *designed* coherent experience. What they add is that
+"invalid" is measured, not declared — the constraint field has a shape, and the
+Coherence Engine is its instrument.

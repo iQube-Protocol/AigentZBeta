@@ -207,3 +207,41 @@ plus: (c) do events occur in an order that makes sense? Record the two as separa
 experiment instances sharing a `clipSetRef` (the sequence id). The reversed arm is a
 CONTROL — its receipts feed the flywheel as validation evidence for
 `inv.constitutional.078`, never as a production artifact.
+
+### Control arm results — 2026-07-05 (operator comparative viewing)
+
+The reversed stitch ran same day on the run-2 clip set. **The central prediction
+confirmed**: the reversed cut is distinctly less cohesive — prose flow and narrative
+assembly degrade — while the world, style, and semantic content remain intact. The
+dissociation signature (semantic fidelity retained, temporal coherence damaged) is
+what `inv.constitutional.078` predicts and what distinguishes a sequencing failure
+from every other failure class.
+
+**Two refinements the binary prediction missed — both constitutionally significant:**
+
+1. **Coherence degradation is GRADED, and locally structured.** The reversed film is
+   *not* incoherent — a residual coherence spans all four segments, and the
+   reversed cut's later pair (original segments 2→1) retains noticeably more
+   pairwise coherence than the earlier positions, where divergence grows. Read
+   through CFS-013 §7's taxonomy, this is the taxonomy behaving exactly as
+   specified: **relational correctness is pairwise-local and survives the global
+   order violation** (adjacent clips still agree with each other — same world,
+   same style field, class-consistent protagonist), while **temporal correctness
+   is global** and is what the reversal destroys. Local coherence survives because
+   only one of the three correctness kinds was violated.
+
+2. **Sequencing validity is a score, not a pass/fail** — the operator's key
+   insight. The designed order is the coherence *maximum*, not the sole coherent
+   ordering: alternative sequencings could realise *different* coherent stories
+   from the same clip set at different (generally lower) coherence values. This
+   reframes the sequencing constraint as a **field over the space of orderings**
+   — with the recorded manifest order as its observed maximum — and opens a
+   legitimate compositional operation: **constrained resequencing** (remixing a
+   clip set into an alternative valid order), which connects directly to the
+   remix-with-lineage evolution path (CFS-006) and to CCS as the instrument that
+   would score candidate orderings. Recorded as `inv.reasoning.093/.094`;
+   CFS-013 §7 carries the corresponding empirical-refinement note.
+
+Status: the sequencing arm is operator-scored and confirmed in its central claim.
+An independent-evaluator pass over both cuts (questions a/b/c) remains available as
+the formal completion step for publication-grade rigor.

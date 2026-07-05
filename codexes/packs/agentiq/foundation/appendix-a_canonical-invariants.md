@@ -147,6 +147,13 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 91. *(constitutional · principle)* A constitutional experience is an emergent property of field composition — it is not stored, it is composed.
 92. *(constitutional · constraint)* Every constitutional experience shall be decomposable back into the fields and invariants from which it was composed.
 
+## Additions — CFS-013 §7 empirical refinement (EXP-002 sequencing control arm)
+
+*(Ratified 2026-07-05. Discovered by the reversed-order control on the run-2 clip set — the sequencing corollary's first empirical test, which confirmed its central prediction and refined its shape.)*
+
+93. *(reasoning · principle)* Temporal correctness is graded, not boolean: an experience's coherence varies with its composition order; the designed sequence is a coherence maximum, and alternative orderings may realise distinct coherent experiences at different coherence values.
+94. *(reasoning · principle)* Local coherence survives a global sequence violation: relational correctness is pairwise-local while temporal correctness is global, so adjacent units still agree even when the whole no longer unfolds in constitutional order.
+
 ---
 
 ## Maintenance
