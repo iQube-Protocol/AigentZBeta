@@ -175,11 +175,21 @@ continuity block shared identically, 5-beat narrative arc endpoint-anchored per 
 CFS-012 §4 fix) drove four independent 12-second Sora generations, stitched into a
 single 48-second film. Operator first-viewing evaluation: **complete continuity of
 narrative, protagonist, settings, and constitutional context across all four
-segments**. One instructive limitation surfaced: character persistence held at the
-*class* level (same person, consistent presentation) but not the *instance* level
-(facial phenotype varied between independent generations) — the v1 Continuity Block's
-prose-granularity ceiling, already earmarked by Law XV's class-purity corollary as
-the identity-continuity class awaiting its own ratification. Two prior failed runs
+segments**. Frame-level review confirmed the recurring constitutional symbol (the **bearing
+mark**, a compass-rose) persisting across three independent generations in three
+different material implementations — necklace, lapel pin, wall banner — and
+correctly *absent* from the one segment whose narrative context was
+standing/confirmation rather than bearing. Motif persistence modulated by narrative
+appropriateness is stronger evidence than uniform persistence: the composition
+deployed the symbol invariantly while varying its expression — style × narrative
+solved simultaneously, the field behaviour Law XV predicts. Two instructive limitations surfaced: character
+persistence held at the *class* level (same person, consistent presentation) but not
+the *instance* level (facial phenotype and apparent age varied between independent
+generations) — the v1 Continuity Block's prose-granularity ceiling, already earmarked
+by Law XV's class-purity corollary as the identity-continuity class awaiting its own
+ratification; and one segment's spoken content overran its 12-second generation
+window (audio truncating at a stitch boundary in an exactly-48s film — a
+content-duration adherence gap in the composition layer, not a stitch defect). Two prior failed runs
 the same day also earned their keep: they exposed and fixed the segment-persistence
 and sequence-ordering gaps, and the successful run's recovery-path stitch honoured
 the manifest's recorded play order against a reverse-chronological storage listing —

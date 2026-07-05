@@ -52,6 +52,52 @@ style + narrative layers on, post-terminal-beat-fix brief). Sequence manifest
   segment→invariant map scoring). The formal pass — including the reversed-order
   sequencing control arm — remains open; its result updates this section.
 
+**Frame-level evidence (operator-supplied stills at 0:08, 0:14, 0:29, and the
+final segment, reviewed 2026-07-05):**
+
+- **`inv.style.005` observably held — and held *intelligently*.** The recurring
+  constitutional symbol (**the bearing mark**, a compass-rose) persists across
+  three independent generations in three DIFFERENT material implementations:
+  worn as a necklace by the protagonist in segment 2, as a lapel pin in
+  segments 3 and 4, and additionally as a wall banner in segment 4's assembly
+  hall. And it is **correctly absent from segment 1**, whose narrative context
+  is standing/confirmation rather than bearing — that segment carries the
+  octagonal "Confirmed" seal instead. This is stronger evidence than uniform
+  persistence would be: the composition did not paste an icon invariantly, it
+  deployed the *symbol* invariantly while varying its material expression and
+  withholding it where narratively inapt. Motif persistence modulated by
+  narrative context is exactly the field-composition behaviour Law XV predicts
+  (style × narrative solved simultaneously, neither dominating), and the mark
+  itself is the visual of CFS-014 §4a's orientation note: bearing worn on the
+  body of the polity's citizens. A style invariant surviving four separate
+  inference calls as *iconography*, not just palette, is the strongest single
+  visual in the run.
+- **World continuity is visible frame-to-frame**: civic/constitutional setting
+  language (screens, council chamber, classical portico, community assembly)
+  and consistent cinematic grade across all four segments — the CFS-011
+  continuity block operating as designed.
+- **Instance-level identity variance is more pronounced than first noted**: the
+  protagonist's apparent age and styling shift visibly between segments (older
+  presentation at 0:08; younger at 0:14 and the finale) while remaining
+  class-consistent throughout. This sharpens — not weakens — the
+  identity-continuity finding: prose can carry *who the character is
+  constitutionally*; it cannot pin *which instance of them* renders. The
+  dedicated identity-continuity class (CFS-011 backlog) is the answer, not a
+  more adjectival continuity block.
+
+**New finding — content-duration adherence (segment 2→3 boundary):** some of
+segment 2's audio truncates at the stitch boundary. The stitched film is
+exactly 48s, so the stitcher preserved durations — the truncation means
+**segment 2's generated content (speech) overran its 12-second window**, a
+known provider behaviour. This is a composition-layer gap, not a stitch
+defect: nothing in the brief currently constrains spoken content to complete
+within the segment duration. Candidate fixes, in invariant terms: a
+duration-adherence clause in the per-segment prompt (cheap, immediate) and/or
+a ratified experience/style invariant of the form *"spoken content resolves
+within the segment's duration bound"* — plus, at the engineering layer, a
+per-segment duration/audio-tail check at persistence time so overruns are
+flagged before stitching. Logged for the next brief iteration.
+
 **Infrastructure validated incidentally by this run** (each a same-day fix from
 the two failed runs earlier on 2026-07-05): completion-time segment persistence
 (both providers), submit-time sequence manifests, the recovery panel's
