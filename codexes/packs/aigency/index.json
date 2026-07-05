@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-04T20:39:07.382Z",
+  "last_updated": "2026-07-04T20:43:35.820Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fba56dc87ce552d9c4b78f289a31778010527abb",
-  "latest_commit_short": "fba56dc",
-  "latest_commit_title": "Add model dropdowns to EXP-001/003 lab runners (allowlisted per provider)",
+  "latest_commit": "42849c3939c0b750a15c4e1d5ba902d52756e92c",
+  "latest_commit_short": "42849c3",
+  "latest_commit_title": "Add canonical results publication: hash-committed, DVN-anchored, verifiable",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "42849c3",
+      "full_sha": "42849c3939c0b750a15c4e1d5ba902d52756e92c",
+      "title": "Add canonical results publication: hash-committed, DVN-anchored, verifiable",
+      "author": "Claude",
+      "timestamp": "2026-07-04T20:41:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-42849c3.md"
+    },
     {
       "sha": "fba56dc",
       "full_sha": "fba56dc87ce552d9c4b78f289a31778010527abb",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T00:15:12Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c4bb4ce.md"
-    },
-    {
-      "sha": "dafd44c",
-      "full_sha": "dafd44c85ec0e9d66bfba03511d4abd5739b5946",
-      "title": "document worldcoin keyspace — three keys, one purpose each (operator unblock)",
-      "author": "Claude",
-      "timestamp": "2026-06-13T23:10:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dafd44c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
