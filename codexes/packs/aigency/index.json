@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T19:43:13.749Z",
+  "last_updated": "2026-07-05T19:51:28.846Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ce76a9e3535e5ac445b1223a9c39a3d4112847bd",
-  "latest_commit_short": "ce76a9e",
-  "latest_commit_title": "Add local recovery script for orphaned video segments",
+  "latest_commit": "bf669afceab82cfbfa40868fda35484b9ffa69be",
+  "latest_commit_short": "bf669af",
+  "latest_commit_title": "Fetch ffmpeg into /tmp at first use — bundle-size-safe stitch fix",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bf669af",
+      "full_sha": "bf669afceab82cfbfa40868fda35484b9ffa69be",
+      "title": "Fetch ffmpeg into /tmp at first use — bundle-size-safe stitch fix",
+      "author": "Claude",
+      "timestamp": "2026-07-05T19:49:47Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-bf669af.md"
+    },
     {
       "sha": "ce76a9e",
       "full_sha": "ce76a9e3535e5ac445b1223a9c39a3d4112847bd",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T05:21:47Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-4f00c2c.md"
-    },
-    {
-      "sha": "604196e",
-      "full_sha": "604196e295856f3cc01602c8709bc144c90fa18b",
-      "title": "auto-prepend 0x to private keys in deploy.mjs",
-      "author": "Claude",
-      "timestamp": "2026-06-14T05:14:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-604196e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
