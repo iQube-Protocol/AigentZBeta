@@ -2949,3 +2949,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2d242d0.md](../build_/COMMITS/COMMIT-2d242d0.md)
 - Message: Codify Platform Sovereignty as a capability bundle: CFS-018 + invariants 100-107 + PSE series charter
+
+## Commit `03b3ead` — 2026-07-06T18:26:28Z
+- Type: `push`
+- Brief: [COMMIT-03b3ead.md](../build_/COMMITS/COMMIT-03b3ead.md)
+- Message: Charter the CCRL (CFS-019 Phase A): institution, object model, IA, cybernetics invariants 108-111
+
+## Commit `b7f270f` — 2026-07-06T18:24:01Z
+- Type: `fix`
+- Brief: [COMMIT-b7f270f.md](../build_/COMMITS/COMMIT-b7f270f.md)
+- Message: Fix Bitcoin explorer bug class once and for all: canonical helper + txid provenance
