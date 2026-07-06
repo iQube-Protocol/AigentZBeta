@@ -10,7 +10,8 @@
   "capability",
   "style",
   "narrative",
-  "sovereignty"
+  "sovereignty",
+  "cybernetics"
  ],
  "notes": "Seed crystal for the Invariant Ontology (CFS-002). status=proposed until ratified via canonization; ratified_source marks statements drawn verbatim from ratified Polity documents.",
  "invariants": [
@@ -1677,6 +1678,62 @@
    ],
    "provenance": {
     "source": "Operator direction 2026-07-06 (platform sovereignty is a bundle of capabilities; the Venice credit-wall case study) — CFS-018 Platform Sovereignty."
+   }
+  },
+  {
+   "id": "inv.cybernetics.108",
+   "namespace": "cybernetics",
+   "semantic_type": "definition",
+   "statement": "Constitutional Cybernetics is the study of constitutionally governed adaptive systems: how a system changes under constitutional feedback while remaining constitutional.",
+   "status": "proposed",
+   "contexts": [
+    "cybernetics",
+    "governance"
+   ],
+   "provenance": {
+    "source": "CCRL PRD (operator, 2026-07-06) — CFS-019 Constitutional Cybernetics Research Laboratory charter."
+   }
+  },
+  {
+   "id": "inv.cybernetics.109",
+   "namespace": "cybernetics",
+   "semantic_type": "principle",
+   "statement": "Operational evidence — receipts, experiment results, Reach — shall flow back into the constitutional substrate as candidate knowledge; the feedback loop is the institution.",
+   "status": "proposed",
+   "contexts": [
+    "cybernetics",
+    "learning"
+   ],
+   "provenance": {
+    "source": "CCRL PRD (operator, 2026-07-06) — CFS-019 Constitutional Cybernetics Research Laboratory charter."
+   }
+  },
+  {
+   "id": "inv.cybernetics.110",
+   "namespace": "cybernetics",
+   "semantic_type": "principle",
+   "statement": "A research institution shall operate by the principles it investigates; its own operation is its first and permanent experiment.",
+   "status": "proposed",
+   "contexts": [
+    "cybernetics",
+    "recursion"
+   ],
+   "provenance": {
+    "source": "CCRL PRD (operator, 2026-07-06) — CFS-019 Constitutional Cybernetics Research Laboratory charter."
+   }
+  },
+  {
+   "id": "inv.cybernetics.111",
+   "namespace": "cybernetics",
+   "semantic_type": "principle",
+   "statement": "Constitutional adaptation never bypasses ratification: the system may propose its own evolution; the operator ratifies it.",
+   "status": "proposed",
+   "contexts": [
+    "cybernetics",
+    "governance"
+   ],
+   "provenance": {
+    "source": "CCRL PRD (operator, 2026-07-06) — CFS-019 Constitutional Cybernetics Research Laboratory charter."
    }
   }
  ]

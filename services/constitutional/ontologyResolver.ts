@@ -151,6 +151,8 @@ export const CONCEPT_SEEDS: Record<string, string[]> = {
   'platform sovereignty': ['inv.sovereignty.100', 'inv.sovereignty.103'],
   'commercial independence': ['inv.sovereignty.103'],
   'provider choice': ['inv.sovereignty.102'],
+  'constitutional cybernetics': ['inv.cybernetics.108', 'inv.cybernetics.110'],
+  'constitutional feedback': ['inv.cybernetics.109'],
 };
 
 // ---------------------------------------------------------------------------

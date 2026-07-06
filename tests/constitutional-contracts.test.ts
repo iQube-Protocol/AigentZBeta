@@ -331,6 +331,20 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
       expect(sovereignty).toContain(`inv.sovereignty.${n}`);
     }
   });
+
+  it('Constitutional Cybernetics (CFS-019): glossary term resolves with its governing invariants', async () => {
+    const r = await resolveOntology(
+      'How does constitutional cybernetics govern constitutional feedback in the CCRL?',
+    );
+    const cc = r.resolvedTerms.find((t) => t.canonical.toLowerCase() === 'constitutional cybernetics');
+    expect(cc).toBeTruthy();
+    expect(cc?.invariantIds).toContain('inv.cybernetics.108');
+    const seeds = (seedFile as { invariants: { id: string; namespace: string }[] }).invariants;
+    const cyb = seeds.filter((s) => s.namespace === 'cybernetics').map((s) => s.id);
+    for (let n = 108; n <= 111; n += 1) {
+      expect(cyb).toContain(`inv.cybernetics.${n}`);
+    }
+  });
 });
 
 describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendment)', () => {

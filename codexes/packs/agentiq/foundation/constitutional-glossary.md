@@ -19,6 +19,14 @@ Computing in which every reasoning surface and every rendering surface is govern
 
 Operator control over the system's intelligence supply — a SCALE, not a boolean (operator refinement, 2026-07-06). Sovereignty in itself is the operator's ability to choose, switch, and combine providers free of commercial or platform lock-in; no external AI provider is constitutionally indispensable, and external models function solely as interchangeable constitutional inference providers. Maximum sovereignty adds open-weight capability: the operator can run the weights outside any provider entirely. Measured on the Sovereignty Scale.
 
+## Constitutional Cybernetics
+
+The study of constitutionally governed adaptive systems — how a system changes under constitutional feedback while remaining constitutional (Layer III of the constitutional operating model). Invariant Intelligence establishes the substrate; Constitutional Computing operationalises it; Constitutional Cybernetics studies the governed adaptive systems that emerge. Invariants `inv.cybernetics.108`–`111`; institution: the CCRL (CFS-019).
+
+## Constitutional Cybernetics Research Laboratory
+
+The CCRL — the constitutional scientific institution of the platform (CFS-019), never "research repo" or "experiment module". It houses all constitutional research (experiments, series, programmes, publications, findings, the invariant substrate) and operates by the principles it investigates: its construction runs through the Capability Pipeline and its operation is its first and permanent experiment. Central hypothesis: Invariant Fields constitute measurable structures through which computational behaviour, constitutional coherence and consequence can be predicted, governed and experimentally validated.
+
 ## Platform Sovereignty
 
 Platform sovereignty, like identity, is a BUNDLE of capabilities — never a single property or boolean (operator direction, 2026-07-06). Its dimensions: model openness (open weights + open scoring + open access), provider choice (the operator can choose and switch free of commercial or platform lock-in), commercial independence (no credit wall, billing gate, or licence can block constitutional operation — open weights behind a credit wall is an infringement), infrastructure agency (operator control over hosting, storage, and execution), and infrastructure survivability (operation survives the loss of any single infrastructure provider). Assessed dimension by dimension; measured by the Platform Sovereignty Experiment series. Invariants `inv.sovereignty.100`–`107`; full specification CFS-018.
