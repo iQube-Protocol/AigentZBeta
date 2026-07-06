@@ -116,6 +116,7 @@ import { IQubeRegistryDocsTab } from "./tabs/IQubeRegistryDocsTab";
 import { IQubeRegistryIntakeTab } from "./tabs/IQubeRegistryIntakeTab";
 import { InvariantRegistryTab } from "./tabs/InvariantRegistryTab";
 import InvariantExperimentLab from "@/components/composer/InvariantExperimentLab";
+import CapabilityPipelineTab from "@/components/composer/CapabilityPipelineTab";
 import { PassportBureauApplyTab } from "./tabs/PassportBureauApplyTab";
 import { PassportBureauStewardTab } from "./tabs/PassportBureauStewardTab";
 import { PassportRegistryTab } from "./tabs/PassportRegistryTab";
@@ -295,6 +296,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IQubeRegistryIntakeTab,
   InvariantRegistryTab,
   InvariantExperimentLab,
+  CapabilityPipelineTab,
   PassportBureauApplyTab,
   PassportBureauStewardTab,
   PassportRegistryTab,

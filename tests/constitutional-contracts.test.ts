@@ -218,6 +218,24 @@ describe('Strand-2 capability services (Phase 2 Agent B)', () => {
   });
 });
 
+describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
+  it('provider is pinned to the open-weight provider by definition', async () => {
+    const { SOVEREIGN_PROVIDER } = await import('@/services/experiments/exp004');
+    expect(SOVEREIGN_PROVIDER).toBe('venice');
+  });
+
+  it('battery shape is stable: five grounded tasks + one pack task', async () => {
+    const { exp004Battery } = await import('@/services/experiments/exp004');
+    const battery = exp004Battery();
+    expect(battery.tasks.length).toBe(5);
+    expect(battery.packTask.id).toBe('task-6-implementation-pack');
+    expect(battery.packTask.goal.length).toBeGreaterThan(20);
+    // Task ids are the EXP-003 ids — the degradation report compares
+    // like-for-like against the frontier record.
+    for (const t of battery.tasks) expect(t.id).toMatch(/^task-\d/);
+  });
+});
+
 describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendment)', () => {
   it('glossary terms resolve as terminology canon', async () => {
     const r = await resolveOntology(

@@ -17,13 +17,15 @@ import Exp001EvaluationRunner from "./Exp001EvaluationRunner";
 import Exp003RediscoveryRunner from "./Exp003RediscoveryRunner";
 import ExperimentResultsTab from "./ExperimentResultsTab";
 import ExperimentReportTab from "./ExperimentReportTab";
+import Exp004SovereigntyRunner from "./Exp004SovereigntyRunner";
 
-type LabTab = "video" | "bundle" | "rediscovery" | "results" | "report";
+type LabTab = "video" | "bundle" | "rediscovery" | "sovereignty" | "results" | "report";
 
 const TABS: { id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "video", label: "EXP-002 · Video", icon: Clapperboard },
   { id: "bundle", label: "EXP-001 · Bundle Evaluation", icon: Scale },
   { id: "rediscovery", label: "EXP-003 · Rediscovery", icon: Beaker },
+  { id: "sovereignty", label: "EXP-004 · Sovereignty", icon: ShieldCheck },
   { id: "results", label: "Results · Canonical", icon: ShieldCheck },
   { id: "report", label: "Report", icon: FileText },
 ];
@@ -70,6 +72,7 @@ export default function InvariantExperimentLab() {
       )}
       {tab === "bundle" && <Exp001EvaluationRunner />}
       {tab === "rediscovery" && <Exp003RediscoveryRunner />}
+      {tab === "sovereignty" && <Exp004SovereigntyRunner />}
       {tab === "results" && <ExperimentResultsTab />}
       {tab === "report" && <ExperimentReportTab />}
     </div>

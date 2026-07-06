@@ -1750,6 +1750,24 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
     {
+      id: 'capability-pipeline',
+      label: 'Capability Pipeline',
+      slug: 'capability-pipeline',
+      enabled: true,
+      adminOnly: true,
+      group: 'memory',
+      order: 2.4,
+      type: 'static',
+      config: {
+        component: 'CapabilityPipelineTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Hammer',
+        description: 'Aigent Z as development interface (CFS-015 Strand Two): state a capability goal, get the constitutionally grounded Implementation Pack — admin-only'
+      }
+    },
+    {
       id: 'retrieval-index',
       label: 'Retrieval Index',
       slug: 'retrieval-index',

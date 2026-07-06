@@ -23,7 +23,7 @@ import { randomUUID } from 'node:crypto';
 import type { ContextPack, ResolvedTerm } from '@/types/constitutional';
 import { assembleContextPack } from '@/services/constitutional/ontologyResolver';
 import { callStage } from '@/services/constitutional/modelRouter';
-import { parseJsonLenient } from '@/services/experiments/llm';
+import { parseJsonLenient, callChatWithUsage, type ExperimentProvider } from '@/services/experiments/llm';
 
 // ---------------------------------------------------------------------------
 // Shape
@@ -152,6 +152,11 @@ export async function generateImplementationPack(input: {
   goal: string;
   intentId?: string;
   context?: { domains?: string[] };
+  /** Sovereignty-drill pin (EXP-004): route the draft through ONE explicit
+   * provider instead of the per-stage router. The template fallback applies
+   * identically — constitutional operation continues even if the pinned
+   * provider fails. */
+  providerPin?: ExperimentProvider;
 }): Promise<ImplementationPack> {
   const contextPack = await assembleContextPack(input.goal, {
     domains: input.context?.domains,
@@ -165,12 +170,9 @@ export async function generateImplementationPack(input: {
 
   let fields = templateFields();
   try {
-    const routed = await callStage(
-      'consequence',
-      DRAFT_SYSTEM,
-      draftUserPrompt(input.goal, contextPack),
-      900,
-    );
+    const routed = input.providerPin
+      ? await callChatWithUsage(input.providerPin, DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack), 900)
+      : await callStage('consequence', DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack), 900);
     const draft = parseJsonLenient<LlmDraft>(routed.text);
     // A draft without a valid mechanism is not a usable plan — degrade to
     // template rather than fabricating around it. Arrays the model omitted

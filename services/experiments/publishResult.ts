@@ -16,7 +16,7 @@ import { createActivityReceipt } from '@/services/receipts/activityReceiptServic
 import exp003Config from '@/services/experiments/exp003-tasks.json';
 
 export interface PublishResultInput {
-  experiment: 'EXP-001' | 'EXP-002' | 'EXP-003';
+  experiment: 'EXP-001' | 'EXP-002' | 'EXP-003' | 'EXP-004';
   provider: string;
   model: string;
   aggregates: Record<string, unknown>;
