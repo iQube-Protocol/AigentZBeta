@@ -169,6 +169,55 @@ describe('Constitutional pipeline + improvement loop constants (sequencing corol
   });
 });
 
+describe('Strand-2 capability services (Phase 2 Agent B)', () => {
+  const PROVIDER_KEYS = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'VENICE_API_KEY'];
+  const saved: Record<string, string | undefined> = {};
+  beforeEach(() => {
+    for (const k of PROVIDER_KEYS) {
+      saved[k] = process.env[k];
+      delete process.env[k];
+    }
+  });
+  afterEach(() => {
+    for (const k of PROVIDER_KEYS) {
+      if (saved[k] !== undefined) process.env[k] = saved[k];
+    }
+  });
+
+  it('inference providers: five slots, honest stubs for gemini/codex, venice is open-weight', async () => {
+    const { CONSTITUTIONAL_PROVIDERS, getProvider } = await import(
+      '@/services/constitutional/inferenceProviders'
+    );
+    expect(CONSTITUTIONAL_PROVIDERS.map((p: { id: string }) => p.id).sort()).toEqual(
+      ['anthropic', 'codex', 'gemini', 'openai', 'venice'],
+    );
+    const venice = getProvider('venice');
+    expect(venice?.kind).toBe('open-weight');
+    for (const stubId of ['gemini', 'codex']) {
+      const stub = getProvider(stubId);
+      expect(stub?.available()).toBe(false);
+      const out = await stub!.infer({ system: 's', user: 'u' });
+      expect(out.evaluated).toBe(false);
+      if (out.evaluated === false) expect(out.reason).toMatch(/not implemented/i);
+    }
+  });
+
+  it('implementation pack degrades to the honest template when no provider is reachable', async () => {
+    const { generateImplementationPack } = await import(
+      '@/services/constitutional/implementationPack'
+    );
+    // No provider keys in env → callStage throws naturally → template pack.
+    const pack = await generateImplementationPack({ goal: 'test the fallback discipline' });
+    expect(pack.composedBy).toBe('template');
+    expect(pack.implementationMechanism).toBe('code');
+    expect(pack.areasToTouch).toEqual([]);
+    expect(pack.validationPlan.length).toBeGreaterThan(0);
+    expect(pack.receiptPlan.length).toBeGreaterThan(0);
+    expect(pack.goal).toBe('test the fallback discipline');
+    expect(pack.canonVersion).toBe('canon-test-1'); // from the mocked store
+  });
+});
+
 describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendment)', () => {
   it('glossary terms resolve as terminology canon', async () => {
     const r = await resolveOntology(
