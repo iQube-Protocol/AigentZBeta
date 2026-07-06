@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-05T23:55:42.229Z",
+  "last_updated": "2026-07-06T01:40:17.187Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3a22c6f973739dc2f3dccf4ad2be8a2503740604",
-  "latest_commit_short": "3a22c6f",
-  "latest_commit_title": "Ratify temporal coherence field topology: sequence is scored, not validated",
+  "latest_commit": "117455ee17b9b53ff3a6d5732d66d9bc67d4bd00",
+  "latest_commit_short": "117455e",
+  "latest_commit_title": "Add Report tab + backfill historical runs into the canonical Results record",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "117455e",
+      "full_sha": "117455ee17b9b53ff3a6d5732d66d9bc67d4bd00",
+      "title": "Add Report tab + backfill historical runs into the canonical Results record",
+      "author": "Claude",
+      "timestamp": "2026-07-06T01:38:28Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-117455e.md"
+    },
     {
       "sha": "3a22c6f",
       "full_sha": "3a22c6f973739dc2f3dccf4ad2be8a2503740604",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-14T19:33:23Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-eff22bc.md"
-    },
-    {
-      "sha": "7dcfb89",
-      "full_sha": "7dcfb899a97b58fd3a368f829bb57a9979bb3590",
-      "title": "fix steward review auth + add collapsible wallet cards",
-      "author": "Claude",
-      "timestamp": "2026-06-14T19:19:54Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-7dcfb89.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
