@@ -311,6 +311,26 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     const r = await resolveOntology('Where does this run land on the sovereignty scale?');
     expect(r.resolvedTerms.map((t) => t.canonical)).toContain('Sovereignty Scale');
   });
+
+  it('Platform Sovereignty is a bundle (CFS-018): term resolves and carries its governing invariants', async () => {
+    const r = await resolveOntology(
+      'Is platform sovereignty infringed when commercial independence fails despite open weights?',
+    );
+    const canonicals = r.resolvedTerms.map((t) => t.canonical);
+    expect(canonicals).toContain('Platform Sovereignty');
+    const ps = r.resolvedTerms.find((t) => t.canonical.toLowerCase() === 'platform sovereignty');
+    expect(ps?.invariantIds).toContain('inv.sovereignty.100');
+    // The Venice lesson pinned: the commercial-gate invariant governs the bundle.
+    expect(ps?.invariantIds).toContain('inv.sovereignty.103');
+  });
+
+  it('sovereignty seed crystal: the bundle invariants 100-107 exist in the sovereignty namespace', () => {
+    const seeds = (seedFile as { invariants: { id: string; namespace: string }[] }).invariants;
+    const sovereignty = seeds.filter((s) => s.namespace === 'sovereignty').map((s) => s.id);
+    for (let n = 100; n <= 107; n += 1) {
+      expect(sovereignty).toContain(`inv.sovereignty.${n}`);
+    }
+  });
 });
 
 describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendment)', () => {

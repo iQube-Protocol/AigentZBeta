@@ -169,6 +169,19 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 98. *(engineering · definition)* The Constitutional Capability Pipeline produces capability, not code; development is one implementation mechanism among several — capability remains the invariant.
 99. *(constitutional · principle)* A constitutional system shall be built by the same constitutional principles it establishes; the program of its construction is its first constitutional capability.
 
+## Additions — Platform Sovereignty bundle (CFS-018)
+
+*(Operator direction 2026-07-06: platform sovereignty, like identity, is a bundle of capabilities — a scale of operator control, never a boolean. Case study: Venice — open-weight models rendered inaccessible by a commercial credit wall is a sovereignty infringement despite the weights being open.)*
+
+100. *(sovereignty · principle)* Platform sovereignty, like identity, is a bundle of capabilities: it is assessed dimension by dimension — model openness, provider choice, commercial independence, infrastructure — and never collapsed to a single boolean.
+101. *(sovereignty · definition)* Model sovereignty is the openness bundle: open weights, open scoring, and open access; each alone is insufficient.
+102. *(sovereignty · principle)* The operator shall be able to choose, switch, and combine model providers free of commercial or platform lock-in; provider choice is the essence of sovereignty, of which open weights are the maximum.
+103. *(sovereignty · principle)* No commercial gate — credits, billing, licensing, or account standing — shall be able to block constitutional operation; an open-weight model behind a credit wall is a sovereignty infringement.
+104. *(sovereignty · principle)* The operator shall hold agency over where the platform lives — hosting, storage, and execution, decentralized or centralized by the operator's choice — as a sovereignty dimension in its own right.
+105. *(sovereignty · principle)* Constitutional operation shall survive the loss of any single infrastructure provider, as it survives the loss of any single model provider.
+106. *(sovereignty · principle)* Every sovereignty dimension shall be measurable by experiment; an unmeasured sovereignty claim is a claim, not a capability.
+107. *(sovereignty · definition)* The Platform Sovereignty Experiment series measures the sovereignty bundle dimension by dimension; EXP-004 is its first member, measuring the model/provider dimension on the Sovereignty Scale.
+
 ---
 
 ## Maintenance

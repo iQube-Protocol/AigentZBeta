@@ -19,6 +19,14 @@ Computing in which every reasoning surface and every rendering surface is govern
 
 Operator control over the system's intelligence supply — a SCALE, not a boolean (operator refinement, 2026-07-06). Sovereignty in itself is the operator's ability to choose, switch, and combine providers free of commercial or platform lock-in; no external AI provider is constitutionally indispensable, and external models function solely as interchangeable constitutional inference providers. Maximum sovereignty adds open-weight capability: the operator can run the weights outside any provider entirely. Measured on the Sovereignty Scale.
 
+## Platform Sovereignty
+
+Platform sovereignty, like identity, is a BUNDLE of capabilities — never a single property or boolean (operator direction, 2026-07-06). Its dimensions: model openness (open weights + open scoring + open access), provider choice (the operator can choose and switch free of commercial or platform lock-in), commercial independence (no credit wall, billing gate, or licence can block constitutional operation — open weights behind a credit wall is an infringement), infrastructure agency (operator control over hosting, storage, and execution), and infrastructure survivability (operation survives the loss of any single infrastructure provider). Assessed dimension by dimension; measured by the Platform Sovereignty Experiment series. Invariants `inv.sovereignty.100`–`107`; full specification CFS-018.
+
+## Platform Sovereignty Experiment Series
+
+The PSE series (CFS-018): the experiments that measure each dimension of the platform-sovereignty bundle — an unmeasured sovereignty claim is a claim, not a capability. EXP-004 (the Sovereignty Drill) is its first member, measuring the model/provider dimension on the Sovereignty Scale; named successors cover commercial independence, infrastructure survivability, hosting posture, and model openness.
+
 ## Sovereignty Scale
 
 The ordered rungs of operator control over inference supply: **S0 dependent** (single-provider lock-in — no sovereignty) → **S1 interchangeable** (the operator can choose and switch among providers with no commercial or platform lock-in — the ESSENCE of sovereignty) → **S2 substitutable** (validated substitutes exist and the constitutional battery completes on them) → **S3 open-weight** (maximum: an open-weight provider carries constitutional operation, and in the limit the operator can run the weights themselves). EXP-004's sovereign run tests S3; a rehearsal completion on a substitute provider is a live S2 datum, not a nothing.

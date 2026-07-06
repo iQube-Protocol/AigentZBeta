@@ -148,6 +148,9 @@ export const CONCEPT_SEEDS: Record<string, string[]> = {
   remix: ['inv.reasoning.096'],
   coherence: ['inv.experience.070', 'inv.constitutional.080'],
   composition: ['inv.experience.072'],
+  'platform sovereignty': ['inv.sovereignty.100', 'inv.sovereignty.103'],
+  'commercial independence': ['inv.sovereignty.103'],
+  'provider choice': ['inv.sovereignty.102'],
 };
 
 // ---------------------------------------------------------------------------
@@ -181,12 +184,20 @@ export async function resolveOntology(text: string): Promise<OntologyResolution>
     });
   }
 
-  // 2. Invariant-ontology concepts.
+  // 2. Invariant-ontology concepts. The merge lookup is case-insensitive:
+  // a concept that also exists as a glossary/ontology canon term (e.g.
+  // "Platform Sovereignty" heading + 'platform sovereignty' concept) merges
+  // into ONE entry with source 'both' and the governing invariants attached,
+  // instead of duplicating.
   for (const [concept, seedIds] of Object.entries(CONCEPT_SEEDS)) {
     const pattern = new RegExp(`\\b${concept.replace(/\s+/g, '[\\s_-]*')}\\b`, 'i');
     const match = text.match(pattern);
     if (!match) continue;
-    const existing = resolved.get(concept);
+    const existing =
+      resolved.get(concept) ??
+      Array.from(resolved.values()).find(
+        (r) => r.canonical.toLowerCase() === concept.toLowerCase(),
+      );
     if (existing) {
       existing.source = 'both';
       existing.invariantIds = seedIds;
