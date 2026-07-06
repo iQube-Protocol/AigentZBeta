@@ -365,3 +365,22 @@ export const CONSTITUTIONAL_IMPROVEMENT_LOOP = [
 ] as const;
 
 export type ConstitutionalImprovementStage = (typeof CONSTITUTIONAL_IMPROVEMENT_LOOP)[number];
+
+/**
+ * The Chrysalis Test's acceptance-criterion ids (CFS-015 final acceptance
+ * test, computed live by /api/constitutional/chrysalis-test). Pinned here so
+ * acceptance criteria cannot silently vanish — the canary asserts the set.
+ */
+export const CHRYSALIS_CRITERIA_IDS = [
+  'constitutional-reasoning',
+  'reasoning-surfaces-governed',
+  'rendering-governed',
+  'develops-capabilities',
+  'generates-receipts',
+  'validates-outcomes',
+  'learns-operationally',
+  'sovereignty',
+  'provider-interchangeability',
+  'deployment-native',
+] as const;
+

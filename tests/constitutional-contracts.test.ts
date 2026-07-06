@@ -218,6 +218,24 @@ describe('Strand-2 capability services (Phase 2 Agent B)', () => {
   });
 });
 
+describe('Chrysalis Test criteria (CFS-015 final acceptance test)', () => {
+  it('acceptance-criterion ids are pinned — criteria never silently vanish', async () => {
+    const { CHRYSALIS_CRITERIA_IDS } = await import('@/types/constitutional');
+    expect([...CHRYSALIS_CRITERIA_IDS]).toEqual([
+      'constitutional-reasoning',
+      'reasoning-surfaces-governed',
+      'rendering-governed',
+      'develops-capabilities',
+      'generates-receipts',
+      'validates-outcomes',
+      'learns-operationally',
+      'sovereignty',
+      'provider-interchangeability',
+      'deployment-native',
+    ]);
+  });
+});
+
 describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
   it('provider is pinned to the open-weight provider by definition', async () => {
     const { SOVEREIGN_PROVIDER } = await import('@/services/experiments/exp004');

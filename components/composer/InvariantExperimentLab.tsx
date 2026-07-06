@@ -18,8 +18,9 @@ import Exp003RediscoveryRunner from "./Exp003RediscoveryRunner";
 import ExperimentResultsTab from "./ExperimentResultsTab";
 import ExperimentReportTab from "./ExperimentReportTab";
 import Exp004SovereigntyRunner from "./Exp004SovereigntyRunner";
+import ChrysalisTestTab from "./ChrysalisTestTab";
 
-type LabTab = "video" | "bundle" | "rediscovery" | "sovereignty" | "results" | "report";
+type LabTab = "video" | "bundle" | "rediscovery" | "sovereignty" | "results" | "report" | "chrysalis";
 
 const TABS: { id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "video", label: "EXP-002 · Video", icon: Clapperboard },
@@ -28,6 +29,7 @@ const TABS: { id: LabTab; label: string; icon: React.ComponentType<{ className?:
   { id: "sovereignty", label: "EXP-004 · Sovereignty", icon: ShieldCheck },
   { id: "results", label: "Results · Canonical", icon: ShieldCheck },
   { id: "report", label: "Report", icon: FileText },
+  { id: "chrysalis", label: "Chrysalis Test", icon: ShieldCheck },
 ];
 
 export default function InvariantExperimentLab() {
@@ -75,6 +77,7 @@ export default function InvariantExperimentLab() {
       {tab === "sovereignty" && <Exp004SovereigntyRunner />}
       {tab === "results" && <ExperimentResultsTab />}
       {tab === "report" && <ExperimentReportTab />}
+      {tab === "chrysalis" && <ChrysalisTestTab />}
     </div>
   );
 }
