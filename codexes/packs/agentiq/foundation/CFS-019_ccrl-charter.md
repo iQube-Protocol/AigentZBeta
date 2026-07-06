@@ -92,4 +92,5 @@ The CCRL is the canonical scientific institution when: (1) every research asset 
 ## Ratification record
 
 - [x] **Phase A (charter + vocabulary) — authored 2026-07-06** per operator direction ("Yes let's go"), with the migration approach (canonical-surface-first) and the Bitcoin observability statement explicitly operator-corrected and verified against the codebase.
-- [ ] Phase B build — designed here; starts on operator go.
+- [x] **Phase B (cartridge skeleton) — DELIVERED 2026-07-06.** `CCRL_CARTRIDGE` (slug `ccrl-cartridge`) registered hand-curated: live Dashboard (Chrysalis summary + canonical results + roadmap), Research by layer (I/II/III), Experiment Laboratory (the full runner suite, admin-gated), Living Knowledge (Invariant Registry + glossary), Publications (the constitutional record), Programme (CRP-001). One implementation amendment: the `ccrl` pack directory is DEFERRED to Phase D — Phase B consumes the agentiq pack in place (creating a content-less pack now would only invite a packRegistry auto-duplicate); the charter's §5 pack reference is the Phase-D target, not a Phase-B artifact.
+- [ ] Phase C (object model + lifecycles + research orchestration) — next; starts on operator go.
