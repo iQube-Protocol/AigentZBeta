@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`8ae5dec`](https://github.com/iQube-Protocol/AigentZBeta/commit/8ae5deccaa944588bf2b2cf3a51b31fa6e3a1732) [push] Chrysalis 2.0 Phase 1: ratify CFS-015 + constitutional contracts, ontology resolver, model router (Claude, 2026-07-06T03:59:39Z)
 - [`117455e`](https://github.com/iQube-Protocol/AigentZBeta/commit/117455ee17b9b53ff3a6d5732d66d9bc67d4bd00) [feat] Add Report tab + backfill historical runs into the canonical Results record (Claude, 2026-07-06T01:38:28Z)
 - [`3a22c6f`](https://github.com/iQube-Protocol/AigentZBeta/commit/3a22c6f973739dc2f3dccf4ad2be8a2503740604) [push] Ratify temporal coherence field topology: sequence is scored, not validated (Claude, 2026-07-05T23:53:52Z)
 - [`aa493e6`](https://github.com/iQube-Protocol/AigentZBeta/commit/aa493e6de2c5663ec4c5bd6c19c120d1834fc533) [push] Record sequencing control arm results: prediction confirmed + graded refinement (Claude, 2026-07-05T23:43:18Z)

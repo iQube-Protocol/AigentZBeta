@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T01:40:17.187Z",
+  "last_updated": "2026-07-06T04:01:29.772Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "117455ee17b9b53ff3a6d5732d66d9bc67d4bd00",
-  "latest_commit_short": "117455e",
-  "latest_commit_title": "Add Report tab + backfill historical runs into the canonical Results record",
+  "latest_commit": "8ae5deccaa944588bf2b2cf3a51b31fa6e3a1732",
+  "latest_commit_short": "8ae5dec",
+  "latest_commit_title": "Chrysalis 2.0 Phase 1: ratify CFS-015 + constitutional contracts, ontology resolver, model router",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8ae5dec",
+      "full_sha": "8ae5deccaa944588bf2b2cf3a51b31fa6e3a1732",
+      "title": "Chrysalis 2.0 Phase 1: ratify CFS-015 + constitutional contracts, ontology resolver, model router",
+      "author": "Claude",
+      "timestamp": "2026-07-06T03:59:39Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8ae5dec.md"
+    },
     {
       "sha": "117455e",
       "full_sha": "117455ee17b9b53ff3a6d5732d66d9bc67d4bd00",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-16T16:30:03Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-4d66986.md"
-    },
-    {
-      "sha": "eff22bc",
-      "full_sha": "eff22bc7cb9ef84f0e6d431c0ee3c07e14bc658c",
-      "title": "flip steward queue cards to decided state after approve/deny",
-      "author": "Claude",
-      "timestamp": "2026-06-14T19:33:23Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eff22bc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

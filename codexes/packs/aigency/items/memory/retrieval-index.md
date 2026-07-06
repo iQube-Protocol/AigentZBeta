@@ -2864,3 +2864,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-117455e.md](../build_/COMMITS/COMMIT-117455e.md)
 - Message: Add Report tab + backfill historical runs into the canonical Results record
+
+## Commit `8ae5dec` — 2026-07-06T03:59:39Z
+- Type: `push`
+- Brief: [COMMIT-8ae5dec.md](../build_/COMMITS/COMMIT-8ae5dec.md)
+- Message: Chrysalis 2.0 Phase 1: ratify CFS-015 + constitutional contracts, ontology resolver, model router
