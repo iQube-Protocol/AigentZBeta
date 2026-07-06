@@ -2859,3 +2859,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3a22c6f.md](../build_/COMMITS/COMMIT-3a22c6f.md)
 - Message: Ratify temporal coherence field topology: sequence is scored, not validated
+
+## Commit `117455e` — 2026-07-06T01:38:28Z
+- Type: `feat`
+- Brief: [COMMIT-117455e.md](../build_/COMMITS/COMMIT-117455e.md)
+- Message: Add Report tab + backfill historical runs into the canonical Results record
