@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`9116c02`](https://github.com/iQube-Protocol/AigentZBeta/commit/9116c0219aaf12be53ee8c6580675c18151f0b9b) [push] Execute CCRL Phase D: physical migration of the research corpus into the ccrl pack (atomic) (Claude, 2026-07-06T22:40:17Z)
 - [`1f4f986`](https://github.com/iQube-Protocol/AigentZBeta/commit/1f4f98623a6383f916281e48f0b2242e31a3f517) [feat] Implement DCIR D2 (observe-mode): constitutional state snapshot + behavioural-invariant mining (Claude, 2026-07-06T22:33:08Z)
 - [`36c8181`](https://github.com/iQube-Protocol/AigentZBeta/commit/36c81819e7ff85f40a7b606310b1a86ec645efc6) [push] Build CCRL C2: DCIR-conforming research copilot (narrate-only, CFS-019) (Claude, 2026-07-06T20:38:39Z)
 - [`4a0e38f`](https://github.com/iQube-Protocol/AigentZBeta/commit/4a0e38fc1e067c2aa38f545e851e4c99a578d693) [feat] Implement DCIR D1: event stream + observation seam on the Dev Command Center (CFS-020) (Claude, 2026-07-06T20:12:48Z)

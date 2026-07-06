@@ -2989,3 +2989,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-1f4f986.md](../build_/COMMITS/COMMIT-1f4f986.md)
 - Message: Implement DCIR D2 (observe-mode): constitutional state snapshot + behavioural-invariant mining
+
+## Commit `9116c02` — 2026-07-06T22:40:17Z
+- Type: `push`
+- Brief: [COMMIT-9116c02.md](../build_/COMMITS/COMMIT-9116c02.md)
+- Message: Execute CCRL Phase D: physical migration of the research corpus into the ccrl pack (atomic)

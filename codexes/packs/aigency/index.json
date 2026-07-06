@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T22:35:39.994Z",
+  "last_updated": "2026-07-06T22:42:40.518Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1f4f98623a6383f916281e48f0b2242e31a3f517",
-  "latest_commit_short": "1f4f986",
-  "latest_commit_title": "Implement DCIR D2 (observe-mode): constitutional state snapshot + behavioural-invariant mining",
+  "latest_commit": "9116c0219aaf12be53ee8c6580675c18151f0b9b",
+  "latest_commit_short": "9116c02",
+  "latest_commit_title": "Execute CCRL Phase D: physical migration of the research corpus into the ccrl pack (atomic)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9116c02",
+      "full_sha": "9116c0219aaf12be53ee8c6580675c18151f0b9b",
+      "title": "Execute CCRL Phase D: physical migration of the research corpus into the ccrl pack (atomic)",
+      "author": "Claude",
+      "timestamp": "2026-07-06T22:40:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9116c02.md"
+    },
     {
       "sha": "1f4f986",
       "full_sha": "1f4f98623a6383f916281e48f0b2242e31a3f517",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-19T16:09:40Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c02eee1.md"
-    },
-    {
-      "sha": "34d34c9",
-      "full_sha": "34d34c9cdfbd0987a0aa973ba527e3e279cb1697",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-06-19T15:25:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-34d34c9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
