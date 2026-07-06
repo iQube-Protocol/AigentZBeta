@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T16:26:26.894Z",
+  "last_updated": "2026-07-06T18:28:22.011Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2d242d0a5f82359bbc043646297e90ebe7939d06",
-  "latest_commit_short": "2d242d0",
-  "latest_commit_title": "Codify Platform Sovereignty as a capability bundle: CFS-018 + invariants 100-107 + PSE series charter",
+  "latest_commit": "b7f270fd24782fb0bc8171efd681423890b13528",
+  "latest_commit_short": "b7f270f",
+  "latest_commit_title": "Fix Bitcoin explorer bug class once and for all: canonical helper + txid provenance",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b7f270f",
+      "full_sha": "b7f270fd24782fb0bc8171efd681423890b13528",
+      "title": "Fix Bitcoin explorer bug class once and for all: canonical helper + txid provenance",
+      "author": "Claude",
+      "timestamp": "2026-07-06T18:24:01Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b7f270f.md"
+    },
+    {
+      "sha": "03b3ead",
+      "full_sha": "03b3ead918f50d59d98dcb3d3de617975d3f1da4",
+      "title": "Charter the CCRL (CFS-019 Phase A): institution, object model, IA, cybernetics invariants 108-111",
+      "author": "Claude",
+      "timestamp": "2026-07-06T18:26:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-03b3ead.md"
+    },
     {
       "sha": "2d242d0",
       "full_sha": "2d242d0a5f82359bbc043646297e90ebe7939d06",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-06-19T01:57:24Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-846f3b2.md"
-    },
-    {
-      "sha": "161728b",
-      "full_sha": "161728bb9013cb9058f6dd56afe7f5fc028a8b1b",
-      "title": "keep consumer task/reward furniture visible when experience has no tasks",
-      "author": "Claude",
-      "timestamp": "2026-06-19T01:02:56Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-161728b.md"
-    },
-    {
-      "sha": "25cf4de",
-      "full_sha": "25cf4de867fca693b9ec6f3cf947ee08cbfb4783",
-      "title": "persist metaMe/KNYT takeover context toggle across sessions",
-      "author": "Claude",
-      "timestamp": "2026-06-19T00:55:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-25cf4de.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

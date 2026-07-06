@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`b7f270f`](https://github.com/iQube-Protocol/AigentZBeta/commit/b7f270fd24782fb0bc8171efd681423890b13528) [fix] Fix Bitcoin explorer bug class once and for all: canonical helper + txid provenance (Claude, 2026-07-06T18:24:01Z)
+- [`03b3ead`](https://github.com/iQube-Protocol/AigentZBeta/commit/03b3ead918f50d59d98dcb3d3de617975d3f1da4) [push] Charter the CCRL (CFS-019 Phase A): institution, object model, IA, cybernetics invariants 108-111 (Claude, 2026-07-06T18:26:28Z)
 - [`2d242d0`](https://github.com/iQube-Protocol/AigentZBeta/commit/2d242d0a5f82359bbc043646297e90ebe7939d06) [push] Codify Platform Sovereignty as a capability bundle: CFS-018 + invariants 100-107 + PSE series charter (Claude, 2026-07-06T16:24:27Z)
 - [`e89e6b7`](https://github.com/iQube-Protocol/AigentZBeta/commit/e89e6b70fdf1b616dec57ebdcfcb8eb574395285) [push] Codify the Sovereignty Scale: operator control as a spectrum (S0-S3), not a boolean (Claude, 2026-07-06T16:04:06Z)
 - [`7186b5b`](https://github.com/iQube-Protocol/AigentZBeta/commit/7186b5bc3fd148d040aff70c1b286c3049cbfb21) [push] Refine sovereignty as a provider-class property (open-weight), pin with canary (Claude, 2026-07-06T15:49:16Z)
