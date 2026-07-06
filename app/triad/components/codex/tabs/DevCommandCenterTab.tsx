@@ -24,7 +24,7 @@
  * consistent chrome, in line with aigentMe's layout template pattern.
  */
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
   Cpu, Target, FileSearch, AlertTriangle, CheckCircle,
   ChevronDown, Package, Layers, ArrowRight,
@@ -55,6 +55,20 @@ import {
   type StageProposal,
   type StageProposalKind,
 } from "@/services/devCommandCenter";
+
+import type { DcirEvent } from "@/types/dcir";
+import {
+  appendDcirEvent,
+  compactDcirEvents,
+  devStageProposalReceivedEvent,
+  devProposalApprovedEvent,
+  devProposalDismissedEvent,
+  devStageAdvancedEvent,
+  devCapsuleOpenedEvent,
+  devCapsuleClosedEvent,
+  devImplementationPackGeneratedEvent,
+  devDeploymentProposedEvent,
+} from "@/services/dcir/eventStream";
 
 import {
   IntentLayout,
@@ -485,15 +499,37 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   const [activeLayoutId, setActiveLayoutId] = useState<DevLayoutId>("stack");
   const [activeCapsuleId, setActiveCapsuleId] = useState<DevCapsuleId | null>(null);
 
+  // ── DCIR D1 event stream (CFS-020) — OBSERVE-MODE ONLY.
+  // Session-scoped ring buffer of what already happened; emissions ride the
+  // existing seams and never block or mutate any behavior. The next copilot
+  // turn observes the compacted tail via copilotGroundContext.recentEvents.
+  const [dcirEvents, setDcirEvents] = useState<DcirEvent[]>([]);
+  const observe = useCallback((event: DcirEvent) => {
+    setDcirEvents(prev => appendDcirEvent(prev, event));
+  }, []);
+
+  // Observe EVERY stage transition (Advance button, approve-with-advance,
+  // intent restart) from the state itself — the observation runtime watches
+  // outcomes, it does not hook each caller.
+  const prevStageRef = useRef<DevLoopStage>(session.stage);
+  useEffect(() => {
+    if (prevStageRef.current !== session.stage) {
+      observe(devStageAdvancedEvent(prevStageRef.current, session.stage));
+      prevStageRef.current = session.stage;
+    }
+  }, [session.stage, observe]);
+
   const engageCapsuleAndMount = useCallback((next: DevCapsuleId) => {
     setActiveCapsuleId(next);
     setActiveLayoutId(CAPSULE_LAYOUT[next]);
-  }, []);
+    observe(devCapsuleOpenedEvent(next));
+  }, [observe]);
 
   const returnToStack = useCallback(() => {
+    if (activeCapsuleId) observe(devCapsuleClosedEvent(activeCapsuleId));
     setActiveCapsuleId(null);
     setActiveLayoutId("stack");
-  }, []);
+  }, [activeCapsuleId, observe]);
 
   const handleToolOpen = useCallback((toolId: string) => {
     setActiveCapsuleId(null);
@@ -565,10 +601,13 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
       }
       return next;
     });
+    for (const p of typed) {
+      observe(devStageProposalReceivedEvent(p.kind, PROPOSAL_KIND_TO_CAPSULE[p.kind]));
+    }
     const capsule = PROPOSAL_KIND_TO_CAPSULE[typed[0].kind] as DevCapsuleId;
     setCapsuleSuggestions(prev => ({ ...prev, [capsule]: true }));
     engageCapsuleAndMount(capsule);
-  }, [engageCapsuleAndMount]);
+  }, [engageCapsuleAndMount, observe]);
 
   const handleApproveProposal = useCallback((capsule: DevCapsuleId) => {
     const proposal = pendingProposals[capsule];
@@ -581,22 +620,25 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
       console.log(`[aigentZ ICE] approved ${proposal.kind} → stage ${next.stage}`);
       return next;
     });
+    observe(devProposalApprovedEvent(proposal.kind, capsule));
     setPendingProposals(prev => {
       const next = { ...prev };
       delete next[capsule];
       return next;
     });
     consumeCapsuleSuggestion(capsule);
-  }, [pendingProposals, consumeCapsuleSuggestion]);
+  }, [pendingProposals, consumeCapsuleSuggestion, observe]);
 
   const handleDismissProposal = useCallback((capsule: DevCapsuleId) => {
+    const dismissed = pendingProposals[capsule];
+    if (dismissed) observe(devProposalDismissedEvent(dismissed.kind, capsule));
     setPendingProposals(prev => {
       const next = { ...prev };
       delete next[capsule];
       return next;
     });
     consumeCapsuleSuggestion(capsule);
-  }, [consumeCapsuleSuggestion]);
+  }, [pendingProposals, consumeCapsuleSuggestion, observe]);
 
   // Ground context for the copilot
   const copilotGroundContext = useMemo(() => ({
@@ -619,7 +661,10 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     validationSummary: session.validationReport ? buildValidationSummary(session.validationReport) : null,
     implementationPackage: buildImplementationPackage(session) ? "ready" : "incomplete",
     pendingApprovals: Object.values(pendingProposals).map(p => p?.kind).filter(Boolean),
-  }), [session, activeLayoutId, activeCapsuleId, pendingProposals]);
+    // DCIR D1 observation seam: the last ~12 session events, compacted —
+    // the next copilot turn observes what happened (narrate-only).
+    recentEvents: compactDcirEvents(dcirEvents),
+  }), [session, activeLayoutId, activeCapsuleId, pendingProposals, dcirEvents]);
 
   // Quick-prompt chips for the copilot left pane
   const copilotQuickPrompts = useMemo((): QuickPrompt[] => [
@@ -814,9 +859,11 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               pendingProposal={pendingProposals["implementation"] ?? null}
               onApproveProposal={() => handleApproveProposal("implementation")}
               onDismissProposal={() => handleDismissProposal("implementation")}
-              onPackGenerated={(briefMarkdown) =>
-                setSession(s => ({ ...s, implementationBrief: briefMarkdown, updatedAt: new Date().toISOString() }))
-              }
+              onPackGenerated={(briefMarkdown) => {
+                setSession(s => ({ ...s, implementationBrief: briefMarkdown, updatedAt: new Date().toISOString() }));
+                observe(devImplementationPackGeneratedEvent());
+              }}
+              onDeploymentProposed={() => observe(devDeploymentProposedEvent())}
             />
           )}
           {isCapsuleLayout && activeCapsuleId === "validation" && (

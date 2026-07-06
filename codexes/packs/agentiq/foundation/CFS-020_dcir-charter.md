@@ -26,7 +26,7 @@ Conversation → Inference → Action → Observation → Updated Context → In
 |---|---|---|
 | **Conversational Runtime** | intent/reasoning → Intent Objects, Context Objects, Recommendations, Policies, Confidence | Partial — the copilot surfaces + ICE proposals exist (§8) |
 | **Action Runtime** | deterministic execution → artefacts | Partial — receipted actions exist; artefacts don't re-enter context |
-| **Observation Runtime** | everything becomes observable: conversation, tool outputs, documents, selection, editing, approval/rejection, undo, navigation, workflow progress, system events | **Missing — DCIR's founding build** |
+| **Observation Runtime** | everything becomes observable: conversation, tool outputs, documents, selection, editing, approval/rejection, undo, navigation, workflow progress, system events | **Partial (D1, 2026-07-06)** — event stream + observation seam live on the Dev Command Center (`services/dcir/eventStream.ts`); every other surface still unobserved |
 
 The twelve architectural components: **Conversation Runtime**, **Inference Runtime**, **Observation Runtime**, **Action Runtime**, **Constitutional State Engine**, **Artefact Registry**, **Event Stream**, **Recommendation Engine**, **Affordance Generator**, **Invariant Intelligence Engine**, **Experience Graph**, **Feedback Coordinator**. None is greenfield-by-default: each is first inventoried against the existing organs (§8) and enters by composition (Extend, Don't Duplicate).
 
@@ -72,7 +72,7 @@ DCIR ships observe-mode-first (the CFS-017 precedent, ratified): **observation i
 | Phase | Content | Status |
 |---|---|---|
 | **D0** | This charter + `types/dcir.ts` contract + invariants 112–118 + glossary + canaries | **DELIVERED (this increment)** |
-| **D1** | Event stream + observation seam on ONE surface (observe-mode, CFS-017 pattern) | Awaiting operator ratification |
+| **D1** | Event stream + observation seam on ONE surface (observe-mode, CFS-017 pattern) | **DELIVERED (2026-07-06, Dev Command Center)** |
 | **D2** | Constitutional State Engine (snapshot fields harden against their organs) | After D1 |
 | **D3** | Recommendation + Affordance engines (generated affordances, capsule-contained) | After D2 |
 | **D4** | Universal substrate adoption (aigentMe, Aigent Z, Studio Composer, Marketa, every cartridge) | Frontier |
@@ -80,7 +80,7 @@ DCIR ships observe-mode-first (the CFS-017 precedent, ratified): **observation i
 ## Ratification record
 
 - [x] **D0 (contract) — AUTHORED 2026-07-06** from the operator's DCIR spec: charter, `types/dcir.ts` (loop + runtimes order-pinned, tier-disciplined events, ratification-bounded behavioural invariants, capsule-scoped affordances), `inv.interaction.112`–`118` (status `proposed`), glossary terms resolver-wired, canaries.
-- [ ] **D1 (event stream + observation seam, one surface)** — awaiting operator ratification. The seam surface is chosen at ratification, not here.
+- [x] **D1 (event stream + observation seam) — RATIFIED + DELIVERED 2026-07-06 on the Dev Command Center.** The operator chose the seam surface at ratification: *"the Dev Command Center is the most developed feedback loop and the most vertically integrated surface, from the Bitcoin substrate to the metaMe runtime."* Delivered: `services/dcir/eventStream.ts` (isomorphic; session-scoped ring buffer capped at 50; `emitDcirEvent` + typed `dev*Event` helpers; summaries hard-bounded at 140 chars — labels, never bodies; T0 identifiers never travel), emission wired to the DCC's EXISTING seams with zero behavior change (stage proposal received / approved / dismissed, stage advanced — observed from state, catching every transition path —, capsule opened/closed, implementation pack generated, deployment proposed), and the observation seam: `copilotGroundContext.recentEvents` (last 12, compacted) rendered by the chat route's dev-command-center ground branch as a narrate-only "Recent session events (observation)" list — the loop's Observation → Updated Context → Inference edge closes for the first time. Canaries in `tests/dev-command-center.test.ts` pin the cap, the contract shape (no forbidden identifier keys), the helper vocabulary, and the bounded rendering. **What D1 deliberately does NOT do:** no behavioural-invariant mining (that's D2+ — events are observed, patterns are not yet proposed); no receipts for UI events (session-scoped observation only — receipts remain the consequential subset, CFS-020 §8); no dynamic affordances (D3); no gating of any kind (observe-mode, §9 — any future gate is its own ratification).
 - [ ] D2–D4 — each ratified before build.
 
 ## Honest limits

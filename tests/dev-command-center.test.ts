@@ -416,3 +416,148 @@ describe('Stage Orchestrator routing', () => {
     expect(block).not.toContain('Alternate stage');
   });
 });
+
+// ─── DCIR D1 — event stream + observation seam (CFS-020, observe-mode) ──────
+// Canaries: the event stream is tier-disciplined from birth (no T0 keys,
+// summaries are labels not bodies), the ring buffer never grows past its
+// cap, and the observation seam stays bounded. A silent change here either
+// leaks identifiers into copilot-bound payloads or unbounds the prompt.
+
+import {
+  emitDcirEvent,
+  appendDcirEvent,
+  compactDcirEvents,
+  renderObservationLines,
+  devStageProposalReceivedEvent,
+  devProposalApprovedEvent,
+  devProposalDismissedEvent,
+  devStageAdvancedEvent,
+  devCapsuleOpenedEvent,
+  devCapsuleClosedEvent,
+  devImplementationPackGeneratedEvent,
+  devDeploymentProposedEvent,
+  DCIR_EVENT_BUFFER_CAP,
+  DCIR_EVENT_SUMMARY_MAX,
+  DCIR_OBSERVATION_WINDOW,
+  DCIR_OBSERVATION_LINE_MAX,
+} from '@/services/dcir/eventStream';
+import type { DcirEvent, DcirEventKind } from '@/types/dcir';
+
+const DCIR_EVENT_KINDS: readonly DcirEventKind[] = [
+  'DocumentCreated', 'DocumentEdited', 'SelectionChanged',
+  'RecommendationAccepted', 'RecommendationRejected',
+  'ArtifactApproved', 'ArtifactRejected', 'UndoPerformed',
+  'NavigationOccurred', 'WorkflowAdvanced', 'ToolOutputProduced',
+  'ConversationTurn', 'PersonaChanged', 'SystemEvent',
+];
+
+/** Exactly the DcirEvent contract keys — nothing more may ever travel. */
+const DCIR_EVENT_KEYS = [
+  'id', 'kind', 'runtime', 'summary', 'tier', 'artefactRefs', 'capsuleScope', 'occurredAt',
+].sort();
+
+const FORBIDDEN_IDENTIFIER_KEYS = ['personaId', 'authProfileId', 'rootDid', 'fioHandle', 'caseId'];
+
+function allDevHelperEvents(): DcirEvent[] {
+  return [
+    devStageProposalReceivedEvent('gap_analysis', 'gap-analysis'),
+    devProposalApprovedEvent('gap_analysis', 'gap-analysis'),
+    devProposalDismissedEvent('consequence_canvas', 'consequence-canvas'),
+    devStageAdvancedEvent('intent_capture', 'context_assembly'),
+    devCapsuleOpenedEvent('intent'),
+    devCapsuleClosedEvent('intent'),
+    devImplementationPackGeneratedEvent(),
+    devDeploymentProposedEvent(),
+  ];
+}
+
+describe('DCIR D1 event stream (observe-mode canaries)', () => {
+  it('enforces the ring-buffer cap, keeping the newest events', () => {
+    let log: DcirEvent[] = [];
+    for (let i = 0; i < DCIR_EVENT_BUFFER_CAP + 10; i++) {
+      log = appendDcirEvent(log, emitDcirEvent({
+        kind: 'SystemEvent', runtime: 'observation', summary: `event ${i}`,
+      }));
+    }
+    expect(log).toHaveLength(DCIR_EVENT_BUFFER_CAP);
+    // oldest fell off, newest survived
+    expect(log[0].summary).toBe('event 10');
+    expect(log[log.length - 1].summary).toBe(`event ${DCIR_EVENT_BUFFER_CAP + 9}`);
+  });
+
+  it('bounds every summary to a label, never a body', () => {
+    const e = emitDcirEvent({
+      kind: 'DocumentCreated', runtime: 'action', summary: 'x'.repeat(10_000),
+    });
+    expect(e.summary.length).toBeLessThanOrEqual(DCIR_EVENT_SUMMARY_MAX);
+    for (const helper of allDevHelperEvents()) {
+      expect(helper.summary.length).toBeLessThanOrEqual(DCIR_EVENT_SUMMARY_MAX);
+    }
+  });
+
+  it('emits ONLY the DcirEvent contract shape — no forbidden identifier keys, kind on the union', () => {
+    for (const e of allDevHelperEvents()) {
+      expect(Object.keys(e as unknown as Record<string, unknown>).sort()).toEqual(DCIR_EVENT_KEYS);
+      expect(DCIR_EVENT_KINDS).toContain(e.kind);
+      expect(['t1-browser-safe', 't2-network-safe']).toContain(e.tier);
+      const serialized = JSON.stringify(e);
+      for (const forbidden of FORBIDDEN_IDENTIFIER_KEYS) {
+        expect(serialized).not.toContain(forbidden);
+      }
+    }
+  });
+
+  it('pins the Dev Command Center helper vocabulary (kind + runtime + capsule scope)', () => {
+    expect(devStageProposalReceivedEvent('intent', 'intent')).toMatchObject({
+      kind: 'ToolOutputProduced', runtime: 'conversational', capsuleScope: 'intent',
+    });
+    expect(devProposalApprovedEvent('intent', 'intent')).toMatchObject({
+      kind: 'RecommendationAccepted', runtime: 'observation', capsuleScope: 'intent',
+    });
+    expect(devProposalDismissedEvent('intent', 'intent')).toMatchObject({
+      kind: 'RecommendationRejected', runtime: 'observation', capsuleScope: 'intent',
+    });
+    expect(devStageAdvancedEvent('a', 'b')).toMatchObject({
+      kind: 'WorkflowAdvanced', runtime: 'observation',
+    });
+    expect(devStageAdvancedEvent('intent_capture', 'context_assembly').summary).toContain(
+      'intent_capture → context_assembly',
+    );
+    expect(devCapsuleOpenedEvent('context')).toMatchObject({
+      kind: 'NavigationOccurred', runtime: 'observation', capsuleScope: 'context',
+    });
+    expect(devCapsuleClosedEvent('context')).toMatchObject({
+      kind: 'NavigationOccurred', runtime: 'observation', capsuleScope: 'context',
+    });
+    expect(devImplementationPackGeneratedEvent()).toMatchObject({
+      kind: 'DocumentCreated', runtime: 'action', capsuleScope: 'implementation',
+    });
+    expect(devDeploymentProposedEvent()).toMatchObject({
+      kind: 'SystemEvent', runtime: 'action', capsuleScope: 'implementation',
+    });
+  });
+
+  it('compacts the observation window to the newest events, newest last', () => {
+    let log: DcirEvent[] = [];
+    for (let i = 0; i < 30; i++) {
+      log = appendDcirEvent(log, devCapsuleOpenedEvent(`capsule-${i}`));
+    }
+    const compact = compactDcirEvents(log);
+    expect(compact).toHaveLength(DCIR_OBSERVATION_WINDOW);
+    expect(compact[compact.length - 1]).toContain('capsule-29');
+    expect(compact[0]).toContain(`capsule-${30 - DCIR_OBSERVATION_WINDOW}`);
+  });
+
+  it('renders ground-context observation lines bounded and shape-defensive', () => {
+    // bounded count
+    const many = Array.from({ length: 40 }, (_, i) => `event ${i}`);
+    expect(renderObservationLines(many)).toHaveLength(DCIR_OBSERVATION_WINDOW);
+    // bounded line length
+    const long = renderObservationLines(['y'.repeat(5_000)]);
+    expect(long[0].length).toBeLessThanOrEqual(DCIR_OBSERVATION_LINE_MAX);
+    // defensive on untyped JSON from the client
+    expect(renderObservationLines(undefined)).toEqual([]);
+    expect(renderObservationLines('not-an-array')).toEqual([]);
+    expect(renderObservationLines([1, null, { a: 1 }, 'kept', ''])).toEqual(['kept']);
+  });
+});

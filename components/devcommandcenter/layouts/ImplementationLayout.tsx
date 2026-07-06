@@ -35,10 +35,15 @@ export function ImplementationLayout({
   onApproveProposal,
   onDismissProposal,
   onPackGenerated,
+  onDeploymentProposed,
 }: DevLayoutProps & {
   /** Writes the generated pack's markdown back into the session as the
    * implementation brief — satisfying the stage's advance gate. */
   onPackGenerated?: (briefMarkdown: string) => void;
+  /** DCIR D1 observation hook — fired after a deployment proposal is
+   * successfully recorded. Observe-mode only: no payload, no behavior
+   * change; the receipt pipeline stays authoritative. */
+  onDeploymentProposed?: () => void;
 }) {
   const canAdvanceNow = canAdvance(session);
   const derived = useMemo(() => buildImplementationPackage(session), [session]);
@@ -96,6 +101,7 @@ export function ImplementationLayout({
         touchesProtectedFiles: touchesProtected,
       });
       setProposal(`Proposed — receipt ${String(data.receiptId).slice(0, 8)}… · ${String(data.d1Semantics)}`);
+      onDeploymentProposed?.();
     } catch (err) {
       setProposal(err instanceof Error ? err.message : "proposal failed");
     } finally {
