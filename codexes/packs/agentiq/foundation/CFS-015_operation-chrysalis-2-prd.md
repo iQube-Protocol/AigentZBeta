@@ -180,5 +180,5 @@ The three strands share a dependency spine: Strand 2 consumes Strand 1's reasoni
 - **Phase 1A — Constitutional contracts.** Ontology, interfaces, router. NO adoption.
   *Status: DELIVERED (commit 8ae5decc — CFS-015, CRP-001, types/constitutional.ts, Canonical Ontology Service, Model Router v1, canary suite).*
 - **Phase 1B — One complete constitutional cycle.** One reasoning surface + one rendering surface through the full cycle.
-  *Status: PARTIAL — the reasoning-surface slice (main copilot: per-turn ontology resolution, prompt guidance, Reach citation) is live; the RENDERING-surface slice is open. Candidate: the invariant video brief path (already coherence-validated per CFS-014) gains ontology resolution + receipt instrumentation.*
-- **Parallelization gates on 1B complete.** Only then do the two adoption agents start against frozen contracts.
+  *Status: DELIVERED. Reasoning surface: the main copilot (per-turn ontology resolution, canonical-term prompt guidance, Reach citation). Rendering surface: the invariant video brief path — Context (grounding slice) → Ontology (output-side drift check over the COMPOSED prose, unresolved terms surfaced to the operator) → Composition (CFS-013 laws) → Validation (CFS-014 coherence, pre-existing) → Receipt (`experience_render_validated`, DVN-anchorable, `invariants_used` carried) → Learning (Reach citation on every grounding invariant). Every render now leaves a constitutional trace.*
+- **Parallelization gate: OPEN.** Contracts are frozen; the two adoption agents may start.

@@ -92,6 +92,7 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // Consequence Operating Model (Phase 3) — forecast + flywheel evolution
   'consequence_forecast_recorded',
   'knowledge_evolved',
+  'experience_render_validated',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

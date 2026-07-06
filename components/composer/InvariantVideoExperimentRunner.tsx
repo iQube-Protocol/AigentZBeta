@@ -113,12 +113,16 @@ export default function InvariantVideoExperimentRunner() {
   const [briefError, setBriefError] = useState<string | null>(null);
   const [brief, setBrief] = useState<BriefView | null>(null);
   const [coherence, setCoherence] = useState<CoherenceView | null>(null);
+  // Ontology drift check over the COMPOSED brief prose (CFS-015 Phase 1B) —
+  // non-canonical terms the render would propagate.
+  const [ontologyUnresolved, setOntologyUnresolved] = useState<string[]>([]);
 
   const generateBrief = useCallback(async () => {
     setBriefLoading(true);
     setBriefError(null);
     setBrief(null);
     setCoherence(null);
+    setOntologyUnresolved([]);
     try {
       const semanticIds = await idsForNamespace(semanticNamespace, semanticLimit);
       if (semanticIds.length === 0) {
@@ -152,6 +156,7 @@ export default function InvariantVideoExperimentRunner() {
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to generate brief");
       setBrief(data.brief as BriefView);
       setCoherence((data.coherence as CoherenceView) ?? null);
+      setOntologyUnresolved(((data.ontology as { unresolved?: string[] } | undefined)?.unresolved) ?? []);
     } catch (err) {
       setBriefError(err instanceof Error ? err.message : "Failed to generate brief");
     } finally {
@@ -294,6 +299,12 @@ export default function InvariantVideoExperimentRunner() {
                     </li>
                   ))}
                 </ul>
+              )}
+              {ontologyUnresolved.length > 0 && (
+                <p className="mt-2 text-xs text-amber-300">
+                  Ontology drift in composed prose (CFS-015): non-canonical term
+                  {ontologyUnresolved.length > 1 ? "s" : ""} {ontologyUnresolved.join(", ")} — review before rendering.
+                </p>
               )}
             </div>
           )}
