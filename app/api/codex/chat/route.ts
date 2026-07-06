@@ -36,6 +36,7 @@ import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatf
 import { buildStageInstructionBlock, extractStageProposals } from '@/services/devCommandCenter/stageOrchestrator';
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
 import { initializeKnowledge, type KnowledgeManifest } from '@/services/invariants';
+import { resolveOntology, ontologyPromptBlock, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -2526,7 +2527,7 @@ export async function POST(request: NextRequest) {
 
       // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
       // state, and aigent-z platform knowledge + stage ground data in parallel
-      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData, resolvedKnowledgeInit] = await Promise.all([
+      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData, resolvedKnowledgeInit, resolvedOntology] = await Promise.all([
         fetchCodexMetadata(domain),
         searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
         needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
@@ -2555,6 +2556,13 @@ export async function POST(request: NextRequest) {
           console.warn('[CodexChat] knowledge initialization failed (non-fatal):', err);
           return null;
         }),
+        // Canonical Ontology Service (CFS-015): resolve the message's terms
+        // against canon BEFORE reasoning. Enrichment-only — failure yields
+        // null and the turn proceeds.
+        resolveOntology(message).catch((err) => {
+          console.warn('[CodexChat] ontology resolution failed (non-fatal):', err);
+          return null;
+        }),
       ]);
       const platformKnowledgeBlock = `${resolvedPlatformKnowledge}${resolvedStageGroundData}`;
       metadata = resolvedMetadata;
@@ -2570,6 +2578,15 @@ export async function POST(request: NextRequest) {
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
       systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit);
+
+      // Canonical Ontology (CFS-015): append canonical-term guidance to the
+      // prompt and cite the governing invariants (Reach, Law XII) —
+      // fire-and-forget so the hot path never waits on the flywheel.
+      if (resolvedOntology) {
+        const ontologyBlock = ontologyPromptBlock(resolvedOntology);
+        if (ontologyBlock) systemPrompt += `\n${ontologyBlock}`;
+        void citeResolvedConcepts(resolvedOntology).catch(() => {});
+      }
     }
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);

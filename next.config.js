@@ -76,6 +76,10 @@ const nextConfig = {
       "./codexes/packs/aigency/**/*.json",
       "./codexes/packs/agentiq/**/*.md",
       "./codexes/packs/agentiq/**/*.json",
+      // Canonical Ontology Service (CFS-015) parses the terminology canon at
+      // runtime; without this the resolver silently falls back to its
+      // built-in mirror.
+      "./docs/platform-ontology.md",
     ],
     "/api/codex/chat/aigentiq": [
       "./codexes/packs/aigency/**/*.md",

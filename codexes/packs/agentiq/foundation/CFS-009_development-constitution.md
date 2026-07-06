@@ -209,5 +209,6 @@ No individual field contains the final experience — and even the correct field
 ## Enforcement
 
 - This constitution binds all agents working on the codebase (Claude Code, Codex, Lovable, future agents), alongside `CLAUDE.md` — which functions as the operational rulebook beneath these laws.
+- **The Chrysalis Contract (CFS-015, ratified 2026-07-06)** — *every enhancement must improve at least one constitutional capability: Constitutional Computing, Development, Operations, or Learning* — is Law X restated at program level. The two are equivalent tests applied at different granularity: Law X asks each change "which invariants does this strengthen?"; the Contract asks each program-level enhancement "which constitutional capability does this improve?". Satisfying either without the other signals a mis-scoped change.
 - Laws are amended only by constitutional process: proposal → operator ratification → record in `AMENDMENT_RECORDS.md` (polity-core) → DVN anchoring.
 - Each law's canonical-invariant form lives in Appendix A and is loaded into agent context at session start once knowledge initialization (CFS-006 §3) ships.

@@ -179,6 +179,16 @@ export async function getInvariantsByIds(ids: string[]): Promise<InvariantRecord
   return (data ?? []).map((r) => mapInvariantRow(r as Record<string, unknown>));
 }
 
+/** Batch lookup by SEED id (inv.<namespace>.NNN) — the ontology resolver's
+ * concept map speaks seed ids; runtime citation needs the DB rows. */
+export async function getInvariantsBySeedIds(seedIds: string[]): Promise<InvariantRecord[]> {
+  if (seedIds.length === 0) return [];
+  const client = requireClient();
+  const { data, error } = await client.from('invariants').select('*').in('seed_id', seedIds);
+  if (error) throw new Error(`invariant seed batch read failed: ${error.message}`);
+  return (data ?? []).map((r) => mapInvariantRow(r as Record<string, unknown>));
+}
+
 export interface ListInvariantsFilter {
   namespace?: InvariantNamespace;
   status?: InvariantStatus | InvariantStatus[];
