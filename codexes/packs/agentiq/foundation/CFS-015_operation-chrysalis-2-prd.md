@@ -195,6 +195,7 @@ The three strands share a dependency spine: Strand 2 consumes Strand 1's reasoni
 - **Venture blueprint hand-off constitutionally instrumented (Strand-3 entry point):** ontology resolution over the venture's operator-facing text, `invariants_used` on the existing `venture_blueprint_handoff` receipt, consequence preflight folded into the receipt summary (a hand-off whose knowledge footprint reaches a contradiction says so), Reach citation — all enrichment-only.
 - **CFS-017 drafted (a2ui/liquid coherence seam)** — DRAFT awaiting ratification: seam at the plan-route chokepoint; observe-first-gate-later (the D1→D2 pattern applied to rendering); honest semantic-only validation at v1. No implementation until ratified.
 - Chrysalis Test `reasoning-surfaces-governed` evidence now reports adoption BREADTH (distinct governed action types), not just volume.
+- **CFS-017 v1 (observe) RATIFIED + implemented (2026-07-06):** the a2ui surface-plan path carries a `constitutional` block (grounding seed ids — the CFS-007 `invariantSeedIds` semantics finally populated, ontology drift, honest coherence slot, receipted flag); receipts when the caller resolves; renders never blocked. Three implementation amendments recorded in CFS-017 (liquid path is client-only and remains ungoverned pending v1.1; the coherence engine is brief-shaped — plan-generic validator is the named gap; the plan route resolves no persona).
 
 **Phase 2 — second increment (2026-07-06): the dev interface + the sovereignty drill**
 

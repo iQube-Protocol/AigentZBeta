@@ -1,6 +1,6 @@
 # CFS-017 — The a2ui/liquid Coherence Seam
 
-**Chrysalis Foundation Specification · v0.1 · Status: DRAFT — awaiting operator ratification. NO implementation until ratified (Law XI).**
+**Chrysalis Foundation Specification · v1.0 · Status: v1 (OBSERVE MODE) RATIFIED by operator direction 2026-07-06 and implemented same day; v2 (gating) UNRATIFIED — precondition: v1 observation data.**
 Constitutional anchor: `codexes/packs/polity-core/constitutional-records/invariant-intelligence.md`
 Companion to CFS-007 (renderer abstraction), CFS-014 (Coherence Engine), CFS-015 (Strand One: every rendering surface governed).
 
@@ -49,9 +49,21 @@ All best-effort in observe mode: instrumentation failure never blocks a plan res
 - The plan route's latency budget gains one grounding query + one validation pass (pure/sync); if observed latency matters, the grounding slice is cacheable per canon version (the `initializeKnowledge` pattern).
 - Liquid renders that bypass the plan route (if any exist — none found by the scout) would remain ungoverned and must be inventoried before v2 gating.
 
-## Ratification decision requested from the operator
+## Ratification record
 
-- [ ] **Ratify v1 (observe mode at the plan route)** — implementable in one increment; no render behaviour changes; the rendering-governed criterion gains its thin-client half.
-- [ ] **Defer** — the seam stands as design.
+- [x] **v1 (OBSERVE MODE) RATIFIED — 2026-07-06, by operator direction.** Implemented same day: `services/constitutional/renderInstrumentation.ts` + the plan route attaches a top-level `constitutional` block (grounding seed ids, resolved terms, drift, canon version, honest coherence slot, receipted flag). A render is never blocked.
+- [ ] **v2 (gating) — not requested, not ratified.** Precondition: v1 observation data.
 
-v2 (gating) is intentionally not offered in this first decision: its precondition is v1 observation data.
+## Implementation amendments — what building v1 taught the spec (2026-07-06)
+
+The implementation scout corrected three assumptions in the draft; recorded here per the constitutional-honesty discipline (the implementation teaches the theory):
+
+1. **The liquid path does NOT flow through the plan route.** It is a client-side registry lookup (`liquidTemplateRegistry` in `liquidExperienceRenderer.ts`) with no server chokepoint — the draft's "single chokepoint both paths flow through" claim was wrong for liquid. The seam as implemented governs the **a2ui path**; liquid renders are inventoried as UNGOVERNED pending a v1.1 design amendment (candidate: instrument at the CFS-007 adapter with a server round-trip for receipts, or accept client-advisory-only status explicitly).
+2. **The coherence engine is brief-shaped only.** `validateVideoBriefCoherence` is the sole entry point; no plan-generic validator exists. v1's semantic-integrity signal is therefore the ontology drift check (real, but narrower than the draft implied); the attached `coherence` slot ships `evaluated: false` with this reason. **v1.1 gap: a plan-shaped validator** (CFS-014 §9 extension).
+3. **The plan route resolves no persona** (mechanical by design — trusts body refs). Receipts emit only when `getActivePersona(request)` resolves; unauthenticated plan calls are instrumented but unreceipted, and the block says so (`receipted: false`). Whether the plan route should REQUIRE persona resolution is a v1.1 decision, not silently changed here.
+
+## v1.1 items (named, not ratified)
+
+1. Plan-shaped coherence validator (unlocks a real `coherence.evaluated: true` at this seam).
+2. Liquid-path governance design.
+3. Persona-resolution posture for the plan route.
