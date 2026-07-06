@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T04:19:29.801Z",
+  "last_updated": "2026-07-06T04:25:18.280Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "302058c32baaff6b5d86ef66285405e32a468d30",
-  "latest_commit_short": "302058c",
-  "latest_commit_title": "Ratify CFS-015 amendments: Capability Pipeline, Improvement Loop, glossary, recursion",
+  "latest_commit": "8f673e4afcfdf0244ebaed125f1db4e015bdb3f7",
+  "latest_commit_short": "8f673e4",
+  "latest_commit_title": "Chrysalis 2.0 Phase 1B: rendering surface completes the constitutional cycle",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8f673e4",
+      "full_sha": "8f673e4afcfdf0244ebaed125f1db4e015bdb3f7",
+      "title": "Chrysalis 2.0 Phase 1B: rendering surface completes the constitutional cycle",
+      "author": "Claude",
+      "timestamp": "2026-07-06T04:23:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8f673e4.md"
+    },
     {
       "sha": "302058c",
       "full_sha": "302058c32baaff6b5d86ef66285405e32a468d30",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T21:23:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d156c1e.md"
-    },
-    {
-      "sha": "553e41b",
-      "full_sha": "553e41b5e67381c99ccea20b2c59a1630e67f886",
-      "title": "fix activations flicker: add mutation generation guard to prevent stale refresh overwriting optimistic state",
-      "author": "Claude",
-      "timestamp": "2026-06-18T21:32:12Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-553e41b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

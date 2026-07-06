@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`8f673e4`](https://github.com/iQube-Protocol/AigentZBeta/commit/8f673e4afcfdf0244ebaed125f1db4e015bdb3f7) [push] Chrysalis 2.0 Phase 1B: rendering surface completes the constitutional cycle (Claude, 2026-07-06T04:23:30Z)
 - [`302058c`](https://github.com/iQube-Protocol/AigentZBeta/commit/302058c32baaff6b5d86ef66285405e32a468d30) [push] Ratify CFS-015 amendments: Capability Pipeline, Improvement Loop, glossary, recursion (Claude, 2026-07-06T04:17:46Z)
 - [`8ae5dec`](https://github.com/iQube-Protocol/AigentZBeta/commit/8ae5deccaa944588bf2b2cf3a51b31fa6e3a1732) [push] Chrysalis 2.0 Phase 1: ratify CFS-015 + constitutional contracts, ontology resolver, model router (Claude, 2026-07-06T03:59:39Z)
 - [`117455e`](https://github.com/iQube-Protocol/AigentZBeta/commit/117455ee17b9b53ff3a6d5732d66d9bc67d4bd00) [feat] Add Report tab + backfill historical runs into the canonical Results record (Claude, 2026-07-06T01:38:28Z)
