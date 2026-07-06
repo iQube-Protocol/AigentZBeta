@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`5a51589`](https://github.com/iQube-Protocol/AigentZBeta/commit/5a515890ce862fe69ea415c489c26b12542a297a) [push] Chrysalis Phase 2.2: Capability Pipeline tab (dev interface v1) + EXP-004 sovereignty drill (Claude, 2026-07-06T06:08:17Z)
 - [`98edca3`](https://github.com/iQube-Protocol/AigentZBeta/commit/98edca34432cce29ff8abdcc0b96a37f27804c4c) [push] Chrysalis Phase 2 Agent B: capability pipeline services (pack, providers, discovery) (Claude, 2026-07-06T05:36:27Z)
 - [`b80f4ae`](https://github.com/iQube-Protocol/AigentZBeta/commit/b80f4ae563bb7b26caf39483bdcf3cac4ce38a07) [push] Chrysalis Phase 2 Agent A: adopt constitutional cycle in assistant surfaces (Claude, 2026-07-06T05:33:58Z)
 - [`8f673e4`](https://github.com/iQube-Protocol/AigentZBeta/commit/8f673e4afcfdf0244ebaed125f1db4e015bdb3f7) [push] Chrysalis 2.0 Phase 1B: rendering surface completes the constitutional cycle (Claude, 2026-07-06T04:23:30Z)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T05:38:12.757Z",
+  "last_updated": "2026-07-06T06:10:14.071Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "98edca34432cce29ff8abdcc0b96a37f27804c4c",
-  "latest_commit_short": "98edca3",
-  "latest_commit_title": "Chrysalis Phase 2 Agent B: capability pipeline services (pack, providers, discovery)",
+  "latest_commit": "5a515890ce862fe69ea415c489c26b12542a297a",
+  "latest_commit_short": "5a51589",
+  "latest_commit_title": "Chrysalis Phase 2.2: Capability Pipeline tab (dev interface v1) + EXP-004 sovereignty drill",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5a51589",
+      "full_sha": "5a515890ce862fe69ea415c489c26b12542a297a",
+      "title": "Chrysalis Phase 2.2: Capability Pipeline tab (dev interface v1) + EXP-004 sovereignty drill",
+      "author": "Claude",
+      "timestamp": "2026-07-06T06:08:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5a51589.md"
+    },
     {
       "sha": "98edca3",
       "full_sha": "98edca34432cce29ff8abdcc0b96a37f27804c4c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T17:44:49Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-345666c.md"
-    },
-    {
-      "sha": "257f0e0",
-      "full_sha": "257f0e02d300329c71d2638c4f4b1687625ba932",
-      "title": "trigger deploy to dev: server-side runtime context + reading sprint tasks",
-      "author": "Claude",
-      "timestamp": "2026-06-18T17:44:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-257f0e0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
