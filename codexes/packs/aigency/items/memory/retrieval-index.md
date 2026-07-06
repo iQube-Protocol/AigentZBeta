@@ -2939,3 +2939,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7186b5b.md](../build_/COMMITS/COMMIT-7186b5b.md)
 - Message: Refine sovereignty as a provider-class property (open-weight), pin with canary
+
+## Commit `e89e6b7` — 2026-07-06T16:04:06Z
+- Type: `push`
+- Brief: [COMMIT-e89e6b7.md](../build_/COMMITS/COMMIT-e89e6b7.md)
+- Message: Codify the Sovereignty Scale: operator control as a spectrum (S0-S3), not a boolean

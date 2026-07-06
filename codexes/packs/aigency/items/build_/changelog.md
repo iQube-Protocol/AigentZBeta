@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e89e6b7`](https://github.com/iQube-Protocol/AigentZBeta/commit/e89e6b70fdf1b616dec57ebdcfcb8eb574395285) [push] Codify the Sovereignty Scale: operator control as a spectrum (S0-S3), not a boolean (Claude, 2026-07-06T16:04:06Z)
 - [`7186b5b`](https://github.com/iQube-Protocol/AigentZBeta/commit/7186b5bc3fd148d040aff70c1b286c3049cbfb21) [push] Refine sovereignty as a provider-class property (open-weight), pin with canary (Claude, 2026-07-06T15:49:16Z)
 - [`ff5abef`](https://github.com/iQube-Protocol/AigentZBeta/commit/ff5abef797368d776606d4fe120f13f856bb8fbc) [push] Promote ChainGPT to experiment adapter; rehearsal chain chaingpt → openai → venice-sovereign (Claude, 2026-07-06T15:40:31Z)
 - [`5db7c45`](https://github.com/iQube-Protocol/AigentZBeta/commit/5db7c45dcdb496807bf0b719349e47593550f3ae) [feat] Add EXP-004 rehearsal arm: frontier fallback validates drill machinery while venice credits pend (Claude, 2026-07-06T15:36:09Z)

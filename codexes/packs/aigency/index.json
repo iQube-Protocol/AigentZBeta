@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T15:51:05.030Z",
+  "last_updated": "2026-07-06T16:05:56.252Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7186b5bc3fd148d040aff70c1b286c3049cbfb21",
-  "latest_commit_short": "7186b5b",
-  "latest_commit_title": "Refine sovereignty as a provider-class property (open-weight), pin with canary",
+  "latest_commit": "e89e6b70fdf1b616dec57ebdcfcb8eb574395285",
+  "latest_commit_short": "e89e6b7",
+  "latest_commit_title": "Codify the Sovereignty Scale: operator control as a spectrum (S0-S3), not a boolean",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e89e6b7",
+      "full_sha": "e89e6b70fdf1b616dec57ebdcfcb8eb574395285",
+      "title": "Codify the Sovereignty Scale: operator control as a spectrum (S0-S3), not a boolean",
+      "author": "Claude",
+      "timestamp": "2026-07-06T16:04:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e89e6b7.md"
+    },
     {
       "sha": "7186b5b",
       "full_sha": "7186b5bc3fd148d040aff70c1b286c3049cbfb21",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T23:01:41Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-88fba98.md"
-    },
-    {
-      "sha": "490cff8",
-      "full_sha": "490cff8fba349393a9d9a7d0019855a371a709ec",
-      "title": "trigger deploy to dev: consumer inline-only experience fix",
-      "author": "Claude",
-      "timestamp": "2026-06-18T23:01:41Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-490cff8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
