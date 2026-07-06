@@ -4743,6 +4743,17 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Landmark', description: 'Mission, live programme status (Chrysalis Test), recent canonical results, roadmap', color: 'violet' },
     },
     {
+      id: 'ccrl-research-copilot',
+      label: 'Research Copilot',
+      slug: 'ccrl-research-copilot',
+      enabled: true,
+      group: 'institution',
+      order: 0.5,
+      type: 'static',
+      config: { component: 'CCRLResearchCopilotTab', props: {} },
+      metadata: { icon: 'FlaskConical', description: 'aigentZ narrates the live lab state — DCIR-conforming, narrate-only (research proposal kinds are C2.1, CFS-019)', color: 'violet' },
+    },
+    {
       id: 'ccrl-charter',
       label: 'Charter',
       slug: 'ccrl-charter',

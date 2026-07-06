@@ -180,6 +180,43 @@ export function devDeploymentProposedEvent(): DcirEvent {
   });
 }
 
+// ─── Generic surface helpers (second-surface vocabulary, CFS-020 D1+) ───────
+// Added by composition for the CCRL research copilot (CFS-019 C2): each is a
+// thin wrapper over emitDcirEvent — the Dev Command Center helpers above are
+// UNTOUCHED. The emitting surface rides capsuleScope so observations stay
+// scoped to their surface (capsule containment applied to observation).
+// Same observe-mode discipline: nothing blocks, summaries are T2-safe labels.
+
+/** Operator opened an instrumented surface (tab mounted). */
+export function surfaceOpenedEvent(surface: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'NavigationOccurred',
+    runtime: 'observation',
+    summary: `surface opened: ${surface}`,
+    capsuleScope: surface,
+  });
+}
+
+/** A surface's observed data refreshed — label is a count/summary, never a body. */
+export function surfaceDataRefreshedEvent(surface: string, label: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'SystemEvent',
+    runtime: 'observation',
+    summary: `data refreshed: ${label}`,
+    capsuleScope: surface,
+  });
+}
+
+/** Operator selected a copilot quick prompt — the chip label only, never the prompt body. */
+export function surfacePromptSelectedEvent(surface: string, label: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'ConversationTurn',
+    runtime: 'conversational',
+    summary: `quick prompt selected: ${label}`,
+    capsuleScope: surface,
+  });
+}
+
 // ─── Observation seam (ground-context rendering) ────────────────────────────
 
 /**

@@ -431,3 +431,42 @@ describe('DCIR — Dynamic Constitutional Interaction Runtime (CFS-020 D0)', () 
     expect(bi?.invariantIds).toContain('inv.interaction.115');
   });
 });
+
+describe('DCIR generic surface helpers (CFS-020 composition — added for CCRL C2)', () => {
+  it('surface events ride the DcirEvent contract: pinned kinds, surface as capsuleScope, no forbidden identifier keys', async () => {
+    const {
+      surfaceOpenedEvent,
+      surfaceDataRefreshedEvent,
+      surfacePromptSelectedEvent,
+      DCIR_EVENT_SUMMARY_MAX,
+    } = await import('@/services/dcir/eventStream');
+
+    const events = [
+      surfaceOpenedEvent('ccrl-research'),
+      surfaceDataRefreshedEvent('ccrl-research', '4 experiments · 8 canonical results'),
+      surfacePromptSelectedEvent('ccrl-research', 'Where does the research programme stand?'),
+    ];
+
+    // Kind vocabulary pinned — each helper's kind sits on the DcirEventKind union.
+    expect(events.map((e) => e.kind)).toEqual(['NavigationOccurred', 'SystemEvent', 'ConversationTurn']);
+    const kindUnion = [
+      'DocumentCreated', 'DocumentEdited', 'SelectionChanged', 'RecommendationAccepted',
+      'RecommendationRejected', 'ArtifactApproved', 'ArtifactRejected', 'UndoPerformed',
+      'NavigationOccurred', 'WorkflowAdvanced', 'ToolOutputProduced', 'ConversationTurn',
+      'PersonaChanged', 'SystemEvent',
+    ];
+    for (const e of events) {
+      expect(kindUnion).toContain(e.kind);
+      // The emitting surface rides capsuleScope (capsule containment applied to observation).
+      expect(e.capsuleScope).toBe('ccrl-research');
+      // Session-scoped D1 ceiling — nothing here is DVN-bound.
+      expect(e.tier).toBe('t1-browser-safe');
+      // Summaries are labels, never bodies.
+      expect(e.summary.length).toBeLessThanOrEqual(DCIR_EVENT_SUMMARY_MAX);
+      // T0 identifiers are inexpressible on the event shape.
+      for (const forbidden of ['personaId', 'authProfileId', 'rootDid', 'fioHandle']) {
+        expect(Object.keys(e)).not.toContain(forbidden);
+      }
+    }
+  });
+});

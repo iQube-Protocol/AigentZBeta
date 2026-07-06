@@ -77,6 +77,8 @@ DCIR ships observe-mode-first (the CFS-017 precedent, ratified): **observation i
 | **D3** | Recommendation + Affordance engines (generated affordances, capsule-contained) | After D2 |
 | **D4** | Universal substrate adoption (aigentMe, Aigent Z, Studio Composer, Marketa, every cartridge) | Frontier |
 
+**D4 roadmap — operator-directed expansion order (2026-07-06):** once DCIR is proven on the Dev Command Center, expand to aigentMe, then Studio Composer. (The CCRL research copilot, born DCIR-conforming via the generic surface helpers in `services/dcir/eventStream.ts`, became the second instrumented surface on 2026-07-06 — CFS-019 C2 — without altering this order: it composed onto the existing seam rather than expanding it.)
+
 ## Ratification record
 
 - [x] **D0 (contract) — AUTHORED 2026-07-06** from the operator's DCIR spec: charter, `types/dcir.ts` (loop + runtimes order-pinned, tier-disciplined events, ratification-bounded behavioural invariants, capsule-scoped affordances), `inv.interaction.112`–`118` (status `proposed`), glossary terms resolver-wired, canaries.
