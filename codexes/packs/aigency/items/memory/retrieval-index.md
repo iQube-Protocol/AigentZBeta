@@ -2944,3 +2944,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e89e6b7.md](../build_/COMMITS/COMMIT-e89e6b7.md)
 - Message: Codify the Sovereignty Scale: operator control as a spectrum (S0-S3), not a boolean
+
+## Commit `2d242d0` — 2026-07-06T16:24:27Z
+- Type: `push`
+- Brief: [COMMIT-2d242d0.md](../build_/COMMITS/COMMIT-2d242d0.md)
+- Message: Codify Platform Sovereignty as a capability bundle: CFS-018 + invariants 100-107 + PSE series charter

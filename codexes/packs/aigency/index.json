@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T16:05:56.252Z",
+  "last_updated": "2026-07-06T16:26:26.894Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e89e6b70fdf1b616dec57ebdcfcb8eb574395285",
-  "latest_commit_short": "e89e6b7",
-  "latest_commit_title": "Codify the Sovereignty Scale: operator control as a spectrum (S0-S3), not a boolean",
+  "latest_commit": "2d242d0a5f82359bbc043646297e90ebe7939d06",
+  "latest_commit_short": "2d242d0",
+  "latest_commit_title": "Codify Platform Sovereignty as a capability bundle: CFS-018 + invariants 100-107 + PSE series charter",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2d242d0",
+      "full_sha": "2d242d0a5f82359bbc043646297e90ebe7939d06",
+      "title": "Codify Platform Sovereignty as a capability bundle: CFS-018 + invariants 100-107 + PSE series charter",
+      "author": "Claude",
+      "timestamp": "2026-07-06T16:24:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2d242d0.md"
+    },
     {
       "sha": "e89e6b7",
       "full_sha": "e89e6b70fdf1b616dec57ebdcfcb8eb574395285",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-19T00:55:11Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-25cf4de.md"
-    },
-    {
-      "sha": "88fba98",
-      "full_sha": "88fba98483b8b91ec59ded97f49eb9e0697c7054",
-      "title": "fix consumer 404: render experience inline-only for non-admins, hide platform links",
-      "author": "Claude",
-      "timestamp": "2026-06-18T23:01:41Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-88fba98.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
