@@ -2969,3 +2969,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-12f76e9.md](../build_/COMMITS/COMMIT-12f76e9.md)
 - Message: Build CCRL research object model + receipted lifecycles (CFS-019 Phase C1)
+
+## Commit `c0e41ab` — 2026-07-06T19:48:10Z
+- Type: `push`
+- Brief: [COMMIT-c0e41ab.md](../build_/COMMITS/COMMIT-c0e41ab.md)
+- Message: Charter DCIR (CFS-020 D0): the Dynamic Constitutional Interaction Runtime contract

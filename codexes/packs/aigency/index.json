@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T19:39:45.150Z",
+  "last_updated": "2026-07-06T19:50:52.112Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "12f76e9661f4c073565c71260cb7dfcc057b5bb7",
-  "latest_commit_short": "12f76e9",
-  "latest_commit_title": "Build CCRL research object model + receipted lifecycles (CFS-019 Phase C1)",
+  "latest_commit": "c0e41ab0355de2010aebd705d2a3d65d40355e50",
+  "latest_commit_short": "c0e41ab",
+  "latest_commit_title": "Charter DCIR (CFS-020 D0): the Dynamic Constitutional Interaction Runtime contract",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c0e41ab",
+      "full_sha": "c0e41ab0355de2010aebd705d2a3d65d40355e50",
+      "title": "Charter DCIR (CFS-020 D0): the Dynamic Constitutional Interaction Runtime contract",
+      "author": "Claude",
+      "timestamp": "2026-07-06T19:48:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c0e41ab.md"
+    },
     {
       "sha": "12f76e9",
       "full_sha": "12f76e9661f4c073565c71260cb7dfcc057b5bb7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-19T12:45:36Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-a94abea.md"
-    },
-    {
-      "sha": "40b86f5",
-      "full_sha": "40b86f580c9aebef36214e1984179e56b16eb5ad",
-      "title": "fix Policy Passport deep link — use full cartridge ID in overlay slug",
-      "author": "Claude",
-      "timestamp": "2026-06-19T12:46:03Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-40b86f5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
