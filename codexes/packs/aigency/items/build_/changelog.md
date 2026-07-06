@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`a8279a9`](https://github.com/iQube-Protocol/AigentZBeta/commit/a8279a9edb56d7aa5d1b7dea6cdce4b9db45f8e4) [feat] Ratify + implement CFS-017 v1: a2ui plan path observed, with three honest amendments (Claude, 2026-07-06T07:42:47Z)
 - [`1cd32d7`](https://github.com/iQube-Protocol/AigentZBeta/commit/1cd32d7d9ae5cb94fda3e18001365804cd5bf4f3) [push] Strand-3 first slice: venture hand-off joins the constitutional cycle + CFS-017 seam draft (Claude, 2026-07-06T07:19:04Z)
 - [`1231d8b`](https://github.com/iQube-Protocol/AigentZBeta/commit/1231d8ba6c5d57c6fd35c5b45855ad6e2f097b76) [feat] Ratify + implement D1 pack-proposed deployment; consequence preflight lights the pipeline (Claude, 2026-07-06T06:58:20Z)
 - [`1800d62`](https://github.com/iQube-Protocol/AigentZBeta/commit/1800d6297c4b656547efde7e65c54b6dcf191c74) [push] Chrysalis Phase 3 opener: the Chrysalis Test live + CFS-016 deployment ladder (draft) (Claude, 2026-07-06T06:23:26Z)
