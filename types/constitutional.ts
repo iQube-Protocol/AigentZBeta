@@ -384,3 +384,23 @@ export const CHRYSALIS_CRITERIA_IDS = [
   'deployment-native',
 ] as const;
 
+/**
+ * The Sovereignty Scale (operator refinement, 2026-07-06): sovereignty is
+ * operator CONTROL over the intelligence supply — a scale, not a boolean.
+ * Its essence is the ability to choose and switch providers free of
+ * commercial or platform lock-in (S1); open weights are its maximum (S3).
+ * Order is meaning — pinned by canary. Glossary: "Sovereignty Scale".
+ *
+ *   s0-dependent        single-provider lock-in — no sovereignty
+ *   s1-interchangeable  operator chooses/switches providers, no lock-in (the essence)
+ *   s2-substitutable    validated substitutes complete the constitutional battery
+ *   s3-open-weight      open-weight carries constitutional operation (maximum control)
+ */
+export const SOVEREIGNTY_SCALE = [
+  's0-dependent',
+  's1-interchangeable',
+  's2-substitutable',
+  's3-open-weight',
+] as const;
+export type SovereigntyRung = (typeof SOVEREIGNTY_SCALE)[number];
+

@@ -197,10 +197,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 8. Sovereignty — EXP-004 published with the claim held. A REHEARSAL run
-  // (frontier-provider machinery drill, aggregates.rehearsal === true) can
-  // only ever produce 'partial': it validates the drill machinery, never the
-  // sovereignty claim, which is definitionally open-weight-only.
+  // 8. Sovereignty — the Sovereignty Scale (types/constitutional.ts):
+  // operator control is a SCALE, not a boolean. A completed rehearsal on a
+  // substitute provider is a live S2 (substitutable) datum → 'partial';
+  // only the open-weight run (S3, maximum control) completes the criterion.
   {
     try {
       const { data } = await client
@@ -223,10 +223,10 @@ export async function GET(request: NextRequest) {
             ? 'partial'
             : 'pending',
         evidence: sovereign
-          ? `latest sovereign drill: sovereigntyHolds=${String(sovereign.sovereigntyHolds)} · completed ${String(sovereign.completed)}`
+          ? `latest open-weight (S3) drill: sovereigntyHolds=${String(sovereign.sovereigntyHolds)} · completed ${String(sovereign.completed)}`
           : rehearsal
-            ? `machinery validated in rehearsal (${String(rehearsal.provider)} · completed ${String(rehearsal.completed)}) — the sovereign (venice) run remains pending`
-            : 'no EXP-004 run published yet — run the Sovereignty tab (rehearsal mode available while venice credits are pending)',
+            ? `S2 (substitutable) demonstrated: battery completed on ${String(rehearsal.provider)} (${String(rehearsal.completed)}) — the open-weight run (S3, maximum operator control) remains pending`
+            : 'no EXP-004 run published yet — run the Sovereignty tab (rehearsal mode gives a live S2 datum while open-weight credits are pending)',
       });
     } catch {
       criteria.push({
@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
       id: 'provider-interchangeability',
       title: 'External models as interchangeable inference providers',
       status: real.length >= 2 && openWeight ? 'partial' : 'pending',
-      evidence: `${real.length} live provider adapters + ${CONSTITUTIONAL_PROVIDERS.length - real.length} honest stubs · open-weight fallback present — 'pass' requires the full orchestration phase (CFS-015 Strand Two Phase Two)`,
+      evidence: `S1 (interchangeable — the essence of sovereignty: operator choice, no lock-in): ${real.length} live provider adapters + ${CONSTITUTIONAL_PROVIDERS.length - real.length} honest stubs · open-weight fallback present — 'pass' requires the full orchestration phase (CFS-015 Strand Two Phase Two)`,
     });
   }
 

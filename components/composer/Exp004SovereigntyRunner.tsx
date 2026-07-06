@@ -201,19 +201,24 @@ export default function Exp004SovereigntyRunner() {
     try {
       // A rehearsal publish NEVER carries sovereigntyHolds — machinery
       // validation is the only claim it is allowed to make.
+      // Sovereignty Scale (types/constitutional.ts SOVEREIGNTY_SCALE): a
+      // completed substitute-provider run is a live S2 (substitutable)
+      // datum; only the open-weight run reaches S3 (maximum).
       const aggregates = isRehearsal
         ? {
             rehearsal: true,
             provider: publishProvider,
             completed: `${completed}/${total}`,
             machineryValidated: completed === total,
+            sovereigntyRung: completed === total ? "s2-substitutable" : null,
             groundedPct: groundedPct ?? "n/a",
             contradictions,
-            note: "REHEARSAL — frontier-provider machinery drill; not a sovereignty claim. The sovereign (venice) run remains pending.",
+            note: "REHEARSAL — substitute-provider run: a live S2 (substitutable) datum on the Sovereignty Scale, never an S3 claim. The open-weight run remains pending.",
           }
         : {
             completed: `${completed}/${total}`,
             sovereigntyHolds,
+            sovereigntyRung: sovereigntyHolds ? "s3-open-weight" : null,
             groundedPct: groundedPct ?? "n/a",
             contradictions,
             note: "degradation is reported vs the EXP-003 frontier record, never scored pass/fail",
@@ -395,11 +400,13 @@ export default function Exp004SovereigntyRunner() {
         <div className={`rounded-lg border p-3 ${completed === total ? "border-sky-800 bg-sky-950/30" : "border-rose-800 bg-rose-950/30"}`}>
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
             <ShieldCheck className={`h-4 w-4 ${completed === total ? "text-sky-400" : "text-rose-400"}`} />
-            Machinery {completed === total ? "VALIDATED" : "INCOMPLETE"} — {completed}/{total} battery tasks completed on {rehearsalProvider} (rehearsal — not a sovereignty claim)
+            Machinery {completed === total ? "VALIDATED" : "INCOMPLETE"} — {completed}/{total} battery tasks completed on {rehearsalProvider}
+            {completed === total ? " · a live S2 (substitutable) datum on the Sovereignty Scale" : ""}
           </div>
           <p className="mt-1 text-xs text-slate-400">
-            Grounded {groundedPct ?? "n/a"}% · contradictions {contradictions}. The sovereign (venice) run
-            remains pending; when credits land, switch back to Sovereign mode and run once.
+            Grounded {groundedPct ?? "n/a"}% · contradictions {contradictions}. Sovereignty is operator
+            control — a scale, not a boolean: this run demonstrates substitutability (S2); the
+            open-weight run (S3, maximum control) remains pending.
           </p>
           <button
             onClick={publish}

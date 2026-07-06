@@ -17,7 +17,11 @@ Computing in which every reasoning surface and every rendering surface is govern
 
 ## Constitutional Sovereignty
 
-The state in which no external AI provider is constitutionally indispensable: planning, development, deployment, validation, and operational learning are owned by the Human Agency System itself, with external models functioning solely as interchangeable constitutional inference providers.
+Operator control over the system's intelligence supply — a SCALE, not a boolean (operator refinement, 2026-07-06). Sovereignty in itself is the operator's ability to choose, switch, and combine providers free of commercial or platform lock-in; no external AI provider is constitutionally indispensable, and external models function solely as interchangeable constitutional inference providers. Maximum sovereignty adds open-weight capability: the operator can run the weights outside any provider entirely. Measured on the Sovereignty Scale.
+
+## Sovereignty Scale
+
+The ordered rungs of operator control over inference supply: **S0 dependent** (single-provider lock-in — no sovereignty) → **S1 interchangeable** (the operator can choose and switch among providers with no commercial or platform lock-in — the ESSENCE of sovereignty) → **S2 substitutable** (validated substitutes exist and the constitutional battery completes on them) → **S3 open-weight** (maximum: an open-weight provider carries constitutional operation, and in the limit the operator can run the weights themselves). EXP-004's sovereign run tests S3; a rehearsal completion on a substitute provider is a live S2 datum, not a nothing.
 
 ## Constitutional Completeness
 
@@ -70,7 +74,7 @@ The constitutional principle that no external AI provider shall become constitut
 
 ## Sovereign Survivability
 
-The constitutional principle that the Human Agency System remains operational in the absence of any frontier AI provider, via a fallback capability on open-weight models. Operational quality may degrade; constitutional operation shall not.
+The constitutional principle that the Human Agency System remains operational in the absence of any frontier AI provider, via a fallback capability on open-weight models — the S3 (maximum) rung of the Sovereignty Scale. Operational quality may degrade; constitutional operation shall not.
 
 ## Chrysalis Contract
 

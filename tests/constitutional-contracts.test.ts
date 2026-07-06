@@ -291,6 +291,26 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     // satisfy the sovereignty claim — openai is frontier in the inventory.
     expect(CONSTITUTIONAL_PROVIDERS.find((p) => p.id === 'openai')?.kind).toBe('frontier');
   });
+
+  it('sovereignty is a SCALE, not a boolean — rung order pinned (operator refinement 2026-07-06)', async () => {
+    const { SOVEREIGNTY_SCALE } = await import('@/types/constitutional');
+    expect(SOVEREIGNTY_SCALE).toEqual([
+      's0-dependent',
+      's1-interchangeable',
+      's2-substitutable',
+      's3-open-weight',
+    ]);
+    // The essence (interchangeability, operator choice without lock-in)
+    // precedes the maximum (open weights) — order is meaning.
+    expect(SOVEREIGNTY_SCALE.indexOf('s1-interchangeable')).toBeLessThan(
+      SOVEREIGNTY_SCALE.indexOf('s3-open-weight'),
+    );
+  });
+
+  it('the Sovereignty Scale resolves through the constitutional glossary', async () => {
+    const r = await resolveOntology('Where does this run land on the sovereignty scale?');
+    expect(r.resolvedTerms.map((t) => t.canonical)).toContain('Sovereignty Scale');
+  });
 });
 
 describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendment)', () => {
