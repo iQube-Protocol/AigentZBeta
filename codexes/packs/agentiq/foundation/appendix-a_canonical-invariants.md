@@ -161,6 +161,14 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 95. *(reasoning · principle)* Sequence is scored, not validated: temporal correctness is a graded coherence field over the space of orderings, with the designed sequence as a global maximum, possible local maxima at alternative coherent orderings, and graded decay away from the optimum.
 96. *(reasoning · principle)* A remix does not change the work; it finds another coherent trajectory through the same invariant space — the invariants remain fixed, only the traversal changes.
 
+## Additions — CFS-015 amendments (Constitutional Improvement, Capability Pipeline, recursion)
+
+*(Ratified 2026-07-06, operator + co-agent review of the Chrysalis 2.0 Phase-1A delivery.)*
+
+97. *(constitutional · principle)* Every constitutional cycle shall increase the capability of the Human Agency System: learning is remembering; improvement is becoming better.
+98. *(engineering · definition)* The Constitutional Capability Pipeline produces capability, not code; development is one implementation mechanism among several — capability remains the invariant.
+99. *(constitutional · principle)* A constitutional system shall be built by the same constitutional principles it establishes; the program of its construction is its first constitutional capability.
+
 ---
 
 ## Maintenance

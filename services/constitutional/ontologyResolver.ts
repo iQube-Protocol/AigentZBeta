@@ -55,34 +55,61 @@ const BUILTIN_CANON: CanonTerm[] = [
   { canonical: 'MAF', aliases: [] },
 ];
 
-/** §headings in the ontology doc that are not terms. */
+/** §headings in the canon docs that are not terms. */
 const NON_TERM_SECTIONS = new Set(['Enforcement']);
+
+/**
+ * The terminology-canon SOURCE DOCS, in load order. Both use the same
+ * format contract: one term per `## heading`, forbidden variants on lines
+ * containing `never "…"`. The Constitutional Glossary (CFS-015 amendment
+ * 2026-07-06) carries the program vocabulary — Constitutional Computing,
+ * Consequence Engineering, Sovereign Survivability, … — so every agent
+ * resolves against ONE constitutional vocabulary.
+ */
+const CANON_SOURCES = [
+  'docs/platform-ontology.md',
+  'codexes/packs/agentiq/foundation/constitutional-glossary.md',
+];
+
+function parseCanonDoc(raw: string): CanonTerm[] {
+  const terms: CanonTerm[] = [];
+  // Split into sections at `## Term` headings; harvest each section's
+  // forbidden variants from its `never "…", "…"` line(s).
+  const sections = raw.split(/^## /m).slice(1);
+  for (const section of sections) {
+    const heading = section.slice(0, section.indexOf('\n')).trim();
+    if (NON_TERM_SECTIONS.has(heading)) continue;
+    const aliases: string[] = [];
+    for (const neverLine of section.matchAll(/never ((?:"[^"]+"[^"\n]*)+)/g)) {
+      for (const quoted of neverLine[1].matchAll(/"([^"]+)"/g)) {
+        if (quoted[1].toLowerCase() !== heading.toLowerCase()) aliases.push(quoted[1]);
+      }
+    }
+    terms.push({ canonical: heading, aliases });
+  }
+  return terms;
+}
 
 let canonCache: CanonTerm[] | null = null;
 
 export function loadTerminologyCanon(): CanonTerm[] {
   if (canonCache) return canonCache;
-  try {
-    const raw = readFileSync(join(process.cwd(), 'docs/platform-ontology.md'), 'utf-8');
-    const terms: CanonTerm[] = [];
-    // Split into sections at `## Term` headings; harvest each section's
-    // forbidden variants from its `never "…", "…"` line(s).
-    const sections = raw.split(/^## /m).slice(1);
-    for (const section of sections) {
-      const heading = section.slice(0, section.indexOf('\n')).trim();
-      if (NON_TERM_SECTIONS.has(heading)) continue;
-      const aliases: string[] = [];
-      for (const neverLine of section.matchAll(/never ((?:"[^"]+"[^"\n]*)+)/g)) {
-        for (const quoted of neverLine[1].matchAll(/"([^"]+)"/g)) {
-          if (quoted[1].toLowerCase() !== heading.toLowerCase()) aliases.push(quoted[1]);
-        }
+  const terms: CanonTerm[] = [];
+  const seen = new Set<string>();
+  for (const source of CANON_SOURCES) {
+    try {
+      const raw = readFileSync(join(process.cwd(), source), 'utf-8');
+      for (const term of parseCanonDoc(raw)) {
+        const key = term.canonical.toLowerCase();
+        if (seen.has(key)) continue; // first source wins on collision
+        seen.add(key);
+        terms.push(term);
       }
-      terms.push({ canonical: heading, aliases });
+    } catch {
+      // source unavailable (e.g. untraced bundle) — continue with the rest
     }
-    canonCache = terms.length > 0 ? terms : BUILTIN_CANON;
-  } catch {
-    canonCache = BUILTIN_CANON;
   }
+  canonCache = terms.length > 0 ? terms : BUILTIN_CANON;
   return canonCache;
 }
 

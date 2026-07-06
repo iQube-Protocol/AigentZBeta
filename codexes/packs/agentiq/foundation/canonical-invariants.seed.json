@@ -1523,6 +1523,48 @@
       "provenance": {
         "source": "CFS-013 §7 topological formalization — the constitutional ground for CFS-006's remix-with-lineage path: derivative works as alternative traversals of a fixed invariant substrate."
       }
+    },
+    {
+      "id": "inv.constitutional.097",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Every constitutional cycle shall increase the capability of the Human Agency System: learning is remembering; improvement is becoming better.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "improvement"
+      ],
+      "provenance": {
+        "source": "CFS-015 principle 7 — Constitutional Improvement (amendment 2026-07-06, operator + co-agent review). Satisfied mechanically by the Constitutional Improvement Loop (Capability → Operation → Observation → Receipt → Learning → Improved Capability)."
+      }
+    },
+    {
+      "id": "inv.engineering.098",
+      "namespace": "engineering",
+      "semantic_type": "definition",
+      "statement": "The Constitutional Capability Pipeline produces capability, not code; development is one implementation mechanism among several (configuration, registry updates, prompts, policy, schemas, knowledge, automation, documentation) — capability remains the invariant.",
+      "status": "proposed",
+      "contexts": [
+        "engineering",
+        "capability"
+      ],
+      "provenance": {
+        "source": "CFS-015 Strand Two rename (amendment 2026-07-06) — the pipeline formerly called the Constitutional Development Pipeline; the Implementation Pack is the artifact produced immediately before the Implementation stage, not a stage itself."
+      }
+    },
+    {
+      "id": "inv.constitutional.099",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "A constitutional system shall be built by the same constitutional principles it establishes; the program of its construction is its first constitutional capability.",
+      "status": "proposed",
+      "contexts": [
+        "governance",
+        "recursion"
+      ],
+      "provenance": {
+        "source": "CFS-015 preamble — the recursive implementation principle (amendment 2026-07-06): Chrysalis is not just building Constitutional Computing, it is demonstrating it."
+      }
     }
   ]
 }

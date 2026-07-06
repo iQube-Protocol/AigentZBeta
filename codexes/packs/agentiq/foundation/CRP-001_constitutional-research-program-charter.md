@@ -4,22 +4,24 @@
 Constitutional anchor: `codexes/packs/polity-core/constitutional-records/invariant-intelligence.md`
 
 ## Purpose
+*(Reframed 2026-07-06: the CRP's real purpose has been discovered — it is no longer simply research.)*
 
-The Constitutional Research Program (CRP) is the permanent laboratory that continuously generates the theoretical and experimental advances for Chrysalis 3.0 and beyond. It **deliberately feeds Chrysalis rather than becoming part of Chrysalis**: one stream builds the constitutional platform; the other expands the science behind it. Nothing in this charter blocks, gates, or sequences any Chrysalis 2.0 deliverable.
+The Constitutional Research Program (CRP) is **where the platform explores constitutional questions that are not yet implementation-ready** — a genuine research institute, the permanent laboratory that continuously generates the theoretical and experimental advances for Chrysalis 3.0 and beyond. It **deliberately feeds Chrysalis rather than becoming part of Chrysalis**: one stream builds the constitutional platform; the other expands the science behind it. Nothing in this charter blocks, gates, or sequences any Chrysalis 2.0 deliverable.
 
-## Remit
+## Remit — candidate research programmes
 
-Investigate questions that inform future constitutional evolution, including:
-
-1. Invariant experimentation methodology and metrics.
-2. Cognitive continuity across humans and agents.
-3. Lifelong learning and capability evolution.
-4. Constitutional user experience and adaptive interfaces.
-5. Human–AI co-reasoning patterns.
-6. Multi-agent learning and shared constitutional memory.
+1. Invariant experimentation methodology (and its metrics).
+2. Context drift reduction.
+3. Constitutional UX and adaptive interfaces.
+4. Human cognitive continuity.
+5. Agent cognitive continuity.
+6. Lifelong learning and capability evolution.
 7. Computational lifespan and identity continuity.
-8. Emergent interaction models enabled by invariant intelligence.
-9. Constitutional measures of intelligence improvement and context drift reduction.
+8. Constitutional memory (multi-agent learning and shared constitutional memory).
+9. Constitutional intelligence metrics (constitutional measures of intelligence improvement).
+10. Improvement benchmarking (in service of the Constitutional Improvement principle, CFS-015 §7).
+11. Human–AI co-evolution and co-reasoning patterns.
+12. Emergent interaction models enabled by invariant intelligence.
 
 ## Founding assets (transferred at charter)
 

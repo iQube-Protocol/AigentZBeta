@@ -40,7 +40,8 @@ import {
 import { routeFor, describeRoutes } from '@/services/constitutional/modelRouter';
 import {
   REASONING_STAGES,
-  CONSTITUTIONAL_DEVELOPMENT_PIPELINE,
+  CONSTITUTIONAL_CAPABILITY_PIPELINE,
+  CONSTITUTIONAL_IMPROVEMENT_LOOP,
 } from '@/types/constitutional';
 import { EXPERIMENT_MODEL_OPTIONS, isAllowedExperimentModel } from '@/services/experiments/llm';
 import seedFile from '@/codexes/packs/agentiq/foundation/canonical-invariants.seed.json';
@@ -139,9 +140,9 @@ describe('Model Router v1 (CFS-015)', () => {
   });
 });
 
-describe('Constitutional pipeline constant (sequencing corollary)', () => {
-  it('order is pinned — order is constitutional data', () => {
-    expect([...CONSTITUTIONAL_DEVELOPMENT_PIPELINE]).toEqual([
+describe('Constitutional pipeline + improvement loop constants (sequencing corollary)', () => {
+  it('Capability Pipeline order is pinned — order is constitutional data', () => {
+    expect([...CONSTITUTIONAL_CAPABILITY_PIPELINE]).toEqual([
       'intent',
       'context',
       'capability',
@@ -149,11 +150,39 @@ describe('Constitutional pipeline constant (sequencing corollary)', () => {
       'value',
       'price',
       'consequence',
-      'implementation-pack',
-      'development',
+      'implementation',
       'validation',
       'receipt',
       'learning',
     ]);
+  });
+
+  it('Improvement Loop order is pinned — terminus is improved CAPABILITY', () => {
+    expect([...CONSTITUTIONAL_IMPROVEMENT_LOOP]).toEqual([
+      'capability',
+      'operation',
+      'observation',
+      'receipt',
+      'learning',
+      'improved-capability',
+    ]);
+  });
+});
+
+describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendment)', () => {
+  it('glossary terms resolve as terminology canon', async () => {
+    const r = await resolveOntology(
+      'How does consequence engineering relate to sovereign survivability under constitutional computing?',
+    );
+    const canonicals = r.resolvedTerms.map((t) => t.canonical);
+    expect(canonicals).toContain('Consequence Engineering');
+    expect(canonicals).toContain('Sovereign Survivability');
+    expect(canonicals).toContain('Constitutional Computing');
+  });
+
+  it('the superseded pipeline name resolves to the canonical rename', async () => {
+    const r = await resolveOntology('update the constitutional development pipeline docs');
+    const pipeline = r.resolvedTerms.find((t) => t.canonical === 'Constitutional Capability Pipeline');
+    expect(pipeline).toBeTruthy();
   });
 });

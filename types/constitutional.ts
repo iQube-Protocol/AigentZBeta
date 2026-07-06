@@ -319,12 +319,20 @@ export interface PortfolioIntelligenceService {
 }
 
 // ---------------------------------------------------------------------------
-// §5 The pipeline, named (CFS-015 Strand Two)
+// §5 The pipeline + the improvement loop, named (CFS-015 Strand Two)
 // ---------------------------------------------------------------------------
 
-/** The canonical innovation lifecycle — order is constitutional data
- * (sequencing corollary of Law XV): stages compose in THIS order. */
-export const CONSTITUTIONAL_DEVELOPMENT_PIPELINE = [
+/**
+ * The Constitutional Capability Pipeline — the canonical innovation
+ * lifecycle. Renamed from "development pipeline" (2026-07-06 amendment):
+ * what it produces is CAPABILITY, not code — development is one
+ * implementation mechanism among several (config, registry updates, prompts,
+ * policy, schemas, knowledge, automation, docs). The Implementation Pack is
+ * the artifact produced immediately BEFORE the implementation stage, not a
+ * stage itself. Order is constitutional data (sequencing corollary of
+ * Law XV): stages compose in THIS order.
+ */
+export const CONSTITUTIONAL_CAPABILITY_PIPELINE = [
   'intent',
   'context',
   'capability',
@@ -332,11 +340,28 @@ export const CONSTITUTIONAL_DEVELOPMENT_PIPELINE = [
   'value',
   'price',
   'consequence',
-  'implementation-pack',
-  'development',
+  'implementation',
   'validation',
   'receipt',
   'learning',
 ] as const;
 
-export type ConstitutionalPipelineStage = (typeof CONSTITUTIONAL_DEVELOPMENT_PIPELINE)[number];
+export type ConstitutionalPipelineStage = (typeof CONSTITUTIONAL_CAPABILITY_PIPELINE)[number];
+
+/**
+ * The Constitutional Improvement Loop (CFS-015 amendment 2026-07-06) — the
+ * self-improvement cycle that runs alongside the Capability Pipeline. Its
+ * terminus is IMPROVED CAPABILITY, not improved code: learning is
+ * remembering; improvement is becoming better (Constitutional Improvement,
+ * CFS-015 principle 7). Order is constitutional data.
+ */
+export const CONSTITUTIONAL_IMPROVEMENT_LOOP = [
+  'capability',
+  'operation',
+  'observation',
+  'receipt',
+  'learning',
+  'improved-capability',
+] as const;
+
+export type ConstitutionalImprovementStage = (typeof CONSTITUTIONAL_IMPROVEMENT_LOOP)[number];
