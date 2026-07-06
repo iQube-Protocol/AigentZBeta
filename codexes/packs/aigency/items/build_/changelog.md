@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1cd32d7`](https://github.com/iQube-Protocol/AigentZBeta/commit/1cd32d7d9ae5cb94fda3e18001365804cd5bf4f3) [push] Strand-3 first slice: venture hand-off joins the constitutional cycle + CFS-017 seam draft (Claude, 2026-07-06T07:19:04Z)
 - [`1231d8b`](https://github.com/iQube-Protocol/AigentZBeta/commit/1231d8ba6c5d57c6fd35c5b45855ad6e2f097b76) [feat] Ratify + implement D1 pack-proposed deployment; consequence preflight lights the pipeline (Claude, 2026-07-06T06:58:20Z)
 - [`1800d62`](https://github.com/iQube-Protocol/AigentZBeta/commit/1800d6297c4b656547efde7e65c54b6dcf191c74) [push] Chrysalis Phase 3 opener: the Chrysalis Test live + CFS-016 deployment ladder (draft) (Claude, 2026-07-06T06:23:26Z)
 - [`5a51589`](https://github.com/iQube-Protocol/AigentZBeta/commit/5a515890ce862fe69ea415c489c26b12542a297a) [push] Chrysalis Phase 2.2: Capability Pipeline tab (dev interface v1) + EXP-004 sovereignty drill (Claude, 2026-07-06T06:08:17Z)
