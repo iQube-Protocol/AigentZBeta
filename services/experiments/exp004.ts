@@ -29,9 +29,27 @@ import {
   type Exp003Verdict,
 } from '@/services/experiments/exp003';
 import { generateImplementationPack, type ImplementationPack } from '@/services/constitutional/implementationPack';
+import type { ExperimentProvider } from '@/services/experiments/llm';
 
 /** The drill's provider — pinned, by definition of the experiment. */
 export const SOVEREIGN_PROVIDER = 'venice' as const;
+
+/**
+ * REHEARSAL arm (2026-07-06, operator-directed): venice credits are pending,
+ * so the identical battery may run on a frontier provider to validate the
+ * drill MACHINERY end-to-end. A rehearsal completion is NEVER a sovereignty
+ * claim — sovereignty is definitionally open-weight-only — and rehearsal
+ * publishes carry `rehearsal: true` with no `sovereigntyHolds` field. The
+ * Chrysalis sovereignty criterion treats a rehearsal as `partial`, never
+ * `pass`. Venice is deliberately NOT in this list (a venice run IS the
+ * sovereign drill).
+ */
+export const REHEARSAL_PROVIDERS = ['openai', 'anthropic'] as const;
+export type RehearsalProvider = (typeof REHEARSAL_PROVIDERS)[number];
+
+export function isRehearsalProvider(p: string): p is RehearsalProvider {
+  return (REHEARSAL_PROVIDERS as readonly string[]).includes(p);
+}
 
 export interface Exp004Battery {
   /** The five EXP-003 constitutional tasks, initialized arm only. */
@@ -51,29 +69,39 @@ export function exp004Battery(): Exp004Battery {
   };
 }
 
-/** One grounded answer, venice-pinned (initialized arm — sovereignty tests
- * the CONSTITUTIONAL mode of operation, which is grounded by definition). */
-export async function exp004AnswerStep(taskIndex: number, model?: string) {
-  return exp003AnswerStep(SOVEREIGN_PROVIDER, taskIndex, 'initialized', model);
+/** One grounded answer, venice-pinned by default (initialized arm —
+ * sovereignty tests the CONSTITUTIONAL mode of operation, which is grounded
+ * by definition). A rehearsal provider may substitute for machinery drills. */
+export async function exp004AnswerStep(
+  taskIndex: number,
+  model?: string,
+  provider: ExperimentProvider = SOVEREIGN_PROVIDER,
+) {
+  return exp003AnswerStep(provider, taskIndex, 'initialized', model);
 }
 
-/** Venice-judged groundedness for one answer. */
+/** Groundedness judged by the SAME provider as the answers (the sovereign
+ * drill's evaluator must itself be sovereign; a rehearsal's evaluator rides
+ * the rehearsal provider). */
 export async function exp004JudgeStep(
   taskIndex: number,
   answer: string,
   model?: string,
+  provider: ExperimentProvider = SOVEREIGN_PROVIDER,
 ): Promise<Exp003Verdict & { citations: number }> {
-  const verdict = await exp003JudgeStep(SOVEREIGN_PROVIDER, taskIndex, answer, model);
+  const verdict = await exp003JudgeStep(provider, taskIndex, answer, model);
   const collection = await fetchExp003Collection();
   const { totalCitations } = exp003CountCitations(answer, collection);
   return { ...verdict, citations: totalCitations };
 }
 
-/** The pack-generation task, venice-pinned. composedBy tells the truth:
- * 'llm' = venice drafted the plan; 'template' = venice failed and the
+/** The pack-generation task. composedBy tells the truth:
+ * 'llm' = the provider drafted the plan; 'template' = it failed and the
  * deterministic fallback carried constitutional operation (which is itself
  * the survivability contract working — record it, don't mask it). */
-export async function exp004PackStep(): Promise<{
+export async function exp004PackStep(
+  provider: ExperimentProvider = SOVEREIGN_PROVIDER,
+): Promise<{
   completed: boolean;
   composedBy: ImplementationPack['composedBy'];
   bindings: number;
@@ -83,7 +111,7 @@ export async function exp004PackStep(): Promise<{
   const battery = exp004Battery();
   const pack = await generateImplementationPack({
     goal: battery.packTask.goal,
-    providerPin: SOVEREIGN_PROVIDER,
+    providerPin: provider,
   });
   return {
     completed: true,

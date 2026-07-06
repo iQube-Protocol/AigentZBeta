@@ -197,7 +197,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 8. Sovereignty — EXP-004 published with the claim held.
+  // 8. Sovereignty — EXP-004 published with the claim held. A REHEARSAL run
+  // (frontier-provider machinery drill, aggregates.rehearsal === true) can
+  // only ever produce 'partial': it validates the drill machinery, never the
+  // sovereignty claim, which is definitionally open-weight-only.
   {
     try {
       const { data } = await client
@@ -205,15 +208,25 @@ export async function GET(request: NextRequest) {
         .select('aggregates')
         .eq('experiment', 'EXP-004')
         .order('created_at', { ascending: false })
-        .limit(1);
-      const agg = (data?.[0]?.aggregates ?? null) as Record<string, unknown> | null;
+        .limit(10);
+      const aggs = (data ?? []).map((r) => (r.aggregates ?? {}) as Record<string, unknown>);
+      const sovereign = aggs.find((a) => a.rehearsal !== true) ?? null;
+      const rehearsal = aggs.find((a) => a.rehearsal === true) ?? null;
       criteria.push({
         id: 'sovereignty',
         title: 'Sovereign survivability (EXP-004 drill)',
-        status: agg ? (agg.sovereigntyHolds === true ? 'pass' : 'fail') : 'pending',
-        evidence: agg
-          ? `latest drill: sovereigntyHolds=${String(agg.sovereigntyHolds)} · completed ${String(agg.completed)}`
-          : 'no EXP-004 run published yet — run the Sovereignty tab (venice credits required)',
+        status: sovereign
+          ? sovereign.sovereigntyHolds === true
+            ? 'pass'
+            : 'fail'
+          : rehearsal
+            ? 'partial'
+            : 'pending',
+        evidence: sovereign
+          ? `latest sovereign drill: sovereigntyHolds=${String(sovereign.sovereigntyHolds)} · completed ${String(sovereign.completed)}`
+          : rehearsal
+            ? `machinery validated in rehearsal (${String(rehearsal.provider)} · completed ${String(rehearsal.completed)}) — the sovereign (venice) run remains pending`
+            : 'no EXP-004 run published yet — run the Sovereignty tab (rehearsal mode available while venice credits are pending)',
       });
     } catch {
       criteria.push({

@@ -261,6 +261,17 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     // like-for-like against the frontier record.
     for (const t of battery.tasks) expect(t.id).toMatch(/^task-\d/);
   });
+
+  it('rehearsal arm never includes the sovereign provider (a venice run IS the drill)', async () => {
+    const { REHEARSAL_PROVIDERS, SOVEREIGN_PROVIDER, isRehearsalProvider } = await import(
+      '@/services/experiments/exp004'
+    );
+    expect(REHEARSAL_PROVIDERS).toEqual(['openai', 'anthropic']);
+    expect((REHEARSAL_PROVIDERS as readonly string[]).includes(SOVEREIGN_PROVIDER)).toBe(false);
+    expect(isRehearsalProvider('venice')).toBe(false);
+    expect(isRehearsalProvider('openai')).toBe(true);
+    expect(isRehearsalProvider('chaingpt')).toBe(false); // chat-surface provider, not an experiment adapter
+  });
 });
 
 describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendment)', () => {
