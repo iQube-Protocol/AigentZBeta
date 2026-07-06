@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T07:00:15.078Z",
+  "last_updated": "2026-07-06T07:20:53.302Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1231d8ba6c5d57c6fd35c5b45855ad6e2f097b76",
-  "latest_commit_short": "1231d8b",
-  "latest_commit_title": "Ratify + implement D1 pack-proposed deployment; consequence preflight lights the pipeline",
+  "latest_commit": "1cd32d7d9ae5cb94fda3e18001365804cd5bf4f3",
+  "latest_commit_short": "1cd32d7",
+  "latest_commit_title": "Strand-3 first slice: venture hand-off joins the constitutional cycle + CFS-017 seam draft",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1cd32d7",
+      "full_sha": "1cd32d7d9ae5cb94fda3e18001365804cd5bf4f3",
+      "title": "Strand-3 first slice: venture hand-off joins the constitutional cycle + CFS-017 seam draft",
+      "author": "Claude",
+      "timestamp": "2026-07-06T07:19:04Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1cd32d7.md"
+    },
     {
       "sha": "1231d8b",
       "full_sha": "1231d8ba6c5d57c6fd35c5b45855ad6e2f097b76",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T11:17:53Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c3a2e31.md"
-    },
-    {
-      "sha": "620be7a",
-      "full_sha": "620be7a5cb4d9a8401527c814bb5beed6a517df0",
-      "title": "populate composition.nextActions in reading sprint packet",
-      "author": "Claude",
-      "timestamp": "2026-06-18T15:41:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-620be7a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
