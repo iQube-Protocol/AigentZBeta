@@ -168,7 +168,7 @@ Chrysalis 2.0 is largely a **promotion of existing production organs into named 
 | Canonical Ontology Service | terminology canon + invariant ontology exist; no runtime resolver | **NEW** |
 | Model Router | provider chain + allowlists + per-AGENT ModelQube catalog exist; per-STAGE routing does not | **NEW (thin)** |
 | Implementation Pack | QubeTalk bridge rail exists (`--paths --deploy-ready`, sha-verified apply) | generator **NEW** |
-| Deployment | `.amplify-deploy` + `claude/**`→dev auto-merge | authority ladder designed — CFS-016 (DRAFT, awaiting ratification) |
+| Deployment | `.amplify-deploy` + `claude/**`→dev auto-merge | CFS-016 v1.0 — **D1 RATIFIED 2026-07-06** (pack-proposed; execution human); D2/D3 unratified |
 | RiskQube/ValueQube/PriceQube | `assessRisk`/`assessValue` throwing phase-2 stubs; Capability Composition null | seams exist |
 
 ## Appendix B — Sequencing (constitutional)

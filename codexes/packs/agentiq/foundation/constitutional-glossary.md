@@ -76,6 +76,10 @@ The constitutional principle that the Human Agency System remains operational in
 
 The program gate: every enhancement to the Human Agency System must improve at least one constitutional capability — Constitutional Computing, Development, Operations, or Learning. If it improves none, it does not belong in Operation Chrysalis. (Law X restated at program level — CFS-009.)
 
+## Deployment Authority Ladder
+
+The ratified scale of deployment authority (CFS-016): D0 operator-manual → D1 pack-proposed (proposal constitutional, execution human — RATIFIED 2026-07-06) → D2 receipts-gated with per-deploy operator approval (unratified; precondition: D1 operating history) → D3 autonomous within bounds (explicitly not proposed). Hard boundaries bind every level: dev-rail only, protected-file diffs individually reviewed, no credential transfer, approval always per-deploy.
+
 ## Constitutional Quality Authority
 
 The grown role of the Third Constitutional Agent: the equivalent of a compiler for constitutional change — architectural coherence, ontology governance, invariant validation, capability/continuity/improvement benchmarking, and constitutional regression testing. Nothing integrates that it cannot verify.

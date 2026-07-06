@@ -24,6 +24,7 @@ import type { ContextPack, ResolvedTerm } from '@/types/constitutional';
 import { assembleContextPack } from '@/services/constitutional/ontologyResolver';
 import { callStage } from '@/services/constitutional/modelRouter';
 import { parseJsonLenient, callChatWithUsage, type ExperimentProvider } from '@/services/experiments/llm';
+import { forecastConsequences, assessRiskHeuristic, assessValueHeuristic } from '@/services/consequence/stages';
 
 // ---------------------------------------------------------------------------
 // Shape
@@ -68,6 +69,24 @@ export interface ImplementationPack {
   canonVersion: string;
   generatedAt: string;
   composedBy: 'llm' | 'template';
+  /** Consequence preflight over the binding invariants (CFS-006a organs) —
+   * lights the risk/value/consequence pipeline stages. `basis: 'heuristic'`
+   * keeps the honesty: these are the v1 heuristics, not the ratified
+   * RiskQube/ValueQube. Null when the preflight could not run (best-effort —
+   * pack generation never blocks on it). */
+  preflight: PackPreflight | null;
+}
+
+export interface PackPreflight {
+  disposition: 'proceed' | 'escalate';
+  forcesEscalation: boolean;
+  enables: number;
+  constrains: number;
+  contradicts: number;
+  rationale: string;
+  risk: { score: number; flags: string[]; basis: 'heuristic' };
+  /** Q¢ integer cents (Q¢ canon) — display USD-primary. */
+  value: { workPotentialQc: number; basis: 'heuristic' };
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +213,46 @@ export async function generateImplementationPack(input: {
     );
   }
 
+  // Consequence preflight (CFS-006a organs) over the binding invariants —
+  // best-effort: any failure yields null and the pack ships without it.
+  let preflight: PackPreflight | null = null;
+  try {
+    const forecast = await forecastConsequences(invariantBindings.map((b) => b.id));
+    // 'coherent' is a real signal here: reachable contradictions in the
+    // knowledge footprint = incoherent grounding (never assumed true).
+    const coherent = forecast.contradicts === 0;
+    const items = contextPack.slice.items;
+    const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+    const now = new Date().toISOString();
+    const risk = assessRiskHeuristic({
+      iqubeId: 'implementation-pack',
+      aggregateConfidence: mean(items.map((i) => i.confidence)),
+      knowledgeSize: invariantBindings.length,
+      coherent,
+      now,
+    });
+    const value = assessValueHeuristic({
+      iqubeId: 'implementation-pack',
+      aggregateStanding: mean(items.map((i) => i.standing)),
+      knowledgeSize: invariantBindings.length,
+      now,
+    });
+    preflight = {
+      disposition: forecast.forcesEscalation ? 'escalate' : 'proceed',
+      forcesEscalation: forecast.forcesEscalation,
+      enables: forecast.enables,
+      constrains: forecast.constrains,
+      contradicts: forecast.contradicts,
+      rationale: forecast.rationale,
+      risk: { score: risk.overall_score, flags: risk.risk_flags, basis: 'heuristic' },
+      value: { workPotentialQc: value.work_potential_qc, basis: 'heuristic' },
+    };
+  } catch (err) {
+    console.warn(
+      `[ImplementationPack] consequence preflight failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   return {
     id: randomUUID(),
     intentId: input.intentId ?? null,
@@ -202,6 +261,7 @@ export async function generateImplementationPack(input: {
     resolvedTerms: contextPack.resolvedTerms,
     canonVersion: contextPack.canonVersion,
     generatedAt: new Date().toISOString(),
+    preflight,
     ...fields,
   };
 }

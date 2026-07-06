@@ -1,6 +1,6 @@
 # CFS-016 — Constitutional Deployment
 
-**Chrysalis Foundation Specification · v0.1 · Status: DRAFT — awaiting operator ratification. NO implementation until ratified (Law XI).**
+**Chrysalis Foundation Specification · v1.0 · Status: D1 RATIFIED by operator direction 2026-07-06; D2/D3 remain UNRATIFIED (D2's precondition: D1 operating history).**
 Constitutional anchor: `codexes/packs/polity-core/constitutional-records/invariant-intelligence.md`
 Companion to CFS-015 (Strand One Phase Two: "deployment ownership transfers to Aigent Z" — the PRD's riskiest single item, deliberately designed before any code).
 
@@ -17,7 +17,7 @@ The recursive preamble (CFS-015) applies to this document itself: designing depl
 | Level | Name | Who decides | Who executes | Status |
 |---|---|---|---|---|
 | **D0** | Operator-manual | Operator | Operator (or an agent under live per-push operator direction, as today) | **CURRENT** |
-| **D1** | Pack-proposed | Operator | Operator | Designed below — ratifiable |
+| **D1** | Pack-proposed | Operator | Operator | **RATIFIED 2026-07-06** — implemented same day (`deployment_proposed` receipt type + the Capability Pipeline tab's propose affordance) |
 | **D2** | Receipts-gated, operator-approved | Operator (per deploy, one explicit approval) | Aigent Z (through the existing rail) | Designed below — ratifiable AFTER D1 has operated |
 | **D3** | Autonomous within bounds | Constitution (pre-ratified envelope) | Aigent Z | **EXPLICITLY NOT PROPOSED.** Requires its own future amendment with evidence from D2 operation |
 
@@ -66,9 +66,8 @@ These bind D1, D2, and any future level equally:
 | `deployment_reverted` | D2+ | reverted commit, reason, who initiated |
 | `deployment_authority_changed` | any | ladder level change + who ratified (the kill switch is this receipt too) |
 
-## Ratification decision requested from the operator
+## Ratification record
 
-- [ ] **Ratify D1** (pack-proposed; human execution unchanged) — low risk, high provenance value; implementable in one increment.
-- [ ] **Defer** — the ladder stands as design; D0 continues.
-
-D2 is intentionally NOT offered in this first decision: its precondition is D1 operating history. When D1 has run long enough to judge, a D2 ratification request will cite the actual receipt chains as evidence — the Improvement Loop applied to deployment authority itself.
+- [x] **D1 RATIFIED — 2026-07-06, by operator direction.** Implemented the same day: `deployment_proposed` added to the receipt union + ANCHORABLE_ACTION_TYPES (the permitted change class), the admin-gated `/api/constitutional/deployment-proposal` route, and the "Propose deployment" section on the Capability Pipeline tab. Execution remains human; no credentials moved; the protected-file flag is operator self-declaration in v1 (honest limitation, stated in the UI).
+- [ ] **D2 — not requested, not ratified.** Its precondition is D1 operating history. When D1 has run long enough to judge, a D2 ratification request will cite the actual receipt chains as evidence — the Improvement Loop applied to deployment authority itself.
+- **D3 — explicitly not proposed** (unchanged).

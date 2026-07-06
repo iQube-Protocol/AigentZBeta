@@ -223,13 +223,23 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 10. Deployment native — ratification precedes implementation.
-  criteria.push({
-    id: 'deployment-native',
-    title: 'Constitutional deployment (native, receipts-gated)',
-    status: 'pending',
-    evidence: 'design drafted as CFS-016 — awaiting operator ratification; no implementation until ratified (Law XI)',
-  });
+  // 10. Deployment — D1 (pack-proposed) RATIFIED 2026-07-06 (CFS-016 v1.0);
+  // native execution (D2+) remains unratified, so full 'pass' stays out of
+  // reach by design until the ladder advances.
+  {
+    const proposals = await countRows(client, 'activity_receipts', (q) =>
+      q.eq('action_type', 'deployment_proposed'),
+    );
+    criteria.push({
+      id: 'deployment-native',
+      title: 'Constitutional deployment (authority ladder — CFS-016)',
+      status: proposals && proposals > 0 ? 'partial' : 'pending',
+      evidence:
+        proposals && proposals > 0
+          ? `D1 operating: ${proposals} deployment_proposed receipt(s) · native execution (D2+) unratified — 'pass' requires it`
+          : "D1 ratified (CFS-016 v1.0) — no proposals recorded yet; native execution (D2+) unratified",
+    });
+  }
 
   const passed = criteria.filter((c) => c.status === 'pass').length;
   return NextResponse.json({

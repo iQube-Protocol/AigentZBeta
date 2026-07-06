@@ -94,6 +94,7 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'knowledge_evolved',
   'experience_render_validated',
   'implementation_pack_generated',
+  'deployment_proposed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

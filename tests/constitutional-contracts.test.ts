@@ -215,6 +215,15 @@ describe('Strand-2 capability services (Phase 2 Agent B)', () => {
     expect(pack.receiptPlan.length).toBeGreaterThan(0);
     expect(pack.goal).toBe('test the fallback discipline');
     expect(pack.canonVersion).toBe('canon-test-1'); // from the mocked store
+    // Preflight null-tolerance: with a mocked empty slice the forecast runs
+    // over zero bindings — the pack must remain valid whether preflight is
+    // a real block or null (best-effort by design).
+    expect(pack.preflight === null || typeof pack.preflight === 'object').toBe(true);
+    if (pack.preflight) {
+      expect(pack.preflight.risk.basis).toBe('heuristic');
+      expect(pack.preflight.value.basis).toBe('heuristic');
+      expect(['proceed', 'escalate']).toContain(pack.preflight.disposition);
+    }
   });
 });
 

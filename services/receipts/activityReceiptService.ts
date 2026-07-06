@@ -81,6 +81,7 @@ export type ActivityActionType =
   | 'knowledge_evolved'
   | 'experience_render_validated'
   | 'implementation_pack_generated'
+  | 'deployment_proposed'
   // Foundational Validation Series — canonical result publication (Experiment
   // Lab). Summary carries the sha256 content commitment of the results JSON;
   // DVN-anchorable so the commitment lands in tamper-evident memory.

@@ -37,11 +37,25 @@ interface PackView {
   canonVersion: string;
   generatedAt: string;
   composedBy: "llm" | "template";
+  preflight: {
+    disposition: "proceed" | "escalate";
+    forcesEscalation: boolean;
+    enables: number;
+    constrains: number;
+    contradicts: number;
+    rationale: string;
+    risk: { score: number; flags: string[]; basis: string };
+    value: { workPotentialQc: number; basis: string };
+  } | null;
 }
 
-// Which pipeline stages this v1 surface actually exercises.
-const LIVE_STAGES = new Set(["intent", "context", "consequence", "implementation"]);
-const STUB_STAGES = new Set(["risk", "value", "price"]);
+// Which pipeline stages this surface exercises. risk/value/consequence
+// light up when the pack carries a consequence preflight (CFS-006a organs,
+// heuristic-labeled); price remains the honest unevaluated stub (PriceQube
+// unratified).
+const BASE_LIVE_STAGES = new Set(["intent", "context", "implementation"]);
+const PREFLIGHT_STAGES = new Set(["risk", "value", "consequence"]);
+const STUB_STAGES = new Set(["price"]);
 
 function packMarkdown(pack: PackView): string {
   return `# Implementation Pack — ${pack.goal}
@@ -64,6 +78,19 @@ ${pack.validationPlan.map((v) => `- ${v}`).join("\n")}
 ## Receipt plan
 ${pack.receiptPlan.map((r) => `- ${r}`).join("\n")}
 
+## Consequence preflight${pack.preflight ? "" : " — not available for this pack"}
+${
+  pack.preflight
+    ? [
+        `- Disposition: **${pack.preflight.disposition}**${pack.preflight.forcesEscalation ? " (forces escalation — human ratification required before implementation)" : ""}`,
+        `- Forecast: enables ${pack.preflight.enables} · constrains ${pack.preflight.constrains} · contradicts ${pack.preflight.contradicts}`,
+        `- Rationale: ${pack.preflight.rationale}`,
+        `- Risk: ${pack.preflight.risk.score}/100 (${pack.preflight.risk.basis})${pack.preflight.risk.flags.length ? ` — flags: ${pack.preflight.risk.flags.join(", ")}` : ""}`,
+        `- Value: $${(pack.preflight.value.workPotentialQc / 100).toFixed(2)} (${pack.preflight.value.workPotentialQc} Q¢, ${pack.preflight.value.basis} work-potential)`,
+      ].join("\n")
+    : "_preflight could not run — pack shipped without it (best-effort by design)_"
+}
+
 ---
 *Artifact-before-implementation (CFS-015 Constitutional Capability Pipeline). The pack's generation was receipted (\`implementation_pack_generated\`, DVN-anchorable) with its invariant bindings recorded as \`invariants_used\`.*
 `;
@@ -76,6 +103,13 @@ export default function CapabilityPipelineTab() {
   const [error, setError] = useState<string | null>(null);
   const [pack, setPack] = useState<PackView | null>(null);
   const [copied, setCopied] = useState(false);
+  // D1 (CFS-016 v1.0): propose-deployment section state. Execution stays
+  // human — this records the provenance chain, nothing more.
+  const [commitRange, setCommitRange] = useState("");
+  const [validationNotes, setValidationNotes] = useState("");
+  const [touchesProtected, setTouchesProtected] = useState(false);
+  const [proposing, setProposing] = useState(false);
+  const [proposal, setProposal] = useState<string | null>(null);
 
   const markdown = useMemo(() => (pack ? packMarkdown(pack) : ""), [pack]);
 
@@ -89,6 +123,10 @@ export default function CapabilityPipelineTab() {
         domains: domains.trim() ? domains.split(",").map((d) => d.trim()).filter(Boolean) : undefined,
       });
       setPack(data.pack as PackView);
+      setProposal(null);
+      setCommitRange("");
+      setValidationNotes("");
+      setTouchesProtected(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pack generation failed");
     } finally {
@@ -100,6 +138,26 @@ export default function CapabilityPipelineTab() {
     await navigator.clipboard.writeText(markdown);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const propose = async () => {
+    if (!pack) return;
+    setProposing(true);
+    setProposal(null);
+    try {
+      const data = await experimentStep("/api/constitutional/deployment-proposal", {
+        packId: pack.id,
+        goal: pack.goal,
+        commitRange: commitRange.trim(),
+        validationNotes,
+        touchesProtectedFiles: touchesProtected,
+      });
+      setProposal(`Proposed — receipt ${String(data.receiptId).slice(0, 8)}… · ${String(data.d1Semantics)}`);
+    } catch (err) {
+      setProposal(err instanceof Error ? err.message : "proposal failed");
+    } finally {
+      setProposing(false);
+    }
   };
 
   return (
@@ -115,24 +173,34 @@ export default function CapabilityPipelineTab() {
 
       {/* Stage strip — honest about what's live vs ratified stubs. */}
       <div className="flex flex-wrap items-center gap-1">
-        {CONSTITUTIONAL_CAPABILITY_PIPELINE.map((stage, i) => (
-          <React.Fragment key={stage}>
-            {i > 0 && <span className="text-slate-700 text-xs">→</span>}
-            <span
-              className={`rounded px-2 py-0.5 text-[10px] ${
-                LIVE_STAGES.has(stage)
-                  ? "bg-indigo-950/60 border border-indigo-800 text-indigo-300"
-                  : STUB_STAGES.has(stage)
-                    ? "bg-slate-900 border border-slate-800 text-slate-500"
-                    : "bg-slate-900/50 border border-slate-800 text-slate-400"
-              }`}
-              title={STUB_STAGES.has(stage) ? "Ratified stub — returns unevaluated until its service ships (MaybeEvaluated discipline)" : undefined}
-            >
-              {stage}
-              {STUB_STAGES.has(stage) ? " · unevaluated" : ""}
-            </span>
-          </React.Fragment>
-        ))}
+        {CONSTITUTIONAL_CAPABILITY_PIPELINE.map((stage, i) => {
+          const preflightLit = PREFLIGHT_STAGES.has(stage) && Boolean(pack?.preflight);
+          const lit = BASE_LIVE_STAGES.has(stage) || preflightLit;
+          return (
+            <React.Fragment key={stage}>
+              {i > 0 && <span className="text-slate-700 text-xs">→</span>}
+              <span
+                className={`rounded px-2 py-0.5 text-[10px] ${
+                  lit
+                    ? "bg-indigo-950/60 border border-indigo-800 text-indigo-300"
+                    : STUB_STAGES.has(stage)
+                      ? "bg-slate-900 border border-slate-800 text-slate-500"
+                      : "bg-slate-900/50 border border-slate-800 text-slate-400"
+                }`}
+                title={
+                  STUB_STAGES.has(stage)
+                    ? "Ratified stub — returns unevaluated until its service ships (MaybeEvaluated discipline)"
+                    : PREFLIGHT_STAGES.has(stage) && !pack?.preflight
+                      ? "Lights when a pack's consequence preflight runs (heuristic-labeled)"
+                      : undefined
+                }
+              >
+                {stage}
+                {STUB_STAGES.has(stage) ? " · unevaluated" : preflightLit ? " · heuristic" : ""}
+              </span>
+            </React.Fragment>
+          );
+        })}
       </div>
 
       <div className="space-y-2">
@@ -193,9 +261,81 @@ export default function CapabilityPipelineTab() {
               {copied ? "Copied" : "Copy pack (markdown)"}
             </button>
           </div>
+          {pack.preflight && (
+            <div className={`rounded-lg border p-3 ${pack.preflight.forcesEscalation ? "border-rose-800 bg-rose-950/30" : "border-slate-800 bg-slate-900/40"}`}>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className={`rounded px-2 py-0.5 border ${pack.preflight.forcesEscalation ? "bg-rose-950/60 border-rose-800 text-rose-300" : "bg-emerald-950/60 border-emerald-800 text-emerald-300"}`}>
+                  consequence: {pack.preflight.disposition}
+                </span>
+                <span className="rounded px-2 py-0.5 border bg-slate-900 border-slate-700 text-slate-300">
+                  risk {pack.preflight.risk.score}/100 · heuristic
+                </span>
+                <span className="rounded px-2 py-0.5 border bg-slate-900 border-slate-700 text-slate-300">
+                  value ${(pack.preflight.value.workPotentialQc / 100).toFixed(2)} · heuristic
+                </span>
+                <span className="text-slate-500">
+                  enables {pack.preflight.enables} · constrains {pack.preflight.constrains} · contradicts {pack.preflight.contradicts}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">{pack.preflight.rationale}</p>
+              {pack.preflight.risk.flags.length > 0 && (
+                <p className="mt-1 text-xs text-amber-300">risk flags: {pack.preflight.risk.flags.join(", ")}</p>
+              )}
+            </div>
+          )}
+
           <pre className="whitespace-pre-wrap break-words rounded-lg border border-slate-800 bg-slate-950/60 p-4 text-[12px] leading-relaxed text-slate-300 font-mono">
             {markdown}
           </pre>
+
+          {/* D1 — propose deployment (CFS-016 v1.0). The proposal becomes
+              constitutional; the execution stays human. */}
+          <div className="rounded-lg border border-indigo-900/60 bg-indigo-950/20 p-3 space-y-2">
+            <h3 className="text-sm font-semibold text-slate-200">Propose deployment (D1 — ratified 2026-07-06)</h3>
+            <p className="text-xs text-slate-500">
+              Records the provenance chain as a DVN-anchorable <code className="text-slate-400">deployment_proposed</code> receipt.
+              Execution stays with you — after proposing, push manually exactly as today. No credentials move.
+            </p>
+            <label className="block text-xs text-slate-300">
+              Commit range / hash(es)
+              <input
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100 text-xs"
+                placeholder="e.g. abc1234..def5678 or a single commit hash"
+                value={commitRange}
+                onChange={(e) => setCommitRange(e.target.value)}
+              />
+            </label>
+            <label className="block text-xs text-slate-300">
+              Validation evidence <span className="text-slate-500">(one note per line — receipts, test runs, canaries)</span>
+              <textarea
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100 text-xs"
+                rows={2}
+                value={validationNotes}
+                onChange={(e) => setValidationNotes(e.target.value)}
+              />
+            </label>
+            <label className="flex items-start gap-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                checked={touchesProtected}
+                onChange={(e) => setTouchesProtected(e.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 rounded border-slate-700 bg-slate-900"
+              />
+              <span>
+                Diff touches protected files (access gates / identity spine / DVN pipeline).
+                <span className="text-slate-500"> Self-declared in v1. CFS-016 hard boundary 2: flagged proposals require those diffs individually reviewed before pushing.</span>
+              </span>
+            </label>
+            <button
+              onClick={propose}
+              disabled={proposing || !commitRange.trim()}
+              className="inline-flex items-center gap-1.5 rounded-md bg-indigo-700 hover:bg-indigo-600 px-2.5 py-1.5 text-xs text-white disabled:opacity-50"
+            >
+              {proposing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              {proposing ? "Recording proposal…" : "Propose deployment"}
+            </button>
+            {proposal && <p className="text-xs text-slate-400">{proposal}</p>}
+          </div>
         </div>
       )}
     </div>
