@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T05:35:53.334Z",
+  "last_updated": "2026-07-06T05:38:12.757Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b80f4ae563bb7b26caf39483bdcf3cac4ce38a07",
-  "latest_commit_short": "b80f4ae",
-  "latest_commit_title": "Chrysalis Phase 2 Agent A: adopt constitutional cycle in assistant surfaces",
+  "latest_commit": "98edca34432cce29ff8abdcc0b96a37f27804c4c",
+  "latest_commit_short": "98edca3",
+  "latest_commit_title": "Chrysalis Phase 2 Agent B: capability pipeline services (pack, providers, discovery)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "98edca3",
+      "full_sha": "98edca34432cce29ff8abdcc0b96a37f27804c4c",
+      "title": "Chrysalis Phase 2 Agent B: capability pipeline services (pack, providers, discovery)",
+      "author": "Claude",
+      "timestamp": "2026-07-06T05:36:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-98edca3.md"
+    },
     {
       "sha": "b80f4ae",
       "full_sha": "b80f4ae563bb7b26caf39483bdcf3cac4ce38a07",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T17:44:57Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-257f0e0.md"
-    },
-    {
-      "sha": "50cbc92",
-      "full_sha": "50cbc92cdee6937bd23d509c790fc8f3cb778977",
-      "title": "swap Polity Passport before ExperienceModel on welcome screen, rename to 'Get my'",
-      "author": "Claude",
-      "timestamp": "2026-06-18T21:23:14Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-50cbc92.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

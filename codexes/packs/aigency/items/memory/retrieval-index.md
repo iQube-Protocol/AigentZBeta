@@ -2884,3 +2884,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b80f4ae.md](../build_/COMMITS/COMMIT-b80f4ae.md)
 - Message: Chrysalis Phase 2 Agent A: adopt constitutional cycle in assistant surfaces
+
+## Commit `98edca3` — 2026-07-06T05:36:27Z
+- Type: `push`
+- Brief: [COMMIT-98edca3.md](../build_/COMMITS/COMMIT-98edca3.md)
+- Message: Chrysalis Phase 2 Agent B: capability pipeline services (pack, providers, discovery)
