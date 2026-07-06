@@ -44,7 +44,7 @@ import {
   CONSTITUTIONAL_IMPROVEMENT_LOOP,
 } from '@/types/constitutional';
 import { EXPERIMENT_MODEL_OPTIONS, isAllowedExperimentModel } from '@/services/experiments/llm';
-import seedFile from '@/codexes/packs/agentiq/foundation/canonical-invariants.seed.json';
+import seedFile from '@/codexes/packs/ccrl/foundation/canonical-invariants.seed.json';
 
 describe('Canonical Ontology Service (CFS-015)', () => {
   it('parses the terminology canon from docs/platform-ontology.md (not the fallback)', () => {

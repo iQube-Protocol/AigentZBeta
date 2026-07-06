@@ -42,7 +42,7 @@
  * on the SAME provider+model — never mix providers within a run, the
  * comparison would be meaningless.
  *
- * Output: codexes/packs/agentiq/foundation/experiments/exp-003-rediscovery-savings/
+ * Output: codexes/packs/ccrl/foundation/experiments/exp-003-rediscovery-savings/
  *   results-<UTC date>.json  (raw)  +  a summary table on stdout to paste
  *   into the experiment README's results section.
  */
@@ -54,7 +54,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '..');
-const OUT_DIR = join(REPO, 'codexes/packs/agentiq/foundation/experiments/exp-003-rediscovery-savings');
+const OUT_DIR = join(REPO, 'codexes/packs/ccrl/foundation/experiments/exp-003-rediscovery-savings');
 const DRY_RUN = process.argv.includes('--dry-run');
 const tasksArgIdx = process.argv.indexOf('--tasks');
 const TASK_LIMIT = tasksArgIdx > -1 ? Number(process.argv[tasksArgIdx + 1]) : Infinity;

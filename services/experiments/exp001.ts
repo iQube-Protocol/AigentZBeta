@@ -26,7 +26,7 @@ import {
 
 const EXP_DIR = path.join(
   process.cwd(),
-  'codexes/packs/agentiq/foundation/experiments/exp-001-living-knowledgeqube',
+  'codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube',
 );
 
 export function exp001Config() {

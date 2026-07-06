@@ -68,7 +68,7 @@ const NON_TERM_SECTIONS = new Set(['Enforcement']);
  */
 const CANON_SOURCES = [
   'docs/platform-ontology.md',
-  'codexes/packs/agentiq/foundation/constitutional-glossary.md',
+  'codexes/packs/ccrl/foundation/constitutional-glossary.md',
 ];
 
 function parseCanonDoc(raw: string): CanonTerm[] {

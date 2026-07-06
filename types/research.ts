@@ -70,7 +70,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     seriesId: 'FVS',
     hypothesis:
       'A living KnowledgeQube grounded in canonical invariants preserves semantic fidelity across independent renderings.',
-    protocolRef: 'codexes/packs/agentiq/foundation/experiments/exp-001-living-knowledgeqube/README.md',
+    protocolRef: 'codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube/README.md',
     governingInvariants: ['inv.constitutional.060', 'inv.reasoning.001'],
   },
   {
@@ -80,7 +80,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     seriesId: 'FVS',
     hypothesis:
       'Invariant-carried video preserves identity and narrative coherence across segments; sequence is scored, not validated.',
-    protocolRef: 'codexes/packs/agentiq/foundation/experiments/exp-002-invariant-video/README.md',
+    protocolRef: 'codexes/packs/ccrl/foundation/experiments/exp-002-invariant-video/README.md',
     governingInvariants: ['inv.constitutional.078', 'inv.reasoning.095', 'inv.reasoning.096'],
   },
   {
@@ -90,7 +90,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     seriesId: 'FVS',
     hypothesis:
       'Initialized (invariant-grounded) reasoning reduces rediscovery cost versus cold reasoning at equal or better groundedness.',
-    protocolRef: 'codexes/packs/agentiq/foundation/experiments/exp-003-rediscovery-savings/README.md',
+    protocolRef: 'codexes/packs/ccrl/foundation/experiments/exp-003-rediscovery-savings/README.md',
     governingInvariants: ['inv.constitutional.062'],
   },
   {
@@ -111,14 +111,14 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     name: 'Foundational Validation Series',
     claim: 'The invariant substrate is real: semantic, temporal, and efficiency properties are measurable.',
     members: ['EXP-001', 'EXP-002', 'EXP-003'],
-    charterRef: 'codexes/packs/agentiq/foundation/CFS-015_operation-chrysalis-2-prd.md',
+    charterRef: 'codexes/packs/ccrl/foundation/CFS-015_operation-chrysalis-2-prd.md',
   },
   {
     id: 'PSE',
     name: 'Platform Sovereignty Experiment Series',
     claim: 'Platform sovereignty is a measurable bundle: model, provider choice, commercial independence, infrastructure.',
     members: ['EXP-004'],
-    charterRef: 'codexes/packs/agentiq/foundation/CFS-018_platform-sovereignty.md',
+    charterRef: 'codexes/packs/ccrl/foundation/CFS-018_platform-sovereignty.md',
   },
 ];
 

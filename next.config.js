@@ -44,7 +44,7 @@ const nextConfig = {
     // markdown at runtime (services/experiments/exp001.ts). Without this the
     // Lambda ships without the files and every 'answers' step 500s.
     "/api/experiments/exp001": [
-      "./codexes/packs/agentiq/foundation/experiments/exp-001-living-knowledgeqube/*.md",
+      "./codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube/*.md",
     ],
     // NOTE: an attempt to trace ffmpeg-static's binary (~70-80MB) into the
     // stitch/status routes here (2026-07-05) pushed the Amplify build output

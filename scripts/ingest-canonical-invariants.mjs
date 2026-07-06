@@ -3,7 +3,7 @@
  * ingest-canonical-invariants.mjs — seed the Invariant Ontology from
  * Appendix A (Chrysalis Foundation Phase 1).
  *
- * Reads codexes/packs/agentiq/foundation/canonical-invariants.seed.json and
+ * Reads codexes/packs/ccrl/foundation/canonical-invariants.seed.json and
  * upserts:
  *   1. one root ontology class per namespace (ontology_classes)
  *   2. every seed invariant (invariants, idempotent on seed_id)
@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '..');
-const SEED_PATH = join(REPO, 'codexes/packs/agentiq/foundation/canonical-invariants.seed.json');
+const SEED_PATH = join(REPO, 'codexes/packs/ccrl/foundation/canonical-invariants.seed.json');
 const DRY_RUN = process.argv.includes('--dry-run');
 
 // Confidence ladder (CFS-001 §5). Seed entries drawn from ratified Polity

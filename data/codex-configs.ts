@@ -1702,7 +1702,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
+          packId: 'ccrl',
           collectionId: 'col_foundation'
         }
       },
@@ -1722,7 +1722,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
+          packId: 'ccrl',
           collectionId: 'col_experiments'
         }
       },
@@ -4763,7 +4763,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'agentiq', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_ccrl-charter.md' },
+        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_ccrl-charter.md' },
       },
       metadata: { icon: 'Scale', description: 'CFS-019 — the CCRL constitution: layers, object model, lifecycles, migration, phases' },
     },
@@ -4778,7 +4778,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'agentiq', collectionId: 'col_foundation', defaultPath: 'foundation/appendix-a_canonical-invariants.md' },
+        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/appendix-a_canonical-invariants.md' },
       },
       metadata: { icon: 'BookMarked', description: 'Constitutional knowledge — the canon, the CFS corpus, the Foundational Validation Series (foundation complete)' },
     },
@@ -4792,7 +4792,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'agentiq', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-015_operation-chrysalis-2-prd.md' },
+        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-015_operation-chrysalis-2-prd.md' },
       },
       metadata: { icon: 'Cpu', description: 'Constitutional execution — Operation Chrysalis 2.0, the Capability Pipeline, deployment authority (alpha)' },
     },
@@ -4806,7 +4806,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'agentiq', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_ccrl-charter.md' },
+        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_ccrl-charter.md' },
       },
       metadata: { icon: 'RefreshCw', description: 'Constitutional evolution — feedback, adaptation, multi-agent governance (nascent: the frontier)' },
     },
@@ -4833,7 +4833,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'agentiq', collectionId: 'col_experiments' },
+        props: { packId: 'ccrl', collectionId: 'col_experiments' },
       },
       metadata: { icon: 'Target', description: 'Experiment designs, protocols, canonical articles, evaluation frameworks' },
     },
@@ -4859,7 +4859,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'agentiq', collectionId: 'col_foundation', defaultPath: 'foundation/constitutional-glossary.md' },
+        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/constitutional-glossary.md' },
       },
       metadata: { icon: 'BookOpen', description: 'The runtime-resolved constitutional vocabulary — one canon for every agent' },
     },
@@ -4889,7 +4889,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'agentiq', collectionId: 'col_foundation', defaultPath: 'foundation/CRP-001_constitutional-research-program-charter.md' },
+        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/CRP-001_constitutional-research-program-charter.md' },
       },
       metadata: { icon: 'Target', description: 'CRP-001 — the twelve research programmes; roadmap and backlog live in the charter (CFS-019 §8)' },
     },

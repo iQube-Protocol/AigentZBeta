@@ -303,6 +303,11 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
       // its pack supplies markdown via AgentiqCartridgeTab. Skip auto-gen to
       // avoid a duplicate cartridge.
       if (lowered === "polity-core") continue;
+      // ccrl is hand-curated in CODEX_DEFINITIONS (CCRL_CARTRIDGE, slug
+      // `ccrl-cartridge`); its pack (the migrated constitutional research
+      // corpus, CFS-019 Phase D) supplies markdown via AgentiqCartridgeTab.
+      // Skip auto-gen to avoid a duplicate cartridge.
+      if (lowered === "ccrl") continue;
 
       const codex = await buildCodexConfigFromPack(dirent.name);
       if (!codex) continue;

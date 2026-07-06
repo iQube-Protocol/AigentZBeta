@@ -1,0 +1,59 @@
+{
+  "name": "CCRL — Constitutional Cybernetics Research Laboratory",
+  "description": "The constitutional research corpus — the Chrysalis Foundation specification bundle (CFS-000..020, CRP-001, glossary, seed crystal, Appendix A) and the Foundational Validation Series experiments (EXP-001..003 protocols, articles, results).",
+  "collections": [
+    {
+      "id": "col_foundation",
+      "title": "Foundation",
+      "description": "Chrysalis Foundation — the Invariant Intelligence Specification Bundle (CFS-000..014). The programme under which AgentiQ evolves. Constitutional anchor: polity-core/constitutional-records/invariant-intelligence.md",
+      "items": [
+        "foundation/constitutional-record.md",
+        "foundation/CFS-000a_invariant-manifesto.md",
+        "foundation/CFS-000_vision-and-computational-architecture.md",
+        "foundation/CFS-001_the-invariant-primitive.md",
+        "foundation/CFS-002_the-invariant-ontology.md",
+        "foundation/CFS-003_the-invariant-graph.md",
+        "foundation/CFS-003a_the-invariant-service.md",
+        "foundation/CFS-004_iqube-evolution.md",
+        "foundation/CFS-005_registry-evolution.md",
+        "foundation/CFS-006_adaptive-runtime.md",
+        "foundation/CFS-006a_consequence-operating-model.md",
+        "foundation/CFS-007_adaptive-experience-rendering.md",
+        "foundation/CFS-008_reasoning-compression.md",
+        "foundation/CFS-008a_reasoning-compression-paper.md",
+        "foundation/CFS-009_development-constitution.md",
+        "foundation/CFS-010_migration-strategy.md",
+        "foundation/CFS-011_style-invariant-specification.md",
+        "foundation/CFS-012_narrative-invariant-specification.md",
+        "foundation/CFS-013_invariant-composition-laws.md",
+        "foundation/CFS-014_constitutional-coherence-engine.md",
+        "foundation/CFS-015_operation-chrysalis-2-prd.md",
+        "foundation/CRP-001_constitutional-research-program-charter.md",
+        "foundation/constitutional-glossary.md",
+        "foundation/CFS-016_constitutional-deployment.md",
+        "foundation/CFS-017_a2ui-coherence-seam.md",
+        "foundation/CFS-018_platform-sovereignty.md",
+        "foundation/CFS-019_ccrl-charter.md",
+        "foundation/CFS-020_dcir-charter.md",
+        "foundation/appendix-a_canonical-invariants.md"
+      ]
+    },
+    {
+      "id": "col_experiments",
+      "title": "Experiments",
+      "description": "Chrysalis Foundation flywheel experiments — EXP-001 The First Living KnowledgeQube (Constitutional Internet, five renderings + evaluation protocol), EXP-002 Invariant-Carried Video (24s/48s briefs), and EXP-003 Rediscovery Savings (cold vs initialized benchmark).",
+      "items": [
+        "foundation/experiments/exp-001-living-knowledgeqube/README.md",
+        "foundation/experiments/exp-001-living-knowledgeqube/canonical-article.md",
+        "foundation/experiments/exp-001-living-knowledgeqube/report.md",
+        "foundation/experiments/exp-001-living-knowledgeqube/story.md",
+        "foundation/experiments/exp-001-living-knowledgeqube/infographic.md",
+        "foundation/experiments/exp-001-living-knowledgeqube/evaluation-protocol.md",
+        "foundation/experiments/exp-002-invariant-video/README.md",
+        "foundation/experiments/exp-002-invariant-video/video-brief-24s.md",
+        "foundation/experiments/exp-002-invariant-video/video-brief-48s.md",
+        "foundation/experiments/exp-003-rediscovery-savings/README.md"
+      ]
+    }
+  ]
+}
