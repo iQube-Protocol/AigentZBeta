@@ -2899,3 +2899,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1800d62.md](../build_/COMMITS/COMMIT-1800d62.md)
 - Message: Chrysalis Phase 3 opener: the Chrysalis Test live + CFS-016 deployment ladder (draft)
+
+## Commit `1231d8b` — 2026-07-06T06:58:20Z
+- Type: `feat`
+- Brief: [COMMIT-1231d8b.md](../build_/COMMITS/COMMIT-1231d8b.md)
+- Message: Ratify + implement D1 pack-proposed deployment; consequence preflight lights the pipeline

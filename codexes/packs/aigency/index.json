@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T06:25:01.891Z",
+  "last_updated": "2026-07-06T07:00:15.078Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1800d6297c4b656547efde7e65c54b6dcf191c74",
-  "latest_commit_short": "1800d62",
-  "latest_commit_title": "Chrysalis Phase 3 opener: the Chrysalis Test live + CFS-016 deployment ladder (draft)",
+  "latest_commit": "1231d8ba6c5d57c6fd35c5b45855ad6e2f097b76",
+  "latest_commit_short": "1231d8b",
+  "latest_commit_title": "Ratify + implement D1 pack-proposed deployment; consequence preflight lights the pipeline",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1231d8b",
+      "full_sha": "1231d8ba6c5d57c6fd35c5b45855ad6e2f097b76",
+      "title": "Ratify + implement D1 pack-proposed deployment; consequence preflight lights the pipeline",
+      "author": "Claude",
+      "timestamp": "2026-07-06T06:58:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1231d8b.md"
+    },
     {
       "sha": "1800d62",
       "full_sha": "1800d6297c4b656547efde7e65c54b6dcf191c74",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T15:41:42Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-620be7a.md"
-    },
-    {
-      "sha": "af00bff",
-      "full_sha": "af00bfff79607c35696a5cc1be1b43b08f3d9f94",
-      "title": "trigger deploy to dev: reading sprint nextActions in packet",
-      "author": "Claude",
-      "timestamp": "2026-06-18T15:41:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-af00bff.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
