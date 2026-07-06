@@ -14,6 +14,9 @@
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { getVentureQube } from './ventureQubeService';
 import type { VentureAgentConsumer } from '@/types/ventureQube';
+import { resolveOntology, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
+import { getInvariantsBySeedIds } from '@/services/invariants/store';
+import { forecastConsequences } from '@/services/consequence/stages';
 
 export interface VentureHandoffPayload {
   agentType: VentureAgentConsumer;
@@ -80,6 +83,42 @@ export async function handoffVentureBlueprint(input: {
     };
   }
 
+  // Constitutional instrumentation (Chrysalis Strand 3, first slice):
+  // ontology resolution over the venture's operator-facing text, the
+  // governing invariants onto the EXISTING receipt's invariants_used, and a
+  // consequence preflight folded into the summary. All enrichment-only —
+  // the hand-off never blocks or fails on instrumentation.
+  const handoffText = [
+    venture.name,
+    venture.stage,
+    ...payloads.map((p) => p.responsibility),
+    ...executionPhases.flatMap((ph) => [ph.phaseName, ...ph.objectives]),
+  ]
+    .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+    .join('\n');
+  const resolution = await resolveOntology(handoffText).catch(() => null);
+
+  let invariantsUsed: string[] | null = null;
+  let preflightNote = '';
+  if (resolution) {
+    const seedIds = Array.from(
+      new Set(resolution.resolvedTerms.flatMap((t) => t.invariantIds)),
+    );
+    if (seedIds.length > 0) {
+      const rows = await getInvariantsBySeedIds(seedIds).catch(() => []);
+      if (rows.length > 0) {
+        invariantsUsed = rows.map((r) => r.id);
+        // Consequence preflight over the governing invariants — a hand-off
+        // whose knowledge footprint reaches a contradiction says so in its
+        // own receipt (CFS-006a).
+        const forecast = await forecastConsequences(invariantsUsed).catch(() => null);
+        if (forecast) {
+          preflightNote = ` · preflight=${forecast.forcesEscalation ? 'escalate' : 'proceed'} (enables ${forecast.enables} · constrains ${forecast.constrains} · contradicts ${forecast.contradicts})`;
+        }
+      }
+    }
+  }
+
   // DVN-anchored provenance receipt (T2-safe refs only).
   let receiptId: string | null = null;
   try {
@@ -87,8 +126,9 @@ export async function handoffVentureBlueprint(input: {
       personaId: input.personaId,
       activeCartridge: 'venture-lab',
       actionType: 'venture_blueprint_handoff',
-      summary: `Venture Blueprint handed to ${payloads.map((p) => p.agentType).join(', ')} (${venture.name})`,
+      summary: `Venture Blueprint handed to ${payloads.map((p) => p.agentType).join(', ')} (${venture.name})${preflightNote}`,
       iqubesUsed: venture.iqubeId ? [venture.iqubeId] : [],
+      ...(invariantsUsed ? { invariantsUsed } : {}),
       contextShared: ['venture-blueprint'],
       agentsInvoked: payloads.map((p) => p.agentType),
     });
@@ -96,6 +136,9 @@ export async function handoffVentureBlueprint(input: {
   } catch {
     /* receipt is best-effort; the handoff payloads still return */
   }
+
+  // Reach citation (Law XII) — fire-and-forget, never blocks the hand-off.
+  if (resolution) void citeResolvedConcepts(resolution).catch(() => {});
 
   return { ok: true, receiptId, payloads };
 }

@@ -190,6 +190,12 @@ The three strands share a dependency spine: Strand 2 consumes Strand 1's reasoni
 - **Quality Authority verification:** both streams scope-audited (protected files: exactly one added line each — the permitted action-type additions), parse gates green, canaries extended (provider honest-stub + template-fallback tests).
 - **Deferred to next increment:** the a2ui/liquid render seam (coherence unwired there; needs its own design pass), Founder Office pack UI, receipts-gated deploy (operator-approval design), Strand-3 ops integrations.
 
+**Phase 2/3 — Strand-3 first slice + seam design (2026-07-06):**
+
+- **Venture blueprint hand-off constitutionally instrumented (Strand-3 entry point):** ontology resolution over the venture's operator-facing text, `invariants_used` on the existing `venture_blueprint_handoff` receipt, consequence preflight folded into the receipt summary (a hand-off whose knowledge footprint reaches a contradiction says so), Reach citation — all enrichment-only.
+- **CFS-017 drafted (a2ui/liquid coherence seam)** — DRAFT awaiting ratification: seam at the plan-route chokepoint; observe-first-gate-later (the D1→D2 pattern applied to rendering); honest semantic-only validation at v1. No implementation until ratified.
+- Chrysalis Test `reasoning-surfaces-governed` evidence now reports adoption BREADTH (distinct governed action types), not just volume.
+
 **Phase 2 — second increment (2026-07-06): the dev interface + the sovereignty drill**
 
 - **Capability Pipeline tab (Aigent Z as development interface, v1) — DELIVERED.** Admin-only AgentiQ cartridge tab: capability goal → constitutionally grounded Implementation Pack rendered with full provenance (invariant bindings, resolved terms, nine-mechanism chip, composedBy honesty badge, plans) + byte-identical markdown copy for hand-off to any implementation provider. Stage strip shows live stages vs ratified stubs (risk/value/price render `unevaluated`). Deploy wiring deliberately absent (Law XI).

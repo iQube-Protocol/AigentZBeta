@@ -81,6 +81,22 @@ export async function GET(request: NextRequest) {
     const governed = await countRows(client, 'activity_receipts', (q) =>
       q.not('invariants_used', 'is', null).neq('invariants_used', '{}').gte('created_at', since),
     );
+    // Adoption BREADTH, not just volume: how many distinct action types carry
+    // invariants_used (best-effort; evidence-only enrichment).
+    let breadth = '';
+    try {
+      const { data } = await client
+        .from('activity_receipts')
+        .select('action_type')
+        .not('invariants_used', 'is', null)
+        .neq('invariants_used', '{}')
+        .gte('created_at', since)
+        .limit(1000);
+      const kinds = new Set((data ?? []).map((r) => String(r.action_type)));
+      if (kinds.size > 0) breadth = ` across ${kinds.size} distinct action type(s)`;
+    } catch {
+      /* breadth is evidence garnish only */
+    }
     criteria.push({
       id: 'reasoning-surfaces-governed',
       title: 'Reasoning surfaces governed through Invariant Intelligence',
@@ -88,7 +104,7 @@ export async function GET(request: NextRequest) {
       evidence:
         governed === null
           ? 'invariants_used column not queryable — receipts migration state unknown'
-          : `${governed} receipts carrying invariants_used in the last 30 days`,
+          : `${governed} receipts carrying invariants_used in the last 30 days${breadth}`,
     });
   }
 
