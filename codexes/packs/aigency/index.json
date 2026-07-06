@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T19:34:00.468Z",
+  "last_updated": "2026-07-06T19:39:45.150Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "dd3273314b2d0be72d5a75fb86246e5094c16116",
-  "latest_commit_short": "dd32733",
-  "latest_commit_title": "Build CCRL cartridge Phase B: the canonical research surface (CFS-019)",
+  "latest_commit": "12f76e9661f4c073565c71260cb7dfcc057b5bb7",
+  "latest_commit_short": "12f76e9",
+  "latest_commit_title": "Build CCRL research object model + receipted lifecycles (CFS-019 Phase C1)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "12f76e9",
+      "full_sha": "12f76e9661f4c073565c71260cb7dfcc057b5bb7",
+      "title": "Build CCRL research object model + receipted lifecycles (CFS-019 Phase C1)",
+      "author": "Claude",
+      "timestamp": "2026-07-06T19:37:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-12f76e9.md"
+    },
     {
       "sha": "dd32733",
       "full_sha": "dd3273314b2d0be72d5a75fb86246e5094c16116",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-19T12:46:03Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-40b86f5.md"
-    },
-    {
-      "sha": "ae6bb66",
-      "full_sha": "ae6bb6671bf3023c54d5374fa18ae971afab3b1b",
-      "title": "fix toggle persistence — remove admin gate from persistRuntimeContext",
-      "author": "Claude",
-      "timestamp": "2026-06-19T12:10:36Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-ae6bb66.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
