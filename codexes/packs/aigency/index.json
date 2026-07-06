@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T20:15:31.341Z",
+  "last_updated": "2026-07-06T20:41:06.349Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4a0e38fc1e067c2aa38f545e851e4c99a578d693",
-  "latest_commit_short": "4a0e38f",
-  "latest_commit_title": "Implement DCIR D1: event stream + observation seam on the Dev Command Center (CFS-020)",
+  "latest_commit": "36c81819e7ff85f40a7b606310b1a86ec645efc6",
+  "latest_commit_short": "36c8181",
+  "latest_commit_title": "Build CCRL C2: DCIR-conforming research copilot (narrate-only, CFS-019)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "36c8181",
+      "full_sha": "36c81819e7ff85f40a7b606310b1a86ec645efc6",
+      "title": "Build CCRL C2: DCIR-conforming research copilot (narrate-only, CFS-019)",
+      "author": "Claude",
+      "timestamp": "2026-07-06T20:38:39Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-36c8181.md"
+    },
     {
       "sha": "4a0e38f",
       "full_sha": "4a0e38fc1e067c2aa38f545e851e4c99a578d693",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-19T13:29:41Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-40340e0.md"
-    },
-    {
-      "sha": "4891112",
-      "full_sha": "4891112307447538d3a1ee04f96714514a471897",
-      "title": "change default runtime context from KNYT to metaMe",
-      "author": "Claude",
-      "timestamp": "2026-06-19T12:49:15Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4891112.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

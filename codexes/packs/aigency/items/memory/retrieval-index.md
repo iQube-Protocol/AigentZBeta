@@ -2979,3 +2979,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-4a0e38f.md](../build_/COMMITS/COMMIT-4a0e38f.md)
 - Message: Implement DCIR D1: event stream + observation seam on the Dev Command Center (CFS-020)
+
+## Commit `36c8181` — 2026-07-06T20:38:39Z
+- Type: `push`
+- Brief: [COMMIT-36c8181.md](../build_/COMMITS/COMMIT-36c8181.md)
+- Message: Build CCRL C2: DCIR-conforming research copilot (narrate-only, CFS-019)
