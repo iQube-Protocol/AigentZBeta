@@ -9,6 +9,7 @@ export type DevCapsuleId =
   | "context"
   | "gap-analysis"
   | "consequence-canvas"
+  | "implementation"
   | "validation";
 
 export type DevLayoutId =
@@ -25,6 +26,7 @@ export const CAPSULE_LAYOUT: Record<DevCapsuleId, DevLayoutId> = {
   context: "context",
   "gap-analysis": "gap-analysis",
   "consequence-canvas": "consequence-canvas",
+  implementation: "implementation",
   validation: "validation",
 };
 

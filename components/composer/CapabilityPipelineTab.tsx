@@ -24,7 +24,7 @@ import { Check, Copy, Hammer, Loader2 } from "lucide-react";
 import { CONSTITUTIONAL_CAPABILITY_PIPELINE } from "@/types/constitutional";
 import { experimentStep } from "./experimentStepFetch";
 
-interface PackView {
+export interface PackView {
   id: string;
   intentId: string | null;
   goal: string;
@@ -57,7 +57,7 @@ const BASE_LIVE_STAGES = new Set(["intent", "context", "implementation"]);
 const PREFLIGHT_STAGES = new Set(["risk", "value", "consequence"]);
 const STUB_STAGES = new Set(["price"]);
 
-function packMarkdown(pack: PackView): string {
+export function packMarkdown(pack: PackView): string {
   return `# Implementation Pack — ${pack.goal}
 
 **Generated:** ${pack.generatedAt} · **Composed by:** ${pack.composedBy} · **Canon version:** ${pack.canonVersion}

@@ -33,7 +33,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
-import { buildStageInstructionBlock, extractStageProposals } from '@/services/devCommandCenter/stageOrchestrator';
+import { buildStageInstructionBlock, extractStageProposals, detectRequestedStage } from '@/services/devCommandCenter/stageOrchestrator';
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
 import { initializeKnowledge, type KnowledgeManifest } from '@/services/invariants';
 import { resolveOntology, ontologyPromptBlock, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
@@ -1871,6 +1871,7 @@ function buildSystemPrompt(
   activeSkill?: Know1SkillId | null,
   platformKnowledgeBlock?: string,
   knowledgeInit?: KnowledgeManifest | null,
+  latestUserMessage?: string,
 ): string {
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
   const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
@@ -2086,23 +2087,30 @@ function buildSystemPrompt(
           lines.push(gc.validationSummary as string);
         }
 
-        groundContextBlock = `\n\n## Dev loop ground truth — narrate THIS, do not invent\n\nYou are aigentZ, the development command center agent. The operator's right pane shows the Dev Command Center with the session state below. Your replies MUST reference this exact state — cite the current stage, the intent goal, the gap analysis ratios, and consequence guardrails when relevant. Guide the operator through the dev loop: intent → context → gaps → consequences → implementation → validation → complete.\n\nWhen you suggest an action, emit a [layout:<id>|<substance>] tag (same format as aigent-me). Valid dev IDs: intent, context, gap-analysis, consequence-canvas, validation, project-overview, terminal, github, devtools, linear.\n\n${lines.join('\n')}`;
+        groundContextBlock = `\n\n## Dev loop ground truth — narrate THIS, do not invent\n\nYou are aigentZ, the development command center agent. The operator's right pane shows the Dev Command Center with the session state below. Your replies MUST reference this exact state — cite the current stage, the intent goal, the gap analysis ratios, and consequence guardrails when relevant. Guide the operator through the dev loop: intent → context → gaps → consequences → implementation → validation → complete.\n\nWhen you suggest an action, emit a [layout:<id>|<substance>] tag (same format as aigent-me). Valid dev IDs: intent, context, gap-analysis, consequence-canvas, implementation, validation, project-overview, terminal, github, devtools, linear.\n\n${lines.join('\n')}`;
 
         // ICE engine (Phase 1A): stage-specific execution instructions +
         // the structured stage_data proposal contract for this stage.
-        // When the operator is viewing a specific capsule (activeCapsule),
-        // use that capsule's corresponding stage for the instruction block
-        // so aigentZ emits the right kind of proposal — not the session's
-        // official stage which may be behind the viewed capsule.
+        // Stage precedence, deterministic:
+        //   1. the stage the operator's MESSAGE explicitly requests
+        //      (detectRequestedStage) — fixes the capsule-override trap where
+        //      "validate the build" typed while the Consequence Canvas
+        //      capsule was open produced another consequence_canvas proposal
+        //      that read like a validation confirmation;
+        //   2. the viewed capsule's stage (activeCapsule);
+        //   3. the session's official stage.
         const CAPSULE_TO_STAGE: Record<string, string> = {
           intent: 'intent_capture',
           context: 'context_assembly',
           'gap-analysis': 'gap_analysis',
           'consequence-canvas': 'consequence_modeling',
+          implementation: 'implementation',
           validation: 'consequence_validation',
         };
         const viewedCapsule = typeof gc.activeCapsule === 'string' ? gc.activeCapsule : null;
+        const requestedStage = latestUserMessage ? detectRequestedStage(latestUserMessage) : null;
         const effectiveStage =
+          requestedStage ||
           (viewedCapsule && CAPSULE_TO_STAGE[viewedCapsule]) ||
           (typeof gc.activeStage === 'string' ? gc.activeStage : undefined);
         groundContextBlock += buildStageInstructionBlock(effectiveStage);
@@ -2577,7 +2585,7 @@ export async function POST(request: NextRequest) {
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit);
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined);
 
       // Canonical Ontology (CFS-015): append canonical-term guidance to the
       // prompt and cite the governing invariants (Reach, Law XII) —

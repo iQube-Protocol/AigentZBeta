@@ -73,9 +73,44 @@ export const PROPOSAL_KIND_TO_CAPSULE: Record<StageProposalKind, string> = {
   context_pack: 'context',
   gap_analysis: 'gap-analysis',
   consequence_canvas: 'consequence-canvas',
-  implementation_brief: 'project-overview',
+  implementation_brief: 'implementation',
   validation_report: 'validation',
 };
+
+// ─── Operator stage-request detection ───────────────────────────────────────
+
+/**
+ * Ordered, conservative patterns: the FIRST match wins, so validation
+ * outranks implementation ("validate the implementation" is a validation
+ * request). Only strong stage signals are listed — anything ambiguous
+ * returns null and the viewed-capsule / session stage decides as before.
+ */
+const STAGE_REQUEST_PATTERNS: Array<{ stage: DevLoopStage; re: RegExp }> = [
+  { stage: 'consequence_validation', re: /\bvalidat/i },
+  {
+    stage: 'implementation',
+    re: /\bimplementation\b|\bimplement\b|\bstart (the )?(development|dev work|building)\b|\bdevelopment phase\b|\bwrite the code\b/i,
+  },
+  { stage: 'consequence_modeling', re: /\bconsequence/i },
+  { stage: 'gap_analysis', re: /\b(capability )?gaps?\b/i },
+  { stage: 'context_assembly', re: /\bcontext pack\b|\bassemble (the )?context\b/i },
+  { stage: 'intent_capture', re: /\bnew (development )?intent\b/i },
+];
+
+/**
+ * Detect which dev-loop stage the operator's message is asking for.
+ * Fixes the capsule-override trap: a "validate the build" request typed
+ * while the Consequence Canvas capsule is open must produce a
+ * validation_report proposal (which then routes to — and auto-opens — the
+ * Validation capsule), not another consequence_canvas.
+ */
+export function detectRequestedStage(message: string): DevLoopStage | null {
+  if (!message || typeof message !== 'string') return null;
+  for (const { stage, re } of STAGE_REQUEST_PATTERNS) {
+    if (re.test(message)) return stage;
+  }
+  return null;
+}
 
 // ─── Stage instruction blocks (server-side prompt addendum) ─────────────────
 

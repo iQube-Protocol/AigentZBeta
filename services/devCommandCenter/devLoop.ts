@@ -53,7 +53,10 @@ export function canAdvance(state: DevLoopState): boolean {
     case 'consequence_modeling':
       return state.consequenceCanvas !== null && state.consequenceCanvas.successState.length > 0;
     case 'implementation':
-      return true;
+      // The stage is only passable once an implementation brief exists —
+      // either the approved implementation_brief proposal or a generated
+      // constitutional Implementation Pack written back into the session.
+      return Boolean(state.implementationBrief);
     case 'consequence_validation':
       return state.validationReport !== null;
     case 'complete':

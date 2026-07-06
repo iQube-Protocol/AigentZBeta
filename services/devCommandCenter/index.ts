@@ -52,6 +52,7 @@ export {
   buildStageInstructionBlock,
   extractStageProposals,
   applyStageProposal,
+  detectRequestedStage,
   STAGE_PROPOSAL_KIND,
   PROPOSAL_KIND_TO_CAPSULE,
   type StageProposal,

@@ -61,6 +61,7 @@ import {
   ContextLayout,
   GapAnalysisLayout,
   ConsequenceCanvasLayout,
+  ImplementationLayout,
   ValidationLayout,
   ProjectOverviewLayout,
   CAPSULE_LAYOUT,
@@ -110,6 +111,7 @@ const STAGE_TO_CAPSULE: Partial<Record<DevLoopStage, DevCapsuleId>> = {
   context_assembly: "context",
   gap_analysis: "gap-analysis",
   consequence_modeling: "consequence-canvas",
+  implementation: "implementation",
   consequence_validation: "validation",
 };
 
@@ -145,6 +147,11 @@ const CAPABILITIES: { id: DevCapsuleId; label: string; shortLabel: string; icon:
     hasDataClass: "bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/15",
     emptyClass: "bg-amber-500/5 border-amber-500/15 text-amber-400/60 hover:bg-amber-500/10 hover:text-amber-300",
     iconActiveClass: "text-amber-400", iconEmptyClass: "text-amber-500/50" },
+  { id: "implementation", label: "Implementation", shortLabel: "Implement", icon: Cpu,
+    activeClass: "bg-indigo-500/20 border-indigo-500/40 text-indigo-300 ring-1 ring-indigo-500/30",
+    hasDataClass: "bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/15",
+    emptyClass: "bg-indigo-500/5 border-indigo-500/15 text-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-300",
+    iconActiveClass: "text-indigo-400", iconEmptyClass: "text-indigo-500/50" },
   { id: "validation", label: "Validation", shortLabel: "Validate", icon: CheckCircle,
     activeClass: "bg-green-500/20 border-green-500/40 text-green-300 ring-1 ring-green-500/30",
     hasDataClass: "bg-green-500/10 border-green-500/20 text-green-300 hover:bg-green-500/15",
@@ -207,6 +214,7 @@ function capabilityHasData(id: DevCapsuleId, session: DevLoopState): boolean {
     case "context": return session.contextPack !== null && session.contextPack.items.length > 0;
     case "gap-analysis": return session.gapAnalysis !== null;
     case "consequence-canvas": return session.consequenceCanvas !== null && session.consequenceCanvas.successState.length > 0;
+    case "implementation": return Boolean(session.implementationBrief);
     case "validation": return session.validationReport !== null;
     default: return false;
   }
@@ -312,6 +320,7 @@ function StackLayout({ session, activeStage, onCapabilityClick, pending }: {
                     {cap.id === "context" && (session.contextPack ? `${session.contextPack.items.length} items assembled` : "Pending intent")}
                     {cap.id === "gap-analysis" && (session.gapAnalysis ? `${session.gapAnalysis.existing.length} existing · ${session.gapAnalysis.missing.length} missing` : "Pending context")}
                     {cap.id === "consequence-canvas" && (session.consequenceCanvas ? `${session.consequenceCanvas.shouldHappen.length + session.consequenceCanvas.shouldNeverHappen.length} entries` : "Pending gaps")}
+                    {cap.id === "implementation" && (session.implementationBrief ? "Brief ready — generate the pack" : "Pending consequences")}
                     {cap.id === "validation" && (session.validationReport ? session.validationReport.overallVerdict : "Pending implementation")}
                   </div>
                 </div>
@@ -517,7 +526,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
       const id = h.layoutId as string;
       if (id === "upload" || id === "download" || id === "terminal" || id === "github" || id === "devtools" || id === "linear") {
         explore[id as ExploreToolId | "upload" | "download"] = true;
-      } else if (id === "intent" || id === "context" || id === "gap-analysis" || id === "consequence-canvas" || id === "validation" || id === "project-overview") {
+      } else if (id === "intent" || id === "context" || id === "gap-analysis" || id === "consequence-canvas" || id === "implementation" || id === "validation" || id === "project-overview") {
         caps[id as DevCapsuleId] = true;
       } else if (id === "brief" || id === "venture-cockpit") {
         caps["project-overview"] = true;
@@ -660,6 +669,15 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
       },
     },
     {
+      label: "Implementation brief",
+      prompt: "Produce the implementation brief for the current intent — PRD, architecture plan, task list, and Claude Code instructions.",
+      highlight: capsuleSuggestions["implementation"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("implementation");
+        consumeCapsuleSuggestion("implementation");
+      },
+    },
+    {
       label: "Validate build",
       prompt: "Validate the implementation against the consequence canvas. Run the post-prompt validation.",
       highlight: capsuleSuggestions["validation"] === true,
@@ -786,6 +804,19 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               pendingProposal={pendingProposals["consequence-canvas"] ?? null}
               onApproveProposal={() => handleApproveProposal("consequence-canvas")}
               onDismissProposal={() => handleDismissProposal("consequence-canvas")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "implementation" && (
+            <ImplementationLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["implementation"] ?? null}
+              onApproveProposal={() => handleApproveProposal("implementation")}
+              onDismissProposal={() => handleDismissProposal("implementation")}
+              onPackGenerated={(briefMarkdown) =>
+                setSession(s => ({ ...s, implementationBrief: briefMarkdown, updatedAt: new Date().toISOString() }))
+              }
             />
           )}
           {isCapsuleLayout && activeCapsuleId === "validation" && (

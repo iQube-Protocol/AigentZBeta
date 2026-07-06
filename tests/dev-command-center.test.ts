@@ -38,6 +38,8 @@ import {
   getStageIndex,
   getStageLabel,
   buildImplementationPackage,
+  detectRequestedStage,
+  PROPOSAL_KIND_TO_CAPSULE,
 } from '@/services/devCommandCenter';
 
 // ─── Capability 1: Intent Distillation ─────────────────────────────────────
@@ -336,5 +338,58 @@ describe('Development Loop', () => {
   it('returns null package when stages incomplete', () => {
     const session = createDevLoopSession();
     expect(buildImplementationPackage(session)).toBeNull();
+  });
+
+  it('gates the implementation stage on an implementation brief', () => {
+    const session = createDevLoopSession();
+    session.stage = 'implementation';
+    expect(canAdvance(session)).toBe(false);
+    session.implementationBrief = '# Implementation Pack — Build X';
+    expect(canAdvance(session)).toBe(true);
+  });
+});
+
+// ─── ICE proposal routing + operator stage-request detection ────────────────
+// Canaries: the Dev Command Center's capsule containment depends on these
+// exact mappings; a silent change re-opens the empty-Validate-card trap.
+
+describe('Stage Orchestrator routing', () => {
+  it('pins proposal-kind → capsule routing (incl. implementation card)', () => {
+    expect(PROPOSAL_KIND_TO_CAPSULE).toEqual({
+      intent: 'intent',
+      context_pack: 'context',
+      gap_analysis: 'gap-analysis',
+      consequence_canvas: 'consequence-canvas',
+      implementation_brief: 'implementation',
+      validation_report: 'validation',
+    });
+  });
+
+  it('detects a validation request even when phrased around other stages', () => {
+    expect(detectRequestedStage('Validate the implementation against the consequence canvas.')).toBe(
+      'consequence_validation',
+    );
+    expect(detectRequestedStage('please validate the build')).toBe('consequence_validation');
+  });
+
+  it('detects implementation / development-start requests', () => {
+    expect(detectRequestedStage('Produce the implementation brief for the current intent')).toBe(
+      'implementation',
+    );
+    expect(detectRequestedStage('start the development phase')).toBe('implementation');
+  });
+
+  it('detects consequence and gap requests', () => {
+    expect(detectRequestedStage('Model the consequences for the current intent')).toBe(
+      'consequence_modeling',
+    );
+    expect(detectRequestedStage('Analyze capability gaps for the current intent')).toBe('gap_analysis');
+  });
+
+  it('returns null for messages with no stage signal (capsule/session stage decides)', () => {
+    expect(detectRequestedStage('Give me a status update on the current dev loop')).toBeNull();
+    expect(detectRequestedStage("I want to start a new development intent. Help me distill what I'm trying to build.")).toBe(
+      'intent_capture',
+    );
   });
 });
