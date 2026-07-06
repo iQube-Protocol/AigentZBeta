@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T06:10:14.071Z",
+  "last_updated": "2026-07-06T06:25:01.891Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5a515890ce862fe69ea415c489c26b12542a297a",
-  "latest_commit_short": "5a51589",
-  "latest_commit_title": "Chrysalis Phase 2.2: Capability Pipeline tab (dev interface v1) + EXP-004 sovereignty drill",
+  "latest_commit": "1800d6297c4b656547efde7e65c54b6dcf191c74",
+  "latest_commit_short": "1800d62",
+  "latest_commit_title": "Chrysalis Phase 3 opener: the Chrysalis Test live + CFS-016 deployment ladder (draft)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1800d62",
+      "full_sha": "1800d6297c4b656547efde7e65c54b6dcf191c74",
+      "title": "Chrysalis Phase 3 opener: the Chrysalis Test live + CFS-016 deployment ladder (draft)",
+      "author": "Claude",
+      "timestamp": "2026-07-06T06:23:26Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1800d62.md"
+    },
     {
       "sha": "5a51589",
       "full_sha": "5a515890ce862fe69ea415c489c26b12542a297a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T15:41:47Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-af00bff.md"
-    },
-    {
-      "sha": "345666c",
-      "full_sha": "345666c72f373e936b027deca3c8ff979064b91f",
-      "title": "server-side runtime context preference + reading sprint nextActions in packet",
-      "author": "Claude",
-      "timestamp": "2026-06-18T17:44:49Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-345666c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
