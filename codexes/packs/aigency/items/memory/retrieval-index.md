@@ -2919,3 +2919,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-0f7c403.md](../build_/COMMITS/COMMIT-0f7c403.md)
 - Message: Converge Dev Command Center with constitutional pipeline: Validate misroute fix + Implementation card (packs + D1)
+
+## Commit `90634a5` — 2026-07-06T14:43:10Z
+- Type: `fix`
+- Brief: [COMMIT-90634a5.md](../build_/COMMITS/COMMIT-90634a5.md)
+- Message: Fix gap-analysis regression: stage detector is a hint, never a suppressor
