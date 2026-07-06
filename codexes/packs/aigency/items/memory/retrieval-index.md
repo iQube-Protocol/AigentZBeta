@@ -2924,3 +2924,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-90634a5.md](../build_/COMMITS/COMMIT-90634a5.md)
 - Message: Fix gap-analysis regression: stage detector is a hint, never a suppressor
+
+## Commit `5db7c45` — 2026-07-06T15:36:09Z
+- Type: `feat`
+- Brief: [COMMIT-5db7c45.md](../build_/COMMITS/COMMIT-5db7c45.md)
+- Message: Add EXP-004 rehearsal arm: frontier fallback validates drill machinery while venice credits pend

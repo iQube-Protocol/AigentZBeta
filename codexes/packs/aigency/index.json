@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T14:45:13.286Z",
+  "last_updated": "2026-07-06T15:38:13.752Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "90634a54304884d41cb064cd4fde1186cec68ef9",
-  "latest_commit_short": "90634a5",
-  "latest_commit_title": "Fix gap-analysis regression: stage detector is a hint, never a suppressor",
+  "latest_commit": "5db7c45dcdb496807bf0b719349e47593550f3ae",
+  "latest_commit_short": "5db7c45",
+  "latest_commit_title": "Add EXP-004 rehearsal arm: frontier fallback validates drill machinery while venice credits pend",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5db7c45",
+      "full_sha": "5db7c45dcdb496807bf0b719349e47593550f3ae",
+      "title": "Add EXP-004 rehearsal arm: frontier fallback validates drill machinery while venice credits pend",
+      "author": "Claude",
+      "timestamp": "2026-07-06T15:36:09Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5db7c45.md"
+    },
     {
       "sha": "90634a5",
       "full_sha": "90634a54304884d41cb064cd4fde1186cec68ef9",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T22:43:07Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-812fe7e.md"
-    },
-    {
-      "sha": "104cfc7",
-      "full_sha": "104cfc7a165c9ea71b385b048cdcc63d7d2dd333",
-      "title": "fix Open Experience button: route to consumer viewer instead of re-opening runtime",
-      "author": "Claude",
-      "timestamp": "2026-06-18T10:51:32Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-104cfc7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
