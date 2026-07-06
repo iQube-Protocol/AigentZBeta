@@ -2934,3 +2934,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-ff5abef.md](../build_/COMMITS/COMMIT-ff5abef.md)
 - Message: Promote ChainGPT to experiment adapter; rehearsal chain chaingpt → openai → venice-sovereign
+
+## Commit `7186b5b` — 2026-07-06T15:49:16Z
+- Type: `push`
+- Brief: [COMMIT-7186b5b.md](../build_/COMMITS/COMMIT-7186b5b.md)
+- Message: Refine sovereignty as a provider-class property (open-weight), pin with canary
