@@ -18,12 +18,10 @@
  * POST — publish (admin-gated): { experiment, provider, model, aggregates, results }
  */
 
-import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
-import exp003Config from '@/services/experiments/exp003-tasks.json';
+import { publishExperimentResult } from '@/services/experiments/publishResult';
 
 export const dynamic = 'force-dynamic';
 
@@ -115,66 +113,21 @@ export async function POST(request: NextRequest) {
   const client = getSupabaseServer();
   if (!client) return NextResponse.json({ error: 'storage unavailable' }, { status: 500 });
 
-  // Serialize ONCE — this exact string is what gets stored and hashed.
-  // Verification must always recompute over the stored text verbatim.
-  const resultsJson = JSON.stringify(body.results);
-  const contentHash = createHash('sha256').update(resultsJson).digest('hex');
-
-  const { data: row, error: insertError } = await client
-    .from('experiment_results')
-    .insert({
-      experiment: body.experiment,
-      provider: body.provider,
-      model: body.model,
-      aggregates: body.aggregates ?? {},
-      results_json: resultsJson,
-      content_hash: contentHash,
-    })
-    .select('id')
-    .single();
-  if (insertError || !row) {
-    const message = insertError && /does not exist/i.test(insertError.message)
-      ? 'experiment_results table missing — apply supabase/migrations/20260704120000_experiment_results.sql'
-      : insertError?.message ?? 'insert failed';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-
-  // The grounding collection for the text experiments (both use the same 18
-  // seeds) — recorded on the receipt for reuse-count instrumentation.
-  let invariantsUsed: string[] = [];
-  if (body.experiment !== 'EXP-002') {
-    const { data: invRows } = await client
-      .from('invariants')
-      .select('id')
-      .in('seed_id', exp003Config.seedIds);
-    invariantsUsed = (invRows ?? []).map((r) => String(r.id));
-  }
-
-  // T2-safe summary: experiment + provider/model + the content commitment.
-  // No identifiers; the hash is the auditable anchor.
-  const receipt = await createActivityReceipt({
-    personaId: persona.personaId,
-    actionType: 'experiment_result_published',
-    summary: `${body.experiment} result published — provider=${body.provider} model=${body.model} sha256=${contentHash}`,
-    activeCartridge: 'agentiq',
-    invariantsUsed,
-  }).catch((err) => {
-    console.error('[experiments/results] receipt creation failed', err);
-    return null;
+  const outcome = await publishExperimentResult(client, persona.personaId, {
+    experiment: body.experiment as 'EXP-001' | 'EXP-002' | 'EXP-003',
+    provider: body.provider,
+    model: body.model,
+    aggregates: body.aggregates ?? {},
+    results: body.results,
   });
-
-  if (receipt) {
-    await client
-      .from('experiment_results')
-      .update({ receipt_id: receipt.id })
-      .eq('id', row.id);
+  if (!outcome.ok) {
+    return NextResponse.json({ error: outcome.error ?? 'publish failed' }, { status: 500 });
   }
-
   return NextResponse.json({
     ok: true,
-    id: row.id,
-    contentHash,
-    receiptId: receipt?.id ?? null,
-    receiptStatus: receipt?.receiptStatus ?? null,
+    id: outcome.id,
+    contentHash: outcome.contentHash,
+    receiptId: outcome.receiptId ?? null,
+    receiptStatus: outcome.receiptStatus ?? null,
   });
 }

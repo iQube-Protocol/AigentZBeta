@@ -14,8 +14,8 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Download, Loader2, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
-import { experimentGet } from "./experimentStepFetch";
+import { Download, History, Loader2, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
+import { experimentGet, experimentStep } from "./experimentStepFetch";
 
 interface PublishedResult {
   id: string;
@@ -52,6 +52,8 @@ export default function ExperimentResultsTab() {
   // id → 'verified' | 'mismatch' | 'verifying'
   const [verify, setVerify] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillNote, setBackfillNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,6 +71,33 @@ export default function ExperimentResultsTab() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Publish the repo-bundled historical run records (run-1 EXP-001/EXP-003,
+  // EXP-002 run-2) through the same canonical pipeline. Idempotent server-side
+  // (skips already-published content hashes), so safe to press repeatedly.
+  const backfill = async () => {
+    setBackfilling(true);
+    setBackfillNote(null);
+    try {
+      const data = await experimentStep("/api/experiments/results/backfill", {});
+      const outcomes = (data.outcomes as { experiment: string; published: boolean; skipped: boolean }[]) ?? [];
+      const published = outcomes.filter((o) => o.published).map((o) => o.experiment);
+      const skipped = outcomes.filter((o) => o.skipped).map((o) => o.experiment);
+      setBackfillNote(
+        [
+          published.length ? `published: ${published.join(", ")}` : null,
+          skipped.length ? `already present: ${skipped.join(", ")}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || "nothing to backfill",
+      );
+      await load();
+    } catch (err) {
+      setBackfillNote(err instanceof Error ? err.message : "backfill failed");
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   const verifyRow = async (row: PublishedResult) => {
     setVerify((v) => ({ ...v, [row.id]: "verifying" }));
@@ -95,13 +124,24 @@ export default function ExperimentResultsTab() {
           <span className="text-slate-300"> Verify recomputes the hash in your browser</span> — trustless,
           no server assertion taken on faith.
         </p>
-        <button
-          onClick={load}
-          className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 shrink-0"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={backfill}
+            disabled={backfilling}
+            className="inline-flex items-center gap-1.5 rounded-md border border-indigo-800 bg-indigo-950/40 px-2.5 py-1.5 text-xs text-indigo-300 hover:bg-indigo-900/40"
+            title="Publish the repo-bundled historical run records (run-1 EXP-001/EXP-003, EXP-002 run-2) — idempotent"
+          >
+            <History className="h-3.5 w-3.5" /> {backfilling ? "Backfilling…" : "Backfill historical runs"}
+          </button>
+          <button
+            onClick={load}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+          </button>
+        </div>
       </div>
+      {backfillNote && <p className="text-xs text-slate-400">{backfillNote}</p>}
 
       {loading && (
         <div className="flex items-center gap-2 text-sm text-slate-400 py-8 justify-center">
