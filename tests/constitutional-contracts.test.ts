@@ -332,6 +332,34 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     }
   });
 
+  it('research object model (CFS-019 Phase C): lifecycle orders + registries pinned', async () => {
+    const {
+      EXPERIMENT_LIFECYCLE,
+      PUBLICATION_LIFECYCLE,
+      EXPERIMENT_REGISTRY,
+      SERIES_REGISTRY,
+      isLegalExperimentTransition,
+    } = await import('@/types/research');
+    expect(EXPERIMENT_LIFECYCLE).toEqual([
+      'designed', 'protocol-ratified', 'running', 'evaluated', 'published', 'replicated',
+    ]);
+    expect(PUBLICATION_LIFECYCLE).toEqual(['draft', 'internal', 'canonical', 'superseded']);
+    expect(EXPERIMENT_REGISTRY.map((e) => e.id)).toEqual(['EXP-001', 'EXP-002', 'EXP-003', 'EXP-004']);
+    // Every registry member belongs to a registered series; every governing
+    // invariant exists in the seed crystal (no invented ids).
+    const seriesIds = new Set(SERIES_REGISTRY.map((s) => s.id));
+    const seedIds = new Set((seedFile as { invariants: { id: string }[] }).invariants.map((i) => i.id));
+    for (const e of EXPERIMENT_REGISTRY) {
+      expect(seriesIds.has(e.seriesId)).toBe(true);
+      for (const inv of e.governingInvariants) expect(seedIds.has(inv), `${e.id} → ${inv}`).toBe(true);
+    }
+    // Transition legality: forward steps + running re-entry only.
+    expect(isLegalExperimentTransition('designed', 'protocol-ratified')).toBe(true);
+    expect(isLegalExperimentTransition('published', 'running')).toBe(true);
+    expect(isLegalExperimentTransition('designed', 'published')).toBe(false);
+    expect(isLegalExperimentTransition('designed', 'running')).toBe(false);
+  });
+
   it('Constitutional Cybernetics (CFS-019): glossary term resolves with its governing invariants', async () => {
     const r = await resolveOntology(
       'How does constitutional cybernetics govern constitutional feedback in the CCRL?',

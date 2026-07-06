@@ -33,6 +33,14 @@ interface ChrysalisSummary {
   total: number;
 }
 
+interface OverviewEntry {
+  experiment: { id: string; layer: string; family: string; seriesId: string };
+  lifecycle: string;
+  publishedRuns: number;
+  distinctProviders: number;
+  latestRunAt: string | null;
+}
+
 const LAYERS = [
   {
     numeral: "I",
@@ -72,6 +80,8 @@ export default function CCRLDashboardTab() {
   const [resultsError, setResultsError] = useState<string | null>(null);
   const [chrysalis, setChrysalis] = useState<ChrysalisSummary | null>(null);
   const [chrysalisNote, setChrysalisNote] = useState<string | null>(null);
+  const [overview, setOverview] = useState<OverviewEntry[] | null>(null);
+  const [lifecycleOrder, setLifecycleOrder] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -89,6 +99,15 @@ export default function CCRLDashboardTab() {
       } catch (err) {
         // Admin-gated — degrade honestly for non-admin researchers.
         setChrysalisNote(err instanceof Error ? err.message : "programme status requires admin");
+      }
+    })();
+    (async () => {
+      try {
+        const data = await experimentGet("/api/research/overview");
+        setOverview((data.experiments as OverviewEntry[]) ?? []);
+        setLifecycleOrder((data.lifecycleOrder as string[]) ?? []);
+      } catch {
+        /* overview degrades silently — the results table below still renders */
       }
     })();
   }, []);
@@ -150,6 +169,49 @@ export default function CCRLDashboardTab() {
           </div>
         ))}
       </div>
+
+      {/* Experiment lifecycles — derived from the canonical record */}
+      {overview && overview.length > 0 && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+          <h3 className="text-sm font-semibold text-slate-100 mb-1">Experiment lifecycles (derived, never asserted)</h3>
+          <p className="text-[11px] text-slate-500 mb-3">
+            published = a canonical run exists · replicated = runs on ≥2 distinct providers. Operator
+            transitions (protocol ratification, evaluation sign-off) are receipted via{" "}
+            <code className="text-slate-400">research_lifecycle_transition</code>.
+          </p>
+          <div className="space-y-2">
+            {overview.map((o) => (
+              <div key={o.experiment.id} className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="w-20 font-semibold text-slate-200">{o.experiment.id}</span>
+                <span className="w-44 text-slate-400">{o.experiment.family}</span>
+                <span className="flex items-center gap-1">
+                  {lifecycleOrder.map((stage, i) => {
+                    const reached = lifecycleOrder.indexOf(o.lifecycle) >= i;
+                    return (
+                      <span
+                        key={stage}
+                        title={stage}
+                        className={`rounded px-1.5 py-0.5 text-[10px] border ${
+                          stage === o.lifecycle
+                            ? "bg-violet-500/20 text-violet-300 border-violet-500/40 font-semibold"
+                            : reached
+                              ? "bg-emerald-500/10 text-emerald-300/70 border-emerald-500/20"
+                              : "bg-slate-800/40 text-slate-600 border-slate-700/40"
+                        }`}
+                      >
+                        {stage}
+                      </span>
+                    );
+                  })}
+                </span>
+                <span className="text-slate-500">
+                  {o.publishedRuns} run{o.publishedRuns === 1 ? "" : "s"} · {o.distinctProviders} provider{o.distinctProviders === 1 ? "" : "s"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent canonical publications (experiment results) */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
