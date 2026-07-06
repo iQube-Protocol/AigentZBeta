@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`dd32733`](https://github.com/iQube-Protocol/AigentZBeta/commit/dd3273314b2d0be72d5a75fb86246e5094c16116) [push] Build CCRL cartridge Phase B: the canonical research surface (CFS-019) (Claude, 2026-07-06T19:32:06Z)
 - [`b7f270f`](https://github.com/iQube-Protocol/AigentZBeta/commit/b7f270fd24782fb0bc8171efd681423890b13528) [fix] Fix Bitcoin explorer bug class once and for all: canonical helper + txid provenance (Claude, 2026-07-06T18:24:01Z)
 - [`03b3ead`](https://github.com/iQube-Protocol/AigentZBeta/commit/03b3ead918f50d59d98dcb3d3de617975d3f1da4) [push] Charter the CCRL (CFS-019 Phase A): institution, object model, IA, cybernetics invariants 108-111 (Claude, 2026-07-06T18:26:28Z)
 - [`2d242d0`](https://github.com/iQube-Protocol/AigentZBeta/commit/2d242d0a5f82359bbc043646297e90ebe7939d06) [push] Codify Platform Sovereignty as a capability bundle: CFS-018 + invariants 100-107 + PSE series charter (Claude, 2026-07-06T16:24:27Z)

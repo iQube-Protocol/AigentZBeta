@@ -2959,3 +2959,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-b7f270f.md](../build_/COMMITS/COMMIT-b7f270f.md)
 - Message: Fix Bitcoin explorer bug class once and for all: canonical helper + txid provenance
+
+## Commit `dd32733` — 2026-07-06T19:32:06Z
+- Type: `push`
+- Brief: [COMMIT-dd32733.md](../build_/COMMITS/COMMIT-dd32733.md)
+- Message: Build CCRL cartridge Phase B: the canonical research surface (CFS-019)

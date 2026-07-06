@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T18:28:22.011Z",
+  "last_updated": "2026-07-06T19:34:00.468Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b7f270fd24782fb0bc8171efd681423890b13528",
-  "latest_commit_short": "b7f270f",
-  "latest_commit_title": "Fix Bitcoin explorer bug class once and for all: canonical helper + txid provenance",
+  "latest_commit": "dd3273314b2d0be72d5a75fb86246e5094c16116",
+  "latest_commit_short": "dd32733",
+  "latest_commit_title": "Build CCRL cartridge Phase B: the canonical research surface (CFS-019)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "dd32733",
+      "full_sha": "dd3273314b2d0be72d5a75fb86246e5094c16116",
+      "title": "Build CCRL cartridge Phase B: the canonical research surface (CFS-019)",
+      "author": "Claude",
+      "timestamp": "2026-07-06T19:32:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-dd32733.md"
+    },
     {
       "sha": "b7f270f",
       "full_sha": "b7f270fd24782fb0bc8171efd681423890b13528",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-19T12:10:36Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-ae6bb66.md"
-    },
-    {
-      "sha": "846f3b2",
-      "full_sha": "846f3b2364a20aaa40d2b1691be2ea305e6cd6c7",
-      "title": "trigger deploy to dev: inline ExperienceLiquidRenderer for consumer experience cards",
-      "author": "Claude",
-      "timestamp": "2026-06-19T01:57:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-846f3b2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
