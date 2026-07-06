@@ -2889,3 +2889,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-98edca3.md](../build_/COMMITS/COMMIT-98edca3.md)
 - Message: Chrysalis Phase 2 Agent B: capability pipeline services (pack, providers, discovery)
+
+## Commit `5a51589` — 2026-07-06T06:08:17Z
+- Type: `push`
+- Brief: [COMMIT-5a51589.md](../build_/COMMITS/COMMIT-5a51589.md)
+- Message: Chrysalis Phase 2.2: Capability Pipeline tab (dev interface v1) + EXP-004 sovereignty drill
