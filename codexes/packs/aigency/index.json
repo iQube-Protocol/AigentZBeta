@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T04:25:18.280Z",
+  "last_updated": "2026-07-06T05:35:53.334Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8f673e4afcfdf0244ebaed125f1db4e015bdb3f7",
-  "latest_commit_short": "8f673e4",
-  "latest_commit_title": "Chrysalis 2.0 Phase 1B: rendering surface completes the constitutional cycle",
+  "latest_commit": "b80f4ae563bb7b26caf39483bdcf3cac4ce38a07",
+  "latest_commit_short": "b80f4ae",
+  "latest_commit_title": "Chrysalis Phase 2 Agent A: adopt constitutional cycle in assistant surfaces",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b80f4ae",
+      "full_sha": "b80f4ae563bb7b26caf39483bdcf3cac4ce38a07",
+      "title": "Chrysalis Phase 2 Agent A: adopt constitutional cycle in assistant surfaces",
+      "author": "Claude",
+      "timestamp": "2026-07-06T05:33:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b80f4ae.md"
+    },
     {
       "sha": "8f673e4",
       "full_sha": "8f673e4afcfdf0244ebaed125f1db4e015bdb3f7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T21:23:14Z",
       "type": "refactor",
       "brief": "items/build_/COMMITS/COMMIT-50cbc92.md"
-    },
-    {
-      "sha": "d156c1e",
-      "full_sha": "d156c1efbf46f42d75e7096c4021768ea38ca758",
-      "title": "trigger deploy to dev: welcome button reorder",
-      "author": "Claude",
-      "timestamp": "2026-06-18T21:23:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d156c1e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

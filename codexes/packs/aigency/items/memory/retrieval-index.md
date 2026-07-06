@@ -2879,3 +2879,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-8f673e4.md](../build_/COMMITS/COMMIT-8f673e4.md)
 - Message: Chrysalis 2.0 Phase 1B: rendering surface completes the constitutional cycle
+
+## Commit `b80f4ae` — 2026-07-06T05:33:58Z
+- Type: `push`
+- Brief: [COMMIT-b80f4ae.md](../build_/COMMITS/COMMIT-b80f4ae.md)
+- Message: Chrysalis Phase 2 Agent A: adopt constitutional cycle in assistant surfaces
