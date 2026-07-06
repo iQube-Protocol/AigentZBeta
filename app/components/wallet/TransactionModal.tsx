@@ -27,6 +27,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useExternalWallet } from './useExternalWallet';
+import { btcExplorerBase } from '@/services/ops/btcExplorer';
 
 // Same dynamic import the SmartWalletDrawer uses — guarantees identical
 // connect behavior between the Connections tab and this modal.
@@ -182,7 +183,7 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     name: 'Bitcoin Testnet',
     ticker: 'BTC',
     color: 'text-orange-400',
-    explorer: 'https://mempool.space/testnet',
+    explorer: btcExplorerBase(),
     active: false, // Coming soon
   },
   {

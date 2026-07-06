@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 import { getTestnetStatus, getAnchorStatus } from '@/services/ops/btcService';
+import { btcApiBase, isBitcoinTxid } from '@/services/ops/btcExplorer';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as posIdl } from '@/services/ops/idl/proof_of_state';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
@@ -129,10 +130,11 @@ export async function GET(req: NextRequest) {
     // Get latest non-PoS/Anchoring transaction (QCT trading activity)
     let latestTx: { txid: string; timestamp: number; type: string } | null = null;
     try {
-      const endpoint = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET;
-      if (endpoint) {
-        const base = endpoint.replace(/\/$/, '');
-        
+      {
+        // Esplora base: env override or the canonical blockstream fallback —
+        // this scan no longer silently disables when the env var is absent.
+        const base = btcApiBase();
+
         // Try to get recent transactions from latest blocks
         const tipRes = await fetch(`${base}/blocks/tip/hash`, { cache: 'no-store' });
         if (tipRes.ok) {
@@ -171,13 +173,16 @@ export async function GET(req: NextRequest) {
       // No fallback - latestTx remains null if no real transaction found
     }
 
-    // If we have a txid and a testnet endpoint, enrich with explorer data
+    // If we have a txid, enrich with explorer data
     try {
-      const endpoint = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET;
-      // Heuristic: if we don't have txid but we do have a lastAnchorId, try probing explorer with it
-      if (!anchor?.txid && anchor?.lastAnchorId && endpoint) {
+      const base = btcApiBase();
+      // Heuristic: if we don't have txid but we do have a txid-SHAPED
+      // lastAnchorId, probe the explorer — promotion happens ONLY when the
+      // explorer confirms the tx exists. NOTE: lastAnchorId is normally a
+      // Merkle root (also 64-hex), which the explorer rejects — that
+      // rejection is the correct outcome, never bypass it.
+      if (!anchor?.txid && isBitcoinTxid(anchor?.lastAnchorId)) {
         try {
-          const base = endpoint.replace(/\/$/, '');
           const probe = await fetch(`${base}/tx/${anchor.lastAnchorId}`, { cache: 'no-store' });
           if (probe.ok) {
             anchor = { ...anchor, txid: anchor.lastAnchorId };
@@ -185,8 +190,7 @@ export async function GET(req: NextRequest) {
         } catch {}
       }
 
-      if (anchor?.txid && endpoint) {
-        const base = endpoint.replace(/\/$/, '');
+      if (isBitcoinTxid(anchor?.txid)) {
         const txRes = await fetch(`${base}/tx/${anchor.txid}`, { cache: 'no-store' });
         if (txRes.ok) {
           const txJson: any = await txRes.json();
