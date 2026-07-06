@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`4a0e38f`](https://github.com/iQube-Protocol/AigentZBeta/commit/4a0e38fc1e067c2aa38f545e851e4c99a578d693) [feat] Implement DCIR D1: event stream + observation seam on the Dev Command Center (CFS-020) (Claude, 2026-07-06T20:12:48Z)
 - [`c0e41ab`](https://github.com/iQube-Protocol/AigentZBeta/commit/c0e41ab0355de2010aebd705d2a3d65d40355e50) [push] Charter DCIR (CFS-020 D0): the Dynamic Constitutional Interaction Runtime contract (Claude, 2026-07-06T19:48:10Z)
 - [`12f76e9`](https://github.com/iQube-Protocol/AigentZBeta/commit/12f76e9661f4c073565c71260cb7dfcc057b5bb7) [push] Build CCRL research object model + receipted lifecycles (CFS-019 Phase C1) (Claude, 2026-07-06T19:37:54Z)
 - [`dd32733`](https://github.com/iQube-Protocol/AigentZBeta/commit/dd3273314b2d0be72d5a75fb86246e5094c16116) [push] Build CCRL cartridge Phase B: the canonical research surface (CFS-019) (Claude, 2026-07-06T19:32:06Z)

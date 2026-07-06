@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T19:50:52.112Z",
+  "last_updated": "2026-07-06T20:15:31.341Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c0e41ab0355de2010aebd705d2a3d65d40355e50",
-  "latest_commit_short": "c0e41ab",
-  "latest_commit_title": "Charter DCIR (CFS-020 D0): the Dynamic Constitutional Interaction Runtime contract",
+  "latest_commit": "4a0e38fc1e067c2aa38f545e851e4c99a578d693",
+  "latest_commit_short": "4a0e38f",
+  "latest_commit_title": "Implement DCIR D1: event stream + observation seam on the Dev Command Center (CFS-020)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4a0e38f",
+      "full_sha": "4a0e38fc1e067c2aa38f545e851e4c99a578d693",
+      "title": "Implement DCIR D1: event stream + observation seam on the Dev Command Center (CFS-020)",
+      "author": "Claude",
+      "timestamp": "2026-07-06T20:12:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-4a0e38f.md"
+    },
     {
       "sha": "c0e41ab",
       "full_sha": "c0e41ab0355de2010aebd705d2a3d65d40355e50",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-19T12:49:15Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-4891112.md"
-    },
-    {
-      "sha": "a94abea",
-      "full_sha": "a94abea66a7d1e75ebfaddf95c342a5824c03986",
-      "title": "fix toggle persistence — remove invalid columns from upsert + sync localStorage",
-      "author": "Claude",
-      "timestamp": "2026-06-19T12:45:36Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-a94abea.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
