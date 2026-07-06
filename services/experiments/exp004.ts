@@ -31,7 +31,18 @@ import {
 import { generateImplementationPack, type ImplementationPack } from '@/services/constitutional/implementationPack';
 import type { ExperimentProvider } from '@/services/experiments/llm';
 
-/** The drill's provider — pinned, by definition of the experiment. */
+/**
+ * Sovereignty is a PROVIDER-CLASS property, not a vendor name (operator
+ * refinement, 2026-07-06): the claim is that constitutional operation
+ * survives on a NON-FRONTIER (open-weight) provider alone. Venice is the
+ * platform's only open-weight adapter today, so it is the sovereign
+ * provider — but the definition travels with the class, and a canary pins
+ * this constant to the `open-weight` kind in the constitutional provider
+ * inventory (services/constitutional/inferenceProviders.ts). Frontier runs
+ * (e.g. forced openai) exercise the full capability end-to-end; they can
+ * never satisfy the sovereignty claim.
+ */
+export const SOVEREIGN_CLASS = 'open-weight' as const;
 export const SOVEREIGN_PROVIDER = 'venice' as const;
 
 /**

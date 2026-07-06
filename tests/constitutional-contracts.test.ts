@@ -280,6 +280,17 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     expect(EXPERIMENT_PROVIDERS.chaingpt.model()).toBe('general_assistant');
     expect(EXPERIMENT_MODEL_OPTIONS.chaingpt.map((m) => m.id)).toEqual(['general_assistant']);
   });
+
+  it('sovereignty is a provider-CLASS property: the sovereign provider is open-weight in the inventory', async () => {
+    const { SOVEREIGN_PROVIDER, SOVEREIGN_CLASS } = await import('@/services/experiments/exp004');
+    const { CONSTITUTIONAL_PROVIDERS } = await import('@/services/constitutional/inferenceProviders');
+    expect(SOVEREIGN_CLASS).toBe('open-weight');
+    const sovereign = CONSTITUTIONAL_PROVIDERS.find((p) => p.id === SOVEREIGN_PROVIDER);
+    expect(sovereign?.kind).toBe(SOVEREIGN_CLASS);
+    // Frontier rehearsal members can exercise full capability but can never
+    // satisfy the sovereignty claim — openai is frontier in the inventory.
+    expect(CONSTITUTIONAL_PROVIDERS.find((p) => p.id === 'openai')?.kind).toBe('frontier');
+  });
 });
 
 describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendment)', () => {

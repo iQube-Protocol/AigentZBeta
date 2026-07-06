@@ -259,9 +259,11 @@ export default function Exp004SovereigntyRunner() {
       <div>
         <h3 className="text-base font-semibold text-slate-100">EXP-004 — Sovereignty Drill</h3>
         <p className="text-sm text-slate-400 mt-1">
-          Venice-only by construction (the API pins the provider). Five grounded constitutional tasks
-          + one implementation-pack generation. Completion is the sovereignty claim; groundedness and
-          tokens are the degradation report against the EXP-003 frontier record.
+          Five grounded constitutional tasks + one implementation-pack generation. The sovereignty
+          claim is a provider-class property: constitutional operation on a non-frontier
+          (open-weight) provider alone — venice today. Rehearsal mode runs the identical battery on
+          a substitute provider (chaingpt default, openai for full usage-token coverage) to test the
+          machinery; only an open-weight run completes the gate.
         </p>
       </div>
 
@@ -274,10 +276,12 @@ export default function Exp004SovereigntyRunner() {
       )}
       {mode === "rehearsal" && (
         <div className="rounded-lg border border-sky-800 bg-sky-950/40 p-3 text-sm text-sky-300">
-          REHEARSAL mode — the identical battery runs on a frontier provider to validate the drill
-          machinery end-to-end. This is <span className="font-semibold">not a sovereignty claim</span>:
-          sovereignty is definitionally open-weight-only, and the venice run remains pending. The
-          Chrysalis sovereignty criterion reads a rehearsal as <span className="font-mono">partial</span>, never pass.
+          REHEARSAL mode — the identical battery runs on a substitute provider to test the full
+          capability end-to-end (openai reports usage tokens; chaingpt cannot). This is{" "}
+          <span className="font-semibold">not a sovereignty claim</span>: sovereignty is a
+          provider-class property — constitutional operation on a non-frontier (open-weight)
+          provider alone — and the open-weight run remains pending. The Chrysalis sovereignty
+          criterion reads a rehearsal as <span className="font-mono">partial</span>, never pass.
         </div>
       )}
 
@@ -287,8 +291,9 @@ export default function Exp004SovereigntyRunner() {
             onClick={() => switchMode("sovereign")}
             disabled={running}
             className={`px-2.5 py-1.5 ${mode === "sovereign" ? "bg-indigo-700 text-white" : "bg-slate-900 text-slate-400 hover:text-slate-200"}`}
+            title="Sovereignty is a provider-class property: non-frontier (open-weight). Venice is the platform's open-weight adapter."
           >
-            Sovereign (venice)
+            Sovereign (open-weight · venice)
           </button>
           <button
             onClick={() => switchMode("rehearsal")}
