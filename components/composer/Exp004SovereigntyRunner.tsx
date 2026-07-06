@@ -57,7 +57,7 @@ export default function Exp004SovereigntyRunner() {
   const [model, setModel] = useState<string>("");
   const [mode, setMode] = useState<"sovereign" | "rehearsal">("sovereign");
   const [rehearsalProviders, setRehearsalProviders] = useState<RehearsalProviderInfo[]>([]);
-  const [rehearsalProvider, setRehearsalProvider] = useState<string>("openai");
+  const [rehearsalProvider, setRehearsalProvider] = useState<string>("chaingpt");
   const [running, setRunning] = useState(false);
   const [rows, setRows] = useState<TaskRow[]>([]);
   const [ranMode, setRanMode] = useState<"sovereign" | "rehearsal">("sovereign");

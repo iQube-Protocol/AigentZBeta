@@ -36,15 +36,19 @@ export const SOVEREIGN_PROVIDER = 'venice' as const;
 
 /**
  * REHEARSAL arm (2026-07-06, operator-directed): venice credits are pending,
- * so the identical battery may run on a frontier provider to validate the
+ * so the identical battery may run on a substitute provider to validate the
  * drill MACHINERY end-to-end. A rehearsal completion is NEVER a sovereignty
  * claim — sovereignty is definitionally open-weight-only — and rehearsal
  * publishes carry `rehearsal: true` with no `sovereigntyHolds` field. The
  * Chrysalis sovereignty criterion treats a rehearsal as `partial`, never
  * `pass`. Venice is deliberately NOT in this list (a venice run IS the
  * sovereign drill).
+ *
+ * ORDER IS THE OPERATOR'S PREFERENCE CHAIN (2026-07-06): chaingpt default,
+ * openai fallback — then venice as the sovereign run once credits land. The
+ * runner defaults to the first AVAILABLE provider in this order.
  */
-export const REHEARSAL_PROVIDERS = ['openai', 'anthropic'] as const;
+export const REHEARSAL_PROVIDERS = ['chaingpt', 'openai'] as const;
 export type RehearsalProvider = (typeof REHEARSAL_PROVIDERS)[number];
 
 export function isRehearsalProvider(p: string): p is RehearsalProvider {

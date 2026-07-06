@@ -266,11 +266,19 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     const { REHEARSAL_PROVIDERS, SOVEREIGN_PROVIDER, isRehearsalProvider } = await import(
       '@/services/experiments/exp004'
     );
-    expect(REHEARSAL_PROVIDERS).toEqual(['openai', 'anthropic']);
+    // Operator preference chain (2026-07-06): chaingpt default → openai
+    // fallback → venice as the sovereign run. Order is meaningful.
+    expect(REHEARSAL_PROVIDERS).toEqual(['chaingpt', 'openai']);
     expect((REHEARSAL_PROVIDERS as readonly string[]).includes(SOVEREIGN_PROVIDER)).toBe(false);
     expect(isRehearsalProvider('venice')).toBe(false);
+    expect(isRehearsalProvider('chaingpt')).toBe(true);
     expect(isRehearsalProvider('openai')).toBe(true);
-    expect(isRehearsalProvider('chaingpt')).toBe(false); // chat-surface provider, not an experiment adapter
+  });
+
+  it('chaingpt is a real experiment adapter with honest usage semantics', async () => {
+    const { EXPERIMENT_MODEL_OPTIONS, EXPERIMENT_PROVIDERS } = await import('@/services/experiments/llm');
+    expect(EXPERIMENT_PROVIDERS.chaingpt.model()).toBe('general_assistant');
+    expect(EXPERIMENT_MODEL_OPTIONS.chaingpt.map((m) => m.id)).toEqual(['general_assistant']);
   });
 });
 

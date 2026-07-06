@@ -10,15 +10,29 @@
  * Server-only.
  */
 
-export type ExperimentProvider = 'anthropic' | 'openai' | 'venice';
+export type ExperimentProvider = 'anthropic' | 'openai' | 'venice' | 'chaingpt';
 
 export const EXPERIMENT_PROVIDERS: Record<ExperimentProvider, { keyEnv: string; model: () => string }> = {
   anthropic: { keyEnv: 'ANTHROPIC_API_KEY', model: () => process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-6' },
   openai: { keyEnv: 'OPENAI_API_KEY', model: () => process.env.OPENAI_DRAFT_MODEL || 'gpt-4o-mini' },
   venice: { keyEnv: 'VENICE_API_KEY', model: () => process.env.VENICE_DRAFT_MODEL || 'llama-3.3-70b' },
+  chaingpt: { keyEnv: 'CHAINGPT_API_KEY', model: () => process.env.CHAINGPT_MODEL || 'general_assistant' },
 };
 
+/** ChainGPT accepts four env spellings in production (mirrors the codex chat
+ * route's resolution exactly — app/api/codex/chat/route.ts). */
+function chaingptApiKey(): string | null {
+  return (
+    process.env.CHAINGPT_API_KEY ||
+    process.env.CHAIN_GPT_API_KEY ||
+    process.env.CHAINGPT_API_SECRET ||
+    process.env.CHAIN_GPT_API_SECRET ||
+    null
+  );
+}
+
 export function providerAvailable(provider: ExperimentProvider): boolean {
+  if (provider === 'chaingpt') return Boolean(chaingptApiKey());
   return Boolean(process.env[EXPERIMENT_PROVIDERS[provider].keyEnv]);
 }
 
@@ -44,6 +58,9 @@ export const EXPERIMENT_MODEL_OPTIONS: Record<ExperimentProvider, { id: string; 
     { id: 'venice-uncensored', label: 'Venice Uncensored' },
     { id: 'venice-reasoning', label: 'Venice Reasoning' },
   ],
+  // The one model value with a verified production call site (the codex chat
+  // route's CHAINGPT_MODEL default). Add ids here only with a proven call.
+  chaingpt: [{ id: 'general_assistant', label: 'ChainGPT General Assistant (default)' }],
 };
 
 export function isAllowedExperimentModel(provider: ExperimentProvider, model: string): boolean {
@@ -93,12 +110,48 @@ export async function callChatWithUsage(
   modelOverride?: string,
 ): Promise<ChatResult> {
   const conf = EXPERIMENT_PROVIDERS[provider];
-  const apiKey = process.env[conf.keyEnv];
+  const apiKey = provider === 'chaingpt' ? chaingptApiKey() : process.env[conf.keyEnv];
   if (!apiKey) throw new Error(`${conf.keyEnv} is not configured`);
   if (modelOverride && !isAllowedExperimentModel(provider, modelOverride)) {
     throw new Error(`model '${modelOverride}' is not in the ${provider} experiment allowlist`);
   }
   const model = modelOverride || conf.model();
+
+  if (provider === 'chaingpt') {
+    // Mirrors the platform's proven call (app/api/codex/chat/route.ts
+    // callChainGpt) exactly: single flattened question, chatHistory off,
+    // response is either JSON with data.bot or raw text. Honest limits: the
+    // endpoint takes no temperature/max_tokens (benchmark temp-0 discipline
+    // is not enforceable here) and returns no usage tokens — both reported
+    // as null, never fabricated.
+    const question = [
+      system,
+      `User: ${user}`,
+      'Respond directly to the latest user message while following the system guidance above.',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+    const res = await fetchWithTimeout('https://api.chaingpt.org/chat/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model, question, chatHistory: 'off' }),
+    }, 'chaingpt');
+    if (!res.ok) throw new Error(`chaingpt ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const raw = await res.text();
+    let text = raw.trim();
+    try {
+      const data = JSON.parse(raw);
+      if (typeof data === 'string') text = data.trim();
+      else if (typeof data?.data?.bot === 'string') text = data.data.bot.trim();
+    } catch {
+      // raw streaming text — already captured
+    }
+    if (!text) throw new Error('chaingpt returned an empty completion');
+    return { text, inputTokens: null, outputTokens: null, model };
+  }
 
   if (provider === 'anthropic') {
     const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
