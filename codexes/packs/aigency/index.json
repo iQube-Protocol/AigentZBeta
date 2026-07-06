@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T15:42:39.681Z",
+  "last_updated": "2026-07-06T15:51:05.030Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ff5abef797368d776606d4fe120f13f856bb8fbc",
-  "latest_commit_short": "ff5abef",
-  "latest_commit_title": "Promote ChainGPT to experiment adapter; rehearsal chain chaingpt → openai → venice-sovereign",
+  "latest_commit": "7186b5bc3fd148d040aff70c1b286c3049cbfb21",
+  "latest_commit_short": "7186b5b",
+  "latest_commit_title": "Refine sovereignty as a provider-class property (open-weight), pin with canary",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7186b5b",
+      "full_sha": "7186b5bc3fd148d040aff70c1b286c3049cbfb21",
+      "title": "Refine sovereignty as a provider-class property (open-weight), pin with canary",
+      "author": "Claude",
+      "timestamp": "2026-07-06T15:49:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7186b5b.md"
+    },
     {
       "sha": "ff5abef",
       "full_sha": "ff5abef797368d776606d4fe120f13f856bb8fbc",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T23:01:41Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-490cff8.md"
-    },
-    {
-      "sha": "239cee4",
-      "full_sha": "239cee4e309089336dcf8c710826aeba81295f80",
-      "title": "fix runtime regression: render consumer task runner for admins too",
-      "author": "Claude",
-      "timestamp": "2026-06-18T22:40:27Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-239cee4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
