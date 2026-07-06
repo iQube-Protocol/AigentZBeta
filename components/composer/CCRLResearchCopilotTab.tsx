@@ -34,6 +34,11 @@ import {
   surfaceDataRefreshedEvent,
   surfacePromptSelectedEvent,
 } from "@/services/dcir/eventStream";
+import {
+  buildStateSnapshot,
+  mineBehaviouralInvariants,
+  compactBehaviouralInvariants,
+} from "@/services/dcir/stateEngine";
 
 const SURFACE = "ccrl-research";
 
@@ -144,6 +149,13 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
     // DCIR observation seam: the last ~12 session events, compacted —
     // the next copilot turn observes what happened (narrate-only).
     recentEvents: compactDcirEvents(dcirEvents),
+    // DCIR D2 (observe-mode): compact constitutional state snapshot +
+    // behavioural patterns mined from this session only — observations the
+    // copilot may gently adapt to, NEVER rules (CFS-020 §6). Session-scoped;
+    // nothing persists, nothing gates. This surface has no workflow stage or
+    // capsule model, so only the surface itself rides the workflow position.
+    stateSnapshot: buildStateSnapshot(dcirEvents, { surface: SURFACE }),
+    observedPatterns: compactBehaviouralInvariants(mineBehaviouralInvariants(dcirEvents)),
   }), [overview, series, lifecycleOrder, results, overviewError, resultsError, dcirEvents]);
 
   const quickPrompts = useMemo(() => [

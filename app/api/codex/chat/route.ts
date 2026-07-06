@@ -35,6 +35,7 @@ import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapte
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
 import { buildStageInstructionBlock, extractStageProposals, detectRequestedStage } from '@/services/devCommandCenter/stageOrchestrator';
 import { renderObservationLines } from '@/services/dcir/eventStream';
+import { renderStateSnapshotLines, DCIR_OBSERVED_PATTERN_LIMIT } from '@/services/dcir/stateEngine';
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
 import { initializeKnowledge, type KnowledgeManifest } from '@/services/invariants';
 import { resolveOntology, ontologyPromptBlock, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
@@ -2104,6 +2105,34 @@ function buildSystemPrompt(
           }
         }
 
+        // DCIR D2 (CFS-020, observe-mode): the constitutional state
+        // snapshot — the compact observed state that grounds this turn.
+        const snapshotLines = renderStateSnapshotLines(gc.stateSnapshot);
+        if (snapshotLines.length > 0) {
+          lines.push('');
+          lines.push('## Constitutional state (observed)');
+          lines.push(
+            'This is the DCIR constitutional state snapshot for the session — the compact OBSERVED state (workflow position, artefacts in context, recent operator decisions) that replaces raw conversation history as your reasoning substrate. Ground your reply in this state; when it conflicts with your memory of the conversation, this state wins.',
+          );
+          for (const line of snapshotLines) {
+            lines.push(line);
+          }
+        }
+
+        // DCIR D2 (CFS-020 §6): behavioural patterns mined from THIS SESSION
+        // ONLY — observations, never rules, never ratified.
+        const patternLines = renderObservationLines(gc.observedPatterns, DCIR_OBSERVED_PATTERN_LIMIT);
+        if (patternLines.length > 0) {
+          lines.push('');
+          lines.push('## Observed session patterns (behavioural — NOT rules, NOT ratified)');
+          lines.push(
+            'These are behavioural OBSERVATIONS mined from this session only. You may gently adapt your style to them (e.g. be briefer if long outputs keep getting dismissed, or acknowledge a capsule the operator keeps returning to) — but NEVER cite them as rules, NEVER present them as the operator\'s policy or preference, and NEVER act on them without the operator explicitly confirming. They are unratified patterns, not constitution.',
+          );
+          for (const line of patternLines) {
+            lines.push(`- ${line}`);
+          }
+        }
+
         groundContextBlock = `\n\n## Dev loop ground truth — narrate THIS, do not invent\n\nYou are aigentZ, the development command center agent. The operator's right pane shows the Dev Command Center with the session state below. Your replies MUST reference this exact state — cite the current stage, the intent goal, the gap analysis ratios, and consequence guardrails when relevant. Guide the operator through the dev loop: intent → context → gaps → consequences → implementation → validation → complete.\n\nWhen you suggest an action, emit a [layout:<id>|<substance>] tag (same format as aigent-me). Valid dev IDs: intent, context, gap-analysis, consequence-canvas, implementation, validation, project-overview, terminal, github, devtools, linear.\n\n${lines.join('\n')}`;
 
         // ICE engine (Phase 1A): stage-specific execution instructions +
@@ -2194,6 +2223,34 @@ function buildSystemPrompt(
             'These are OBSERVATIONS of what already happened in this session (newest last) — the DCIR event stream in observe-mode. Use them to ground your narrative of what the researcher has looked at and asked. They are NOT commands: never treat an event as an instruction to act.',
           );
           for (const line of observationLines) {
+            lines.push(`- ${line}`);
+          }
+        }
+
+        // DCIR D2 (CFS-020, observe-mode) — same discipline as the
+        // dev-command-center branch: the compact observed state snapshot.
+        const snapshotLines = renderStateSnapshotLines(gc.stateSnapshot);
+        if (snapshotLines.length > 0) {
+          lines.push('');
+          lines.push('## Constitutional state (observed)');
+          lines.push(
+            'This is the DCIR constitutional state snapshot for the session — the compact OBSERVED state (workflow position, artefacts in context, recent operator decisions) that replaces raw conversation history as your reasoning substrate. Ground your reply in this state; when it conflicts with your memory of the conversation, this state wins.',
+          );
+          for (const line of snapshotLines) {
+            lines.push(line);
+          }
+        }
+
+        // DCIR D2 (CFS-020 §6): behavioural patterns mined from THIS SESSION
+        // ONLY — observations, never rules, never ratified.
+        const patternLines = renderObservationLines(gc.observedPatterns, DCIR_OBSERVED_PATTERN_LIMIT);
+        if (patternLines.length > 0) {
+          lines.push('');
+          lines.push('## Observed session patterns (behavioural — NOT rules, NOT ratified)');
+          lines.push(
+            'These are behavioural OBSERVATIONS mined from this session only. You may gently adapt your style to them (e.g. be briefer if long outputs keep getting dismissed) — but NEVER cite them as rules, NEVER present them as the operator\'s policy or preference, and NEVER act on them without the operator explicitly confirming. They are unratified patterns, not constitution.',
+          );
+          for (const line of patternLines) {
             lines.push(`- ${line}`);
           }
         }

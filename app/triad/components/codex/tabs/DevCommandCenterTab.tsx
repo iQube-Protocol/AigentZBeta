@@ -69,6 +69,11 @@ import {
   devImplementationPackGeneratedEvent,
   devDeploymentProposedEvent,
 } from "@/services/dcir/eventStream";
+import {
+  buildStateSnapshot,
+  mineBehaviouralInvariants,
+  compactBehaviouralInvariants,
+} from "@/services/dcir/stateEngine";
 
 import {
   IntentLayout,
@@ -664,6 +669,16 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     // DCIR D1 observation seam: the last ~12 session events, compacted —
     // the next copilot turn observes what happened (narrate-only).
     recentEvents: compactDcirEvents(dcirEvents),
+    // DCIR D2 (observe-mode): compact constitutional state snapshot +
+    // behavioural patterns mined from this session only — observations the
+    // copilot may gently adapt to, NEVER rules (CFS-020 §6). Session-scoped;
+    // nothing persists, nothing gates.
+    stateSnapshot: buildStateSnapshot(dcirEvents, {
+      surface: "dev-command-center",
+      workflowStage: session.stage,
+      activeCapsule: activeCapsuleId,
+    }),
+    observedPatterns: compactBehaviouralInvariants(mineBehaviouralInvariants(dcirEvents)),
   }), [session, activeLayoutId, activeCapsuleId, pendingProposals, dcirEvents]);
 
   // Quick-prompt chips for the copilot left pane

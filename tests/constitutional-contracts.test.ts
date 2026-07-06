@@ -470,3 +470,125 @@ describe('DCIR generic surface helpers (CFS-020 composition — added for CCRL C
     }
   });
 });
+
+describe('DCIR D2 — Constitutional State Engine, observe-mode slice (CFS-020)', () => {
+  it('the state snapshot keeps the contract shape and cannot express T0 identifiers', async () => {
+    const { buildStateSnapshot } = await import('@/services/dcir/stateEngine');
+    const {
+      devImplementationPackGeneratedEvent,
+      devProposalApprovedEvent,
+      devCapsuleOpenedEvent,
+    } = await import('@/services/dcir/eventStream');
+
+    const events = [
+      devCapsuleOpenedEvent('intent'),
+      devImplementationPackGeneratedEvent(),
+      devProposalApprovedEvent('dev_intent', 'intent'),
+    ];
+    const snap = buildStateSnapshot(events, {
+      surface: 'dev-command-center',
+      workflowStage: 'intent_capture',
+      activeCapsule: 'intent',
+    });
+
+    // Contract shape (ConstitutionalStateSnapshot) — hardened fields carry
+    // observed data; deferred fields stay at honest defaults.
+    expect(Array.isArray(snap.intent)).toBe(true);
+    expect(snap.persona).toBeNull(); // the T1 persona surface is deliberately not threaded here
+    expect(snap.activeArtefacts.length).toBe(1); // the DocumentCreated-class event
+    expect(snap.operatorDecisions.length).toBe(1); // the approval
+    expect(snap.confidence).toBeGreaterThan(0);
+    expect(snap.confidence).toBeLessThanOrEqual(0.6); // observe-mode never claims high confidence
+    expect(typeof snap.capturedAt).toBe('string');
+
+    // T0 identifiers are inexpressible anywhere in the serialised snapshot.
+    const json = JSON.stringify(snap);
+    for (const forbidden of ['personaId', 'authProfileId', 'rootDid', 'fioHandle', 'kybeAttestation']) {
+      expect(json).not.toContain(forbidden);
+    }
+  });
+
+  it('the miner is deterministic — same events yield identical patterns, ids, and evidence', async () => {
+    const { mineBehaviouralInvariants } = await import('@/services/dcir/stateEngine');
+    const { devProposalDismissedEvent, devCapsuleOpenedEvent, surfaceDataRefreshedEvent } =
+      await import('@/services/dcir/eventStream');
+
+    const events = [
+      devProposalDismissedEvent('dev_gap_analysis', 'gap-analysis'),
+      devProposalDismissedEvent('dev_gap_analysis', 'gap-analysis'),
+      devCapsuleOpenedEvent('intent'),
+      devCapsuleOpenedEvent('intent'),
+      devCapsuleOpenedEvent('intent'),
+      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('ccrl-research', '5 experiments'),
+    ];
+    const first = mineBehaviouralInvariants(events);
+    const second = mineBehaviouralInvariants(events);
+    expect(first.length).toBeGreaterThan(0);
+    expect(second).toEqual(first); // no clock, no randomness — ids included
+  });
+
+  it('below-threshold behaviour emits nothing', async () => {
+    const { mineBehaviouralInvariants } = await import('@/services/dcir/stateEngine');
+    const {
+      devProposalDismissedEvent,
+      devProposalApprovedEvent,
+      devCapsuleOpenedEvent,
+      surfaceDataRefreshedEvent,
+    } = await import('@/services/dcir/eventStream');
+
+    // One dismissal (<2), two capsule opens (<3), two refreshes (<3),
+    // two approvals (<3): none of the patterns reaches its threshold.
+    const events = [
+      devProposalDismissedEvent('dev_intent', 'intent'),
+      devCapsuleOpenedEvent('context'),
+      devCapsuleOpenedEvent('context'),
+      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
+      devProposalApprovedEvent('dev_intent', 'intent'),
+      devProposalApprovedEvent('dev_context', 'context'),
+    ];
+    expect(mineBehaviouralInvariants(events)).toEqual([]);
+  });
+
+  it('mined invariants are always status observed — never proposed, never canonical — with honest evidence', async () => {
+    const { mineBehaviouralInvariants, compactBehaviouralInvariants, DCIR_OBSERVED_PATTERN_LIMIT } =
+      await import('@/services/dcir/stateEngine');
+    const {
+      devProposalDismissedEvent,
+      devProposalApprovedEvent,
+      devCapsuleOpenedEvent,
+      surfaceDataRefreshedEvent,
+    } = await import('@/services/dcir/eventStream');
+
+    const events = [
+      devProposalDismissedEvent('dev_gap_analysis', 'gap-analysis'),
+      devProposalDismissedEvent('dev_gap_analysis', 'gap-analysis'),
+      devProposalDismissedEvent('dev_gap_analysis', 'gap-analysis'),
+      devProposalApprovedEvent('dev_intent', 'intent'),
+      devProposalApprovedEvent('dev_context', 'context'),
+      devProposalApprovedEvent('dev_consequence_canvas', 'consequence-canvas'),
+      devCapsuleOpenedEvent('validation'),
+      devCapsuleOpenedEvent('validation'),
+      devCapsuleOpenedEvent('validation'),
+      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
+    ];
+    const mined = mineBehaviouralInvariants(events);
+    expect(mined.length).toBeGreaterThanOrEqual(4); // dismissal + approval-style + revisit + refresh
+    for (const inv of mined) {
+      // Ratification boundary: the miner emits runtime-local observations
+      // ONLY. 'proposed' is the substrate submission path; 'canonical' is
+      // unrepresentable on the type at all (inv.interaction.115).
+      expect(inv.status).toBe('observed');
+      expect(inv.evidenceCount).toBeGreaterThanOrEqual(2);
+      expect(inv.evidenceEventIds.length).toBe(inv.evidenceCount);
+      expect(typeof inv.firstObservedAt).toBe('string');
+    }
+    // The compact ground-context form is bounded at the pinned limit.
+    expect(DCIR_OBSERVED_PATTERN_LIMIT).toBe(3);
+    expect(compactBehaviouralInvariants(mined).length).toBeLessThanOrEqual(DCIR_OBSERVED_PATTERN_LIMIT);
+  });
+});
