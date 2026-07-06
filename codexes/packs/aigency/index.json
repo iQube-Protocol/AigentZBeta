@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T04:01:29.772Z",
+  "last_updated": "2026-07-06T04:19:29.801Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8ae5deccaa944588bf2b2cf3a51b31fa6e3a1732",
-  "latest_commit_short": "8ae5dec",
-  "latest_commit_title": "Chrysalis 2.0 Phase 1: ratify CFS-015 + constitutional contracts, ontology resolver, model router",
+  "latest_commit": "302058c32baaff6b5d86ef66285405e32a468d30",
+  "latest_commit_short": "302058c",
+  "latest_commit_title": "Ratify CFS-015 amendments: Capability Pipeline, Improvement Loop, glossary, recursion",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "302058c",
+      "full_sha": "302058c32baaff6b5d86ef66285405e32a468d30",
+      "title": "Ratify CFS-015 amendments: Capability Pipeline, Improvement Loop, glossary, recursion",
+      "author": "Claude",
+      "timestamp": "2026-07-06T04:17:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-302058c.md"
+    },
     {
       "sha": "8ae5dec",
       "full_sha": "8ae5deccaa944588bf2b2cf3a51b31fa6e3a1732",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T21:32:12Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-553e41b.md"
-    },
-    {
-      "sha": "4d66986",
-      "full_sha": "4d6698611734c48e99cd687033026097992d9c0f",
-      "title": "Phase 4 MVP — Bureau recommendation rights gated by Stewardship Standing",
-      "author": "Claude",
-      "timestamp": "2026-06-16T16:30:03Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4d66986.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
