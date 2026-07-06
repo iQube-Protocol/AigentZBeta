@@ -2929,3 +2929,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5db7c45.md](../build_/COMMITS/COMMIT-5db7c45.md)
 - Message: Add EXP-004 rehearsal arm: frontier fallback validates drill machinery while venice credits pend
+
+## Commit `ff5abef` — 2026-07-06T15:40:31Z
+- Type: `push`
+- Brief: [COMMIT-ff5abef.md](../build_/COMMITS/COMMIT-ff5abef.md)
+- Message: Promote ChainGPT to experiment adapter; rehearsal chain chaingpt → openai → venice-sovereign

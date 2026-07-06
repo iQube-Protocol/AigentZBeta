@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-06T15:38:13.752Z",
+  "last_updated": "2026-07-06T15:42:39.681Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5db7c45dcdb496807bf0b719349e47593550f3ae",
-  "latest_commit_short": "5db7c45",
-  "latest_commit_title": "Add EXP-004 rehearsal arm: frontier fallback validates drill machinery while venice credits pend",
+  "latest_commit": "ff5abef797368d776606d4fe120f13f856bb8fbc",
+  "latest_commit_short": "ff5abef",
+  "latest_commit_title": "Promote ChainGPT to experiment adapter; rehearsal chain chaingpt → openai → venice-sovereign",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ff5abef",
+      "full_sha": "ff5abef797368d776606d4fe120f13f856bb8fbc",
+      "title": "Promote ChainGPT to experiment adapter; rehearsal chain chaingpt → openai → venice-sovereign",
+      "author": "Claude",
+      "timestamp": "2026-07-06T15:40:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ff5abef.md"
+    },
     {
       "sha": "5db7c45",
       "full_sha": "5db7c45dcdb496807bf0b719349e47593550f3ae",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-18T22:40:27Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-239cee4.md"
-    },
-    {
-      "sha": "812fe7e",
-      "full_sha": "812fe7e005470a4b51d69463893b5205f8ff8277",
-      "title": "trigger deploy to dev: runtime consumer task runner regression fix",
-      "author": "Claude",
-      "timestamp": "2026-06-18T22:43:07Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-812fe7e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
