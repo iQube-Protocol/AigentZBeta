@@ -2909,3 +2909,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1cd32d7.md](../build_/COMMITS/COMMIT-1cd32d7.md)
 - Message: Strand-3 first slice: venture hand-off joins the constitutional cycle + CFS-017 seam draft
+
+## Commit `a8279a9` — 2026-07-06T07:42:47Z
+- Type: `feat`
+- Brief: [COMMIT-a8279a9.md](../build_/COMMITS/COMMIT-a8279a9.md)
+- Message: Ratify + implement CFS-017 v1: a2ui plan path observed, with three honest amendments
