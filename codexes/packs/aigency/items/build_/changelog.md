@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`12f76e9`](https://github.com/iQube-Protocol/AigentZBeta/commit/12f76e9661f4c073565c71260cb7dfcc057b5bb7) [push] Build CCRL research object model + receipted lifecycles (CFS-019 Phase C1) (Claude, 2026-07-06T19:37:54Z)
 - [`dd32733`](https://github.com/iQube-Protocol/AigentZBeta/commit/dd3273314b2d0be72d5a75fb86246e5094c16116) [push] Build CCRL cartridge Phase B: the canonical research surface (CFS-019) (Claude, 2026-07-06T19:32:06Z)
 - [`b7f270f`](https://github.com/iQube-Protocol/AigentZBeta/commit/b7f270fd24782fb0bc8171efd681423890b13528) [fix] Fix Bitcoin explorer bug class once and for all: canonical helper + txid provenance (Claude, 2026-07-06T18:24:01Z)
 - [`03b3ead`](https://github.com/iQube-Protocol/AigentZBeta/commit/03b3ead918f50d59d98dcb3d3de617975d3f1da4) [push] Charter the CCRL (CFS-019 Phase A): institution, object model, IA, cybernetics invariants 108-111 (Claude, 2026-07-06T18:26:28Z)
