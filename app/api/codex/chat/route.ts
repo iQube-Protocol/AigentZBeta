@@ -2109,11 +2109,15 @@ function buildSystemPrompt(
         };
         const viewedCapsule = typeof gc.activeCapsule === 'string' ? gc.activeCapsule : null;
         const requestedStage = latestUserMessage ? detectRequestedStage(latestUserMessage) : null;
-        const effectiveStage =
-          requestedStage ||
+        const contextStage =
           (viewedCapsule && CAPSULE_TO_STAGE[viewedCapsule]) ||
           (typeof gc.activeStage === 'string' ? gc.activeStage : undefined);
-        groundContextBlock += buildStageInstructionBlock(effectiveStage);
+        const effectiveStage = requestedStage || contextStage;
+        // The detected stage is a hint, not a suppressor: when it differs
+        // from the capsule/session stage, BOTH schemas are presented and the
+        // LLM emits the kind the operator's request actually means.
+        const altStage = requestedStage && contextStage !== requestedStage ? contextStage : null;
+        groundContextBlock += buildStageInstructionBlock(effectiveStage, altStage);
       }
     } catch {
       // groundContext malformed — fall back to general narrative.

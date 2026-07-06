@@ -81,18 +81,22 @@ export const PROPOSAL_KIND_TO_CAPSULE: Record<StageProposalKind, string> = {
 
 /**
  * Ordered, conservative patterns: the FIRST match wins, so validation
- * outranks implementation ("validate the implementation" is a validation
- * request). Only strong stage signals are listed — anything ambiguous
- * returns null and the viewed-capsule / session stage decides as before.
+ * outranks everything ("validate the implementation" is a validation
+ * request) and gap analysis outranks implementation ("the gaps in the
+ * implementation" is a gap request — the 2026-07-06 regression: bare
+ * `implement`/`implementation` ranked above `gaps` hijacked gap-analysis
+ * requests to the implementation stage, so the Gaps card never received a
+ * proposal). Implementation matches only phrase-level signals. Anything
+ * ambiguous returns null and the viewed-capsule / session stage decides.
  */
 const STAGE_REQUEST_PATTERNS: Array<{ stage: DevLoopStage; re: RegExp }> = [
   { stage: 'consequence_validation', re: /\bvalidat/i },
+  { stage: 'gap_analysis', re: /\b(capability )?gaps?\b/i },
+  { stage: 'consequence_modeling', re: /\bconsequence/i },
   {
     stage: 'implementation',
-    re: /\bimplementation\b|\bimplement\b|\bstart (the )?(development|dev work|building)\b|\bdevelopment phase\b|\bwrite the code\b/i,
+    re: /\bimplementation (brief|pack|plan|stage|phase)\b|\bstart (the )?(implementation|development|dev work|building)\b|\bbegin (the )?implementation\b|\bdevelopment phase\b|\bwrite the code\b/i,
   },
-  { stage: 'consequence_modeling', re: /\bconsequence/i },
-  { stage: 'gap_analysis', re: /\b(capability )?gaps?\b/i },
   { stage: 'context_assembly', re: /\bcontext pack\b|\bassemble (the )?context\b/i },
   { stage: 'intent_capture', re: /\bnew (development )?intent\b/i },
 ];
@@ -103,6 +107,11 @@ const STAGE_REQUEST_PATTERNS: Array<{ stage: DevLoopStage; re: RegExp }> = [
  * while the Consequence Canvas capsule is open must produce a
  * validation_report proposal (which then routes to — and auto-opens — the
  * Validation capsule), not another consequence_canvas.
+ *
+ * A detected stage is a HINT, never a suppressor: the chat route passes it
+ * as the primary stage and the capsule/session stage as the alternate, and
+ * buildStageInstructionBlock presents BOTH schemas so a misfired pattern
+ * can't stop the LLM from emitting the stage the operator actually meant.
  */
 export function detectRequestedStage(message: string): DevLoopStage | null {
   if (!message || typeof message !== 'string') return null;
@@ -221,8 +230,17 @@ const STAGE_BEHAVIOR: Record<DevLoopStage, string> = {
  * Build the per-stage instruction addendum for the aigent-z system prompt.
  * Tells the LLM how to behave at this stage and the exact stage_data fence
  * format for its structured proposal.
+ *
+ * `altStageInput` (optional) is the SECOND candidate stage — the viewed
+ * capsule's / session's stage when the operator's message was detected as
+ * requesting a different one. Both schemas are presented and the LLM picks
+ * the one the operator's request actually means, so neither a keyword
+ * misfire nor the capsule override can suppress the right proposal kind.
  */
-export function buildStageInstructionBlock(stageInput: DevLoopStage | string | undefined): string {
+export function buildStageInstructionBlock(
+  stageInput: DevLoopStage | string | undefined,
+  altStageInput?: DevLoopStage | string | null,
+): string {
   const stage: DevLoopStage =
     typeof stageInput === 'string' && stageInput in STAGE_PROPOSAL_KIND
       ? (stageInput as DevLoopStage)
@@ -232,6 +250,23 @@ export function buildStageInstructionBlock(stageInput: DevLoopStage | string | u
     return '\n\n## Dev loop complete\n\nThe loop is complete. Help the operator review outcomes or start a new intent (a new intent proposal is allowed at any time).';
   }
 
+  const altStage: DevLoopStage | null =
+    typeof altStageInput === 'string' && altStageInput in STAGE_PROPOSAL_KIND && altStageInput !== stage
+      ? (altStageInput as DevLoopStage)
+      : null;
+  const altKind = altStage ? STAGE_PROPOSAL_KIND[altStage] : null;
+
+  const altSection =
+    altStage && altKind
+      ? `\n\nAlternate stage: the operator's current capsule/session context is the **${altStage}** stage. If their request is actually about that stage rather than ${stage}, emit its ${altKind} proposal instead (same fence format):
+
+\`\`\`stage_data
+${SCHEMAS[altKind]}
+\`\`\`
+
+${STAGE_BEHAVIOR[altStage]}`
+      : '';
+
   return `\n\n## Stage execution — produce a structured ${kind} proposal
 
 You are executing the **${stage}** stage. ${STAGE_BEHAVIOR[stage]}
@@ -240,7 +275,7 @@ When you have enough grounded material, append a fenced block at the END of your
 
 \`\`\`stage_data
 ${SCHEMAS[kind]}
-\`\`\`
+\`\`\`${altSection}
 
 Rules:
 - Valid JSON only inside the fence. One fence per reply, maximum.

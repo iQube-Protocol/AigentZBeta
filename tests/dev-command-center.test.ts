@@ -39,6 +39,7 @@ import {
   getStageLabel,
   buildImplementationPackage,
   detectRequestedStage,
+  buildStageInstructionBlock,
   PROPOSAL_KIND_TO_CAPSULE,
 } from '@/services/devCommandCenter';
 
@@ -379,6 +380,15 @@ describe('Stage Orchestrator routing', () => {
     expect(detectRequestedStage('start the development phase')).toBe('implementation');
   });
 
+  it('REGRESSION 2026-07-06: gap requests mentioning implementation stay gap requests', () => {
+    expect(detectRequestedStage('analyze the gaps in the implementation')).toBe('gap_analysis');
+    expect(detectRequestedStage('what capability gaps remain before we can implement this?')).toBe(
+      'gap_analysis',
+    );
+    // bare "implement"/"implementation" no longer hijacks any stage
+    expect(detectRequestedStage('how would the implementation look?')).toBeNull();
+  });
+
   it('detects consequence and gap requests', () => {
     expect(detectRequestedStage('Model the consequences for the current intent')).toBe(
       'consequence_modeling',
@@ -391,5 +401,18 @@ describe('Stage Orchestrator routing', () => {
     expect(detectRequestedStage("I want to start a new development intent. Help me distill what I'm trying to build.")).toBe(
       'intent_capture',
     );
+  });
+
+  it('presents BOTH schemas when the detected stage differs from the context stage', () => {
+    const block = buildStageInstructionBlock('consequence_validation', 'consequence_modeling');
+    expect(block).toContain('validation_report');
+    expect(block).toContain('consequence_canvas');
+    expect(block).toContain('Alternate stage');
+  });
+
+  it('presents a single schema when there is no alternate', () => {
+    const block = buildStageInstructionBlock('gap_analysis', null);
+    expect(block).toContain('gap_analysis');
+    expect(block).not.toContain('Alternate stage');
   });
 });
