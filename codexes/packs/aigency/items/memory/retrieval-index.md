@@ -2874,3 +2874,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-302058c.md](../build_/COMMITS/COMMIT-302058c.md)
 - Message: Ratify CFS-015 amendments: Capability Pipeline, Improvement Loop, glossary, recursion
+
+## Commit `8f673e4` — 2026-07-06T04:23:30Z
+- Type: `push`
+- Brief: [COMMIT-8f673e4.md](../build_/COMMITS/COMMIT-8f673e4.md)
+- Message: Chrysalis 2.0 Phase 1B: rendering surface completes the constitutional cycle
