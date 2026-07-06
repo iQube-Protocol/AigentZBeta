@@ -2894,3 +2894,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5a51589.md](../build_/COMMITS/COMMIT-5a51589.md)
 - Message: Chrysalis Phase 2.2: Capability Pipeline tab (dev interface v1) + EXP-004 sovereignty drill
+
+## Commit `1800d62` — 2026-07-06T06:23:26Z
+- Type: `push`
+- Brief: [COMMIT-1800d62.md](../build_/COMMITS/COMMIT-1800d62.md)
+- Message: Chrysalis Phase 3 opener: the Chrysalis Test live + CFS-016 deployment ladder (draft)
