@@ -18,6 +18,13 @@ import type { NbeCandidate } from '@/services/orchestration/nbeCatalog';
 import type { InferredStrategy } from '@/services/strategy/strategyInference';
 import type { ActiveCartridgeSlug, ExperienceStage, OperatorArchetype } from '@/services/iqube/experienceQube';
 import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
+import { buildInvariantSlice, citeInvariants, type InvariantSlice } from '@/services/invariants';
+import {
+  resolveOntology,
+  ontologyPromptBlock,
+  citeResolvedConcepts,
+} from '@/services/constitutional/ontologyResolver';
+import type { OntologyResolution } from '@/types/constitutional';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_MODEL =
@@ -109,6 +116,57 @@ interface RerankContext {
    * while free citizens get Haiku — per the Polity Alpha pricing tiers.
    */
   modelOverride?: string | null;
+}
+
+/**
+ * Invariant grounding slice for the rerank pass (CFS-006 §2) — validated
+ * constitutional memory applicable to this persona's context, scoped to the
+ * active cartridges with a whole-canon fallback so the slice is never empty
+ * on a seeded substrate (mirrors the ask-agent exemplar). Enrichment-only:
+ * any failure yields null and the rerank proceeds ungrounded.
+ */
+async function buildRerankInvariantSlice(
+  domains: string[],
+): Promise<InvariantSlice | null> {
+  try {
+    const scoped = domains.length ? await buildInvariantSlice({ domains, limit: 8 }) : null;
+    if (scoped && scoped.items.length > 0) return scoped;
+    return await buildInvariantSlice({ limit: 8 });
+  } catch (err) {
+    console.warn('[nbeLlmRerank] invariant slice build failed (non-fatal):', err);
+    return null;
+  }
+}
+
+/**
+ * The operator/journey context text the rerank reasons against — primary
+ * goal, experience goals, inferred-strategy posture, live capability signal.
+ * This is what the Canonical Ontology Service resolves BEFORE reasoning
+ * (CFS-015 principle 5).
+ */
+function ontologyInputText(ctx: RerankContext): string {
+  return [
+    ctx.primaryGoal,
+    ...ctx.experienceGoals.slice(0, 16),
+    ctx.strategy?.headline,
+    ...(ctx.strategy?.venturePosture.blockers ?? []),
+    ...(ctx.strategy?.venturePosture.unlocks ?? []),
+    ctx.liveContext,
+  ]
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    .join('\n');
+}
+
+/** Compact statement block with seed markers — ask-agent packet style. */
+function invariantSliceBlock(slice: InvariantSlice): string {
+  return [
+    'Validated invariants applicable to this rerank (canonical memory — reason from these; they never add or remove candidate ids):',
+    ...slice.items.map(
+      // Cite by seedId (e.g. inv.constitutional.001) — the stable,
+      // human-legible marker, never the raw invariant UUID.
+      (inv) => `- ${inv.seedId ? `[${inv.seedId}] ` : ''}(${inv.namespace}) ${inv.statement}`,
+    ),
+  ].join('\n');
 }
 
 function stripJsonFences(raw: string): string {
@@ -231,7 +289,31 @@ export async function llmRerankNbeCandidates(
   if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
   if (candidates.length < 2) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
 
-  const raw = await callAnthropic(summariseForPrompt(candidates, ctx), ctx.modelOverride);
+  // Constitutional instrumentation (Chrysalis Phase 2) — invariant grounding
+  // slice + canonical-ontology resolution, fetched in parallel. Both are
+  // enrichment-only: any failure yields null and the rerank runs exactly as
+  // before. NO receipts here — this is a hot surface; Learning flows via
+  // Reach citation after a successful LLM pass.
+  const ontologyText = ontologyInputText(ctx);
+  const [slice, resolution]: [InvariantSlice | null, OntologyResolution | null] =
+    await Promise.all([
+      buildRerankInvariantSlice(ctx.activeCartridges),
+      ontologyText
+        ? resolveOntology(ontologyText).catch((err) => {
+            console.warn('[nbeLlmRerank] ontology resolution failed (non-fatal):', err);
+            return null;
+          })
+        : Promise.resolve(null),
+    ]);
+
+  const promptParts = [summariseForPrompt(candidates, ctx)];
+  if (slice && slice.items.length > 0) promptParts.push(invariantSliceBlock(slice));
+  if (resolution) {
+    const ontologyBlock = ontologyPromptBlock(resolution);
+    if (ontologyBlock) promptParts.push(ontologyBlock);
+  }
+
+  const raw = await callAnthropic(promptParts.join('\n\n'), ctx.modelOverride);
   if (!raw) return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
 
   let parsed: { order?: unknown; topReason?: unknown; nbaContextualTitles?: unknown; nbaPromptHints?: unknown };
@@ -300,6 +382,12 @@ export async function llmRerankNbeCandidates(
       nbaPromptHints[id] = trimmed.slice(0, 200);
     }
   }
+
+  // Reach citation (CFS-006 §4, Law XII) — the LLM pass succeeded and its
+  // grounded output is being applied, so cite what was actually used.
+  // Fire-and-forget: the flywheel never blocks or breaks the rerank.
+  if (slice && slice.citedIds.length > 0) void citeInvariants(slice.citedIds).catch(() => {});
+  if (resolution) void citeResolvedConcepts(resolution).catch(() => {});
 
   return { ranked, topReason, nbaContextualTitles, nbaPromptHints, llmApplied: true };
 }

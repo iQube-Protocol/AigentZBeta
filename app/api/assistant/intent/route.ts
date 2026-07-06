@@ -39,6 +39,8 @@ import {
 import { NBE_CATALOGUE } from '@/services/orchestration/nbeCatalog';
 import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { resolveOntology, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
+import { getInvariantsBySeedIds } from '@/services/invariants/store';
 import {
   ACTIVATION_CATALOG,
   type ActivationAction,
@@ -220,6 +222,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // Canonical Ontology (CFS-015): resolve the intent's operator-facing
+    // text against canon. Enrichment-only — any failure yields null and
+    // the queue proceeds unresolved.
+    const resolution = await resolveOntology(
+      `${intent.intentName}\n${body.rationale || candidate.rationale}`,
+    ).catch(() => null);
+
+    // CFS-008 §2 — the governing invariant rows for concepts resolved in
+    // this intent's text, mapped seed-id → DB row id for the receipt's
+    // invariantsUsed instrumentation. Best-effort: any failure (or an
+    // empty resolution) omits the field entirely — never an empty array.
+    let invariantsUsed: string[] | null = null;
+    if (resolution) {
+      const seedIds = Array.from(
+        new Set(resolution.resolvedTerms.flatMap((t) => t.invariantIds)),
+      );
+      if (seedIds.length > 0) {
+        invariantsUsed = await getInvariantsBySeedIds(seedIds)
+          .then((rows) => (rows.length > 0 ? rows.map((r) => r.id) : null))
+          .catch(() => null);
+      }
+    }
+
     // Emit an activity receipt. Best-effort — if the migration hasn't run
     // yet, the helper logs and returns null without breaking the route.
     await createActivityReceipt({
@@ -231,9 +256,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       agentsInvoked: intent.targetAgents,
       toolsUsed: [],
       iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+      ...(invariantsUsed ? { invariantsUsed } : {}),
       contextShared: ['nbe-catalogue-entry'],
       approvalsGranted: candidate.approvalRequired ? [] : [intent.id],
     }).catch(() => undefined);
+
+    // Reach citation (Law XII) for the resolved concepts' governing
+    // invariants — fire-and-forget, never blocks the queue response.
+    if (resolution) void citeResolvedConcepts(resolution).catch(() => {});
 
     const queueMessage = candidate.approvalRequired
       ? 'Queued for aigentMe — approval required before any external action.'
