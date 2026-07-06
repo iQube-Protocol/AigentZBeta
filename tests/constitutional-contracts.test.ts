@@ -392,3 +392,42 @@ describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendme
     expect(pipeline).toBeTruthy();
   });
 });
+
+describe('DCIR — Dynamic Constitutional Interaction Runtime (CFS-020 D0)', () => {
+  it('the closed loop and runtime domain orders are pinned — order is constitutional data', async () => {
+    const { DCIR_LOOP, DCIR_RUNTIMES } = await import('@/types/dcir');
+    expect([...DCIR_LOOP]).toEqual([
+      'conversation',
+      'inference',
+      'action',
+      'observation',
+      'state-update',
+      'recommendation',
+    ]);
+    expect([...DCIR_RUNTIMES]).toEqual(['conversational', 'action', 'observation']);
+  });
+
+  it('interaction seed crystal: the seven core invariants 112-118 exist in the interaction namespace', () => {
+    const seeds = (seedFile as { invariants: { id: string; namespace: string }[] }).invariants;
+    const interaction = seeds.filter((s) => s.namespace === 'interaction').map((s) => s.id);
+    for (let n = 112; n <= 118; n += 1) {
+      expect(interaction).toContain(`inv.interaction.${n}`);
+    }
+  });
+
+  it('both DCIR glossary terms resolve with their governing invariants attached', async () => {
+    const r = await resolveOntology(
+      'how does the dynamic constitutional interaction runtime treat a behavioural invariant?',
+    );
+    const canonicals = r.resolvedTerms.map((t) => t.canonical);
+    expect(canonicals).toContain('Dynamic Constitutional Interaction Runtime');
+    expect(canonicals).toContain('Behavioural Invariant');
+    const dcir = r.resolvedTerms.find(
+      (t) => t.canonical.toLowerCase() === 'dynamic constitutional interaction runtime',
+    );
+    expect(dcir?.invariantIds).toContain('inv.interaction.112');
+    expect(dcir?.invariantIds).toContain('inv.interaction.118');
+    const bi = r.resolvedTerms.find((t) => t.canonical.toLowerCase() === 'behavioural invariant');
+    expect(bi?.invariantIds).toContain('inv.interaction.115');
+  });
+});

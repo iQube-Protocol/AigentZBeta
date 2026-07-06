@@ -191,6 +191,18 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 110. *(cybernetics · principle)* A research institution shall operate by the principles it investigates; its own operation is its first and permanent experiment.
 111. *(cybernetics · principle)* Constitutional adaptation never bypasses ratification: the system may propose its own evolution; the operator ratifies it.
 
+## Additions — DCIR core invariants (CFS-020)
+
+*(Authored 2026-07-06 from the operator's DCIR spec — the Dynamic Constitutional Interaction Runtime, the interaction substrate of Constitutional Computing. The seven core invariants of the closed cognitive-action loop.)*
+
+112. *(interaction · principle)* Every conversation updates the constitutional state: generation is a state transition, never a terminal output.
+113. *(interaction · principle)* Every action emits observable events; an action without an event is invisible to the constitutional loop.
+114. *(interaction · principle)* Every artefact becomes part of the active reasoning context the moment it is generated; the system reasons over its own outputs.
+115. *(interaction · principle)* Every observation may refine future inference; a behavioural invariant discovered by observation is a proposed pattern, never a rule, and is never canonical without operator ratification.
+116. *(interaction · principle)* Every recommendation is contextual to the current constitutional state, never generated from conversation history alone.
+117. *(interaction · principle)* Interface affordances are generated from inferred intent within the operator's active context, never statically defined and never as orphan output.
+118. *(interaction · principle)* The cognitive-action loop remains continuous until the constitutional objective is satisfied; no single generation closes it.
+
 ---
 
 ## Maintenance

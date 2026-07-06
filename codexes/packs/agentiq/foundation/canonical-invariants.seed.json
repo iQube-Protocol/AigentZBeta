@@ -11,7 +11,8 @@
   "style",
   "narrative",
   "sovereignty",
-  "cybernetics"
+  "cybernetics",
+  "interaction"
  ],
  "notes": "Seed crystal for the Invariant Ontology (CFS-002). status=proposed until ratified via canonization; ratified_source marks statements drawn verbatim from ratified Polity documents.",
  "invariants": [
@@ -1734,6 +1735,104 @@
    ],
    "provenance": {
     "source": "CCRL PRD (operator, 2026-07-06) — CFS-019 Constitutional Cybernetics Research Laboratory charter."
+   }
+  },
+  {
+   "id": "inv.interaction.112",
+   "namespace": "interaction",
+   "semantic_type": "principle",
+   "statement": "Every conversation updates the constitutional state: generation is a state transition, never a terminal output.",
+   "status": "proposed",
+   "contexts": [
+    "interaction",
+    "runtime"
+   ],
+   "provenance": {
+    "source": "Operator spec 2026-07-06 (DCIR — Dynamic Constitutional Interaction Runtime) — CFS-020."
+   }
+  },
+  {
+   "id": "inv.interaction.113",
+   "namespace": "interaction",
+   "semantic_type": "principle",
+   "statement": "Every action emits observable events; an action without an event is invisible to the constitutional loop.",
+   "status": "proposed",
+   "contexts": [
+    "interaction",
+    "runtime"
+   ],
+   "provenance": {
+    "source": "Operator spec 2026-07-06 (DCIR — Dynamic Constitutional Interaction Runtime) — CFS-020."
+   }
+  },
+  {
+   "id": "inv.interaction.114",
+   "namespace": "interaction",
+   "semantic_type": "principle",
+   "statement": "Every artefact becomes part of the active reasoning context the moment it is generated; the system reasons over its own outputs.",
+   "status": "proposed",
+   "contexts": [
+    "interaction",
+    "runtime"
+   ],
+   "provenance": {
+    "source": "Operator spec 2026-07-06 (DCIR — Dynamic Constitutional Interaction Runtime) — CFS-020."
+   }
+  },
+  {
+   "id": "inv.interaction.115",
+   "namespace": "interaction",
+   "semantic_type": "principle",
+   "statement": "Every observation may refine future inference; a behavioural invariant discovered by observation is a proposed pattern, never a rule, and is never canonical without operator ratification.",
+   "status": "proposed",
+   "contexts": [
+    "interaction",
+    "runtime"
+   ],
+   "provenance": {
+    "source": "Operator spec 2026-07-06 (DCIR — Dynamic Constitutional Interaction Runtime) — CFS-020."
+   }
+  },
+  {
+   "id": "inv.interaction.116",
+   "namespace": "interaction",
+   "semantic_type": "principle",
+   "statement": "Every recommendation is contextual to the current constitutional state, never generated from conversation history alone.",
+   "status": "proposed",
+   "contexts": [
+    "interaction",
+    "runtime"
+   ],
+   "provenance": {
+    "source": "Operator spec 2026-07-06 (DCIR — Dynamic Constitutional Interaction Runtime) — CFS-020."
+   }
+  },
+  {
+   "id": "inv.interaction.117",
+   "namespace": "interaction",
+   "semantic_type": "principle",
+   "statement": "Interface affordances are generated from inferred intent within the operator's active context, never statically defined and never as orphan output.",
+   "status": "proposed",
+   "contexts": [
+    "interaction",
+    "runtime"
+   ],
+   "provenance": {
+    "source": "Operator spec 2026-07-06 (DCIR — Dynamic Constitutional Interaction Runtime) — CFS-020."
+   }
+  },
+  {
+   "id": "inv.interaction.118",
+   "namespace": "interaction",
+   "semantic_type": "principle",
+   "statement": "The cognitive-action loop remains continuous until the constitutional objective is satisfied; no single generation closes it.",
+   "status": "proposed",
+   "contexts": [
+    "interaction",
+    "runtime"
+   ],
+   "provenance": {
+    "source": "Operator spec 2026-07-06 (DCIR — Dynamic Constitutional Interaction Runtime) — CFS-020."
    }
   }
  ]

@@ -153,6 +153,8 @@ export const CONCEPT_SEEDS: Record<string, string[]> = {
   'provider choice': ['inv.sovereignty.102'],
   'constitutional cybernetics': ['inv.cybernetics.108', 'inv.cybernetics.110'],
   'constitutional feedback': ['inv.cybernetics.109'],
+  'dynamic constitutional interaction runtime': ['inv.interaction.112', 'inv.interaction.118'],
+  'behavioural invariant': ['inv.interaction.115'],
 };
 
 // ---------------------------------------------------------------------------
