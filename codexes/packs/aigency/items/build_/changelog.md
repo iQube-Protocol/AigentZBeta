@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ff5abef`](https://github.com/iQube-Protocol/AigentZBeta/commit/ff5abef797368d776606d4fe120f13f856bb8fbc) [push] Promote ChainGPT to experiment adapter; rehearsal chain chaingpt → openai → venice-sovereign (Claude, 2026-07-06T15:40:31Z)
 - [`5db7c45`](https://github.com/iQube-Protocol/AigentZBeta/commit/5db7c45dcdb496807bf0b719349e47593550f3ae) [feat] Add EXP-004 rehearsal arm: frontier fallback validates drill machinery while venice credits pend (Claude, 2026-07-06T15:36:09Z)
 - [`90634a5`](https://github.com/iQube-Protocol/AigentZBeta/commit/90634a54304884d41cb064cd4fde1186cec68ef9) [fix] Fix gap-analysis regression: stage detector is a hint, never a suppressor (Claude, 2026-07-06T14:43:10Z)
 - [`0f7c403`](https://github.com/iQube-Protocol/AigentZBeta/commit/0f7c403a5d1b6f8fbe22c39605af4529857fb439) [fix] Converge Dev Command Center with constitutional pipeline: Validate misroute fix + Implementation card (packs + D1) (Claude, 2026-07-06T09:44:37Z)
