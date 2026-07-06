@@ -2984,3 +2984,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-36c8181.md](../build_/COMMITS/COMMIT-36c8181.md)
 - Message: Build CCRL C2: DCIR-conforming research copilot (narrate-only, CFS-019)
+
+## Commit `1f4f986` — 2026-07-06T22:33:08Z
+- Type: `feat`
+- Brief: [COMMIT-1f4f986.md](../build_/COMMITS/COMMIT-1f4f986.md)
+- Message: Implement DCIR D2 (observe-mode): constitutional state snapshot + behavioural-invariant mining
