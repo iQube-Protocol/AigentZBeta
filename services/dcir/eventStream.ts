@@ -180,6 +180,22 @@ export function devDeploymentProposedEvent(): DcirEvent {
   });
 }
 
+/**
+ * The auto-act control auto-executed a navigation affordance (opt-in policy,
+ * ratified 2026-07-07). Observed so the DCIR seam sees every auto-act. T2-safe:
+ * the affordance LABEL + capsule SCOPE only — never a T0 identifier, never a
+ * body. `runtime: 'action'` marks that the runtime acted (bounded to the
+ * navigation class by resolveAutoActable at the call site).
+ */
+export function devAutoActedEvent(label: string, scope: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'SystemEvent',
+    runtime: 'action',
+    summary: `auto-acted (navigation): ${label}`,
+    capsuleScope: scope,
+  });
+}
+
 // ─── Generic surface helpers (second-surface vocabulary, CFS-020 D1+) ───────
 // Added by composition for the CCRL research copilot (CFS-019 C2): each is a
 // thin wrapper over emitDcirEvent — the Dev Command Center helpers above are

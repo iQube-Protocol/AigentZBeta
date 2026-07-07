@@ -60,7 +60,15 @@ import {
   type StageProposal,
   type StageProposalKind,
 } from "@/services/devCommandCenter";
-import { generateAffordances } from "@/services/dcir/affordances";
+import {
+  generateAffordances,
+  resolveAutoActable,
+  autoActNotice,
+  autoActPolicyChangeNotice,
+  disableAutoAct,
+  DEFAULT_AUTO_ACT_POLICY,
+  type AutoActPolicy,
+} from "@/services/dcir/affordances";
 
 import type { DcirEvent } from "@/types/dcir";
 import {
@@ -74,6 +82,7 @@ import {
   devCapsuleClosedEvent,
   devImplementationPackGeneratedEvent,
   devDeploymentProposedEvent,
+  devAutoActedEvent,
 } from "@/services/dcir/eventStream";
 import {
   buildStateSnapshot,
@@ -566,6 +575,18 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   const [activeLayoutId, setActiveLayoutId] = useState<DevLayoutId>("stack");
   const [activeCapsuleId, setActiveCapsuleId] = useState<DevCapsuleId | null>(null);
 
+  // ── Auto-act control (ratified operator policy, 2026-07-07). Ships OFF
+  // (DEFAULT_AUTO_ACT_POLICY) — suggest-only is the default posture. Opt-in is
+  // bounded to the navigation class by resolveAutoActable (the single choke-
+  // point in services/dcir/affordances.ts, never re-implemented here) and is
+  // always disablable in one synchronous click (caveat 2a). Every flip AND
+  // every actual auto-execution notifies the operator (caveat 2b).
+  const [autoActPolicy, setAutoActPolicy] = useState<AutoActPolicy>(DEFAULT_AUTO_ACT_POLICY);
+  // Transient operator-facing notice line for auto-act flips + executions.
+  const [autoActNoticeLine, setAutoActNoticeLine] = useState<string | null>(null);
+  // At-most-once guard: a given affordance id auto-acts a single time per session.
+  const autoActedIdsRef = useRef<Set<string>>(new Set());
+
   // ── DCIR D1 event stream (CFS-020) — OBSERVE-MODE ONLY.
   // Session-scoped ring buffer of what already happened; emissions ride the
   // existing seams and never block or mutate any behavior. The next copilot
@@ -791,10 +812,49 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   //     pulses, keyed by capsuleScope.
   //   • stageActionLive() supplies the session-state half — suppresses chips
   //     whose stage artifact is done-and-past or contextually irrelevant.
-  const liveAffordanceScopes = useMemo(
-    () => new Set(generateAffordances(dcirEvents, copilotGroundContext.stateSnapshot).map(a => a.capsuleScope)),
+  const liveAffordances = useMemo(
+    () => generateAffordances(dcirEvents, copilotGroundContext.stateSnapshot),
     [dcirEvents, copilotGroundContext.stateSnapshot],
   );
+  const liveAffordanceScopes = useMemo(
+    () => new Set(liveAffordances.map(a => a.capsuleScope)),
+    [liveAffordances],
+  );
+
+  // ── Auto-act control surface (opt-in, navigation-only, always-disablable,
+  // always-notifying). The toggle is the kill switch too: when ON, one click
+  // disables it synchronously via disableAutoAct() (caveat 2a). Every flip
+  // surfaces autoActPolicyChangeNotice() to the operator (caveat 2b).
+  const toggleAutoAct = useCallback(() => {
+    setAutoActPolicy(prev => {
+      const next = prev.enabled ? disableAutoAct() : { enabled: true };
+      setAutoActNoticeLine(autoActPolicyChangeNotice(next));
+      return next;
+    });
+  }, []);
+
+  // The auto-act execution loop. A NO-OP unless the operator opted in. For each
+  // currently-live affordance, resolveAutoActable (the affordances.ts choke-
+  // point — the class check is NEVER hand-rolled here) decides eligibility:
+  // policy enabled + navigation class, nothing else. An eligible affordance
+  // opens its capsule WITHIN the operator's context (engageCapsuleAndMount →
+  // Capsule Containment, no orphan output), fires a T2-safe DCIR observation of
+  // the auto-act, and surfaces the required execution notice. The at-most-once
+  // ref guards against loops/repeats (a nav auto-act also makes that affordance
+  // non-live on the next derivation, but the guard is the belt-and-braces).
+  useEffect(() => {
+    if (!autoActPolicy.enabled) return;
+    for (const aff of liveAffordances) {
+      if (!resolveAutoActable(aff, autoActPolicy)) continue; // boundary: nav only
+      if (autoActedIdsRef.current.has(aff.id)) continue;      // at most once
+      const scope = aff.capsuleScope;
+      if (!Object.prototype.hasOwnProperty.call(CAPSULE_LAYOUT, scope)) continue;
+      autoActedIdsRef.current.add(aff.id);
+      engageCapsuleAndMount(scope as DevCapsuleId);
+      observe(devAutoActedEvent(aff.label, scope));
+      setAutoActNoticeLine(autoActNotice(aff));
+    }
+  }, [liveAffordances, autoActPolicy, engageCapsuleAndMount, observe]);
 
   const chipShouldPulse = useCallback((id: DevCapsuleId): boolean => {
     // D3 positively-live affordance for this capsule → always pulses.
@@ -937,6 +997,45 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
         {/* Stage strip at top */}
         <div className="shrink-0 py-2">
           <StageStrip stage={session.stage} onStageClick={handleStageClick} />
+        </div>
+
+        {/* Auto-act control (opt-in, navigation-only) + transient notice.
+            The toggle doubles as the always-visible one-click kill switch. */}
+        <div className="shrink-0 px-1 pb-1 flex flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-wide text-slate-500">
+              Auto-act · navigation-only
+            </span>
+            <button
+              type="button"
+              onClick={toggleAutoAct}
+              aria-pressed={autoActPolicy.enabled}
+              title={autoActPolicy.enabled
+                ? "Auto-act is ON — click to disable it instantly"
+                : "Auto-act is OFF — click to opt in (navigation affordances only)"}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                autoActPolicy.enabled
+                  ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-300 hover:border-rose-500/60 hover:bg-rose-500/15 hover:text-rose-300"
+                  : "border-slate-600/60 bg-slate-700/30 text-slate-300 hover:bg-slate-700/50"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${autoActPolicy.enabled ? "bg-emerald-400" : "bg-slate-500"}`} />
+              {autoActPolicy.enabled ? "Auto-act ON · Disable" : "Auto-act OFF · Enable"}
+            </button>
+          </div>
+          {autoActNoticeLine && (
+            <div className="flex items-start justify-between gap-2 rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1.5 text-[11px] leading-snug text-sky-200">
+              <span className="flex-1">{autoActNoticeLine}</span>
+              <button
+                type="button"
+                onClick={() => setAutoActNoticeLine(null)}
+                className="shrink-0 text-sky-300/70 hover:text-sky-100"
+                aria-label="Dismiss auto-act notice"
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
 
         {/* CTA chip row — mirrors aigentMe's capsule chip strip */}

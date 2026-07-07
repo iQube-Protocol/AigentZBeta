@@ -162,6 +162,60 @@ describe('DCIR D3 — completion/relevance contract (no pulsating done actions)'
   });
 });
 
+describe('DCIR D3 — auto-act CONTROL SURFACE (consuming-side canaries)', () => {
+  // The Dev Command Center auto-act control surface selects affordances to
+  // auto-execute by filtering the live set through resolveAutoActable. These
+  // re-pin the choke-point from the consumer's vantage: the surface can NEVER
+  // auto-act anything but a navigation affordance, and only when opted in.
+  const mixedSet: Affordance[] = [
+    navAff,                                              // navigation, auto-actable
+    { ...navAff, id: 'aff-open-capsule-context', capsuleScope: 'context' }, // navigation
+    deploymentAff,                                       // deployment — suggest-only
+    { id: 'aff-produce-next', class: 'mutation', label: 'Produce next', rationale: 't', autoActable: false, relevance: 0.7, capsuleScope: 'intent' },
+    { id: 'aff-info', class: 'informational', label: 'Info', rationale: 't', autoActable: false, relevance: 0.4, capsuleScope: 'context' },
+  ];
+
+  it('with policy ENABLED, selects ONLY navigation affordances for auto-act', () => {
+    const enabled: AutoActPolicy = { enabled: true };
+    const selected = mixedSet.filter((a) => resolveAutoActable(a, enabled));
+    expect(selected.map((a) => a.id).sort()).toEqual([
+      'aff-open-capsule-context',
+      'aff-open-capsule-intent',
+    ]);
+    expect(selected.every((a) => a.class === 'navigation')).toBe(true);
+  });
+
+  it('with policy DISABLED (the shipped default), selects NOTHING for auto-act', () => {
+    const selectedDefault = mixedSet.filter((a) => resolveAutoActable(a, DEFAULT_AUTO_ACT_POLICY));
+    const selectedOff = mixedSet.filter((a) => resolveAutoActable(a, { enabled: false }));
+    // the kill switch produces a policy that selects nothing
+    const selectedKilled = mixedSet.filter((a) => resolveAutoActable(a, disableAutoAct()));
+    expect(selectedDefault).toEqual([]);
+    expect(selectedOff).toEqual([]);
+    expect(selectedKilled).toEqual([]);
+  });
+
+  it('surfaces non-empty operator text for both required notice paths', () => {
+    expect(autoActPolicyChangeNotice({ enabled: true }).length).toBeGreaterThan(0);
+    expect(autoActPolicyChangeNotice({ enabled: false }).length).toBeGreaterThan(0);
+    for (const a of mixedSet.filter((x) => x.class === 'navigation')) {
+      expect(autoActNotice(a).length).toBeGreaterThan(0);
+      expect(autoActNotice(a)).toContain(a.label);
+    }
+  });
+
+  it('no auto-act notice leaks a T0 identifier', () => {
+    const text = [
+      autoActPolicyChangeNotice({ enabled: true }),
+      autoActPolicyChangeNotice({ enabled: false }),
+      ...mixedSet.map((a) => autoActNotice(a)),
+    ].join(' ');
+    for (const forbidden of ['personaId', 'authProfileId', 'rootDid', 'fioHandle', 'kybeAttestation']) {
+      expect(text).not.toContain(forbidden);
+    }
+  });
+});
+
 describe('DCIR D3 — purity', () => {
   it('same input → same output (deterministic, order-stable)', () => {
     const events = [
