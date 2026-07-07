@@ -28,21 +28,14 @@ import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/C
 // side-effect lines on existing handlers, and the next copilot turn reads
 // the compacted tail via the CodexCopilotLayer `groundContext` prop. No
 // affordance-gating, no auto-act on this surface.
-import type { DcirEvent } from "@/types/dcir";
 import {
-  appendDcirEvent,
-  compactDcirEvents,
   studioExperienceComposedEvent,
   studioExperiencePublishedEvent,
   studioPreviewRenderedEvent,
   studioSessionStartedEvent,
   studioSkillOutputEvent,
 } from "@/services/dcir/eventStream";
-import {
-  buildStateSnapshot,
-  compactBehaviouralInvariants,
-  mineBehaviouralInvariants,
-} from "@/services/dcir/stateEngine";
+import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
@@ -2650,10 +2643,16 @@ export const ComposerStudio = () => {
   // this surface. `observe()` only appends; it never blocks a render, never
   // mutates a handler's outcome, and never gates an affordance. The compacted
   // tail feeds the copilot's next turn via `copilotGroundContext` below.
-  const [dcirEvents, setDcirEvents] = useState<DcirEvent[]>([]);
-  const observe = useCallback((event: DcirEvent) => {
-    setDcirEvents((prev) => appendDcirEvent(prev, event));
-  }, []);
+  // DCIR D4: the observation seam adopted via the universal substrate hook
+  // (useDcirSeam) — replaces the hand-wired [dcirEvents]+observe+three-field
+  // block. `events` is the same in-session ring buffer; `observe` appends
+  // exactly as before; `groundObservation` carries the three server-contract
+  // fields spread into copilotGroundContext below.
+  const { observe, groundObservation } = useDcirSeam({
+    surface: "studio-composer",
+    workflowStage: session?.status ?? null,
+    activeCapsule: experiencePanelTab,
+  });
 
   const requestArticleDraftArtifact = useCallback(
     async (params: {
@@ -7685,22 +7684,13 @@ export const ComposerStudio = () => {
   const copilotGroundContext = useMemo<Record<string, unknown>>(
     () => ({
       surface: "studio-composer",
-      // DCIR D1: the last ~12 session events, compacted — the next copilot
-      // turn observes what already happened, narrate-only.
-      recentEvents: compactDcirEvents(dcirEvents),
-      // DCIR D2 (observe-mode): compact state snapshot hardened from the
-      // event log plus the studio's own workflow position (session status +
-      // active experience-panel tab — both category labels).
-      stateSnapshot: buildStateSnapshot(dcirEvents, {
-        surface: "studio-composer",
-        workflowStage: session?.status ?? null,
-        activeCapsule: experiencePanelTab,
-      }),
-      // Behavioural patterns mined from THIS SESSION only — observations,
-      // never rules (ratification boundary, CFS-020 §6).
-      observedPatterns: compactBehaviouralInvariants(mineBehaviouralInvariants(dcirEvents)),
+      // DCIR D4: the three observation fields (recentEvents / stateSnapshot /
+      // observedPatterns — the server contract) come from the substrate hook's
+      // groundObservation, memoized on [events, surface, workflowStage,
+      // activeCapsule] exactly as the hand-wired version was.
+      ...groundObservation,
     }),
-    [dcirEvents, session?.status, experiencePanelTab],
+    [groundObservation],
   );
 
   const buildComposerChatRequestContext = useCallback(

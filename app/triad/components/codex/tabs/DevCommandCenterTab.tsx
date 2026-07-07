@@ -72,10 +72,7 @@ import {
   type AutoActPolicy,
 } from "@/services/dcir/affordances";
 
-import type { DcirEvent } from "@/types/dcir";
 import {
-  appendDcirEvent,
-  compactDcirEvents,
   devStageProposalReceivedEvent,
   devProposalApprovedEvent,
   devProposalDismissedEvent,
@@ -87,11 +84,7 @@ import {
   devAutoActedEvent,
   devToolUsedEvent,
 } from "@/services/dcir/eventStream";
-import {
-  buildStateSnapshot,
-  mineBehaviouralInvariants,
-  compactBehaviouralInvariants,
-} from "@/services/dcir/stateEngine";
+import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 
 import {
   IntentLayout,
@@ -557,10 +550,17 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   // Session-scoped ring buffer of what already happened; emissions ride the
   // existing seams and never block or mutate any behavior. The next copilot
   // turn observes the compacted tail via copilotGroundContext.recentEvents.
-  const [dcirEvents, setDcirEvents] = useState<DcirEvent[]>([]);
-  const observe = useCallback((event: DcirEvent) => {
-    setDcirEvents(prev => appendDcirEvent(prev, event));
-  }, []);
+  // DCIR D4: the observation seam adopted via the universal substrate hook
+  // (useDcirSeam) — replaces the hand-wired [dcirEvents]+observe+three-field
+  // block. `events` is the same in-session ring buffer that generateAffordances
+  // and the auto-act loop read below; `observe` appends exactly as before;
+  // `groundObservation` carries the three server-contract fields spread into
+  // copilotGroundContext.
+  const { events: dcirEvents, observe, groundObservation } = useDcirSeam({
+    surface: "dev-command-center",
+    workflowStage: session.stage,
+    activeCapsule: activeCapsuleId,
+  });
 
   // Observe EVERY stage transition (Advance button, approve-with-advance,
   // intent restart) from the state itself — the observation runtime watches
@@ -834,20 +834,13 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     validationSummary: session.validationReport ? buildValidationSummary(session.validationReport) : null,
     implementationPackage: buildImplementationPackage(session) ? "ready" : "incomplete",
     pendingApprovals: Object.values(pendingProposals).map(p => p?.kind).filter(Boolean),
-    // DCIR D1 observation seam: the last ~12 session events, compacted —
-    // the next copilot turn observes what happened (narrate-only).
-    recentEvents: compactDcirEvents(dcirEvents),
-    // DCIR D2 (observe-mode): compact constitutional state snapshot +
-    // behavioural patterns mined from this session only — observations the
-    // copilot may gently adapt to, NEVER rules (CFS-020 §6). Session-scoped;
-    // nothing persists, nothing gates.
-    stateSnapshot: buildStateSnapshot(dcirEvents, {
-      surface: "dev-command-center",
-      workflowStage: session.stage,
-      activeCapsule: activeCapsuleId,
-    }),
-    observedPatterns: compactBehaviouralInvariants(mineBehaviouralInvariants(dcirEvents)),
-  }), [session, activeLayoutId, activeCapsuleId, pendingProposals, dcirEvents]);
+    // DCIR D4: the three observation fields (recentEvents / stateSnapshot /
+    // observedPatterns — the server contract read by pushDcirObservationLines)
+    // come from the substrate hook's groundObservation, memoized on
+    // [events, surface, workflowStage, activeCapsule] exactly as the hand-wired
+    // version was. Session-scoped; nothing persists, nothing gates.
+    ...groundObservation,
+  }), [session, activeLayoutId, activeCapsuleId, pendingProposals, groundObservation]);
 
   // ── Intelligent affordances (operator finding, 2026-07-07): the pulsating
   // quick actions consult the DCIR D3 affordance service + session state so a

@@ -70,10 +70,7 @@ import type { StageEvaluation } from "@/services/strategy/stageProgression";
 // instrumented surface after the Dev Command Center. Emissions ride the
 // existing aigentMe seams and NEVER touch the Capsule↔Layout contract;
 // the next copilot turn observes the compacted tail via groundContext.
-import type { DcirEvent } from "@/types/dcir";
 import {
-  appendDcirEvent,
-  compactDcirEvents,
   aigentMeCapsuleEngagedEvent,
   aigentMeArtifactSentEvent,
   aigentMeArtifactDismissedEvent,
@@ -82,11 +79,7 @@ import {
   aigentMePillCompletedEvent,
   aigentMeSpecialistConsultedEvent,
 } from "@/services/dcir/eventStream";
-import {
-  buildStateSnapshot,
-  mineBehaviouralInvariants,
-  compactBehaviouralInvariants,
-} from "@/services/dcir/stateEngine";
+import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 
 // ComposeGmailDraftModal + sibling compose modals are now mounted
 // inline by ComposerLayout (Phase 2 Slice 4). The tab no longer
@@ -614,10 +607,18 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // `observe()` only appends; it never blocks a render, mutates the
   // Capsule↔Layout state pair, or resets a layout. The next copilot turn
   // reads the compacted tail via copilotGroundContext.recentEvents.
-  const [dcirEvents, setDcirEvents] = useState<DcirEvent[]>([]);
-  const observe = useCallback((event: DcirEvent) => {
-    setDcirEvents((prev) => appendDcirEvent(prev, event));
-  }, []);
+  // DCIR D4: the observation seam adopted via the universal substrate hook
+  // (useDcirSeam) — replaces the hand-wired [dcirEvents]+observe+three-field
+  // block. `events` is the same in-session ring buffer that the intelligent-
+  // suggestion gate (suggestionLive / dcirEventCountRef) reads below; `observe`
+  // appends exactly as before (purely additive, never touches the Capsule↔Layout
+  // state pair); `groundObservation` carries the three server-contract fields.
+  const { events: dcirEvents, observe, groundObservation } = useDcirSeam({
+    surface: "aigentme-welcome",
+    workflowStage:
+      (expModel?.meta?.currentStage as string | null) ?? brief?.context?.currentStage ?? null,
+    activeCapsule: activeCapsuleId,
+  });
 
   // Observe EVERY Capsule engagement from the state itself (mirrors the Dev
   // Command Center's stage-transition watcher) rather than hooking each
@@ -2662,22 +2663,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         ? { id: pendingApprovalNbe.id, label: pendingApprovalNbe.label, cartridge: pendingApprovalNbe.cartridge }
         : null,
       queuedIntentIds: Object.keys(queuedIntents ?? {}),
-      // DCIR D1 observation seam (CFS-020, observe-mode-first): the last ~12
-      // session events, compacted — the next copilot turn observes what
-      // happened on this surface (narrate-only, never a command).
-      recentEvents: compactDcirEvents(dcirEvents),
-      // DCIR D2 (observe-mode): compact constitutional state snapshot +
-      // behavioural patterns mined from THIS session only — observations the
-      // copilot may gently adapt to, NEVER rules. Session-scoped; nothing
-      // persists, nothing gates, nothing touches the Capsule↔Layout contract.
-      stateSnapshot: buildStateSnapshot(dcirEvents, {
-        surface: "aigentme-welcome",
-        workflowStage: (expModel?.meta?.currentStage as string | null) ?? brief?.context?.currentStage ?? null,
-        activeCapsule: activeCapsuleId,
-      }),
-      observedPatterns: compactBehaviouralInvariants(mineBehaviouralInvariants(dcirEvents)),
+      // DCIR D4: the three observation fields (recentEvents / stateSnapshot /
+      // observedPatterns — the server contract read by pushDcirObservationLines)
+      // come from the substrate hook's groundObservation, memoized on
+      // [events, surface, workflowStage, activeCapsule] exactly as the hand-wired
+      // version was. Session-scoped; nothing persists, nothing gates, nothing
+      // touches the Capsule↔Layout contract.
+      ...groundObservation,
     };
-  }, [brief, moveForwardResult, expModel, activeCartridges, pendingApprovalNbe, queuedIntents, dcirEvents, activeCapsuleId]);
+  }, [brief, moveForwardResult, expModel, activeCartridges, pendingApprovalNbe, queuedIntents, groundObservation]);
 
   // ── Render ──────────────────────────────────────────────────────────
   // Static seed prompts for the copilot (the right pane's CTAs are
