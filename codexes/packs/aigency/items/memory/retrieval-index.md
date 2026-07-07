@@ -3109,3 +3109,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d03dfe0.md](../build_/COMMITS/COMMIT-d03dfe0.md)
 - Message: CFS-019 amendment: Research Roadmap Expansion — applied constitutional research + the Reasoning Systems programme
+
+## Commit `b6ede67` — 2026-07-07T23:55:27Z
+- Type: `push`
+- Brief: [COMMIT-b6ede67.md](../build_/COMMITS/COMMIT-b6ede67.md)
+- Message: CFS-021: canonize Constitutional Civic Futurism + the Representation Invariant family
