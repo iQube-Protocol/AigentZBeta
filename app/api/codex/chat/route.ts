@@ -2643,6 +2643,16 @@ export async function POST(request: NextRequest) {
     // the narrate-only ccrl-research surface — leaves it null, so the
     // promised-but-missing-fence retry below can never fire there.
     let fenceRetryKind: StageProposalKind | null = null;
+    // CCRL research surface (CFS-019 C2.1): the copilot promises a research
+    // proposal but sometimes emits no ```research_data fence, so no pending card
+    // appears in the right pane (operator field report, 2026-07-07). Unlike the
+    // dev loop this surface has no stage, so eligibility is keyed on the surface
+    // alone; the retry only actually fires when the reply PROMISED a proposal
+    // (looksLikeUnfulfilledProposalPromise) and zero were extracted — pure
+    // narration / status / run answers never promise a card, so they never
+    // trigger it. The retry demands a research_data fence (the model picks the
+    // matching schema of the four).
+    let researchFenceRetry = false;
 
     if (isComposerMode) {
       systemPrompt = buildComposerSystemPrompt(composerSessionContext as ComposerSessionContext);
@@ -2766,6 +2776,8 @@ export async function POST(request: NextRequest) {
             ? (devLoopStage as DevLoopStage)
             : 'intent_capture';
         fenceRetryKind = STAGE_PROPOSAL_KIND[stageForKind];
+      } else if (isAigentZ && gc_?.surface === 'ccrl-research') {
+        researchFenceRetry = true;
       }
 
       // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
@@ -2994,6 +3006,53 @@ export async function POST(request: NextRequest) {
         messageSansStageData = `${messageSansStageData}\n\n(No structured proposal was produced — say "try again" to regenerate.)`;
       }
     }
+
+    // CCRL research-surface fence enforcement — the same discipline as the dev
+    // loop above, but keyed on the surface (no stage) and demanding a
+    // ```research_data fence. Fires ONLY when the reply promised a proposal and
+    // none was extracted, so narrate/status/run answers (which never promise a
+    // card) are untouched.
+    if (
+      resolvedAgentId === 'aigent-z' &&
+      researchFenceRetry &&
+      stageProposals.length === 0 &&
+      looksLikeUnfulfilledProposalPromise(messageSansStageData)
+    ) {
+      console.warn(
+        '[CodexChat] research fence-enforcement: reply promised a research proposal with zero research_data fences — retrying once',
+      );
+      try {
+        const researchRetryResult = await executeProviderAttempt(
+          { providerId: executionResult.providerId, modelId: executionResult.modelId },
+          systemPrompt,
+          [
+            ...conversationHistory,
+            { role: 'user', content: message },
+            { role: 'assistant', content: assistantMessage },
+          ],
+          'Your previous reply promised a research proposal but did not include the required ```research_data fence. Output ONLY the fenced research_data JSON now — choose the ONE schema (experiment_proposal | protocol_draft | finding | publication_draft) that matches what you promised — no prose.',
+          isMarketa,
+          resolvedCallerPersonaId,
+        );
+        const researchRetry = extractResearchProposals(researchRetryResult.content || '');
+        if (researchRetry.proposals.length > 0) {
+          stageProposals = [...stageProposals, ...researchRetry.proposals];
+          console.log(
+            '[CodexChat] research fence-enforcement retry recovered proposals:',
+            researchRetry.proposals.map((p) => p.kind).join(', '),
+          );
+        }
+      } catch (retryError) {
+        console.warn(
+          '[CodexChat] research fence-enforcement retry call failed:',
+          retryError instanceof Error ? retryError.message : retryError,
+        );
+      }
+      if (stageProposals.length === 0) {
+        messageSansStageData = `${messageSansStageData}\n\n(No structured proposal reached the right pane — say "try again" to regenerate it.)`;
+      }
+    }
+
     const walletActions = inferWalletActions(message, messageSansStageData);
     const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData, chatHistory);
     const responseForClient = stripLayoutTags(messageSansStageData);
