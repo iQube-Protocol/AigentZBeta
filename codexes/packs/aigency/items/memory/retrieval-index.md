@@ -3094,3 +3094,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-32ab01b.md](../build_/COMMITS/COMMIT-32ab01b.md)
 - Message: Build CCRL Phase C3: the research ICE loop — experiments get develop→run→validate→publish parity
+
+## Commit `71496e9` — 2026-07-07T18:19:15Z
+- Type: `push`
+- Brief: [COMMIT-71496e9.md](../build_/COMMITS/COMMIT-71496e9.md)
+- Message: Tighten the CCRL research loop: one-click Run-stage hand-off via a cartridge-agnostic tab-nav seam

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T17:57:22.644Z",
+  "last_updated": "2026-07-07T18:21:04.001Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "32ab01be82ab44b36ce2f173cb595689cb802917",
-  "latest_commit_short": "32ab01b",
-  "latest_commit_title": "Build CCRL Phase C3: the research ICE loop — experiments get develop→run→validate→publish parity",
+  "latest_commit": "71496e979a0ca965cc5121fc0ba97b0778efc507",
+  "latest_commit_short": "71496e9",
+  "latest_commit_title": "Tighten the CCRL research loop: one-click Run-stage hand-off via a cartridge-agnostic tab-nav seam",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "71496e9",
+      "full_sha": "71496e979a0ca965cc5121fc0ba97b0778efc507",
+      "title": "Tighten the CCRL research loop: one-click Run-stage hand-off via a cartridge-agnostic tab-nav seam",
+      "author": "Claude",
+      "timestamp": "2026-07-07T18:19:15Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-71496e9.md"
+    },
     {
       "sha": "32ab01b",
       "full_sha": "32ab01be82ab44b36ce2f173cb595689cb802917",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-03T23:26:44Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-cd3cdb7.md"
-    },
-    {
-      "sha": "0d44b4d",
-      "full_sha": "0d44b4d0c360fbb181cc87f3185b6db5e94a4ada",
-      "title": "record law xii + experiments + phase 3b session doc",
-      "author": "Claude",
-      "timestamp": "2026-07-03T23:27:23Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0d44b4d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
