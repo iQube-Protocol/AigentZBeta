@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c2f7076`](https://github.com/iQube-Protocol/AigentZBeta/commit/c2f7076132f6194148130a0d5a36a4735e816788) [push] Build CCRL Phase E counterfactual slice: pure what-if projection over the invariant field (pre-ratification decision support) (Claude, 2026-07-07T07:05:09Z)
 - [`585165e`](https://github.com/iQube-Protocol/AigentZBeta/commit/585165e31333e22520ca3a1c2af03f659e72e3a2) [push] Build CCRL Phase E first slice: Invariant Field Explorer (Computational Epistemology made visible) (Claude, 2026-07-07T06:16:44Z)
 - [`346eca6`](https://github.com/iQube-Protocol/AigentZBeta/commit/346eca6088c06f1a9c6acb146f6d39c97740ee43) [feat] Wire aigentZ default turn to gpt-4o (reliable stage-fence emission) (Claude, 2026-07-07T06:04:23Z)
 - [`dcda7bc`](https://github.com/iQube-Protocol/AigentZBeta/commit/dcda7bc99d0995d523e23fa1011d297454c6f200) [push] Enforce fence production server-side: retry on promised-but-missing stage proposals (operator field report) (Claude, 2026-07-07T05:56:49Z)

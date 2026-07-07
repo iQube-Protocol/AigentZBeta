@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T06:19:03.622Z",
+  "last_updated": "2026-07-07T07:07:33.709Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "585165e31333e22520ca3a1c2af03f659e72e3a2",
-  "latest_commit_short": "585165e",
-  "latest_commit_title": "Build CCRL Phase E first slice: Invariant Field Explorer (Computational Epistemology made visible)",
+  "latest_commit": "c2f7076132f6194148130a0d5a36a4735e816788",
+  "latest_commit_short": "c2f7076",
+  "latest_commit_title": "Build CCRL Phase E counterfactual slice: pure what-if projection over the invariant field (pre-ratification decision support)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c2f7076",
+      "full_sha": "c2f7076132f6194148130a0d5a36a4735e816788",
+      "title": "Build CCRL Phase E counterfactual slice: pure what-if projection over the invariant field (pre-ratification decision support)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T07:05:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c2f7076.md"
+    },
     {
       "sha": "585165e",
       "full_sha": "585165e31333e22520ca3a1c2af03f659e72e3a2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-24T23:20:26Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a0a6b7d.md"
-    },
-    {
-      "sha": "1b181d3",
-      "full_sha": "1b181d3e28d356d87a4ec1d3031f99b646600dd0",
-      "title": "add Google Calendar read ingest (past -> log, upcoming -> prepare)",
-      "author": "Claude",
-      "timestamp": "2026-06-24T23:24:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-1b181d3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
