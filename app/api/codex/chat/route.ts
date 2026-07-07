@@ -2161,6 +2161,8 @@ function buildSystemPrompt(
           'consequence-canvas': 'consequence_modeling',
           implementation: 'implementation',
           validation: 'consequence_validation',
+          remediation: 'remediation',
+          'deployment-authorization': 'deployment_authorization',
         };
         const viewedCapsule = typeof gc.activeCapsule === 'string' ? gc.activeCapsule : null;
         const requestedStage = latestUserMessage ? detectRequestedStage(latestUserMessage) : null;
@@ -2697,6 +2699,8 @@ export async function POST(request: NextRequest) {
         'consequence-canvas': 'consequence_modeling',
         implementation: 'implementation',
         validation: 'consequence_validation',
+        remediation: 'remediation',
+        'deployment-authorization': 'deployment_authorization',
       };
       const gc_ = groundContext as Record<string, unknown> | undefined;
       const viewedCapsule_ = gc_ && typeof gc_.activeCapsule === 'string' ? gc_.activeCapsule : null;

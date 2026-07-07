@@ -35,6 +35,7 @@ import {
   createDevLoopSession,
   canAdvance,
   advanceStage,
+  nextStage,
   getStageIndex,
   getStageLabel,
   buildImplementationPackage,
@@ -45,7 +46,12 @@ import {
   applyStageProposal,
   stageCapsuleId,
   PROPOSAL_KIND_TO_CAPSULE,
+  validationRequiresRemediation,
+  constitutionalThresholdMet,
+  devReceiptClassFor,
+  recordDevReceipt,
 } from '@/services/devCommandCenter';
+import type { ConsequenceValidationReport, DevLoopState } from '@/types/devCommandCenter';
 
 // ─── Capability 1: Intent Distillation ─────────────────────────────────────
 
@@ -304,12 +310,18 @@ describe('Development Loop', () => {
 
   it('returns correct stage labels', () => {
     expect(getStageLabel('intent_capture')).toBe('Intent Capture');
-    expect(getStageLabel('consequence_validation')).toBe('Consequence Validation');
+    // CDE: the validation stage is reframed as the constitutional consequence test.
+    expect(getStageLabel('consequence_validation')).toBe('Constitutional Validation');
+    expect(getStageLabel('remediation')).toBe('Remediation');
+    expect(getStageLabel('deployment_authorization')).toBe('Deployment Authorization');
   });
 
-  it('returns correct stage indices', () => {
+  it('returns correct stage indices (CDE inserts remediation + deployment_authorization before complete)', () => {
     expect(getStageIndex('intent_capture')).toBe(0);
-    expect(getStageIndex('complete')).toBe(6);
+    expect(getStageIndex('consequence_validation')).toBe(5);
+    expect(getStageIndex('remediation')).toBe(6);
+    expect(getStageIndex('deployment_authorization')).toBe(7);
+    expect(getStageIndex('complete')).toBe(8);
   });
 
   it('builds implementation package when all stages ready', () => {
@@ -367,6 +379,8 @@ describe('Stage Orchestrator routing', () => {
       consequence_canvas: 'consequence-canvas',
       implementation_brief: 'implementation',
       validation_report: 'validation',
+      remediation_plan: 'remediation',
+      deployment_authorization: 'deployment-authorization',
     });
   });
 
@@ -455,6 +469,8 @@ describe('Stage Orchestrator routing', () => {
     expect(stageCapsuleId('consequence_modeling')).toBe('consequence-canvas');
     expect(stageCapsuleId('implementation')).toBe('implementation');
     expect(stageCapsuleId('consequence_validation')).toBe('validation');
+    expect(stageCapsuleId('remediation')).toBe('remediation');
+    expect(stageCapsuleId('deployment_authorization')).toBe('deployment-authorization');
     expect(stageCapsuleId('complete')).toBeNull();
   });
 });
@@ -760,5 +776,170 @@ describe('DCIR D1 event stream (observe-mode canaries)', () => {
     expect(renderObservationLines(undefined)).toEqual([]);
     expect(renderObservationLines('not-an-array')).toEqual([]);
     expect(renderObservationLines([1, null, { a: 1 }, 'kept', ''])).toEqual(['kept']);
+  });
+});
+
+// ─── Constitutional Development Environment (CDE) — the validation→remediation
+// fork + consequence-test-before-deploy gate (CFS-020). These canaries pin the
+// heart of the increment: a failed high/critical must-not-happen consequence
+// forks to remediation instead of terminating as "validated", and deployment
+// is gated on the consequence test passing.
+
+describe('Constitutional Development Environment', () => {
+  const cleanReport = (): ConsequenceValidationReport => {
+    let r = createEmptyValidationReport('dci-cde', 'canvas-cde');
+    r = addValidationItem(r, {
+      consequenceId: 'ce-1', description: 'Receipt created', verdict: 'satisfied', evidence: 'in diff', severity: 'critical',
+    });
+    return r; // overallVerdict === 'pass'
+  };
+  const failingReport = (): ConsequenceValidationReport => {
+    let r = createEmptyValidationReport('dci-cde', 'canvas-cde');
+    r = addValidationItem(r, {
+      consequenceId: 'ce-1', description: 'Sovereignty boundary respected', verdict: 'unintended', evidence: 'exposed endpoint found', severity: 'high',
+    });
+    return r; // overallVerdict === 'fail'
+  };
+  const sessionAt = (stage: DevLoopState['stage'], patch: Partial<DevLoopState>): DevLoopState => ({
+    ...createDevLoopSession(),
+    stage,
+    intent: {
+      intentId: 'dci-cde', rawInput: 'x', goal: 'Build X', users: ['A'], constraints: [],
+      desiredOutcomes: ['O'], successCriteria: ['S'], relatedVentures: [], relatedCartridges: [],
+      priority: 'medium', status: 'refined', createdAt: '', updatedAt: '',
+    },
+    ...patch,
+  });
+
+  it('validationRequiresRemediation: true when a high-severity item is unintended/partial', () => {
+    expect(validationRequiresRemediation(failingReport())).toBe(true);
+    let partial = createEmptyValidationReport('i', 'c');
+    partial = addValidationItem(partial, {
+      consequenceId: 'ce-2', description: 'Data stays local', verdict: 'partial', evidence: 'partial leak', severity: 'high',
+    });
+    expect(validationRequiresRemediation(partial)).toBe(true);
+  });
+
+  it('validationRequiresRemediation: false when all consequences are satisfied', () => {
+    expect(validationRequiresRemediation(cleanReport())).toBe(false);
+  });
+
+  it('constitutionalThresholdMet gates on a clean validation report', () => {
+    expect(constitutionalThresholdMet(sessionAt('deployment_authorization', { validationReport: cleanReport() }))).toBe(true);
+    expect(constitutionalThresholdMet(sessionAt('deployment_authorization', { validationReport: failingReport() }))).toBe(false);
+    expect(constitutionalThresholdMet(sessionAt('consequence_validation', { validationReport: null }))).toBe(false);
+  });
+
+  it('advanceStage forks to remediation on a failed consequence test', () => {
+    const s = sessionAt('consequence_validation', { validationReport: failingReport() });
+    expect(canAdvance(s)).toBe(true);
+    expect(nextStage(s)).toBe('remediation');
+    expect(advanceStage(s).stage).toBe('remediation');
+  });
+
+  it('advanceStage forks to deployment_authorization on a passing consequence test', () => {
+    const s = sessionAt('consequence_validation', { validationReport: cleanReport() });
+    expect(nextStage(s)).toBe('deployment_authorization');
+    expect(advanceStage(s).stage).toBe('deployment_authorization');
+  });
+
+  it('remediation returns to Constitutional Validation when revalidation is required', () => {
+    const s = sessionAt('remediation', {
+      validationReport: failingReport(),
+      remediationPlan: {
+        intentId: 'dci-cde', remedies: [{ consequenceId: 'ce-1', description: 'd', remedy: 'fix', learningNote: 'lesson' }],
+        residualRisk: '', revalidationRequired: true, createdAt: '',
+      },
+    });
+    expect(canAdvance(s)).toBe(true);
+    expect(advanceStage(s).stage).toBe('consequence_validation');
+  });
+
+  it('remediation proceeds to deployment_authorization when residual risk is accepted', () => {
+    const s = sessionAt('remediation', {
+      validationReport: failingReport(),
+      remediationPlan: {
+        intentId: 'dci-cde', remedies: [{ consequenceId: 'ce-1', description: 'd', remedy: 'fix', learningNote: 'lesson' }],
+        residualRisk: 'acceptable', revalidationRequired: false, createdAt: '',
+      },
+    });
+    expect(advanceStage(s).stage).toBe('deployment_authorization');
+  });
+
+  it('deployment_authorization only completes once threshold met AND authorized', () => {
+    const blocked = sessionAt('deployment_authorization', { validationReport: failingReport() });
+    expect(canAdvance(blocked)).toBe(false); // consequence test not passed
+    const met = sessionAt('deployment_authorization', {
+      validationReport: cleanReport(),
+      deploymentAuthorization: {
+        intentId: 'dci-cde', authorized: true, constitutionalThresholdMet: true,
+        rationale: 'passed', blockingConsequences: [], authorizedAt: '',
+      },
+    });
+    expect(canAdvance(met)).toBe(true);
+    expect(advanceStage(met).stage).toBe('complete');
+  });
+
+  it('applyStageProposal commits a remediation_plan payload', () => {
+    const next = applyStageProposal(createDevLoopSession(), {
+      kind: 'remediation_plan', summary: 'r',
+      data: {
+        remedies: [{ consequenceId: 'ce-1', description: 'leak', remedy: 'proxy it', learningNote: 'never expose storage URLs' }],
+        residualRisk: 'low', revalidationRequired: true,
+      },
+    });
+    expect(next.remediationPlan?.remedies).toHaveLength(1);
+    expect(next.remediationPlan?.remedies[0].learningNote).toBe('never expose storage URLs');
+    expect(next.remediationPlan?.revalidationRequired).toBe(true);
+  });
+
+  it('applyStageProposal commits a deployment_authorization payload', () => {
+    const next = applyStageProposal(createDevLoopSession(), {
+      kind: 'deployment_authorization', summary: 'd',
+      data: { authorized: true, constitutionalThresholdMet: true, rationale: 'passed', blockingConsequences: [] },
+    });
+    expect(next.deploymentAuthorization?.authorized).toBe(true);
+    expect(next.deploymentAuthorization?.constitutionalThresholdMet).toBe(true);
+  });
+
+  it('devReceiptClassFor maps every actionType to its constitutional class', () => {
+    expect(devReceiptClassFor('implementation_pack_generated')).toBe('development');
+    expect(devReceiptClassFor('constitutional_validation_recorded')).toBe('constitutional');
+    expect(devReceiptClassFor('remediation_recorded')).toBe('constitutional');
+    expect(devReceiptClassFor('deployment_proposed')).toBe('deployment');
+    expect(devReceiptClassFor('deployment_authorized')).toBe('deployment');
+  });
+
+  it('recordDevReceipt appends a classified receipt and is idempotent (the receipt-bug fix)', () => {
+    let s = createDevLoopSession();
+    expect(s.receipts).toHaveLength(0);
+    s = recordDevReceipt(s, { id: 'rcpt-1', actionType: 'implementation_pack_generated' });
+    expect(s.receipts).toHaveLength(1);
+    expect(s.receipts[0]).toMatchObject({ id: 'rcpt-1', actionType: 'implementation_pack_generated', class: 'development' });
+    // idempotent — same id never double-recorded
+    s = recordDevReceipt(s, { id: 'rcpt-1', actionType: 'implementation_pack_generated' });
+    expect(s.receipts).toHaveLength(1);
+    // empty id ignored
+    s = recordDevReceipt(s, { id: '', actionType: 'deployment_authorized' });
+    expect(s.receipts).toHaveLength(1);
+    s = recordDevReceipt(s, { id: 'rcpt-2', actionType: 'deployment_authorized' });
+    expect(s.receipts.map((r) => r.class)).toEqual(['development', 'deployment']);
+  });
+
+  it('STAGE_ORDER inserts remediation + deployment_authorization before complete (full linear + fork walk)', () => {
+    // Linear happy path with a clean validation report: validation → deploy auth → complete.
+    let s = sessionAt('consequence_validation', { validationReport: cleanReport() });
+    s = advanceStage(s);
+    expect(s.stage).toBe('deployment_authorization');
+    s = {
+      ...s,
+      deploymentAuthorization: {
+        intentId: 'dci-cde', authorized: true, constitutionalThresholdMet: true,
+        rationale: 'ok', blockingConsequences: [], authorizedAt: '',
+      },
+    };
+    s = advanceStage(s);
+    expect(s.stage).toBe('complete');
+    expect(canAdvance(s)).toBe(false);
   });
 });

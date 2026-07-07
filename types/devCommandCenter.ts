@@ -133,6 +133,65 @@ export interface ConsequenceValidationReport {
   validatedAt: string;
 }
 
+// ─── Constitutional Development Environment (CDE) — Remediation (ICE-7) ──────
+
+/**
+ * A single remedy for a failed / partially-failed consequence surfaced by the
+ * Constitutional Validation stage. `learningNote` is the feedback-loop-for-
+ * learning the operator asked for: the captured lesson from this remediation.
+ */
+export interface RemediationEntry {
+  consequenceId: string;
+  description: string;
+  remedy: string;
+  learningNote: string;
+}
+
+export interface RemediationPlan {
+  intentId: string;
+  remedies: RemediationEntry[];
+  residualRisk: string;
+  /** When true the loop returns to Constitutional Validation for a re-check;
+   *  when false the operator has accepted residual risk and the loop proceeds. */
+  revalidationRequired: boolean;
+  createdAt: string;
+}
+
+// ─── CDE — Deployment Authorization (ICE-8) ─────────────────────────────────
+
+/**
+ * The authorization record for deployment. Execution stays human under CFS-016
+ * D1 — this is the constitutional authorization record, not an executor. The
+ * code runs in Claude Code; the receipt is the provenance that the consequence
+ * test passed before deployment was authorized.
+ */
+export interface DeploymentAuthorization {
+  intentId: string;
+  authorized: boolean;
+  constitutionalThresholdMet: boolean;
+  rationale: string;
+  /** Consequence ids still blocking deployment (empty when threshold met). */
+  blockingConsequences: string[];
+  authorizedAt: string;
+}
+
+// ─── Dev Receipts (three constitutional classes) ────────────────────────────
+
+export type DevReceiptClass = 'development' | 'constitutional' | 'deployment';
+
+/**
+ * A receipt recorded during the dev loop. Extended from a bare id string to a
+ * typed record so the Dev Receipts panel can group by constitutional class
+ * (the receipt bug: nothing ever mutated `receipts`, so the panel was always
+ * empty — every constitutional action now pushes its returned receiptId here).
+ */
+export interface DevLoopReceipt {
+  id: string;
+  actionType: string;
+  class: DevReceiptClass;
+  at: string;
+}
+
 // ─── Development Loop State ─────────────────────────────────────────────────
 
 export type DevLoopStage =
@@ -142,6 +201,8 @@ export type DevLoopStage =
   | 'consequence_modeling'
   | 'implementation'
   | 'consequence_validation'
+  | 'remediation'
+  | 'deployment_authorization'
   | 'complete';
 
 export interface DevLoopState {
@@ -155,7 +216,12 @@ export interface DevLoopState {
   /** LLM-enriched implementation brief (PRD + plan + tasks). When present,
    *  buildImplementationPackage uses it instead of the derived brief. */
   implementationBrief?: string | null;
-  receipts: string[];
+  /** ICE-7 Remediation fork output — set when a failed consequence check is
+   *  remedied in the validation stage rather than accepted. */
+  remediationPlan?: RemediationPlan | null;
+  /** ICE-8 Deployment Authorization record — consequence-test-before-deploy. */
+  deploymentAuthorization?: DeploymentAuthorization | null;
+  receipts: DevLoopReceipt[];
   startedAt: string;
   updatedAt: string;
 }

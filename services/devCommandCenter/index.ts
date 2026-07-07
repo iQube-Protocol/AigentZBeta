@@ -43,9 +43,14 @@ export {
   createDevLoopSession,
   canAdvance,
   advanceStage,
+  nextStage,
   getStageIndex,
   getStageLabel,
   buildImplementationPackage,
+  validationRequiresRemediation,
+  constitutionalThresholdMet,
+  devReceiptClassFor,
+  recordDevReceipt,
 } from './devLoop';
 
 export {

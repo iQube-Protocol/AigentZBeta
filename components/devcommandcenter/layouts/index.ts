@@ -4,6 +4,8 @@ export { GapAnalysisLayout } from "./GapAnalysisLayout";
 export { ConsequenceCanvasLayout } from "./ConsequenceCanvasLayout";
 export { ImplementationLayout } from "./ImplementationLayout";
 export { ValidationLayout } from "./ValidationLayout";
+export { RemediationLayout } from "./RemediationLayout";
+export { DeploymentAuthorizationLayout } from "./DeploymentAuthorizationLayout";
 export { ProjectOverviewLayout } from "./ProjectOverviewLayout";
 export { PendingProposalCard } from "./PendingProposalCard";
 export type { DevCapsuleId, DevLayoutId, DevLayoutProps } from "./types";

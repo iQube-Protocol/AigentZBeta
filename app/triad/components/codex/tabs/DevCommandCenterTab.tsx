@@ -29,7 +29,7 @@ import {
   Cpu, Target, FileSearch, AlertTriangle, CheckCircle,
   ChevronDown, Package, Layers, ArrowRight,
   Terminal, GitBranch, Wrench, BarChart3,
-  Play,
+  Play, ShieldAlert, Rocket,
 } from "lucide-react";
 import { SmartTriadCopilotLayer, type SuggestedLayoutHint, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { ExploreQuickActionsStrip, type ExploreToolId, type ExploreSuggestionMap } from "@/components/metame/copilot/ExploreQuickActionsStrip";
@@ -37,6 +37,8 @@ import { ExploreQuickActionsStrip, type ExploreToolId, type ExploreSuggestionMap
 import type {
   DevLoopState,
   DevLoopStage,
+  DevReceiptClass,
+  DeploymentAuthorization,
 } from "@/types/devCommandCenter";
 
 import {
@@ -50,6 +52,7 @@ import {
   buildConsequenceCanvasSummary,
   buildValidationSummary,
   applyStageProposal,
+  recordDevReceipt,
   stageCapsuleId,
   STAGE_PROPOSAL_KIND,
   PROPOSAL_KIND_TO_CAPSULE,
@@ -83,6 +86,8 @@ import {
   ConsequenceCanvasLayout,
   ImplementationLayout,
   ValidationLayout,
+  RemediationLayout,
+  DeploymentAuthorizationLayout,
   ProjectOverviewLayout,
   CAPSULE_LAYOUT,
   type DevCapsuleId,
@@ -123,6 +128,8 @@ const STAGES: { id: DevLoopStage; label: string; icon: typeof Cpu }[] = [
   { id: "consequence_modeling", label: "Consequences", icon: AlertTriangle },
   { id: "implementation", label: "Implement", icon: Cpu },
   { id: "consequence_validation", label: "Validate", icon: CheckCircle },
+  { id: "remediation", label: "Remediate", icon: ShieldAlert },
+  { id: "deployment_authorization", label: "Deploy Auth", icon: Rocket },
   { id: "complete", label: "Complete", icon: CheckCircle },
 ];
 
@@ -133,6 +140,8 @@ const STAGE_TO_CAPSULE: Partial<Record<DevLoopStage, DevCapsuleId>> = {
   consequence_modeling: "consequence-canvas",
   implementation: "implementation",
   consequence_validation: "validation",
+  remediation: "remediation",
+  deployment_authorization: "deployment-authorization",
 };
 
 function getStageIndex(stage: DevLoopStage): number {
@@ -172,11 +181,21 @@ const CAPABILITIES: { id: DevCapsuleId; label: string; shortLabel: string; icon:
     hasDataClass: "bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/15",
     emptyClass: "bg-indigo-500/5 border-indigo-500/15 text-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-300",
     iconActiveClass: "text-indigo-400", iconEmptyClass: "text-indigo-500/50" },
-  { id: "validation", label: "Validation", shortLabel: "Validate", icon: CheckCircle,
+  { id: "validation", label: "Constitutional Validation", shortLabel: "Validate", icon: CheckCircle,
     activeClass: "bg-green-500/20 border-green-500/40 text-green-300 ring-1 ring-green-500/30",
     hasDataClass: "bg-green-500/10 border-green-500/20 text-green-300 hover:bg-green-500/15",
     emptyClass: "bg-green-500/5 border-green-500/15 text-green-400/60 hover:bg-green-500/10 hover:text-green-300",
     iconActiveClass: "text-green-400", iconEmptyClass: "text-green-500/50" },
+  { id: "remediation", label: "Remediation", shortLabel: "Remediate", icon: ShieldAlert,
+    activeClass: "bg-rose-500/20 border-rose-500/40 text-rose-300 ring-1 ring-rose-500/30",
+    hasDataClass: "bg-rose-500/10 border-rose-500/20 text-rose-300 hover:bg-rose-500/15",
+    emptyClass: "bg-rose-500/5 border-rose-500/15 text-rose-400/60 hover:bg-rose-500/10 hover:text-rose-300",
+    iconActiveClass: "text-rose-400", iconEmptyClass: "text-rose-500/50" },
+  { id: "deployment-authorization", label: "Deployment Authorization", shortLabel: "Deploy Auth", icon: Rocket,
+    activeClass: "bg-teal-500/20 border-teal-500/40 text-teal-300 ring-1 ring-teal-500/30",
+    hasDataClass: "bg-teal-500/10 border-teal-500/20 text-teal-300 hover:bg-teal-500/15",
+    emptyClass: "bg-teal-500/5 border-teal-500/15 text-teal-400/60 hover:bg-teal-500/10 hover:text-teal-300",
+    iconActiveClass: "text-teal-400", iconEmptyClass: "text-teal-500/50" },
 ];
 
 // ─── Quick links for bottom strip ─────────────────────────────────────────
@@ -187,6 +206,13 @@ const DEV_QUICK_LINKS: { id: string; label: string; icon: typeof Terminal }[] = 
   { id: "devtools", label: "DevTools", icon: Wrench },
   { id: "linear", label: "Linear", icon: BarChart3 },
 ];
+
+// Dev Receipts panel — the three constitutional classes (CFS-020 CDE).
+const RECEIPT_CLASS_LABEL: Record<DevReceiptClass, string> = {
+  development: "Development",
+  constitutional: "Constitutional",
+  deployment: "Deployment",
+};
 
 // ─── Right-pane sub-components ────────────────────────────────────────────
 
@@ -236,6 +262,8 @@ function capabilityHasData(id: DevCapsuleId, session: DevLoopState): boolean {
     case "consequence-canvas": return session.consequenceCanvas !== null && session.consequenceCanvas.successState.length > 0;
     case "implementation": return Boolean(session.implementationBrief);
     case "validation": return session.validationReport !== null;
+    case "remediation": return session.remediationPlan != null;
+    case "deployment-authorization": return session.deploymentAuthorization != null;
     default: return false;
   }
 }
@@ -342,6 +370,8 @@ function StackLayout({ session, activeStage, onCapabilityClick, pending }: {
                     {cap.id === "consequence-canvas" && (session.consequenceCanvas ? `${session.consequenceCanvas.shouldHappen.length + session.consequenceCanvas.shouldNeverHappen.length} entries` : "Pending gaps")}
                     {cap.id === "implementation" && (session.implementationBrief ? "Brief ready — generate the pack" : "Pending consequences")}
                     {cap.id === "validation" && (session.validationReport ? session.validationReport.overallVerdict : "Pending implementation")}
+                    {cap.id === "remediation" && (session.remediationPlan ? `${session.remediationPlan.remedies.length} remed(ies)` : "No remediation required")}
+                    {cap.id === "deployment-authorization" && (session.deploymentAuthorization ? (session.deploymentAuthorization.authorized ? "Authorized" : "Blocked") : "Pending validation")}
                   </div>
                 </div>
                 {hasPending && (
@@ -402,15 +432,28 @@ function StackLayout({ session, activeStage, onCapabilityClick, pending }: {
       <AccordionSection title="Dev Receipts" icon={CheckCircle} defaultOpen={false}>
         <div className="space-y-2">
           {session.receipts.length > 0 ? (
-            session.receipts.map((receiptId, i) => (
-              <div key={receiptId} className="flex items-center justify-between py-1 border-b border-slate-700/20 last:border-0">
-                <span className="text-xs text-white font-mono truncate">{receiptId}</span>
-                <span className="text-[10px] text-slate-500">#{i + 1}</span>
-              </div>
-            ))
+            (["development", "constitutional", "deployment"] as DevReceiptClass[]).map((cls) => {
+              const items = session.receipts.filter(r => r.class === cls);
+              if (items.length === 0) return null;
+              return (
+                <div key={cls} className="space-y-1">
+                  <div className="text-[10px] uppercase font-semibold text-slate-400">
+                    {RECEIPT_CLASS_LABEL[cls]} ({items.length})
+                  </div>
+                  {items.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between gap-2 py-1 border-b border-slate-700/20 last:border-0">
+                      <span className="text-[10px] text-slate-300 truncate">{r.actionType}</span>
+                      <span className="text-[10px] text-slate-500 font-mono shrink-0">{r.id.slice(0, 10)}…</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })
           ) : (
             <div className="text-xs text-slate-400 py-1">
-              No receipts yet. Receipts are created when capabilities complete.
+              No receipts yet. Receipts are recorded when constitutional actions complete — pack
+              generation (Development), validation + remediation (Constitutional), and deployment
+              proposal + authorization (Deployment).
             </div>
           )}
           <div className="flex items-center gap-3 text-[10px] text-slate-500 pt-1 border-t border-slate-700/20">
@@ -437,7 +480,9 @@ function StackLayout({ session, activeStage, onCapabilityClick, pending }: {
             { label: "Consequence Canvas", stage: "consequence_modeling" },
             { label: "Claude Code", stage: "implementation" },
             { label: "Generated Code", stage: "implementation" },
-            { label: "Consequence Validation", stage: "consequence_validation" },
+            { label: "Constitutional Validation", stage: "consequence_validation" },
+            { label: "Remediation", stage: "remediation" },
+            { label: "Deployment Authorization", stage: "deployment_authorization" },
             { label: "Receipts", stage: "complete" },
             { label: "Memory Update", stage: "complete" },
           ].map((step, i, arr) => {
@@ -552,6 +597,20 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     });
   }, []);
 
+  // Receipt-bug fix: every constitutional action's returned receiptId is
+  // recorded into session.receipts (idempotent) so the Dev Receipts panel
+  // reflects the three receipt classes instead of always reading "No receipts".
+  const handleReceipt = useCallback((receipt: { id: string; actionType: string }) => {
+    setSession(prev => recordDevReceipt(prev, receipt));
+  }, []);
+
+  // Direct commit of a deployment authorization (from the layout's Authorize
+  // action) so the loop can complete — constitutional-threshold-gated inside
+  // the layout, this only fires once the consequence test passed.
+  const handleDeploymentAuthorized = useCallback((auth: DeploymentAuthorization) => {
+    setSession(prev => ({ ...prev, deploymentAuthorization: auth, updatedAt: new Date().toISOString() }));
+  }, []);
+
   const handleStageClick = useCallback((stageId: DevLoopStage) => {
     const capsuleId = STAGE_TO_CAPSULE[stageId];
     if (capsuleId) engageCapsuleAndMount(capsuleId);
@@ -568,7 +627,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
       const id = h.layoutId as string;
       if (id === "upload" || id === "download" || id === "terminal" || id === "github" || id === "devtools" || id === "linear") {
         explore[id as ExploreToolId | "upload" | "download"] = true;
-      } else if (id === "intent" || id === "context" || id === "gap-analysis" || id === "consequence-canvas" || id === "implementation" || id === "validation" || id === "project-overview") {
+      } else if (id === "intent" || id === "context" || id === "gap-analysis" || id === "consequence-canvas" || id === "implementation" || id === "validation" || id === "remediation" || id === "deployment-authorization" || id === "project-overview") {
         caps[id as DevCapsuleId] = true;
       } else if (id === "brief" || id === "venture-cockpit") {
         caps["project-overview"] = true;
@@ -765,11 +824,29 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     },
     {
       label: "Validate build",
-      prompt: "Validate the implementation against the consequence canvas. Run the post-prompt validation.",
+      prompt: "Run the constitutional consequence test: validate the implementation against the consequence canvas. Give every must-happen and must-never-happen a verdict with evidence.",
       highlight: capsuleSuggestions["validation"] === true,
       onSelect: () => {
         engageCapsuleAndMount("validation");
         consumeCapsuleSuggestion("validation");
+      },
+    },
+    {
+      label: "Remediate failures",
+      prompt: "Remediate the failed or partial high-severity consequences. Propose a concrete remedy and a captured lesson (learningNote) for each, and state whether re-validation is required.",
+      highlight: capsuleSuggestions["remediation"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("remediation");
+        consumeCapsuleSuggestion("remediation");
+      },
+    },
+    {
+      label: "Authorize deployment",
+      prompt: "Author the deployment authorization. Confirm the constitutional threshold is met (consequence test passed) or list the blocking consequences. Execution stays human.",
+      highlight: capsuleSuggestions["deployment-authorization"] === true,
+      onSelect: () => {
+        engageCapsuleAndMount("deployment-authorization");
+        consumeCapsuleSuggestion("deployment-authorization");
       },
     },
   ], [engageCapsuleAndMount, capsuleSuggestions, consumeCapsuleSuggestion]);
@@ -901,6 +978,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               pendingProposal={pendingProposals["implementation"] ?? null}
               onApproveProposal={() => handleApproveProposal("implementation")}
               onDismissProposal={() => handleDismissProposal("implementation")}
+              onReceipt={handleReceipt}
               onPackGenerated={(briefMarkdown) => {
                 setSession(s => ({ ...s, implementationBrief: briefMarkdown, updatedAt: new Date().toISOString() }));
                 observe(devImplementationPackGeneratedEvent());
@@ -916,6 +994,29 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               pendingProposal={pendingProposals["validation"] ?? null}
               onApproveProposal={() => handleApproveProposal("validation")}
               onDismissProposal={() => handleDismissProposal("validation")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "remediation" && (
+            <RemediationLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["remediation"] ?? null}
+              onApproveProposal={() => handleApproveProposal("remediation")}
+              onDismissProposal={() => handleDismissProposal("remediation")}
+              onReceipt={handleReceipt}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "deployment-authorization" && (
+            <DeploymentAuthorizationLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              pendingProposal={pendingProposals["deployment-authorization"] ?? null}
+              onApproveProposal={() => handleApproveProposal("deployment-authorization")}
+              onDismissProposal={() => handleDismissProposal("deployment-authorization")}
+              onReceipt={handleReceipt}
+              onAuthorize={handleDeploymentAuthorized}
             />
           )}
 

@@ -95,6 +95,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'experience_render_validated',
   'implementation_pack_generated',
   'deployment_proposed',
+  // Constitutional Development Environment (CFS-020 CDE) — constitutional
+  // consequence-test + remediation + deployment-authorization provenance.
+  'constitutional_validation_recorded',
+  'remediation_recorded',
+  'deployment_authorized',
   'research_lifecycle_transition',
 ]);
 

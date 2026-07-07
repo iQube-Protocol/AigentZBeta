@@ -60,24 +60,30 @@ export async function POST(request: NextRequest) {
       context: domains && domains.length > 0 ? { domains } : undefined,
     });
 
-    // Best-effort receipt — never blocks the response.
-    void createActivityReceipt({
-      personaId: gate.persona.personaId,
-      actionType: 'implementation_pack_generated',
-      summary:
-        `Implementation Pack generated (${pack.composedBy}, mechanism=${pack.implementationMechanism}): ` +
-        `"${goal.slice(0, 140)}" — ${pack.invariantBindings.length} invariant bindings, ` +
-        `${pack.areasToTouch.length} areas, ${pack.validationPlan.length} validation steps, ` +
-        `canon ${pack.canonVersion}`,
-      activeCartridge: 'agentiq',
-      invariantsUsed: pack.invariantBindings.map((b) => b.id),
-    }).catch((err) => {
+    // Best-effort receipt — never blocks the response, but surface its id so
+    // the dev loop can record the Development-class receipt (receipt-bug fix:
+    // the loop never recorded receipts, so the Dev Receipts panel stayed empty).
+    let receiptId: string | null = null;
+    try {
+      const receipt = await createActivityReceipt({
+        personaId: gate.persona.personaId,
+        actionType: 'implementation_pack_generated',
+        summary:
+          `Implementation Pack generated (${pack.composedBy}, mechanism=${pack.implementationMechanism}): ` +
+          `"${goal.slice(0, 140)}" — ${pack.invariantBindings.length} invariant bindings, ` +
+          `${pack.areasToTouch.length} areas, ${pack.validationPlan.length} validation steps, ` +
+          `canon ${pack.canonVersion}`,
+        activeCartridge: 'agentiq',
+        invariantsUsed: pack.invariantBindings.map((b) => b.id),
+      });
+      receiptId = receipt?.id ?? null;
+    } catch (err) {
       console.warn(
         `[api/constitutional/implementation-pack] receipt write failed (non-blocking): ${err instanceof Error ? err.message : String(err)}`,
       );
-    });
+    }
 
-    return NextResponse.json({ ok: true, pack });
+    return NextResponse.json({ ok: true, pack, receiptId });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'pack_generation_failed';
     console.error('[api/constitutional/implementation-pack] generation failed:', message);

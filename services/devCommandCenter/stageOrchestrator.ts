@@ -22,6 +22,9 @@ import type {
   ContextSourceKind,
   ConsequenceEntry,
   ConsequenceValidationItem,
+  RemediationEntry,
+  RemediationPlan,
+  DeploymentAuthorization,
 } from '@/types/devCommandCenter';
 import { createEmptyIntent, refineIntent } from './intentDistillation';
 import { createEmptyContextPack, addContextItem, estimateTokens } from './contextPackGenerator';
@@ -37,7 +40,9 @@ export type StageProposalKind =
   | 'gap_analysis'
   | 'consequence_canvas'
   | 'implementation_brief'
-  | 'validation_report';
+  | 'validation_report'
+  | 'remediation_plan'
+  | 'deployment_authorization';
 
 export interface StageProposal {
   kind: StageProposalKind;
@@ -54,6 +59,8 @@ const PROPOSAL_KINDS = new Set<string>([
   'consequence_canvas',
   'implementation_brief',
   'validation_report',
+  'remediation_plan',
+  'deployment_authorization',
 ]);
 
 /** Which proposal kind each stage produces. */
@@ -64,6 +71,8 @@ export const STAGE_PROPOSAL_KIND: Record<DevLoopStage, StageProposalKind | null>
   consequence_modeling: 'consequence_canvas',
   implementation: 'implementation_brief',
   consequence_validation: 'validation_report',
+  remediation: 'remediation_plan',
+  deployment_authorization: 'deployment_authorization',
   complete: null,
 };
 
@@ -75,6 +84,8 @@ export const PROPOSAL_KIND_TO_CAPSULE: Record<StageProposalKind, string> = {
   consequence_canvas: 'consequence-canvas',
   implementation_brief: 'implementation',
   validation_report: 'validation',
+  remediation_plan: 'remediation',
+  deployment_authorization: 'deployment-authorization',
 };
 
 /**
@@ -102,6 +113,10 @@ export function stageCapsuleId(stage: DevLoopStage): string | null {
  * ambiguous returns null and the viewed-capsule / session stage decides.
  */
 const STAGE_REQUEST_PATTERNS: Array<{ stage: DevLoopStage; re: RegExp }> = [
+  // Remediation outranks validation so "remediate the validation failures"
+  // routes to the Remediation stage rather than re-running validation.
+  { stage: 'remediation', re: /\bremediat|\bremed(y|ies)\b/i },
+  { stage: 'deployment_authorization', re: /\bdeploy(ment)?\b|\bauthoriz(e|ation) (the )?deploy|\bconstitutional threshold\b/i },
   { stage: 'consequence_validation', re: /\bvalidat/i },
   { stage: 'gap_analysis', re: /\b(capability )?gaps?\b/i },
   { stage: 'consequence_modeling', re: /\bconsequence/i },
@@ -220,6 +235,30 @@ const SCHEMAS: Record<StageProposalKind, string> = {
     "testingRequirements": ["<requirement>", ...]
   }
 }`,
+  remediation_plan: `{
+  "kind": "remediation_plan",
+  "summary": "<one-line label>",
+  "data": {
+    "remedies": [{
+      "consequenceId": "<id of the failed/partial consequence from the validation report>",
+      "description": "<the consequence that failed or partially failed>",
+      "remedy": "<the concrete fix that resolves it>",
+      "learningNote": "<the lesson captured from this failure — the feedback-loop-for-learning>"
+    }, ...],
+    "residualRisk": "<honest statement of any risk that remains after these remedies>",
+    "revalidationRequired": true
+  }
+}`,
+  deployment_authorization: `{
+  "kind": "deployment_authorization",
+  "summary": "<one-line label>",
+  "data": {
+    "authorized": true,
+    "constitutionalThresholdMet": true,
+    "rationale": "<why deployment is (or is not) authorized — cite the consequence test outcome>",
+    "blockingConsequences": ["<consequence id still blocking deployment>", ...]
+  }
+}`,
 };
 
 const STAGE_BEHAVIOR: Record<DevLoopStage, string> = {
@@ -234,7 +273,11 @@ const STAGE_BEHAVIOR: Record<DevLoopStage, string> = {
   implementation:
     'Produce the implementation brief: a PRD, an architecture plan honoring the gap analysis (reuse > extend > create), a task list with repository targets, and a Claude Code instruction package. Cite the consequence guardrails as hard constraints.',
   consequence_validation:
-    'Validate the implementation against the consequence canvas: each shouldHappen/shouldNeverHappen entry gets a verdict with evidence. Also check the original intent\'s success criteria and governance constraints. Surface unintended consequences explicitly.',
+    'Run the CONSTITUTIONAL CONSEQUENCE TEST: validate the implementation against the consequence canvas — each shouldHappen/shouldNeverHappen entry gets a verdict with evidence. Also check the original intent\'s success criteria and governance constraints. Surface unintended consequences explicitly. This is the constitutional gate: a high/critical must-not-happen consequence that comes back unintended or partial MUST be remedied (it forks to Remediation), never accepted as "validated".',
+  remediation:
+    'Remediate the failed / partial high-severity consequences the Constitutional Validation surfaced. For EACH, propose a concrete remedy AND a learningNote (the captured lesson — the feedback loop for learning). State the residual risk honestly. Set revalidationRequired=true when the remedies must be re-checked by another validation pass; set it false only when the residual risk is explicitly acceptable and no re-validation is needed.',
+  deployment_authorization:
+    'Author the DEPLOYMENT AUTHORIZATION record (CFS-016 D1): consequence-test-before-deploy. Authorize deployment ONLY when the constitutional threshold is met (the consequence test passed with no unresolved high/critical must-not-happen failures). If it is not met, set authorized=false and list the blocking consequence ids. Execution stays human: the receipt is the authorization record; the code runs in Claude Code and is pushed manually.',
   complete: '',
 };
 
@@ -613,6 +656,38 @@ export function applyStageProposal(session: DevLoopState, proposal: StageProposa
         testingRequirements: strArr(d.testingRequirements),
       };
       return { ...session, validationReport: report, updatedAt: now };
+    }
+
+    case 'remediation_plan': {
+      const remedies: RemediationEntry[] = objArr(d.remedies)
+        .map((raw) => ({
+          consequenceId: str(raw.consequenceId),
+          description: str(raw.description),
+          remedy: str(raw.remedy),
+          learningNote: str(raw.learningNote),
+        }))
+        .filter((r) => r.remedy || r.description);
+      const plan: RemediationPlan = {
+        intentId: requireIntentId(session),
+        remedies,
+        residualRisk: str(d.residualRisk),
+        // Default to requiring re-validation — the safe constitutional default.
+        revalidationRequired: typeof d.revalidationRequired === 'boolean' ? d.revalidationRequired : true,
+        createdAt: now,
+      };
+      return { ...session, remediationPlan: plan, updatedAt: now };
+    }
+
+    case 'deployment_authorization': {
+      const auth: DeploymentAuthorization = {
+        intentId: requireIntentId(session),
+        authorized: d.authorized === true,
+        constitutionalThresholdMet: d.constitutionalThresholdMet === true,
+        rationale: str(d.rationale),
+        blockingConsequences: strArr(d.blockingConsequences),
+        authorizedAt: now,
+      };
+      return { ...session, deploymentAuthorization: auth, updatedAt: now };
     }
 
     default:

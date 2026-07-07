@@ -82,6 +82,13 @@ export type ActivityActionType =
   | 'experience_render_validated'
   | 'implementation_pack_generated'
   | 'deployment_proposed'
+  // Constitutional Development Environment (CFS-020 CDE) — the three Dev
+  // Receipts classes. constitutional_validation_recorded + remediation_recorded
+  // are the Constitutional class; deployment_authorized is the Deployment class
+  // (alongside deployment_proposed). All DVN-anchorable.
+  | 'constitutional_validation_recorded'
+  | 'remediation_recorded'
+  | 'deployment_authorized'
   | 'research_lifecycle_transition'
   // Foundational Validation Series — canonical result publication (Experiment
   // Lab). Summary carries the sha256 content commitment of the results JSON;

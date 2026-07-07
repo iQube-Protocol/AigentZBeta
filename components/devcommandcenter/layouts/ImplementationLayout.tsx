@@ -34,6 +34,7 @@ export function ImplementationLayout({
   pendingProposal,
   onApproveProposal,
   onDismissProposal,
+  onReceipt,
   onPackGenerated,
   onDeploymentProposed,
 }: DevLayoutProps & {
@@ -72,6 +73,12 @@ export function ImplementationLayout({
       setPack(p);
       setProposal(null);
       onPackGenerated?.(packMarkdown(p));
+      // Development-class receipt — the route created an
+      // `implementation_pack_generated` receipt and returns its id. Record it
+      // so the Dev Receipts panel reflects it (the receipt bug fix at source).
+      if (typeof data.receiptId === "string" && data.receiptId) {
+        onReceipt?.({ id: data.receiptId, actionType: "implementation_pack_generated" });
+      }
     } catch (err) {
       setPackError(err instanceof Error ? err.message : "Pack generation failed");
     } finally {
@@ -101,6 +108,9 @@ export function ImplementationLayout({
         touchesProtectedFiles: touchesProtected,
       });
       setProposal(`Proposed — receipt ${String(data.receiptId).slice(0, 8)}… · ${String(data.d1Semantics)}`);
+      if (typeof data.receiptId === "string" && data.receiptId) {
+        onReceipt?.({ id: data.receiptId, actionType: "deployment_proposed" });
+      }
       onDeploymentProposed?.();
     } catch (err) {
       setProposal(err instanceof Error ? err.message : "proposal failed");

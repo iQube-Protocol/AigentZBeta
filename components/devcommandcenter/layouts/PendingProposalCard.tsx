@@ -11,6 +11,8 @@ const PROPOSAL_KIND_LABEL: Record<StageProposalKind, string> = {
   consequence_canvas: "Consequence Canvas",
   implementation_brief: "Implementation Package",
   validation_report: "Validation Report",
+  remediation_plan: "Remediation Plan",
+  deployment_authorization: "Deployment Authorization",
 };
 
 // ─── Tolerant payload getters (mirror applyStageProposal coercion) ──────────
@@ -48,6 +50,10 @@ function countLine(p: StageProposal): string {
       return `${str(d.brief).length.toLocaleString()} chars of brief markdown`;
     case "validation_report":
       return `${count(d.items)} consequence checks · ${count(d.testingRequirements)} testing requirements`;
+    case "remediation_plan":
+      return `${count(d.remedies)} remed(ies) · revalidation ${d.revalidationRequired === false ? "not required" : "required"}`;
+    case "deployment_authorization":
+      return `${d.authorized === true ? "authorized" : "not authorized"} · threshold ${d.constitutionalThresholdMet === true ? "met" : "not met"} · ${count(d.blockingConsequences)} blocking`;
     default:
       return "";
   }
@@ -248,6 +254,51 @@ function ProposalPreviewBody({ proposal }: { proposal: StageProposal }) {
         </div>
       );
     }
+
+    case "remediation_plan": {
+      const remedies = objList(d.remedies);
+      return (
+        <div className="space-y-2">
+          <Section title={`Remedies (${remedies.length})`}>
+            {remedies.length === 0 ? (
+              <div className="text-[10px] text-slate-500 italic">none</div>
+            ) : (
+              remedies.map((r, i) => (
+                <div key={i} className="py-1 border-b border-amber-500/10 last:border-0 space-y-0.5">
+                  <div className="text-[11px] text-slate-200">{str(r.description)}</div>
+                  {str(r.remedy) && <div className="text-[10px] text-emerald-300">Remedy: {str(r.remedy)}</div>}
+                  {str(r.learningNote) && <div className="text-[10px] text-cyan-300/80">Lesson: {str(r.learningNote)}</div>}
+                </div>
+              ))
+            )}
+          </Section>
+          {str(d.residualRisk) && <Section title="Residual risk"><div className="text-[11px] text-slate-200">{str(d.residualRisk)}</div></Section>}
+          <Section title="Re-validation">
+            <Badge tone={d.revalidationRequired === false ? "amber" : "emerald"}>
+              {d.revalidationRequired === false ? "residual risk accepted — proceed" : "required — re-check"}
+            </Badge>
+          </Section>
+        </div>
+      );
+    }
+
+    case "deployment_authorization":
+      return (
+        <div className="space-y-2">
+          <Section title="Decision">
+            <div className="flex items-center gap-1.5">
+              <Badge tone={d.authorized === true ? "emerald" : "rose"}>{d.authorized === true ? "authorized" : "not authorized"}</Badge>
+              <Badge tone={d.constitutionalThresholdMet === true ? "emerald" : "rose"}>
+                threshold {d.constitutionalThresholdMet === true ? "met" : "not met"}
+              </Badge>
+            </div>
+          </Section>
+          {str(d.rationale) && <Section title="Rationale"><div className="text-[11px] text-slate-200">{str(d.rationale)}</div></Section>}
+          {strList(d.blockingConsequences).length > 0 && (
+            <Section title="Blocking consequences"><BulletList items={strList(d.blockingConsequences)} /></Section>
+          )}
+        </div>
+      );
 
     default:
       return null;

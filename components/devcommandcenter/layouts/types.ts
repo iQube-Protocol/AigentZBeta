@@ -10,7 +10,9 @@ export type DevCapsuleId =
   | "gap-analysis"
   | "consequence-canvas"
   | "implementation"
-  | "validation";
+  | "validation"
+  | "remediation"
+  | "deployment-authorization";
 
 export type DevLayoutId =
   | "stack"
@@ -28,6 +30,8 @@ export const CAPSULE_LAYOUT: Record<DevCapsuleId, DevLayoutId> = {
   "consequence-canvas": "consequence-canvas",
   implementation: "implementation",
   validation: "validation",
+  remediation: "remediation",
+  "deployment-authorization": "deployment-authorization",
 };
 
 export interface DevLayoutProps {
@@ -37,4 +41,7 @@ export interface DevLayoutProps {
   pendingProposal?: StageProposal | null;
   onApproveProposal?: () => void;
   onDismissProposal?: () => void;
+  /** Records a receipt returned by a constitutional route into the session —
+   *  the fix for the receipt bug (nothing ever mutated session.receipts). */
+  onReceipt?: (receipt: { id: string; actionType: string }) => void;
 }
