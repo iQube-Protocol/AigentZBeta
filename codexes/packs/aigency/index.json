@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T17:34:37.593Z",
+  "last_updated": "2026-07-07T17:37:04.524Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f3d4b52bff612baf8c2f93e40597c20855b32126",
-  "latest_commit_short": "f3d4b52",
-  "latest_commit_title": "Give the CCRL research surface a fence-enforcement retry (promise-without-fence fix)",
+  "latest_commit": "e48b31418091e70fe2fd217fb28405695e120b5c",
+  "latest_commit_short": "e48b314",
+  "latest_commit_title": "Extend CDE DevTools with server-side telemetry + escalation log, and grow the Terminal's read-only diagnostics",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e48b314",
+      "full_sha": "e48b31418091e70fe2fd217fb28405695e120b5c",
+      "title": "Extend CDE DevTools with server-side telemetry + escalation log, and grow the Terminal's read-only diagnostics",
+      "author": "Claude",
+      "timestamp": "2026-07-07T17:34:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e48b314.md"
+    },
     {
       "sha": "f3d4b52",
       "full_sha": "f3d4b52bff612baf8c2f93e40597c20855b32126",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-03T20:30:22Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-e9c64f2.md"
-    },
-    {
-      "sha": "f6bfcd6",
-      "full_sha": "f6bfcd6f2c0ef9b138abaa67afb4a110780eee53",
-      "title": "implement consequence engineering operating model (chrysalis phase 3)",
-      "author": "Claude",
-      "timestamp": "2026-07-03T20:38:15Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f6bfcd6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
