@@ -13,7 +13,8 @@
   "sovereignty",
   "cybernetics",
   "interaction",
-  "epistemology"
+  "epistemology",
+  "representation"
  ],
  "notes": "Seed crystal for the Invariant Ontology (CFS-002). status=proposed until ratified via canonization; ratified_source marks statements drawn verbatim from ratified Polity documents.",
  "invariants": [
@@ -1862,6 +1863,104 @@
    ],
    "provenance": {
     "source": "Aletheon review (operator's co-agent), 2026-07-06 — CFS-019 institute-standing amendment."
+   }
+  },
+  {
+   "id": "inv.representation.121",
+   "namespace": "representation",
+   "semantic_type": "principle",
+   "statement": "Representation invariants preserve identity and connotation across media — what must always remain recognizable, as distinct from what must always remain true.",
+   "status": "proposed",
+   "contexts": [
+    "representation",
+    "design"
+   ],
+   "provenance": {
+    "source": "Operator articulation, 2026-07-07 — CFS-021 Constitutional Civic Futurism."
+   }
+  },
+  {
+   "id": "inv.representation.122",
+   "namespace": "representation",
+   "semantic_type": "principle",
+   "statement": "A constitutional object is independent of its representation; representation is a projection of an invariant object into a modality.",
+   "status": "proposed",
+   "contexts": [
+    "representation",
+    "design"
+   ],
+   "provenance": {
+    "source": "Operator articulation, 2026-07-07 — CFS-021 Constitutional Civic Futurism."
+   }
+  },
+  {
+   "id": "inv.representation.123",
+   "namespace": "representation",
+   "semantic_type": "principle",
+   "statement": "Every constitutional artifact has an invariant identity and one or more modality projections; navigation occurs through identity, not through representation.",
+   "status": "proposed",
+   "contexts": [
+    "representation",
+    "navigation"
+   ],
+   "provenance": {
+    "source": "Operator articulation, 2026-07-07 — CFS-021 Constitutional Civic Futurism."
+   }
+  },
+  {
+   "id": "inv.representation.124",
+   "namespace": "representation",
+   "semantic_type": "principle",
+   "statement": "Every representation should function as an instrument — preserving identity, connotation, provenance, and navigability — existing not merely to communicate constitutional order but to enable people to reason within it.",
+   "status": "proposed",
+   "contexts": [
+    "representation",
+    "design"
+   ],
+   "provenance": {
+    "source": "Operator articulation, 2026-07-07 — CFS-021 Constitutional Civic Futurism."
+   }
+  },
+  {
+   "id": "inv.representation.125",
+   "namespace": "representation",
+   "semantic_type": "definition",
+   "statement": "Operational representation invariants are representational structures whose purpose is to enable reasoning, navigation, and interaction with the constitutional field, not merely to preserve identity and connotation.",
+   "status": "proposed",
+   "contexts": [
+    "representation",
+    "design"
+   ],
+   "provenance": {
+    "source": "Operator articulation, 2026-07-07 — CFS-021 Constitutional Civic Futurism."
+   }
+  },
+  {
+   "id": "inv.constitutional.126",
+   "namespace": "constitutional",
+   "semantic_type": "principle",
+   "statement": "There are three canonical families of invariants: natural invariants are discovered, constitutional invariants are ratified, and representation invariants are composed.",
+   "status": "proposed",
+   "contexts": [
+    "constitutional",
+    "epistemics"
+   ],
+   "provenance": {
+    "source": "Operator articulation, 2026-07-07 — CFS-021 Constitutional Civic Futurism."
+   }
+  },
+  {
+   "id": "inv.constitutional.127",
+   "namespace": "constitutional",
+   "semantic_type": "principle",
+   "statement": "Civilizational evolution proceeds by discovering new classes of invariants and reorganizing existing systems around them; metamorphosis reconstitutes an existing world around a deeper invariant order rather than building a new world from new parts.",
+   "status": "proposed",
+   "contexts": [
+    "constitutional",
+    "cybernetics"
+   ],
+   "provenance": {
+    "source": "Operator articulation, 2026-07-07 — CFS-021 Constitutional Civic Futurism (the Chrysalis theory; hypothesis-standing)."
    }
   }
  ]

@@ -218,3 +218,15 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 - Every addition updates both files in the same commit.
 - Promotion to `canonical` is recorded here (★ or a ratification note) and DVN-anchored.
 - When the Phase 1 substrate lands, this appendix remains the human-readable canon; the database becomes the operational source, re-exportable to the JSON.
+
+## Additions — Representation Invariants (CFS-021, Constitutional Civic Futurism)
+
+*(Authored 2026-07-07 from the operator's articulation of Constitutional Civic Futurism — the third canonical family of invariants. Representation invariants preserve identity AND connotation across media; they are COMPOSED, as natural invariants are discovered and constitutional invariants are ratified. Status `proposed` until operator canonization. New namespace: `representation`.)*
+
+121. *(representation · principle)* Representation invariants preserve identity and connotation across media — what must always remain recognizable, as distinct from what must always remain true.
+122. *(representation · principle)* A constitutional object is independent of its representation; representation is a projection of an invariant object into a modality.
+123. *(representation · principle)* Every constitutional artifact has an invariant identity and one or more modality projections; navigation occurs through identity, not through representation.
+124. *(representation · principle)* Every representation should function as an instrument — preserving identity, connotation, provenance, and navigability — existing not merely to communicate constitutional order but to enable people to reason within it.
+125. *(representation · definition)* Operational representation invariants are representational structures whose purpose is to enable reasoning, navigation, and interaction with the constitutional field, not merely to preserve identity and connotation.
+126. *(constitutional · principle)* There are three canonical families of invariants: natural invariants are discovered, constitutional invariants are ratified, and representation invariants are composed.
+127. *(constitutional · principle)* Civilizational evolution proceeds by discovering new classes of invariants and reorganizing existing systems around them; metamorphosis reconstitutes an existing world around a deeper invariant order rather than building a new world from new parts. *(The Chrysalis theory — hypothesis-standing until it earns constitutional standing through the applied-research arc.)*

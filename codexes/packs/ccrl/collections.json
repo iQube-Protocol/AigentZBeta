@@ -1,6 +1,6 @@
 {
   "name": "CCRL — Constitutional Cybernetics Research Laboratory",
-  "description": "The constitutional research corpus — the Chrysalis Foundation specification bundle (CFS-000..020, CRP-001, glossary, seed crystal, Appendix A) and the Foundational Validation Series experiments (EXP-001..003 protocols, articles, results).",
+  "description": "The constitutional research corpus — the Chrysalis Foundation specification bundle (CFS-000..021, CRP-001, glossary, seed crystal, Appendix A) and the Foundational Validation Series experiments (EXP-001..003 protocols, articles, results).",
   "collections": [
     {
       "id": "col_foundation",
@@ -35,6 +35,7 @@
         "foundation/CFS-018_platform-sovereignty.md",
         "foundation/CFS-019_ccrl-charter.md",
         "foundation/CFS-020_dcir-charter.md",
+        "foundation/CFS-021_constitutional-civic-futurism.md",
         "foundation/appendix-a_canonical-invariants.md"
       ]
     },
