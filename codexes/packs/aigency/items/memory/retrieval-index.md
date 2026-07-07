@@ -3029,3 +3029,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-d9d63b0.md](../build_/COMMITS/COMMIT-d9d63b0.md)
 - Message: Reframe EXP-004 as graded sovereignty-scale measurement + fix experiment_results EXP-004 constraint (operator correction)
+
+## Commit `c39b577` — 2026-07-07T10:16:37Z
+- Type: `push`
+- Brief: [COMMIT-c39b577.md](../build_/COMMITS/COMMIT-c39b577.md)
+- Message: Build DCIR D3: dynamic affordance service (suggest-only default, navigation-class auto-act boundary)

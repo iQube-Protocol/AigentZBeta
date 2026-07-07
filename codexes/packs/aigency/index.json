@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T10:06:07.248Z",
+  "last_updated": "2026-07-07T10:19:21.901Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d9d63b031de4c984b3da10981a6a5afbb167399b",
-  "latest_commit_short": "d9d63b0",
-  "latest_commit_title": "Reframe EXP-004 as graded sovereignty-scale measurement + fix experiment_results EXP-004 constraint (operator correction)",
+  "latest_commit": "c39b577fb6e9266e4465d2331103c351d0b7a1cb",
+  "latest_commit_short": "c39b577",
+  "latest_commit_title": "Build DCIR D3: dynamic affordance service (suggest-only default, navigation-class auto-act boundary)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c39b577",
+      "full_sha": "c39b577fb6e9266e4465d2331103c351d0b7a1cb",
+      "title": "Build DCIR D3: dynamic affordance service (suggest-only default, navigation-class auto-act boundary)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T10:16:37Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c39b577.md"
+    },
     {
       "sha": "d9d63b0",
       "full_sha": "d9d63b031de4c984b3da10981a6a5afbb167399b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-24T23:15:42Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-1380547.md"
-    },
-    {
-      "sha": "640fc0f",
-      "full_sha": "640fc0f715135102f47aba1017e3b489f057a487",
-      "title": "add Work Log UI: log actions + standing documents in the Standing tab",
-      "author": "Claude",
-      "timestamp": "2026-06-24T23:18:29Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-640fc0f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
