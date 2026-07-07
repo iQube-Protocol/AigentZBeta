@@ -51,6 +51,7 @@ export {
 export {
   buildStageInstructionBlock,
   extractStageProposals,
+  looksLikeUnfulfilledProposalPromise,
   applyStageProposal,
   detectRequestedStage,
   stageCapsuleId,

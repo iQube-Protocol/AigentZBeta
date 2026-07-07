@@ -296,6 +296,7 @@ ${SCHEMAS[kind]}
 
 Rules:
 - Your visible reply narrates the proposal conversationally (development intelligence, not code), mirrors the SAME content the fence carries, and tells the operator which right-pane card is awaiting their approval.
+- NEVER say you are preparing or will prepare a proposal, and NEVER claim a card is awaiting approval unless THIS reply contains the stage_data fence — the fence IS the preparation. There is no separate preparation step.
 - The operator may APPROVE (commits the artifact, advances the stage) or ask you to REFINE — when they ask for changes, emit a fresh full proposal fence with the revisions applied.
 - The loop is cyclical: if the operator asks to revisit an earlier stage, emit that stage's proposal kind instead. An "intent" proposal is valid at any time and restarts the loop.
 - Never emit a fence built on invented data. If your ground truth lacks what you need, say what's missing and ask.
@@ -304,7 +305,21 @@ Fence contract (MANDATORY — this outranks everything above):
 - You MUST end your reply with ${oneOfLine}
 - Emit the fence whenever the operator asks you to produce, assemble, analyze, model, brief, draft, or validate ANYTHING — including free-form phrasing that never uses those exact words. If your narrative describes structured content (a context pack, a gap list, a canvas, a brief, a validation), the fence carrying that content is NOT optional: without it, nothing reaches the operator's right pane.
 - The fence body is STRICT JSON: double-quoted keys and strings, no trailing commas, no comments, no unescaped newlines inside string values.
-- The fence is the LAST thing in your reply. Only omit it when the operator asked a pure status or navigation question that produces no artifact.`;
+- The fence is the LAST thing in your reply. Only omit it when the operator asked a pure status or navigation question that produces no artifact.
+
+EXAMPLE FORMAT ONLY (a minimal "intent" proposal showing the required fence shape — never copy this content; emit YOUR stage's schema with real data):
+
+\`\`\`stage_data
+{
+  "kind": "intent",
+  "summary": "Add CSV export to the reports tab",
+  "data": {
+    "goal": "Operators can export any report as CSV",
+    "users": ["operators"],
+    "priority": "medium"
+  }
+}
+\`\`\``;
 }
 
 // ─── Extraction (server-side, mirrors stripLayoutTags) ──────────────────────
@@ -397,6 +412,30 @@ export function extractStageProposals(text: string): {
     .trim();
 
   return { cleanText, proposals };
+}
+
+// ─── Promise-without-production heuristic (server-side fence enforcement) ──
+
+// Operator field report 2026-07-06 (deployed test, gpt-4o-mini): the copilot
+// NARRATED creating a stage proposal ("I will now prepare a context
+// proposal… This proposal is now awaiting your approval") while emitting
+// ZERO ```stage_data fences — so no pending card appeared and the loop
+// stalled. The lenient fence repair above only fixes fences that ARRIVE;
+// this heuristic detects the zero-fence promise so the chat route can make
+// ONE follow-up provider call demanding the fence alone.
+const PROPOSAL_PROMISE_RE =
+  /\b(prepar(e|ing)|propos(al|e|ing)|awaiting your approval|hold on|will (now )?(create|draft|generate|assemble|produce))\b/i;
+
+/**
+ * True when a reply's visible text promises a stage proposal it did not
+ * produce. Pure — exported for canary tests. Text that still carries a
+ * ```stage_data fence never triggers (the route checks
+ * proposals.length === 0 first, but the helper is safe standalone too).
+ */
+export function looksLikeUnfulfilledProposalPromise(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+  if (text.includes('```stage_data')) return false;
+  return PROPOSAL_PROMISE_RE.test(text);
 }
 
 // ─── Coercion helpers ───────────────────────────────────────────────────────

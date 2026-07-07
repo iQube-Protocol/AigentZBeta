@@ -41,6 +41,7 @@ import {
   detectRequestedStage,
   buildStageInstructionBlock,
   extractStageProposals,
+  looksLikeUnfulfilledProposalPromise,
   applyStageProposal,
   stageCapsuleId,
   PROPOSAL_KIND_TO_CAPSULE,
@@ -429,6 +430,24 @@ describe('Stage Orchestrator routing', () => {
     expect(dual.indexOf('Fence contract (MANDATORY')).toBeGreaterThan(dual.indexOf('Alternate stage'));
   });
 
+  it('contains the never-promise rule and the worked example fence (field report 2026-07-06)', () => {
+    // Layer 2: the fence IS the preparation — narrating a "preparation step"
+    // with zero fences is the promise-without-production failure mode.
+    const block = buildStageInstructionBlock('context_assembly', null);
+    expect(block).toContain('NEVER say you are preparing or will prepare a proposal');
+    expect(block).toContain('the fence IS the preparation');
+    expect(block).toContain('There is no separate preparation step');
+    // Layer 3: few-shot anchor — a minimal worked intent example, clearly
+    // marked as format-only so it is never copied as content.
+    expect(block).toContain('EXAMPLE FORMAT ONLY');
+    expect(block).toContain('"kind": "intent"');
+    expect(block).toContain('never copy this content');
+    // Both survive the dual-schema variant too.
+    const dual = buildStageInstructionBlock('gap_analysis', 'context_assembly');
+    expect(dual).toContain('NEVER say you are preparing or will prepare a proposal');
+    expect(dual).toContain('EXAMPLE FORMAT ONLY');
+  });
+
   it('pins the advance→next-capsule mapping used by approval flow-through (finding 3)', () => {
     expect(stageCapsuleId('intent_capture')).toBe('intent');
     expect(stageCapsuleId('context_assembly')).toBe('context');
@@ -525,6 +544,40 @@ line two", "category": "workflow", "severity": "high" }],
     const reply = `\`\`\`stage_data\n${JSON.stringify({ kind: 'mystery', summary: 'x', data: {} })}\n\`\`\``;
     const { proposals } = extractStageProposals(reply);
     expect(proposals).toHaveLength(0);
+  });
+});
+
+// ─── Fence-enforcement promise heuristic (operator field report 2026-07-06) ──
+// Deployed test on gpt-4o-mini: the copilot narrated "I will now prepare a
+// context proposal… This proposal is now awaiting your approval" with ZERO
+// stage_data fences — no pending card, empty right pane, stalled loop. The
+// chat route uses this pure heuristic (after checking proposals.length === 0)
+// to trigger exactly ONE follow-up provider call demanding the fence alone.
+
+describe('looksLikeUnfulfilledProposalPromise', () => {
+  it('matches promise phrasing that narrates a proposal without producing it', () => {
+    expect(looksLikeUnfulfilledProposalPromise('I will now prepare a context proposal for your review.')).toBe(true);
+    expect(looksLikeUnfulfilledProposalPromise('This proposal is now awaiting your approval.')).toBe(true);
+    expect(looksLikeUnfulfilledProposalPromise('Hold on while I assemble the gap report.')).toBe(true);
+    expect(looksLikeUnfulfilledProposalPromise('I am preparing the consequence canvas now.')).toBe(true);
+    expect(looksLikeUnfulfilledProposalPromise('I will now generate the validation report for you.')).toBe(true);
+    expect(looksLikeUnfulfilledProposalPromise('Let me propose the next steps as a card.')).toBe(true);
+  });
+
+  it('does NOT match ordinary narration without promise words', () => {
+    expect(looksLikeUnfulfilledProposalPromise('Here is the analysis of your gaps.')).toBe(false);
+    expect(looksLikeUnfulfilledProposalPromise('The current stage is gap_analysis and you can advance when ready.')).toBe(false);
+    expect(looksLikeUnfulfilledProposalPromise('Your right pane shows the intent capsule with the approved goal.')).toBe(false);
+    expect(looksLikeUnfulfilledProposalPromise('')).toBe(false);
+  });
+
+  it('never triggers on text that still carries a stage_data fence', () => {
+    // The route checks proposals.length === 0 FIRST, so extracted-fence
+    // replies never reach the heuristic — but the helper is pinned safe
+    // standalone too: a fence present means nothing is unfulfilled.
+    const withFence =
+      'I will now prepare the proposal.\n```stage_data\n{"kind":"intent","summary":"x","data":{"goal":"y"}}\n```';
+    expect(looksLikeUnfulfilledProposalPromise(withFence)).toBe(false);
   });
 });
 

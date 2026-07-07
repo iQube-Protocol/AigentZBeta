@@ -33,7 +33,16 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
-import { buildStageInstructionBlock, extractStageProposals, detectRequestedStage } from '@/services/devCommandCenter/stageOrchestrator';
+import {
+  buildStageInstructionBlock,
+  extractStageProposals,
+  detectRequestedStage,
+  looksLikeUnfulfilledProposalPromise,
+  STAGE_PROPOSAL_KIND,
+  type StageProposal,
+  type StageProposalKind,
+} from '@/services/devCommandCenter/stageOrchestrator';
+import type { DevLoopStage } from '@/types/devCommandCenter';
 import { renderObservationLines } from '@/services/dcir/eventStream';
 import { renderStateSnapshotLines, DCIR_OBSERVED_PATTERN_LIMIT } from '@/services/dcir/stateEngine';
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
@@ -2647,6 +2656,12 @@ export async function POST(request: NextRequest) {
     let metadata: CodexMetadata | null = null;
     let kbResults: KBSearchResult[] = [];
     let systemPrompt = '';
+    // ICE fence-enforcement retry context (operator field report 2026-07-06):
+    // non-null ONLY for aigent-z turns on the dev-command-center surface whose
+    // effective stage produces a proposal kind. Every other surface — including
+    // the narrate-only ccrl-research surface — leaves it null, so the
+    // promised-but-missing-fence retry below can never fire there.
+    let fenceRetryKind: StageProposalKind | null = null;
 
     if (isComposerMode) {
       systemPrompt = buildComposerSystemPrompt(composerSessionContext as ComposerSessionContext);
@@ -2694,6 +2709,18 @@ export async function POST(request: NextRequest) {
           (viewedCapsule_ && CAPSULE_STAGE_MAP[viewedCapsule_]) ||
           (gc_ && typeof gc_.activeStage === 'string' ? gc_.activeStage as string : undefined)
         : undefined;
+
+      // Fence-enforcement retry eligibility: mirrors buildStageInstructionBlock's
+      // stage coercion (unknown/undefined stage → intent_capture) so the retry
+      // demands the SAME proposal kind the instruction block asked for. Only
+      // 'complete' maps to null (no proposal kind → no retry).
+      if (isAigentZ && gc_?.surface === 'dev-command-center') {
+        const stageForKind: DevLoopStage =
+          typeof devLoopStage === 'string' && devLoopStage in STAGE_PROPOSAL_KIND
+            ? (devLoopStage as DevLoopStage)
+            : 'intent_capture';
+        fenceRetryKind = STAGE_PROPOSAL_KIND[stageForKind];
+      }
 
       // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
       // state, and aigent-z platform knowledge + stage ground data in parallel
@@ -2846,10 +2873,67 @@ export async function POST(request: NextRequest) {
     const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
     // ICE engine: pull structured stage_data proposals (aigent-z only) out of
     // the reply before layout-tag stripping; they return as stage_proposals.
-    const { cleanText: messageSansStageData, proposals: stageProposals } =
+    let { cleanText: messageSansStageData, proposals: stageProposals } =
       resolvedAgentId === 'aigent-z'
         ? extractStageProposals(assistantMessage)
-        : { cleanText: assistantMessage, proposals: [] };
+        : { cleanText: assistantMessage, proposals: [] as StageProposal[] };
+
+    // ICE fence enforcement — server-side retry (operator field report,
+    // 2026-07-06, deployed test on gpt-4o-mini): small models sometimes
+    // NARRATE creating a stage proposal ("I will now prepare a context
+    // proposal… This proposal is now awaiting your approval") while emitting
+    // ZERO ```stage_data fences. The lenient fence repair in
+    // extractStageProposals only fixes fences that ARRIVE — this failure is
+    // zero fences, so no pending card appears and the loop stalls (worst at
+    // gap analysis, the largest payload). When the reply promises a proposal
+    // but extraction found none, make exactly ONE follow-up call to the SAME
+    // provider/model (same messages plus an appended user-role instruction
+    // demanding the fence alone) and attach the follow-up's proposals to the
+    // ORIGINAL visible reply. Strictly scoped: aigent-z + dev-command-center
+    // surface only (fenceRetryKind is null everywhere else, including the
+    // narrate-only ccrl-research surface) + stageProposals.length === 0 +
+    // one retry max. If the retry still yields nothing, append an honest
+    // line — never let the model's promise stand unfulfilled silently.
+    if (
+      resolvedAgentId === 'aigent-z' &&
+      fenceRetryKind !== null &&
+      stageProposals.length === 0 &&
+      looksLikeUnfulfilledProposalPromise(messageSansStageData)
+    ) {
+      console.warn(
+        `[CodexChat] fence-enforcement: reply promised a ${fenceRetryKind} proposal with zero stage_data fences — retrying once`,
+      );
+      try {
+        const fenceRetryResult = await executeProviderAttempt(
+          { providerId: executionResult.providerId, modelId: executionResult.modelId },
+          systemPrompt,
+          [
+            ...conversationHistory,
+            { role: 'user', content: message },
+            { role: 'assistant', content: assistantMessage },
+          ],
+          `Your previous reply promised a proposal but did not include the required \`\`\`stage_data fence. Output ONLY the fenced stage_data JSON for the ${fenceRetryKind} proposal now — no prose.`,
+          isMarketa,
+          resolvedCallerPersonaId,
+        );
+        const retryExtraction = extractStageProposals(fenceRetryResult.content || '');
+        if (retryExtraction.proposals.length > 0) {
+          stageProposals = retryExtraction.proposals;
+          console.log(
+            '[CodexChat] fence-enforcement retry recovered proposals:',
+            retryExtraction.proposals.map((p) => p.kind).join(', '),
+          );
+        }
+      } catch (retryError) {
+        console.warn(
+          '[CodexChat] fence-enforcement retry call failed:',
+          retryError instanceof Error ? retryError.message : retryError,
+        );
+      }
+      if (stageProposals.length === 0) {
+        messageSansStageData = `${messageSansStageData}\n\n(No structured proposal was produced — say "try again" to regenerate.)`;
+      }
+    }
     const walletActions = inferWalletActions(message, messageSansStageData);
     const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData, chatHistory);
     const responseForClient = stripLayoutTags(messageSansStageData);
