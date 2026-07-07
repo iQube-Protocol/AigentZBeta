@@ -46,6 +46,7 @@ import {
   buildResearchInstructionBlock,
   extractResearchProposals,
 } from '@/services/research/proposals';
+import { researchStageProposalKind, isResearchLoopStage } from '@/services/research/researchLoop';
 import { renderObservationLines } from '@/services/dcir/eventStream';
 import { renderStateSnapshotLines, DCIR_OBSERVED_PATTERN_LIMIT } from '@/services/dcir/stateEngine';
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
@@ -2214,6 +2215,22 @@ function buildSystemPrompt(
         if (lifecycleOrder.length > 0) {
           lines.push(`- Experiment lifecycle order: ${lifecycleOrder.join(' → ')}`);
         }
+        // CFS-019 C3 — the research ICE loop position for the ACTIVE experiment.
+        // design → protocol → run → analyze → publish. The `run` stage is the
+        // Experiment Lab hand-off: running is NOT a copilot action (execution
+        // stays in the lab, the research analog of CFS-016 D1). Narrate the
+        // stage and, at `run`, point the operator to the Experiment Lab.
+        if (isResearchLoopStage(gc.activeExperimentStage)) {
+          const activeId = typeof gc.activeExperimentId === 'string' ? gc.activeExperimentId : null;
+          lines.push(
+            `- Research ICE loop stage${activeId ? ` for ${activeId}` : ''}: **${gc.activeExperimentStage}** (design → protocol → run → analyze → publish)`,
+          );
+          if (gc.activeExperimentStage === 'run') {
+            lines.push(
+              `  • The active experiment is at the RUN stage — running is EXECUTED in the Experiment Lab (the EXP-001…005 runner tabs), NOT here. Point the operator to the Experiment Lab; the run advances the lifecycle, which advances the loop to Analyze. Do NOT emit a proposal fence for a run.`,
+            );
+          }
+        }
         if (typeof gc.overviewError === 'string' && gc.overviewError) {
           lines.push(`- Overview UNAVAILABLE (degrade honestly — say so, do not invent state): ${gc.overviewError}`);
         }
@@ -2255,7 +2272,21 @@ function buildSystemPrompt(
         // ```research_data proposal (extracted below, returned as
         // stage_proposals, rendered as a pending approval card). SUGGEST-ONLY
         // and lifecycle-legal — nothing commits without operator approval.
-        groundContextBlock += buildResearchInstructionBlock();
+        //
+        // CFS-019 C3 (research ICE loop): the tab sends the ACTIVE experiment's
+        // loop stage. When that stage produces a proposal kind (design →
+        // experiment_proposal, protocol → protocol_draft, analyze → finding,
+        // publish → publication_draft), narrow the instruction block to that ONE
+        // schema so the copilot primarily expects the stage's object — mirroring
+        // how the dev branch feeds buildStageInstructionBlock the current stage.
+        // At the RUN stage (proposal kind null — the lab hand-off) NO kind is
+        // passed: the full four-schema block is offered and the CONDITIONAL fence
+        // contract is unchanged (running narrates, it never emits a fence).
+        const activeStage = isResearchLoopStage(gc.activeExperimentStage)
+          ? gc.activeExperimentStage
+          : undefined;
+        const stageKind = activeStage ? researchStageProposalKind(activeStage) : null;
+        groundContextBlock += buildResearchInstructionBlock(stageKind ?? undefined);
       }
     } catch {
       // groundContext malformed — fall back to general narrative.

@@ -42,7 +42,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle, ChevronDown, ClipboardCheck, FlaskConical, Landmark, Loader2, RefreshCw, ScrollText } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle, ChevronDown, ClipboardCheck, FlaskConical, Landmark, Loader2, Play, RefreshCw, ScrollText } from "lucide-react";
 import { SmartTriadCopilotLayer, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { experimentGet } from "./experimentStepFetch";
 import { personaFetch } from "@/utils/personaSpine";
@@ -62,6 +62,14 @@ import {
   type ResearchProposalKind,
   type ResearchProposalState,
 } from "@/services/research/proposals";
+import {
+  RESEARCH_LOOP_STAGE_ORDER,
+  researchStageForExperiment,
+  researchStageActionable,
+  researchStageProposalKind,
+  researchStageLabel,
+  type ResearchLoopStage,
+} from "@/services/research/researchLoop";
 import {
   appendDcirEvent,
   compactDcirEvents,
@@ -365,6 +373,103 @@ function PendingResearchProposalCard({ entry, onApprove, onDismiss }: {
   );
 }
 
+// ─── C3 research ICE loop — stage strip + Run-stage lab hand-off ─────────────
+
+// The visible loop cadence (design → protocol → run → analyze → publish); the
+// terminal `replicated` state is shown as an all-done badge, not a strip cell.
+const LOOP_STRIP_STAGES = RESEARCH_LOOP_STAGE_ORDER.filter((s) => s !== "replicated");
+
+/**
+ * The Feedback Coordinator auto-turn text for a stage-advancing approval. Always
+ * prefixed `[observed]` — the chat route treats an `[observed]` turn as an
+ * observation-initiated proactive guide (short, not a recap). At the RUN stage
+ * (run-in-lab) it points to the Experiment Lab and never asks for a fence;
+ * otherwise it names the next stage's proposal kind.
+ */
+function researchAdvanceGuidance(experimentId: string, nextStage: ResearchLoopStage): string {
+  const actionable = researchStageActionable(nextStage);
+  if (actionable === "run-in-lab") {
+    return `[observed] ${experimentId}'s protocol is ratified and the research loop advanced to the Run stage. The next step is to run ${experimentId} in the Experiment Lab (the EXP-001…005 runner tabs) — running is executed there, not by you. Point me to the lab; when results are in I'll help you record the finding.`;
+  }
+  if (actionable === "complete") {
+    return `[observed] ${experimentId} reached the Replicated stage (runs on ≥2 providers). Guide me on what to consolidate or publish next.`;
+  }
+  const kind = researchStageProposalKind(nextStage);
+  return `[observed] The proposal was approved and ${experimentId}'s research loop advanced to the ${nextStage} stage. Guide me to the next task${kind ? ` and, when ready, produce the ${kind} proposal` : ""}.`;
+}
+
+/** The staged loop strip for the active experiment — mirrors the derived
+ * lifecycle strip visual, but over the ICE loop stages. Current stage is
+ * violet-highlighted; past stages are emerald-done. */
+function ResearchLoopStrip({ stage }: { stage: ResearchLoopStage }) {
+  const curIdx = stage === "replicated" ? LOOP_STRIP_STAGES.length : LOOP_STRIP_STAGES.indexOf(stage);
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {LOOP_STRIP_STAGES.map((s, i) => {
+        const isCurrent = s === stage;
+        const isPast = i < curIdx;
+        return (
+          <React.Fragment key={s}>
+            {i > 0 && (
+              <ArrowRight className={`h-3 w-3 shrink-0 ${isPast || isCurrent ? "text-emerald-400/40" : "text-slate-700"}`} />
+            )}
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] border ${
+                isCurrent
+                  ? "bg-violet-500/20 text-violet-300 border-violet-500/40 font-semibold"
+                  : isPast
+                    ? "bg-emerald-500/10 text-emerald-300/70 border-emerald-500/20"
+                    : "bg-slate-800/40 text-slate-600 border-slate-700/40"
+              }`}
+            >
+              {researchStageLabel(s)}
+            </span>
+          </React.Fragment>
+        );
+      })}
+      {stage === "replicated" && (
+        <span className="ml-1 rounded px-1.5 py-0.5 text-[10px] bg-green-500/20 text-green-300 border border-green-500/40 font-semibold">
+          Replicated
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The Run-stage card — the CONSTITUTIONAL boundary made honest in the UI. The
+ * research analog of the Dev Command Center's "execution stays human": running
+ * is EXECUTED in the Experiment Lab (the EXP-001…005 runner tabs), never in the
+ * copilot. There is no clean intra-cartridge tab-switch a tab component can call
+ * (the codex panel owns active-tab state), so this surfaces an explicit, honest
+ * pointer rather than a fake in-copilot run. The lab run advances the lifecycle,
+ * which re-derives the loop to Analyze on the next refresh (C2.2 hydration).
+ */
+function RunStageCard({ experimentId, lifecycle }: { experimentId: string | null; lifecycle: ExperimentLifecycleState | null }) {
+  return (
+    <div className="rounded-xl border border-indigo-700/50 bg-indigo-950/20 p-4 space-y-2">
+      <div className="flex items-center gap-2">
+        <Play className="h-4 w-4 text-indigo-300" />
+        <h4 className="text-xs font-semibold text-slate-100">Run stage — hand off to the Experiment Lab</h4>
+      </div>
+      <p className="text-[11px] text-slate-300">
+        {experimentId ? <span className="font-mono text-slate-200">{experimentId}</span> : "The active experiment"} is
+        {lifecycle === "running" ? " running" : " ratified and ready to run"}. Running is EXECUTED in the{" "}
+        <span className="text-indigo-300 font-semibold">Experiment Lab</span> (the EXP-001…005 runner tabs) — not here.
+        Execution stays in the lab; the copilot never runs an experiment.
+      </p>
+      <div className="rounded border border-indigo-500/20 bg-slate-900/40 px-2 py-1.5 text-[11px] text-indigo-200">
+        Run {experimentId ?? "the experiment"} in the Experiment Lab → the <span className="font-mono">ccrl-experiment-lab</span> tab.
+      </div>
+      <p className="text-[10px] text-slate-500">
+        The run produces a canonical, hash-committed result that advances the experiment&apos;s lifecycle
+        (running → evaluated → published). When results are in, refresh here and the loop moves to Analyze —
+        I&apos;ll help you record the finding.
+      </p>
+    </div>
+  );
+}
+
 export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilotTabProps) {
   const [overview, setOverview] = useState<OverviewEntry[] | null>(null);
   const [series, setSeries] = useState<SeriesEntry[]>([]);
@@ -392,6 +497,17 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
   // and honest degradation when the persisted record is unreachable.
   const [persistStatus, setPersistStatus] = useState<Record<string, PersistStatus>>({});
   const [hydrateError, setHydrateError] = useState<string | null>(null);
+
+  // ── C3 research ICE loop — the ACTIVE experiment the loop is scoped to.
+  // Null ⇒ the most-recently-touched working experiment (or none ⇒ Design). An
+  // approval that creates/advances an experiment sets it active.
+  const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null);
+
+  // ── C3 Feedback Coordinator (mirrors DevCommandCenterTab.autoPrompt): on a
+  // stage-ADVANCING approval, mint ONE `[observed]` auto-turn so the copilot
+  // proactively guides the next step. Never minted on dismissals; never from an
+  // auto-turn (an auto-turn approves nothing).
+  const [autoPrompt, setAutoPrompt] = useState<{ id: string; text: string } | null>(null);
 
   // Fired after each chat turn with the proposals the server extracted from
   // aigentZ's ```research_data fences. Append non-empty batches (a refine emits
@@ -467,7 +583,31 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
     observe(surfacePromptSelectedEvent(SURFACE, `proposal approved: ${researchProposalKindLabel(entry.proposal.kind)} — ${entry.proposal.summary}`));
     const committed = committedObjectOf(researchState, result.state, entry.proposal.kind);
     if (committed) void persistApproved(entry.proposal, committed);
-  }, [pending, researchState, observe, persistApproved]);
+
+    // ── C3 flow-through (mirrors DCC handleApproveProposal): when the approval
+    // advanced the ACTIVE experiment's lifecycle, advance the loop stage and
+    // mint the Feedback Coordinator auto-turn guiding the next step. The active
+    // experiment is the one just created/advanced (experiment proposals), else
+    // the standing active one. Finding / publication approvals do NOT advance
+    // the experiment lifecycle (analyze→publish is gated on a lab run reaching
+    // `published`), so they mint no auto-turn — honest, not synthetic progress.
+    const nextActiveId =
+      committed?.objectKind === "experiment" ? committed.objectId : activeExperimentId;
+    if (committed?.objectKind === "experiment") setActiveExperimentId(committed.objectId);
+    if (nextActiveId) {
+      const prevExp = researchState.experiments.find(e => e.experiment.id === nextActiveId) ?? null;
+      const nextExp = result.state.experiments.find(e => e.experiment.id === nextActiveId) ?? null;
+      const prevStage = researchStageForExperiment(prevExp);
+      const nextStage = researchStageForExperiment(nextExp);
+      if (RESEARCH_LOOP_STAGE_ORDER.indexOf(nextStage) > RESEARCH_LOOP_STAGE_ORDER.indexOf(prevStage)) {
+        observe(surfacePromptSelectedEvent(SURFACE, `loop advanced: ${prevStage} → ${nextStage} (${nextActiveId})`));
+        setAutoPrompt({
+          id: `auto-research-${nextActiveId}-${nextStage}-${Date.now()}`,
+          text: researchAdvanceGuidance(nextActiveId, nextStage),
+        });
+      }
+    }
+  }, [pending, researchState, activeExperimentId, observe, persistApproved]);
 
   const dismissProposal = useCallback((key: string) => {
     setPending(prev => prev.filter(e => e.key !== key));
@@ -532,11 +672,50 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── C3 research ICE loop — the pool of experiments the loop can scope to.
+  // Working objects (approved/persisted copilot proposals) override overview
+  // (registry-derived) entries on id collision, matching the persisted-wins rule
+  // used elsewhere. Every entry carries a lifecycle → a loop stage.
+  const loopExperiments = useMemo(() => {
+    const map = new Map<string, { id: string; family: string; lifecycle: ExperimentLifecycleState }>();
+    for (const o of overview ?? []) {
+      map.set(o.experiment.id, {
+        id: o.experiment.id,
+        family: o.experiment.family,
+        lifecycle: o.lifecycle as ExperimentLifecycleState,
+      });
+    }
+    for (const e of researchState.experiments) {
+      map.set(e.experiment.id, { id: e.experiment.id, family: e.experiment.family, lifecycle: e.lifecycle });
+    }
+    return Array.from(map.values());
+  }, [overview, researchState.experiments]);
+
+  // The ACTIVE experiment: the operator's explicit pick, else the most-recently-
+  // touched working object, else the last known experiment. Null ⇒ Design (no
+  // experiment yet — the operator's first move is to design one).
+  const activeExperiment = useMemo(() => {
+    if (loopExperiments.length === 0) return null;
+    const byId = activeExperimentId ? loopExperiments.find(e => e.id === activeExperimentId) : undefined;
+    const lastWorkingId =
+      researchState.experiments.length > 0
+        ? researchState.experiments[researchState.experiments.length - 1].experiment.id
+        : null;
+    const lastWorking = lastWorkingId ? loopExperiments.find(e => e.id === lastWorkingId) : undefined;
+    return byId ?? lastWorking ?? loopExperiments[loopExperiments.length - 1];
+  }, [loopExperiments, activeExperimentId, researchState.experiments]);
+
+  const activeStage: ResearchLoopStage = researchStageForExperiment(activeExperiment);
+
   // ── Ground context — the observed state the copilot narrates (T2-safe:
   // ids, families, lifecycle states, counts, hash prefixes — never bodies).
   const copilotGroundContext = useMemo(() => ({
     surface: SURFACE,
     lifecycleOrder,
+    // C3 — the active experiment's ICE loop stage; the chat route narrows the
+    // research instruction block to this stage's proposal kind (run → no kind).
+    activeExperimentStage: activeStage,
+    activeExperimentId: activeExperiment?.id ?? null,
     experiments: (overview ?? []).map(o => ({
       id: o.experiment.id,
       family: o.experiment.family,
@@ -563,7 +742,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
     // capsule model, so only the surface itself rides the workflow position.
     stateSnapshot: buildStateSnapshot(dcirEvents, { surface: SURFACE }),
     observedPatterns: compactBehaviouralInvariants(mineBehaviouralInvariants(dcirEvents)),
-  }), [overview, series, lifecycleOrder, results, overviewError, resultsError, dcirEvents]);
+  }), [overview, series, lifecycleOrder, results, overviewError, resultsError, dcirEvents, activeStage, activeExperiment]);
 
   const quickPrompts = useMemo(() => [
     "Where does the research programme stand?",
@@ -590,6 +769,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
           personaId={personaId}
           groundContext={copilotGroundContext}
           onStageProposals={onStageProposals}
+          autoPrompt={autoPrompt}
           onClose={() => undefined}
         />
       </div>
@@ -613,6 +793,61 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-4 space-y-3">
+          {/* C3 — the research ICE loop for the ACTIVE experiment. The stage is
+              DERIVED from the experiment's lifecycle (design → protocol → run →
+              analyze → publish). The Run stage hands off to the Experiment Lab —
+              running is executed there, never in the copilot. */}
+          <div className="rounded-xl border border-violet-800/50 bg-violet-950/20 p-4 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-violet-300" />
+                <h4 className="text-xs font-semibold text-slate-100">
+                  Research ICE loop{activeExperiment ? ` · ${activeExperiment.id}` : ""}
+                </h4>
+              </div>
+              <span className="text-[10px] rounded px-1.5 py-0.5 bg-violet-500/20 text-violet-300 border border-violet-500/40">
+                {researchStageLabel(activeStage)}
+              </span>
+            </div>
+            <ResearchLoopStrip stage={activeStage} />
+            {/* Active-experiment selector — the operator picks which experiment
+                the loop is scoped to (default: most-recently-touched). */}
+            {loopExperiments.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                <span className="text-[10px] text-slate-500 mr-1">Active:</span>
+                {loopExperiments.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => setActiveExperimentId(e.id)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] border transition-colors ${
+                      activeExperiment?.id === e.id
+                        ? "bg-violet-500/20 text-violet-200 border-violet-500/40 font-semibold"
+                        : "bg-slate-800/40 text-slate-400 border-slate-700/40 hover:text-slate-200"
+                    }`}
+                  >
+                    {e.id}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="text-[10px] text-slate-500">
+              {researchStageActionable(activeStage) === "run-in-lab"
+                ? "Run stage — execution stays in the Experiment Lab (see below)."
+                : researchStageActionable(activeStage) === "complete"
+                  ? "Replicated — the terminal stage; replication is a computed multi-provider signal, never asserted."
+                  : `Ask aigentZ to produce the ${researchStageProposalKind(activeStage) ?? "next"} proposal for this stage; approve it here to advance.`}
+            </p>
+          </div>
+
+          {/* C3 — Run stage lab hand-off (the constitutional boundary). */}
+          {researchStageActionable(activeStage) === "run-in-lab" && (
+            <RunStageCard
+              experimentId={activeExperiment?.id ?? null}
+              lifecycle={activeExperiment?.lifecycle ?? null}
+            />
+          )}
+
           {/* C2.1 — pending research proposals awaiting operator approval.
               Suggest-only; approval commits into working research state. */}
           {pending.length > 0 && (
@@ -771,10 +1006,12 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
 
           {/* Honest scope note */}
           <p className="text-[10px] text-slate-600 px-1">
-            CFS-019 C2 (narrate) + C2.1 (propose) + C2.2 (persist): aigentZ narrates the live lab state and
-            can propose structured research objects. Proposals are suggest-only and lifecycle-legal — nothing
-            commits without your approval; approved objects persist to the lab record and each approval is
-            receipted (research_lifecycle_transition, DVN-anchorable).
+            CFS-019 C2 (narrate) + C2.1 (propose) + C2.2 (persist) + C3 (ICE loop): aigentZ narrates the live
+            lab state and can propose structured research objects along the design → protocol → run → analyze →
+            publish cadence. Proposals are suggest-only and lifecycle-legal — nothing commits without your
+            approval; approved objects persist to the lab record and each approval is receipted
+            (research_lifecycle_transition, DVN-anchorable). The Run stage hands off to the Experiment Lab —
+            running is executed there, never in the copilot.
           </p>
         </div>
       </div>
