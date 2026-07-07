@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`94fa7cc`](https://github.com/iQube-Protocol/AigentZBeta/commit/94fa7cc40695df545306dcd15df66baf2e6a815a) [push] Integrate Aletheon institute framing: Computational Epistemology, the inversion, programme nomenclature, briefing package (CFS-019) (Claude, 2026-07-07T05:12:16Z)
 - [`9116c02`](https://github.com/iQube-Protocol/AigentZBeta/commit/9116c0219aaf12be53ee8c6580675c18151f0b9b) [push] Execute CCRL Phase D: physical migration of the research corpus into the ccrl pack (atomic) (Claude, 2026-07-06T22:40:17Z)
 - [`1f4f986`](https://github.com/iQube-Protocol/AigentZBeta/commit/1f4f98623a6383f916281e48f0b2242e31a3f517) [feat] Implement DCIR D2 (observe-mode): constitutional state snapshot + behavioural-invariant mining (Claude, 2026-07-06T22:33:08Z)
 - [`36c8181`](https://github.com/iQube-Protocol/AigentZBeta/commit/36c81819e7ff85f40a7b606310b1a86ec645efc6) [push] Build CCRL C2: DCIR-conforming research copilot (narrate-only, CFS-019) (Claude, 2026-07-06T20:38:39Z)

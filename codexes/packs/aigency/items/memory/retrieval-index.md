@@ -2994,3 +2994,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9116c02.md](../build_/COMMITS/COMMIT-9116c02.md)
 - Message: Execute CCRL Phase D: physical migration of the research corpus into the ccrl pack (atomic)
+
+## Commit `94fa7cc` — 2026-07-07T05:12:16Z
+- Type: `push`
+- Brief: [COMMIT-94fa7cc.md](../build_/COMMITS/COMMIT-94fa7cc.md)
+- Message: Integrate Aletheon institute framing: Computational Epistemology, the inversion, programme nomenclature, briefing package (CFS-019)
