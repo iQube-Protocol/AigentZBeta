@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T10:42:48.809Z",
+  "last_updated": "2026-07-07T13:25:44.994Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "dd7dc453fdcf6d72ab1c7cfc92bbbc04a8bcbbc1",
-  "latest_commit_short": "dd7dc45",
-  "latest_commit_title": "Make Dev Command Center quick actions intelligent via the DCIR affordance service",
+  "latest_commit": "f647b06df9ce867dea367b59939453984d0b323b",
+  "latest_commit_short": "f647b06",
+  "latest_commit_title": "Add the auto-act control surface to the Dev Command Center (opt-in, navigation-only, always-disablable, always-notifying)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f647b06",
+      "full_sha": "f647b06df9ce867dea367b59939453984d0b323b",
+      "title": "Add the auto-act control surface to the Dev Command Center (opt-in, navigation-only, always-disablable, always-notifying)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T13:22:46Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f647b06.md"
+    },
     {
       "sha": "dd7dc45",
       "full_sha": "dd7dc453fdcf6d72ab1c7cfc92bbbc04a8bcbbc1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-24T22:13:11Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-2abac0b.md"
-    },
-    {
-      "sha": "016011e",
-      "full_sha": "016011e130b835de46ad499f28f82bd6fad6f9f6",
-      "title": "add standing-signal seam: log work done as verified progress signals",
-      "author": "Claude",
-      "timestamp": "2026-06-24T22:18:28Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-016011e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
