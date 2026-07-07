@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`32ab01b`](https://github.com/iQube-Protocol/AigentZBeta/commit/32ab01be82ab44b36ce2f173cb595689cb802917) [push] Build CCRL Phase C3: the research ICE loop — experiments get develop→run→validate→publish parity (Claude, 2026-07-07T17:54:30Z)
 - [`e48b314`](https://github.com/iQube-Protocol/AigentZBeta/commit/e48b31418091e70fe2fd217fb28405695e120b5c) [push] Extend CDE DevTools with server-side telemetry + escalation log, and grow the Terminal's read-only diagnostics (Claude, 2026-07-07T17:34:06Z)
 - [`f3d4b52`](https://github.com/iQube-Protocol/AigentZBeta/commit/f3d4b52bff612baf8c2f93e40597c20855b32126) [fix] Give the CCRL research surface a fence-enforcement retry (promise-without-fence fix) (Claude, 2026-07-07T17:32:55Z)
 - [`a11c9f6`](https://github.com/iQube-Protocol/AigentZBeta/commit/a11c9f6585813a617915ad30584bca8e93d9efa5) [fix] Fix CCRL copilot regression: make the research fence contract conditional, not mandatory (Claude, 2026-07-07T17:01:26Z)
