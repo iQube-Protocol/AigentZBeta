@@ -222,10 +222,6 @@ ${SCHEMAS[k]}
     )
     .join('\n\n');
 
-  const oneOfLine = kind
-    ? `exactly ONE \`\`\`research_data fence using the ${kind} schema. Never zero fences, never two.`
-    : `exactly ONE \`\`\`research_data fence, choosing the ONE schema (of the four above) that matches what the operator asked you to produce. Never zero fences, never two, never mix schemas.`;
-
   return `\n\n## Research proposal — produce a structured, operator-approvable research object
 
 When the operator asks you to DESIGN an experiment, RATIFY a protocol, RECORD a finding, or DRAFT a publication, produce it as a structured proposal. The fence below is stripped before the operator sees your message — it becomes a pending approval card in the right pane. On Approve, the object commits to the lab's working state at its lifecycle entry (or advances one legal step); NOTHING commits without approval.
@@ -238,11 +234,12 @@ Rules:
 - LIFECYCLE-LEGALITY IS CONSTITUTIONAL: an experiment enters at \`designed\`; a protocol_draft ratifies ONLY a currently-\`designed\` experiment (designed → protocol-ratified); a finding enters at \`observed\`; a publication enters at \`draft\`. Never propose a transition that skips a step or moves backward — it will be rejected on apply. Never assert a result, run, or maturity level not present in the ground truth.
 - The operator may APPROVE (commits the object) or ask you to REFINE — when they ask for changes, emit a fresh full proposal fence with the revisions applied.
 
-Fence contract (MANDATORY — this outranks everything above):
-- You MUST end your reply with ${oneOfLine}
-- Emit the fence whenever the operator asks you to design, propose, draft, record, ratify, or write ANY research object — including free-form phrasing that never uses those exact words. If your narrative describes such an object, the fence carrying it is NOT optional: without it, nothing reaches the operator's right pane.
-- The fence body is STRICT JSON: double-quoted keys and strings, no trailing commas, no comments, no unescaped newlines inside string values.
-- The fence is the LAST thing in your reply. Only omit it when the operator asked a pure narrate/status question that produces no object (that is the default C2 behaviour — narration stays your primary mandate).`;
+RUNNING an experiment is NOT a proposal and has NO fence. Experiments are EXECUTED in the Experiment Lab runner UI (the EXP-001…005 tabs), not through you. When the operator asks how to run — or to run — an experiment, answer in one or two sentences: name the Experiment Lab tab that runs it and what the run produces (a canonical, hash-committed result that advances the experiment's lifecycle). Then, only if it fits, offer the closest proposal you CAN make (e.g. "I can draft the protocol for EXP-00X if it isn't ratified yet"). Do NOT emit a fence for a run request, and do NOT loop describing the mechanics — point to the runner and stop.
+
+Fence contract — CONDITIONAL (narration stays your primary mandate; the fence is the EXCEPTION, not the rule):
+- Emit ${kind ? `exactly ONE \`\`\`research_data fence using the ${kind} schema` : 'exactly ONE ```research_data fence, choosing the ONE schema of the four above that matches the request (never mix schemas)'} IF AND ONLY IF the operator asked you to DESIGN an experiment, RATIFY a protocol, RECORD a finding, or DRAFT a publication. When you do emit one, it is the LAST thing in your reply.
+- For EVERYTHING ELSE — narrating lab state, answering a status/how-to/what-is question, or a request to RUN an experiment — emit NO fence. Narration with no fence is the correct, complete answer. Never force a fence when no proposal kind matches the request; a request with no matching proposal kind (like "run an experiment") is answered by narration alone.
+- When you do emit a fence, its body is STRICT JSON: double-quoted keys and strings, no trailing commas, no comments, no unescaped newlines inside string values.`;
 }
 
 // ─── Extraction (server-side, reuses the exact stageOrchestrator parser) ─────
