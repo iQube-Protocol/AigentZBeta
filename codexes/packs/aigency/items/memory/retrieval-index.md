@@ -3069,3 +3069,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-6f76157.md](../build_/COMMITS/COMMIT-6f76157.md)
 - Message: Build PSE-2 (EXP-005): the provider-choice drill — sovereignty's substitutability rung exercised mid-battery
+
+## Commit `5003c37` — 2026-07-07T16:34:19Z
+- Type: `feat`
+- Brief: [COMMIT-5003c37.md](../build_/COMMITS/COMMIT-5003c37.md)
+- Message: Wire the Experiment Lab to the CCRL lifecycle: runs advance research objects through the receipted path
