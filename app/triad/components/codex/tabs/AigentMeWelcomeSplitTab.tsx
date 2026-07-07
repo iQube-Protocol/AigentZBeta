@@ -631,6 +631,25 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [activeCapsuleId, observe]);
 
+  // ── Feedback Coordinator (CFS-020 #12) on aigentMe — observation-initiated
+  // turns (operator finding, 2026-07-07: awareness never moved from the right
+  // pane to the left as tasks completed). Minted ONLY from completed-task
+  // transitions (artifact sent, pill marked complete) — one auto-turn per
+  // transition, sent through the copilot's normal path via the same autoPrompt
+  // seam the Dev Command Center uses. Never minted from dismissals or capsule
+  // clicks, and never from a turn that was itself auto-prompted.
+  const [autoPrompt, setAutoPrompt] = useState<{ id: string; text: string } | null>(null);
+
+  // ── Intelligent quick-link affordances (operator finding, 2026-07-07: the
+  // quick links kept pulsating for actions already done). Same two-half gate
+  // as the Dev Command Center: a suggestion stands only while the action is
+  // still live — a capsule chip goes quiet when its capsule is already
+  // engaged; a compose chip goes quiet when a matching artifact send was
+  // OBSERVED (DCIR event stream) after the suggestion arrived.
+  const dcirEventCountRef = useRef(0);
+  useEffect(() => { dcirEventCountRef.current = dcirEvents.length; }, [dcirEvents]);
+  const suggestionEventCursorRef = useRef(0);
+
   // Phase 2 Slice 7 — server-driven chip set.
   // Null = use the cold-open static fallback below. Each /api/assistant/*
   // response may carry a `quickChips: NbeQuickChip[]` envelope; when it
@@ -663,6 +682,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     (hints: Array<{ layoutId: ChipTargetId; promptHint: string; parsedDraft?: { subject: string; bodyText: string; recipientHint?: string } }>) => {
       const next: Partial<Record<ChipTargetId, string>> = {};
       for (const h of hints) next[h.layoutId] = h.promptHint;
+      // Intelligent-affordance cursor: liveness checks only consider events
+      // observed AFTER this suggestion set arrived (a send completed later
+      // quiets the matching chip; earlier sends don't).
+      suggestionEventCursorRef.current = dcirEventCountRef.current;
       setSuggestedLayoutHints(next);
       // Stash any parsed email draft so the composer can use it directly
       const gmailHint = hints.find(h => h.layoutId === 'gmail');
@@ -687,6 +710,43 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       return next;
     });
   }, []);
+
+  // Which capsule an engaged chip suggestion becomes redundant against, and
+  // which artifact-send destinations complete a compose suggestion. marketa /
+  // upload / download have no completion signal yet — their suggestions stand
+  // until clicked, cleared, or replaced (honest: we gate only on real signals).
+  const SUGGESTION_CAPSULE: Partial<Record<ChipTargetId, CapsuleId>> = useMemo(() => ({
+    brief: 'brief',
+    'decision-board': 'move-forward',
+    'venture-cockpit': 'venture-progress',
+    specialists: 'ask-specialists',
+  }), []);
+  const SUGGESTION_DESTINATIONS: Partial<Record<ChipTargetId, string[]>> = useMemo(() => ({
+    gmail: ['gmail'],
+    event: ['calendar'],
+    doc: ['drive'],
+    sheet: ['drive'],
+    slides: ['drive'],
+  }), []);
+
+  /**
+   * The intelligent-affordance gate for quick-link pulsing: a suggestion
+   * pulses only while its action is still LIVE. A capsule chip is quiet when
+   * that capsule is already engaged (opening it again is a no-op); a compose
+   * chip is quiet when a matching artifact send was observed after the
+   * suggestion arrived (the task completed). Everything else honours the
+   * standing suggestion.
+   */
+  const suggestionLive = useCallback((id: ChipTargetId): boolean => {
+    if (!(id in suggestedLayoutHints)) return false;
+    const capsule = SUGGESTION_CAPSULE[id];
+    if (capsule) return activeCapsuleId !== capsule;
+    const dests = SUGGESTION_DESTINATIONS[id];
+    if (!dests) return true;
+    return !dcirEvents
+      .slice(suggestionEventCursorRef.current)
+      .some((e) => e.summary.startsWith('artifact sent:') && dests.some((d) => e.summary.endsWith(`→ ${d}`)));
+  }, [suggestedLayoutHints, activeCapsuleId, dcirEvents, SUGGESTION_CAPSULE, SUGGESTION_DESTINATIONS]);
 
   // Manual clear for the compose strip's "Clear" button — wipes every
   // compose-class suggestion (Email / Event / Doc / Sheet / Slides /
@@ -1614,6 +1674,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setArtifacts((prev) => prev.map((a) => a.artifactId === artifact.artifactId ? { ...a, status: 'sent' } : a));
       setSecondTierApproval((prev) => prev && prev.artifactId === artifact.artifactId ? null : prev);
       observe(aigentMeArtifactSentEvent(artifact.artifactType, artifact.destination));
+      // Feedback Coordinator: the copilot speaks from its updated awareness.
+      setAutoPrompt({
+        id: `auto-artifact-sent-${artifact.artifactId}`,
+        text: `[observed] The ${artifact.artifactType} artifact was just sent to ${artifact.destination}. Briefly acknowledge this completed task and, from your updated awareness of my current priorities, suggest my next best step.`,
+      });
       void fetchReceipts();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1685,6 +1750,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // path stays as a fallback.
   const handleMarkPillComplete = useCallback((nbeId: string) => {
     observe(aigentMePillCompletedEvent());
+    // Feedback Coordinator: progress acknowledged from updated awareness.
+    setAutoPrompt({
+      id: `auto-pill-complete-${nbeId}`,
+      text: '[observed] I just marked a next-best-action complete. Briefly acknowledge the progress and, from your updated awareness, tell me what to focus on next.',
+    });
     setQueuedIntents((prev) => {
       const cur = prev[nbeId];
       if (!cur) return prev;
@@ -2758,7 +2828,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'brief',
         label: 'Brief me',
         prompt: 'Give me my daily brief.',
-        highlight: 'brief' in suggestedLayoutHints,
+        highlight: suggestionLive('brief'),
         onSelect: () => {
           engageCapsuleAndMount('brief');
           consumeSuggestion('brief');
@@ -2769,7 +2839,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'move',
         label: 'Move forward',
         prompt: 'What is the next best action I should take right now?',
-        highlight: 'decision-board' in suggestedLayoutHints,
+        highlight: suggestionLive('decision-board'),
         onSelect: () => {
           engageCapsuleAndMount('move-forward');
           consumeSuggestion('decision-board');
@@ -2780,7 +2850,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'venture',
         label: 'Venture progress',
         prompt: 'Where am I on my venture progress?',
-        highlight: 'venture-cockpit' in suggestedLayoutHints,
+        highlight: suggestionLive('venture-cockpit'),
         onSelect: () => {
           engageCapsuleAndMount('venture-progress');
           consumeSuggestion('venture-cockpit');
@@ -2791,7 +2861,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'ask-specialists',
         label: 'Ask specialists',
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
-        highlight: 'specialists' in suggestedLayoutHints,
+        highlight: suggestionLive('specialists'),
         onSelect: () => {
           engageCapsuleAndMount('ask-specialists');
           // When a chat-driven hint exists, prefer it over the implicit
@@ -2807,7 +2877,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         },
       },
     ];
-  }, [serverChips, suggestedLayoutHints, consumeSuggestion, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);
+  }, [serverChips, suggestedLayoutHints, suggestionLive, consumeSuggestion, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);
 
   // Context-inferred quick chips — derived from live brief/experience data.
   // Each chip routes through the canonical engageCapsuleAndMount gateway and
@@ -2894,6 +2964,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               agentSubtitle="metaMe · personal assistant"
               personaId={personaId}
               groundContext={copilotGroundContext}
+              autoPrompt={autoPrompt}
               onSuggestedLayouts={handleSuggestedLayouts}
               onClearHighlights={clearCapsuleSuggestions}
               onSentAttachments={setComposerEscrowAttachments}
@@ -3203,14 +3274,14 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                   }}
                   onClearSuggestions={clearComposeSuggestions}
                   suggested={{
-                    gmail:    'gmail'    in suggestedLayoutHints,
-                    event:    'event'    in suggestedLayoutHints,
-                    doc:      'doc'      in suggestedLayoutHints,
-                    sheet:    'sheet'    in suggestedLayoutHints,
-                    slides:   'slides'   in suggestedLayoutHints,
-                    marketa:  'marketa'  in suggestedLayoutHints,
-                    upload:   'upload'   in suggestedLayoutHints,
-                    download: 'download' in suggestedLayoutHints,
+                    gmail:    suggestionLive('gmail'),
+                    event:    suggestionLive('event'),
+                    doc:      suggestionLive('doc'),
+                    sheet:    suggestionLive('sheet'),
+                    slides:   suggestionLive('slides'),
+                    marketa:  suggestionLive('marketa'),
+                    upload:   suggestionLive('upload'),
+                    download: suggestionLive('download'),
                   }}
                   theme={theme}
                 />
