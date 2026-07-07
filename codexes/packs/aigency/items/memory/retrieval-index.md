@@ -3079,3 +3079,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-a11c9f6.md](../build_/COMMITS/COMMIT-a11c9f6.md)
 - Message: Fix CCRL copilot regression: make the research fence contract conditional, not mandatory
+
+## Commit `f3d4b52` — 2026-07-07T17:32:55Z
+- Type: `fix`
+- Brief: [COMMIT-f3d4b52.md](../build_/COMMITS/COMMIT-f3d4b52.md)
+- Message: Give the CCRL research surface a fence-enforcement retry (promise-without-fence fix)
