@@ -67,3 +67,35 @@ This supersedes the earlier "rehearsal — not a sovereignty claim… reads as p
 - Invariants 100–107 are `proposed` status in the seed crystal until the operator runs the ingest (they become citable substrate then; this document is canon meanwhile).
 - The infrastructure dimensions (104/105) are inventoried from the codebase's known organs, not from a verified deployment audit — PSE-4 produces the verified map.
 - "Open scoring" and "open access" sub-dimensions of 101 are stated but not yet operationalized into measurable checks; PSE-5's design does that.
+
+---
+
+## PSE-2 — EXP-005, the Provider-Choice Drill (2026-07-07)
+
+PSE-1 (EXP-004) measured constitutional operation on a single provider at a
+graded sovereignty rung. PSE-2 measures the **provider-choice** component of
+the bundle directly: the platform hands the *same* EXP-003 constitutional
+battery across an operator-selected rotation of 2+ real adapters **mid-run**,
+and every verdict is cross-provider-judged (the judge is always the NEXT
+provider in the rotation — never the answerer).
+
+- **Claim:** provider choice is a real, measured sovereignty-bundle component —
+  constitutional operation survives the switch.
+- **Metric — `switchIntegrity`:** a run measures the component (`completedAcrossProviders`)
+  iff every task completed AND the battery spanned ≥2 providers. A provider
+  adapter erroring IS that task's constitutional failure for that provider —
+  recorded plainly, never masked, never silently re-routed onto another
+  provider (a silent failover would corrupt the measurement).
+- **Sovereignty framing:** a completed run demonstrates **S2 (substitutable)
+  EXERCISED** — not merely available. Bundle components measured:
+  `provider-interchangeability`, `provider-choice-exercised`,
+  `commercial-independence`, `constitutional-operation` (+ `open-weight-participation`
+  when venice rides the rotation). **S3 remains EXP-004's claim** — venice in the
+  rotation is participation, not the open-weight-alone apex.
+- **Honesty discipline (inherited from EXP-004):** quality deltas across
+  providers are the degradation report — reported, never scored as failure.
+- Service `services/experiments/exp005.ts`, route `app/api/experiments/exp005/route.ts`
+  (admin-gated), runner `components/composer/Exp005ProviderChoiceRunner.tsx`
+  (Experiment Lab → "EXP-005 · Provider Choice"), canary
+  `tests/exp005-provider-choice.test.ts`. Registered in EXPERIMENT_REGISTRY +
+  the PSE series (`types/research.ts`).

@@ -140,6 +140,16 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     protocolRef: 'services/experiments/exp004.ts',
     governingInvariants: ['inv.sovereignty.100', 'inv.sovereignty.102', 'inv.sovereignty.103'],
   },
+  {
+    id: 'EXP-005',
+    layer: 'I',
+    family: 'Provider Choice',
+    seriesId: 'PSE',
+    hypothesis:
+      'Provider choice is a real, measured sovereignty-bundle component: the same constitutional battery hands across providers mid-run (cross-provider judged) and constitutional operation survives the switch. Demonstrates S2 (substitutable) exercised, not merely available.',
+    protocolRef: 'services/experiments/exp005.ts',
+    governingInvariants: ['inv.sovereignty.102'],
+  },
 ];
 
 export const SERIES_REGISTRY: ResearchSeries[] = [
@@ -154,7 +164,7 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     id: 'PSE',
     name: 'Platform Sovereignty Experiment Series',
     claim: 'Platform sovereignty is a measurable bundle: model, provider choice, commercial independence, infrastructure.',
-    members: ['EXP-004'],
+    members: ['EXP-004', 'EXP-005'],
     charterRef: 'codexes/packs/ccrl/foundation/CFS-018_platform-sovereignty.md',
   },
 ];
