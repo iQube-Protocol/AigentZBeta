@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d9d63b0`](https://github.com/iQube-Protocol/AigentZBeta/commit/d9d63b031de4c984b3da10981a6a5afbb167399b) [fix] Reframe EXP-004 as graded sovereignty-scale measurement + fix experiment_results EXP-004 constraint (operator correction) (Claude, 2026-07-07T07:37:27Z)
 - [`c2f7076`](https://github.com/iQube-Protocol/AigentZBeta/commit/c2f7076132f6194148130a0d5a36a4735e816788) [push] Build CCRL Phase E counterfactual slice: pure what-if projection over the invariant field (pre-ratification decision support) (Claude, 2026-07-07T07:05:09Z)
 - [`585165e`](https://github.com/iQube-Protocol/AigentZBeta/commit/585165e31333e22520ca3a1c2af03f659e72e3a2) [push] Build CCRL Phase E first slice: Invariant Field Explorer (Computational Epistemology made visible) (Claude, 2026-07-07T06:16:44Z)
 - [`346eca6`](https://github.com/iQube-Protocol/AigentZBeta/commit/346eca6088c06f1a9c6acb146f6d39c97740ee43) [feat] Wire aigentZ default turn to gpt-4o (reliable stage-fence emission) (Claude, 2026-07-07T06:04:23Z)

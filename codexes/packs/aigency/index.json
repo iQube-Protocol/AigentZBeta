@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T07:07:33.709Z",
+  "last_updated": "2026-07-07T10:06:07.248Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c2f7076132f6194148130a0d5a36a4735e816788",
-  "latest_commit_short": "c2f7076",
-  "latest_commit_title": "Build CCRL Phase E counterfactual slice: pure what-if projection over the invariant field (pre-ratification decision support)",
+  "latest_commit": "d9d63b031de4c984b3da10981a6a5afbb167399b",
+  "latest_commit_short": "d9d63b0",
+  "latest_commit_title": "Reframe EXP-004 as graded sovereignty-scale measurement + fix experiment_results EXP-004 constraint (operator correction)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d9d63b0",
+      "full_sha": "d9d63b031de4c984b3da10981a6a5afbb167399b",
+      "title": "Reframe EXP-004 as graded sovereignty-scale measurement + fix experiment_results EXP-004 constraint (operator correction)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T07:37:27Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d9d63b0.md"
+    },
     {
       "sha": "c2f7076",
       "full_sha": "c2f7076132f6194148130a0d5a36a4735e816788",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-24T23:18:29Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-640fc0f.md"
-    },
-    {
-      "sha": "a0a6b7d",
-      "full_sha": "a0a6b7d8a73d7f4466d9149a38fc37d57c1297d0",
-      "title": "surface verified work done in the Venture Progress report",
-      "author": "Claude",
-      "timestamp": "2026-06-24T23:20:26Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a0a6b7d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

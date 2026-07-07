@@ -3024,3 +3024,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c2f7076.md](../build_/COMMITS/COMMIT-c2f7076.md)
 - Message: Build CCRL Phase E counterfactual slice: pure what-if projection over the invariant field (pre-ratification decision support)
+
+## Commit `d9d63b0` — 2026-07-07T07:37:27Z
+- Type: `fix`
+- Brief: [COMMIT-d9d63b0.md](../build_/COMMITS/COMMIT-d9d63b0.md)
+- Message: Reframe EXP-004 as graded sovereignty-scale measurement + fix experiment_results EXP-004 constraint (operator correction)
