@@ -41,6 +41,11 @@ export {
 
 export {
   createDevLoopSession,
+  STAGE_ORDER,
+  isDevLoopStage,
+  DEV_LOOP_FORBIDDEN_STATE_KEYS,
+  findForbiddenStateKey,
+  isPristineDevLoopSession,
   canAdvance,
   advanceStage,
   nextStage,

@@ -39,7 +39,7 @@ export function createDevLoopSession(): DevLoopState {
   };
 }
 
-const STAGE_ORDER: DevLoopStage[] = [
+export const STAGE_ORDER: DevLoopStage[] = [
   'intent_capture',
   'context_assembly',
   'gap_analysis',
@@ -50,6 +50,61 @@ const STAGE_ORDER: DevLoopStage[] = [
   'deployment_authorization',
   'complete',
 ];
+
+/** Runtime guard for untyped stage values (route validation). Pure. */
+export function isDevLoopStage(value: unknown): value is DevLoopStage {
+  return typeof value === 'string' && (STAGE_ORDER as string[]).includes(value);
+}
+
+// ─── Session persistence helpers (server-first — the DB is the store) ────────
+
+/**
+ * T0 identifier keys that must NEVER appear in a persisted DevLoopState.
+ * Mirrors the identity-spine tier table (CLAUDE.md): the dev-loop state is
+ * browser-bound AND DB-bound jsonb, so it is held to the T2 discipline.
+ */
+export const DEV_LOOP_FORBIDDEN_STATE_KEYS = [
+  'personaId',
+  'authProfileId',
+  'rootDid',
+  'fioHandle',
+  'kybeAttestation',
+] as const;
+
+/**
+ * The T2-guard predicate for the sessions route: returns the first forbidden
+ * identifier key found in a serialized DevLoopState, or null when clean.
+ * Matches the quoted-key form (`"personaId"`), so nested payloads are caught
+ * too; fail-closed by design (a string VALUE containing a quoted forbidden
+ * key also rejects). Pure — canary-pinned.
+ */
+export function findForbiddenStateKey(serializedState: string): string | null {
+  for (const key of DEV_LOOP_FORBIDDEN_STATE_KEYS) {
+    if (serializedState.includes(`"${key}"`)) return key;
+  }
+  return null;
+}
+
+/**
+ * True when a session is still the untouched default from
+ * createDevLoopSession() — no artifact of any stage exists. Hydration may
+ * only ever land on a pristine session (never clobber in-progress work), and
+ * auto-save skips pristine sessions (nothing worth persisting). Pure.
+ */
+export function isPristineDevLoopSession(state: DevLoopState): boolean {
+  return (
+    state.stage === 'intent_capture' &&
+    state.intent === null &&
+    state.contextPack === null &&
+    state.gapAnalysis === null &&
+    state.consequenceCanvas === null &&
+    state.validationReport === null &&
+    !state.implementationBrief &&
+    state.remediationPlan == null &&
+    state.deploymentAuthorization == null &&
+    state.receipts.length === 0
+  );
+}
 
 // ─── Constitutional consequence test (the CDE fork gate) ────────────────────
 

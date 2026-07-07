@@ -41,8 +41,11 @@ import type {
   DeploymentAuthorization,
 } from "@/types/devCommandCenter";
 
+import { personaFetch } from "@/utils/personaSpine";
+
 import {
   createDevLoopSession,
+  isPristineDevLoopSession,
   canAdvance,
   advanceStage,
   buildImplementationPackage,
@@ -624,6 +627,86 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     setActiveLayoutId(toolId as DevLayoutId);
   }, []);
 
+  // ── Session persistence (CFS-020 CDE — closes the in-memory honest limit).
+  // Server-first: the DB is the store (CLAUDE.md State Management Boundaries);
+  // localStorage is deliberately NOT used for the session. All fetches ride
+  // personaFetch (spine rule — raw fetch returns 401 on spine routes).
+  const sessionRef = useRef<DevLoopState>(session);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  const hydrateAttemptedRef = useRef(false);
+  const lastSavedRef = useRef<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "failed">("idle");
+
+  // Hydrate-on-mount: restore the caller's most recent session and re-mount
+  // the restored stage's capsule so the surface lands where the operator left
+  // off. Hydration only ever lands on a still-pristine default session — it
+  // never clobbers work the operator started before the fetch returned.
+  useEffect(() => {
+    if (hydrateAttemptedRef.current) return;
+    hydrateAttemptedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch("/api/dev-command-center/sessions", { cache: "no-store" });
+        if (cancelled || !res.ok) return;
+        const json = await res.json().catch(() => null);
+        const restored = json?.session as DevLoopState | null;
+        if (cancelled || !restored || typeof restored.sessionId !== "string") return;
+        if (!isPristineDevLoopSession(sessionRef.current)) return; // operator already started — keep their work
+        // The restored state IS the saved state — prime the save guard so the
+        // auto-save effect doesn't immediately re-POST what we just fetched.
+        lastSavedRef.current = JSON.stringify(restored);
+        // Keep the stage-transition observer honest: hydration is a restore,
+        // not a stage advance.
+        prevStageRef.current = restored.stage;
+        setSession(restored);
+        const capsule = stageCapsuleId(restored.stage) as DevCapsuleId | null;
+        if (capsule) engageCapsuleAndMount(capsule);
+        console.log(`[dev-cmd] session restored: ${restored.sessionId} @ ${restored.stage}`);
+      } catch (err) {
+        console.warn("[dev-cmd] session hydration failed (non-blocking):", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [engageCapsuleAndMount]);
+
+  // Debounced auto-save: persist ~1.5s after the last session change.
+  // Fire-and-forget — persistence must never block the loop. Pristine default
+  // sessions are skipped (nothing worth persisting; also skips the initial
+  // state before hydration lands). A new intent/session simply persists under
+  // its new session_id via the same upsert.
+  useEffect(() => {
+    if (isPristineDevLoopSession(session)) return;
+    const serialized = JSON.stringify(session);
+    if (serialized === lastSavedRef.current) return;
+    const timer = setTimeout(() => {
+      personaFetch("/api/dev-command-center/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session }),
+        cache: "no-store",
+      })
+        .then((res) => {
+          if (res.ok) {
+            lastSavedRef.current = serialized;
+            setSaveStatus("saved");
+          } else {
+            setSaveStatus("failed");
+            console.warn(`[dev-cmd] session save failed (non-blocking): HTTP ${res.status}`);
+          }
+        })
+        .catch((err) => {
+          setSaveStatus("failed");
+          console.warn("[dev-cmd] session save failed (non-blocking):", err);
+        });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [session]);
+
   const handleAdvanceStage = useCallback(() => {
     setSession(prev => {
       const next = advanceStage(prev);
@@ -1005,6 +1088,12 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10px] uppercase tracking-wide text-slate-500">
               Auto-act · navigation-only
+              <span className="normal-case tracking-normal text-slate-600">
+                {" · "}
+                <span className="font-mono">{session.sessionId.slice(0, 16)}…</span>
+                {saveStatus === "saved" && <span className="text-emerald-400/70"> · saved</span>}
+                {saveStatus === "failed" && <span className="text-rose-400/80"> · save failed</span>}
+              </span>
             </span>
             <button
               type="button"

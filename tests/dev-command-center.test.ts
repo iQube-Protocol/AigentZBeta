@@ -53,6 +53,11 @@ import {
   stageActionLive,
   devReceiptClassFor,
   recordDevReceipt,
+  STAGE_ORDER,
+  isDevLoopStage,
+  DEV_LOOP_FORBIDDEN_STATE_KEYS,
+  findForbiddenStateKey,
+  isPristineDevLoopSession,
 } from '@/services/devCommandCenter';
 import type { ConsequenceValidationReport, DevLoopState } from '@/types/devCommandCenter';
 
@@ -972,5 +977,94 @@ describe('Constitutional Development Environment', () => {
   it('isStageActionIrrelevant: deployment authorization is irrelevant before the threshold, relevant once met', () => {
     expect(isStageActionIrrelevant('deployment_authorization', sessionAt('intent_capture', {}))).toBe(true);
     expect(isStageActionIrrelevant('deployment_authorization', sessionAt('consequence_validation', { validationReport: cleanReport() }))).toBe(false);
+  });
+
+  // ─── Dev-loop session persistence (CFS-020 CDE increment, 2026-07-07) ─────
+  // Canaries: the sessions route validates stage against the exported
+  // STAGE_ORDER (never a hardcoded copy), T2-guards the persisted jsonb, and
+  // DevLoopState is JSON-safe end-to-end — a stringify→parse round trip
+  // preserves the canAdvance/nextStage semantics the tab rehydrates into.
+
+  it('exports STAGE_ORDER + isDevLoopStage for route validation (no hardcoded stage sets)', () => {
+    expect(STAGE_ORDER).toEqual([
+      'intent_capture', 'context_assembly', 'gap_analysis', 'consequence_modeling',
+      'implementation', 'consequence_validation', 'remediation',
+      'deployment_authorization', 'complete',
+    ]);
+    for (const stage of STAGE_ORDER) expect(isDevLoopStage(stage)).toBe(true);
+    expect(isDevLoopStage('validated')).toBe(false);
+    expect(isDevLoopStage('')).toBe(false);
+    expect(isDevLoopStage(null)).toBe(false);
+    expect(isDevLoopStage(42)).toBe(false);
+  });
+
+  it('T2 guard: findForbiddenStateKey rejects serialized state carrying any T0 identifier key', () => {
+    expect(DEV_LOOP_FORBIDDEN_STATE_KEYS).toEqual([
+      'personaId', 'authProfileId', 'rootDid', 'fioHandle', 'kybeAttestation',
+    ]);
+    // A clean session serializes clean.
+    expect(findForbiddenStateKey(JSON.stringify(createDevLoopSession()))).toBeNull();
+    // Each forbidden key is caught at the top level…
+    for (const key of DEV_LOOP_FORBIDDEN_STATE_KEYS) {
+      const dirty = JSON.stringify({ ...createDevLoopSession(), [key]: 'leak' });
+      expect(findForbiddenStateKey(dirty)).toBe(key);
+    }
+    // …and nested anywhere in the payload.
+    const nested = JSON.stringify({
+      ...createDevLoopSession(),
+      intent: { intentId: 'dci-x', metadata: { personaId: 'uuid-leak' } },
+    });
+    expect(findForbiddenStateKey(nested)).toBe('personaId');
+  });
+
+  it('isPristineDevLoopSession: fresh sessions are pristine; ANY artifact makes them dirty', () => {
+    expect(isPristineDevLoopSession(createDevLoopSession())).toBe(true);
+    expect(isPristineDevLoopSession(sessionAt('intent_capture', {}))).toBe(false); // intent present
+    expect(isPristineDevLoopSession({ ...createDevLoopSession(), stage: 'context_assembly' })).toBe(false);
+    expect(isPristineDevLoopSession({ ...createDevLoopSession(), implementationBrief: '# Pack' })).toBe(false);
+    let withReceipt = createDevLoopSession();
+    withReceipt = recordDevReceipt(withReceipt, { id: 'rcpt-p', actionType: 'deployment_authorized' });
+    expect(isPristineDevLoopSession(withReceipt)).toBe(false);
+  });
+
+  it('round-trip drill: DevLoopState is JSON-safe end-to-end — parsed state keeps canAdvance/nextStage/advanceStage semantics', () => {
+    // A rich mid-loop session: failing validation report + remediation plan
+    // + a recorded receipt — every optional CDE field populated.
+    let s = sessionAt('consequence_validation', { validationReport: failingReport() });
+    s = recordDevReceipt(s, { id: 'rcpt-rt', actionType: 'constitutional_validation_recorded' });
+    s = {
+      ...s,
+      contextPack: {
+        intentId: 'dci-cde', items: [], assembledAt: '', totalTokenEstimate: 0,
+        reuseFirst: [], extendSecond: [], buildNewLast: [],
+      },
+      implementationBrief: '# Implementation Pack — Build X',
+      remediationPlan: {
+        intentId: 'dci-cde',
+        remedies: [{ consequenceId: 'ce-1', description: 'd', remedy: 'fix', learningNote: 'lesson' }],
+        residualRisk: 'low', revalidationRequired: true, createdAt: '',
+      },
+      deploymentAuthorization: {
+        intentId: 'dci-cde', authorized: false, constitutionalThresholdMet: false,
+        rationale: 'blocked', blockingConsequences: ['ce-1'], authorizedAt: '',
+      },
+    };
+
+    const parsed = JSON.parse(JSON.stringify(s)) as DevLoopState;
+    expect(parsed).toEqual(s); // nothing non-serializable in DevLoopState
+    expect(canAdvance(parsed)).toBe(canAdvance(s));
+    expect(nextStage(parsed)).toBe('remediation'); // the CDE fork survives the round trip
+    expect(advanceStage(parsed).stage).toBe(advanceStage(s).stage);
+    expect(validationRequiresRemediation(parsed.validationReport!)).toBe(true);
+    expect(constitutionalThresholdMet(parsed)).toBe(false);
+    expect(parsed.receipts).toHaveLength(1);
+    expect(parsed.receipts[0].class).toBe('constitutional');
+    // The persisted form is also T2-clean.
+    expect(findForbiddenStateKey(JSON.stringify(parsed))).toBeNull();
+
+    // And the clean-report branch survives too.
+    const clean = sessionAt('consequence_validation', { validationReport: cleanReport() });
+    const cleanParsed = JSON.parse(JSON.stringify(clean)) as DevLoopState;
+    expect(nextStage(cleanParsed)).toBe('deployment_authorization');
   });
 });
