@@ -50,6 +50,7 @@ import {
   buildConsequenceCanvasSummary,
   buildValidationSummary,
   applyStageProposal,
+  stageCapsuleId,
   STAGE_PROPOSAL_KIND,
   PROPOSAL_KIND_TO_CAPSULE,
   type StageProposal,
@@ -593,6 +594,14 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   // ── ICE engine: pending stage proposals
   const [pendingProposals, setPendingProposals] = useState<Partial<Record<DevCapsuleId, StageProposal>>>({});
 
+  // ── Feedback Coordinator (CFS-020 #12, first slice) — observation-initiated
+  // turns (operator finding 6, 2026-07-06). Minted ONLY from an approval that
+  // advanced the loop (an operator-gated transition): the copilot prompts the
+  // operator on the next task from its updated awareness, one auto-turn per
+  // transition. Never minted on dismissal, capsule clicks, or from a turn
+  // that was itself auto-prompted (auto-turns can't approve anything).
+  const [autoPrompt, setAutoPrompt] = useState<{ id: string; text: string } | null>(null);
+
   const handleStageProposals = useCallback((proposals: CopilotStageProposal[]) => {
     if (proposals.length === 0) return;
     const typed = proposals.filter(
@@ -617,22 +626,39 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   const handleApproveProposal = useCallback((capsule: DevCapsuleId) => {
     const proposal = pendingProposals[capsule];
     if (!proposal) return;
-    setSession(s => {
-      let next = applyStageProposal(s, proposal);
-      if (STAGE_PROPOSAL_KIND[next.stage] === proposal.kind && canAdvance(next)) {
-        next = advanceStage(next);
-      }
-      console.log(`[aigentZ ICE] approved ${proposal.kind} → stage ${next.stage}`);
-      return next;
-    });
+    // Apply + advance synchronously so the flow-through below can see the
+    // post-approval stage (approval is a discrete click — no batching risk).
+    let next = applyStageProposal(session, proposal);
+    if (STAGE_PROPOSAL_KIND[next.stage] === proposal.kind && canAdvance(next)) {
+      next = advanceStage(next);
+    }
+    console.log(`[aigentZ ICE] approved ${proposal.kind} → stage ${next.stage}`);
+    setSession(next);
     observe(devProposalApprovedEvent(proposal.kind, capsule));
     setPendingProposals(prev => {
-      const next = { ...prev };
-      delete next[capsule];
-      return next;
+      const rest = { ...prev };
+      delete rest[capsule];
+      return rest;
     });
     consumeCapsuleSuggestion(capsule);
-  }, [pendingProposals, consumeCapsuleSuggestion, observe]);
+    // Flow-through (operator finding 3, 2026-07-06): when approval advanced
+    // the loop, auto-close the approved capsule and auto-open the NEW session
+    // stage's capsule so the right pane flows with the loop. Sequential flow
+    // inside the loop's own capsules — not orphan spawning: the next capsule
+    // is the loop's next stage, derived from the canary-pinned maps.
+    const nextCapsule = stageCapsuleId(next.stage) as DevCapsuleId | null;
+    if (next.stage !== session.stage && nextCapsule && nextCapsule !== capsule) {
+      observe(devCapsuleClosedEvent(capsule));
+      engageCapsuleAndMount(nextCapsule);
+      // Finding 6: the conversation progresses proactively — one auto-turn
+      // per approval transition, sent through the copilot's normal path.
+      const nextKind = STAGE_PROPOSAL_KIND[next.stage];
+      setAutoPrompt({
+        id: `auto-${next.stage}-${Date.now()}`,
+        text: `[observed] The ${proposal.kind} proposal was approved and the loop advanced to ${next.stage}. Guide me to the next task${nextKind ? ` and, when ready, produce the ${nextKind} proposal` : ''}.`,
+      });
+    }
+  }, [pendingProposals, session, consumeCapsuleSuggestion, observe, engageCapsuleAndMount]);
 
   const handleDismissProposal = useCallback((capsule: DevCapsuleId) => {
     const dismissed = pendingProposals[capsule];
@@ -773,6 +799,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           onSuggestedLayouts={handleSuggestedLayouts}
           onStageProposals={handleStageProposals}
           onClearHighlights={clearCapsuleSuggestions}
+          autoPrompt={autoPrompt}
           onClose={() => undefined}
         />
       </div>

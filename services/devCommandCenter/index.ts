@@ -53,6 +53,7 @@ export {
   extractStageProposals,
   applyStageProposal,
   detectRequestedStage,
+  stageCapsuleId,
   STAGE_PROPOSAL_KIND,
   PROPOSAL_KIND_TO_CAPSULE,
   type StageProposal,

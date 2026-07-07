@@ -40,6 +40,9 @@ import {
   buildImplementationPackage,
   detectRequestedStage,
   buildStageInstructionBlock,
+  extractStageProposals,
+  applyStageProposal,
+  stageCapsuleId,
   PROPOSAL_KIND_TO_CAPSULE,
 } from '@/services/devCommandCenter';
 
@@ -414,6 +417,151 @@ describe('Stage Orchestrator routing', () => {
     const block = buildStageInstructionBlock('gap_analysis', null);
     expect(block).toContain('gap_analysis');
     expect(block).not.toContain('Alternate stage');
+  });
+
+  it('puts the mandatory fence contract LAST and demands exactly one fence (finding 4)', () => {
+    const single = buildStageInstructionBlock('context_assembly', null);
+    expect(single).toContain('Fence contract (MANDATORY');
+    expect(single.indexOf('Fence contract (MANDATORY')).toBeGreaterThan(single.indexOf('Rules:'));
+    expect(single).toContain('You MUST end your reply with exactly ONE');
+    const dual = buildStageInstructionBlock('gap_analysis', 'context_assembly');
+    expect(dual).toContain('subordinate — emit ONE of the two schemas, never both');
+    expect(dual.indexOf('Fence contract (MANDATORY')).toBeGreaterThan(dual.indexOf('Alternate stage'));
+  });
+
+  it('pins the advance→next-capsule mapping used by approval flow-through (finding 3)', () => {
+    expect(stageCapsuleId('intent_capture')).toBe('intent');
+    expect(stageCapsuleId('context_assembly')).toBe('context');
+    expect(stageCapsuleId('gap_analysis')).toBe('gap-analysis');
+    expect(stageCapsuleId('consequence_modeling')).toBe('consequence-canvas');
+    expect(stageCapsuleId('implementation')).toBe('implementation');
+    expect(stageCapsuleId('consequence_validation')).toBe('validation');
+    expect(stageCapsuleId('complete')).toBeNull();
+  });
+});
+
+// ─── ICE fence extraction — resilience canaries (operator findings 2026-07-06) ──
+// Finding 5 root cause: strict JSON.parse dropped nearly-valid fences (trailing
+// commas, literal newlines in strings) SILENTLY, reading as "nothing arrived"
+// at gap analysis. These canaries pin the lenient-but-honest extraction.
+
+describe('Stage proposal extraction (resilient fence parsing)', () => {
+  const wellFormedGap = JSON.stringify({
+    kind: 'gap_analysis',
+    summary: 'Gap report for travel workflow',
+    data: {
+      existing: [{ name: 'Passport Bureau', location: 'services/passport/', description: 'creds', reuseStrategy: 'extend', confidence: 0.9 }],
+      missing: [{ name: 'Travel Workflow', description: 'booking', estimatedComplexity: 'medium', dependencies: [], suggestedLocation: 'services/travel/' }],
+    },
+  });
+
+  it('extracts a fence preceded by prose, stripping the fence from cleanText', () => {
+    const reply = `Here is my gap analysis of the platform.\n\n\`\`\`stage_data\n${wellFormedGap}\n\`\`\``;
+    const { cleanText, proposals } = extractStageProposals(reply);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].kind).toBe('gap_analysis');
+    expect(cleanText).toBe('Here is my gap analysis of the platform.');
+    expect(cleanText).not.toContain('stage_data');
+  });
+
+  it('parses a fence with no newline after the stage_data tag', () => {
+    const reply = `\`\`\`stage_data ${wellFormedGap} \`\`\``;
+    const { proposals } = extractStageProposals(reply);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].kind).toBe('gap_analysis');
+  });
+
+  it('parses DUAL fences — both land, order preserved (first drives auto-open)', () => {
+    const intentFence = JSON.stringify({ kind: 'intent', summary: 'Intent', data: { goal: 'Build X' } });
+    const reply = `Two artifacts:\n\`\`\`stage_data\n${wellFormedGap}\n\`\`\`\nand\n\`\`\`stage_data\n${intentFence}\n\`\`\``;
+    const { proposals } = extractStageProposals(reply);
+    expect(proposals).toHaveLength(2);
+    expect(proposals[0].kind).toBe('gap_analysis');
+    expect(proposals[1].kind).toBe('intent');
+  });
+
+  it('repairs a trailing-comma fence instead of dropping it', () => {
+    const body = `{
+  "kind": "gap_analysis",
+  "summary": "Gap report",
+  "data": {
+    "existing": [
+      { "name": "Passport Bureau", "location": "services/passport/", "description": "creds", "reuseStrategy": "extend", "confidence": 0.9, },
+    ],
+    "missing": [],
+  },
+}`;
+    const { proposals } = extractStageProposals(`Prose first.\n\`\`\`stage_data\n${body}\n\`\`\``);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].kind).toBe('gap_analysis');
+    expect((proposals[0].data.existing as unknown[]).length).toBe(1);
+  });
+
+  it('repairs literal newlines inside string values', () => {
+    const body = `{
+  "kind": "consequence_canvas",
+  "summary": "Canvas",
+  "data": {
+    "shouldHappen": [{ "description": "line one
+line two", "category": "workflow", "severity": "high" }],
+    "shouldNeverHappen": [],
+    "successState": "done"
+  }
+}`;
+    const { proposals } = extractStageProposals(`\`\`\`stage_data\n${body}\n\`\`\``);
+    expect(proposals).toHaveLength(1);
+    const entries = proposals[0].data.shouldHappen as Array<{ description: string }>;
+    expect(entries[0].description).toBe('line one\nline two');
+  });
+
+  it('drops a hopelessly malformed fence WITHOUT throwing, keeping the narrative', () => {
+    const reply = 'Narrative stands.\n```stage_data\nnot json at all {{{\n```';
+    const { cleanText, proposals } = extractStageProposals(reply);
+    expect(proposals).toHaveLength(0);
+    expect(cleanText).toBe('Narrative stands.');
+  });
+
+  it('drops fences with unknown kinds without throwing', () => {
+    const reply = `\`\`\`stage_data\n${JSON.stringify({ kind: 'mystery', summary: 'x', data: {} })}\n\`\`\``;
+    const { proposals } = extractStageProposals(reply);
+    expect(proposals).toHaveLength(0);
+  });
+});
+
+// ─── applyStageProposal — gap payload tolerance + advance gate (finding 5) ──
+
+describe('applyStageProposal gap analysis (coercion + advance)', () => {
+  const gapData = {
+    existing: [{ name: 'Passport Bureau', location: 'services/passport/', description: 'creds', reuseStrategy: 'extend', confidence: 0.9 }],
+    missing: [{ name: 'Travel Workflow', description: 'booking', estimatedComplexity: 'medium', dependencies: ['crm'], suggestedLocation: 'services/travel/' }],
+  };
+
+  it('populates existing/missing from the canonical field names', () => {
+    const session = createDevLoopSession();
+    const next = applyStageProposal(session, { kind: 'gap_analysis', summary: 'g', data: gapData });
+    expect(next.gapAnalysis?.existing).toHaveLength(1);
+    expect(next.gapAnalysis?.missing).toHaveLength(1);
+    expect(next.gapAnalysis?.existing[0].name).toBe('Passport Bureau');
+  });
+
+  it('coerces existingCapabilities/missingCapabilities payload variants', () => {
+    const session = createDevLoopSession();
+    const next = applyStageProposal(session, {
+      kind: 'gap_analysis',
+      summary: 'g',
+      data: { existingCapabilities: gapData.existing, missingCapabilities: gapData.missing },
+    });
+    expect(next.gapAnalysis?.existing).toHaveLength(1);
+    expect(next.gapAnalysis?.missing).toHaveLength(1);
+  });
+
+  it('sets gapAnalysis non-null even for empty payloads so approval can advance past gap analysis', () => {
+    let session = createDevLoopSession();
+    session = { ...session, stage: 'gap_analysis' };
+    const next = applyStageProposal(session, { kind: 'gap_analysis', summary: 'g', data: {} });
+    expect(next.gapAnalysis).not.toBeNull();
+    expect(canAdvance(next)).toBe(true);
+    expect(advanceStage(next).stage).toBe('consequence_modeling');
   });
 });
 

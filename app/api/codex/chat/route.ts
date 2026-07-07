@@ -2164,6 +2164,14 @@ function buildSystemPrompt(
         // LLM emits the kind the operator's request actually means.
         const altStage = requestedStage && contextStage !== requestedStage ? contextStage : null;
         groundContextBlock += buildStageInstructionBlock(effectiveStage, altStage);
+
+        // Feedback Coordinator (CFS-020 #12, first slice) — the surface sends
+        // an `[observed]`-prefixed turn when an approval advanced the loop.
+        // The turn is observation-initiated, not operator-typed: respond as a
+        // short proactive guide, not a session recap.
+        if (typeof latestUserMessage === 'string' && latestUserMessage.trimStart().startsWith('[observed]')) {
+          groundContextBlock += `\n\n## Observation-initiated turn (Feedback Coordinator)\n\nThis turn was TRIGGERED BY AN OBSERVED STATE CHANGE (a proposal approval advanced the dev loop) — the operator did not type it. Respond with a SHORT proactive guide to the next task (2-4 sentences, no full-session recap), then proceed to produce the next stage's proposal fence if your ground data suffices. If it does not suffice, ask the ONE question that unblocks it instead of emitting a fence built on invented data.`;
+        }
       }
 
       // aigent-z CCRL Research Copilot ground truth (CFS-019 C2) —
@@ -2661,19 +2669,29 @@ export async function POST(request: NextRequest) {
 
       // ICE engine: the dev loop stage the calling surface reports — drives
       // stage-specific live inventories (cartridges, API routes, registry).
-      // Prefer the viewed capsule's stage over the session's official stage
-      // so live inventories match what the operator is looking at.
+      // MUST resolve to the SAME effective stage as the instruction block
+      // (requested > viewed capsule > session stage) — operator finding 4,
+      // 2026-07-06: this previously skipped detectRequestedStage, so a
+      // free-typed "analyze the gaps" while another capsule was open got
+      // gap-stage instructions but mismatched (or no) ground data, starving
+      // the stage_data fence.
       const CAPSULE_STAGE_MAP: Record<string, string> = {
         intent: 'intent_capture',
         context: 'context_assembly',
         'gap-analysis': 'gap_analysis',
         'consequence-canvas': 'consequence_modeling',
+        implementation: 'implementation',
         validation: 'consequence_validation',
       };
       const gc_ = groundContext as Record<string, unknown> | undefined;
       const viewedCapsule_ = gc_ && typeof gc_.activeCapsule === 'string' ? gc_.activeCapsule : null;
+      const requestedStage_ =
+        isAigentZ && gc_?.surface === 'dev-command-center' && typeof message === 'string'
+          ? detectRequestedStage(message)
+          : null;
       const devLoopStage = isAigentZ
-        ? (viewedCapsule_ && CAPSULE_STAGE_MAP[viewedCapsule_]) ||
+        ? requestedStage_ ||
+          (viewedCapsule_ && CAPSULE_STAGE_MAP[viewedCapsule_]) ||
           (gc_ && typeof gc_.activeStage === 'string' ? gc_.activeStage as string : undefined)
         : undefined;
 

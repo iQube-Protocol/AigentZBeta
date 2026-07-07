@@ -133,6 +133,18 @@ interface SmartTriadCopilotLayerProps {
    * parent can clear stale pulses.
    */
   onStageProposals?: (proposals: CopilotStageProposal[]) => void;
+  /**
+   * Feedback Coordinator (CFS-020 component #12, first slice) —
+   * observation-initiated turns. When the parent sets a NEW id here, the
+   * layer sends `text` as a user turn through the NORMAL handleSend path,
+   * so ground context, stage instructions, and stage_proposals all ride
+   * identically to a typed message. Each id is consumed exactly ONCE
+   * (re-renders never re-fire); the parent guards against loops by only
+   * setting a fresh id from an operator-gated transition (e.g. a proposal
+   * approval that advanced the dev loop) — never from a turn that was
+   * itself auto-prompted. Optional; existing callers stay unchanged.
+   */
+  autoPrompt?: { id: string; text: string } | null;
 }
 
 /** Loose mirror of services/devCommandCenter StageProposal — keeps this
@@ -259,6 +271,7 @@ export function SmartTriadCopilotLayer({
   onStageProposals,
   onClearHighlights,
   onSentAttachments,
+  autoPrompt,
 }: SmartTriadCopilotLayerProps) {
   
   // Core state
@@ -463,11 +476,14 @@ export function SmartTriadCopilotLayer({
     releaseAvatar(avatarContainer);
   }, [mode, isOpen, requestAvatar, releaseAvatar, avatarContainer, agent?.id]);
   
-  // Handle sending messages — calls the real /api/codex/chat inference endpoint
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isProcessing) return;
-
-    const sentInput = input.trim();
+  // Handle sending messages — calls the real /api/codex/chat inference endpoint.
+  // `overrideText` (string only — click handlers pass a MouseEvent here, hence
+  // the typeof guard) lets the autoPrompt seam send an observation-initiated
+  // turn through this SAME path without touching the operator's input draft.
+  const handleSend = useCallback(async (overrideText?: unknown) => {
+    const overridden = typeof overrideText === 'string' ? overrideText.trim() : null;
+    const sentInput = overridden ?? input.trim();
+    if (!sentInput || isProcessing) return;
 
     const userMessage: SmartTriadMessage = {
       id: `user-${Date.now()}`,
@@ -477,7 +493,7 @@ export function SmartTriadCopilotLayer({
     };
 
     updateMessages((prev) => [...prev, userMessage]);
-    setInput("");
+    if (!overridden) setInput("");
     // Snapshot attachments for this turn THEN clear them so the next
     // turn starts fresh. The chat POST below uses the dependency-closure
     // snapshot; actual ids are already serialised into the request body.
@@ -640,6 +656,24 @@ export function SmartTriadCopilotLayer({
     }
   }, [input, isProcessing, updateMessages, messages, personaId, selectedProvider, attachedUploadIds]);
   
+  // Feedback Coordinator (CFS-020 #12, first slice): observation-initiated
+  // turns. A NEW autoPrompt id sends its text through the normal handleSend
+  // path exactly once. Guards:
+  //   - one auto-turn per id (lastAutoPromptIdRef) — re-renders never re-fire;
+  //   - never stacks onto an in-flight turn (isProcessing defers via the dep
+  //     array until the current turn settles, then consumes the id once);
+  //   - loop safety lives with the parent contract: ids are only minted from
+  //     operator-gated transitions (approval → stage advance), never from a
+  //     turn that was itself auto-prompted.
+  const lastAutoPromptIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoPrompt || !autoPrompt.text.trim()) return;
+    if (lastAutoPromptIdRef.current === autoPrompt.id) return;
+    if (isProcessing) return;
+    lastAutoPromptIdRef.current = autoPrompt.id;
+    void handleSend(autoPrompt.text);
+  }, [autoPrompt, isProcessing, handleSend]);
+
   // Handle quick prompt selection.
   //
   // 2026-05-26 sequencing fix — chip click previously fired both

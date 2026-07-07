@@ -77,6 +77,18 @@ export const PROPOSAL_KIND_TO_CAPSULE: Record<StageProposalKind, string> = {
   validation_report: 'validation',
 };
 
+/**
+ * Which capability capsule a dev-loop STAGE renders in — derived from the two
+ * canary-pinned maps above, never a third routing table. This is the
+ * advance→next-capsule mapping the approval flow-through uses (operator
+ * finding 3, 2026-07-06): on Approve, the loop advances and the right pane
+ * auto-opens the NEW session stage's capsule so it flows with the loop.
+ */
+export function stageCapsuleId(stage: DevLoopStage): string | null {
+  const kind = STAGE_PROPOSAL_KIND[stage];
+  return kind ? PROPOSAL_KIND_TO_CAPSULE[kind] : null;
+}
+
 // ─── Operator stage-request detection ───────────────────────────────────────
 
 /**
@@ -258,7 +270,7 @@ export function buildStageInstructionBlock(
 
   const altSection =
     altStage && altKind
-      ? `\n\nAlternate stage: the operator's current capsule/session context is the **${altStage}** stage. If their request is actually about that stage rather than ${stage}, emit its ${altKind} proposal instead (same fence format):
+      ? `\n\nAlternate stage (subordinate — emit ONE of the two schemas, never both): the operator's current capsule/session context is the **${altStage}** stage. Default to the primary ${kind} schema above; ONLY if the operator's request is unambiguously about the ${altStage} stage instead, emit its ${altKind} proposal in the same fence format:
 
 \`\`\`stage_data
 ${SCHEMAS[altKind]}
@@ -267,27 +279,91 @@ ${SCHEMAS[altKind]}
 ${STAGE_BEHAVIOR[altStage]}`
       : '';
 
+  const oneOfLine =
+    altStage && altKind
+      ? `exactly ONE \`\`\`stage_data fence — the primary ${kind} schema, or the alternate ${altKind} schema if that is what the operator actually asked for. Never zero fences, never two.`
+      : `exactly ONE \`\`\`stage_data fence using the ${kind} schema. Never zero fences, never two.`;
+
   return `\n\n## Stage execution — produce a structured ${kind} proposal
 
 You are executing the **${stage}** stage. ${STAGE_BEHAVIOR[stage]}
 
-When you have enough grounded material, append a fenced block at the END of your reply in EXACTLY this format (the fence is stripped before the operator sees your message — it becomes a pending approval card in the right pane):
+The fence below is stripped before the operator sees your message — it becomes a pending approval card in the right pane. Primary schema for this stage:
 
 \`\`\`stage_data
 ${SCHEMAS[kind]}
 \`\`\`${altSection}
 
 Rules:
-- Valid JSON only inside the fence. One fence per reply, maximum.
-- Your visible reply narrates the proposal conversationally (development intelligence, not code) and tells the operator the card is awaiting their approval in the right pane.
+- Your visible reply narrates the proposal conversationally (development intelligence, not code), mirrors the SAME content the fence carries, and tells the operator which right-pane card is awaiting their approval.
 - The operator may APPROVE (commits the artifact, advances the stage) or ask you to REFINE — when they ask for changes, emit a fresh full proposal fence with the revisions applied.
-- The loop is cyclical: if the operator asks to revisit an earlier stage, emit that stage's proposal kind instead. A "intent" proposal is valid at any time and restarts the loop.
-- Never emit a fence built on invented data. If your ground truth lacks what you need, say what's missing and ask.`;
+- The loop is cyclical: if the operator asks to revisit an earlier stage, emit that stage's proposal kind instead. An "intent" proposal is valid at any time and restarts the loop.
+- Never emit a fence built on invented data. If your ground truth lacks what you need, say what's missing and ask.
+
+Fence contract (MANDATORY — this outranks everything above):
+- You MUST end your reply with ${oneOfLine}
+- Emit the fence whenever the operator asks you to produce, assemble, analyze, model, brief, draft, or validate ANYTHING — including free-form phrasing that never uses those exact words. If your narrative describes structured content (a context pack, a gap list, a canvas, a brief, a validation), the fence carrying that content is NOT optional: without it, nothing reaches the operator's right pane.
+- The fence body is STRICT JSON: double-quoted keys and strings, no trailing commas, no comments, no unescaped newlines inside string values.
+- The fence is the LAST thing in your reply. Only omit it when the operator asked a pure status or navigation question that produces no artifact.`;
 }
 
 // ─── Extraction (server-side, mirrors stripLayoutTags) ──────────────────────
 
-const STAGE_DATA_FENCE_RE = /```stage_data\s*\n([\s\S]*?)```/g;
+// Loose on the tag boundary (a newline after `stage_data` is optional) —
+// operator finding 5 (2026-07-06): fences the model emitted with slight
+// format drift were dropped wholesale, reading as "nothing arrived".
+const STAGE_DATA_FENCE_RE = /```stage_data\s*([\s\S]*?)```/g;
+
+/**
+ * Minimal string-aware JSON repair for nearly-valid fences (pure + inline —
+ * mirrors the proven repair in services/experiments/llm.ts without importing
+ * the provider module into the client bundle): escapes literal newlines/tabs
+ * inside strings and strips trailing commas in STRUCTURAL runs only.
+ */
+function repairFenceJson(raw: string): string {
+  let out = '';
+  let seg = '';
+  let inStr = false;
+  let esc = false;
+  const flushSeg = () => {
+    seg = seg.replace(/,\s*([\]}])/g, '$1');
+    out += seg;
+    seg = '';
+  };
+  for (const ch of raw) {
+    if (inStr) {
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === '\\') { out += ch; esc = true; continue; }
+      if (ch === '"') { inStr = false; out += ch; continue; }
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') continue;
+      if (ch === '\t') { out += '\\t'; continue; }
+      out += ch;
+      continue;
+    }
+    if (ch === '"') { flushSeg(); inStr = true; out += ch; continue; }
+    seg += ch;
+  }
+  flushSeg();
+  return out;
+}
+
+/** Strict parse first; on failure, slice to the outermost object and repair. */
+function parseFenceBody(body: string): Record<string, unknown> | null {
+  const trimmed = body.trim();
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  const sliced = start > -1 && end > start ? trimmed.slice(start, end + 1) : trimmed;
+  try {
+    return JSON.parse(sliced) as Record<string, unknown>;
+  } catch {
+    try {
+      return JSON.parse(repairFenceJson(sliced)) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+}
 
 export function extractStageProposals(text: string): {
   cleanText: string;
@@ -296,18 +372,25 @@ export function extractStageProposals(text: string): {
   const proposals: StageProposal[] = [];
   const cleanText = text
     .replace(STAGE_DATA_FENCE_RE, (_match, body: string) => {
-      try {
-        const parsed = JSON.parse(body) as Record<string, unknown>;
-        const kind = typeof parsed.kind === 'string' ? parsed.kind : '';
-        if (PROPOSAL_KINDS.has(kind) && parsed.data && typeof parsed.data === 'object') {
-          proposals.push({
-            kind: kind as StageProposalKind,
-            summary: typeof parsed.summary === 'string' ? parsed.summary : kind,
-            data: parsed.data as Record<string, unknown>,
-          });
-        }
-      } catch {
-        // malformed fence — drop silently, the narrative reply still stands
+      const parsed = parseFenceBody(body);
+      if (!parsed) {
+        // Malformed beyond repair — the narrative reply still stands, but
+        // NEVER silently: this is exactly the "nothing arrived" failure mode.
+        console.warn(
+          '[stageOrchestrator] dropped unrepairable stage_data fence:',
+          body.trim().slice(0, 200),
+        );
+        return '';
+      }
+      const kind = typeof parsed.kind === 'string' ? parsed.kind : '';
+      if (PROPOSAL_KINDS.has(kind) && parsed.data && typeof parsed.data === 'object') {
+        proposals.push({
+          kind: kind as StageProposalKind,
+          summary: typeof parsed.summary === 'string' ? parsed.summary : kind,
+          data: parsed.data as Record<string, unknown>,
+        });
+      } else {
+        console.warn('[stageOrchestrator] dropped stage_data fence with unknown kind:', kind || '(none)');
       }
       return '';
     })
@@ -338,6 +421,20 @@ function objArr(v: unknown): Array<Record<string, unknown>> {
   return Array.isArray(v)
     ? v.filter((x): x is Record<string, unknown> => x !== null && typeof x === 'object')
     : [];
+}
+
+/**
+ * First non-empty object array under any of the candidate keys — field-name
+ * tolerance for payload variants the model emits despite the schema (operator
+ * finding 5, 2026-07-06: `existingCapabilities`/`missingCapabilities` instead
+ * of `existing`/`missing` applied as an EMPTY gap analysis).
+ */
+function pickObjArr(d: Record<string, unknown>, keys: string[]): Array<Record<string, unknown>> {
+  for (const k of keys) {
+    const arr = objArr(d[k]);
+    if (arr.length > 0) return arr;
+  }
+  return [];
 }
 
 // ─── Apply (client-side, on operator Approve) ───────────────────────────────
@@ -413,7 +510,7 @@ export function applyStageProposal(session: DevLoopState, proposal: StageProposa
 
     case 'gap_analysis': {
       let analysis = createEmptyGapAnalysis(requireIntentId(session));
-      for (const raw of objArr(d.existing)) {
+      for (const raw of pickObjArr(d, ['existing', 'existingCapabilities', 'existing_capabilities'])) {
         analysis = addExistingCapability(analysis, {
           name: str(raw.name),
           location: str(raw.location),
@@ -422,7 +519,7 @@ export function applyStageProposal(session: DevLoopState, proposal: StageProposa
           confidence: Math.max(0, Math.min(1, num(raw.confidence, 0.5))),
         });
       }
-      for (const raw of objArr(d.missing)) {
+      for (const raw of pickObjArr(d, ['missing', 'missingCapabilities', 'missing_capabilities'])) {
         analysis = addMissingCapability(analysis, {
           name: str(raw.name),
           description: str(raw.description),
