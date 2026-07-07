@@ -18,6 +18,14 @@ import { personaFetch } from "@/utils/personaSpine";
 
 type ReceiptStatus = "local" | "dvn_pending" | "dvn_recorded" | "dvn_failed";
 
+interface ServerCall {
+  method: string;
+  path: string;
+  status: number;
+  ms: number;
+  at: string;
+}
+
 interface DevToolsData {
   at: string;
   environment: { present: number; total: number; missing: string[]; vars: { name: string; present: boolean }[] };
@@ -27,6 +35,16 @@ interface DevToolsData {
     byStatus: Record<ReceiptStatus, number>;
     recent: { id: string; actionType: string; status: ReceiptStatus; createdAt: string }[];
     retryRoute: string;
+  };
+  platformTelemetry: {
+    dvn: { ok: boolean; pendingMessages: number; validatorsOnline: number; details: string; at: string };
+    requestBuffer: { instanceOnly: boolean; cap: number; calls: ServerCall[] };
+  };
+  escalationLog: {
+    source: string;
+    entries: { id: string; actionType: string; status: ReceiptStatus; createdAt: string }[];
+    retryRoute: string;
+    note: string;
   };
 }
 
@@ -132,6 +150,49 @@ export function DevToolsLayout({
             <div className="text-[10px] text-slate-500">Live cycle balances: /api/ops/canisters/cycles-status (controller identity).</div>
           </Section>
 
+          <Section title="Platform telemetry (server↔canister↔DVN)">
+            <div className="text-[10px] text-slate-500">
+              The server-side view a browser&apos;s F12 can&apos;t reach — composed from the ops DVN probe + an
+              in-process request buffer.
+            </div>
+            <div className="flex flex-wrap gap-1.5 text-[11px]">
+              <span className={`rounded px-1.5 py-0.5 border ${data.platformTelemetry.dvn.ok ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" : "bg-slate-800 text-slate-400 border-slate-700"}`}>
+                DVN {data.platformTelemetry.dvn.ok ? "reachable" : "unreachable"}
+              </span>
+              <span className="rounded px-1.5 py-0.5 border bg-slate-800 text-slate-300 border-slate-700">
+                pending+ready: {data.platformTelemetry.dvn.pendingMessages}
+              </span>
+              <span className="rounded px-1.5 py-0.5 border bg-slate-800 text-slate-300 border-slate-700">
+                validators: {data.platformTelemetry.dvn.validatorsOnline}
+              </span>
+            </div>
+            {data.platformTelemetry.dvn.details && (
+              <div className="text-[10px] text-slate-500 truncate">{data.platformTelemetry.dvn.details}</div>
+            )}
+            <div className="mt-1 flex items-center gap-1.5 text-[10px] text-amber-300/80">
+              <AlertTriangle className="w-3 h-3 shrink-0" />
+              <span>
+                Request buffer below reflects THIS compute instance only (cap {data.platformTelemetry.requestBuffer.cap}) — it
+                resets on cold start. A complete request log is a CloudWatch follow-on (AWS SDK not a dependency).
+              </span>
+            </div>
+            {data.platformTelemetry.requestBuffer.calls.length === 0 ? (
+              <div className="text-[11px] text-slate-500">no server calls recorded on this instance yet</div>
+            ) : (
+              <div className="space-y-0.5 font-mono text-[10.5px]">
+                {data.platformTelemetry.requestBuffer.calls.map((c, i) => (
+                  <div key={`${c.at}-${i}`} className="flex items-center gap-2">
+                    <span className="text-slate-600 w-14 shrink-0">{c.at.slice(11, 19)}</span>
+                    <span className="text-slate-400 w-10 shrink-0">{c.method}</span>
+                    <span className={`w-8 shrink-0 ${c.status >= 400 ? "text-rose-300" : "text-emerald-300"}`}>{c.status}</span>
+                    <span className="text-slate-500 w-14 shrink-0 text-right">{c.ms}ms</span>
+                    <span className="text-slate-300 truncate">{c.path}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
           <Section title="DVN pipeline">
             <div className="flex flex-wrap gap-1.5 text-[11px]">
               {(["dvn_recorded", "dvn_pending", "dvn_failed", "local"] as ReceiptStatus[]).map((s) => {
@@ -181,6 +242,33 @@ export function DevToolsLayout({
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Escalation / platform log stream">
+            <div className="text-[10px] text-slate-500">
+              {data.escalationLog.note}
+            </div>
+            {data.escalationLog.entries.length === 0 ? (
+              <div className="text-[11px] text-emerald-300/80">
+                no <code>dvn_failed</code> receipts in the recent window — provenance trail intact
+              </div>
+            ) : (
+              <div className="space-y-0.5 font-mono text-[10.5px]">
+                {data.escalationLog.entries.map((e) => (
+                  <div key={e.id} className="flex items-center gap-2">
+                    <span className="text-slate-600 shrink-0">{e.createdAt.slice(0, 19).replace("T", " ")}</span>
+                    <span className="text-rose-300 shrink-0">[{e.status}]</span>
+                    <span className="text-slate-300 truncate">{e.actionType}</span>
+                    <span className="text-slate-600 shrink-0">{e.id.slice(0, 8)}…</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {data.escalationLog.entries.length > 0 && (
+              <div className="text-[10px] text-slate-500">
+                retry a failed receipt via <code>{data.escalationLog.retryRoute}</code>
               </div>
             )}
           </Section>

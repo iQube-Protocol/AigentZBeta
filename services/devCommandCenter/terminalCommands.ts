@@ -32,6 +32,12 @@ export const TERMINAL_COMMANDS = [
   'canisters',
   'repo',
   'session',
+  // Server-side observation diagnostics (CFS-020 CDE DevTools scope, 2026-07-07)
+  // — all READ-ONLY, composed from existing durable sources.
+  'dvn',
+  'logs',
+  'net',
+  'experiments',
 ] as const;
 
 export type TerminalCommand = (typeof TERMINAL_COMMANDS)[number];
@@ -40,13 +46,19 @@ export type TerminalCommand = (typeof TERMINAL_COMMANDS)[number];
 export const REPO_SUBCOMMANDS = ['ls', 'cat', 'log', 'branches'] as const;
 export type RepoSubcommand = (typeof REPO_SUBCOMMANDS)[number];
 
+/** The `dvn` sub-commands (read-only DVN pipeline snapshot). */
+export const DVN_SUBCOMMANDS = ['status', 'pending', 'failed'] as const;
+export type DvnSubcommand = (typeof DVN_SUBCOMMANDS)[number];
+
 export interface ParsedTerminal {
   command: TerminalCommand;
   /** For `repo`, the validated sub-command; otherwise null. */
   sub: RepoSubcommand | null;
+  /** For `dvn`, the validated sub-command (defaults to `status`); otherwise null. */
+  dvnSub: DvnSubcommand | null;
   /** Raw remaining tokens after the command (and, for repo, the sub). */
   args: string[];
-  /** Parsed positive-integer count for `receipts [n]` / `repo log [n]`. */
+  /** Parsed positive-integer count for `receipts [n]` / `repo log [n]` / `logs [n]` / `net [n]`. */
   count: number | null;
   /** Validated path for `repo ls [path]` / `repo cat <file>` (traversal-safe). */
   path: string | null;
@@ -104,7 +116,7 @@ export function parseTerminalCommand(raw: string): ParseResult {
   const command = first as TerminalCommand;
   const rest = tokens.slice(1);
 
-  const base: ParsedTerminal = { command, sub: null, args: rest, count: null, path: null };
+  const base: ParsedTerminal = { command, sub: null, dvnSub: null, args: rest, count: null, path: null };
 
   switch (command) {
     case 'help':
@@ -112,6 +124,7 @@ export function parseTerminalCommand(raw: string): ParseResult {
     case 'env-check':
     case 'canisters':
     case 'session':
+    case 'experiments':
       // Zero-arg commands — extra tokens ignored (read-only, harmless).
       return { ok: true, parsed: base };
 
@@ -122,6 +135,30 @@ export function parseTerminalCommand(raw: string): ParseResult {
         return { ok: false, error: 'receipts expects an optional positive integer count, e.g. `receipts 5`' };
       }
       return { ok: true, parsed: { ...base, count: Math.min(n, MAX_COUNT) } };
+    }
+
+    case 'logs':
+    case 'net': {
+      // Optional positive-integer count; default 15. Same validation shape as
+      // `receipts` — a malformed count is a usage error, never the refusal line.
+      if (rest.length === 0) return { ok: true, parsed: { ...base, count: 15 } };
+      const n = Number(rest[0]);
+      if (!Number.isInteger(n) || n < 1) {
+        return { ok: false, error: `${command} expects an optional positive integer count, e.g. \`${command} 20\`` };
+      }
+      return { ok: true, parsed: { ...base, count: Math.min(n, MAX_COUNT) } };
+    }
+
+    case 'dvn': {
+      const sub = rest[0];
+      if (sub === undefined) {
+        // Bare `dvn` defaults to the status snapshot.
+        return { ok: true, parsed: { ...base, dvnSub: 'status' } };
+      }
+      if (!(DVN_SUBCOMMANDS as readonly string[]).includes(sub)) {
+        return { ok: false, error: 'dvn: expected `status` | `pending` | `failed`' };
+      }
+      return { ok: true, parsed: { ...base, dvnSub: sub as DvnSubcommand } };
     }
 
     case 'repo': {
@@ -176,6 +213,10 @@ export function helpLines(): string[] {
     '  canisters         ICP canister reachability / health',
     '  receipts [n]      last n activity receipts (T2-safe fields only)',
     '  session           this dev-loop session\'s current stage',
+    '  dvn [sub]         DVN pipeline snapshot — status | pending | failed',
+    '  logs [n]          escalation tail — dvn_failed receipts (DB-durable, newest first)',
+    '  net [n]           recent server API calls (this compute instance only — resets on cold start)',
+    '  experiments       research-object lifecycle states (durable lab record)',
     '  repo ls [path]    list a repo directory',
     '  repo cat <file>   show a file (truncated ~200 lines)',
     '  repo log [n]      recent commits',

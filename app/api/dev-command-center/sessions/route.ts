@@ -21,11 +21,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { isDevLoopStage, findForbiddenStateKey } from '@/services/devCommandCenter/devLoop';
+import { recordServerCall } from '@/services/devCommandCenter/requestTelemetry';
 import type { DevLoopState } from '@/types/devCommandCenter';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const t0 = Date.now();
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 
@@ -49,6 +51,7 @@ export async function GET(request: NextRequest) {
 
   // Only the state jsonb leaves the server — never persona_id (T0).
   const session = (data?.[0]?.state as DevLoopState | undefined) ?? null;
+  recordServerCall({ method: 'GET', path: '/api/dev-command-center/sessions', status: 200, ms: Date.now() - t0 });
   return NextResponse.json({ session });
 }
 

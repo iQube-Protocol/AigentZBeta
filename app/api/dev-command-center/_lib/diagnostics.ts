@@ -16,6 +16,7 @@
  */
 
 import { getCanisterHealth } from '@/services/ops/icpService';
+import { getDVNStatus } from '@/services/ops/dvnService';
 import { listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
 import type { ReceiptStatus } from '@/services/receipts/activityReceiptService';
 import type { EnvPresence } from '@/services/devCommandCenter/terminalCommands';
@@ -128,5 +129,74 @@ export async function getReceiptPipelineState(
       status: r.receiptStatus,
       createdAt: r.createdAt,
     })),
+  };
+}
+
+// ─── Platform telemetry — the server↔canister↔DVN "Network" view ────────────
+
+/** The honest retry pointer for a dvn_failed receipt (DVN escalation contract). */
+export const DVN_RETRY_ROUTE = '/api/assistant/receipts/[receiptId]/retry-dvn';
+
+export interface DvnTelemetry {
+  ok: boolean;
+  /** pending + ready messages on the DVN canister. */
+  pendingMessages: number;
+  validatorsOnline: number;
+  /** Canister id + pending/ready split — a T2 public-network detail, never a T0 id. */
+  details: string;
+  at: string;
+}
+
+/**
+ * DVN pipeline telemetry — composed from the SAME `getDVNStatus()` probe the
+ * /api/ops/dvn/* routes reduce from (get_pending_messages + get_ready_messages
+ * on the cross-chain canister). We do not fork the actor call; we reuse the
+ * service fn and surface its T2-safe summary.
+ */
+export async function getDvnTelemetry(): Promise<DvnTelemetry> {
+  const s = await getDVNStatus();
+  return {
+    ok: s.ok,
+    pendingMessages: s.pendingMessages,
+    validatorsOnline: s.validatorsOnline ?? 0,
+    details: s.details ?? '',
+    at: s.at,
+  };
+}
+
+// ─── Escalation / platform log stream (DB-durable — NOT a raw server log tail) ─
+
+export interface EscalationEntry {
+  id: string;
+  actionType: string;
+  status: ReceiptStatus;
+  createdAt: string;
+}
+
+export interface EscalationLog {
+  /** Honest provenance: these are durable DB records, not a CloudWatch tail. */
+  source: 'db-durable';
+  /** Newest-first dvn_failed (and any failed-state) receipts. */
+  entries: EscalationEntry[];
+  retryRoute: string;
+  note: string;
+}
+
+/**
+ * The platform escalation log — the DURABLE record of DVN failures surfaced
+ * read-only, newest first. Sourced from the receipt pipeline (dvn_failed rows
+ * per the DVN escalation contract), NOT from a live server log tail. Composes
+ * the existing receipt read path; never fabricates a line.
+ */
+export function buildEscalationLog(pipeline: ReceiptPipelineState): EscalationLog {
+  const entries = pipeline.recent
+    .filter((r) => r.status === 'dvn_failed')
+    .map((r) => ({ id: r.id, actionType: r.actionType, status: r.status, createdAt: r.createdAt }));
+  return {
+    source: 'db-durable',
+    entries,
+    retryRoute: DVN_RETRY_ROUTE,
+    note:
+      'platform escalation log (DB-durable) — not a raw server log tail; a CloudWatch tail is a follow-on gated on the AWS SDK.',
   };
 }
