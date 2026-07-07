@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f3d4b52`](https://github.com/iQube-Protocol/AigentZBeta/commit/f3d4b52bff612baf8c2f93e40597c20855b32126) [fix] Give the CCRL research surface a fence-enforcement retry (promise-without-fence fix) (Claude, 2026-07-07T17:32:55Z)
 - [`a11c9f6`](https://github.com/iQube-Protocol/AigentZBeta/commit/a11c9f6585813a617915ad30584bca8e93d9efa5) [fix] Fix CCRL copilot regression: make the research fence contract conditional, not mandatory (Claude, 2026-07-07T17:01:26Z)
 - [`5003c37`](https://github.com/iQube-Protocol/AigentZBeta/commit/5003c3715d14689119c2ffab6d9b5fcba422eee1) [feat] Wire the Experiment Lab to the CCRL lifecycle: runs advance research objects through the receipted path (Claude, 2026-07-07T16:34:19Z)
 - [`6f76157`](https://github.com/iQube-Protocol/AigentZBeta/commit/6f761574aca07c3ae33f9344a337782c5aca3974) [push] Build PSE-2 (EXP-005): the provider-choice drill — sovereignty's substitutability rung exercised mid-battery (Claude, 2026-07-07T16:13:29Z)

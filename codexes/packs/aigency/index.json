@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T17:03:38.607Z",
+  "last_updated": "2026-07-07T17:34:37.593Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a11c9f6585813a617915ad30584bca8e93d9efa5",
-  "latest_commit_short": "a11c9f6",
-  "latest_commit_title": "Fix CCRL copilot regression: make the research fence contract conditional, not mandatory",
+  "latest_commit": "f3d4b52bff612baf8c2f93e40597c20855b32126",
+  "latest_commit_short": "f3d4b52",
+  "latest_commit_title": "Give the CCRL research surface a fence-enforcement retry (promise-without-fence fix)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f3d4b52",
+      "full_sha": "f3d4b52bff612baf8c2f93e40597c20855b32126",
+      "title": "Give the CCRL research surface a fence-enforcement retry (promise-without-fence fix)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T17:32:55Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-f3d4b52.md"
+    },
     {
       "sha": "a11c9f6",
       "full_sha": "a11c9f6585813a617915ad30584bca8e93d9efa5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-03T20:38:15Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-f6bfcd6.md"
-    },
-    {
-      "sha": "f3969d9",
-      "full_sha": "f3969d987fcafd07f43bbe9c4242148c07e9da83",
-      "title": "record chrysalis phase 2-3 session doc",
-      "author": "Claude",
-      "timestamp": "2026-07-03T20:38:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f3969d9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
