@@ -393,6 +393,43 @@ describe('Constitutional Glossary — resolver-wired vocabulary (CFS-015 amendme
   });
 });
 
+describe('Computational Epistemology — Aletheon institute-standing amendment (CFS-019)', () => {
+  it('the glossary term resolves with its governing invariant attached', async () => {
+    const r = await resolveOntology(
+      'What does computational epistemology say about knowledge as a computational object?',
+    );
+    const ce = r.resolvedTerms.find(
+      (t) => t.canonical.toLowerCase() === 'computational epistemology',
+    );
+    expect(ce).toBeTruthy();
+    expect(ce?.invariantIds).toContain('inv.epistemology.119');
+  });
+
+  it('epistemology seed crystal: invariants 119-120 exist in the epistemology namespace', () => {
+    const seeds = (seedFile as { invariants: { id: string; namespace: string }[] }).invariants;
+    const epi = seeds.filter((s) => s.namespace === 'epistemology').map((s) => s.id);
+    for (let n = 119; n <= 120; n += 1) {
+      expect(epi).toContain(`inv.epistemology.${n}`);
+    }
+  });
+
+  it('RESEARCH_PROGRAMMES pinned — the A/B/C nomenclature maps to registered experiments', async () => {
+    const { RESEARCH_PROGRAMMES, EXPERIMENT_REGISTRY } = await import('@/types/research');
+    expect(RESEARCH_PROGRAMMES.map((p) => `${p.id}:${p.name}`)).toEqual([
+      'A:Invariant Knowledge',
+      'B:Temporal Composition',
+      'C:Reasoning Compression',
+    ]);
+    // Every programme experiment exists in the pinned experiment registry.
+    const experimentIds = new Set(EXPERIMENT_REGISTRY.map((e) => e.id));
+    for (const p of RESEARCH_PROGRAMMES) {
+      for (const exp of p.experiments) {
+        expect(experimentIds.has(exp), `Programme ${p.id} → ${exp} not in EXPERIMENT_REGISTRY`).toBe(true);
+      }
+    }
+  });
+});
+
 describe('DCIR — Dynamic Constitutional Interaction Runtime (CFS-020 D0)', () => {
   it('the closed loop and runtime domain orders are pinned — order is constitutional data', async () => {
     const { DCIR_LOOP, DCIR_RUNTIMES } = await import('@/types/dcir');

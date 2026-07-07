@@ -203,6 +203,13 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 117. *(interaction · principle)* Interface affordances are generated from inferred intent within the operator's active context, never statically defined and never as orphan output.
 118. *(interaction · principle)* The cognitive-action loop remains continuous until the constitutional objective is satisfied; no single generation closes it.
 
+## Additions — Computational Epistemology (Aletheon review, CFS-019)
+
+*(Authored 2026-07-06 from the Aletheon review — the operator's co-agent — integrated as the CFS-019 institute-standing amendment: the discipline the foundational validation questions define, and the inversion of the platform↔research relationship.)*
+
+119. *(epistemology · definition)* Knowledge is a computational object: its preservation, composition, and reasoning-compression are measurable properties.
+120. *(epistemology · principle)* The platform is the instrument; the research programme is the enduring asset.
+
 ---
 
 ## Maintenance

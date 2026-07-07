@@ -14,6 +14,14 @@
  * updated by amendment as conclusions evolve. Rendered text and copied text
  * are the SAME string, so what a partner receives is exactly what the
  * operator reviewed.
+ *
+ * Research Briefing mode (Aletheon review, CFS-019 institute-standing
+ * amendment 2026-07-06): wraps the UNCHANGED findings report in the formal
+ * package — Cover → Letter from the Director (a TEMPLATE for the operator's
+ * own voice, never ghost-written as final) → Executive Memorandum slot →
+ * Findings Report → Appendix (protocols, raw data, architecture, repository,
+ * DVN verification). Same copy-based confidentiality discipline; the
+ * findings-report generation logic is not altered.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -248,11 +256,87 @@ update automatically as runs are published.*
 `;
 }
 
+/**
+ * Research Briefing (formal package) — prepends the Aletheon-reviewed
+ * packaging around the findings report, which passes through UNCHANGED.
+ * The cover banner name is Aletheon's proposed EXTERNAL presentation;
+ * adoption is a pending operator decision (CFS-019 naming note).
+ */
+function buildBriefing(report: string): string {
+  return `# The Invariant Intelligence Research Institute
+
+## Foundational Validation Series
+
+### Executive Briefing
+
+**July 2026 · Confidential**
+
+---
+
+## Letter from the Director
+
+> **[TEMPLATE — DRAFT FOR THE OPERATOR'S OWN VOICE. Replace every bracketed
+> paragraph before sharing; do not send as-is. One page, human,
+> non-technical, non-fundraising.]**
+
+Dear colleague,
+
+[Paragraph 1 — why the institute exists: in your own words, the decision to
+build an instrument because the research demanded one — the platform serves
+the research, not the reverse.]
+
+[Paragraph 2 — why the question matters: in your own words, why "how does
+knowledge itself behave as a computational object" is worth a research
+institute — preservation, composition, and reasoning-compression as
+measurable properties.]
+
+[Paragraph 3 — why they're receiving this: in your own words, why this
+specific reader, and what you are (and are not) asking of them.]
+
+[Sign-off in your own hand.]
+
+---
+
+## Executive Memorandum
+
+> **[SLOT — insert the executive memorandum draft here before sharing.]**
+
+---
+
+${report}
+---
+
+## Appendix — Protocols, Data, and Verification
+
+- **Experiment protocols** (full design docs, in-repo):
+  - EXP-001 — \`codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube/README.md\`
+  - EXP-002 — \`codexes/packs/ccrl/foundation/experiments/exp-002-invariant-video/README.md\`
+  - EXP-003 — \`codexes/packs/ccrl/foundation/experiments/exp-003-rediscovery-savings/README.md\`
+- **Raw result records**: every published run's exact results JSON is stored
+  with its sha256 content commitment and is available on request under the
+  same confidentiality; the data tables in the findings report above are
+  generated live from those records.
+- **Experimental architecture**: the constitutional foundation corpus
+  (charters, composition laws, coherence engine, invariant ontology) lives at
+  \`codexes/packs/ccrl/foundation/\` — CFS-019 is the laboratory charter.
+- **Repository**: the platform repository housing the corpus, runners, and
+  results pipeline is available for inspection on request.
+- **DVN verification**: each published run is anchored via a DVN-anchorable
+  receipt on the platform's Decentralised Verification Network pipeline.
+  Verification is mechanical: recompute sha256 over the stored results text
+  and compare with the anchored commitment — the platform's Results
+  interface performs this check in-browser.
+
+*Confidential — not for publication or redistribution.*
+`;
+}
+
 export default function ExperimentReportTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<PublishedResult[]>([]);
   const [copied, setCopied] = useState(false);
+  const [mode, setMode] = useState<"report" | "briefing">("report");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -275,9 +359,10 @@ export default function ExperimentReportTab() {
   }, [load]);
 
   const report = useMemo(() => buildReport(results, new Date()), [results]);
+  const sharedText = useMemo(() => (mode === "briefing" ? buildBriefing(report) : report), [mode, report]);
 
   const copy = async () => {
-    await navigator.clipboard.writeText(report);
+    await navigator.clipboard.writeText(sharedText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -290,12 +375,26 @@ export default function ExperimentReportTab() {
           Data tables inject live from the canonical results record; copy shares exactly what you see.
         </p>
         <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-md border border-slate-700 overflow-hidden">
+            <button
+              onClick={() => setMode("report")}
+              className={`px-2.5 py-1.5 text-xs ${mode === "report" ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-800"}`}
+            >
+              Findings report
+            </button>
+            <button
+              onClick={() => setMode("briefing")}
+              className={`px-2.5 py-1.5 text-xs ${mode === "briefing" ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-800"}`}
+            >
+              Research Briefing (formal package)
+            </button>
+          </div>
           <button
             onClick={copy}
             className="inline-flex items-center gap-1.5 rounded-md bg-indigo-700 hover:bg-indigo-600 px-3 py-1.5 text-xs text-white"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? "Copied" : "Copy report (markdown)"}
+            {copied ? "Copied" : mode === "briefing" ? "Copy briefing (markdown)" : "Copy report (markdown)"}
           </button>
           <button
             onClick={load}
@@ -305,6 +404,15 @@ export default function ExperimentReportTab() {
           </button>
         </div>
       </div>
+
+      {mode === "briefing" && (
+        <p className="text-xs text-slate-500">
+          The Letter from the Director is a <span className="text-amber-300">template for the operator&apos;s own voice</span> —
+          replace every bracketed paragraph and the memorandum slot before sharing. The institute banner
+          (&ldquo;The Invariant Intelligence Research Institute&rdquo;) is Aletheon&apos;s proposed external name;
+          adoption is a pending operator decision (CFS-019 naming note).
+        </p>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 text-sm text-slate-400 py-4 justify-center">
@@ -319,7 +427,7 @@ export default function ExperimentReportTab() {
 
       {!loading && (
         <pre className="whitespace-pre-wrap break-words rounded-lg border border-slate-800 bg-slate-950/60 p-4 text-[12px] leading-relaxed text-slate-300 font-mono">
-          {report}
+          {sharedText}
         </pre>
       )}
     </div>

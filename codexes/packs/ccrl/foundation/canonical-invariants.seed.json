@@ -12,7 +12,8 @@
   "narrative",
   "sovereignty",
   "cybernetics",
-  "interaction"
+  "interaction",
+  "epistemology"
  ],
  "notes": "Seed crystal for the Invariant Ontology (CFS-002). status=proposed until ratified via canonization; ratified_source marks statements drawn verbatim from ratified Polity documents.",
  "invariants": [
@@ -1833,6 +1834,34 @@
    ],
    "provenance": {
     "source": "Operator spec 2026-07-06 (DCIR — Dynamic Constitutional Interaction Runtime) — CFS-020."
+   }
+  },
+  {
+   "id": "inv.epistemology.119",
+   "namespace": "epistemology",
+   "semantic_type": "definition",
+   "statement": "Knowledge is a computational object: its preservation, composition, and reasoning-compression are measurable properties.",
+   "status": "proposed",
+   "contexts": [
+    "epistemics",
+    "research"
+   ],
+   "provenance": {
+    "source": "Aletheon review (operator's co-agent), 2026-07-06 — CFS-019 institute-standing amendment."
+   }
+  },
+  {
+   "id": "inv.epistemology.120",
+   "namespace": "epistemology",
+   "semantic_type": "principle",
+   "statement": "The platform is the instrument; the research programme is the enduring asset.",
+   "status": "proposed",
+   "contexts": [
+    "epistemics",
+    "research"
+   ],
+   "provenance": {
+    "source": "Aletheon review (operator's co-agent), 2026-07-06 — CFS-019 institute-standing amendment."
    }
   }
  ]

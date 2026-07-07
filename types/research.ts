@@ -122,6 +122,19 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
   },
 ];
 
+/**
+ * Research Programmes — Aletheon nomenclature (CFS-019 institute-standing
+ * amendment, 2026-07-06): Research Programmes → Validation Series →
+ * Experiments. The A/B/C names are the validation-work presentation of the
+ * foundational holdings; canary-pinned like the registries above. EXP-004
+ * sits in the PSE series pending its programme letter.
+ */
+export const RESEARCH_PROGRAMMES = [
+  { id: 'A', name: 'Invariant Knowledge', experiments: ['EXP-001'] },
+  { id: 'B', name: 'Temporal Composition', experiments: ['EXP-002'] },
+  { id: 'C', name: 'Reasoning Compression', experiments: ['EXP-003'] },
+] as const;
+
 // ─── Transition legality ─────────────────────────────────────────────────────
 
 /**
