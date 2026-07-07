@@ -318,6 +318,51 @@ function slugId(prefix: string, seed: string): string {
   return `${prefix}-${base || Math.random().toString(36).slice(2, 8)}`;
 }
 
+// ─── T2 safety (identifier-tier guard for network/DB-bound payloads) ─────────
+
+/**
+ * The five identifier classes that MUST NEVER ride a research payload
+ * (CLAUDE.md identity spine, T0 tier). Matched key-wise, case-insensitively,
+ * with `_`/`-` separators normalised (so `persona_id` is caught too).
+ */
+export const FORBIDDEN_IDENTIFIER_KEYS = [
+  'personaId',
+  'authProfileId',
+  'rootDid',
+  'fioHandle',
+  'kybeAttestation',
+] as const;
+
+const FORBIDDEN_NORMALISED = new Set(
+  FORBIDDEN_IDENTIFIER_KEYS.map((k) => k.toLowerCase().replace(/[_-]/g, '')),
+);
+
+/**
+ * T2-safety rejection predicate — Phase C2.2. Walks a proposal payload (any
+ * nesting, arrays included) and returns the FIRST key that names a forbidden
+ * T0 identifier, or null when the payload is clean. The objects route rejects
+ * any payload for which this returns non-null BEFORE it touches the DB, a
+ * receipt, or the response — research_objects payloads are T2-safe by
+ * construction AND by gate.
+ */
+export function findForbiddenIdentifierKey(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const hit = findForbiddenIdentifierKey(item);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      if (FORBIDDEN_NORMALISED.has(key.toLowerCase().replace(/[_-]/g, ''))) return key;
+      const hit = findForbiddenIdentifierKey(nested);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
 // ─── Apply (pure — commit an approved proposal into the state) ───────────────
 
 /**

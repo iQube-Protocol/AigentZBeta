@@ -10,10 +10,19 @@
  *  4. every proposal is SUGGEST-ONLY: apply is pure — returns a new state,
  *     never mutates the input, never side-effects
  *
+ * Phase C2.2 additions (persistence + receipted approvals):
+ *  5. the T2-safety rejection predicate: a payload carrying a forbidden T0
+ *     identifier key (any casing / separator / nesting) is rejected
+ *  6. STRUCTURAL: the objects route's transition path goes through
+ *     recordExperimentTransition from services/research/lifecycle — the ONE
+ *     receipt path — and never imports the receipt service directly
+ *
  * Runs under vitest in CI; verified in the sandbox via an esbuild-bundle +
  * node drill (vitest is unavailable there).
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   RESEARCH_PROPOSAL_EFFECT,
@@ -21,6 +30,7 @@ import {
   extractResearchProposals,
   applyResearchProposal,
   createEmptyResearchState,
+  findForbiddenIdentifierKey,
   type ResearchProposal,
 } from '@/services/research/proposals';
 import { isLegalExperimentTransition } from '@/types/research';
@@ -184,5 +194,54 @@ describe('C2.1 — every proposal is suggest-only (apply is pure)', () => {
     expect(s0.publications).toHaveLength(0);
     expect(r.state.publications[0].lifecycle).toBe('draft');
     expect(r.state.publications[0].kind).toBe('working');
+  });
+});
+
+describe('C2.2 — T2-safety rejection predicate (findForbiddenIdentifierKey)', () => {
+  it('a payload with a forbidden T0 identifier key is rejected, any casing / separator / nesting', () => {
+    expect(findForbiddenIdentifierKey({ id: 'EXP-900', personaId: 'abc' })).toBe('personaId');
+    // snake_case variant is caught (separator-normalised match)
+    expect(findForbiddenIdentifierKey({ data: { nested: [{ persona_id: 'x' }] } })).toBe('persona_id');
+    expect(findForbiddenIdentifierKey({ evidence: { rootDid: 'did:fio:x' } })).toBe('rootDid');
+    expect(findForbiddenIdentifierKey({ meta: { AuthProfileId: 'x' } })).toBe('AuthProfileId');
+    expect(findForbiddenIdentifierKey([{ fioHandle: 'x@fio' }])).toBe('fioHandle');
+    expect(findForbiddenIdentifierKey({ deep: { deeper: { kybe_attestation: {} } } })).toBe('kybe_attestation');
+  });
+
+  it('a clean T2 payload (ids, claims, hash-commitment refs, invariant seed ids) passes', () => {
+    expect(
+      findForbiddenIdentifierKey({
+        id: 'EXP-900',
+        experimentId: 'EXP-003',
+        claim: 'initialized reasoning reduces rediscovery cost',
+        evidenceRefs: ['a1b2c3d4'],
+        governingInvariants: ['inv.constitutional.062'],
+      }),
+    ).toBeNull();
+    expect(findForbiddenIdentifierKey(null)).toBeNull();
+    expect(findForbiddenIdentifierKey('a string')).toBeNull();
+  });
+});
+
+describe('C2.2 — the objects route receipts through the ONE lifecycle path (structural)', () => {
+  const routeSource = readFileSync(
+    join(process.cwd(), 'app/api/research/objects/route.ts'),
+    'utf8',
+  );
+
+  it('imports recordExperimentTransition from services/research/lifecycle and calls it (transition path)', () => {
+    expect(routeSource).toMatch(/recordExperimentTransition[\s\S]*?from '@\/services\/research\/lifecycle'/);
+    expect(routeSource).toMatch(/recordExperimentTransition\(\{/);
+  });
+
+  it('create-kind receipts also ride the lifecycle service (recordResearchObjectCreated)', () => {
+    expect(routeSource).toMatch(/recordResearchObjectCreated[\s\S]*?from '@\/services\/research\/lifecycle'/);
+    expect(routeSource).toMatch(/recordResearchObjectCreated\(\{/);
+  });
+
+  it('never builds a parallel receipt path — no direct receipt-service import, and the T2 guard is applied', () => {
+    expect(routeSource).not.toContain('createActivityReceipt');
+    expect(routeSource).not.toContain('services/receipts');
+    expect(routeSource).toMatch(/findForbiddenIdentifierKey\(/);
   });
 });

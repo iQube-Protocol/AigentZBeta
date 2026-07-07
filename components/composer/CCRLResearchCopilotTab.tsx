@@ -18,7 +18,19 @@
  * applyResearchProposal commits the object into in-memory research state at its
  * lifecycle entry (or advances one legal step); an illegal lifecycle transition
  * is REJECTED and surfaced, never silently committed. SUGGEST-ONLY: nothing
- * commits without approval; persistence + receipting is a named follow-on.
+ * commits without approval.
+ *
+ * C2.2 (persistence + receipted approvals): the optimistic in-memory apply is
+ * kept for instant UI, then the approved proposal POSTs to
+ * /api/research/objects (personaFetch — spine routes need the Bearer token),
+ * where the server RE-RUNS the pure apply against persisted state, enforces
+ * the T2 guard, upserts into research_objects, and receipts through the ONE
+ * lifecycle path (recordExperimentTransition / recordResearchObjectCreated —
+ * `research_lifecycle_transition`, DVN-anchorable). Each working object shows
+ * its persist state ("persisted ✓ receipt <prefix>" or an inline error with
+ * the object retained in memory — honest state, no silent loss). On load,
+ * persisted objects hydrate the working panel (persisted wins on id
+ * collision), so refresh no longer loses state.
  *
  * Two-pane split mirroring DevCommandCenterTab, economically:
  *   LEFT  = aigentZ copilot (SmartTriadCopilotLayer, panel variant)
@@ -33,7 +45,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, CheckCircle, ChevronDown, ClipboardCheck, FlaskConical, Landmark, Loader2, RefreshCw, ScrollText } from "lucide-react";
 import { SmartTriadCopilotLayer, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { experimentGet } from "./experimentStepFetch";
+import { personaFetch } from "@/utils/personaSpine";
 import type { DcirEvent } from "@/types/dcir";
+import type {
+  ExperimentLifecycleState,
+  ResearchExperiment,
+  ResearchFinding,
+  ResearchPublication,
+} from "@/types/research";
 import {
   applyResearchProposal,
   createEmptyResearchState,
@@ -92,6 +111,103 @@ interface PendingResearchProposal {
   proposal: ResearchProposal;
   /** Set when a prior Approve was rejected as an illegal lifecycle transition. */
   rejection?: string;
+}
+
+// ─── C2.2 persistence (per-object persist state + hydration merge) ───────────
+
+type ResearchObjectKind = "experiment" | "finding" | "publication";
+
+interface PersistStatus {
+  status: "saving" | "persisted" | "error";
+  receiptId?: string | null;
+  error?: string;
+}
+
+/** A row from GET /api/research/objects (the durable lab record). */
+interface PersistedResearchObject {
+  objectKind: ResearchObjectKind;
+  objectId: string;
+  payload: Record<string, unknown>;
+  lifecycleState: string;
+  receiptId?: string | null;
+}
+
+const persistKey = (kind: ResearchObjectKind, id: string) => `${kind}:${id}`;
+
+/** Fold persisted rows into the in-memory state — persisted wins on id
+ * collision (the server re-validated and stored it; session memory yields). */
+function mergePersistedObjects(
+  prev: ResearchProposalState,
+  rows: PersistedResearchObject[],
+): ResearchProposalState {
+  if (rows.length === 0) return prev;
+  const experiments = [...prev.experiments];
+  const findings = [...prev.findings];
+  const publications = [...prev.publications];
+  for (const row of rows) {
+    if (row.objectKind === "experiment") {
+      const entry = {
+        experiment: row.payload as unknown as ResearchExperiment,
+        lifecycle: row.lifecycleState as ExperimentLifecycleState,
+      };
+      const i = experiments.findIndex((e) => e.experiment.id === row.objectId);
+      if (i >= 0) experiments[i] = entry;
+      else experiments.push(entry);
+    } else if (row.objectKind === "finding") {
+      const entry = row.payload as unknown as ResearchFinding;
+      const i = findings.findIndex((f) => f.id === row.objectId);
+      if (i >= 0) findings[i] = entry;
+      else findings.push(entry);
+    } else if (row.objectKind === "publication") {
+      const entry = row.payload as unknown as ResearchPublication;
+      const i = publications.findIndex((p) => p.id === row.objectId);
+      if (i >= 0) publications[i] = entry;
+      else publications.push(entry);
+    }
+  }
+  return { experiments, findings, publications, updatedAt: new Date().toISOString() };
+}
+
+/** The object a committed apply created/advanced — reference diff (untouched
+ * entries keep their reference; changed ones are fresh objects). */
+function committedObjectOf(
+  prev: ResearchProposalState,
+  next: ResearchProposalState,
+  kind: ResearchProposalKind,
+): { objectKind: ResearchObjectKind; objectId: string } | null {
+  const effect = RESEARCH_PROPOSAL_EFFECT[kind];
+  if (effect.object === "experiment") {
+    const entry = next.experiments.find((e) => !prev.experiments.includes(e));
+    return entry ? { objectKind: "experiment", objectId: entry.experiment.id } : null;
+  }
+  if (effect.object === "finding") {
+    const entry = next.findings.find((f) => !prev.findings.includes(f));
+    return entry ? { objectKind: "finding", objectId: entry.id } : null;
+  }
+  const entry = next.publications.find((p) => !prev.publications.includes(p));
+  return entry ? { objectKind: "publication", objectId: entry.id } : null;
+}
+
+/** Honest per-object persist line: saving / persisted ✓ receipt <prefix> /
+ * inline error (the object stays in session memory either way). */
+function PersistLine({ status }: { status?: PersistStatus }) {
+  if (!status) return null;
+  if (status.status === "saving") {
+    return <span className="text-[10px] text-slate-500">persisting…</span>;
+  }
+  if (status.status === "persisted") {
+    return (
+      <span className="text-[10px] text-emerald-400/80">
+        persisted ✓{status.receiptId ? ` receipt ${status.receiptId.slice(0, 8)}` : ""}
+        {status.error ? ` (${status.error})` : ""}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[10px] text-rose-400">
+      not persisted — {status.error ?? "persist failed"} (kept in session memory)
+    </span>
+  );
 }
 
 // ─── Tolerant payload getters (mirror applyResearchProposal coercion) ────────
@@ -266,11 +382,16 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
   }, []);
 
   // ── C2.1 research proposals — SUGGEST-ONLY, operator-gated. Pending cards
-  // await approval; committed objects live in in-memory research state (this
-  // slice; persistence is a named follow-on). Nothing auto-commits.
+  // await approval; committed objects live in in-memory research state,
+  // persisted to research_objects on approve (C2.2). Nothing auto-commits.
   const [pending, setPending] = useState<PendingResearchProposal[]>([]);
   const [researchState, setResearchState] = useState<ResearchProposalState>(() => createEmptyResearchState());
   const proposalSeq = useRef(0);
+
+  // ── C2.2 persistence — per-object persist state (keyed `${kind}:${id}`)
+  // and honest degradation when the persisted record is unreachable.
+  const [persistStatus, setPersistStatus] = useState<Record<string, PersistStatus>>({});
+  const [hydrateError, setHydrateError] = useState<string | null>(null);
 
   // Fired after each chat turn with the proposals the server extracted from
   // aigentZ's ```research_data fences. Append non-empty batches (a refine emits
@@ -287,22 +408,66 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
     ]);
   }, []);
 
-  const approveProposal = useCallback((key: string) => {
-    setPending(prev => {
-      const entry = prev.find(e => e.key === key);
-      if (!entry) return prev;
-      const result = applyResearchProposal(researchState, entry.proposal);
-      if (!result.committed) {
-        // Illegal lifecycle transition — surface the reason IN PLACE, keep the
-        // card, never commit (Content Capsule Containment: no orphan output).
-        observe(surfacePromptSelectedEvent(SURFACE, `proposal rejected: ${researchProposalKindLabel(entry.proposal.kind)}`));
-        return prev.map(e => (e.key === key ? { ...e, rejection: result.rejection } : e));
+  // C2.2 — persist an approved proposal to the durable lab record. MUST ride
+  // personaFetch (spine-resolving route — raw fetch silently 401s). Failure
+  // surfaces inline on the working object; it stays in session memory.
+  const persistApproved = useCallback(async (
+    proposal: ResearchProposal,
+    committed: { objectKind: ResearchObjectKind; objectId: string },
+  ) => {
+    const key = persistKey(committed.objectKind, committed.objectId);
+    setPersistStatus(prev => ({ ...prev, [key]: { status: "saving" } }));
+    try {
+      const res = await personaFetch("/api/research/objects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: proposal.kind, proposal }),
+      });
+      const text = await res.text();
+      let data: Record<string, unknown> | null = null;
+      if (text.trim().length > 0) {
+        try { data = JSON.parse(text) as Record<string, unknown>; } catch { /* non-JSON body — handled below */ }
       }
-      setResearchState(result.state);
-      observe(surfacePromptSelectedEvent(SURFACE, `proposal approved: ${researchProposalKindLabel(entry.proposal.kind)} — ${entry.proposal.summary}`));
-      return prev.filter(e => e.key !== key);
-    });
-  }, [researchState, observe]);
+      if (!res.ok || !data || data.ok !== true) {
+        const error =
+          (data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`;
+        setPersistStatus(prev => ({ ...prev, [key]: { status: "error", error } }));
+        return;
+      }
+      setPersistStatus(prev => ({
+        ...prev,
+        [key]: {
+          status: "persisted",
+          receiptId: typeof data.receiptId === "string" ? data.receiptId : null,
+          ...(typeof data.receiptError === "string" ? { error: data.receiptError } : {}),
+        },
+      }));
+    } catch (err) {
+      setPersistStatus(prev => ({
+        ...prev,
+        [key]: { status: "error", error: err instanceof Error ? err.message : "persist failed" },
+      }));
+    }
+  }, []);
+
+  const approveProposal = useCallback((key: string) => {
+    const entry = pending.find(e => e.key === key);
+    if (!entry) return;
+    const result = applyResearchProposal(researchState, entry.proposal);
+    if (!result.committed) {
+      // Illegal lifecycle transition — surface the reason IN PLACE, keep the
+      // card, never commit (Content Capsule Containment: no orphan output).
+      observe(surfacePromptSelectedEvent(SURFACE, `proposal rejected: ${researchProposalKindLabel(entry.proposal.kind)}`));
+      setPending(prev => prev.map(e => (e.key === key ? { ...e, rejection: result.rejection } : e)));
+      return;
+    }
+    // Optimistic in-memory apply (instant UI), then persist + receipt (C2.2).
+    setResearchState(result.state);
+    setPending(prev => prev.filter(e => e.key !== key));
+    observe(surfacePromptSelectedEvent(SURFACE, `proposal approved: ${researchProposalKindLabel(entry.proposal.kind)} — ${entry.proposal.summary}`));
+    const committed = committedObjectOf(researchState, result.state, entry.proposal.kind);
+    if (committed) void persistApproved(entry.proposal, committed);
+  }, [pending, researchState, observe, persistApproved]);
 
   const dismissProposal = useCallback((key: string) => {
     setPending(prev => prev.filter(e => e.key !== key));
@@ -332,6 +497,26 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
       resultCount = rows.length;
     } catch (err) {
       setResultsError(err instanceof Error ? err.message : "results unavailable");
+    }
+    // C2.2 — hydrate the working panel from the persisted lab record so a
+    // refresh no longer loses approved objects. Persisted wins on id
+    // collision; an in-flight save is never clobbered by hydration.
+    try {
+      const data = await experimentGet("/api/research/objects");
+      const rows = (data.objects as PersistedResearchObject[]) ?? [];
+      setResearchState(prev => mergePersistedObjects(prev, rows));
+      setPersistStatus(prev => {
+        const next = { ...prev };
+        for (const row of rows) {
+          const key = persistKey(row.objectKind, row.objectId);
+          if (next[key]?.status === "saving") continue;
+          next[key] = { status: "persisted", receiptId: row.receiptId ?? null };
+        }
+        return next;
+      });
+      setHydrateError(null);
+    } catch (err) {
+      setHydrateError(err instanceof Error ? err.message : "persisted objects unavailable");
     }
     setRefreshing(false);
     observe(surfaceDataRefreshedEvent(SURFACE, `${expCount} experiments · ${resultCount} canonical results`));
@@ -537,15 +722,15 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
             )}
           </div>
 
-          {/* Working research objects — committed from approved proposals this
-              session (in-memory; persistence + receipting is a named follow-on). */}
+          {/* Working research objects — committed from approved proposals,
+              persisted to research_objects + receipted on approve (C2.2). */}
           {(researchState.experiments.length > 0 ||
             researchState.findings.length > 0 ||
             researchState.publications.length > 0) && (
             <div className="rounded-xl border border-emerald-800/50 bg-emerald-950/20 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <ScrollText className="h-3.5 w-3.5 text-emerald-300" />
-                <h4 className="text-xs font-semibold text-slate-100">Working research objects (approved this session)</h4>
+                <h4 className="text-xs font-semibold text-slate-100">Working research objects (approved · persisted)</h4>
               </div>
               <div className="space-y-2">
                 {researchState.experiments.map((e) => (
@@ -553,6 +738,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
                     <span className="font-mono font-semibold text-slate-200">{e.experiment.id}</span>
                     <span className="text-slate-400">{e.experiment.family}</span>
                     <span className="rounded px-1.5 py-0.5 text-[10px] bg-violet-500/20 text-violet-300 border border-violet-500/40">{e.lifecycle}</span>
+                    <PersistLine status={persistStatus[persistKey("experiment", e.experiment.id)]} />
                   </div>
                 ))}
                 {researchState.findings.map((f) => (
@@ -560,6 +746,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
                     <span className="font-mono text-slate-300">{f.experimentId || "—"}</span>
                     <span className="text-slate-300 break-words flex-1 min-w-0">{f.claim}</span>
                     <span className="rounded px-1.5 py-0.5 text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">{f.lifecycle}</span>
+                    <PersistLine status={persistStatus[persistKey("finding", f.id)]} />
                   </div>
                 ))}
                 {researchState.publications.map((p) => (
@@ -567,17 +754,27 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
                     <span className="text-slate-200 break-words flex-1 min-w-0">{p.title}</span>
                     <span className="text-slate-500">{p.kind}</span>
                     <span className="rounded px-1.5 py-0.5 text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/40">{p.lifecycle}</span>
+                    <PersistLine status={persistStatus[persistKey("publication", p.id)]} />
                   </div>
                 ))}
               </div>
             </div>
           )}
 
+          {/* Honest degradation — the persisted lab record is unreachable. */}
+          {hydrateError && (
+            <p className="text-[10px] text-rose-400/80 px-1">
+              Persisted research objects unavailable — {hydrateError}. Approved objects stay in session
+              memory until the record is reachable again.
+            </p>
+          )}
+
           {/* Honest scope note */}
           <p className="text-[10px] text-slate-600 px-1">
-            CFS-019 C2 (narrate) + C2.1 (propose): aigentZ narrates the live lab state and can propose
-            structured research objects. Proposals are suggest-only and lifecycle-legal — nothing commits
-            without your approval; approved objects live in session memory (persistence is a named follow-on).
+            CFS-019 C2 (narrate) + C2.1 (propose) + C2.2 (persist): aigentZ narrates the live lab state and
+            can propose structured research objects. Proposals are suggest-only and lifecycle-legal — nothing
+            commits without your approval; approved objects persist to the lab record and each approval is
+            receipted (research_lifecycle_transition, DVN-anchorable).
           </p>
         </div>
       </div>
