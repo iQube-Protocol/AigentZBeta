@@ -3054,3 +3054,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-a865e95.md](../build_/COMMITS/COMMIT-a865e95.md)
 - Message: Expand the DCIR observation seam to aigentMe (observe-mode-first)
+
+## Commit `c9514f6` — 2026-07-07T13:31:28Z
+- Type: `push`
+- Brief: [COMMIT-c9514f6.md](../build_/COMMITS/COMMIT-c9514f6.md)
+- Message: Build CCRL Phase C2.1: structured research proposal kinds for the research copilot

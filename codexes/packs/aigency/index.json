@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T13:27:43.005Z",
+  "last_updated": "2026-07-07T13:34:14.947Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a865e95ac04b7599b55d8ba560c0eee50ce4b0ee",
-  "latest_commit_short": "a865e95",
-  "latest_commit_title": "Expand the DCIR observation seam to aigentMe (observe-mode-first)",
+  "latest_commit": "c9514f65593771225ef8a0cf451e1bf3d692def1",
+  "latest_commit_short": "c9514f6",
+  "latest_commit_title": "Build CCRL Phase C2.1: structured research proposal kinds for the research copilot",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c9514f6",
+      "full_sha": "c9514f65593771225ef8a0cf451e1bf3d692def1",
+      "title": "Build CCRL Phase C2.1: structured research proposal kinds for the research copilot",
+      "author": "Claude",
+      "timestamp": "2026-07-07T13:31:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c9514f6.md"
+    },
     {
       "sha": "a865e95",
       "full_sha": "a865e95ac04b7599b55d8ba560c0eee50ce4b0ee",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-24T21:32:00Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a1f4dc6.md"
-    },
-    {
-      "sha": "1129315",
-      "full_sha": "1129315c8a08bac44ddf90a2f6710ab3bc44b961",
-      "title": "enforce no-hallucination grounding on aigentMe narrative generators",
-      "author": "Claude",
-      "timestamp": "2026-06-24T22:04:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1129315.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
