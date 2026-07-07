@@ -11,8 +11,14 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Beaker, BookOpen, FlaskConical, Landmark, Loader2, ShieldCheck } from "lucide-react";
+import { Beaker, BookOpen, FlaskConical, Landmark, Loader2, ShieldCheck, Compass } from "lucide-react";
 import { experimentGet } from "./experimentStepFetch";
+import {
+  APPLIED_RESEARCH_CHAIN,
+  RESEARCH_THEMES,
+  OPEN_CONSTITUTIONAL_QUESTIONS,
+  CONSTITUTIONAL_DISTINCTIONS,
+} from "@/types/research";
 
 interface ResultRow {
   id: string;
@@ -285,6 +291,44 @@ export default function CCRLDashboardTab() {
         <p className="mt-3 text-[11px] text-slate-500 flex items-center gap-1.5">
           <Beaker className="h-3 w-3" />
           Experiment series: Foundational Validation (EXP-001–004, run) · Platform Sovereignty PSE-1..5 (PSE-1 built; 2–5 named, designed before spend — CFS-018)
+        </p>
+      </div>
+
+      {/* Research agenda — Research Roadmap Expansion (CFS-019 amendment 2026-07-07) */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Compass className="h-4 w-4 text-slate-300" />
+          <h3 className="text-sm font-semibold text-slate-100">Research agenda — Applied Constitutional Research</h3>
+        </div>
+        <p className="text-[11px] text-slate-400 mb-3">
+          Research aims at constitutional capabilities that can be implemented, validated, and integrated — implementation
+          is part of research. Preferred outcome chain:{" "}
+          <span className="text-slate-300 font-mono">{APPLIED_RESEARCH_CHAIN.join(" → ")}</span>
+        </p>
+        <div className="text-xs text-slate-300">
+          <div className="mb-1">
+            <span className="text-amber-300 font-semibold">Programme D — Reasoning Systems</span>{" "}
+            <span className="text-slate-500">(exploratory · long-term · hypothesis-driven)</span>
+          </div>
+          <ul className="space-y-1 mb-3">
+            {RESEARCH_THEMES.map((t) => (
+              <li key={t.id}>
+                <span className="text-slate-200 font-semibold">{t.title}:</span>{" "}
+                <span className="text-slate-400">{t.investigate.join(", ")}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mb-1 text-slate-400 font-semibold">Open constitutional questions (kept as hypotheses, not conclusions)</div>
+          <ul className="space-y-0.5 mb-3 list-disc list-inside text-slate-400">
+            {OPEN_CONSTITUTIONAL_QUESTIONS.map((q) => (
+              <li key={q}>{q}</li>
+            ))}
+          </ul>
+        </div>
+        <p className="text-[11px] text-slate-500">
+          <span className="font-semibold text-slate-400">Research method (guidance, not a law):</span>{" "}
+          progress comes from finding the correct constitutional distinctions, then validating them experimentally —{" "}
+          {CONSTITUTIONAL_DISTINCTIONS.join(" · ")}
         </p>
       </div>
     </div>

@@ -177,9 +177,140 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
  * sits in the PSE series pending its programme letter.
  */
 export const RESEARCH_PROGRAMMES = [
-  { id: 'A', name: 'Invariant Knowledge', experiments: ['EXP-001'] },
-  { id: 'B', name: 'Temporal Composition', experiments: ['EXP-002'] },
-  { id: 'C', name: 'Reasoning Compression', experiments: ['EXP-003'] },
+  { id: 'A', name: 'Invariant Knowledge', experiments: ['EXP-001'], exploratory: false },
+  { id: 'B', name: 'Temporal Composition', experiments: ['EXP-002'], exploratory: false },
+  { id: 'C', name: 'Reasoning Compression', experiments: ['EXP-003'], exploratory: false },
+  // Research Roadmap Expansion (CFS-019 amendment, 2026-07-07). A long-term,
+  // EXPLORATORY programme — no experiments yet. Its purpose is to identify the
+  // invariant structures stable across reasoning systems and the properties
+  // unique to particular forms of reasoning, framed as hypotheses, never
+  // assuming answers where evidence does not yet exist.
+  { id: 'D', name: 'Reasoning Systems', experiments: [], exploratory: true },
+] as const;
+
+// ─── Research Roadmap Expansion (CFS-019 amendment, 2026-07-07) ──────────────
+// The applied-research agenda the CCRL Copilot plans against. Incorporated into
+// the EXISTING roadmap/registry — not a parallel framework. Canary-pinned.
+
+/**
+ * Applied Constitutional Research (CFS-019 guiding principle). Research aims not
+ * at theory alone but at constitutional capabilities that can be implemented,
+ * experimentally validated, and integrated. Implementation is PART of research,
+ * not a downstream activity. The preferred outcome of every programme is this
+ * chain — experimental evidence, measured consequence, and constitutional
+ * standing together form the empirical validation process.
+ */
+export const APPLIED_RESEARCH_CHAIN = [
+  'Discovery',
+  'Compression',
+  'Implementation',
+  'Validation',
+  'Standing',
+  'Canonical Knowledge',
+] as const;
+
+/**
+ * Roadmap prioritization — prefer research satisfying ALL THREE. Preserves the
+ * applied emphasis while letting exploratory programmes mature over time.
+ */
+export const ROADMAP_PRIORITIZATION_CRITERIA = [
+  'Advances foundational constitutional understanding',
+  'Can be experimentally validated using the current platform',
+  'Has a plausible pathway to improving constitutional capability',
+] as const;
+
+/** What every research item should seek to produce (research governance). */
+export const RESEARCH_OUTPUT_KINDS = [
+  'validated invariants',
+  'constitutional refinements',
+  'engineering capabilities',
+  'experimental evidence',
+  'implementation guidance',
+] as const;
+
+/**
+ * Initial research themes of the Reasoning Systems programme. `exploratory`
+ * items remain explicitly marked until sufficient evidence exists to produce
+ * implementation outcomes (research governance).
+ */
+export interface ResearchTheme {
+  id: string;
+  title: string;
+  investigate: string[];
+  hypothesis?: string;
+  exploratory: boolean;
+}
+
+export const RESEARCH_THEMES: ResearchTheme[] = [
+  {
+    id: 'reasoning-systems',
+    title: 'Reasoning Systems',
+    investigate: [
+      'biological reasoning', 'machine reasoning', 'collective reasoning', 'institutional reasoning',
+      'shared invariant structures', 'unique properties', 'constitutional implications',
+    ],
+    exploratory: true,
+  },
+  {
+    id: 'representational-artifacts',
+    title: 'Representational Artifacts',
+    investigate: ['the role of representational artifacts in reasoning'],
+    hypothesis:
+      'Reasoning performed through shared representational artifacts provides the common substrate through which biological and machine reasoning contribute to constitutional invariant discovery. The objective is not to prove this but to experimentally refine or falsify it.',
+    exploratory: true,
+  },
+  {
+    id: 'invariant-discovery',
+    title: 'Invariant Discovery',
+    investigate: [
+      'how invariants emerge', 'how invariants evolve', 'reasoning compression',
+      'invariant stability', 'invariant provenance', 'invariant supersession',
+    ],
+    exploratory: true,
+  },
+  {
+    id: 'constitutional-invariant-evolution',
+    title: 'Constitutional Invariant Evolution',
+    investigate: [
+      'natural invariants', 'constitutional invariants',
+      'relationships between discovered and ratified invariants',
+      'constitutional standing of invariants', 'mechanisms for constitutional evolution',
+    ],
+    exploratory: true,
+  },
+] as const as ResearchTheme[];
+
+/**
+ * Open Constitutional Questions — maintained as EXPLICIT research questions,
+ * NOT conclusions. Hypothesis-driven until supported by experimental evidence.
+ */
+export const OPEN_CONSTITUTIONAL_QUESTIONS = [
+  'What differentiates biological and machine reasoning once representational artifacts are held constant?',
+  'What role does embodiment play in reasoning?',
+  'What role does perception play?',
+  'What role does sentience play?',
+  'What role does intentionality play?',
+  'What role does consciousness play?',
+  'Which of these properties are constitutionally relevant?',
+  'Which are implementation-specific rather than constitutional?',
+  'How should constitutional systems evolve as additional classes of reasoning systems emerge?',
+] as const;
+
+/**
+ * The laboratory's emerging research METHOD (operator note, 2026-07-07):
+ * progress comes not from grand theories but from discovering the correct
+ * constitutional DISTINCTIONS, then validating them experimentally. Recorded as
+ * method, NOT as a ratified law — it informs how research questions are
+ * structured. Each pair is a distinction the work has already surfaced.
+ */
+export const CONSTITUTIONAL_DISTINCTIONS = [
+  'Information ≠ Knowledge',
+  'Knowledge ≠ Invariants',
+  'Standing ≠ Truth',
+  'Standing ≠ Reach',
+  'Human reasoning ≠ Machine reasoning',
+  'Artificial ≠ Machine',
+  'Natural invariants ≠ Constitutional invariants',
 ] as const;
 
 // ─── Transition legality ─────────────────────────────────────────────────────

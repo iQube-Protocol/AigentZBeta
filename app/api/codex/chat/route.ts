@@ -47,6 +47,13 @@ import {
   extractResearchProposals,
 } from '@/services/research/proposals';
 import { researchStageProposalKind, isResearchLoopStage } from '@/services/research/researchLoop';
+import {
+  APPLIED_RESEARCH_CHAIN,
+  ROADMAP_PRIORITIZATION_CRITERIA,
+  RESEARCH_THEMES,
+  OPEN_CONSTITUTIONAL_QUESTIONS,
+  CONSTITUTIONAL_DISTINCTIONS,
+} from '@/types/research';
 import { renderObservationLines } from '@/services/dcir/eventStream';
 import { renderStateSnapshotLines, DCIR_OBSERVED_PATTERN_LIMIT } from '@/services/dcir/stateEngine';
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
@@ -2262,10 +2269,32 @@ function buildSystemPrompt(
           }
         }
 
+        // Research Roadmap Expansion (CFS-019 amendment, 2026-07-07) — the
+        // applied-research agenda the Copilot PLANS against. Static charter
+        // constants (types/research.ts), rendered so proposals are framed by
+        // the roadmap, open questions stay hypotheses (never asserted answers),
+        // and the applied-research chain + the method of distinctions inform how
+        // the copilot structures research questions.
+        lines.push('');
+        lines.push('### Research agenda (CFS-019 roadmap — plan against THIS)');
+        lines.push(
+          `- Applied Constitutional Research: the objective is not theory alone but constitutional capabilities that can be implemented, validated, and integrated — implementation is PART of research. Preferred outcome chain: ${APPLIED_RESEARCH_CHAIN.join(' → ')}.`,
+        );
+        lines.push(`- Prioritize research satisfying ALL THREE: ${ROADMAP_PRIORITIZATION_CRITERIA.map((c) => c.toLowerCase()).join('; ')}.`);
+        lines.push('- Reasoning Systems programme (EXPLORATORY — long-term; frame every item as a hypothesis, never assume answers where evidence does not yet exist). Themes:');
+        for (const t of RESEARCH_THEMES) {
+          lines.push(`  • **${t.title}** — investigate: ${t.investigate.join(', ')}.${t.hypothesis ? ` Working hypothesis (refine or falsify, do not prove): ${t.hypothesis}` : ''}`);
+        }
+        lines.push('- Open Constitutional Questions — keep these as EXPLICIT questions, hypothesis-driven until experimental evidence supports an answer; never present as conclusions:');
+        for (const q of OPEN_CONSTITUTIONAL_QUESTIONS) lines.push(`  • ${q}`);
+        lines.push(
+          `- Research METHOD (the laboratory's emerging style — guidance, NOT a ratified law): progress comes from discovering the correct constitutional DISTINCTIONS and then validating them experimentally. Distinctions already surfaced: ${CONSTITUTIONAL_DISTINCTIONS.join('; ')}. When structuring a research question, prefer sharpening a distinction over proposing a grand theory.`,
+        );
+
         // DCIR observation seam — shared block (see pushDcirObservationLines).
         pushDcirObservationLines(lines, gc);
 
-        groundContextBlock = `\n\n## CCRL research ground truth — narrate THIS, do not invent\n\nYou are aigentZ operating as the CCRL research copilot (the Constitutional Cybernetics Research Laboratory, CFS-019). The operator's right pane shows the live lab state below. Your replies MUST narrate this exact state — cite experiments by id and family, lifecycle states as DERIVED facts (published = a canonical run exists; replicated = runs on ≥2 distinct providers), series claims verbatim, and results by their hash commitments. NEVER invent experiments, runs, providers, or lifecycle states not present below; when a section is marked UNAVAILABLE, say so honestly. Narration is your PRIMARY mandate; do NOT emit [layout:...] tags on this surface.\n\n${lines.join('\n')}`;
+        groundContextBlock = `\n\n## CCRL research ground truth — narrate THIS, do not invent\n\nYou are aigentZ operating as the CCRL research copilot (the Constitutional Cybernetics Research Laboratory, CFS-019). The operator's right pane shows the live lab state below. Your replies MUST narrate this exact state — cite experiments by id and family, lifecycle states as DERIVED facts (published = a canonical run exists; replicated = runs on ≥2 distinct providers), series claims verbatim, and results by their hash commitments. When you plan or propose research, frame it by the Research agenda below: prioritize applied items (implementable + experimentally validatable + a pathway to constitutional capability), keep open questions as hypotheses rather than answers, and structure questions by sharpening a constitutional distinction. NEVER invent experiments, runs, providers, or lifecycle states not present below; when a section is marked UNAVAILABLE, say so honestly. Narration is your PRIMARY mandate; do NOT emit [layout:...] tags on this surface.\n\n${lines.join('\n')}`;
         // CFS-019 C2.1 — research proposal kinds (ICE reuse): when the operator
         // asks aigentZ to DESIGN an experiment, RATIFY a protocol, RECORD a
         // finding, or DRAFT a publication, it emits a structured
