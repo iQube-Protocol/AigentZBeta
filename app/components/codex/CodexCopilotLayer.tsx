@@ -70,6 +70,16 @@ interface CodexCopilotLayerProps {
     | void
   >;
   getChatRequestContext?: (prompt: string) => Record<string, unknown> | undefined;
+  /**
+   * Optional right-pane ground truth (DCIR observation seam, CFS-020).
+   * When present, it is forwarded verbatim as the `groundContext` field of
+   * the /api/codex/chat POST body — the same field name and shape
+   * SmartTriadCopilotLayer sends — so the server needs no new contract.
+   * Defaults to undefined: cartridges that don't pass it get a byte-identical
+   * request body (zero behavior change). Purely additive; observation only —
+   * it never gates or alters anything in this layer.
+   */
+  groundContext?: Record<string, unknown>;
   initialMessage?: string;
   seedMessages?: CopilotMessage[];
   messages?: CopilotMessage[];
@@ -157,6 +167,7 @@ export function CodexCopilotLayer({
   onPrompt,
   onUserPrompt,
   getChatRequestContext,
+  groundContext,
   initialMessage,
   seedMessages,
   messages,
@@ -861,6 +872,10 @@ export function CodexCopilotLayer({
           personaId: personaId || null,
           contextId: contextId || null,
           chatHistory,
+          // DCIR observation seam (optional, additive): omitted entirely when
+          // the host cartridge doesn't pass the groundContext prop, so every
+          // existing caller's request body is unchanged.
+          ...(groundContext ? { groundContext } : {}),
           ...extraContext,
         }),
       });

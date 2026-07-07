@@ -313,6 +313,68 @@ export function aigentMeSpecialistConsultedEvent(specialistId: string): DcirEven
   });
 }
 
+// ─── Studio Composer typed helpers (CFS-020 D1+, third surface) ─────────────
+// Third instrumented surface after the Dev Command Center and the aigentMe
+// welcome (operator direction 2026-07: "once we're happy with DCIR we can
+// then expand it to aigentMe and the studio composer"). Same observe-mode
+// discipline: each wraps an EXISTING ComposerStudio seam as a side-effect —
+// nothing blocks a render, gates an affordance, or auto-acts. Payloads are
+// kind + short CATEGORY labels (template slug / skill kind / provider id /
+// preview device) — NEVER an experience name, prompt body, asset URL, or any
+// T0 identifier. The generic surface helpers above don't fit these moments
+// (they are workflow/artefact/skill lifecycle, not open/refresh/prompt), so
+// these are added by composition in the same style as the aigentMe set.
+
+/** Operator started a composition session from a template — template slug only. */
+export function studioSessionStartedEvent(templateKind: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'WorkflowAdvanced',
+    runtime: 'observation',
+    summary: `composition session started: ${templateKind}`,
+    capsuleScope: 'composer-session',
+  });
+}
+
+/** A composition session completed and produced an experience — template slug only, never the experience name. */
+export function studioExperienceComposedEvent(templateKind: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'DocumentCreated',
+    runtime: 'action',
+    summary: `experience composed: ${templateKind}`,
+    capsuleScope: 'composer-session',
+  });
+}
+
+/** A generation skill produced output — skill kind + provider id only, never the prompt or asset URL. */
+export function studioSkillOutputEvent(skillKind: string, provider?: string | null): DcirEvent {
+  return emitDcirEvent({
+    kind: 'ToolOutputProduced',
+    runtime: 'action',
+    summary: `skill output produced: ${skillKind}${provider ? ` (${provider})` : ''}`,
+    capsuleScope: 'production',
+  });
+}
+
+/** Operator published/handed off an experience to the registry (codex handoff). */
+export function studioExperiencePublishedEvent(): DcirEvent {
+  return emitDcirEvent({
+    kind: 'SystemEvent',
+    runtime: 'action',
+    summary: 'experience published to registry',
+    capsuleScope: 'publish',
+  });
+}
+
+/** The runtime preview rendered — device class only. */
+export function studioPreviewRenderedEvent(device: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'SystemEvent',
+    runtime: 'observation',
+    summary: `preview rendered: ${device}`,
+    capsuleScope: 'preview',
+  });
+}
+
 // ─── Observation seam (ground-context rendering) ────────────────────────────
 
 /**
