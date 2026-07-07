@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T06:06:12.484Z",
+  "last_updated": "2026-07-07T06:19:03.622Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "346eca6088c06f1a9c6acb146f6d39c97740ee43",
-  "latest_commit_short": "346eca6",
-  "latest_commit_title": "Wire aigentZ default turn to gpt-4o (reliable stage-fence emission)",
+  "latest_commit": "585165e31333e22520ca3a1c2af03f659e72e3a2",
+  "latest_commit_short": "585165e",
+  "latest_commit_title": "Build CCRL Phase E first slice: Invariant Field Explorer (Computational Epistemology made visible)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "585165e",
+      "full_sha": "585165e31333e22520ca3a1c2af03f659e72e3a2",
+      "title": "Build CCRL Phase E first slice: Invariant Field Explorer (Computational Epistemology made visible)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T06:16:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-585165e.md"
+    },
     {
       "sha": "346eca6",
       "full_sha": "346eca6088c06f1a9c6acb146f6d39c97740ee43",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-24T23:24:58Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-1b181d3.md"
-    },
-    {
-      "sha": "c5f03ee",
-      "full_sha": "c5f03eeb43dbeeaba96f02a20bf916caa00b0909",
-      "title": "add Google Tasks read ingest (completed -> log, pending -> to-dos)",
-      "author": "Claude",
-      "timestamp": "2026-06-25T00:35:17Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c5f03ee.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
