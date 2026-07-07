@@ -45,6 +45,54 @@ export async function experimentGet(url: string): Promise<Record<string, unknown
   return once(url, { cache: "no-store" });
 }
 
+// ─── Run-lifecycle (instruments ↔ institution, CFS-019 §4) ───────────────────
+
+export interface RunLifecycleOutcome {
+  ok: boolean;
+  reason?: string;
+  from?: string;
+  to?: string | null;
+  state?: string;
+  created?: boolean;
+}
+
+/**
+ * Fire a run-lifecycle event at /api/research/run-lifecycle — fire-and-forget:
+ * NEVER throws (a lifecycle-recording failure must not disturb the run/publish
+ * flow) and returns a small outcome for inline confirmation, or null when the
+ * request itself failed. Uses personaFetch (spine-authed) like every other
+ * call here — never raw fetch.
+ */
+export async function recordRunLifecycle(
+  experimentId: string,
+  event: "run-started" | "results-published",
+  evidence: string,
+): Promise<RunLifecycleOutcome | null> {
+  try {
+    const res = await personaFetch("/api/research/run-lifecycle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ experimentId, event, evidence }),
+    });
+    const text = await res.text();
+    if (text.trim().length === 0) return null;
+    return JSON.parse(text) as RunLifecycleOutcome;
+  } catch {
+    return null;
+  }
+}
+
+/** One-line inline confirmation for a run-lifecycle outcome. */
+export function lifecycleNote(outcome: RunLifecycleOutcome | null): string {
+  if (!outcome) return "lifecycle: not recorded";
+  if (outcome.ok) {
+    const arrow =
+      outcome.from && outcome.to ? `${outcome.from} → ${outcome.to}` : outcome.state ?? "advanced";
+    return `lifecycle: ${arrow}${outcome.created ? " (object created)" : ""} ✓`;
+  }
+  return `lifecycle: no advance — ${outcome.reason ?? "refused"} (${outcome.state ?? outcome.from ?? "?"})`;
+}
+
 /** POST one experiment step, with one automatic retry on failure. */
 export async function experimentStep(
   url: string,

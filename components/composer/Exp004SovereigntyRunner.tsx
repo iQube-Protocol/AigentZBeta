@@ -25,7 +25,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Play, ShieldCheck, Upload } from "lucide-react";
-import { experimentGet, experimentStep } from "./experimentStepFetch";
+import { experimentGet, experimentStep, recordRunLifecycle, lifecycleNote } from "./experimentStepFetch";
 
 interface DrillTask {
   id: string;
@@ -274,7 +274,17 @@ export default function Exp004SovereigntyRunner() {
         aggregates,
         results,
       });
-      setPublishState(`published — sha256 ${(data.contentHash as string).slice(0, 12)}…`);
+      const publishedMsg = `published — sha256 ${(data.contentHash as string).slice(0, 12)}…`;
+      setPublishState(publishedMsg);
+      // Instruments ↔ institution (CFS-019): the run's canonical publication
+      // advances the research object one legal step. Fire-and-forget — a
+      // lifecycle-recording failure never disturbs the published result.
+      const lc = await recordRunLifecycle(
+        "EXP-004",
+        "results-published",
+        `EXP-004 run published: rung=${rung ?? "none"} provider=${publishProvider}`,
+      );
+      setPublishState(`${publishedMsg} · ${lifecycleNote(lc)}`);
     } catch (err) {
       setPublishState(err instanceof Error ? err.message : "publish failed");
     }

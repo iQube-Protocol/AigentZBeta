@@ -36,6 +36,10 @@ interface ChrysalisSummary {
 interface OverviewEntry {
   experiment: { id: string; layer: string; family: string; seriesId: string };
   lifecycle: string;
+  /** The receipted research-object state runs advance through the lifecycle
+   * (research_objects) — null until a run materialises it. When present it is
+   * the highlighted stage; the derived floor is the fallback. */
+  persistedLifecycle: string | null;
   publishedRuns: number;
   distinctProviders: number;
   latestRunAt: string | null;
@@ -73,6 +77,7 @@ const EXPERIMENT_FAMILY: Record<string, string> = {
   "EXP-002": "Temporal Fidelity",
   "EXP-003": "Computational Efficiency",
   "EXP-004": "Constitutional Sovereignty",
+  "EXP-005": "Provider Choice",
 };
 
 export default function CCRLDashboardTab() {
@@ -175,24 +180,30 @@ export default function CCRLDashboardTab() {
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
           <h3 className="text-sm font-semibold text-slate-100 mb-1">Experiment lifecycles (derived, never asserted)</h3>
           <p className="text-[11px] text-slate-500 mb-3">
-            published = a canonical run exists · replicated = runs on ≥2 distinct providers. Operator
-            transitions (protocol ratification, evaluation sign-off) are receipted via{" "}
-            <code className="text-slate-400">research_lifecycle_transition</code>.
+            Highlighted stage = the receipted research-object state (
+            <code className="text-slate-400">research_objects</code>) — runs advance it through{" "}
+            <code className="text-slate-400">research_lifecycle_transition</code>. Falls back to the
+            derived floor (published = a canonical run exists · replicated = runs on ≥2 distinct
+            providers) until a run materialises the object.
           </p>
           <div className="space-y-2">
-            {overview.map((o) => (
+            {overview.map((o) => {
+              // The receipted state (runs advance it) is the truth to highlight;
+              // the derived floor is the fallback until a run materialises it.
+              const activeStage = o.persistedLifecycle ?? o.lifecycle;
+              return (
               <div key={o.experiment.id} className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="w-20 font-semibold text-slate-200">{o.experiment.id}</span>
                 <span className="w-44 text-slate-400">{o.experiment.family}</span>
                 <span className="flex items-center gap-1">
                   {lifecycleOrder.map((stage, i) => {
-                    const reached = lifecycleOrder.indexOf(o.lifecycle) >= i;
+                    const reached = lifecycleOrder.indexOf(activeStage) >= i;
                     return (
                       <span
                         key={stage}
                         title={stage}
                         className={`rounded px-1.5 py-0.5 text-[10px] border ${
-                          stage === o.lifecycle
+                          stage === activeStage
                             ? "bg-violet-500/20 text-violet-300 border-violet-500/40 font-semibold"
                             : reached
                               ? "bg-emerald-500/10 text-emerald-300/70 border-emerald-500/20"
@@ -206,9 +217,11 @@ export default function CCRLDashboardTab() {
                 </span>
                 <span className="text-slate-500">
                   {o.publishedRuns} run{o.publishedRuns === 1 ? "" : "s"} · {o.distinctProviders} provider{o.distinctProviders === 1 ? "" : "s"}
+                  {o.persistedLifecycle ? " · receipted" : ""}
                 </span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { deriveOverview } from '@/services/research/lifecycle';
+import { overviewWithPersistedLifecycle } from '@/services/research/lifecycle';
 import { SERIES_REGISTRY, EXPERIMENT_LIFECYCLE } from '@/types/research';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,10 @@ export async function GET(request: NextRequest) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 
-  const overview = await deriveOverview();
+  // Derived floor (computed from the canonical record) + the receipted
+  // research-object state runs advance through the lifecycle. Two honest
+  // mechanisms, surfaced side by side — never conflated.
+  const overview = await overviewWithPersistedLifecycle();
   return NextResponse.json({
     ok: true,
     lifecycleOrder: EXPERIMENT_LIFECYCLE,

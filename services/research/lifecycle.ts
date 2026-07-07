@@ -25,6 +25,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { getInvariantsBySeedIds } from '@/services/invariants/store';
 import {
+  EXPERIMENT_LIFECYCLE,
   EXPERIMENT_REGISTRY,
   isLegalExperimentTransition,
   type ExperimentLifecycleState,
@@ -233,4 +234,253 @@ export async function recordResearchObjectCreated(input: {
     invariantSeedIds: input.governingInvariants ?? [],
   });
   return { ok, receiptId, ...(ok ? {} : { error: 'receipt write failed' }) };
+}
+
+// ─── Instruments ↔ institution — runs advance the research-object lifecycle ───
+
+export type ExperimentRunEvent = 'run-started' | 'results-published';
+
+/**
+ * The registry-derived FLOOR at which a run auto-materialises a research
+ * object. A registry experiment whose runner ships and is being exercised sits
+ * at `running` before any run is persisted — the SAME floor deriveOverview
+ * computes for a zero-run shipping experiment. Auto-materialisation uses this
+ * floor, then applies the run event as a legal transition on top of it.
+ */
+export const RUN_LIFECYCLE_FLOOR: ExperimentLifecycleState = 'running';
+
+/**
+ * Map a run event to the single legal target lifecycle state, given the
+ * object's current state. `run-started` moves toward `running` (legality still
+ * checked below — from `designed` it is illegal). `results-published` takes the
+ * ONE legal step within the evaluate→publish band; it deliberately NEVER drives
+ * `replicated` (replication is deriveOverview's computed multi-provider signal,
+ * never a single-run assertion). `null` target ⇒ honest refusal, no receipt.
+ */
+export function nextRunState(
+  event: ExperimentRunEvent,
+  from: ExperimentLifecycleState,
+): { to: ExperimentLifecycleState | null; reason?: string } {
+  if (event === 'run-started') return { to: 'running' };
+  // results-published: advance one legal step toward `published`, capped there.
+  if (from === 'running') return { to: 'evaluated' };
+  if (from === 'evaluated') return { to: 'published' };
+  if (from === 'published' || from === 'replicated') {
+    return { to: null, reason: 'already-published' };
+  }
+  // designed / protocol-ratified — a run was never recorded to publish from.
+  return { to: null, reason: 'run-not-started' };
+}
+
+/**
+ * Wire an EXP runner's run to its research-object lifecycle (CFS-019 §4 —
+ * instruments ↔ institution). Composition only: every state change rides the
+ * ONE receipt path (writeLifecycleReceipt, via recordResearchObjectCreated /
+ * recordExperimentTransition) as `research_lifecycle_transition`. NO second
+ * createActivityReceipt call site is introduced.
+ *
+ * Honest refusal over silent forcing: when the event maps to no legal step
+ * from the object's current state, NOTHING is recorded and
+ * `{ ok: false, reason }` is returned. Registry experiments predate C2.2 and
+ * carry no research_objects row — the first run auto-materialises the object at
+ * RUN_LIFECYCLE_FLOOR (receipted as a creation) BEFORE applying the transition,
+ * and the response carries `created: true`.
+ *
+ * `evidence` is a short T2-safe descriptor (provider/arm labels + counts only,
+ * never payloads or T0 identifiers). `personaId` is used server-side for the
+ * receipt exactly as recordExperimentTransition does — never echoed, never
+ * persisted in research_objects.
+ */
+export async function recordExperimentRunLifecycle(input: {
+  personaId: string;
+  experimentId: string;
+  event: ExperimentRunEvent;
+  evidence: string;
+}): Promise<{
+  ok: boolean;
+  reason?: string;
+  experimentId: string;
+  event: ExperimentRunEvent;
+  from: ExperimentLifecycleState;
+  to: ExperimentLifecycleState | null;
+  state: ExperimentLifecycleState;
+  created: boolean;
+  receiptId?: string | null;
+}> {
+  const { experimentId, event } = input;
+  const evidence = input.evidence.trim();
+
+  // Resolve the object's definition + current state from the persisted record;
+  // the pinned registry is authoritative for its own ids.
+  const listed = await listResearchObjects();
+  if (!listed.ok) {
+    return {
+      ok: false,
+      reason: listed.error ?? 'research objects unavailable',
+      experimentId,
+      event,
+      from: RUN_LIFECYCLE_FLOOR,
+      to: null,
+      state: RUN_LIFECYCLE_FLOOR,
+      created: false,
+    };
+  }
+  const persistedRow = listed.objects.find(
+    (o) => o.objectKind === 'experiment' && o.objectId === experimentId,
+  );
+  const registry = EXPERIMENT_REGISTRY.find((e) => e.id === experimentId);
+
+  // Establish the definition (payload) used for persistence + receipt invariants.
+  const definition: ResearchExperiment | undefined =
+    registry ??
+    (persistedRow ? (persistedRow.payload as unknown as ResearchExperiment) : undefined);
+  if (!definition || definition.id !== experimentId) {
+    return {
+      ok: false,
+      reason: `unknown experiment '${experimentId}'`,
+      experimentId,
+      event,
+      from: RUN_LIFECYCLE_FLOOR,
+      to: null,
+      state: RUN_LIFECYCLE_FLOOR,
+      created: false,
+    };
+  }
+  const payload = (persistedRow?.payload ?? (definition as unknown as Record<string, unknown>)) as Record<
+    string,
+    unknown
+  >;
+  const governingInvariants = definition.governingInvariants ?? [];
+
+  // Materialise the row at the registry floor when this experiment predates
+  // C2.2 (no persisted row) — the creation is itself receipted, one path.
+  let created = false;
+  let current: ExperimentLifecycleState = persistedRow
+    ? (persistedRow.lifecycleState as ExperimentLifecycleState)
+    : RUN_LIFECYCLE_FLOOR;
+  if (!persistedRow) {
+    if (!evidence) {
+      return {
+        ok: false,
+        reason: 'evidence required — a run event without evidence is an assertion',
+        experimentId,
+        event,
+        from: current,
+        to: null,
+        state: current,
+        created: false,
+      };
+    }
+    await upsertResearchObject({
+      objectKind: 'experiment',
+      objectId: experimentId,
+      payload,
+      lifecycleState: RUN_LIFECYCLE_FLOOR,
+    });
+    const creation = await recordResearchObjectCreated({
+      personaId: input.personaId,
+      objectKind: 'experiment',
+      objectId: experimentId,
+      entryState: RUN_LIFECYCLE_FLOOR,
+      summary: `auto-materialised for run — ${evidence.slice(0, 100)}`,
+      governingInvariants,
+    });
+    if (creation.ok && creation.receiptId) {
+      await upsertResearchObject({
+        objectKind: 'experiment',
+        objectId: experimentId,
+        payload,
+        lifecycleState: RUN_LIFECYCLE_FLOOR,
+        receiptId: creation.receiptId,
+      });
+    }
+    created = true;
+    current = RUN_LIFECYCLE_FLOOR;
+  }
+
+  // Map the event to its single legal target; refuse honestly when there is none.
+  const { to, reason } = nextRunState(event, current);
+  if (!to) {
+    return { ok: false, reason, experimentId, event, from: current, to: null, state: current, created };
+  }
+  if (!isLegalExperimentTransition(current, to)) {
+    return {
+      ok: false,
+      reason: 'illegal-transition',
+      experimentId,
+      event,
+      from: current,
+      to,
+      state: current,
+      created,
+    };
+  }
+
+  // Record the transition through the ONE receipt path, then persist the
+  // advanced lifecycle state onto the durable row.
+  const transition = await recordExperimentTransition({
+    personaId: input.personaId,
+    experimentId,
+    from: current,
+    to,
+    evidence: evidence || `${experimentId} ${event}`,
+    fallbackExperiment: definition,
+  });
+  if (!transition.ok) {
+    return {
+      ok: false,
+      reason: transition.error ?? 'receipt write failed',
+      experimentId,
+      event,
+      from: current,
+      to,
+      state: current,
+      created,
+    };
+  }
+  await upsertResearchObject({
+    objectKind: 'experiment',
+    objectId: experimentId,
+    payload,
+    lifecycleState: to,
+    receiptId: transition.receiptId ?? null,
+  });
+
+  return {
+    ok: true,
+    experimentId,
+    event,
+    from: current,
+    to,
+    state: to,
+    created,
+    receiptId: transition.receiptId ?? null,
+  };
+}
+
+/**
+ * Overlay the persisted (receipted) experiment lifecycle state onto each
+ * derived overview entry. Two honest mechanisms, never conflated: deriveOverview
+ * computes the floor from the canonical record; this attaches the receipted
+ * research-object state (what runs advance through the lifecycle) so surfaces
+ * can show the institution's own record beside the derived floor. Returns the
+ * entries unchanged (persistedLifecycle: null) when no persisted rows exist.
+ */
+export async function overviewWithPersistedLifecycle(): Promise<
+  Array<ResearchOverviewEntry & { persistedLifecycle: ExperimentLifecycleState | null }>
+> {
+  const [derived, listed] = await Promise.all([deriveOverview(), listResearchObjects()]);
+  const byId = new Map<string, ExperimentLifecycleState>();
+  if (listed.ok) {
+    for (const row of listed.objects) {
+      if (row.objectKind !== 'experiment') continue;
+      if ((EXPERIMENT_LIFECYCLE as readonly string[]).includes(row.lifecycleState)) {
+        byId.set(row.objectId, row.lifecycleState as ExperimentLifecycleState);
+      }
+    }
+  }
+  return derived.map((entry) => ({
+    ...entry,
+    persistedLifecycle: byId.get(entry.experiment.id) ?? null,
+  }));
 }

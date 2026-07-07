@@ -15,7 +15,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Download, History, Loader2, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
-import { experimentGet, experimentStep } from "./experimentStepFetch";
+import { experimentGet, experimentStep, recordRunLifecycle } from "./experimentStepFetch";
 
 interface PublishedResult {
   id: string;
@@ -83,10 +83,20 @@ export default function ExperimentResultsTab() {
       const outcomes = (data.outcomes as { experiment: string; published: boolean; skipped: boolean }[]) ?? [];
       const published = outcomes.filter((o) => o.published).map((o) => o.experiment);
       const skipped = outcomes.filter((o) => o.skipped).map((o) => o.experiment);
+      // Instruments ↔ institution (CFS-019): a canonical publication advances
+      // the experiment's research object one legal step. Covers EXP-002 (whose
+      // canonical record enters via backfill, not a per-run publish) and any
+      // other backfilled run. Fire-and-forget — never disturbs the backfill.
+      const advanced: string[] = [];
+      for (const exp of published) {
+        const lc = await recordRunLifecycle(exp, "results-published", `${exp} run published via backfill`);
+        if (lc?.ok && lc.to) advanced.push(`${exp} ${lc.from}→${lc.to}`);
+      }
       setBackfillNote(
         [
           published.length ? `published: ${published.join(", ")}` : null,
           skipped.length ? `already present: ${skipped.join(", ")}` : null,
+          advanced.length ? `lifecycle: ${advanced.join(", ")}` : null,
         ]
           .filter(Boolean)
           .join(" · ") || "nothing to backfill",

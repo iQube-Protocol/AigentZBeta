@@ -12,7 +12,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Loader2, Play, Square } from "lucide-react";
-import { experimentGet, experimentStep } from "./experimentStepFetch";
+import { experimentGet, experimentStep, recordRunLifecycle, lifecycleNote } from "./experimentStepFetch";
 
 type Provider = "anthropic" | "openai" | "venice";
 
@@ -130,7 +130,16 @@ export default function Exp003RediscoveryRunner() {
           aggregates,
           results: { experiment: "EXP-003", provider, model: model || "(provider default)", results },
       });
-      setPublishState(`published — sha256 ${String(data.contentHash).slice(0, 16)}… (receipt ${data.receiptStatus ?? "created"})`);
+      const publishedMsg = `published — sha256 ${String(data.contentHash).slice(0, 16)}… (receipt ${data.receiptStatus ?? "created"})`;
+      setPublishState(publishedMsg);
+      // Instruments ↔ institution (CFS-019): the run's canonical publication
+      // advances the research object one legal step. Fire-and-forget.
+      const lc = await recordRunLifecycle(
+        "EXP-003",
+        "results-published",
+        `EXP-003 run published: provider=${provider}`,
+      );
+      setPublishState(`${publishedMsg} · ${lifecycleNote(lc)}`);
     } catch (err) {
       setPublishState(`publish failed: ${err instanceof Error ? err.message : "error"}`);
     }
