@@ -233,6 +233,23 @@ export function surfacePromptSelectedEvent(surface: string, label: string): Dcir
   });
 }
 
+/**
+ * A Dev Command Center tool viewport was used (CFS-020 CDE — Terminal, GitHub,
+ * DevTools, Linear). Observe-mode only: the runtime saw a read-only tool op.
+ * T2-safe: the tool id + a short op label ONLY — NEVER command arguments, file
+ * contents, env values, or any T0 identifier (the Terminal, e.g., passes the
+ * first token `terminal: status`, never the full command line). `runtime:
+ * 'action'` marks that a tool produced output; the ops are all read-only.
+ */
+export function devToolUsedEvent(tool: string, op: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'ToolOutputProduced',
+    runtime: 'action',
+    summary: `${tool}: ${op}`,
+    capsuleScope: tool,
+  });
+}
+
 // ─── aigentMe welcome surface typed helpers (CFS-020 D1+, first expansion) ──
 // Second instrumented surface after the Dev Command Center (operator direction
 // 2026-07: "once we're happy with DCIR we can then expand it to aigentMe and

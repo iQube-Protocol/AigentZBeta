@@ -8,5 +8,10 @@ export { RemediationLayout } from "./RemediationLayout";
 export { DeploymentAuthorizationLayout } from "./DeploymentAuthorizationLayout";
 export { ProjectOverviewLayout } from "./ProjectOverviewLayout";
 export { PendingProposalCard } from "./PendingProposalCard";
+// CDE tool viewports (CFS-020) — real Terminal / GitHub / DevTools / Linear surfaces.
+export { TerminalLayout } from "./TerminalLayout";
+export { DevToolsLayout } from "./DevToolsLayout";
+export { GitHubLayout } from "./GitHubLayout";
+export { LinearLayout } from "./LinearLayout";
 export type { DevCapsuleId, DevLayoutId, DevLayoutProps } from "./types";
 export { CAPSULE_LAYOUT } from "./types";

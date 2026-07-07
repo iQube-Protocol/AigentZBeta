@@ -28,7 +28,6 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import {
   Cpu, Target, FileSearch, AlertTriangle, CheckCircle,
   ChevronDown, Package, Layers, ArrowRight,
-  Terminal, GitBranch, Wrench, BarChart3,
   Play, ShieldAlert, Rocket,
 } from "lucide-react";
 import { SmartTriadCopilotLayer, type SuggestedLayoutHint, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
@@ -86,6 +85,7 @@ import {
   devImplementationPackGeneratedEvent,
   devDeploymentProposedEvent,
   devAutoActedEvent,
+  devToolUsedEvent,
 } from "@/services/dcir/eventStream";
 import {
   buildStateSnapshot,
@@ -103,6 +103,10 @@ import {
   RemediationLayout,
   DeploymentAuthorizationLayout,
   ProjectOverviewLayout,
+  TerminalLayout,
+  DevToolsLayout,
+  GitHubLayout,
+  LinearLayout,
   CAPSULE_LAYOUT,
   type DevCapsuleId,
   type DevLayoutId,
@@ -224,15 +228,6 @@ const CAPABILITIES: { id: DevCapsuleId; label: string; shortLabel: string; icon:
     hasDataClass: "bg-teal-500/10 border-teal-500/20 text-teal-300 hover:bg-teal-500/15",
     emptyClass: "bg-teal-500/5 border-teal-500/15 text-teal-400/60 hover:bg-teal-500/10 hover:text-teal-300",
     iconActiveClass: "text-teal-400", iconEmptyClass: "text-teal-500/50" },
-];
-
-// ─── Quick links for bottom strip ─────────────────────────────────────────
-
-const DEV_QUICK_LINKS: { id: string; label: string; icon: typeof Terminal }[] = [
-  { id: "terminal", label: "Terminal", icon: Terminal },
-  { id: "github", label: "GitHub", icon: GitBranch },
-  { id: "devtools", label: "DevTools", icon: Wrench },
-  { id: "linear", label: "Linear", icon: BarChart3 },
 ];
 
 // Dev Receipts panel — the three constitutional classes (CFS-020 CDE).
@@ -529,38 +524,6 @@ function StackLayout({ session, activeStage, onCapabilityClick, pending }: {
               </React.Fragment>
             );
           })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ToolLayout({ toolId, onBack }: { toolId: string; onBack: () => void }) {
-  const tool = DEV_QUICK_LINKS.find(l => l.id === toolId);
-  const Icon = tool?.icon ?? Terminal;
-  return (
-    <div className="space-y-3">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-3 h-3 rotate-180" />
-        Back to overview
-      </button>
-      <div className="flex items-center gap-2">
-        <Icon className="w-5 h-5 text-green-400" />
-        <h3 className="text-sm font-bold text-white">{tool?.label ?? toolId}</h3>
-      </div>
-      <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-700/30 min-h-[200px] flex items-center justify-center">
-        <div className="text-center">
-          <Icon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-          <p className="text-xs text-slate-500">{tool?.label} viewport — Phase 2</p>
-          <p className="text-[10px] text-slate-600 mt-1">
-            {toolId === "terminal" && "Claude Code terminal session will render here"}
-            {toolId === "github" && "Repository browser and PR activity will render here"}
-            {toolId === "devtools" && "Build logs, type errors, and diagnostics will render here"}
-            {toolId === "linear" && "Linear issue tracker integration will render here"}
-          </p>
         </div>
       </div>
     </div>
@@ -1259,10 +1222,33 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
             />
           )}
 
-          {isToolLayout && (
-            <div className="h-full overflow-y-auto px-1 pb-16">
-              <ToolLayout toolId={activeLayoutId} onBack={returnToStack} />
-            </div>
+          {/* CDE tool viewports (CFS-020) — real Terminal / GitHub / DevTools /
+              Linear surfaces. Each fires a T2-safe DCIR observation of the
+              read-only op it performed (devToolUsedEvent), threaded the same way
+              ImplementationLayout receives its callbacks. */}
+          {isToolLayout && activeLayoutId === "terminal" && (
+            <TerminalLayout
+              onBack={returnToStack}
+              onToolUsed={(op) => observe(devToolUsedEvent("terminal", op))}
+            />
+          )}
+          {isToolLayout && activeLayoutId === "github" && (
+            <GitHubLayout
+              onBack={returnToStack}
+              onToolUsed={(op) => observe(devToolUsedEvent("github", op))}
+            />
+          )}
+          {isToolLayout && activeLayoutId === "devtools" && (
+            <DevToolsLayout
+              onBack={returnToStack}
+              onToolUsed={(op) => observe(devToolUsedEvent("devtools", op))}
+            />
+          )}
+          {isToolLayout && activeLayoutId === "linear" && (
+            <LinearLayout
+              onBack={returnToStack}
+              onToolUsed={(op) => observe(devToolUsedEvent("linear", op))}
+            />
           )}
         </div>
 
