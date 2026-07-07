@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T10:35:54.201Z",
+  "last_updated": "2026-07-07T10:42:48.809Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "151f802efa79fe584ee487799214044258a4d802",
-  "latest_commit_short": "151f802",
-  "latest_commit_title": "Build the Constitutional Development Environment: validation forks to remediation, deployment gated on consequence test",
+  "latest_commit": "dd7dc453fdcf6d72ab1c7cfc92bbbc04a8bcbbc1",
+  "latest_commit_short": "dd7dc45",
+  "latest_commit_title": "Make Dev Command Center quick actions intelligent via the DCIR affordance service",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "dd7dc45",
+      "full_sha": "dd7dc453fdcf6d72ab1c7cfc92bbbc04a8bcbbc1",
+      "title": "Make Dev Command Center quick actions intelligent via the DCIR affordance service",
+      "author": "Claude",
+      "timestamp": "2026-07-07T10:40:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-dd7dc45.md"
+    },
     {
       "sha": "151f802",
       "full_sha": "151f802efa79fe584ee487799214044258a4d802",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-24T22:18:28Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-016011e.md"
-    },
-    {
-      "sha": "e72d35a",
-      "full_sha": "e72d35a2690ac10e40c1d66d1343930c28d8d292",
-      "title": "scope Standing profiles list to own persona (fixes duplicate Core tabs)",
-      "author": "Claude",
-      "timestamp": "2026-06-24T23:12:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e72d35a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
