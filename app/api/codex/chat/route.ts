@@ -39,10 +39,13 @@ import {
   detectRequestedStage,
   looksLikeUnfulfilledProposalPromise,
   STAGE_PROPOSAL_KIND,
-  type StageProposal,
   type StageProposalKind,
 } from '@/services/devCommandCenter/stageOrchestrator';
 import type { DevLoopStage } from '@/types/devCommandCenter';
+import {
+  buildResearchInstructionBlock,
+  extractResearchProposals,
+} from '@/services/research/proposals';
 import { renderObservationLines } from '@/services/dcir/eventStream';
 import { renderStateSnapshotLines, DCIR_OBSERVED_PATTERN_LIMIT } from '@/services/dcir/stateEngine';
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
@@ -2274,9 +2277,14 @@ function buildSystemPrompt(
           }
         }
 
-        groundContextBlock = `\n\n## CCRL research ground truth — narrate THIS, do not invent\n\nYou are aigentZ operating as the CCRL research copilot (the Constitutional Cybernetics Research Laboratory, CFS-019). The operator's right pane shows the live lab state below. Your replies MUST narrate this exact state — cite experiments by id and family, lifecycle states as DERIVED facts (published = a canonical run exists; replicated = runs on ≥2 distinct providers), series claims verbatim, and results by their hash commitments. NEVER invent experiments, runs, providers, or lifecycle states not present below; when a section is marked UNAVAILABLE, say so honestly. This surface is NARRATE-ONLY: do NOT emit stage_data proposals, [layout:...] tags, or any structured artifact fences — observation and narration are your whole mandate here.\n\n${lines.join('\n')}`;
-        // Deliberately NO buildStageInstructionBlock on this surface (C2 is
-        // narrate-only; proposal kinds are C2.1 per CFS-019's record).
+        groundContextBlock = `\n\n## CCRL research ground truth — narrate THIS, do not invent\n\nYou are aigentZ operating as the CCRL research copilot (the Constitutional Cybernetics Research Laboratory, CFS-019). The operator's right pane shows the live lab state below. Your replies MUST narrate this exact state — cite experiments by id and family, lifecycle states as DERIVED facts (published = a canonical run exists; replicated = runs on ≥2 distinct providers), series claims verbatim, and results by their hash commitments. NEVER invent experiments, runs, providers, or lifecycle states not present below; when a section is marked UNAVAILABLE, say so honestly. Narration is your PRIMARY mandate; do NOT emit [layout:...] tags on this surface.\n\n${lines.join('\n')}`;
+        // CFS-019 C2.1 — research proposal kinds (ICE reuse): when the operator
+        // asks aigentZ to DESIGN an experiment, RATIFY a protocol, RECORD a
+        // finding, or DRAFT a publication, it emits a structured
+        // ```research_data proposal (extracted below, returned as
+        // stage_proposals, rendered as a pending approval card). SUGGEST-ONLY
+        // and lifecycle-legal — nothing commits without operator approval.
+        groundContextBlock += buildResearchInstructionBlock();
       }
     } catch {
       // groundContext malformed — fall back to general narrative.
@@ -2875,12 +2883,26 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
-    // ICE engine: pull structured stage_data proposals (aigent-z only) out of
-    // the reply before layout-tag stripping; they return as stage_proposals.
-    let { cleanText: messageSansStageData, proposals: stageProposals } =
-      resolvedAgentId === 'aigent-z'
-        ? extractStageProposals(assistantMessage)
-        : { cleanText: assistantMessage, proposals: [] as StageProposal[] };
+    // ICE engine: pull structured proposals (aigent-z only) out of the reply
+    // before layout-tag stripping; they return as stage_proposals. Two fence
+    // families share the channel, surface-scoped so they never collide:
+    //  - ```stage_data  → dev-command-center stages (STAGE_PROPOSAL_KIND)
+    //  - ```research_data → CCRL research objects (CFS-019 C2.1)
+    // Running both extractors for aigent-z is surface-agnostic: the dev surface
+    // never emits research_data and the ccrl-research surface never emits
+    // stage_data, so each pass is a no-op on the other surface.
+    let messageSansStageData = assistantMessage;
+    let stageProposals: Array<{ kind: string; summary: string; data: Record<string, unknown> }> = [];
+    if (resolvedAgentId === 'aigent-z') {
+      const stageEx = extractStageProposals(messageSansStageData);
+      messageSansStageData = stageEx.cleanText;
+      stageProposals = stageEx.proposals;
+      const researchEx = extractResearchProposals(messageSansStageData);
+      messageSansStageData = researchEx.cleanText;
+      if (researchEx.proposals.length > 0) {
+        stageProposals = [...stageProposals, ...researchEx.proposals];
+      }
+    }
 
     // ICE fence enforcement — server-side retry (operator field report,
     // 2026-07-06, deployed test on gpt-4o-mini): small models sometimes

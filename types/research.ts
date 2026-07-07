@@ -27,6 +27,10 @@ export type PublicationLifecycleState = (typeof PUBLICATION_LIFECYCLE)[number];
 export const FINDING_LIFECYCLE = ['observed', 'replicated', 'canonized-as-invariant'] as const;
 export type FindingLifecycleState = (typeof FINDING_LIFECYCLE)[number];
 
+/** Publication kinds (CFS-019 §4) — the `publishResult` discipline generalized. */
+export const PUBLICATION_KINDS = ['working', 'technical', 'white', 'note', 'conference'] as const;
+export type PublicationKind = (typeof PUBLICATION_KINDS)[number];
+
 // ─── Objects ─────────────────────────────────────────────────────────────────
 
 export type ConstitutionalLayer = 'I' | 'II' | 'III';
@@ -58,6 +62,39 @@ export interface ResearchOverviewEntry {
   publishedRuns: number;
   distinctProviders: number;
   latestRunAt: string | null;
+}
+
+/**
+ * Finding (CFS-019 §4): claim + evidence refs + maturity status. A finding
+ * enters at `observed` and only earns `replicated` / `canonized-as-invariant`
+ * through the lifecycle — never by assertion. `evidenceRefs` carry hash
+ * commitments / canonical-result ids (provenance), never raw T0 identifiers.
+ */
+export interface ResearchFinding {
+  id: string; // FIND-<slug> — session-local, T2-safe
+  /** Governing experiment (EXP-NNN) the observation came from. */
+  experimentId: string;
+  claim: string;
+  /** Hash commitments / canonical result ids — provenance, never prose, never T0 ids. */
+  evidenceRefs: string[];
+  lifecycle: FindingLifecycleState;
+  /** Seed ids of governing invariants (ride receipts as invariantsUsed). */
+  governingInvariants: string[];
+}
+
+/**
+ * Publication (CFS-019 §4): the `publishResult` discipline generalized —
+ * kind, source artifacts (experiment ids / result hashes / finding ids),
+ * abstract, lineage via lifecycle. Enters at `draft`.
+ */
+export interface ResearchPublication {
+  id: string; // PUB-<slug> — session-local, T2-safe
+  kind: PublicationKind;
+  title: string;
+  /** Experiment ids, canonical result hashes, or finding ids — provenance. */
+  sourceArtifacts: string[];
+  abstract: string;
+  lifecycle: PublicationLifecycleState;
 }
 
 // ─── Pinned registries (the founding holdings — CFS-019 §3) ─────────────────

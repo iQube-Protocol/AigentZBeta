@@ -1,32 +1,48 @@
 "use client";
 
 /**
- * CCRL Research Copilot — Aigent Z as research narrator (CFS-019 Phase C2).
+ * CCRL Research Copilot — Aigent Z as research narrator + proposer
+ * (CFS-019 Phase C2 narration + C2.1 research proposal kinds).
  *
  * DCIR-conforming from birth (CFS-020): this surface is the second
- * instrumented seam after the Dev Command Center D1 reference. Deliberately
- * NARRATE-ONLY — the copilot observes and narrates the live lab state
- * (experiment lifecycles derived from the canonical record, series claims,
- * hash-committed results). Research stage-proposal kinds (experiment design,
- * finding drafts) are C2.1, their own increment AFTER usage observation —
- * the dev-loop misroute regression (CFS-015) is the precedent for not
- * rushing new proposal kinds.
+ * instrumented seam after the Dev Command Center D1 reference. The copilot's
+ * PRIMARY mandate is to observe and narrate the live lab state (experiment
+ * lifecycles derived from the canonical record, series claims, hash-committed
+ * results).
+ *
+ * C2.1 (ICE reuse): aigentZ can now also PROPOSE structured research objects —
+ * experiment designs, protocol ratifications, findings, publication drafts —
+ * as ```research_data fences (services/research/proposals.ts). Each arrives via
+ * onStageProposals and renders as a pending approval card (preview-then-
+ * approve, mirroring the Dev Command Center's PendingProposalCard). On Approve,
+ * applyResearchProposal commits the object into in-memory research state at its
+ * lifecycle entry (or advances one legal step); an illegal lifecycle transition
+ * is REJECTED and surfaced, never silently committed. SUGGEST-ONLY: nothing
+ * commits without approval; persistence + receipting is a named follow-on.
  *
  * Two-pane split mirroring DevCommandCenterTab, economically:
  *   LEFT  = aigentZ copilot (SmartTriadCopilotLayer, panel variant)
- *   RIGHT = compact live panel (the observed state the copilot narrates)
+ *   RIGHT = pending proposals + compact live panel + working objects
  *
  * DCIR observe-mode discipline: events (tab opened, overview refreshed,
- * quick prompt selected) ride a session-scoped ring buffer and feed the
- * next copilot turn via groundContext.recentEvents. Nothing blocks,
- * nothing mutates — T2-safe label summaries only.
+ * quick prompt selected, proposal approved/dismissed) ride a session-scoped
+ * ring buffer and feed the next copilot turn via groundContext.recentEvents.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlaskConical, Landmark, Loader2, RefreshCw } from "lucide-react";
-import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+import { AlertTriangle, CheckCircle, ChevronDown, ClipboardCheck, FlaskConical, Landmark, Loader2, RefreshCw, ScrollText } from "lucide-react";
+import { SmartTriadCopilotLayer, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { experimentGet } from "./experimentStepFetch";
 import type { DcirEvent } from "@/types/dcir";
+import {
+  applyResearchProposal,
+  createEmptyResearchState,
+  researchProposalKindLabel,
+  RESEARCH_PROPOSAL_EFFECT,
+  type ResearchProposal,
+  type ResearchProposalKind,
+  type ResearchProposalState,
+} from "@/services/research/proposals";
 import {
   appendDcirEvent,
   compactDcirEvents,
@@ -70,6 +86,169 @@ interface CCRLResearchCopilotTabProps {
   personaId?: string;
 }
 
+/** A pending proposal with a stable local key for list rendering. */
+interface PendingResearchProposal {
+  key: string;
+  proposal: ResearchProposal;
+  /** Set when a prior Approve was rejected as an illegal lifecycle transition. */
+  rejection?: string;
+}
+
+// ─── Tolerant payload getters (mirror applyResearchProposal coercion) ────────
+
+const pstr = (v: unknown): string => (typeof v === "string" ? v : "");
+const pstrList = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+
+function effectLine(kind: ResearchProposalKind): string {
+  const e = RESEARCH_PROPOSAL_EFFECT[kind];
+  if (e.action === "advance") return `advances experiment ${e.fromState} → ${e.toState} (lifecycle-legal)`;
+  return `creates a ${e.object} at lifecycle ${e.entryState}`;
+}
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[10px] text-amber-300/70 uppercase font-semibold mb-0.5">{label}</div>
+      <div className="text-[11px] text-slate-200">{value}</div>
+    </div>
+  );
+}
+
+function Bullets({ items }: { items: string[] }) {
+  if (items.length === 0) return <span className="text-[10px] text-slate-500 italic">none</span>;
+  return (
+    <ul className="space-y-0.5">
+      {items.map((it, i) => (
+        <li key={i} className="text-[11px] text-slate-300 flex gap-1.5">
+          <span className="text-slate-500 shrink-0">·</span>
+          <span className="break-words">{it}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Per-kind full-content preview — review-then-approve is the flow. */
+function ResearchProposalPreview({ proposal }: { proposal: ResearchProposal }) {
+  const d = proposal.data;
+  switch (proposal.kind) {
+    case "experiment_proposal":
+      return (
+        <div className="space-y-2">
+          <Field label="Experiment" value={<span className="font-mono">{pstr(d.id) || "(new id)"}</span>} />
+          <div className="flex gap-4">
+            <Field label="Layer" value={pstr(d.layer) || "I"} />
+            <Field label="Series" value={pstr(d.seriesId) || "—"} />
+          </div>
+          <Field label="Family" value={pstr(d.family) || "—"} />
+          <Field label="Hypothesis" value={pstr(d.hypothesis) || "—"} />
+          <Field label="Protocol ref" value={<span className="font-mono text-[10px] text-slate-400 break-all">{pstr(d.protocolRef) || "—"}</span>} />
+          <div>
+            <div className="text-[10px] text-amber-300/70 uppercase font-semibold mb-0.5">Governing invariants</div>
+            <Bullets items={pstrList(d.governingInvariants)} />
+          </div>
+        </div>
+      );
+    case "protocol_draft":
+      return (
+        <div className="space-y-2">
+          <Field label="Experiment" value={<span className="font-mono">{pstr(d.experimentId) || "—"}</span>} />
+          <Field label="Protocol ref" value={<span className="font-mono text-[10px] text-slate-400 break-all">{pstr(d.protocolRef) || "—"}</span>} />
+          <Field label="Ratification evidence" value={pstr(d.evidence) || "—"} />
+        </div>
+      );
+    case "finding":
+      return (
+        <div className="space-y-2">
+          <Field label="From experiment" value={<span className="font-mono">{pstr(d.experimentId) || "—"}</span>} />
+          <Field label="Claim" value={pstr(d.claim) || "—"} />
+          <div>
+            <div className="text-[10px] text-amber-300/70 uppercase font-semibold mb-0.5">Evidence refs (commitments)</div>
+            <Bullets items={pstrList(d.evidenceRefs)} />
+          </div>
+          <div>
+            <div className="text-[10px] text-amber-300/70 uppercase font-semibold mb-0.5">Governing invariants</div>
+            <Bullets items={pstrList(d.governingInvariants)} />
+          </div>
+        </div>
+      );
+    case "publication_draft":
+      return (
+        <div className="space-y-2">
+          <Field label="Title" value={pstr(d.title) || "—"} />
+          <Field label="Kind" value={pstr(d.publicationKind) || "working"} />
+          <div>
+            <div className="text-[10px] text-amber-300/70 uppercase font-semibold mb-0.5">Source artifacts</div>
+            <Bullets items={pstrList(d.sourceArtifacts)} />
+          </div>
+          <Field label="Abstract" value={pstr(d.abstract) || "—"} />
+        </div>
+      );
+    default:
+      return null;
+  }
+}
+
+function PendingResearchProposalCard({ entry, onApprove, onDismiss }: {
+  entry: PendingResearchProposal;
+  onApprove: () => void;
+  onDismiss: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const { proposal, rejection } = entry;
+  return (
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+        <span className="text-[10px] uppercase tracking-wide text-amber-300 font-semibold">
+          Proposed by aigentZ — review, then approve
+        </span>
+      </div>
+      <div className="text-xs font-semibold text-white">
+        {researchProposalKindLabel(proposal.kind)}: {proposal.summary}
+      </div>
+      <div className="text-[11px] text-slate-300">On approve: {effectLine(proposal.kind)}</div>
+
+      <div className={`rounded border border-amber-500/20 bg-slate-900/40 p-2 overflow-y-auto ${expanded ? "max-h-[60vh]" : "max-h-56"}`}>
+        <ResearchProposalPreview proposal={proposal} />
+      </div>
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className="flex items-center gap-1 text-[10px] text-amber-300/80 hover:text-amber-200 transition-colors"
+      >
+        <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        {expanded ? "Collapse preview" : "Expand preview"}
+      </button>
+
+      {rejection && (
+        <div className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-[10px] text-rose-300">
+          Rejected — {rejection}. Ask aigentZ to revise, then approve the fresh card.
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          onClick={onApprove}
+          className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors font-semibold"
+        >
+          <CheckCircle className="w-3 h-3" />
+          Approve
+        </button>
+        <button
+          onClick={onDismiss}
+          className="text-[10px] px-2.5 py-1 rounded bg-slate-700/40 text-slate-300 border border-slate-600/40 hover:bg-slate-700/70 transition-colors"
+        >
+          Dismiss
+        </button>
+        <span className="text-[10px] text-slate-500 ml-1">
+          or ask aigentZ to refine it — a fresh card replaces this one
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilotTabProps) {
   const [overview, setOverview] = useState<OverviewEntry[] | null>(null);
   const [series, setSeries] = useState<SeriesEntry[]>([]);
@@ -84,6 +263,49 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
   const [dcirEvents, setDcirEvents] = useState<DcirEvent[]>([]);
   const observe = useCallback((event: DcirEvent) => {
     setDcirEvents(prev => appendDcirEvent(prev, event));
+  }, []);
+
+  // ── C2.1 research proposals — SUGGEST-ONLY, operator-gated. Pending cards
+  // await approval; committed objects live in in-memory research state (this
+  // slice; persistence is a named follow-on). Nothing auto-commits.
+  const [pending, setPending] = useState<PendingResearchProposal[]>([]);
+  const [researchState, setResearchState] = useState<ResearchProposalState>(() => createEmptyResearchState());
+  const proposalSeq = useRef(0);
+
+  // Fired after each chat turn with the proposals the server extracted from
+  // aigentZ's ```research_data fences. Append non-empty batches (a refine emits
+  // a fresh full proposal — the operator approves/dismisses each). An empty
+  // batch (a pure narrate turn) never wipes unreviewed cards.
+  const onStageProposals = useCallback((incoming: CopilotStageProposal[]) => {
+    if (!Array.isArray(incoming) || incoming.length === 0) return;
+    setPending(prev => [
+      ...prev,
+      ...incoming.map(p => ({
+        key: `rp-${proposalSeq.current++}`,
+        proposal: { kind: p.kind as ResearchProposalKind, summary: p.summary, data: p.data } as ResearchProposal,
+      })),
+    ]);
+  }, []);
+
+  const approveProposal = useCallback((key: string) => {
+    setPending(prev => {
+      const entry = prev.find(e => e.key === key);
+      if (!entry) return prev;
+      const result = applyResearchProposal(researchState, entry.proposal);
+      if (!result.committed) {
+        // Illegal lifecycle transition — surface the reason IN PLACE, keep the
+        // card, never commit (Content Capsule Containment: no orphan output).
+        observe(surfacePromptSelectedEvent(SURFACE, `proposal rejected: ${researchProposalKindLabel(entry.proposal.kind)}`));
+        return prev.map(e => (e.key === key ? { ...e, rejection: result.rejection } : e));
+      }
+      setResearchState(result.state);
+      observe(surfacePromptSelectedEvent(SURFACE, `proposal approved: ${researchProposalKindLabel(entry.proposal.kind)} — ${entry.proposal.summary}`));
+      return prev.filter(e => e.key !== key);
+    });
+  }, [researchState, observe]);
+
+  const dismissProposal = useCallback((key: string) => {
+    setPending(prev => prev.filter(e => e.key !== key));
   }, []);
 
   const refresh = useCallback(async () => {
@@ -182,6 +404,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
           agentSubtitle="CCRL Research Laboratory · constitutional science"
           personaId={personaId}
           groundContext={copilotGroundContext}
+          onStageProposals={onStageProposals}
           onClose={() => undefined}
         />
       </div>
@@ -205,6 +428,27 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-4 space-y-3">
+          {/* C2.1 — pending research proposals awaiting operator approval.
+              Suggest-only; approval commits into working research state. */}
+          {pending.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <ClipboardCheck className="h-4 w-4 text-amber-300" />
+                <h4 className="text-xs font-semibold text-slate-100">
+                  Pending proposals ({pending.length}) — review, then approve
+                </h4>
+              </div>
+              {pending.map((entry) => (
+                <PendingResearchProposalCard
+                  key={entry.key}
+                  entry={entry}
+                  onApprove={() => approveProposal(entry.key)}
+                  onDismiss={() => dismissProposal(entry.key)}
+                />
+              ))}
+            </div>
+          )}
+
           {/* Experiment lifecycle strips — derived, never asserted */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
             <h4 className="text-xs font-semibold text-slate-100 mb-1">Experiment lifecycles (derived, never asserted)</h4>
@@ -293,10 +537,47 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
             )}
           </div>
 
+          {/* Working research objects — committed from approved proposals this
+              session (in-memory; persistence + receipting is a named follow-on). */}
+          {(researchState.experiments.length > 0 ||
+            researchState.findings.length > 0 ||
+            researchState.publications.length > 0) && (
+            <div className="rounded-xl border border-emerald-800/50 bg-emerald-950/20 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ScrollText className="h-3.5 w-3.5 text-emerald-300" />
+                <h4 className="text-xs font-semibold text-slate-100">Working research objects (approved this session)</h4>
+              </div>
+              <div className="space-y-2">
+                {researchState.experiments.map((e) => (
+                  <div key={`exp-${e.experiment.id}`} className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-mono font-semibold text-slate-200">{e.experiment.id}</span>
+                    <span className="text-slate-400">{e.experiment.family}</span>
+                    <span className="rounded px-1.5 py-0.5 text-[10px] bg-violet-500/20 text-violet-300 border border-violet-500/40">{e.lifecycle}</span>
+                  </div>
+                ))}
+                {researchState.findings.map((f) => (
+                  <div key={`find-${f.id}`} className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-mono text-slate-300">{f.experimentId || "—"}</span>
+                    <span className="text-slate-300 break-words flex-1 min-w-0">{f.claim}</span>
+                    <span className="rounded px-1.5 py-0.5 text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">{f.lifecycle}</span>
+                  </div>
+                ))}
+                {researchState.publications.map((p) => (
+                  <div key={`pub-${p.id}`} className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-slate-200 break-words flex-1 min-w-0">{p.title}</span>
+                    <span className="text-slate-500">{p.kind}</span>
+                    <span className="rounded px-1.5 py-0.5 text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/40">{p.lifecycle}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Honest scope note */}
           <p className="text-[10px] text-slate-600 px-1">
-            Narrate-only surface (CFS-019 C2): aigentZ observes and narrates this state.
-            Research proposal kinds (experiment design, finding drafts) are C2.1 — after usage observation.
+            CFS-019 C2 (narrate) + C2.1 (propose): aigentZ narrates the live lab state and can propose
+            structured research objects. Proposals are suggest-only and lifecycle-legal — nothing commits
+            without your approval; approved objects live in session memory (persistence is a named follow-on).
           </p>
         </div>
       </div>

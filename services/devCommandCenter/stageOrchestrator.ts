@@ -378,7 +378,7 @@ const STAGE_DATA_FENCE_RE = /```stage_data\s*([\s\S]*?)```/g;
  * the provider module into the client bundle): escapes literal newlines/tabs
  * inside strings and strips trailing commas in STRUCTURAL runs only.
  */
-function repairFenceJson(raw: string): string {
+export function repairFenceJson(raw: string): string {
   let out = '';
   let seg = '';
   let inStr = false;
@@ -406,8 +406,10 @@ function repairFenceJson(raw: string): string {
   return out;
 }
 
-/** Strict parse first; on failure, slice to the outermost object and repair. */
-function parseFenceBody(body: string): Record<string, unknown> | null {
+/** Strict parse first; on failure, slice to the outermost object and repair.
+ * Exported so sibling proposal engines (e.g. services/research/proposals.ts)
+ * reuse the EXACT lenient parser rather than forking a weaker one. */
+export function parseFenceBody(body: string): Record<string, unknown> | null {
   const trimmed = body.trim();
   const start = trimmed.indexOf('{');
   const end = trimmed.lastIndexOf('}');
