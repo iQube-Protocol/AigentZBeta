@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T05:17:50.846Z",
+  "last_updated": "2026-07-07T05:59:14.916Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ce85ec409569ac5afc644c158419e4626fecc6f9",
-  "latest_commit_short": "ce85ec4",
-  "latest_commit_title": "Fix DCC loop: proposal preview-before-approve, flow-through on approval, resilient fence extraction (operator findings)",
+  "latest_commit": "dcda7bc99d0995d523e23fa1011d297454c6f200",
+  "latest_commit_short": "dcda7bc",
+  "latest_commit_title": "Enforce fence production server-side: retry on promised-but-missing stage proposals (operator field report)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "dcda7bc",
+      "full_sha": "dcda7bc99d0995d523e23fa1011d297454c6f200",
+      "title": "Enforce fence production server-side: retry on promised-but-missing stage proposals (operator field report)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T05:56:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-dcda7bc.md"
+    },
     {
       "sha": "ce85ec4",
       "full_sha": "ce85ec409569ac5afc644c158419e4626fecc6f9",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-19T16:17:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-afdc85f.md"
-    },
-    {
-      "sha": "8f74779",
-      "full_sha": "8f74779dc02195b4fa537ecb396728d649a35944",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-06-19T16:17:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8f74779.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`dcda7bc`](https://github.com/iQube-Protocol/AigentZBeta/commit/dcda7bc99d0995d523e23fa1011d297454c6f200) [push] Enforce fence production server-side: retry on promised-but-missing stage proposals (operator field report) (Claude, 2026-07-07T05:56:49Z)
 - [`ce85ec4`](https://github.com/iQube-Protocol/AigentZBeta/commit/ce85ec409569ac5afc644c158419e4626fecc6f9) [fix] Fix DCC loop: proposal preview-before-approve, flow-through on approval, resilient fence extraction (operator findings) (Claude, 2026-07-07T05:14:36Z)
 - [`94fa7cc`](https://github.com/iQube-Protocol/AigentZBeta/commit/94fa7cc40695df545306dcd15df66baf2e6a815a) [push] Integrate Aletheon institute framing: Computational Epistemology, the inversion, programme nomenclature, briefing package (CFS-019) (Claude, 2026-07-07T05:12:16Z)
 - [`9116c02`](https://github.com/iQube-Protocol/AigentZBeta/commit/9116c0219aaf12be53ee8c6580675c18151f0b9b) [push] Execute CCRL Phase D: physical migration of the research corpus into the ccrl pack (atomic) (Claude, 2026-07-06T22:40:17Z)

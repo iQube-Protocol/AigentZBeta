@@ -3004,3 +3004,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-ce85ec4.md](../build_/COMMITS/COMMIT-ce85ec4.md)
 - Message: Fix DCC loop: proposal preview-before-approve, flow-through on approval, resilient fence extraction (operator findings)
+
+## Commit `dcda7bc` — 2026-07-07T05:56:49Z
+- Type: `push`
+- Brief: [COMMIT-dcda7bc.md](../build_/COMMITS/COMMIT-dcda7bc.md)
+- Message: Enforce fence production server-side: retry on promised-but-missing stage proposals (operator field report)
