@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T05:14:56.609Z",
+  "last_updated": "2026-07-07T05:17:50.846Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "94fa7cc40695df545306dcd15df66baf2e6a815a",
-  "latest_commit_short": "94fa7cc",
-  "latest_commit_title": "Integrate Aletheon institute framing: Computational Epistemology, the inversion, programme nomenclature, briefing package (CFS-019)",
+  "latest_commit": "ce85ec409569ac5afc644c158419e4626fecc6f9",
+  "latest_commit_short": "ce85ec4",
+  "latest_commit_title": "Fix DCC loop: proposal preview-before-approve, flow-through on approval, resilient fence extraction (operator findings)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ce85ec4",
+      "full_sha": "ce85ec409569ac5afc644c158419e4626fecc6f9",
+      "title": "Fix DCC loop: proposal preview-before-approve, flow-through on approval, resilient fence extraction (operator findings)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T05:14:36Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-ce85ec4.md"
+    },
     {
       "sha": "94fa7cc",
       "full_sha": "94fa7cc40695df545306dcd15df66baf2e6a815a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-19T16:17:13Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-8f74779.md"
-    },
-    {
-      "sha": "bcb1eac",
-      "full_sha": "bcb1eac05585279d9a6cbdeea067edaef4b6ffe1",
-      "title": "make standing a permanently active first-class tab in metaMe",
-      "author": "Claude",
-      "timestamp": "2026-06-19T16:09:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bcb1eac.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

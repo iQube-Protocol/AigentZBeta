@@ -2999,3 +2999,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-94fa7cc.md](../build_/COMMITS/COMMIT-94fa7cc.md)
 - Message: Integrate Aletheon institute framing: Computational Epistemology, the inversion, programme nomenclature, briefing package (CFS-019)
+
+## Commit `ce85ec4` — 2026-07-07T05:14:36Z
+- Type: `fix`
+- Brief: [COMMIT-ce85ec4.md](../build_/COMMITS/COMMIT-ce85ec4.md)
+- Message: Fix DCC loop: proposal preview-before-approve, flow-through on approval, resilient fence extraction (operator findings)
