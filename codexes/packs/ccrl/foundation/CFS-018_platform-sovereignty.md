@@ -35,7 +35,7 @@ EXP-004 is the first member (`inv.sovereignty.107`). The series roster — first
 
 | # | Experiment | Dimension | Design sketch | Status |
 |---|---|---|---|---|
-| PSE-1 | **EXP-004 Sovereignty Drill** | Model/provider (Sovereignty Scale S1–S3) | Constitutional battery on substitute providers (S2) and the open-weight provider (S3) | **Built.** Rehearsal arm live (chaingpt → openai); S3 run blocked by PSE-2's subject |
+| PSE-1 | **EXP-004 Sovereignty Drill** | Model/provider (Sovereignty Scale S1–S3) | Constitutional battery on substitute providers (S2) and the open-weight provider (S3) | **Built + publishing graded results.** Frontier run live (chaingpt → openai) publishing legitimate S2 (substitutable) data; the open-weight S3 apex run is a distinct higher rung, pending PSE-2's subject (the Venice credit wall) |
 | PSE-2 | **Commercial-independence drill** | Commercial (103) | Enumerate every commercial gate on the constitutional path (provider credits, hosting billing, storage quotas); measure which can halt constitutional operation and what degrades instead | Named — the Venice credit wall is its founding datum |
 | PSE-3 | **Infrastructure survivability drill** | Infrastructure (105) | Simulate loss of one infrastructure provider at a time (storage, hosting, chain-anchoring); constitutional operation must continue — quality may degrade, operation shall not (the EXP-004 semantics applied to infrastructure) | Named |
 | PSE-4 | **Hosting/storage posture assessment** | Infrastructure agency (104) | Inventory every platform organ's hosting posture (decentralized/centralized/by-choice); produce the agency map that PSE-3 drills against | Named |
@@ -46,6 +46,16 @@ Design discipline for every PSE member (inherited from EXP-004): failures are da
 ## Relationship to the Sovereignty Scale
 
 The Sovereignty Scale (S0–S3, `types/constitutional.ts`) is the **measure of the model/provider dimension** — one axis of the bundle. The bundle is the full space; other dimensions get their own measures as their experiments are designed (PSE-2's commercial-gate census, PSE-3's survivability matrix). The scale is not renamed or widened: one clean measure per dimension, per the one-concern discipline.
+
+## Interpretation correction (2026-07-07, operator)
+
+The series claim is that platform sovereignty is a **measurable bundle** (model, provider choice, commercial independence, infrastructure). It follows that **measurement at ANY rung of the Sovereignty Scale is valid experiment data** supporting the measurable-bundle claim — the scale grades the *degree* of sovereignty demonstrated, it is not a gate on the experiment's validity or progress. A frontier-provider run (chaingpt/openai) **measures real bundle components** — provider interchangeability and commercial independence from any single vendor — and is a legitimate S1/S2 datum, **not "not a sovereignty claim."** Open-weight / self-hosted operation is the **apex** (S3, the fullest expression), a distinct higher rung — not the gate for the experiment to count as progress.
+
+This supersedes the earlier "rehearsal — not a sovereignty claim… reads as partial, never pass" framing, which was too restrictive and contradicted the very claim the experiment exists to prove. Consequences, threaded through the build:
+
+- **EXP-004 (PSE-1) publishes graded results across rungs and concludes across them.** Every completed run publishes `sovereigntyRung` (`s2-substitutable` for a completed frontier run, `s3-open-weight` for a completed open-weight run) and a `bundleComponentsMeasured` array — no `rehearsal: true` flag, no "never a sovereignty claim" note.
+- **The Chrysalis sovereignty criterion passes the measurable-bundle claim on ANY completed run** (frontier or open-weight), naming the highest rung reached and flagging apex status ("S3 open-weight apex reached" vs "S2 substitutable demonstrated · S3 open-weight apex pending"). A failed/incomplete run is `partial`; nothing published is `pending`. Legacy rows are tolerated for back-compat (`rehearsal`→S2, `sovereigntyHolds:true`→S3).
+- The provider allowlists are unchanged (`SOVEREIGN_PROVIDER = venice`, `REHEARSAL_PROVIDERS = chaingpt, openai` — venice excluded because a venice run IS the open-weight S3 run); only the framing is corrected.
 
 ## Ratification record
 

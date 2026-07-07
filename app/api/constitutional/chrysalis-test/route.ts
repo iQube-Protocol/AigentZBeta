@@ -197,11 +197,27 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 8. Sovereignty — the Sovereignty Scale (types/constitutional.ts):
-  // operator control is a SCALE, not a boolean. A completed rehearsal on a
-  // substitute provider is a live S2 (substitutable) datum → 'partial';
-  // only the open-weight run (S3, maximum control) completes the criterion.
+  // 8. Sovereignty — the measurable BUNDLE (CFS-018 · operator correction
+  // 2026-07-07). The series claim is that platform sovereignty is a measurable
+  // bundle (model, provider choice, commercial independence, infrastructure),
+  // graded by the highest rung reached on the Sovereignty Scale. ANY completed
+  // EXP-004 run — frontier (S2) OR open-weight (S3) — measures real bundle
+  // components and PASSES the measurable-bundle claim; the evidence names the
+  // highest rung and flags whether the S3 open-weight apex was reached. A
+  // failed/incomplete run is 'partial'; nothing published is 'pending'. Reads
+  // aggregates.sovereigntyRung, tolerating legacy rows (rehearsal→s2,
+  // sovereigntyHolds:true→s3) for back-compat.
   {
+    // Higher index = higher rung; -1 = no rung (failed/incomplete run).
+    const RUNG_ORDER = ['s0-dependent', 's1-interchangeable', 's2-substitutable', 's3-open-weight'];
+    const rungOf = (a: Record<string, unknown>): string | null => {
+      const explicit = a.sovereigntyRung;
+      if (typeof explicit === 'string' && RUNG_ORDER.includes(explicit)) return explicit;
+      // Back-compat with rows published before the graded reframing.
+      if (a.sovereigntyHolds === true) return 's3-open-weight';
+      if (a.rehearsal === true) return 's2-substitutable';
+      return null;
+    };
     try {
       const { data } = await client
         .from('experiment_results')
@@ -210,28 +226,27 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(10);
       const aggs = (data ?? []).map((r) => (r.aggregates ?? {}) as Record<string, unknown>);
-      const sovereign = aggs.find((a) => a.rehearsal !== true) ?? null;
-      const rehearsal = aggs.find((a) => a.rehearsal === true) ?? null;
+      const rungs = aggs.map(rungOf).filter((r): r is string => r !== null);
+      const highestIdx = rungs.reduce((max, r) => Math.max(max, RUNG_ORDER.indexOf(r)), -1);
+      const highest = highestIdx >= 0 ? RUNG_ORDER[highestIdx] : null;
+      const apexReached = highest === 's3-open-weight';
       criteria.push({
         id: 'sovereignty',
-        title: 'Sovereign survivability (EXP-004 drill)',
-        status: sovereign
-          ? sovereign.sovereigntyHolds === true
-            ? 'pass'
-            : 'fail'
-          : rehearsal
-            ? 'partial'
-            : 'pending',
-        evidence: sovereign
-          ? `latest open-weight (S3) drill: sovereigntyHolds=${String(sovereign.sovereigntyHolds)} · completed ${String(sovereign.completed)}`
-          : rehearsal
-            ? `S2 (substitutable) demonstrated: battery completed on ${String(rehearsal.provider)} (${String(rehearsal.completed)}) — the open-weight run (S3, maximum operator control) remains pending`
-            : 'no EXP-004 run published yet — run the Sovereignty tab (rehearsal mode gives a live S2 datum while open-weight credits are pending)',
+        title: 'Sovereignty — the measurable bundle (EXP-004 / PSE-1)',
+        status: aggs.length === 0 ? 'pending' : highest ? 'pass' : 'partial',
+        evidence:
+          aggs.length === 0
+            ? 'no EXP-004 run published yet — run the Sovereignty tab (a frontier run publishes a legitimate S2 datum; the open-weight run reaches the S3 apex)'
+            : highest
+              ? apexReached
+                ? `sovereignty bundle measured — highest rung ${highest}: S3 open-weight apex reached (${rungs.length} published run(s))`
+                : `sovereignty bundle measured — highest rung ${highest}: S2 substitutable demonstrated (provider interchangeability + commercial independence) · S3 open-weight apex pending (${rungs.length} published run(s))`
+              : `EXP-004 published but no run completed a rung — constitutional operation did not complete on the last run; re-run the drill`,
       });
     } catch {
       criteria.push({
         id: 'sovereignty',
-        title: 'Sovereign survivability (EXP-004 drill)',
+        title: 'Sovereignty — the measurable bundle (EXP-004 / PSE-1)',
         status: 'pending',
         evidence: 'experiment_results not queryable',
       });

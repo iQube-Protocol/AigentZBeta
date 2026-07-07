@@ -1,16 +1,26 @@
 "use client";
 
 /**
- * EXP-004 — Sovereignty Drill runner (CFS-015 principle 4).
+ * EXP-004 — Sovereignty Drill runner (PSE-1; CFS-015 principle 4, CFS-018).
  *
- * Venice-only by construction: the step API pins the provider; this runner
- * offers only the venice model allowlist. The drill's two outputs:
- *   1. COMPLETION — did every constitutional task complete at all? (the
- *      sovereignty claim: constitutional operation shall not fail)
+ * Operator correction (2026-07-07): the PSE series claim is that platform
+ * sovereignty is a MEASURABLE BUNDLE (model, provider choice, commercial
+ * independence, infrastructure). A run on ANY provider measures real bundle
+ * components at a rung of the Sovereignty Scale — it is legitimate sovereignty
+ * data, not "not a sovereignty claim." The runner offers two measurement runs:
+ *   - Frontier run (chaingpt/openai) → measures S1/S2 (interchangeable /
+ *     substitutable): provider interchangeability + commercial independence
+ *     from any single vendor are real, measured bundle components.
+ *   - Open-weight run (venice) → measures S3, the APEX: open-weight
+ *     independence is the fullest expression, a distinct higher rung — not the
+ *     gate for the experiment's validity or progress.
+ * The drill's two outputs, at whichever rung:
+ *   1. COMPLETION — did every constitutional task complete at all?
  *   2. DEGRADATION — groundedness/citations/tokens, reported for comparison
  *      against the frontier-provider EXP-003 record, never scored pass/fail.
  * Task failures are recorded honestly as constitutional failures — the one
- * thing the drill exists to detect.
+ * thing the drill exists to detect. Publishing measurements at various rungs
+ * and drawing a graded conclusion across them IS the experiment's purpose.
  */
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -47,6 +57,10 @@ interface RehearsalProviderInfo {
   models: { id: string; label: string }[];
 }
 
+// Bundle components each run measures (CFS-018 · operator correction 2026-07-07).
+const BUNDLE_FRONTIER = ["provider-interchangeability", "commercial-independence", "constitutional-operation"];
+const BUNDLE_OPEN_WEIGHT = [...BUNDLE_FRONTIER, "open-weight-independence"];
+
 export default function Exp004SovereigntyRunner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +69,9 @@ export default function Exp004SovereigntyRunner() {
   const [veniceAvailable, setVeniceAvailable] = useState<boolean>(false);
   const [models, setModels] = useState<{ id: string; label: string }[]>([]);
   const [model, setModel] = useState<string>("");
+  // Internal arm identifiers: 'sovereign' = the open-weight (venice, S3) run;
+  // 'rehearsal' = a frontier substitute (S2) run. Both are legitimate
+  // sovereignty-scale measurements — the labels below carry the honest framing.
   const [mode, setMode] = useState<"sovereign" | "rehearsal">("sovereign");
   const [rehearsalProviders, setRehearsalProviders] = useState<RehearsalProviderInfo[]>([]);
   const [rehearsalProvider, setRehearsalProvider] = useState<string>("chaingpt");
@@ -79,8 +96,8 @@ export default function Exp004SovereigntyRunner() {
           (p) => p.available,
         );
         setRehearsalProviders(reh);
-        // Operator convenience: venice credits pending → default straight
-        // into rehearsal so the machinery drill is one click.
+        // Operator convenience: venice credits pending → default straight into
+        // the frontier run so the S2 measurement is one click.
         if (!veniceOk && reh.length > 0) {
           setMode("rehearsal");
           setRehearsalProvider(reh[0].id);
@@ -195,46 +212,59 @@ export default function Exp004SovereigntyRunner() {
 
   const publish = async () => {
     setPublishState("publishing");
-    const isRehearsal = ranMode === "rehearsal";
-    const publishProvider = isRehearsal ? rehearsalProvider : "venice";
+    const isFrontier = ranMode === "rehearsal";
+    const publishProvider = isFrontier ? rehearsalProvider : "venice";
     const publishModel = model || activeModels[0]?.id || `${publishProvider}-default`;
     try {
-      // A rehearsal publish NEVER carries sovereigntyHolds — machinery
-      // validation is the only claim it is allowed to make.
-      // Sovereignty Scale (types/constitutional.ts SOVEREIGNTY_SCALE): a
-      // completed substitute-provider run is a live S2 (substitutable)
-      // datum; only the open-weight run reaches S3 (maximum).
-      const aggregates = isRehearsal
+      // Graded sovereignty-scale measurement (operator correction 2026-07-07):
+      // every completed run is legitimate sovereignty data. A completed
+      // frontier run measures S2 (substitutable); a completed open-weight run
+      // measures S3 (the open-weight apex). No `rehearsal: true` flag and no
+      // "not a sovereignty claim" framing — the rung + honest scope carry it.
+      const rung = isFrontier
+        ? completed === total
+          ? "s2-substitutable"
+          : null
+        : sovereigntyHolds
+          ? "s3-open-weight"
+          : null;
+      const bundleComponentsMeasured = isFrontier ? BUNDLE_FRONTIER : BUNDLE_OPEN_WEIGHT;
+      const aggregates = isFrontier
         ? {
-            rehearsal: true,
             provider: publishProvider,
             completed: `${completed}/${total}`,
-            machineryValidated: completed === total,
-            sovereigntyRung: completed === total ? "s2-substitutable" : null,
+            sovereigntyRung: rung,
+            bundleComponentsMeasured,
             groundedPct: groundedPct ?? "n/a",
             contradictions,
-            note: "REHEARSAL — substitute-provider run: a live S2 (substitutable) datum on the Sovereignty Scale, never an S3 claim. The open-weight run remains pending.",
+            note: "S2 (substitutable) sovereignty-scale measurement on a frontier provider — provider interchangeability + commercial independence from any single vendor are real, measured bundle components (CFS-018). This does not reach the S3 open-weight apex (open-weight independence), which is a distinct higher rung.",
           }
         : {
+            provider: publishProvider,
             completed: `${completed}/${total}`,
-            sovereigntyHolds,
-            sovereigntyRung: sovereigntyHolds ? "s3-open-weight" : null,
+            sovereigntyRung: rung,
+            bundleComponentsMeasured,
             groundedPct: groundedPct ?? "n/a",
             contradictions,
-            note: "degradation is reported vs the EXP-003 frontier record, never scored pass/fail",
+            note: "S3 (open-weight apex) sovereignty-scale measurement — constitutional operation continues on the open-weight provider alone; quality may degrade, constitutional operation shall not. Degradation is reported vs the EXP-003 frontier record, never scored pass/fail.",
           };
       const results = {
         experiment: "EXP-004",
         provider: publishProvider,
         model: publishModel,
-        claim: isRehearsal
-          ? "Rehearsal arm: the EXP-004 battery completes end-to-end on a frontier provider — validates the drill machinery only; sovereignty is definitionally open-weight and remains untested."
-          : "Sovereign Survivability (CFS-015 principle 4): constitutional operation continues on the open-weight provider alone; quality may degrade, constitutional operation shall not.",
+        claim: isFrontier
+          ? "PSE-1 frontier run: sovereignty measured at S2 (substitutable) on a frontier provider — provider interchangeability + commercial independence from any single vendor are real components of the sovereignty bundle (CFS-018). The S3 open-weight apex is a distinct higher rung."
+          : "Sovereign Survivability at S3 (open-weight apex; CFS-015 principle 4): constitutional operation continues on the open-weight provider alone; quality may degrade, constitutional operation shall not.",
         tasks: rows,
         packTask: pack,
-        aggregates: isRehearsal
-          ? { rehearsal: true, completed, total, machineryValidated: completed === total, groundedPct, contradictions }
-          : { completed, total, sovereigntyHolds, groundedPct, contradictions },
+        aggregates: {
+          completed,
+          total,
+          sovereigntyRung: rung,
+          bundleComponentsMeasured,
+          groundedPct,
+          contradictions,
+        },
         ranAt: new Date().toISOString(),
       };
       const data = await experimentStep("/api/experiments/results", {
@@ -262,31 +292,37 @@ export default function Exp004SovereigntyRunner() {
   return (
     <div className="space-y-4 max-w-4xl">
       <div>
-        <h3 className="text-base font-semibold text-slate-100">EXP-004 — Sovereignty Drill</h3>
+        <h3 className="text-base font-semibold text-slate-100">EXP-004 — Sovereignty Drill (PSE-1)</h3>
         <p className="text-sm text-slate-400 mt-1">
-          Five grounded constitutional tasks + one implementation-pack generation. The sovereignty
-          claim is a provider-class property: constitutional operation on a non-frontier
-          (open-weight) provider alone — venice today. Rehearsal mode runs the identical battery on
-          a substitute provider (chaingpt default, openai for full usage-token coverage) to test the
-          machinery; only an open-weight run completes the gate.
+          Five grounded constitutional tasks + one implementation-pack generation. Platform
+          sovereignty is a measurable bundle (CFS-018): each run measures real bundle components at
+          a rung of the Sovereignty Scale. The open-weight run (venice) measures S3, the apex —
+          open-weight independence, the fullest expression. A frontier run (chaingpt default, openai
+          for full usage-token coverage) measures S2 (substitutable): provider interchangeability +
+          commercial independence from any single vendor. Publishing measurements across rungs and
+          concluding across them is the experiment's purpose.
         </p>
       </div>
 
       {!veniceAvailable && mode === "sovereign" && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-3 text-sm text-amber-300">
-          VENICE_API_KEY is not configured in this environment — every task will record an honest
-          constitutional failure. Configure the key to run the sovereign drill, or switch to rehearsal
-          mode to validate the machinery on a frontier provider meanwhile.
+          VENICE_API_KEY is not configured in this environment — every task in the open-weight run
+          will record an honest constitutional failure. Configure the key to measure S3 (the
+          open-weight apex), or switch to a frontier run to measure S2 (substitutable) — a legitimate
+          sovereignty-scale datum — meanwhile.
         </div>
       )}
       {mode === "rehearsal" && (
         <div className="rounded-lg border border-sky-800 bg-sky-950/40 p-3 text-sm text-sky-300">
-          REHEARSAL mode — the identical battery runs on a substitute provider to test the full
-          capability end-to-end (openai reports usage tokens; chaingpt cannot). This is{" "}
-          <span className="font-semibold">not a sovereignty claim</span>: sovereignty is a
-          provider-class property — constitutional operation on a non-frontier (open-weight)
-          provider alone — and the open-weight run remains pending. The Chrysalis sovereignty
-          criterion reads a rehearsal as <span className="font-mono">partial</span>, never pass.
+          FRONTIER run — the identical battery runs on a substitute provider (openai reports usage
+          tokens; chaingpt cannot). This is a legitimate{" "}
+          <span className="font-semibold">sovereignty-scale measurement at S2 (substitutable)</span>:
+          it demonstrates provider interchangeability + commercial independence from any single
+          vendor — real components of the sovereignty bundle (CFS-018). It does not reach the{" "}
+          <span className="font-semibold">S3 open-weight apex</span> (open-weight independence),
+          which is a distinct higher rung. The Chrysalis sovereignty criterion reads a completed run
+          as <span className="font-mono">pass</span> on the measurable-bundle claim, naming the
+          highest rung reached.
         </div>
       )}
 
@@ -296,17 +332,17 @@ export default function Exp004SovereigntyRunner() {
             onClick={() => switchMode("sovereign")}
             disabled={running}
             className={`px-2.5 py-1.5 ${mode === "sovereign" ? "bg-indigo-700 text-white" : "bg-slate-900 text-slate-400 hover:text-slate-200"}`}
-            title="Sovereignty is a provider-class property: non-frontier (open-weight). Venice is the platform's open-weight adapter."
+            title="Measures S3 — the open-weight apex. Venice is the platform's open-weight adapter."
           >
-            Sovereign (open-weight · venice)
+            Open-weight run (S3 · venice)
           </button>
           <button
             onClick={() => switchMode("rehearsal")}
             disabled={running || rehearsalProviders.length === 0}
             className={`px-2.5 py-1.5 ${mode === "rehearsal" ? "bg-sky-700 text-white" : "bg-slate-900 text-slate-400 hover:text-slate-200"} disabled:opacity-40`}
-            title={rehearsalProviders.length === 0 ? "No rehearsal provider key configured" : undefined}
+            title={rehearsalProviders.length === 0 ? "No frontier provider key configured" : "Measures S2 (substitutable): provider interchangeability + commercial independence — real bundle components"}
           >
-            Rehearsal (frontier)
+            Frontier run (S2 · substitutable)
           </button>
         </div>
         {mode === "rehearsal" && (
@@ -348,7 +384,7 @@ export default function Exp004SovereigntyRunner() {
           className="inline-flex items-center gap-1.5 rounded-md bg-indigo-700 hover:bg-indigo-600 px-3 py-1.5 text-sm text-white disabled:opacity-50"
         >
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-          {running ? "Drilling…" : mode === "rehearsal" ? "Run rehearsal drill" : "Run sovereignty drill"}
+          {running ? "Drilling…" : mode === "rehearsal" ? "Run frontier drill (S2)" : "Run open-weight drill (S3)"}
         </button>
       </div>
 
@@ -400,13 +436,14 @@ export default function Exp004SovereigntyRunner() {
         <div className={`rounded-lg border p-3 ${completed === total ? "border-sky-800 bg-sky-950/30" : "border-rose-800 bg-rose-950/30"}`}>
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
             <ShieldCheck className={`h-4 w-4 ${completed === total ? "text-sky-400" : "text-rose-400"}`} />
-            Machinery {completed === total ? "VALIDATED" : "INCOMPLETE"} — {completed}/{total} battery tasks completed on {rehearsalProvider}
-            {completed === total ? " · a live S2 (substitutable) datum on the Sovereignty Scale" : ""}
+            {completed === total
+              ? `Sovereignty measured at S2 (substitutable) — ${completed}/${total} on ${rehearsalProvider} · provider-interchangeability + commercial-independence demonstrated · S3 open-weight apex pending`
+              : `Run INCOMPLETE — ${completed}/${total} battery tasks completed on ${rehearsalProvider} (no rung claimed on failure)`}
           </div>
           <p className="mt-1 text-xs text-slate-400">
-            Grounded {groundedPct ?? "n/a"}% · contradictions {contradictions}. Sovereignty is operator
-            control — a scale, not a boolean: this run demonstrates substitutability (S2); the
-            open-weight run (S3, maximum control) remains pending.
+            Grounded {groundedPct ?? "n/a"}% · contradictions {contradictions}. Sovereignty is a
+            measurable bundle graded by rung: this run measures S2 (substitutable) — real bundle
+            components; the open-weight run (S3, the apex) is a distinct higher rung.
           </p>
           <button
             onClick={publish}
@@ -414,7 +451,7 @@ export default function Exp004SovereigntyRunner() {
             className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
           >
             <Upload className="h-3.5 w-3.5" />
-            {publishState === "publishing" ? "Publishing…" : "Publish canonically (rehearsal)"}
+            {publishState === "publishing" ? "Publishing…" : "Publish canonically (S2)"}
           </button>
           {publishState && publishState !== "publishing" && (
             <p className="mt-1 text-xs text-slate-400">{publishState}</p>
@@ -425,7 +462,9 @@ export default function Exp004SovereigntyRunner() {
         <div className={`rounded-lg border p-3 ${sovereigntyHolds ? "border-emerald-800 bg-emerald-950/30" : "border-rose-800 bg-rose-950/30"}`}>
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
             <ShieldCheck className={`h-4 w-4 ${sovereigntyHolds ? "text-emerald-400" : "text-rose-400"}`} />
-            Sovereignty {sovereigntyHolds ? "HOLDS" : "FAILED"} — {completed}/{total} constitutional tasks completed on the open-weight provider alone
+            {sovereigntyHolds
+              ? `Sovereignty HOLDS at S3 (open-weight) — ${completed}/${total} constitutional tasks completed on the open-weight provider alone`
+              : `Sovereignty FAILED — ${completed}/${total} constitutional tasks completed on the open-weight provider alone`}
           </div>
           <p className="mt-1 text-xs text-slate-400">
             Degradation report: grounded {groundedPct ?? "n/a"}% · contradictions {contradictions} — compare against
@@ -437,7 +476,7 @@ export default function Exp004SovereigntyRunner() {
             className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
           >
             <Upload className="h-3.5 w-3.5" />
-            {publishState === "publishing" ? "Publishing…" : "Publish canonically"}
+            {publishState === "publishing" ? "Publishing…" : "Publish canonically (S3)"}
           </button>
           {publishState && publishState !== "publishing" && (
             <p className="mt-1 text-xs text-slate-400">{publishState}</p>

@@ -291,9 +291,26 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     expect(SOVEREIGN_CLASS).toBe('open-weight');
     const sovereign = CONSTITUTIONAL_PROVIDERS.find((p) => p.id === SOVEREIGN_PROVIDER);
     expect(sovereign?.kind).toBe(SOVEREIGN_CLASS);
-    // Frontier rehearsal members can exercise full capability but can never
-    // satisfy the sovereignty claim — openai is frontier in the inventory.
+    // Frontier members measure a real (S2, substitutable) rung of the bundle
+    // but do not reach the S3 open-weight apex — openai is frontier in the
+    // inventory (operator correction 2026-07-07: S3 is the apex, not the gate).
     expect(CONSTITUTIONAL_PROVIDERS.find((p) => p.id === 'openai')?.kind).toBe('frontier');
+  });
+
+  it('graded sovereignty-scale mapping: frontier→S2, open-weight→S3, incomplete→null (operator correction 2026-07-07)', async () => {
+    const { sovereigntyRungForRun, bundleComponentsForArm } = await import('@/services/experiments/exp004');
+    // A completed frontier substitute run measures S2 (substitutable); a
+    // completed open-weight run reaches S3 (the apex). No rung is claimed when
+    // constitutional operation did not complete.
+    expect(sovereigntyRungForRun('frontier', true)).toBe('s2-substitutable');
+    expect(sovereigntyRungForRun('open-weight', true)).toBe('s3-open-weight');
+    expect(sovereigntyRungForRun('frontier', false)).toBeNull();
+    expect(sovereigntyRungForRun('open-weight', false)).toBeNull();
+    // Frontier measures interchangeability + commercial independence; the
+    // open-weight run adds open-weight independence (the distinct higher rung).
+    expect(bundleComponentsForArm('frontier')).toContain('commercial-independence');
+    expect(bundleComponentsForArm('frontier')).not.toContain('open-weight-independence');
+    expect(bundleComponentsForArm('open-weight')).toContain('open-weight-independence');
   });
 
   it('sovereignty is a SCALE, not a boolean — rung order pinned (operator refinement 2026-07-06)', async () => {
