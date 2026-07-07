@@ -3074,3 +3074,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5003c37.md](../build_/COMMITS/COMMIT-5003c37.md)
 - Message: Wire the Experiment Lab to the CCRL lifecycle: runs advance research objects through the receipted path
+
+## Commit `a11c9f6` — 2026-07-07T17:01:26Z
+- Type: `fix`
+- Brief: [COMMIT-a11c9f6.md](../build_/COMMITS/COMMIT-a11c9f6.md)
+- Message: Fix CCRL copilot regression: make the research fence contract conditional, not mandatory

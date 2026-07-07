@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T16:37:34.137Z",
+  "last_updated": "2026-07-07T17:03:38.607Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5003c3715d14689119c2ffab6d9b5fcba422eee1",
-  "latest_commit_short": "5003c37",
-  "latest_commit_title": "Wire the Experiment Lab to the CCRL lifecycle: runs advance research objects through the receipted path",
+  "latest_commit": "a11c9f6585813a617915ad30584bca8e93d9efa5",
+  "latest_commit_short": "a11c9f6",
+  "latest_commit_title": "Fix CCRL copilot regression: make the research fence contract conditional, not mandatory",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a11c9f6",
+      "full_sha": "a11c9f6585813a617915ad30584bca8e93d9efa5",
+      "title": "Fix CCRL copilot regression: make the research fence contract conditional, not mandatory",
+      "author": "Claude",
+      "timestamp": "2026-07-07T17:01:26Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a11c9f6.md"
+    },
     {
       "sha": "5003c37",
       "full_sha": "5003c3715d14689119c2ffab6d9b5fcba422eee1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-03T20:38:22Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f3969d9.md"
-    },
-    {
-      "sha": "bbd38c5",
-      "full_sha": "bbd38c5638aa0d4cd3bd5b9e4e35f6de77c5cc6b",
-      "title": "fix move-forward NBE regression + add operator archetype to experience model setup",
-      "author": "Claude",
-      "timestamp": "2026-06-25T18:29:07Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-bbd38c5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
