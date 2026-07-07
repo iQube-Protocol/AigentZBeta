@@ -21,13 +21,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  ArrowRightLeft,
+  FlaskConical,
   GitBranch,
   Loader2,
   Network,
   Search,
   ShieldAlert,
 } from "lucide-react";
-import { experimentGet } from "./experimentStepFetch";
+import { experimentGet, experimentStep } from "./experimentStepFetch";
 import {
   NAMESPACES,
   NAMESPACE_COLOR,
@@ -111,6 +113,34 @@ interface OverviewResponse {
   note?: string;
 }
 
+// ── Counterfactual (what-if) projection ──────────────────────────────────
+type FieldEdgeTypeUI = "enables" | "constrains" | "contradicts";
+interface CfCounts {
+  enables: number;
+  constrains: number;
+  contradicts: number;
+}
+interface CfProjection {
+  mode: "add-node" | "remove-edge";
+  baseline: CfCounts;
+  projected: CfCounts;
+  delta: CfCounts;
+  coherentBefore: boolean;
+  coherentAfter: boolean;
+  coherenceFlips: boolean;
+  forcesEscalationBefore: boolean;
+  forcesEscalationAfter: boolean;
+  forcesEscalationChange: boolean;
+  readout: string;
+}
+interface CounterfactualResponse {
+  ok: true;
+  mode: string;
+  projection: CfProjection | null;
+  forecast: FieldForecast | null;
+  note?: string;
+}
+
 // The composition laws that are the THEORY behind the field (CFS-013 §7).
 const COMPOSITION_LAWS = [
   {
@@ -133,6 +163,55 @@ const COMPOSITION_LAWS = [
   },
 ];
 
+/** A before/after field-count card. When `delta` is passed, each count shows
+ *  its signed change (more enables=emerald, new contradicts=rose, constrains
+ *  amber; unchanged stays slate). */
+function CfCountsCard({
+  title,
+  counts,
+  delta,
+}: {
+  title: string;
+  counts: CfCounts;
+  delta?: CfCounts;
+}) {
+  const rows: { key: keyof CfCounts; label: string; tone: string }[] = [
+    { key: "enables", label: "enables", tone: "text-emerald-300" },
+    { key: "constrains", label: "constrains", tone: "text-amber-300" },
+    { key: "contradicts", label: "contradicts", tone: "text-rose-300" },
+  ];
+  const deltaTone = (key: keyof CfCounts, d: number) => {
+    if (d === 0) return "text-slate-600";
+    if (key === "contradicts") return d > 0 ? "text-rose-400" : "text-emerald-400";
+    if (key === "enables") return d > 0 ? "text-emerald-400" : "text-slate-400";
+    return d > 0 ? "text-amber-400" : "text-slate-400";
+  };
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+      <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">{title}</div>
+      <div className="space-y-1">
+        {rows.map((r) => {
+          const d = delta?.[r.key];
+          return (
+            <div key={r.key} className="flex items-center justify-between gap-2 text-xs">
+              <span className={r.tone}>{r.label}</span>
+              <span className="flex items-center gap-1.5">
+                <span className="font-mono text-slate-200">{counts[r.key]}</span>
+                {d !== undefined && d !== 0 && (
+                  <span className={`font-mono text-[10px] ${deltaTone(r.key, d)}`}>
+                    ({d > 0 ? "+" : ""}
+                    {d})
+                  </span>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function InvariantFieldExplorerTab() {
   const [allRows, setAllRows] = useState<InvariantRow[]>([]);
   const [pickerError, setPickerError] = useState<string | null>(null);
@@ -144,6 +223,15 @@ export default function InvariantFieldExplorerTab() {
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Counterfactual (what-if) panel state — a pure projection, nothing written.
+  const [cfMode, setCfMode] = useState<"add-node" | "remove-edge">("add-node");
+  const [cfEdgeType, setCfEdgeType] = useState<FieldEdgeTypeUI>("enables");
+  const [cfTargetId, setCfTargetId] = useState<string>("");
+  const [cfEdgeId, setCfEdgeId] = useState<string>("");
+  const [cfResult, setCfResult] = useState<CounterfactualResponse | null>(null);
+  const [cfLoading, setCfLoading] = useState(false);
+  const [cfError, setCfError] = useState<string | null>(null);
 
   // Picker list — the same substrate reader the Invariant Registry uses.
   useEffect(() => {
@@ -223,6 +311,43 @@ export default function InvariantFieldExplorerTab() {
   }, [allRows, search, namespace]);
 
   const selectedRow = selectedId ? allRows.find((r) => r.id === selectedId) : null;
+
+  // Reset the what-if panel when the focus invariant changes; default the
+  // add-node target to the focus so a first "Project" click is meaningful.
+  useEffect(() => {
+    setCfResult(null);
+    setCfError(null);
+    setCfEdgeId("");
+    setCfTargetId(selectedId ?? "");
+  }, [selectedId]);
+
+  const projectCounterfactual = async () => {
+    if (!selectedId) return;
+    setCfLoading(true);
+    setCfError(null);
+    setCfResult(null);
+    try {
+      const body: Record<string, unknown> =
+        cfMode === "add-node"
+          ? {
+              mode: "add-node",
+              proposedEdges: [{ toInvariantId: cfTargetId || selectedId, edgeType: cfEdgeType }],
+            }
+          : { mode: "remove-edge", invariantId: selectedId, edgeId: cfEdgeId };
+      const data = (await experimentStep(
+        "/api/research/invariant-field",
+        body,
+      )) as unknown as CounterfactualResponse;
+      setCfResult(data);
+    } catch (err) {
+      setCfError(err instanceof Error ? err.message : "projection unavailable");
+    } finally {
+      setCfLoading(false);
+    }
+  };
+
+  const cfCanProject =
+    cfMode === "add-node" ? !!(cfTargetId || selectedId) : !!cfEdgeId;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -430,6 +555,170 @@ export default function InvariantFieldExplorerTab() {
               </div>
             )}
           </div>
+
+          {/* ── Counterfactual (what-if) projection — nothing is written ─── */}
+          <div className="rounded-xl border border-violet-500/30 bg-violet-500/[0.04] p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <FlaskConical className="h-4 w-4 text-violet-300" />
+              <h3 className="text-sm font-semibold text-slate-100">Counterfactual (what-if)</h3>
+            </div>
+            <p className="text-[11px] text-slate-400 mb-3">
+              Projection only — <span className="text-slate-200">nothing is written</span>. This is how a
+              proposed finding is examined <span className="italic">before</span> ratification: the system may
+              propose its own evolution; the operator ratifies it (
+              <span className="font-mono text-slate-500">inv.cybernetics.111</span>).
+            </p>
+
+            {/* Mode toggle */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <button
+                onClick={() => {
+                  setCfMode("add-node");
+                  setCfResult(null);
+                }}
+                className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                  cfMode === "add-node"
+                    ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
+                    : "border-slate-700 text-slate-400 hover:bg-slate-800/60"
+                }`}
+              >
+                Add a proposed finding
+              </button>
+              <button
+                onClick={() => {
+                  setCfMode("remove-edge");
+                  setCfResult(null);
+                }}
+                className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                  cfMode === "remove-edge"
+                    ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
+                    : "border-slate-700 text-slate-400 hover:bg-slate-800/60"
+                }`}
+              >
+                Remove an existing edge
+              </button>
+            </div>
+
+            {/* Controls */}
+            {cfMode === "add-node" ? (
+              <div className="flex flex-wrap items-end gap-2 mb-3">
+                <label className="flex flex-col gap-1 text-[11px] text-slate-500">
+                  Proposed edge type
+                  <select
+                    value={cfEdgeType}
+                    onChange={(e) => setCfEdgeType(e.target.value as FieldEdgeTypeUI)}
+                    className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
+                  >
+                    <option value="enables">enables</option>
+                    <option value="constrains">constrains</option>
+                    <option value="contradicts">contradicts</option>
+                  </select>
+                </label>
+                <span className="pb-2 text-slate-500">
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+                <label className="flex flex-1 min-w-[220px] flex-col gap-1 text-[11px] text-slate-500">
+                  Target invariant
+                  <select
+                    value={cfTargetId || selectedId || ""}
+                    onChange={(e) => setCfTargetId(e.target.value)}
+                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
+                  >
+                    {allRows.slice(0, 200).map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.seedId ? `${r.seedId} — ` : ""}
+                        {r.statement.slice(0, 80)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : (
+              <div className="mb-3">
+                {neighbourhood.edges.length === 0 ? (
+                  <p className="text-xs text-slate-500">
+                    This invariant has no field edges to remove — switch to &ldquo;Add a proposed finding&rdquo;.
+                  </p>
+                ) : (
+                  <label className="flex flex-col gap-1 text-[11px] text-slate-500">
+                    Edge to hypothetically remove
+                    <select
+                      value={cfEdgeId}
+                      onChange={(e) => setCfEdgeId(e.target.value)}
+                      className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
+                    >
+                      <option value="">Select an edge…</option>
+                      {neighbourhood.edges.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.edgeType} → {(e.to.seedId ? `${e.to.seedId} ` : "") + e.to.statement.slice(0, 60)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={projectCounterfactual}
+              disabled={!cfCanProject || cfLoading}
+              className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/50 bg-violet-500/15 px-3 py-1.5 text-xs text-violet-100 transition hover:bg-violet-500/25 disabled:opacity-40"
+            >
+              {cfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRightLeft className="h-3.5 w-3.5" />}
+              Project
+            </button>
+
+            {cfError && <p className="mt-2 text-xs text-rose-400">{cfError}</p>}
+
+            {/* Projection result — before → after */}
+            {cfResult && (
+              cfResult.projection ? (
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                    <CfCountsCard title="Current field" counts={cfResult.projection.baseline} />
+                    <ArrowRight className="h-4 w-4 text-slate-500" />
+                    <CfCountsCard
+                      title="Projected field"
+                      counts={cfResult.projection.projected}
+                      delta={cfResult.projection.delta}
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    <span
+                      className={`rounded border px-2 py-0.5 ${
+                        cfResult.projection.coherentAfter
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                          : "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                      }`}
+                    >
+                      {cfResult.projection.coherentAfter ? "coherent" : "incoherent"}
+                      {cfResult.projection.coherenceFlips && " (flipped)"}
+                    </span>
+                    <span
+                      className={`rounded border px-2 py-0.5 ${
+                        cfResult.projection.forcesEscalationAfter
+                          ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                          : "border-slate-600 bg-slate-800/40 text-slate-400"
+                      }`}
+                    >
+                      {cfResult.projection.forcesEscalationAfter ? "forces escalation" : "no escalation forced"}
+                      {cfResult.projection.forcesEscalationChange && " (changed)"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-start gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 p-3 text-xs text-slate-200">
+                    <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0 text-violet-300" />
+                    <p>{cfResult.projection.readout}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-slate-500">
+                  {cfResult.note ?? "No projection available."}
+                </p>
+              )
+            )}
+          </div>
         </div>
       )}
 
@@ -530,9 +819,10 @@ export default function InvariantFieldExplorerTab() {
 
       {/* Honest deferral footer */}
       <p className="text-[11px] text-slate-600 border-t border-slate-800/60 pt-3">
-        First Phase E slice (CFS-019 §8): read-only visualisation over the real substrate. Counterfactual analysis
-        (&ldquo;what if this edge were removed?&rdquo;) and constitutional simulations are a later Phase E slice —
-        this surface neither simulates nor edits.
+        Phase E (CFS-019 §8): read-only visualisation over the real substrate, now with counterfactual (what-if)
+        projection — a proposed finding or a removed edge is examined <span className="italic">before</span>{" "}
+        ratification, and nothing is written. Multi-step constitutional simulations and Layer-III experiment
+        scaffolding remain a later Phase E slice — this surface neither simulates over time nor edits.
       </p>
     </div>
   );

@@ -45,6 +45,10 @@ import {
 } from '@/types/constitutional';
 import { EXPERIMENT_MODEL_OPTIONS, isAllowedExperimentModel } from '@/services/experiments/llm';
 import seedFile from '@/codexes/packs/ccrl/foundation/canonical-invariants.seed.json';
+import {
+  projectCounterfactual,
+  type CounterfactualEdge,
+} from '@/services/consequence/counterfactual';
 
 describe('Canonical Ontology Service (CFS-015)', () => {
   it('parses the terminology canon from docs/platform-ontology.md (not the fallback)', () => {
@@ -466,6 +470,90 @@ describe('DCIR — Dynamic Constitutional Interaction Runtime (CFS-020 D0)', () 
     expect(dcir?.invariantIds).toContain('inv.interaction.118');
     const bi = r.resolvedTerms.find((t) => t.canonical.toLowerCase() === 'behavioural invariant');
     expect(bi?.invariantIds).toContain('inv.interaction.115');
+  });
+});
+
+describe('CCRL Phase E — counterfactual projection (CFS-019 §5 item 6)', () => {
+  // A small, canonical field: A enables B, A constrains C (C canonical).
+  const edge = (
+    id: string,
+    from: string,
+    to: string,
+    edgeType: CounterfactualEdge['edgeType'],
+  ): CounterfactualEdge => ({ id, fromInvariantId: from, toInvariantId: to, edgeType });
+
+  const baseline: CounterfactualEdge[] = [
+    edge('e1', 'A', 'B', 'enables'),
+    edge('e2', 'A', 'C', 'constrains'),
+    edge('e3', 'A', 'D', 'contradicts'),
+  ];
+  const invariants = [
+    { id: 'A', status: 'validated' },
+    { id: 'B', status: 'validated' },
+    { id: 'C', status: 'canonical' },
+    { id: 'D', status: 'validated' },
+  ];
+
+  it('is deterministic — identical inputs yield identical output', () => {
+    const h = { mode: 'add-node' as const, proposedEdges: [{ toInvariantId: 'B', edgeType: 'enables' as const }] };
+    const first = projectCounterfactual(baseline, h, invariants);
+    const second = projectCounterfactual(baseline, h, invariants);
+    expect(second).toEqual(first);
+  });
+
+  it('a proposed contradicts edge flips the set incoherent and forces escalation', () => {
+    // Start from a coherent field (no contradicts) so the flip is observable.
+    const coherent: CounterfactualEdge[] = [edge('e1', 'A', 'B', 'enables')];
+    const p = projectCounterfactual(
+      coherent,
+      { mode: 'add-node', proposedEdges: [{ toInvariantId: 'B', edgeType: 'contradicts' }] },
+      invariants,
+    );
+    expect(p.coherentBefore).toBe(true);
+    expect(p.coherentAfter).toBe(false);
+    expect(p.coherenceFlips).toBe(true);
+    expect(p.forcesEscalationAfter).toBe(true);
+    expect(p.delta.contradicts).toBe(1);
+  });
+
+  it('remove-edge lowers the relevant count', () => {
+    const p = projectCounterfactual(
+      baseline,
+      { mode: 'remove-edge', edgeId: 'e3' },
+      invariants,
+    );
+    expect(p.baseline.contradicts).toBe(1);
+    expect(p.projected.contradicts).toBe(0);
+    expect(p.delta.contradicts).toBe(-1);
+    // Removing the only contradiction restores coherence.
+    expect(p.coherentBefore).toBe(false);
+    expect(p.coherentAfter).toBe(true);
+    expect(p.coherenceFlips).toBe(true);
+  });
+
+  it('a no-op hypothetical yields zero delta', () => {
+    // remove-edge targeting an id absent from the field changes nothing.
+    const p = projectCounterfactual(
+      baseline,
+      { mode: 'remove-edge', edgeId: 'does-not-exist' },
+      invariants,
+    );
+    expect(p.delta).toEqual({ enables: 0, constrains: 0, contradicts: 0 });
+    expect(p.coherenceFlips).toBe(false);
+    expect(p.forcesEscalationChange).toBe(false);
+    expect(p.readout).toMatch(/no-op|zero delta/i);
+  });
+
+  it('a constrains edge onto a canonical invariant forces escalation without breaking coherence', () => {
+    const p = projectCounterfactual(
+      [edge('e1', 'A', 'B', 'enables')],
+      { mode: 'add-node', proposedEdges: [{ toInvariantId: 'C', edgeType: 'constrains' }] },
+      invariants,
+    );
+    expect(p.coherentAfter).toBe(true); // no contradiction introduced
+    expect(p.forcesEscalationBefore).toBe(false);
+    expect(p.forcesEscalationAfter).toBe(true); // C is canonical
+    expect(p.forcesEscalationChange).toBe(true);
   });
 });
 
