@@ -3099,3 +3099,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-71496e9.md](../build_/COMMITS/COMMIT-71496e9.md)
 - Message: Tighten the CCRL research loop: one-click Run-stage hand-off via a cartridge-agnostic tab-nav seam
+
+## Commit `b7acd87` — 2026-07-07T18:31:21Z
+- Type: `push`
+- Brief: [COMMIT-b7acd87.md](../build_/COMMITS/COMMIT-b7acd87.md)
+- Message: Build DCIR D4: the universal substrate hook — surfaces adopt observation by declaration

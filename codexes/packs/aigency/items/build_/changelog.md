@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b7acd87`](https://github.com/iQube-Protocol/AigentZBeta/commit/b7acd87909cc65727f4f7cb158fd7e2ed3650bda) [push] Build DCIR D4: the universal substrate hook — surfaces adopt observation by declaration (Claude, 2026-07-07T18:31:21Z)
 - [`71496e9`](https://github.com/iQube-Protocol/AigentZBeta/commit/71496e979a0ca965cc5121fc0ba97b0778efc507) [push] Tighten the CCRL research loop: one-click Run-stage hand-off via a cartridge-agnostic tab-nav seam (Claude, 2026-07-07T18:19:15Z)
 - [`32ab01b`](https://github.com/iQube-Protocol/AigentZBeta/commit/32ab01be82ab44b36ce2f173cb595689cb802917) [push] Build CCRL Phase C3: the research ICE loop — experiments get develop→run→validate→publish parity (Claude, 2026-07-07T17:54:30Z)
 - [`e48b314`](https://github.com/iQube-Protocol/AigentZBeta/commit/e48b31418091e70fe2fd217fb28405695e120b5c) [push] Extend CDE DevTools with server-side telemetry + escalation log, and grow the Terminal's read-only diagnostics (Claude, 2026-07-07T17:34:06Z)

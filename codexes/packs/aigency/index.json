@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T18:21:04.001Z",
+  "last_updated": "2026-07-07T18:34:08.273Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "71496e979a0ca965cc5121fc0ba97b0778efc507",
-  "latest_commit_short": "71496e9",
-  "latest_commit_title": "Tighten the CCRL research loop: one-click Run-stage hand-off via a cartridge-agnostic tab-nav seam",
+  "latest_commit": "b7acd87909cc65727f4f7cb158fd7e2ed3650bda",
+  "latest_commit_short": "b7acd87",
+  "latest_commit_title": "Build DCIR D4: the universal substrate hook — surfaces adopt observation by declaration",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b7acd87",
+      "full_sha": "b7acd87909cc65727f4f7cb158fd7e2ed3650bda",
+      "title": "Build DCIR D4: the universal substrate hook — surfaces adopt observation by declaration",
+      "author": "Claude",
+      "timestamp": "2026-07-07T18:31:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b7acd87.md"
+    },
     {
       "sha": "71496e9",
       "full_sha": "71496e979a0ca965cc5121fc0ba97b0778efc507",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-03T23:26:44Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-dfbd730.md"
-    },
-    {
-      "sha": "cd3cdb7",
-      "full_sha": "cd3cdb71c921afe767931c7045cf25cc1b077124",
-      "title": "deploy consequence operating model as intent chain template (chrysalis phase 3b)",
-      "author": "Claude",
-      "timestamp": "2026-07-03T23:26:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cd3cdb7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
