@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`a865e95`](https://github.com/iQube-Protocol/AigentZBeta/commit/a865e95ac04b7599b55d8ba560c0eee50ce4b0ee) [push] Expand the DCIR observation seam to aigentMe (observe-mode-first) (Claude, 2026-07-07T13:25:07Z)
 - [`f647b06`](https://github.com/iQube-Protocol/AigentZBeta/commit/f647b06df9ce867dea367b59939453984d0b323b) [feat] Add the auto-act control surface to the Dev Command Center (opt-in, navigation-only, always-disablable, always-notifying) (Claude, 2026-07-07T13:22:46Z)
 - [`dd7dc45`](https://github.com/iQube-Protocol/AigentZBeta/commit/dd7dc453fdcf6d72ab1c7cfc92bbbc04a8bcbbc1) [push] Make Dev Command Center quick actions intelligent via the DCIR affordance service (Claude, 2026-07-07T10:40:52Z)
 - [`151f802`](https://github.com/iQube-Protocol/AigentZBeta/commit/151f802efa79fe584ee487799214044258a4d802) [push] Build the Constitutional Development Environment: validation forks to remediation, deployment gated on consequence test (Claude, 2026-07-07T10:32:38Z)

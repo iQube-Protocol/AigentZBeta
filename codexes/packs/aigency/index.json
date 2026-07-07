@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T13:25:44.994Z",
+  "last_updated": "2026-07-07T13:27:43.005Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f647b06df9ce867dea367b59939453984d0b323b",
-  "latest_commit_short": "f647b06",
-  "latest_commit_title": "Add the auto-act control surface to the Dev Command Center (opt-in, navigation-only, always-disablable, always-notifying)",
+  "latest_commit": "a865e95ac04b7599b55d8ba560c0eee50ce4b0ee",
+  "latest_commit_short": "a865e95",
+  "latest_commit_title": "Expand the DCIR observation seam to aigentMe (observe-mode-first)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a865e95",
+      "full_sha": "a865e95ac04b7599b55d8ba560c0eee50ce4b0ee",
+      "title": "Expand the DCIR observation seam to aigentMe (observe-mode-first)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T13:25:07Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a865e95.md"
+    },
     {
       "sha": "f647b06",
       "full_sha": "f647b06df9ce867dea367b59939453984d0b323b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-24T22:04:42Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1129315.md"
-    },
-    {
-      "sha": "2abac0b",
-      "full_sha": "2abac0b3ce420130251eee585f17d5febdc83bb0",
-      "title": "dedupe duplicate Standing Core tab in the Standing cartridge",
-      "author": "Claude",
-      "timestamp": "2026-06-24T22:13:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2abac0b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
