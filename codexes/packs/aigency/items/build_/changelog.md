@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`151f802`](https://github.com/iQube-Protocol/AigentZBeta/commit/151f802efa79fe584ee487799214044258a4d802) [push] Build the Constitutional Development Environment: validation forks to remediation, deployment gated on consequence test (Claude, 2026-07-07T10:32:38Z)
 - [`c39b577`](https://github.com/iQube-Protocol/AigentZBeta/commit/c39b577fb6e9266e4465d2331103c351d0b7a1cb) [push] Build DCIR D3: dynamic affordance service (suggest-only default, navigation-class auto-act boundary) (Claude, 2026-07-07T10:16:37Z)
 - [`d9d63b0`](https://github.com/iQube-Protocol/AigentZBeta/commit/d9d63b031de4c984b3da10981a6a5afbb167399b) [fix] Reframe EXP-004 as graded sovereignty-scale measurement + fix experiment_results EXP-004 constraint (operator correction) (Claude, 2026-07-07T07:37:27Z)
 - [`c2f7076`](https://github.com/iQube-Protocol/AigentZBeta/commit/c2f7076132f6194148130a0d5a36a4735e816788) [push] Build CCRL Phase E counterfactual slice: pure what-if projection over the invariant field (pre-ratification decision support) (Claude, 2026-07-07T07:05:09Z)
