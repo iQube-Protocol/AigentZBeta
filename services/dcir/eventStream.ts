@@ -233,6 +233,86 @@ export function surfacePromptSelectedEvent(surface: string, label: string): Dcir
   });
 }
 
+// ─── aigentMe welcome surface typed helpers (CFS-020 D1+, first expansion) ──
+// Second instrumented surface after the Dev Command Center (operator direction
+// 2026-07: "once we're happy with DCIR we can then expand it to aigentMe and
+// the studio composer"). Same observe-mode discipline: each wraps an EXISTING
+// aigentMe seam — nothing blocks, nothing mutates the Capsule↔Layout contract.
+// Payloads are kind + capsule + category labels (artifactType / destination /
+// connector label / specialist id) — NEVER the artifact body, title, or any T0
+// identifier. `capsule opened:` summaries align with the stateEngine revisit
+// miner so aigentMe capsule revisits are observed the same way dev ones are.
+
+/** Operator engaged an aigentMe Capsule (brief/move-forward/venture-progress/ask-specialists). */
+export function aigentMeCapsuleEngagedEvent(capsule: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'NavigationOccurred',
+    runtime: 'observation',
+    summary: `capsule opened: ${capsule}`,
+    capsuleScope: capsule,
+  });
+}
+
+/** Operator sent a drafted artifact pill to its connector — category + destination only. */
+export function aigentMeArtifactSentEvent(artifactType: string, destination: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'ArtifactApproved',
+    runtime: 'action',
+    summary: `artifact sent: ${artifactType} → ${destination}`,
+    capsuleScope: 'brief',
+  });
+}
+
+/** Operator dismissed a drafted artifact pill — category label only. */
+export function aigentMeArtifactDismissedEvent(artifactType: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'ArtifactRejected',
+    runtime: 'observation',
+    summary: `artifact dismissed: ${artifactType}`,
+    capsuleScope: 'brief',
+  });
+}
+
+/** Operator granted the second-tier approval for an external connector action. */
+export function aigentMeSecondTierApprovedEvent(connectorLabel: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'RecommendationAccepted',
+    runtime: 'observation',
+    summary: `second-tier approval granted: ${connectorLabel}`,
+    capsuleScope: 'brief',
+  });
+}
+
+/** Operator cancelled a pending second-tier approval. */
+export function aigentMeSecondTierCancelledEvent(): DcirEvent {
+  return emitDcirEvent({
+    kind: 'RecommendationRejected',
+    runtime: 'observation',
+    summary: 'second-tier approval cancelled',
+    capsuleScope: 'brief',
+  });
+}
+
+/** Operator marked a queued NBA pill complete (explicit lifecycle control). */
+export function aigentMePillCompletedEvent(): DcirEvent {
+  return emitDcirEvent({
+    kind: 'WorkflowAdvanced',
+    runtime: 'observation',
+    summary: 'pill marked complete',
+    capsuleScope: 'move-forward',
+  });
+}
+
+/** A specialist produced a consultation response — specialist id only, never the body. */
+export function aigentMeSpecialistConsultedEvent(specialistId: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'ToolOutputProduced',
+    runtime: 'conversational',
+    summary: `specialist consulted: ${specialistId}`,
+    capsuleScope: 'ask-specialists',
+  });
+}
+
 // ─── Observation seam (ground-context rendering) ────────────────────────────
 
 /**

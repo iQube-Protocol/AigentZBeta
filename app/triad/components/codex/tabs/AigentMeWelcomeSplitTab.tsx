@@ -66,6 +66,28 @@ import type { ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import type { ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import type { StageEvaluation } from "@/services/strategy/stageProgression";
 
+// DCIR D1/D2 observation seam (CFS-020) — OBSERVE-MODE ONLY. Second
+// instrumented surface after the Dev Command Center. Emissions ride the
+// existing aigentMe seams and NEVER touch the Capsule↔Layout contract;
+// the next copilot turn observes the compacted tail via groundContext.
+import type { DcirEvent } from "@/types/dcir";
+import {
+  appendDcirEvent,
+  compactDcirEvents,
+  aigentMeCapsuleEngagedEvent,
+  aigentMeArtifactSentEvent,
+  aigentMeArtifactDismissedEvent,
+  aigentMeSecondTierApprovedEvent,
+  aigentMeSecondTierCancelledEvent,
+  aigentMePillCompletedEvent,
+  aigentMeSpecialistConsultedEvent,
+} from "@/services/dcir/eventStream";
+import {
+  buildStateSnapshot,
+  mineBehaviouralInvariants,
+  compactBehaviouralInvariants,
+} from "@/services/dcir/stateEngine";
+
 // ComposeGmailDraftModal + sibling compose modals are now mounted
 // inline by ComposerLayout (Phase 2 Slice 4). The tab no longer
 // imports or mounts them directly.
@@ -586,6 +608,28 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     setActiveLayoutId(CAPSULE_LAYOUT[next]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engageCapsule]);
+
+  // ── DCIR D1 event stream (CFS-020) — OBSERVE-MODE ONLY, purely additive.
+  // Session-scoped ring buffer of what already happened on this surface.
+  // `observe()` only appends; it never blocks a render, mutates the
+  // Capsule↔Layout state pair, or resets a layout. The next copilot turn
+  // reads the compacted tail via copilotGroundContext.recentEvents.
+  const [dcirEvents, setDcirEvents] = useState<DcirEvent[]>([]);
+  const observe = useCallback((event: DcirEvent) => {
+    setDcirEvents((prev) => appendDcirEvent(prev, event));
+  }, []);
+
+  // Observe EVERY Capsule engagement from the state itself (mirrors the Dev
+  // Command Center's stage-transition watcher) rather than hooking each
+  // caller — this deliberately does NOT touch engageCapsuleAndMount and
+  // NEVER writes activeLayoutId, so the Capsule↔Layout contract is untouched.
+  const prevCapsuleRef = useRef<CapsuleId | null>(activeCapsuleId);
+  useEffect(() => {
+    if (prevCapsuleRef.current !== activeCapsuleId) {
+      if (activeCapsuleId) observe(aigentMeCapsuleEngagedEvent(activeCapsuleId));
+      prevCapsuleRef.current = activeCapsuleId;
+    }
+  }, [activeCapsuleId, observe]);
 
   // Phase 2 Slice 7 — server-driven chip set.
   // Null = use the cold-open static fallback below. Each /api/assistant/*
@@ -1518,12 +1562,14 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   // ── Artifact externalisation flow ──────────────────────────────────
   const handleDismissArtifact = useCallback((artifactId: string) => {
+    const dismissed = artifacts.find((a) => a.artifactId === artifactId);
+    if (dismissed) observe(aigentMeArtifactDismissedEvent(dismissed.artifactType));
     setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
     setActionErrors((prev) => {
       if (!(artifactId in prev)) return prev;
       const next = { ...prev }; delete next[artifactId]; return next;
     });
-  }, []);
+  }, [artifacts, observe]);
 
   const executeArtifactAction = useCallback(async (artifact: ArtifactCardData, approvalToken?: string): Promise<void> => {
     if (!artifact.actionConnectorId) return;
@@ -1567,6 +1613,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       }
       setArtifacts((prev) => prev.map((a) => a.artifactId === artifact.artifactId ? { ...a, status: 'sent' } : a));
       setSecondTierApproval((prev) => prev && prev.artifactId === artifact.artifactId ? null : prev);
+      observe(aigentMeArtifactSentEvent(artifact.artifactType, artifact.destination));
       void fetchReceipts();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1577,7 +1624,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } finally {
       setActionPendingArtifactId(null);
     }
-  }, [personaId, secondTierApproval, fetchReceipts]);
+  }, [personaId, secondTierApproval, fetchReceipts, observe]);
 
   const handleSendArtifact = useCallback((artifactId: string) => {
     const artifact = artifacts.find((a) => a.artifactId === artifactId);
@@ -1589,6 +1636,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     if (!secondTierApproval) return;
     const artifact = artifacts.find((a) => a.artifactId === secondTierApproval.artifactId);
     if (!artifact) return;
+    observe(aigentMeSecondTierApprovedEvent(secondTierApproval.connectorLabel));
     setSecondTierApproval({ ...secondTierApproval, submitting: true, error: null });
     void (async () => {
       try {
@@ -1613,9 +1661,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         setSecondTierApproval({ ...secondTierApproval, submitting: false, error: msg });
       }
     })();
-  }, [secondTierApproval, artifacts, executeArtifactAction, personaId]);
+  }, [secondTierApproval, artifacts, executeArtifactAction, personaId, observe]);
 
-  const handleCancelSecondTier = useCallback(() => setSecondTierApproval(null), []);
+  const handleCancelSecondTier = useCallback(() => {
+    observe(aigentMeSecondTierCancelledEvent());
+    setSecondTierApproval(null);
+  }, [observe]);
 
   const handleDismissSpecialist = useCallback((nbeId: string) => {
     setSpecialistResponses((prev) => { const next = { ...prev }; delete next[nbeId]; return next; });
@@ -1633,12 +1684,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // pill will auto-flip on the artifact status check; this manual
   // path stays as a fallback.
   const handleMarkPillComplete = useCallback((nbeId: string) => {
+    observe(aigentMePillCompletedEvent());
     setQueuedIntents((prev) => {
       const cur = prev[nbeId];
       if (!cur) return prev;
       return { ...prev, [nbeId]: { ...cur, manuallyComplete: true } };
     });
-  }, []);
+  }, [observe]);
 
   const handleAskSpecialist = useCallback(async (
     specialistId: string,
@@ -1664,6 +1716,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       }
       const sp = (await res.json()) as SpecialistResponseData;
       setAskSpecialistResponses((prev) => ({ ...prev, [key]: sp }));
+      observe(aigentMeSpecialistConsultedEvent(specialistId));
       setAskSpecialistPrompt("");
       void fetchReceipts();
     } catch (err) {
@@ -1671,7 +1724,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } finally {
       setAskSpecialistLoadingId(null);
     }
-  }, [personaId, fetchReceipts, composerSourceIntentId]);
+  }, [personaId, fetchReceipts, composerSourceIntentId, observe]);
 
   // Phase 2 — SpecialistsLayout fetchers + handlers.
   const fetchSpecialistRecommendation = useCallback(async (query?: string) => {
@@ -2539,8 +2592,22 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         ? { id: pendingApprovalNbe.id, label: pendingApprovalNbe.label, cartridge: pendingApprovalNbe.cartridge }
         : null,
       queuedIntentIds: Object.keys(queuedIntents ?? {}),
+      // DCIR D1 observation seam (CFS-020, observe-mode-first): the last ~12
+      // session events, compacted — the next copilot turn observes what
+      // happened on this surface (narrate-only, never a command).
+      recentEvents: compactDcirEvents(dcirEvents),
+      // DCIR D2 (observe-mode): compact constitutional state snapshot +
+      // behavioural patterns mined from THIS session only — observations the
+      // copilot may gently adapt to, NEVER rules. Session-scoped; nothing
+      // persists, nothing gates, nothing touches the Capsule↔Layout contract.
+      stateSnapshot: buildStateSnapshot(dcirEvents, {
+        surface: "aigentme-welcome",
+        workflowStage: (expModel?.meta?.currentStage as string | null) ?? brief?.context?.currentStage ?? null,
+        activeCapsule: activeCapsuleId,
+      }),
+      observedPatterns: compactBehaviouralInvariants(mineBehaviouralInvariants(dcirEvents)),
     };
-  }, [brief, moveForwardResult, expModel, activeCartridges, pendingApprovalNbe, queuedIntents]);
+  }, [brief, moveForwardResult, expModel, activeCartridges, pendingApprovalNbe, queuedIntents, dcirEvents, activeCapsuleId]);
 
   // ── Render ──────────────────────────────────────────────────────────
   // Static seed prompts for the copilot (the right pane's CTAs are
