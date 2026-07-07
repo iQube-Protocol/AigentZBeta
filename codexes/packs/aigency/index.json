@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T16:15:20.188Z",
+  "last_updated": "2026-07-07T16:37:34.137Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6f761574aca07c3ae33f9344a337782c5aca3974",
-  "latest_commit_short": "6f76157",
-  "latest_commit_title": "Build PSE-2 (EXP-005): the provider-choice drill — sovereignty's substitutability rung exercised mid-battery",
+  "latest_commit": "5003c3715d14689119c2ffab6d9b5fcba422eee1",
+  "latest_commit_short": "5003c37",
+  "latest_commit_title": "Wire the Experiment Lab to the CCRL lifecycle: runs advance research objects through the receipted path",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5003c37",
+      "full_sha": "5003c3715d14689119c2ffab6d9b5fcba422eee1",
+      "title": "Wire the Experiment Lab to the CCRL lifecycle: runs advance research objects through the receipted path",
+      "author": "Claude",
+      "timestamp": "2026-07-07T16:34:19Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5003c37.md"
+    },
     {
       "sha": "6f76157",
       "full_sha": "6f761574aca07c3ae33f9344a337782c5aca3974",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-25T18:29:07Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-bbd38c5.md"
-    },
-    {
-      "sha": "41ce391",
-      "full_sha": "41ce391a2492f21e1aa144fea60c0545e3875e0a",
-      "title": "add Polity Participation Model v1.0 as constitutional primitive to polity-core",
-      "author": "Claude",
-      "timestamp": "2026-06-25T17:58:36Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-41ce391.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
