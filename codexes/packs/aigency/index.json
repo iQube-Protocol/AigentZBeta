@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T05:59:14.916Z",
+  "last_updated": "2026-07-07T06:06:12.484Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "dcda7bc99d0995d523e23fa1011d297454c6f200",
-  "latest_commit_short": "dcda7bc",
-  "latest_commit_title": "Enforce fence production server-side: retry on promised-but-missing stage proposals (operator field report)",
+  "latest_commit": "346eca6088c06f1a9c6acb146f6d39c97740ee43",
+  "latest_commit_short": "346eca6",
+  "latest_commit_title": "Wire aigentZ default turn to gpt-4o (reliable stage-fence emission)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "346eca6",
+      "full_sha": "346eca6088c06f1a9c6acb146f6d39c97740ee43",
+      "title": "Wire aigentZ default turn to gpt-4o (reliable stage-fence emission)",
+      "author": "Claude",
+      "timestamp": "2026-07-07T06:04:23Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-346eca6.md"
+    },
     {
       "sha": "dcda7bc",
       "full_sha": "dcda7bc99d0995d523e23fa1011d297454c6f200",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-25T00:35:17Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-c5f03ee.md"
-    },
-    {
-      "sha": "afdc85f",
-      "full_sha": "afdc85ff223adb53f3a50c7c2a5dcb7a66463064",
-      "title": "seed standing-cartridge activation qube so the catalog card works",
-      "author": "Claude",
-      "timestamp": "2026-06-19T16:17:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-afdc85f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

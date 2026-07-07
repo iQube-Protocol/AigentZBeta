@@ -3009,3 +3009,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-dcda7bc.md](../build_/COMMITS/COMMIT-dcda7bc.md)
 - Message: Enforce fence production server-side: retry on promised-but-missing stage proposals (operator field report)
+
+## Commit `346eca6` — 2026-07-07T06:04:23Z
+- Type: `feat`
+- Brief: [COMMIT-346eca6.md](../build_/COMMITS/COMMIT-346eca6.md)
+- Message: Wire aigentZ default turn to gpt-4o (reliable stage-fence emission)
