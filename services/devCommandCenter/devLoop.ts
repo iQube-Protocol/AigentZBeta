@@ -80,6 +80,82 @@ export function constitutionalThresholdMet(state: DevLoopState): boolean {
   return state.validationReport !== null && !validationRequiresRemediation(state.validationReport);
 }
 
+// ─── Intelligent affordance liveness (the "no pulsating done actions" gate) ──
+
+/**
+ * Whether a stage's artifact already exists in the session. The stage-keyed
+ * mirror of the tab's capabilityHasData — kept here so the liveness gate stays
+ * pure and canary-pinned rather than reaching into a component. Pure.
+ */
+export function stageArtifactExists(stage: DevLoopStage, state: DevLoopState): boolean {
+  switch (stage) {
+    case 'intent_capture':
+      return state.intent !== null;
+    case 'context_assembly':
+      return state.contextPack !== null && state.contextPack.items.length > 0;
+    case 'gap_analysis':
+      return state.gapAnalysis !== null;
+    case 'consequence_modeling':
+      return state.consequenceCanvas !== null && state.consequenceCanvas.successState.length > 0;
+    case 'implementation':
+      return Boolean(state.implementationBrief);
+    case 'consequence_validation':
+      return state.validationReport !== null;
+    case 'remediation':
+      return state.remediationPlan != null;
+    case 'deployment_authorization':
+      return state.deploymentAuthorization != null;
+    case 'complete':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * A stage's quick-action is STALE when its artifact already exists AND the loop
+ * has advanced past it — re-suggesting completed work is exactly the "pulsating
+ * done action" the operator flagged (2026-07-07). Pure — canary-pinned.
+ */
+export function isStageActionStale(stage: DevLoopStage, state: DevLoopState): boolean {
+  const idx = STAGE_ORDER.indexOf(stage);
+  const cur = STAGE_ORDER.indexOf(state.stage);
+  if (idx < 0 || cur < 0) return false;
+  if (cur <= idx) return false; // not past it yet — still the live/next work
+  return stageArtifactExists(stage, state);
+}
+
+/**
+ * A stage's quick-action is IRRELEVANT when the loop position makes it
+ * inapplicable: Remediation only applies when the consequence test demands it;
+ * Deployment Authorization only once the loop reaches remediation/deploy or the
+ * constitutional threshold is already met. Pure — canary-pinned.
+ */
+export function isStageActionIrrelevant(stage: DevLoopStage, state: DevLoopState): boolean {
+  if (stage === 'remediation') {
+    return !(state.validationReport !== null && validationRequiresRemediation(state.validationReport));
+  }
+  if (stage === 'deployment_authorization') {
+    return !(
+      constitutionalThresholdMet(state) ||
+      state.stage === 'deployment_authorization' ||
+      state.stage === 'remediation'
+    );
+  }
+  return false;
+}
+
+/**
+ * The intelligent-affordance gate the Dev Command Center quick-action chips
+ * consult: a stage's action may pulse only when it is NEITHER completed-and-past
+ * NOR contextually irrelevant. This is the session-state half of the "buttons
+ * become intelligent" contract; the DCIR D3 affordance service supplies the
+ * observed-event half (a positively-live affordance always pulses). Pure.
+ */
+export function stageActionLive(stage: DevLoopStage, state: DevLoopState): boolean {
+  return !isStageActionStale(stage, state) && !isStageActionIrrelevant(stage, state);
+}
+
 export function canAdvance(state: DevLoopState): boolean {
   switch (state.stage) {
     case 'intent_capture':

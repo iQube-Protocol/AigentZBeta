@@ -48,6 +48,9 @@ import {
   PROPOSAL_KIND_TO_CAPSULE,
   validationRequiresRemediation,
   constitutionalThresholdMet,
+  isStageActionStale,
+  isStageActionIrrelevant,
+  stageActionLive,
   devReceiptClassFor,
   recordDevReceipt,
 } from '@/services/devCommandCenter';
@@ -941,5 +944,33 @@ describe('Constitutional Development Environment', () => {
     s = advanceStage(s);
     expect(s.stage).toBe('complete');
     expect(canAdvance(s)).toBe(false);
+  });
+
+  // ─── Intelligent affordance liveness (the "no pulsating done actions" gate) ─
+
+  it('isStageActionStale: a completed stage the loop has moved past is stale', () => {
+    const s = sessionAt('gap_analysis', {
+      contextPack: { intentId: 'i', items: [{ sourceKind: 'codebase', sourcePath: 'x', title: 'x', relevanceScore: 0.5, excerpt: 'e', reuseSignal: 'reuse' }], totalTokenEstimate: 1, assembledAt: '' } as any,
+    });
+    expect(isStageActionStale('context_assembly', s)).toBe(true);
+    expect(stageActionLive('context_assembly', s)).toBe(false);
+  });
+
+  it('isStageActionStale: the current/next stage is never stale (still live work)', () => {
+    const s = sessionAt('context_assembly', {});
+    expect(isStageActionStale('context_assembly', s)).toBe(false);
+    expect(stageActionLive('context_assembly', s)).toBe(true);
+  });
+
+  it('isStageActionIrrelevant: remediation is irrelevant on a clean validation, relevant on a failing one', () => {
+    expect(isStageActionIrrelevant('remediation', sessionAt('consequence_validation', { validationReport: cleanReport() }))).toBe(true);
+    expect(stageActionLive('remediation', sessionAt('consequence_validation', { validationReport: cleanReport() }))).toBe(false);
+    expect(isStageActionIrrelevant('remediation', sessionAt('consequence_validation', { validationReport: failingReport() }))).toBe(false);
+    expect(stageActionLive('remediation', sessionAt('consequence_validation', { validationReport: failingReport() }))).toBe(true);
+  });
+
+  it('isStageActionIrrelevant: deployment authorization is irrelevant before the threshold, relevant once met', () => {
+    expect(isStageActionIrrelevant('deployment_authorization', sessionAt('intent_capture', {}))).toBe(true);
+    expect(isStageActionIrrelevant('deployment_authorization', sessionAt('consequence_validation', { validationReport: cleanReport() }))).toBe(false);
   });
 });

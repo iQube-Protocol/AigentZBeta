@@ -54,11 +54,13 @@ import {
   applyStageProposal,
   recordDevReceipt,
   stageCapsuleId,
+  stageActionLive,
   STAGE_PROPOSAL_KIND,
   PROPOSAL_KIND_TO_CAPSULE,
   type StageProposal,
   type StageProposalKind,
 } from "@/services/devCommandCenter";
+import { generateAffordances } from "@/services/dcir/affordances";
 
 import type { DcirEvent } from "@/types/dcir";
 import {
@@ -142,6 +144,20 @@ const STAGE_TO_CAPSULE: Partial<Record<DevLoopStage, DevCapsuleId>> = {
   consequence_validation: "validation",
   remediation: "remediation",
   deployment_authorization: "deployment-authorization",
+};
+
+// Inverse of STAGE_TO_CAPSULE for the intelligent-affordance gate. "project-
+// overview" is a status view, not a loop stage — omitted so it never reads as
+// stale/irrelevant work.
+const CAPSULE_TO_STAGE: Partial<Record<DevCapsuleId, DevLoopStage>> = {
+  intent: "intent_capture",
+  context: "context_assembly",
+  "gap-analysis": "gap_analysis",
+  "consequence-canvas": "consequence_modeling",
+  implementation: "implementation",
+  validation: "consequence_validation",
+  remediation: "remediation",
+  "deployment-authorization": "deployment_authorization",
 };
 
 function getStageIndex(stage: DevLoopStage): number {
@@ -766,12 +782,47 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     observedPatterns: compactBehaviouralInvariants(mineBehaviouralInvariants(dcirEvents)),
   }), [session, activeLayoutId, activeCapsuleId, pendingProposals, dcirEvents]);
 
+  // ── Intelligent affordances (operator finding, 2026-07-07): the pulsating
+  // quick actions consult the DCIR D3 affordance service + session state so a
+  // chip never pulses for an action that is already executed, completed, or no
+  // longer relevant. Two halves, same service:
+  //   • D3 generateAffordances() supplies the observed-event half — a
+  //     positively-live affordance (a pending proposal, a stalled stage) always
+  //     pulses, keyed by capsuleScope.
+  //   • stageActionLive() supplies the session-state half — suppresses chips
+  //     whose stage artifact is done-and-past or contextually irrelevant.
+  const liveAffordanceScopes = useMemo(
+    () => new Set(generateAffordances(dcirEvents, copilotGroundContext.stateSnapshot).map(a => a.capsuleScope)),
+    [dcirEvents, copilotGroundContext.stateSnapshot],
+  );
+
+  const chipShouldPulse = useCallback((id: DevCapsuleId): boolean => {
+    // D3 positively-live affordance for this capsule → always pulses.
+    if (liveAffordanceScopes.has(id)) return true;
+    // No standing suggestion → nothing to pulse.
+    if (capsuleSuggestions[id] !== true) return false;
+    // A suggestion stands unless the action is completed-and-past or irrelevant.
+    const stage = CAPSULE_TO_STAGE[id];
+    if (!stage) return true; // status view (project-overview) — suggestion stands
+    return stageActionLive(stage, session);
+  }, [liveAffordanceScopes, capsuleSuggestions, session]);
+
+  // The pulse map the chip strip + stage strip consume — capsuleSuggestions
+  // filtered through the intelligent gate so stale/irrelevant chips go quiet.
+  const intelligentPulsing = useMemo((): Partial<Record<DevCapsuleId, boolean>> => {
+    const out: Partial<Record<DevCapsuleId, boolean>> = {};
+    for (const cap of CAPABILITIES) {
+      if (chipShouldPulse(cap.id)) out[cap.id] = true;
+    }
+    return out;
+  }, [chipShouldPulse]);
+
   // Quick-prompt chips for the copilot left pane
   const copilotQuickPrompts = useMemo((): QuickPrompt[] => [
     {
       label: "New intent",
       prompt: "I want to start a new development intent. Help me distill what I'm trying to build.",
-      highlight: capsuleSuggestions["intent"] === true,
+      highlight: chipShouldPulse("intent"),
       onSelect: () => {
         engageCapsuleAndMount("intent");
         consumeCapsuleSuggestion("intent");
@@ -780,7 +831,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     {
       label: "Where are we?",
       prompt: "Give me a status update on the current dev loop — what stage are we at and what's next?",
-      highlight: capsuleSuggestions["project-overview"] === true,
+      highlight: chipShouldPulse("project-overview"),
       onSelect: () => {
         engageCapsuleAndMount("project-overview");
         consumeCapsuleSuggestion("project-overview");
@@ -789,7 +840,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     {
       label: "Assemble context",
       prompt: "Assemble the context pack for the current intent. Identify files, services, and patterns to reuse.",
-      highlight: capsuleSuggestions["context"] === true,
+      highlight: chipShouldPulse("context"),
       onSelect: () => {
         engageCapsuleAndMount("context");
         consumeCapsuleSuggestion("context");
@@ -798,7 +849,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     {
       label: "Analyze gaps",
       prompt: "Analyze capability gaps for the current intent. What can we reuse, extend, or build new?",
-      highlight: capsuleSuggestions["gap-analysis"] === true,
+      highlight: chipShouldPulse("gap-analysis"),
       onSelect: () => {
         engageCapsuleAndMount("gap-analysis");
         consumeCapsuleSuggestion("gap-analysis");
@@ -807,7 +858,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     {
       label: "Model consequences",
       prompt: "Model the consequences for the current intent. What should happen and what must never happen?",
-      highlight: capsuleSuggestions["consequence-canvas"] === true,
+      highlight: chipShouldPulse("consequence-canvas"),
       onSelect: () => {
         engageCapsuleAndMount("consequence-canvas");
         consumeCapsuleSuggestion("consequence-canvas");
@@ -816,7 +867,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     {
       label: "Implementation brief",
       prompt: "Produce the implementation brief for the current intent — PRD, architecture plan, task list, and Claude Code instructions.",
-      highlight: capsuleSuggestions["implementation"] === true,
+      highlight: chipShouldPulse("implementation"),
       onSelect: () => {
         engageCapsuleAndMount("implementation");
         consumeCapsuleSuggestion("implementation");
@@ -825,7 +876,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     {
       label: "Validate build",
       prompt: "Run the constitutional consequence test: validate the implementation against the consequence canvas. Give every must-happen and must-never-happen a verdict with evidence.",
-      highlight: capsuleSuggestions["validation"] === true,
+      highlight: chipShouldPulse("validation"),
       onSelect: () => {
         engageCapsuleAndMount("validation");
         consumeCapsuleSuggestion("validation");
@@ -834,7 +885,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     {
       label: "Remediate failures",
       prompt: "Remediate the failed or partial high-severity consequences. Propose a concrete remedy and a captured lesson (learningNote) for each, and state whether re-validation is required.",
-      highlight: capsuleSuggestions["remediation"] === true,
+      highlight: chipShouldPulse("remediation"),
       onSelect: () => {
         engageCapsuleAndMount("remediation");
         consumeCapsuleSuggestion("remediation");
@@ -843,13 +894,13 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     {
       label: "Authorize deployment",
       prompt: "Author the deployment authorization. Confirm the constitutional threshold is met (consequence test passed) or list the blocking consequences. Execution stays human.",
-      highlight: capsuleSuggestions["deployment-authorization"] === true,
+      highlight: chipShouldPulse("deployment-authorization"),
       onSelect: () => {
         engageCapsuleAndMount("deployment-authorization");
         consumeCapsuleSuggestion("deployment-authorization");
       },
     },
-  ], [engageCapsuleAndMount, capsuleSuggestions, consumeCapsuleSuggestion]);
+  ], [engageCapsuleAndMount, chipShouldPulse, consumeCapsuleSuggestion]);
 
   const handlePrompt = useCallback((prompt: string) => {
     const decision = classifyPromptTier(prompt);
@@ -893,7 +944,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           <CapabilityChipRow
             session={session}
             activeCapsuleId={activeCapsuleId}
-            pulsing={capsuleSuggestions}
+            pulsing={intelligentPulsing}
             pending={pendingProposals}
             onChipClick={(id) => {
               if (activeCapsuleId === id) {

@@ -49,6 +49,10 @@ export {
   buildImplementationPackage,
   validationRequiresRemediation,
   constitutionalThresholdMet,
+  stageArtifactExists,
+  isStageActionStale,
+  isStageActionIrrelevant,
+  stageActionLive,
   devReceiptClassFor,
   recordDevReceipt,
 } from './devLoop';
