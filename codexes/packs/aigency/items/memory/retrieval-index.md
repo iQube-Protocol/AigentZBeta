@@ -3044,3 +3044,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-dd7dc45.md](../build_/COMMITS/COMMIT-dd7dc45.md)
 - Message: Make Dev Command Center quick actions intelligent via the DCIR affordance service
+
+## Commit `f647b06` — 2026-07-07T13:22:46Z
+- Type: `feat`
+- Brief: [COMMIT-f647b06.md](../build_/COMMITS/COMMIT-f647b06.md)
+- Message: Add the auto-act control surface to the Dev Command Center (opt-in, navigation-only, always-disablable, always-notifying)

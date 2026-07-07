@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f647b06`](https://github.com/iQube-Protocol/AigentZBeta/commit/f647b06df9ce867dea367b59939453984d0b323b) [feat] Add the auto-act control surface to the Dev Command Center (opt-in, navigation-only, always-disablable, always-notifying) (Claude, 2026-07-07T13:22:46Z)
 - [`dd7dc45`](https://github.com/iQube-Protocol/AigentZBeta/commit/dd7dc453fdcf6d72ab1c7cfc92bbbc04a8bcbbc1) [push] Make Dev Command Center quick actions intelligent via the DCIR affordance service (Claude, 2026-07-07T10:40:52Z)
 - [`151f802`](https://github.com/iQube-Protocol/AigentZBeta/commit/151f802efa79fe584ee487799214044258a4d802) [push] Build the Constitutional Development Environment: validation forks to remediation, deployment gated on consequence test (Claude, 2026-07-07T10:32:38Z)
 - [`c39b577`](https://github.com/iQube-Protocol/AigentZBeta/commit/c39b577fb6e9266e4465d2331103c351d0b7a1cb) [push] Build DCIR D3: dynamic affordance service (suggest-only default, navigation-class auto-act boundary) (Claude, 2026-07-07T10:16:37Z)
