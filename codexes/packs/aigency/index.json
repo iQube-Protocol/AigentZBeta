@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T13:34:14.947Z",
+  "last_updated": "2026-07-07T14:03:41.490Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c9514f65593771225ef8a0cf451e1bf3d692def1",
-  "latest_commit_short": "c9514f6",
-  "latest_commit_title": "Build CCRL Phase C2.1: structured research proposal kinds for the research copilot",
+  "latest_commit": "575a2938c61f86b93c11cb02312cfb467b764ebb",
+  "latest_commit_short": "575a293",
+  "latest_commit_title": "Persist dev-loop sessions: the Constitutional Development Environment survives refresh",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "575a293",
+      "full_sha": "575a2938c61f86b93c11cb02312cfb467b764ebb",
+      "title": "Persist dev-loop sessions: the Constitutional Development Environment survives refresh",
+      "author": "Claude",
+      "timestamp": "2026-07-07T14:00:39Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-575a293.md"
+    },
     {
       "sha": "c9514f6",
       "full_sha": "c9514f65593771225ef8a0cf451e1bf3d692def1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-25T02:08:03Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-7febd30.md"
-    },
-    {
-      "sha": "a1f4dc6",
-      "full_sha": "a1f4dc6e0c1252a1b6ba3621de38147be96c837d",
-      "title": "separate VentureQube Lite from Pro ventures in portfolio mode",
-      "author": "Claude",
-      "timestamp": "2026-06-24T21:32:00Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a1f4dc6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

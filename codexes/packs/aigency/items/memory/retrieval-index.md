@@ -3059,3 +3059,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c9514f6.md](../build_/COMMITS/COMMIT-c9514f6.md)
 - Message: Build CCRL Phase C2.1: structured research proposal kinds for the research copilot
+
+## Commit `575a293` — 2026-07-07T14:00:39Z
+- Type: `push`
+- Brief: [COMMIT-575a293.md](../build_/COMMITS/COMMIT-575a293.md)
+- Message: Persist dev-loop sessions: the Constitutional Development Environment survives refresh
