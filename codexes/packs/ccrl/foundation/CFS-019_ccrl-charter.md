@@ -83,7 +83,7 @@ Reuse the proven ICE engine (Dev Command Center): Aigent Z proposes structured `
 | **B** | Cartridge skeleton: pack + hand-curated definition + Dashboard (live) + layer/lab/knowledge/publications tabs over existing components | Next — awaiting go |
 | **C** | `types/research.ts` + lifecycles + receipts per transition + Aigent Z research copilot (ICE reuse) | After B |
 | **D** | Physical migration (atomic, path-inventory-driven) | **DELIVERED 2026-07-06** |
-| **E** | Invariant Field Explorer, resequencing views, Layer-III experiment scaffolding (feedback/adaptation/multi-agent) | Frontier |
+| **E** | Invariant Field Explorer, resequencing views, Layer-III experiment scaffolding (feedback/adaptation/multi-agent) | **STARTED 2026-07-07** — Invariant Field Explorer delivered as the first slice (read-only visualisation over the REAL `enables/constrains/contradicts` substrate + live consequence forecast, in a new "Consequence Engineering" tab group; Computational Epistemology made visible). Counterfactual analysis, constitutional simulations, and Layer-III experiment scaffolding (feedback/adaptation/multi-agent) remain. |
 
 ## 9. Success criteria (from the PRD, measurably restated)
 

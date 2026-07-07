@@ -4726,6 +4726,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
     { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
     { id: 'research', label: 'Research', icon: 'Layers', order: 1 },
     { id: 'laboratory', label: 'Laboratory', icon: 'FlaskConical', order: 2 },
+    { id: 'consequence', label: 'Consequence Engineering', icon: 'Network', order: 2.5 },
     { id: 'knowledge', label: 'Living Knowledge', icon: 'BookMarked', order: 3 },
     { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 4 },
     { id: 'programme', label: 'Programme', icon: 'Target', order: 5 },
@@ -4836,6 +4837,18 @@ export const CCRL_CARTRIDGE: CodexConfig = {
         props: { packId: 'ccrl', collectionId: 'col_experiments' },
       },
       metadata: { icon: 'Target', description: 'Experiment designs, protocols, canonical articles, evaluation frameworks' },
+    },
+    // ── Consequence Engineering ───────────────────────────────────
+    {
+      id: 'ccrl-invariant-field',
+      label: 'Invariant Field',
+      slug: 'ccrl-invariant-field',
+      enabled: true,
+      group: 'consequence',
+      order: 0,
+      type: 'static',
+      config: { component: 'InvariantFieldExplorerTab', props: {} },
+      metadata: { icon: 'Network', description: 'Computational Epistemology made visible — the live enables/constrains/contradicts field + consequence forecast (CFS-019 Phase E first slice)', color: 'violet' },
     },
     // ── Living Knowledge ──────────────────────────────────────────
     {
