@@ -3064,3 +3064,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-575a293.md](../build_/COMMITS/COMMIT-575a293.md)
 - Message: Persist dev-loop sessions: the Constitutional Development Environment survives refresh
+
+## Commit `6f76157` — 2026-07-07T16:13:29Z
+- Type: `push`
+- Brief: [COMMIT-6f76157.md](../build_/COMMITS/COMMIT-6f76157.md)
+- Message: Build PSE-2 (EXP-005): the provider-choice drill — sovereignty's substitutability rung exercised mid-battery

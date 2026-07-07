@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`6f76157`](https://github.com/iQube-Protocol/AigentZBeta/commit/6f761574aca07c3ae33f9344a337782c5aca3974) [push] Build PSE-2 (EXP-005): the provider-choice drill — sovereignty's substitutability rung exercised mid-battery (Claude, 2026-07-07T16:13:29Z)
 - [`575a293`](https://github.com/iQube-Protocol/AigentZBeta/commit/575a2938c61f86b93c11cb02312cfb467b764ebb) [push] Persist dev-loop sessions: the Constitutional Development Environment survives refresh (Claude, 2026-07-07T14:00:39Z)
 - [`c9514f6`](https://github.com/iQube-Protocol/AigentZBeta/commit/c9514f65593771225ef8a0cf451e1bf3d692def1) [push] Build CCRL Phase C2.1: structured research proposal kinds for the research copilot (Claude, 2026-07-07T13:31:28Z)
 - [`a865e95`](https://github.com/iQube-Protocol/AigentZBeta/commit/a865e95ac04b7599b55d8ba560c0eee50ce4b0ee) [push] Expand the DCIR observation seam to aigentMe (observe-mode-first) (Claude, 2026-07-07T13:25:07Z)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T14:03:41.490Z",
+  "last_updated": "2026-07-07T16:15:20.188Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "575a2938c61f86b93c11cb02312cfb467b764ebb",
-  "latest_commit_short": "575a293",
-  "latest_commit_title": "Persist dev-loop sessions: the Constitutional Development Environment survives refresh",
+  "latest_commit": "6f761574aca07c3ae33f9344a337782c5aca3974",
+  "latest_commit_short": "6f76157",
+  "latest_commit_title": "Build PSE-2 (EXP-005): the provider-choice drill — sovereignty's substitutability rung exercised mid-battery",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6f76157",
+      "full_sha": "6f761574aca07c3ae33f9344a337782c5aca3974",
+      "title": "Build PSE-2 (EXP-005): the provider-choice drill — sovereignty's substitutability rung exercised mid-battery",
+      "author": "Claude",
+      "timestamp": "2026-07-07T16:13:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6f76157.md"
+    },
     {
       "sha": "575a293",
       "full_sha": "575a2938c61f86b93c11cb02312cfb467b764ebb",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-25T17:58:36Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-41ce391.md"
-    },
-    {
-      "sha": "7febd30",
-      "full_sha": "7febd30f68fff7c928a4cf7aede88725932023ff",
-      "title": "fix standing_document upload constraint + ground all draft generators",
-      "author": "Claude",
-      "timestamp": "2026-06-25T02:08:03Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7febd30.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
