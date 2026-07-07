@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T18:34:08.273Z",
+  "last_updated": "2026-07-07T20:22:51.342Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b7acd87909cc65727f4f7cb158fd7e2ed3650bda",
-  "latest_commit_short": "b7acd87",
-  "latest_commit_title": "Build DCIR D4: the universal substrate hook — surfaces adopt observation by declaration",
+  "latest_commit": "d03dfe043759815b6f2612137e62f6c8bca09ccc",
+  "latest_commit_short": "d03dfe0",
+  "latest_commit_title": "CFS-019 amendment: Research Roadmap Expansion — applied constitutional research + the Reasoning Systems programme",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d03dfe0",
+      "full_sha": "d03dfe043759815b6f2612137e62f6c8bca09ccc",
+      "title": "CFS-019 amendment: Research Roadmap Expansion — applied constitutional research + the Reasoning Systems programme",
+      "author": "Claude",
+      "timestamp": "2026-07-07T20:21:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d03dfe0.md"
+    },
     {
       "sha": "b7acd87",
       "full_sha": "b7acd87909cc65727f4f7cb158fd7e2ed3650bda",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-03T23:18:50Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a6ce101.md"
-    },
-    {
-      "sha": "dfbd730",
-      "full_sha": "dfbd730f20ee7c96c1f51ac419d88c3f0234f8ef",
-      "title": "author flywheel experiments: exp-001 living knowledgeqube + exp-002 invariant video briefs",
-      "author": "Claude",
-      "timestamp": "2026-07-03T23:26:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dfbd730.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

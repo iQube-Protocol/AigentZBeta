@@ -3104,3 +3104,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b7acd87.md](../build_/COMMITS/COMMIT-b7acd87.md)
 - Message: Build DCIR D4: the universal substrate hook — surfaces adopt observation by declaration
+
+## Commit `d03dfe0` — 2026-07-07T20:21:05Z
+- Type: `push`
+- Brief: [COMMIT-d03dfe0.md](../build_/COMMITS/COMMIT-d03dfe0.md)
+- Message: CFS-019 amendment: Research Roadmap Expansion — applied constitutional research + the Reasoning Systems programme

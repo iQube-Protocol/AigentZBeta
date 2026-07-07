@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d03dfe0`](https://github.com/iQube-Protocol/AigentZBeta/commit/d03dfe043759815b6f2612137e62f6c8bca09ccc) [push] CFS-019 amendment: Research Roadmap Expansion — applied constitutional research + the Reasoning Systems programme (Claude, 2026-07-07T20:21:05Z)
 - [`b7acd87`](https://github.com/iQube-Protocol/AigentZBeta/commit/b7acd87909cc65727f4f7cb158fd7e2ed3650bda) [push] Build DCIR D4: the universal substrate hook — surfaces adopt observation by declaration (Claude, 2026-07-07T18:31:21Z)
 - [`71496e9`](https://github.com/iQube-Protocol/AigentZBeta/commit/71496e979a0ca965cc5121fc0ba97b0778efc507) [push] Tighten the CCRL research loop: one-click Run-stage hand-off via a cartridge-agnostic tab-nav seam (Claude, 2026-07-07T18:19:15Z)
 - [`32ab01b`](https://github.com/iQube-Protocol/AigentZBeta/commit/32ab01be82ab44b36ce2f173cb595689cb802917) [push] Build CCRL Phase C3: the research ICE loop — experiments get develop→run→validate→publish parity (Claude, 2026-07-07T17:54:30Z)
