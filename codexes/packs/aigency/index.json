@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T10:19:21.901Z",
+  "last_updated": "2026-07-07T10:35:54.201Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c39b577fb6e9266e4465d2331103c351d0b7a1cb",
-  "latest_commit_short": "c39b577",
-  "latest_commit_title": "Build DCIR D3: dynamic affordance service (suggest-only default, navigation-class auto-act boundary)",
+  "latest_commit": "151f802efa79fe584ee487799214044258a4d802",
+  "latest_commit_short": "151f802",
+  "latest_commit_title": "Build the Constitutional Development Environment: validation forks to remediation, deployment gated on consequence test",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "151f802",
+      "full_sha": "151f802efa79fe584ee487799214044258a4d802",
+      "title": "Build the Constitutional Development Environment: validation forks to remediation, deployment gated on consequence test",
+      "author": "Claude",
+      "timestamp": "2026-07-07T10:32:38Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-151f802.md"
+    },
     {
       "sha": "c39b577",
       "full_sha": "c39b577fb6e9266e4465d2331103c351d0b7a1cb",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-06-24T23:12:09Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e72d35a.md"
-    },
-    {
-      "sha": "1380547",
-      "full_sha": "1380547de3f4e347683ebcf47397f14596ef721a",
-      "title": "add standing-signal API route + standing_document upload kind",
-      "author": "Claude",
-      "timestamp": "2026-06-24T23:15:42Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-1380547.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
