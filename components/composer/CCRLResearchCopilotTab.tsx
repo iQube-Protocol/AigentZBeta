@@ -440,12 +440,15 @@ function ResearchLoopStrip({ stage }: { stage: ResearchLoopStage }) {
  * The Run-stage card — the CONSTITUTIONAL boundary made honest in the UI. The
  * research analog of the Dev Command Center's "execution stays human": running
  * is EXECUTED in the Experiment Lab (the EXP-001…005 runner tabs), never in the
- * copilot. There is no clean intra-cartridge tab-switch a tab component can call
- * (the codex panel owns active-tab state), so this surfaces an explicit, honest
- * pointer rather than a fake in-copilot run. The lab run advances the lifecycle,
- * which re-derives the loop to Analyze on the next refresh (C2.2 hydration).
+ * copilot. The hand-off is now ONE CLICK via the cartridge-agnostic
+ * `codex:navigate-tab` intra-cartridge nav seam (mirrors KNYT's
+ * `knyt:navigate-tab`; the viewer listens and switches to `ccrl-experiment-lab`).
+ * This is navigation, NOT execution — the copilot still never runs the
+ * experiment; it just takes the operator to where they run it. The lab run
+ * advances the lifecycle, which re-derives the loop to Analyze on the next
+ * refresh (C2.2 hydration).
  */
-function RunStageCard({ experimentId, lifecycle }: { experimentId: string | null; lifecycle: ExperimentLifecycleState | null }) {
+function RunStageCard({ experimentId, lifecycle, onGoToLab }: { experimentId: string | null; lifecycle: ExperimentLifecycleState | null; onGoToLab: () => void }) {
   return (
     <div className="rounded-xl border border-indigo-700/50 bg-indigo-950/20 p-4 space-y-2">
       <div className="flex items-center gap-2">
@@ -458,9 +461,14 @@ function RunStageCard({ experimentId, lifecycle }: { experimentId: string | null
         <span className="text-indigo-300 font-semibold">Experiment Lab</span> (the EXP-001…005 runner tabs) — not here.
         Execution stays in the lab; the copilot never runs an experiment.
       </p>
-      <div className="rounded border border-indigo-500/20 bg-slate-900/40 px-2 py-1.5 text-[11px] text-indigo-200">
-        Run {experimentId ?? "the experiment"} in the Experiment Lab → the <span className="font-mono">ccrl-experiment-lab</span> tab.
-      </div>
+      <button
+        type="button"
+        onClick={onGoToLab}
+        className="inline-flex items-center gap-1.5 rounded border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-100 hover:bg-indigo-500/25 hover:text-white transition"
+      >
+        <Play className="h-3 w-3" />
+        Open the Experiment Lab{experimentId ? ` to run ${experimentId}` : ""}
+      </button>
       <p className="text-[10px] text-slate-500">
         The run produces a canonical, hash-committed result that advances the experiment&apos;s lifecycle
         (running → evaluated → published). When results are in, refresh here and the loop moves to Analyze —
@@ -672,6 +680,18 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Run-stage hand-off (C3 loop tightening, 2026-07-07): one-click navigation to
+  // the Experiment Lab tab via the cartridge-agnostic `codex:navigate-tab` seam
+  // the viewer listens for (mirrors KNYT's `knyt:navigate-tab`). This is
+  // NAVIGATION, not execution — running still happens in the lab; the copilot
+  // never runs the experiment. Observed as a surface interaction.
+  const goToExperimentLab = useCallback(() => {
+    observe(surfacePromptSelectedEvent(SURFACE, 'run hand-off: opened the Experiment Lab'));
+    try {
+      window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: 'ccrl-experiment-lab' } }));
+    } catch { /* non-fatal — the honest pointer text still names the tab */ }
+  }, [observe]);
+
   // ── C3 research ICE loop — the pool of experiments the loop can scope to.
   // Working objects (approved/persisted copilot proposals) override overview
   // (registry-derived) entries on id collision, matching the persisted-wins rule
@@ -845,6 +865,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
             <RunStageCard
               experimentId={activeExperiment?.id ?? null}
               lifecycle={activeExperiment?.lifecycle ?? null}
+              onGoToLab={goToExperimentLab}
             />
           )}
 

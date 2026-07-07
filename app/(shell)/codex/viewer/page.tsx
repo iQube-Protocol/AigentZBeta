@@ -228,6 +228,27 @@ export default function CodexViewerPage() {
     }
   }, [visibleTabOptions, activeTab, enabledTabs]);
 
+  // Cartridge-agnostic intra-cartridge tab navigation. A tab component
+  // dispatches `window.dispatchEvent(new CustomEvent('codex:navigate-tab',
+  // { detail: { tab: '<slug>' } }))` to jump to a sibling tab WITHIN the same
+  // cartridge without prop-drilling a setter (the generic sibling of KNYT's
+  // `knyt:navigate-tab`). The target must be a currently-visible tab of THIS
+  // codex — an unknown/hidden slug is ignored, so this can't reach across
+  // cartridges or reveal a hidden tab. First used by the CCRL research ICE
+  // loop's Run stage to open the Experiment Lab (navigation, not execution).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ tab?: string }>).detail || {};
+      const target = detail.tab;
+      if (typeof target !== "string") return;
+      if (target !== activeTab && visibleTabOptions.some(tab => tab.slug === target)) {
+        setActiveTab(target);
+      }
+    };
+    window.addEventListener("codex:navigate-tab", handler);
+    return () => window.removeEventListener("codex:navigate-tab", handler);
+  }, [visibleTabOptions, activeTab]);
+
   const codexSlug = codexId.replace("-codex", "");
   const hiddenTabsParam = hiddenTabs.length > 0 ? `&hiddenTabs=${encodeURIComponent(hiddenTabs.join(","))}` : "";
   const embedUrl = `https://dev-beta.aigentz.me/triad/embed/codex/${codexSlug}?tab=${activeTab}&theme=${theme}&density=${density}${hiddenTabsParam}`;
