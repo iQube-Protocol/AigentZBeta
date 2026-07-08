@@ -50,6 +50,16 @@ interface DevToolsData {
 
 const AUTO_REFRESH_MS = 30_000;
 
+// Network details live in tabs at the top of the capsule (operator request,
+// 2026-07-08) — no scrolling to reach DVN/telemetry state.
+type DevToolsTab = "env" | "telemetry" | "dvn" | "escalation";
+const TABS: { id: DevToolsTab; label: string }[] = [
+  { id: "env", label: "Environment & Canisters" },
+  { id: "telemetry", label: "Telemetry" },
+  { id: "dvn", label: "DVN Pipeline" },
+  { id: "escalation", label: "Escalation Log" },
+];
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-slate-700/40 bg-slate-900/40 p-3 space-y-2">
@@ -70,6 +80,7 @@ export function DevToolsLayout({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [tab, setTab] = useState<DevToolsTab>("env");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,6 +129,33 @@ export function DevToolsLayout({
 
       {data && (
         <>
+          {/* Tab bar — network details reachable without scrolling. */}
+          <div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-slate-700/40 bg-slate-900/40 p-1">
+            {TABS.map((t) => {
+              const active = tab === t.id;
+              // Failure indicators: DVN unreachable flags Telemetry + DVN Pipeline;
+              // dvn_failed receipts flag DVN Pipeline + Escalation.
+              const dvnDown = !data.platformTelemetry.dvn.ok;
+              const flag =
+                ((t.id === "telemetry" || t.id === "dvn") && dvnDown) ||
+                ((t.id === "dvn" || t.id === "escalation") && failed > 0);
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`relative whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                    active ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                  }`}
+                >
+                  {t.label}
+                  {flag && <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-rose-400" />}
+                </button>
+              );
+            })}
+          </div>
+
+          {tab === "env" && (
+          <>
           <Section title="Environment">
             <div className="text-[12px] text-slate-300">
               {data.environment.present}/{data.environment.total} tracked vars present (presence only — values never read)
@@ -149,7 +187,10 @@ export function DevToolsLayout({
             </div>
             <div className="text-[10px] text-slate-500">Live cycle balances: /api/ops/canisters/cycles-status (controller identity).</div>
           </Section>
+          </>
+          )}
 
+          {tab === "telemetry" && (
           <Section title="Platform telemetry (server↔canister↔DVN)">
             <div className="text-[10px] text-slate-500">
               The server-side view a browser&apos;s F12 can&apos;t reach — composed from the ops DVN probe + an
@@ -192,7 +233,10 @@ export function DevToolsLayout({
               </div>
             )}
           </Section>
+          )}
 
+          {tab === "dvn" && (
+          <>
           <Section title="DVN pipeline">
             <div className="flex flex-wrap gap-1.5 text-[11px]">
               {(["dvn_recorded", "dvn_pending", "dvn_failed", "local"] as ReceiptStatus[]).map((s) => {
@@ -245,7 +289,10 @@ export function DevToolsLayout({
               </div>
             )}
           </Section>
+          </>
+          )}
 
+          {tab === "escalation" && (
           <Section title="Escalation / platform log stream">
             <div className="text-[10px] text-slate-500">
               {data.escalationLog.note}
@@ -272,6 +319,7 @@ export function DevToolsLayout({
               </div>
             )}
           </Section>
+          )}
 
           <div className="text-[10px] text-slate-600">last refreshed {new Date(data.at).toLocaleTimeString()}</div>
         </>
