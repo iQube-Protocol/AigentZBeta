@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f354c8b`](https://github.com/iQube-Protocol/AigentZBeta/commit/f354c8b9bec0d741581549018a0049ef263eca91) [fix] Fix CDE tool-viewport hang: timebox every external probe (canister/DVN/GitHub/Linear) (Claude, 2026-07-08T09:20:31Z)
 - [`c34a792`](https://github.com/iQube-Protocol/AigentZBeta/commit/c34a792471c29529def93a9b66a1a22bd39fdb96) [push] Build the Bearing Instrument v1: the constitutional compass, operating within the CCRL reference field (Claude, 2026-07-08T08:29:40Z)
 - [`c7611f0`](https://github.com/iQube-Protocol/AigentZBeta/commit/c7611f0f93ec79bcdf061cc10590f9ce2f331115) [push] Adopt the CCRL Dashboard into the Constitutional Representation System (first reference surface) (Claude, 2026-07-08T08:05:31Z)
 - [`c46cb16`](https://github.com/iQube-Protocol/AigentZBeta/commit/c46cb16ad4e4a5507d5ae9093a856e8d4cab4194) [push] Build the Constitutional Representation System: contract-first representation invariants + interpretation resolver (Claude, 2026-07-08T01:00:05Z)
