@@ -264,3 +264,20 @@ This is a canon home for the vocabulary, the discipline, and the first plate spe
 - **Adoption proof** (`components/representation/StandingBadge.tsx` + `RepresentationFieldPreview.tsx`) — one low-risk primitive that renders the standing scale from roles, mounted on the CCRL Dashboard with an interpretation switcher so the operator can flip CCF ↔ High-Contrast and watch the same objects reskin coherently.
 
 **Honest scope — named follow-ons (NOT built here):** progressive per-component adoption (retrofitting existing chips/pills/buttons/cartridges — deliberately deferred; retrofitting all at once is how coherence regressions happen), the full rendered Bearing Instrument, the plate renderer, and the modality-projection engine. This delivery is the contract-first foundation those build on.
+
+---
+
+## Adoption record — the CCRL Dashboard as the FIRST reference surface
+
+**Adopted 2026-07-08** — the CCRL Dashboard (`components/composer/CCRLDashboardTab.tsx`) is the FIRST progressive adoption of the Constitutional Representation System and now the platform's **reference environment**: the constitutional field made visible, the surface a Bearing Instrument will later operate within. Every raw Tailwind colour literal (101 → 0) was migrated to representation roles — the dashboard now consumes roles, never a look.
+
+**The canonical adoption pattern (copy this to every future surface):**
+
+1. **One tab-level `<RepresentationProvider>`** wraps the WHOLE surface (default interpretation = Constitutional Civic Futurism). The provider's own div carries the surface's layout classes plus the field ground (`bg-[var(--rep-surface-base)]`) — no extra nesting, no layout change.
+2. **Consume roles via `var(--rep-*)`** as Tailwind arbitrary values (`text-[var(--rep-ink-body)]`, `bg-[var(--rep-surface-raised)]`, `border-[var(--rep-border-subtle)]`, …) — keeping the Tailwind idiom — or via the `role()` hook for inline styles (as `StandingBadge` does). Type roles thread through `style={{ fontFamily: 'var(--rep-type-title)' }}` where a title reads as a title.
+3. **The interpretation switcher reskins the WHOLE surface.** `RepresentationFieldPreview` no longer mounts its own provider by default — it consumes the ambient tab-level provider, so flipping CCF ↔ High-Contrast reskins the entire dashboard coherently (not just the preview widget). A `standalone` prop remains for out-of-scope use.
+4. **Zero raw colour literals — canary-enforced.** `tests/ccrl-dashboard-adoption.test.ts` greps the adopted file and fails on any `(text|bg|border|…)-(slate|emerald|sky|indigo|…)-<n>` utility or `-[#` hex literal, and asserts exactly one tab-level provider.
+
+**Role mapping applied (the reusable ladder):** surface/ink — panel bg → `surface.raised`, page ground → `surface.base`, borders → `border.subtle`, strong text → `ink.body`, muted text → `ink.muted`; indigo mission/results/lifecycle-active accents → `accent.geometry`; the three layer-maturity cards → the standing scale (Foundation complete → `standing.foundational`, Alpha → `standing.validated`, Nascent → `standing.experimental`); Chrysalis outcome chips → state roles (pass → `state.positive`, partial → `state.caution`, pending → `ink.muted`, fail → `state.critical`); roadmap "delivered" → `state.positive`; Programme D "Reasoning Systems" → the `field.reasoning` sector; the lab's central hypothesis → the single reserved `highlight.principal` gold (used once, not sprinkled); the main title → `type.title`. No role was missing from the contract — the migration required no new roles and no literal fallbacks.
+
+**Named next steps:** progressive adoption of the sibling CCRL tabs (Research Copilot, Invariant Field Explorer, Experiment Laboratory), then other cartridges — same four-step pattern; and the **Bearing Instrument operating within this reference environment** (the field it orients against is now role-driven and reskins coherently).

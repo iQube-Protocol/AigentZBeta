@@ -8,6 +8,17 @@
  * (admin-gated — degrades honestly when the caller isn't admin), recent
  * research output reads the canonical experiment_results publications.
  * Mission, layers, and roadmap are the charter's text (CFS-019).
+ *
+ * REFERENCE SURFACE for the Constitutional Representation System (CFS-021).
+ * This is the FIRST progressive adoption: the whole tab is wrapped in ONE
+ * tab-level `<RepresentationProvider>`, and every colour/type role is consumed
+ * through `var(--rep-*)` (the CSS custom properties the provider injects) — NO
+ * raw Tailwind colour literals remain (canary-enforced in
+ * tests/ccrl-dashboard-adoption.test.ts). The interpretation switcher inside
+ * the embedded RepresentationFieldPreview drives THIS provider, so flipping
+ * Constitutional Civic Futurism ↔ High-Contrast reskins the ENTIRE dashboard
+ * coherently — the constitutional field made visible, the environment a
+ * Bearing Instrument can later operate within.
  */
 
 import React, { useEffect, useState } from "react";
@@ -20,6 +31,7 @@ import {
   CONSTITUTIONAL_DISTINCTIONS,
 } from "@/types/research";
 import { RepresentationFieldPreview } from "@/components/representation/RepresentationFieldPreview";
+import { RepresentationProvider } from "@/components/representation/RepresentationProvider";
 
 interface ResultRow {
   id: string;
@@ -52,13 +64,17 @@ interface OverviewEntry {
   latestRunAt: string | null;
 }
 
+// Layer maturity denotes STANDING → the standing scale (roles, not literals):
+//   I  Foundation complete   → standing.foundational
+//   II Alpha                 → standing.validated
+//   III Nascent (frontier)   → standing.experimental
 const LAYERS = [
   {
     numeral: "I",
     name: "Invariant Intelligence",
     governs: "Constitutional knowledge — canon, invariants, fields, ontology, provenance, publication",
     status: "Foundation complete",
-    tone: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10",
+    tone: "text-[var(--rep-standing-foundational)] border-[var(--rep-standing-foundational)] bg-[var(--rep-surface-raised)]",
     evidence: "Seed crystal (9 namespaces) · Standing/Reach flywheel · resolver-wired glossary · Foundational Validation Series run",
   },
   {
@@ -66,7 +82,7 @@ const LAYERS = [
     name: "Constitutional Computing",
     governs: "Constitutional execution — policy-bound computation, workflows, delegation, consequence engineering, sovereignty",
     status: "Alpha",
-    tone: "text-sky-300 border-sky-500/30 bg-sky-500/10",
+    tone: "text-[var(--rep-standing-validated)] border-[var(--rep-standing-validated)] bg-[var(--rep-surface-raised)]",
     evidence: "Capability Pipeline · Improvement Loop · D1 deployment · coherence engine · Chrysalis Test live",
   },
   {
@@ -74,7 +90,7 @@ const LAYERS = [
     name: "Constitutional Cybernetics",
     governs: "Constitutional evolution — feedback, adaptation, learning, multi-agent governance, resilience",
     status: "Nascent — the frontier",
-    tone: "text-amber-300 border-amber-500/30 bg-amber-500/10",
+    tone: "text-[var(--rep-standing-experimental)] border-[var(--rep-standing-experimental)] bg-[var(--rep-surface-raised)]",
     evidence: "Improvement Loop ratified as contract · feedback/adaptation experiments are the CCRL's mandate",
   },
 ];
@@ -87,7 +103,7 @@ const EXPERIMENT_FAMILY: Record<string, string> = {
   "EXP-005": "Provider Choice",
 };
 
-export default function CCRLDashboardTab() {
+function CCRLDashboardContent() {
   const [results, setResults] = useState<ResultRow[] | null>(null);
   const [resultsError, setResultsError] = useState<string | null>(null);
   const [chrysalis, setChrysalis] = useState<ChrysalisSummary | null>(null);
@@ -125,47 +141,54 @@ export default function CCRLDashboardTab() {
   }, []);
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <>
       {/* Mission */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
         <div className="flex items-center gap-2">
-          <Landmark className="h-5 w-5 text-indigo-300" />
-          <h2 className="text-lg font-semibold text-slate-100">Constitutional Cybernetics Research Laboratory</h2>
+          <Landmark className="h-5 w-5 text-[var(--rep-accent-geometry)]" />
+          <h2
+            className="text-lg font-semibold text-[var(--rep-ink-body)]"
+            style={{ fontFamily: "var(--rep-type-title)" }}
+          >
+            Constitutional Cybernetics Research Laboratory
+          </h2>
         </div>
-        <p className="mt-2 text-sm text-slate-300">
+        <p className="mt-2 text-sm text-[var(--rep-ink-body)]">
           The constitutional scientific institution of the platform (CFS-019). Mission: establish
           Constitutional Cybernetics as an empirical engineering discipline through repeatable,
           auditable, constitutionally governed experimentation.
         </p>
-        <p className="mt-2 text-xs text-slate-400">
-          <span className="font-semibold text-slate-300">Central hypothesis:</span> Invariant Fields
+        <p className="mt-2 text-xs text-[var(--rep-ink-muted)]">
+          {/* The lab's principal claim — the single reserved gold emphasis (highlight.principal). */}
+          <span className="font-semibold text-[var(--rep-highlight-principal)]">Central hypothesis:</span> Invariant Fields
           constitute measurable structures through which computational behaviour, constitutional
           coherence and consequence can be predicted, governed and experimentally validated.
         </p>
-        <p className="mt-2 text-xs text-slate-500 italic">
+        <p className="mt-2 text-xs text-[var(--rep-ink-muted)] italic">
           The laboratory operates by the principles it investigates — its own operation is its first
           and permanent experiment (inv.cybernetics.110).
         </p>
       </div>
 
       {/* Programme status — live Chrysalis summary */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
         <div className="flex items-center gap-2 mb-3">
-          <ShieldCheck className="h-4 w-4 text-emerald-300" />
-          <h3 className="text-sm font-semibold text-slate-100">Programme status (live — the Chrysalis Test)</h3>
+          <ShieldCheck className="h-4 w-4 text-[var(--rep-state-positive)]" />
+          <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Programme status (live — the Chrysalis Test)</h3>
         </div>
         {chrysalis ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded px-2 py-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">pass {chrysalis.passed}</span>
-            <span className="rounded px-2 py-1 bg-sky-500/15 text-sky-300 border border-sky-500/30">partial {chrysalis.partial}</span>
-            <span className="rounded px-2 py-1 bg-slate-500/15 text-slate-300 border border-slate-500/30">pending {chrysalis.pending}</span>
-            <span className="rounded px-2 py-1 bg-rose-500/15 text-rose-300 border border-rose-500/30">fail {chrysalis.failed}</span>
-            <span className="text-slate-500">of {chrysalis.total} acceptance criteria — full detail in the Experiment Laboratory's Chrysalis tab</span>
+            {/* Outcome tones → state roles (pass positive · partial caution · pending muted · fail critical). */}
+            <span className="rounded px-2 py-1 bg-[var(--rep-surface-raised)] text-[var(--rep-state-positive)] border border-[var(--rep-state-positive)]">pass {chrysalis.passed}</span>
+            <span className="rounded px-2 py-1 bg-[var(--rep-surface-raised)] text-[var(--rep-state-caution)] border border-[var(--rep-state-caution)]">partial {chrysalis.partial}</span>
+            <span className="rounded px-2 py-1 bg-[var(--rep-surface-raised)] text-[var(--rep-ink-muted)] border border-[var(--rep-border-subtle)]">pending {chrysalis.pending}</span>
+            <span className="rounded px-2 py-1 bg-[var(--rep-surface-raised)] text-[var(--rep-state-critical)] border border-[var(--rep-state-critical)]">fail {chrysalis.failed}</span>
+            <span className="text-[var(--rep-ink-muted)]">of {chrysalis.total} acceptance criteria — full detail in the Experiment Laboratory's Chrysalis tab</span>
           </div>
         ) : chrysalisNote ? (
-          <p className="text-xs text-slate-500">{chrysalisNote}</p>
+          <p className="text-xs text-[var(--rep-ink-muted)]">{chrysalisNote}</p>
         ) : (
-          <div className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> computing…</div>
+          <div className="flex items-center gap-2 text-xs text-[var(--rep-ink-muted)]"><Loader2 className="h-3 w-3 animate-spin" /> computing…</div>
         )}
       </div>
 
@@ -174,22 +197,22 @@ export default function CCRLDashboardTab() {
         {LAYERS.map((l) => (
           <div key={l.numeral} className={`rounded-xl border p-4 ${l.tone}`}>
             <div className="text-xs font-semibold uppercase tracking-wide opacity-80">Layer {l.numeral}</div>
-            <div className="text-sm font-semibold text-slate-100 mt-0.5">{l.name}</div>
-            <div className="text-[11px] text-slate-400 mt-1">{l.governs}</div>
+            <div className="text-sm font-semibold text-[var(--rep-ink-body)] mt-0.5">{l.name}</div>
+            <div className="text-[11px] text-[var(--rep-ink-muted)] mt-1">{l.governs}</div>
             <div className="text-xs font-semibold mt-2">{l.status}</div>
-            <div className="text-[11px] text-slate-500 mt-1">{l.evidence}</div>
+            <div className="text-[11px] text-[var(--rep-ink-muted)] mt-1">{l.evidence}</div>
           </div>
         ))}
       </div>
 
       {/* Experiment lifecycles — derived from the canonical record */}
       {overview && overview.length > 0 && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
-          <h3 className="text-sm font-semibold text-slate-100 mb-1">Experiment lifecycles (derived, never asserted)</h3>
-          <p className="text-[11px] text-slate-500 mb-3">
+        <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
+          <h3 className="text-sm font-semibold text-[var(--rep-ink-body)] mb-1">Experiment lifecycles (derived, never asserted)</h3>
+          <p className="text-[11px] text-[var(--rep-ink-muted)] mb-3">
             Highlighted stage = the receipted research-object state (
-            <code className="text-slate-400">research_objects</code>) — runs advance it through{" "}
-            <code className="text-slate-400">research_lifecycle_transition</code>. Falls back to the
+            <code className="text-[var(--rep-ink-muted)]">research_objects</code>) — runs advance it through{" "}
+            <code className="text-[var(--rep-ink-muted)]">research_lifecycle_transition</code>. Falls back to the
             derived floor (published = a canonical run exists · replicated = runs on ≥2 distinct
             providers) until a run materialises the object.
           </p>
@@ -200,8 +223,8 @@ export default function CCRLDashboardTab() {
               const activeStage = o.persistedLifecycle ?? o.lifecycle;
               return (
               <div key={o.experiment.id} className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="w-20 font-semibold text-slate-200">{o.experiment.id}</span>
-                <span className="w-44 text-slate-400">{o.experiment.family}</span>
+                <span className="w-20 font-semibold text-[var(--rep-ink-body)]">{o.experiment.id}</span>
+                <span className="w-44 text-[var(--rep-ink-muted)]">{o.experiment.family}</span>
                 <span className="flex items-center gap-1">
                   {lifecycleOrder.map((stage, i) => {
                     const reached = lifecycleOrder.indexOf(activeStage) >= i;
@@ -211,10 +234,10 @@ export default function CCRLDashboardTab() {
                         title={stage}
                         className={`rounded px-1.5 py-0.5 text-[10px] border ${
                           stage === activeStage
-                            ? "bg-violet-500/20 text-violet-300 border-violet-500/40 font-semibold"
+                            ? "bg-[var(--rep-surface-raised)] text-[var(--rep-accent-geometry)] border-[var(--rep-accent-geometry)] font-semibold"
                             : reached
-                              ? "bg-emerald-500/10 text-emerald-300/70 border-emerald-500/20"
-                              : "bg-slate-800/40 text-slate-600 border-slate-700/40"
+                              ? "bg-[var(--rep-surface-raised)] text-[var(--rep-state-positive)] border-[var(--rep-border-subtle)]"
+                              : "bg-[var(--rep-surface-base)] text-[var(--rep-ink-muted)] border-[var(--rep-border-subtle)]"
                         }`}
                       >
                         {stage}
@@ -222,7 +245,7 @@ export default function CCRLDashboardTab() {
                     );
                   })}
                 </span>
-                <span className="text-slate-500">
+                <span className="text-[var(--rep-ink-muted)]">
                   {o.publishedRuns} run{o.publishedRuns === 1 ? "" : "s"} · {o.distinctProviders} provider{o.distinctProviders === 1 ? "" : "s"}
                   {o.persistedLifecycle ? " · receipted" : ""}
                 </span>
@@ -234,22 +257,22 @@ export default function CCRLDashboardTab() {
       )}
 
       {/* Recent canonical publications (experiment results) */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
         <div className="flex items-center gap-2 mb-3">
-          <FlaskConical className="h-4 w-4 text-indigo-300" />
-          <h3 className="text-sm font-semibold text-slate-100">Recent canonical results (hash-committed)</h3>
+          <FlaskConical className="h-4 w-4 text-[var(--rep-accent-geometry)]" />
+          <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Recent canonical results (hash-committed)</h3>
         </div>
         {results === null && !resultsError && (
-          <div className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> loading…</div>
+          <div className="flex items-center gap-2 text-xs text-[var(--rep-ink-muted)]"><Loader2 className="h-3 w-3 animate-spin" /> loading…</div>
         )}
-        {resultsError && <p className="text-xs text-slate-500">{resultsError}</p>}
+        {resultsError && <p className="text-xs text-[var(--rep-ink-muted)]">{resultsError}</p>}
         {results && results.length === 0 && (
-          <p className="text-xs text-slate-500">No canonical results published yet — run the backfill in the Experiment Laboratory's Results tab.</p>
+          <p className="text-xs text-[var(--rep-ink-muted)]">No canonical results published yet — run the backfill in the Experiment Laboratory's Results tab.</p>
         )}
         {results && results.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="text-slate-500">
+              <thead className="text-[var(--rep-ink-muted)]">
                 <tr>
                   <th className="text-left py-1 pr-3">Experiment</th>
                   <th className="text-left py-1 pr-3">Family</th>
@@ -259,13 +282,13 @@ export default function CCRLDashboardTab() {
                   <th className="text-left py-1">Published</th>
                 </tr>
               </thead>
-              <tbody className="text-slate-300">
+              <tbody className="text-[var(--rep-ink-body)]">
                 {results.slice(0, 8).map((r) => (
-                  <tr key={r.id} className="border-t border-slate-800">
+                  <tr key={r.id} className="border-t border-[var(--rep-border-subtle)]">
                     <td className="py-1.5 pr-3 font-semibold">{r.experiment}</td>
                     <td className="py-1.5 pr-3">{EXPERIMENT_FAMILY[r.experiment] ?? "—"}</td>
                     <td className="py-1.5 pr-3">{r.provider} · {r.model}</td>
-                    <td className="py-1.5 pr-3 font-mono text-slate-400">{r.contentHash.slice(0, 12)}…</td>
+                    <td className="py-1.5 pr-3 font-mono text-[var(--rep-ink-muted)]">{r.contentHash.slice(0, 12)}…</td>
                     <td className="py-1.5 pr-3">{r.receiptStatus ?? "—"}</td>
                     <td className="py-1.5">{new Date(r.createdAt).toLocaleDateString()}</td>
                   </tr>
@@ -277,76 +300,96 @@ export default function CCRLDashboardTab() {
       </div>
 
       {/* Roadmap */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
         <div className="flex items-center gap-2 mb-3">
-          <BookOpen className="h-4 w-4 text-slate-300" />
-          <h3 className="text-sm font-semibold text-slate-100">Roadmap (CFS-019 §8)</h3>
+          <BookOpen className="h-4 w-4 text-[var(--rep-ink-body)]" />
+          <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Roadmap (CFS-019 §8)</h3>
         </div>
-        <ul className="space-y-1.5 text-xs text-slate-300">
-          <li><span className="text-emerald-300 font-semibold">A — delivered:</span> charter + vocabulary (Constitutional Cybernetics, inv.cybernetics.108–111)</li>
-          <li><span className="text-emerald-300 font-semibold">B — this surface:</span> the CCRL as canonical research surface over all existing assets</li>
-          <li><span className="text-slate-400 font-semibold">C:</span> research object model + lifecycles (receipted transitions) + Aigent Z research orchestration</li>
-          <li><span className="text-slate-400 font-semibold">D:</span> physical migration into the CCRL pack (atomic, path-inventory-driven)</li>
-          <li><span className="text-slate-400 font-semibold">E:</span> Invariant Field Explorer · resequencing views · Layer-III experiments (feedback, adaptation, multi-agent)</li>
+        <ul className="space-y-1.5 text-xs text-[var(--rep-ink-body)]">
+          <li><span className="text-[var(--rep-state-positive)] font-semibold">A — delivered:</span> charter + vocabulary (Constitutional Cybernetics, inv.cybernetics.108–111)</li>
+          <li><span className="text-[var(--rep-state-positive)] font-semibold">B — this surface:</span> the CCRL as canonical research surface over all existing assets</li>
+          <li><span className="text-[var(--rep-ink-muted)] font-semibold">C:</span> research object model + lifecycles (receipted transitions) + Aigent Z research orchestration</li>
+          <li><span className="text-[var(--rep-ink-muted)] font-semibold">D:</span> physical migration into the CCRL pack (atomic, path-inventory-driven)</li>
+          <li><span className="text-[var(--rep-ink-muted)] font-semibold">E:</span> Invariant Field Explorer · resequencing views · Layer-III experiments (feedback, adaptation, multi-agent)</li>
         </ul>
-        <p className="mt-3 text-[11px] text-slate-500 flex items-center gap-1.5">
+        <p className="mt-3 text-[11px] text-[var(--rep-ink-muted)] flex items-center gap-1.5">
           <Beaker className="h-3 w-3" />
           Experiment series: Foundational Validation (EXP-001–004, run) · Platform Sovereignty PSE-1..5 (PSE-1 built; 2–5 named, designed before spend — CFS-018)
         </p>
       </div>
 
       {/* Constitutional Representation System — the representation-invariant field (CFS-021) */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
         <div className="flex items-center gap-2 mb-1">
-          <Palette className="h-4 w-4 text-slate-300" />
-          <h3 className="text-sm font-semibold text-slate-100">Constitutional Representation System (CFS-021)</h3>
+          <Palette className="h-4 w-4 text-[var(--rep-ink-body)]" />
+          <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Constitutional Representation System (CFS-021)</h3>
         </div>
-        <p className="text-[11px] text-slate-400 mb-4">
-          The system is the invariant <span className="text-slate-300">contract</span> (roles · relationships · semantics); a
-          style is one <span className="text-slate-300">interpretation</span> that must satisfy it. Constitutional Civic Futurism
-          is interpretation v1, never the definition. Flip the interpretation and watch the same objects — the standing scale, the
-          field sectors — reskin coherently. Every swatch below consumes a ROLE, never a raw value.
+        <p className="text-[11px] text-[var(--rep-ink-muted)] mb-4">
+          The system is the invariant <span className="text-[var(--rep-ink-body)]">contract</span> (roles · relationships · semantics); a
+          style is one <span className="text-[var(--rep-ink-body)]">interpretation</span> that must satisfy it. Constitutional Civic Futurism
+          is interpretation v1, never the definition. Flip the interpretation and watch this entire dashboard — the standing scale, the
+          field sectors, every card — reskin coherently. Every element above and below consumes a ROLE, never a raw value.
         </p>
+        {/* The switcher inside this preview drives the TAB-LEVEL provider — flipping the
+            interpretation reskins the whole reference surface, not just this widget. */}
         <RepresentationFieldPreview />
       </div>
 
       {/* Research agenda — Research Roadmap Expansion (CFS-019 amendment 2026-07-07) */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
         <div className="flex items-center gap-2 mb-1">
-          <Compass className="h-4 w-4 text-slate-300" />
-          <h3 className="text-sm font-semibold text-slate-100">Research agenda — Applied Constitutional Research</h3>
+          <Compass className="h-4 w-4 text-[var(--rep-ink-body)]" />
+          <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Research agenda — Applied Constitutional Research</h3>
         </div>
-        <p className="text-[11px] text-slate-400 mb-3">
+        <p className="text-[11px] text-[var(--rep-ink-muted)] mb-3">
           Research aims at constitutional capabilities that can be implemented, validated, and integrated — implementation
           is part of research. Preferred outcome chain:{" "}
-          <span className="text-slate-300 font-mono">{APPLIED_RESEARCH_CHAIN.join(" → ")}</span>
+          <span className="text-[var(--rep-ink-body)] font-mono">{APPLIED_RESEARCH_CHAIN.join(" → ")}</span>
         </p>
-        <div className="text-xs text-slate-300">
+        <div className="text-xs text-[var(--rep-ink-body)]">
           <div className="mb-1">
-            <span className="text-amber-300 font-semibold">Programme D — Reasoning Systems</span>{" "}
-            <span className="text-slate-500">(exploratory · long-term · hypothesis-driven)</span>
+            {/* Programme D is the Reasoning Systems sector → field.reasoning. */}
+            <span className="text-[var(--rep-field-reasoning)] font-semibold">Programme D — Reasoning Systems</span>{" "}
+            <span className="text-[var(--rep-ink-muted)]">(exploratory · long-term · hypothesis-driven)</span>
           </div>
           <ul className="space-y-1 mb-3">
             {RESEARCH_THEMES.map((t) => (
               <li key={t.id}>
-                <span className="text-slate-200 font-semibold">{t.title}:</span>{" "}
-                <span className="text-slate-400">{t.investigate.join(", ")}</span>
+                <span className="text-[var(--rep-ink-body)] font-semibold">{t.title}:</span>{" "}
+                <span className="text-[var(--rep-ink-muted)]">{t.investigate.join(", ")}</span>
               </li>
             ))}
           </ul>
-          <div className="mb-1 text-slate-400 font-semibold">Open constitutional questions (kept as hypotheses, not conclusions)</div>
-          <ul className="space-y-0.5 mb-3 list-disc list-inside text-slate-400">
+          <div className="mb-1 text-[var(--rep-ink-muted)] font-semibold">Open constitutional questions (kept as hypotheses, not conclusions)</div>
+          <ul className="space-y-0.5 mb-3 list-disc list-inside text-[var(--rep-ink-muted)]">
             {OPEN_CONSTITUTIONAL_QUESTIONS.map((q) => (
               <li key={q}>{q}</li>
             ))}
           </ul>
         </div>
-        <p className="text-[11px] text-slate-500">
-          <span className="font-semibold text-slate-400">Research method (guidance, not a law):</span>{" "}
+        <p className="text-[11px] text-[var(--rep-ink-muted)]">
+          <span className="font-semibold text-[var(--rep-ink-muted)]">Research method (guidance, not a law):</span>{" "}
           progress comes from finding the correct constitutional distinctions, then validating them experimentally —{" "}
           {CONSTITUTIONAL_DISTINCTIONS.join(" · ")}
         </p>
       </div>
-    </div>
+    </>
+  );
+}
+
+/**
+ * The reference surface: ONE tab-level RepresentationProvider (default
+ * interpretation = Constitutional Civic Futurism) injects every `--rep-*` role
+ * as a CSS variable at the dashboard root, so every element below consumes
+ * roles via `var(--rep-*)` and the interpretation switcher reskins the whole
+ * environment. The provider's own div carries the dashboard's layout classes
+ * (space-y-6 max-w-5xl) plus the field ground (surface.base) — no extra nesting,
+ * no layout change.
+ */
+export default function CCRLDashboardTab() {
+  return (
+    <RepresentationProvider className="space-y-6 max-w-5xl bg-[var(--rep-surface-base)]">
+      <CCRLDashboardContent />
+    </RepresentationProvider>
   );
 }

@@ -3,12 +3,17 @@
 /**
  * RepresentationFieldPreview — the adoption-proof surface (CFS-021).
  *
- * Mounts a RepresentationProvider, an interpretation switcher, and the
- * StandingBadge primitive so the operator can flip Constitutional Civic
- * Futurism ↔ High-Contrast Accessible and watch the SAME objects reskin
- * coherently. Every swatch and badge here consumes ROLES via the resolver —
- * none hardcodes a colour. This is the end-to-end demonstration that the
- * system is the invariant contract and a style is one interpretation of it.
+ * An interpretation switcher + the StandingBadge primitive + the field-sector
+ * strip, so the operator can flip Constitutional Civic Futurism ↔ High-Contrast
+ * Accessible and watch the SAME objects reskin coherently. Every swatch and
+ * badge here consumes ROLES via the resolver — none hardcodes a colour.
+ *
+ * ADOPTION NOTE (2026-07-08): this widget no longer mounts its OWN provider by
+ * default. It consumes the AMBIENT `<RepresentationProvider>` — on the CCRL
+ * Dashboard (the first reference surface) that is the ONE tab-level provider,
+ * so the switcher below reskins the ENTIRE dashboard, not just this widget.
+ * Pass `standalone` to mount a self-contained provider when used outside a
+ * provider scope.
  */
 
 import React from "react";
@@ -20,7 +25,7 @@ function Switcher() {
   const { interpretation, setInterpretation, interpretations } = useRepresentation();
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-[11px] uppercase tracking-wide text-slate-400">Interpretation</span>
+      <span className="text-[11px] uppercase tracking-wide text-[var(--rep-ink-muted)]">Interpretation</span>
       {interpretations.map((i) => {
         const active = i.id === interpretation.id;
         return (
@@ -30,8 +35,8 @@ function Switcher() {
             onClick={() => setInterpretation(i.id)}
             className={`rounded-full px-3 py-1 text-xs border transition ${
               active
-                ? "bg-indigo-500/20 text-indigo-200 border-indigo-500/40 font-semibold"
-                : "bg-slate-800/40 text-slate-400 border-slate-700/50 hover:text-slate-200"
+                ? "bg-[var(--rep-surface-raised)] text-[var(--rep-accent-geometry)] border-[var(--rep-accent-geometry)] font-semibold"
+                : "bg-[var(--rep-surface-base)] text-[var(--rep-ink-muted)] border-[var(--rep-border-subtle)] hover:text-[var(--rep-ink-body)]"
             }`}
           >
             {i.label}
@@ -119,10 +124,22 @@ function Preview() {
   );
 }
 
-export function RepresentationFieldPreview() {
-  return (
-    <RepresentationProvider injectCssVars>
-      <Preview />
-    </RepresentationProvider>
-  );
+export interface RepresentationFieldPreviewProps {
+  /** Mount a self-contained provider instead of consuming the ambient one.
+   * Default false — the preview reads the surrounding tab-level provider so its
+   * switcher reskins the whole reference surface (the CCRL Dashboard). Set true
+   * only when rendering the preview outside a RepresentationProvider scope. */
+  standalone?: boolean;
+}
+
+export function RepresentationFieldPreview({ standalone = false }: RepresentationFieldPreviewProps = {}) {
+  if (standalone) {
+    return (
+      <RepresentationProvider injectCssVars>
+        <Preview />
+      </RepresentationProvider>
+    );
+  }
+  // Consume the ambient tab-level provider — the switcher drives it.
+  return <Preview />;
 }
