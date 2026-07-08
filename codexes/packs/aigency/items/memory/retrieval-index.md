@@ -3134,3 +3134,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c34a792.md](../build_/COMMITS/COMMIT-c34a792.md)
 - Message: Build the Bearing Instrument v1: the constitutional compass, operating within the CCRL reference field
+
+## Commit `f354c8b` — 2026-07-08T09:20:31Z
+- Type: `fix`
+- Brief: [COMMIT-f354c8b.md](../build_/COMMITS/COMMIT-f354c8b.md)
+- Message: Fix CDE tool-viewport hang: timebox every external probe (canister/DVN/GitHub/Linear)
