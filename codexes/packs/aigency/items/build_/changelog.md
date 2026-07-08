@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`fa5511d`](https://github.com/iQube-Protocol/AigentZBeta/commit/fa5511d1623b2bef839ace88acd3b9a62f109d29) [push] CFS-021 refinement: the system is the invariants, accommodating many interpretations (not one style) (Claude, 2026-07-08T00:48:37Z)
 - [`b6ede67`](https://github.com/iQube-Protocol/AigentZBeta/commit/b6ede67ca6c5b6169d8b05d0c4dd9ab88cee28b7) [push] CFS-021: canonize Constitutional Civic Futurism + the Representation Invariant family (Claude, 2026-07-07T23:55:27Z)
 - [`d03dfe0`](https://github.com/iQube-Protocol/AigentZBeta/commit/d03dfe043759815b6f2612137e62f6c8bca09ccc) [push] CFS-019 amendment: Research Roadmap Expansion — applied constitutional research + the Reasoning Systems programme (Claude, 2026-07-07T20:21:05Z)
 - [`b7acd87`](https://github.com/iQube-Protocol/AigentZBeta/commit/b7acd87909cc65727f4f7cb158fd7e2ed3650bda) [push] Build DCIR D4: the universal substrate hook — surfaces adopt observation by declaration (Claude, 2026-07-07T18:31:21Z)
