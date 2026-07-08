@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-08T01:03:21.552Z",
+  "last_updated": "2026-07-08T08:08:28.935Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c46cb16ad4e4a5507d5ae9093a856e8d4cab4194",
-  "latest_commit_short": "c46cb16",
-  "latest_commit_title": "Build the Constitutional Representation System: contract-first representation invariants + interpretation resolver",
+  "latest_commit": "c7611f0f93ec79bcdf061cc10590f9ce2f331115",
+  "latest_commit_short": "c7611f0",
+  "latest_commit_title": "Adopt the CCRL Dashboard into the Constitutional Representation System (first reference surface)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c7611f0",
+      "full_sha": "c7611f0f93ec79bcdf061cc10590f9ce2f331115",
+      "title": "Adopt the CCRL Dashboard into the Constitutional Representation System (first reference surface)",
+      "author": "Claude",
+      "timestamp": "2026-07-08T08:05:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c7611f0.md"
+    },
     {
       "sha": "c46cb16",
       "full_sha": "c46cb16ad4e4a5507d5ae9093a856e8d4cab4194",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-04T01:23:11Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-4f5ded4.md"
-    },
-    {
-      "sha": "43d0aa6",
-      "full_sha": "43d0aa64d5d48c10db763a0970625c43f6da65f0",
-      "title": "ratify law xiii: individualization (the constitutional subject model)",
-      "author": "Claude",
-      "timestamp": "2026-07-04T01:23:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-43d0aa6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
