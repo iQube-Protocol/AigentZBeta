@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-08T08:08:28.935Z",
+  "last_updated": "2026-07-08T08:32:09.507Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c7611f0f93ec79bcdf061cc10590f9ce2f331115",
-  "latest_commit_short": "c7611f0",
-  "latest_commit_title": "Adopt the CCRL Dashboard into the Constitutional Representation System (first reference surface)",
+  "latest_commit": "c34a792471c29529def93a9b66a1a22bd39fdb96",
+  "latest_commit_short": "c34a792",
+  "latest_commit_title": "Build the Bearing Instrument v1: the constitutional compass, operating within the CCRL reference field",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c34a792",
+      "full_sha": "c34a792471c29529def93a9b66a1a22bd39fdb96",
+      "title": "Build the Bearing Instrument v1: the constitutional compass, operating within the CCRL reference field",
+      "author": "Claude",
+      "timestamp": "2026-07-08T08:29:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c34a792.md"
+    },
     {
       "sha": "c7611f0",
       "full_sha": "c7611f0f93ec79bcdf061cc10590f9ce2f331115",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-04T02:11:49Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-98507b9.md"
-    },
-    {
-      "sha": "4f5ded4",
-      "full_sha": "4f5ded4e1518e49b7f9126c2396b7f3a410b347b",
-      "title": "fix video stitch pipeline: distinct per-segment prompts + 4-segment hierarchical stitching",
-      "author": "Claude",
-      "timestamp": "2026-07-04T01:23:11Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4f5ded4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

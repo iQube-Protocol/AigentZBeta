@@ -3129,3 +3129,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c7611f0.md](../build_/COMMITS/COMMIT-c7611f0.md)
 - Message: Adopt the CCRL Dashboard into the Constitutional Representation System (first reference surface)
+
+## Commit `c34a792` — 2026-07-08T08:29:40Z
+- Type: `push`
+- Brief: [COMMIT-c34a792.md](../build_/COMMITS/COMMIT-c34a792.md)
+- Message: Build the Bearing Instrument v1: the constitutional compass, operating within the CCRL reference field
