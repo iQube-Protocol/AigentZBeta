@@ -250,3 +250,17 @@ This is a canon home for the vocabulary, the discipline, and the first plate spe
 - [ ] **Invariant canonization** — operator ingest of `inv.representation.121`–`125` + `inv.constitutional.126`–`127` (PENDING, operator-gated).
 - [ ] **Plate I render** (`plate.constitutional.trinity`) — the first Constitutional Plate (PENDING; §11 is the brief).
 - [ ] **Bearing Instrument + modality-projection engine** — the operational build (PENDING follow-on).
+
+---
+
+## Delivery record — the Constitutional Representation System (contract-first foundation)
+
+**Delivered 2026-07-08** — the representation-invariant analog of the Canonical Ontology Service: one authoritative, contract-first service so the platform becomes a single representation FIELD. It ships the CONTRACT + resolver + validation gate + **two interpretations** + one adoption proof — proving §3.1 ("the system is the invariants — it accommodates many interpretations") is real, not aspirational.
+
+- **The contract** (`types/representation.ts`) — the interpretation-AGNOSTIC canonical roles + relationship laws. Roles: surface/ink (`surface.base`, `surface.raised`, `ink.body`, `ink.muted`, `border.subtle`), emphasis (`highlight.principal`, `accent.geometry`), the ordered standing scale (`standing.experimental` → `validated` → `canonical` → `foundational`), state (`state.positive/caution/critical`), type (`type.title/annotation/mono`), motion (`motion.tempo/reveal`), and the seven Constitutional Field sectors (`field.reasoning/intelligence/order/action/knowledge/experience/consequence`). Relationship laws: completeness, standing strictly monotonic in emphasis (WCAG contrast vs `surface.base`), `highlight.principal` perceptibly distinct from body/surface, and body-on-base WCAG-AA legibility.
+- **The resolver + gate** (`services/representation/representationResolver.ts`) — `validateInterpretation` (valid ONLY if it fills every role AND preserves every law), `resolveRole` (interpretation-agnostic), `emitCssVariables` (every role → `--rep-*` custom property). Pure, canary-pinned.
+- **Two interpretations** (`services/representation/interpretations/`) — Constitutional Civic Futurism (interpretation v1: ivory parchment · charcoal linework · indigo geometry · muted gold · serif title / humanist-sans annotation) and High-Contrast Accessible (a dark, maximum-legibility reading binding entirely different concrete values). Both satisfy the same contract with zero violations — the many-interpretations proof.
+- **Provider + hook** (`components/representation/RepresentationProvider.tsx`) — holds the active interpretation, injects its CSS variables at a scope, exposes `useRepresentation()`. Components consume ROLES, never raw values. SSR-safe.
+- **Adoption proof** (`components/representation/StandingBadge.tsx` + `RepresentationFieldPreview.tsx`) — one low-risk primitive that renders the standing scale from roles, mounted on the CCRL Dashboard with an interpretation switcher so the operator can flip CCF ↔ High-Contrast and watch the same objects reskin coherently.
+
+**Honest scope — named follow-ons (NOT built here):** progressive per-component adoption (retrofitting existing chips/pills/buttons/cartridges — deliberately deferred; retrofitting all at once is how coherence regressions happen), the full rendered Bearing Instrument, the plate renderer, and the modality-projection engine. This delivery is the contract-first foundation those build on.

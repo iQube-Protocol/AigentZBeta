@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Beaker, BookOpen, FlaskConical, Landmark, Loader2, ShieldCheck, Compass } from "lucide-react";
+import { Beaker, BookOpen, FlaskConical, Landmark, Loader2, ShieldCheck, Compass, Palette } from "lucide-react";
 import { experimentGet } from "./experimentStepFetch";
 import {
   APPLIED_RESEARCH_CHAIN,
@@ -19,6 +19,7 @@ import {
   OPEN_CONSTITUTIONAL_QUESTIONS,
   CONSTITUTIONAL_DISTINCTIONS,
 } from "@/types/research";
+import { RepresentationFieldPreview } from "@/components/representation/RepresentationFieldPreview";
 
 interface ResultRow {
   id: string;
@@ -292,6 +293,21 @@ export default function CCRLDashboardTab() {
           <Beaker className="h-3 w-3" />
           Experiment series: Foundational Validation (EXP-001–004, run) · Platform Sovereignty PSE-1..5 (PSE-1 built; 2–5 named, designed before spend — CFS-018)
         </p>
+      </div>
+
+      {/* Constitutional Representation System — the representation-invariant field (CFS-021) */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Palette className="h-4 w-4 text-slate-300" />
+          <h3 className="text-sm font-semibold text-slate-100">Constitutional Representation System (CFS-021)</h3>
+        </div>
+        <p className="text-[11px] text-slate-400 mb-4">
+          The system is the invariant <span className="text-slate-300">contract</span> (roles · relationships · semantics); a
+          style is one <span className="text-slate-300">interpretation</span> that must satisfy it. Constitutional Civic Futurism
+          is interpretation v1, never the definition. Flip the interpretation and watch the same objects — the standing scale, the
+          field sectors — reskin coherently. Every swatch below consumes a ROLE, never a raw value.
+        </p>
+        <RepresentationFieldPreview />
       </div>
 
       {/* Research agenda — Research Roadmap Expansion (CFS-019 amendment 2026-07-07) */}
