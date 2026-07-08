@@ -10,7 +10,7 @@
  * personaFetch only.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { GitBranch, RefreshCw, Loader2, Folder, FileText, ChevronRight, ArrowLeft } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { personaFetchDeadline } from "@/utils/personaSpine";
@@ -45,10 +45,17 @@ export function GitHubLayout({
   const [entries, setEntries] = useState<TreeEntry[] | null>(null);
   const [file, setFile] = useState<FileView | null>(null);
 
+  // Hold the latest onToolUsed in a ref so the fetch callbacks (and the mount
+  // effect that depends on loadOverview) don't get a new identity every time the
+  // parent re-renders with a fresh inline callback — which otherwise re-fires the
+  // mount effect in an infinite loop (the flicker + API stampede this fixes).
+  const onToolUsedRef = useRef(onToolUsed);
+  useEffect(() => { onToolUsedRef.current = onToolUsed; }, [onToolUsed]);
+
   const loadOverview = useCallback(async () => {
     setLoading(true);
     setError(null);
-    onToolUsed?.("overview");
+    onToolUsedRef.current?.("overview");
     try {
       const res = await personaFetchDeadline("/api/dev-command-center/github", { cache: "no-store" });
       if (res.status === 403) { setError("forbidden — GitHub viewport requires an admin persona"); return; }
@@ -63,14 +70,14 @@ export function GitHubLayout({
     } finally {
       setLoading(false);
     }
-  }, [onToolUsed]);
+  }, []);
 
   useEffect(() => { void loadOverview(); }, [loadOverview]);
 
   const browseTree = useCallback(async (path: string) => {
     setFile(null);
     setLoading(true);
-    onToolUsed?.("tree");
+    onToolUsedRef.current?.("tree");
     try {
       const res = await personaFetchDeadline(`/api/dev-command-center/github?op=tree&path=${encodeURIComponent(path)}`, { cache: "no-store" });
       const json = await res.json().catch(() => null);
@@ -84,11 +91,11 @@ export function GitHubLayout({
     } finally {
       setLoading(false);
     }
-  }, [onToolUsed]);
+  }, []);
 
   const openFile = useCallback(async (path: string) => {
     setLoading(true);
-    onToolUsed?.("file");
+    onToolUsedRef.current?.("file");
     try {
       const res = await personaFetchDeadline(`/api/dev-command-center/github?op=file&path=${encodeURIComponent(path)}`, { cache: "no-store" });
       const json = await res.json().catch(() => null);
@@ -101,7 +108,7 @@ export function GitHubLayout({
     } finally {
       setLoading(false);
     }
-  }, [onToolUsed]);
+  }, []);
 
   const parentPath = treePath.includes("/") ? treePath.slice(0, treePath.lastIndexOf("/")) : "";
 

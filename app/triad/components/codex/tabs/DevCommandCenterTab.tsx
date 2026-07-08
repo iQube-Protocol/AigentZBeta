@@ -699,6 +699,15 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     if (capsuleId) engageCapsuleAndMount(capsuleId);
   }, [engageCapsuleAndMount]);
 
+  // Stable per-tool DCIR observers. Passing a fresh inline callback to a CDE
+  // pane every render gives its fetch callbacks a new identity, which re-fires
+  // their mount effect in a loop (the flicker). `observe` is stable, so these
+  // are stable — the panes fetch once, not on every parent render.
+  const observeTerminalTool = useCallback((op: string) => observe(devToolUsedEvent("terminal", op)), [observe]);
+  const observeGithubTool = useCallback((op: string) => observe(devToolUsedEvent("github", op)), [observe]);
+  const observeDevtoolsTool = useCallback((op: string) => observe(devToolUsedEvent("devtools", op)), [observe]);
+  const observeLinearTool = useCallback((op: string) => observe(devToolUsedEvent("linear", op)), [observe]);
+
   // ── Copilot-driven suggestions
   const [exploreSuggestions, setExploreSuggestions] = useState<ExploreSuggestionMap>({});
   const [capsuleSuggestions, setCapsuleSuggestions] = useState<Partial<Record<DevCapsuleId, boolean>>>({});
@@ -1222,25 +1231,25 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           {isToolLayout && activeLayoutId === "terminal" && (
             <TerminalLayout
               onBack={returnToStack}
-              onToolUsed={(op) => observe(devToolUsedEvent("terminal", op))}
+              onToolUsed={observeTerminalTool}
             />
           )}
           {isToolLayout && activeLayoutId === "github" && (
             <GitHubLayout
               onBack={returnToStack}
-              onToolUsed={(op) => observe(devToolUsedEvent("github", op))}
+              onToolUsed={observeGithubTool}
             />
           )}
           {isToolLayout && activeLayoutId === "devtools" && (
             <DevToolsLayout
               onBack={returnToStack}
-              onToolUsed={(op) => observe(devToolUsedEvent("devtools", op))}
+              onToolUsed={observeDevtoolsTool}
             />
           )}
           {isToolLayout && activeLayoutId === "linear" && (
             <LinearLayout
               onBack={returnToStack}
-              onToolUsed={(op) => observe(devToolUsedEvent("linear", op))}
+              onToolUsed={observeLinearTool}
             />
           )}
         </div>

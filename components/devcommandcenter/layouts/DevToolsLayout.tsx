@@ -14,7 +14,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Wrench, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
-import { personaFetch } from "@/utils/personaSpine";
+import { personaFetchDeadline } from "@/utils/personaSpine";
 
 type ReceiptStatus = "local" | "dvn_pending" | "dvn_recorded" | "dvn_failed";
 
@@ -82,12 +82,18 @@ export function DevToolsLayout({
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [tab, setTab] = useState<DevToolsTab>("env");
 
+  // Latest onToolUsed in a ref so `load` keeps a stable identity — a fresh inline
+  // callback from the parent each render would otherwise re-fire the mount effect
+  // in a loop (flicker) and (via the interval) stampede the route.
+  const onToolUsedRef = useRef(onToolUsed);
+  useEffect(() => { onToolUsedRef.current = onToolUsed; }, [onToolUsed]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    onToolUsed?.("refresh");
+    onToolUsedRef.current?.("refresh");
     try {
-      const res = await personaFetch("/api/dev-command-center/devtools", { cache: "no-store" });
+      const res = await personaFetchDeadline("/api/dev-command-center/devtools", { cache: "no-store" });
       if (res.status === 403) {
         setError("forbidden — DevTools requires an admin persona");
         return;
@@ -99,11 +105,12 @@ export function DevToolsLayout({
       }
       setData(json as DevToolsData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const aborted = err instanceof Error && err.name === "AbortError";
+      setError(aborted ? "DevTools timed out after 12s — server route or auth token step unavailable" : err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, [onToolUsed]);
+  }, []);
 
   useEffect(() => {
     void load();

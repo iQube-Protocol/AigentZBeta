@@ -10,7 +10,7 @@
  * notice — it never invents issues. personaFetch only.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { KanbanSquare, RefreshCw, Loader2 } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { personaFetchDeadline } from "@/utils/personaSpine";
@@ -54,10 +54,16 @@ export function LinearLayout({
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("");
 
+  // Latest onToolUsed in a ref so `load` keeps a stable identity — otherwise the
+  // parent's fresh inline callback each render re-fires the fetch effect in an
+  // infinite loop (the flicker this fixes). Filter changes still re-fetch.
+  const onToolUsedRef = useRef(onToolUsed);
+  useEffect(() => { onToolUsedRef.current = onToolUsed; }, [onToolUsed]);
+
   const load = useCallback(async (stateCategory: string) => {
     setLoading(true);
     setError(null);
-    onToolUsed?.("issues");
+    onToolUsedRef.current?.("issues");
     try {
       const qs = stateCategory ? `?stateCategory=${encodeURIComponent(stateCategory)}` : "";
       const res = await personaFetchDeadline(`/api/dev-command-center/linear${qs}`, { cache: "no-store" });
@@ -73,7 +79,7 @@ export function LinearLayout({
     } finally {
       setLoading(false);
     }
-  }, [onToolUsed]);
+  }, []);
 
   useEffect(() => { void load(filter); }, [load, filter]);
 

@@ -40,6 +40,10 @@ export function TerminalLayout({
   const commandsRef = useRef<string[]>([]);
   const [recallIndex, setRecallIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Latest onToolUsed in a ref so `run` keeps a stable identity regardless of the
+  // parent passing a fresh inline callback each render.
+  const onToolUsedRef = useRef(onToolUsed);
+  useEffect(() => { onToolUsedRef.current = onToolUsed; }, [onToolUsed]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -53,7 +57,7 @@ export function TerminalLayout({
     setInput("");
     setBusy(true);
     // T2-safe observation: the first token only, never the full command line.
-    onToolUsed?.(command.split(/\s+/)[0] ?? "");
+    onToolUsedRef.current?.(command.split(/\s+/)[0] ?? "");
     try {
       const res = await personaFetchDeadline("/api/dev-command-center/terminal", {
         method: "POST",
@@ -80,7 +84,7 @@ export function TerminalLayout({
     } finally {
       setBusy(false);
     }
-  }, [busy, onToolUsed]);
+  }, [busy]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
