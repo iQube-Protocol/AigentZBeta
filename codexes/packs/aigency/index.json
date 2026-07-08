@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-07T20:22:51.342Z",
+  "last_updated": "2026-07-07T23:57:11.722Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d03dfe043759815b6f2612137e62f6c8bca09ccc",
-  "latest_commit_short": "d03dfe0",
-  "latest_commit_title": "CFS-019 amendment: Research Roadmap Expansion — applied constitutional research + the Reasoning Systems programme",
+  "latest_commit": "b6ede67ca6c5b6169d8b05d0c4dd9ab88cee28b7",
+  "latest_commit_short": "b6ede67",
+  "latest_commit_title": "CFS-021: canonize Constitutional Civic Futurism + the Representation Invariant family",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b6ede67",
+      "full_sha": "b6ede67ca6c5b6169d8b05d0c4dd9ab88cee28b7",
+      "title": "CFS-021: canonize Constitutional Civic Futurism + the Representation Invariant family",
+      "author": "Claude",
+      "timestamp": "2026-07-07T23:55:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b6ede67.md"
+    },
     {
       "sha": "d03dfe0",
       "full_sha": "d03dfe043759815b6f2612137e62f6c8bca09ccc",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-04T01:23:42Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-4a2365f.md"
-    },
-    {
-      "sha": "a6ce101",
-      "full_sha": "a6ce101a3d1b27709911b7b03eaf77c3d30551b8",
-      "title": "ratify law xii: truth, standing and reach — canon + code (standing/reach split, epistemic type)",
-      "author": "Claude",
-      "timestamp": "2026-07-03T23:18:50Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a6ce101.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
