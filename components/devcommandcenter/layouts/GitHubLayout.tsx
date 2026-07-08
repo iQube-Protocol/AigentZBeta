@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { GitBranch, RefreshCw, Loader2, Folder, FileText, ChevronRight, ArrowLeft } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
-import { personaFetch } from "@/utils/personaSpine";
+import { personaFetchDeadline } from "@/utils/personaSpine";
 
 interface Overview {
   configured: true;
@@ -50,7 +50,7 @@ export function GitHubLayout({
     setError(null);
     onToolUsed?.("overview");
     try {
-      const res = await personaFetch("/api/dev-command-center/github", { cache: "no-store" });
+      const res = await personaFetchDeadline("/api/dev-command-center/github", { cache: "no-store" });
       if (res.status === 403) { setError("forbidden — GitHub viewport requires an admin persona"); return; }
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) { setError(json?.error ?? `unexpected response (HTTP ${res.status})`); return; }
@@ -58,7 +58,8 @@ export function GitHubLayout({
       setConfigured(true);
       setOverview(json as Overview);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const aborted = err instanceof Error && err.name === "AbortError";
+      setError(aborted ? "GitHub viewport timed out after 12s — server route or auth token step unavailable" : err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -71,12 +72,15 @@ export function GitHubLayout({
     setLoading(true);
     onToolUsed?.("tree");
     try {
-      const res = await personaFetch(`/api/dev-command-center/github?op=tree&path=${encodeURIComponent(path)}`, { cache: "no-store" });
+      const res = await personaFetchDeadline(`/api/dev-command-center/github?op=tree&path=${encodeURIComponent(path)}`, { cache: "no-store" });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) { setError(json?.error ?? `tree failed (HTTP ${res.status})`); return; }
       setTreePath(path);
       setEntries(json.entries ?? []);
       setError(null);
+    } catch (err) {
+      const aborted = err instanceof Error && err.name === "AbortError";
+      setError(aborted ? "tree browse timed out after 12s — unavailable" : err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -86,11 +90,14 @@ export function GitHubLayout({
     setLoading(true);
     onToolUsed?.("file");
     try {
-      const res = await personaFetch(`/api/dev-command-center/github?op=file&path=${encodeURIComponent(path)}`, { cache: "no-store" });
+      const res = await personaFetchDeadline(`/api/dev-command-center/github?op=file&path=${encodeURIComponent(path)}`, { cache: "no-store" });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) { setError(json?.error ?? `file failed (HTTP ${res.status})`); return; }
       setFile(json.file as FileView);
       setError(null);
+    } catch (err) {
+      const aborted = err instanceof Error && err.name === "AbortError";
+      setError(aborted ? "file open timed out after 12s — unavailable" : err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }

@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { KanbanSquare, RefreshCw, Loader2 } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
-import { personaFetch } from "@/utils/personaSpine";
+import { personaFetchDeadline } from "@/utils/personaSpine";
 
 interface LinearIssue {
   identifier: string;
@@ -60,7 +60,7 @@ export function LinearLayout({
     onToolUsed?.("issues");
     try {
       const qs = stateCategory ? `?stateCategory=${encodeURIComponent(stateCategory)}` : "";
-      const res = await personaFetch(`/api/dev-command-center/linear${qs}`, { cache: "no-store" });
+      const res = await personaFetchDeadline(`/api/dev-command-center/linear${qs}`, { cache: "no-store" });
       if (res.status === 403) { setError("forbidden — Linear viewport requires an admin persona"); return; }
       const json = await res.json().catch(() => null);
       if (json?.configured === false) { setConfigured(false); setMissingEnv(json.missingEnv ?? "LINEAR_API_KEY"); return; }
@@ -68,7 +68,8 @@ export function LinearLayout({
       setConfigured(true);
       setIssues(json.issues ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const aborted = err instanceof Error && err.name === "AbortError";
+      setError(aborted ? "Linear viewport timed out after 12s — server route or auth token step unavailable" : err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }

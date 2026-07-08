@@ -31,11 +31,22 @@ export function getSupabaseBrowserClient(): SupabaseClient {
  *      hasn't hydrated yet (matches the inline pattern used in
  *      services/access/spineGateClient.ts and DevPersonaTab.tsx)
  */
+// getSession() can hang indefinitely: GoTrue serialises token access behind a
+// `navigator.locks` lock, and when that lock is held by another tab (or never
+// resolves) the awaited getSession() never settles. Symptom: every personaFetch
+// caller — including the CDE terminal / GitHub / Linear panes — spins forever
+// with no response. Bound it with a hard deadline and fall through to the direct
+// localStorage read (which needs no lock and returns the same token).
+const GET_SESSION_TIMEOUT_MS = 3000;
+
 export async function getSupabaseAccessToken(): Promise<string> {
   if (typeof window === 'undefined') return '';
   try {
-    const { data } = await getSupabaseBrowserClient().auth.getSession();
-    const token = data?.session?.access_token;
+    const session = await Promise.race([
+      getSupabaseBrowserClient().auth.getSession().then((r) => r.data?.session ?? null),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), GET_SESSION_TIMEOUT_MS)),
+    ]);
+    const token = session?.access_token;
     if (token) return token;
   } catch {
     /* fall through to localStorage scan */

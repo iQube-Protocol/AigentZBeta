@@ -423,6 +423,28 @@ export async function personaFetch(
   });
 }
 
+/**
+ * personaFetch with a hard client-side deadline. The token step is already
+ * bounded (getSupabaseAccessToken races a 3s timeout); this bounds the request
+ * itself so a slow/hung server route can never leave a viewport spinning
+ * forever. On timeout the request is aborted and the returned promise rejects
+ * with an AbortError — callers should catch it and render an honest "timed out"
+ * state. Used by the CDE tool panes (terminal / GitHub / Linear).
+ */
+export async function personaFetchDeadline(
+  input: RequestInfo | URL,
+  init: RequestInit & { personaIdHint?: string } = {},
+  timeoutMs = 12000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await personaFetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Manually trigger a re-fetch. Useful after a persona switch UI action. */
 export async function refreshPersonaSpine(): Promise<void> {
   await doFetch();

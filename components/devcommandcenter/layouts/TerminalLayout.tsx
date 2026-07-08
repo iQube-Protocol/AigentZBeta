@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal as TerminalIcon } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
-import { personaFetch } from "@/utils/personaSpine";
+import { personaFetchDeadline } from "@/utils/personaSpine";
 
 interface TerminalEntry {
   command: string;
@@ -55,7 +55,7 @@ export function TerminalLayout({
     // T2-safe observation: the first token only, never the full command line.
     onToolUsed?.(command.split(/\s+/)[0] ?? "");
     try {
-      const res = await personaFetch("/api/dev-command-center/terminal", {
+      const res = await personaFetchDeadline("/api/dev-command-center/terminal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command }),
@@ -72,10 +72,11 @@ export function TerminalLayout({
       }
       setHistory((prev) => [...prev, { command, lines }]);
     } catch (err) {
-      setHistory((prev) => [
-        ...prev,
-        { command, lines: [`request failed: ${err instanceof Error ? err.message : String(err)}`] },
-      ]);
+      const aborted = err instanceof Error && err.name === "AbortError";
+      const msg = aborted
+        ? "request timed out after 12s — the server route or auth token step is unavailable"
+        : `request failed: ${err instanceof Error ? err.message : String(err)}`;
+      setHistory((prev) => [...prev, { command, lines: [msg] }]);
     } finally {
       setBusy(false);
     }
