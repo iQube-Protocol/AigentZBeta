@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c46cb16`](https://github.com/iQube-Protocol/AigentZBeta/commit/c46cb16ad4e4a5507d5ae9093a856e8d4cab4194) [push] Build the Constitutional Representation System: contract-first representation invariants + interpretation resolver (Claude, 2026-07-08T01:00:05Z)
 - [`fa5511d`](https://github.com/iQube-Protocol/AigentZBeta/commit/fa5511d1623b2bef839ace88acd3b9a62f109d29) [push] CFS-021 refinement: the system is the invariants, accommodating many interpretations (not one style) (Claude, 2026-07-08T00:48:37Z)
 - [`b6ede67`](https://github.com/iQube-Protocol/AigentZBeta/commit/b6ede67ca6c5b6169d8b05d0c4dd9ab88cee28b7) [push] CFS-021: canonize Constitutional Civic Futurism + the Representation Invariant family (Claude, 2026-07-07T23:55:27Z)
 - [`d03dfe0`](https://github.com/iQube-Protocol/AigentZBeta/commit/d03dfe043759815b6f2612137e62f6c8bca09ccc) [push] CFS-019 amendment: Research Roadmap Expansion — applied constitutional research + the Reasoning Systems programme (Claude, 2026-07-07T20:21:05Z)

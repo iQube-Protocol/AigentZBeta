@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-08T00:50:21.163Z",
+  "last_updated": "2026-07-08T01:03:21.552Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fa5511d1623b2bef839ace88acd3b9a62f109d29",
-  "latest_commit_short": "fa5511d",
-  "latest_commit_title": "CFS-021 refinement: the system is the invariants, accommodating many interpretations (not one style)",
+  "latest_commit": "c46cb16ad4e4a5507d5ae9093a856e8d4cab4194",
+  "latest_commit_short": "c46cb16",
+  "latest_commit_title": "Build the Constitutional Representation System: contract-first representation invariants + interpretation resolver",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c46cb16",
+      "full_sha": "c46cb16ad4e4a5507d5ae9093a856e8d4cab4194",
+      "title": "Build the Constitutional Representation System: contract-first representation invariants + interpretation resolver",
+      "author": "Claude",
+      "timestamp": "2026-07-08T01:00:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c46cb16.md"
+    },
     {
       "sha": "fa5511d",
       "full_sha": "fa5511d1623b2bef839ace88acd3b9a62f109d29",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-04T01:23:20Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-43d0aa6.md"
-    },
-    {
-      "sha": "8c77033",
-      "full_sha": "8c7703310e6e3cc0b999b82e8baf751c1fd1b109",
-      "title": "add style + narrative invariant classes (CFS-011/012): brief generator, api, studio runner",
-      "author": "Claude",
-      "timestamp": "2026-07-04T01:23:36Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8c77033.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
