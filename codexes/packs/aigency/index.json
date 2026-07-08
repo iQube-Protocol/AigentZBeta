@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-08T09:22:14.224Z",
+  "last_updated": "2026-07-08T14:44:14.260Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f354c8b9bec0d741581549018a0049ef263eca91",
-  "latest_commit_short": "f354c8b",
-  "latest_commit_title": "Fix CDE tool-viewport hang: timebox every external probe (canister/DVN/GitHub/Linear)",
+  "latest_commit": "e6fb77026a4cceb460194dfd12e96490e05889d7",
+  "latest_commit_short": "e6fb770",
+  "latest_commit_title": "Restructure DevTools into tabs (Environment & Canisters · Telemetry · DVN Pipeline · Escalation Log)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e6fb770",
+      "full_sha": "e6fb77026a4cceb460194dfd12e96490e05889d7",
+      "title": "Restructure DevTools into tabs (Environment & Canisters · Telemetry · DVN Pipeline · Escalation Log)",
+      "author": "Claude",
+      "timestamp": "2026-07-08T14:42:17Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-e6fb770.md"
+    },
     {
       "sha": "f354c8b",
       "full_sha": "f354c8b9bec0d741581549018a0049ef263eca91",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-04T03:06:27Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-569205f.md"
-    },
-    {
-      "sha": "128b9c1",
-      "full_sha": "128b9c1ddf3204b0770407e850fbf72ac456a9db",
-      "title": "ratify cfs-013 composition laws + cfs-014/law xiv constitutional coherence engine",
-      "author": "Claude",
-      "timestamp": "2026-07-04T02:11:37Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-128b9c1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -3139,3 +3139,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-f354c8b.md](../build_/COMMITS/COMMIT-f354c8b.md)
 - Message: Fix CDE tool-viewport hang: timebox every external probe (canister/DVN/GitHub/Linear)
+
+## Commit `e6fb770` — 2026-07-08T14:42:17Z
+- Type: `refactor`
+- Brief: [COMMIT-e6fb770.md](../build_/COMMITS/COMMIT-e6fb770.md)
+- Message: Restructure DevTools into tabs (Environment & Canisters · Telemetry · DVN Pipeline · Escalation Log)
