@@ -62,6 +62,23 @@ export const TYPE_ROLES = ['type.title', 'type.annotation', 'type.mono'] as cons
  * ("discovered rather than noticed", CFS-021 §11). */
 export const MOTION_ROLES = ['motion.tempo', 'motion.reveal'] as const;
 
+/** Surface material roles — the physical substance a surface is painted WITH
+ * (CFS-021 §3/§5; `inv.representation.129`). Colour alone cannot express a
+ * rendering system: a surface has translucency, blur, a hairline edge, and
+ * elevation. An interpretation binds material as it binds colour — "flat" (no
+ * blur, opaque tint, no shadow) is a VALID material, exactly as parchment is a
+ * valid ground. These carry NON-colour CSS values (a backdrop-filter, a surface
+ * fill, a border colour, a box-shadow), so the colour relationship laws
+ * (contrast / distinctness / monotonic standing) do NOT run over them — they
+ * join `type.*` and `motion.*` as roles the contrast math never touches. Only
+ * completeness applies: an interpretation MUST bind all four. */
+export const MATERIAL_ROLES = [
+  'material.blur',
+  'material.tint',
+  'material.hairline',
+  'material.elevation',
+] as const;
+
 /** Bearing / field sector roles — the canonical Constitutional Field sectors
  * (CFS-021 §5), orientation anchors around the Bearing Instrument. Canon order:
  * Reasoning · Intelligence · Order · Action · Knowledge · Experience · Consequence. */
@@ -85,7 +102,9 @@ export const COLOR_ROLES = [
   ...FIELD_ROLES,
 ] as const;
 
-/** Every required role. An interpretation MUST bind all of them to be valid. */
+/** Every required role. An interpretation MUST bind all of them to be valid.
+ * MATERIAL_ROLES are appended last so every pre-material role keeps its position
+ * — the extension is purely additive and backward-compatible. */
 export const ALL_ROLES = [
   ...SURFACE_INK_ROLES,
   ...EMPHASIS_ROLES,
@@ -94,6 +113,7 @@ export const ALL_ROLES = [
   ...TYPE_ROLES,
   ...MOTION_ROLES,
   ...FIELD_ROLES,
+  ...MATERIAL_ROLES,
 ] as const;
 
 /** The canonical union of role keys — semantic slots, never raw values. */
@@ -134,9 +154,10 @@ export const FIELD_SECTORS: FieldSector[] = [
 /**
  * A binding of the invariant contract to concrete values. Colour roles bind to
  * hex strings; type roles to font-family tokens; motion.tempo to a duration
- * token; motion.reveal to an easing token. `connotation` records what the
- * interpretation is meant to evoke — the identity+connotation the contract
- * preserves across interpretations.
+ * token; motion.reveal to an easing token; material roles to CSS substance
+ * values (a backdrop-filter, a surface fill, a border colour, a box-shadow).
+ * `connotation` records what the interpretation is meant to evoke — the
+ * identity+connotation the contract preserves across interpretations.
  */
 export interface Interpretation {
   id: string;

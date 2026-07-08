@@ -31,7 +31,7 @@ import {
   CONSTITUTIONAL_DISTINCTIONS,
 } from "@/types/research";
 import { RepresentationFieldPreview } from "@/components/representation/RepresentationFieldPreview";
-import { RepresentationProvider } from "@/components/representation/RepresentationProvider";
+import { RepresentationProvider, useSurfaceStyle } from "@/components/representation/RepresentationProvider";
 import { BearingInstrument } from "@/components/representation/BearingInstrument";
 
 interface ResultRow {
@@ -112,6 +112,12 @@ function CCRLDashboardContent() {
   const [overview, setOverview] = useState<OverviewEntry[] | null>(null);
   const [lifecycleOrder, setLifecycleOrder] = useState<string[]>([]);
 
+  // Panel MATERIAL from the active interpretation (CFS-021 §3;
+  // inv.representation.129). One composed style for every panel: opaque matte
+  // under a flat interpretation (CCF, High-Contrast), liquid glass under the
+  // house style — SAME markup, material flows through roles not literals.
+  const surface = useSurfaceStyle();
+
   useEffect(() => {
     (async () => {
       try {
@@ -144,7 +150,7 @@ function CCRLDashboardContent() {
   return (
     <>
       {/* Mission */}
-      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
+      <div className="rounded-xl p-5" style={surface}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2">
             <Landmark className="h-5 w-5 text-[var(--rep-accent-geometry)]" />
@@ -202,7 +208,7 @@ function CCRLDashboardContent() {
       </div>
 
       {/* Programme status — live Chrysalis summary */}
-      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
+      <div className="rounded-xl p-5" style={surface}>
         <div className="flex items-center gap-2 mb-3">
           <ShieldCheck className="h-4 w-4 text-[var(--rep-state-positive)]" />
           <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Programme status (live — the Chrysalis Test)</h3>
@@ -238,7 +244,7 @@ function CCRLDashboardContent() {
 
       {/* Experiment lifecycles — derived from the canonical record */}
       {overview && overview.length > 0 && (
-        <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
+        <div className="rounded-xl p-5" style={surface}>
           <h3 className="text-sm font-semibold text-[var(--rep-ink-body)] mb-1">Experiment lifecycles (derived, never asserted)</h3>
           <p className="text-[11px] text-[var(--rep-ink-muted)] mb-3">
             Highlighted stage = the receipted research-object state (
@@ -288,7 +294,7 @@ function CCRLDashboardContent() {
       )}
 
       {/* Recent canonical publications (experiment results) */}
-      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
+      <div className="rounded-xl p-5" style={surface}>
         <div className="flex items-center gap-2 mb-3">
           <FlaskConical className="h-4 w-4 text-[var(--rep-accent-geometry)]" />
           <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Recent canonical results (hash-committed)</h3>
@@ -331,7 +337,7 @@ function CCRLDashboardContent() {
       </div>
 
       {/* Roadmap */}
-      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
+      <div className="rounded-xl p-5" style={surface}>
         <div className="flex items-center gap-2 mb-3">
           <BookOpen className="h-4 w-4 text-[var(--rep-ink-body)]" />
           <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Roadmap (CFS-019 §8)</h3>
@@ -350,7 +356,7 @@ function CCRLDashboardContent() {
       </div>
 
       {/* Constitutional Representation System — the representation-invariant field (CFS-021) */}
-      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
+      <div className="rounded-xl p-5" style={surface}>
         <div className="flex items-center gap-2 mb-1">
           <Palette className="h-4 w-4 text-[var(--rep-ink-body)]" />
           <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Constitutional Representation System (CFS-021)</h3>
@@ -367,7 +373,7 @@ function CCRLDashboardContent() {
       </div>
 
       {/* Research agenda — Research Roadmap Expansion (CFS-019 amendment 2026-07-07) */}
-      <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
+      <div className="rounded-xl p-5" style={surface}>
         <div className="flex items-center gap-2 mb-1">
           <Compass className="h-4 w-4 text-[var(--rep-ink-body)]" />
           <h3 className="text-sm font-semibold text-[var(--rep-ink-body)]">Research agenda — Applied Constitutional Research</h3>

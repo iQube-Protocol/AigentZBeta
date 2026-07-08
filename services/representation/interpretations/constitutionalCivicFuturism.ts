@@ -59,5 +59,14 @@ export const constitutionalCivicFuturism: Interpretation = {
     'field.knowledge': '#7A5C8A',
     'field.experience': '#3E7C82',
     'field.consequence': '#8A6A3E',
+
+    // Material — FLAT/matte parchment. CCF is "no gradients, no glowing neon":
+    // no blur, the opaque raised parchment as the panel fill, the subtle
+    // parchment border as the hairline, no elevation. Panels render exactly as
+    // the pre-material `bg-surface-raised` — appearance unchanged.
+    'material.blur': 'none',
+    'material.tint': '#FCFAF3',
+    'material.hairline': '#D8D0BE',
+    'material.elevation': 'none',
   },
 };

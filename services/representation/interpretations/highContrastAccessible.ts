@@ -60,5 +60,13 @@ export const highContrastAccessible: Interpretation = {
     'field.knowledge': '#C08AFF',
     'field.experience': '#4ADFC8',
     'field.consequence': '#FFD24A',
+
+    // Material — FLAT/matte. Maximum legibility keeps surfaces opaque and
+    // shadow-free: no blur, the opaque raised surface as the panel fill, the
+    // subtle border as the hairline, no elevation. Appearance unchanged.
+    'material.blur': 'none',
+    'material.tint': '#1A1A22',
+    'material.hairline': '#3A3A46',
+    'material.elevation': 'none',
   },
 };

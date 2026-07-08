@@ -1976,6 +1976,20 @@
    "provenance": {
     "source": "Operator refinement, 2026-07-07 — CFS-021: a cohesive system that accommodates many interpretations, not a single style."
    }
+  },
+  {
+   "id": "inv.representation.129",
+   "namespace": "representation",
+   "semantic_type": "principle",
+   "statement": "Surface material — translucency, blur, elevation — is a representation role: an interpretation binds material as it binds colour, and 'flat' (opaque, no blur, no shadow) is a valid material. Colour alone cannot express a rendering system.",
+   "status": "proposed",
+   "contexts": [
+    "representation",
+    "design"
+   ],
+   "provenance": {
+    "source": "Operator articulation, 2026-07-08 — CFS-021: the AgentiQ Liquid Glass interpretation (the platform house style) required the representation contract to carry a MATERIAL role family alongside colour/type/motion."
+   }
   }
  ]
 }

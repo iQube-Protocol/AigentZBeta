@@ -208,7 +208,45 @@ export function resolveRole(
 }
 
 // ---------------------------------------------------------------------------
-// §3 CSS-variable binding
+// §3 Surface material — the substance a panel paints WITH
+// ---------------------------------------------------------------------------
+
+/** The composed surface-material style for a panel (CFS-021 §3;
+ * `inv.representation.129`). Non-colour CSS values — a fill, a backdrop-filter,
+ * a hairline border, an elevation shadow. */
+export interface SurfaceStyle {
+  background: string;
+  backdropFilter: string;
+  WebkitBackdropFilter: string;
+  border: string;
+  boxShadow: string;
+}
+
+/**
+ * Compose the panel material for an interpretation. A component must NOT
+ * hand-assemble glass — it paints with the interpretation's MATERIAL roles: the
+ * (possibly translucent) tint, the backdrop blur, the hairline edge, the
+ * elevation. Under a FLAT interpretation (Constitutional Civic Futurism,
+ * High-Contrast Accessible) this yields an opaque matte panel — `material.blur`
+ * is `none`, `material.tint` is the interpretation's opaque raised surface,
+ * `material.elevation` is `none` — visually identical to the pre-material
+ * `bg-surface-raised` panel. Under AgentiQ Liquid Glass the SAME call yields the
+ * liquid-glass panel (real blur, translucent tint, white hairline, soft shadow +
+ * inset highlight). Pure + SSR-safe: backdrop-filter is CSS-only, no `window`.
+ */
+export function surfaceStyle(interp: Interpretation): SurfaceStyle {
+  const blur = resolveRole('material.blur', interp);
+  return {
+    background: resolveRole('material.tint', interp),
+    backdropFilter: blur,
+    WebkitBackdropFilter: blur,
+    border: `1px solid ${resolveRole('material.hairline', interp)}`,
+    boxShadow: resolveRole('material.elevation', interp),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// §4 CSS-variable binding
 // ---------------------------------------------------------------------------
 
 /**

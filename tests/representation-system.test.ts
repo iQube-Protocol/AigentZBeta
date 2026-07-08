@@ -16,6 +16,7 @@ import { describe, it, expect } from "vitest";
 import {
   ALL_ROLES,
   STANDING_ROLES,
+  MATERIAL_ROLES,
   COLOR_ROLES,
   CONSTITUTIONAL_REPRESENTATION_CONTRACT as CONTRACT,
   roleCssVar,
@@ -25,11 +26,13 @@ import {
   validateInterpretation,
   resolveRole,
   emitCssVariables,
+  surfaceStyle,
   contrastRatio,
   parseHex,
 } from "@/services/representation/representationResolver";
 import {
   INTERPRETATIONS,
+  agentiqLiquidGlass,
   constitutionalCivicFuturism,
   highContrastAccessible,
   DEFAULT_INTERPRETATION_ID,
@@ -64,11 +67,14 @@ describe("the contract", () => {
 });
 
 describe("the shipped interpretations satisfy the contract", () => {
-  it("registers CCF as the default interpretation", () => {
-    expect(DEFAULT_INTERPRETATION_ID).toBe(constitutionalCivicFuturism.id);
+  it("registers the house style (AgentiQ Liquid Glass) as the default for cohesion", () => {
+    // Default ≠ canonical-first: the house style is the DEFAULT (platform
+    // cohesion); CCF remains interpretation v1 / the reference atlas grammar.
+    expect(DEFAULT_INTERPRETATION_ID).toBe(agentiqLiquidGlass.id);
+    expect(INTERPRETATIONS).toContain(agentiqLiquidGlass);
     expect(INTERPRETATIONS).toContain(constitutionalCivicFuturism);
     expect(INTERPRETATIONS).toContain(highContrastAccessible);
-    expect(INTERPRETATIONS.length).toBeGreaterThanOrEqual(2);
+    expect(INTERPRETATIONS.length).toBeGreaterThanOrEqual(3);
   });
 
   for (const interp of INTERPRETATIONS) {
@@ -85,6 +91,13 @@ describe("the shipped interpretations satisfy the contract", () => {
       }
     });
 
+    it(`"${interp.id}" binds every MATERIAL role (blur · tint · hairline · elevation)`, () => {
+      for (const role of MATERIAL_ROLES) {
+        expect(typeof interp.roles[role]).toBe("string");
+        expect(interp.roles[role].trim()).not.toBe("");
+      }
+    });
+
     it(`"${interp.id}" has a strictly increasing standing scale`, () => {
       const base = parseHex(interp.roles["surface.base"])!;
       const emphases = STANDING_ROLES.map((r) => contrastRatio(parseHex(interp.roles[r])!, base));
@@ -93,6 +106,62 @@ describe("the shipped interpretations satisfy the contract", () => {
       }
     });
   }
+});
+
+describe("surface material — colour alone cannot express a rendering system (inv.representation.129)", () => {
+  it("material roles are NOT colour roles (the contrast laws never touch them)", () => {
+    for (const role of MATERIAL_ROLES) {
+      expect(COLOR_ROLES as readonly string[]).not.toContain(role);
+    }
+    // …yet they ARE required (completeness still binds them).
+    for (const role of MATERIAL_ROLES) {
+      expect(CONTRACT.requiredRoles as readonly string[]).toContain(role);
+    }
+  });
+
+  it("the glass interpretation binds a REAL (non-'none') blur + elevation", () => {
+    expect(agentiqLiquidGlass.roles["material.blur"]).not.toBe("none");
+    expect(agentiqLiquidGlass.roles["material.blur"]).toContain("blur(");
+    expect(agentiqLiquidGlass.roles["material.elevation"]).not.toBe("none");
+    expect(agentiqLiquidGlass.roles["material.elevation"]).toContain("inset");
+    // …grounded in the real house token (styles/drawer.css glass fill).
+    expect(agentiqLiquidGlass.roles["material.tint"]).toBe("rgba(15, 23, 42, 0.6)");
+  });
+
+  it("the flat interpretations (CCF, High-Contrast) bind material.blur: 'none' — unchanged look", () => {
+    expect(constitutionalCivicFuturism.roles["material.blur"]).toBe("none");
+    expect(constitutionalCivicFuturism.roles["material.elevation"]).toBe("none");
+    expect(highContrastAccessible.roles["material.blur"]).toBe("none");
+    expect(highContrastAccessible.roles["material.elevation"]).toBe("none");
+    // Flat tint === the interpretation's opaque raised surface (pre-material look).
+    expect(constitutionalCivicFuturism.roles["material.tint"]).toBe(
+      constitutionalCivicFuturism.roles["surface.raised"],
+    );
+    expect(highContrastAccessible.roles["material.tint"]).toBe(
+      highContrastAccessible.roles["surface.raised"],
+    );
+  });
+
+  it("resolveRole for a material role differs glass vs flat — same slot, different substance", () => {
+    for (const role of MATERIAL_ROLES) {
+      const glass = resolveRole(role, agentiqLiquidGlass);
+      const flat = resolveRole(role, constitutionalCivicFuturism);
+      expect(glass).not.toBe(flat);
+    }
+  });
+
+  it("surfaceStyle composes a matte panel for flat and a liquid-glass panel for the house style", () => {
+    const flat = surfaceStyle(constitutionalCivicFuturism);
+    expect(flat.backdropFilter).toBe("none");
+    expect(flat.boxShadow).toBe("none");
+    expect(flat.background).toBe(constitutionalCivicFuturism.roles["surface.raised"]);
+
+    const glass = surfaceStyle(agentiqLiquidGlass);
+    expect(glass.backdropFilter).toContain("blur(");
+    expect(glass.backdropFilter).toBe(glass.WebkitBackdropFilter);
+    expect(glass.boxShadow).toContain("inset");
+    expect(glass.border).toContain("rgba(255, 255, 255, 0.10)");
+  });
 });
 
 describe("the validation gate rejects a non-conforming interpretation", () => {

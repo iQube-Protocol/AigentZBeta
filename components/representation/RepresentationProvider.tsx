@@ -15,7 +15,7 @@
 
 import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { Interpretation, RepresentationRole } from "@/types/representation";
-import { resolveRole, emitCssVariables } from "@/services/representation/representationResolver";
+import { resolveRole, emitCssVariables, surfaceStyle } from "@/services/representation/representationResolver";
 import {
   INTERPRETATIONS,
   getInterpretation,
@@ -94,4 +94,17 @@ export function useRepresentation(): RepresentationContextValue {
     throw new Error("useRepresentation must be used within a <RepresentationProvider>.");
   }
   return ctx;
+}
+
+/**
+ * The composed surface-MATERIAL style for a panel under the ACTIVE interpretation
+ * (CFS-021 §3; `inv.representation.129`). Spread it onto a panel `<div style>` so
+ * the SAME markup renders an opaque matte panel under a flat interpretation
+ * (Constitutional Civic Futurism, High-Contrast) and a liquid-glass panel under
+ * AgentiQ Liquid Glass — material flows through roles, never literals. Components
+ * MUST NOT hand-assemble glass; they consume this. SSR-safe (pure CSS values).
+ */
+export function useSurfaceStyle(): React.CSSProperties {
+  const { interpretation } = useRepresentation();
+  return useMemo(() => surfaceStyle(interpretation) as React.CSSProperties, [interpretation]);
 }
