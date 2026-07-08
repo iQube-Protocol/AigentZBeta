@@ -24,6 +24,17 @@ const ADOPTED_SURFACE = join(
   "components/composer/CCRLDashboardTab.tsx",
 );
 
+// The zero-literals gate travels with every object mounted on the reference
+// surface. The Bearing Instrument (CFS-021 §5) operates WITHIN this environment
+// and MUST be equally role-driven — so it is held to the SAME canary here.
+const ZERO_LITERAL_FILES: Array<[string, string]> = [
+  ["CCRL Dashboard", ADOPTED_SURFACE],
+  [
+    "Bearing Instrument",
+    join(process.cwd(), "components/representation/BearingInstrument.tsx"),
+  ],
+];
+
 // Any Tailwind colour utility bound to a numbered palette shade — the exact
 // thing the migration replaced with `var(--rep-*)`. Opacity suffixes (`/40`)
 // are covered by the trailing match being anchored on the shade digit.
@@ -33,18 +44,32 @@ const RAW_TAILWIND_COLOR =
 // Arbitrary hex literals — `text-[#fff]`, `bg-[#0b0b0f]`, etc.
 const RAW_HEX_LITERAL = /-\[#/g;
 
+// A bare hex colour literal anywhere (the Bearing draws SVG from role() values,
+// so it must carry NO `#rrggbb`/`#rgb` either — inline SVG can't hide behind a
+// Tailwind class). Excludes the dashboard file, which legitimately references
+// `var(--rep-*)` only. Applied to the whole ZERO_LITERAL_FILES set below.
+const BARE_HEX = /#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?\b/g;
+
+describe("Representation reference surface — zero raw colour literals (CFS-021)", () => {
+  for (const [name, file] of ZERO_LITERAL_FILES) {
+    const source = readFileSync(file, "utf8");
+
+    it(`${name}: ZERO raw Tailwind colour utilities — every colour flows through a role`, () => {
+      expect(source.match(RAW_TAILWIND_COLOR) ?? []).toEqual([]);
+    });
+
+    it(`${name}: ZERO arbitrary hex colour literals`, () => {
+      expect(source.match(RAW_HEX_LITERAL) ?? []).toEqual([]);
+    });
+
+    it(`${name}: ZERO bare hex colour literals`, () => {
+      expect(source.match(BARE_HEX) ?? []).toEqual([]);
+    });
+  }
+});
+
 describe("CCRL Dashboard — representation-system adoption canary (CFS-021)", () => {
   const source = readFileSync(ADOPTED_SURFACE, "utf8");
-
-  it("contains ZERO raw Tailwind colour utilities — every colour flows through var(--rep-*)", () => {
-    const matches = source.match(RAW_TAILWIND_COLOR) ?? [];
-    expect(matches).toEqual([]);
-  });
-
-  it("contains ZERO arbitrary hex colour literals", () => {
-    const matches = source.match(RAW_HEX_LITERAL) ?? [];
-    expect(matches).toEqual([]);
-  });
 
   it("consumes representation roles via the injected CSS variables", () => {
     // Proof the migration is present, not merely absent of literals.
@@ -59,5 +84,11 @@ describe("CCRL Dashboard — representation-system adoption canary (CFS-021)", (
     // the JSX closing tag (unambiguous — prose mentions never carry one).
     const providerCloses = source.match(/<\/RepresentationProvider>/g) ?? [];
     expect(providerCloses.length).toBe(1);
+  });
+
+  it("mounts the Bearing Instrument oriented to the CCRL's home sector", () => {
+    expect(source).toContain("<BearingInstrument");
+    expect(source).toContain('activeSector="intelligence"');
+    expect(source).toContain('standing="foundational"');
   });
 });

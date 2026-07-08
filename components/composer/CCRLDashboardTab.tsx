@@ -32,6 +32,7 @@ import {
 } from "@/types/research";
 import { RepresentationFieldPreview } from "@/components/representation/RepresentationFieldPreview";
 import { RepresentationProvider } from "@/components/representation/RepresentationProvider";
+import { BearingInstrument } from "@/components/representation/BearingInstrument";
 
 interface ResultRow {
   id: string;
@@ -144,14 +145,44 @@ function CCRLDashboardContent() {
     <>
       {/* Mission */}
       <div className="rounded-xl border border-[var(--rep-border-subtle)] bg-[var(--rep-surface-raised)] p-5">
-        <div className="flex items-center gap-2">
-          <Landmark className="h-5 w-5 text-[var(--rep-accent-geometry)]" />
-          <h2
-            className="text-lg font-semibold text-[var(--rep-ink-body)]"
-            style={{ fontFamily: "var(--rep-type-title)" }}
-          >
-            Constitutional Cybernetics Research Laboratory
-          </h2>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Landmark className="h-5 w-5 text-[var(--rep-accent-geometry)]" />
+            <h2
+              className="text-lg font-semibold text-[var(--rep-ink-body)]"
+              style={{ fontFamily: "var(--rep-type-title)" }}
+            >
+              Constitutional Cybernetics Research Laboratory
+            </h2>
+          </div>
+          {/* The Bearing Instrument (CFS-021 §5) operating WITHIN the reference
+              field — "you are here in the Constitutional Field". Oriented to the
+              CCRL's home sector, Intelligence (Layer I Invariant Intelligence is
+              the lab's foundation), with the sectors the lab touches illuminated
+              and its Foundational standing on the bezel. Consumes ONLY roles, so
+              it reskins with the dashboard when the interpretation flips. It emits
+              navigation INTENT (an observation, below) — it does not route; there
+              are no Constitutional Plate destinations yet. */}
+          <div className="shrink-0 flex flex-col items-center gap-1">
+            <BearingInstrument
+              label="CCRL"
+              activeSector="intelligence"
+              standing="foundational"
+              relatedSectors={["reasoning", "knowledge", "consequence"]}
+              onNavigate={(sector) =>
+                // Navigation INTENT only — no plate destinations exist yet
+                // (CFS-021 §5 follow-on). Record the intent; never fake a route.
+                console.info(`[bearing] navigate-intent → ${sector} sector`)
+              }
+              size={92}
+            />
+            <span
+              className="text-[10px] uppercase tracking-wide text-[var(--rep-ink-muted)]"
+              style={{ fontFamily: "var(--rep-type-annotation)" }}
+            >
+              Bearing · you are here
+            </span>
+          </div>
         </div>
         <p className="mt-2 text-sm text-[var(--rep-ink-body)]">
           The constitutional scientific institution of the platform (CFS-019). Mission: establish
