@@ -1962,6 +1962,20 @@
    "provenance": {
     "source": "Operator articulation, 2026-07-07 — CFS-021 Constitutional Civic Futurism (the Chrysalis theory; hypothesis-standing)."
    }
+  },
+  {
+   "id": "inv.representation.128",
+   "namespace": "representation",
+   "semantic_type": "principle",
+   "statement": "A style is an interpretation of the representation invariants, as a modality is a projection of them; identity and connotation are preserved across interpretations as across modalities. The system is the invariants; a style is one interpretation the system accommodates, never its definition. An interpretation is valid only if it satisfies the invariant contract.",
+   "status": "proposed",
+   "contexts": [
+    "representation",
+    "design"
+   ],
+   "provenance": {
+    "source": "Operator refinement, 2026-07-07 — CFS-021: a cohesive system that accommodates many interpretations, not a single style."
+   }
   }
  ]
 }

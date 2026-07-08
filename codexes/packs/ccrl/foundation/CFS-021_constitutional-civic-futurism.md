@@ -90,6 +90,17 @@ Each stage compresses one form into a more reusable primitive. Knowledge compres
 
 These are not preferences; they are the first composed representation invariants of CCF. CFS-011 (Style) and CFS-012 (Narrative) are already members of this family.
 
+### The system is the invariants — it accommodates many interpretations
+
+What we are building is a cohesive representation and rendering **system**, NOT a single style or a single interpretation of that system. The distinction is constitutional:
+
+- The **representation invariants** are the cohesive system — the roles, relationships, and semantics that must hold (identity, connotation, provenance, navigability; the plate grammar; the bearing's orient/navigate/reason semantics). These are constant.
+- An **interpretation** is a concrete binding of that invariant contract to specific values — a visual grammar, a narrative voice, an interaction feel. The ivory-parchment / charcoal / indigo / muted-gold grammar of §3 is **interpretation v1**, the first the system carries — never its definition.
+
+Just as *representation is a projection of an invariant object into a modality* (`inv.representation.122`), **a style is an interpretation of the representation invariants**, and identity and connotation are preserved across interpretations exactly as they are preserved across modalities (`inv.representation.128`). One cartridge may render the field in the museum grammar; another in a high-contrast accessibility grammar; another in its own house voice — and every one is recognizably the *same* constitutional object because all satisfy the same invariant contract. An interpretation is **valid** only if it satisfies the contract (fills every required role, preserves every required relationship). The system does not impose a look; it guarantees coherence across looks.
+
+This is why the foundational build is a **contract-first representation-invariant service** (the roles + relationships + validation), with CCF shipped as interpretation #1 and the door open to N interpretations — the visual analog of source-agnostic invariants and modality-agnostic artifacts.
+
 ---
 
 ## 4. Every symbol an instrument — the operational turn
