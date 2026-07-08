@@ -410,6 +410,38 @@ This is a mature, actively evolving codebase. Before writing any new code:
 
 ---
 
+## Canonical Surface Styling — SLATE house style, NOT white hairlines (PARAMOUNT)
+
+**The AgentiQ / metaMe house style for panels, cards, capsules, and glass surfaces is TRANSLUCENT SLATE with SLATE borders. White hairline borders are an OLDER RESIDUAL pattern — a bug, not the style guide. Do not introduce them, and do not "correct" a slate surface back to a white-hairline one.**
+
+The operator has had to correct this repeatedly. It is now codified so no agent reintroduces it.
+
+### The house style (use exactly this)
+
+| Surface property | Canonical value | Tailwind equivalent |
+|---|---|---|
+| Panel fill | `rgba(15, 23, 42, 0.4)` (translucent slate-900) | `bg-slate-900/40` |
+| Hairline / border | `#1E293B` (slate-800) | `border-slate-800` |
+| Backdrop blur | soft — `blur(16px) saturate(140%)` | (glass surfaces only) |
+| Elevation | plain drop shadow — `0 4px 24px rgba(0,0,0,0.3)` | `shadow-lg` / `shadow-black/30` |
+
+**No white inset top-highlight.** `inset 0 1px 0 rgba(255,255,255,0.05)` is part of the deprecated residual — omit it.
+
+### Forbidden — the residual white-hairline pattern
+
+- `border-white/10`, `border-white/5`, `border-white/[0.08]` on panels/cards/capsules → use `border-slate-800`.
+- `rgba(255,255,255,0.10)` (or any `rgba(255,255,255,...)`) as a **border/hairline** value.
+- A white inset top-highlight in a `boxShadow`.
+- `styles/drawer.css`'s legacy white glass tokens as a reference for NEW surfaces — those are the residual; the slate values above are ground truth.
+
+(White text/ink and white as an *emphasis fill* are fine — this rule governs **borders/hairlines and panel chrome**, not typography.)
+
+### Representation-system binding
+
+The Constitutional Representation System encodes this house style as the default interpretation **AgentiQ Liquid Glass** (`services/representation/interpretations/agentiqLiquidGlass.ts`): `material.hairline: '#1E293B'`, `material.tint: 'rgba(15,23,42,0.4)'`, `material.elevation` with no white inset, `border.subtle: '#1E293B'`. Adopted surfaces consume it via `useSurfaceStyle()` / `var(--rep-border-subtle)` and inherit the correct slate look automatically — never hardcode a border colour on a representation-adopted surface. If you edit the glass interpretation, keep it slate; the `tests/representation-system.test.ts` contract laws (and the dashboard zero-literal canary) enforce the surface but not the white-vs-slate choice, so this rule is the guard.
+
+---
+
 ## TypeScript Standards
 
 - No `any` casts unless the existing code already uses them in that context.

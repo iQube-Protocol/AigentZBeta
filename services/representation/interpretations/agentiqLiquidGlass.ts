@@ -4,20 +4,28 @@
  *
  * The operator's demonstration that the Constitutional Representation System
  * accommodates the platform's OWN existing look as one interpretation — not an
- * invented aesthetic. Every value here is grounded in the real house tokens:
- * the glass surface fill, hairline, backdrop-filter, and elevation are lifted
- * from `styles/drawer.css` (the canonical SmartWallet copilot glass), and the
- * dark-slate chrome / near-white ink / indigo-and-fuchsia accents / the
- * emerald·sky·amber·rose state ramp are the platform's dominant utility usage
- * (`bg-white/5`, `border-white/10`, slate-200 body, slate-400 muted).
+ * invented aesthetic. Every value here is grounded in the real, currently-shipping
+ * house tokens: the translucent slate panel fill `bg-slate-900/40`, the SLATE
+ * hairline `border-slate-800`, a soft backdrop blur, and a plain drop shadow —
+ * the exact chrome the CCRL dashboard (and the rest of the cartridge surfaces)
+ * used before representation adoption. The dark-slate chrome / near-white ink /
+ * indigo-and-fuchsia accents / the emerald·sky·amber·rose state ramp are the
+ * platform's dominant utility usage (slate-200 body, slate-400 muted).
+ *
+ * CANONICAL SURFACE STYLE — NOT white hairlines. Earlier drafts of the glass
+ * tokens (and `styles/drawer.css`) used a WHITE hairline `rgba(255,255,255,0.10)`
+ * and a white inset top-highlight. The operator confirmed (2026-07-08) that the
+ * white-hairline look is an OLDER RESIDUAL bug, not the house style. The house
+ * style is SLATE: translucent slate panels (`rgba(15,23,42,0.4)`) with slate-800
+ * (`#1E293B`) borders and no white inset highlight. This interpretation encodes
+ * that authoritative slate look; see the surface-styling rule in CLAUDE.md.
  *
  * This is the FIRST interpretation to bind the MATERIAL role family to a real
- * (non-flat) material — translucent tint + backdrop blur + white hairline +
- * soft shadow with the signature inset top-highlight — proving colour alone
- * cannot express a rendering system (`inv.representation.129`). It is the
- * DEFAULT interpretation so every adopted surface defaults to the house style
- * (platform cohesion); Constitutional Civic Futurism remains interpretation v1 /
- * the reference atlas grammar, a switch away.
+ * (non-flat) material — translucent tint + backdrop blur + slate hairline +
+ * soft shadow — proving colour alone cannot express a rendering system
+ * (`inv.representation.129`). It is the DEFAULT interpretation so every adopted
+ * surface defaults to the house style (platform cohesion); Constitutional Civic
+ * Futurism remains interpretation v1 / the reference atlas grammar, a switch away.
  *
  * Satisfies CONSTITUTIONAL_REPRESENTATION_CONTRACT with zero violations
  * (validated in tests/representation-system.test.ts). The body-legibility law
@@ -40,7 +48,7 @@ export const agentiqLiquidGlass: Interpretation = {
     'surface.raised': '#172033',
     'ink.body': '#E2E8F0',
     'ink.muted': '#94A3B8',
-    'border.subtle': '#28344A',
+    'border.subtle': '#1E293B',
 
     // Emphasis — fuchsia reserved for the principal figure (the copilot signature
     // accent, drawer.css rgb(232,121,249)); indigo geometry (the platform primary).
@@ -77,14 +85,15 @@ export const agentiqLiquidGlass: Interpretation = {
     'field.experience': '#2DD4BF',
     'field.consequence': '#FBBF24',
 
-    // Material — the LIQUID GLASS. Grounded in styles/drawer.css: the glass fill
-    // rgba(15,23,42,0.6) (slate-900 @ 60%), the white hairline rgba(255,255,255,
-    // 0.10), the backdrop blur(...) saturate(180%), and the soft drop shadow +
-    // the signature inset top-highlight inset 0 1px 0 rgba(255,255,255,0.05).
-    'material.blur': 'blur(16px) saturate(180%)',
-    'material.tint': 'rgba(15, 23, 42, 0.6)',
-    'material.hairline': 'rgba(255, 255, 255, 0.10)',
-    'material.elevation':
-      '0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+    // Material — the LIQUID GLASS, in the AUTHORITATIVE SLATE house style (NOT
+    // the older white-hairline residual). Grounded in the real shipping tokens:
+    // translucent slate-900 @ 40% fill (`bg-slate-900/40`), a slate-800 hairline
+    // (`border-slate-800` = #1E293B — NOT a white border), a soft backdrop blur,
+    // and a plain drop shadow (NO white inset top-highlight). This is the exact
+    // chrome the dashboard used pre-adoption.
+    'material.blur': 'blur(16px) saturate(140%)',
+    'material.tint': 'rgba(15, 23, 42, 0.4)',
+    'material.hairline': '#1E293B',
+    'material.elevation': '0 4px 24px rgba(0, 0, 0, 0.3)',
   },
 };
