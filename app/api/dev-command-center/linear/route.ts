@@ -57,6 +57,10 @@ export async function GET(request: NextRequest) {
   const stateFilter = request.nextUrl.searchParams.get('stateCategory'); // e.g. 'started' | 'unstarted' | 'completed'
   const first = Math.min(Math.max(Number(request.nextUrl.searchParams.get('first')) || 40, 1), 100);
 
+  // Hard deadline — the viewport degrades honestly rather than hanging on a
+  // slow/unreachable api.linear.app (CDE hang fix, 2026-07-08).
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
   try {
     const res = await fetch(LINEAR_GRAPHQL, {
       method: 'POST',
@@ -66,6 +70,7 @@ export async function GET(request: NextRequest) {
       },
       body: JSON.stringify({ query: ISSUES_QUERY, variables: { first } }),
       cache: 'no-store',
+      signal: controller.signal,
     });
 
     if (!res.ok) {
@@ -102,9 +107,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ ok: true, configured: true, issues });
   } catch (err) {
+    const aborted = err instanceof Error && err.name === 'AbortError';
     return NextResponse.json(
-      { ok: false, configured: true, error: err instanceof Error ? err.message : String(err) },
+      { ok: false, configured: true, error: aborted ? 'Linear API timed out after 8000ms — unavailable' : err instanceof Error ? err.message : String(err) },
       { status: 502 },
     );
+  } finally {
+    clearTimeout(timer);
   }
 }

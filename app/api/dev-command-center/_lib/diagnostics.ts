@@ -21,6 +21,51 @@ import { listActivityReceiptsForPersona } from '@/services/receipts/activityRece
 import type { ReceiptStatus } from '@/services/receipts/activityReceiptService';
 import type { EnvPresence } from '@/services/devCommandCenter/terminalCommands';
 
+// ─── Probe timeboxing (CDE viewport hang fix, 2026-07-08) ───────────────────
+//
+// EVERY external probe below (IC canister health, DVN canister status, the
+// receipt read) is raced against a hard deadline: a diagnostics surface must
+// DEGRADE HONESTLY, never hang. A slow/unreachable canister previously left the
+// bare `await` pending forever, hanging the DevTools/Terminal viewports (the
+// operator-reported regression). On timeout the probe resolves to an honest
+// "unavailable" fallback so the route returns promptly and the UI shows the
+// degraded state instead of spinning. The probe implementations themselves are
+// untouched (they live in the protected ops/receipts layer) — the deadline is
+// applied here, at the composition boundary the CDE owns.
+
+/** Hard deadline for a single external probe, in ms. */
+export const PROBE_TIMEOUT_MS = 6000;
+
+/**
+ * Race `p` against a deadline; on timeout resolve to `fallback` (never reject,
+ * never hang). Pure aside from the timer, which is always cleared.
+ */
+export function withTimeout<T>(p: Promise<T>, fallback: T, ms = PROBE_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(fallback);
+    }, ms);
+    p.then(
+      (v) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(v);
+      },
+      () => {
+        // A probe that REJECTS is also honest degradation, not a hang.
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
 // ─── Environment presence (names + booleans only — NEVER values) ────────────
 
 /**
@@ -74,7 +119,10 @@ export interface CanisterSummary {
 }
 
 export async function getCanisterSummary(): Promise<CanisterSummary> {
-  const health = await getCanisterHealth();
+  const health = await withTimeout(getCanisterHealth(), {
+    ok: false,
+    items: [{ name: 'canister health', ok: false, details: `probe timed out after ${PROBE_TIMEOUT_MS}ms — unavailable` }],
+  });
   return {
     ok: health.ok,
     items: health.items.map((i) => ({ name: i.name, ok: i.ok, details: i.details ?? '' })),
@@ -115,7 +163,7 @@ export async function getReceiptPipelineState(
   personaId: string,
   limit = 25,
 ): Promise<ReceiptPipelineState> {
-  const receipts = await listActivityReceiptsForPersona(personaId, { limit });
+  const receipts = await withTimeout(listActivityReceiptsForPersona(personaId, { limit }), []);
   const byStatus = { ...EMPTY_STATUS };
   for (const r of receipts) {
     byStatus[r.receiptStatus] = (byStatus[r.receiptStatus] ?? 0) + 1;
@@ -154,7 +202,13 @@ export interface DvnTelemetry {
  * service fn and surface its T2-safe summary.
  */
 export async function getDvnTelemetry(): Promise<DvnTelemetry> {
-  const s = await getDVNStatus();
+  const s = await withTimeout(getDVNStatus(), {
+    ok: false,
+    pendingMessages: 0,
+    validatorsOnline: 0,
+    details: `DVN probe timed out after ${PROBE_TIMEOUT_MS}ms — unavailable`,
+    at: new Date().toISOString(),
+  });
   return {
     ok: s.ok,
     pendingMessages: s.pendingMessages,

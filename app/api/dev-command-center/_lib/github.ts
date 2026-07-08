@@ -34,10 +34,16 @@ export interface GhResult<T> {
   error?: string;
 }
 
+/** Hard deadline for a GitHub API call — the viewport degrades honestly rather
+ * than hanging on a slow/unreachable api.github.com (CDE hang fix, 2026-07-08). */
+const GH_TIMEOUT_MS = 8000;
+
 async function ghGet<T>(pathAndQuery: string): Promise<GhResult<T>> {
   if (!GITHUB_TOKEN) {
     return { ok: false, status: 0, error: `${GITHUB_MISSING_ENV} not configured on this server` };
   }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GH_TIMEOUT_MS);
   try {
     const res = await fetch(`${API_BASE}${pathAndQuery}`, {
       headers: {
@@ -46,6 +52,7 @@ async function ghGet<T>(pathAndQuery: string): Promise<GhResult<T>> {
         'X-GitHub-Api-Version': '2022-11-28',
       },
       cache: 'no-store',
+      signal: controller.signal,
     });
     if (!res.ok) {
       return { ok: false, status: res.status, error: `GitHub API ${res.status} ${res.statusText}` };
@@ -53,7 +60,14 @@ async function ghGet<T>(pathAndQuery: string): Promise<GhResult<T>> {
     const data = (await res.json()) as T;
     return { ok: true, status: res.status, data };
   } catch (err) {
-    return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    return {
+      ok: false,
+      status: 0,
+      error: aborted ? `GitHub API timed out after ${GH_TIMEOUT_MS}ms — unavailable` : err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

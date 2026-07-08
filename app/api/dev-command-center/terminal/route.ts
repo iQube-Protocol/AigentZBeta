@@ -26,6 +26,7 @@ import {
   summariseEnv,
   getCanisterSummary,
   getReceiptPipelineState,
+  getDvnTelemetry,
 } from '@/app/api/dev-command-center/_lib/diagnostics';
 import {
   ghTree,
@@ -36,7 +37,6 @@ import {
   GITHUB_MISSING_ENV,
   GITHUB_REPO,
 } from '@/app/api/dev-command-center/_lib/github';
-import { getDVNStatus } from '@/services/ops/dvnService';
 import { listResearchObjects } from '@/services/research/lifecycle';
 import { buildEscalationLog } from '@/app/api/dev-command-center/_lib/diagnostics';
 import {
@@ -169,8 +169,10 @@ export async function POST(request: NextRequest) {
           lines.push(`retry a failed receipt via ${log.retryRoute}`);
           return NextResponse.json({ ok: true, lines });
         }
-        // status | pending — both read the same live DVN canister snapshot.
-        const dvn = await getDVNStatus();
+        // status | pending — both read the same live DVN canister snapshot,
+        // timeboxed (getDvnTelemetry) so the command degrades honestly instead
+        // of hanging on a slow/unreachable canister.
+        const dvn = await getDvnTelemetry();
         const lines = [
           `DVN pipeline (${sub}):`,
           '',
