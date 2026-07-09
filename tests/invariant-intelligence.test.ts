@@ -22,6 +22,9 @@ import {
   INVARIANT_INTELLIGENCE_WORKSTREAMS,
   IRL_EXP002_ARMS,
   PROPAGATION_MODALITIES,
+  INVARIANT_RESEARCH_LOOP,
+  INVARIANT_DELTA_CLASSES,
+  CIRS_MUTATIONS,
 } from '@/types/invariantIntelligence';
 
 describe('CRP-002 §2 — the reframed iQube pipeline (order pinned)', () => {
@@ -128,5 +131,35 @@ describe('CRP-002 Aletheon amendment (2026-07-09) — WP0, four-arm EXP-002, pro
 
   it('Propagation Fidelity spans the named cross-modal set', () => {
     expect([...PROPAGATION_MODALITIES]).toEqual(['article', 'story', 'image', 'ux', 'prd']);
+  });
+});
+
+describe('CRP-002 Option 1A — Experimental Theory Formation (theory is downstream)', () => {
+  it('the research loop closes on invariant-theory (the accumulation, not the premise)', () => {
+    expect(INVARIANT_RESEARCH_LOOP[0]).toBe('intent');
+    expect(INVARIANT_RESEARCH_LOOP[INVARIANT_RESEARCH_LOOP.length - 1]).toBe('invariant-theory');
+    // theory comes AFTER evaluation + disagreement analysis + cirs evolution
+    expect(INVARIANT_RESEARCH_LOOP.indexOf('evaluation')).toBeLessThan(
+      INVARIANT_RESEARCH_LOOP.indexOf('invariant-theory'),
+    );
+    expect(INVARIANT_RESEARCH_LOOP.indexOf('disagreement-analysis')).toBeLessThan(
+      INVARIANT_RESEARCH_LOOP.indexOf('cirs-evolution'),
+    );
+  });
+
+  it('Invariant Delta classes are the seven disagreement kinds', () => {
+    expect([...INVARIANT_DELTA_CLASSES]).toEqual([
+      'missing-invariant',
+      'redundant-invariant',
+      'incorrect-abstraction-level',
+      'ontological-conflict',
+      'domain-specific-specialization',
+      'projection-error',
+      'ambiguous-intent',
+    ]);
+  });
+
+  it('CIRS is never static — every experiment may propose/merge/split/retire', () => {
+    expect([...CIRS_MUTATIONS]).toEqual(['propose', 'merge', 'split', 'retire']);
   });
 });

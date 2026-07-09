@@ -215,3 +215,26 @@ Law XI applies in full: **CRP-002 proposes; human constitutional authority ratif
 **6. Projection Rule — a typed object that becomes central.** The runtime does not merely retrieve an invariant; it retrieves an invariant AND a **projection rule** (a rendering strategy). `Invariant → Projection Rule → Projection`. The SAME invariant renders differently under a different rule — *teach a child* → `[concrete, narrative, simple]`; *scientific paper* → `[formal, cited, analytical]` — the invariant unchanged, only the projection. Pinned as `ProjectionRule`; it becomes load-bearing in Phase 3.
 
 **7. The strategic re-centre.** Yesterday the presumed breakthrough was Knowledge Compression. After Phase 1, the deeper breakthrough may be **Intent Science**: Knowledge Compression tells us HOW to construct the reasoning substrate; Intent Science determines WHICH substrate should exist in the first place. So the intellectual stack settles as: **Invariant Intelligence** (the overarching discipline) → **Intent Science** (the entry point — which substrate) → **Knowledge Compression** (one mechanism — how to build it) → the runtime. This is Computational Epistemology proper: *how should knowledge be represented so that intelligence can reason faithfully?* — a foundational AI question, not an application one.
+
+---
+
+## Amendment — Experimental Theory Formation (Option 1A; Aletheon, 2026-07-09)
+
+*(Methodology decision, relayed + endorsed by operator direction. Substrate: `types/invariantIntelligence.ts` gains `INVARIANT_RESEARCH_LOOP`, `INVARIANT_DELTA_CLASSES`/`InvariantDelta`, `CIRS_MUTATIONS`; canary `tests/invariant-intelligence.test.ts` pins them.)*
+
+Phase 2 proceeds under **Option 1A — Experimental Theory Formation.** WP0 is **not** a prerequisite to experimentation; it **emerges** from it. Writing invariant theory first risks a taxonomy the experiments then merely confirm (subtle confirmation bias). Instead the experiments create friction, and every anomaly sharpens the theory — as mechanics followed Newton's observations and evolution followed Darwin's specimens. WP0 is accordingly reframed **Foundations of Invariant Intelligence (Emergent)**: its purpose is not to prescribe but to **explain what the experiments are teaching us**.
+
+**The research loop** (`INVARIANT_RESEARCH_LOOP`) — theory is downstream, the accumulation of validated observations:
+
+```
+Intent → Experimental CIRS → Invariant Projection → Knowledge Compression
+  → Reasoning → Evaluation → Disagreement Analysis → CIRS Evolution → Invariant Theory
+```
+
+**CIRS-v0.1 is an experimental instrument, not a normative truth** — it invites revision and falsification. And it must **never be static** (a static reference becomes dogma; dogma is the enemy of science): every experiment may propose a **CIRS mutation** (`propose · merge · split · retire`) — proposals under Law XI, ratified into the next CIRS version.
+
+**IRL-EXP-001 does two jobs simultaneously:** the explicit one — measure *Intent → Invariant Projection Fidelity* — and the hidden one — **discover what constitutes an invariant.** The bridge between them is a required per-experiment artifact: the **Invariant Delta.** For every disagreement between predicted and CIRS, capture `predicted → reference → difference → classification`, where the classification is one of the seven kinds (`INVARIANT_DELTA_CLASSES`): *missing invariant · redundant invariant · incorrect abstraction level · ontological conflict · domain-specific specialization · projection error · ambiguous intent.* Disagreements become first-class research data; **WP0 synthesises the accumulated Deltas into progressively stronger definitions** rather than prescribing them a priori.
+
+**The methodological seed.** The programme now embodies the principle it studies: rather than writing the definitive theory before the evidence, it plants a small, carefully-structured experimental framework and lets the theory grow from observation, refinement, and consequence — small coherent invariants propagating into richer, faithful structures. The research architecture mirrors the computational architecture it seeks to discover. (This is compiler construction, not axiomatics: you compile programs, watch failures, refine the compiler, and the optimisation theory emerges — except here the compiler compiles knowledge.)
+
+The programme's question, stated plainly: not *can we make models better?* but **can we make knowledge better** — more coherent, more generative, more explainable.

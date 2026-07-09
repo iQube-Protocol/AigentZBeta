@@ -156,13 +156,15 @@ export function candidateIntentBias(primitive: string): InvariantConcernClass[] 
 // ---------------------------------------------------------------------------
 
 /**
- * The programme's work packages, order-pinned. WP0 (Invariant Theory) is added
- * BEFORE Intent Science: until we define what an invariant IS — what makes
- * something invariant, how invariants compose/conflict, whether they are
- * hierarchical or domain-independent — we cannot rigorously discover them. The
- * strategic centre (Aletheon, 2026-07-09): Intent Science determines WHICH
- * reasoning substrate should exist; Knowledge Compression is one MECHANISM for
- * constructing it. Invariant Intelligence is the overarching discipline.
+ * The programme's work packages, order-pinned. WP0 — **Foundations of Invariant
+ * Intelligence (Emergent)** — is listed first but is NOT a prerequisite: under
+ * Option 1A (Experimental Theory Formation, Aletheon 2026-07-09) WP0 EMERGES from
+ * the experiments rather than gating them. Prescribing invariant theory first
+ * risks a taxonomy the experiments merely confirm; instead WP0 CONSUMES the
+ * experimental outputs (Invariant Deltas) and synthesises progressively stronger
+ * definitions. The strategic centre: Intent Science determines WHICH reasoning
+ * substrate should exist; Knowledge Compression is one MECHANISM for constructing
+ * it. Invariant Intelligence is the overarching discipline.
  */
 export const INVARIANT_INTELLIGENCE_WORKSTREAMS = [
   'wp0-invariant-theory',
@@ -252,3 +254,71 @@ export type IRLExp002Arm = (typeof IRL_EXP002_ARMS)[number];
 export const PROPAGATION_MODALITIES = ['article', 'story', 'image', 'ux', 'prd'] as const;
 
 export type PropagationModality = (typeof PROPAGATION_MODALITIES)[number];
+
+// ---------------------------------------------------------------------------
+// §7 Experimental Theory Formation (Option 1A; Aletheon 2026-07-09)
+// ---------------------------------------------------------------------------
+
+/**
+ * The research loop — theory is DOWNSTREAM, not upstream (Option 1A). WP0
+ * (Foundations of Invariant Intelligence) does not prescribe a taxonomy the
+ * experiments then merely confirm (subtle confirmation bias); it EMERGES as the
+ * accumulation of validated observations. Newton began with observations, not
+ * mechanics; Darwin with specimens, not evolution. Order pinned; the loop closes
+ * on `invariant-theory` — the accumulation, not the premise.
+ */
+export const INVARIANT_RESEARCH_LOOP = [
+  'intent',
+  'experimental-cirs',
+  'invariant-projection',
+  'knowledge-compression',
+  'reasoning',
+  'evaluation',
+  'disagreement-analysis',
+  'cirs-evolution',
+  'invariant-theory',
+] as const;
+
+export type InvariantResearchLoopStage = (typeof INVARIANT_RESEARCH_LOOP)[number];
+
+/**
+ * Invariant Delta — every disagreement between a predicted invariant set and the
+ * CIRS is CLASSIFIED and retained as first-class research data (the "research
+ * gold" that WP0 synthesises into progressively stronger definitions). The
+ * disagreement classes (Aletheon 2026-07-09): what KIND of gap each difference is.
+ */
+export const INVARIANT_DELTA_CLASSES = [
+  'missing-invariant',
+  'redundant-invariant',
+  'incorrect-abstraction-level',
+  'ontological-conflict',
+  'domain-specific-specialization',
+  'projection-error',
+  'ambiguous-intent',
+] as const;
+
+export type InvariantDeltaClass = (typeof INVARIANT_DELTA_CLASSES)[number];
+
+export interface InvariantDelta {
+  /** The intent the projection was for. */
+  intent: string;
+  /** The invariants the projection predicted. */
+  predicted: string[];
+  /** The CIRS reference set compared against. */
+  reference: string[];
+  /** The specific differing items (what the classification is about). */
+  difference: string[];
+  /** What KIND of disagreement this is — the research datum. */
+  classification: InvariantDeltaClass;
+}
+
+/**
+ * The CIRS is NEVER static — a static reference becomes dogma, and dogma is the
+ * enemy of science (Aletheon 2026-07-09). Every experiment may propose a
+ * mutation to the reference; these are the operations that keep it alive.
+ * Mutations are PROPOSALS (Law XI) — operator ratification promotes a mutated
+ * CIRS to the next ratified version.
+ */
+export const CIRS_MUTATIONS = ['propose', 'merge', 'split', 'retire'] as const;
+
+export type CIRSMutation = (typeof CIRS_MUTATIONS)[number];
