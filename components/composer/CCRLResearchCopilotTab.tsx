@@ -46,7 +46,6 @@ import { AlertTriangle, ArrowRight, CheckCircle, ChevronDown, ClipboardCheck, Fl
 import { SmartTriadCopilotLayer, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { experimentGet } from "./experimentStepFetch";
 import { personaFetch } from "@/utils/personaSpine";
-import type { DcirEvent } from "@/types/dcir";
 import type {
   ExperimentLifecycleState,
   ResearchExperiment,
@@ -71,17 +70,11 @@ import {
   type ResearchLoopStage,
 } from "@/services/research/researchLoop";
 import {
-  appendDcirEvent,
-  compactDcirEvents,
   surfaceOpenedEvent,
   surfaceDataRefreshedEvent,
   surfacePromptSelectedEvent,
 } from "@/services/dcir/eventStream";
-import {
-  buildStateSnapshot,
-  mineBehaviouralInvariants,
-  compactBehaviouralInvariants,
-} from "@/services/dcir/stateEngine";
+import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 
 const SURFACE = "ccrl-research";
 
@@ -487,12 +480,14 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
   const [resultsError, setResultsError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ── DCIR observation seam (CFS-020) — observe-mode ONLY. Session-scoped
-  // ring buffer; the next copilot turn reads the compacted tail.
-  const [dcirEvents, setDcirEvents] = useState<DcirEvent[]>([]);
-  const observe = useCallback((event: DcirEvent) => {
-    setDcirEvents(prev => appendDcirEvent(prev, event));
-  }, []);
+  // ── DCIR observation seam (CFS-020) — observe-mode ONLY, adopted via the D4
+  // universal substrate hook (useDcirSeam) rather than a hand-wired block: the
+  // last named D4 follow-on (CFS-020 §142). Session-scoped ring buffer; the next
+  // copilot turn reads the compacted tail via `groundObservation`. Surface-only
+  // snapshot — behaviour-identical to the prior hand-wired seam (this surface's
+  // stage/experiment were not threaded into the snapshot before, and are not now;
+  // threading them is an optional micro-follow-on, not part of this swap).
+  const { observe, groundObservation } = useDcirSeam({ surface: SURFACE });
 
   // ── C2.1 research proposals — SUGGEST-ONLY, operator-gated. Pending cards
   // await approval; committed objects live in in-memory research state,
@@ -752,17 +747,12 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
     })),
     overviewError,
     resultsError,
-    // DCIR observation seam: the last ~12 session events, compacted —
-    // the next copilot turn observes what happened (narrate-only).
-    recentEvents: compactDcirEvents(dcirEvents),
-    // DCIR D2 (observe-mode): compact constitutional state snapshot +
-    // behavioural patterns mined from this session only — observations the
-    // copilot may gently adapt to, NEVER rules (CFS-020 §6). Session-scoped;
-    // nothing persists, nothing gates. This surface has no workflow stage or
-    // capsule model, so only the surface itself rides the workflow position.
-    stateSnapshot: buildStateSnapshot(dcirEvents, { surface: SURFACE }),
-    observedPatterns: compactBehaviouralInvariants(mineBehaviouralInvariants(dcirEvents)),
-  }), [overview, series, lifecycleOrder, results, overviewError, resultsError, dcirEvents, activeStage, activeExperiment]);
+    // DCIR observation seam (D4 useDcirSeam): recentEvents (last ~12 compacted)
+    // + D2 stateSnapshot + observedPatterns, spread from the hook's memoized
+    // ground observation. Observations the copilot may gently adapt to, NEVER
+    // rules (CFS-020 §6). Session-scoped; nothing persists, nothing gates (§9).
+    ...groundObservation,
+  }), [overview, series, lifecycleOrder, results, overviewError, resultsError, groundObservation, activeStage, activeExperiment]);
 
   const quickPrompts = useMemo(() => [
     "Where does the research programme stand?",
