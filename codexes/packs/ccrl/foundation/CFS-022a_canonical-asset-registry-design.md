@@ -233,3 +233,16 @@ the TS module. Flagged as an open question, §5.)
 Everything composes over `services/registry/*` (id-map + resolver + projections) and `services/invariants/*`
 (store + publish precedent). Invariants are already objects; representation assets enter by a thin adapter;
 metaVitruvian/iconography await authoring.
+
+---
+
+## Delivered — P1 registry read surface + metaVitruvian registered (2026-07-09)
+
+The in-situ registry is now browsable, and Canonical Asset 002 is registered as a descriptor.
+
+- **metaVitruvian v1 descriptor** (`services/composition/canonicalAssets.ts` `metaVitruvianV1`) — Canonical Asset 002 as a `canonical_asset` ConstitutionalObject, the PAIR to the Bearing Instrument (it declares a dependency on A1). Enters at the `canonical` band (CFS-021 §5 ratification), platform-steward commitment ownership, one-way ref. The descriptor set now holds both standalone canonical assets, not just A1.
+- **`listCanonicalAssets()`** — the in-situ registry: A1 Bearing Instrument, A2 metaVitruvian, then the ratified CCF interpretation asset and its palette / typography / material VIEWS (A3–A4). Deterministic order, pure. Same descriptors the Composition engine's `InSituAssetResolver` retrieves — the read surface just projects them.
+- **`GET /api/constitutional/canonical-assets`** — admin-gated (resolvePersonaOrTimeout + `cartridgeFlags.isAdmin`; 503/401/403), read-only, T2-safe projection of each asset's P0 facets (id, one-way ref, kind, standing band, governing invariants, provenance source + content commitment, lifecycle, dependency refs). NO payload is serialised wholesale, so a future richer payload can't silently widen exposure.
+- **`CanonicalAssetRegistryPanel`** (`components/representation/CanonicalAssetRegistryPanel.tsx`) — mounted in the CCRL dashboard (`CCRLDashboardTab`, where the Bearing Instrument already renders in the header). Consumes only `var(--rep-*)` roles so it reskins with the interpretation; spine-authed via `experimentGet`. The canonical assets are now visible as first-class constitutional objects.
+
+**Honest limits:** still the in-situ source (no G2 store) — the panel projects `listCanonicalAssets()`, the same descriptors the resolver reads; the DB-backed `RegistryAssetResolver` fills the same port later with zero engine change. Verified via esbuild parse on all touched files + an 8-assertion node drill of the registry (6 assets, A1→A2 order, canonical band, one-way refs, metaVitruvian↔Bearing dependency, no T0 leak); vitest is unavailable in the sandbox.

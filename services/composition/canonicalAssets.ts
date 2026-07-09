@@ -31,6 +31,7 @@ import {
   TYPE_ROLES,
   MATERIAL_ROLES,
 } from '@/types/representation';
+import { constitutionalCivicFuturism } from '@/services/representation/interpretations';
 import type {
   ConstitutionalObject,
   ObjectRef,
@@ -113,6 +114,62 @@ export function bearingInstrumentV1(): ConstitutionalObject {
     dependencies: [
       objectRef('representation-contract', 'representation_asset'),
       objectRef('inv.representation.128', 'invariant'),
+    ],
+    payload,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// metaVitruvian v1 — Canonical Asset 002, the PAIR to the Bearing Instrument
+// ─────────────────────────────────────────────────────────────────────────
+
+export const META_VITRUVIAN_ID = 'meta-vitruvian';
+
+/** The composable-human bearing functions — the pair to A1's orient/stand/navigate. */
+export const VITRUVIAN_FUNCTIONS = ['proportion', 'standing', 'composition'] as const;
+
+/**
+ * Canonical Asset 002 — metaVitruvian, the composable human
+ * (`components/representation/MetaVitruvian.tsx`). Role-driven LINE primitive,
+ * interpretation-agnostic (hardcodes no look). The PAIR to the Bearing
+ * Instrument: where A1 ORIENTS within the Field, A2 renders the composable
+ * subject. Ratified alongside A1 (CFS-021 §5) → the `canonical` band.
+ */
+export function metaVitruvianV1(): ConstitutionalObject {
+  const payload = {
+    variant: 'line',
+    version: '1.0',
+    functions: [...VITRUVIAN_FUNCTIONS],
+    pairedWith: BEARING_INSTRUMENT_ID,
+  };
+  return {
+    identity: {
+      id: META_VITRUVIAN_ID,
+      kind: 'canonical_asset',
+      ref: assetCommitment('canonical_asset', META_VITRUVIAN_ID),
+      displayLabel: 'metaVitruvian v1.0',
+    },
+    version: { version: 1, status: 'published' },
+    standing: {
+      standing: CANONICAL_STANDING_SCORE,
+      band: standingBandFor(CANONICAL_STANDING_SCORE),
+      reach: 3,
+    },
+    authority: {
+      minStandingToCompose: 'validated',
+      ratificationRequired: true,
+      governingInvariants: ['inv.representation.128', 'inv.representation.129'],
+    },
+    ownership: { ownerCommitment: PLATFORM_STEWARD_COMMITMENT },
+    provenance: {
+      receiptIds: [],
+      contentCommitment: contentCommitment(payload),
+      source: 'authored',
+    },
+    lifecycle: { state: 'canonized', order: ['draft', 'published', 'canonized', 'deprecated'] },
+    dependencies: [
+      objectRef('representation-contract', 'representation_asset'),
+      objectRef(BEARING_INSTRUMENT_ID, 'canonical_asset'), // the pair
     ],
     payload,
   };
@@ -221,4 +278,35 @@ export function interpretationAssetFor(interp: Interpretation): ConstitutionalOb
 /** ObjectRef helper (P0) for a canonical-asset descriptor. */
 export function assetObjectRef(o: ConstitutionalObject): ObjectRef {
   return objectRef(o.identity.id, o.identity.kind);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// The Canonical Asset Registry (CFS-022a §2) — the in-situ read source
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Every canonical asset that EXISTS today, as ConstitutionalObjects (P0). This
+ * is the in-situ registry the read surface projects until the G2 store lands —
+ * the same descriptors the Composition engine's `InSituAssetResolver` retrieves,
+ * exposed as a browsable list so the assets are visible as first-class
+ * constitutional objects (standing · authority · provenance · lifecycle):
+ *
+ *   A1  Bearing Instrument v1      canonical_asset      the navigation primitive
+ *   A2  metaVitruvian v1           canonical_asset      the composable human (A1's pair)
+ *   A3  CCF interpretation         representation_asset the ratified role bindings
+ *   A4  CCF palette / typography / material  representation_asset  VIEWS of A3
+ *
+ * Pure — no clock, no randomness, no DB. Deterministic order (A1, A2, then the
+ * CCF interpretation and its views) so the registry projection is stable.
+ */
+export function listCanonicalAssets(): ConstitutionalObject[] {
+  const ccf = constitutionalCivicFuturism;
+  return [
+    bearingInstrumentV1(),
+    metaVitruvianV1(),
+    interpretationAssetFor(ccf),
+    paletteAssetFor(ccf),
+    typographyAssetFor(ccf),
+    materialAssetFor(ccf),
+  ];
 }

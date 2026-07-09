@@ -33,6 +33,7 @@ import {
 import { RepresentationFieldPreview } from "@/components/representation/RepresentationFieldPreview";
 import { RepresentationProvider, useSurfaceStyle } from "@/components/representation/RepresentationProvider";
 import { BearingInstrument } from "@/components/representation/BearingInstrument";
+import { CanonicalAssetRegistryPanel } from "@/components/representation/CanonicalAssetRegistryPanel";
 
 interface ResultRow {
   id: string;
@@ -410,6 +411,11 @@ function CCRLDashboardContent() {
           {CONSTITUTIONAL_DISTINCTIONS.join(" · ")}
         </p>
       </div>
+
+      {/* Canonical Asset Registry (CFS-022a §2) — the frozen assets the
+          Composition engine retrieves, incl. the Bearing Instrument mounted in
+          the header above, browsable as first-class constitutional objects. */}
+      <CanonicalAssetRegistryPanel />
     </>
   );
 }
