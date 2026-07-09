@@ -7,7 +7,8 @@
  * duplicate).
  */
 
-import { callAnthropicJson, callOpenAiJson } from '@/services/agents/_lib/llmDraftHelper';
+import { stripJsonFences } from '@/services/agents/_lib/llmDraftHelper';
+import { callSovereign } from '@/services/constitutional/modelRouter';
 
 export interface ExtractedFact {
   domain: string;
@@ -91,8 +92,15 @@ extraordinary_ability:
 export async function extractFactsFromText(content: string): Promise<ExtractedFact[]> {
   if (!content?.trim()) return [];
   const userPrompt = `Extract facts from the following evidence document:\n\n${content}`;
-  let raw = await callAnthropicJson(EXTRACT_SYSTEM, userPrompt, 2000);
-  if (!raw) raw = await callOpenAiJson(EXTRACT_SYSTEM, userPrompt, 2000);
+  // Invariant-aware, sovereign inference (CFS-015 Phase 2). `callSovereign`
+  // routes the 'analysis' purpose to the consequence stage — the SAME
+  // claude-sonnet-4-6 this extractor used — but now via the ModelQube route
+  // (invariant-cited) with the sovereign fallback ladder: on frontier outage it
+  // degrades down to the open-weight floor rather than returning nothing. Fence
+  // stripping preserved (callSovereign returns raw model text). Returns [] on
+  // total failure, exactly as before.
+  const result = await callSovereign('analysis', EXTRACT_SYSTEM, userPrompt, 2000).catch(() => null);
+  const raw = result?.text ? stripJsonFences(result.text) : null;
   if (!raw) return [];
   let facts: ExtractedFact[] = [];
   try {

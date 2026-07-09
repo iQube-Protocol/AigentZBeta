@@ -35,7 +35,7 @@ const OPENAI_MODEL = process.env.OPENAI_DRAFT_MODEL || 'gpt-4o-mini';
 // + prod accounts share the same model allowlist. Override via env.
 const VENICE_MODEL = process.env.VENICE_DRAFT_MODEL || 'llama-3.3-70b';
 
-function stripJsonFences(raw: string): string {
+export function stripJsonFences(raw: string): string {
   // Anthropic sometimes wraps JSON in ```json ... ``` fences even when
   // instructed not to. Strip those before the caller JSON.parses.
   const fenced = raw.match(/```json\s*([\s\S]*?)```/i);
