@@ -21,7 +21,8 @@
  * records for venice's weaker strict-JSON).
  */
 
-import { MODEL_ROUTING_INVARIANTS } from '@/services/constitutional/modelQube';
+import { MODEL_ROUTING_INVARIANTS, type SovereigntyTier } from '@/services/constitutional/modelQube';
+import { sovereignNodeConfig, SOVEREIGN_NODE_ENV } from '@/services/constitutional/sovereignNode';
 
 /** An OpenAI-compatible chat message (permissive — carries assistant tool_calls
  *  and tool-result messages alike). */
@@ -36,12 +37,14 @@ export interface SovereignToolMessage {
 export interface SovereignToolChatResult {
   /** The OpenAI-compatible assistant message — `content` and/or `tool_calls`. */
   message: SovereignToolMessage;
-  provider: 'openai' | 'venice';
+  provider: 'openai' | 'venice' | 'sovereign_node';
   model: string;
   /** True when the routed frontier target failed and a fallback answered. */
   degraded: boolean;
-  /** True when the open-weight sovereign floor answered. */
+  /** True when the sovereign floor answered (the most-sovereign configured rung). */
   sovereignFloor: boolean;
+  /** The sovereignty tier that answered (frontier → open-weight → self-hosted apex). */
+  tier: SovereigntyTier;
   /** The invariants that govern the route (invariant-intelligent inference). */
   governingInvariants: string[];
 }
@@ -53,20 +56,46 @@ const VENICE_TOOL_MODEL = process.env.VENICE_DRAFT_MODEL || 'llama-3.3-70b';
 const TOOL_CHAT_TIMEOUT_MS = 30_000;
 
 interface ToolAttempt {
-  provider: 'openai' | 'venice';
+  provider: 'openai' | 'venice' | 'sovereign_node';
   model: string;
   base: string;
   keyEnv: string;
+  /** True for the sovereign floor — the most-sovereign CONFIGURED rung. */
   sovereignFloor: boolean;
+  /** The sovereignty tier of this rung. */
+  tier: SovereigntyTier;
+  /** Self-hosted apex nodes may need no key — don't skip the rung when absent. */
+  keyOptional?: boolean;
 }
 
-/** The tool-calling provider ladder — frontier first, open-weight floor last.
- *  Pure (env-derived config only), so the ladder is drillable. */
+/** The tool-calling provider ladder — frontier first, sovereign floor last.
+ *  Pure (env-derived config only), so the ladder is drillable.
+ *
+ *  Sovereign floor placement: TODAY the terminal floor is the third-party
+ *  open-weight API (venice). When an apex self-hosted node is configured
+ *  (sovereignNode.ts), it is APPENDED as the true terminal rung — our own
+ *  decentralised infra — and venice yields the `sovereignFloor` flag to it
+ *  (venice stays a rung, no longer the floor). Inert until a node exists. */
 export function toolChatLadder(): ToolAttempt[] {
-  return [
-    { provider: 'openai', model: OPENAI_TOOL_MODEL, base: 'https://api.openai.com/v1', keyEnv: 'OPENAI_API_KEY', sovereignFloor: false },
-    { provider: 'venice', model: VENICE_TOOL_MODEL, base: process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1', keyEnv: 'VENICE_API_KEY', sovereignFloor: true },
+  const node = sovereignNodeConfig();
+  const ladder: ToolAttempt[] = [
+    { provider: 'openai', model: OPENAI_TOOL_MODEL, base: 'https://api.openai.com/v1', keyEnv: 'OPENAI_API_KEY', tier: 'frontier', sovereignFloor: false },
+    { provider: 'venice', model: VENICE_TOOL_MODEL, base: process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1', keyEnv: 'VENICE_API_KEY', tier: 'open-weight', sovereignFloor: !node },
   ];
+  if (node) {
+    // Apex: open-weight model on our OWN decentralised infra — no third party
+    // can deny inference. OpenAI-compatible, so it slots in as one more rung.
+    ladder.push({
+      provider: 'sovereign_node',
+      model: node.model,
+      base: node.baseUrl,
+      keyEnv: SOVEREIGN_NODE_ENV.apiKey,
+      tier: 'self-hosted',
+      sovereignFloor: true,
+      keyOptional: true,
+    });
+  }
+  return ladder;
 }
 
 export interface SovereignToolChatInput {
@@ -97,7 +126,9 @@ export async function callSovereignToolChat(
   for (let i = 0; i < ladder.length; i += 1) {
     const a = ladder[i];
     const key = process.env[a.keyEnv];
-    if (!key) {
+    // Apex self-hosted nodes may be keyless; only require a key when the rung
+    // isn't marked keyOptional.
+    if (!key && !a.keyOptional) {
       errors.push(`${a.provider}: not configured`);
       continue;
     }
@@ -114,9 +145,11 @@ export async function callSovereignToolChat(
         body.tools = tools;
         if (toolChoice !== undefined) body.tool_choice = toolChoice;
       }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (key) headers.Authorization = `Bearer ${key}`;
       const res = await fetch(`${a.base}/chat/completions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        headers,
         body: JSON.stringify(body),
         signal: controller.signal,
       });
@@ -141,6 +174,7 @@ export async function callSovereignToolChat(
         model: a.model,
         degraded: i > 0,
         sovereignFloor: a.sovereignFloor,
+        tier: a.tier,
         governingInvariants: [...MODEL_ROUTING_INVARIANTS],
       };
     } catch (err) {

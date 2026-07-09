@@ -54,11 +54,26 @@ export const MODEL_ROUTING_INVARIANTS: readonly string[] = [
 
 // ─── The ModelQube payload + object type ─────────────────────────────────────
 
+/**
+ * Sovereignty tiers, LEAST → MOST sovereign. `inv.sovereignty.100` frames
+ * sovereignty as a BUNDLE (model openness, provider choice, no lock-in):
+ *   - `frontier`    — third-party CLOSED-weight (openai, anthropic). Capable,
+ *                     fast; sovereign in NEITHER weights nor hosting.
+ *   - `open-weight` — third-party-HOSTED open-weight (venice/llama). Weights are
+ *                     open; the hosting is still someone else's. Today's floor.
+ *   - `self-hosted` — open-weight models we run on our OWN decentralised infra.
+ *                     Weights AND hosting sovereign — no third party can deny us
+ *                     inference. APEX sovereignty (stubbed; see sovereignNode.ts).
+ * The terminal fallback rung must be the most-sovereign CONFIGURED tier: the
+ * `self-hosted` apex when our nodes are live, else the `open-weight` API floor.
+ */
+export type SovereigntyTier = 'frontier' | 'open-weight' | 'self-hosted';
+
 export interface ModelQubePayload {
   provider: ConstitutionalProviderId;
   /** The concrete model id (on the provider's allowlist). */
   model: string;
-  tier: 'frontier' | 'open-weight';
+  tier: SovereigntyTier;
   /** True for the inalienable open-weight sovereign floor (never routed away). */
   sovereignFloor: boolean;
   /** Per-stage constitutional fitness (0..1). Absent stage ⇒ not fit. */

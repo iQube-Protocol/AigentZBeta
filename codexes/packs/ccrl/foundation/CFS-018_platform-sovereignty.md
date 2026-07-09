@@ -99,3 +99,42 @@ provider in the rotation — never the answerer).
   (Experiment Lab → "EXP-005 · Provider Choice"), canary
   `tests/exp005-provider-choice.test.ts`. Registered in EXPERIMENT_REGISTRY +
   the PSE series (`types/research.ts`).
+
+## Apex sovereignty — the self-hosted tier (seam stubbed 2026-07-09)
+
+The fallback ladders terminate at venice, an **open-weight** model — but
+venice's *hosting* is still a third party's (the `inv.sovereignty.104`
+infrastructure-agency dimension, and the very Venice lesson above:
+open weights behind a commercial gate is not full sovereignty). **Apex
+sovereignty is running open-weight models on our OWN decentralised infra**,
+where no third party can rate-limit, price-gate, or disappear our inference.
+So the sovereignty ladder has **three tiers, most-sovereign last**:
+
+| Tier | Weights | Hosting | Rung today |
+|---|---|---|---|
+| `frontier` | closed | third-party | openai, anthropic |
+| `open-weight` | open | third-party | venice/llama — **today's floor** |
+| `self-hosted` | open | **ours (decentralised)** | — **APEX, stubbed** |
+
+**Status: STUB, inert.** No node is deployed, so every ladder still terminates
+at venice exactly as before — this increment adds only the *seam* the future
+capability fills, per operator direction ("don't need it now, but stub for it").
+When a node is configured (`SOVEREIGN_NODE_BASE_URL` + `SOVEREIGN_NODE_MODEL`,
+optional `SOVEREIGN_NODE_API_KEY`), the `self-hosted` rung is **appended as the
+terminal fallback and takes the sovereign floor from venice** (venice stays a
+rung, no longer the floor). Local inference servers (vLLM, llama.cpp, Ollama, LM
+Studio, TGI) speak the OpenAI-compatible `/chat/completions` API, so the apex
+rung reuses the venice rung's shape — appending a rung, not a new protocol.
+
+- Seam: `services/constitutional/sovereignNode.ts` (`sovereignNodeConfig`,
+  `sovereignNodeConfigured`, `SOVEREIGN_NODE_ENV`); tier vocabulary
+  `SovereigntyTier` on `services/constitutional/modelQube.ts`.
+- Live integration point: the tool-calling ladder `toolChatLadder()` in
+  `services/constitutional/sovereignToolChat.ts` (gated, inert today). Canary
+  `tests/sovereign-node.test.ts` pins both states (no-node floor = venice;
+  node-configured floor = apex, exactly one floor either way).
+- **NOT yet built** (named future workstream): the decentralised inference
+  infrastructure itself — node topology, model distribution, and verification
+  that remote inference was genuinely performed by our node (not silently
+  proxied). The text router (`modelRouter.ts` FALLBACK_LADDER) and `codex/chat`
+  adopt the apex rung when the provider adapter lands (workstream #44).
