@@ -37,6 +37,8 @@
         "foundation/CFS-020_dcir-charter.md",
         "foundation/CFS-021_constitutional-civic-futurism.md",
         "foundation/CFS-022_constitutional-operating-environment.md",
+        "foundation/CFS-022a_canonical-asset-registry-design.md",
+        "foundation/CFS-022b_composition-engine-design.md",
         "foundation/CHRYSALIS_WORKSTREAM_TRACKER.md",
         "foundation/appendix-a_canonical-invariants.md"
       ]
