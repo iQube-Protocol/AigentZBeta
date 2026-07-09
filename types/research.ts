@@ -150,6 +150,37 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     protocolRef: 'services/experiments/exp005.ts',
     governingInvariants: ['inv.sovereignty.102'],
   },
+  // ─── Invariant Intelligence Validation Series (CRP-002 · metaMe IRL) ────────
+  {
+    id: 'IRL-EXP-001',
+    layer: 'I',
+    family: 'Intent → Invariant Projection Fidelity',
+    seriesId: 'IIVS',
+    hypothesis:
+      'Intent projects onto a minimal invariant set predictable against the CIRS (Stage A: overlap/precision/recall), and that set produces superior downstream reasoning (Stage B). Every predicted-vs-CIRS disagreement is a classified Invariant Delta — first-class data for the emergent WP0 (Option 1A).',
+    protocolRef: 'services/experiments/irlExp001.ts',
+    governingInvariants: ['inv.epistemology.119', 'inv.epistemology.120'],
+  },
+  {
+    id: 'IRL-EXP-002',
+    layer: 'I',
+    family: 'Reasoning Entropy Reduction',
+    seriesId: 'IIVS',
+    hypothesis:
+      'Invariant-initialised reasoning reduces reasoning entropy vs retrieval across a four-arm ladder (large-context → naive-rag → existing-kb → invariant-runtime). Beating naïve RAG is easy; the honest bar is beating our own production KB retrieval.',
+    protocolRef: 'codexes/packs/ccrl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+    governingInvariants: ['inv.epistemology.119', 'inv.constitutional.062'],
+  },
+  {
+    id: 'IRL-EXP-003',
+    layer: 'I',
+    family: 'Cross-Modal Invariant Reuse (Propagation Fidelity)',
+    seriesId: 'IIVS',
+    hypothesis:
+      'A single invariant set propagates across modalities (article/story/image/ux/prd) with high fidelity: blind reviewers can reconstruct the original invariant set from the artifacts. Propagation Fidelity is the benchmark.',
+    protocolRef: 'codexes/packs/ccrl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+    governingInvariants: ['inv.epistemology.119'],
+  },
 ];
 
 export const SERIES_REGISTRY: ResearchSeries[] = [
@@ -166,6 +197,13 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     claim: 'Platform sovereignty is a measurable bundle: model, provider choice, commercial independence, infrastructure.',
     members: ['EXP-004', 'EXP-005'],
     charterRef: 'codexes/packs/ccrl/foundation/CFS-018_platform-sovereignty.md',
+  },
+  {
+    id: 'IIVS',
+    name: 'Invariant Intelligence Validation Series',
+    claim: 'Intent projects onto minimal invariant sets; those sets reason more faithfully at lower entropy and propagate across modalities — and the disagreements teach us what an invariant is.',
+    members: ['IRL-EXP-001', 'IRL-EXP-002', 'IRL-EXP-003'],
+    charterRef: 'codexes/packs/ccrl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
   },
 ];
 
@@ -186,6 +224,9 @@ export const RESEARCH_PROGRAMMES = [
   // unique to particular forms of reasoning, framed as hypotheses, never
   // assuming answers where evidence does not yet exist.
   { id: 'D', name: 'Reasoning Systems', experiments: [], exploratory: true },
+  // CRP-002 (metaMe IRL) — the first programme formally chartered under CRP-001.
+  // Intent Science is the entry point; Knowledge Compression is one mechanism.
+  { id: 'E', name: 'Invariant Intelligence', experiments: ['IRL-EXP-001', 'IRL-EXP-002', 'IRL-EXP-003'], exploratory: false },
 ] as const;
 
 // ─── Research Roadmap Expansion (CFS-019 amendment, 2026-07-07) ──────────────
