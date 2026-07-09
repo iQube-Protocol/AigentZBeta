@@ -174,7 +174,7 @@ Law XI applies in full: **CRP-002 proposes; human constitutional authority ratif
 | Phase | Deliverable | Status |
 |---|---|---|
 | **0** | This charter + the metaMe IRL naming canonisation (`docs/platform-ontology.md`, CFS-019 note resolved) | **DELIVERED (this document)** |
-| **1** | Contract-first primitives: the reframed iQube pipeline as order-pinned constitutional data + the Intent Grammar taxonomy (`types/`), each canary-guarded | Next |
+| **1** | Contract-first primitives: the reframed iQube pipeline as order-pinned constitutional data + the Intent Grammar taxonomy (`types/`), each canary-guarded | **DELIVERED** — `types/invariantIntelligence.ts` (IQUBE_PIPELINE, PROJECTION_STAGES, INTENT_PRIMITIVES, INVARIANT_CONCERN_CLASSES, CANDIDATE_INTENT_BIAS + pure helpers); canary `tests/invariant-intelligence.test.ts` pins the pipeline order (curation absent), the projection-stage tail, the 13-primitive set, and total intent→concern coverage (structure, not the map's truth) |
 | **2** | The founding Validation Series — IRL-EXP-001/002/003 registered in `EXPERIMENT_REGISTRY` (its own `col_irl` collection), with runners + canonical publication | After Phase 1 |
 | **3** | The Intent→Projection runtime seam — an *Intent Engine* composing intentQube + invariant registry + EXP-003 compression + KnowledgeQube assembly (projects, does not retrieve) | After Phase 2 findings |
 
