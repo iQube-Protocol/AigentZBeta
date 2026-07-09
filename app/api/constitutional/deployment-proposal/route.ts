@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { buildDeploymentObject } from '@/services/constitutional/deploymentObject';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,9 @@ export async function POST(request: NextRequest) {
     commitRange?: string;
     validationNotes?: string;
     touchesProtectedFiles?: boolean;
+    /** Whether the CDE consequence-test gate passed (informational on a proposed
+     *  object; the gate governs AUTHORIZATION, not the proposal). */
+    constitutionalThresholdMet?: boolean;
   };
   try {
     body = await request.json();
@@ -78,11 +82,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Emit the Deployment as a CONSTITUTIONAL OBJECT (Phase 3 — Aigent Z owns the
+  // deploy lifecycle; CFS-016 + the P0 object model). The proposal is now a
+  // well-formed object in the `proposed` state, composed over the receipt just
+  // written — not merely a loose receipt. buildDeploymentObject is PURE and
+  // executes NOTHING; a dedicated object store is the registry follow-on, so we
+  // return the object's T2-safe projection (its ref is a one-way commitment,
+  // never a raw id) rather than persisting it here.
+  const deploymentObject = buildDeploymentObject({
+    deploymentId: body.packId.trim(),
+    displayLabel:
+      typeof body.goal === 'string' && body.goal ? `Deploy: ${body.goal.slice(0, 80)}` : undefined,
+    packId: body.packId.trim(),
+    commitRange: body.commitRange.trim(),
+    goal: typeof body.goal === 'string' ? body.goal : undefined,
+    proposedReceiptId: receipt.id,
+    constitutionalThresholdMet: body.constitutionalThresholdMet === true,
+    touchesProtectedFiles: flagged,
+  });
+
   return NextResponse.json({
     ok: true,
     receiptId: receipt.id,
+    // T2-safe projection of the Deployment constitutional object — commitment
+    // ref (one-way), lifecycle state, standing band, ladder level, and the
+    // execution gate stated on the object itself. NO T0 identifier is serialised.
+    deployment: {
+      ref: deploymentObject.identity.ref,
+      state: deploymentObject.lifecycle.state,
+      standingBand: deploymentObject.standing.band,
+      ladderLevel: (deploymentObject.payload as { ladderLevel: string }).ladderLevel,
+      ratificationRequired: deploymentObject.authority.ratificationRequired,
+      executionGate: (deploymentObject.payload as { executionGate: string }).executionGate,
+    },
     d1Semantics:
-      'Proposal recorded and DVN-anchorable. Execution stays human (D1): review the chain, then push manually exactly as today.' +
+      'Proposal recorded as a Deployment constitutional object (proposed) and DVN-anchorable. Execution stays human (D1): review the chain, then push manually exactly as today.' +
       (flagged ? ' Protected-file diffs flagged — review those diffs individually before pushing (CFS-016 hard boundary 2).' : ''),
   });
 }

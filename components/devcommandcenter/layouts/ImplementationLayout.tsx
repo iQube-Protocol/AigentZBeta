@@ -22,7 +22,7 @@ import React, { useMemo, useState } from "react";
 import { Check, Copy, Cpu, Hammer, Loader2, Play } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { PendingProposalCard } from "./PendingProposalCard";
-import { canAdvance, buildImplementationPackage } from "@/services/devCommandCenter";
+import { canAdvance, buildImplementationPackage, constitutionalThresholdMet } from "@/services/devCommandCenter";
 import { experimentStep } from "@/components/composer/experimentStepFetch";
 import { packMarkdown, type PackView } from "@/components/composer/CapabilityPipelineTab";
 import type { DevLayoutProps } from "./types";
@@ -106,8 +106,18 @@ export function ImplementationLayout({
           ? `dev-loop validation verdict: ${session.validationReport.overallVerdict}`
           : "",
         touchesProtectedFiles: touchesProtected,
+        constitutionalThresholdMet: constitutionalThresholdMet(session),
       });
-      setProposal(`Proposed — receipt ${String(data.receiptId).slice(0, 8)}… · ${String(data.d1Semantics)}`);
+      // The route now emits a Deployment CONSTITUTIONAL OBJECT (proposed) — show
+      // its commitment ref + lifecycle state, not just the receipt.
+      const dep = data.deployment as
+        | { ref?: string; state?: string; standingBand?: string }
+        | undefined;
+      setProposal(
+        dep?.ref
+          ? `Proposed — deployment object ${dep.state ?? "proposed"} (${dep.standingBand ?? "experimental"}) · ref ${String(dep.ref).slice(0, 10)}… · receipt ${String(data.receiptId).slice(0, 8)}… · ${String(data.d1Semantics)}`
+          : `Proposed — receipt ${String(data.receiptId).slice(0, 8)}… · ${String(data.d1Semantics)}`,
+      );
       if (typeof data.receiptId === "string" && data.receiptId) {
         onReceipt?.({ id: data.receiptId, actionType: "deployment_proposed" });
       }
