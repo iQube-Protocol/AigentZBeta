@@ -31,6 +31,7 @@ import {
   CONSTITUTIONAL_MODEL_QUBES,
   MODEL_ROUTING_INVARIANTS,
 } from '@/services/constitutional/modelQube';
+import { sovereignNodeConfig } from '@/services/constitutional/sovereignNode';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +75,19 @@ export async function GET(request: NextRequest) {
     stageFitness: q.payload.stageFitness,
   }));
 
+  // Apex sovereignty status (CFS-018): the self-hosted node seam. T2-safe —
+  // only whether an apex node is configured + its model/tier, NEVER the base URL
+  // or key (those are the router's private inputs). `configured: false` today
+  // (stub, no node deployed) means the sovereign floor is the third-party
+  // open-weight API (venice); `true` means it is our own decentralised infra.
+  const node = sovereignNodeConfig();
+  const sovereignNode = {
+    configured: node !== null,
+    tier: 'self-hosted' as const,
+    model: node?.model ?? null,
+    floor: node !== null ? ('self-hosted' as const) : ('open-weight' as const),
+  };
+
   return NextResponse.json({
     ok: true,
     at: new Date().toISOString(),
@@ -81,6 +95,7 @@ export async function GET(request: NextRequest) {
     // The invariants cited on every ModelQube-sourced route — the constitutional
     // basis of the routing decision (routing is constitutional data, not a literal).
     routingInvariants: [...MODEL_ROUTING_INVARIANTS],
+    sovereignNode,
     stages,
     registry,
   });

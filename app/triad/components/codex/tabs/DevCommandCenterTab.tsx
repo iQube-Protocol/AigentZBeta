@@ -99,6 +99,7 @@ import {
   DevToolsLayout,
   GitHubLayout,
   LinearLayout,
+  ModelRoutesLayout,
   CAPSULE_LAYOUT,
   type DevCapsuleId,
   type DevLayoutId,
@@ -706,6 +707,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   const observeGithubTool = useCallback((op: string) => observe(devToolUsedEvent("github", op)), [observe]);
   const observeDevtoolsTool = useCallback((op: string) => observe(devToolUsedEvent("devtools", op)), [observe]);
   const observeLinearTool = useCallback((op: string) => observe(devToolUsedEvent("linear", op)), [observe]);
+  const observeModelRoutesTool = useCallback((op: string) => observe(devToolUsedEvent("model-routes", op)), [observe]);
 
   // ── Copilot-driven suggestions
   const [exploreSuggestions, setExploreSuggestions] = useState<ExploreSuggestionMap>({});
@@ -1015,7 +1017,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     console.log(`[aigentZ routing] tier=${decision.tier} reason="${decision.reason}" prompt="${prompt.slice(0, 80)}…"`);
   }, []);
 
-  const isToolLayout = activeLayoutId === "terminal" || activeLayoutId === "github" || activeLayoutId === "devtools" || activeLayoutId === "linear";
+  const isToolLayout = activeLayoutId === "terminal" || activeLayoutId === "github" || activeLayoutId === "devtools" || activeLayoutId === "linear" || activeLayoutId === "model-routes";
   const isCapsuleLayout = activeCapsuleId !== null && !isToolLayout && activeLayoutId !== "stack";
 
   return (
@@ -1250,6 +1252,12 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
             <LinearLayout
               onBack={returnToStack}
               onToolUsed={observeLinearTool}
+            />
+          )}
+          {isToolLayout && activeLayoutId === "model-routes" && (
+            <ModelRoutesLayout
+              onBack={returnToStack}
+              onToolUsed={observeModelRoutesTool}
             />
           )}
         </div>

@@ -20,7 +20,8 @@ export type DevLayoutId =
   | "terminal"
   | "github"
   | "devtools"
-  | "linear";
+  | "linear"
+  | "model-routes";
 
 export const CAPSULE_LAYOUT: Record<DevCapsuleId, DevLayoutId> = {
   "project-overview": "project-overview",

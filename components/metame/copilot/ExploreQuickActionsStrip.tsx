@@ -15,9 +15,9 @@
  */
 
 import React, { useEffect, useRef } from "react";
-import { Terminal, GitBranch, Wrench, BarChart3, Download, Upload } from "lucide-react";
+import { Terminal, GitBranch, Wrench, BarChart3, Download, Upload, Route } from "lucide-react";
 
-export type ExploreToolId = "terminal" | "github" | "devtools" | "linear";
+export type ExploreToolId = "terminal" | "github" | "devtools" | "linear" | "model-routes";
 
 export type ExploreSuggestionMap = Partial<
   Record<ExploreToolId | "upload" | "download", boolean>
@@ -50,6 +50,7 @@ const ACTIONS: Array<{ id: ExploreToolId; label: string; Icon: React.ComponentTy
   { id: "github",   label: "GitHub",   Icon: GitBranch },
   { id: "devtools", label: "DevTools", Icon: Wrench },
   { id: "linear",   label: "Linear",   Icon: BarChart3 },
+  { id: "model-routes", label: "Model Routes", Icon: Route },
 ];
 
 function highlightClass(isDark: boolean): string {

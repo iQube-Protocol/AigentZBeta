@@ -13,5 +13,7 @@ export { TerminalLayout } from "./TerminalLayout";
 export { DevToolsLayout } from "./DevToolsLayout";
 export { GitHubLayout } from "./GitHubLayout";
 export { LinearLayout } from "./LinearLayout";
+// Routing transparency (CFS-015 Phase 2 + CFS-018) — invariant-aware Model Router surface.
+export { ModelRoutesLayout } from "./ModelRoutesLayout";
 export type { DevCapsuleId, DevLayoutId, DevLayoutProps } from "./types";
 export { CAPSULE_LAYOUT } from "./types";

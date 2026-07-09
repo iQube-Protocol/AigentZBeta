@@ -33,23 +33,33 @@ interface StageRow {
   governingInvariants: string[];
 }
 
+type SovereigntyTier = "frontier" | "open-weight" | "self-hosted";
+
 interface RegistryRow {
   id: string;
   ref: string;
   displayLabel: string;
   provider: string;
   model: string;
-  tier: "frontier" | "open-weight";
+  tier: SovereigntyTier;
   standing: number;
   standingBand: string;
   sovereignFloor: boolean;
   stageFitness: Record<string, number>;
 }
 
+interface SovereignNodeStatus {
+  configured: boolean;
+  tier: "self-hosted";
+  model: string | null;
+  floor: "open-weight" | "self-hosted";
+}
+
 interface ModelRoutesData {
   at: string;
   readOnly: boolean;
   routingInvariants: string[];
+  sovereignNode: SovereignNodeStatus;
   stages: StageRow[];
   registry: RegistryRow[];
 }
@@ -159,6 +169,44 @@ export function ModelRoutesLayout({
             </div>
           </Section>
 
+          {/* Sovereign floor — where the fallback ladder terminates (CFS-018 apex
+              recalibration). The floor is the third-party open-weight API (venice)
+              until an apex self-hosted node is configured, at which point OUR own
+              decentralised infra is the inalienable terminal rung. */}
+          <Section title="Sovereign floor (the inalienable terminal rung)">
+            <div className="flex items-start gap-2">
+              <ShieldCheck
+                className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                  data.sovereignNode.configured ? "text-fuchsia-400" : "text-emerald-400/70"
+                }`}
+              />
+              <div className="space-y-1 text-[11px]">
+                {data.sovereignNode.configured ? (
+                  <div className="text-slate-200">
+                    <span className="font-semibold text-fuchsia-300">S4 · self-hosted apex</span> — the
+                    floor is our own decentralised node
+                    {data.sovereignNode.model && (
+                      <span className="font-mono text-slate-400"> ({data.sovereignNode.model})</span>
+                    )}
+                    . No third party can rate-limit, price-gate, or deny inference.
+                  </div>
+                ) : (
+                  <div className="text-slate-300">
+                    <span className="font-semibold text-emerald-300">S3 · open-weight (third-party hosted)</span> —
+                    the floor is the open-weight API (venice). Open weights, but the hosting is a third
+                    party's.
+                  </div>
+                )}
+                <div className="text-[10px] text-slate-500">
+                  Apex model sovereignty (<span className="font-mono">S4 self-hosted</span>) is a stubbed,
+                  env-gated seam (<span className="font-mono">SOVEREIGN_NODE_BASE_URL</span>) — inert until a
+                  node is deployed. Apex platform sovereignty (<span className="font-mono">S5</span>) is a
+                  Chrysalis 3.0 horizon.
+                </div>
+              </div>
+            </div>
+          </Section>
+
           {/* Per-stage routing table — the live decision for each reasoning stage. */}
           <Section title={`Per-stage routing (${data.stages.length} reasoning stages)`}>
             <div className="overflow-x-auto">
@@ -234,7 +282,9 @@ export function ModelRoutesLayout({
                       </div>
                       <span
                         className={`rounded px-1.5 py-0.5 border text-[10px] font-medium shrink-0 ${
-                          q.tier === "open-weight"
+                          q.tier === "self-hosted"
+                            ? "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30"
+                            : q.tier === "open-weight"
                             ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
                             : "bg-slate-800 text-slate-300 border-slate-700"
                         }`}
