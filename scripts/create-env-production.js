@@ -181,6 +181,15 @@ const envVars = [
   'DFX_NETWORK',
   'WALLET_CANISTER_ID',
   'CROSS_CHAIN_SERVICE_CANISTER_ID',
+  // Reputation Query Hub (rqh) + Reward Hub — a deployed canister pair
+  // (canister_ids.json: rqh zdjf3-…, reward_hub lvo2w-…). Reward/reputation
+  // reads in services/crm/taskCanisterService.ts fall back to the hardcoded
+  // ids, but the ops health check, services/ops/icpService.ts, and the CDE
+  // diagnostics read the env WITHOUT a fallback — so they render "not
+  // configured" unless the id reaches the SSR runtime. Allowlisting the plain
+  // server vars lets these be provisioned without a NEXT_PUBLIC_ exposure.
+  'RQH_CANISTER_ID',
+  'REWARD_HUB_CANISTER_ID',
   'CYCLES_PROXY_URL',
   'CYCLES_PROXY_KEY',
   // Operator ops bearer for backstop tools (paypal/recover, etc.).
