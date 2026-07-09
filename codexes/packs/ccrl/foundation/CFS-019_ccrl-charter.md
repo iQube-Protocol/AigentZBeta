@@ -123,9 +123,23 @@ EXP-004 sits in the PSE series; its programme letter is pending. Future programm
 
 The findings report's scientific tone is untouched. Around it, a formal briefing package (Report tab, copy-based confidential discipline preserved): **Cover** ("The Invariant Intelligence Research Institute / Foundational Validation Series / Executive Briefing / July 2026 / Confidential") → **Letter from the Director** (one page, human, non-technical, non-fundraising: why the institute exists, why the question matters, why they're receiving this — a template for the operator's own voice, never ghost-written as final) → **Executive Memorandum** (slot) → **Findings Report** (largely unchanged) → **Appendix** (protocols, raw data, experimental architecture, repository, DVN verification).
 
-### NAMING NOTE (honest, pending)
+### NAMING NOTE — RESOLVED (operator ratification, 2026-07-09)
 
-**"CCRL"** remains the constitutional/internal name of the institution — nothing in this amendment renames it. **"The Invariant Intelligence Research Institute"** is Aletheon's proposed EXTERNAL presentation banner (it appears on the briefing cover as proposed copy). Adoption of the external name is an **operator decision, recorded here as PENDING** — not decided by this amendment, not decided by any agent.
+The pending naming decision is decided. The institution's **primary name is now metaMe IRL —
+the metaMe Invariant Research Lab** (short: **metaMe IRL** / **IRL**), ratified by operator
+direction. This supersedes the earlier proposed external banner "The Invariant Intelligence
+Research Institute."
+
+**"CCRL" / "Constitutional Cybernetics Research Laboratory" is RETAINED** as the *discipline
+framing* of the same institution — Constitutional Cybernetics is Layer III of its work (governed
+adaptive systems), not a separate lab. metaMe IRL is the institution; CCRL names the discipline it
+pursues. Canonical spellings and the usage rule are recorded in `docs/platform-ontology.md`
+(§ metaMe IRL). Existing "CCRL"-named artifacts (this charter, the `ccrl` pack, `col_foundation`)
+keep their identifiers; new institution-level copy uses metaMe IRL.
+
+The lab's founding research programme under this name is **CRP-002 — Invariant Intelligence:
+Intent-Driven Knowledge Compression** (the first programme formally chartered under CRP-001), the
+first foundational research programme to emerge from the completed Chrysalis v2 foundation.
 
 ## Amendment — Research Roadmap Expansion (2026-07-07)
 

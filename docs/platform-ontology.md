@@ -121,6 +121,33 @@ sufficiently complete MAF.
 
 ---
 
+## metaMe IRL
+
+**Canonical names (all three are correct, co-equal):**
+- **metaMe Invariant Research Lab** (full name)
+- **metaMe IRL** (short form)
+- **IRL** (abbreviation — always uppercase)
+
+**Definition:** The platform's research laboratory — the constitutional scientific institution
+(institutionalised by CFS-019) under its ratified primary name. metaMe IRL pursues **Invariant
+Intelligence** and **Computational Epistemology**: the study of knowledge as a measurable
+computational object (`inv.epistemology.119`–`120`). Its founding research programme is
+**CRP-002 — Invariant Intelligence: Intent-Driven Knowledge Compression**, the first programme
+formally chartered under the Constitutional Research Program (CRP-001).
+
+**Relationship to CCRL:** "Constitutional Cybernetics Research Laboratory" / "CCRL" is RETAINED as
+the *discipline framing* of the same institution (Constitutional Cybernetics is Layer III of its
+work — the study of governed adaptive systems). metaMe IRL is the institution's **primary name**;
+CCRL names the discipline it pursues, not a separate lab. This resolves the naming decision
+recorded as PENDING in CFS-019 (operator ratification, 2026-07-09): the earlier proposed external
+banner "Invariant Intelligence Research Institute" is superseded by **metaMe IRL**.
+
+**Usage rule:** Prefer **metaMe IRL** (or **IRL**) as the institution's name in new copy and docs.
+"CCRL" remains valid when naming the Constitutional Cybernetics discipline specifically. Never
+introduce other lab names.
+
+---
+
 ## Enforcement
 
 All agents (Claude Code, Codex, Lovable, any future agent) must:
