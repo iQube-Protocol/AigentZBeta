@@ -173,3 +173,12 @@ series can grow into it, not catered to now (per operator direction 2026-07-09).
   sovereignty`); the runner + `chrysalis-test` sovereignty criterion + the
   `constitutional-contracts` canary are updated so S3 is labelled "third-party
   hosted" and S4/S5 are named as the apex tiers.
+
+## Provider registry + operator model declaration (2026-07-09)
+
+The `inv.sovereignty.102` provider-choice dimension gains a populated registry and an operator surface.
+
+- **ModelQube registry populated.** All named providers are now ModelQubes: `anthropic`, `openai`, `venice`, and `chaingpt` are ROUTABLE (verified `callChatWithUsage` adapters); `thirdweb`, `gemini`, `grok` are honest STUBS — named + visible in the Model Routes surface with a reason, but filtered out of `resolveModelQubeRoute` so never routed. chaingpt carries low all-stage fitness (eligible alternative, never displaces a frontier default — behaviour-preserving). thirdweb is a stub, not real, because **no thirdweb inference adapter or endpoint exists in the codebase** (No-Guessing: its API shape must be provided to promote it). `ConstitutionalProviderId` widened to the 7; `ROUTABLE_PROVIDER_IDS` + `isExperimentProvider()` guard the router; `ConstitutionalInferenceProvider.implemented` is the static real-vs-stub marker.
+- **Operator model declaration** — `operator_model_qubes` table + admin-gated `/api/constitutional/model-qubes` (GET/POST) + a "Declare a model choice" form in the Model Routes surface. An operator registers a model by naming its provider, model id, and the **ENV VAR NAME** that holds its key (set separately in Amplify) — the key VALUE is never entered or stored. The row stores env var NAMES only; the API reports `keyEnvPresent` (does the var exist at runtime?) but never the value. `declared_by_commitment` is a one-way T2 commitment, never a raw personaId.
+
+**Honest limits:** declared choices are captured + surfaced (exportable for the future), but do NOT yet auto-join the synchronous live routing (`resolveModelQubeRoute` is pure/sync) — async hydration of seed ∪ store into routing is the named follow-on, and a declared choice only becomes routable once its provider has a verified adapter AND its `key_env` is set in Amplify. thirdweb/gemini/grok remain inert until their adapters + endpoints are provided.

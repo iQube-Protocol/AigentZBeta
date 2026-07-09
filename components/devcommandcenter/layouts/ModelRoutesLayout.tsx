@@ -66,6 +66,16 @@ interface ModelRoutesData {
   registry: RegistryRow[];
 }
 
+interface OperatorModel {
+  id: string;
+  provider: string;
+  model: string;
+  keyEnv: string;
+  keyEnvPresent: boolean;
+  tier: string;
+  createdAt: string;
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
@@ -97,6 +107,46 @@ export function ModelRoutesLayout({
   const [data, setData] = useState<ModelRoutesData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Operator-declared model choices (CFS-015 provider choice as sovereignty).
+  const [declared, setDeclared] = useState<OperatorModel[] | null>(null);
+  const [form, setForm] = useState({ id: "", provider: "", model: "", keyEnv: "" });
+  const [submitState, setSubmitState] = useState<{ busy: boolean; msg: string | null; err: boolean }>({
+    busy: false,
+    msg: null,
+    err: false,
+  });
+
+  const loadDeclared = useCallback(async () => {
+    try {
+      const res = await personaFetchDeadline("/api/constitutional/model-qubes", { cache: "no-store" });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.ok) setDeclared(json.models as OperatorModel[]);
+    } catch {
+      /* non-fatal — the declared section just stays empty */
+    }
+  }, []);
+
+  const submitDeclared = useCallback(async () => {
+    setSubmitState({ busy: true, msg: null, err: false });
+    try {
+      const res = await personaFetchDeadline("/api/constitutional/model-qubes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        setSubmitState({ busy: false, msg: json?.error ?? `HTTP ${res.status}`, err: true });
+        return;
+      }
+      setSubmitState({ busy: false, msg: json.note ?? "Declared.", err: false });
+      setForm({ id: "", provider: "", model: "", keyEnv: "" });
+      void loadDeclared();
+    } catch (err) {
+      setSubmitState({ busy: false, msg: err instanceof Error ? err.message : String(err), err: true });
+    }
+  }, [form, loadDeclared]);
 
   // Latest onToolUsed in a ref so `load` keeps a stable identity (matches the
   // DevToolsLayout pattern — avoids the mount-effect re-fire loop).
@@ -137,7 +187,8 @@ export function ModelRoutesLayout({
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadDeclared();
+  }, [load, loadDeclared]);
 
   const body = (
     <div className="space-y-3">
@@ -328,6 +379,70 @@ export function ModelRoutesLayout({
                 );
               })}
             </div>
+          </Section>
+
+          {/* Operator-declared models (CFS-015 provider choice) — add a model by
+              naming its provider, model id, and the ENV VAR that holds its key
+              (set separately in Amplify). The key VALUE is never entered here. */}
+          <Section title="Declare a model choice (operator)">
+            <div className="grid grid-cols-2 gap-1.5">
+              {([
+                ["id", "id (slug, e.g. openai-gpt-5)"],
+                ["provider", "provider (e.g. openai)"],
+                ["model", "model id (e.g. gpt-5)"],
+                ["keyEnv", "key ENV VAR NAME (e.g. OPENAI_API_KEY)"],
+              ] as const).map(([field, placeholder]) => (
+                <input
+                  key={field}
+                  value={form[field]}
+                  onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void submitDeclared()}
+                disabled={submitState.busy || !form.id || !form.provider || !form.model || !form.keyEnv}
+                className="rounded bg-violet-600/80 px-2.5 py-1 text-[11px] text-white hover:bg-violet-600 disabled:opacity-40"
+              >
+                {submitState.busy ? "Declaring…" : "Declare model"}
+              </button>
+              {submitState.msg && (
+                <span className={`text-[10px] ${submitState.err ? "text-rose-300" : "text-emerald-300"}`}>
+                  {submitState.msg}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-500">
+              The key VALUE is never entered here — only its env var NAME. Set the value in Amplify and
+              redeploy. Declared choices are captured + exportable; live routing merge is a follow-on.
+            </p>
+            {declared && declared.length > 0 && (
+              <div className="mt-1 space-y-1">
+                {declared.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-2 text-[10.5px]">
+                    <span className="text-slate-300 truncate">
+                      {m.provider}
+                      <span className="text-slate-600"> / </span>
+                      <span className="font-mono text-slate-400">{m.model}</span>
+                      <span className="text-slate-600"> · </span>
+                      <span className="font-mono text-slate-500">{m.keyEnv}</span>
+                    </span>
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 border text-[10px] ${
+                        m.keyEnvPresent
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                      }`}
+                    >
+                      {m.keyEnvPresent ? "key present" : "key not set"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </Section>
 
           <div className="text-[10px] text-slate-600">
