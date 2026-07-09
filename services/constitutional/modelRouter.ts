@@ -153,6 +153,79 @@ export async function callStage(
   throw new Error(`[ModelRouter] stage=${stage}: all providers failed — ${errors.join(' | ')}`);
 }
 
+// ─── The sovereign inference entry point (Phase 2 — invariant-intelligent) ───
+//
+// callStage routes the 8 CONSTITUTIONAL PIPELINE stages. Most platform inference
+// is task-shaped (draft, extract, classify, analyse), not a pipeline stage, and
+// today calls providers DIRECTLY — bypassing the ModelQube-governed route and
+// the sovereign fallback ladder. `callSovereign` is the ONE entry point any
+// surface adopts to gain both: a task PURPOSE maps to the constitutionally-fit
+// reasoning stage, so the call inherits the invariant-aware ModelQube route
+// (with its governing invariants) AND the open-weight sovereign fallback —
+// reasoning survives any frontier provider going down.
+//
+// MIGRATION RULE: new reasoning inference goes through callSovereign (or
+// callStage for a genuine pipeline stage). Direct provider/llmDraftHelper calls
+// are the legacy path; migrate them incrementally. Named next targets (single-
+// shot, non-streaming — low risk): services/standing/extractFacts.ts,
+// services/standing/buildStandingGraph.ts, the composer draft routes. The
+// streaming copilot chat routes (app/api/{aa/copilot,copilot/chat,codex/chat})
+// are the higher-risk migration — their own increment, not a rider here.
+
+/** What the inference is FOR — maps to the constitutionally-fit reasoning stage. */
+export type InferencePurpose =
+  | 'extraction'      // pull structured facts from text (cheap, mechanical)
+  | 'classification'  // label / route / select (capability-shaped)
+  | 'draft'           // author prose / an artefact draft
+  | 'analysis'        // consequence-bearing reasoning
+  | 'reasoning'       // general consequence-bearing reasoning
+  | 'validation';     // check / verify a result
+
+/** Purpose → reasoning stage. The stage carries the ModelQube route + its
+ *  governing invariants; a purpose therefore inherits invariant-aware, sovereign
+ *  routing without every caller knowing the stage taxonomy. */
+export const PURPOSE_STAGE: Record<InferencePurpose, ReasoningStage> = {
+  extraction: 'intent',
+  classification: 'capability',
+  draft: 'context',
+  analysis: 'consequence',
+  reasoning: 'consequence',
+  validation: 'validation',
+};
+
+export interface SovereignCallResult extends RoutedCallResult {
+  purpose: InferencePurpose;
+  stage: ReasoningStage;
+  /** The invariants that governed the route (invariant-intelligent inference). */
+  governingInvariants: string[];
+  /** True when the call ran on the open-weight sovereign floor. */
+  sovereignFloor: boolean;
+}
+
+/**
+ * Sovereign, invariant-governed inference for a task PURPOSE. Delegates to
+ * callStage (ModelQube route + sovereign fallback ladder), surfacing the
+ * governing invariants + whether the resolved route is the sovereign floor.
+ * Behaviour = callStage for the mapped stage; additive, never forks the chain.
+ */
+export async function callSovereign(
+  purpose: InferencePurpose,
+  system: string,
+  user: string,
+  maxTokens = 1000,
+): Promise<SovereignCallResult> {
+  const stage = PURPOSE_STAGE[purpose];
+  const route = routeFor(stage);
+  const result = await callStage(stage, system, user, maxTokens);
+  return {
+    ...result,
+    purpose,
+    stage,
+    governingInvariants: route.governingInvariants ?? [],
+    sovereignFloor: route.sovereignFloor ?? false,
+  };
+}
+
 /** Object form of the contract, for injection into pipeline stages. */
 export const modelRouter: ModelRouter = {
   routeFor,
