@@ -216,6 +216,14 @@ const envVars = [
   'LINKEDIN_ENRICH_URL',
   'LINKEDIN_ENRICH_KEY',
   'PROXYCURL_API_KEY',
+  // Dev Command Center (CFS-020 CDE) read-only tool viewports. Set in the
+  // Amplify console but MUST be allowlisted here or they never reach the SSR
+  // runtime (console vars are build-time only) — the GitHub/Linear panes then
+  // read undefined and render "not configured" despite the console showing them.
+  // GITHUB_REPOSITORY is optional (github.ts falls back to iQube-Protocol/AigentZBeta).
+  'GITHUB_TOKEN',
+  'GITHUB_REPOSITORY',
+  'LINEAR_API_KEY',
 ];
 
 let content = '';
