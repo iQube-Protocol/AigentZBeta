@@ -40,6 +40,7 @@ import type {
 } from '@/types/constitutional';
 import { REASONING_STAGES } from '@/types/constitutional';
 import { resolveModelQubeRoute } from '@/services/constitutional/modelQube';
+import { getActiveModelQubes, hydrateModelQubes } from '@/services/constitutional/modelQubeStore';
 
 // Per-stage defaults: cheap/fast models for mechanical stages, stronger
 // models where the reasoning is consequence-bearing. Every id is on the
@@ -81,9 +82,11 @@ export function routeFor(stage: ReasoningStage): StageRoute {
   if (override) return { stage, ...override, source: 'override' };
   // 2. ModelQube-driven route (CFS-015 Phase 2): the routing decision is
   //    constitutional data — object-model-driven, standing-ranked, invariant-
-  //    citing, provider-sovereign. The seed registry mirrors DEFAULT_ROUTES, so
-  //    the target is unchanged today; the mechanism is now invariant-aware.
-  const mq = resolveModelQubeRoute(stage);
+  //    citing, provider-sovereign. Ranks over the ACTIVE set (in-code seed ∪
+  //    hydrated operator-declared qubes) so operator model choices participate
+  //    in routing. Operator qubes carry sub-seed fitness, so the seed defaults
+  //    are unchanged until an operator model is deliberately made to win.
+  const mq = resolveModelQubeRoute(stage, getActiveModelQubes());
   if (mq) {
     return {
       stage,
@@ -112,6 +115,10 @@ export async function callStage(
   maxTokens = 1000,
   temperature = 0,
 ): Promise<RoutedCallResult> {
+  // Freshen the operator-declared qube cache (TTL-throttled, fail-open) BEFORE
+  // routeFor reads the active set — this is the async hydration that lets
+  // DB-declared model choices participate in live routing.
+  await hydrateModelQubes();
   const route = routeFor(stage);
   const attempts: { provider: ConstitutionalProviderId; model?: string }[] = [
     { provider: route.provider, model: route.model },

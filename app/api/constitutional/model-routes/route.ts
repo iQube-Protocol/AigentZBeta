@@ -27,10 +27,8 @@ import {
   PERSONA_TIMEOUT_MESSAGE,
 } from '@/app/api/dev-command-center/_lib/persona';
 import { describeRoutes } from '@/services/constitutional/modelRouter';
-import {
-  CONSTITUTIONAL_MODEL_QUBES,
-  MODEL_ROUTING_INVARIANTS,
-} from '@/services/constitutional/modelQube';
+import { MODEL_ROUTING_INVARIANTS } from '@/services/constitutional/modelQube';
+import { getActiveModelQubes, hydrateModelQubes } from '@/services/constitutional/modelQubeStore';
 import { sovereignNodeConfig } from '@/services/constitutional/sovereignNode';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +45,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
+  // Freshen operator-declared qubes so the registry + routing reflect the DB.
+  await hydrateModelQubes(true);
+
   // Per-stage routing decision — straight from the router's own diagnostics.
   // T2-safe: StageRoute carries only provider/model/source/invariants/floor.
   const stages = describeRoutes().map((r) => ({
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
   // over which the invariant-aware policy ranks. T2-safe projection only: no
   // authority internals, no ownership secrets — id, provider/model, tier,
   // standing band, sovereign-floor flag, per-stage fitness.
-  const registry = CONSTITUTIONAL_MODEL_QUBES.map((q) => ({
+  const registry = getActiveModelQubes().map((q) => ({
     id: q.identity.id,
     ref: q.identity.ref,
     displayLabel: q.identity.displayLabel,

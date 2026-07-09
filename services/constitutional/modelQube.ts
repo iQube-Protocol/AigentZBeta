@@ -263,6 +263,57 @@ export const CONSTITUTIONAL_MODEL_QUBES: readonly ModelQube[] = [
   ),
 ];
 
+// ─── Operator-declared models → ModelQubes (pure mapper) ─────────────────────
+
+/** An operator-declared model choice (from the operator_model_qubes store),
+ *  reduced to the fields the pure mapper needs. `keyEnvPresent` is resolved by
+ *  the store (it reads process.env); this mapper stays pure. */
+export interface OperatorModelDeclaration {
+  id: string;
+  provider: string;
+  model: string;
+  keyEnvPresent: boolean;
+  tier: SovereigntyTier;
+}
+
+/**
+ * Map an operator-declared model to a ModelQube. It is ROUTABLE only if its
+ * provider has a verified adapter (in `routableProviders`) AND its key env is
+ * present AND it names a model; otherwise it enters STUBBED — registry-visible
+ * but filtered out of routing (the same seam the seed stubs use). Routable
+ * operator models get fitness BELOW the seed's (0.25 < 0.3) so they never
+ * displace a seed default. Pure — no DB, no clock, no env read.
+ */
+export function operatorModelToQube(
+  decl: OperatorModelDeclaration,
+  routableProviders: readonly string[],
+): ModelQube {
+  const providerKnown = routableProviders.includes(decl.provider);
+  const routable = providerKnown && decl.keyEnvPresent && decl.model.length > 0;
+  const stubReason = routable
+    ? undefined
+    : !providerKnown
+      ? `provider '${decl.provider}' has no verified adapter`
+      : !decl.keyEnvPresent
+        ? 'key env not set at runtime'
+        : 'model id missing';
+  return modelQube(
+    `operator:${decl.id}`,
+    {
+      provider: decl.provider as ConstitutionalProviderId,
+      model: decl.model,
+      tier: decl.tier,
+      sovereignFloor: false,
+      stubbed: !routable,
+      stubReason,
+      stageFitness: routable
+        ? { intent: 0.25, context: 0.25, capability: 0.25, price: 0.25, consequence: 0.25 }
+        : {},
+    },
+    0.4,
+  );
+}
+
 // ─── The invariant-aware routing policy (pure) ───────────────────────────────
 
 export interface ModelQubeRoute {
