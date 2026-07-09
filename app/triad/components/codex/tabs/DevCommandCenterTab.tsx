@@ -63,7 +63,6 @@ import {
   type StageProposalKind,
 } from "@/services/devCommandCenter";
 import {
-  generateAffordances,
   resolveAutoActable,
   autoActNotice,
   autoActPolicyChangeNotice,
@@ -556,7 +555,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   // and the auto-act loop read below; `observe` appends exactly as before;
   // `groundObservation` carries the three server-contract fields spread into
   // copilotGroundContext.
-  const { events: dcirEvents, observe, groundObservation } = useDcirSeam({
+  const { events: dcirEvents, observe, groundObservation, affordances: liveAffordances } = useDcirSeam({
     surface: "dev-command-center",
     workflowStage: session.stage,
     activeCapsule: activeCapsuleId,
@@ -860,10 +859,11 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   //     pulses, keyed by capsuleScope.
   //   • stageActionLive() supplies the session-state half — suppresses chips
   //     whose stage artifact is done-and-past or contextually irrelevant.
-  const liveAffordances = useMemo(
-    () => generateAffordances(dcirEvents, copilotGroundContext.stateSnapshot),
-    [dcirEvents, copilotGroundContext.stateSnapshot],
-  );
+  // D3 (2026-07-09): `liveAffordances` now comes from the useDcirSeam hook's
+  // single-home `affordances` (generateAffordances over the same events + D2
+  // snapshot) rather than a local call — Extend-Don't-Duplicate. Byte-identical:
+  // the hook derives from groundObservation.stateSnapshot, which is exactly the
+  // snapshot spread into copilotGroundContext here.
   const liveAffordanceScopes = useMemo(
     () => new Set(liveAffordances.map(a => a.capsuleScope)),
     [liveAffordances],

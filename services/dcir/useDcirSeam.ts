@@ -21,13 +21,17 @@
  * their own other fields.
  *
  * OBSERVE-MODE-ONLY (CFS-020 §9, the CFS-017 precedent): this hook owns the
- * event buffer, the `observe` appender, and the compacted ground observation —
- * nothing else. NO affordances, NO auto-act, NO persistence, NO cross-session
- * memory live here. Those are CONSUMERS of `events` (e.g. the Dev Command
- * Center's `generateAffordances` + auto-act loop, aigentMe's intelligent-
- * suggestion gate) and stay on their surfaces reading the same `events` array.
- * The hook never blocks a render, gates an affordance, or mutates the surface
- * it watches.
+ * event buffer, the `observe` appender, the compacted ground observation, and
+ * (D3) the SUGGEST-ONLY affordance derivation — nothing else. NO auto-act, NO
+ * persistence, NO cross-session memory live here. The `affordances` this hook
+ * returns are pure recommendation candidates (services/dcir/affordances.ts):
+ * every one is capsule-scoped (Containment) and the hook NEVER renders, gates,
+ * or executes any of them — activation (a chip click, or the opt-in bounded
+ * auto-act boundaried to the navigation class by `resolveAutoActable`) stays a
+ * CONSUMER concern on each surface, exactly as `events` consumers do (the Dev
+ * Command Center's auto-act loop, aigentMe's intelligent-suggestion gate). The
+ * hook never blocks a render, gates an affordance, or mutates the surface it
+ * watches.
  *
  * Tier discipline: `events` are DcirEvents (T0 inexpressible by the contract,
  * types/dcir.ts); `groundObservation` carries only compacted labels, counts,
@@ -53,6 +57,7 @@ import {
   compactBehaviouralInvariants,
   mineBehaviouralInvariants,
 } from '@/services/dcir/stateEngine';
+import { generateAffordances, type Affordance } from '@/services/dcir/affordances';
 
 /**
  * A surface's declaration of its observation context. `surface` is the stable
@@ -83,6 +88,15 @@ export interface DcirSeam {
   observe: (event: DcirEvent) => void;
   /** The three-field ground observation to spread into copilotGroundContext. */
   groundObservation: DcirGroundObservation;
+  /**
+   * D3 — the SUGGEST-ONLY affordances derived from the observed events + the D2
+   * snapshot (services/dcir/affordances.ts `generateAffordances`). Available by
+   * declaration on every DCIR surface. Each is capsule-scoped and LIVE
+   * (relevance > 0); completed/irrelevant actions are not emitted. The hook does
+   * NOT render, gate, or execute them — a surface renders them capsule-contained
+   * and owns activation (chip click, or the opt-in navigation-only auto-act).
+   */
+  affordances: Affordance[];
 }
 
 /**
@@ -108,5 +122,15 @@ export function useDcirSeam(config: DcirSeamConfig): DcirSeam {
     [events, surface, workflowStage, activeCapsule],
   );
 
-  return { events, observe, groundObservation };
+  // D3 — suggest-only affordances derived from the SAME events + D2 snapshot.
+  // Pure and deterministic; the hook exposes candidates only (no render, no
+  // gate, no execution). Memoized on the snapshot the ground observation already
+  // built, so a surface migrating off its own generateAffordances() call gets a
+  // byte-identical array.
+  const affordances = useMemo<Affordance[]>(
+    () => generateAffordances(events, groundObservation.stateSnapshot),
+    [events, groundObservation.stateSnapshot],
+  );
+
+  return { events, observe, groundObservation, affordances };
 }
