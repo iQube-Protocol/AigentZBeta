@@ -59,6 +59,7 @@ import { renderStateSnapshotLines, DCIR_OBSERVED_PATTERN_LIMIT } from '@/service
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
 import { initializeKnowledge, type KnowledgeManifest } from '@/services/invariants';
 import { resolveOntology, ontologyPromptBlock, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
+import { MODEL_ROUTING_INVARIANTS } from '@/services/constitutional/modelQube';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -684,7 +685,12 @@ function buildProviderAttempts(
     pushAttempt(provider.id, preferredModel);
   }
 
-  for (const fallbackProviderId of ['openai', 'venice', 'anthropic', 'chaingpt'] as RuntimeProviderId[]) {
+  // Sovereign-survivability (CFS-015 principle 4, governed by MODEL_ROUTING_INVARIANTS):
+  // the fallback ladder ALWAYS terminates at the open-weight provider (venice), so
+  // reasoning survives a frontier outage instead of ending on a frontier rung. venice
+  // moves from 2nd to LAST — the requested/primary path above is untouched; only the
+  // last-resort order changes.
+  for (const fallbackProviderId of ['openai', 'anthropic', 'chaingpt', 'venice'] as RuntimeProviderId[]) {
     pushAttempt(fallbackProviderId);
   }
 
@@ -2941,6 +2947,12 @@ export async function POST(request: NextRequest) {
           providerId: executionResult.providerId,
           modelId: executionResult.modelId,
         });
+        // Sovereign-survivability provenance (CFS-015 principle 4): when the
+        // open-weight floor (venice) answered after a frontier rung failed, the
+        // reasoning survived a frontier outage — record the governing invariants.
+        if (executionResult.providerId === 'venice' && attempt !== providerAttempts[0]) {
+          console.warn('[CodexChat] answered on open-weight sovereign floor (venice) — governed by', MODEL_ROUTING_INVARIANTS.join(', '));
+        }
         break;
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
