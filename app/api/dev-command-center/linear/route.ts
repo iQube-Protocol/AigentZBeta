@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
+import { resolvePersonaOrTimeout, PERSONA_TIMEOUT_MESSAGE } from '@/app/api/dev-command-center/_lib/persona';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,8 +43,12 @@ interface LinearIssueNode {
 }
 
 export async function GET(request: NextRequest) {
-  const persona = await getActivePersona(request);
-  if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const pr = await resolvePersonaOrTimeout(request);
+  if (pr.status === 'timeout') {
+    return NextResponse.json({ ok: false, configured: true, error: PERSONA_TIMEOUT_MESSAGE }, { status: 503 });
+  }
+  if (pr.status === 'unauthenticated') return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const persona = pr.persona;
   if (!persona.cartridgeFlags?.isAdmin) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }

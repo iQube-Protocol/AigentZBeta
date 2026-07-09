@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
+import { resolvePersonaOrTimeout, PERSONA_TIMEOUT_MESSAGE } from '@/app/api/dev-command-center/_lib/persona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   parseTerminalCommand,
@@ -51,8 +51,14 @@ const CAT_MAX_LINES = 200;
 
 export async function POST(request: NextRequest) {
   const t0 = Date.now();
-  const persona = await getActivePersona(request);
-  if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const pr = await resolvePersonaOrTimeout(request);
+  if (pr.status === 'timeout') {
+    // Render as normal terminal output (not an HTTP error) so the line prints
+    // in the pane and names the failing layer.
+    return NextResponse.json({ ok: true, lines: [PERSONA_TIMEOUT_MESSAGE] });
+  }
+  if (pr.status === 'unauthenticated') return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const persona = pr.persona;
   if (!persona.cartridgeFlags?.isAdmin) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }

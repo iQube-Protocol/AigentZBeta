@@ -18,7 +18,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
+import { resolvePersonaOrTimeout, PERSONA_TIMEOUT_MESSAGE } from '@/app/api/dev-command-center/_lib/persona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { isDevLoopStage, findForbiddenStateKey } from '@/services/devCommandCenter/devLoop';
 import { recordServerCall } from '@/services/devCommandCenter/requestTelemetry';
@@ -28,8 +28,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const t0 = Date.now();
-  const persona = await getActivePersona(request);
-  if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const pr = await resolvePersonaOrTimeout(request);
+  if (pr.status === 'timeout') return NextResponse.json({ error: PERSONA_TIMEOUT_MESSAGE }, { status: 503 });
+  if (pr.status === 'unauthenticated') return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const persona = pr.persona;
 
   const client = getSupabaseServer();
   if (!client) return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
@@ -56,8 +58,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const persona = await getActivePersona(request);
-  if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const pr = await resolvePersonaOrTimeout(request);
+  if (pr.status === 'timeout') return NextResponse.json({ error: PERSONA_TIMEOUT_MESSAGE }, { status: 503 });
+  if (pr.status === 'unauthenticated') return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const persona = pr.persona;
 
   const client = getSupabaseServer();
   if (!client) return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
