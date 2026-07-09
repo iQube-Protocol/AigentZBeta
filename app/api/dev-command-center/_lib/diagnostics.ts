@@ -95,6 +95,10 @@ export function computeEnvPresence(): EnvPresence[] {
     { name: 'REWARD_HUB_CANISTER_ID', present: has(process.env.REWARD_HUB_CANISTER_ID, process.env.NEXT_PUBLIC_REWARD_HUB_CANISTER_ID) },
     { name: 'ANTHROPIC_API_KEY', present: has(process.env.ANTHROPIC_API_KEY) },
     { name: 'OPENAI_API_KEY', present: has(process.env.OPENAI_API_KEY) },
+    // The other two ROUTABLE model-provider keys (ModelQube registry, CFS-015) —
+    // so the terminal shows all four real providers, not just anthropic/openai.
+    { name: 'VENICE_API_KEY', present: has(process.env.VENICE_API_KEY) },
+    { name: 'CHAINGPT_API_KEY', present: has(process.env.CHAINGPT_API_KEY, process.env.CHAIN_GPT_API_KEY) },
     { name: 'GITHUB_TOKEN', present: has(process.env.GITHUB_TOKEN) },
     { name: 'LINEAR_API_KEY', present: has(process.env.LINEAR_API_KEY) },
   ];
