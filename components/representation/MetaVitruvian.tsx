@@ -629,6 +629,32 @@ function MetaVitruvianFigure({
             rx={pose.head.r * 0.12}
             fill={inkBody}
           />
+
+          {/* Chest compass-star — the metaMe heart-mark. The human carries the
+              constitutional compass (the Bearing Instrument's motif) at their
+              centre: identity is oriented from within. Gold (highlight.principal
+              — the reserved figure). Canonical detail from the standalone
+              metaVitruvian reference. */}
+          {(() => {
+            const chestY = pose.neck.y + (pose.hip.y - pose.neck.y) * 0.34;
+            const cr = S * 0.03;
+            const star = Array.from({ length: 8 }, (_, i) => {
+              const ang = -90 + i * 45;
+              const len = i % 2 === 0 ? cr * 0.92 : cr * 0.42;
+              return polar(pose.cx, chestY, len, ang);
+            });
+            return (
+              <g style={{ transition }}>
+                <circle cx={pose.cx} cy={chestY} r={cr} fill="none" stroke={principal} strokeWidth={S * 0.004} />
+                <polygon
+                  points={star.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill={principal}
+                  opacity={0.9}
+                />
+                <circle cx={pose.cx} cy={chestY} r={cr * 0.16} fill={surfaceRaised} stroke={principal} strokeWidth={S * 0.0025} />
+              </g>
+            );
+          })()}
         </g>
 
         {/* Medallion ring — the mobility-stack domains framing the figure. */}
