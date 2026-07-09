@@ -114,9 +114,8 @@ export const CONSTITUTIONAL_PROVIDERS: ConstitutionalInferenceProvider[] = [
   realAdapter('openai', 'frontier'),
   realAdapter('venice', 'open-weight'),
   realAdapter('chaingpt', 'frontier'),
+  realAdapter('thirdweb', 'frontier'),
   // Stubs — named, never routed until an adapter + verified endpoint land.
-  // thirdweb has keys but no inference adapter/endpoint in the codebase.
-  stubAdapter('thirdweb', 'frontier'),
   stubAdapter('gemini', 'frontier'),
   stubAdapter('grok', 'frontier'),
   stubAdapter('codex', 'frontier'),

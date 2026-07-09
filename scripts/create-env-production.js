@@ -46,6 +46,13 @@ const envVars = [
   'CHAINGPT_API_SECRET',
   'CHAIN_GPT_API_SECRET',
   'CHAINGPT_MODEL',
+  // ── thirdweb Nebula — server-side inference (secret key via x-secret-key) ──
+  // Only these reach the SSR runtime; a key set in Amplify but missing here
+  // never reaches process.env (the GITHUB_TOKEN regression class).
+  'THIRDWEB_SECRET_KEY',
+  'THIRDWEB_CLIENT_ID',
+  'THIRDWEB_NEBULA_URL',
+  'THIRDWEB_MODEL',
   'FIO_API_ENDPOINT',
   'FIO_CHAIN_ID',
   'FIO_SYSTEM_PUBLIC_KEY',

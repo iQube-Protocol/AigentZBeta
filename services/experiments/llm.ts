@@ -10,13 +10,17 @@
  * Server-only.
  */
 
-export type ExperimentProvider = 'anthropic' | 'openai' | 'venice' | 'chaingpt';
+export type ExperimentProvider = 'anthropic' | 'openai' | 'venice' | 'chaingpt' | 'thirdweb';
 
 export const EXPERIMENT_PROVIDERS: Record<ExperimentProvider, { keyEnv: string; model: () => string }> = {
   anthropic: { keyEnv: 'ANTHROPIC_API_KEY', model: () => process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-6' },
   openai: { keyEnv: 'OPENAI_API_KEY', model: () => process.env.OPENAI_DRAFT_MODEL || 'gpt-4o-mini' },
   venice: { keyEnv: 'VENICE_API_KEY', model: () => process.env.VENICE_DRAFT_MODEL || 'llama-3.3-70b' },
   chaingpt: { keyEnv: 'CHAINGPT_API_KEY', model: () => process.env.CHAINGPT_MODEL || 'general_assistant' },
+  // thirdweb Nebula — server-side auth is the SECRET key (x-secret-key header);
+  // the client ID is browser-only. Endpoint is operator-provided via
+  // THIRDWEB_NEBULA_URL (no hardcoded production URL — see callChatWithUsage).
+  thirdweb: { keyEnv: 'THIRDWEB_SECRET_KEY', model: () => process.env.THIRDWEB_MODEL || 'nebula' },
 };
 
 /** ChainGPT accepts four env spellings in production (mirrors the codex chat
@@ -68,6 +72,8 @@ export const EXPERIMENT_MODEL_OPTIONS: Record<ExperimentProvider, { id: string; 
   // The one model value with a verified production call site (the codex chat
   // route's CHAINGPT_MODEL default). Add ids here only with a proven call.
   chaingpt: [{ id: 'general_assistant', label: 'ChainGPT General Assistant (default)' }],
+  // Nebula is thirdweb's single onchain-reasoning model — one allowlisted id.
+  thirdweb: [{ id: 'nebula', label: 'ThirdWeb Nebula (default)' }],
 };
 
 export function isAllowedExperimentModel(provider: ExperimentProvider, model: string): boolean {
@@ -160,6 +166,37 @@ export async function callChatWithUsage(
       // raw streaming text — already captured
     }
     if (!text) throw new Error('chaingpt returned an empty completion');
+    return { text, inputTokens: null, outputTokens: null, model };
+  }
+
+  if (provider === 'thirdweb') {
+    // thirdweb Nebula (AI for onchain). Server-side auth = the SECRET key via the
+    // `x-secret-key` header (the client ID is browser-only). The endpoint is
+    // operator-provided (THIRDWEB_NEBULA_URL) so no production URL is hardcoded
+    // as an immutable fact — the documented Nebula default is overridable. Honest
+    // limits: like chaingpt, no temperature/max_tokens/usage — reported null,
+    // never fabricated. Response parsed DEFENSIVELY (Nebula `.message`, then
+    // OpenAI-compatible + chaingpt-style fallbacks) so a shape mismatch degrades
+    // to the router's next provider instead of producing garbage.
+    const base = process.env.THIRDWEB_NEBULA_URL || 'https://nebula-api.thirdweb.com/chat';
+    const question = [system, `User: ${user}`].filter(Boolean).join('\n\n');
+    const res = await fetchWithTimeout(base, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-secret-key': apiKey },
+      body: JSON.stringify({ message: question, stream: false }),
+    }, 'thirdweb');
+    if (!res.ok) throw new Error(`thirdweb ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const raw = await res.text();
+    let text = raw.trim();
+    try {
+      const data = JSON.parse(raw);
+      if (typeof data?.message === 'string') text = data.message.trim();
+      else if (typeof data?.choices?.[0]?.message?.content === 'string') text = data.choices[0].message.content.trim();
+      else if (typeof data?.data?.bot === 'string') text = data.data.bot.trim();
+    } catch {
+      // raw text response — already captured
+    }
+    if (!text) throw new Error('thirdweb returned an empty completion');
     return { text, inputTokens: null, outputTokens: null, model };
   }
 

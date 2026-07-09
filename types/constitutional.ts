@@ -238,13 +238,13 @@ export interface CanonicalOntologyService {
 // ---------------------------------------------------------------------------
 
 /**
- * Every provider the ModelQube registry can NAME. The first four are ROUTABLE
- * (a verified adapter in services/experiments/llm.ts callChatWithUsage); the
- * rest are STUBS — named in the registry but never routed until an adapter +
- * verified endpoint land (the stubbed ModelQube is filtered out of routing,
- * mirroring the sovereignNode apex seam). thirdweb is a stub because no thirdweb
- * inference adapter or endpoint exists in the codebase yet (No-Guessing: its API
- * shape must be provided before it can be made real).
+ * Every provider the ModelQube registry can NAME. The first five (see
+ * ROUTABLE_PROVIDER_IDS) are ROUTABLE — each has a verified adapter in
+ * services/experiments/llm.ts callChatWithUsage; the rest are STUBS, named in
+ * the registry but never routed until an adapter + verified endpoint land (the
+ * stubbed ModelQube is filtered out of routing, mirroring the sovereignNode apex
+ * seam). gemini and grok are the current stubs (No-Guessing: their API shapes
+ * must be provided before they can be made real).
  */
 export type ConstitutionalProviderId =
   | 'anthropic'
@@ -256,7 +256,7 @@ export type ConstitutionalProviderId =
   | 'grok';
 
 /** The routable subset — every one has a verified callChatWithUsage adapter. */
-export const ROUTABLE_PROVIDER_IDS = ['anthropic', 'openai', 'venice', 'chaingpt'] as const;
+export const ROUTABLE_PROVIDER_IDS = ['anthropic', 'openai', 'venice', 'chaingpt', 'thirdweb'] as const;
 
 export interface StageRoute {
   stage: ReasoningStage;

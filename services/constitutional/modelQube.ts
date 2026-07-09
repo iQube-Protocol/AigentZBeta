@@ -203,23 +203,26 @@ export const CONSTITUTIONAL_MODEL_QUBES: readonly ModelQube[] = [
     },
     0.55,
   ),
-  // ─── Stubs — NAMED in the registry, never routed (filtered below) ──────────
-  // thirdweb has keys but NO inference adapter/endpoint in the codebase; gemini
-  // and grok are operator-requested future slots. Each is inert until an adapter
-  // + verified endpoint land (No-Guessing: the API shape must be provided).
+  // thirdweb Nebula — now ROUTABLE (adapter in callChatWithUsage; server-side
+  // secret-key auth, operator-provided THIRDWEB_NEBULA_URL). Low all-stage
+  // fitness: an eligible alternative, never displaces a frontier default.
   modelQube(
-    'thirdweb-web3-llm',
+    'thirdweb-nebula',
     {
       provider: 'thirdweb',
-      model: '',
+      model: 'nebula',
       tier: 'frontier',
       sovereignFloor: false,
-      stubbed: true,
-      stubReason: 'no thirdweb inference adapter or endpoint in the codebase — provide the API shape to make it routable',
-      stageFitness: {},
+      stageFitness: {
+        intent: 0.3, context: 0.3, capability: 0.3,
+        price: 0.3, consequence: 0.3,
+      },
     },
-    0.2,
+    0.55,
   ),
+  // ─── Stubs — NAMED in the registry, never routed (filtered below) ──────────
+  // gemini and grok are operator-requested future slots — inert until an adapter
+  // + verified endpoint land (No-Guessing: the API shape must be provided).
   modelQube(
     'gemini',
     {

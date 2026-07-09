@@ -197,11 +197,12 @@ describe('Strand-2 capability services (Phase 2 Agent B)', () => {
     );
     const venice = getProvider('venice');
     expect(venice?.kind).toBe('open-weight');
-    // chaingpt is a REAL adapter (implemented), not a stub.
+    // chaingpt + thirdweb are REAL adapters (implemented), not stubs.
     expect(getProvider('chaingpt')?.implemented).toBe(true);
-    // thirdweb/gemini/grok/codex are honest stubs: implemented=false, never available,
+    expect(getProvider('thirdweb')?.implemented).toBe(true);
+    // gemini/grok/codex are honest stubs: implemented=false, never available,
     // and infer() returns { evaluated: false } — never fabricated output.
-    for (const stubId of ['thirdweb', 'gemini', 'grok', 'codex']) {
+    for (const stubId of ['gemini', 'grok', 'codex']) {
       const stub = getProvider(stubId);
       expect(stub?.implemented).toBe(false);
       expect(stub?.available()).toBe(false);
@@ -211,7 +212,7 @@ describe('Strand-2 capability services (Phase 2 Agent B)', () => {
     }
   });
 
-  it('ModelQube registry names 7 providers; thirdweb/gemini/grok are stubs never routed (behaviour preserved)', async () => {
+  it('ModelQube registry names 7 providers; gemini/grok are stubs never routed (behaviour preserved)', async () => {
     const { CONSTITUTIONAL_MODEL_QUBES, resolveModelQubeRoute } = await import(
       '@/services/constitutional/modelQube'
     );
@@ -220,7 +221,7 @@ describe('Strand-2 capability services (Phase 2 Agent B)', () => {
       expect(providers.has(id)).toBe(true);
     }
     const stubs = CONSTITUTIONAL_MODEL_QUBES.filter((q) => q.payload.stubbed);
-    expect(stubs.map((q) => q.payload.provider).sort()).toEqual(['gemini', 'grok', 'thirdweb']);
+    expect(stubs.map((q) => q.payload.provider).sort()).toEqual(['gemini', 'grok']);
     expect(stubs.every((q) => typeof q.payload.stubReason === 'string' && q.payload.stubReason.length > 0)).toBe(true);
     // Behaviour preserved: the frontier defaults still win every stage; a stub is
     // never returned as a route (resolveModelQubeRoute filters stubbed qubes).
