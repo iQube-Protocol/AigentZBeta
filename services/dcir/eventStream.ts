@@ -392,6 +392,68 @@ export function studioPreviewRenderedEvent(device: string): DcirEvent {
   });
 }
 
+// ─── Registry asset-detail typed helpers (CFS-020 D4 frontier, fifth surface) ─
+// The registry asset-detail panel is the first frontier surface adopted beyond
+// the four hand-wired ones (Dev Command Center, aigentMe welcome, studio
+// composer, CCRL research copilot) — the D4 "adopt via useDcirSeam by
+// declaration" recipe applied to a cartridge-adjacent surface. Same observe-mode
+// discipline: each wraps an EXISTING AssetDetailPanel action as a side-effect,
+// nothing blocks a render or gates an affordance. Payloads are kind + short
+// CATEGORY labels (asset class, trust band, agent display name) — NEVER an
+// assetId, personaId, storage URL, or any T0 identifier. capsuleScope is the
+// stable surface scope 'asset-detail' so the D3 generic derivation can surface a
+// "review the asset-detail output" affordance after a validation runs.
+
+/** Operator opened an asset in the detail panel — asset class only. */
+export function registryAssetOpenedEvent(assetClass: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'NavigationOccurred',
+    runtime: 'observation',
+    summary: `registry asset opened: ${assetClass}`,
+    capsuleScope: 'asset-detail',
+  });
+}
+
+/** A validation qube was recomputed for the asset — produced output (review-able). */
+export function registryValidationRunEvent(): DcirEvent {
+  return emitDcirEvent({
+    kind: 'ToolOutputProduced',
+    runtime: 'action',
+    summary: 'registry validation qube computed',
+    capsuleScope: 'asset-detail',
+  });
+}
+
+/** Operator submitted a trust review — requested band only, never the notes. */
+export function registryReviewSubmittedEvent(requestedBand: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'ArtifactApproved',
+    runtime: 'action',
+    summary: `registry review submitted: ${requestedBand}`,
+    capsuleScope: 'asset-detail',
+  });
+}
+
+/** The asset was published to the registry. */
+export function registryAssetPublishedEvent(): DcirEvent {
+  return emitDcirEvent({
+    kind: 'SystemEvent',
+    runtime: 'action',
+    summary: 'registry asset published',
+    capsuleScope: 'asset-detail',
+  });
+}
+
+/** Operator opened the asset copilot — agent display name only (T1-safe). */
+export function registryCopilotOpenedEvent(agentName: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'NavigationOccurred',
+    runtime: 'observation',
+    summary: `registry asset copilot opened: ${agentName}`,
+    capsuleScope: 'asset-detail',
+  });
+}
+
 // ─── Observation seam (ground-context rendering) ────────────────────────────
 
 /**
