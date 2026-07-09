@@ -86,6 +86,9 @@ export const AFFORDANCE_RELEVANCE_OPEN_PENDING = 0.8;
 export const AFFORDANCE_RELEVANCE_PRODUCE_NEXT = 0.7;
 /** A generated implementation pack awaiting a deployment proposal. */
 export const AFFORDANCE_RELEVANCE_RECORD_DEPLOYMENT = 0.6;
+/** A produced output (GENERIC vocabulary) awaiting review on any surface —
+ *  aigentMe specialist consults, studio skill outputs, cartridge docs. */
+export const AFFORDANCE_RELEVANCE_REVIEW_OUTPUT = 0.65;
 
 // ─── The affordance shape ────────────────────────────────────────────────────
 
@@ -189,6 +192,21 @@ function isDeploymentProposed(e: DcirEvent): boolean {
   return e.kind === 'SystemEvent' && e.summary.startsWith('deployment proposed');
 }
 
+/**
+ * GENERIC-vocabulary signal (CFS-020 D3 generic derivation): ANY surface's
+ * produced output — a tool output or a created document — that is NOT one of the
+ * dev-loop-specific events derivations A/B already handle. Keyed on the event
+ * KIND (the operator's universal event vocabulary, types/dcir.ts §1) rather than
+ * the Dev Command Center's summary-prefix dialect, so the same "something to
+ * review" moment fires on aigentMe (specialist consults), the studio composer
+ * (skill outputs / composed experiences), and any future cartridge surface — the
+ * enabling change for D4 adoption beyond the four hand-wired surfaces.
+ */
+function isGenericProducedOutput(e: DcirEvent): boolean {
+  if (e.kind !== 'ToolOutputProduced' && e.kind !== 'DocumentCreated') return false;
+  return !isProposalReceived(e) && !isImplementationPackGenerated(e);
+}
+
 // ─── Small pure utilities (inlined — no cross-module private forks) ──────────
 
 /** Deterministic id-safe token. Inlined (stateEngine's slugify is private and
@@ -254,6 +272,13 @@ function compareAffordances(a: Affordance, b: Affordance): number {
  *   C) mutation — the workflow is on a stage, the most recent decision was a
  *      dismissal, and no fresh proposal has arrived since → "produce the next
  *      proposal". Suggest-only.
+ *   D) navigation (GENERIC vocabulary) — a produced output (ToolOutputProduced /
+ *      DocumentCreated) on ANY surface, in a capsule, with no decision since and
+ *      that capsule not open → "review the <capsule> output". Auto-actable
+ *      (reversible navigation). This is the surface-agnostic derivation that
+ *      makes aigentMe / studio / cartridge surfaces produce affordances without
+ *      the CDE summary dialect; it excludes the events A/B already handle so the
+ *      CDE never double-emits.
  */
 export function generateAffordances(
   events: readonly DcirEvent[],
@@ -309,6 +334,41 @@ export function generateAffordances(
         capsuleScope: 'implementation',
       });
     }
+  }
+
+  // D) Produced output (GENERIC vocabulary) → navigation "review the <capsule>
+  //    output" (auto-actable). Fires for ANY surface's tool output / created
+  //    document, keyed on the event KIND not the CDE summary dialect — the
+  //    enabling derivation for D4 adoption. Excludes the dev events A/B handle;
+  //    skips capsules A already covered (its pending-proposal nav wins) so no
+  //    capsule gets two "open/review" nav affordances. Completion-aware: a
+  //    decision since the latest output — or opening the capsule — clears it.
+  const byOutputCapsule = new Map<string, DcirEvent[]>();
+  events.forEach((e) => {
+    if (!isGenericProducedOutput(e) || !e.capsuleScope) return;
+    const group = byOutputCapsule.get(e.capsuleScope) ?? [];
+    group.push(e);
+    byOutputCapsule.set(e.capsuleScope, group);
+  });
+  for (const capsule of [...byOutputCapsule.keys()].sort()) {
+    if (byCapsule.has(capsule)) continue; // A (pending-proposal nav) is authoritative
+    const group = byOutputCapsule.get(capsule) ?? [];
+    const latest = group[group.length - 1];
+    const latestIndex = events.indexOf(latest);
+    const decidedSince = events.some(
+      (e, i) => i > latestIndex && e.capsuleScope === capsule && isDecision(e),
+    );
+    if (decidedSince) continue;
+    if (activeCapsule === capsule) continue;
+    out.push({
+      id: `aff-review-output-${idSafe(capsule)}`,
+      class: 'navigation',
+      label: `Review the ${capsule} output`,
+      rationale: `New output was produced in ${capsule} and has not been reviewed yet — open the capsule to review it.`,
+      autoActable: true,
+      relevance: AFFORDANCE_RELEVANCE_REVIEW_OUTPUT,
+      capsuleScope: capsule,
+    });
   }
 
   // C) Stalled stage → mutation "produce the next proposal" (suggest-only).

@@ -33,6 +33,9 @@ import {
   devProposalApprovedEvent,
   devImplementationPackGeneratedEvent,
   devDeploymentProposedEvent,
+  aigentMeSpecialistConsultedEvent,
+  aigentMeArtifactSentEvent,
+  studioSkillOutputEvent,
 } from '@/services/dcir/eventStream';
 import { buildStateSnapshot } from '@/services/dcir/stateEngine';
 import type { ConstitutionalStateSnapshot, DcirEvent } from '@/types/dcir';
@@ -159,6 +162,53 @@ describe('DCIR D3 — completion/relevance contract (no pulsating done actions)'
       // only navigation may ever be auto-actable
       expect(a.autoActable).toBe(a.class === 'navigation');
     }
+  });
+});
+
+describe('DCIR D3 — generic-vocabulary derivation (D4-enabling, surface-agnostic)', () => {
+  it('emits a "review output" navigation affordance for a produced output on a NON-CDE surface', () => {
+    // aigentMe specialist consult = ToolOutputProduced in the ask-specialists
+    // capsule — NO dev summary dialect. The generic derivation must still fire.
+    const events = [aigentMeSpecialistConsultedEvent('legal')];
+    const affs = generateAffordances(events, snapshotFor(events));
+    const review = affs.find((a) => a.id === 'aff-review-output-ask-specialists');
+    expect(review).toBeDefined();
+    expect(review?.class).toBe('navigation');
+    expect(review?.autoActable).toBe(true);
+    expect(review?.capsuleScope).toBe('ask-specialists');
+    expect(isAffordanceLive('aff-review-output-ask-specialists', events, snapshotFor(events))).toBe(true);
+  });
+
+  it('fires for a studio skill output too (same generic KIND path)', () => {
+    const events = [studioSkillOutputEvent('image', 'venice')];
+    const affs = generateAffordances(events, snapshotFor(events));
+    expect(affs.some((a) => a.id === 'aff-review-output-production')).toBe(true);
+  });
+
+  it('clears once a decision follows the output (completion-aware, no pulsating)', () => {
+    // Output in the brief capsule, then an artifact sent (ArtifactApproved =
+    // a decision) in the same capsule → the review affordance is no longer live.
+    const events = [
+      emitDcirEvent({ kind: 'DocumentCreated', runtime: 'action', summary: 'draft created', capsuleScope: 'brief' }),
+      aigentMeArtifactSentEvent('email', 'gmail'), // ArtifactApproved, capsuleScope 'brief'
+    ];
+    expect(generateAffordances(events, snapshotFor(events)).some((a) => a.id === 'aff-review-output-brief')).toBe(false);
+  });
+
+  it('suppressed while that capsule is the active one (open == reviewing)', () => {
+    const events = [studioSkillOutputEvent('copy')];
+    const affs = generateAffordances(events, snapshotFor(events, { activeCapsule: 'production' }));
+    expect(affs.some((a) => a.id === 'aff-review-output-production')).toBe(false);
+  });
+
+  it('does NOT double-emit for the CDE — the dev proposal-received event is excluded', () => {
+    // A dev proposal-received (ToolOutputProduced "stage proposal received:") is
+    // handled by derivation A only; the generic derivation must NOT also emit a
+    // review affordance for the same capsule.
+    const events = [devStageProposalReceivedEvent('intent', 'intent')];
+    const affs = generateAffordances(events, snapshotFor(events));
+    expect(affs.some((a) => a.id === 'aff-open-capsule-intent')).toBe(true);
+    expect(affs.some((a) => a.id === 'aff-review-output-intent')).toBe(false);
   });
 });
 
