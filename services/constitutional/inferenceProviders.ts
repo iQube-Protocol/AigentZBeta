@@ -115,9 +115,10 @@ export const CONSTITUTIONAL_PROVIDERS: ConstitutionalInferenceProvider[] = [
   realAdapter('venice', 'open-weight'),
   realAdapter('chaingpt', 'frontier'),
   realAdapter('thirdweb', 'frontier'),
-  // Stubs — named, never routed until an adapter + verified endpoint land.
-  stubAdapter('gemini', 'frontier'),
-  stubAdapter('grok', 'frontier'),
+  realAdapter('grok', 'frontier'),
+  realAdapter('gemini', 'frontier'),
+  realAdapter('groq', 'open-weight'), // Groq serves open-weight Llama models
+  // Stub — the one remaining honest slot (keeps the stub mechanism exercised).
   stubAdapter('codex', 'frontier'),
 ];
 

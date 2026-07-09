@@ -220,34 +220,46 @@ export const CONSTITUTIONAL_MODEL_QUBES: readonly ModelQube[] = [
     },
     0.55,
   ),
-  // ─── Stubs — NAMED in the registry, never routed (filtered below) ──────────
-  // gemini and grok are operator-requested future slots — inert until an adapter
-  // + verified endpoint land (No-Guessing: the API shape must be provided).
+  // xAI Grok (OpenAI-compatible), Google Gemini (generateContent), and Groq
+  // (OpenAI-compatible, open-weight) — now ROUTABLE (adapters in
+  // callChatWithUsage). Low all-stage fitness: eligible alternatives, never
+  // displace a frontier default. Each is inert until its key reaches runtime.
   modelQube(
-    'gemini',
-    {
-      provider: 'gemini',
-      model: '',
-      tier: 'frontier',
-      sovereignFloor: false,
-      stubbed: true,
-      stubReason: 'adapter not implemented — Google Gemini API (not OpenAI-compatible); provide key + endpoint to make it routable',
-      stageFitness: {},
-    },
-    0.2,
-  ),
-  modelQube(
-    'grok',
+    'grok-2',
     {
       provider: 'grok',
-      model: '',
+      model: 'grok-2-latest',
       tier: 'frontier',
       sovereignFloor: false,
-      stubbed: true,
-      stubReason: 'adapter not implemented — xAI Grok API; provide key + endpoint to make it routable',
-      stageFitness: {},
+      stageFitness: { intent: 0.3, context: 0.3, capability: 0.3, price: 0.3, consequence: 0.3 },
     },
-    0.2,
+    0.55,
+  ),
+  modelQube(
+    'gemini-1-5-flash',
+    {
+      provider: 'gemini',
+      model: 'gemini-1.5-flash',
+      tier: 'frontier',
+      sovereignFloor: false,
+      stageFitness: { intent: 0.3, context: 0.3, capability: 0.3, price: 0.3, consequence: 0.3 },
+    },
+    0.55,
+  ),
+  modelQube(
+    'groq-llama-3-3-70b',
+    {
+      provider: 'groq',
+      // Groq serves open-weight Llama — an open-weight-hosted option (S3-class),
+      // but NOT the sovereign floor (venice is the pinned floor). Standing is set
+      // BELOW venice's (0.5) so that when every frontier provider is down, venice
+      // — the pinned sovereignFloor — still wins the open-weight tie-break, not groq.
+      model: 'llama-3.3-70b-versatile',
+      tier: 'open-weight',
+      sovereignFloor: false,
+      stageFitness: { intent: 0.3, context: 0.3, capability: 0.3, price: 0.3, consequence: 0.3 },
+    },
+    0.45,
   ),
 ];
 

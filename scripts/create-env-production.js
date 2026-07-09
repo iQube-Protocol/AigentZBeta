@@ -53,6 +53,18 @@ const envVars = [
   'THIRDWEB_CLIENT_ID',
   'THIRDWEB_NEBULA_URL',
   'THIRDWEB_MODEL',
+  // ── xAI Grok (OpenAI-compatible) — both key spellings accepted by the adapter ──
+  'XAI_API_KEY',
+  'GROK_API_KEY',
+  'XAI_MODEL',
+  'GROK_MODEL',
+  // ── Google Gemini (generateContent) — three key spellings accepted ──
+  'GEMINI_API_KEY',
+  'GOOGLE_AI_API_KEY',
+  'GOOGLE_GENERATIVE_AI_API_KEY',
+  'GEMINI_MODEL',
+  // ── Groq (OpenAI-compatible, open-weight Llama) — GROQ_API_KEY already above ──
+  'GROQ_MODEL',
   'FIO_API_ENDPOINT',
   'FIO_CHAIN_ID',
   'FIO_SYSTEM_PUBLIC_KEY',

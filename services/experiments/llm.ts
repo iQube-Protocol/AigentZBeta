@@ -10,7 +10,15 @@
  * Server-only.
  */
 
-export type ExperimentProvider = 'anthropic' | 'openai' | 'venice' | 'chaingpt' | 'thirdweb';
+export type ExperimentProvider =
+  | 'anthropic'
+  | 'openai'
+  | 'venice'
+  | 'chaingpt'
+  | 'thirdweb'
+  | 'grok'
+  | 'gemini'
+  | 'groq';
 
 export const EXPERIMENT_PROVIDERS: Record<ExperimentProvider, { keyEnv: string; model: () => string }> = {
   anthropic: { keyEnv: 'ANTHROPIC_API_KEY', model: () => process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-6' },
@@ -21,6 +29,12 @@ export const EXPERIMENT_PROVIDERS: Record<ExperimentProvider, { keyEnv: string; 
   // the client ID is browser-only. Endpoint is operator-provided via
   // THIRDWEB_NEBULA_URL (no hardcoded production URL — see callChatWithUsage).
   thirdweb: { keyEnv: 'THIRDWEB_SECRET_KEY', model: () => process.env.THIRDWEB_MODEL || 'nebula' },
+  // xAI Grok — OpenAI-compatible (api.x.ai/v1). Key + model env-overridable.
+  grok: { keyEnv: 'XAI_API_KEY', model: () => process.env.XAI_MODEL || process.env.GROK_MODEL || 'grok-2-latest' },
+  // Google Gemini — NOT OpenAI-compatible (generateContent; custom branch).
+  gemini: { keyEnv: 'GEMINI_API_KEY', model: () => process.env.GEMINI_MODEL || 'gemini-1.5-flash' },
+  // Groq — OpenAI-compatible (api.groq.com/openai/v1), open-weight models.
+  groq: { keyEnv: 'GROQ_API_KEY', model: () => process.env.GROQ_MODEL || 'llama-3.3-70b-versatile' },
 };
 
 /** ChainGPT accepts four env spellings in production (mirrors the codex chat
@@ -35,9 +49,33 @@ function chaingptApiKey(): string | null {
   );
 }
 
+/** xAI Grok — accept the two common env spellings so whichever the operator set
+ *  in Amplify matches (both are allowlisted). */
+function grokApiKey(): string | null {
+  return process.env.XAI_API_KEY || process.env.GROK_API_KEY || null;
+}
+
+/** Gemini — accept the three common Google spellings (all allowlisted). */
+function geminiApiKey(): string | null {
+  return (
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_AI_API_KEY ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+    null
+  );
+}
+
+/** Resolve a provider's key through its spelling-tolerant resolver where one
+ *  exists, else the single configured keyEnv. */
+function resolveApiKey(provider: ExperimentProvider): string | null {
+  if (provider === 'chaingpt') return chaingptApiKey();
+  if (provider === 'grok') return grokApiKey();
+  if (provider === 'gemini') return geminiApiKey();
+  return process.env[EXPERIMENT_PROVIDERS[provider].keyEnv] || null;
+}
+
 export function providerAvailable(provider: ExperimentProvider): boolean {
-  if (provider === 'chaingpt') return Boolean(chaingptApiKey());
-  return Boolean(process.env[EXPERIMENT_PROVIDERS[provider].keyEnv]);
+  return Boolean(resolveApiKey(provider));
 }
 
 /** Type guard: is this provider id one with a verified callChatWithUsage adapter?
@@ -74,6 +112,18 @@ export const EXPERIMENT_MODEL_OPTIONS: Record<ExperimentProvider, { id: string; 
   chaingpt: [{ id: 'general_assistant', label: 'ChainGPT General Assistant (default)' }],
   // Nebula is thirdweb's single onchain-reasoning model — one allowlisted id.
   thirdweb: [{ id: 'nebula', label: 'ThirdWeb Nebula (default)' }],
+  grok: [
+    { id: 'grok-2-latest', label: 'Grok 2 (default)' },
+    { id: 'grok-beta', label: 'Grok Beta' },
+  ],
+  gemini: [
+    { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (default)' },
+    { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+  ],
+  groq: [
+    { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile (default)' },
+    { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant' },
+  ],
 };
 
 export function isAllowedExperimentModel(provider: ExperimentProvider, model: string): boolean {
@@ -126,7 +176,7 @@ export async function callChatWithUsage(
   temperature = 0,
 ): Promise<ChatResult> {
   const conf = EXPERIMENT_PROVIDERS[provider];
-  const apiKey = provider === 'chaingpt' ? chaingptApiKey() : process.env[conf.keyEnv];
+  const apiKey = resolveApiKey(provider);
   if (!apiKey) throw new Error(`${conf.keyEnv} is not configured`);
   if (modelOverride && !isAllowedExperimentModel(provider, modelOverride)) {
     throw new Error(`model '${modelOverride}' is not in the ${provider} experiment allowlist`);
@@ -200,6 +250,35 @@ export async function callChatWithUsage(
     return { text, inputTokens: null, outputTokens: null, model };
   }
 
+  if (provider === 'gemini') {
+    // Google Generative Language API (generateContent) — NOT OpenAI-compatible:
+    // systemInstruction + contents/parts request, candidates response, key as a
+    // ?key= query param. Model env-overridable (GEMINI_MODEL). usageMetadata
+    // gives real token counts. A wrong model/shape degrades to the next provider.
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts: [{ text: user }] }],
+        generationConfig: { temperature, maxOutputTokens: maxTokens },
+      }),
+    }, 'gemini');
+    if (!res.ok) throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const data = await res.json();
+    const text = (data?.candidates?.[0]?.content?.parts ?? [])
+      .map((p: { text?: string }) => p.text ?? '')
+      .join('');
+    if (!text) throw new Error('gemini returned an empty completion');
+    return {
+      text,
+      inputTokens: data?.usageMetadata?.promptTokenCount ?? null,
+      outputTokens: data?.usageMetadata?.candidatesTokenCount ?? null,
+      model,
+    };
+  }
+
   if (provider === 'anthropic') {
     const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -230,10 +309,15 @@ export async function callChatWithUsage(
     };
   }
 
-  const baseUrl =
-    provider === 'venice'
-      ? `${process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1'}`
-      : 'https://api.openai.com/v1';
+  // OpenAI-compatible providers share this one path — only the base URL differs.
+  // grok (xAI) and groq both speak the OpenAI /chat/completions API.
+  const OPENAI_COMPATIBLE_BASE: Partial<Record<ExperimentProvider, string>> = {
+    openai: 'https://api.openai.com/v1',
+    venice: process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1',
+    grok: 'https://api.x.ai/v1',
+    groq: 'https://api.groq.com/openai/v1',
+  };
+  const baseUrl = OPENAI_COMPATIBLE_BASE[provider] || 'https://api.openai.com/v1';
   const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {

@@ -188,53 +188,49 @@ describe('Strand-2 capability services (Phase 2 Agent B)', () => {
     }
   });
 
-  it('inference providers: real anthropic/openai/venice/chaingpt + honest stubs for thirdweb/gemini/grok/codex', async () => {
+  it('inference providers: 8 real adapters + one honest codex stub, venice is open-weight', async () => {
     const { CONSTITUTIONAL_PROVIDERS, getProvider } = await import(
       '@/services/constitutional/inferenceProviders'
     );
     expect(CONSTITUTIONAL_PROVIDERS.map((p: { id: string }) => p.id).sort()).toEqual(
-      ['anthropic', 'chaingpt', 'codex', 'gemini', 'grok', 'openai', 'thirdweb', 'venice'],
+      ['anthropic', 'chaingpt', 'codex', 'gemini', 'grok', 'groq', 'openai', 'thirdweb', 'venice'],
     );
-    const venice = getProvider('venice');
-    expect(venice?.kind).toBe('open-weight');
-    // chaingpt + thirdweb are REAL adapters (implemented), not stubs.
-    expect(getProvider('chaingpt')?.implemented).toBe(true);
-    expect(getProvider('thirdweb')?.implemented).toBe(true);
-    // gemini/grok/codex are honest stubs: implemented=false, never available,
-    // and infer() returns { evaluated: false } — never fabricated output.
-    for (const stubId of ['gemini', 'grok', 'codex']) {
-      const stub = getProvider(stubId);
-      expect(stub?.implemented).toBe(false);
-      expect(stub?.available()).toBe(false);
-      const out = await stub!.infer({ system: 's', user: 'u' });
-      expect(out.evaluated).toBe(false);
-      if (out.evaluated === false) expect(out.reason).toMatch(/not implemented/i);
+    expect(getProvider('venice')?.kind).toBe('open-weight');
+    expect(getProvider('groq')?.kind).toBe('open-weight');
+    // All named providers except codex are REAL adapters (implemented).
+    for (const realId of ['anthropic', 'openai', 'venice', 'chaingpt', 'thirdweb', 'grok', 'gemini', 'groq']) {
+      expect(getProvider(realId)?.implemented).toBe(true);
     }
+    // codex is the one honest stub: implemented=false, never available, and
+    // infer() returns { evaluated: false } — never fabricated output.
+    const codex = getProvider('codex');
+    expect(codex?.implemented).toBe(false);
+    expect(codex?.available()).toBe(false);
+    const out = await codex!.infer({ system: 's', user: 'u' });
+    expect(out.evaluated).toBe(false);
+    if (out.evaluated === false) expect(out.reason).toMatch(/not implemented/i);
   });
 
-  it('ModelQube registry names 7 providers; gemini/grok are stubs never routed (behaviour preserved)', async () => {
+  it('ModelQube registry names all 8 providers, none stubbed; frontier defaults still win (behaviour preserved)', async () => {
     const { CONSTITUTIONAL_MODEL_QUBES, resolveModelQubeRoute } = await import(
       '@/services/constitutional/modelQube'
     );
     const providers = new Set(CONSTITUTIONAL_MODEL_QUBES.map((q) => q.payload.provider));
-    for (const id of ['anthropic', 'openai', 'venice', 'chaingpt', 'thirdweb', 'gemini', 'grok']) {
+    for (const id of ['anthropic', 'openai', 'venice', 'chaingpt', 'thirdweb', 'grok', 'gemini', 'groq']) {
       expect(providers.has(id)).toBe(true);
     }
-    const stubs = CONSTITUTIONAL_MODEL_QUBES.filter((q) => q.payload.stubbed);
-    expect(stubs.map((q) => q.payload.provider).sort()).toEqual(['gemini', 'grok']);
-    expect(stubs.every((q) => typeof q.payload.stubReason === 'string' && q.payload.stubReason.length > 0)).toBe(true);
-    // Behaviour preserved: the frontier defaults still win every stage; a stub is
-    // never returned as a route (resolveModelQubeRoute filters stubbed qubes).
+    // No ModelQube is stubbed now (every provider has a real adapter).
+    expect(CONSTITUTIONAL_MODEL_QUBES.filter((q) => q.payload.stubbed)).toHaveLength(0);
+    // Behaviour preserved: the frontier defaults still win every stage — the new
+    // providers carry low fitness and never displace anthropic/openai.
     const STAGE_DEFAULT: Record<string, string> = {
       intent: 'anthropic', context: 'anthropic', capability: 'openai', risk: 'anthropic',
       value: 'anthropic', price: 'openai', consequence: 'anthropic', validation: 'anthropic',
     };
     for (const [stage, provider] of Object.entries(STAGE_DEFAULT)) {
-      const route = resolveModelQubeRoute(stage as never);
-      expect(route?.provider).toBe(provider);
-      expect(['thirdweb', 'gemini', 'grok']).not.toContain(route?.provider);
+      expect(resolveModelQubeRoute(stage as never)?.provider).toBe(provider);
     }
-    // Sovereignty still holds: frontier-down resolves to the venice floor.
+    // Sovereignty still holds: frontier-down resolves to the venice floor (not groq).
     expect(resolveModelQubeRoute('consequence' as never, undefined, { frontierUnavailable: true })?.provider).toBe('venice');
   });
 

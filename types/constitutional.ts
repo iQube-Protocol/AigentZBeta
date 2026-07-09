@@ -252,11 +252,14 @@ export type ConstitutionalProviderId =
   | 'venice'
   | 'chaingpt'
   | 'thirdweb'
+  | 'grok'
   | 'gemini'
-  | 'grok';
+  | 'groq';
 
 /** The routable subset — every one has a verified callChatWithUsage adapter. */
-export const ROUTABLE_PROVIDER_IDS = ['anthropic', 'openai', 'venice', 'chaingpt', 'thirdweb'] as const;
+export const ROUTABLE_PROVIDER_IDS = [
+  'anthropic', 'openai', 'venice', 'chaingpt', 'thirdweb', 'grok', 'gemini', 'groq',
+] as const;
 
 export interface StageRoute {
   stage: ReasoningStage;
