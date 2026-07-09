@@ -238,3 +238,21 @@ Intent → Experimental CIRS → Invariant Projection → Knowledge Compression
 **The methodological seed.** The programme now embodies the principle it studies: rather than writing the definitive theory before the evidence, it plants a small, carefully-structured experimental framework and lets the theory grow from observation, refinement, and consequence — small coherent invariants propagating into richer, faithful structures. The research architecture mirrors the computational architecture it seeks to discover. (This is compiler construction, not axiomatics: you compile programs, watch failures, refine the compiler, and the optimisation theory emerges — except here the compiler compiles knowledge.)
 
 The programme's question, stated plainly: not *can we make models better?* but **can we make knowledge better** — more coherent, more generative, more explainable.
+
+---
+
+## Amendment — The Independence Protocol & three cognitive roles (Aletheon, 2026-07-09)
+
+*(Methodology decision, relayed + endorsed by operator direction — a correction of a genuine flaw: an earlier draft had the principal investigators hand-author `CIRS-v0.1`. That contaminates the experiment. Substrate: `types/invariantIntelligence.ts` gains `RESEARCH_INTELLIGENCE_ROLES`; `services/experiments/cirs.ts` holds only PROTOCOL (the intent stimuli + an experimental stamping helper), never authored invariant sets; `services/experiments/cirsGenerator.ts` is the generative role; canary `tests/irl-exp001.test.ts` pins the surface + roles.)*
+
+**The PIs must not author the CIRS.** Neither the operator, nor Aletheon, nor this agent may write the reference invariant sets — not because we couldn't, but because doing so seeds the experiment with a bias toward the very theory we hope to discover. The reference set is instead **generated independently, blind to any prior CIRS version.** Independent generation gives diversity of hypotheses; CIRS mutation (`propose · merge · split · retire`) gives convergence. Authoring the answer we then measure against would collapse both into confirmation.
+
+**Selecting the STIMULI is legitimate experimental design; authoring the ANSWERS is not.** `cirs.ts` therefore holds only what is genuinely protocol — `CIRS_INTENTS` (the representative spread of intents to project) and `buildExperimentalCIRSEntry` (a pure stamp marking any set `experimental`/`ratified:false`). It deliberately holds no hand-authored `candidateInvariants`. The removed `CIRS_V0_1` constant was exactly the contamination this protocol forbids; it is gone.
+
+**Three kinds of intelligence, kept separate** (`RESEARCH_INTELLIGENCE_ROLES = ['generative','evaluative','constitutional']`):
+
+- **Generative Intelligence** — *proposes* candidate invariant sets. `cirsGenerator.generateCandidateCIRS` routes each intent through the `draft` purpose (→ `context` stage), blind: the prompt carries only the intent, no prior reference, no evaluator output.
+- **Evaluative Intelligence** — *measures* projection fidelity and *classifies* the Invariant Deltas. `irlExp001.predictInvariantsForIntent` routes through the `classification` purpose (→ `capability` stage), then the pure core scores + classifies.
+- **Constitutional Intelligence** — *decides* what becomes part of the evolving invariant theory. Ratification under Law XI (operator); nothing is `ratified:true` without it.
+
+**Independence is guaranteed by routing, not by promise.** The generator's `draft`/`context` stage and the evaluator's `classification`/`capability` stage resolve to **different providers/models by default** (anthropic-haiku vs openai). The Deltas IRL-EXP-001 records are therefore real cross-model disagreements — not a single model agreeing with itself. `runIrlExp001StageA(cirs)` now **requires** the independently-generated CIRS as an argument; it has no PI-authored default to fall back to.

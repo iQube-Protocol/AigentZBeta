@@ -322,3 +322,28 @@ export interface InvariantDelta {
 export const CIRS_MUTATIONS = ['propose', 'merge', 'split', 'retire'] as const;
 
 export type CIRSMutation = (typeof CIRS_MUTATIONS)[number];
+
+// ---------------------------------------------------------------------------
+// §8 The three research-intelligence roles (Aletheon 2026-07-09)
+// ---------------------------------------------------------------------------
+
+/**
+ * Separation of powers that prevents the programme from becoming self-confirming
+ * (the deepest methodological guard). Three DISTINCT cognitive roles:
+ *
+ *   - `generative`     — PROPOSES candidate invariant sets (produces the CIRS).
+ *   - `evaluative`     — MEASURES projection fidelity + CLASSIFIES Invariant
+ *                        Deltas. It never proposes invariants; it compares.
+ *   - `constitutional` — DECIDES what enters the evolving invariant theory
+ *                        (ratification, Law XI). It never generates or scores.
+ *
+ * The independence protocol that falls out of this (part of the IRL-EXP-001
+ * protocol): the PRINCIPAL INVESTIGATORS do not author the CIRS — a generative
+ * agent does, and it does so BLIND to any prior CIRS version. Independent
+ * generation gives diversity of hypotheses; mutation (`CIRS_MUTATIONS`) gives
+ * convergence. Editing a prior CIRS in place would anchor every version to the
+ * first draft — forbidden by the protocol.
+ */
+export const RESEARCH_INTELLIGENCE_ROLES = ['generative', 'evaluative', 'constitutional'] as const;
+
+export type ResearchIntelligenceRole = (typeof RESEARCH_INTELLIGENCE_ROLES)[number];

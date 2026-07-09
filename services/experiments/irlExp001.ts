@@ -29,7 +29,7 @@
 
 import { callSovereign } from '@/services/constitutional/modelRouter';
 import type { CanonicalInvariantReference, InvariantDelta, InvariantDeltaClass } from '@/types/invariantIntelligence';
-import { CIRS_V0_1, CIRS_VERSION } from '@/services/experiments/cirs';
+import { CIRS_VERSION, parsePredictedLabels } from '@/services/experiments/cirs';
 
 // ─── Pure scoring core (deterministic — no provider, no clock) ───────────────
 
@@ -109,28 +109,6 @@ export async function predictInvariantsForIntent(
   return parsePredictedLabels(result.text);
 }
 
-/** Parse a model completion into a clean label list (lenient — array or lines). */
-export function parsePredictedLabels(text: string): string[] {
-  // Prefer a JSON array anywhere in the completion (tolerating fences/prose).
-  const match = text.match(/\[[\s\S]*\]/);
-  if (match) {
-    try {
-      const arr = JSON.parse(match[0]);
-      if (Array.isArray(arr) && arr.length) {
-        return arr.map((x) => String(x).trim()).filter(Boolean);
-      }
-    } catch {
-      /* fall through to line parsing */
-    }
-  }
-  // Fallback: split on commas / newlines, strip bullets/quotes/brackets.
-  return text
-    .replace(/[[\]"']/g, '')
-    .split(/[,\n]/)
-    .map((s) => s.replace(/^[-*\d.\s]+/, '').trim())
-    .filter((s) => s.length > 0 && s.length < 40);
-}
-
 // ─── Stage A orchestrator ────────────────────────────────────────────────────
 
 export interface IrlExp001IntentResult {
@@ -170,13 +148,16 @@ export function aggregateStageA(results: IrlExp001IntentResult[], cirsVersion: s
 }
 
 /**
- * Run IRL-EXP-001 Stage A over a CIRS (default CIRS-v0.1): predict → score →
- * classify deltas → aggregate. The prediction step is the only impure part; the
- * scoring and deltas are pure. A prediction failure for one intent is recorded
- * as an empty prediction (fidelity 0, all-missing deltas), never masked.
+ * Run IRL-EXP-001 Stage A over an INDEPENDENTLY-GENERATED CIRS: predict → score →
+ * classify deltas → aggregate. The `cirs` is REQUIRED — there is no hand-authored
+ * default (independence protocol, Aletheon 2026-07-09): the reference set must be
+ * produced by the generative role (cirsGenerator.generateCandidateCIRS), blind to
+ * any prior version, never by the PIs. The prediction step is the only impure
+ * part; scoring and deltas are pure. A prediction failure for one intent is
+ * recorded as an empty prediction (fidelity 0, all-missing deltas), never masked.
  */
 export async function runIrlExp001StageA(
-  cirs: CanonicalInvariantReference[] = CIRS_V0_1,
+  cirs: CanonicalInvariantReference[],
 ): Promise<{ results: IrlExp001IntentResult[]; aggregate: IrlExp001Aggregate }> {
   const results: IrlExp001IntentResult[] = [];
   for (const ref of cirs) {

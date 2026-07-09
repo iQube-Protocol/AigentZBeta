@@ -3,9 +3,10 @@
  *
  * Pins the deterministic, provider-free heart of the experiment: projection
  * fidelity (overlap/precision/recall/f1), the structural Invariant Delta
- * classification (missing/redundant), the aggregate, the label parser, and that
- * CIRS-v0.1 is an EXPERIMENTAL instrument (never ratified). The prediction step
- * (callSovereign) is impure and not exercised here.
+ * classification (missing/redundant), the aggregate, the label parser, the CIRS
+ * protocol surface (intents + experimental stamping), and the independence
+ * protocol's three cognitive roles. The prediction + generation steps
+ * (callSovereign) are impure and not exercised here.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -14,9 +15,14 @@ import {
   projectionFidelity,
   classifyStructuralDeltas,
   aggregateStageA,
-  parsePredictedLabels,
 } from '@/services/experiments/irlExp001';
-import { CIRS_V0_1, CIRS_VERSION } from '@/services/experiments/cirs';
+import {
+  CIRS_VERSION,
+  CIRS_INTENTS,
+  buildExperimentalCIRSEntry,
+  parsePredictedLabels,
+} from '@/services/experiments/cirs';
+import { RESEARCH_INTELLIGENCE_ROLES } from '@/types/invariantIntelligence';
 
 describe('IRL-EXP-001 — projection fidelity (pure, deterministic)', () => {
   it('scores overlap / precision / recall / f1 correctly', () => {
@@ -79,15 +85,26 @@ describe('IRL-EXP-001 — aggregate + label parsing', () => {
   });
 });
 
-describe('CIRS-v0.1 — an EXPERIMENTAL instrument, never a gold set', () => {
-  it('every entry is experimental / not ratified / versioned v0.1', () => {
+describe('CIRS — protocol surface (stimuli + experimental stamping), no PI-authored answers', () => {
+  it('CIRS_INTENTS is a non-empty representative spread of intents (the STIMULI only)', () => {
     expect(CIRS_VERSION).toBe('v0.1');
-    expect(CIRS_V0_1.length).toBeGreaterThan(0);
-    for (const ref of CIRS_V0_1) {
-      expect(ref.confidence).toBe('experimental');
-      expect(ref.ratified).toBe(false);
-      expect(ref.version).toBe('v0.1');
-      expect(ref.candidateInvariants.length).toBeGreaterThan(0);
-    }
+    expect(CIRS_INTENTS.length).toBeGreaterThanOrEqual(6);
+    // Protocol holds only the intents to project — never the invariant answers.
+    for (const intent of CIRS_INTENTS) expect(typeof intent).toBe('string');
+  });
+
+  it('buildExperimentalCIRSEntry stamps any generated set as experimental / not ratified', () => {
+    // Simulates the generative role handing an independently-produced set through.
+    const entry = buildExperimentalCIRSEntry('Verify a factual claim', ['evidence', 'provenance']);
+    expect(entry.confidence).toBe('experimental');
+    expect(entry.ratified).toBe(false);
+    expect(entry.version).toBe('v0.1');
+    expect(entry.candidateInvariants).toEqual(['evidence', 'provenance']);
+  });
+});
+
+describe('Independence protocol — three cognitive roles (Aletheon 2026-07-09)', () => {
+  it('separates generative, evaluative, and constitutional intelligence', () => {
+    expect(RESEARCH_INTELLIGENCE_ROLES).toEqual(['generative', 'evaluative', 'constitutional']);
   });
 });
