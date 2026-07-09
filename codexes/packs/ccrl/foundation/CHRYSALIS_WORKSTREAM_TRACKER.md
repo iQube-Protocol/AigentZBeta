@@ -1,11 +1,18 @@
 # Operation Chrysalis — Workstream Tracker
 
-**Living consolidated plan. Single source of truth for what is done, in flight, and pending across the Chrysalis 2.0 / CCRL / DCIR / Constitutional Atlas workstream.** Update as increments land. Last updated 2026-07-09.
+**Living consolidated plan. Single source of truth for what is done, in flight, and pending across the one Chrysalis 2.0 program.** Update as increments land. Last updated 2026-07-09.
 
-Companion specs (authoritative detail lives there; this is the index):
-- `CFS-015` Operation Chrysalis 2.0 PRD · `CFS-019` CCRL charter
-- `CFS-020` DCIR charter (the observation substrate — phase log lives there)
-- `CFS-021` Constitutional Civic Futurism (the representation system + Bearing Instrument)
+**Program of record: `CFS-022` — Operation Chrysalis 2.0: The Constitutional Operating Environment.** That doc is the *why* and the reframe (COE, not IDE) + the five-pillar architecture + the gap assessment + the P0–P4 roadmap; this tracker is the *what-next*. The program folds CCRL / DCIR / Atlas / CDE as workstreams (specs unchanged; roadmap consolidated).
+
+Companion / folded specs (authoritative detail lives there):
+- `CFS-022` COE program of record · `CFS-015` Chrysalis PRD (mission expanded by CFS-022) · `CFS-016` deployment
+- `CFS-019` CCRL charter (Research Lab workstream)
+- `CFS-020` DCIR charter (interaction substrate workstream)
+- `CFS-021` Constitutional Civic Futurism (representation + Bearing Instrument workstream)
+
+## 0. The dependency graph (CFS-022 §2) — the keystone the program turns on
+
+`Chrysalis 2.0 → Constitutional Runtime → Canonical Invariants (done) → Composable Assets (THE MISSING MIDDLE: Object Model + Asset Registry + Composition) → Atlas Plates → Picture Book.` The Atlas is blocked by the missing runtime, not by artwork. Keystone gaps: **G1 Constitutional Object Model** (contract-first, unblocks all) → **G2 Canonical Asset Registry** → **G3 Composition engine** (compose-not-generate) → G4 Publication unification → G5 Workspace/Factory shell. First leverage milestone: **P2 — compose ONE Atlas Plate end-to-end** (proves the machine; the book becomes routine after).
 
 ---
 
