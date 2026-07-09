@@ -65,6 +65,7 @@ export type ConstitutionalObjectKind =
   | 'workflow'
   | 'policy'
   | 'repository'
+  | 'deployment'           // a constitutional deployment (CFS-016) — proposal→authorization→execution as a first-class object; EXECUTION stays human under D1
   | 'atlas_plate';         // a composed Constitutional Atlas Plate (the P2 vertical)
 
 // ─────────────────────────────────────────────────────────────────────────
