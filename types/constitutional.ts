@@ -245,6 +245,13 @@ export interface StageRoute {
   model: string;
   /** Why this route (config source: default | modelqube | override). */
   source: 'default' | 'modelqube' | 'override';
+  /** Phase 2 (ModelQube routing): the invariants that govern the routing
+   *  decision — present when `source === 'modelqube'`. The routing decision is
+   *  constitutional data, not a literal. */
+  governingInvariants?: string[];
+  /** True when the resolved route is the open-weight sovereign floor
+   *  (inv.sovereignty.100/102) — reasoning under full sovereignty. */
+  sovereignFloor?: boolean;
 }
 
 export interface RoutedCallResult {

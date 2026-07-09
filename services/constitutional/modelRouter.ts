@@ -38,6 +38,7 @@ import type {
   StageRoute,
 } from '@/types/constitutional';
 import { REASONING_STAGES } from '@/types/constitutional';
+import { resolveModelQubeRoute } from '@/services/constitutional/modelQube';
 
 // Per-stage defaults: cheap/fast models for mechanical stages, stronger
 // models where the reasoning is consequence-bearing. Every id is on the
@@ -74,8 +75,25 @@ function envOverrideFor(stage: ReasoningStage): { provider: ConstitutionalProvid
 }
 
 export function routeFor(stage: ReasoningStage): StageRoute {
+  // 1. Operator env override — highest precedence, unchanged.
   const override = envOverrideFor(stage);
   if (override) return { stage, ...override, source: 'override' };
+  // 2. ModelQube-driven route (CFS-015 Phase 2): the routing decision is
+  //    constitutional data — object-model-driven, standing-ranked, invariant-
+  //    citing, provider-sovereign. The seed registry mirrors DEFAULT_ROUTES, so
+  //    the target is unchanged today; the mechanism is now invariant-aware.
+  const mq = resolveModelQubeRoute(stage);
+  if (mq) {
+    return {
+      stage,
+      provider: mq.provider,
+      model: mq.model,
+      source: 'modelqube',
+      governingInvariants: mq.governingInvariants,
+      sovereignFloor: mq.sovereignFloor,
+    };
+  }
+  // 3. Literal default — defensive fallback if no ModelQube is fit for a stage.
   const def = DEFAULT_ROUTES[stage];
   return { stage, ...def, source: 'default' };
 }
