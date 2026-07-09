@@ -45,6 +45,8 @@ interface RegistryRow {
   standing: number;
   standingBand: string;
   sovereignFloor: boolean;
+  stubbed?: boolean;
+  stubReason?: string | null;
   stageFitness: Record<string, number>;
 }
 
@@ -269,11 +271,18 @@ export function ModelRoutesLayout({
                 return (
                   <div
                     key={q.id}
-                    className="rounded-md border border-slate-800 bg-slate-900/40 p-2 space-y-1.5"
+                    className={`rounded-md border p-2 space-y-1.5 ${
+                      q.stubbed ? "border-slate-800 bg-slate-900/20 opacity-70" : "border-slate-800 bg-slate-900/40"
+                    }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-slate-200 font-medium truncate">{q.displayLabel}</span>
+                        {q.stubbed && (
+                          <span className="rounded px-1.5 py-0.5 border border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-300">
+                            stub · not routed
+                          </span>
+                        )}
                         {q.sovereignFloor && (
                           <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 border border-emerald-500/30 bg-emerald-500/15 text-[10px] text-emerald-300">
                             <ShieldCheck className="w-3 h-3" /> sovereign floor
@@ -311,6 +320,9 @@ export function ModelRoutesLayout({
                           </span>
                         ))}
                       </div>
+                    )}
+                    {q.stubbed && q.stubReason && (
+                      <div className="text-[10px] text-amber-400/80 italic">{q.stubReason}</div>
                     )}
                   </div>
                 );

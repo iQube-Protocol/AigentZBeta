@@ -36,6 +36,13 @@ export function providerAvailable(provider: ExperimentProvider): boolean {
   return Boolean(process.env[EXPERIMENT_PROVIDERS[provider].keyEnv]);
 }
 
+/** Type guard: is this provider id one with a verified callChatWithUsage adapter?
+ *  The ModelQube registry NAMES more providers (thirdweb/gemini/grok stubs) than
+ *  are routable; the router uses this to refuse to call an unimplemented one. */
+export function isExperimentProvider(id: string): id is ExperimentProvider {
+  return Object.prototype.hasOwnProperty.call(EXPERIMENT_PROVIDERS, id);
+}
+
 /**
  * Per-provider model allowlist for experiment runs — every id here has a real
  * call site or registration elsewhere in the codebase (llmDraftHelper env

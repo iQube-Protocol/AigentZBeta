@@ -72,6 +72,8 @@ export async function GET(request: NextRequest) {
     standing: q.standing.standing,
     standingBand: q.standing.band,
     sovereignFloor: q.payload.sovereignFloor,
+    stubbed: q.payload.stubbed === true,
+    stubReason: q.payload.stubReason ?? null,
     stageFitness: q.payload.stageFitness,
   }));
 

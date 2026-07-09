@@ -27,6 +27,7 @@ import {
   EXPERIMENT_PROVIDERS,
   callChatWithUsage,
   isAllowedExperimentModel,
+  isExperimentProvider,
   providerAvailable,
   type ExperimentProvider,
 } from '@/services/experiments/llm';
@@ -120,6 +121,13 @@ export async function callStage(
   const errors: string[] = [];
   for (let i = 0; i < attempts.length; i += 1) {
     const attempt = attempts[i];
+    // A stubbed provider (thirdweb/gemini/grok) is NAMED in the registry but has
+    // no callChatWithUsage adapter — resolveModelQubeRoute already filters stubs,
+    // so this is a defensive guard the router never actually hits at runtime.
+    if (!isExperimentProvider(attempt.provider)) {
+      errors.push(`${attempt.provider}: not routable (stub — no adapter)`);
+      continue;
+    }
     if (!providerAvailable(attempt.provider)) {
       errors.push(`${attempt.provider}: not configured`);
       continue;

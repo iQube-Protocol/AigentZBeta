@@ -271,11 +271,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 9. Provider interchangeability — honest slot inventory (static truth).
+  // 9. Provider interchangeability — honest slot inventory (static truth). A
+  // "real" adapter is one that reports itself available (a stub's available() is
+  // always false) — stub-generic, so adding thirdweb/gemini/grok/codex stubs
+  // doesn't inflate the live count.
   {
-    const real = CONSTITUTIONAL_PROVIDERS.filter(
-      (p) => p.id !== 'gemini' && p.id !== 'codex',
-    );
+    const real = CONSTITUTIONAL_PROVIDERS.filter((p) => p.implemented);
     const openWeight = CONSTITUTIONAL_PROVIDERS.some((p) => p.kind === 'open-weight');
     criteria.push({
       id: 'provider-interchangeability',

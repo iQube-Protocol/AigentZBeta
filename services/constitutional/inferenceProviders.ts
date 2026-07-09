@@ -40,6 +40,10 @@ export interface ConstitutionalInferenceResult {
 export interface ConstitutionalInferenceProvider {
   id: string;
   kind: 'frontier' | 'open-weight';
+  /** Static truth: does this slot have a real callChatWithUsage adapter? A stub
+   *  is `false` regardless of env — distinct from `available()`, which is
+   *  key-dependent. Consumers count real adapters by this, not by availability. */
+  implemented: boolean;
   available(): boolean;
   infer(
     input: ConstitutionalInferenceInput,
@@ -58,6 +62,7 @@ function realAdapter(
   return {
     id,
     kind,
+    implemented: true,
     available: () => providerAvailable(id),
     async infer(input) {
       try {
@@ -90,6 +95,7 @@ function stubAdapter(id: string, kind: 'frontier' | 'open-weight'): Constitution
   return {
     id,
     kind,
+    implemented: false,
     available: () => false,
     infer: async () => ({
       evaluated: false,
@@ -107,7 +113,12 @@ export const CONSTITUTIONAL_PROVIDERS: ConstitutionalInferenceProvider[] = [
   realAdapter('anthropic', 'frontier'),
   realAdapter('openai', 'frontier'),
   realAdapter('venice', 'open-weight'),
+  realAdapter('chaingpt', 'frontier'),
+  // Stubs — named, never routed until an adapter + verified endpoint land.
+  // thirdweb has keys but no inference adapter/endpoint in the codebase.
+  stubAdapter('thirdweb', 'frontier'),
   stubAdapter('gemini', 'frontier'),
+  stubAdapter('grok', 'frontier'),
   stubAdapter('codex', 'frontier'),
 ];
 

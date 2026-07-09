@@ -188,22 +188,53 @@ describe('Strand-2 capability services (Phase 2 Agent B)', () => {
     }
   });
 
-  it('inference providers: five slots, honest stubs for gemini/codex, venice is open-weight', async () => {
+  it('inference providers: real anthropic/openai/venice/chaingpt + honest stubs for thirdweb/gemini/grok/codex', async () => {
     const { CONSTITUTIONAL_PROVIDERS, getProvider } = await import(
       '@/services/constitutional/inferenceProviders'
     );
     expect(CONSTITUTIONAL_PROVIDERS.map((p: { id: string }) => p.id).sort()).toEqual(
-      ['anthropic', 'codex', 'gemini', 'openai', 'venice'],
+      ['anthropic', 'chaingpt', 'codex', 'gemini', 'grok', 'openai', 'thirdweb', 'venice'],
     );
     const venice = getProvider('venice');
     expect(venice?.kind).toBe('open-weight');
-    for (const stubId of ['gemini', 'codex']) {
+    // chaingpt is a REAL adapter (implemented), not a stub.
+    expect(getProvider('chaingpt')?.implemented).toBe(true);
+    // thirdweb/gemini/grok/codex are honest stubs: implemented=false, never available,
+    // and infer() returns { evaluated: false } — never fabricated output.
+    for (const stubId of ['thirdweb', 'gemini', 'grok', 'codex']) {
       const stub = getProvider(stubId);
+      expect(stub?.implemented).toBe(false);
       expect(stub?.available()).toBe(false);
       const out = await stub!.infer({ system: 's', user: 'u' });
       expect(out.evaluated).toBe(false);
       if (out.evaluated === false) expect(out.reason).toMatch(/not implemented/i);
     }
+  });
+
+  it('ModelQube registry names 7 providers; thirdweb/gemini/grok are stubs never routed (behaviour preserved)', async () => {
+    const { CONSTITUTIONAL_MODEL_QUBES, resolveModelQubeRoute } = await import(
+      '@/services/constitutional/modelQube'
+    );
+    const providers = new Set(CONSTITUTIONAL_MODEL_QUBES.map((q) => q.payload.provider));
+    for (const id of ['anthropic', 'openai', 'venice', 'chaingpt', 'thirdweb', 'gemini', 'grok']) {
+      expect(providers.has(id)).toBe(true);
+    }
+    const stubs = CONSTITUTIONAL_MODEL_QUBES.filter((q) => q.payload.stubbed);
+    expect(stubs.map((q) => q.payload.provider).sort()).toEqual(['gemini', 'grok', 'thirdweb']);
+    expect(stubs.every((q) => typeof q.payload.stubReason === 'string' && q.payload.stubReason.length > 0)).toBe(true);
+    // Behaviour preserved: the frontier defaults still win every stage; a stub is
+    // never returned as a route (resolveModelQubeRoute filters stubbed qubes).
+    const STAGE_DEFAULT: Record<string, string> = {
+      intent: 'anthropic', context: 'anthropic', capability: 'openai', risk: 'anthropic',
+      value: 'anthropic', price: 'openai', consequence: 'anthropic', validation: 'anthropic',
+    };
+    for (const [stage, provider] of Object.entries(STAGE_DEFAULT)) {
+      const route = resolveModelQubeRoute(stage as never);
+      expect(route?.provider).toBe(provider);
+      expect(['thirdweb', 'gemini', 'grok']).not.toContain(route?.provider);
+    }
+    // Sovereignty still holds: frontier-down resolves to the venice floor.
+    expect(resolveModelQubeRoute('consequence' as never, undefined, { frontierUnavailable: true })?.provider).toBe('venice');
   });
 
   it('implementation pack degrades to the honest template when no provider is reachable', async () => {

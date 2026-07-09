@@ -76,6 +76,15 @@ export interface ModelQubePayload {
   tier: SovereigntyTier;
   /** True for the inalienable open-weight sovereign floor (never routed away). */
   sovereignFloor: boolean;
+  /**
+   * True for a NAMED-but-not-routable provider: it appears in the registry
+   * (visible in the Model Routes surface) but is NEVER selected by
+   * `resolveModelQubeRoute` and never reaches the router — inert until an
+   * adapter + verified endpoint land. Mirrors the sovereignNode apex seam.
+   */
+  stubbed?: boolean;
+  /** For a stub, the honest reason it is not yet routable (operator-facing). */
+  stubReason?: string;
   /** Per-stage constitutional fitness (0..1). Absent stage ⇒ not fit. */
   stageFitness: Partial<Record<ReasoningStage, number>>;
 }
@@ -177,6 +186,66 @@ export const CONSTITUTIONAL_MODEL_QUBES: readonly ModelQube[] = [
     },
     0.5,
   ),
+  // ChainGPT — the fifth ROUTABLE provider (verified adapter in
+  // callChatWithUsage). Low all-stage fitness: an eligible alternative in the
+  // registry, but never displaces a fit frontier qube — behaviour-preserving.
+  modelQube(
+    'chaingpt-general-assistant',
+    {
+      provider: 'chaingpt',
+      model: 'general_assistant',
+      tier: 'frontier',
+      sovereignFloor: false,
+      stageFitness: {
+        intent: 0.3, context: 0.3, capability: 0.3,
+        price: 0.3, consequence: 0.3,
+      },
+    },
+    0.55,
+  ),
+  // ─── Stubs — NAMED in the registry, never routed (filtered below) ──────────
+  // thirdweb has keys but NO inference adapter/endpoint in the codebase; gemini
+  // and grok are operator-requested future slots. Each is inert until an adapter
+  // + verified endpoint land (No-Guessing: the API shape must be provided).
+  modelQube(
+    'thirdweb-web3-llm',
+    {
+      provider: 'thirdweb',
+      model: '',
+      tier: 'frontier',
+      sovereignFloor: false,
+      stubbed: true,
+      stubReason: 'no thirdweb inference adapter or endpoint in the codebase — provide the API shape to make it routable',
+      stageFitness: {},
+    },
+    0.2,
+  ),
+  modelQube(
+    'gemini',
+    {
+      provider: 'gemini',
+      model: '',
+      tier: 'frontier',
+      sovereignFloor: false,
+      stubbed: true,
+      stubReason: 'adapter not implemented — Google Gemini API (not OpenAI-compatible); provide key + endpoint to make it routable',
+      stageFitness: {},
+    },
+    0.2,
+  ),
+  modelQube(
+    'grok',
+    {
+      provider: 'grok',
+      model: '',
+      tier: 'frontier',
+      sovereignFloor: false,
+      stubbed: true,
+      stubReason: 'adapter not implemented — xAI Grok API; provide key + endpoint to make it routable',
+      stageFitness: {},
+    },
+    0.2,
+  ),
 ];
 
 // ─── The invariant-aware routing policy (pure) ───────────────────────────────
@@ -208,6 +277,7 @@ export function resolveModelQubeRoute(
   opts: { frontierUnavailable?: boolean } = {},
 ): ModelQubeRoute | null {
   const eligible = qubes.filter((q) => {
+    if (q.payload.stubbed) return false; // named-but-not-routable — never a route
     if (opts.frontierUnavailable && q.payload.tier === 'frontier') return false;
     const fit = q.payload.stageFitness[stage];
     return typeof fit === 'number' && fit > 0;
