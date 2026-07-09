@@ -192,3 +192,26 @@ Law XI applies in full: **CRP-002 proposes; human constitutional authority ratif
 - The three research questions are **stated, not yet answered.** IRL-EXP-001/002/003 are designed-and-open; the cross-modal reuse result (IRL-EXP-003) has a suggestive prior observation, not a measured claim.
 - "KnowledgeQube" is named as the executable compressed-knowledge object; its assembly/versioning contract is WP3's deliverable, not asserted here.
 - No runtime is built by this charter. Phase 3 (the live Intent Engine) is gated on Phase 2 findings — the programme measures the thesis before the platform depends on it.
+
+---
+
+## Amendment — Aletheon review integrated (2026-07-09)
+
+*(Framing + design review by Aletheon, the operator's co-agent, relayed and endorsed by operator direction. Integrated as a charter amendment, not a redesign. Machine-readable substrate: `types/invariantIntelligence.ts` gains `INVARIANT_INTELLIGENCE_WORKSTREAMS` (WP0 added), `CanonicalInvariantReference`/`CIRSConfidence`, `ProjectionRule`, `IRL_EXP002_ARMS`, `PROPAGATION_MODALITIES`; canary `tests/invariant-intelligence.test.ts` pins them.)*
+
+**1. The reference is the CIRS, not a "gold set."** "Gold set" implies the truth is already discovered — it is not; the programme exists to discover it. The reference IRL-EXP-001 judges against is the **Canonical Invariant Reference Set (CIRS)** — versioned and cumulative (`CIRS-v0.1` `experimental`/`ratified:false` → `CIRS-v1.0` `ratified:true` on operator ratification, Law XI). The science is explicit about what is still experimental vs ratified.
+
+**2. IRL-EXP-001 is two-stage — renamed *Intent → Invariant Projection Fidelity*.** The rename reinforces the thesis: intent projects into invariant SPACE, it does not retrieve documents.
+   - **Stage A — prediction fidelity:** `Intent → predicted invariants → compare to the CIRS`. Metrics: overlap, precision, recall, semantic similarity.
+   - **Stage B — downstream reasoning quality:** generate outputs from BOTH invariant sets (predicted + CIRS), blind-review them. Metrics: coherence, consistency, completeness, token usage, hallucination rate, human preference. This matters because **two different invariant sets may produce equivalent — or better — reasoning**; the real hypothesis is not "can we predict the invariant?" but "does the predicted invariant produce superior downstream reasoning?"
+
+**3. IRL-EXP-002 is a FOUR-arm comparison** (`IRL_EXP002_ARMS`), not two — the honest bar is beating our OWN best architecture, not just naïve RAG:
+   `large-context` (dump everything, no retrieval) → `naive-rag` (top-k embedding) → `existing-kb` (the platform's production retrieval — **the intellectually honest bar**) → `invariant-runtime` (experimental). *If it does not outperform our own runtime, the hypothesis is not yet validated* — and we say so.
+
+**4. Propagation Fidelity — a new primary metric (and the object of IRL-EXP-003).** *The degree to which downstream artifacts preserve the intended invariant set across modalities.* Generate across `PROPAGATION_MODALITIES` (article · story · image · ux · prd) from ONE invariant set, then ask blind reviewers to **reconstruct the original set**; high reconstructability = high propagation fidelity. This formalises the 2026-07-08 cross-modal observation into a benchmark.
+
+**5. WP0 — Invariant Theory, added before Intent Science.** Until we define what an invariant IS, we cannot rigorously discover them. Research questions: *What is an invariant? What makes something invariant? How do invariants compose? How do they conflict? Can they be hierarchical? Are they domain-independent?* The workstream ladder is now **WP0 Invariant Theory → WP1 Intent Science → WP2 Invariant Discovery → WP3 Knowledge Compression → WP4 Invariant Runtime** (`INVARIANT_INTELLIGENCE_WORKSTREAMS`).
+
+**6. Projection Rule — a typed object that becomes central.** The runtime does not merely retrieve an invariant; it retrieves an invariant AND a **projection rule** (a rendering strategy). `Invariant → Projection Rule → Projection`. The SAME invariant renders differently under a different rule — *teach a child* → `[concrete, narrative, simple]`; *scientific paper* → `[formal, cited, analytical]` — the invariant unchanged, only the projection. Pinned as `ProjectionRule`; it becomes load-bearing in Phase 3.
+
+**7. The strategic re-centre.** Yesterday the presumed breakthrough was Knowledge Compression. After Phase 1, the deeper breakthrough may be **Intent Science**: Knowledge Compression tells us HOW to construct the reasoning substrate; Intent Science determines WHICH substrate should exist in the first place. So the intellectual stack settles as: **Invariant Intelligence** (the overarching discipline) → **Intent Science** (the entry point — which substrate) → **Knowledge Compression** (one mechanism — how to build it) → the runtime. This is Computational Epistemology proper: *how should knowledge be represented so that intelligence can reason faithfully?* — a foundational AI question, not an application one.

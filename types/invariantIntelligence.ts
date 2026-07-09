@@ -150,3 +150,105 @@ export const CANDIDATE_INTENT_BIAS: Record<IntentPrimitive, InvariantConcernClas
 export function candidateIntentBias(primitive: string): InvariantConcernClass[] {
   return (CANDIDATE_INTENT_BIAS as Record<string, InvariantConcernClass[]>)[primitive] ?? [];
 }
+
+// ---------------------------------------------------------------------------
+// §3 The work packages (CRP-002 + Aletheon amendment 2026-07-09) — WP0 added
+// ---------------------------------------------------------------------------
+
+/**
+ * The programme's work packages, order-pinned. WP0 (Invariant Theory) is added
+ * BEFORE Intent Science: until we define what an invariant IS — what makes
+ * something invariant, how invariants compose/conflict, whether they are
+ * hierarchical or domain-independent — we cannot rigorously discover them. The
+ * strategic centre (Aletheon, 2026-07-09): Intent Science determines WHICH
+ * reasoning substrate should exist; Knowledge Compression is one MECHANISM for
+ * constructing it. Invariant Intelligence is the overarching discipline.
+ */
+export const INVARIANT_INTELLIGENCE_WORKSTREAMS = [
+  'wp0-invariant-theory',
+  'wp1-intent-science',
+  'wp2-invariant-discovery',
+  'wp3-knowledge-compression',
+  'wp4-invariant-runtime',
+] as const;
+
+export type InvariantIntelligenceWorkstream = (typeof INVARIANT_INTELLIGENCE_WORKSTREAMS)[number];
+
+// ---------------------------------------------------------------------------
+// §4 Canonical Invariant Reference Set (CIRS) — the VERSIONED reference
+// ---------------------------------------------------------------------------
+
+/**
+ * The reference IRL-EXP-001 Stage A judges predictions against — NOT a "gold
+ * set" (that implies the truth is already discovered). It is the Canonical
+ * Invariant Reference Set: versioned and cumulative, so the science is explicit
+ * about what is still experimental vs ratified. A reference stays `experimental`
+ * (confidence) / `ratified: false` until operator ratification (Law XI) promotes
+ * it to `ratified` / `v1.0`.
+ */
+export type CIRSConfidence = 'experimental' | 'ratified';
+
+export interface CanonicalInvariantReference {
+  /** The intent (a primitive, or a natural-language intent phrase). */
+  intent: string;
+  /** The reference invariant set for this intent (concern classes or invariant refs). */
+  candidateInvariants: string[];
+  /** Experimental until ratified — never defaulted to ratified. */
+  confidence: CIRSConfidence;
+  /** Cumulative version, e.g. 'v0.1' (experimental) → 'v1.0' (ratified). */
+  version: string;
+  /** True iff operator-ratified (Law XI). `confidence === 'ratified'` iff this. */
+  ratified: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// §5 Projection Rule — invariant → projection rule → projection
+// ---------------------------------------------------------------------------
+
+/**
+ * The architectural distinction Aletheon flagged (2026-07-09): the runtime does
+ * not merely retrieve invariants — it retrieves an invariant AND a PROJECTION
+ * RULE (a strategy for rendering it). The SAME invariant renders differently
+ * under a different projection rule; the invariant does not change, only the
+ * projection. E.g. intent "teach a child" → style [concrete, narrative, simple];
+ * intent "scientific paper" → style [formal, cited, analytical]. This becomes
+ * central in Phase 3 (the Intent Engine); pinned here as the typed seam.
+ */
+export interface ProjectionRule {
+  /** The rendering strategy — style axes applied to the invariant, not the
+   *  invariant itself. */
+  style: string[];
+  /** The intent this projection rule serves (optional at the contract layer). */
+  intent?: IntentPrimitive | null;
+}
+
+// ---------------------------------------------------------------------------
+// §6 Founding Validation Series — measurement contracts (CRP-002 §5 + amendment)
+// ---------------------------------------------------------------------------
+
+/**
+ * IRL-EXP-002 (Reasoning Entropy Reduction) is a FOUR-arm comparison, not two
+ * (Aletheon, 2026-07-09). The point is not "does it beat naïve RAG" (easy) but
+ * "does it beat our OWN best existing architecture" — the intellectually honest
+ * bar. Order is the comparison ladder from least to most engineered baseline,
+ * ending at the experimental arm.
+ */
+export const IRL_EXP002_ARMS = [
+  'large-context', // dump everything, no retrieval
+  'naive-rag', // top-k embedding retrieval
+  'existing-kb', // the platform's production KB retrieval (the honest bar)
+  'invariant-runtime', // the experimental arm
+] as const;
+
+export type IRLExp002Arm = (typeof IRL_EXP002_ARMS)[number];
+
+/**
+ * Propagation Fidelity (Aletheon, 2026-07-09) — a primary metric and the object
+ * of IRL-EXP-003: the degree to which downstream artifacts preserve the intended
+ * invariant set ACROSS MODALITIES. Generate across these modalities from ONE
+ * invariant set, then ask blind reviewers to reconstruct the original set; high
+ * reconstructability = high propagation fidelity. A new benchmark.
+ */
+export const PROPAGATION_MODALITIES = ['article', 'story', 'image', 'ux', 'prd'] as const;
+
+export type PropagationModality = (typeof PROPAGATION_MODALITIES)[number];

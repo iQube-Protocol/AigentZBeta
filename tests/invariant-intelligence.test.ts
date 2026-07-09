@@ -19,6 +19,9 @@ import {
   INVARIANT_CONCERN_CLASSES,
   CANDIDATE_INTENT_BIAS,
   candidateIntentBias,
+  INVARIANT_INTELLIGENCE_WORKSTREAMS,
+  IRL_EXP002_ARMS,
+  PROPAGATION_MODALITIES,
 } from '@/types/invariantIntelligence';
 
 describe('CRP-002 §2 — the reframed iQube pipeline (order pinned)', () => {
@@ -90,5 +93,40 @@ describe('CRP-002 §3 — the intent grammar (candidate hypothesis; structure pi
   it('candidateIntentBias is a hypothesis surface (empty for an unknown intent)', () => {
     expect(candidateIntentBias('govern')).toContain('governance');
     expect(candidateIntentBias('not-an-intent')).toEqual([]);
+  });
+});
+
+describe('CRP-002 Aletheon amendment (2026-07-09) — WP0, four-arm EXP-002, propagation', () => {
+  it('adds WP0 Invariant Theory before Intent Science (order pinned)', () => {
+    expect([...INVARIANT_INTELLIGENCE_WORKSTREAMS]).toEqual([
+      'wp0-invariant-theory',
+      'wp1-intent-science',
+      'wp2-invariant-discovery',
+      'wp3-knowledge-compression',
+      'wp4-invariant-runtime',
+    ]);
+    // WP0 comes strictly before Intent Science — you must define invariants
+    // before you can rigorously discover them.
+    expect(INVARIANT_INTELLIGENCE_WORKSTREAMS.indexOf('wp0-invariant-theory')).toBeLessThan(
+      INVARIANT_INTELLIGENCE_WORKSTREAMS.indexOf('wp1-intent-science'),
+    );
+  });
+
+  it('IRL-EXP-002 is a FOUR-arm ladder ending at the invariant runtime (existing-kb is the honest bar)', () => {
+    expect([...IRL_EXP002_ARMS]).toEqual([
+      'large-context',
+      'naive-rag',
+      'existing-kb',
+      'invariant-runtime',
+    ]);
+    expect(IRL_EXP002_ARMS[IRL_EXP002_ARMS.length - 1]).toBe('invariant-runtime');
+    // the honest bar (our own production retrieval) precedes the experimental arm
+    expect(IRL_EXP002_ARMS.indexOf('existing-kb')).toBeLessThan(
+      IRL_EXP002_ARMS.indexOf('invariant-runtime'),
+    );
+  });
+
+  it('Propagation Fidelity spans the named cross-modal set', () => {
+    expect([...PROPAGATION_MODALITIES]).toEqual(['article', 'story', 'image', 'ux', 'prd']);
   });
 });
