@@ -1,6 +1,6 @@
 {
   "name": "CCRL — Constitutional Cybernetics Research Laboratory",
-  "description": "The constitutional research corpus of metaMe IRL — the Chrysalis Foundation specification bundle (CFS-000..022, CRP-001 + CRP-002 Invariant Intelligence programme charter, glossary, seed crystal, Appendix A) and the Foundational Validation Series experiments (EXP-001..003 protocols, articles, results).",
+  "description": "The constitutional research corpus of metaMe IRL — the Chrysalis Foundation specification bundle (CFS-000..023 incl. CFS-023 Chrysalis Homecoming, CRP-001 + CRP-002 Invariant Intelligence programme charter, glossary, seed crystal, Appendix A) and the Foundational Validation Series experiments (EXP-001..003 protocols, articles, results).",
   "collections": [
     {
       "id": "col_foundation",
@@ -40,6 +40,7 @@
         "foundation/CFS-022_constitutional-operating-environment.md",
         "foundation/CFS-022a_canonical-asset-registry-design.md",
         "foundation/CFS-022b_composition-engine-design.md",
+        "foundation/CFS-023_chrysalis-homecoming.md",
         "foundation/CHRYSALIS_WORKSTREAM_TRACKER.md",
         "foundation/appendix-a_canonical-invariants.md"
       ]

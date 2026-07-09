@@ -11,7 +11,7 @@
  */
 
 import React, { Suspense, useState } from "react";
-import { Beaker, Clapperboard, FileText, Scale, ShieldCheck } from "lucide-react";
+import { Beaker, Clapperboard, FileText, Home, Scale, ShieldCheck } from "lucide-react";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
 import Exp001EvaluationRunner from "./Exp001EvaluationRunner";
 import Exp003RediscoveryRunner from "./Exp003RediscoveryRunner";
@@ -20,8 +20,9 @@ import ExperimentReportTab from "./ExperimentReportTab";
 import Exp004SovereigntyRunner from "./Exp004SovereigntyRunner";
 import Exp005ProviderChoiceRunner from "./Exp005ProviderChoiceRunner";
 import ChrysalisTestTab from "./ChrysalisTestTab";
+import HomecomingTestTab from "./HomecomingTestTab";
 
-type LabTab = "video" | "bundle" | "rediscovery" | "sovereignty" | "provider-choice" | "results" | "report" | "chrysalis";
+type LabTab = "video" | "bundle" | "rediscovery" | "sovereignty" | "provider-choice" | "results" | "report" | "chrysalis" | "homecoming";
 
 const TABS: { id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "video", label: "EXP-002 · Video", icon: Clapperboard },
@@ -32,6 +33,7 @@ const TABS: { id: LabTab; label: string; icon: React.ComponentType<{ className?:
   { id: "results", label: "Results · Canonical", icon: ShieldCheck },
   { id: "report", label: "Report", icon: FileText },
   { id: "chrysalis", label: "Chrysalis Test", icon: ShieldCheck },
+  { id: "homecoming", label: "Homecoming Test", icon: Home },
 ];
 
 export default function InvariantExperimentLab() {
