@@ -119,7 +119,18 @@ The living index of concrete tasks is `CHRYSALIS_WORKSTREAM_TRACKER.md` (this do
 - **Composition is compose-first, not generation-banned.** Genuinely novel content is still generated; the discipline is *retrieve canonical, generate only the novel delta* — the `inv.composition.*` invariants that formalise it are proposed through CCRL governance, not asserted here.
 - **No contracts were merged.** CCRL/DCIR/Atlas/CFS-016 keep their invariants and ratification cadence; this document consolidates sequencing only.
 
+## P0 delivered — the Constitutional Object Model contract (2026-07-09)
+
+The keystone (G1) is built contract-first: `types/constitutionalObject.ts` + `tests/constitutional-object.test.ts`. It is a UNIFICATION of the object shapes that already exist (invariants.ts version/standing/reach/status/provenance; research.ts lifecycle + governingInvariants; access.ts T0/T1/T2 tiers; iqube provenance_receipts/charter_version), not an invention. Every constitutional object — an Atlas Plate, an InvariantQube, a research finding, a repository — now shares one spine:
+
+- **Eight facets on every object**: `identity` (T2-safe `ref`, never a subject id) · `version` (monotonic + supersession) · `standing` (0..1 score + the CFS-021 `experimental→validated→canonical→foundational` band + Law XII Reach) · `authority` (governingInvariants, `ratificationRequired`, `minStandingToCompose`) · `ownership` (T2 commitment ONLY) · `provenance` (receipt ids + content commitment + `composedFrom` — the compose-not-generate audit trail) · `lifecycle` (kind-supplied ordered states) · `dependencies` (object refs).
+- **`ConstitutionalObjectKind`** is an open union (invariant, representation_asset, canonical_asset, research_*, publication, iqube, specification, document, skill, aigent, workflow, policy, repository, atlas_plate) — a new organ adds its kind + lifecycle order in the increment that builds it.
+- **Pure helpers** (isomorphic, canary-pinned): `objectRef`, `standingBandFor`, `bandAtLeast` (the compose floor), `isLegalObjectTransition` (one-step-forward-or-re-enter — the research/dev-loop rule, not forked).
+- **T0 inexpressibility**: `FORBIDDEN_OBJECT_KEYS` + `findForbiddenObjectKey` deep-scan (any casing/nesting) make a personaId/authProfileId/rootDid/fioHandle/kybeAttestation leak a build failure, not merely a rule. 12/12 helper drills green.
+
+No implementation, no storage — contract only. P1 (Canonical Asset Registry) registers the first real objects onto this contract; P2 (Composition) records `provenance.composedFrom` when it assembles a plate.
+
 ## Ratification record
 
-- [ ] **P0 (this program-of-record + Constitutional Object Model contract) — AUTHORED 2026-07-09**, awaiting operator ratification. On ratification: the reframe (COE, not IDE) becomes canon; the Object Model contract (`types/constitutionalObject.ts`) is built contract-first (types + canaries, no implementation); CCRL/DCIR/Atlas/CDE are recorded as workstreams of the one program.
+- [x] **P0 (this program-of-record + Constitutional Object Model contract) — RATIFIED + DELIVERED 2026-07-09.** The operator ratified the reframe (COE, not IDE) and the program; the Object Model contract shipped contract-first (`types/constitutionalObject.ts` + canaries, no implementation). CCRL/DCIR/Atlas/CDE are recorded as workstreams of the one program (§7). P1 and P2 design specs (`CFS-022a` Canonical Asset Registry, `CFS-022b` Composition engine) are being authored in parallel to de-risk the next builds.
 - [ ] P1–P4 — each ratified before build.
