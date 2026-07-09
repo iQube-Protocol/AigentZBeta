@@ -51,7 +51,7 @@ interface TaskRow {
 
 // Bundle components a COMPLETED run measures (CFS-018 · pinned in
 // services/experiments/exp005.ts and its canary). open-weight-participation
-// is added when venice rides the rotation — participation, never the S3 apex.
+// is added when venice rides the rotation — participation, never the S3 rung.
 const BUNDLE_BASE = [
   "provider-interchangeability",
   "provider-choice-exercised",

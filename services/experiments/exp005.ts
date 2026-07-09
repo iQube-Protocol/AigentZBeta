@@ -235,9 +235,9 @@ export function exp005BundleComponentsForRun(
 }
 
 /** The Sovereignty Scale rung a completed run measures: S2 (substitutable)
- * EXERCISED mid-battery. Never S3 — open-weight independence (the apex) is
- * EXP-004's claim; venice in the rotation is participation, not the apex.
- * null when constitutional operation did not complete. Pure. */
+ * EXERCISED mid-battery. Never S3 — open-weight independence (the S3 rung; the
+ * apex tiers S4/S5 are higher still) is EXP-004's claim; venice in the rotation
+ * is participation, not S3. null when constitutional operation did not complete. Pure. */
 export function exp005RungForRun(completed: boolean): 's2-substitutable' | null {
   return completed ? 's2-substitutable' : null;
 }

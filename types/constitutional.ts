@@ -392,22 +392,36 @@ export const CHRYSALIS_CRITERIA_IDS = [
 ] as const;
 
 /**
- * The Sovereignty Scale (operator refinement, 2026-07-06): sovereignty is
- * operator CONTROL over the intelligence supply — a scale, not a boolean.
- * Its essence is the ability to choose and switch providers free of
- * commercial or platform lock-in (S1); open weights are its maximum (S3).
+ * The Sovereignty Scale (operator refinement, 2026-07-06; apex recalibration
+ * 2026-07-09): sovereignty is operator CONTROL over the supply AND SUBSTRATE of
+ * intelligence — a scale, not a boolean. Its essence is the ability to choose
+ * and switch providers free of commercial or platform lock-in (S1). Open weights
+ * on THIRD-PARTY hosting (venice) reach S3 — NOT the maximum: the apex is
+ * hosting sovereignty, first of the MODEL (S4), then of the WHOLE PLATFORM (S5).
  * Order is meaning — pinned by canary. Glossary: "Sovereignty Scale".
  *
- *   s0-dependent        single-provider lock-in — no sovereignty
- *   s1-interchangeable  operator chooses/switches providers, no lock-in (the essence)
- *   s2-substitutable    validated substitutes complete the constitutional battery
- *   s3-open-weight      open-weight carries constitutional operation (maximum control)
+ * Rungs s0–s4 grade the INTELLIGENCE SUPPLY (provider + model + model-hosting);
+ * s5 grades the PLATFORM SUBSTRATE (storage, execution, hosting) — a distinct
+ * infrastructure-agency dimension (inv.sovereignty.104/105) that represents
+ * TOTAL sovereignty and thus nests above s4 (a sovereign platform hosts the
+ * sovereign model). s4 is newly measurable via the self-hosted node seam
+ * (services/constitutional/sovereignNode.ts); s5 is a Chrysalis 3.0 horizon,
+ * referenced here so the scale can grow into it — not yet measurable.
+ *
+ *   s0-dependent          single-provider lock-in — no sovereignty
+ *   s1-interchangeable    operator chooses/switches providers, no lock-in (the essence)
+ *   s2-substitutable      validated substitutes complete the constitutional battery
+ *   s3-open-weight        open-weight model carries constitutional operation (open weights, THIRD-PARTY hosted)
+ *   s4-self-hosted        APEX MODEL sovereignty — open-weight on our OWN decentralised infra (weights + model-hosting sovereign)
+ *   s5-sovereign-platform APEX PLATFORM sovereignty — the WHOLE platform on sovereign infra, not just the model (Chrysalis 3.0; not yet measurable)
  */
 export const SOVEREIGNTY_SCALE = [
   's0-dependent',
   's1-interchangeable',
   's2-substitutable',
   's3-open-weight',
+  's4-self-hosted',
+  's5-sovereign-platform',
 ] as const;
 export type SovereigntyRung = (typeof SOVEREIGNTY_SCALE)[number];
 

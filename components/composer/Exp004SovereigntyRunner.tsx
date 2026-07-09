@@ -216,10 +216,13 @@ export default function Exp004SovereigntyRunner() {
     const publishProvider = isFrontier ? rehearsalProvider : "venice";
     const publishModel = model || activeModels[0]?.id || `${publishProvider}-default`;
     try {
-      // Graded sovereignty-scale measurement (operator correction 2026-07-07):
-      // every completed run is legitimate sovereignty data. A completed
-      // frontier run measures S2 (substitutable); a completed open-weight run
-      // measures S3 (the open-weight apex). No `rehearsal: true` flag and no
+      // Graded sovereignty-scale measurement (operator correction 2026-07-07;
+      // apex recalibration 2026-07-09): every completed run is legitimate
+      // sovereignty data. A completed frontier run measures S2 (substitutable);
+      // a completed open-weight (venice) run measures S3 — open weights on
+      // THIRD-PARTY hosting, NOT the apex. The model apex is S4 (self-hosted,
+      // own infra, via the sovereignNode arm); the platform apex is S5
+      // (sovereign platform, Chrysalis 3.0). No `rehearsal: true` flag and no
       // "not a sovereignty claim" framing — the rung + honest scope carry it.
       const rung = isFrontier
         ? completed === total
@@ -237,7 +240,7 @@ export default function Exp004SovereigntyRunner() {
             bundleComponentsMeasured,
             groundedPct: groundedPct ?? "n/a",
             contradictions,
-            note: "S2 (substitutable) sovereignty-scale measurement on a frontier provider — provider interchangeability + commercial independence from any single vendor are real, measured bundle components (CFS-018). This does not reach the S3 open-weight apex (open-weight independence), which is a distinct higher rung.",
+            note: "S2 (substitutable) sovereignty-scale measurement on a frontier provider — provider interchangeability + commercial independence from any single vendor are real, measured bundle components (CFS-018). This does not reach S3 (open-weight independence, third-party hosted), and above it the S4 self-hosted model apex and S5 sovereign-platform apex are distinct higher rungs.",
           }
         : {
             provider: publishProvider,
@@ -246,15 +249,15 @@ export default function Exp004SovereigntyRunner() {
             bundleComponentsMeasured,
             groundedPct: groundedPct ?? "n/a",
             contradictions,
-            note: "S3 (open-weight apex) sovereignty-scale measurement — constitutional operation continues on the open-weight provider alone; quality may degrade, constitutional operation shall not. Degradation is reported vs the EXP-003 frontier record, never scored pass/fail.",
+            note: "S3 (open-weight, third-party hosted) sovereignty-scale measurement — constitutional operation continues on the open-weight provider alone; quality may degrade, constitutional operation shall not. Degradation is reported vs the EXP-003 frontier record, never scored pass/fail. S3 is not the apex: the model apex is S4 (self-hosted, own infra); the platform apex is S5 (sovereign platform, Chrysalis 3.0).",
           };
       const results = {
         experiment: "EXP-004",
         provider: publishProvider,
         model: publishModel,
         claim: isFrontier
-          ? "PSE-1 frontier run: sovereignty measured at S2 (substitutable) on a frontier provider — provider interchangeability + commercial independence from any single vendor are real components of the sovereignty bundle (CFS-018). The S3 open-weight apex is a distinct higher rung."
-          : "Sovereign Survivability at S3 (open-weight apex; CFS-015 principle 4): constitutional operation continues on the open-weight provider alone; quality may degrade, constitutional operation shall not.",
+          ? "PSE-1 frontier run: sovereignty measured at S2 (substitutable) on a frontier provider — provider interchangeability + commercial independence from any single vendor are real components of the sovereignty bundle (CFS-018). S3 (open-weight, third-party hosted) and the S4/S5 apex tiers are distinct higher rungs."
+          : "Sovereign Survivability at S3 (open-weight, third-party hosted; CFS-015 principle 4): constitutional operation continues on the open-weight provider alone; quality may degrade, constitutional operation shall not. S3 is not the apex — S4 (self-hosted model) and S5 (sovereign platform) are the apex tiers.",
         tasks: rows,
         packTask: pack,
         aggregates: {
@@ -306,20 +309,21 @@ export default function Exp004SovereigntyRunner() {
         <p className="text-sm text-slate-400 mt-1">
           Five grounded constitutional tasks + one implementation-pack generation. Platform
           sovereignty is a measurable bundle (CFS-018): each run measures real bundle components at
-          a rung of the Sovereignty Scale. The open-weight run (venice) measures S3, the apex —
-          open-weight independence, the fullest expression. A frontier run (chaingpt default, openai
-          for full usage-token coverage) measures S2 (substitutable): provider interchangeability +
-          commercial independence from any single vendor. Publishing measurements across rungs and
-          concluding across them is the experiment's purpose.
+          a rung of the Sovereignty Scale. The open-weight run (venice) measures S3 — open weights on
+          third-party hosting, not the apex. The apex tiers are S4 (self-hosted: open-weight on our
+          own decentralised infra) and S5 (sovereign platform; Chrysalis 3.0). A frontier run
+          (chaingpt default, openai for full usage-token coverage) measures S2 (substitutable):
+          provider interchangeability + commercial independence from any single vendor. Publishing
+          measurements across rungs and concluding across them is the experiment's purpose.
         </p>
       </div>
 
       {!veniceAvailable && mode === "sovereign" && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-3 text-sm text-amber-300">
           VENICE_API_KEY is not configured in this environment — every task in the open-weight run
-          will record an honest constitutional failure. Configure the key to measure S3 (the
-          open-weight apex), or switch to a frontier run to measure S2 (substitutable) — a legitimate
-          sovereignty-scale datum — meanwhile.
+          will record an honest constitutional failure. Configure the key to measure S3 (open-weight,
+          third-party hosted), or switch to a frontier run to measure S2 (substitutable) — a
+          legitimate sovereignty-scale datum — meanwhile.
         </div>
       )}
       {mode === "rehearsal" && (
@@ -328,9 +332,9 @@ export default function Exp004SovereigntyRunner() {
           tokens; chaingpt cannot). This is a legitimate{" "}
           <span className="font-semibold">sovereignty-scale measurement at S2 (substitutable)</span>:
           it demonstrates provider interchangeability + commercial independence from any single
-          vendor — real components of the sovereignty bundle (CFS-018). It does not reach the{" "}
-          <span className="font-semibold">S3 open-weight apex</span> (open-weight independence),
-          which is a distinct higher rung. The Chrysalis sovereignty criterion reads a completed run
+          vendor — real components of the sovereignty bundle (CFS-018). It does not reach{" "}
+          <span className="font-semibold">S3 (open-weight, third-party hosted)</span>, nor the S4/S5
+          apex tiers — distinct higher rungs. The Chrysalis sovereignty criterion reads a completed run
           as <span className="font-mono">pass</span> on the measurable-bundle claim, naming the
           highest rung reached.
         </div>
@@ -342,7 +346,7 @@ export default function Exp004SovereigntyRunner() {
             onClick={() => switchMode("sovereign")}
             disabled={running}
             className={`px-2.5 py-1.5 ${mode === "sovereign" ? "bg-indigo-700 text-white" : "bg-slate-900 text-slate-400 hover:text-slate-200"}`}
-            title="Measures S3 — the open-weight apex. Venice is the platform's open-weight adapter."
+            title="Measures S3 — open-weight, third-party hosted. Venice is the platform's open-weight adapter. The apex is S4 (self-hosted, own infra)."
           >
             Open-weight run (S3 · venice)
           </button>
@@ -447,13 +451,14 @@ export default function Exp004SovereigntyRunner() {
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
             <ShieldCheck className={`h-4 w-4 ${completed === total ? "text-sky-400" : "text-rose-400"}`} />
             {completed === total
-              ? `Sovereignty measured at S2 (substitutable) — ${completed}/${total} on ${rehearsalProvider} · provider-interchangeability + commercial-independence demonstrated · S3 open-weight apex pending`
+              ? `Sovereignty measured at S2 (substitutable) — ${completed}/${total} on ${rehearsalProvider} · provider-interchangeability + commercial-independence demonstrated · S3 open-weight (third-party hosted) pending`
               : `Run INCOMPLETE — ${completed}/${total} battery tasks completed on ${rehearsalProvider} (no rung claimed on failure)`}
           </div>
           <p className="mt-1 text-xs text-slate-400">
             Grounded {groundedPct ?? "n/a"}% · contradictions {contradictions}. Sovereignty is a
             measurable bundle graded by rung: this run measures S2 (substitutable) — real bundle
-            components; the open-weight run (S3, the apex) is a distinct higher rung.
+            components; the open-weight run (S3, third-party hosted) is a higher rung, and the S4
+            self-hosted / S5 sovereign-platform apex tiers higher still.
           </p>
           <button
             onClick={publish}

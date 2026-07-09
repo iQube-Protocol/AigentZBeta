@@ -203,13 +203,25 @@ export async function GET(request: NextRequest) {
   // graded by the highest rung reached on the Sovereignty Scale. ANY completed
   // EXP-004 run — frontier (S2) OR open-weight (S3) — measures real bundle
   // components and PASSES the measurable-bundle claim; the evidence names the
-  // highest rung and flags whether the S3 open-weight apex was reached. A
+  // highest rung and flags whether S3 open-weight (or the S4 self-hosted model
+  // apex) was reached. A
   // failed/incomplete run is 'partial'; nothing published is 'pending'. Reads
   // aggregates.sovereigntyRung, tolerating legacy rows (rehearsal→s2,
   // sovereigntyHolds:true→s3) for back-compat.
   {
-    // Higher index = higher rung; -1 = no rung (failed/incomplete run).
-    const RUNG_ORDER = ['s0-dependent', 's1-interchangeable', 's2-substitutable', 's3-open-weight'];
+    // Higher index = higher rung; -1 = no rung (failed/incomplete run). s4/s5 are
+    // the apex tiers (apex recalibration 2026-07-09): s4-self-hosted = open-weight
+    // on our own infra (measurable via the self-hosted node arm); s5-sovereign-
+    // platform = the whole platform on sovereign infra (Chrysalis 3.0, measured by
+    // the infrastructure drill, not this model-supply drill).
+    const RUNG_ORDER = [
+      's0-dependent',
+      's1-interchangeable',
+      's2-substitutable',
+      's3-open-weight',
+      's4-self-hosted',
+      's5-sovereign-platform',
+    ];
     const rungOf = (a: Record<string, unknown>): string | null => {
       const explicit = a.sovereigntyRung;
       if (typeof explicit === 'string' && RUNG_ORDER.includes(explicit)) return explicit;
@@ -229,18 +241,24 @@ export async function GET(request: NextRequest) {
       const rungs = aggs.map(rungOf).filter((r): r is string => r !== null);
       const highestIdx = rungs.reduce((max, r) => Math.max(max, RUNG_ORDER.indexOf(r)), -1);
       const highest = highestIdx >= 0 ? RUNG_ORDER[highestIdx] : null;
-      const apexReached = highest === 's3-open-weight';
+      // Apex recalibration (2026-07-09): S3 is open weights on THIRD-PARTY hosting
+      // — the model apex is S4 (self-hosted, own infra); the platform apex is S5
+      // (sovereign platform, Chrysalis 3.0). This drill can reach up to S4.
+      const selfHostedApex = highest === 's4-self-hosted';
+      const openWeightReached = highest === 's3-open-weight' || selfHostedApex;
       criteria.push({
         id: 'sovereignty',
         title: 'Sovereignty — the measurable bundle (EXP-004 / PSE-1)',
         status: aggs.length === 0 ? 'pending' : highest ? 'pass' : 'partial',
         evidence:
           aggs.length === 0
-            ? 'no EXP-004 run published yet — run the Sovereignty tab (a frontier run publishes a legitimate S2 datum; the open-weight run reaches the S3 apex)'
+            ? 'no EXP-004 run published yet — run the Sovereignty tab (a frontier run publishes a legitimate S2 datum; the open-weight run reaches S3; the self-hosted-node run reaches the S4 model apex)'
             : highest
-              ? apexReached
-                ? `sovereignty bundle measured — highest rung ${highest}: S3 open-weight apex reached (${rungs.length} published run(s))`
-                : `sovereignty bundle measured — highest rung ${highest}: S2 substitutable demonstrated (provider interchangeability + commercial independence) · S3 open-weight apex pending (${rungs.length} published run(s))`
+              ? selfHostedApex
+                ? `sovereignty bundle measured — highest rung ${highest}: S4 self-hosted model apex reached (open-weight on our own infra) (${rungs.length} published run(s))`
+                : openWeightReached
+                  ? `sovereignty bundle measured — highest rung ${highest}: S3 open-weight (third-party hosted) reached · S4 self-hosted model apex pending; S5 sovereign-platform is a Chrysalis 3.0 horizon (${rungs.length} published run(s))`
+                  : `sovereignty bundle measured — highest rung ${highest}: S2 substitutable demonstrated (provider interchangeability + commercial independence) · S3 open-weight pending (${rungs.length} published run(s))`
               : `EXP-004 published but no run completed a rung — constitutional operation did not complete on the last run; re-run the drill`,
       });
     } catch {

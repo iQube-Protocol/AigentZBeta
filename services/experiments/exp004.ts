@@ -67,17 +67,27 @@ export function isRehearsalProvider(p: string): p is RehearsalProvider {
 }
 
 /**
- * Graded sovereignty-scale mapping (operator correction, 2026-07-07). Every
- * completed EXP-004 run is legitimate sovereignty data — the PSE series claim
- * is that platform sovereignty is a MEASURABLE BUNDLE (model, provider choice,
- * commercial independence, infrastructure), and each run measures real bundle
- * components at some rung of the Sovereignty Scale. A frontier substitute run
- * demonstrates S2 (substitutable): provider interchangeability + commercial
- * independence from any single vendor are real, measured bundle components,
- * not "not a sovereignty claim." The open-weight (venice) run reaches S3, the
- * APEX — open-weight independence is a distinct higher rung, not the gate for
- * the experiment's validity or progress. An incomplete run measures no rung
- * (constitutional operation did not complete).
+ * Graded sovereignty-scale mapping (operator correction 2026-07-07; apex
+ * recalibration 2026-07-09). Every completed EXP-004 run is legitimate
+ * sovereignty data — the PSE series claim is that platform sovereignty is a
+ * MEASURABLE BUNDLE (model, provider choice, commercial independence,
+ * infrastructure), and each run measures real bundle components at some rung of
+ * the Sovereignty Scale. A frontier substitute run demonstrates S2
+ * (substitutable): provider interchangeability + commercial independence from
+ * any single vendor. The open-weight (venice) run reaches S3 — but S3 is open
+ * weights on THIRD-PARTY hosting, NOT the apex.
+ *
+ * Apex recalibration (2026-07-09): the true apex of model sovereignty is
+ * open-weight inference on our OWN decentralised infra (S4 self-hosted) — no
+ * third party can rate-limit, price-gate, or disappear it. That tier is now
+ * measurable: a run pinned to the self-hosted node (services/constitutional/
+ * sovereignNode.ts) is the 'self-hosted' arm → S4. Beyond it, S5 (sovereign
+ * platform) applies the SAME principle to the whole platform substrate
+ * (storage/execution/hosting on sovereign infra, e.g. AutoDrive/Autonomys vs
+ * centralised AWS) — inv.sovereignty.104/105, a Chrysalis 3.0 horizon that
+ * THIS drill does not measure (it measures the intelligence supply, not the
+ * platform substrate); the infrastructure drill (PSE-4) will. An incomplete run
+ * measures no rung (constitutional operation did not complete).
  */
 export const BUNDLE_COMPONENTS_FRONTIER = [
   'provider-interchangeability',
@@ -90,20 +100,33 @@ export const BUNDLE_COMPONENTS_OPEN_WEIGHT = [
   'open-weight-independence',
 ] as const;
 
-/** 'open-weight' = the venice (S3 apex) run; 'frontier' = a substitute (S2) run. */
-export type SovereigntyArm = 'open-weight' | 'frontier';
+/** Self-hosted (S4) adds model-hosting sovereignty atop open-weight independence:
+ *  the model runs on OUR infra, so no third-party host can deny inference. */
+export const BUNDLE_COMPONENTS_SELF_HOSTED = [
+  ...BUNDLE_COMPONENTS_OPEN_WEIGHT,
+  'model-hosting-sovereignty',
+] as const;
 
-/** The Sovereignty Scale rung a completed run measures — 's3-open-weight' for
- * the open-weight apex, 's2-substitutable' for a substitutable frontier run;
- * null when constitutional operation did not complete (no rung is claimed on
- * failure). Pure — canary-pinned in tests/constitutional-contracts.test.ts. */
+/** 'frontier' = a substitute (S2) run; 'open-weight' = the third-party-hosted
+ *  venice (S3) run; 'self-hosted' = the apex-model run on our own node (S4). */
+export type SovereigntyArm = 'open-weight' | 'frontier' | 'self-hosted';
+
+/** The Sovereignty Scale rung a completed run measures — 's4-self-hosted' for
+ * the apex-model (own-infra) arm, 's3-open-weight' for the third-party-hosted
+ * open-weight arm, 's2-substitutable' for a substitutable frontier run; null
+ * when constitutional operation did not complete (no rung is claimed on
+ * failure). S5 (sovereign platform) is NOT reachable by this drill — it grades
+ * the platform substrate, measured by the infrastructure drill, not the model.
+ * Pure — canary-pinned in tests/constitutional-contracts.test.ts. */
 export function sovereigntyRungForRun(arm: SovereigntyArm, completed: boolean): string | null {
   if (!completed) return null;
+  if (arm === 'self-hosted') return 's4-self-hosted';
   return arm === 'open-weight' ? 's3-open-weight' : 's2-substitutable';
 }
 
 /** The bundle components a run of this arm measures. */
 export function bundleComponentsForArm(arm: SovereigntyArm): readonly string[] {
+  if (arm === 'self-hosted') return BUNDLE_COMPONENTS_SELF_HOSTED;
   return arm === 'open-weight' ? BUNDLE_COMPONENTS_OPEN_WEIGHT : BUNDLE_COMPONENTS_FRONTIER;
 }
 

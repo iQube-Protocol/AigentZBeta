@@ -292,39 +292,56 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     const sovereign = CONSTITUTIONAL_PROVIDERS.find((p) => p.id === SOVEREIGN_PROVIDER);
     expect(sovereign?.kind).toBe(SOVEREIGN_CLASS);
     // Frontier members measure a real (S2, substitutable) rung of the bundle
-    // but do not reach the S3 open-weight apex — openai is frontier in the
-    // inventory (operator correction 2026-07-07: S3 is the apex, not the gate).
+    // but do not reach the S3 open-weight rung — openai is frontier in the
+    // inventory (apex recalibration 2026-07-09: S3 is open-weight/third-party
+    // hosted, the apex tiers S4/S5 are higher — none are the gate).
     expect(CONSTITUTIONAL_PROVIDERS.find((p) => p.id === 'openai')?.kind).toBe('frontier');
   });
 
-  it('graded sovereignty-scale mapping: frontier→S2, open-weight→S3, incomplete→null (operator correction 2026-07-07)', async () => {
+  it('graded sovereignty-scale mapping: frontier→S2, open-weight→S3, self-hosted→S4, incomplete→null (apex recalibration 2026-07-09)', async () => {
     const { sovereigntyRungForRun, bundleComponentsForArm } = await import('@/services/experiments/exp004');
     // A completed frontier substitute run measures S2 (substitutable); a
-    // completed open-weight run reaches S3 (the apex). No rung is claimed when
+    // completed open-weight (third-party hosted) run reaches S3; a self-hosted
+    // (own-infra) run reaches the S4 model apex. No rung is claimed when
     // constitutional operation did not complete.
     expect(sovereigntyRungForRun('frontier', true)).toBe('s2-substitutable');
     expect(sovereigntyRungForRun('open-weight', true)).toBe('s3-open-weight');
+    expect(sovereigntyRungForRun('self-hosted', true)).toBe('s4-self-hosted');
     expect(sovereigntyRungForRun('frontier', false)).toBeNull();
     expect(sovereigntyRungForRun('open-weight', false)).toBeNull();
+    expect(sovereigntyRungForRun('self-hosted', false)).toBeNull();
     // Frontier measures interchangeability + commercial independence; the
-    // open-weight run adds open-weight independence (the distinct higher rung).
+    // open-weight run adds open-weight independence; the self-hosted run adds
+    // model-hosting sovereignty (the apex-model component).
     expect(bundleComponentsForArm('frontier')).toContain('commercial-independence');
     expect(bundleComponentsForArm('frontier')).not.toContain('open-weight-independence');
     expect(bundleComponentsForArm('open-weight')).toContain('open-weight-independence');
+    expect(bundleComponentsForArm('open-weight')).not.toContain('model-hosting-sovereignty');
+    expect(bundleComponentsForArm('self-hosted')).toContain('model-hosting-sovereignty');
   });
 
-  it('sovereignty is a SCALE, not a boolean — rung order pinned (operator refinement 2026-07-06)', async () => {
+  it('sovereignty is a SCALE, not a boolean — rung order pinned incl. apex tiers (apex recalibration 2026-07-09)', async () => {
     const { SOVEREIGNTY_SCALE } = await import('@/types/constitutional');
     expect(SOVEREIGNTY_SCALE).toEqual([
       's0-dependent',
       's1-interchangeable',
       's2-substitutable',
       's3-open-weight',
+      's4-self-hosted',
+      's5-sovereign-platform',
     ]);
-    // The essence (interchangeability, operator choice without lock-in)
-    // precedes the maximum (open weights) — order is meaning.
+    // The essence (interchangeability, operator choice without lock-in) precedes
+    // the open-weight rung — order is meaning. And S3 (third-party-hosted open
+    // weights) is NOT the maximum: the model apex (S4 self-hosted) and platform
+    // apex (S5 sovereign-platform) sit above it.
     expect(SOVEREIGNTY_SCALE.indexOf('s1-interchangeable')).toBeLessThan(
       SOVEREIGNTY_SCALE.indexOf('s3-open-weight'),
+    );
+    expect(SOVEREIGNTY_SCALE.indexOf('s3-open-weight')).toBeLessThan(
+      SOVEREIGNTY_SCALE.indexOf('s4-self-hosted'),
+    );
+    expect(SOVEREIGNTY_SCALE.indexOf('s4-self-hosted')).toBeLessThan(
+      SOVEREIGNTY_SCALE.indexOf('s5-sovereign-platform'),
     );
   });
 

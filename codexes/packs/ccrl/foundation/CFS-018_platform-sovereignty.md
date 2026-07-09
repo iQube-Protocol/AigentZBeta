@@ -138,3 +138,38 @@ rung reuses the venice rung's shape — appending a rung, not a new protocol.
   that remote inference was genuinely performed by our node (not silently
   proxied). The text router (`modelRouter.ts` FALLBACK_LADDER) and `codex/chat`
   adopt the apex rung when the provider adapter lands (workstream #44).
+
+## Apex PLATFORM sovereignty — the S5 horizon (referenced 2026-07-09)
+
+The same principle scales from the model to the WHOLE PLATFORM. Apex *model*
+sovereignty (above) is open-weight inference on our own infra. **Apex *platform*
+sovereignty applies the identical move to hosting the entire platform** — storage,
+execution, hosting on a SOVEREIGN substrate (e.g. AutoDrive/Autonomys, Walrus/Sui,
+ICP canisters) instead of a CENTRALISED provider (Amazon/Amplify, Supabase). This
+is the `inv.sovereignty.104` (infrastructure agency) / `inv.sovereignty.105`
+(infrastructure survivability) end-state — the whole substrate under operator
+control, not just the model.
+
+The **Sovereignty Scale now runs s0 → s5** (`types/constitutional.ts`), extended
+from its former s0 → s3 by the apex recalibration:
+
+| Rung | Meaning | Axis |
+|---|---|---|
+| s0–s2 | dependence → interchangeable → substitutable | intelligence supply |
+| **s3-open-weight** | open weights, THIRD-PARTY hosted (venice) — *not* the apex | intelligence supply |
+| **s4-self-hosted** | apex MODEL — open-weight on our own decentralised infra | intelligence supply (+ model-hosting) |
+| **s5-sovereign-platform** | apex PLATFORM — the whole substrate on sovereign infra | platform substrate (infra agency) |
+
+s5 nests above s4 (a sovereign platform hosts the sovereign model). It is a
+**distinct dimension** — the platform substrate, not the intelligence supply — so
+the EXP-004 sovereignty drill does **not** and cannot reach it: that drill grades
+the model supply and tops out at s4. Apex platform sovereignty is measured by the
+**infrastructure drill (PSE-4)**, which produces the verified infra map, and is a
+**Chrysalis 3.0** build target — referenced here so the scale and the experiment
+series can grow into it, not catered to now (per operator direction 2026-07-09).
+
+- EXP-004 recalibration: `services/experiments/exp004.ts` gains the `self-hosted`
+  arm → `s4-self-hosted` (`BUNDLE_COMPONENTS_SELF_HOSTED` adds `model-hosting-
+  sovereignty`); the runner + `chrysalis-test` sovereignty criterion + the
+  `constitutional-contracts` canary are updated so S3 is labelled "third-party
+  hosted" and S4/S5 are named as the apex tiers.
