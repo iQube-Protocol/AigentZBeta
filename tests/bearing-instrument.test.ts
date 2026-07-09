@@ -26,6 +26,12 @@ import {
   wedgePath,
   bearingAriaLabel,
   emitNavigate,
+  ATLAS_TRINITY,
+  ATLAS_POLES,
+  ATLAS_ARTEFACTS,
+  ATLAS_LAYERS,
+  atlasHeadingDegrees,
+  atlasStandingShort,
 } from "@/components/representation/BearingInstrument";
 import {
   FIELD_SECTORS,
@@ -151,5 +157,52 @@ describe("zero raw colour literals — the instrument is role-driven end to end"
   it("consumes roles through the resolver hook", () => {
     expect(source).toContain("useRepresentation()");
     expect(source).toContain("role(sectorRole(sector))");
+  });
+});
+
+describe("atlas variant — Canonical Asset 001 (Bearing Instrument v1.0)", () => {
+  it("names the Constitutional Trinity as the three primary octants", () => {
+    expect([...ATLAS_TRINITY]).toEqual(["order", "reasoning", "action"]);
+    // The trinity octants are a subset of the seven field sectors — same roles.
+    for (const sector of ATLAS_TRINITY) expect(FIELD_SECTORS).toContain(sector);
+  });
+
+  it("flanks the needle with the Invariant Intelligence / Consequence Engineering poles", () => {
+    expect(ATLAS_POLES.map((p) => p.sector)).toEqual(["intelligence", "consequence"]);
+    expect(ATLAS_POLES.map((p) => p.side)).toEqual(["left", "right"]);
+    // Poles are field sectors too — no invented vocabulary.
+    for (const p of ATLAS_POLES) expect(FIELD_SECTORS).toContain(p.sector);
+  });
+
+  it("carries exactly six artefact modalities and five constitutional layers", () => {
+    expect(ATLAS_ARTEFACTS.length).toBe(6);
+    expect(ATLAS_LAYERS.length).toBe(5);
+    expect(ATLAS_LAYERS[4]).toContain("STANDING RING");
+  });
+
+  it("derives the HDG heading from the sector's field-ring position (Reasoning ≡ due-north 360)", () => {
+    expect(atlasHeadingDegrees("reasoning")).toBe(360);
+    // Monotonic, in-range, and never fabricated when unoriented.
+    for (const sector of FIELD_SECTORS) {
+      const h = atlasHeadingDegrees(sector);
+      expect(h).not.toBeNull();
+      expect(h as number).toBeGreaterThan(0);
+      expect(h as number).toBeLessThanOrEqual(360);
+    }
+    expect(atlasHeadingDegrees(null)).toBeNull();
+    expect(atlasHeadingDegrees("nonsense" as FieldSector)).toBeNull();
+  });
+
+  it("renders the TRK register from the standing level, honest dash when absent", () => {
+    for (const level of STANDING_LEVELS) {
+      expect(atlasStandingShort(level)).toBe(level.slice(0, 5).toUpperCase());
+    }
+    expect(atlasStandingShort(null)).toBe("—");
+  });
+
+  it("keeps the compact variant the default — atlas is opt-in", () => {
+    // The dispatcher renders CompactBearing unless variant === "atlas"; the
+    // atlas anatomy never leaks into the default inline dial.
+    expect(source).toContain('props.variant === "atlas" ? <AtlasBearing');
   });
 });
