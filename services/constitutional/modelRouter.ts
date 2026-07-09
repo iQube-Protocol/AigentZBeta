@@ -109,6 +109,7 @@ export async function callStage(
   system: string,
   user: string,
   maxTokens = 1000,
+  temperature = 0,
 ): Promise<RoutedCallResult> {
   const route = routeFor(stage);
   const attempts: { provider: ConstitutionalProviderId; model?: string }[] = [
@@ -130,6 +131,7 @@ export async function callStage(
         user,
         maxTokens,
         attempt.model,
+        temperature,
       );
       const degraded = i > 0;
       if (degraded) {
@@ -213,10 +215,11 @@ export async function callSovereign(
   system: string,
   user: string,
   maxTokens = 1000,
+  temperature = 0,
 ): Promise<SovereignCallResult> {
   const stage = PURPOSE_STAGE[purpose];
   const route = routeFor(stage);
-  const result = await callStage(stage, system, user, maxTokens);
+  const result = await callStage(stage, system, user, maxTokens, temperature);
   return {
     ...result,
     purpose,

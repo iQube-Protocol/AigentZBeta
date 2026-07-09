@@ -101,13 +101,16 @@ async function fetchWithTimeout(url: string, init: RequestInit, provider: string
   }
 }
 
-/** One chat call, temperature 0 (benchmark discipline), usage returned. */
+/** One chat call. `temperature` defaults to 0 (benchmark discipline — every
+ *  existing caller is unchanged); conversational surfaces may raise it. Usage
+ *  returned. */
 export async function callChatWithUsage(
   provider: ExperimentProvider,
   system: string,
   user: string,
   maxTokens: number,
   modelOverride?: string,
+  temperature = 0,
 ): Promise<ChatResult> {
   const conf = EXPERIMENT_PROVIDERS[provider];
   const apiKey = provider === 'chaingpt' ? chaingptApiKey() : process.env[conf.keyEnv];
@@ -164,7 +167,7 @@ export async function callChatWithUsage(
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
-        temperature: 0,
+        temperature,
         system,
         messages: [{ role: 'user', content: user }],
       }),
@@ -195,7 +198,7 @@ export async function callChatWithUsage(
     },
     body: JSON.stringify({
       model,
-      temperature: 0,
+      temperature,
       max_tokens: maxTokens,
       messages: [
         { role: 'system', content: system },
