@@ -15,8 +15,12 @@
  *      reads `registry_receipts` keeps working.
  *   2. In addition, a mapped `activity_receipts` row is written so the event
  *      joins the unified trail. The actorId is COMMITTED (one-way hash) into the
- *      unified `persona_id`, never written raw — closing System B's T0 risk in
- *      the projection.
+ *      unified `persona_id`, never written raw.
+ *
+ * The raw actorId is ALSO committed on the `registry_receipts` write itself (not
+ * only the projection) — some call sites pass a raw personaId (T0), and no
+ * consumer matches or displays `actor_id`, so committing it fully closes System
+ * B's raw-actor exposure with zero read-side breakage.
  *
  * CRITICAL SAFETY — money-adjacent events stay OFF-CHAIN. The event→action map
  * routes `reward.granted` / `participation.metered` to a NON-anchorable action
@@ -168,7 +172,12 @@ export async function emitReceipt(params: EmitReceiptParams): Promise<ReceiptQub
   return createReceipt({
     receiptId,
     eventType: params.eventType,
-    actorId: params.actorId,
+    // T0 CLOSURE (CFS-025): commit the actorId one-way before it is stored.
+    // Some call sites pass a raw personaId (e.g. rewardService `actorId: personaId`)
+    // — a T0 identifier that must NEVER be written raw to a receipt table
+    // (CLAUDE.md, paramount). No consumer matches or displays actor_id, so the
+    // commitment is a pure hardening with no read-side breakage.
+    actorId: commitActor(params.actorId),
     tenantId: params.tenantId,
     assetId: params.assetId,
     intakeId: params.intakeId,
