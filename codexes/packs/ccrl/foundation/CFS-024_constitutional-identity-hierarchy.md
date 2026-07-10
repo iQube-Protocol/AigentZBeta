@@ -99,12 +99,13 @@ From that point the Wallet, Delegation Bureau, Founder Office, Studio, Registry,
 
 - [x] Ratified 2026-07-10 (operator direction; Aletheon discovery)
 - [x] Phase 0 — the contract (`types/constitutionalContext.ts`: hierarchy, relationships, invariants, `ConstitutionalContext`, resolver contract) + canary
-- [ ] Phase 1 — the resolver: `resolveConstitutionalContext` composing the spine (person/passport/standing + boundAgents + active assignment), returning one context
-- [ ] Phase 2 — surface adoption: migrate the Wallet, Delegation Bureau, persona dropdown (and the rest) to render from the resolved context — the consolidation that closes the observed inconsistency
-- [ ] Phase 3 — persist `PersonaAssignment[]` as first-class rows (assignment ≠ the grant; a persona's aigentMe choice is an assignment, delegation is its authority)
+- [x] Phase 1 — the resolver: `services/identity/constitutionalContext.ts` `resolveConstitutionalContext(req)` composes the spine (`getActivePersona`) + the durable stores (`delegation_grants`, `agent_root_identity`, `polity_passport_records`), returning one context. **`boundAgents` are gathered across EVERY persona the caller owns** (the person's roster) — the load-bearing correction that makes a delegate sponsored under one persona visible when another is active. Client seam: `GET /api/identity/constitutional-context` (T1 projection strips T0 persona/auth ids). Pure mappers canary-covered.
+- [ ] Phase 2 — surface adoption: migrate the Wallet, Delegation Bureau, persona dropdown (and the rest) to render from `/api/identity/constitutional-context` — the consolidation that closes the observed inconsistency. **This is a live-surface rewire; do it incrementally with operator verification.**
+- [ ] Phase 3 — persist `PersonaAssignment[]` as first-class rows (assignment ≠ the grant; a persona's aigentMe choice is an assignment, delegation is its authority). Until then Phase 1 DERIVES the assignment from the active `delegation_grant` + the persona's `is_aigent_me` designation.
 
 ## Honest limits
 
-- **Phase 0 ships the contract + the ratified model, not the consolidation.** The observed Wallet↔Bureau↔dropdown disagreement is resolved only once the surfaces adopt the resolver (Phase 2). Until then they still each resolve their own "active persona".
+- **Phases 0–1 ship the contract, the ratified model, AND the resolver — but NOT the consolidation.** The observed Wallet↔Bureau↔dropdown disagreement is resolved only once those surfaces adopt `/api/identity/constitutional-context` (Phase 2). Until then they still each resolve their own "active persona", so the inconsistency the operator sees persists on the live surfaces even though the correct single-source-of-truth now exists and is callable.
+- **Phase 1 leaves `standing` null.** The Bureau composes standing lanes via its own CRM join today; threading it through the resolver is Phase 2 work rather than duplicating the join now.
 - **`PersonaAssignment` is not yet a persisted table.** Today an "assignment" is inferred from `is_aigent_me` (binding-time flag) + the active `delegation_grant` (authority). Making assignment a first-class, per-persona record (so the same agent can be aigentMe for persona A and not for B) is Phase 3.
 - **The three invariants are proposed, not canonical** — the operator ratifies them into the substrate.

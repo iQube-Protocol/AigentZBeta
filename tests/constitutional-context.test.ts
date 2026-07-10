@@ -19,6 +19,12 @@ import {
   CONSTITUTIONAL_IDENTITY_INVARIANTS,
   emptyConstitutionalContext,
 } from '@/types/constitutionalContext';
+import {
+  mapBoundAgentRow,
+  mapGrantToAssignment,
+  projectConstitutionalContextT1,
+} from '@/services/identity/constitutionalContext';
+import type { DelegationGrantRow } from '@/services/delegation/delegationGrantStore';
 
 describe('CFS-024 — the constitutional identity hierarchy (order pinned)', () => {
   it('sequences citizen → passport → personhood → person → persona → agent → session → task', () => {
@@ -108,5 +114,61 @@ describe('CFS-024 — emptyConstitutionalContext (honest nulls, never faked)', (
     const a = emptyConstitutionalContext();
     const b = emptyConstitutionalContext();
     expect(a.boundAgents).not.toBe(b.boundAgents);
+  });
+});
+
+describe('CFS-024 — pure resolver mappers (row → contract)', () => {
+  it('mapBoundAgentRow marks a bound agent binding + reflects passport binding', () => {
+    const bound = mapBoundAgentRow({
+      id: 'agent-uuid',
+      did_uri: 'did:agent:root:aletheon',
+      display_name: 'Aletheon',
+      agent_class: 'polity_bound',
+      bound_passport_id: 'pp_123',
+    });
+    expect(bound.relationship).toBe('binding');
+    expect(bound.passportBound).toBe(true);
+    expect(bound.agentId).toBe('agent-uuid');
+    expect(bound.agentDid).toBe('did:agent:root:aletheon');
+  });
+
+  it('mapBoundAgentRow: no bound passport ⇒ passportBound false', () => {
+    expect(mapBoundAgentRow({ id: 'x', display_name: 'Marketa' }).passportBound).toBe(false);
+  });
+
+  it('mapGrantToAssignment derives a temporary assignment from the active grant', () => {
+    const grant = {
+      grant_id: 'g1',
+      agent_root_did: 'did:agent:root:metaye',
+      allowed_actions: ['knowledge_retrieval', 'draft_document'],
+      status: 'active',
+      created_at: '2026-07-10T00:00:00Z',
+      expires_at: '2026-07-10T04:00:00Z',
+    } as DelegationGrantRow;
+    const a = mapGrantToAssignment(grant, 'persona-1', 'aigentMe');
+    expect(a.relationship).toBe('assignment');
+    expect(a.role).toBe('aigentMe');
+    expect(a.active).toBe(true);
+    expect(a.personaId).toBe('persona-1');
+    expect(a.delegatedAuthority).toEqual(['knowledge_retrieval', 'draft_document']);
+    expect(a.validUntil).toBe('2026-07-10T04:00:00Z');
+  });
+
+  it('projectConstitutionalContextT1 strips T0 persona/auth ids, keeps public shape', () => {
+    const ctx = emptyConstitutionalContext();
+    ctx.citizen.personId = 'auth-profile-T0';
+    ctx.persona.personaId = 'persona-T0';
+    ctx.persona.displayLabel = 'Mansa Meta';
+    ctx.passport.passportId = 'pp_1';
+    ctx.currentAigentMe = 'did:agent:root:metaye';
+    const t1 = projectConstitutionalContextT1(ctx);
+    const serialized = JSON.stringify(t1);
+    expect(serialized).not.toContain('auth-profile-T0');
+    expect(serialized).not.toContain('persona-T0');
+    expect(t1.persona.displayLabel).toBe('Mansa Meta');
+    expect(t1.passport.passportId).toBe('pp_1');
+    expect(t1.currentAigentMe).toBe('did:agent:root:metaye');
+    // T1 shape exposes no personaId key at all
+    expect((t1 as Record<string, unknown>).persona).not.toHaveProperty('personaId');
   });
 });
