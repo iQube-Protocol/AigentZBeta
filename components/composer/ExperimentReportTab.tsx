@@ -65,6 +65,34 @@ function buildReport(results: PublishedResult[], now: Date): string {
   const legStatus = (id: string, label: string) =>
     byExp(id).length > 0 ? `${label}: **validated** (${byExp(id).length} canonical run${byExp(id).length > 1 ? "s" : ""} published)` : `${label}: run complete, canonical publication pending`;
 
+  // Self-extending: the FVS narrative (§3–§5) is authored prose for EXP-001/002/003,
+  // but ANY other experiment with canonically published runs (EXP-004 sovereignty
+  // and beyond) is surfaced automatically — so a newly-published experiment appears
+  // in the report without a template edit. (A full "compose which experiments are
+  // published" mechanism follows in the Artifact Runtime workstream, CFS-025.)
+  const FVS_IDS = new Set(["EXP-001", "EXP-002", "EXP-003"]);
+  const extraIds = Array.from(new Set(results.map((r) => r.experiment)))
+    .filter((id) => !FVS_IDS.has(id))
+    .sort();
+  const extraSection =
+    extraIds.length === 0
+      ? ""
+      : `
+## 9. Additional experiments (auto-included from the canonical record)
+
+Beyond the Foundational Validation Series, these experiments have canonically
+published runs. This section is generated live from the results record — any
+newly-published experiment appears here automatically, with its real run dates.
+
+${extraIds
+  .map(
+    (id) => `### ${id}
+
+**Canonical runs:**
+${runsTable(byExp(id))}`,
+  )
+  .join("\n")}`;
+
   return `# The Foundational Validation Series — Findings Report (Draft)
 
 **Chrysalis Foundation / Invariant Intelligence · AigentZ platform**
@@ -248,7 +276,7 @@ coverage for the temporal-coherence field map (EXP-002b), and independent
 replication of the initialization deltas. The full experiment protocols,
 artifacts, and raw result records are available on request under the same
 confidentiality.
-
+${extraSection}
 ---
 *Draft report — regenerated live from the canonical results record at view
 time. Narrative sections are amended as the series evolves; data tables
