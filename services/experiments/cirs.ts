@@ -1,7 +1,7 @@
 /**
  * CIRS — the Canonical Invariant Reference Set (CRP-002 / metaMe IRL).
  *
- * INDEPENDENCE PROTOCOL (Aletheon 2026-07-09 — part of the IRL-EXP-001 protocol):
+ * INDEPENDENCE PROTOCOL (Aletheon 2026-07-09 — part of the EXP-006 protocol):
  * the principal investigators (the operator, Aletheon, this agent) must NOT
  * author the reference invariant sets. Authoring them would contaminate the
  * experiment with a bias toward the theory we hope to discover. The candidate
@@ -22,7 +22,7 @@ import type { CanonicalInvariantReference } from '@/types/invariantIntelligence'
 export const CIRS_VERSION = 'v0.1';
 
 /**
- * The representative spread of intents IRL-EXP-001 projects (6–8, across intent
+ * The representative spread of intents EXP-006 projects (6–8, across intent
  * primitives). Selecting the STIMULI is legitimate experimental design; it is
  * the invariant SETS that must be independently generated, never these prompts.
  */

@@ -124,7 +124,7 @@ export type InvariantConcernClass = (typeof INVARIANT_CONCERN_CLASSES)[number];
 /**
  * The CANDIDATE intent→concern bias — the HYPOTHESIS that a given intent
  * primitive projects a characteristic set of invariant concern classes. This is
- * the starting point IRL-EXP-001 (Intent Projection Fidelity) tests against a
+ * the starting point EXP-006 (Intent Projection Fidelity) tests against a
  * human-curated reference; it is NEVER asserted as a finding. The canary pins
  * TOTAL COVERAGE (every primitive mapped, every value a known concern class),
  * not the correctness of any individual mapping.
@@ -181,7 +181,7 @@ export type InvariantIntelligenceWorkstream = (typeof INVARIANT_INTELLIGENCE_WOR
 // ---------------------------------------------------------------------------
 
 /**
- * The reference IRL-EXP-001 Stage A judges predictions against — NOT a "gold
+ * The reference EXP-006 Stage A judges predictions against — NOT a "gold
  * set" (that implies the truth is already discovered). It is the Canonical
  * Invariant Reference Set: versioned and cumulative, so the science is explicit
  * about what is still experimental vs ratified. A reference stays `experimental`
@@ -229,24 +229,24 @@ export interface ProjectionRule {
 // ---------------------------------------------------------------------------
 
 /**
- * IRL-EXP-002 (Reasoning Entropy Reduction) is a FOUR-arm comparison, not two
+ * EXP-007 (Reasoning Entropy Reduction) is a FOUR-arm comparison, not two
  * (Aletheon, 2026-07-09). The point is not "does it beat naïve RAG" (easy) but
  * "does it beat our OWN best existing architecture" — the intellectually honest
  * bar. Order is the comparison ladder from least to most engineered baseline,
  * ending at the experimental arm.
  */
-export const IRL_EXP002_ARMS = [
+export const EXP007_ARMS = [
   'large-context', // dump everything, no retrieval
   'naive-rag', // top-k embedding retrieval
   'existing-kb', // the platform's production KB retrieval (the honest bar)
   'invariant-runtime', // the experimental arm
 ] as const;
 
-export type IRLExp002Arm = (typeof IRL_EXP002_ARMS)[number];
+export type Exp007Arm = (typeof EXP007_ARMS)[number];
 
 /**
  * Propagation Fidelity (Aletheon, 2026-07-09) — a primary metric and the object
- * of IRL-EXP-003: the degree to which downstream artifacts preserve the intended
+ * of EXP-008: the degree to which downstream artifacts preserve the intended
  * invariant set ACROSS MODALITIES. Generate across these modalities from ONE
  * invariant set, then ask blind reviewers to reconstruct the original set; high
  * reconstructability = high propagation fidelity. A new benchmark.
@@ -337,7 +337,7 @@ export type CIRSMutation = (typeof CIRS_MUTATIONS)[number];
  *   - `constitutional` — DECIDES what enters the evolving invariant theory
  *                        (ratification, Law XI). It never generates or scores.
  *
- * The independence protocol that falls out of this (part of the IRL-EXP-001
+ * The independence protocol that falls out of this (part of the EXP-006
  * protocol): the PRINCIPAL INVESTIGATORS do not author the CIRS — a generative
  * agent does, and it does so BLIND to any prior CIRS version. Independent
  * generation gives diversity of hypotheses; mutation (`CIRS_MUTATIONS`) gives

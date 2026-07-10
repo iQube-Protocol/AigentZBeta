@@ -1,5 +1,5 @@
 /**
- * IRL-EXP-001 — Intent → Invariant Projection Fidelity (CRP-002 / metaMe IRL).
+ * EXP-006 — Intent → Invariant Projection Fidelity (CRP-002 / metaMe IRL).
  *
  * Stage A (this module, first runnable slice): for each CIRS-v0.1 intent, predict
  * the minimal invariant set the intent projects onto, score it against the CIRS
@@ -148,7 +148,7 @@ export function aggregateStageA(results: IrlExp001IntentResult[], cirsVersion: s
 }
 
 /**
- * Run IRL-EXP-001 Stage A over an INDEPENDENTLY-GENERATED CIRS: predict → score →
+ * Run EXP-006 Stage A over an INDEPENDENTLY-GENERATED CIRS: predict → score →
  * classify deltas → aggregate. The `cirs` is REQUIRED — there is no hand-authored
  * default (independence protocol, Aletheon 2026-07-09): the reference set must be
  * produced by the generative role (cirsGenerator.generateCandidateCIRS), blind to

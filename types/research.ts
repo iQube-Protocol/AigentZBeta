@@ -152,7 +152,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
   },
   // ─── Invariant Intelligence Validation Series (CRP-002 · metaMe IRL) ────────
   {
-    id: 'IRL-EXP-001',
+    id: 'EXP-006',
     layer: 'I',
     family: 'Intent → Invariant Projection Fidelity',
     seriesId: 'IIVS',
@@ -162,7 +162,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     governingInvariants: ['inv.epistemology.119', 'inv.epistemology.120'],
   },
   {
-    id: 'IRL-EXP-002',
+    id: 'EXP-007',
     layer: 'I',
     family: 'Reasoning Entropy Reduction',
     seriesId: 'IIVS',
@@ -172,7 +172,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     governingInvariants: ['inv.epistemology.119', 'inv.constitutional.062'],
   },
   {
-    id: 'IRL-EXP-003',
+    id: 'EXP-008',
     layer: 'I',
     family: 'Cross-Modal Invariant Reuse (Propagation Fidelity)',
     seriesId: 'IIVS',
@@ -202,7 +202,7 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     id: 'IIVS',
     name: 'Invariant Intelligence Validation Series',
     claim: 'Intent projects onto minimal invariant sets; those sets reason more faithfully at lower entropy and propagate across modalities — and the disagreements teach us what an invariant is.',
-    members: ['IRL-EXP-001', 'IRL-EXP-002', 'IRL-EXP-003'],
+    members: ['EXP-006', 'EXP-007', 'EXP-008'],
     charterRef: 'codexes/packs/ccrl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
   },
 ];
@@ -226,7 +226,7 @@ export const RESEARCH_PROGRAMMES = [
   { id: 'D', name: 'Reasoning Systems', experiments: [], exploratory: true },
   // CRP-002 (metaMe IRL) — the first programme formally chartered under CRP-001.
   // Intent Science is the entry point; Knowledge Compression is one mechanism.
-  { id: 'E', name: 'Invariant Intelligence', experiments: ['IRL-EXP-001', 'IRL-EXP-002', 'IRL-EXP-003'], exploratory: false },
+  { id: 'E', name: 'Invariant Intelligence', experiments: ['EXP-006', 'EXP-007', 'EXP-008'], exploratory: false },
 ] as const;
 
 // ─── Research Roadmap Expansion (CFS-019 amendment, 2026-07-07) ──────────────

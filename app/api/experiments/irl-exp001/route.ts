@@ -1,5 +1,5 @@
 /**
- * POST /api/experiments/irl-exp001 — run IRL-EXP-001 Stage A (CRP-002 / metaMe IRL).
+ * POST /api/experiments/irl-exp001 — run EXP-006 Stage A (CRP-002 / metaMe IRL).
  *
  * INDEPENDENCE PROTOCOL (Aletheon 2026-07-09): the reference set (CIRS) is
  * GENERATED at run time by the generative role (generateCandidateCIRS), blind to
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const { results, aggregate } = await runIrlExp001StageA(cirs);
     return NextResponse.json({
       ok: true,
-      experiment: 'IRL-EXP-001',
+      experiment: 'EXP-006',
       stage: 'A',
       at: new Date().toISOString(),
       cirs,
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    experiment: 'IRL-EXP-001',
+    experiment: 'EXP-006',
     family: 'Intent → Invariant Projection Fidelity',
     stage: 'A',
     note: 'POST (admin) runs Stage A over CIRS-v0.1: predict → score → classify Invariant Deltas.',

@@ -1,5 +1,5 @@
 /**
- * IRL-EXP-001 Stage A — pure-core canaries (CRP-002 / metaMe IRL).
+ * EXP-006 Stage A — pure-core canaries (CRP-002 / metaMe IRL).
  *
  * Pins the deterministic, provider-free heart of the experiment: projection
  * fidelity (overlap/precision/recall/f1), the structural Invariant Delta
@@ -24,7 +24,7 @@ import {
 } from '@/services/experiments/cirs';
 import { RESEARCH_INTELLIGENCE_ROLES } from '@/types/invariantIntelligence';
 
-describe('IRL-EXP-001 — projection fidelity (pure, deterministic)', () => {
+describe('EXP-006 — projection fidelity (pure, deterministic)', () => {
   it('scores overlap / precision / recall / f1 correctly', () => {
     // predicted {a,b,c}; reference {b,c,d} → overlap 2, precision 2/3, recall 2/3
     const f = projectionFidelity(['a', 'b', 'c'], ['b', 'c', 'd']);
@@ -47,7 +47,7 @@ describe('IRL-EXP-001 — projection fidelity (pure, deterministic)', () => {
   });
 });
 
-describe('IRL-EXP-001 — structural Invariant Deltas (the research data)', () => {
+describe('EXP-006 — structural Invariant Deltas (the research data)', () => {
   it('classifies reference-misses as missing-invariant and extras as redundant-invariant', () => {
     const deltas = classifyStructuralDeltas('intent-x', ['a', 'b', 'x'], ['a', 'b', 'c']);
     const missing = deltas.filter((d) => d.classification === 'missing-invariant');
@@ -64,7 +64,7 @@ describe('IRL-EXP-001 — structural Invariant Deltas (the research data)', () =
   });
 });
 
-describe('IRL-EXP-001 — aggregate + label parsing', () => {
+describe('EXP-006 — aggregate + label parsing', () => {
   it('aggregates mean fidelity and counts delta classes across intents', () => {
     const results = [
       { intent: 'i1', predicted: ['a'], reference: ['a'], fidelity: projectionFidelity(['a'], ['a']), deltas: classifyStructuralDeltas('i1', ['a'], ['a']) },

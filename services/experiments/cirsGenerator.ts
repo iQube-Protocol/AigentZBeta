@@ -4,7 +4,7 @@
  *
  * Proposes the candidate invariant sets for the CIRS, INDEPENDENTLY and BLIND to
  * any prior CIRS version — the principal investigators never author them. This
- * is a DISTINCT cognitive role from the evaluator (IRL-EXP-001's prediction
+ * is a DISTINCT cognitive role from the evaluator (EXP-006's prediction
  * under test): the generator routes through the `draft` reasoning stage while
  * the evaluator routes through `classification`, so the two resolve to DIFFERENT
  * providers/models by construction. The deltas between an independent reference

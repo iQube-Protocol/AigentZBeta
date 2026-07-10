@@ -20,7 +20,7 @@ import {
   CANDIDATE_INTENT_BIAS,
   candidateIntentBias,
   INVARIANT_INTELLIGENCE_WORKSTREAMS,
-  IRL_EXP002_ARMS,
+  EXP007_ARMS,
   PROPAGATION_MODALITIES,
   INVARIANT_RESEARCH_LOOP,
   INVARIANT_DELTA_CLASSES,
@@ -115,17 +115,17 @@ describe('CRP-002 Aletheon amendment (2026-07-09) — WP0, four-arm EXP-002, pro
     );
   });
 
-  it('IRL-EXP-002 is a FOUR-arm ladder ending at the invariant runtime (existing-kb is the honest bar)', () => {
-    expect([...IRL_EXP002_ARMS]).toEqual([
+  it('EXP-007 is a FOUR-arm ladder ending at the invariant runtime (existing-kb is the honest bar)', () => {
+    expect([...EXP007_ARMS]).toEqual([
       'large-context',
       'naive-rag',
       'existing-kb',
       'invariant-runtime',
     ]);
-    expect(IRL_EXP002_ARMS[IRL_EXP002_ARMS.length - 1]).toBe('invariant-runtime');
+    expect(EXP007_ARMS[EXP007_ARMS.length - 1]).toBe('invariant-runtime');
     // the honest bar (our own production retrieval) precedes the experimental arm
-    expect(IRL_EXP002_ARMS.indexOf('existing-kb')).toBeLessThan(
-      IRL_EXP002_ARMS.indexOf('invariant-runtime'),
+    expect(EXP007_ARMS.indexOf('existing-kb')).toBeLessThan(
+      EXP007_ARMS.indexOf('invariant-runtime'),
     );
   });
 
