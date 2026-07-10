@@ -14,7 +14,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, Home, Sparkles } from "lucide-react";
 import { experimentGet, experimentStep } from "./experimentStepFetch";
-import { personaFetch } from "@/utils/personaSpine";
 
 type RungStatus = "reached" | "not-reached" | "pending";
 
@@ -99,23 +98,15 @@ export default function HomecomingTestTab() {
     load();
   }, [load]);
 
-  // Stand a delegate up: resolve the caller's citizen passport (the sponsor),
-  // run genesis + persona provisioning, then refresh presence.
+  // Stand a delegate up. The sponsor citizen passport is resolved SERVER-SIDE
+  // from the caller's active persona (same context as genesis) — no client-side
+  // wallet lookup, so it can't disagree with a different embed persona context.
   const standUp = useCallback(
     async (delegate: string) => {
       setStandingUp(delegate);
-      setActionNote((n) => ({ ...n, [delegate]: { ok: true, msg: "resolving sponsor passport…" } }));
+      setActionNote((n) => ({ ...n, [delegate]: { ok: true, msg: "standing up…" } }));
       try {
-        const wRes = await personaFetch("/api/polity-passport/wallet", { cache: "no-store" });
-        const wallet = (await wRes.json()) as { passportQubes?: unknown[]; passports?: unknown[] };
-        const list = (wallet.passportQubes || wallet.passports || []) as Record<string, unknown>[];
-        const citizen = list.find((p) => (p.passportClass || p.passport_class) === "citizen");
-        const sponsorPassportId = (citizen?.passportId || citizen?.passport_id) as string | undefined;
-        if (!sponsorPassportId) {
-          setActionNote((n) => ({ ...n, [delegate]: { ok: false, msg: "No citizen passport on this persona — cannot sponsor." } }));
-          return;
-        }
-        const res = await experimentStep("/api/homecoming/agent/stand-up", { delegate, sponsorPassportId });
+        const res = await experimentStep("/api/homecoming/agent/stand-up", { delegate });
         const level = (res.presence as DelegatePresence | undefined)?.presenceLevel ?? "?";
         const personaOk = (res.persona as { provisioned?: boolean } | undefined)?.provisioned;
         setActionNote((n) => ({
@@ -124,6 +115,8 @@ export default function HomecomingTestTab() {
         }));
         await load();
       } catch (err) {
+        // Surfaces the route's real error (auth, or "no citizen passport on your
+        // active persona") instead of masking it as a client-side absence.
         setActionNote((n) => ({ ...n, [delegate]: { ok: false, msg: err instanceof Error ? err.message : "stand-up failed" } }));
       } finally {
         setStandingUp(null);

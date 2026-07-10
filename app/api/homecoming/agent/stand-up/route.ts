@@ -44,20 +44,39 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  if (!body.sponsorPassportId?.trim()) {
+  const admin = getSupabaseServer();
+  if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
+
+  // Resolve the sponsor citizen passport SERVER-SIDE from the caller's active
+  // persona — the SAME persona context genesis runs under (getActivePersona), so
+  // it can never disagree with a client-side wallet lookup done in a different
+  // embed context. An explicit sponsorPassportId in the body still overrides.
+  let sponsorPassportId = body.sponsorPassportId?.trim();
+  if (!sponsorPassportId) {
+    const { data: citizenRows } = await admin
+      .from('polity_passport_records')
+      .select('passport_id, citizen_status')
+      .eq('persona_id', persona.personaId)
+      .eq('passport_class', 'citizen');
+    const rows = citizenRows ?? [];
+    const active = rows.find((r) => r.citizen_status === 'active') ?? rows[0];
+    sponsorPassportId = (active?.passport_id as string | undefined) ?? undefined;
+  }
+  if (!sponsorPassportId) {
     return NextResponse.json(
-      { ok: false, error: 'sponsorPassportId is required — your citizen passport sponsors the delegate genesis' },
+      {
+        ok: false,
+        error:
+          'No citizen passport on your ACTIVE persona. Switch to the persona that holds your Citizen Passport (Passport Bureau → Locker shows it), or pass sponsorPassportId explicitly.',
+      },
       { status: 400 },
     );
   }
 
-  const admin = getSupabaseServer();
-  if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
-
   const result = await standUpDelegate({
     admin,
     sponsorPersonaId: persona.personaId,
-    sponsorPassportId: body.sponsorPassportId,
+    sponsorPassportId,
     delegate,
     origin: resolveRequestOrigin(req),
     callerIsAdmin: true, // gated above
