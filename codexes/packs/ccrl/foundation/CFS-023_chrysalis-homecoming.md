@@ -81,7 +81,7 @@ Establish the **Constitutional Knowledge Repository**. The objective is not mere
 | Experience Guides | `experience_qubes.blak_qube.personalGuide` — `types/experienceGuide.ts` |
 | Standing knowledge | `vsp_facts` + `vsp_profiles.standing_graph` — `services/standing/*` |
 | Registry metadata | `iq_meta_qubes` / `iqube_id_map` |
-| **ChatGPT exports** | **NONE — this is the one genuinely-new intake path.** Build it on the existing chunk/embed/register spine (`KnowledgeBaseService.ingestTextDocument`, the `ingest-polity-papers` pattern, `source_id` idempotency). |
+| **ChatGPT exports** | **BUILT (Phase 1 slice 1)** — `POST /api/homecoming/knowledge/import` parses a `conversations.json` export (pure parser `services/homecoming/chatgptImport.ts`, canary-tested) and ingests each conversation into the dedicated **`homecoming`** KB domain via `KnowledgeBaseService.ingestTextDocument` (idempotent by `source_id`, `dryRun` preview). This was the one genuinely-new intake path; everything else in the table is integration. |
 
 Constitutionalization routes an imported source through one of two established idioms (never a new store): **invariant-extraction** into the `invariants` substrate (`initializeKnowledge`), and/or the **meta/blak iQube split** for governed storage. (Pinned as `KNOWLEDGE_HOMECOMING_SOURCES` + `CONSTITUTIONALIZATION_IDIOMS`; `knowledgeSourceIsNew` flags the ChatGPT path.)
 
@@ -164,7 +164,7 @@ Chrysalis 1.x built the primitives. Chrysalis 2.0 made the platform constitution
 
 - [x] Chartered 2026-07-09 (operator + co-agent, framing by Aletheon)
 - [x] Phase 0 — contract (`types/homecoming.ts`) + canary (`tests/homecoming.test.ts`) + the live Homecoming Test (Constitutional Presence scorer + route + lab tab)
-- [ ] Phase 1 — Knowledge Homecoming: ChatGPT-export intake path + constitutionalization of the first document corpus
+- [~] Phase 1 — Knowledge Homecoming: **intake path SHIPPED** (ChatGPT `conversations.json` → the `homecoming` KB domain, `POST /api/homecoming/knowledge/import`, pure canary-tested parser). Next slice: constitutionalization of the imported corpus (invariant-extraction into the `invariants` substrate)
 - [ ] Phase 2 — Agent Homecoming: complete Alethean issuance (L5), then MoneyPenny + Nakamoto through the genesis pipeline
 - [ ] Phase 3 — Harness Homecoming: conversations native in AgentiQ
 - [ ] Phase 4 — Operational Homecoming: first real operating workflow executed by a delegate natively
@@ -173,5 +173,5 @@ Chrysalis 1.x built the primitives. Chrysalis 2.0 made the platform constitution
 
 - **Phase 0 ships the measurement backbone, not the homecoming.** The contract, the canary, and the live Presence scorer are in place; the actual standing-up of delegates and the knowledge repository are Phases 1–4.
 - **The scorer measures wiring, not soul.** L0–L5 are proven by tables (identity, persona, grant, passport). The Homecoming Test's *Continuity* and *Capability* dimensions — does the delegate still reason like itself, can it genuinely do more — are qualitative and not yet instrumented; the ladder is the necessary structural precondition, not the full test.
-- **ChatGPT-export intake does not exist yet** and is the one genuinely-new build; everything else in Knowledge Homecoming is integration of existing surfaces.
+- **ChatGPT-export intake is now built** (the one genuinely-new surface); it lands transcripts in the KB but does NOT yet constitutionalize them — invariant-extraction into the `invariants` substrate is the next Phase-1 slice, so imported memory is retrievable (keyword/semantic) but not yet invariant-aware.
 - **Presence signals for L3/L4 read delegation-grant scopes** and degrade to `pending` where a grant hasn't been issued or the read fails — honest, never faked green.
