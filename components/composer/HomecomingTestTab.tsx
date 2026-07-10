@@ -31,6 +31,7 @@ interface DelegatePresence {
   presenceLevel: string | null;
   presenceIndex: number;
   rungs: RungAssessment[];
+  passportBound?: boolean;
 }
 
 interface Summary {
@@ -250,10 +251,20 @@ export default function HomecomingTestTab() {
                   Stand up
                 </button>
               )}
-              {/* Issue passport — authored, seeded delegate not yet sovereign. */}
-              {standable.includes(d.delegate) &&
-                d.presenceIndex >= 1 &&
-                d.rungs.find((r) => r.level === "sovereign")?.status !== "reached" && (
+              {/* Passport state: a bound passport shows a badge; otherwise an
+                  authored, seeded delegate gets the Issue-passport action. */}
+              {d.passportBound ? (
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-md border border-sky-600/40 bg-sky-950/40 px-2.5 py-1 text-[11px] font-semibold text-sky-300 ${
+                    standable.includes(d.delegate) && d.presenceIndex < 2 ? "" : "ml-auto"
+                  }`}
+                  title="A Participant Passport is issued + bound (bound_passport_id)"
+                >
+                  <ShieldCheck className="h-3 w-3" /> Passport issued
+                </span>
+              ) : (
+                standable.includes(d.delegate) &&
+                d.presenceIndex >= 1 && (
                   <button
                     onClick={() => issuePassport(d.delegate)}
                     disabled={standingUp !== null || issuingPassport !== null}
@@ -264,7 +275,8 @@ export default function HomecomingTestTab() {
                     {issuingPassport === d.delegate ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
                     Issue passport
                   </button>
-                )}
+                )
+              )}
               {/* Talk — native conversation for any present (L0+) delegate. */}
               {d.presenceIndex >= 0 && (
                 <button

@@ -51,6 +51,9 @@ export interface DelegatePresence {
   presenceLevel: PresenceLevel | null;
   presenceIndex: number; // -1 when null
   rungs: RungAssessment[];
+  /** True when a Participant Passport is issued + bound (bound_passport_id set) —
+   *  the passport HALF of L5, independent of the earned delegation grant. */
+  passportBound: boolean;
 }
 
 export interface HomecomingPresenceReport {
@@ -138,7 +141,7 @@ async function tryRead<T>(fn: () => Promise<T>): Promise<ReadResult<T>> {
 async function readDelegateStatuses(
   client: SupabaseServer,
   delegate: HomecomingDelegateId,
-): Promise<Partial<Record<PresenceLevel, RungStatus>>> {
+): Promise<{ statuses: Partial<Record<PresenceLevel, RungStatus>>; passportBound: boolean }> {
   const { slug, handCuratedCard } = DELEGATE_DB[delegate];
   const statuses: Partial<Record<PresenceLevel, RungStatus>> = {};
 
@@ -218,7 +221,7 @@ async function readDelegateStatuses(
       ? 'reached'
       : 'not-reached';
 
-  return statuses;
+  return { statuses, passportBound: passportIssued };
 }
 
 /**
@@ -246,9 +249,17 @@ export async function assessDelegate(
   delegate: HomecomingDelegateId,
 ): Promise<DelegatePresence> {
   const meta = DELEGATE_CHARTER_STATUS[delegate];
-  const statuses = client
+  const read = client
     ? await readDelegateStatuses(client, delegate)
-    : ({} as Partial<Record<PresenceLevel, RungStatus>>);
-  const { rungs, presenceLevel, presenceIndex } = assembleRungs(statuses);
-  return { delegate, agentClass: meta.agentClass, charterStatus: meta.status, presenceLevel, presenceIndex, rungs };
+    : { statuses: {} as Partial<Record<PresenceLevel, RungStatus>>, passportBound: false };
+  const { rungs, presenceLevel, presenceIndex } = assembleRungs(read.statuses);
+  return {
+    delegate,
+    agentClass: meta.agentClass,
+    charterStatus: meta.status,
+    presenceLevel,
+    presenceIndex,
+    rungs,
+    passportBound: read.passportBound,
+  };
 }

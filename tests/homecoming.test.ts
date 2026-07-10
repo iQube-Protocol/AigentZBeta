@@ -131,6 +131,7 @@ describe('assembleRungs + summarizePresence — pure scorer core', () => {
       presenceLevel: null,
       presenceIndex,
       rungs: [],
+      passportBound: false,
     });
     const summary = summarizePresence([mk(5), mk(2), mk(1), mk(-1)]);
     expect(summary.total).toBe(4);
