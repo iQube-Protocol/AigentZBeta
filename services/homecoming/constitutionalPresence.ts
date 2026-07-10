@@ -65,18 +65,21 @@ export interface HomecomingPresenceReport {
 }
 
 /**
- * The DB identity of each delegate. The `agentId` is the `agent_root_identity`
- * primary business key (note kn0w1's seed is `know1`); `handCuratedCard` marks a
- * delegate that has a published Agent Card ROUTE but no DB seed yet (Aletheon —
- * the archetype/first-mover). Grounded in the genesis-schema + agent-card routes.
+ * The DB identity of each delegate, keyed by `agent_card_slug` — the stable,
+ * UNIQUE business key. This matters: a legacy-seeded row has agent_id === slug
+ * (e.g. `know1`), but a GENESIS-created row (sponsorPolityAgent) has agent_id
+ * `polity-bound:<slug>` while its slug lives in agent_card_slug. Keying on the
+ * slug recognises both, so a delegate stood up via genesis (Agent Homecoming)
+ * registers correctly. `handCuratedCard` marks a delegate with a published Agent
+ * Card ROUTE but no DB seed yet (Aletheon — the archetype/first-mover).
  */
-const DELEGATE_DB: Record<HomecomingDelegateId, { agentId: string; handCuratedCard: boolean }> = {
-  'aigent-z': { agentId: 'aigent-z', handCuratedCard: false },
-  marketa: { agentId: 'marketa', handCuratedCard: false },
-  kn0w1: { agentId: 'know1', handCuratedCard: false },
-  aletheon: { agentId: 'aletheon', handCuratedCard: true },
-  moneypenny: { agentId: 'moneypenny', handCuratedCard: false },
-  nakamoto: { agentId: 'nakamoto', handCuratedCard: false },
+const DELEGATE_DB: Record<HomecomingDelegateId, { slug: string; handCuratedCard: boolean }> = {
+  'aigent-z': { slug: 'aigent-z', handCuratedCard: false },
+  marketa: { slug: 'marketa', handCuratedCard: false },
+  kn0w1: { slug: 'know1', handCuratedCard: false },
+  aletheon: { slug: 'aletheon', handCuratedCard: true },
+  moneypenny: { slug: 'moneypenny', handCuratedCard: false },
+  nakamoto: { slug: 'nakamoto', handCuratedCard: false },
 };
 
 // ─── Pure assembly + summary (deterministic — canary-tested) ─────────────────
@@ -136,15 +139,16 @@ async function readDelegateStatuses(
   client: SupabaseServer,
   delegate: HomecomingDelegateId,
 ): Promise<Partial<Record<PresenceLevel, RungStatus>>> {
-  const { agentId, handCuratedCard } = DELEGATE_DB[delegate];
+  const { slug, handCuratedCard } = DELEGATE_DB[delegate];
   const statuses: Partial<Record<PresenceLevel, RungStatus>> = {};
 
-  // Root identity (drives L0 card + L1 knowledge + L5 passport component).
+  // Root identity (drives L0 card + L1 knowledge + L5 passport component). Keyed
+  // on agent_card_slug so both legacy seeds and genesis rows resolve.
   const rootRead = await tryRead(async () => {
     const { data, error } = await client
       .from('agent_root_identity')
       .select('id, bound_passport_id')
-      .eq('agent_id', agentId)
+      .eq('agent_card_slug', slug)
       .maybeSingle();
     if (error) throw error;
     return data as { id: string; bound_passport_id: string | null } | null;
@@ -178,7 +182,7 @@ async function readDelegateStatuses(
     const { data, error } = await client
       .from('delegation_grants')
       .select('allowed_actions, status')
-      .ilike('agent_root_did', `%${agentId}%`)
+      .ilike('agent_root_did', `%${slug}%`)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
@@ -226,21 +230,25 @@ export async function assessConstitutionalPresence(): Promise<HomecomingPresence
   const delegates: DelegatePresence[] = [];
 
   for (const delegate of HOMECOMING_DELEGATES) {
-    const meta = DELEGATE_CHARTER_STATUS[delegate];
-    // No storage → every rung pending (honest), not a silent zero.
-    const statuses = client
-      ? await readDelegateStatuses(client, delegate)
-      : ({} as Partial<Record<PresenceLevel, RungStatus>>);
-    const { rungs, presenceLevel, presenceIndex } = assembleRungs(statuses);
-    delegates.push({
-      delegate,
-      agentClass: meta.agentClass,
-      charterStatus: meta.status,
-      presenceLevel,
-      presenceIndex,
-      rungs,
-    });
+    delegates.push(await assessDelegate(client, delegate));
   }
 
   return { delegates, summary: summarizePresence(delegates) };
+}
+
+/**
+ * Assess one delegate's Constitutional Presence. `client` may be null (no
+ * storage) → every rung pending, honest. Exported so Agent Homecoming can report
+ * a delegate's presence immediately after standing it up.
+ */
+export async function assessDelegate(
+  client: SupabaseServer | null,
+  delegate: HomecomingDelegateId,
+): Promise<DelegatePresence> {
+  const meta = DELEGATE_CHARTER_STATUS[delegate];
+  const statuses = client
+    ? await readDelegateStatuses(client, delegate)
+    : ({} as Partial<Record<PresenceLevel, RungStatus>>);
+  const { rungs, presenceLevel, presenceIndex } = assembleRungs(statuses);
+  return { delegate, agentClass: meta.agentClass, charterStatus: meta.status, presenceLevel, presenceIndex, rungs };
 }
