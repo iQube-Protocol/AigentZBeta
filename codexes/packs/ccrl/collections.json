@@ -1,11 +1,11 @@
 {
   "name": "CCRL — Constitutional Cybernetics Research Laboratory",
-  "description": "The constitutional research corpus of metaMe IRL — the Chrysalis Foundation specification bundle (CFS-000..023 incl. CFS-023 Chrysalis Homecoming, CRP-001 + CRP-002 Invariant Intelligence programme charter, glossary, seed crystal, Appendix A) and the Foundational Validation Series experiments (EXP-001..003 protocols, articles, results).",
+  "description": "The constitutional research corpus of metaMe IRL — the Chrysalis Foundation specification bundle (CFS-000..024 incl. CFS-023 Chrysalis Homecoming and CFS-024 Constitutional Identity Hierarchy, CRP-001 + CRP-002 Invariant Intelligence programme charter, glossary, seed crystal, Appendix A) and the Foundational Validation Series experiments (EXP-001..003 protocols, articles, results).",
   "collections": [
     {
       "id": "col_foundation",
       "title": "Foundation",
-      "description": "Chrysalis Foundation — the Invariant Intelligence Specification Bundle (CFS-000..014). The programme under which AgentiQ evolves. Constitutional anchor: polity-core/constitutional-records/invariant-intelligence.md",
+      "description": "Chrysalis Foundation — the Invariant Intelligence Specification Bundle (CFS-000..024). The programme under which AgentiQ evolves. Constitutional anchor: polity-core/constitutional-records/invariant-intelligence.md",
       "items": [
         "foundation/constitutional-record.md",
         "foundation/CFS-000a_invariant-manifesto.md",
@@ -41,6 +41,7 @@
         "foundation/CFS-022a_canonical-asset-registry-design.md",
         "foundation/CFS-022b_composition-engine-design.md",
         "foundation/CFS-023_chrysalis-homecoming.md",
+        "foundation/CFS-024_constitutional-identity-hierarchy.md",
         "foundation/CHRYSALIS_WORKSTREAM_TRACKER.md",
         "foundation/appendix-a_canonical-invariants.md"
       ]
