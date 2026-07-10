@@ -1733,7 +1733,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     },
     {
       id: 'experiment-lab',
-      label: 'Experiment Lab',
+      label: 'metaMe IRL',
       slug: 'experiment-lab',
       enabled: true,
       adminOnly: true,
@@ -1746,7 +1746,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       },
       metadata: {
         icon: 'FlaskConical',
-        description: 'Run the Foundational Validation Series (EXP-001/002/003) live — admin-only, runs spend provider credits'
+        description: 'metaMe Invariant Research Lab — run the Foundational Validation Series + the constitutional tests (Chrysalis, Homecoming) live. Admin-only; runs spend provider credits.'
       }
     },
     {
@@ -4811,10 +4811,10 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'RefreshCw', description: 'Constitutional evolution — feedback, adaptation, multi-agent governance (nascent: the frontier)' },
     },
-    // ── Experiment Laboratory ─────────────────────────────────────
+    // ── metaMe IRL — Invariant Research Lab ────────────────────────
     {
       id: 'ccrl-experiment-lab',
-      label: 'Experiment Lab',
+      label: 'metaMe IRL',
       slug: 'ccrl-experiment-lab',
       enabled: true,
       adminOnly: true,
@@ -4822,7 +4822,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       order: 0,
       type: 'static',
       config: { component: 'InvariantExperimentLab', props: {} },
-      metadata: { icon: 'FlaskConical', description: 'Run the series live: EXP-001–004 + Results (canonical publish) + Report + Chrysalis Test — admin-only, runs spend provider credits' },
+      metadata: { icon: 'FlaskConical', description: 'metaMe Invariant Research Lab — run the series live: EXP-001–005 + Results (canonical publish) + Report + Chrysalis Test + Homecoming Test. Admin-only; runs spend provider credits.' },
     },
     {
       id: 'ccrl-protocols',

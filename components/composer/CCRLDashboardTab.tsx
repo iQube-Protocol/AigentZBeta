@@ -221,7 +221,7 @@ function CCRLDashboardContent() {
             <span className="rounded px-2 py-1 bg-[var(--rep-surface-raised)] text-[var(--rep-state-caution)] border border-[var(--rep-state-caution)]">partial {chrysalis.partial}</span>
             <span className="rounded px-2 py-1 bg-[var(--rep-surface-raised)] text-[var(--rep-ink-muted)] border border-[var(--rep-border-subtle)]">pending {chrysalis.pending}</span>
             <span className="rounded px-2 py-1 bg-[var(--rep-surface-raised)] text-[var(--rep-state-critical)] border border-[var(--rep-state-critical)]">fail {chrysalis.failed}</span>
-            <span className="text-[var(--rep-ink-muted)]">of {chrysalis.total} acceptance criteria — full detail in the Experiment Laboratory's Chrysalis tab</span>
+            <span className="text-[var(--rep-ink-muted)]">of {chrysalis.total} acceptance criteria — full detail in metaMe IRL's Chrysalis tab</span>
           </div>
         ) : chrysalisNote ? (
           <p className="text-xs text-[var(--rep-ink-muted)]">{chrysalisNote}</p>
@@ -305,7 +305,7 @@ function CCRLDashboardContent() {
         )}
         {resultsError && <p className="text-xs text-[var(--rep-ink-muted)]">{resultsError}</p>}
         {results && results.length === 0 && (
-          <p className="text-xs text-[var(--rep-ink-muted)]">No canonical results published yet — run the backfill in the Experiment Laboratory's Results tab.</p>
+          <p className="text-xs text-[var(--rep-ink-muted)]">No canonical results published yet — run the backfill in metaMe IRL's Results tab.</p>
         )}
         {results && results.length > 0 && (
           <div className="overflow-x-auto">

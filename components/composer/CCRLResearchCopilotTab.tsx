@@ -382,7 +382,7 @@ const LOOP_STRIP_STAGES = RESEARCH_LOOP_STAGE_ORDER.filter((s) => s !== "replica
 function researchAdvanceGuidance(experimentId: string, nextStage: ResearchLoopStage): string {
   const actionable = researchStageActionable(nextStage);
   if (actionable === "run-in-lab") {
-    return `[observed] ${experimentId}'s protocol is ratified and the research loop advanced to the Run stage. The next step is to run ${experimentId} in the Experiment Lab (the EXP-001…005 runner tabs) — running is executed there, not by you. Point me to the lab; when results are in I'll help you record the finding.`;
+    return `[observed] ${experimentId}'s protocol is ratified and the research loop advanced to the Run stage. The next step is to run ${experimentId} in metaMe IRL (the EXP-001…005 runner tabs) — running is executed there, not by you. Point me to the lab; when results are in I'll help you record the finding.`;
   }
   if (actionable === "complete") {
     return `[observed] ${experimentId} reached the Replicated stage (runs on ≥2 providers). Guide me on what to consolidate or publish next.`;
@@ -446,12 +446,12 @@ function RunStageCard({ experimentId, lifecycle, onGoToLab }: { experimentId: st
     <div className="rounded-xl border border-indigo-700/50 bg-indigo-950/20 p-4 space-y-2">
       <div className="flex items-center gap-2">
         <Play className="h-4 w-4 text-indigo-300" />
-        <h4 className="text-xs font-semibold text-slate-100">Run stage — hand off to the Experiment Lab</h4>
+        <h4 className="text-xs font-semibold text-slate-100">Run stage — hand off to metaMe IRL</h4>
       </div>
       <p className="text-[11px] text-slate-300">
         {experimentId ? <span className="font-mono text-slate-200">{experimentId}</span> : "The active experiment"} is
-        {lifecycle === "running" ? " running" : " ratified and ready to run"}. Running is EXECUTED in the{" "}
-        <span className="text-indigo-300 font-semibold">Experiment Lab</span> (the EXP-001…005 runner tabs) — not here.
+        {lifecycle === "running" ? " running" : " ratified and ready to run"}. Running is EXECUTED in{" "}
+        <span className="text-indigo-300 font-semibold">metaMe IRL</span> (the EXP-001…005 runner tabs) — not here.
         Execution stays in the lab; the copilot never runs an experiment.
       </p>
       <button
@@ -460,7 +460,7 @@ function RunStageCard({ experimentId, lifecycle, onGoToLab }: { experimentId: st
         className="inline-flex items-center gap-1.5 rounded border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-100 hover:bg-indigo-500/25 hover:text-white transition"
       >
         <Play className="h-3 w-3" />
-        Open the Experiment Lab{experimentId ? ` to run ${experimentId}` : ""}
+        Open metaMe IRL{experimentId ? ` to run ${experimentId}` : ""}
       </button>
       <p className="text-[10px] text-slate-500">
         The run produces a canonical, hash-committed result that advances the experiment&apos;s lifecycle
@@ -843,7 +843,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
             )}
             <p className="text-[10px] text-slate-500">
               {researchStageActionable(activeStage) === "run-in-lab"
-                ? "Run stage — execution stays in the Experiment Lab (see below)."
+                ? "Run stage — execution stays in metaMe IRL (see below)."
                 : researchStageActionable(activeStage) === "complete"
                   ? "Replicated — the terminal stage; replication is a computed multi-provider signal, never asserted."
                   : `Ask aigentZ to produce the ${researchStageProposalKind(activeStage) ?? "next"} proposal for this stage; approve it here to advance.`}
@@ -1021,7 +1021,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
             lab state and can propose structured research objects along the design → protocol → run → analyze →
             publish cadence. Proposals are suggest-only and lifecycle-legal — nothing commits without your
             approval; approved objects persist to the lab record and each approval is receipted
-            (research_lifecycle_transition, DVN-anchorable). The Run stage hands off to the Experiment Lab —
+            (research_lifecycle_transition, DVN-anchorable). The Run stage hands off to metaMe IRL —
             running is executed there, never in the copilot.
           </p>
         </div>

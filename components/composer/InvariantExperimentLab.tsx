@@ -1,13 +1,15 @@
 "use client";
 
 /**
- * The Foundational Validation Series — Experiment Lab.
+ * metaMe IRL — the Invariant Research Lab (formerly "Experiment Lab").
  *
- * One tabbed surface for running all three experiments through the front end
- * (no terminal): EXP-002 invariant-carried video (the original runner),
- * EXP-001 KnowledgeQube bundle evaluation, EXP-003 rediscovery savings.
- * Mounted in two places: /admin/studio/invariant-video (direct link) and the
- * AgentiQ cartridge's Experiment Lab tab (multi-cartridge viewer).
+ * One tabbed surface for running the lab's instruments through the front end
+ * (no terminal): the Foundational Validation Series (EXP-001 KnowledgeQube
+ * bundle evaluation, EXP-002 invariant-carried video, EXP-003 rediscovery
+ * savings, EXP-004 sovereignty, EXP-005 provider choice), plus the constitutional
+ * acceptance tests (Chrysalis Test, Homecoming Test). Mounted in two places:
+ * /admin/studio/invariant-video (direct link, route kept for bookmark stability)
+ * and the AgentiQ cartridge's metaMe IRL tab (multi-cartridge viewer).
  */
 
 import React, { Suspense, useState } from "react";
@@ -42,11 +44,13 @@ export default function InvariantExperimentLab() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-slate-100">Experiment Lab — Foundational Validation Series</h2>
+        <h2 className="text-lg font-semibold text-slate-100">metaMe IRL — Invariant Research Lab</h2>
         <p className="text-sm text-slate-400 mt-1">
-          Three orthogonal validations of the same primitive: semantic fidelity (EXP-001), temporal
-          fidelity (EXP-002), computational efficiency (EXP-003). Every run is a separate experiment
-          instance — record provider/model with each result; never merge cross-model rows.
+          The lab bench of metaMe IRL. It hosts the Foundational Validation Series — orthogonal
+          validations of the same primitive: semantic fidelity (EXP-001), temporal fidelity (EXP-002),
+          computational efficiency (EXP-003), sovereignty (EXP-004), provider choice (EXP-005) — and
+          the constitutional acceptance tests (Chrysalis, Homecoming). Every run is a separate
+          experiment instance — record provider/model with each result; never merge cross-model rows.
         </p>
       </div>
 
