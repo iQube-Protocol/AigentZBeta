@@ -96,16 +96,24 @@ Document composition · template management · citation management · diagram ge
 
 ## Reuse guardrails — CPR COMPOSES, never forks
 
-CPR sits ON TOP of already-shipped primitives. It must compose them, not duplicate them:
+CPR sits ON TOP of already-shipped primitives. It must compose them, not duplicate them. The seam symbols below were verified against the tree during the production-surface audit (2026-07-10):
 
-- **Receipts + DVN** — `services/receipts/*`, the DVN anchoring pipeline. **DVN pipeline is protected infrastructure (CLAUDE.md); CPR must not modify it — it emits through it.**
-- **Registry** — the Canonical Asset Registry (Chrysalis P1) + the iQube Registry.
-- **Standing** — the standing accrual service.
-- **Consequence Engineering** — CPR is invoked by it, downstream.
-- **Constitutional Object Model / Composition engine** (Chrysalis P0–P2) — CPR's "Composition" stage composes these; it does not re-implement composition.
-- **Identity spine + CFS-024** — production runs in a resolved `ConstitutionalContext`; the invoking persona/agent/standing gate what may be produced.
+| Primitive | Real symbol / seam | CPR's relationship |
+|---|---|---|
+| **Constitutional Object Model** | `types/constitutionalObject.ts` — `ConstitutionalObject`, `ObjectVersion`, `ObjectRef`, `ConstitutionalObjectKind` | Every production output IS a `ConstitutionalObject`. `ProductionResult.object/version/registryEntry` are these types. CPR never emits an artifact outside the model. |
+| **Composition engine** | `services/composition/composeArtifact.ts:composeArtifact()` → `CompositionResult` (`types/composition.ts`) | CPR's `composition` stage CONSUMES a `CompositionResult`; it does not re-implement composition. **The PUBLISH SEAM is `composeArtifact.ts` ~lines 449–456**, where `provenance.receiptId` stays `null` in propose-mode — that is the exact insertion point where a gated publish would mint the receipt at the route layer. |
+| **Receipts + DVN** | `services/receipts/activityReceiptService.ts:createActivityReceipt` (unified, DVN-anchored) + the protected DVN pipeline (`services/dvn/activityReceiptDvnPipeline.ts`) | CPR EMITS through it, never modifies it. **The only permitted unilateral edit is adding a `production_*` action type to `ANCHORABLE_ACTION_TYPES`** (CLAUDE.md — the one permitted DVN change). |
+| **Registry** | the Canonical Asset Registry (Chrysalis P1) + the iQube Registry | CPR's `registry` stage writes an `ObjectRef` entry; it consumes the registry, does not fork it. |
+| **Standing** | the standing accrual service | CPR's `standing` stage emits a standing event. |
+| **Consequence Engineering** | the Consequence Engineering runtime | CPR is invoked BY it, downstream — production is a constitutionally authorised consequence. |
+| **Identity spine + CFS-024** | `getActivePersona` (read-only; a protected spine file — CPR must NOT modify it) | Production runs in a resolved `ConstitutionalContext`; the invoking persona/agent/standing gate what may be produced. CPR reads the spine, never forks a resolver. **CPR expresses only T2 commitments (`ownerCommitment`, `actorCommitment`) — no T0 personaId ever crosses the seam.** |
 
-*(The exact seam surfaces + the pilot are being finalised from a live production-surface audit — see Build plan.)*
+### Duplication is concentrated (not diffuse)
+
+The audit found that the duplicated production concern reduces to two hot spots, not a sprawl:
+
+1. **publication / version / content-commitment is implemented ~5×** — the experiment publish path, the invariant publish path, the composition provenance seam, the registry emitter, and per-cartridge PDF/document paths each re-derive "serialize-once → hash → version → publish". CPR's single lifecycle is exactly the unification of these.
+2. **There are TWO receipt systems** — `services/receipts/activityReceiptService.ts:createActivityReceipt` (the **unified, DVN-anchored** path; e.g. the CCRL lifecycle already routes through `services/research/lifecycle.ts:writeLifecycleReceipt` → `createActivityReceipt`) versus `services/registry/receiptEmitter.ts:emitReceipt` (a **separate ReceiptQube**, with **no DVN anchoring**). **Reconciling these two is an operator-facing DESIGN CALL, not a quiet refactor** — CPR Phase 0/1 must NOT silently pick one; it standardises new production receipts on the unified `createActivityReceipt` path and flags the ReceiptQube reconciliation for explicit operator direction.
 
 ## Build plan (phased; contract-first)
 
@@ -113,7 +121,7 @@ CPR sits ON TOP of already-shipped primitives. It must compose them, not duplica
 
 - **Phase 0 — the contract + canary.** `types/constitutionalProduction.ts`: `PRODUCTION_LIFECYCLE`, `PRODUCTION_PROFILES`, `ProductionProfile`, `ProductionJob`, `ProductionResult`, `ProduceFn` seam type, pure helpers + `emptyProductionJob()`. No runtime organs. (Mirrors the CFS-024 Phase 0 discipline.)
 - **Phase 1 — the runtime skeleton.** `services/production/*` composing existing receipts/registry/standing/DVN — NOT forking them. One lifecycle executor; profiles as configuration.
-- **Phase 2 — ONE pilot invocation end-to-end.** The lowest-risk highest-signal runtime+profile (candidate: CCRL experiment→paper, or AgentMe proposal→PDF, or AigentZ architecture→code-pack — chosen from the audit). Proves the seam + the publication contract (immutable id, version, evidence, registry, standing, receipt).
+- **Phase 2 — ONE pilot invocation end-to-end. PILOT CHOSEN: CCRL experiment→paper (`research` profile).** The audit selected it as the lowest-risk highest-signal seam because: (a) it is **already on the unified `writeLifecycleReceipt` → `createActivityReceipt` path** (`services/research/lifecycle.ts`), so CPR reuses the receipt seam with zero new plumbing; (b) it is **T2-safe by construction** — the research lifecycle already carries commitments + receipt ids, never a T0 subject id; (c) it touches **no protected surface** — no identity-spine resolver, no DVN pipeline internals (only, if needed, a `production_*` addition to `ANCHORABLE_ACTION_TYPES`), no `getActivePersona` edit. Proves the seam + the publication contract (immutable id, version, evidence, registry, standing, receipt). The AgentMe proposal→PDF and AigentZ architecture→code-pack candidates were deferred — both cross more protected/product surface than the pilot needs.
 - **Phase 3+ — additional profiles + runtimes** by configuration, no CPR change.
 
 ## Honest limits
@@ -125,8 +133,8 @@ CPR sits ON TOP of already-shipped primitives. It must compose them, not duplica
 ## Ratification record
 
 - [ ] Ratified (operator) — PROPOSED 2026-07-10
-- [ ] Production-surface audit complete (agent) → duplication map + extraction seam
-- [ ] CPR contract draft reviewed (agent) → `types/constitutionalProduction.ts` shape
-- [ ] Phase 0 — contract + canary
-- [ ] Phase 1 — runtime skeleton (composing existing primitives)
-- [ ] Phase 2 — one pilot runtime invocation end-to-end
+- [x] Production-surface audit complete (agent) → duplication map + extraction seam (2026-07-10; see Reuse guardrails — duplication concentrated in publication/version/content-commitment ~5× + two receipt systems)
+- [x] CPR contract draft reviewed (agent) → `types/constitutionalProduction.ts` shape (2026-07-10; `PRODUCTION_LIFECYCLE`, `PRODUCTION_PROFILES`, `ProductionProfile`, `ProductionJob`, `ProductionResult`, `ProduceFn`, pure helpers + `emptyProductionJob()`; canary `tests/constitutional-production.test.ts`)
+- [x] Phase 0 — contract + canary (`types/constitutionalProduction.ts` + `tests/constitutional-production.test.ts`; 2026-07-10). Additive, organ-free.
+- [ ] Phase 1 — runtime skeleton (composing existing primitives) — **GATED on operator ratification of this spec**
+- [ ] Phase 2 — one pilot runtime invocation end-to-end (CCRL `research`) — **GATED on operator ratification of this spec**
