@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Shield, ShieldCheck, ShieldX, Clock, Activity, AlertTriangle,
   CheckCircle2, Loader2, ChevronDown, ChevronUp, Receipt, Wallet,
@@ -179,7 +179,8 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
   // Delegate roster state.
   const [selectedAgent, setSelectedAgent] = useState<DelegateAgent | null>(null);
-  const [otherAgents, setOtherAgents] = useState<DelegateAgent[]>([]); // sponsored, non-aigentMe
+  const [otherAgents, setOtherAgents] = useState<DelegateAgent[]>([]); // sponsored (active persona), non-aigentMe
+  const [boundAgents, setBoundAgents] = useState<DelegateAgent[]>([]); // person-scoped (CFS-024), all personas
   const [agentsLoading, setAgentsLoading] = useState(false);
 
   // Slot 1 — aigentMe (the citizen's primary personal delegate).
@@ -329,6 +330,37 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     return () => { cancelled = true; };
   }, []);
 
+  // CFS-024 — the person-scoped bound-agent roster. Bound agents belong to the
+  // constitutional PERSON, not the active persona, so a delegate sponsored under
+  // a DIFFERENT persona (e.g. Aletheon, stood up under the passport-holder
+  // persona) must still appear here. The single-source-of-truth resolver returns
+  // them across every persona the caller owns. Merged with the active-persona
+  // sponsored list below (deduped) so nothing is lost if a surface lags.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/identity/constitutional-context', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const bound = data?.context?.boundAgents;
+        if (!cancelled && Array.isArray(bound)) {
+          const mapped: DelegateAgent[] = bound.map((b: Record<string, unknown>) => ({
+            agentRootId: String(b.agentId ?? ''),
+            displayName: String(b.displayName ?? 'Agent'),
+            didUri: String(b.agentDid ?? ''),
+            agentClass: String(b.agentClass ?? 'polity_bound'),
+            isAigentMe: false,
+          }));
+          setBoundAgents(mapped);
+        }
+      } catch {
+        // Person-scoped roster is additive — sponsored-agents remains the base.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (showAudit) loadAuditEvents();
   }, [showAudit, loadAuditEvents]);
@@ -421,13 +453,35 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const lastBlockedEvent = auditEvents.find((e) => e.event_type === "policy_blocked");
   const hasInjectionWarning = !!lastBlockedEvent;
 
-  // Assignable pool for slots 2 & 3: sponsored non-aigentMe agents, plus the
+  // The delegate pool = active-persona sponsored agents ∪ person-scoped bound
+  // agents (CFS-024), deduped by agentRootId (falling back to didUri), with the
+  // aigentMe (slot 1) removed. This is what makes a cross-persona delegate like
+  // Aletheon appear even when a different persona is active.
+  const pooledOtherAgents = useMemo<DelegateAgent[]>(() => {
+    const seen = new Set<string>();
+    const aigentMeKeys = new Set(
+      [aigentMe?.agentRootId, aigentMe?.didUri].filter((k): k is string => !!k),
+    );
+    const out: DelegateAgent[] = [];
+    for (const a of [...otherAgents, ...boundAgents]) {
+      const key = a.agentRootId || a.didUri;
+      if (!key || seen.has(key)) continue;
+      if (aigentMeKeys.has(a.agentRootId) || aigentMeKeys.has(a.didUri)) continue;
+      seen.add(key);
+      if (a.agentRootId) seen.add(a.agentRootId);
+      if (a.didUri) seen.add(a.didUri);
+      out.push(a);
+    }
+    return out;
+  }, [otherAgents, boundAgents, aigentMe]);
+
+  // Assignable pool for slots 2 & 3: pooled non-aigentMe agents, plus the
   // system agents only when the caller is an admin. Excludes whatever is in
   // the OTHER assignable slot so the same agent can't occupy both.
   function assignableFor(slot: 2 | 3): DelegateAgent[] {
     const taken = slot === 2 ? slot3 : slot2;
     const systemPool = isAdmin ? PLATFORM_AGENTS : [];
-    return [...otherAgents, ...systemPool].filter(
+    return [...pooledOtherAgents, ...systemPool].filter(
       (a) => !taken || a.agentRootId !== taken.agentRootId,
     );
   }
@@ -803,7 +857,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           {delegationAgentDid && (() => {
             const allAgents = [
               ...(aigentMe ? [aigentMe] : []),
-              ...otherAgents,
+              ...pooledOtherAgents,
               ...PLATFORM_AGENTS,
             ];
             const matched = allAgents.find((a) => a.agentRootId === delegationAgentDid || a.didUri === delegationAgentDid);
