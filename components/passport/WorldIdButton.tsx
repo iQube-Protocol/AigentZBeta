@@ -44,6 +44,13 @@ interface Props {
   disabled?: boolean;
   /** Busy/loading state. */
   busy?: boolean;
+  /**
+   * Minimum verification level. `VerificationLevel.Device` (default) accepts a
+   * device OR orb proof — device is the lower grade, orb the higher. Pass
+   * `VerificationLevel.Orb` to require orb-only. The server records which level
+   * the proof actually carried, so grade follows the proof.
+   */
+  minVerificationLevel?: VerificationLevel;
 }
 
 const PUBLIC_APP_ID = process.env.NEXT_PUBLIC_WORLD_ID_APP_ID;
@@ -57,6 +64,7 @@ export function WorldIdButton({
   label = 'Verify with World ID',
   disabled,
   busy,
+  minVerificationLevel = VerificationLevel.Device,
 }: Props) {
   const [internalBusy, setInternalBusy] = useState(false);
   const isBusy = busy || internalBusy;
@@ -122,7 +130,7 @@ export function WorldIdButton({
       app_id={PUBLIC_APP_ID as `app_${string}`}
       action={action ?? PUBLIC_ACTION_ID}
       signal={signal}
-      verification_level={VerificationLevel.Orb}
+      verification_level={minVerificationLevel}
       onSuccess={handleSuccess}
     >
       {({ open }) => (

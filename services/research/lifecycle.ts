@@ -479,8 +479,19 @@ export async function overviewWithPersistedLifecycle(): Promise<
       }
     }
   }
-  return derived.map((entry) => ({
-    ...entry,
-    persistedLifecycle: byId.get(entry.experiment.id) ?? null,
-  }));
+  const order = EXPERIMENT_LIFECYCLE as readonly string[];
+  return derived.map((entry) => {
+    const persisted = byId.get(entry.experiment.id) ?? null;
+    // The displayed (receipted) state must NEVER fall below the derived floor:
+    // the floor is a canonical FACT (published runs exist; ≥2 providers ⇒
+    // replicated). A research_object stuck below its evidence — e.g. oscillated
+    // back to `running` by a later run-started while `results-published` only
+    // reaches `evaluated` — is clamped UP to the floor so every surface (this
+    // dashboard, Publications, the report) reflects what the record proves.
+    const clamped =
+      persisted !== null && order.indexOf(persisted) < order.indexOf(entry.lifecycle)
+        ? entry.lifecycle
+        : persisted;
+    return { ...entry, persistedLifecycle: clamped };
+  });
 }

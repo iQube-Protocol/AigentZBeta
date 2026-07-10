@@ -47,27 +47,42 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseServer();
   if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
 
-  // Resolve the sponsor citizen passport SERVER-SIDE from the caller's active
-  // persona — the SAME persona context genesis runs under (getActivePersona), so
-  // it can never disagree with a client-side wallet lookup done in a different
-  // embed context. An explicit sponsorPassportId in the body still overrides.
+  // Resolve the sponsor citizen passport SERVER-SIDE. The metaMe IRL embed can
+  // resolve a DIFFERENT active persona than the Passport Bureau tab (both may
+  // display the same label), so the active persona alone isn't reliable. Widen
+  // to EVERY persona on the caller's auth account (ownership-safe: we only ever
+  // consider personas with the caller's own auth_profile_id) and sponsor AS the
+  // passport's owning persona. An explicit sponsorPassportId still overrides.
   let sponsorPassportId = body.sponsorPassportId?.trim();
+  let sponsorPersonaId = persona.personaId;
   if (!sponsorPassportId) {
+    // Candidate personas: the active one + all others on this auth account.
+    let personaIds = [persona.personaId];
+    if (persona.authProfileId) {
+      const { data: acctPersonas } = await admin
+        .from('personas')
+        .select('id')
+        .eq('auth_profile_id', persona.authProfileId);
+      personaIds = Array.from(new Set([persona.personaId, ...(acctPersonas ?? []).map((p) => String(p.id))]));
+    }
     const { data: citizenRows } = await admin
       .from('polity_passport_records')
-      .select('passport_id, citizen_status')
-      .eq('persona_id', persona.personaId)
+      .select('passport_id, persona_id, citizen_status')
+      .in('persona_id', personaIds)
       .eq('passport_class', 'citizen');
     const rows = citizenRows ?? [];
-    const active = rows.find((r) => r.citizen_status === 'active') ?? rows[0];
-    sponsorPassportId = (active?.passport_id as string | undefined) ?? undefined;
+    const chosen = rows.find((r) => r.citizen_status === 'active') ?? rows[0];
+    if (chosen) {
+      sponsorPassportId = String(chosen.passport_id);
+      sponsorPersonaId = String(chosen.persona_id); // sponsor as the passport HOLDER (genesis validates ownership)
+    }
   }
   if (!sponsorPassportId) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          'No citizen passport on your ACTIVE persona. Switch to the persona that holds your Citizen Passport (Passport Bureau → Locker shows it), or pass sponsorPassportId explicitly.',
+          'No citizen passport found on your account. Apply for an anonymous Citizen Passport in the Passport Bureau, then retry.',
       },
       { status: 400 },
     );
@@ -75,7 +90,7 @@ export async function POST(req: NextRequest) {
 
   const result = await standUpDelegate({
     admin,
-    sponsorPersonaId: persona.personaId,
+    sponsorPersonaId,
     sponsorPassportId,
     delegate,
     origin: resolveRequestOrigin(req),
@@ -95,7 +110,7 @@ export async function POST(req: NextRequest) {
   // persists at L1); it is reported honestly so the operator can retry.
   const personaOutcome = await provisionAgentPersona({
     admin,
-    sponsorPersonaId: persona.personaId,
+    sponsorPersonaId, // the resolved passport-holder persona (matches the seeded sponsor)
     agentRootId: agent.agentRootId,
     // Reach L2 even when the sponsor's FIO-style root_did has no root_identity
     // row — provision un-anchored (NULL delegating root), flagged for backfill.
