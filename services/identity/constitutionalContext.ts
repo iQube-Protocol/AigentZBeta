@@ -34,6 +34,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getMergedLinkedAuthProfileIds } from '@/services/wallet/multiEmailIdentity';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { readActiveGrant, type DelegationGrantRow } from '@/services/delegation/delegationGrantStore';
+import { listAssignments } from '@/services/identity/personaAssignmentStore';
 import {
   emptyConstitutionalContext,
   type BoundAgent,
@@ -50,17 +51,19 @@ import {
  * (/api/persona/sponsored-agents returns them), so they are retained as the
  * client's stable selection key; sponsor_persona_id (T0) is never included.
  */
+export interface ConstitutionalContextAssignmentT1 {
+  agentId: string;
+  role: PersonaAssignment['role'];
+  delegatedAuthority: string[];
+  active: boolean;
+  validUntil: string | null;
+}
+
 export interface ConstitutionalContextT1 {
   passport: { passportId: string | null; grade: string | null };
   persona: { displayLabel: string | null };
   boundAgents: BoundAgent[];
-  assignedAgent: {
-    agentId: string;
-    role: PersonaAssignment['role'];
-    delegatedAuthority: string[];
-    active: boolean;
-    validUntil: string | null;
-  } | null;
+  assignedAgents: ConstitutionalContextAssignmentT1[];
   currentAigentMe: string | null;
 }
 
@@ -70,15 +73,13 @@ export function projectConstitutionalContextT1(ctx: ConstitutionalContext): Cons
     passport: { passportId: ctx.passport.passportId, grade: ctx.passport.grade },
     persona: { displayLabel: ctx.persona.displayLabel },
     boundAgents: ctx.boundAgents,
-    assignedAgent: ctx.assignedAgent
-      ? {
-          agentId: ctx.assignedAgent.agentId,
-          role: ctx.assignedAgent.role,
-          delegatedAuthority: ctx.assignedAgent.delegatedAuthority,
-          active: ctx.assignedAgent.active,
-          validUntil: ctx.assignedAgent.validUntil,
-        }
-      : null,
+    assignedAgents: ctx.assignedAgents.map((a) => ({
+      agentId: a.agentId,
+      role: a.role,
+      delegatedAuthority: a.delegatedAuthority,
+      active: a.active,
+      validUntil: a.validUntil,
+    })),
     currentAigentMe: ctx.currentAigentMe,
   };
 }
@@ -130,6 +131,36 @@ export function mapGrantToAssignment(
 const AGENT_COLS =
   'id, agent_id, did_uri, agent_class, display_name, bound_passport_id, is_aigent_me, sponsor_persona_id, created_at';
 
+export interface OwnedPersonaRow {
+  id: string;
+  displayName: string | null;
+  fioHandle: string | null;
+}
+
+/**
+ * The person's full persona roster — every active persona sharing the caller's
+ * auth profile (incl. multi-email-merged linked profiles). This is the set a
+ * caller OWNS; bound agents and passports are gathered across all of them (the
+ * CFS-024 person-scoping correction). Shared by the resolver + the assignment
+ * route so ownership is enforced from one place.
+ */
+export async function listOwnedPersonaRows(authProfileId: string): Promise<OwnedPersonaRow[]> {
+  const admin = getSupabaseServer();
+  if (!admin) return [];
+  const linked = await getMergedLinkedAuthProfileIds(authProfileId).catch(() => []);
+  const profileIds = Array.from(new Set([authProfileId, ...linked]));
+  const { data } = await admin
+    .from('personas')
+    .select('id, display_name, fio_handle')
+    .in('auth_profile_id', profileIds)
+    .eq('status', 'active');
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    displayName: (r.display_name as string | null) ?? null,
+    fioHandle: (r.fio_handle as string | null) ?? null,
+  }));
+}
+
 /**
  * Resolve the single constitutional context for the caller. Read-only. Returns
  * an empty (all-null) context for an unauthenticated / persona-less caller —
@@ -154,23 +185,15 @@ export async function resolveConstitutionalContext(
   // The person's full persona roster (all personas sharing the auth profile,
   // incl. multi-email-merged linked profiles). Bound agents are gathered across
   // ALL of these — that is the CFS-024 correction.
-  const linked = await getMergedLinkedAuthProfileIds(persona.authProfileId).catch(() => []);
-  const profileIds = Array.from(new Set([persona.authProfileId, ...linked]));
-  const { data: personaRows } = await admin
-    .from('personas')
-    .select('id, display_name, fio_handle')
-    .in('auth_profile_id', profileIds)
-    .eq('status', 'active');
+  const personaRows = await listOwnedPersonaRows(persona.authProfileId);
   const ownedPersonaIds = Array.from(
-    new Set([persona.personaId, ...((personaRows ?? []).map((r) => String(r.id)))]),
+    new Set([persona.personaId, ...personaRows.map((r) => r.id)]),
   );
   // Authoritative display label for the active persona — the persona's chosen
   // display_name (what the Wallet renders), falling back to its fio_handle.
-  const activeRow = (personaRows ?? []).find((r) => String(r.id) === persona.personaId);
+  const activeRow = personaRows.find((r) => r.id === persona.personaId);
   const activeDisplayLabel =
-    (typeof activeRow?.display_name === 'string' && activeRow.display_name.trim()) ||
-    persona.fioHandle ||
-    null;
+    (activeRow?.displayName && activeRow.displayName.trim()) || persona.fioHandle || null;
 
   // Bound agents — the PERSON's permanent roster (across every owned persona).
   // is_aigent_me is a later migration; soft-fall to the base query if absent.
@@ -192,23 +215,64 @@ export async function resolveConstitutionalContext(
   }
   const boundAgents: BoundAgent[] = agentRows.map(mapBoundAgentRow);
 
-  // The active persona's aigentMe designation (its default assignment target).
+  // The active persona's aigentMe designation via the legacy is_aigent_me flag
+  // (fallback when no persisted assignment exists yet).
   const aigentMeRow = agentRows.find(
     (r) => Boolean(r.is_aigent_me) && String(r.sponsor_persona_id) === persona.personaId,
   );
   const aigentMeDid = aigentMeRow ? String(aigentMeRow.did_uri) : null;
 
-  // The active persona's live delegation grant → the current assignment.
+  // The active persona's live delegation grant → runtime authority for whichever
+  // assigned agent it targets.
   const grant = await readActiveGrant(persona.personaId).catch(() => null);
-  let assignedAgent: PersonaAssignment | null = null;
-  let currentAigentMe: string | null = null;
-  if (grant) {
+  const byDid = new Map(boundAgents.map((b) => [b.agentDid, b] as const));
+  const grantAgentRowId = grant ? (byDid.get(grant.agent_root_did)?.agentId ?? null) : null;
+
+  // Persisted per-persona assignments (CFS-024 Phase 3) — the structural layer.
+  // Many agents may be assigned; exactly one is aigentMe. delegatedAuthority /
+  // validUntil are filled from the active grant only for the agent it targets.
+  const assignmentRows = await listAssignments(persona.personaId).catch(() => []);
+  let assignedAgents: PersonaAssignment[] = assignmentRows.map((a) => {
+    const matchesGrant = grant != null && a.agent_root_id === grantAgentRowId;
+    return {
+      personaId: persona.personaId,
+      agentId: a.agent_root_id,
+      role: a.role,
+      delegatedAuthority:
+        matchesGrant && Array.isArray(grant!.allowed_actions) ? grant!.allowed_actions : [],
+      active: a.active,
+      validFrom: a.created_at ?? null,
+      validUntil: matchesGrant ? (grant!.expires_at ?? null) : null,
+      relationship: 'assignment',
+    };
+  });
+
+  // Back-compat: no persisted assignments (migration pending / none) but a live
+  // grant exists → synthesize one so the surface still reflects reality.
+  if (assignedAgents.length === 0 && grant) {
+    const rowId = grantAgentRowId ?? grant.agent_root_did;
     const isAigentMe =
       aigentMeDid != null &&
-      (grant.agent_root_did === aigentMeDid || grant.agent_root_did === (aigentMeRow?.id as string));
-    assignedAgent = mapGrantToAssignment(grant, persona.personaId, isAigentMe ? 'aigentMe' : 'delegate');
-    currentAigentMe = grant.agent_root_did;
+      (grant.agent_root_did === aigentMeDid || rowId === (aigentMeRow?.id as string));
+    assignedAgents = [
+      {
+        personaId: persona.personaId,
+        agentId: rowId,
+        role: isAigentMe ? 'aigentMe' : 'delegate',
+        delegatedAuthority: Array.isArray(grant.allowed_actions) ? grant.allowed_actions : [],
+        active: grant.status === 'active',
+        validFrom: grant.created_at ?? null,
+        validUntil: grant.expires_at ?? null,
+        relationship: 'assignment',
+      },
+    ];
   }
+
+  // currentAigentMe = the aigentMe assignment's agent (row id), else the legacy
+  // is_aigent_me designation, else null.
+  const currentAigentMe =
+    assignedAgents.find((a) => a.role === 'aigentMe')?.agentId ??
+    (aigentMeRow ? String(aigentMeRow.id) : null);
 
   // Citizen passport across the person's personas — the personhood credential.
   const { data: passportRows } = await admin
@@ -230,7 +294,7 @@ export async function resolveConstitutionalContext(
   ctx.persona.personaId = persona.personaId;
   ctx.persona.displayLabel = activeDisplayLabel;
   ctx.boundAgents = boundAgents;
-  ctx.assignedAgent = assignedAgent;
+  ctx.assignedAgents = assignedAgents;
   ctx.currentAigentMe = currentAigentMe;
   return ctx;
 }

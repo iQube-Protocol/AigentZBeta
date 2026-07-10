@@ -105,7 +105,7 @@ describe('CFS-024 — emptyConstitutionalContext (honest nulls, never faked)', (
     expect(ctx.standing.overall).toBeNull();
     expect(ctx.persona.personaId).toBeNull();
     expect(ctx.boundAgents).toEqual([]);
-    expect(ctx.assignedAgent).toBeNull();
+    expect(ctx.assignedAgents).toEqual([]);
     expect(ctx.currentAigentMe).toBeNull();
     expect(ctx.session.sessionId).toBeNull();
   });
@@ -160,15 +160,32 @@ describe('CFS-024 — pure resolver mappers (row → contract)', () => {
     ctx.persona.personaId = 'persona-T0';
     ctx.persona.displayLabel = 'Mansa Meta';
     ctx.passport.passportId = 'pp_1';
-    ctx.currentAigentMe = 'did:agent:root:metaye';
+    ctx.currentAigentMe = 'agent-me-row';
+    ctx.assignedAgents = [
+      {
+        personaId: 'persona-T0',
+        agentId: 'agent-me-row',
+        role: 'aigentMe',
+        delegatedAuthority: ['knowledge_retrieval'],
+        active: true,
+        validFrom: '2026-07-10T00:00:00Z',
+        validUntil: null,
+        relationship: 'assignment',
+      },
+    ];
     const t1 = projectConstitutionalContextT1(ctx);
     const serialized = JSON.stringify(t1);
     expect(serialized).not.toContain('auth-profile-T0');
-    expect(serialized).not.toContain('persona-T0');
+    // the active persona's OWN id is not surfaced as a persona field
+    expect((t1 as Record<string, unknown>).persona).not.toHaveProperty('personaId');
     expect(t1.persona.displayLabel).toBe('Mansa Meta');
     expect(t1.passport.passportId).toBe('pp_1');
-    expect(t1.currentAigentMe).toBe('did:agent:root:metaye');
-    // T1 shape exposes no personaId key at all
-    expect((t1 as Record<string, unknown>).persona).not.toHaveProperty('personaId');
+    expect(t1.currentAigentMe).toBe('agent-me-row');
+    // assignedAgents projects to the public assignment shape (many; one aigentMe)
+    expect(t1.assignedAgents).toHaveLength(1);
+    expect(t1.assignedAgents[0].role).toBe('aigentMe');
+    expect(t1.assignedAgents[0].agentId).toBe('agent-me-row');
+    // the projected assignment carries no personaId key
+    expect(t1.assignedAgents[0]).not.toHaveProperty('personaId');
   });
 });

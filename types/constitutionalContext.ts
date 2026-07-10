@@ -148,9 +148,13 @@ export interface ConstitutionalContext {
   persona: { personaId: string | null; displayLabel: string | null };
   /** WHICH delegates belong to the person (permanent binding). */
   boundAgents: BoundAgent[];
-  /** WHICH delegate is acting in THIS persona (temporary assignment), if any. */
-  assignedAgent: PersonaAssignment | null;
-  /** The agentId currently assigned as this persona's aigentMe, if any. */
+  /**
+   * The bound agents ASSIGNED to act for THIS persona (temporary). A persona
+   * may assign MANY agents; exactly one carries role 'aigentMe'. Empty when the
+   * persona has assigned none.
+   */
+  assignedAgents: PersonaAssignment[];
+  /** The agentId assigned as this persona's aigentMe (role='aigentMe'), if any. */
   currentAigentMe: string | null;
   workspace: string | null;
   session: { sessionId: string | null };
@@ -167,7 +171,7 @@ export function emptyConstitutionalContext(): ConstitutionalContext {
     standing: { overall: null, maxTrustBand: null },
     persona: { personaId: null, displayLabel: null },
     boundAgents: [],
-    assignedAgent: null,
+    assignedAgents: [],
     currentAigentMe: null,
     workspace: null,
     session: { sessionId: null },
