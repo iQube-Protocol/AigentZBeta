@@ -29,6 +29,12 @@ export type ActivityActionType =
   | 'intent_queued'
   | 'specialist_consulted'
   | 'artifact_created'
+  // Artifact Runtime constitutional publication (CFS-025 Phase 2; DVN-anchorable).
+  // The one production-receipt action type: a constitutional-tier artifact was
+  // PUBLISHED (not merely created). Added to ANCHORABLE_ACTION_TYPES so the
+  // publication commitment lands in tamper-evident memory. See
+  // services/artifact/receiptReconciliation.md.
+  | 'artifact_published'
   | 'artifact_sent'
   | 'approval_granted'
   | 'approval_rejected'

@@ -434,15 +434,16 @@ async function runConstitutional(
         // writer requires a personaId (T0) it never serialises; the route layer
         // resolves it server-side and threads it here. Phase 1 uses the T2
         // actorCommitment as the writer-scoped id argument at the seam — the
-        // route replaces this with the resolved persona id under the gate.
-        // TODO(receipt-reconciliation): use a dedicated `artifact_published`
-        // action type once added to ActivityActionType + ANCHORABLE_ACTION_TYPES
-        // (see receiptReconciliation.md). Until then, 'artifact_created' is the
-        // truthful in-union type (local, not yet DVN-anchored).
+        // route/pilot replaces this with the resolved persona id under the gate
+        // (see services/artifact/pilots/ccrlResearchPilot.ts, which drives
+        // publish through the real personaId to close the T2-seam mismatch).
+        // CFS-025 Phase 2: the dedicated `artifact_published` action type is now
+        // in ActivityActionType + ANCHORABLE_ACTION_TYPES, so this receipt is
+        // DVN-anchorable (see receiptReconciliation.md).
         const receipt = await createActivityReceipt({
           personaId: context.actorCommitment,
           activeCartridge: context.invokedBy,
-          actionType: 'artifact_created',
+          actionType: 'artifact_published',
           summary: `${profile} artifact ${artifactId} published (constitutional)`,
           contextShared: ['artifact-runtime'],
           artifactsCreated: [artifactId],

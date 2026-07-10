@@ -101,6 +101,9 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'remediation_recorded',
   'deployment_authorized',
   'research_lifecycle_transition',
+  // Artifact Runtime (CFS-025 Phase 2) — a constitutional-tier artifact was
+  // PUBLISHED; anchoring makes the publication commitment tamper-evident.
+  'artifact_published',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

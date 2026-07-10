@@ -26,9 +26,20 @@ vi.mock('@/app/api/_lib/supabaseServer', () => ({
 vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: vi.fn(async () => ({ id: 'rcpt_stub_1' })),
 }));
+// The DVN pipeline's heavy IC deps are stubbed so shouldAnchorActionType (a pure
+// predicate over ANCHORABLE_ACTION_TYPES) is importable without @dfinity/agent.
+vi.mock('@/services/ops/icAgent', () => ({ getActor: vi.fn() }));
+vi.mock('@/services/ops/idl/cross_chain_service', () => ({ idlFactory: vi.fn() }));
+// research/lifecycle's invariant store — the pilot never triggers a receipt via
+// it, but stubbing avoids loading its own DB deps at import time.
+vi.mock('@/services/invariants/store', () => ({ getInvariantsBySeedIds: vi.fn(async () => []) }));
 
 import { classifyArtifact } from '@/services/artifact/classify';
 import { runArtifact, evidenceOf } from '@/services/artifact/runArtifact';
+import { produceCcrlResearchArtifact } from '@/services/artifact/pilots/ccrlResearchPilot';
+import { RECEIPT_EVENT_TO_ACTIVITY_ACTION } from '@/services/registry/receiptEmitter';
+import { shouldAnchorActionType } from '@/services/dvn/activityReceiptDvnPipeline';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import type { ArtifactContext, ArtifactCompositionInput } from '@/types/artifactRuntime';
 import { findForbiddenObjectKey } from '@/types/constitutionalObject';
 import type { CompositionResult } from '@/types/composition';
@@ -164,5 +175,111 @@ describe('AR runArtifact — CONSTITUTIONAL tier, PUBLISH mode (gated: composes 
     expect(r.registryEntry).toEqual({ id: r.artifactId, kind: r.object?.identity.kind });
     // the receipt id is recorded on the object's provenance
     expect(r.object?.provenance.receiptIds).toContain('rcpt_stub_1');
+  });
+
+  it('the publish receipt now uses the artifact_published action type (CFS-025 Phase 2)', async () => {
+    vi.mocked(createActivityReceipt).mockClear();
+    await runArtifact('constitutional', 'research', composed, ctx('publish'));
+    expect(vi.mocked(createActivityReceipt)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createActivityReceipt).mock.calls[0][0]).toMatchObject({
+      actionType: 'artifact_published',
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// CFS-025 Phase 2 — the CCRL `research` pilot (propose-vs-publish decision).
+// ─────────────────────────────────────────────────────────────────────────
+describe('CCRL research pilot — propose vs publish decision', () => {
+  const A_COMMIT = 'actorcommit16chr';
+
+  it('propose (default): drafts, writes NO receipt (receiptId null)', async () => {
+    vi.mocked(createActivityReceipt).mockClear();
+    const r = await produceCcrlResearchArtifact({
+      actorCommitment: A_COMMIT,
+      intentRef: 'intent:ccrl:EXP-001',
+      mode: 'propose',
+    });
+    expect(r.ok).toBe(true);
+    expect(r.consequenceClass).toBe('constitutional');
+    expect(r.object).not.toBeNull();
+    expect(r.object?.version.status).toBe('draft');
+    expect(r.receiptId).toBeNull();
+    // NO receipt written in propose-mode (the pilot owns the single publish write)
+    expect(vi.mocked(createActivityReceipt)).not.toHaveBeenCalled();
+    // ownership is the T2 actorCommitment, never a personaId
+    expect(r.object?.ownership.ownerCommitment).toBe(A_COMMIT);
+    expect(findForbiddenObjectKey(r.object)).toBeNull();
+  });
+
+  it('publish (gated): emits ONE artifact_published receipt with the REAL personaId', async () => {
+    vi.mocked(createActivityReceipt).mockClear();
+    const r = await produceCcrlResearchArtifact({
+      actorCommitment: A_COMMIT,
+      intentRef: 'intent:ccrl:EXP-001',
+      mode: 'publish',
+      personaId: 'persona-real-uuid-1',
+    });
+    expect(r.ok).toBe(true);
+    // exactly ONE receipt, of the anchorable artifact_published type, with the
+    // route-resolved T0 personaId (the T2-seam fix) — NOT the actorCommitment.
+    expect(vi.mocked(createActivityReceipt)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createActivityReceipt).mock.calls[0][0]).toMatchObject({
+      actionType: 'artifact_published',
+      personaId: 'persona-real-uuid-1',
+    });
+    expect(r.receiptId).toBe('rcpt_stub_1');
+    expect(r.object?.version.status).toBe('published');
+    expect(r.object?.provenance.receiptIds).toContain('rcpt_stub_1');
+    expect(r.registryEntry).toEqual({ id: r.artifactId, kind: r.object?.identity.kind });
+    // the returned result is still T1-projected — no personaId leaks onto the object
+    expect(findForbiddenObjectKey(r.object)).toBeNull();
+    expect(r.object?.ownership.ownerCommitment).toBe(A_COMMIT);
+  });
+
+  it('publish WITHOUT a resolved personaId falls back to propose (no receipt, gate closed)', async () => {
+    vi.mocked(createActivityReceipt).mockClear();
+    const r = await produceCcrlResearchArtifact({
+      actorCommitment: A_COMMIT,
+      intentRef: 'intent:ccrl:EXP-001',
+      mode: 'publish', // but no personaId threaded → cannot attribute a receipt
+    });
+    expect(vi.mocked(createActivityReceipt)).not.toHaveBeenCalled();
+    expect(r.receiptId).toBeNull();
+    expect(r.object?.version.status).toBe('draft');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// CFS-025 receipt reconciliation — the ReceiptEventType → ActivityActionType
+// map. The load-bearing safety property: money-adjacent events map to a
+// NON-anchorable action type (they must never land on-chain via the adapter).
+// ─────────────────────────────────────────────────────────────────────────
+describe('Receipt reconciliation map — money events are NON-anchorable', () => {
+  it('reward.granted and participation.metered map to a non-anchorable type', () => {
+    for (const ev of ['reward.granted', 'participation.metered'] as const) {
+      const action = RECEIPT_EVENT_TO_ACTIVITY_ACTION[ev];
+      expect(action).toBe('knowledge_curated');
+      expect(shouldAnchorActionType(action)).toBe(false);
+    }
+  });
+
+  it('the ONLY event mapped to the anchorable artifact_published is asset.published', () => {
+    for (const [ev, action] of Object.entries(RECEIPT_EVENT_TO_ACTIVITY_ACTION)) {
+      if (shouldAnchorActionType(action)) {
+        expect(ev).toBe('asset.published');
+        expect(action).toBe('artifact_published');
+      }
+    }
+    // and asset.published is indeed anchorable
+    expect(shouldAnchorActionType(RECEIPT_EVENT_TO_ACTIVITY_ACTION['asset.published'])).toBe(true);
+  });
+
+  it('every mapped action type is a real member of ActivityActionType surface used here', () => {
+    // all non-anchorable pipeline events use one of the two documented fallbacks
+    const values = new Set(Object.values(RECEIPT_EVENT_TO_ACTIVITY_ACTION));
+    for (const v of values) {
+      expect(['artifact_created', 'knowledge_curated', 'artifact_published']).toContain(v);
+    }
   });
 });
