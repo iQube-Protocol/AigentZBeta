@@ -70,6 +70,14 @@ function buildReport(results: PublishedResult[], now: Date): string {
   // and beyond) is surfaced automatically — so a newly-published experiment appears
   // in the report without a template edit. (A full "compose which experiments are
   // published" mechanism follows in the Artifact Runtime workstream, CFS-025.)
+  // Live freshness signal — the true latest canonical run across ALL experiments,
+  // so the report never reads as frozen at an authored-prose date.
+  const latestRunDate =
+    results.length > 0
+      ? new Date(Math.max(...results.map((r) => new Date(r.createdAt).getTime()))).toISOString().slice(0, 10)
+      : null;
+  const distinctExpCount = new Set(results.map((r) => r.experiment)).size;
+
   const FVS_IDS = new Set(["EXP-001", "EXP-002", "EXP-003"]);
   const extraIds = Array.from(new Set(results.map((r) => r.experiment)))
     .filter((id) => !FVS_IDS.has(id))
@@ -97,7 +105,8 @@ ${runsTable(byExp(id))}`,
 
 **Chrysalis Foundation / Invariant Intelligence · AigentZ platform**
 **Status: CONFIDENTIAL DRAFT for strategic partners — not for publication or redistribution**
-**Report generated: ${now.toISOString().slice(0, 10)} · data section reflects all canonically published runs to date**
+**Report generated: ${now.toISOString().slice(0, 10)} · Latest canonical run: ${latestRunDate ?? "none yet"} · ${results.length} published run${results.length === 1 ? "" : "s"} across ${distinctExpCount} experiment${distinctExpCount === 1 ? "" : "s"}**
+*Run tables below render live from the canonical record; dated prose in §§3–5 describes the original validation runs and is amended as decisions evolve.*
 
 ---
 
