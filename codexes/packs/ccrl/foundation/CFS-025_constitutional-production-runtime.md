@@ -165,5 +165,5 @@ The audit found that the duplicated production concern reduces to two hot spots,
 - [x] CPR contract draft reviewed (agent) → seeded the v0.1 `Production*` shape (2026-07-10); superseded by the v0.2 Artifact Runtime contract after the operator added consequence-tiering.
 - [x] Consequence-tiering added (operator, 2026-07-10) → the three classes + promotion; runtime renamed Production → **Artifact Runtime (AR)**; CPR = its constitutional tier.
 - [x] Phase 0 — contract + canary (`types/artifactRuntime.ts` + `tests/artifact-runtime.test.ts`; 2026-07-10, 19/19). Additive, organ-free.
-- [ ] Phase 1 — runtime skeleton (composing existing primitives) — **GATED on operator ratification of this spec**
-- [ ] Phase 2 — one pilot runtime invocation end-to-end (CCRL `research`) — **GATED on operator ratification of this spec**
+- [x] Phase 1 — runtime skeleton (2026-07-10): `services/artifact/{classify,runArtifact,profiles}.ts` composing existing organs; canary; receipt-reconciliation plan.
+- [x] Phase 2 — CCRL `research` pilot end-to-end (2026-07-10): `artifact_published` DVN type (the one permitted DVN edit); `services/artifact/pilots/ccrlResearchPilot.ts` + `POST /api/artifact/produce-research` (propose default, publish emits one anchored receipt with the route-resolved T0 personaId); the receipt-reconciliation ADAPTER (registry emitReceipt double-writes the unified trail, money events off-chain, asset.published non-anchorable-by-default). Follow-up: the 15-call-site ReceiptQube migration + retirement (incremental, tracked).
