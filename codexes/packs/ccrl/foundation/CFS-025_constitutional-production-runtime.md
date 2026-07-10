@@ -154,13 +154,13 @@ The audit found that the duplicated production concern reduces to two hot spots,
 
 ## Honest limits
 
-- **This spec is PROPOSED, not ratified.** It captures Aletheon's PRD + the composition/production separation. The seam surfaces and the pilot are pending the production-surface audit; the invariants + primitive status require operator ratification.
+- **Ratified 2026-07-10 (v0.2), Phase 0 shipped.** Phases 1–2 (runtime skeleton + CCRL pilot) are built next; until they land, AR is a contract + canary with no organs. The consequence-tiering means Phase 1 must implement `ClassifyFn` + the tier router, not just a single production path.
 - **CPR is large.** The multimodal future (audio/video/data/3D/skills/twins/manufacturing) is a long-horizon direction, not a near-term deliverable. Near-term = the contract + one pilot profile through one runtime.
 - **Nothing is extracted until the audit confirms genuine duplication vs already-unified infrastructure.** Where a concern is already shared (receipts, DVN, registry), CPR consumes it rather than absorbing it.
 
 ## Ratification record
 
-- [ ] Ratified (operator) — PROPOSED 2026-07-10
+- [x] **Ratified (operator) 2026-07-10** — CFS-025 v0.2 adopted; the 4 invariants ratified into the substrate (Law XI); pilot confirmed = CCRL experiment→paper (`research`, constitutional tier); **design call: RECONCILE the two receipt systems** (fold the `createActivityReceipt` ↔ registry `ReceiptQube` reconciliation into the AR Phase 1 workstream).
 - [x] Production-surface audit complete (agent) → duplication map + extraction seam (2026-07-10; see Reuse guardrails — duplication concentrated in publication/version/content-commitment ~5× + two receipt systems)
 - [x] CPR contract draft reviewed (agent) → seeded the v0.1 `Production*` shape (2026-07-10); superseded by the v0.2 Artifact Runtime contract after the operator added consequence-tiering.
 - [x] Consequence-tiering added (operator, 2026-07-10) → the three classes + promotion; runtime renamed Production → **Artifact Runtime (AR)**; CPR = its constitutional tier.
