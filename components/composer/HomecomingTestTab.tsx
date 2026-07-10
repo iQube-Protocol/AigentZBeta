@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, Home, Sparkles, MessageCircle, Send } from "lucide-react";
+import { Loader2, RefreshCw, Home, Sparkles, MessageCircle, Send, ShieldCheck } from "lucide-react";
 import { experimentGet, experimentStep } from "./experimentStepFetch";
 
 type RungStatus = "reached" | "not-reached" | "pending";
@@ -70,6 +70,7 @@ export default function HomecomingTestTab() {
   const [computedAt, setComputedAt] = useState<string | null>(null);
   const [standable, setStandable] = useState<string[]>([]);
   const [standingUp, setStandingUp] = useState<string | null>(null);
+  const [issuingPassport, setIssuingPassport] = useState<string | null>(null);
   const [actionNote, setActionNote] = useState<Record<string, { ok: boolean; msg: string }>>({});
   // Native conversation (Phase 3 — Harness Homecoming).
   const [talkOpen, setTalkOpen] = useState<string | null>(null);
@@ -126,6 +127,28 @@ export default function HomecomingTestTab() {
         setActionNote((n) => ({ ...n, [delegate]: { ok: false, msg: err instanceof Error ? err.message : "stand-up failed" } }));
       } finally {
         setStandingUp(null);
+      }
+    },
+    [load],
+  );
+
+  // Issue + bind a delegate's Participant Passport (submit → approve → bind).
+  const issuePassport = useCallback(
+    async (delegate: string) => {
+      setIssuingPassport(delegate);
+      setActionNote((n) => ({ ...n, [delegate]: { ok: true, msg: "issuing passport…" } }));
+      try {
+        const res = await experimentStep("/api/homecoming/agent/issue-passport", { delegate });
+        const pid = res.passportId ? ` (${String(res.passportId).slice(0, 14)}…)` : "";
+        setActionNote((n) => ({
+          ...n,
+          [delegate]: { ok: true, msg: `${res.alreadyBound ? "passport already bound" : "passport issued + bound"}${pid}` },
+        }));
+        await load();
+      } catch (err) {
+        setActionNote((n) => ({ ...n, [delegate]: { ok: false, msg: err instanceof Error ? err.message : "issue-passport failed" } }));
+      } finally {
+        setIssuingPassport(null);
       }
     },
     [load],
@@ -227,6 +250,21 @@ export default function HomecomingTestTab() {
                   Stand up
                 </button>
               )}
+              {/* Issue passport — authored, seeded delegate not yet sovereign. */}
+              {standable.includes(d.delegate) &&
+                d.presenceIndex >= 1 &&
+                d.rungs.find((r) => r.level === "sovereign")?.status !== "reached" && (
+                  <button
+                    onClick={() => issuePassport(d.delegate)}
+                    disabled={standingUp !== null || issuingPassport !== null}
+                    className={`inline-flex items-center gap-1.5 rounded-md border border-sky-500/40 bg-sky-500/15 px-2.5 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/25 transition disabled:opacity-50 ${
+                      standable.includes(d.delegate) && d.presenceIndex < 2 ? "" : "ml-auto"
+                    }`}
+                  >
+                    {issuingPassport === d.delegate ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                    Issue passport
+                  </button>
+                )}
               {/* Talk — native conversation for any present (L0+) delegate. */}
               {d.presenceIndex >= 0 && (
                 <button
