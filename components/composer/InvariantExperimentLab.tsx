@@ -83,6 +83,7 @@ export default function InvariantExperimentLab() {
       {tab === "results" && <ExperimentResultsTab />}
       {tab === "report" && <ExperimentReportTab />}
       {tab === "chrysalis" && <ChrysalisTestTab />}
+      {tab === "homecoming" && <HomecomingTestTab />}
     </div>
   );
 }
