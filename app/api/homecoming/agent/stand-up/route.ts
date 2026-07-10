@@ -64,19 +64,11 @@ export async function POST(req: NextRequest) {
   });
 
   if ('error' in result) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
-  }
-
-  const { spec, outcome } = result;
-
-  if (!outcome.ok || !outcome.agent) {
-    // e.g. slug already taken (already seeded) — honest, with current presence.
     const presence = await assessDelegate(admin, delegate).catch(() => null);
-    return NextResponse.json(
-      { ok: false, delegate, error: outcome.error, code: outcome.code, presence },
-      { status: outcome.status },
-    );
+    return NextResponse.json({ ok: false, delegate, error: result.error, presence }, { status: result.status });
   }
+
+  const { spec, agent, alreadySeeded } = result;
 
   // Chain the mechanical genesis follow-on: provision the agent persona (L2 —
   // reasoning-connected). This is a low-authority genesis step, safe to chain.
@@ -85,7 +77,7 @@ export async function POST(req: NextRequest) {
   const personaOutcome = await provisionAgentPersona({
     admin,
     sponsorPersonaId: persona.personaId,
-    agentRootId: outcome.agent.agentRootId,
+    agentRootId: agent.agentRootId,
     // Reach L2 even when the sponsor's FIO-style root_did has no root_identity
     // row — provision un-anchored (NULL delegating root), flagged for backfill.
     allowUnanchored: true,
@@ -97,7 +89,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     delegate,
-    agent: outcome.agent,
+    alreadySeeded,
+    agent,
     persona: personaOutcome.ok
       ? {
           provisioned: true,
@@ -113,10 +106,10 @@ export async function POST(req: NextRequest) {
         'L3 (Studio) / L4 (Development) / L5 (Sovereign) are EARNED, not granted on demand. Bounded-delegation trust bands are reputation-gated (L3≥50, L4≥75, L5≥100). The delegate earns standing natively — that is the constitutional point of Homecoming.',
     },
     nextSteps: [
-      `Passport: submit a Participant Passport at /api/polity-passport/submit with agent_card_url=${outcome.agent.agentCardUrl} — issuance is the Bureau's act (a component of L5).`,
+      `Passport: submit a Participant Passport at /api/polity-passport/submit with agent_card_url=${agent.agentCardUrl} — issuance is the Bureau's act (a component of L5).`,
       'Standing/reputation: as the delegate accrues Standing, its trust band rises, unlocking bounded-delegation scopes (L3 draft_document, L4 registry_submission_proposal) — grant them at /api/codex/chat/agentiq-os/delegation once the band is reached.',
     ],
-    lawNote: `${spec.displayName} stood up as ${outcome.agent.agentClass} — a bounded constitutional delegate; sovereignty is never delegated (delegation-framework v1). Mechanical climb complete to L2; L3→L5 are earned.`,
+    lawNote: `${spec.displayName} ${alreadySeeded ? 'already seeded' : 'stood up'} as ${agent.agentClass} — a bounded constitutional delegate; sovereignty is never delegated (delegation-framework v1). Mechanical climb complete to L2; L3→L5 are earned.`,
   });
 }
 

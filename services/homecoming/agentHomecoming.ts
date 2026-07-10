@@ -16,7 +16,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { sponsorPolityAgent, SLUG_RE, type SponsorAgentOutcome } from '@/services/agents/sponsorPolityAgent';
+import { sponsorPolityAgent, SLUG_RE } from '@/services/agents/sponsorPolityAgent';
 import type { HomecomingDelegateId } from '@/types/homecoming';
 
 export interface DelegateStandUpSpec {
@@ -69,15 +69,32 @@ export interface StandUpDelegateInput {
   callerIsAdmin: boolean;
 }
 
+/** The resolved delegate RootDID — from a fresh genesis OR a pre-existing row. */
+export interface ResolvedAgent {
+  agentRootId: string;
+  agentId: string;
+  didUri: string;
+  agentClass: string;
+  displayName: string;
+  description: string;
+  agentCardUrl: string;
+  agentCardSlug: string;
+}
+
 export interface StandUpResult {
   spec: DelegateStandUpSpec;
-  outcome: SponsorAgentOutcome;
+  agent: ResolvedAgent;
+  /** True when the RootDID already existed (a prior stand-up) — idempotent. */
+  alreadySeeded: boolean;
 }
 
 /**
- * Seed a Homecoming delegate's RootDID via the genesis core. Returns the spec +
- * the raw genesis outcome (the route maps it to HTTP). A `slug already taken`
- * outcome means the delegate is already seeded — surfaced honestly, not masked.
+ * Seed a Homecoming delegate's RootDID via the genesis core — IDEMPOTENT. On a
+ * fresh seed it returns the new agent; if the RootDID already exists (a prior
+ * run), it resolves the existing row and returns `alreadySeeded: true` so the
+ * caller can proceed uniformly to persona provisioning. Ground truth is the
+ * row, not the genesis error string. Genuine failures (capacity, sponsor
+ * ownership) still surface as an error.
  */
 export async function standUpDelegate(input: StandUpDelegateInput): Promise<StandUpResult | { error: string; status: number }> {
   const spec = getDelegateSpec(input.delegate);
@@ -104,5 +121,53 @@ export async function standUpDelegate(input: StandUpDelegateInput): Promise<Stan
     callerIsAdmin: input.callerIsAdmin,
   });
 
-  return { spec, outcome };
+  if (outcome.ok && outcome.agent) {
+    const a = outcome.agent;
+    return {
+      spec,
+      alreadySeeded: false,
+      agent: {
+        agentRootId: a.agentRootId,
+        agentId: a.agentId,
+        didUri: a.didUri,
+        agentClass: a.agentClass,
+        displayName: a.displayName,
+        description: a.description,
+        agentCardUrl: a.agentCardUrl,
+        agentCardSlug: a.agentCardSlug,
+      },
+    };
+  }
+
+  // Idempotency — a prior run may already have seeded the RootDID. If a row
+  // exists for this slug, proceed as already-seeded (persona provisioning runs
+  // uniformly). This is the reason a re-click of "Stand up" advances L1 → L2.
+  try {
+    const { data: existing } = await input.admin
+      .from('agent_root_identity')
+      .select('id, agent_id, did_uri, agent_class, display_name, description, agent_card_url, agent_card_slug')
+      .eq('agent_card_slug', spec.slug)
+      .maybeSingle();
+    if (existing) {
+      return {
+        spec,
+        alreadySeeded: true,
+        agent: {
+          agentRootId: String(existing.id),
+          agentId: String(existing.agent_id),
+          didUri: String(existing.did_uri),
+          agentClass: String(existing.agent_class),
+          displayName: String(existing.display_name),
+          description: String(existing.description ?? ''),
+          agentCardUrl: String(existing.agent_card_url),
+          agentCardSlug: String(existing.agent_card_slug),
+        },
+      };
+    }
+  } catch {
+    /* fall through to the genesis error */
+  }
+
+  // Genuine failure (capacity, sponsor ownership, migration, etc.).
+  return { error: outcome.error ?? 'genesis failed', status: outcome.status };
 }
