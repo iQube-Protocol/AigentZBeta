@@ -1,10 +1,14 @@
-# CFS-025 — The Constitutional Production Runtime (CPR)
+# CFS-025 — The Artifact Runtime (AR)
 
-**Chrysalis Foundation Specification · v0.1 · Status: PROPOSED (2026-07-10; discovery by Aletheon, operator-sponsored) — pending seam audit + ratification**
-Substrate (planned): `types/constitutionalProduction.ts` · runtime `services/production/*` · canary `tests/constitutional-production.test.ts`
+**Chrysalis Foundation Specification · v0.2 · Status: PROPOSED (2026-07-10; discovery by Aletheon, operator-sponsored; consequence-tiering added by operator) — pending ratification**
+Substrate: `types/artifactRuntime.ts` · runtime `services/artifact/*` (planned) · canary `tests/artifact-runtime.test.ts`
 Companion to: `CFS-022` (Constitutional Operating Environment) · `CFS-006a` (Consequence Operating Model) · `CFS-016` (Constitutional Deployment) · `CFS-024` (Constitutional Identity Hierarchy)
 
-> The breakthrough is a separation, not a merger: **composition** (where ideas are explored, edited, refined) versus **production** (where an idea becomes a reviewed, verified, versioned, signed, published, recorded constitutional artifact). CPR owns production. Nothing else has to.
+> **The governing principle: constitutionality is a property of consequence, not of creation.** People stay free to think, sketch, prototype, and explore with zero constitutional overhead. Only artifacts intended to become authoritative, enduring, or consequential enter the constitutional lifecycle — by *promotion*, the final stage of maturation, never the mandatory start.
+>
+> The runtime therefore does not merely *produce* — it **shepherds artifacts up three consequence tiers**. "CPR" (the Constitutional Production Runtime of v0.1) is not a separate thing: it is AR operating in its **constitutional tier**. Forcing everything through it would be over-governance — Supreme-Court review for a shopping list.
+>
+> A second, orthogonal separation still holds: **composition** (explore, edit, refine) versus **production** (review, verify, version, sign, publish, record). Studio composes; AR produces — but only for artifacts that have earned it.
 
 ---
 
@@ -30,6 +34,26 @@ CCRL:     Experiment→…→Paper     CCRL:     Experiment→ CPR →Paper
 ```
 
 Nothing loses its identity. They simply stop owning production.
+
+## Three consequence classes (the correction that prevents over-governance)
+
+Not everything is consequential. The v0.1 assumption that every artifact flows through the constitutional runtime would manufacture the exact thing constitutions exist to avoid — over-governance. So production has **three classes**, and Consequence Engineering's first question is not *"should this be constitutional?"* but *"what is the consequence class?"*:
+
+```
+                 Artifact
+        ┌─────────┼───────────────┐
+   Disposable   Operational   Constitutional
+```
+
+| Class | Consequence | Examples | Ceremony |
+|---|---|---|---|
+| **Disposable** | none | brainstorming, scratch notes, drafts, prototypes, exploratory research | `compose → done`. **No receipts, no Standing, no Registry, no audit, no publication.** A notebook. |
+| **Operational** | some, not constitutional | internal docs, proposal drafts, sprint specs, software builds, reports | `compose → review → version → publish`. May version/review/approve. **Not canonical.** GitHub-grade. |
+| **Constitutional** | high, canonical | Polity Papers, CCS specs, Passport issuance, Standing updates, Agreements, published standards, government submissions | the full lifecycle: `intent → planning → composition → review → verification → publication → distribution → receipts → standing → registry`. |
+
+**Constitutionality is EARNED by promotion** — `disposable → operational → constitutional`, one tier at a time, up only, never down, never skipped. An artifact matures into it the way a scratch file becomes a branch becomes a release candidate becomes production; the way a draft becomes legislation; the way a note becomes a paper. The constitutional process is the *final stage of maturation*, not the first.
+
+This is why the runtime is the **Artifact Runtime**, not a "Production Runtime": its job is to manage artifact *maturity*. Studio maps onto it directly — `Draft → Disposable → Operational → Constitutional` — where the operator *promotes* work rather than everything beginning constitutional. (Pinned as `CONSEQUENCE_CLASSES`, `LIFECYCLE_FOR_CLASS`, `canPromote` in the contract.)
 
 ## Constitutional position
 
@@ -57,16 +81,20 @@ Intent → IntentQube → Context → Identity → Standing → Delegation
       → Verification → Publication → Receipts → Standing → Registry
 ```
 
-## The single production lifecycle
+## The lifecycles (one per tier; classification comes first)
 
-Every artifact — whatever its profile — follows ONE lifecycle:
+Classification is the first act. Then the assigned tier selects the lifecycle — the ceremony scales with the consequence:
 
 ```
-Intent → Planning → Composition → Review → Verification
-      → Publication → Distribution → Receipts → Standing → Registry
+Intent → Consequence Classification → { disposable | operational | constitutional }
+
+  disposable     compose → done
+  operational    compose → review → version → publish
+  constitutional intent → planning → composition → review → verification
+                 → publication → distribution → receipts → standing → registry
 ```
 
-(To be pinned as `PRODUCTION_LIFECYCLE` in the contract; order is meaning.)
+Only the **constitutional** lifecycle mints a canonical `ConstitutionalObject` with a receipt, a Standing event, and a Registry entry. Operational yields a versioned-but-not-canonical artifact; disposable yields nothing persistent. (Pinned as `DISPOSABLE_LIFECYCLE` / `OPERATIONAL_LIFECYCLE` / `CONSTITUTIONAL_LIFECYCLE`; order is meaning. A profile configures the runtime *within* a tier — it never adds, removes, or reorders a stage.)
 
 ## Composition vs production — the boundary (the key breakthrough)
 
@@ -119,7 +147,7 @@ The audit found that the duplicated production concern reduces to two hot spots,
 
 > Finalised from the parallel production-seam audit + contract draft (agents in flight 2026-07-10). Placeholder shape below; firmed on their return.
 
-- **Phase 0 — the contract + canary.** `types/constitutionalProduction.ts`: `PRODUCTION_LIFECYCLE`, `PRODUCTION_PROFILES`, `ProductionProfile`, `ProductionJob`, `ProductionResult`, `ProduceFn` seam type, pure helpers + `emptyProductionJob()`. No runtime organs. (Mirrors the CFS-024 Phase 0 discipline.)
+- **Phase 0 — the contract + canary.** `types/artifactRuntime.ts`: `CONSEQUENCE_CLASSES` + per-tier lifecycles + `canPromote` (the tiering), `ARTIFACT_PROFILES`, `ArtifactProfile`, `ArtifactJob`, `ArtifactResult`, `ClassifyFn` + `RunArtifactFn` seams, pure helpers + `emptyArtifactJob()`, the 4 invariants. No runtime organs. (Mirrors the CFS-024 Phase 0 discipline.)
 - **Phase 1 — the runtime skeleton.** `services/production/*` composing existing receipts/registry/standing/DVN — NOT forking them. One lifecycle executor; profiles as configuration.
 - **Phase 2 — ONE pilot invocation end-to-end. PILOT CHOSEN: CCRL experiment→paper (`research` profile).** The audit selected it as the lowest-risk highest-signal seam because: (a) it is **already on the unified `writeLifecycleReceipt` → `createActivityReceipt` path** (`services/research/lifecycle.ts`), so CPR reuses the receipt seam with zero new plumbing; (b) it is **T2-safe by construction** — the research lifecycle already carries commitments + receipt ids, never a T0 subject id; (c) it touches **no protected surface** — no identity-spine resolver, no DVN pipeline internals (only, if needed, a `production_*` addition to `ANCHORABLE_ACTION_TYPES`), no `getActivePersona` edit. Proves the seam + the publication contract (immutable id, version, evidence, registry, standing, receipt). The AgentMe proposal→PDF and AigentZ architecture→code-pack candidates were deferred — both cross more protected/product surface than the pilot needs.
 - **Phase 3+ — additional profiles + runtimes** by configuration, no CPR change.
@@ -134,7 +162,8 @@ The audit found that the duplicated production concern reduces to two hot spots,
 
 - [ ] Ratified (operator) — PROPOSED 2026-07-10
 - [x] Production-surface audit complete (agent) → duplication map + extraction seam (2026-07-10; see Reuse guardrails — duplication concentrated in publication/version/content-commitment ~5× + two receipt systems)
-- [x] CPR contract draft reviewed (agent) → `types/constitutionalProduction.ts` shape (2026-07-10; `PRODUCTION_LIFECYCLE`, `PRODUCTION_PROFILES`, `ProductionProfile`, `ProductionJob`, `ProductionResult`, `ProduceFn`, pure helpers + `emptyProductionJob()`; canary `tests/constitutional-production.test.ts`)
-- [x] Phase 0 — contract + canary (`types/constitutionalProduction.ts` + `tests/constitutional-production.test.ts`; 2026-07-10). Additive, organ-free.
+- [x] CPR contract draft reviewed (agent) → seeded the v0.1 `Production*` shape (2026-07-10); superseded by the v0.2 Artifact Runtime contract after the operator added consequence-tiering.
+- [x] Consequence-tiering added (operator, 2026-07-10) → the three classes + promotion; runtime renamed Production → **Artifact Runtime (AR)**; CPR = its constitutional tier.
+- [x] Phase 0 — contract + canary (`types/artifactRuntime.ts` + `tests/artifact-runtime.test.ts`; 2026-07-10, 19/19). Additive, organ-free.
 - [ ] Phase 1 — runtime skeleton (composing existing primitives) — **GATED on operator ratification of this spec**
 - [ ] Phase 2 — one pilot runtime invocation end-to-end (CCRL `research`) — **GATED on operator ratification of this spec**

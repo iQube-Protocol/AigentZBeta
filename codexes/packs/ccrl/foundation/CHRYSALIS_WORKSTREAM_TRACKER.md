@@ -25,7 +25,7 @@ Companion / folded specs (authoritative detail lives there):
 | **C. Constitutional Atlas / Representation** | CFS-021 representation system + the Bearing Instrument navigation primitive | Active |
 | **D. Operator / infra** | Env provisioning, canister health, seed ingests — operator-side actions | Open items tracked below |
 | **E. Homecoming — Constitutional Agent Sovereignty** | CFS-023 bridge programme; delegates stood up + Constitutional Presence ladder | Active |
-| **F. Constitutional primitives (Identity + Production)** | CFS-024 Constitutional Identity Hierarchy (person↔agent binding/assignment) + CFS-025 Constitutional Production Runtime (composition vs production) | CFS-024 P0–P1 shipped; CFS-025 proposed |
+| **F. Constitutional primitives (Identity + Artifacts)** | CFS-024 Constitutional Identity Hierarchy (person↔agent binding/assignment) + CFS-025 Artifact Runtime (three consequence tiers; constitutionality earned by promotion) | CFS-024 P0–P1 shipped; CFS-025 Phase 0 shipped, Phase 1/2 ratification-gated |
 
 ---
 
@@ -69,7 +69,7 @@ Companion / folded specs (authoritative detail lives there):
 | 36 | **DVN canister status** — `dfx canister --network ic status sp5ye-2qaaa-aaaao-qkqla-cai` (cycles / PEM / id-mismatch). **Seed ingests** — `inv.representation.121-129` + `inv.interaction.112-118` are `proposed` in the seed crystal; run the ingest to make them live (CFS docs are canon meanwhile). | D | Operator |
 | — | DCIR D2 remaining snapshot fields harden against their organs (intent/goals/policies/persona/standing/…); Feedback Coordinator full design (component #12). | B | Ratify before build |
 | — | Two Supabase migrations if not yet run: `dev_loop_sessions`, research objects table. | D | Operator |
-| 47 | **CFS-025 Constitutional Production Runtime (CPR).** Extract the duplicated production phase out of AgentMe / AigentZ / Studio / Cryptopia / CCRL into ONE constitutional primitive invoked by all (composition vs production). Spec authored (PROPOSED). In flight: production-surface audit + contract draft (agents). Then Phase 0 contract + canary → Phase 1 runtime skeleton (composing receipts/registry/standing/DVN) → Phase 2 one pilot invocation. | F | Ratify before build |
+| 47 | **CFS-025 Artifact Runtime (AR).** One runtime that shepherds artifacts across three consequence tiers — disposable (notebook) / operational (GitHub) / constitutional (canonical) — invoked by AgentMe / AigentZ / Studio / Cryptopia / CCRL. Constitutionality is EARNED by promotion, not mandatory at creation. Phase 0 (contract `types/artifactRuntime.ts` + canary, 19/19) shipped. Phase 1 (runtime skeleton composing receipts/registry/standing/DVN) + Phase 2 (CCRL research pilot) ratification-gated. Open design call: reconcile the two receipt systems (createActivityReceipt vs ReceiptQube). | F | Ratify before build |
 | 48 | **CFS-024 Phase 2/3 — Delegation consolidation.** Persona-first Delegation tab + persisted per-persona agent assignments (multiple assigned agents, one aigentMe, reassignable) + Wallet reflection. Plan presented; awaiting operator approval + a migration. | F | Operator approval + migration |
 
 ---
