@@ -1118,11 +1118,50 @@ export default function SmartWalletDrawer({
     }
   }, []);
 
+  // CFS-024 — the aigentMe designation is a PER-PERSONA assignment, not the
+  // legacy is_aigent_me flag. Resolve the ACTIVE persona's assigned aigentMe from
+  // the single-source-of-truth resolver so the wallet's star matches the
+  // Delegation tab exactly (the two disagreed before: wallet showed the sponsor-
+  // flagged agent, the tab showed the assigned one).
+  const [aigentMeAssignmentId, setAigentMeAssignmentId] = useState<string | null>(null);
+  const [assignmentContextLoaded, setAssignmentContextLoaded] = useState(false);
+  const loadAigentMeAssignment = useCallback(async () => {
+    if (!effectivePersonaId) { setAigentMeAssignmentId(null); setAssignmentContextLoaded(false); return; }
+    try {
+      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch(
+        `/api/identity/constitutional-context?personaId=${encodeURIComponent(effectivePersonaId)}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store" },
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.ok) {
+        setAigentMeAssignmentId(data.context?.currentAigentMe ?? null);
+        setAssignmentContextLoaded(true);
+      }
+    } catch {
+      // Silent — wallet falls back to the legacy flag on failure.
+    }
+  }, [effectivePersonaId]);
+
   useEffect(() => {
     if (activeTab !== "iqube") return;
     void loadSponsoredAgents();
     void loadAigentMeDelegation();
-  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId, loadSponsoredAgents, loadAigentMeDelegation]);
+    void loadAigentMeAssignment();
+  }, [activeTab, walletNode?.personaContext?.activePersona?.personaId, loadSponsoredAgents, loadAigentMeDelegation, loadAigentMeAssignment]);
+
+  // The bound-delegate list with aigentMe re-derived from the active persona's
+  // ASSIGNMENT (once resolved) — exactly one agent is starred, matching the tab.
+  // Falls back to the legacy is_aigent_me flag until the assignment context loads.
+  const displaySponsoredAgents = useMemo(() => {
+    if (!assignmentContextLoaded) return sponsoredAgents;
+    return sponsoredAgents.map((sa) => ({
+      ...sa,
+      isAigentMe: !!aigentMeAssignmentId && sa.agentRootId === aigentMeAssignmentId,
+    }));
+  }, [sponsoredAgents, aigentMeAssignmentId, assignmentContextLoaded]);
 
   // World ID strong-verification state — per passport. 'busy' shows the
   // spinner while the verification round-trip is in flight; 'error' surfaces
@@ -4907,13 +4946,13 @@ export default function SmartWalletDrawer({
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
                   </div>
-                ) : sponsoredAgents.length === 0 ? (
+                ) : displaySponsoredAgents.length === 0 ? (
                   <p className="text-xs text-white/40 leading-relaxed">
                     No agents sponsored yet. Sponsor a Polity-bound agent from the Polity Passport → Apply tab to delegate work under your bounded authority.
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {sponsoredAgents.map((sa) => {
+                    {displaySponsoredAgents.map((sa) => {
                       const agentCollapsed = agentCardCollapsed.has(sa.agentRootId);
                       return (
                       <div
