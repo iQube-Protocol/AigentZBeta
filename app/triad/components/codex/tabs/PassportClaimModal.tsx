@@ -309,6 +309,7 @@ export function PassportClaimModal({
               <button
                 onClick={() => {
                   onClose();
+                  window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: 'delegation' } }));
                   const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
                   if (tabButtons.length > 0) {
                     (tabButtons[0] as HTMLElement).click();

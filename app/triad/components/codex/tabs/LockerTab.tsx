@@ -744,6 +744,9 @@ export function LockerTab() {
                             href="#delegation"
                             onClick={(e) => {
                               e.preventDefault();
+                              // Canonical intra-cartridge nav seam (the viewer + KNYT listen; matches on slug).
+                              window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: 'delegation' } }));
+                              // Legacy fallback for surfaces that render a data-tab-slug attribute.
                               const btn = document.querySelector('[data-tab-slug="passport-bureau-delegation"]');
                               if (btn) (btn as HTMLElement).click();
                             }}
