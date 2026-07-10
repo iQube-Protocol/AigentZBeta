@@ -28,6 +28,15 @@ export interface ProvisionAgentPersonaInput {
   /** agent_root_identity.id returned by genesis. */
   agentRootId: string;
   personaRole?: string;
+  /**
+   * When true, provision even if the sponsor's root_identity can't be resolved —
+   * with delegation_user_root_id NULL (a schema-permitted, RLS-recognised state),
+   * flagged `sponsorRootResolved: false` for later backfill. Default false keeps
+   * the strict behaviour the /api/identity/persona/agent route relies on; Agent
+   * Homecoming passes true so a delegate reaches L2 when the sponsor's FIO-style
+   * root_did has no root_identity row (a common human-persona gap).
+   */
+  allowUnanchored?: boolean;
 }
 
 export interface AgentPersonaResult {
@@ -51,7 +60,7 @@ export interface ProvisionAgentPersonaOutcome {
 export async function provisionAgentPersona(
   input: ProvisionAgentPersonaInput,
 ): Promise<ProvisionAgentPersonaOutcome> {
-  const { admin, sponsorPersonaId, agentRootId, personaRole: roleInput } = input;
+  const { admin, sponsorPersonaId, agentRootId, personaRole: roleInput, allowUnanchored = false } = input;
   if (!agentRootId?.trim()) {
     return { ok: false, status: 400, error: 'agentRootId is required — the id returned by /api/agents/genesis' };
   }
@@ -103,38 +112,52 @@ export async function provisionAgentPersona(
     };
   }
 
-  // 3. Resolve the sponsor's root_identity via personas.root_did → root_identity.did_uri.
+  // 3. Resolve the sponsor's root_identity via personas.root_did →
+  //    root_identity.did_uri (best-effort). Human personas often carry a
+  //    did:fio:<handle> root_did with no matching root_identity row; when
+  //    allowUnanchored is set we provision an UN-anchored persona
+  //    (delegation_user_root_id NULL — schema-permitted, RLS-recognised) rather
+  //    than blocking, and flag it for later backfill.
   const { data: sponsorPersona, error: sponsorPersonaErr } = await admin
     .from('personas')
     .select('root_did')
     .eq('id', sponsorPersonaId)
     .maybeSingle();
   if (sponsorPersonaErr) return { ok: false, status: 500, error: sponsorPersonaErr.message };
-  const sponsorRootDid = sponsorPersona?.root_did;
-  if (!sponsorRootDid) {
-    return { ok: false, status: 409, error: 'Sponsor persona has no root DID — cannot anchor bounded delegation' };
+  const sponsorRootDid = sponsorPersona?.root_did ?? null;
+
+  let sponsorRootId: string | null = null;
+  if (sponsorRootDid) {
+    const { data: rootRow, error: rootErr } = await admin
+      .from('root_identity')
+      .select('id')
+      .eq('did_uri', sponsorRootDid)
+      .maybeSingle();
+    if (rootErr) return { ok: false, status: 500, error: rootErr.message };
+    sponsorRootId = rootRow?.id ?? null;
+  }
+  if (!sponsorRootId && !allowUnanchored) {
+    return {
+      ok: false,
+      status: 409,
+      error: sponsorRootDid
+        ? 'Sponsor root identity not found — cannot anchor bounded delegation'
+        : 'Sponsor persona has no root DID — cannot anchor bounded delegation',
+    };
   }
 
-  const { data: rootRow, error: rootErr } = await admin
-    .from('root_identity')
-    .select('id')
-    .eq('did_uri', sponsorRootDid)
-    .maybeSingle();
-  if (rootErr) return { ok: false, status: 500, error: rootErr.message };
-  const sponsorRootId = rootRow?.id ?? null;
-  if (!sponsorRootId) {
-    return { ok: false, status: 409, error: 'Sponsor root identity not found — cannot anchor bounded delegation' };
+  // 4. Resolve the sponsor's Bureau did_persona (nullable; only with a root).
+  let sponsorDidPersonaId: string | null = null;
+  if (sponsorRootId) {
+    const { data: didPersonaRows } = await admin
+      .from('did_persona')
+      .select('id')
+      .eq('root_id', sponsorRootId)
+      .eq('app_origin', BUREAU_APP_ORIGIN)
+      .limit(1);
+    sponsorDidPersonaId =
+      didPersonaRows && didPersonaRows.length > 0 ? String(didPersonaRows[0].id) : null;
   }
-
-  // 4. Resolve the sponsor's Bureau did_persona (nullable).
-  const { data: didPersonaRows } = await admin
-    .from('did_persona')
-    .select('id')
-    .eq('root_id', sponsorRootId)
-    .eq('app_origin', BUREAU_APP_ORIGIN)
-    .limit(1);
-  const sponsorDidPersonaId =
-    didPersonaRows && didPersonaRows.length > 0 ? String(didPersonaRows[0].id) : null;
 
   // 5. Provision the agent persona.
   const didUri = `did:agent:persona:${agentRoot.agent_card_slug}:production`;
@@ -175,6 +198,6 @@ export async function provisionAgentPersona(
       maxIdentifiability: String(created.max_identifiability),
       createdAt: created.created_at,
     },
-    delegationAnchored: { sponsorRootResolved: true, sponsorDidPersonaResolved: sponsorDidPersonaId !== null },
+    delegationAnchored: { sponsorRootResolved: sponsorRootId !== null, sponsorDidPersonaResolved: sponsorDidPersonaId !== null },
   };
 }

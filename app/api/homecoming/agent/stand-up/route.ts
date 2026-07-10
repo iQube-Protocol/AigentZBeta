@@ -86,6 +86,9 @@ export async function POST(req: NextRequest) {
     admin,
     sponsorPersonaId: persona.personaId,
     agentRootId: outcome.agent.agentRootId,
+    // Reach L2 even when the sponsor's FIO-style root_did has no root_identity
+    // row — provision un-anchored (NULL delegating root), flagged for backfill.
+    allowUnanchored: true,
   }).catch((e) => ({ ok: false, status: 500, error: e instanceof Error ? e.message : 'persona provisioning failed' }));
 
   // Report presence AFTER both steps (best-effort — never fails the stand-up).
@@ -96,7 +99,12 @@ export async function POST(req: NextRequest) {
     delegate,
     agent: outcome.agent,
     persona: personaOutcome.ok
-      ? { provisioned: true, alreadyExists: 'alreadyExists' in personaOutcome ? Boolean(personaOutcome.alreadyExists) : false, agentPersona: 'agentPersona' in personaOutcome ? personaOutcome.agentPersona : undefined }
+      ? {
+          provisioned: true,
+          alreadyExists: 'alreadyExists' in personaOutcome ? Boolean(personaOutcome.alreadyExists) : false,
+          agentPersona: 'agentPersona' in personaOutcome ? personaOutcome.agentPersona : undefined,
+          delegationAnchored: 'delegationAnchored' in personaOutcome ? personaOutcome.delegationAnchored : undefined,
+        }
       : { provisioned: false, error: personaOutcome.error },
     presence,
     reachedMechanicalCeiling: personaOutcome.ok, // L2 is the mechanical ceiling for a day-one delegate

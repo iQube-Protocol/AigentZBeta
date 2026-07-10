@@ -12,8 +12,9 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, Home } from "lucide-react";
-import { experimentGet } from "./experimentStepFetch";
+import { Loader2, RefreshCw, Home, Sparkles } from "lucide-react";
+import { experimentGet, experimentStep } from "./experimentStepFetch";
+import { personaFetch } from "@/utils/personaSpine";
 
 type RungStatus = "reached" | "not-reached" | "pending";
 
@@ -68,6 +69,9 @@ export default function HomecomingTestTab() {
   const [delegates, setDelegates] = useState<DelegatePresence[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [computedAt, setComputedAt] = useState<string | null>(null);
+  const [standable, setStandable] = useState<string[]>([]);
+  const [standingUp, setStandingUp] = useState<string | null>(null);
+  const [actionNote, setActionNote] = useState<Record<string, { ok: boolean; msg: string }>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,11 +86,51 @@ export default function HomecomingTestTab() {
     } finally {
       setLoading(false);
     }
+    // Which delegates have an authored stand-up spec (best-effort).
+    try {
+      const s = await experimentGet("/api/homecoming/agent/stand-up");
+      setStandable(Array.isArray(s.standable) ? (s.standable as string[]) : []);
+    } catch {
+      setStandable([]);
+    }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Stand a delegate up: resolve the caller's citizen passport (the sponsor),
+  // run genesis + persona provisioning, then refresh presence.
+  const standUp = useCallback(
+    async (delegate: string) => {
+      setStandingUp(delegate);
+      setActionNote((n) => ({ ...n, [delegate]: { ok: true, msg: "resolving sponsor passport…" } }));
+      try {
+        const wRes = await personaFetch("/api/polity-passport/wallet", { cache: "no-store" });
+        const wallet = (await wRes.json()) as { passportQubes?: unknown[]; passports?: unknown[] };
+        const list = (wallet.passportQubes || wallet.passports || []) as Record<string, unknown>[];
+        const citizen = list.find((p) => (p.passportClass || p.passport_class) === "citizen");
+        const sponsorPassportId = (citizen?.passportId || citizen?.passport_id) as string | undefined;
+        if (!sponsorPassportId) {
+          setActionNote((n) => ({ ...n, [delegate]: { ok: false, msg: "No citizen passport on this persona — cannot sponsor." } }));
+          return;
+        }
+        const res = await experimentStep("/api/homecoming/agent/stand-up", { delegate, sponsorPassportId });
+        const level = (res.presence as DelegatePresence | undefined)?.presenceLevel ?? "?";
+        const personaOk = (res.persona as { provisioned?: boolean } | undefined)?.provisioned;
+        setActionNote((n) => ({
+          ...n,
+          [delegate]: { ok: true, msg: `stood up → ${level}${personaOk ? " · persona provisioned" : " · persona pending"}` },
+        }));
+        await load();
+      } catch (err) {
+        setActionNote((n) => ({ ...n, [delegate]: { ok: false, msg: err instanceof Error ? err.message : "stand-up failed" } }));
+      } finally {
+        setStandingUp(null);
+      }
+    },
+    [load],
+  );
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -149,7 +193,23 @@ export default function HomecomingTestTab() {
                   <span className="text-[9px] text-slate-600">L{r.index}</span>
                 </div>
               ))}
+              {/* Stand-up action — only for authored delegates not yet reasoning-connected (L2). */}
+              {standable.includes(d.delegate) && d.presenceIndex < 2 && (
+                <button
+                  onClick={() => standUp(d.delegate)}
+                  disabled={standingUp !== null}
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-100 hover:bg-indigo-500/25 hover:text-white transition disabled:opacity-50"
+                >
+                  {standingUp === d.delegate ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  Stand up
+                </button>
+              )}
             </div>
+            {actionNote[d.delegate] && (
+              <p className={`mt-2 text-[11px] ${actionNote[d.delegate].ok ? "text-emerald-300" : "text-rose-300"}`}>
+                {actionNote[d.delegate].msg}
+              </p>
+            )}
           </div>
         ))}
     </div>
