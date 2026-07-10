@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, Home, Sparkles } from "lucide-react";
+import { Loader2, RefreshCw, Home, Sparkles, MessageCircle, Send } from "lucide-react";
 import { experimentGet, experimentStep } from "./experimentStepFetch";
 
 type RungStatus = "reached" | "not-reached" | "pending";
@@ -71,6 +71,12 @@ export default function HomecomingTestTab() {
   const [standable, setStandable] = useState<string[]>([]);
   const [standingUp, setStandingUp] = useState<string | null>(null);
   const [actionNote, setActionNote] = useState<Record<string, { ok: boolean; msg: string }>>({});
+  // Native conversation (Phase 3 — Harness Homecoming).
+  const [talkOpen, setTalkOpen] = useState<string | null>(null);
+  const [talkInput, setTalkInput] = useState("");
+  const [talkBusy, setTalkBusy] = useState(false);
+  interface Sov { provider: string; model: string; degraded: boolean; sovereignFloor: boolean }
+  const [talkReply, setTalkReply] = useState<Record<string, { reply: string; sovereignty: Sov | null; chunks: number }>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -123,6 +129,30 @@ export default function HomecomingTestTab() {
       }
     },
     [load],
+  );
+
+  // Talk to a delegate natively (Phase 3). Routes through the sovereign,
+  // invariant-aware model router; the reply carries a sovereignty receipt.
+  const converse = useCallback(
+    async (delegate: string) => {
+      const message = talkInput.trim();
+      if (!message) return;
+      setTalkBusy(true);
+      try {
+        const res = await experimentStep("/api/homecoming/agent/converse", { delegate, message });
+        const sov = res.sovereignty as Sov | undefined;
+        const g = res.grounding as { knowledgeChunks?: number } | undefined;
+        setTalkReply((r) => ({
+          ...r,
+          [delegate]: { reply: String(res.reply ?? ""), sovereignty: sov ?? null, chunks: g?.knowledgeChunks ?? 0 },
+        }));
+      } catch (err) {
+        setTalkReply((r) => ({ ...r, [delegate]: { reply: `⚠ ${err instanceof Error ? err.message : "conversation failed"}`, sovereignty: null, chunks: 0 } }));
+      } finally {
+        setTalkBusy(false);
+      }
+    },
+    [talkInput],
   );
 
   return (
@@ -197,11 +227,65 @@ export default function HomecomingTestTab() {
                   Stand up
                 </button>
               )}
+              {/* Talk — native conversation for any present (L0+) delegate. */}
+              {d.presenceIndex >= 0 && (
+                <button
+                  onClick={() => setTalkOpen(talkOpen === d.delegate ? null : d.delegate)}
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition ${
+                    standable.includes(d.delegate) && d.presenceIndex < 2 ? "" : "ml-auto"
+                  } ${
+                    talkOpen === d.delegate
+                      ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+                      : "border-slate-700 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60"
+                  }`}
+                >
+                  <MessageCircle className="h-3 w-3" /> Talk
+                </button>
+              )}
             </div>
             {actionNote[d.delegate] && (
               <p className={`mt-2 text-[11px] ${actionNote[d.delegate].ok ? "text-emerald-300" : "text-rose-300"}`}>
                 {actionNote[d.delegate].msg}
               </p>
+            )}
+            {/* Native conversation panel. */}
+            {talkOpen === d.delegate && (
+              <div className="mt-3 rounded-md border border-slate-800 bg-slate-950/40 p-2.5 space-y-2">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={talkInput}
+                    onChange={(e) => setTalkInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) converse(d.delegate);
+                    }}
+                    rows={2}
+                    placeholder={`Ask ${d.delegate}… (⌘/Ctrl+Enter to send)`}
+                    className="flex-1 resize-y rounded border border-slate-700 bg-slate-900/70 px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:border-slate-500 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => converse(d.delegate)}
+                    disabled={talkBusy || !talkInput.trim()}
+                    className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/25 transition disabled:opacity-50"
+                  >
+                    {talkBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                    Send
+                  </button>
+                </div>
+                {talkReply[d.delegate] && (
+                  <div className="space-y-1">
+                    <p className="whitespace-pre-wrap text-xs text-slate-200">{talkReply[d.delegate].reply}</p>
+                    {talkReply[d.delegate].sovereignty && (
+                      <p className="text-[10px] text-slate-500">
+                        via {talkReply[d.delegate].sovereignty!.provider}/{talkReply[d.delegate].sovereignty!.model}
+                        {talkReply[d.delegate].sovereignty!.sovereignFloor ? " · sovereign floor" : ""}
+                        {talkReply[d.delegate].sovereignty!.degraded ? " · degraded" : ""}
+                        {" · grounded on "}
+                        {talkReply[d.delegate].chunks} sovereign-KB chunk{talkReply[d.delegate].chunks === 1 ? "" : "s"}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         ))}
