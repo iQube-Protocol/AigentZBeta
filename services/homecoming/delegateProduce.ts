@@ -36,7 +36,7 @@ import {
 import { callSovereign } from '@/services/constitutional/modelRouter';
 import { classifyArtifact } from '@/services/artifact/classify';
 import { runArtifact } from '@/services/artifact/runArtifact';
-import { isDocumentProfile, buildCdsProductionGuidance } from '@/services/artifact/constitutionalDesignSystem';
+import { isDocumentProfile, buildCpsProductionGuidance } from '@/services/artifact/constitutionalPublishingSystem';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { objectRef, standingBandFor, findForbiddenObjectKey, type ConstitutionalObject } from '@/types/constitutionalObject';
 import {
@@ -135,11 +135,11 @@ export async function produceViaDelegate(input: DelegateProduceInput): Promise<D
     buildDelegateSystemPrompt(identity, input.grounding) +
     `\n\nYou are producing a ${profile} artifact natively within the platform. Produce the artifact itself — ` +
     `well-structured, complete, and grounded in your constitutional knowledge. Do not narrate that you are producing it; produce it.`;
-  // The Constitutional Publishing Factory: a document-class artifact inherits the
-  // Constitutional Design System's editorial + production invariants, so native
-  // output is standards-grade without re-authoring the design language.
+  // The Constitutional Publishing System: a document-class artifact is rendered in
+  // metaMe's canonical publication language, so native output is standards-grade
+  // without re-authoring the design language.
   if (isDocumentProfile(profile)) {
-    system += `\n\n${buildCdsProductionGuidance()}`;
+    system += `\n\n${buildCpsProductionGuidance()}`;
   }
   const drafted = await callSovereign('reasoning', system, input.brief, input.maxTokens ?? 1600);
   const body = drafted.text;

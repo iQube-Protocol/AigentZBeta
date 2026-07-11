@@ -16,23 +16,23 @@ import { Loader2, RefreshCw, Home, Sparkles, MessageCircle, Send, ShieldCheck, F
 import { experimentGet, experimentStep } from "./experimentStepFetch";
 
 /**
- * The seed brief a delegate opens with. Aletheon's first factory OUTPUT (operator
- * direction 2026-07-11): the Constitutional Design System is now captured
- * (CFS-026), so per Aletheon's recommendation the first publication produced BY
- * the factory is CCS-000 (Vision & Scope). Fully editable — swap it for the CDS
- * or anything else. Other delegates start blank.
+ * The seed brief a delegate opens with. Aletheon's first CPS publication (operator
+ * direction 2026-07-11): IRL-0001, the foundational paper of the Invariant
+ * Research Lab — the first publication produced in the emerging Constitutional
+ * Publishing System (CFS-026). Produced under the CPS language automatically
+ * (documentation is a document-class profile). Fully editable in the panel; other
+ * delegates start blank.
  */
 function defaultBriefFor(delegate: string): string {
   if (delegate === "aletheon") {
     return (
-      "Produce CCS-000 — Constitutional Commerce Specifications: Vision & Scope — as the FIRST publication of the " +
-      "Constitutional Publishing Factory. This foundational standard frames the Constitutional Commerce series " +
-      "(CCS-000 Vision & Scope → CCS-001 Reference Architecture → CCS-002 Constitutional Ontology → CCS-003 Standing " +
-      "→ CCS-004 Registry → CCS-005 Privacy-Preserving Identifiability → CCS-006 Constitutional Economics → CCS-007 " +
-      "Bounded Delegation → CCS-008 Constitutional Receipts). Cover: the problem (why commerce needs a constitutional " +
-      "substrate), the opportunity (the Constitutional Internet), the constitutional principles it rests on, the " +
-      "reference architecture at a high level, the scope and structure of the series, and how each subsequent CCS " +
-      "specification builds on this one. Follow the Constitutional Design System editorial arc."
+      "Produce IRL-0001 — the foundational paper of the Invariant Research Lab (metaMe · Invariant Research Lab · " +
+      "Foundational Research Series), and the first publication of the Constitutional Publishing System. Introduce " +
+      "the constitutional research programme: the invariant as metaMe's core knowledge primitive, reasoning " +
+      "compression, and the Constitutional Runtime. Follow the CPS editorial arc — Problem → Opportunity → " +
+      "Constitutional Principle → Architecture → Implementation — in standards-body register, describing any " +
+      "architecture as numbered engineering-drawing figures (NASA / Bell Labs / IBM Systems Journal / Da Vinci " +
+      "notebook register), never infographics."
     );
   }
   return "";
