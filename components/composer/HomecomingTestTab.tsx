@@ -27,12 +27,13 @@ function defaultBriefFor(delegate: string): string {
   if (delegate === "aletheon") {
     return (
       "Produce IRL-0001 — the foundational paper of the Invariant Research Lab (metaMe · Invariant Research Lab · " +
-      "Foundational Research Series), and the first publication of the Constitutional Publishing System. Introduce " +
-      "the constitutional research programme: the invariant as metaMe's core knowledge primitive, reasoning " +
-      "compression, and the Constitutional Runtime. Follow the CPS editorial arc — Problem → Opportunity → " +
-      "Constitutional Principle → Architecture → Implementation — in standards-body register, describing any " +
-      "architecture as numbered engineering-drawing figures (NASA / Bell Labs / IBM Systems Journal / Da Vinci " +
-      "notebook register), never infographics."
+      "Foundational Research Series), the first publication of the Constitutional Publishing System. Produce it " +
+      "DIAGRAMS-FIRST: compose the seven Canonical Plates (CP-001 Evolution of Intelligence → CP-002 First " +
+      "Principles → CP-003 Human Agency → CP-004 Invariant Intelligence Cycle → CP-005 Constitutional Computing " +
+      "Stack → CP-006 metaMe Institutional Architecture → CP-007 Discovery → Civilisation), reference each as " +
+      "\"See Canonical Plate CP-00N\", and write the prose AROUND them — the diagrams are the knowledge primitives. " +
+      "Follow the CPS editorial arc (Problem → Opportunity → Constitutional Principle → Architecture → " +
+      "Implementation) in standards-body register. Do not invent new diagrams."
     );
   }
   return "";

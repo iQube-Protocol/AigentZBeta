@@ -119,6 +119,35 @@ export const CPS_PRODUCTION_RULES = [
 ] as const;
 
 /**
+ * The Constitutional Design System (CDS) lives WITHIN the CPS — CPS RE-CONSTITUTES
+ * it, it does not replace it. The CDS is the DESIGN-LANGUAGE layer of the CPS (the
+ * look): principles + editorial hierarchy + document arc + visual + cover +
+ * notebook marks. The CPS is the whole publishing system = CDS (design) + the
+ * canonical diagram library + templates + renderers + the production pipeline.
+ */
+export const CDS_DESIGN_LANGUAGE = {
+  principles: CPS_DESIGN_PRINCIPLES,
+  editorialHierarchy: CPS_EDITORIAL_HIERARCHY,
+  documentArc: CPS_DOCUMENT_ARC,
+  visual: CPS_VISUAL,
+  cover: CPS_COVER,
+  notebookMarks: CPS_NOTEBOOK_MARKS,
+} as const;
+
+/**
+ * The CPS PRODUCTION PIPELINE — the core inversion. A publication is produced
+ * DIAGRAMS-FIRST: the diagrams are knowledge primitives, not illustrations, and
+ * the prose is written AROUND them (Euclid / Darwin / Tufte / Bell Labs / NASA /
+ * IBM Research). Never write-then-illustrate. Order pinned.
+ */
+export const CPS_PRODUCTION_PIPELINE = [
+  'canonical-concepts',
+  'canonical-diagrams',
+  'canonical-narrative',
+  'publication',
+] as const;
+
+/**
  * The CPS publication TEMPLATES — one design language, many templates
  * (the Human Civic Futurism layer model). Order pinned.
  */
@@ -208,6 +237,7 @@ export function buildCpsProductionGuidance(): string {
     `Design principles: ${CPS_DESIGN_PRINCIPLES.map((p) => `${p} (${CPS_PRINCIPLE_STATEMENT[p]})`).join(' ')}`,
     `Editorial hierarchy (in order): ${CPS_EDITORIAL_HIERARCHY.join(' → ')}.`,
     `Reason in this order, never implementation-first: ${CPS_DOCUMENT_ARC.join(' → ')}.`,
+    `PRODUCE DIAGRAMS-FIRST (the core inversion): ${CPS_PRODUCTION_PIPELINE.join(' → ')}. The diagrams are knowledge primitives, not illustrations — establish the canonical diagrams FIRST, then write the prose AROUND them. COMPOSE from the seven Canonical Plates (CP-001..CP-007) provided; reference each as "See Canonical Plate CP-00N" — do NOT invent new diagrams where a canonical plate exists.`,
     `Architecture diagrams are ENGINEERING DRAWINGS (${CPS_DIAGRAM_REFERENCES.join(', ')} register) described in text as numbered SVG-describable figures — never infographics, never decorative.`,
     `Production rules:\n${CPS_PRODUCTION_RULES.map((r) => `- ${r}`).join('\n')}`,
     'Write publication-style prose (standards-body register); a constitutional manuscript, not marketing.',

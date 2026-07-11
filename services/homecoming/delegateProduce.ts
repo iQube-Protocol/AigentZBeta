@@ -37,6 +37,7 @@ import { callSovereign } from '@/services/constitutional/modelRouter';
 import { classifyArtifact } from '@/services/artifact/classify';
 import { runArtifact } from '@/services/artifact/runArtifact';
 import { isDocumentProfile, buildCpsProductionGuidance } from '@/services/artifact/constitutionalPublishingSystem';
+import { buildPlateManifest } from '@/services/artifact/canonicalPlates';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { objectRef, standingBandFor, findForbiddenObjectKey, type ConstitutionalObject } from '@/types/constitutionalObject';
 import {
@@ -139,7 +140,9 @@ export async function produceViaDelegate(input: DelegateProduceInput): Promise<D
   // metaMe's canonical publication language, so native output is standards-grade
   // without re-authoring the design language.
   if (isDocumentProfile(profile)) {
-    system += `\n\n${buildCpsProductionGuidance()}`;
+    system +=
+      `\n\n${buildCpsProductionGuidance()}` +
+      `\n\nThe Canonical Plates (CP) — the visual ontology to COMPOSE from (do not invent new diagrams; reference each as "See Canonical Plate CP-00N"):\n${buildPlateManifest()}`;
   }
   const drafted = await callSovereign('reasoning', system, input.brief, input.maxTokens ?? 1600);
   const body = drafted.text;

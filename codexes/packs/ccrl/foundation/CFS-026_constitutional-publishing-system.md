@@ -35,6 +35,14 @@ The **Production Runtime** (CFS-025 Artifact Runtime) does **not generate PDFs �
 
 **Same runtime. Different renderer.** A *renderer* is HOW an artifact is output; the AR *profile* is WHAT it is. CPS is the first/canonical renderer (`CPS_RENDERERS[0]`); wiring renderers as a first-class AR concept is a follow-on. This bridges today with the production architecture: this first IRL paper is the first publication of the lab **and** the first publication produced in the emerging CPS — even before the full Production Runtime is complete.
 
+## CDS within CPS, and the diagrams-first pipeline
+
+CPS **re-constitutes** the Constitutional Design System — it does not replace it. The **CDS is the design-language layer WITHIN the CPS** (`CDS_DESIGN_LANGUAGE`): principles, editorial hierarchy, document arc, visual, cover, notebook marks. CPS is the whole system = **CDS (design) + the Canonical Plates (CFS-027, the visual ontology) + templates + renderers + the production pipeline.**
+
+The core inversion: **produce DIAGRAMS-FIRST.** A publication is not written-then-illustrated — the diagrams are knowledge primitives and the prose is written *around* them (`CPS_PRODUCTION_PIPELINE`): **Canonical Concepts → Canonical Diagrams → Canonical Narrative → Publication.** The diagrams come from the seven Canonical Plates (CP-001..CP-007, CFS-027); compose them, cite them as CP-00N, never invent new visuals where a plate exists.
+
+The three complementary systems form one knowledge architecture: **IRL** discovers the science · **CPS** communicates it · **CP** encodes it.
+
 ## The publisher imprint
 
 Every publication carries the hierarchy (`CPS_PUBLISHER`): **metaMe · Invariant Research Lab · Foundational Research Series.** Publications are numbered **four-digit** (`cpsPaperNumber`) — `IRL-0001`, not `IRL-1` — so the series survives into the hundreds.
