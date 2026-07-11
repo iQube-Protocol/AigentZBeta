@@ -16,17 +16,23 @@ import { Loader2, RefreshCw, Home, Sparkles, MessageCircle, Send, ShieldCheck, F
 import { experimentGet, experimentStep } from "./experimentStepFetch";
 
 /**
- * The seed brief a delegate opens with. Aletheon's first Operational-Homecoming
- * proof (operator direction, 2026-07-11): draft the Constitutional Design System
- * PRD. Other delegates start blank.
+ * The seed brief a delegate opens with. Aletheon's first factory OUTPUT (operator
+ * direction 2026-07-11): the Constitutional Design System is now captured
+ * (CFS-026), so per Aletheon's recommendation the first publication produced BY
+ * the factory is CCS-000 (Vision & Scope). Fully editable — swap it for the CDS
+ * or anything else. Other delegates start blank.
  */
 function defaultBriefFor(delegate: string): string {
   if (delegate === "aletheon") {
     return (
-      "Draft a Product Requirements Document (PRD) for the Constitutional Design System — the system that governs " +
-      "how every AgentiQ surface renders constitutional state (identity, standing, consequence tier, receipts) " +
-      "coherently. Cover: the problem, goals & non-goals, first principles, the design tokens & primitives, how it " +
-      "binds to the Constitutional Object Model, and a phased delivery plan."
+      "Produce CCS-000 — Constitutional Commerce Specifications: Vision & Scope — as the FIRST publication of the " +
+      "Constitutional Publishing Factory. This foundational standard frames the Constitutional Commerce series " +
+      "(CCS-000 Vision & Scope → CCS-001 Reference Architecture → CCS-002 Constitutional Ontology → CCS-003 Standing " +
+      "→ CCS-004 Registry → CCS-005 Privacy-Preserving Identifiability → CCS-006 Constitutional Economics → CCS-007 " +
+      "Bounded Delegation → CCS-008 Constitutional Receipts). Cover: the problem (why commerce needs a constitutional " +
+      "substrate), the opportunity (the Constitutional Internet), the constitutional principles it rests on, the " +
+      "reference architecture at a high level, the scope and structure of the series, and how each subsequent CCS " +
+      "specification builds on this one. Follow the Constitutional Design System editorial arc."
     );
   }
   return "";
