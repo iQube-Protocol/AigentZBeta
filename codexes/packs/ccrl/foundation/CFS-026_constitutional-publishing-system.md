@@ -71,6 +71,18 @@ Pinned in `services/artifact/constitutionalPublishingSystem.ts`, so the Producti
 4. **The rendering layer** — editable-source → **derived** PDF (never server-side Lambda rasterization — CLAUDE.md). The biggest piece; specced before building.
 5. **CPS wired into the AR profile registry** (`services/artifact/profiles.ts`).
 
+## The rendering layer — design (specced 2026-07-11; build gated on operator sign-off)
+
+The layer that makes a CPS publication *look* like a standard. Three phases, each independently shippable, all obeying the hard platform constraint: **no server-side PDF rasterization on Lambda** (CLAUDE.md — pdfjs/canvas on Lambda is a documented dead end). Authoring stays editable-first; PDF is always **derived, client-side**.
+
+**R1 — the Plate renderer (SVG engineering drawings).** One isomorphic React component, `CanonicalPlateFigure`, that renders a `CanonicalPlate` **from its registered asset payload** (`plate:cp-00n` in the Canonical Asset Registry — the drawing can never diverge from the ontology). One renderer per `PlateForm` (`branch` · `radial` · `circle` · `stack` · `flow`), drawn in the engineering-drawing register: hairline strokes, boxes/layers/flow vocabulary, numbered figure block (Fig. N · title · caption), faint drafting marks from `CPS_NOTEBOOK_MARKS`. Pure SVG — vector, version-controlled, reusable in papers/decks/website/Studio. Palette + type from the representation system (a CPS interpretation with ivory/navy/gold bindings), never hardcoded literals (house rule).
+
+**R2 — the Publication shell (HTML).** A `CpsPublicationView` that lays out a produced publication: manuscript cover (geometric constructions, golden-ratio guides, **no human figure**), the publisher imprint block (metaMe · Invariant Research Lab · series + `IRL-0001` number), CPS typography (serif headings / sans body / mono notation), twelve-column grid, plates placed as `CanonicalPlateFigure`s at their cited positions ("See Canonical Plate CP-002" anchors). Renders the editable Markdown source — the source of truth stays text.
+
+**R3 — the derived PDF.** Client-side only: print-CSS on the R2 shell (`@page` margins, page-registration marks, break rules) → the browser's print-to-PDF produces the artifact. No Lambda involvement; the PDF is a *derivation* of the HTML, which is a derivation of the Markdown + plate assets. (If a headless-render service is ever wanted, it is an external worker, never in-Lambda — a separate ratification.)
+
+Order of build: **R1 first** (the plates are the reusable asset with the widest surface), then R2, then R3. R1 alone already upgrades every deck/paper/Studio surface.
+
 ## Honest limits
 - **PROPOSED, v0.1.** CPS governs prose + editorial structure + the *description* of engineering figures today; the visual rendering layer (serif/sans/grid, SVG figures in the engineering-drawing register, derived PDF) is unbuilt.
 - **Relationship to CFS-011.** CFS-011 Style Invariants govern generative style broadly; CPS is the metaMe *publications* language specifically. CPS may become the publications interpretation of the style-invariant substrate.
