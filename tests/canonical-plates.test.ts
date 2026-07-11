@@ -14,6 +14,15 @@ import {
   platesForPublication,
   buildPlateManifest,
 } from '@/services/artifact/canonicalPlates';
+import { canonicalPlateAssets, listCanonicalAssets } from '@/services/composition/canonicalAssets';
+import { findForbiddenObjectKey } from '@/types/constitutionalObject';
+import {
+  PUBLICATION_REGISTER,
+  nextPublicationNumber,
+  publicationByNumber,
+  seriesByCode,
+} from '@/services/artifact/publicationRegistry';
+import { PROFILE_RENDERER, profileRendererFor } from '@/services/artifact/constitutionalPublishingSystem';
 
 describe('CP — seven canonical plates (Euclid, not a sprawl)', () => {
   it('is exactly seven plates, numbered CP-001..CP-007 in order', () => {
@@ -75,5 +84,54 @@ describe('CP — compositions (no new diagrams, only new compositions)', () => {
     expect(m).toContain('CP-001');
     expect(m).toContain('CP-007');
     expect(signaturePlates().length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe('CP — plates as canonical assets (ecosystem assets, not per-document art)', () => {
+  it('all seven plates register as canonical assets and enter honestly at validated', () => {
+    const assets = canonicalPlateAssets();
+    expect(assets).toHaveLength(7);
+    for (const a of assets) {
+      expect(a.identity.kind).toBe('canonical_asset');
+      // Specced, not yet ratified — validated band, published state, ratification required.
+      expect(a.standing.band).toBe('validated');
+      expect(a.lifecycle.state).toBe('published');
+      expect(a.authority.ratificationRequired).toBe(true);
+      expect(findForbiddenObjectKey(a)).toBeNull(); // no T0 leak
+    }
+    expect(assets[1].identity.displayLabel).toContain('CP-002');
+  });
+
+  it('the plates appear in the Canonical Asset Registry projection', () => {
+    const ids = listCanonicalAssets().map((a) => a.identity.id);
+    expect(ids).toContain('plate:cp-001');
+    expect(ids).toContain('plate:cp-007');
+  });
+});
+
+describe('Publication registry — series + canonical numbering', () => {
+  it('IRL-0001 is reserved, composing all seven plates', () => {
+    const p = publicationByNumber('IRL-0001');
+    expect(p?.state).toBe('reserved');
+    expect(p?.plates).toHaveLength(7);
+    expect(seriesByCode('IRL')?.imprint).toContain('Invariant Research Lab');
+  });
+
+  it('numbering is monotonic within a series and fresh for an unused series', () => {
+    expect(PUBLICATION_REGISTER.length).toBeGreaterThanOrEqual(1);
+    expect(nextPublicationNumber('IRL')).toBe('IRL-0002');
+    expect(nextPublicationNumber('CCS')).toBe('CCS-0001');
+  });
+});
+
+describe('CPS — profile → renderer wiring (composition over the AR contract)', () => {
+  it('document profiles render through the CPS family; software/multimedia do not', () => {
+    expect(profileRendererFor('documentation')).toBe('constitutional-publishing-system');
+    expect(profileRendererFor('research')).toBe('research-report');
+    expect(profileRendererFor('standard')).toBe('standards-document');
+    expect(profileRendererFor('software')).toBeNull();
+    expect(profileRendererFor('multimedia')).toBeNull();
+    // every AR profile has an explicit entry (no silent default)
+    expect(Object.keys(PROFILE_RENDERER)).toHaveLength(12);
   });
 });

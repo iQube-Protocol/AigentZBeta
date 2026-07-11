@@ -37,6 +37,7 @@ import type {
   ObjectRef,
 } from '@/types/constitutionalObject';
 import { objectRef, standingBandFor } from '@/types/constitutionalObject';
+import { CANONICAL_PLATES_V1, type CanonicalPlate } from '@/services/artifact/canonicalPlates';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Commitments — T2-safe, deterministic, one-way (no T0 ever enters here)
@@ -275,6 +276,68 @@ export function interpretationAssetFor(interp: Interpretation): ConstitutionalOb
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// The Canonical Plates (CP-001..CP-007) — the visual ontology as assets
+// ─────────────────────────────────────────────────────────────────────────
+
+/** CP v1.0 is operator-SPECCED but not yet ratified (CFS-027) — plates enter at
+ *  the `validated` band and `published` state; ratification lifts them to
+ *  `canonized` / the canonical band. */
+const PLATE_STANDING_SCORE = 0.5; // standingBandFor(0.5) === 'validated'
+
+/**
+ * A Canonical Plate as a first-class canonical asset (CFS-027): the SAME figure
+ * every surface (papers, decks, website, keynotes, PRDs, Studio) retrieves —
+ * an ecosystem asset, not per-document art. The payload is the plate's encoded
+ * structure; the (later) rendering layer derives the SVG engineering drawing
+ * from it, so the drawing and the ontology can never diverge.
+ */
+export function canonicalPlateAsset(plate: CanonicalPlate): ConstitutionalObject {
+  const payload = {
+    number: plate.number,
+    roman: plate.roman,
+    title: plate.title,
+    form: plate.form,
+    kind: plate.kind,
+    structure: plate.structure,
+    message: plate.message,
+    signature: Boolean(plate.signature),
+  };
+  return {
+    identity: {
+      id: `plate:${plate.number.toLowerCase()}`,
+      kind: 'canonical_asset',
+      ref: assetCommitment('canonical_asset', `plate:${plate.number.toLowerCase()}`),
+      displayLabel: `${plate.number} — ${plate.title}`,
+    },
+    version: { version: 1, status: 'published' },
+    standing: {
+      standing: PLATE_STANDING_SCORE,
+      band: standingBandFor(PLATE_STANDING_SCORE),
+      reach: 3, // ecosystem-wide reuse is the point
+    },
+    authority: {
+      minStandingToCompose: 'validated',
+      ratificationRequired: true, // CFS-027 ratification lifts to canonized
+      governingInvariants: [],
+    },
+    ownership: { ownerCommitment: PLATFORM_STEWARD_COMMITMENT },
+    provenance: {
+      receiptIds: [],
+      contentCommitment: contentCommitment(payload),
+      source: 'authored',
+    },
+    lifecycle: { state: 'published', order: ['draft', 'published', 'canonized', 'deprecated'] },
+    dependencies: [],
+    payload,
+  };
+}
+
+/** All seven plates as canonical assets, in CP order. Pure + deterministic. */
+export function canonicalPlateAssets(): ConstitutionalObject[] {
+  return CANONICAL_PLATES_V1.map(canonicalPlateAsset);
+}
+
 /** ObjectRef helper (P0) for a canonical-asset descriptor. */
 export function assetObjectRef(o: ConstitutionalObject): ObjectRef {
   return objectRef(o.identity.id, o.identity.kind);
@@ -295,9 +358,10 @@ export function assetObjectRef(o: ConstitutionalObject): ObjectRef {
  *   A2  metaVitruvian v1           canonical_asset      the composable human (A1's pair)
  *   A3  CCF interpretation         representation_asset the ratified role bindings
  *   A4  CCF palette / typography / material  representation_asset  VIEWS of A3
+ *   CP-001..CP-007                 canonical_asset      the Canonical Plates (CFS-027)
  *
- * Pure — no clock, no randomness, no DB. Deterministic order (A1, A2, then the
- * CCF interpretation and its views) so the registry projection is stable.
+ * Pure — no clock, no randomness, no DB. Deterministic order (A1, A2, the CCF
+ * interpretation and its views, then the seven plates) so the projection is stable.
  */
 export function listCanonicalAssets(): ConstitutionalObject[] {
   const ccf = constitutionalCivicFuturism;
@@ -308,5 +372,6 @@ export function listCanonicalAssets(): ConstitutionalObject[] {
     paletteAssetFor(ccf),
     typographyAssetFor(ccf),
     materialAssetFor(ccf),
+    ...canonicalPlateAssets(),
   ];
 }

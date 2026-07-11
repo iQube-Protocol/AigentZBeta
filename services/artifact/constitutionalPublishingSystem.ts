@@ -100,6 +100,7 @@ export const CPS_NOTEBOOK_MARKS = [
 
 /** Figures are engineering artifacts; every one numbered · titled · captioned · referenced. */
 export const CPS_FIGURE_TYPES = ['architecture', 'sequence', 'layer', 'lifecycle', 'state', 'ontology', 'matrix'] as const;
+export type CpsFigureType = (typeof CPS_FIGURE_TYPES)[number];
 export const CPS_DIAGRAM_VOCABULARY = ['boxes', 'layers', 'swim-lanes', 'flow', 'relationships', 'evidence'] as const;
 /** Architecture diagrams are ENGINEERING DRAWINGS, not infographics — this is the
  *  design space that makes a CPS publication distinctive (operator refinement). */
@@ -223,6 +224,34 @@ export const CPS_DOCUMENT_PROFILES: ReadonlySet<ArtifactProfileId> = new Set<Art
 /** Whether a profile's output is a CPS publication. Pure. */
 export function isDocumentProfile(profile: ArtifactProfileId): boolean {
   return CPS_DOCUMENT_PROFILES.has(profile);
+}
+
+/**
+ * The AR profile → renderer wiring (factory plumbing). A renderer is HOW an
+ * artifact is output; the profile is WHAT it is — so this map COMPOSES over the
+ * ratified AR contract rather than adding a field to it. Document-class profiles
+ * render through the CPS (with the closer-fit sibling named where one exists);
+ * non-document profiles have no CPS renderer (null) — their output layer is
+ * their own (repo push, export, etc.).
+ */
+export const PROFILE_RENDERER: Record<ArtifactProfileId, CpsRenderer | null> = {
+  standard: 'standards-document',
+  'white-paper': 'white-paper',
+  research: 'research-report',
+  software: null,
+  agreement: 'constitutional-specification',
+  presentation: 'presentation',
+  book: 'book',
+  'investor-deck': 'investment-memorandum',
+  api: 'standards-document',
+  documentation: 'constitutional-publishing-system',
+  policy: 'standards-document',
+  multimedia: null,
+};
+
+/** The renderer a profile outputs through (null = not a CPS publication). Pure. */
+export function profileRendererFor(profile: ArtifactProfileId): CpsRenderer | null {
+  return PROFILE_RENDERER[profile] ?? null;
 }
 
 /**
