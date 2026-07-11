@@ -12,8 +12,31 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, Home, Sparkles, MessageCircle, Send, ShieldCheck } from "lucide-react";
+import { Loader2, RefreshCw, Home, Sparkles, MessageCircle, Send, ShieldCheck, FileText, ArrowUpCircle } from "lucide-react";
 import { experimentGet, experimentStep } from "./experimentStepFetch";
+
+/**
+ * The seed brief a delegate opens with. Aletheon's first Operational-Homecoming
+ * proof (operator direction, 2026-07-11): draft the Constitutional Design System
+ * PRD. Other delegates start blank.
+ */
+function defaultBriefFor(delegate: string): string {
+  if (delegate === "aletheon") {
+    return (
+      "Draft a Product Requirements Document (PRD) for the Constitutional Design System — the system that governs " +
+      "how every AgentiQ surface renders constitutional state (identity, standing, consequence tier, receipts) " +
+      "coherently. Cover: the problem, goals & non-goals, first principles, the design tokens & primitives, how it " +
+      "binds to the Constitutional Object Model, and a phased delivery plan."
+    );
+  }
+  return "";
+}
+
+const TIER_CHIP: Record<string, string> = {
+  disposable: "bg-slate-800/60 border-slate-700 text-slate-400",
+  operational: "bg-amber-950/50 border-amber-800 text-amber-300",
+  constitutional: "bg-emerald-950/60 border-emerald-700 text-emerald-300",
+};
 
 type RungStatus = "reached" | "not-reached" | "pending";
 
@@ -79,6 +102,20 @@ export default function HomecomingTestTab() {
   const [talkBusy, setTalkBusy] = useState(false);
   interface Sov { provider: string; model: string; degraded: boolean; sovereignFloor: boolean }
   const [talkReply, setTalkReply] = useState<Record<string, { reply: string; sovereignty: Sov | null; chunks: number }>>({});
+  // Native production (Phase 4 — Operational Homecoming via the Artifact Runtime).
+  interface ProduceRes {
+    body: string;
+    consequenceClass: string;
+    artifactId: string | null;
+    version: string | null;
+    receiptId: string | null;
+    promotableTo: string | null;
+    sovereignty: Sov | null;
+    ok: boolean;
+  }
+  const [produceBusy, setProduceBusy] = useState<string | null>(null);
+  const [produceBrief, setProduceBrief] = useState<Record<string, string>>({});
+  const [produceResult, setProduceResult] = useState<Record<string, ProduceRes>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -177,6 +214,46 @@ export default function HomecomingTestTab() {
       }
     },
     [talkInput],
+  );
+
+  // Produce an artifact via a delegate natively (Phase 4). Operational tier by
+  // default; a promotion re-produces at the constitutional tier under the publish
+  // gate (emits the anchored artifact_published receipt).
+  const produce = useCallback(
+    async (delegate: string, opts?: { promote?: boolean }) => {
+      const brief = (produceBrief[delegate] ?? defaultBriefFor(delegate)).trim();
+      if (!brief) return;
+      if (opts?.promote && !window.confirm("Promote to a CONSTITUTIONAL artifact and publish it (anchored receipt)?")) return;
+      setProduceBusy(delegate);
+      try {
+        const payload = opts?.promote
+          ? { delegate, brief, profile: "documentation", consequenceClass: "constitutional", mode: "publish" }
+          : { delegate, brief, profile: "documentation" };
+        const res = await experimentStep("/api/homecoming/agent/produce", payload);
+        const art = (res.artifact ?? {}) as { artifactId?: string; version?: unknown; receiptId?: string };
+        setProduceResult((r) => ({
+          ...r,
+          [delegate]: {
+            body: String(res.body ?? ""),
+            consequenceClass: String(res.consequenceClass ?? ""),
+            artifactId: art.artifactId ?? null,
+            version: art.version ? (typeof art.version === "string" ? art.version : JSON.stringify(art.version)) : null,
+            receiptId: art.receiptId ?? null,
+            promotableTo: (res.promotableTo as string | null) ?? null,
+            sovereignty: (res.sovereignty as Sov | null) ?? null,
+            ok: Boolean(res.ok),
+          },
+        }));
+      } catch (err) {
+        setProduceResult((r) => ({
+          ...r,
+          [delegate]: { body: `⚠ ${err instanceof Error ? err.message : "produce failed"}`, consequenceClass: "", artifactId: null, version: null, receiptId: null, promotableTo: null, sovereignty: null, ok: false },
+        }));
+      } finally {
+        setProduceBusy(null);
+      }
+    },
+    [produceBrief],
   );
 
   return (
@@ -335,6 +412,70 @@ export default function HomecomingTestTab() {
                     )}
                   </div>
                 )}
+
+                {/* Produce artifact natively — Phase 4 Operational Homecoming via the Artifact Runtime. */}
+                <div className="border-t border-slate-800 pt-2 space-y-2">
+                  <p className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
+                    <FileText className="h-3 w-3" /> Produce artifact — operational tier, propose
+                  </p>
+                  <textarea
+                    value={produceBrief[d.delegate] ?? defaultBriefFor(d.delegate)}
+                    onChange={(e) => setProduceBrief((b) => ({ ...b, [d.delegate]: e.target.value }))}
+                    rows={3}
+                    placeholder={`What should ${d.delegate} produce?`}
+                    className="w-full resize-y rounded border border-slate-700 bg-slate-900/70 px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:border-slate-500 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => produce(d.delegate)}
+                    disabled={produceBusy !== null}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/25 transition disabled:opacity-50"
+                  >
+                    {produceBusy === d.delegate ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                    Produce
+                  </button>
+
+                  {produceResult[d.delegate] && (
+                    <div className="rounded-md border border-slate-800 bg-slate-900/50 p-2 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {produceResult[d.delegate].consequenceClass && (
+                          <span className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${TIER_CHIP[produceResult[d.delegate].consequenceClass] ?? "border-slate-700 text-slate-400"}`}>
+                            {produceResult[d.delegate].consequenceClass}
+                          </span>
+                        )}
+                        {produceResult[d.delegate].artifactId && (
+                          <span className="text-[10px] text-slate-500">artifact {String(produceResult[d.delegate].artifactId).slice(0, 20)}…</span>
+                        )}
+                        {produceResult[d.delegate].version && (
+                          <span className="text-[10px] text-slate-500">v {produceResult[d.delegate].version}</span>
+                        )}
+                        {produceResult[d.delegate].receiptId && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400">
+                            <ShieldCheck className="h-3 w-3" /> receipt {String(produceResult[d.delegate].receiptId).slice(0, 12)}…
+                          </span>
+                        )}
+                        {produceResult[d.delegate].promotableTo === "constitutional" && (
+                          <button
+                            onClick={() => produce(d.delegate, { promote: true })}
+                            disabled={produceBusy !== null}
+                            className="ml-auto inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-100 hover:bg-emerald-500/25 transition disabled:opacity-50"
+                          >
+                            <ArrowUpCircle className="h-3 w-3" /> Promote → constitutional
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded bg-slate-950/50 p-2 text-[11px] leading-relaxed text-slate-200">
+                        {produceResult[d.delegate].body}
+                      </div>
+                      {produceResult[d.delegate].sovereignty && (
+                        <p className="text-[10px] text-slate-500">
+                          produced natively via {produceResult[d.delegate].sovereignty!.provider}/{produceResult[d.delegate].sovereignty!.model}
+                          {produceResult[d.delegate].sovereignty!.sovereignFloor ? " · sovereign floor" : ""}
+                          {produceResult[d.delegate].sovereignty!.degraded ? " · degraded" : ""}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
