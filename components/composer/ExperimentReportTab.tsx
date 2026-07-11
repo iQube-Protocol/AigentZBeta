@@ -25,8 +25,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Copy, Loader2, RefreshCw } from "lucide-react";
-import { experimentGet } from "./experimentStepFetch";
+import { Check, Copy, Loader2, RefreshCw, Sparkles, ShieldCheck } from "lucide-react";
+import { experimentGet, experimentStep } from "./experimentStepFetch";
 
 interface PublishedResult {
   id: string;
@@ -374,6 +374,13 @@ export default function ExperimentReportTab() {
   const [results, setResults] = useState<PublishedResult[]>([]);
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState<"report" | "briefing">("report");
+  // Canonical (regenerated + DVN-receipted) report versions — the narrative is
+  // regenerated from the COLLECTIVE findings and saved as a verifiable version.
+  interface CanonVersion { version: number; title: string; content: string; contentHash: string; receiptId: string | null; createdAt: string }
+  const [canonical, setCanonical] = useState<CanonVersion | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenNote, setRegenNote] = useState<string | null>(null);
+  const [source, setSource] = useState<"live" | "canonical">("live");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -389,13 +396,37 @@ export default function ExperimentReportTab() {
     } finally {
       setLoading(false);
     }
+    // Latest canonical version (best-effort).
+    try {
+      const cv = await experimentGet("/api/research/report/regenerate?scope=all");
+      const latest = Array.isArray(cv.versions) && cv.versions.length ? cv.versions[0] : null;
+      if (latest) { setCanonical(latest as CanonVersion); setSource("canonical"); }
+    } catch {
+      // No canonical version yet — the live draft stands.
+    }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const report = useMemo(() => buildReport(results, new Date()), [results]);
+  const regenerate = useCallback(async () => {
+    setRegenerating(true);
+    setRegenNote(null);
+    try {
+      const res = await experimentStep("/api/research/report/regenerate", { scope: "all" });
+      setCanonical({ version: res.version as number, title: res.title as string, content: res.content as string, contentHash: res.contentHash as string, receiptId: (res.receiptId as string | null) ?? null, createdAt: new Date().toISOString() });
+      setSource("canonical");
+      setRegenNote(`Canonical v${res.version} regenerated${res.receiptId ? ` · receipt ${String(res.receiptId).slice(0, 12)}…` : ""}`);
+    } catch (err) {
+      setRegenNote(`⚠ ${err instanceof Error ? err.message : "regeneration failed"}`);
+    } finally {
+      setRegenerating(false);
+    }
+  }, []);
+
+  const liveReport = useMemo(() => buildReport(results, new Date()), [results]);
+  const report = source === "canonical" && canonical ? canonical.content : liveReport;
   const sharedText = useMemo(() => (mode === "briefing" ? buildBriefing(report) : report), [mode, report]);
 
   const copy = async () => {
@@ -440,6 +471,43 @@ export default function ExperimentReportTab() {
             <RefreshCw className="h-3.5 w-3.5" /> Refresh data
           </button>
         </div>
+      </div>
+
+      {/* Canonical report — the whole narrative regenerated from the collective
+          findings, saved as a DVN-receipted version (not appended). */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2">
+        <span className="text-[11px] uppercase tracking-wide text-slate-500">Report source</span>
+        <div className="inline-flex rounded-md border border-slate-700 overflow-hidden">
+          <button
+            onClick={() => setSource("live")}
+            className={`px-2.5 py-1 text-xs ${source === "live" ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-800"}`}
+          >
+            Live draft
+          </button>
+          <button
+            onClick={() => canonical && setSource("canonical")}
+            disabled={!canonical}
+            className={`px-2.5 py-1 text-xs disabled:opacity-40 ${source === "canonical" ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-800"}`}
+          >
+            {canonical ? `Canonical v${canonical.version}` : "Canonical (none yet)"}
+          </button>
+        </div>
+        {canonical && source === "canonical" && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400">
+            <ShieldCheck className="h-3 w-3" />
+            sha256 {canonical.contentHash.slice(0, 12)}…{canonical.receiptId ? ` · DVN receipt ${String(canonical.receiptId).slice(0, 10)}…` : " · receipt pending"}
+          </span>
+        )}
+        <button
+          onClick={regenerate}
+          disabled={regenerating}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1 text-xs font-semibold text-indigo-100 hover:bg-indigo-500/25 transition disabled:opacity-50"
+          title="Regenerate the whole narrative from the collective canonical findings and save a new DVN-receipted version"
+        >
+          {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          {regenerating ? "Regenerating…" : "Regenerate canonical report"}
+        </button>
+        {regenNote && <span className="basis-full text-[10px] text-slate-400">{regenNote}</span>}
       </div>
 
       {mode === "briefing" && (
