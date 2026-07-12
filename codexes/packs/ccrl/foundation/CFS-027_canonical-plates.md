@@ -53,6 +53,15 @@ Plates are numbered like papers so they become stable references independent of 
 - **CP is data** (`canonicalPlates.ts`): the seven plates (structured content + reading), CP numbering, the composition map, `signaturePlates()`, `platesForPublication()`, `buildPlateManifest()` — order-pinned, canaried 10/10.
 - **Production composes plates** — a delegate producing a CPS document (CFS-026) receives the plate manifest and is instructed to **produce diagrams-first, compose from the plates, and reference them as CP-00N** (never invent new diagrams where a plate exists).
 
+## Reference renders (received 2026-07-11)
+
+Two operator-supplied composite sheets live at `codexes/packs/ccrl/foundation/plates/`:
+
+- **`canonical-plates-v1.0-reference.png`** — *the canonical R1 visual reference.* "Canonical Plates of Invariant Intelligence, Version 1.0": Plates I–VII with CP-001..CP-007 side labels, the publisher imprint, registration marks, engineering-notebook register. Verified plate-by-plate against `CANONICAL_PLATES_V1`: Plate III's eight mechanisms, Plate IV's eight-node circle, Plate V's seven-layer stack, and Plates I/II/VI/VII all match the encoded ontology (Plate VI shows "Discovery" as IRL's subtitle rather than a separate node — cosmetic).
+- **`canonical-plates-v0.9-superseded.png`** — an earlier draft, **superseded**: its CP numbering disagrees with v1.0 (its CP-001 is Human Agency), and it contains two figures outside the ratified seven (the *Constitutional Orientation* compass; Hybrid-Intelligence-as-Venn). Never cite plate numbers from this sheet.
+
+**Candidate CP-008 (backlogged, operator direction):** the *Constitutional Orientation* compass belongs to the **Bearing Instrument** family (Canonical Asset 001 — the ratified navigation primitive) and is canonical imagery. Whether it enters the plate set as CP-008 or remains the Bearing Instrument's own canonical rendering is decided at CFS-027 ratification — the seven-plate discipline is not silently widened.
+
 ## Honest limits
 - **v1.0 = the ontology encoded, not rendered.** Each plate is structured data (content + form + reading); the SVG **rendering** — drawing each plate as an engineering figure in the NASA / Bell Labs / IBM Systems Journal / Da Vinci register — is the CPS rendering layer, still to build.
 - **The plates are reusable ECOSYSTEM assets** (papers, decks, website, keynotes, PRDs, standards, memoranda, Studio). Registering them in the Canonical Asset Registry (Chrysalis P1) so every surface draws the SAME figure is a named follow-on.
