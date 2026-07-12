@@ -34,6 +34,19 @@ export async function resolveDelegateAgentId(delegateSlug: string): Promise<stri
   return data?.agent_id ? String(data.agent_id) : null;
 }
 
+/** Resolve an agent Root DID (did_uri) → its agent_id — the delegation grant
+ *  route identifies delegates by DID, standing is keyed on agent_id. */
+export async function resolveDelegateAgentIdByDid(didUri: string): Promise<string | null> {
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  const { data } = await admin
+    .from('agent_root_identity')
+    .select('agent_id')
+    .eq('did_uri', didUri)
+    .maybeSingle();
+  return data?.agent_id ? String(data.agent_id) : null;
+}
+
 /** Contribution Value Score per consequence tier (design values, CFS-025). */
 export const PRODUCTION_CVS: Record<'operational' | 'constitutional', number> = {
   operational: 2,
@@ -49,6 +62,35 @@ export function trustBandCeilingFor(overall: number): string {
   return 'L1_EXPERIMENTAL';
 }
 
+/** Trust bands lowest → highest (the delegation route's vocabulary). Pure. */
+export const TRUST_BAND_ORDER = [
+  'L1_EXPERIMENTAL',
+  'L2_VERIFIED_COMMUNITY',
+  'L3_PRODUCTION_CANDIDATE',
+  'L4_PRODUCTION_APPROVED',
+  'L5_CORE_SOVEREIGN',
+] as const;
+
+/** Rank of a band in the ladder (unknown band → -1, always refused above floor). Pure. */
+export function trustBandRank(band: string): number {
+  return TRUST_BAND_ORDER.indexOf(band as (typeof TRUST_BAND_ORDER)[number]);
+}
+
+/**
+ * The DELEGATE side of the dual grant gate (operator decision 2026-07-12,
+ * option (c)): bands up to the ENTRY band (L2) are grantable on the grantor's
+ * reputation alone — the bootstrap floor, so a new agent can be delegated at
+ * all and then EARN its climb by producing. L3 and above additionally require
+ * the delegate's own earned trust-band ceiling to reach the requested band.
+ * Pure — the caller supplies the server-resolved ceiling.
+ */
+export function delegateStandingAllowsBand(requestedBand: string, earnedCeiling: string): boolean {
+  const requested = trustBandRank(requestedBand);
+  if (requested < 0) return false; // unknown band — never allowed by this gate
+  if (requested <= trustBandRank('L2_VERIFIED_COMMUNITY')) return true; // bootstrap floor
+  return trustBandRank(earnedCeiling) >= requested;
+}
+
 export interface ProductionStandingResult {
   accrued: boolean;
   /** Why not, when accrued=false — honest, never silent. */
@@ -61,13 +103,14 @@ export interface ProductionStandingResult {
 }
 
 /**
- * Accrue production standing to a delegate. `delegateAgentId` is the
- * agent_root_identity.agent_id (e.g. 'polity-bound:aletheon'). Best-effort —
- * a failure/absence never blocks the production itself.
+ * Accrue an arbitrary CVS to a delegate through the ONE canonical accrual
+ * service (delegated lane). `delegateAgentId` is agent_root_identity.agent_id
+ * (e.g. 'polity-bound:aletheon'). Best-effort — a failure/absence never blocks
+ * the calling flow. Shared by production accrual and the admin accelerator.
  */
-export async function accrueProductionStanding(input: {
+export async function accrueDelegateStanding(input: {
   delegateAgentId: string;
-  consequenceClass: 'operational' | 'constitutional';
+  cvs: number;
   receiptId?: string | null;
 }): Promise<ProductionStandingResult> {
   try {
@@ -83,11 +126,10 @@ export async function accrueProductionStanding(input: {
         reason: `delegate has no CRM persona yet (identity_persona_id=${input.delegateAgentId}) — standing accrues once its CRM persona exists`,
       };
     }
-    const cvs = PRODUCTION_CVS[input.consequenceClass];
     const accrual: StandingAccrual | null = await accrueStanding({
       crmPersonaId: String(crmPersona.id),
-      cvs,
-      standingType: 'delegated', // production under bounded delegation
+      cvs: input.cvs,
+      standingType: 'delegated', // acting under bounded delegation
       sourceEventId: input.receiptId ?? null,
     });
     if (!accrual) {
@@ -95,7 +137,7 @@ export async function accrueProductionStanding(input: {
     }
     return {
       accrued: true,
-      cvs,
+      cvs: input.cvs,
       lane: 'delegated',
       overall: accrual.overall,
       bucket: accrual.bucket,
@@ -104,6 +146,23 @@ export async function accrueProductionStanding(input: {
   } catch (e) {
     return { accrued: false, reason: e instanceof Error ? e.message : 'standing accrual failed' };
   }
+}
+
+/**
+ * Accrue production standing to a delegate — the Standing-loop entrypoint the
+ * produce/promote routes call. Thin wrapper over `accrueDelegateStanding` with
+ * the CFS-025 design CVS per consequence tier.
+ */
+export async function accrueProductionStanding(input: {
+  delegateAgentId: string;
+  consequenceClass: 'operational' | 'constitutional';
+  receiptId?: string | null;
+}): Promise<ProductionStandingResult> {
+  return accrueDelegateStanding({
+    delegateAgentId: input.delegateAgentId,
+    cvs: PRODUCTION_CVS[input.consequenceClass],
+    receiptId: input.receiptId,
+  });
 }
 
 /** Read a delegate's current standing (overall + the band ceiling it earns). */

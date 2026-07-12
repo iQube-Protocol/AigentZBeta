@@ -103,6 +103,7 @@ export default function HomecomingTestTab() {
   const [computedAt, setComputedAt] = useState<string | null>(null);
   const [standable, setStandable] = useState<string[]>([]);
   const [standingUp, setStandingUp] = useState<string | null>(null);
+  const [accelerating, setAccelerating] = useState<string | null>(null);
   const [issuingPassport, setIssuingPassport] = useState<string | null>(null);
   const [actionNote, setActionNote] = useState<Record<string, { ok: boolean; msg: string }>>({});
   // Native conversation (Phase 3 — Harness Homecoming).
@@ -166,6 +167,28 @@ export default function HomecomingTestTab() {
     },
     [loadRecords],
   );
+
+  // Admin standing acceleration (operator decision 2026-07-12): a receipted
+  // +10 CVS boost through the canonical accrual so tests don't wait on organic
+  // production — the same admin-trust shape as passportless Polity sponsorship.
+  const accelerate = useCallback(async (delegate: string) => {
+    setAccelerating(delegate);
+    try {
+      const res = await experimentStep("/api/homecoming/agent/standing", { delegate, cvs: 10 });
+      const s = res.standing as { accrued?: boolean; cvs?: number; overall?: number; trustBandCeiling?: string; reason?: string } | null;
+      setActionNote((n) => ({
+        ...n,
+        [delegate]: s?.accrued
+          ? { ok: true, msg: `standing accelerated +${s.cvs} → ${s.overall} (ceiling ${String(s.trustBandCeiling ?? "").split("_")[0]})` }
+          : { ok: false, msg: `acceleration not applied: ${s?.reason ?? "see server logs"}` },
+      }));
+      if (s?.accrued) await load(); // refresh the standing chip (load is stable; runs post-mount)
+    } catch (err) {
+      setActionNote((n) => ({ ...n, [delegate]: { ok: false, msg: err instanceof Error ? err.message : "acceleration failed" } }));
+    } finally {
+      setAccelerating(null);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -380,6 +403,14 @@ export default function HomecomingTestTab() {
                   standing {d.standing.overall} · ceiling {d.standing.trustBandCeiling.split("_")[0]}
                 </span>
               )}
+              <button
+                onClick={() => accelerate(d.delegate)}
+                disabled={accelerating !== null}
+                title="Admin acceleration: a receipted +10 CVS through the canonical accrual (delegated lane) so tests don't wait on organic production. L3+ delegation bands still require the earned ceiling — this raises it."
+                className="rounded border border-violet-700/60 bg-violet-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-violet-200 hover:bg-violet-800/40 transition disabled:opacity-50"
+              >
+                {accelerating === d.delegate ? "…" : "+10"}
+              </button>
             </div>
             {/* The ladder strip — one dot per rung, lit to the contiguous reached level. */}
             <div className="mt-2 flex items-center gap-2">
