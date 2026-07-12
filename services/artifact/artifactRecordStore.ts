@@ -82,6 +82,50 @@ export async function saveArtifactRecord(input: SaveArtifactRecordInput): Promis
   }
 }
 
+/** Read one record by id, or null. */
+export async function readArtifactRecord(id: string): Promise<ArtifactRecordRow | null> {
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  try {
+    const { data, error } = await admin.from('artifact_records').select('*').eq('id', id).maybeSingle();
+    if (error) {
+      softFail('read', error.message);
+      return null;
+    }
+    return (data as ArtifactRecordRow) ?? null;
+  } catch (e) {
+    softFail('read', e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
+/**
+ * Promote a persisted record operational → constitutional (CFS-025 maturation:
+ * up one tier, never down — the caller enforces canPromote + writes the
+ * anchored receipt first and passes its id here). Returns the updated row or null.
+ */
+export async function promoteArtifactRecord(id: string, receiptId: string): Promise<ArtifactRecordRow | null> {
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  try {
+    const { data, error } = await admin
+      .from('artifact_records')
+      .update({ consequence_class: 'constitutional', receipt_id: receiptId })
+      .eq('id', id)
+      .eq('consequence_class', 'operational') // promotion only ever moves UP from operational
+      .select('*')
+      .maybeSingle();
+    if (error) {
+      softFail('promote', error.message);
+      return null;
+    }
+    return (data as ArtifactRecordRow) ?? null;
+  } catch (e) {
+    softFail('promote', e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
 /** List produced artifacts, newest first (optionally by delegate). */
 export async function listArtifactRecords(opts: { delegate?: string; limit?: number } = {}): Promise<ArtifactRecordRow[]> {
   const admin = getSupabaseServer();

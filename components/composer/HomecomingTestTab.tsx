@@ -130,6 +130,42 @@ export default function HomecomingTestTab() {
   const [produceBusy, setProduceBusy] = useState<string | null>(null);
   const [produceBrief, setProduceBrief] = useState<Record<string, string>>({});
   const [produceResult, setProduceResult] = useState<Record<string, ProduceRes>>({});
+  // Persisted artifact records (durable productions) + promotion.
+  interface ArtifactRec { id: string; artifactId: string; profile: string; consequenceClass: string; delegate: string; title: string; contentHash: string; receiptId: string | null; createdAt: string }
+  const [records, setRecords] = useState<ArtifactRec[]>([]);
+  const [promoting, setPromoting] = useState<string | null>(null);
+  const [recordsNote, setRecordsNote] = useState<string | null>(null);
+
+  const loadRecords = useCallback(async () => {
+    try {
+      const res = await experimentGet("/api/homecoming/agent/produce");
+      if (Array.isArray(res.records)) setRecords(res.records as ArtifactRec[]);
+    } catch {
+      // Records are additive — the ladder renders without them.
+    }
+  }, []);
+
+  const promoteRecord = useCallback(
+    async (recordId: string) => {
+      if (!window.confirm("Promote this record to a CONSTITUTIONAL artifact (anchored publication receipt)?")) return;
+      setPromoting(recordId);
+      setRecordsNote(null);
+      try {
+        const res = await experimentStep("/api/artifact/records/promote", { recordId });
+        const s = res.standing as { accrued?: boolean; cvs?: number; overall?: number } | null;
+        setRecordsNote(
+          `Promoted — receipt ${String(res.receiptId).slice(0, 12)}…${s?.accrued ? ` · delegate standing +${s.cvs} → ${s.overall}` : ""}`,
+        );
+        await loadRecords();
+        await load();
+      } catch (err) {
+        setRecordsNote(`⚠ ${err instanceof Error ? err.message : "promotion failed"}`);
+      } finally {
+        setPromoting(null);
+      }
+    },
+    [loadRecords],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -155,7 +191,8 @@ export default function HomecomingTestTab() {
 
   useEffect(() => {
     load();
-  }, [load]);
+    loadRecords();
+  }, [load, loadRecords]);
 
   // Stand a delegate up. The sponsor citizen passport is resolved SERVER-SIDE
   // from the caller's active persona (same context as genesis) — no client-side
@@ -535,6 +572,43 @@ export default function HomecomingTestTab() {
             )}
           </div>
         ))}
+
+      {/* Produced artifacts — the durable records (CFS-025), with promotion. */}
+      {records.length > 0 && (
+        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-slate-200">Produced artifacts</h4>
+            <span className="text-[10px] text-slate-500">operational → constitutional by promotion, never at birth</span>
+          </div>
+          {recordsNote && <p className="mt-1 text-[11px] text-emerald-300">{recordsNote}</p>}
+          <div className="mt-2 space-y-1.5">
+            {records.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center gap-2 rounded-md border border-slate-800 bg-slate-950/40 px-2.5 py-1.5 text-xs">
+                <span className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${r.consequenceClass === "constitutional" ? "border-emerald-700 bg-emerald-950/60 text-emerald-300" : "border-amber-800 bg-amber-950/50 text-amber-300"}`}>
+                  {r.consequenceClass}
+                </span>
+                <span className="text-slate-300">{r.title}</span>
+                <span className="text-slate-600">· {r.delegate} · {r.profile} · {new Date(r.createdAt).toLocaleDateString()}</span>
+                {r.receiptId && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400">
+                    <ShieldCheck className="h-3 w-3" /> {String(r.receiptId).slice(0, 10)}…
+                  </span>
+                )}
+                {r.consequenceClass === "operational" && (
+                  <button
+                    onClick={() => promoteRecord(r.id)}
+                    disabled={promoting !== null}
+                    className="ml-auto inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-100 hover:bg-emerald-500/25 transition disabled:opacity-50"
+                  >
+                    {promoting === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUpCircle className="h-3 w-3" />}
+                    Promote
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
