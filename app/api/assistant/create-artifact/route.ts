@@ -37,6 +37,9 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getIntentQube } from '@/services/iqube/intentQube';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { getGoogleConnector } from '@/services/google/connectors';
+// CFS-025 increment 3 — additive consequence tiering for business artifacts.
+// Best-effort + failure-isolated: never changes how artifacts are created.
+import { tierBusinessArtifact } from '@/services/artifact/businessArtifactTiering';
 
 export const dynamic = 'force-dynamic';
 
@@ -115,6 +118,15 @@ interface CreateArtifactSurface {
   actionConnectorId?: string;
   actionConnectorLabel?: string;
   actionInput?: Record<string, unknown>;
+  /**
+   * CFS-025 increment 3 — ADDITIVE tiering fields (absent on legacy/error
+   * paths). Business artifacts are born disposable (gmail drafts) or
+   * operational (docs/sheets/slides/calendar) — never constitutional; the
+   * operator promotes later.
+   */
+  consequenceClass?: 'disposable' | 'operational';
+  /** artifact_records id when an operational production was persisted. */
+  artifactRecordId?: string;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -253,7 +265,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         actionInput: gmailActionInput as Record<string, unknown>,
       });
 
+      // CFS-025 tiering (additive, never throws): a draft is disposable.
+      const tiering = await tierBusinessArtifact({
+        connectorId: 'google.gmail.draft',
+        artifactId,
+        title: derivedTitle,
+        locationUrl,
+        receiptId: receipt?.id ?? null,
+        goal: derivedTitle,
+      });
+
       const surface: CreateArtifactSurface = {
+        ...tiering,
         artifactId,
         artifactType: 'gmail-draft',
         title: derivedTitle,
@@ -354,7 +377,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
         });
 
+        // CFS-025 tiering (additive, never throws): operational work product.
+        const tiering = await tierBusinessArtifact({
+          connectorId: 'google.calendar.create-event',
+          artifactId,
+          title: input.summary,
+          locationUrl,
+          receiptId: receipt?.id ?? null,
+          goal: derivedTitle,
+        });
+
         const surface: CreateArtifactSurface = {
+          ...tiering,
           artifactId,
           artifactType: 'calendar-block',
           title: input.summary,
@@ -504,7 +538,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             : {}),
         });
 
+        // CFS-025 tiering (additive, never throws): operational work product.
+        const tiering = await tierBusinessArtifact({
+          connectorId: 'google.drive.create-doc',
+          artifactId,
+          title: input.title,
+          locationUrl,
+          receiptId: receipt?.id ?? null,
+          goal: derivedTitle,
+        });
+
         const surface: CreateArtifactSurface = {
+          ...tiering,
           artifactId,
           artifactType: 'google-doc',
           title: input.title,
@@ -580,7 +625,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
         });
 
+        // CFS-025 tiering (additive, never throws): operational work product.
+        const tiering = await tierBusinessArtifact({
+          connectorId: 'google.sheets.create',
+          artifactId,
+          title: input.title,
+          locationUrl,
+          receiptId: receipt?.id ?? null,
+          goal: derivedTitle,
+        });
+
         const surface: CreateArtifactSurface = {
+          ...tiering,
           artifactId,
           artifactType: 'google-sheet',
           title: input.title,
@@ -646,7 +702,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
       });
 
+      // CFS-025 tiering (additive, never throws): operational work product.
+      const tiering = await tierBusinessArtifact({
+        connectorId: 'google.slides.create',
+        artifactId,
+        title: input.title,
+        locationUrl,
+        receiptId: receipt?.id ?? null,
+        goal: derivedTitle,
+      });
+
       const surface: CreateArtifactSurface = {
+        ...tiering,
         artifactId,
         artifactType: 'slide-outline',
         title: input.title,
