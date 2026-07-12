@@ -24,6 +24,7 @@ import { createHash } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getKnowledgeBaseService } from '@/services/content/knowledgeBaseService';
 import { produceViaDelegate } from '@/services/homecoming/delegateProduce';
+import { saveArtifactRecord, listArtifactRecords } from '@/services/artifact/artifactRecordStore';
 import { HOMECOMING_DELEGATES, type HomecomingDelegateId } from '@/types/homecoming';
 import type { ArtifactProfileId } from '@/types/artifactRuntime';
 
@@ -98,5 +99,49 @@ export async function POST(req: NextRequest) {
     maxTokens: typeof body.maxTokens === 'number' ? body.maxTokens : undefined,
   });
 
-  return NextResponse.json({ ok: result.artifact.ok, ...result });
+  // Persist non-disposable productions (CFS-025: disposable is NEVER persisted;
+  // operational + constitutional get a durable record so the artifact survives a
+  // refresh). Best-effort — soft-fails to response-only until the migration runs.
+  let recordId: string | null = null;
+  if (result.consequenceClass !== 'disposable' && result.artifact.ok && result.body) {
+    recordId = await saveArtifactRecord({
+      artifactId: result.artifact.artifactId ?? 'unassigned',
+      profile: typeof body.profile === 'string' ? body.profile : 'documentation',
+      consequenceClass: result.consequenceClass as 'operational' | 'constitutional',
+      delegate,
+      title: brief.slice(0, 120),
+      brief,
+      body: result.body,
+      receiptId: result.artifact.receiptId ?? null,
+      sovereignty: result.sovereignty,
+    });
+  }
+
+  return NextResponse.json({ ok: result.artifact.ok, recordId, ...result });
+}
+
+/** GET — list produced artifact records (?delegate=…), newest first. Admin-gated. */
+export async function GET(req: NextRequest) {
+  const persona = await getActivePersona(req);
+  if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
+  if (!persona.cartridgeFlags?.isAdmin) return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
+  const delegate = new URL(req.url).searchParams.get('delegate')?.trim() || undefined;
+  const records = await listArtifactRecords({ delegate });
+  return NextResponse.json(
+    {
+      ok: true,
+      records: records.map((r) => ({
+        id: r.id,
+        artifactId: r.artifact_id,
+        profile: r.profile,
+        consequenceClass: r.consequence_class,
+        delegate: r.delegate,
+        title: r.title,
+        contentHash: r.content_hash,
+        receiptId: r.receipt_id,
+        createdAt: r.created_at,
+      })),
+    },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }

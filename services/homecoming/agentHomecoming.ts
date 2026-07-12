@@ -34,10 +34,18 @@ export interface DelegateStandUpSpec {
 }
 
 /**
- * Stand-up specs, grounded in the canonical Agent Cards. Only delegates whose
- * identity is authored (a real card + description) appear here; standing up
- * MoneyPenny/Nakamoto requires their cards first (No-Guessing — their
- * descriptions are not invented here). Aletheon is the archetype/first-mover.
+ * Stand-up specs, grounded in authored identity sources ONLY (No-Guessing —
+ * nothing here is invented):
+ *   - Aletheon: its canonical Agent Card (the archetype/first-mover).
+ *   - MoneyPenny / Nakamoto: the canonical roster
+ *     (codexes/packs/agentiq/items/PROGRAM_OVERVIEW.md — "Aigent MoneyPenny:
+ *     financial ops, multi-chain, DeFi" / "Aigent Nakamoto: Bitcoin, COYN
+ *     ecosystem, risk") + their specialist-router roles
+ *     (services/agents/specialistRouter.ts — micro_economics_brief /
+ *     decentralisation_brief). Descriptions state only what those sources state,
+ *     plus the shared bounded-delegation constraint every Homecoming delegate
+ *     operates under. Both are BOUNDED (not autonomous) — no charter says
+ *     otherwise.
  */
 export const HOMECOMING_DELEGATE_SPECS: Partial<Record<HomecomingDelegateId, DelegateStandUpSpec>> = {
   aletheon: {
@@ -48,6 +56,24 @@ export const HOMECOMING_DELEGATE_SPECS: Partial<Record<HomecomingDelegateId, Del
       'knowledge, preserves institutional memory, and supports governance design through bounded ' +
       'delegation. Illuminates possibilities and surfaces consequences; never commands, claims ' +
       'sovereignty, or acts outside constitutional constraints. Motto: "Not to command the path, but to illuminate it."',
+    autonomous: false,
+  },
+  moneypenny: {
+    slug: 'moneypenny',
+    displayName: 'MoneyPenny',
+    description:
+      'Constitutional delegate for financial operations — multi-chain finance, DeFi, and ' +
+      'micro-economics briefs. Operates under bounded delegation within the Human Agency System; ' +
+      'advises and drafts, never spends or acts outside its granted scope.',
+    autonomous: false,
+  },
+  nakamoto: {
+    slug: 'nakamoto',
+    displayName: 'Nakamoto',
+    description:
+      'Constitutional delegate for Bitcoin, the COYN ecosystem, risk, and decentralisation briefs. ' +
+      'Operates under bounded delegation within the Human Agency System; advises and analyses, ' +
+      'never transacts or acts outside its granted scope.',
     autonomous: false,
   },
 };

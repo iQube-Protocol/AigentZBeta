@@ -85,9 +85,17 @@ export function buildDelegateSystemPrompt(identity: DelegateIdentity, grounding:
   return parts.join('\n\n');
 }
 
+/** One prior exchange turn (client-held transcript — no server session state). */
+export interface DelegateTurn {
+  role: 'operator' | 'delegate';
+  text: string;
+}
+
 export interface DelegateConverseInput {
   delegate: HomecomingDelegateId;
   message: string;
+  /** Prior turns, oldest first — multi-turn continuity (capped by the route). */
+  history?: DelegateTurn[];
   grounding?: DelegateGrounding;
   maxTokens?: number;
 }
@@ -119,7 +127,16 @@ export interface DelegateConverseResult {
 export async function converseWithDelegate(input: DelegateConverseInput): Promise<DelegateConverseResult> {
   const identity = resolveDelegateIdentity(input.delegate);
   const system = buildDelegateSystemPrompt(identity, input.grounding);
-  const result = await callSovereign('reasoning', system, input.message, input.maxTokens ?? 1200);
+  // Multi-turn continuity: fold the client-held transcript into the prompt so
+  // the delegate remembers the conversation. Provider-agnostic (one user string
+  // through callSovereign, no provider-specific message arrays).
+  const history = (input.history ?? []).filter((t) => t && typeof t.text === 'string' && t.text.trim());
+  const prompt = history.length
+    ? `Conversation so far:\n${history
+        .map((t) => `${t.role === 'delegate' ? identity.label : 'Operator'}: ${t.text.trim()}`)
+        .join('\n')}\n\nOperator: ${input.message}\n\nReply as ${identity.label}, continuing the conversation.`
+    : input.message;
+  const result = await callSovereign('reasoning', system, prompt, input.maxTokens ?? 1200);
   return {
     delegate: input.delegate,
     reply: result.text,

@@ -26,12 +26,26 @@ export async function POST(req: NextRequest) {
   if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
   if (!persona.cartridgeFlags?.isAdmin) return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
 
-  let body: { delegate?: string; message?: string; maxTokens?: number };
+  let body: {
+    delegate?: string;
+    message?: string;
+    maxTokens?: number;
+    history?: Array<{ role?: string; text?: string }>;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
   }
+
+  // Multi-turn continuity: a client-held transcript, validated + capped to the
+  // last 12 turns (no server session state; Phase-3 memory stays client-side).
+  const history = Array.isArray(body.history)
+    ? body.history
+        .filter((t) => t && typeof t.text === 'string' && t.text.trim() && (t.role === 'operator' || t.role === 'delegate'))
+        .slice(-12)
+        .map((t) => ({ role: t.role as 'operator' | 'delegate', text: String(t.text).slice(0, 4000) }))
+    : [];
 
   const delegate = body.delegate as HomecomingDelegateId;
   if (!delegate || !(HOMECOMING_DELEGATES as readonly string[]).includes(delegate)) {
@@ -60,6 +74,7 @@ export async function POST(req: NextRequest) {
     const result = await converseWithDelegate({
       delegate,
       message,
+      history,
       grounding: { knowledge },
       maxTokens: typeof body.maxTokens === 'number' ? body.maxTokens : undefined,
     });

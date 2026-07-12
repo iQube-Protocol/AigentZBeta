@@ -4710,7 +4710,7 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
 // ─────────────────────────────────────────────────────────────────────────────
 export const CCRL_CARTRIDGE: CodexConfig = {
   id: 'ccrl-cartridge',
-  name: 'CCRL — Research Laboratory',
+  name: 'metaMe IRL — Research Laboratory',
   slug: 'ccrl-cartridge',
   enabled: true,
   version: '1.0.0',

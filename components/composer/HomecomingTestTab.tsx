@@ -108,7 +108,10 @@ export default function HomecomingTestTab() {
   const [talkInput, setTalkInput] = useState("");
   const [talkBusy, setTalkBusy] = useState(false);
   interface Sov { provider: string; model: string; degraded: boolean; sovereignFloor: boolean }
-  const [talkReply, setTalkReply] = useState<Record<string, { reply: string; sovereignty: Sov | null; chunks: number }>>({});
+  // Multi-turn transcript per delegate (client-held; the route folds it into the
+  // prompt so the delegate remembers the conversation — Phase 3 continuity).
+  interface Turn { role: "operator" | "delegate"; text: string; sovereignty?: Sov | null; chunks?: number }
+  const [talkThread, setTalkThread] = useState<Record<string, Turn[]>>({});
   // Native production (Phase 4 — Operational Homecoming via the Artifact Runtime).
   interface ProduceRes {
     body: string;
@@ -116,6 +119,7 @@ export default function HomecomingTestTab() {
     artifactId: string | null;
     version: string | null;
     receiptId: string | null;
+    recordId: string | null;
     promotableTo: string | null;
     sovereignty: Sov | null;
     ok: boolean;
@@ -199,28 +203,39 @@ export default function HomecomingTestTab() {
     [load],
   );
 
-  // Talk to a delegate natively (Phase 3). Routes through the sovereign,
-  // invariant-aware model router; the reply carries a sovereignty receipt.
+  // Talk to a delegate natively (Phase 3, multi-turn). The client-held
+  // transcript rides each request as `history`, so the delegate continues the
+  // conversation; every reply carries a sovereignty receipt.
   const converse = useCallback(
     async (delegate: string) => {
       const message = talkInput.trim();
       if (!message) return;
       setTalkBusy(true);
+      const prior = talkThread[delegate] ?? [];
+      setTalkThread((t) => ({ ...t, [delegate]: [...prior, { role: "operator", text: message }] }));
+      setTalkInput("");
       try {
-        const res = await experimentStep("/api/homecoming/agent/converse", { delegate, message });
+        const res = await experimentStep("/api/homecoming/agent/converse", {
+          delegate,
+          message,
+          history: prior.map((turn) => ({ role: turn.role, text: turn.text })),
+        });
         const sov = res.sovereignty as Sov | undefined;
         const g = res.grounding as { knowledgeChunks?: number } | undefined;
-        setTalkReply((r) => ({
-          ...r,
-          [delegate]: { reply: String(res.reply ?? ""), sovereignty: sov ?? null, chunks: g?.knowledgeChunks ?? 0 },
+        setTalkThread((t) => ({
+          ...t,
+          [delegate]: [...(t[delegate] ?? []), { role: "delegate", text: String(res.reply ?? ""), sovereignty: sov ?? null, chunks: g?.knowledgeChunks ?? 0 }],
         }));
       } catch (err) {
-        setTalkReply((r) => ({ ...r, [delegate]: { reply: `⚠ ${err instanceof Error ? err.message : "conversation failed"}`, sovereignty: null, chunks: 0 } }));
+        setTalkThread((t) => ({
+          ...t,
+          [delegate]: [...(t[delegate] ?? []), { role: "delegate", text: `⚠ ${err instanceof Error ? err.message : "conversation failed"}`, sovereignty: null }],
+        }));
       } finally {
         setTalkBusy(false);
       }
     },
-    [talkInput],
+    [talkInput, talkThread],
   );
 
   // Produce an artifact via a delegate natively (Phase 4). Operational tier by
@@ -246,6 +261,7 @@ export default function HomecomingTestTab() {
             artifactId: art.artifactId ?? null,
             version: art.version ? (typeof art.version === "string" ? art.version : JSON.stringify(art.version)) : null,
             receiptId: art.receiptId ?? null,
+            recordId: (res.recordId as string | null) ?? null,
             promotableTo: (res.promotableTo as string | null) ?? null,
             sovereignty: (res.sovereignty as Sov | null) ?? null,
             ok: Boolean(res.ok),
@@ -254,7 +270,7 @@ export default function HomecomingTestTab() {
       } catch (err) {
         setProduceResult((r) => ({
           ...r,
-          [delegate]: { body: `⚠ ${err instanceof Error ? err.message : "produce failed"}`, consequenceClass: "", artifactId: null, version: null, receiptId: null, promotableTo: null, sovereignty: null, ok: false },
+          [delegate]: { body: `⚠ ${err instanceof Error ? err.message : "produce failed"}`, consequenceClass: "", artifactId: null, version: null, receiptId: null, recordId: null, promotableTo: null, sovereignty: null, ok: false },
         }));
       } finally {
         setProduceBusy(null);
@@ -382,9 +398,27 @@ export default function HomecomingTestTab() {
                 {actionNote[d.delegate].msg}
               </p>
             )}
-            {/* Native conversation panel. */}
+            {/* Native conversation panel (multi-turn). */}
             {talkOpen === d.delegate && (
               <div className="mt-3 rounded-md border border-slate-800 bg-slate-950/40 p-2.5 space-y-2">
+                {(talkThread[d.delegate] ?? []).length > 0 && (
+                  <div className="max-h-72 space-y-2 overflow-y-auto">
+                    {(talkThread[d.delegate] ?? []).map((turn, i) => (
+                      <div key={i} className={`rounded-md px-2 py-1.5 text-xs ${turn.role === "operator" ? "bg-slate-800/70 text-slate-300" : "bg-emerald-950/30 border border-emerald-900/40 text-slate-200"}`}>
+                        <span className="mr-1.5 text-[9px] uppercase tracking-wide text-slate-500">{turn.role === "operator" ? "You" : d.delegate}</span>
+                        <span className="whitespace-pre-wrap">{turn.text}</span>
+                        {turn.role === "delegate" && turn.sovereignty && (
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            via {turn.sovereignty.provider}/{turn.sovereignty.model}
+                            {turn.sovereignty.sovereignFloor ? " · sovereign floor" : ""}
+                            {turn.sovereignty.degraded ? " · degraded" : ""}
+                            {typeof turn.chunks === "number" ? ` · ${turn.chunks} KB chunk${turn.chunks === 1 ? "" : "s"}` : ""}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-end gap-2">
                   <textarea
                     value={talkInput}
@@ -405,21 +439,6 @@ export default function HomecomingTestTab() {
                     Send
                   </button>
                 </div>
-                {talkReply[d.delegate] && (
-                  <div className="space-y-1">
-                    <p className="whitespace-pre-wrap text-xs text-slate-200">{talkReply[d.delegate].reply}</p>
-                    {talkReply[d.delegate].sovereignty && (
-                      <p className="text-[10px] text-slate-500">
-                        via {talkReply[d.delegate].sovereignty!.provider}/{talkReply[d.delegate].sovereignty!.model}
-                        {talkReply[d.delegate].sovereignty!.sovereignFloor ? " · sovereign floor" : ""}
-                        {talkReply[d.delegate].sovereignty!.degraded ? " · degraded" : ""}
-                        {" · grounded on "}
-                        {talkReply[d.delegate].chunks} sovereign-KB chunk{talkReply[d.delegate].chunks === 1 ? "" : "s"}
-                      </p>
-                    )}
-                  </div>
-                )}
-
                 {/* Produce artifact natively — Phase 4 Operational Homecoming via the Artifact Runtime. */}
                 <div className="border-t border-slate-800 pt-2 space-y-2">
                   <p className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
@@ -458,6 +477,11 @@ export default function HomecomingTestTab() {
                         {produceResult[d.delegate].receiptId && (
                           <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400">
                             <ShieldCheck className="h-3 w-3" /> receipt {String(produceResult[d.delegate].receiptId).slice(0, 12)}…
+                          </span>
+                        )}
+                        {produceResult[d.delegate].recordId && (
+                          <span className="text-[10px] text-sky-400" title="Persisted as a durable artifact record — survives refresh">
+                            saved · {String(produceResult[d.delegate].recordId).slice(0, 8)}…
                           </span>
                         )}
                         {produceResult[d.delegate].promotableTo === "constitutional" && (
