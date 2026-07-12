@@ -26,6 +26,7 @@ import { getKnowledgeBaseService } from '@/services/content/knowledgeBaseService
 import { produceViaDelegate } from '@/services/homecoming/delegateProduce';
 import { saveArtifactRecord, listArtifactRecords } from '@/services/artifact/artifactRecordStore';
 import { accrueProductionStanding, resolveDelegateAgentId } from '@/services/homecoming/delegateStanding';
+import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 import { HOMECOMING_DELEGATES, type HomecomingDelegateId } from '@/types/homecoming';
 import type { ArtifactProfileId } from '@/types/artifactRuntime';
 
@@ -135,7 +136,34 @@ export async function POST(req: NextRequest) {
       : { accrued: false, reason: `no seeded RootDID for '${delegate}' — stand the delegate up first` };
   }
 
-  return NextResponse.json({ ok: result.artifact.ok, recordId, standing, ...result });
+  // Linear mirror (observe-mode, soft-fail): delegate productions track in the
+  // same cycle issue — a receipt-anchored constitutional production lands Done,
+  // otherwise In Progress. T2-safe note (delegate slug, record/receipt ids,
+  // earned standing) — never a persona identifier.
+  const linear =
+    result.consequenceClass !== 'disposable' && result.artifact.ok
+      ? await mirrorLifecycleToLinear({
+          delegate,
+          profile: typeof body.profile === 'string' ? body.profile : 'documentation',
+          brief,
+          phase:
+            result.consequenceClass === 'constitutional' && result.artifact.receiptId
+              ? 'published'
+              : 'artifact_produced',
+          note: [
+            `Produced by \`${delegate}\` (${result.consequenceClass})`,
+            recordId ? `record \`${recordId}\`` : null,
+            result.artifact.receiptId ? `receipt \`${result.artifact.receiptId}\`` : null,
+            standing?.accrued
+              ? `standing +${standing.cvs} → ${standing.overall} (ceiling ${standing.trustBandCeiling})`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' — '),
+        })
+      : { mirrored: false, reason: 'disposable or failed production — not mirrored (by definition)' };
+
+  return NextResponse.json({ ok: result.artifact.ok, recordId, standing, linear, ...result });
 }
 
 /** GET — list produced artifact records (?delegate=…), newest first. Admin-gated. */

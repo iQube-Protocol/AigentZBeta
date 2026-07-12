@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { buildDeploymentObject } from '@/services/constitutional/deploymentObject';
+import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,8 +102,24 @@ export async function POST(request: NextRequest) {
     touchesProtectedFiles: flagged,
   });
 
+  // Linear mirror (observe-mode, soft-fail): the D1 proposal keeps the cycle's
+  // issue In Progress with a review-marked comment. Keyed on the goal — when
+  // the caller omits it there is no stable key, so the mirror is skipped
+  // honestly rather than guessing one.
+  const linear =
+    typeof body.goal === 'string' && body.goal.trim()
+      ? await mirrorLifecycleToLinear({
+          delegate: 'operator',
+          profile: 'software',
+          brief: body.goal.trim(),
+          phase: 'deployment_proposed',
+          note: `Pack \`${body.packId.trim()}\` — commits \`${body.commitRange.trim().slice(0, 60)}\`, ${validationNotes.length} validation note(s), protectedFiles=${flagged} — receipt \`${receipt.id}\``,
+        })
+      : { mirrored: false, reason: 'no goal supplied — no stable issue key' };
+
   return NextResponse.json({
     ok: true,
+    linear,
     receiptId: receipt.id,
     // T2-safe projection of the Deployment constitutional object — commitment
     // ref (one-way), lifecycle state, standing band, ladder level, and the

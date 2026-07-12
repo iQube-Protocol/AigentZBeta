@@ -18,6 +18,7 @@ import { createActivityReceipt } from '@/services/receipts/activityReceiptServic
 import { canPromote } from '@/types/artifactRuntime';
 import { readArtifactRecord, promoteArtifactRecord } from '@/services/artifact/artifactRecordStore';
 import { accrueProductionStanding, resolveDelegateAgentId } from '@/services/homecoming/delegateStanding';
+import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,6 +76,25 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Linear mirror (observe-mode, soft-fail): promotion completes the cycle —
+  // the issue lands Done. The key re-derives from the record's own
+  // (delegate, profile, brief), converging on the SAME issue the production
+  // created. T2-safe note only (receipt id + hash prefix + standing).
+  const linear = await mirrorLifecycleToLinear({
+    delegate: promoted.delegate,
+    profile: promoted.profile,
+    brief: promoted.brief,
+    phase: 'published',
+    note: [
+      `Promoted operational → constitutional — receipt \`${receipt.id}\`, sha256 \`${promoted.content_hash.slice(0, 16)}\``,
+      standing?.accrued
+        ? `standing +${standing.cvs} → ${standing.overall} (ceiling ${standing.trustBandCeiling})`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' — '),
+  });
+
   return NextResponse.json({
     ok: true,
     recordId: promoted.id,
@@ -82,5 +102,6 @@ export async function POST(req: NextRequest) {
     receiptId: receipt.id,
     contentHash: promoted.content_hash,
     standing,
+    linear,
   });
 }

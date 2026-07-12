@@ -252,6 +252,8 @@ const envVars = [
   'GITHUB_TOKEN',
   'GITHUB_REPOSITORY',
   'LINEAR_API_KEY',
+  // Linear lifecycle mirror target team (e.g. 'ENG') — services/linear/lifecycleMirror.ts
+  'LINEAR_TEAM_KEY',
 ];
 
 let content = '';

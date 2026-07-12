@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { generateImplementationPack } from '@/services/constitutional/implementationPack';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,7 +84,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ ok: true, pack, receiptId });
+    // Linear mirror (observe-mode, soft-fail): the pack lands the cycle's
+    // issue in Todo. T2-safe note only — pack id + receipt id.
+    const linear = await mirrorLifecycleToLinear({
+      delegate: 'operator',
+      profile: 'software',
+      brief: goal,
+      phase: 'pack_generated',
+      note: `Pack \`${pack.id}\` (${pack.implementationMechanism}, ${pack.invariantBindings.length} invariant bindings)${receiptId ? ` — receipt \`${receiptId}\`` : ''}`,
+    });
+
+    return NextResponse.json({ ok: true, pack, receiptId, linear });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'pack_generation_failed';
     console.error('[api/constitutional/implementation-pack] generation failed:', message);

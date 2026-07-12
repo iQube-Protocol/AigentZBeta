@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { produceSoftwareArtifact } from '@/services/artifact/pilots/softwarePilot';
+import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -75,9 +76,21 @@ export async function POST(request: NextRequest) {
       domains: body.domains as string[] | undefined,
       proposeDeployment: body.proposeDeployment === true,
     });
+    // Linear mirror (observe-mode, soft-fail): a successful production moves
+    // the cycle's issue to In Progress. T2-safe note only.
+    const linear = result.artifact.ok
+      ? await mirrorLifecycleToLinear({
+          delegate: 'operator',
+          profile: 'software',
+          brief: goal,
+          phase: 'artifact_produced',
+          note: `Pack \`${result.pack.packId}\` → artifact \`${result.artifact.artifactId ?? 'unassigned'}\`${result.recordId ? ` — record \`${result.recordId}\`` : ''} (operational, no receipt by contract)`,
+        })
+      : { mirrored: false, reason: 'production failed — nothing to mirror' };
+
     // T1-projected result (the pilot re-guards T0 inexpressibility). An honest
     // artifact.ok:false is still a resolved result the caller surfaces inline.
-    return NextResponse.json({ ok: result.artifact.ok, ...result });
+    return NextResponse.json({ ok: result.artifact.ok, linear, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'software_production_failed';
     console.error('[api/artifact/produce-software] production failed:', message);

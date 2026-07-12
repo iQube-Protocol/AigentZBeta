@@ -35,6 +35,7 @@ import { composeArtifact } from '@/services/composition/composeArtifact';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { saveArtifactRecord } from '@/services/artifact/artifactRecordStore';
 import { findForbiddenObjectKey } from '@/types/constitutionalObject';
+import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 import {
   STUDIO_COMPOSITION_PROFILE,
   STUDIO_COMPOSITION_DELEGATE,
@@ -159,12 +160,32 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Linear mirror (observe-mode, soft-fail): studio compositions track in the
+  // same cycle — published lands Done, proposed lands In Progress. T2-safe
+  // note only (public ref, hash prefix, receipt/record ids).
+  const linear = result.ok
+    ? await mirrorLifecycleToLinear({
+        delegate: STUDIO_COMPOSITION_DELEGATE,
+        profile: STUDIO_COMPOSITION_PROFILE,
+        brief: goal,
+        phase: published ? 'published' : 'artifact_produced',
+        note: [
+          `Studio composition ${published ? 'published' : 'proposed'} — \`${result.provenance.publicRef}\`, sha256 \`${result.provenance.contentHash.slice(0, 16)}\``,
+          recordId ? `record \`${recordId}\`` : null,
+          receiptId ? `receipt \`${receiptId}\`` : null,
+        ]
+          .filter(Boolean)
+          .join(' — '),
+      })
+    : { mirrored: false, reason: 'composition failed validation — not mirrored' };
+
   const payload = {
     ok: result.ok,
     mode: published ? ('publish' as const) : ('propose' as const),
     published,
     recordId,
     receiptId,
+    linear,
     result,
     ...(publishError ? { error: publishError } : {}),
   };
