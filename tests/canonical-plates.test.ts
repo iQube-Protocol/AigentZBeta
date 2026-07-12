@@ -88,14 +88,14 @@ describe('CP — compositions (no new diagrams, only new compositions)', () => {
 });
 
 describe('CP — plates as canonical assets (ecosystem assets, not per-document art)', () => {
-  it('all seven plates register as canonical assets and enter honestly at validated', () => {
+  it('all seven plates register as RATIFIED canonical assets (CFS-027, 2026-07-12)', () => {
     const assets = canonicalPlateAssets();
     expect(assets).toHaveLength(7);
     for (const a of assets) {
       expect(a.identity.kind).toBe('canonical_asset');
-      // Specced, not yet ratified — validated band, published state, ratification required.
-      expect(a.standing.band).toBe('validated');
-      expect(a.lifecycle.state).toBe('published');
+      // Ratified — canonical band, canonized state (same as the other ratified assets).
+      expect(a.standing.band).toBe('canonical');
+      expect(a.lifecycle.state).toBe('canonized');
       expect(a.authority.ratificationRequired).toBe(true);
       expect(findForbiddenObjectKey(a)).toBeNull(); // no T0 leak
     }

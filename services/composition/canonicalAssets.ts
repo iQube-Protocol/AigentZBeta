@@ -280,10 +280,9 @@ export function interpretationAssetFor(interp: Interpretation): ConstitutionalOb
 // The Canonical Plates (CP-001..CP-007) — the visual ontology as assets
 // ─────────────────────────────────────────────────────────────────────────
 
-/** CP v1.0 is operator-SPECCED but not yet ratified (CFS-027) — plates enter at
- *  the `validated` band and `published` state; ratification lifts them to
- *  `canonized` / the canonical band. */
-const PLATE_STANDING_SCORE = 0.5; // standingBandFor(0.5) === 'validated'
+/** CP v1.0 RATIFIED by the operator 2026-07-12 (CFS-027) — the plates hold the
+ *  canonical band / canonized state, same as the other ratified canonical assets. */
+const PLATE_STANDING_SCORE = CANONICAL_STANDING_SCORE; // 0.7 → 'canonical'
 
 /**
  * A Canonical Plate as a first-class canonical asset (CFS-027): the SAME figure
@@ -318,7 +317,7 @@ export function canonicalPlateAsset(plate: CanonicalPlate): ConstitutionalObject
     },
     authority: {
       minStandingToCompose: 'validated',
-      ratificationRequired: true, // CFS-027 ratification lifts to canonized
+      ratificationRequired: true, // satisfied — CFS-027 ratified 2026-07-12
       governingInvariants: [],
     },
     ownership: { ownerCommitment: PLATFORM_STEWARD_COMMITMENT },
@@ -327,7 +326,7 @@ export function canonicalPlateAsset(plate: CanonicalPlate): ConstitutionalObject
       contentCommitment: contentCommitment(payload),
       source: 'authored',
     },
-    lifecycle: { state: 'published', order: ['draft', 'published', 'canonized', 'deprecated'] },
+    lifecycle: { state: 'canonized', order: ['draft', 'published', 'canonized', 'deprecated'] },
     dependencies: [],
     payload,
   };

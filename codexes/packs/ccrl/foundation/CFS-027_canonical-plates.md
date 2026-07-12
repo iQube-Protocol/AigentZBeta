@@ -1,6 +1,6 @@
 # CFS-027 — The Canonical Plates (CP): the visual ontology of Invariant Intelligence
 
-**Chrysalis Foundation Specification · v1.0 · Status: PROPOSED (2026-07-11; operator-specced)**
+**Chrysalis Foundation Specification · v1.0 · Status: RATIFIED 2026-07-12 (operator-specced 2026-07-11)**
 Substrate: `services/artifact/canonicalPlates.ts` · canary `tests/canonical-plates.test.ts`
 Companion to: `CFS-026` (Constitutional Publishing System) · `CFS-025` (Artifact Runtime)
 
@@ -71,6 +71,6 @@ Two operator-supplied composite sheets live at `codexes/packs/ccrl/foundation/pl
 ## Ratification record
 - [x] Specced by the operator 2026-07-11 (seven plates, CP numbering, composition model)
 - [x] CP v1.0 encoded as data + canary (10/10); wired into diagrams-first production (CFS-026)
-- [ ] Ratify CP v1.0 into the substrate (operator)
-- [ ] The rendering layer: draw each plate as an SVG engineering figure
-- [ ] Register the plates in the Canonical Asset Registry (one figure, every surface)
+- [x] **Ratified 2026-07-12 (operator)** — CP v1.0 into the substrate; the seven plate assets lifted to the canonical band / canonized state. The CP-008 compass question stays open (TBD) — the seven-plate discipline holds by default.
+- [x] R1 rendering shipped 2026-07-11 (`CanonicalPlateFigure` — all seven forms, live from the encoded ontology; 35/35 render checks)
+- [x] Registered in the Canonical Asset Registry 2026-07-11 (`plate:cp-001..007`)

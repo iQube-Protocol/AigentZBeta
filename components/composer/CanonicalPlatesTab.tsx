@@ -30,9 +30,9 @@ export default function CanonicalPlatesTab() {
       <div>
         <h3 className="text-base font-semibold text-slate-100">Canonical Plates of Invariant Intelligence — v1.0</h3>
         <p className="text-sm text-slate-400 mt-1">
-          Seven plates. One discipline. Rendered live from the encoded ontology (CFS-027) — every publication is a
-          composition of these, never new diagrams. <span className="text-amber-300">Pre-ratification:</span> plates sit
-          at the <span className="font-mono">validated</span> band until CFS-027 is ratified.
+          Seven plates. One discipline. Rendered live from the encoded ontology (CFS-027,{" "}
+          <span className="text-emerald-300">ratified 2026-07-12</span> — canonical band) — every publication is a
+          composition of these, never new diagrams.
         </p>
       </div>
 

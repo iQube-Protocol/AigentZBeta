@@ -1,6 +1,6 @@
 # CFS-026 — The Constitutional Publishing System (CPS)
 
-**Chrysalis Foundation Specification · v0.1 · Status: PROPOSED (2026-07-11; discovery + draft by Aletheon, operator-refined & renamed)**
+**Chrysalis Foundation Specification · v0.1 · Status: RATIFIED 2026-07-12 (discovery + draft by Aletheon, operator-refined, renamed & ratified)**
 Substrate: `services/artifact/constitutionalPublishingSystem.ts` · canary `tests/constitutional-publishing-system.test.ts`
 Companion to: `CFS-025` (Artifact Runtime / Production Runtime) · `CFS-011` (Style Invariant Specification) · Human Civic Futurism
 
@@ -90,6 +90,6 @@ Order of build: **R1 first** (the plates are the reusable asset with the widest 
 ## Ratification record
 - [x] Drafted by Aletheon; operator-refined + renamed CDS → CPS 2026-07-11
 - [x] CPS v0.1 encoded as data + canary (8/8); wired into native document production
-- [ ] Ratify CPS v0.1 into the substrate (operator)
-- [ ] The factory: renderers-as-AR-concept · master template · figure libraries · numbering registry · rendering layer
-- [ ] First IRL paper produced as the first CPS publication (`IRL-0001`)
+- [x] **Ratified 2026-07-12 (operator)** — CPS v0.1 adopted into the substrate.
+- [x] Factory plumbing shipped 2026-07-12 (plates as canonical assets · publication/series numbering registry · profile→renderer map) + R1 plate renderer. **R2/R3 (publication shell + derived PDF): SKIPPED per operator direction 2026-07-12** — build on future request.
+- [ ] First IRL paper produced as the first CPS publication (`IRL-0001`) — reserved in the registry; production TBD (operator)
