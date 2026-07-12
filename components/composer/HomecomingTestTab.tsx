@@ -62,6 +62,8 @@ interface DelegatePresence {
   presenceIndex: number;
   rungs: RungAssessment[];
   passportBound?: boolean;
+  /** The Standing loop — earned standing + the trust-band ceiling it buys. */
+  standing?: { overall: number; bucket: number; trustBandCeiling: string } | null;
 }
 
 interface Summary {
@@ -120,6 +122,7 @@ export default function HomecomingTestTab() {
     version: string | null;
     receiptId: string | null;
     recordId: string | null;
+    standing: { accrued: boolean; cvs?: number; overall?: number; trustBandCeiling?: string; reason?: string } | null;
     promotableTo: string | null;
     sovereignty: Sov | null;
     ok: boolean;
@@ -262,6 +265,7 @@ export default function HomecomingTestTab() {
             version: art.version ? (typeof art.version === "string" ? art.version : JSON.stringify(art.version)) : null,
             receiptId: art.receiptId ?? null,
             recordId: (res.recordId as string | null) ?? null,
+            standing: (res.standing as ProduceRes["standing"]) ?? null,
             promotableTo: (res.promotableTo as string | null) ?? null,
             sovereignty: (res.sovereignty as Sov | null) ?? null,
             ok: Boolean(res.ok),
@@ -270,7 +274,7 @@ export default function HomecomingTestTab() {
       } catch (err) {
         setProduceResult((r) => ({
           ...r,
-          [delegate]: { body: `⚠ ${err instanceof Error ? err.message : "produce failed"}`, consequenceClass: "", artifactId: null, version: null, receiptId: null, recordId: null, promotableTo: null, sovereignty: null, ok: false },
+          [delegate]: { body: `⚠ ${err instanceof Error ? err.message : "produce failed"}`, consequenceClass: "", artifactId: null, version: null, receiptId: null, recordId: null, standing: null, promotableTo: null, sovereignty: null, ok: false },
         }));
       } finally {
         setProduceBusy(null);
@@ -331,6 +335,14 @@ export default function HomecomingTestTab() {
               <span className="ml-auto text-xs text-slate-400">
                 {d.presenceLevel ? LADDER_LABEL[d.presenceLevel] ?? d.presenceLevel : "below L0"}
               </span>
+              {d.standing && (
+                <span
+                  className="rounded border border-violet-800 bg-violet-950/50 px-2 py-0.5 text-[10px] text-violet-300"
+                  title="Earned standing (delegated lane accrues from published productions) and the trust-band ceiling it buys: L2≥20 · L3≥50 · L4≥75 · L5≥100"
+                >
+                  standing {d.standing.overall} · ceiling {d.standing.trustBandCeiling.split("_")[0]}
+                </span>
+              )}
             </div>
             {/* The ladder strip — one dot per rung, lit to the contiguous reached level. */}
             <div className="mt-2 flex items-center gap-2">
@@ -483,6 +495,18 @@ export default function HomecomingTestTab() {
                           <span className="text-[10px] text-sky-400" title="Persisted as a durable artifact record — survives refresh">
                             saved · {String(produceResult[d.delegate].recordId).slice(0, 8)}…
                           </span>
+                        )}
+                        {produceResult[d.delegate].standing && (
+                          produceResult[d.delegate].standing!.accrued ? (
+                            <span className="text-[10px] text-violet-300" title="The Standing loop: production accrues standing to the delegate (delegated lane); the trust-band ceiling rises with it">
+                              standing +{produceResult[d.delegate].standing!.cvs} → {produceResult[d.delegate].standing!.overall}
+                              {produceResult[d.delegate].standing!.trustBandCeiling ? ` (ceiling ${produceResult[d.delegate].standing!.trustBandCeiling!.split("_")[0]})` : ""}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-500" title={produceResult[d.delegate].standing!.reason}>
+                              standing not accrued
+                            </span>
+                          )
                         )}
                         {produceResult[d.delegate].promotableTo === "constitutional" && (
                           <button

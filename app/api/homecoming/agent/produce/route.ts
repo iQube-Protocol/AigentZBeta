@@ -25,6 +25,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getKnowledgeBaseService } from '@/services/content/knowledgeBaseService';
 import { produceViaDelegate } from '@/services/homecoming/delegateProduce';
 import { saveArtifactRecord, listArtifactRecords } from '@/services/artifact/artifactRecordStore';
+import { accrueProductionStanding, resolveDelegateAgentId } from '@/services/homecoming/delegateStanding';
 import { HOMECOMING_DELEGATES, type HomecomingDelegateId } from '@/types/homecoming';
 import type { ArtifactProfileId } from '@/types/artifactRuntime';
 
@@ -117,7 +118,24 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: result.artifact.ok, recordId, ...result });
+  // The Standing loop (CFS-023 × CFS-025): a successful non-disposable
+  // production accrues standing to the DELEGATE (delegated lane) through the
+  // canonical accrual service — the delegate EARNS its trust-band climb by
+  // producing. Best-effort; an accrual failure never blocks the production and
+  // is reported honestly.
+  let standing: Awaited<ReturnType<typeof accrueProductionStanding>> | null = null;
+  if (result.consequenceClass !== 'disposable' && result.artifact.ok) {
+    const agentId = await resolveDelegateAgentId(delegate);
+    standing = agentId
+      ? await accrueProductionStanding({
+          delegateAgentId: agentId,
+          consequenceClass: result.consequenceClass as 'operational' | 'constitutional',
+          receiptId: result.artifact.receiptId ?? null,
+        })
+      : { accrued: false, reason: `no seeded RootDID for '${delegate}' — stand the delegate up first` };
+  }
+
+  return NextResponse.json({ ok: result.artifact.ok, recordId, standing, ...result });
 }
 
 /** GET — list produced artifact records (?delegate=…), newest first. Admin-gated. */

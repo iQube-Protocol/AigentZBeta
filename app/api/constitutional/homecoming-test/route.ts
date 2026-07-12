@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { assessConstitutionalPresence } from '@/services/homecoming/constitutionalPresence';
+import { resolveDelegateAgentId, readDelegateStanding } from '@/services/homecoming/delegateStanding';
 import { CONSTITUTIONAL_PRESENCE_LADDER, HOMECOMING_TEST_DIMENSIONS } from '@/types/homecoming';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,20 @@ export async function GET(request: NextRequest) {
 
   try {
     const report = await assessConstitutionalPresence();
+    // The Standing loop — enrich each delegate with its EARNED standing + the
+    // trust-band ceiling that standing buys (L2≥20 · L3≥50 · L4≥75 · L5≥100).
+    // Best-effort: a delegate without a seeded RootDID / CRM persona reads null.
+    const delegates = await Promise.all(
+      (report.delegates ?? []).map(async (d: Record<string, unknown>) => {
+        try {
+          const agentId = await resolveDelegateAgentId(String(d.delegate));
+          const standing = agentId ? await readDelegateStanding(agentId) : null;
+          return { ...d, standing };
+        } catch {
+          return { ...d, standing: null };
+        }
+      }),
+    );
     return NextResponse.json({
       ok: true,
       test: 'Homecoming Test',
@@ -36,6 +51,7 @@ export async function GET(request: NextRequest) {
       dimensions: HOMECOMING_TEST_DIMENSIONS,
       computedAt: new Date().toISOString(),
       ...report,
+      delegates,
     });
   } catch (err) {
     return NextResponse.json(
