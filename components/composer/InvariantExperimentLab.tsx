@@ -13,7 +13,8 @@
  */
 
 import React, { Suspense, useState } from "react";
-import { Beaker, Clapperboard, FileText, Home, Scale, ShieldCheck } from "lucide-react";
+import { Beaker, Clapperboard, FileText, Home, Layers, Scale, ShieldCheck } from "lucide-react";
+import CanonicalPlatesTab from "./CanonicalPlatesTab";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
 import Exp001EvaluationRunner from "./Exp001EvaluationRunner";
 import Exp003RediscoveryRunner from "./Exp003RediscoveryRunner";
@@ -24,7 +25,7 @@ import Exp005ProviderChoiceRunner from "./Exp005ProviderChoiceRunner";
 import ChrysalisTestTab from "./ChrysalisTestTab";
 import HomecomingTestTab from "./HomecomingTestTab";
 
-type LabTab = "video" | "bundle" | "rediscovery" | "sovereignty" | "provider-choice" | "results" | "report" | "chrysalis" | "homecoming";
+type LabTab = "video" | "bundle" | "rediscovery" | "sovereignty" | "provider-choice" | "results" | "report" | "plates" | "chrysalis" | "homecoming";
 
 const TABS: { id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "video", label: "EXP-002 · Video", icon: Clapperboard },
@@ -34,6 +35,7 @@ const TABS: { id: LabTab; label: string; icon: React.ComponentType<{ className?:
   { id: "provider-choice", label: "EXP-005 · Provider Choice", icon: ShieldCheck },
   { id: "results", label: "Results · Canonical", icon: ShieldCheck },
   { id: "report", label: "Report", icon: FileText },
+  { id: "plates", label: "Canonical Plates", icon: Layers },
   { id: "chrysalis", label: "Chrysalis Test", icon: ShieldCheck },
   { id: "homecoming", label: "Homecoming Test", icon: Home },
 ];
@@ -86,6 +88,7 @@ export default function InvariantExperimentLab() {
       {tab === "provider-choice" && <Exp005ProviderChoiceRunner />}
       {tab === "results" && <ExperimentResultsTab />}
       {tab === "report" && <ExperimentReportTab />}
+      {tab === "plates" && <CanonicalPlatesTab />}
       {tab === "chrysalis" && <ChrysalisTestTab />}
       {tab === "homecoming" && <HomecomingTestTab />}
     </div>
