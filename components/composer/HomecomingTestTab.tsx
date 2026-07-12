@@ -104,6 +104,18 @@ export default function HomecomingTestTab() {
   const [standable, setStandable] = useState<string[]>([]);
   const [standingUp, setStandingUp] = useState<string | null>(null);
   const [accelerating, setAccelerating] = useState<string | null>(null);
+  // CFS-028 producer routing — ranked recommendations for the delegate default
+  // profile at operational tier (Law XI: recommend, operator selects).
+  interface ProducerRec {
+    producer: { id: string; kind: string; label: string; ref: string };
+    fitness: number;
+    cost: string;
+    eligible: boolean;
+    ineligibleReason?: string;
+    reasons: string[];
+    standing: { overall: number; trustBandCeiling: string } | null;
+  }
+  const [producerRecs, setProducerRecs] = useState<ProducerRec[]>([]);
   const [issuingPassport, setIssuingPassport] = useState<string | null>(null);
   const [actionNote, setActionNote] = useState<Record<string, { ok: boolean; msg: string }>>({});
   // Native conversation (Phase 3 — Harness Homecoming).
@@ -216,6 +228,19 @@ export default function HomecomingTestTab() {
     load();
     loadRecords();
   }, [load, loadRecords]);
+
+  // CFS-028 routing strip data — one read for the panel's fixed capability
+  // (delegate productions default to the documentation profile).
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await experimentGet("/api/capability/producers?capability=documentation&tier=operational");
+        if (Array.isArray(res.recommendations)) setProducerRecs(res.recommendations as ProducerRec[]);
+      } catch {
+        setProducerRecs([]); // additive — the panel renders without routing
+      }
+    })();
+  }, []);
 
   // Stand a delegate up. The sponsor citizen passport is resolved SERVER-SIDE
   // from the caller's active persona (same context as genesis) — no client-side
@@ -524,6 +549,31 @@ export default function HomecomingTestTab() {
                   <p className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
                     <FileText className="h-3 w-3" /> Produce artifact — operational tier, propose
                   </p>
+                  {/* CFS-028 producer routing strip — ranked recommendations for
+                      this capability; the operator selects (Law XI). The chip for
+                      THIS delegate is ringed. */}
+                  {producerRecs.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[9px] uppercase tracking-wide text-slate-600" title="CFS-028 capability graph: ranked producers for the 'documentation' capability at operational tier — seeded fitness, receipt-learned later; costs stubbed">
+                        routing
+                      </span>
+                      {producerRecs.slice(0, 6).map((r) => (
+                        <span
+                          key={r.producer.id}
+                          title={`${r.producer.kind} · fitness ${r.fitness.toFixed(2)} · cost ${r.cost}${r.standing ? ` · standing ${r.standing.overall}` : ""} — ${r.eligible ? r.reasons.join("; ") : r.ineligibleReason}`}
+                          className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                            r.producer.ref === d.delegate
+                              ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
+                              : r.eligible
+                              ? "border-slate-700 bg-slate-900/60 text-slate-300"
+                              : "border-slate-800 bg-slate-950/60 text-slate-600 line-through"
+                          }`}
+                        >
+                          {r.producer.label} · {r.fitness.toFixed(2)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <textarea
                     value={produceBrief[d.delegate] ?? defaultBriefFor(d.delegate)}
                     onChange={(e) => setProduceBrief((b) => ({ ...b, [d.delegate]: e.target.value }))}

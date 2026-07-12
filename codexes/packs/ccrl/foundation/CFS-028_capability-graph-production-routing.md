@@ -1,6 +1,6 @@
 # CFS-028 — Capability Graph & Production Routing ("Context Calibration")
 
-**Chrysalis Foundation Specification · v0.1 · Status: DRAFT — awaiting operator ratification.**
+**Chrysalis Foundation Specification · v1.0 · Status: RATIFIED by operator 2026-07-12 (§4.1–4.4 built same day).**
 Origin: operator direction 2026-07-12 — *"certain agents may be better for certain types of work. This really needs to be at the root CPS level and applied to any production artefact… routing where the best agents for the task are surfaced for the operator to select… should also accommodate agents and harnesses… needs intelligence and a graph around capabilities and tasks as well as, in the future, costs — which can be stubbed for now."*
 
 Companions: CFS-025 (Artifact Runtime — tiers + profiles), CFS-016 (deployment ladder), CFS-023 (delegate standing), the ModelQube registry (provider sovereignty), the Model Router (per-stage routing).
@@ -58,4 +58,5 @@ The graph never auto-routes consequence-bearing production. The surface is a **"
 
 ## Ratification record
 
-- [ ] CFS-028 v0.1 — drafted 2026-07-12, awaiting operator ratification of the v1 increment set (§4.1–4.4).
+- [x] **CFS-028 RATIFIED — 2026-07-12, by operator direction.** §4.1–4.4 built same day: `types/capabilityGraph.ts` (contract + invariants), `services/capability/capabilityGraph.ts` (seed graph — harnesses + delegates hand-seeded with stated reasons; model producers derived dynamically from the ModelQube registry, stubbed entries excluded — + the pure ranking core + `recommendProducers`), `GET /api/capability/producers` (admin-gated), and the routing strip on the Homecoming produce panel. `deployment-execution` edges seeded DORMANT per §5 — they wake only with CFS-016 D2 ratification. Canary: `tests/capability-graph.test.ts`.
+- [ ] §4.5 (receipt-learned fitness · real cost ingestion · D2 execution edges live) — each a later, separately ratified increment.
