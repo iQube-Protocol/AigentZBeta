@@ -86,6 +86,14 @@ interface OverviewEntry {
   latestRunAt: string | null;
 }
 
+interface ArtifactProductionView {
+  recentRecords: {
+    artifactId: string; profile: string; consequenceClass: string; delegate: string;
+    title: string; contentHashPrefix: string; receiptId: string | null; createdAt: string;
+  }[];
+  publications: { number: string; title: string; state: string }[];
+}
+
 interface SeriesEntry {
   id: string;
   name: string;
@@ -467,12 +475,18 @@ function RunStageCard({ experimentId, lifecycle, onGoToLab }: { experimentId: st
         (running → evaluated → published). When results are in, refresh here and the loop moves to Analyze —
         I&apos;ll help you record the finding.
       </p>
+      <p className="text-[10px] text-amber-400/80">
+        Already ran it? The lifecycle derives from the CANONICAL record — publish the run&apos;s results from
+        its runner tab (the Publish action) and this hand-off clears on the next refresh. An unpublished run
+        does not exist constitutionally.
+      </p>
     </div>
   );
 }
 
 export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotTabProps) {
   const [overview, setOverview] = useState<OverviewEntry[] | null>(null);
+  const [artifactProduction, setArtifactProduction] = useState<ArtifactProductionView | null>(null);
   const [series, setSeries] = useState<SeriesEntry[]>([]);
   const [lifecycleOrder, setLifecycleOrder] = useState<string[]>([]);
   const [overviewError, setOverviewError] = useState<string | null>(null);
@@ -625,6 +639,7 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
       const entries = (data.experiments as OverviewEntry[]) ?? [];
       setOverview(entries);
       setSeries((data.series as SeriesEntry[]) ?? []);
+      setArtifactProduction((data.artifactProduction as ArtifactProductionView) ?? null);
       setLifecycleOrder((data.lifecycleOrder as string[]) ?? []);
       setOverviewError(null);
       expCount = entries.length;
@@ -717,8 +732,17 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
         ? researchState.experiments[researchState.experiments.length - 1].experiment.id
         : null;
     const lastWorking = lastWorkingId ? loopExperiments.find(e => e.id === lastWorkingId) : undefined;
-    return byId ?? lastWorking ?? loopExperiments[loopExperiments.length - 1];
-  }, [loopExperiments, activeExperimentId, researchState.experiments]);
+    // Default: the EARLIEST experiment whose lifecycle is still below
+    // 'published' — the one that actually needs attention — never an
+    // arbitrary pick that parks the loop on a stale hand-off. When every
+    // experiment is published/replicated, rest on the most recent one
+    // (the loop shows Analyze/Publish — complete, not a call to action).
+    const order = lifecycleOrder.length > 0 ? lifecycleOrder : ["designed", "protocol-ratified", "running", "evaluated", "published", "replicated"];
+    const needsAttention = loopExperiments.find(
+      e => order.indexOf(e.lifecycle) >= 0 && order.indexOf(e.lifecycle) < order.indexOf("published"),
+    );
+    return byId ?? lastWorking ?? needsAttention ?? loopExperiments[loopExperiments.length - 1];
+  }, [loopExperiments, activeExperimentId, researchState.experiments, lifecycleOrder]);
 
   const activeStage: ResearchLoopStage = researchStageForExperiment(activeExperiment);
 
@@ -747,12 +771,17 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
     })),
     overviewError,
     resultsError,
+    // AR/CPS observation (operator direction 2026-07-13): the current state of
+    // artifact production in this space — recent Artifact Runtime records +
+    // the CPS publication register — so the copilot narrates production
+    // reality, not just experiment lifecycles. Observed, never asserted.
+    artifactProduction,
     // DCIR observation seam (D4 useDcirSeam): recentEvents (last ~12 compacted)
     // + D2 stateSnapshot + observedPatterns, spread from the hook's memoized
     // ground observation. Observations the copilot may gently adapt to, NEVER
     // rules (CFS-020 §6). Session-scoped; nothing persists, nothing gates (§9).
     ...groundObservation,
-  }), [overview, series, lifecycleOrder, results, overviewError, resultsError, groundObservation, activeStage, activeExperiment]);
+  }), [overview, series, lifecycleOrder, results, overviewError, resultsError, groundObservation, activeStage, activeExperiment, artifactProduction]);
 
   const quickPrompts = useMemo(() => [
     "Where does the research programme stand?",
@@ -919,6 +948,51 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
                     <span className="text-slate-500">
                       {o.publishedRuns} run{o.publishedRuns === 1 ? "" : "s"} · {o.distinctProviders} provider{o.distinctProviders === 1 ? "" : "s"}
                     </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* AR/CPS — artifact production in this space (observed, never asserted) */}
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+            <h4 className="text-xs font-semibold text-slate-100 mb-1">Artifact production (observed · AR/CPS)</h4>
+            {!artifactProduction && <p className="text-[11px] text-slate-500">No production state available.</p>}
+            {artifactProduction && (
+              <div className="space-y-2 mt-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {artifactProduction.publications.map((p) => (
+                    <span
+                      key={p.number}
+                      title={p.title}
+                      className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                        p.state === "published"
+                          ? "border-emerald-600 bg-emerald-950/40 text-emerald-300"
+                          : p.state === "produced"
+                            ? "border-violet-600 bg-violet-950/40 text-violet-300"
+                            : "border-slate-700 bg-slate-900/60 text-slate-400"
+                      }`}
+                    >
+                      {p.number} · {p.state}
+                    </span>
+                  ))}
+                </div>
+                {artifactProduction.recentRecords.length === 0 && (
+                  <p className="text-[11px] text-slate-500">No persisted artifact records yet (or migration pending).</p>
+                )}
+                {artifactProduction.recentRecords.slice(0, 5).map((r) => (
+                  <div key={r.artifactId + r.createdAt} className="flex flex-wrap items-center gap-2 text-[11px]">
+                    <span
+                      className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
+                        r.consequenceClass === "constitutional"
+                          ? "border-emerald-600 bg-emerald-950/40 text-emerald-300"
+                          : "border-amber-700 bg-amber-950/40 text-amber-300"
+                      }`}
+                    >
+                      {r.consequenceClass}
+                    </span>
+                    <span className="text-slate-300">{r.title}</span>
+                    <span className="text-slate-500">{r.profile} · {r.delegate} · {r.contentHashPrefix}…</span>
                   </div>
                 ))}
               </div>

@@ -1245,6 +1245,23 @@ This is non-negotiable because it's the only path with a reproducible working pr
 
 ---
 
+## Artifact Production — AR/CPS + Observer Awareness (CANONICAL RULE)
+
+**Every surface or system that produces artifacts (documents, media, compositions, business
+artifacts, code packs) MUST (1) produce through the Artifact Runtime / CPS seams — never a
+parallel production path — and (2) consume the current state of artifact production in its
+space through the observer pattern (observed, never asserted).**
+
+- Production: `runArtifact` / the AR pilots / `saveArtifactRecord` for persistence;
+  CPS renderers for document profiles; receipts via the unified writer.
+- Awareness: surfaces fold `artifactProduction` state (recent `artifact_records` + the
+  Publication Register) into their ground/observation context — the pattern
+  `/api/research/overview` + `IRLResearchCopilotTab` implement (2026-07-13). A copilot that
+  narrates a space must know what that space has produced.
+- Adoption is per-surface and tracked in the Chrysalis tracker; hand-wiring a parallel
+  production path or narrating production state from static data is an infraction
+  (the CS-001 / stale-handoff defect class).
+
 ## Adding to This File
 
 When a new rule, pattern, or constraint is established during development, add it here immediately.
