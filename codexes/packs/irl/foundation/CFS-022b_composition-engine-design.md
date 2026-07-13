@@ -515,10 +515,10 @@ No protected file (`types/`, `CFS-022`, `services/{dvn,identity,access,receipts}
    a validated standing read. Open question: ratify the representation family before P2, or let
    P2 run with designated standing and backfill?
 3. **`inv.composition.*` is proposed, not ratified.** `CFS-022 §3` says compose-not-generate
-   is "proposed for the substrate as `inv.composition.*`, ratified through CCRL governance, not
+   is "proposed for the substrate as `inv.composition.*`, ratified through IRL governance, not
    here." This design names the six composition laws (§6) but they are **proposed**; ratifying
    them (or mapping them onto existing `inv.engineering.068/069`, `inv.experience.072`) is a
-   CCRL governance action, not an engine build. The engine can enforce them as code laws before
+   IRL governance action, not an engine build. The engine can enforce them as code laws before
    they are constitutional invariants, but that gap should be closed.
 4. **SVG-only artefact in v1.** The plate ships as SVG + props. PDF/PNG export is deliberately
    deferred to the Publication Layer (G4/P3) — and CLAUDE.md's hard-won rule forbids server-side
@@ -547,5 +547,5 @@ This is a **design doc**, not a ratified contract and not an implementation. It 
 `CompositionRequest`/`CompositionResult` contracts, the pipeline, the compose-vs-generate rule,
 the six composition laws, and the Atlas-Plate vertical. Building it requires: (a) operator
 ratification of the P2 increment (`CFS-022 §6`), (b) ideally G1/G2 or an accepted interim
-in-situ binding, and (c) CCRL ratification (or mapping) of the `inv.composition.*` laws. No
+in-situ binding, and (c) IRL ratification (or mapping) of the `inv.composition.*` laws. No
 code was written; no protected contract was touched or merged.

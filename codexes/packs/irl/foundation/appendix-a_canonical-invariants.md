@@ -182,9 +182,9 @@ Status at seed time is `proposed` for all entries; `canonical` status requires r
 106. *(sovereignty · principle)* Every sovereignty dimension shall be measurable by experiment; an unmeasured sovereignty claim is a claim, not a capability.
 107. *(sovereignty · definition)* The Platform Sovereignty Experiment series measures the sovereignty bundle dimension by dimension; EXP-004 is its first member, measuring the model/provider dimension on the Sovereignty Scale.
 
-## Additions — Constitutional Cybernetics (CFS-019, the CCRL charter)
+## Additions — Constitutional Cybernetics (CFS-019, the IRL charter)
 
-*(Authored 2026-07-06 from the CCRL PRD — Layer III of the constitutional operating model.)*
+*(Authored 2026-07-06 from the IRL PRD — Layer III of the constitutional operating model.)*
 
 108. *(cybernetics · definition)* Constitutional Cybernetics is the study of constitutionally governed adaptive systems: how a system changes under constitutional feedback while remaining constitutional.
 109. *(cybernetics · principle)* Operational evidence — receipts, experiment results, Reach — shall flow back into the constitutional substrate as candidate knowledge; the feedback loop is the institution.

@@ -135,15 +135,15 @@ computational object (`inv.epistemology.119`–`120`). Its founding research pro
 **CRP-002 — Invariant Intelligence: Intent-Driven Knowledge Compression**, the first programme
 formally chartered under the Constitutional Research Program (CRP-001).
 
-**Relationship to CCRL:** "Constitutional Cybernetics Research Laboratory" / "CCRL" is RETAINED as
-the *discipline framing* of the same institution (Constitutional Cybernetics is Layer III of its
-work — the study of governed adaptive systems). metaMe IRL is the institution's **primary name**;
-CCRL names the discipline it pursues, not a separate lab. This resolves the naming decision
+**Former name:** "CCRL" / "Constitutional Cybernetics Research Laboratory" is SUPERSEDED
+(operator direction 2026-07-13) — do not use it in new copy. "Constitutional Cybernetics" remains
+the *discipline name* for Layer III of the lab's work (the study of governed adaptive systems).
+metaMe IRL is the institution's **primary name**; IRL is the abbreviation. This resolves the naming decision
 recorded as PENDING in CFS-019 (operator ratification, 2026-07-09): the earlier proposed external
 banner "Invariant Intelligence Research Institute" is superseded by **metaMe IRL**.
 
 **Usage rule:** Prefer **metaMe IRL** (or **IRL**) as the institution's name in new copy and docs.
-"CCRL" remains valid when naming the Constitutional Cybernetics discipline specifically. Never
+"IRL" remains valid when naming the Constitutional Cybernetics discipline specifically. Never
 introduce other lab names.
 
 ---

@@ -1995,7 +1995,7 @@ function buildSystemPrompt(
 
   // DCIR observation rendering (CFS-020, observe-mode) — ONE shared block for
   // every surface whose ground context carries the observation seam fields
-  // (dev-command-center, ccrl-research, aigentme-welcome, studio-composer, and
+  // (dev-command-center, irl-research, aigentme-welcome, studio-composer, and
   // any future surface). Previously duplicated per-surface, which silently
   // dropped aigentMe's observations (operator field report, 2026-07-07: "no
   // learning or context change awareness moves from the right pane to the left
@@ -2212,7 +2212,7 @@ function buildSystemPrompt(
         }
       }
 
-      // aigent-z CCRL Research Copilot ground truth (CFS-019 C2) —
+      // aigent-z IRL Research Copilot ground truth (CFS-019 C2) —
       // NARRATE-ONLY by design: the copilot observes and narrates the live
       // lab state (lifecycles derived from the canonical record, series
       // claims, hash-committed results). Deliberately NO stage instruction
@@ -2220,10 +2220,10 @@ function buildSystemPrompt(
       // stage-proposal kinds (experiment design, finding drafts) are C2.1,
       // their own increment after usage observation, per the dev-loop
       // misroute precedent (CFS-015).
-      if (gc.surface === 'ccrl-research') {
+      if (gc.surface === 'irl-research') {
         const lines: string[] = [];
 
-        lines.push(`### CCRL research laboratory — live state`);
+        lines.push(`### IRL research laboratory — live state`);
         const lifecycleOrder = Array.isArray(gc.lifecycleOrder) ? (gc.lifecycleOrder as string[]) : [];
         if (lifecycleOrder.length > 0) {
           lines.push(`- Experiment lifecycle order: ${lifecycleOrder.join(' → ')}`);
@@ -2300,7 +2300,7 @@ function buildSystemPrompt(
         // DCIR observation seam — shared block (see pushDcirObservationLines).
         pushDcirObservationLines(lines, gc);
 
-        groundContextBlock = `\n\n## CCRL research ground truth — narrate THIS, do not invent\n\nYou are aigentZ operating as the CCRL research copilot (the Constitutional Cybernetics Research Laboratory, CFS-019). The operator's right pane shows the live lab state below. Your replies MUST narrate this exact state — cite experiments by id and family, lifecycle states as DERIVED facts (published = a canonical run exists; replicated = runs on ≥2 distinct providers), series claims verbatim, and results by their hash commitments. When you plan or propose research, frame it by the Research agenda below: prioritize applied items (implementable + experimentally validatable + a pathway to constitutional capability), keep open questions as hypotheses rather than answers, and structure questions by sharpening a constitutional distinction. NEVER invent experiments, runs, providers, or lifecycle states not present below; when a section is marked UNAVAILABLE, say so honestly. Narration is your PRIMARY mandate; do NOT emit [layout:...] tags on this surface.\n\n${lines.join('\n')}`;
+        groundContextBlock = `\n\n## IRL research ground truth — narrate THIS, do not invent\n\nYou are aigentZ operating as the IRL research copilot (the Constitutional Cybernetics Research Laboratory, CFS-019). The operator's right pane shows the live lab state below. Your replies MUST narrate this exact state — cite experiments by id and family, lifecycle states as DERIVED facts (published = a canonical run exists; replicated = runs on ≥2 distinct providers), series claims verbatim, and results by their hash commitments. When you plan or propose research, frame it by the Research agenda below: prioritize applied items (implementable + experimentally validatable + a pathway to constitutional capability), keep open questions as hypotheses rather than answers, and structure questions by sharpening a constitutional distinction. NEVER invent experiments, runs, providers, or lifecycle states not present below; when a section is marked UNAVAILABLE, say so honestly. Narration is your PRIMARY mandate; do NOT emit [layout:...] tags on this surface.\n\n${lines.join('\n')}`;
         // CFS-019 C2.1 — research proposal kinds (ICE reuse): when the operator
         // asks aigentZ to DESIGN an experiment, RATIFY a protocol, RECORD a
         // finding, or DRAFT a publication, it emits a structured
@@ -2706,10 +2706,10 @@ export async function POST(request: NextRequest) {
     // ICE fence-enforcement retry context (operator field report 2026-07-06):
     // non-null ONLY for aigent-z turns on the dev-command-center surface whose
     // effective stage produces a proposal kind. Every other surface — including
-    // the narrate-only ccrl-research surface — leaves it null, so the
+    // the narrate-only irl-research surface — leaves it null, so the
     // promised-but-missing-fence retry below can never fire there.
     let fenceRetryKind: StageProposalKind | null = null;
-    // CCRL research surface (CFS-019 C2.1): the copilot promises a research
+    // IRL research surface (CFS-019 C2.1): the copilot promises a research
     // proposal but sometimes emits no ```research_data fence, so no pending card
     // appears in the right pane (operator field report, 2026-07-07). Unlike the
     // dev loop this surface has no stage, so eligibility is keyed on the surface
@@ -2842,7 +2842,7 @@ export async function POST(request: NextRequest) {
             ? (devLoopStage as DevLoopStage)
             : 'intent_capture';
         fenceRetryKind = STAGE_PROPOSAL_KIND[stageForKind];
-      } else if (isAigentZ && gc_?.surface === 'ccrl-research') {
+      } else if (isAigentZ && gc_?.surface === 'irl-research') {
         researchFenceRetry = true;
       }
 
@@ -3005,9 +3005,9 @@ export async function POST(request: NextRequest) {
     // before layout-tag stripping; they return as stage_proposals. Two fence
     // families share the channel, surface-scoped so they never collide:
     //  - ```stage_data  → dev-command-center stages (STAGE_PROPOSAL_KIND)
-    //  - ```research_data → CCRL research objects (CFS-019 C2.1)
+    //  - ```research_data → IRL research objects (CFS-019 C2.1)
     // Running both extractors for aigent-z is surface-agnostic: the dev surface
-    // never emits research_data and the ccrl-research surface never emits
+    // never emits research_data and the irl-research surface never emits
     // stage_data, so each pass is a no-op on the other surface.
     let messageSansStageData = assistantMessage;
     let stageProposals: Array<{ kind: string; summary: string; data: Record<string, unknown> }> = [];
@@ -3035,7 +3035,7 @@ export async function POST(request: NextRequest) {
     // demanding the fence alone) and attach the follow-up's proposals to the
     // ORIGINAL visible reply. Strictly scoped: aigent-z + dev-command-center
     // surface only (fenceRetryKind is null everywhere else, including the
-    // narrate-only ccrl-research surface) + stageProposals.length === 0 +
+    // narrate-only irl-research surface) + stageProposals.length === 0 +
     // one retry max. If the retry still yields nothing, append an honest
     // line — never let the model's promise stand unfulfilled silently.
     if (
@@ -3079,7 +3079,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // CCRL research-surface fence enforcement — the same discipline as the dev
+    // IRL research-surface fence enforcement — the same discipline as the dev
     // loop above, but keyed on the surface (no stage) and demanding a
     // ```research_data fence. Fires ONLY when the reply promised a proposal and
     // none was extracted, so narrate/status/run answers (which never promise a

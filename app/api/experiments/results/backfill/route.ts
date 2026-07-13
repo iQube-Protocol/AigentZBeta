@@ -14,9 +14,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { publishExperimentResult, type PublishResultInput } from '@/services/experiments/publishResult';
-import exp001Run1 from '@/codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube/evaluation-results-2026-07-04.json';
-import exp003Run1 from '@/codexes/packs/ccrl/foundation/experiments/exp-003-rediscovery-savings/results-2026-07-04.json';
-import exp002Run2 from '@/codexes/packs/ccrl/foundation/experiments/exp-002-invariant-video/run2-results-2026-07-05.json';
+import exp001Run1 from '@/codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube/evaluation-results-2026-07-04.json';
+import exp003Run1 from '@/codexes/packs/irl/foundation/experiments/exp-003-rediscovery-savings/results-2026-07-04.json';
+import exp002Run2 from '@/codexes/packs/irl/foundation/experiments/exp-002-invariant-video/run2-results-2026-07-05.json';
 
 export const dynamic = 'force-dynamic';
 

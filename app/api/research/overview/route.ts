@@ -1,5 +1,5 @@
 /**
- * GET /api/research/overview — the CCRL object model, live (CFS-019 §4).
+ * GET /api/research/overview — the IRL object model, live (CFS-019 §4).
  *
  * Registry (experiments + series) with lifecycle DERIVED from the canonical
  * record (experiment_results) — published/replicated are computed facts.

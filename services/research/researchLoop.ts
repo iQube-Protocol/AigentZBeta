@@ -18,7 +18,7 @@
  * then re-derives its stage from the advanced lifecycle. The copilot NEVER runs
  * an experiment; it hands off to the lab and narrates.
  *
- * Everything here is pure + canary-pinned (tests/ccrl-research-loop.test.ts):
+ * Everything here is pure + canary-pinned (tests/irl-research-loop.test.ts):
  * no fs, no DB, no receipt — safe for the chat route (stage → instruction kind)
  * and the client tab (stage strip + flow-through).
  */

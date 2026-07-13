@@ -9,7 +9,7 @@
  * badge here consumes ROLES via the resolver — none hardcodes a colour.
  *
  * ADOPTION NOTE (2026-07-08): this widget no longer mounts its OWN provider by
- * default. It consumes the AMBIENT `<RepresentationProvider>` — on the CCRL
+ * default. It consumes the AMBIENT `<RepresentationProvider>` — on the IRL
  * Dashboard (the first reference surface) that is the ONE tab-level provider,
  * so the switcher below reskins the ENTIRE dashboard, not just this widget.
  * Pass `standalone` to mount a self-contained provider when used outside a
@@ -127,7 +127,7 @@ function Preview() {
 export interface RepresentationFieldPreviewProps {
   /** Mount a self-contained provider instead of consuming the ambient one.
    * Default false — the preview reads the surrounding tab-level provider so its
-   * switcher reskins the whole reference surface (the CCRL Dashboard). Set true
+   * switcher reskins the whole reference surface (the IRL Dashboard). Set true
    * only when rendering the preview outside a RepresentationProvider scope. */
   standalone?: boolean;
 }

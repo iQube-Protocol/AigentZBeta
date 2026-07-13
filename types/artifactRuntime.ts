@@ -236,7 +236,7 @@ export interface ArtifactProfile {
  * (planning, reasoning, composition, editorial) and transfers only artifact
  * shepherding to AR. `operator` is the direct-invocation path. Order-pinned.
  */
-export const INVOKING_RUNTIMES = ['agentme', 'aigentz', 'studio', 'ccrl', 'operator'] as const;
+export const INVOKING_RUNTIMES = ['agentme', 'aigentz', 'studio', 'irl', 'operator'] as const;
 
 export type InvokingRuntime = (typeof INVOKING_RUNTIMES)[number];
 

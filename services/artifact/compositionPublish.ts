@@ -12,7 +12,7 @@
  *     delta overrides) into the engine's real `CompositionRequest` input.
  *   - `projectPublishedProvenance` — fold the route-minted `artifact_published`
  *     receipt id into the returned provenance. A PROJECTION of the engine's
- *     result (mirrors ccrlResearchPilot.projectPublished) — composeArtifact is
+ *     result (mirrors irlResearchPilot.projectPublished) — composeArtifact is
  *     untouched. Re-guards T0 inexpressibility on the way out.
  *   - `compositionRecordBody` — the JSON projection persisted as the durable
  *     artifact-record body (`saveArtifactRecord`).
@@ -154,7 +154,7 @@ export function publishSummaryFor(contentHash: string): string {
  * projection the composeArtifact PUBLISH SEAM anticipated ("written at the
  * ROUTE layer"). Does NOT mutate the input; composeArtifact itself stays
  * propose-only. Re-guards T0 inexpressibility on the way out (mirrors
- * ccrlResearchPilot.projectPublished). Pure.
+ * irlResearchPilot.projectPublished). Pure.
  */
 export function projectPublishedProvenance(result: CompositionResult, receiptId: string): CompositionResult {
   const projected: CompositionResult = {

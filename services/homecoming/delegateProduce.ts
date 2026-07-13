@@ -58,7 +58,7 @@ import { DELEGATE_CHARTER_STATUS, type HomecomingDelegateId } from '@/types/home
 const DELEGATE_INVOKER: Partial<Record<HomecomingDelegateId, InvokingRuntime>> = {
   'aigent-z': 'aigentz',
   marketa: 'agentme',
-  kn0w1: 'ccrl',
+  kn0w1: 'irl',
 };
 
 export function invokerForDelegate(delegate: HomecomingDelegateId): InvokingRuntime {
@@ -108,7 +108,7 @@ export interface DelegateProduceResult {
 }
 
 /** Project a drafted constitutional object into its published form (mirrors the
- *  CCRL pilot — a projection of the runtime's object, not a fork). Pure. */
+ *  IRL pilot — a projection of the runtime's object, not a fork). Pure. */
 function projectPublished(object: ConstitutionalObject, receiptId: string): ConstitutionalObject {
   const published: ConstitutionalObject = {
     ...object,

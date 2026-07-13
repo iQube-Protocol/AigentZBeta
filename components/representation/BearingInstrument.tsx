@@ -149,7 +149,7 @@ export interface BearingInstrumentProps {
   onNavigate?: (sector: FieldSector) => void;
   /** Pixel size of the square instrument. */
   size?: number;
-  /** The object being oriented (e.g. "CCRL") — folded into the aria-label. */
+  /** The object being oriented (e.g. "IRL") — folded into the aria-label. */
   label?: string;
   className?: string;
   /**

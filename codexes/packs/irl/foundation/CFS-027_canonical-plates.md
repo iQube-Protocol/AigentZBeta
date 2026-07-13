@@ -57,7 +57,7 @@ Plates are numbered like papers so they become stable references independent of 
 
 > **Operator note (2026-07-12): the two committed sheets are NOT the correct final renders** — kept as interim references; replace with the correct plate images when supplied.
 
-Two operator-supplied composite sheets live at `codexes/packs/ccrl/foundation/plates/`:
+Two operator-supplied composite sheets live at `codexes/packs/irl/foundation/plates/`:
 
 - **`canonical-plates-v1.0-reference.png`** — *the canonical R1 visual reference.* "Canonical Plates of Invariant Intelligence, Version 1.0": Plates I–VII with CP-001..CP-007 side labels, the publisher imprint, registration marks, engineering-notebook register. Verified plate-by-plate against `CANONICAL_PLATES_V1`: Plate III's eight mechanisms, Plate IV's eight-node circle, Plate V's seven-layer stack, and Plates I/II/VI/VII all match the encoded ontology (Plate VI shows "Discovery" as IRL's subtitle rather than a separate node — cosmetic).
 - **`canonical-plates-v0.9-superseded.png`** — an earlier draft, **superseded**: its CP numbering disagrees with v1.0 (its CP-001 is Human Agency), and it contains two figures outside the ratified seven (the *Constitutional Orientation* compass; Hybrid-Intelligence-as-Venn). Never cite plate numbers from this sheet.

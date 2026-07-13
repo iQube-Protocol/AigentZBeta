@@ -2,11 +2,11 @@
 
 **Living consolidated plan. Single source of truth for what is done, in flight, and pending across the one Chrysalis 2.0 program.** Update as increments land. Last updated 2026-07-12.
 
-**Program of record: `CFS-022` — Operation Chrysalis 2.0: The Constitutional Operating Environment.** That doc is the *why* and the reframe (COE, not IDE) + the five-pillar architecture + the gap assessment + the P0–P4 roadmap; this tracker is the *what-next*. The program folds CCRL / DCIR / Atlas / CDE as workstreams (specs unchanged; roadmap consolidated).
+**Program of record: `CFS-022` — Operation Chrysalis 2.0: The Constitutional Operating Environment.** That doc is the *why* and the reframe (COE, not IDE) + the five-pillar architecture + the gap assessment + the P0–P4 roadmap; this tracker is the *what-next*. The program folds IRL / DCIR / Atlas / CDE as workstreams (specs unchanged; roadmap consolidated).
 
 Companion / folded specs (authoritative detail lives there):
 - `CFS-022` COE program of record · `CFS-015` Chrysalis PRD (mission expanded by CFS-022) · `CFS-016` deployment
-- `CFS-019` CCRL charter (Research Lab workstream)
+- `CFS-019` IRL charter (Research Lab workstream)
 - `CFS-020` DCIR charter (interaction substrate workstream)
 - `CFS-021` Constitutional Civic Futurism (representation + Bearing Instrument workstream)
 
@@ -42,7 +42,7 @@ Companion / folded specs (authoritative detail lives there):
 - Corrected `agentiqLiquidGlass` interpretation from the white-hairline residual to the authoritative **slate** house style (hairline `#1E293B`, tint `rgba(15,23,42,0.4)`, no white inset). Codified the canonical surface-styling rule in `CLAUDE.md`.
 
 **B. DCIR**
-- D4: migrated the **CCRL research copilot** to `useDcirSeam` — the last hand-wired seam. All four originally-named surfaces (DCC, aigentMe, Studio Composer, CCRL) now on the one hook.
+- D4: migrated the **IRL research copilot** to `useDcirSeam` — the last hand-wired seam. All four originally-named surfaces (DCC, aigentMe, Studio Composer, IRL) now on the one hook.
 - D3: exposed the ratified **affordance engine by declaration** through `useDcirSeam` (`affordances` field); migrated the DCC to the single home. Observe-mode, suggest-only, capsule-contained.
 
 **C. Constitutional Atlas**
@@ -62,14 +62,14 @@ Companion / folded specs (authoritative detail lives there):
 
 | # | Item | Workstream | Gate |
 |---|---|---|---|
-| 33 | **DCIR D3 — generic-vocabulary affordance derivations.** `generateAffordances` fires only on DCC dev-loop vocabulary; add derivations from generic event kinds (DocumentCreated / decisions / WorkflowAdvanced / NavigationOccurred) so affordances appear on aigentMe / Studio / CCRL, capsule-contained, deduped vs DCC. Then render on ≥1 non-DCC surface. | B | Ratify before build (CFS-020 §87) |
+| 33 | **DCIR D3 — generic-vocabulary affordance derivations.** `generateAffordances` fires only on DCC dev-loop vocabulary; add derivations from generic event kinds (DocumentCreated / decisions / WorkflowAdvanced / NavigationOccurred) so affordances appear on aigentMe / Studio / IRL, capsule-contained, deduped vs DCC. Then render on ≥1 non-DCC surface. | B | Ratify before build (CFS-020 §87) |
 | 34 | **DCIR D4 frontier** — adopt `useDcirSeam` on surfaces beyond the four: Aigent Z (most-integrated), then Marketa, then per-cartridge. | B | Each its own ratification |
 | — | **Bearing Instrument** — mount in-app + fidelity polish (see #32). Use as the invariant nav primitive across Constitutional Atlas surfaces. | C | — |
 | 35 | **Verify CDE env vars live** post-deploy — `env-check` shows GITHUB_TOKEN / LINEAR_API_KEY / REWARD_HUB_CANISTER_ID `[✓]`. Requires operator to set `REWARD_HUB_CANISTER_ID=lvo2w-jqaaa-aaaas-qc2wa-cai` on the dev Amplify app. | D | Operator |
 | 36 | **DVN canister status** — `dfx canister --network ic status sp5ye-2qaaa-aaaao-qkqla-cai` (cycles / PEM / id-mismatch). **Seed ingests** — `inv.representation.121-129` + `inv.interaction.112-118` are `proposed` in the seed crystal; run the ingest to make them live (CFS docs are canon meanwhile). | D | Operator |
 | — | DCIR D2 remaining snapshot fields harden against their organs (intent/goals/policies/persona/standing/…); Feedback Coordinator full design (component #12). | B | Ratify before build |
 | — | Two Supabase migrations if not yet run: `dev_loop_sessions`, research objects table. | D | Operator |
-| 47 | **CFS-025 Artifact Runtime (AR).** One runtime shepherding artifacts across three consequence tiers — disposable / operational / constitutional; constitutionality EARNED by promotion. **Ratified 2026-07-10.** Phase 0 (contract + canary 19/19), Phase 1 (skeleton: classify + tier router + profiles), Phase 2 (CCRL `research` pilot: `artifact_published` DVN type + `/api/artifact/produce-research` + receipt-reconciliation adapter) all shipped. **Follow-up:** the 15-call-site ReceiptQube migration + retirement (incremental); anchoring registry `asset.published` is an opt-in (one-line flip) awaiting operator call. | F | Follow-ups only |
+| 47 | **CFS-025 Artifact Runtime (AR).** One runtime shepherding artifacts across three consequence tiers — disposable / operational / constitutional; constitutionality EARNED by promotion. **Ratified 2026-07-10.** Phase 0 (contract + canary 19/19), Phase 1 (skeleton: classify + tier router + profiles), Phase 2 (IRL `research` pilot: `artifact_published` DVN type + `/api/artifact/produce-research` + receipt-reconciliation adapter) all shipped. **Follow-up:** the 15-call-site ReceiptQube migration + retirement (incremental); anchoring registry `asset.published` is an opt-in (one-line flip) awaiting operator call. | F | Follow-ups only |
 | 50 | **CFS-026 Constitutional Publishing Factory (CDS + CPS).** Three products: CCS (standards) · CDS (design system) · CPS (= the Artifact Runtime on document profiles). CDS v0.1 encoded as data + wired into native document production; delegate→AR convergence produces CCS-000 as the first factory output (seeded in the Homecoming workshop). **CFS-026 + CFS-027 RATIFIED 2026-07-12.** Plumbing shipped (plates as canonical assets · numbering registry · renderer map) + R1 plate renderer + artifact persistence (migration run). **R2/R3 (publication shell + derived PDF): SKIPPED per operator (2026-07-12)** — build on future request. IRL-0001 production + live drives: TBD (operator). | F | R2/R3 on request; drives TBD |
 | 51 | **CP-008 candidate — the Constitutional Orientation compass (Bearing Instrument family).** Operator direction 2026-07-11: the compass in the v0.9 plate sheet is canonical imagery belonging to the Bearing Instrument (Canonical Asset 001). Decide at CFS-027 ratification: enters the plate set as CP-008, or stays the Bearing Instrument's own canonical rendering. Also from the v0.9 sheet: Hybrid-Intelligence-as-Venn (folded into CP-002 in v1.0 — likely stays derived). | F | Decide at CFS-027 ratification |
 | 49 | **CFS-025 follow-up — ReceiptQube retirement (verify-in-place).** The receipt trail is unified (adapter double-write) and the raw-personaId T0 leak in `registry_receipts` is closed. Remaining: move the registry-ingestion READ path onto the unified `activity_receipts` table, then retire `registry_receipts` + drop the double-write. Touches the ingestion UI + money-adjacent paths — MUST be done against a running dev instance driving the ingestion UI, not speculatively. Also: the one-line opt-in to anchor registry `asset.published` (awaiting operator call). | F | Verify-in-place; operator-gated |

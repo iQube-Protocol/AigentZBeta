@@ -13,7 +13,7 @@ import {
   CONSTITUTIONAL_DISTINCTIONS,
 } from '@/types/research';
 
-describe('CCRL Research Roadmap Expansion', () => {
+describe('IRL Research Roadmap Expansion', () => {
   it('adds the Reasoning Systems programme (D), exploratory, no experiments yet', () => {
     const d = RESEARCH_PROGRAMMES.find(p => p.id === 'D');
     expect(d?.name).toBe('Reasoning Systems');

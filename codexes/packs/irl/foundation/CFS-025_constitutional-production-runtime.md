@@ -14,7 +14,7 @@ Companion to: `CFS-022` (Constitutional Operating Environment) · `CFS-006a` (Co
 
 ## The discovery
 
-Production logic is duplicated across the ecosystem. AgentMe produces proposals/PDFs; AigentZ produces software; Studio produces specifications; Cryptopia produces publications; CCRL produces papers. Each carries its own review pipeline, its own approval model, its own versioning, its own publication + receipt path. The consequences: divergent approval models, inconsistent publication quality, fragmented versioning, inconsistent consequence tracking.
+Production logic is duplicated across the ecosystem. AgentMe produces proposals/PDFs; AigentZ produces software; Studio produces specifications; Cryptopia produces publications; IRL produces papers. Each carries its own review pipeline, its own approval model, its own versioning, its own publication + receipt path. The consequences: divergent approval models, inconsistent publication quality, fragmented versioning, inconsistent consequence tracking.
 
 The correction mirrors what we did with **Standing** and with **Identity** (CFS-024): extract the shared concern into a constitutional primitive that everyone *invokes* and nobody *owns*.
 
@@ -30,7 +30,7 @@ AigentZ:  Reqs→Architecture→    AigentZ:  Reqs→Architecture→ CPR →Code
 Studio:   Design→Compose→       Studio:   Design→ CPR →Publication
           Preview→Publish
 Cryptopia: Research→…→Magazine   Cryptopia: Research→ CPR →Magazine
-CCRL:     Experiment→…→Paper     CCRL:     Experiment→ CPR →Paper
+IRL:     Experiment→…→Paper     IRL:     Experiment→ CPR →Paper
 ```
 
 Nothing loses its identity. They simply stop owning production.
@@ -105,7 +105,7 @@ CPR is **not a replacement for Studio; it is the execution engine Studio invokes
 | **AgentMe** | Customer intelligence · planning · relationship mgmt · delegation · decision-making | Proposal generation · document production · publication |
 | **AigentZ** | Planning · architecture · reasoning · orchestration | Code production · artifact generation · documentation · release packaging |
 | **Studio** | Composition environment · design · workspace · editing | Publishing · document generation · export · review · versioning |
-| **CCRL** | Experiment design · evaluation | Paper production · publication |
+| **IRL** | Experiment design · evaluation | Paper production · publication |
 | **Cryptopia** | Research · editorial | Magazine production · publication |
 
 *Composition versus production* is the architectural insight. It prevents cartridge proliferation AND gives one place to evolve artifact production over time — better code generation, richer layouts, stronger review, multimodal outputs — with every runtime benefiting immediately. That is the Chrysalis leverage pattern.
@@ -141,7 +141,7 @@ CPR sits ON TOP of already-shipped primitives. It must compose them, not duplica
 The audit found that the duplicated production concern reduces to two hot spots, not a sprawl:
 
 1. **publication / version / content-commitment is implemented ~5×** — the experiment publish path, the invariant publish path, the composition provenance seam, the registry emitter, and per-cartridge PDF/document paths each re-derive "serialize-once → hash → version → publish". CPR's single lifecycle is exactly the unification of these.
-2. **There are TWO receipt systems** — `services/receipts/activityReceiptService.ts:createActivityReceipt` (the **unified, DVN-anchored** path; e.g. the CCRL lifecycle already routes through `services/research/lifecycle.ts:writeLifecycleReceipt` → `createActivityReceipt`) versus `services/registry/receiptEmitter.ts:emitReceipt` (a **separate ReceiptQube**, with **no DVN anchoring**). **Reconciling these two is an operator-facing DESIGN CALL, not a quiet refactor** — CPR Phase 0/1 must NOT silently pick one; it standardises new production receipts on the unified `createActivityReceipt` path and flags the ReceiptQube reconciliation for explicit operator direction.
+2. **There are TWO receipt systems** — `services/receipts/activityReceiptService.ts:createActivityReceipt` (the **unified, DVN-anchored** path; e.g. the IRL lifecycle already routes through `services/research/lifecycle.ts:writeLifecycleReceipt` → `createActivityReceipt`) versus `services/registry/receiptEmitter.ts:emitReceipt` (a **separate ReceiptQube**, with **no DVN anchoring**). **Reconciling these two is an operator-facing DESIGN CALL, not a quiet refactor** — CPR Phase 0/1 must NOT silently pick one; it standardises new production receipts on the unified `createActivityReceipt` path and flags the ReceiptQube reconciliation for explicit operator direction.
 
 ## Build plan (phased; contract-first)
 
@@ -149,21 +149,21 @@ The audit found that the duplicated production concern reduces to two hot spots,
 
 - **Phase 0 — the contract + canary.** `types/artifactRuntime.ts`: `CONSEQUENCE_CLASSES` + per-tier lifecycles + `canPromote` (the tiering), `ARTIFACT_PROFILES`, `ArtifactProfile`, `ArtifactJob`, `ArtifactResult`, `ClassifyFn` + `RunArtifactFn` seams, pure helpers + `emptyArtifactJob()`, the 4 invariants. No runtime organs. (Mirrors the CFS-024 Phase 0 discipline.)
 - **Phase 1 — the runtime skeleton.** `services/production/*` composing existing receipts/registry/standing/DVN — NOT forking them. One lifecycle executor; profiles as configuration.
-- **Phase 2 — ONE pilot invocation end-to-end. PILOT CHOSEN: CCRL experiment→paper (`research` profile).** The audit selected it as the lowest-risk highest-signal seam because: (a) it is **already on the unified `writeLifecycleReceipt` → `createActivityReceipt` path** (`services/research/lifecycle.ts`), so CPR reuses the receipt seam with zero new plumbing; (b) it is **T2-safe by construction** — the research lifecycle already carries commitments + receipt ids, never a T0 subject id; (c) it touches **no protected surface** — no identity-spine resolver, no DVN pipeline internals (only, if needed, a `production_*` addition to `ANCHORABLE_ACTION_TYPES`), no `getActivePersona` edit. Proves the seam + the publication contract (immutable id, version, evidence, registry, standing, receipt). The AgentMe proposal→PDF and AigentZ architecture→code-pack candidates were deferred — both cross more protected/product surface than the pilot needs.
+- **Phase 2 — ONE pilot invocation end-to-end. PILOT CHOSEN: IRL experiment→paper (`research` profile).** The audit selected it as the lowest-risk highest-signal seam because: (a) it is **already on the unified `writeLifecycleReceipt` → `createActivityReceipt` path** (`services/research/lifecycle.ts`), so CPR reuses the receipt seam with zero new plumbing; (b) it is **T2-safe by construction** — the research lifecycle already carries commitments + receipt ids, never a T0 subject id; (c) it touches **no protected surface** — no identity-spine resolver, no DVN pipeline internals (only, if needed, a `production_*` addition to `ANCHORABLE_ACTION_TYPES`), no `getActivePersona` edit. Proves the seam + the publication contract (immutable id, version, evidence, registry, standing, receipt). The AgentMe proposal→PDF and AigentZ architecture→code-pack candidates were deferred — both cross more protected/product surface than the pilot needs.
 - **Phase 3+ — additional profiles + runtimes** by configuration, no CPR change.
 
 ## Honest limits
 
-- **Ratified 2026-07-10 (v0.2), Phase 0 shipped.** Phases 1–2 (runtime skeleton + CCRL pilot) are built next; until they land, AR is a contract + canary with no organs. The consequence-tiering means Phase 1 must implement `ClassifyFn` + the tier router, not just a single production path.
+- **Ratified 2026-07-10 (v0.2), Phase 0 shipped.** Phases 1–2 (runtime skeleton + IRL pilot) are built next; until they land, AR is a contract + canary with no organs. The consequence-tiering means Phase 1 must implement `ClassifyFn` + the tier router, not just a single production path.
 - **CPR is large.** The multimodal future (audio/video/data/3D/skills/twins/manufacturing) is a long-horizon direction, not a near-term deliverable. Near-term = the contract + one pilot profile through one runtime.
 - **Nothing is extracted until the audit confirms genuine duplication vs already-unified infrastructure.** Where a concern is already shared (receipts, DVN, registry), CPR consumes it rather than absorbing it.
 
 ## Ratification record
 
-- [x] **Ratified (operator) 2026-07-10** — CFS-025 v0.2 adopted; the 4 invariants ratified into the substrate (Law XI); pilot confirmed = CCRL experiment→paper (`research`, constitutional tier); **design call: RECONCILE the two receipt systems** (fold the `createActivityReceipt` ↔ registry `ReceiptQube` reconciliation into the AR Phase 1 workstream).
+- [x] **Ratified (operator) 2026-07-10** — CFS-025 v0.2 adopted; the 4 invariants ratified into the substrate (Law XI); pilot confirmed = IRL experiment→paper (`research`, constitutional tier); **design call: RECONCILE the two receipt systems** (fold the `createActivityReceipt` ↔ registry `ReceiptQube` reconciliation into the AR Phase 1 workstream).
 - [x] Production-surface audit complete (agent) → duplication map + extraction seam (2026-07-10; see Reuse guardrails — duplication concentrated in publication/version/content-commitment ~5× + two receipt systems)
 - [x] CPR contract draft reviewed (agent) → seeded the v0.1 `Production*` shape (2026-07-10); superseded by the v0.2 Artifact Runtime contract after the operator added consequence-tiering.
 - [x] Consequence-tiering added (operator, 2026-07-10) → the three classes + promotion; runtime renamed Production → **Artifact Runtime (AR)**; CPR = its constitutional tier.
 - [x] Phase 0 — contract + canary (`types/artifactRuntime.ts` + `tests/artifact-runtime.test.ts`; 2026-07-10, 19/19). Additive, organ-free.
 - [x] Phase 1 — runtime skeleton (2026-07-10): `services/artifact/{classify,runArtifact,profiles}.ts` composing existing organs; canary; receipt-reconciliation plan.
-- [x] Phase 2 — CCRL `research` pilot end-to-end (2026-07-10): `artifact_published` DVN type (the one permitted DVN edit); `services/artifact/pilots/ccrlResearchPilot.ts` + `POST /api/artifact/produce-research` (propose default, publish emits one anchored receipt with the route-resolved T0 personaId); the receipt-reconciliation ADAPTER (registry emitReceipt double-writes the unified trail, money events off-chain, asset.published non-anchorable-by-default). Follow-up: the 15-call-site ReceiptQube migration + retirement (incremental, tracked).
+- [x] Phase 2 — IRL `research` pilot end-to-end (2026-07-10): `artifact_published` DVN type (the one permitted DVN edit); `services/artifact/pilots/irlResearchPilot.ts` + `POST /api/artifact/produce-research` (propose default, publish emits one anchored receipt with the route-resolved T0 personaId); the receipt-reconciliation ADAPTER (registry emitReceipt double-writes the unified trail, money events off-chain, asset.published non-anchorable-by-default). Follow-up: the 15-call-site ReceiptQube migration + retirement (incremental, tracked).

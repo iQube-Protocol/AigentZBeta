@@ -9,7 +9,7 @@
  * for the content, then INVOKES the runtime (`runArtifact('operational',
  * 'software', …)`) in PROPOSE mode to tier + version it, and persists the
  * production via `saveArtifactRecord`. It NEVER re-implements the pack
- * generator or the runtime — it composes both (the ccrlResearchPilot pattern).
+ * generator or the runtime — it composes both (the irlResearchPilot pattern).
  *
  * ── Why OPERATIONAL, not constitutional ──
  * Code packs are WORKING artifacts (CFS-025: "software builds" are the
@@ -273,7 +273,7 @@ export async function produceSoftwareArtifact(
   };
 
   // T0 inexpressibility — a leak is a thrown error, not a quiet pass (mirrors
-  // the ccrlResearchPilot / deploymentObject discipline).
+  // the irlResearchPilot / deploymentObject discipline).
   const leak = findForbiddenObjectKey(result);
   if (leak) {
     throw new Error(`software pilot result leaks a T0 identifier at '${leak}' — refusing to return it`);

@@ -1702,7 +1702,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'ccrl',
+          packId: 'irl',
           collectionId: 'col_foundation'
         }
       },
@@ -1722,7 +1722,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'ccrl',
+          packId: 'irl',
           collectionId: 'col_experiments'
         }
       },
@@ -4703,12 +4703,12 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CCRL — Constitutional Cybernetics Research Laboratory (CFS-019, Phase B)
+// IRL — Constitutional Cybernetics Research Laboratory (CFS-019, Phase B)
 // The canonical research SURFACE: every research asset reachable here, in
 // place (canonical-surface-first migration; physical consolidation into a
-// ccrl pack is Phase D). Hand-curated per the dual-source rule.
+// irl pack is Phase D). Hand-curated per the dual-source rule.
 // ─────────────────────────────────────────────────────────────────────────────
-export const CCRL_CARTRIDGE: CodexConfig = {
+export const IRL_CARTRIDGE: CodexConfig = {
   id: 'ccrl-cartridge',
   name: 'metaMe IRL — Research Laboratory',
   slug: 'ccrl-cartridge',
@@ -4720,7 +4720,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
     icon: 'FlaskConical',
     color: 'violet',
     category: 'cartridge',
-    tags: ['ccrl', 'research', 'constitutional-cybernetics', 'experiments', 'invariants', 'publications'],
+    tags: ['irl', 'research', 'constitutional-cybernetics', 'experiments', 'invariants', 'publications'],
   },
   tabGroups: [
     { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
@@ -4740,7 +4740,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       group: 'institution',
       order: 0,
       type: 'static',
-      config: { component: 'CCRLDashboardTab', props: {} },
+      config: { component: 'IRLDashboardTab', props: {} },
       metadata: { icon: 'Landmark', description: 'Mission, live programme status (Chrysalis Test), recent canonical results, roadmap', color: 'violet' },
     },
     {
@@ -4751,22 +4751,22 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       group: 'institution',
       order: 0.5,
       type: 'static',
-      config: { component: 'CCRLResearchCopilotTab', props: {} },
+      config: { component: 'IRLResearchCopilotTab', props: {} },
       metadata: { icon: 'FlaskConical', description: 'aigentZ narrates the live lab state — DCIR-conforming, narrate-only (research proposal kinds are C2.1, CFS-019)', color: 'violet' },
     },
     {
-      id: 'ccrl-charter',
+      id: 'irl-charter',
       label: 'Charter',
-      slug: 'ccrl-charter',
+      slug: 'irl-charter',
       enabled: true,
       group: 'institution',
       order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_ccrl-charter.md' },
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_irl-charter.md' },
       },
-      metadata: { icon: 'Scale', description: 'CFS-019 — the CCRL constitution: layers, object model, lifecycles, migration, phases' },
+      metadata: { icon: 'Scale', description: 'CFS-019 — the IRL constitution: layers, object model, lifecycles, migration, phases' },
     },
     // ── Research, by constitutional layer ─────────────────────────
     {
@@ -4779,7 +4779,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/appendix-a_canonical-invariants.md' },
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/appendix-a_canonical-invariants.md' },
       },
       metadata: { icon: 'BookMarked', description: 'Constitutional knowledge — the canon, the CFS corpus, the Foundational Validation Series (foundation complete)' },
     },
@@ -4793,7 +4793,7 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-015_operation-chrysalis-2-prd.md' },
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-015_operation-chrysalis-2-prd.md' },
       },
       metadata: { icon: 'Cpu', description: 'Constitutional execution — Operation Chrysalis 2.0, the Capability Pipeline, deployment authority (alpha)' },
     },
@@ -4807,15 +4807,15 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_ccrl-charter.md' },
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_irl-charter.md' },
       },
       metadata: { icon: 'RefreshCw', description: 'Constitutional evolution — feedback, adaptation, multi-agent governance (nascent: the frontier)' },
     },
     // ── metaMe IRL — Invariant Research Lab ────────────────────────
     {
-      id: 'ccrl-experiment-lab',
+      id: 'irl-experiment-lab',
       label: 'metaMe IRL',
-      slug: 'ccrl-experiment-lab',
+      slug: 'irl-experiment-lab',
       enabled: true,
       adminOnly: true,
       group: 'laboratory',
@@ -4825,24 +4825,24 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'FlaskConical', description: 'metaMe Invariant Research Lab — run the series live: EXP-001–005 + Results (canonical publish) + Report + Chrysalis Test + Homecoming Test. Admin-only; runs spend provider credits.' },
     },
     {
-      id: 'ccrl-protocols',
+      id: 'irl-protocols',
       label: 'Protocols & Articles',
-      slug: 'ccrl-protocols',
+      slug: 'irl-protocols',
       enabled: true,
       group: 'laboratory',
       order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'ccrl', collectionId: 'col_experiments' },
+        props: { packId: 'irl', collectionId: 'col_experiments' },
       },
       metadata: { icon: 'Target', description: 'Experiment designs, protocols, canonical articles, evaluation frameworks' },
     },
     // ── Consequence Engineering ───────────────────────────────────
     {
-      id: 'ccrl-invariant-field',
+      id: 'irl-invariant-field',
       label: 'Invariant Field',
-      slug: 'ccrl-invariant-field',
+      slug: 'irl-invariant-field',
       enabled: true,
       group: 'consequence',
       order: 0,
@@ -4852,9 +4852,9 @@ export const CCRL_CARTRIDGE: CodexConfig = {
     },
     // ── Living Knowledge ──────────────────────────────────────────
     {
-      id: 'ccrl-invariant-registry',
+      id: 'irl-invariant-registry',
       label: 'Invariant Registry',
-      slug: 'ccrl-invariant-registry',
+      slug: 'irl-invariant-registry',
       enabled: true,
       group: 'knowledge',
       order: 0,
@@ -4863,24 +4863,24 @@ export const CCRL_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'BookMarked', description: 'The live substrate — namespaces, status, Standing, Reach, contexts, graph edges', color: 'violet' },
     },
     {
-      id: 'ccrl-glossary',
+      id: 'irl-glossary',
       label: 'Glossary & Ontology',
-      slug: 'ccrl-glossary',
+      slug: 'irl-glossary',
       enabled: true,
       group: 'knowledge',
       order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/constitutional-glossary.md' },
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/constitutional-glossary.md' },
       },
       metadata: { icon: 'BookOpen', description: 'The runtime-resolved constitutional vocabulary — one canon for every agent' },
     },
     // ── Publications ──────────────────────────────────────────────
     {
-      id: 'ccrl-records',
+      id: 'irl-records',
       label: 'Records & Findings',
-      slug: 'ccrl-records',
+      slug: 'irl-records',
       enabled: true,
       group: 'publications',
       order: 0,
@@ -4893,16 +4893,16 @@ export const CCRL_CARTRIDGE: CodexConfig = {
     },
     // ── Programme Management ──────────────────────────────────────
     {
-      id: 'ccrl-programmes',
+      id: 'irl-programmes',
       label: 'Research Programmes',
-      slug: 'ccrl-programmes',
+      slug: 'irl-programmes',
       enabled: true,
       group: 'programme',
       order: 0,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
-        props: { packId: 'ccrl', collectionId: 'col_foundation', defaultPath: 'foundation/CRP-001_constitutional-research-program-charter.md' },
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CRP-001_constitutional-research-program-charter.md' },
       },
       metadata: { icon: 'Target', description: 'CRP-001 — the twelve research programmes; roadmap and backlog live in the charter (CFS-019 §8)' },
     },
@@ -4932,7 +4932,7 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   HUMAN_MOBILITY_SERVICES_CARTRIDGE,
   STANDING_CARTRIDGE,
   POLITY_CORE_CARTRIDGE,
-  CCRL_CARTRIDGE,
+  IRL_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {

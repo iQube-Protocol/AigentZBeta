@@ -1,7 +1,7 @@
 /**
- * CCRL Dashboard adoption canary — Constitutional Representation System (CFS-021).
+ * IRL Dashboard adoption canary — Constitutional Representation System (CFS-021).
  *
- * The CCRL Dashboard is the FIRST adopted surface / reference environment for
+ * The IRL Dashboard is the FIRST adopted surface / reference environment for
  * the representation system (CFS-021 §3.1). The adoption pattern is:
  *   (a) ONE tab-level `<RepresentationProvider>` wraps the whole dashboard,
  *   (b) every colour/type flows through a ROLE via `var(--rep-*)` (or role()),
@@ -21,14 +21,14 @@ import { join } from "path";
 
 const ADOPTED_SURFACE = join(
   process.cwd(),
-  "components/composer/CCRLDashboardTab.tsx",
+  "components/composer/IRLDashboardTab.tsx",
 );
 
 // The zero-literals gate travels with every object mounted on the reference
 // surface. The Bearing Instrument (CFS-021 §5) operates WITHIN this environment
 // and MUST be equally role-driven — so it is held to the SAME canary here.
 const ZERO_LITERAL_FILES: Array<[string, string]> = [
-  ["CCRL Dashboard", ADOPTED_SURFACE],
+  ["IRL Dashboard", ADOPTED_SURFACE],
   [
     "Bearing Instrument",
     join(process.cwd(), "components/representation/BearingInstrument.tsx"),
@@ -68,7 +68,7 @@ describe("Representation reference surface — zero raw colour literals (CFS-021
   }
 });
 
-describe("CCRL Dashboard — representation-system adoption canary (CFS-021)", () => {
+describe("IRL Dashboard — representation-system adoption canary (CFS-021)", () => {
   const source = readFileSync(ADOPTED_SURFACE, "utf8");
 
   it("consumes representation roles via the injected CSS variables", () => {
@@ -86,7 +86,7 @@ describe("CCRL Dashboard — representation-system adoption canary (CFS-021)", (
     expect(providerCloses.length).toBe(1);
   });
 
-  it("mounts the Bearing Instrument oriented to the CCRL's home sector", () => {
+  it("mounts the Bearing Instrument oriented to the IRL's home sector", () => {
     expect(source).toContain("<BearingInstrument");
     expect(source).toContain('activeSector="intelligence"');
     expect(source).toContain('standing="foundational"');

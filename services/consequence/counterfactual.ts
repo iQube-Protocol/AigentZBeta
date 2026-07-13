@@ -1,5 +1,5 @@
 /**
- * Counterfactual projection over the invariant field (CCRL Phase E,
+ * Counterfactual projection over the invariant field (IRL Phase E,
  * CFS-019 §5 item 6 — the deferral footnoted in the Field Explorer's first
  * slice).
  *

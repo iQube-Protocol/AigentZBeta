@@ -1,7 +1,7 @@
 # CFS-023 — Chrysalis Homecoming: Constitutional Agent Sovereignty
 
 **Chrysalis Foundation Specification · v1 · Status: Chartered 2026-07-09 (operator + co-agent, framing by Aletheon)**
-Constitutional anchor: `codexes/packs/ccrl/foundation/CFS-018_platform-sovereignty.md`
+Constitutional anchor: `codexes/packs/irl/foundation/CFS-018_platform-sovereignty.md`
 Companion to: `CFS-015` (Operation Chrysalis 2.0) · `CRP-002` (Invariant Intelligence)
 Substrate: `types/homecoming.ts` · `services/homecoming/constitutionalPresence.ts` · `app/api/constitutional/homecoming-test/route.ts` · canary `tests/homecoming.test.ts`
 

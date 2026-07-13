@@ -120,8 +120,8 @@ describe("navigation — the bearing emits INTENT with the clicked sector, it do
 describe("reason / accessibility — the aria-label announces the orientation", () => {
   it("names the active sector and standing", () => {
     expect(
-      bearingAriaLabel({ activeSector: "reasoning", standing: "foundational", label: "CCRL" }),
-    ).toBe("CCRL bearing: oriented to Reasoning, standing Foundational");
+      bearingAriaLabel({ activeSector: "reasoning", standing: "foundational", label: "IRL" }),
+    ).toBe("IRL bearing: oriented to Reasoning, standing Foundational");
   });
 
   it("degrades honestly when unoriented or standing-less", () => {

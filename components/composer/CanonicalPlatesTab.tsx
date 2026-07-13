@@ -6,7 +6,7 @@
  * Every drawing derives from `CANONICAL_PLATES_V1` — the same data registered in
  * the Canonical Asset Registry — so this gallery IS the ontology, not an
  * illustration of it. Compare against the operator reference render at
- * codexes/packs/ccrl/foundation/plates/canonical-plates-v1.0-reference.png.
+ * codexes/packs/irl/foundation/plates/canonical-plates-v1.0-reference.png.
  */
 
 import React, { useMemo, useState } from "react";

@@ -234,7 +234,7 @@ export default function CodexViewerPage() {
   // cartridge without prop-drilling a setter (the generic sibling of KNYT's
   // `knyt:navigate-tab`). The target must be a currently-visible tab of THIS
   // codex — an unknown/hidden slug is ignored, so this can't reach across
-  // cartridges or reveal a hidden tab. First used by the CCRL research ICE
+  // cartridges or reveal a hidden tab. First used by the IRL research ICE
   // loop's Run stage to open the Experiment Lab (navigation, not execution).
   useEffect(() => {
     const handler = (e: Event) => {

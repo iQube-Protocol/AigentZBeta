@@ -1,5 +1,5 @@
 /**
- * CCRL research proposal engine — Phase C2.1 canary (CFS-019).
+ * IRL research proposal engine — Phase C2.1 canary (CFS-019).
  *
  * Pins the constitutional guarantees of services/research/proposals.ts:
  *  1. proposal-kind → lifecycle effect mapping (create-at-entry / legal-advance)
@@ -91,7 +91,7 @@ describe('C2.1 — extractResearchProposals resilient parsing', () => {
       '    "seriesId": "FVS",',
       '    "hypothesis": "A hypothesis that spans',
       'two physical lines in the fence body",',
-      '    "protocolRef": "codexes/packs/ccrl/foundation/experiments/exp-900/README.md",',
+      '    "protocolRef": "codexes/packs/irl/foundation/experiments/exp-900/README.md",',
       '    "governingInvariants": ["inv.constitutional.060", "inv.reasoning.001",],',
       '  }',
       '}',

@@ -69,10 +69,10 @@ export async function POST(req: NextRequest) {
   // 2) Emit the single DVN-anchorable publication receipt (real personaId at the route).
   const receipt = await createActivityReceipt({
     personaId: persona.personaId,
-    activeCartridge: 'ccrl',
+    activeCartridge: 'irl',
     actionType: 'artifact_published',
     summary: `canonical research report regenerated (${scope}) — sha256 ${composed.contentHash.slice(0, 16)}`,
-    contextShared: ['ccrl-research', 'canonical-report', 'artifact-runtime'],
+    contextShared: ['irl-research', 'canonical-report', 'artifact-runtime'],
   }).catch(() => null);
 
   // 3) Persist as the next canonical version.

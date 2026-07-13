@@ -86,10 +86,10 @@ async function writeLifecycleReceipt(input: {
   const invariantRows = await getInvariantsBySeedIds(input.invariantSeedIds).catch(() => []);
   const receipt = await createActivityReceipt({
     personaId: input.personaId,
-    activeCartridge: 'ccrl',
+    activeCartridge: 'irl',
     actionType: 'research_lifecycle_transition',
     summary: input.summary,
-    contextShared: ['ccrl-research'],
+    contextShared: ['irl-research'],
     ...(invariantRows.length > 0 ? { invariantsUsed: invariantRows.map((r) => r.id) } : {}),
   }).catch(() => null);
   return { ok: Boolean(receipt), receiptId: receipt?.id ?? null };

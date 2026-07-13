@@ -1,6 +1,6 @@
 /**
- * POST /api/artifact/produce-research — the CCRL `research` pilot's route
- * (CFS-025 Phase 2). Shepherds a CCRL experiment into a constitutional-tier
+ * POST /api/artifact/produce-research — the IRL `research` pilot's route
+ * (CFS-025 Phase 2). Shepherds a IRL experiment into a constitutional-tier
  * `research` artifact via the Artifact Runtime.
  *
  * Spine-guarded + admin-gated identically to /api/research/lifecycle: the caller
@@ -23,7 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { produceCcrlResearchArtifact } from '@/services/artifact/pilots/ccrlResearchPilot';
+import { produceIrlResearchArtifact } from '@/services/artifact/pilots/irlResearchPilot';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,13 +52,13 @@ export async function POST(request: NextRequest) {
   const intentRef =
     typeof body.intentRef === 'string' && body.intentRef.trim()
       ? body.intentRef.trim()
-      : `intent:ccrl-research:${body.experimentId ?? 'EXP-001'}`;
+      : `intent:irl-research:${body.experimentId ?? 'EXP-001'}`;
 
   // Resolve the T0 personaId under the gate and derive its T2 commitment. The
   // personaId is passed ONLY as the publish receipt writer id; the commitment is
   // what the runtime + object express.
   const personaId = persona.personaId;
-  const result = await produceCcrlResearchArtifact({
+  const result = await produceIrlResearchArtifact({
     actorCommitment: actorCommitmentFor(personaId),
     intentRef,
     experimentId: typeof body.experimentId === 'string' ? body.experimentId : undefined,

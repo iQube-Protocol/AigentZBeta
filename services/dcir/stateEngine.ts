@@ -21,7 +21,7 @@
  * RATIFICATION BOUNDARY (CFS-020 §6, inv.interaction.115, inv.cybernetics.111
  * — non-negotiable): everything this module emits is an OBSERVATION, never a
  * rule. `BehaviouralInvariant.status` here is always 'observed' — promotion
- * to 'proposed' is the invariant-substrate submission path (CCRL governance,
+ * to 'proposed' is the invariant-substrate submission path (IRL governance,
  * CFS-019), and canonization is the operator's act alone; the type cannot
  * even express 'canonical'. Consumers (the chat-route ground branches) label
  * mined patterns as observations the copilot may gently adapt to, NEVER as

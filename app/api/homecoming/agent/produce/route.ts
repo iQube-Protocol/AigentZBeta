@@ -6,7 +6,7 @@
  * the content (grounded in its constitutional identity + sovereign knowledge,
  * carrying a sovereignty receipt), and the Artifact Runtime tiers + envelopes it.
  *
- * Admin-gated (spends provider credits) + spine-guarded. Like the CCRL pilot
+ * Admin-gated (spends provider credits) + spine-guarded. Like the IRL pilot
  * route, this SEAM resolves the operator's real T0 personaId server-side under the
  * gate and threads it ONLY as the publish-receipt writer id; the delegate seam +
  * runtime see a T2 `actorCommitment` only.

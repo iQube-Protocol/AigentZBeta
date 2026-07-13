@@ -22,8 +22,8 @@ explicit, independently-verifiable migration for the existing ReceiptQube sites.
   `ANCHORABLE_ACTION_TYPES`. State machine `local → dvn_pending → dvn_recorded / dvn_failed`.
 - **Identity discipline:** takes a `personaId` (T0) it **never serialises**; the on-chain
   payload carries only a hashed persona ref (`hashPersonaRef`). T2-safe on the wire.
-- **Already the CCRL path:** `services/research/lifecycle.ts:writeLifecycleReceipt` →
-  `createActivityReceipt` (`research_lifecycle_transition`). This is why CCRL `research` is
+- **Already the IRL path:** `services/research/lifecycle.ts:writeLifecycleReceipt` →
+  `createActivityReceipt` (`research_lifecycle_transition`). This is why IRL `research` is
   the AR Phase-2 pilot — zero new receipt plumbing.
 
 ### System B — the ReceiptQube emitter (a projection, no DVN)

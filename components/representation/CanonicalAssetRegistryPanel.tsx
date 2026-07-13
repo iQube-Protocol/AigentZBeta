@@ -11,9 +11,9 @@
  * state. Consumes /api/constitutional/canonical-assets (admin-gated), the in-situ
  * projection of the same descriptors the Composition engine retrieves.
  *
- * Consumes ONLY representation roles (`var(--rep-*)`) so it reskins with the CCRL
+ * Consumes ONLY representation roles (`var(--rep-*)`) so it reskins with the IRL
  * dashboard when the interpretation flips — never hardcodes a look. Uses
- * experimentGet (spine-authed personaFetch) like every other CCRL panel.
+ * experimentGet (spine-authed personaFetch) like every other IRL panel.
  */
 
 import React, { useEffect, useState } from "react";

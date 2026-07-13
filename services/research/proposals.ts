@@ -1,8 +1,8 @@
 /**
- * Research proposal engine — CCRL Phase C2.1 (CFS-019).
+ * Research proposal engine — IRL Phase C2.1 (CFS-019).
  *
  * The ICE pattern (services/devCommandCenter/stageOrchestrator.ts) applied to
- * the research copilot: aigentZ, operating on the `ccrl-research` surface,
+ * the research copilot: aigentZ, operating on the `irl-research` surface,
  * produces structured research objects as fenced ```research_data JSON blocks
  * in its replies. The chat route extracts them server-side and returns them as
  * `stage_proposals` (the shared copilot proposal channel); the copilot tab
@@ -200,7 +200,7 @@ export function researchProposalKindLabel(kind: ResearchProposalKind): string {
 
 /**
  * Build the research-proposal instruction addendum for the aigentZ system
- * prompt on the ccrl-research surface. Mirrors buildStageInstructionBlock:
+ * prompt on the irl-research surface. Mirrors buildStageInstructionBlock:
  * presents the fence schema(s) and the hard-won strict-JSON fence contract +
  * never-promise rule. When `kind` is omitted, ALL four schemas are offered and
  * aigentZ picks the one the operator's request means (the research copilot is

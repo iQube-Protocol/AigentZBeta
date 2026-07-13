@@ -51,7 +51,7 @@ export const ARTIFACT_PROFILE_REGISTRY: Record<ArtifactProfileId, ArtifactProfil
     ratificationRequired: false,
   },
   research: {
-    // The CFS-025 Phase-2 pilot profile (CCRL experiment → paper). Already on the
+    // The CFS-025 Phase-2 pilot profile (IRL experiment → paper). Already on the
     // unified writeLifecycleReceipt → createActivityReceipt path.
     id: 'research',
     objectKind: 'research_finding',

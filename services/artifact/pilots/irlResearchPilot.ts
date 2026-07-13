@@ -1,8 +1,8 @@
 /**
- * CCRL `research` pilot — the ratified CFS-025 Phase 2 pilot (experiment → paper).
+ * IRL `research` pilot — the ratified CFS-025 Phase 2 pilot (experiment → paper).
  *
  * This is the FIRST production consumer of the Artifact Runtime. It shepherds a
- * CCRL experiment into a constitutional-tier `research` artifact by INVOKING the
+ * IRL experiment into a constitutional-tier `research` artifact by INVOKING the
  * runtime (`runArtifact('constitutional', 'research', …)`) and COMPOSING the
  * research lifecycle service (`services/research/lifecycle.ts:deriveOverview`)
  * for the experiment record it grounds the artifact in. It NEVER re-implements
@@ -59,7 +59,7 @@ export const DEFAULT_PILOT_EXPERIMENT_ID = 'EXP-001';
  *  object-model helper the runtime does, not a forked band table. */
 const STANDING_PUBLISHED = 0.7;
 
-export interface CcrlResearchPilotInput {
+export interface IrlResearchPilotInput {
   /** The acting subject's T2-safe one-way commitment — the ONLY subject handle
    *  the runtime + object express. Supplied by the route (computed server-side). */
   actorCommitment: string;
@@ -93,7 +93,7 @@ async function buildResearchCompositionInput(
   const publishedRuns = entry?.publishedRuns ?? 0;
 
   // T2-safe composition ref + content commitment grounded in the experiment record.
-  const compositionRef = `ccrl:research:${experimentId}:${lifecycle}`;
+  const compositionRef = `irl:research:${experimentId}:${lifecycle}`;
   const contentHash = createHash('sha256')
     .update(`${experimentId}:${lifecycle}:${publishedRuns}`)
     .digest('hex')
@@ -144,13 +144,13 @@ function projectPublished(object: ConstitutionalObject, receiptId: string): Cons
 }
 
 /**
- * Produce a CCRL `research` artifact. Propose-mode by default (drafts, writes
+ * Produce a IRL `research` artifact. Propose-mode by default (drafts, writes
  * nothing). Publish-mode (gated: requires `mode==='publish'` AND a route-resolved
  * `personaId`) emits ONE `artifact_published` receipt and returns the published
  * ConstitutionalObject. Returns a T1-projected ArtifactResult — no T0 ids.
  */
-export async function produceCcrlResearchArtifact(
-  args: CcrlResearchPilotInput,
+export async function produceIrlResearchArtifact(
+  args: IrlResearchPilotInput,
 ): Promise<ArtifactResult> {
   const experimentId = args.experimentId ?? DEFAULT_PILOT_EXPERIMENT_ID;
   const { input, experiment } = await buildResearchCompositionInput(experimentId);
@@ -165,7 +165,7 @@ export async function produceCcrlResearchArtifact(
   // receipt with the real personaId. The full constitutional lifecycle still
   // walks; the drafted object + evidence come back on the result.
   const proposeContext: ArtifactContext = {
-    invokedBy: 'ccrl',
+    invokedBy: 'irl',
     intentRef: args.intentRef,
     actorCommitment: args.actorCommitment,
     mode: 'propose',
@@ -181,10 +181,10 @@ export async function produceCcrlResearchArtifact(
   // personaId (the T2-seam fix). DVN-anchorable via ANCHORABLE_ACTION_TYPES.
   const receipt = await createActivityReceipt({
     personaId: args.personaId as string,
-    activeCartridge: 'ccrl',
+    activeCartridge: 'irl',
     actionType: 'artifact_published',
     summary: `research artifact ${proposeResult.artifactId} published (constitutional) — ${experimentId}`,
-    contextShared: ['ccrl-research', 'artifact-runtime'],
+    contextShared: ['irl-research', 'artifact-runtime'],
     artifactsCreated: proposeResult.artifactId ? [proposeResult.artifactId] : [],
   }).catch(() => null);
 
@@ -206,4 +206,4 @@ export async function produceCcrlResearchArtifact(
   };
 }
 
-export default produceCcrlResearchArtifact;
+export default produceIrlResearchArtifact;

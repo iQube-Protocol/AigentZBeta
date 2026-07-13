@@ -435,7 +435,7 @@ async function runConstitutional(
         // resolves it server-side and threads it here. Phase 1 uses the T2
         // actorCommitment as the writer-scoped id argument at the seam — the
         // route/pilot replaces this with the resolved persona id under the gate
-        // (see services/artifact/pilots/ccrlResearchPilot.ts, which drives
+        // (see services/artifact/pilots/irlResearchPilot.ts, which drives
         // publish through the real personaId to close the T2-seam mismatch).
         // CFS-025 Phase 2: the dedicated `artifact_published` action type is now
         // in ActivityActionType + ANCHORABLE_ACTION_TYPES, so this receipt is

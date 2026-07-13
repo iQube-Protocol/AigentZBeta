@@ -2,7 +2,7 @@
 
 /**
  * Invariant Field Explorer — Consequence Engineering, first slice
- * (CCRL Phase E, CFS-019 §5 item 6).
+ * (IRL Phase E, CFS-019 §5 item 6).
  *
  * Computational Epistemology made visible: the `enables / constrains /
  * contradicts` field of the LIVE invariant substrate, plus the consequence

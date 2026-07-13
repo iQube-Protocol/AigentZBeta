@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CCRL Dashboard — the front door of the Constitutional Cybernetics
+ * IRL Dashboard — the front door of the Constitutional Cybernetics
  * Research Laboratory (CFS-019 Phase B).
  *
  * Live-computed, never asserted: programme status reads the Chrysalis Test
@@ -14,7 +14,7 @@
  * tab-level `<RepresentationProvider>`, and every colour/type role is consumed
  * through `var(--rep-*)` (the CSS custom properties the provider injects) — NO
  * raw Tailwind colour literals remain (canary-enforced in
- * tests/ccrl-dashboard-adoption.test.ts). The interpretation switcher inside
+ * tests/irl-dashboard-adoption.test.ts). The interpretation switcher inside
  * the embedded RepresentationFieldPreview drives THIS provider, so flipping
  * Constitutional Civic Futurism ↔ High-Contrast reskins the ENTIRE dashboard
  * coherently — the constitutional field made visible, the environment a
@@ -93,7 +93,7 @@ const LAYERS = [
     governs: "Constitutional evolution — feedback, adaptation, learning, multi-agent governance, resilience",
     status: "Nascent — the frontier",
     tone: "text-[var(--rep-standing-experimental)] border-[var(--rep-standing-experimental)] bg-[var(--rep-surface-raised)]",
-    evidence: "Improvement Loop ratified as contract · feedback/adaptation experiments are the CCRL's mandate",
+    evidence: "Improvement Loop ratified as contract · feedback/adaptation experiments are the IRL's mandate",
   },
 ];
 
@@ -105,7 +105,7 @@ const EXPERIMENT_FAMILY: Record<string, string> = {
   "EXP-005": "Provider Choice",
 };
 
-function CCRLDashboardContent() {
+function IRLDashboardContent() {
   const [results, setResults] = useState<ResultRow[] | null>(null);
   const [resultsError, setResultsError] = useState<string | null>(null);
   const [chrysalis, setChrysalis] = useState<ChrysalisSummary | null>(null);
@@ -164,7 +164,7 @@ function CCRLDashboardContent() {
           </div>
           {/* The Bearing Instrument (CFS-021 §5) operating WITHIN the reference
               field — "you are here in the Constitutional Field". Oriented to the
-              CCRL's home sector, Intelligence (Layer I Invariant Intelligence is
+              IRL's home sector, Intelligence (Layer I Invariant Intelligence is
               the lab's foundation), with the sectors the lab touches illuminated
               and its Foundational standing on the bezel. Consumes ONLY roles, so
               it reskins with the dashboard when the interpretation flips. It emits
@@ -172,7 +172,7 @@ function CCRLDashboardContent() {
               are no Constitutional Plate destinations yet. */}
           <div className="shrink-0 flex flex-col items-center gap-1">
             <BearingInstrument
-              label="CCRL"
+              label="IRL"
               activeSector="intelligence"
               standing="foundational"
               relatedSectors={["reasoning", "knowledge", "consequence"]}
@@ -345,9 +345,9 @@ function CCRLDashboardContent() {
         </div>
         <ul className="space-y-1.5 text-xs text-[var(--rep-ink-body)]">
           <li><span className="text-[var(--rep-state-positive)] font-semibold">A — delivered:</span> charter + vocabulary (Constitutional Cybernetics, inv.cybernetics.108–111)</li>
-          <li><span className="text-[var(--rep-state-positive)] font-semibold">B — this surface:</span> the CCRL as canonical research surface over all existing assets</li>
+          <li><span className="text-[var(--rep-state-positive)] font-semibold">B — this surface:</span> the IRL as canonical research surface over all existing assets</li>
           <li><span className="text-[var(--rep-ink-muted)] font-semibold">C:</span> research object model + lifecycles (receipted transitions) + Aigent Z research orchestration</li>
-          <li><span className="text-[var(--rep-ink-muted)] font-semibold">D:</span> physical migration into the CCRL pack (atomic, path-inventory-driven)</li>
+          <li><span className="text-[var(--rep-ink-muted)] font-semibold">D:</span> physical migration into the IRL pack (atomic, path-inventory-driven)</li>
           <li><span className="text-[var(--rep-ink-muted)] font-semibold">E:</span> Invariant Field Explorer · resequencing views · Layer-III experiments (feedback, adaptation, multi-agent)</li>
         </ul>
         <p className="mt-3 text-[11px] text-[var(--rep-ink-muted)] flex items-center gap-1.5">
@@ -429,10 +429,10 @@ function CCRLDashboardContent() {
  * (space-y-6 max-w-5xl) plus the field ground (surface.base) — no extra nesting,
  * no layout change.
  */
-export default function CCRLDashboardTab() {
+export default function IRLDashboardTab() {
   return (
     <RepresentationProvider className="space-y-6 max-w-5xl bg-[var(--rep-surface-base)]">
-      <CCRLDashboardContent />
+      <IRLDashboardContent />
     </RepresentationProvider>
   );
 }

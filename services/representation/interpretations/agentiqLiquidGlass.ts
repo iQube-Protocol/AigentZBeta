@@ -7,7 +7,7 @@
  * invented aesthetic. Every value here is grounded in the real, currently-shipping
  * house tokens: the translucent slate panel fill `bg-slate-900/40`, the SLATE
  * hairline `border-slate-800`, a soft backdrop blur, and a plain drop shadow —
- * the exact chrome the CCRL dashboard (and the rest of the cartridge surfaces)
+ * the exact chrome the IRL dashboard (and the rest of the cartridge surfaces)
  * used before representation adoption. The dark-slate chrome / near-white ink /
  * indigo-and-fuchsia accents / the emerald·sky·amber·rose state ramp are the
  * platform's dominant utility usage (slate-200 body, slate-400 muted).

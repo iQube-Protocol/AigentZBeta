@@ -1,5 +1,5 @@
 /**
- * CCRL research ICE loop — Phase C3 canary (CFS-019).
+ * IRL research ICE loop — Phase C3 canary (CFS-019).
  *
  * Pins the constitutional guarantees of the research analog of the Dev Command
  * Center's ICE loop (services/research/researchLoop.ts):

@@ -107,7 +107,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     seriesId: 'FVS',
     hypothesis:
       'A living KnowledgeQube grounded in canonical invariants preserves semantic fidelity across independent renderings.',
-    protocolRef: 'codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube/README.md',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube/README.md',
     governingInvariants: ['inv.constitutional.060', 'inv.reasoning.001'],
   },
   {
@@ -117,7 +117,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     seriesId: 'FVS',
     hypothesis:
       'Invariant-carried video preserves identity and narrative coherence across segments; sequence is scored, not validated.',
-    protocolRef: 'codexes/packs/ccrl/foundation/experiments/exp-002-invariant-video/README.md',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-002-invariant-video/README.md',
     governingInvariants: ['inv.constitutional.078', 'inv.reasoning.095', 'inv.reasoning.096'],
   },
   {
@@ -127,7 +127,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     seriesId: 'FVS',
     hypothesis:
       'Initialized (invariant-grounded) reasoning reduces rediscovery cost versus cold reasoning at equal or better groundedness.',
-    protocolRef: 'codexes/packs/ccrl/foundation/experiments/exp-003-rediscovery-savings/README.md',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-003-rediscovery-savings/README.md',
     governingInvariants: ['inv.constitutional.062'],
   },
   {
@@ -168,7 +168,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     seriesId: 'IIVS',
     hypothesis:
       'Invariant-initialised reasoning reduces reasoning entropy vs retrieval across a four-arm ladder (large-context → naive-rag → existing-kb → invariant-runtime). Beating naïve RAG is easy; the honest bar is beating our own production KB retrieval.',
-    protocolRef: 'codexes/packs/ccrl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+    protocolRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
     governingInvariants: ['inv.epistemology.119', 'inv.constitutional.062'],
   },
   {
@@ -178,7 +178,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     seriesId: 'IIVS',
     hypothesis:
       'A single invariant set propagates across modalities (article/story/image/ux/prd) with high fidelity: blind reviewers can reconstruct the original invariant set from the artifacts. Propagation Fidelity is the benchmark.',
-    protocolRef: 'codexes/packs/ccrl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+    protocolRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
     governingInvariants: ['inv.epistemology.119'],
   },
 ];
@@ -189,21 +189,21 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     name: 'Foundational Validation Series',
     claim: 'The invariant substrate is real: semantic, temporal, and efficiency properties are measurable.',
     members: ['EXP-001', 'EXP-002', 'EXP-003'],
-    charterRef: 'codexes/packs/ccrl/foundation/CFS-015_operation-chrysalis-2-prd.md',
+    charterRef: 'codexes/packs/irl/foundation/CFS-015_operation-chrysalis-2-prd.md',
   },
   {
     id: 'PSE',
     name: 'Platform Sovereignty Experiment Series',
     claim: 'Platform sovereignty is a measurable bundle: model, provider choice, commercial independence, infrastructure.',
     members: ['EXP-004', 'EXP-005'],
-    charterRef: 'codexes/packs/ccrl/foundation/CFS-018_platform-sovereignty.md',
+    charterRef: 'codexes/packs/irl/foundation/CFS-018_platform-sovereignty.md',
   },
   {
     id: 'IIVS',
     name: 'Invariant Intelligence Validation Series',
     claim: 'Intent projects onto minimal invariant sets; those sets reason more faithfully at lower entropy and propagate across modalities — and the disagreements teach us what an invariant is.',
     members: ['EXP-006', 'EXP-007', 'EXP-008'],
-    charterRef: 'codexes/packs/ccrl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+    charterRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
   },
 ];
 
@@ -230,7 +230,7 @@ export const RESEARCH_PROGRAMMES = [
 ] as const;
 
 // ─── Research Roadmap Expansion (CFS-019 amendment, 2026-07-07) ──────────────
-// The applied-research agenda the CCRL Copilot plans against. Incorporated into
+// The applied-research agenda the IRL Copilot plans against. Incorporated into
 // the EXISTING roadmap/registry — not a parallel framework. Canary-pinned.
 
 /**

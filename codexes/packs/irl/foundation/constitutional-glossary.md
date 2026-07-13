@@ -21,11 +21,11 @@ Operator control over the system's intelligence supply — a SCALE, not a boolea
 
 ## Constitutional Cybernetics
 
-The study of constitutionally governed adaptive systems — how a system changes under constitutional feedback while remaining constitutional (Layer III of the constitutional operating model). Invariant Intelligence establishes the substrate; Constitutional Computing operationalises it; Constitutional Cybernetics studies the governed adaptive systems that emerge. Invariants `inv.cybernetics.108`–`111`; institution: the CCRL (CFS-019).
+The study of constitutionally governed adaptive systems — how a system changes under constitutional feedback while remaining constitutional (Layer III of the constitutional operating model). Invariant Intelligence establishes the substrate; Constitutional Computing operationalises it; Constitutional Cybernetics studies the governed adaptive systems that emerge. Invariants `inv.cybernetics.108`–`111`; institution: the IRL (CFS-019).
 
 ## Constitutional Cybernetics Research Laboratory
 
-The CCRL — the constitutional scientific institution of the platform (CFS-019), never "research repo" or "experiment module". It houses all constitutional research (experiments, series, programmes, publications, findings, the invariant substrate) and operates by the principles it investigates: its construction runs through the Capability Pipeline and its operation is its first and permanent experiment. Central hypothesis: Invariant Fields constitute measurable structures through which computational behaviour, constitutional coherence and consequence can be predicted, governed and experimentally validated.
+The IRL — the constitutional scientific institution of the platform (CFS-019), never "research repo" or "experiment module". It houses all constitutional research (experiments, series, programmes, publications, findings, the invariant substrate) and operates by the principles it investigates: its construction runs through the Capability Pipeline and its operation is its first and permanent experiment. Central hypothesis: Invariant Fields constitute measurable structures through which computational behaviour, constitutional coherence and consequence can be predicted, governed and experimentally validated.
 
 ## Dynamic Constitutional Interaction Runtime
 
@@ -37,7 +37,7 @@ An OBSERVED constitutional pattern discovered by the DCIR Observation Runtime �
 
 ## Computational Epistemology
 
-The discipline the CCRL's foundational validation questions define: the study of how knowledge itself behaves as a computational object — whether knowledge can be preserved (semantic fidelity), whether knowledge can compose (temporal composition), and whether knowledge can reduce reasoning (reasoning compression). Not AI benchmarking, not LLM evaluation, not prompt engineering: the object under study is knowledge, and its preservation, composition, and reasoning-compression are measurable properties (`inv.epistemology.119`). Pursued by the CCRL through its research programmes; the platform is the instrument, the research programme the enduring asset (`inv.epistemology.120`). Named by the Aletheon review (operator's co-agent, 2026-07-06 — CFS-019 institute-standing amendment).
+The discipline the IRL's foundational validation questions define: the study of how knowledge itself behaves as a computational object — whether knowledge can be preserved (semantic fidelity), whether knowledge can compose (temporal composition), and whether knowledge can reduce reasoning (reasoning compression). Not AI benchmarking, not LLM evaluation, not prompt engineering: the object under study is knowledge, and its preservation, composition, and reasoning-compression are measurable properties (`inv.epistemology.119`). Pursued by the IRL through its research programmes; the platform is the instrument, the research programme the enduring asset (`inv.epistemology.120`). Named by the Aletheon review (operator's co-agent, 2026-07-06 — CFS-019 institute-standing amendment).
 
 ## Platform Sovereignty
 

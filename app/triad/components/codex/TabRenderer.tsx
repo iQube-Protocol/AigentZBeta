@@ -117,8 +117,8 @@ import { IQubeRegistryIntakeTab } from "./tabs/IQubeRegistryIntakeTab";
 import { InvariantRegistryTab } from "./tabs/InvariantRegistryTab";
 import InvariantExperimentLab from "@/components/composer/InvariantExperimentLab";
 import CapabilityPipelineTab from "@/components/composer/CapabilityPipelineTab";
-import CCRLDashboardTab from "@/components/composer/CCRLDashboardTab";
-import CCRLResearchCopilotTab from "@/components/composer/CCRLResearchCopilotTab";
+import IRLDashboardTab from "@/components/composer/IRLDashboardTab";
+import IRLResearchCopilotTab from "@/components/composer/IRLResearchCopilotTab";
 import InvariantFieldExplorerTab from "@/components/composer/InvariantFieldExplorerTab";
 import { PassportBureauApplyTab } from "./tabs/PassportBureauApplyTab";
 import { PassportBureauStewardTab } from "./tabs/PassportBureauStewardTab";
@@ -300,8 +300,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   InvariantRegistryTab,
   InvariantExperimentLab,
   CapabilityPipelineTab,
-  CCRLDashboardTab,
-  CCRLResearchCopilotTab,
+  IRLDashboardTab,
+  IRLResearchCopilotTab,
   InvariantFieldExplorerTab,
   PassportBureauApplyTab,
   PassportBureauStewardTab,

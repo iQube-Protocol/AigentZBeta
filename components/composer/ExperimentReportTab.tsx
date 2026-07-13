@@ -346,16 +346,16 @@ ${report}
 ## Appendix — Protocols, Data, and Verification
 
 - **Experiment protocols** (full design docs, in-repo):
-  - EXP-001 — \`codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube/README.md\`
-  - EXP-002 — \`codexes/packs/ccrl/foundation/experiments/exp-002-invariant-video/README.md\`
-  - EXP-003 — \`codexes/packs/ccrl/foundation/experiments/exp-003-rediscovery-savings/README.md\`
+  - EXP-001 — \`codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube/README.md\`
+  - EXP-002 — \`codexes/packs/irl/foundation/experiments/exp-002-invariant-video/README.md\`
+  - EXP-003 — \`codexes/packs/irl/foundation/experiments/exp-003-rediscovery-savings/README.md\`
 - **Raw result records**: every published run's exact results JSON is stored
   with its sha256 content commitment and is available on request under the
   same confidentiality; the data tables in the findings report above are
   generated live from those records.
 - **Experimental architecture**: the constitutional foundation corpus
   (charters, composition laws, coherence engine, invariant ontology) lives at
-  \`codexes/packs/ccrl/foundation/\` — CFS-019 is the laboratory charter.
+  \`codexes/packs/irl/foundation/\` — CFS-019 is the laboratory charter.
 - **Repository**: the platform repository housing the corpus, runners, and
   results pipeline is available for inspection on request.
 - **DVN verification**: each published run is anchored via a DVN-anchorable

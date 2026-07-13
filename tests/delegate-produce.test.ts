@@ -13,7 +13,7 @@ describe('delegateProduce — invoker mapping (a provenance label, never ownersh
   it('maps role-aligned delegates to their runtime', () => {
     expect(invokerForDelegate('aigent-z')).toBe('aigentz');
     expect(invokerForDelegate('marketa')).toBe('agentme');
-    expect(invokerForDelegate('kn0w1')).toBe('ccrl');
+    expect(invokerForDelegate('kn0w1')).toBe('irl');
   });
 
   it('defaults unmapped delegates to acting on the operator authority', () => {

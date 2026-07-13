@@ -118,7 +118,7 @@ describe('AR — profiles + invoking runtimes (order pinned)', () => {
   });
 
   it('pins the invoking runtimes; none owns the runtime', () => {
-    expect([...INVOKING_RUNTIMES]).toEqual(['agentme', 'aigentz', 'studio', 'ccrl', 'operator']);
+    expect([...INVOKING_RUNTIMES]).toEqual(['agentme', 'aigentz', 'studio', 'irl', 'operator']);
   });
 });
 

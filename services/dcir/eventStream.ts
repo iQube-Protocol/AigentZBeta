@@ -197,7 +197,7 @@ export function devAutoActedEvent(label: string, scope: string): DcirEvent {
 }
 
 // ─── Generic surface helpers (second-surface vocabulary, CFS-020 D1+) ───────
-// Added by composition for the CCRL research copilot (CFS-019 C2): each is a
+// Added by composition for the IRL research copilot (CFS-019 C2): each is a
 // thin wrapper over emitDcirEvent — the Dev Command Center helpers above are
 // UNTOUCHED. The emitting surface rides capsuleScope so observations stay
 // scoped to their surface (capsule containment applied to observation).
@@ -395,7 +395,7 @@ export function studioPreviewRenderedEvent(device: string): DcirEvent {
 // ─── Registry asset-detail typed helpers (CFS-020 D4 frontier, fifth surface) ─
 // The registry asset-detail panel is the first frontier surface adopted beyond
 // the four hand-wired ones (Dev Command Center, aigentMe welcome, studio
-// composer, CCRL research copilot) — the D4 "adopt via useDcirSeam by
+// composer, IRL research copilot) — the D4 "adopt via useDcirSeam by
 // declaration" recipe applied to a cartridge-adjacent surface. Same observe-mode
 // discipline: each wraps an EXISTING AssetDetailPanel action as a side-effect,
 // nothing blocks a render or gates an affordance. Payloads are kind + short

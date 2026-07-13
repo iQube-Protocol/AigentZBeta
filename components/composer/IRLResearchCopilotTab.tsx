@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CCRL Research Copilot — Aigent Z as research narrator + proposer
+ * IRL Research Copilot — Aigent Z as research narrator + proposer
  * (CFS-019 Phase C2 narration + C2.1 research proposal kinds).
  *
  * DCIR-conforming from birth (CFS-020): this surface is the second
@@ -76,7 +76,7 @@ import {
 } from "@/services/dcir/eventStream";
 import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 
-const SURFACE = "ccrl-research";
+const SURFACE = "irl-research";
 
 interface OverviewEntry {
   experiment: { id: string; layer: string; family: string; seriesId: string };
@@ -102,7 +102,7 @@ interface ResultRow {
   createdAt: string;
 }
 
-interface CCRLResearchCopilotTabProps {
+interface IRLResearchCopilotTabProps {
   personaId?: string;
 }
 
@@ -435,7 +435,7 @@ function ResearchLoopStrip({ stage }: { stage: ResearchLoopStage }) {
  * is EXECUTED in the Experiment Lab (the EXP-001…005 runner tabs), never in the
  * copilot. The hand-off is now ONE CLICK via the cartridge-agnostic
  * `codex:navigate-tab` intra-cartridge nav seam (mirrors KNYT's
- * `knyt:navigate-tab`; the viewer listens and switches to `ccrl-experiment-lab`).
+ * `knyt:navigate-tab`; the viewer listens and switches to `irl-experiment-lab`).
  * This is navigation, NOT execution — the copilot still never runs the
  * experiment; it just takes the operator to where they run it. The lab run
  * advances the lifecycle, which re-derives the loop to Analyze on the next
@@ -471,7 +471,7 @@ function RunStageCard({ experimentId, lifecycle, onGoToLab }: { experimentId: st
   );
 }
 
-export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilotTabProps) {
+export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotTabProps) {
   const [overview, setOverview] = useState<OverviewEntry[] | null>(null);
   const [series, setSeries] = useState<SeriesEntry[]>([]);
   const [lifecycleOrder, setLifecycleOrder] = useState<string[]>([]);
@@ -683,7 +683,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
   const goToExperimentLab = useCallback(() => {
     observe(surfacePromptSelectedEvent(SURFACE, 'run hand-off: opened the Experiment Lab'));
     try {
-      window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: 'ccrl-experiment-lab' } }));
+      window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: 'irl-experiment-lab' } }));
     } catch { /* non-fatal — the honest pointer text still names the tab */ }
   }, [observe]);
 
@@ -775,7 +775,7 @@ export default function CCRLResearchCopilotTab({ personaId }: CCRLResearchCopilo
           quickPrompts={quickPrompts}
           promptPlaceholder="Ask aigentZ about the research programme, experiments, results…"
           agent={{ id: "aigent-z", name: "aigentZ" }}
-          agentSubtitle="CCRL Research Laboratory · constitutional science"
+          agentSubtitle="IRL Research Laboratory · constitutional science"
           personaId={personaId}
           groundContext={copilotGroundContext}
           onStageProposals={onStageProposals}

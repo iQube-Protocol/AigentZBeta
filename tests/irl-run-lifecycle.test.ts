@@ -1,5 +1,5 @@
 /**
- * CCRL run-lifecycle — Phase C2.3 canary (CFS-019, instruments ↔ institution).
+ * IRL run-lifecycle — Phase C2.3 canary (CFS-019, instruments ↔ institution).
  *
  * Pins the constitutional guarantees of the seam that lets EXP runs advance a
  * research object's lifecycle through the ONE receipted path:

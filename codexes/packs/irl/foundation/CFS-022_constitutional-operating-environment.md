@@ -2,9 +2,9 @@
 
 **Chrysalis Foundation Specification · v1.0 · P0 (program consolidation + reframe) — authored 2026-07-09 per the operator's COE reframe (2026-07-09)**
 
-This is the **program of record**. It reframes and expands the mission of `CFS-015` (Operation Chrysalis 2.0) and folds the companion specs — `CFS-019` (CCRL), `CFS-020` (DCIR), `CFS-021` (Constitutional Civic Futurism / Atlas), and the CDE reliability work — into ONE program with named constitutional workstreams. **It consolidates the roadmap; it does NOT merge the contracts.** Each companion spec keeps its own invariants, ratification cadence, and authority (the "one authoritative location per concern" discipline). When they disagree on sequencing, this document wins; when they define a contract, they win.
+This is the **program of record**. It reframes and expands the mission of `CFS-015` (Operation Chrysalis 2.0) and folds the companion specs — `CFS-019` (IRL), `CFS-020` (DCIR), `CFS-021` (Constitutional Civic Futurism / Atlas), and the CDE reliability work — into ONE program with named constitutional workstreams. **It consolidates the roadmap; it does NOT merge the contracts.** Each companion spec keeps its own invariants, ratification cadence, and authority (the "one authoritative location per concern" discipline). When they disagree on sequencing, this document wins; when they define a contract, they win.
 
-Companion / folded specs: `CFS-015` (Chrysalis PRD — mission expanded here), `CFS-016` (deployment), `CFS-019` (CCRL — Research Lab workstream), `CFS-020` (DCIR — interaction substrate workstream), `CFS-021` (Atlas / representation workstream).
+Companion / folded specs: `CFS-015` (Chrysalis PRD — mission expanded here), `CFS-016` (deployment), `CFS-019` (IRL — Research Lab workstream), `CFS-020` (DCIR — interaction substrate workstream), `CFS-021` (Atlas / representation workstream).
 
 ---
 
@@ -57,7 +57,7 @@ Request: Create Constitutional Atlas Plate
    ↓ Registry records provenance, version, standing
 ```
 
-This is fundamentally different from asking an LLM to "draw another bearing instrument." **Compose-not-generate is a program invariant** (proposed for the substrate as `inv.composition.*`, ratified through CCRL governance, not here).
+This is fundamentally different from asking an LLM to "draw another bearing instrument." **Compose-not-generate is a program invariant** (proposed for the substrate as `inv.composition.*`, ratified through IRL governance, not here).
 
 ## 4. Architecture — five pillars, mapped to existing organs (Extend, Don't Duplicate)
 
@@ -67,11 +67,11 @@ None of these is greenfield-by-default. Each is inventoried against the existing
 |---|---|---|---|
 | **Constitutional Registry** | The constitutional memory: invariants, identities, versions, standing, provenance | `services/registry/*` (resolver, persistence, mintSaga, publisher, trustScorer, validator, lifecycle, projections); `services/invariants/*` (store, graph, lifecycle, publish, grounding); `services/constitutional/ontologyResolver.ts`; the 130-seed crystal; the Identity & Access Spine | **Strong but fragmented** per-domain — no ONE addressable object registry across all kinds |
 | **AgentiQ Runtime** | Reasons, plans, delegates, loads invariants, maintains constitutional state | `modelRouter`, `ontologyResolver`, `types/orchestration.ts` (Aigent Z/C/metaMe, NBEPlan, HandoffPayload), DCIR `stateEngine`, the ICE `stageOrchestrator`, bounded delegation | **Strong** — but state/loading is DCC/research-specific; must generalise across object kinds |
-| **Constitutional Workspace** | Where humans + agents collaborate; navigation, bearing, maps | CDE, aigentMe, Studio Composer, CCRL (all DCIR-instrumented); the Bearing Instrument (nav primitive); the representation system | **Surfaces exist; no ONE shell** + unified navigation over all object kinds |
+| **Constitutional Workspace** | Where humans + agents collaborate; navigation, bearing, maps | CDE, aigentMe, Studio Composer, IRL (all DCIR-instrumented); the Bearing Instrument (nav primitive); the representation system | **Surfaces exist; no ONE shell** + unified navigation over all object kinds |
 | **Artifact Factory** | Produces documents, code, images, video, presentations, plates, research, PRDs | `implementationPack`, `invariantVideoBrief`, image bundles, `ComposerStudio`, research proposals, coherence engine | **Fragmented per-artifact** producers; no unified Factory; no compose-not-generate discipline |
 | **Publication Layer** | Exports: GitHub, PDF, Canvas, Website, Registry, Package, NPM, Atlas | `invariants/publish`, `experiments/publishResult`, `registry/publisherService`, `write-doc` (GitHub), `btc/anchor`, `marketa/publish`, `cartridge/publish-to-cluster`, DVN anchoring, hash-commit | **Strong but fragmented** per-target; no ONE layer with pluggable export targets |
 
-Two capabilities cut across all five: the **Research Lab** (CCRL — foundation-complete, folds in whole) and **Constitutional AI / governance** (the Identity/Access Spine, invariant grounding, DVN receipts, observe-mode discipline — governs every object lifecycle uniformly).
+Two capabilities cut across all five: the **Research Lab** (IRL — foundation-complete, folds in whole) and **Constitutional AI / governance** (the Identity/Access Spine, invariant grounding, DVN receipts, observe-mode discipline — governs every object lifecycle uniformly).
 
 ## 5. Gap assessment — what stands between here and the COE
 
@@ -105,7 +105,7 @@ Phase letters continue the Chrysalis arc; each ratified before build (the D0-fir
 |---|---|---|
 | **Constitutional Runtime & Object Model** | this doc (`CFS-022`) + `CFS-015` | The COE core — P0–P4 above |
 | **DCIR — interaction substrate** | `CFS-020` | D0–D2 done; D3 (generic affordance derivations) + D4 frontier (Aigent Z / Marketa / cartridges) outstanding. The runtime's observe→recommend→afford loop |
-| **CCRL — Research Lab** | `CFS-019` | Foundation-complete; Phase E remainder (simulations, Layer-III scaffolding); Programme D; folds in as the Research Lab pillar |
+| **IRL — Research Lab** | `CFS-019` | Foundation-complete; Phase E remainder (simulations, Layer-III scaffolding); Programme D; folds in as the Research Lab pillar |
 | **Constitutional Atlas / Representation** | `CFS-021` | Bearing Instrument v1.0 built; the representation system is the P1 asset source + the Workspace's visual grammar |
 | **CDE reliability & infra** | operational | Hang/flicker/env fixes shipping; the CDE is the P0 development surface |
 | **Deployment → Orchestration → Sovereignty** | `CFS-015` §Phase 2/3, `CFS-016` | Chrysalis Phase 2 (native deployment + multi-model orchestration) gated on CFS-016 D1 operating history |
@@ -116,8 +116,8 @@ The living index of concrete tasks is `CHRYSALIS_WORKSTREAM_TRACKER.md` (this do
 
 - **"Complete now" = consolidate the program (this doc) + build the keystone contract-first, then sequence the rest.** The full COE is a multi-increment program, not a one-increment build; any claim otherwise would be dishonest. The leverage is real: the P2 vertical (compose one Plate) is close *because* the organs exist — it's an assembly-and-contract problem, not a from-scratch build.
 - **The twelve chapters of the operator's outline are named, not designed.** Each chapter's design is part of the increment that builds it — this doc maps them to the five pillars; it does not pre-design them.
-- **Composition is compose-first, not generation-banned.** Genuinely novel content is still generated; the discipline is *retrieve canonical, generate only the novel delta* — the `inv.composition.*` invariants that formalise it are proposed through CCRL governance, not asserted here.
-- **No contracts were merged.** CCRL/DCIR/Atlas/CFS-016 keep their invariants and ratification cadence; this document consolidates sequencing only.
+- **Composition is compose-first, not generation-banned.** Genuinely novel content is still generated; the discipline is *retrieve canonical, generate only the novel delta* — the `inv.composition.*` invariants that formalise it are proposed through IRL governance, not asserted here.
+- **No contracts were merged.** IRL/DCIR/Atlas/CFS-016 keep their invariants and ratification cadence; this document consolidates sequencing only.
 
 ## P0 delivered — the Constitutional Object Model contract (2026-07-09)
 
@@ -132,5 +132,5 @@ No implementation, no storage — contract only. P1 (Canonical Asset Registry) r
 
 ## Ratification record
 
-- [x] **P0 (this program-of-record + Constitutional Object Model contract) — RATIFIED + DELIVERED 2026-07-09.** The operator ratified the reframe (COE, not IDE) and the program; the Object Model contract shipped contract-first (`types/constitutionalObject.ts` + canaries, no implementation). CCRL/DCIR/Atlas/CDE are recorded as workstreams of the one program (§7). P1 and P2 design specs (`CFS-022a` Canonical Asset Registry, `CFS-022b` Composition engine) are being authored in parallel to de-risk the next builds.
+- [x] **P0 (this program-of-record + Constitutional Object Model contract) — RATIFIED + DELIVERED 2026-07-09.** The operator ratified the reframe (COE, not IDE) and the program; the Object Model contract shipped contract-first (`types/constitutionalObject.ts` + canaries, no implementation). IRL/DCIR/Atlas/CDE are recorded as workstreams of the one program (§7). P1 and P2 design specs (`CFS-022a` Canonical Asset Registry, `CFS-022b` Composition engine) are being authored in parallel to de-risk the next builds.
 - [ ] P1–P4 — each ratified before build.

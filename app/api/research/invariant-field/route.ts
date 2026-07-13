@@ -1,6 +1,6 @@
 /**
  * /api/research/invariant-field — the Invariant Field Explorer's read surface
- * (CCRL Phase E first slice, CFS-019 §5 item 6).
+ * (IRL Phase E first slice, CFS-019 §5 item 6).
  *
  * Computational Epistemology made queryable: the `enables / constrains /
  * contradicts` neighbourhood of an invariant, plus the consequence forecast

@@ -49,7 +49,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '..');
-const EXP_DIR = join(REPO, 'codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube');
+const EXP_DIR = join(REPO, 'codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube');
 const DRY_RUN = process.argv.includes('--dry-run');
 const providerArgIdx = process.argv.indexOf('--provider');
 const FORCED_PROVIDER = providerArgIdx > -1 ? process.argv[providerArgIdx + 1] : null;

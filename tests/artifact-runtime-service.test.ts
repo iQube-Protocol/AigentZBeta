@@ -36,7 +36,7 @@ vi.mock('@/services/invariants/store', () => ({ getInvariantsBySeedIds: vi.fn(as
 
 import { classifyArtifact } from '@/services/artifact/classify';
 import { runArtifact, evidenceOf } from '@/services/artifact/runArtifact';
-import { produceCcrlResearchArtifact } from '@/services/artifact/pilots/ccrlResearchPilot';
+import { produceIrlResearchArtifact } from '@/services/artifact/pilots/irlResearchPilot';
 import { RECEIPT_EVENT_TO_ACTIVITY_ACTION } from '@/services/registry/receiptEmitter';
 import { shouldAnchorActionType } from '@/services/dvn/activityReceiptDvnPipeline';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
@@ -45,7 +45,7 @@ import { findForbiddenObjectKey } from '@/types/constitutionalObject';
 import type { CompositionResult } from '@/types/composition';
 
 const ctx = (mode?: 'propose' | 'publish'): ArtifactContext => ({
-  invokedBy: 'ccrl',
+  invokedBy: 'irl',
   intentRef: 'intent-abc',
   actorCommitment: 'ownercommit16chars',
   ...(mode ? { mode } : {}),
@@ -188,16 +188,16 @@ describe('AR runArtifact — CONSTITUTIONAL tier, PUBLISH mode (gated: composes 
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// CFS-025 Phase 2 — the CCRL `research` pilot (propose-vs-publish decision).
+// CFS-025 Phase 2 — the IRL `research` pilot (propose-vs-publish decision).
 // ─────────────────────────────────────────────────────────────────────────
-describe('CCRL research pilot — propose vs publish decision', () => {
+describe('IRL research pilot — propose vs publish decision', () => {
   const A_COMMIT = 'actorcommit16chr';
 
   it('propose (default): drafts, writes NO receipt (receiptId null)', async () => {
     vi.mocked(createActivityReceipt).mockClear();
-    const r = await produceCcrlResearchArtifact({
+    const r = await produceIrlResearchArtifact({
       actorCommitment: A_COMMIT,
-      intentRef: 'intent:ccrl:EXP-001',
+      intentRef: 'intent:irl:EXP-001',
       mode: 'propose',
     });
     expect(r.ok).toBe(true);
@@ -214,9 +214,9 @@ describe('CCRL research pilot — propose vs publish decision', () => {
 
   it('publish (gated): emits ONE artifact_published receipt with the REAL personaId', async () => {
     vi.mocked(createActivityReceipt).mockClear();
-    const r = await produceCcrlResearchArtifact({
+    const r = await produceIrlResearchArtifact({
       actorCommitment: A_COMMIT,
-      intentRef: 'intent:ccrl:EXP-001',
+      intentRef: 'intent:irl:EXP-001',
       mode: 'publish',
       personaId: 'persona-real-uuid-1',
     });
@@ -239,9 +239,9 @@ describe('CCRL research pilot — propose vs publish decision', () => {
 
   it('publish WITHOUT a resolved personaId falls back to propose (no receipt, gate closed)', async () => {
     vi.mocked(createActivityReceipt).mockClear();
-    const r = await produceCcrlResearchArtifact({
+    const r = await produceIrlResearchArtifact({
       actorCommitment: A_COMMIT,
-      intentRef: 'intent:ccrl:EXP-001',
+      intentRef: 'intent:irl:EXP-001',
       mode: 'publish', // but no personaId threaded → cannot attribute a receipt
     });
     expect(vi.mocked(createActivityReceipt)).not.toHaveBeenCalled();

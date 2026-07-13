@@ -155,7 +155,7 @@ export interface ObjectAuthority {
    *  only from `canonical`+ assets). */
   minStandingToCompose?: StandingBand;
   /** Whether a lifecycle transition on this object requires operator
-   *  ratification (the CCRL governance boundary — behavioural/observed objects
+   *  ratification (the IRL governance boundary — behavioural/observed objects
    *  never self-canonize). */
   ratificationRequired: boolean;
   /** The governing invariants that authorize/constrain this object's existence

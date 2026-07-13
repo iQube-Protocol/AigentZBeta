@@ -44,7 +44,7 @@ import {
   CONSTITUTIONAL_IMPROVEMENT_LOOP,
 } from '@/types/constitutional';
 import { EXPERIMENT_MODEL_OPTIONS, isAllowedExperimentModel } from '@/services/experiments/llm';
-import seedFile from '@/codexes/packs/ccrl/foundation/canonical-invariants.seed.json';
+import seedFile from '@/codexes/packs/irl/foundation/canonical-invariants.seed.json';
 import {
   projectCounterfactual,
   type CounterfactualEdge,
@@ -428,7 +428,7 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
 
   it('Constitutional Cybernetics (CFS-019): glossary term resolves with its governing invariants', async () => {
     const r = await resolveOntology(
-      'How does constitutional cybernetics govern constitutional feedback in the CCRL?',
+      'How does constitutional cybernetics govern constitutional feedback in the IRL?',
     );
     const cc = r.resolvedTerms.find((t) => t.canonical.toLowerCase() === 'constitutional cybernetics');
     expect(cc).toBeTruthy();
@@ -535,7 +535,7 @@ describe('DCIR — Dynamic Constitutional Interaction Runtime (CFS-020 D0)', () 
   });
 });
 
-describe('CCRL Phase E — counterfactual projection (CFS-019 §5 item 6)', () => {
+describe('IRL Phase E — counterfactual projection (CFS-019 §5 item 6)', () => {
   // A small, canonical field: A enables B, A constrains C (C canonical).
   const edge = (
     id: string,
@@ -619,7 +619,7 @@ describe('CCRL Phase E — counterfactual projection (CFS-019 §5 item 6)', () =
   });
 });
 
-describe('DCIR generic surface helpers (CFS-020 composition — added for CCRL C2)', () => {
+describe('DCIR generic surface helpers (CFS-020 composition — added for IRL C2)', () => {
   it('surface events ride the DcirEvent contract: pinned kinds, surface as capsuleScope, no forbidden identifier keys', async () => {
     const {
       surfaceOpenedEvent,
@@ -629,9 +629,9 @@ describe('DCIR generic surface helpers (CFS-020 composition — added for CCRL C
     } = await import('@/services/dcir/eventStream');
 
     const events = [
-      surfaceOpenedEvent('ccrl-research'),
-      surfaceDataRefreshedEvent('ccrl-research', '4 experiments · 8 canonical results'),
-      surfacePromptSelectedEvent('ccrl-research', 'Where does the research programme stand?'),
+      surfaceOpenedEvent('irl-research'),
+      surfaceDataRefreshedEvent('irl-research', '4 experiments · 8 canonical results'),
+      surfacePromptSelectedEvent('irl-research', 'Where does the research programme stand?'),
     ];
 
     // Kind vocabulary pinned — each helper's kind sits on the DcirEventKind union.
@@ -645,7 +645,7 @@ describe('DCIR generic surface helpers (CFS-020 composition — added for CCRL C
     for (const e of events) {
       expect(kindUnion).toContain(e.kind);
       // The emitting surface rides capsuleScope (capsule containment applied to observation).
-      expect(e.capsuleScope).toBe('ccrl-research');
+      expect(e.capsuleScope).toBe('irl-research');
       // Session-scoped D1 ceiling — nothing here is DVN-bound.
       expect(e.tier).toBe('t1-browser-safe');
       // Summaries are labels, never bodies.
@@ -706,9 +706,9 @@ describe('DCIR D2 — Constitutional State Engine, observe-mode slice (CFS-020)'
       devCapsuleOpenedEvent('intent'),
       devCapsuleOpenedEvent('intent'),
       devCapsuleOpenedEvent('intent'),
-      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
-      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
-      surfaceDataRefreshedEvent('ccrl-research', '5 experiments'),
+      surfaceDataRefreshedEvent('irl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('irl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('irl-research', '5 experiments'),
     ];
     const first = mineBehaviouralInvariants(events);
     const second = mineBehaviouralInvariants(events);
@@ -731,8 +731,8 @@ describe('DCIR D2 — Constitutional State Engine, observe-mode slice (CFS-020)'
       devProposalDismissedEvent('dev_intent', 'intent'),
       devCapsuleOpenedEvent('context'),
       devCapsuleOpenedEvent('context'),
-      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
-      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('irl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('irl-research', '4 experiments'),
       devProposalApprovedEvent('dev_intent', 'intent'),
       devProposalApprovedEvent('dev_context', 'context'),
     ];
@@ -759,9 +759,9 @@ describe('DCIR D2 — Constitutional State Engine, observe-mode slice (CFS-020)'
       devCapsuleOpenedEvent('validation'),
       devCapsuleOpenedEvent('validation'),
       devCapsuleOpenedEvent('validation'),
-      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
-      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
-      surfaceDataRefreshedEvent('ccrl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('irl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('irl-research', '4 experiments'),
+      surfaceDataRefreshedEvent('irl-research', '4 experiments'),
     ];
     const mined = mineBehaviouralInvariants(events);
     expect(mined.length).toBeGreaterThanOrEqual(4); // dismissal + approval-style + revisit + refresh
