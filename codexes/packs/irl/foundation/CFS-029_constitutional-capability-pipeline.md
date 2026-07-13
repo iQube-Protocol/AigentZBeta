@@ -70,3 +70,40 @@ Pack renders now say **Constitutional Validation** and **Constitutional Receipt*
   §7.2 **evidence as a constitutional object** — persistence is receipted (`knowledge_curated`, attached to the row via `receipt_id`) and `buildCapabilityEvidenceObject` composes the persisted evidence as a well-formed ConstitutionalObject (T2-safe goal-hash ref; standing 0.5 design value, session-validated).
   §7.3 **freshness policy** — persisted evidence older than `EVIDENCE_FRESHNESS_WINDOW_DAYS` (7, design value) is flagged `persisted-stale` on the pack, and the draft prompt is instructed to include a re-inventory step: stale evidence grounds LOUDLY, never silently.
   §7.4 **CS-001 publication** — registered as **IRL-0002** in the Publication Registry (reserved; production follows the deferred CPS path with IRL-0001).
+
+
+---
+
+## Amendment — Evidence Split + Constitutional Ratification (operator-ratified 2026-07-13, with CCE-005)
+
+### A. Runtime Evidence vs Constitutional Evidence
+
+Evidence divides into two constitutional categories, and the Decision stage reasons over BOTH:
+
+- **Runtime Evidence** — observed during the run itself: a phantom endpoint, a duplicate
+  implementation, a routing bypass. Fresh, session-scoped in origin, persisted on capture.
+- **Constitutional Evidence** — already known to the platform: registry state, previous
+  receipts, the capability graph (CFS-028), standing, invariants.
+
+Target shape (arrives with the CFS-028→CFS-029 bridge — the next ratified increment):
+
+```
+Capability Graph → Constitutional Evidence → Runtime/Session Evidence → Decision → Pack
+```
+
+A completely cold request then starts from constitutional memory, not from zero.
+
+### B. Constitutional Ratification (conceptual, pre-D2 — not yet a code object)
+
+One more constitutional object completes the audit chain: **Ratification**, after Receipt.
+A receipt says *this happened*; ratification says *this is now accepted as part of the
+constitutional state of the platform*. Not every successful execution becomes constitutional
+truth — some changes remain experimental; others, after review or sufficient evidence, enter
+the canonical operating model. The Artifact Runtime's promotion ceremony
+(operational → constitutional, CFS-025) is ratification's first embodiment; the generalized
+object is designed alongside D2 (where per-deploy approval is itself a ratification act).
+
+The full audit chain the pipeline now records — **Evidence → Decision → Execution → Validation →
+Receipt (→ Ratification)** — is the platform's own reasoning history: what was observed, why the
+remedy was chosen, what changed, whether it worked, and what is now accepted as constitutional
+state. CCE-005 is its first complete instance.

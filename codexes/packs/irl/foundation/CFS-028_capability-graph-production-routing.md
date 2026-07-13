@@ -56,6 +56,27 @@ The graph never auto-routes consequence-bearing production. The surface is a **"
 - No execution authority of any kind — D2 remains fully governed by CFS-016; this graph only *describes* who could execute, gated and dormant until D2 ratification.
 - No invented model names, prices, or capabilities — every node traces to a registry entry or an operator declaration.
 
+## 6. Capability Integrity (amendment, operator-ratified 2026-07-13; motivated by CCE-005)
+
+CCE-005's Registry Drift finding — a catalog entry advertising an invocation endpoint that never
+existed — surfaced a new evidence class: the registry's constitutional view of capability can
+diverge from operational reality. **Capability Integrity** makes reachability a constitutional
+property. Every registry entry (and, by extension, every Producer on this graph) should
+eventually answer five questions:
+
+| Property | Question |
+|---|---|
+| **Exists** | is the capability declared in the registry/graph? |
+| **Reachable** | does its declared invocation surface actually resolve? |
+| **Healthy** | does invoking it succeed within its contract? |
+| **Governed** | is it routed through the constitutional seams (sovereign routing, gates, receipts)? |
+| **Ratified** | has its canonical status been constitutionally accepted? |
+
+Implementation is a follow-on (§4.5 family): an integrity probe that walks catalog
+`invokeEndpoint`s against the real route table would have caught the CCE-005 phantom endpoint
+mechanically. Integrity results become Constitutional Evidence (CFS-029 evidence split) that the
+Decision stage reasons over.
+
 ## Ratification record
 
 - [x] **CFS-028 RATIFIED — 2026-07-12, by operator direction.** §4.1–4.4 built same day: `types/capabilityGraph.ts` (contract + invariants), `services/capability/capabilityGraph.ts` (seed graph — harnesses + delegates hand-seeded with stated reasons; model producers derived dynamically from the ModelQube registry, stubbed entries excluded — + the pure ranking core + `recommendProducers`), `GET /api/capability/producers` (admin-gated), and the routing strip on the Homecoming produce panel. `deployment-execution` edges seeded DORMANT per §5 — they wake only with CFS-016 D2 ratification. Canary: `tests/capability-graph.test.ts`.

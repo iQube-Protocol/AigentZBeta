@@ -1,4 +1,6 @@
-# Dogfood Run 001 — Article Convergence through the Constitutional Capability Pipeline
+# CVR-001 — Article Convergence through the Constitutional Capability Pipeline
+
+**Constitutional Validation Run 001** (formerly "Dogfood Run 001" — renamed by operator direction 2026-07-13: what these runs validate is constitutional behaviour, not just software). **Canonized as experiment CCE-005** — `codexes/packs/irl/foundation/experiments/cce-005-constitutional-capability-convergence/README.md`.
 
 **Date:** 2026-07-13 · **Harness:** Claude Code (D1 — execution stays human) · **CS-001 remediation**
 
