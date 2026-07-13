@@ -23,6 +23,7 @@ const CodexPanelDynamic = dynamic(
   { ssr: false }
 );
 import { useCodexEmbedAuthBridge } from "../_lib/useCodexEmbedAuthBridge";
+import { LEGACY_CODEX_SLUGS, resolveLegacyTabSlug } from "@/data/codex-configs";
 
 const readFirst = (searchParams: URLSearchParams | null, keys: string[]) => {
   if (!searchParams) return undefined;
@@ -56,9 +57,13 @@ function DynamicCodexContent() {
   // but newer ones use `-cartridge` (e.g. "agentiq-os-cartridge"). If the caller
   // already supplied a value with a recognised suffix, pass it through unchanged.
   const hasKnownSuffix = rawCodex.endsWith("-codex") || rawCodex.endsWith("-cartridge");
-  const codexId = hasKnownSuffix ? rawCodex : `${rawCodex}-codex`;
+  // Legacy slug aliases (2026-07-13 ccrl→irl migration) — old embed URLs and
+  // stored deep links keep resolving to the renamed cartridge.
+  const suffixed = hasKnownSuffix ? rawCodex : `${rawCodex}-codex`;
+  const codexId = LEGACY_CODEX_SLUGS[suffixed] ?? suffixed;
 
-  const tab = readFirst(searchParams, ["tab", "initialTab", "tabSlug", "section"]);
+  const rawTab = readFirst(searchParams, ["tab", "initialTab", "tabSlug", "section"]);
+  const tab = rawTab ? resolveLegacyTabSlug(rawTab) : rawTab;
   const autoActivate = readFirst(searchParams, ["autoActivate", "activate"]);
   const theme = normalizeTheme(readFirst(searchParams, ["theme", "mode", "colorMode", "appearance"]));
   const density = normalizeDensity(readFirst(searchParams, ["density", "layoutDensity"]));

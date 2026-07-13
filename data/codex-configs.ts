@@ -4709,9 +4709,9 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
 // irl pack is Phase D). Hand-curated per the dual-source rule.
 // ─────────────────────────────────────────────────────────────────────────────
 export const IRL_CARTRIDGE: CodexConfig = {
-  id: 'ccrl-cartridge',
+  id: 'irl-cartridge',
   name: 'metaMe IRL — Research Laboratory',
-  slug: 'ccrl-cartridge',
+  slug: 'irl-cartridge',
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-z',
@@ -4733,9 +4733,9 @@ export const IRL_CARTRIDGE: CodexConfig = {
   ],
   tabs: [
     {
-      id: 'ccrl-dashboard',
+      id: 'irl-dashboard',
       label: 'Dashboard',
-      slug: 'ccrl-dashboard',
+      slug: 'irl-dashboard',
       enabled: true,
       group: 'institution',
       order: 0,
@@ -4744,9 +4744,9 @@ export const IRL_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Landmark', description: 'Mission, live programme status (Chrysalis Test), recent canonical results, roadmap', color: 'violet' },
     },
     {
-      id: 'ccrl-research-copilot',
+      id: 'irl-research-copilot',
       label: 'Research Copilot',
-      slug: 'ccrl-research-copilot',
+      slug: 'irl-research-copilot',
       enabled: true,
       group: 'institution',
       order: 0.5,
@@ -4935,12 +4935,33 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   IRL_CARTRIDGE,
 ];
 
+/**
+ * Legacy slug/id aliases — renamed cartridges keep their old deep links alive.
+ * 2026-07-13: the lab's ccrl-* machine slugs migrated to irl-* (operator
+ * direction); old bookmarks, embed URLs, and stored links resolve through
+ * these aliases. Tab-level aliases cover `?tab=` params the same way.
+ */
+export const LEGACY_CODEX_SLUGS: Record<string, string> = {
+  'ccrl-cartridge': 'irl-cartridge',
+};
+
+export const LEGACY_TAB_SLUGS: Record<string, string> = {
+  'ccrl-dashboard': 'irl-dashboard',
+  'ccrl-research-copilot': 'irl-research-copilot',
+};
+
+export function resolveLegacyTabSlug(tab: string): string {
+  return LEGACY_TAB_SLUGS[tab] ?? tab;
+}
+
 export function getCodexById(id: string): CodexConfig | undefined {
-  return CODEX_DEFINITIONS.find(codex => codex.id === id);
+  const resolved = LEGACY_CODEX_SLUGS[id] ?? id;
+  return CODEX_DEFINITIONS.find(codex => codex.id === resolved);
 }
 
 export function getCodexBySlug(slug: string): CodexConfig | undefined {
-  return CODEX_DEFINITIONS.find(codex => codex.slug === slug);
+  const resolved = LEGACY_CODEX_SLUGS[slug] ?? slug;
+  return CODEX_DEFINITIONS.find(codex => codex.slug === resolved);
 }
 
 export function getEnabledCodexes(): CodexConfig[] {

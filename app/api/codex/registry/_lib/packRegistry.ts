@@ -303,8 +303,8 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
       // its pack supplies markdown via AgentiqCartridgeTab. Skip auto-gen to
       // avoid a duplicate cartridge.
       if (lowered === "polity-core") continue;
-      // irl is hand-curated in CODEX_DEFINITIONS (IRL_CARTRIDGE; legacy slug
-      // `ccrl-cartridge` retained for deep-link/DB continuity); its pack (the migrated constitutional research
+      // irl is hand-curated in CODEX_DEFINITIONS (IRL_CARTRIDGE, slug
+      // `irl-cartridge`; legacy `ccrl-*` slugs alias-resolve); its pack (the migrated constitutional research
       // corpus, CFS-019 Phase D) supplies markdown via AgentiqCartridgeTab.
       // Skip auto-gen to avoid a duplicate cartridge.
       if (lowered === "irl") continue;

@@ -45,6 +45,10 @@ const TENANT_SLUG_TO_CARTRIDGE_SLUG: Record<string, string> = {
   knyt: 'knyt-codex',
   // CRM has 'qriptopian'; the cartridge ships as 'qripto'.
   qriptopian: 'qripto',
+  // The lab's slugs migrated ccrl-* → irl-* (2026-07-13); legacy tenant
+  // slugs keep granting against the renamed cartridge.
+  ccrl: 'irl-cartridge',
+  'ccrl-cartridge': 'irl-cartridge',
   // Direct passes — listed for clarity; the default branch handles
   // them identically.
   'agentiq-os': 'agentiq-os',

@@ -135,8 +135,10 @@ Research Institute."
 "Constitutional Cybernetics" is RETAINED as the *discipline name* for Layer III of its work
 (governed adaptive systems) — a discipline the lab pursues, not the lab itself. Canonical
 spellings and the usage rule are recorded in `docs/platform-ontology.md` (§ metaMe IRL). The
-legacy cartridge/tab slugs (`ccrl-cartridge`, `ccrl-dashboard`, `ccrl-research-copilot`) are
-retained for deep-link and database continuity only — display names all read IRL.
+machine slugs migrated to `irl-*` the same day (operator direction: early enough that the
+impact is small); legacy `ccrl-*` deep links resolve through permanent aliases
+(`LEGACY_CODEX_SLUGS` / `LEGACY_TAB_SLUGS` in `data/codex-configs.ts`) and the tenant-slug
+translator, with a defensive DB migration (20260713030000).
 
 The lab's founding research programme under this name is **CRP-002 — Invariant Intelligence:
 Intent-Driven Knowledge Compression** (the first programme formally chartered under CRP-001), the
