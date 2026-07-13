@@ -89,8 +89,8 @@ export async function POST(request: NextRequest) {
           personaId: persona.personaId,
           activeCartridge: 'studio',
           actionType: 'artifact_created',
-          summary: `video-article skill: corresponding article generated (${plan.article.composedBy}${plan.article.model ? ` · ${plan.article.model}` : ''}) — "${plan.article.title.slice(0, 80)}"`,
-          contextShared: ['video-article-skill', 'article'],
+          summary: `video-article skill: corresponding article generated (${plan.article.composedBy}${plan.article.model ? ` · ${plan.article.model}` : ''}) — "${plan.article.title.slice(0, 80)}" — alignment ${plan.alignment.score} (${plan.alignment.pass ? 'pass' : 'review'}, heuristic)`,
+          contextShared: ['video-article-skill', 'article', 'content-alignment'],
         }).catch(() => null)
       : null;
 

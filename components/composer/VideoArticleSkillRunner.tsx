@@ -44,6 +44,8 @@ interface PlanView {
   };
   article: { title: string; body: string; composedBy: string; model?: string; sovereignFloor?: boolean };
   coherence: { constitutionalScore: number | null; pass: boolean } | null;
+  alignment: { score: number; pass: boolean; perSegment: { index: number; coverage: number; missingCues: string[] }[] };
+  renderPlan: { stitchPasses: number; segmentCount: number; segmentSeconds: number };
   totalSeconds: number;
   segmentCount: number;
   articleReceiptId: string | null;
@@ -182,6 +184,22 @@ export default function VideoArticleSkillRunner() {
                 title="Validation plan: quality standards — the CFS-014 coherence engine's constitutional score"
               >
                 coherence {plan.coherence.constitutionalScore ?? "—"} {plan.coherence.pass ? "· pass" : "· review"}
+              </span>
+            )}
+            {plan.alignment && (
+              <span
+                className={`rounded border px-2 py-0.5 ${plan.alignment.pass ? "border-emerald-700 bg-emerald-950/40 text-emerald-300" : "border-amber-700 bg-amber-950/40 text-amber-300"}`}
+                title={`Automated Content Alignment (heuristic): per-segment coverage of the shared brief — ${plan.alignment.perSegment.map((s) => `seg ${s.index + 1}: ${Math.round(s.coverage * 100)}%`).join(" · ")}`}
+              >
+                alignment {plan.alignment.score} {plan.alignment.pass ? "· pass" : "· review"}
+              </span>
+            )}
+            {plan.renderPlan && (
+              <span
+                className="rounded border border-slate-700 bg-slate-900/60 px-2 py-0.5 text-slate-400"
+                title="Rendering Optimization: the structural render plan — segment layout + the minimal stitch tree the pipeline's 2-3-clips-per-stitch limit allows"
+              >
+                render: {plan.renderPlan.segmentCount} × {plan.renderPlan.segmentSeconds}s · {plan.renderPlan.stitchPasses} stitch pass{plan.renderPlan.stitchPasses === 1 ? "" : "es"}
               </span>
             )}
             {plan.articleReceiptId && (

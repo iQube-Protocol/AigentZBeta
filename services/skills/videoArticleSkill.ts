@@ -37,6 +37,8 @@ import {
 } from '@/services/video/invariantVideoBrief';
 import { validateVideoBriefCoherence } from '@/services/coherence';
 import { callSovereign } from '@/services/constitutional/modelRouter';
+import { alignArticleToBrief, type AlignmentReport } from '@/services/content/alignmentService';
+import { planRender, type RenderPlan } from '@/services/rendering/optimization';
 
 /** The skill's fixed production length (the pack's goal). */
 export const VIDEO_ARTICLE_TOTAL_SECONDS = 24;
@@ -66,6 +68,12 @@ export interface VideoArticlePlan {
   brief: VideoInvariantBrief;
   article: DraftedArticle;
   coherence: Awaited<ReturnType<typeof validateVideoBriefCoherence>> | null;
+  /** Automated Content Alignment (pack 2026-07-13): measured article⇄video
+   *  correspondence — heuristic per-segment coverage of the shared brief. */
+  alignment: AlignmentReport;
+  /** Rendering Optimization (pack 2026-07-13): the structural render plan —
+   *  segment layout + minimal stitch tree for the target runtime. */
+  renderPlan: RenderPlan;
   totalSeconds: number;
   segmentCount: number;
   segmentSeconds: number;
@@ -179,10 +187,23 @@ export async function buildVideoArticlePlan(input: VideoArticlePlanInput): Promi
 
   const article = await draftArticleFromBrief(brief, input.productionTitle, input.useLlm ?? true);
 
+  // Automated Content Alignment (pack MISSING #1): measure the article's
+  // per-segment coverage of the shared brief — correspondence, verified.
+  const alignment = alignArticleToBrief(
+    brief.segments.map((s) => ({ index: s.index, beat: s.beat })),
+    article.body,
+  );
+
+  // Rendering Optimization (pack MISSING #2): the structural render plan —
+  // for 24s this is 2×12s with exactly ONE stitch pass.
+  const renderPlan = planRender(VIDEO_ARTICLE_TOTAL_SECONDS);
+
   return {
     brief,
     article,
     coherence,
+    alignment,
+    renderPlan,
     totalSeconds: VIDEO_ARTICLE_TOTAL_SECONDS,
     segmentCount: VIDEO_ARTICLE_SEGMENT_COUNT,
     segmentSeconds: VIDEO_ARTICLE_SEGMENT_SECONDS,
