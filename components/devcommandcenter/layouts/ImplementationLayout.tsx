@@ -65,11 +65,12 @@ export function ImplementationLayout({
     setPackError(null);
     try {
       const domains = session.intent.relatedCartridges.filter(Boolean);
-      // The workflow-gap fix (2026-07-13): the session's Context Pack / Gap
-      // Analysis / Consequence Canvas findings now TRAVEL into pack generation
-      // instead of dying in the session. Everything here was recorded by the
-      // earlier stages — nothing is synthesized at this seam.
-      const sessionFindings = {
+      // Capability Evidence (CFS-029): the session's Context Pack / Gap
+      // Analysis / Consequence Canvas findings travel into pack generation
+      // AND persist beyond the session (the generator stores them; future
+      // packs for this goal read them back). Everything here was recorded by
+      // the earlier stages — nothing is synthesized at this seam.
+      const capabilityEvidence = {
         existing: (session.gapAnalysis?.existing ?? []).map((e) => ({
           name: e.name,
           path: e.location,
@@ -89,15 +90,15 @@ export function ImplementationLayout({
         ...(session.gapAnalysis ? { reusePercent: Math.round(session.gapAnalysis.reuseRatio * 100) } : {}),
         boundaries: (session.consequenceCanvas?.shouldNeverHappen ?? []).map((c) => c.description),
       };
-      const hasFindings =
-        sessionFindings.existing.length > 0 ||
-        sessionFindings.missing.length > 0 ||
-        sessionFindings.contextAssets.length > 0 ||
-        sessionFindings.boundaries.length > 0;
+      const hasEvidence =
+        capabilityEvidence.existing.length > 0 ||
+        capabilityEvidence.missing.length > 0 ||
+        capabilityEvidence.contextAssets.length > 0 ||
+        capabilityEvidence.boundaries.length > 0;
       const data = await experimentStep("/api/constitutional/implementation-pack", {
         goal: session.intent.goal,
         ...(domains.length > 0 ? { domains } : {}),
-        ...(hasFindings ? { sessionFindings } : {}),
+        ...(hasEvidence ? { capabilityEvidence } : {}),
       });
       const p = data.pack as PackView;
       setPack(p);

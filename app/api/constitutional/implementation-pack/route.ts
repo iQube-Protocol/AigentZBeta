@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   const gate = await requireAdmin(request);
   if ('error' in gate) return gate.error;
 
-  let body: { goal?: unknown; intentId?: unknown; domains?: unknown; sessionFindings?: unknown };
+  let body: { goal?: unknown; intentId?: unknown; domains?: unknown; capabilityEvidence?: unknown; sessionFindings?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -55,19 +55,22 @@ export async function POST(request: NextRequest) {
   const domains = body.domains as string[] | undefined;
 
   try {
-    // The dev-loop session's inventory (Context Pack / Gap Analysis /
-    // Consequence Canvas) — the workflow-gap fix (2026-07-13): what the
-    // session already knows now travels into (and onto) the pack.
-    const sessionFindings =
-      body.sessionFindings && typeof body.sessionFindings === 'object' && !Array.isArray(body.sessionFindings)
-        ? (body.sessionFindings as import('@/services/constitutional/implementationPack').SessionFindings)
+    // Capability Evidence (CFS-029: a persisted constitutional primitive) —
+    // what the pipeline knows about the capability surface travels into,
+    // onto, and BEYOND this pack (the generator persists fresh evidence and
+    // reads persisted evidence back when none is supplied). The legacy
+    // `sessionFindings` body field is honoured.
+    const rawEvidence = body.capabilityEvidence ?? body.sessionFindings;
+    const capabilityEvidence =
+      rawEvidence && typeof rawEvidence === 'object' && !Array.isArray(rawEvidence)
+        ? (rawEvidence as import('@/services/constitutional/capabilityEvidence').CapabilityEvidence)
         : undefined;
 
     const pack = await generateImplementationPack({
       goal,
       intentId: body.intentId as string | undefined,
       context: domains && domains.length > 0 ? { domains } : undefined,
-      sessionFindings,
+      capabilityEvidence,
     });
 
     // Best-effort receipt — never blocks the response, but surface its id so

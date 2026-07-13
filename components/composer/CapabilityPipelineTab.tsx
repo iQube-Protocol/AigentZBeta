@@ -47,14 +47,25 @@ export interface PackView {
     risk: { score: number; flags: string[]; basis: string };
     value: { workPotentialQc: number; basis: string };
   } | null;
-  /** The dev-loop session's what-exists-vs-needed inventory, when a session
-   * drove the generation (workflow-gap fix 2026-07-13). */
-  sessionFindings?: {
+  /** Capability Evidence (CFS-029: persisted constitutional primitive) —
+   * the what-exists-vs-needed inventory the pack was grounded in. */
+  capabilityEvidence?: {
     existing?: { name: string; path?: string; disposition?: string }[];
     missing?: { name: string; path?: string; complexity?: string; dependencies?: string[] }[];
     contextAssets?: { title: string; path?: string; signal?: string }[];
     reusePercent?: number;
     boundaries?: string[];
+  } | null;
+  /** Durable id of the persisted evidence row — evidence outlives sessions. */
+  capabilityEvidenceId?: string | null;
+  /** The Constitutional Decision (CFS-029): HOW the capability is realized,
+   * decided before the plan was drafted — nine mechanisms + 'none'. */
+  constitutionalDecision?: {
+    mechanism: string;
+    noBuildRequired: boolean;
+    rationale: string;
+    alternatives: { mechanism: string; reason: string }[];
+    decidedBy: "llm" | "heuristic";
   } | null;
 }
 
@@ -79,22 +90,31 @@ ${pack.invariantBindings.map((b) => `- ${b.seedId ? `[${b.seedId}] ` : ""}${b.st
 ${pack.resolvedTerms.map((t) => `- "${t.term}" → **${t.canonical}**${t.invariantIds.length ? ` (governed by ${t.invariantIds.join(", ")})` : ""}`).join("\n") || "_none_"}
 
 ## Areas to touch
-${pack.areasToTouch.map((a) => `- ${a}`).join("\n") || "_not drafted (template pack — determine during implementation)_"}
+${pack.areasToTouch.map((a) => `- ${a}`).join("\n") || (pack.constitutionalDecision?.noBuildRequired ? "_none — the constitutional decision is composition, not construction_" : "_not drafted (template pack — determine during implementation)_")}
 ${
-  pack.sessionFindings &&
-  ((pack.sessionFindings.existing?.length ?? 0) > 0 || (pack.sessionFindings.missing?.length ?? 0) > 0)
+  pack.constitutionalDecision
     ? `
-## What exists vs what is needed (from the dev-loop session${typeof pack.sessionFindings.reusePercent === "number" ? ` · ${pack.sessionFindings.reusePercent}% reuse` : ""})
-${(pack.sessionFindings.existing ?? []).map((e) => `- EXISTING · ${e.name}${e.path ? ` — \`${e.path}\`` : ""}${e.disposition ? ` [${e.disposition}]` : ""}`).join("\n")}
-${(pack.sessionFindings.missing ?? []).map((m) => `- MISSING · ${m.name}${m.path ? ` — \`${m.path}\`` : ""}${m.complexity ? ` (${m.complexity})` : ""}${m.dependencies?.length ? ` deps: ${m.dependencies.join(", ")}` : ""}`).join("\n")}
-${(pack.sessionFindings.boundaries ?? []).map((b) => `- NEVER · ${b}`).join("\n")}`
+## Constitutional Decision
+- Mechanism: **${pack.constitutionalDecision.mechanism}**${pack.constitutionalDecision.noBuildRequired ? " — **no build required** (capability exists; compose it)" : ""} · decided by ${pack.constitutionalDecision.decidedBy}
+- Rationale: ${pack.constitutionalDecision.rationale}
+${pack.constitutionalDecision.alternatives.map((a) => `- Considered \`${a.mechanism}\`: ${a.reason}`).join("\n")}`
+    : ""
+}
+${
+  pack.capabilityEvidence &&
+  ((pack.capabilityEvidence.existing?.length ?? 0) > 0 || (pack.capabilityEvidence.missing?.length ?? 0) > 0)
+    ? `
+## Capability Evidence (persisted${pack.capabilityEvidenceId ? ` · \`${pack.capabilityEvidenceId.slice(0, 8)}\`` : ""}${typeof pack.capabilityEvidence.reusePercent === "number" ? ` · ${pack.capabilityEvidence.reusePercent}% reuse` : ""})
+${(pack.capabilityEvidence.existing ?? []).map((e) => `- EXISTING · ${e.name}${e.path ? ` — \`${e.path}\`` : ""}${e.disposition ? ` [${e.disposition}]` : ""}`).join("\n")}
+${(pack.capabilityEvidence.missing ?? []).map((m) => `- MISSING · ${m.name}${m.path ? ` — \`${m.path}\`` : ""}${m.complexity ? ` (${m.complexity})` : ""}${m.dependencies?.length ? ` deps: ${m.dependencies.join(", ")}` : ""}`).join("\n")}
+${(pack.capabilityEvidence.boundaries ?? []).map((b) => `- NEVER · ${b}`).join("\n")}`
     : ""
 }
 
-## Validation plan
+## Constitutional Validation
 ${pack.validationPlan.map((v) => `- ${v}`).join("\n")}
 
-## Receipt plan
+## Constitutional Receipt
 ${pack.receiptPlan.map((r) => `- ${r}`).join("\n")}
 
 ## Consequence preflight${pack.preflight ? "" : " — not available for this pack"}

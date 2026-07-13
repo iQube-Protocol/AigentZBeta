@@ -25,25 +25,40 @@ import { assembleContextPack } from '@/services/constitutional/ontologyResolver'
 import { callStage } from '@/services/constitutional/modelRouter';
 import { parseJsonLenient, callChatWithUsage, type ExperimentProvider } from '@/services/experiments/llm';
 import { forecastConsequences, assessRiskHeuristic, assessValueHeuristic } from '@/services/consequence/stages';
+import {
+  IMPLEMENTATION_MECHANISMS,
+  capabilityEvidenceBlock as evidenceBlock,
+  areasFromEvidence as evidenceAreas,
+  saveCapabilityEvidence,
+  readLatestCapabilityEvidence,
+  type ImplementationMechanism as Mechanism,
+  type CapabilityEvidence as Evidence,
+} from '@/services/constitutional/capabilityEvidence';
+import {
+  decideRealizationMechanism,
+  type ConstitutionalDecision,
+} from '@/services/constitutional/constitutionalDecision';
 
 // ---------------------------------------------------------------------------
 // Shape
 // ---------------------------------------------------------------------------
 
-/** CFS-015: development is one mechanism among several. */
-export const IMPLEMENTATION_MECHANISMS = [
-  'code',
-  'configuration',
-  'registry',
-  'prompt',
-  'policy',
-  'schema',
-  'knowledge',
-  'automation',
-  'documentation',
-] as const;
-
-export type ImplementationMechanism = (typeof IMPLEMENTATION_MECHANISMS)[number];
+// CFS-015: development is one mechanism among several. The mechanism
+// vocabulary + the Capability Evidence primitive live in the leaf module
+// (capabilityEvidence.ts) as of the 2026-07-13 CFS-029 re-homing — re-exported
+// here so existing importers are unchanged.
+export {
+  capabilityEvidenceBlock,
+  sessionFindingsBlock,
+  areasFromEvidence,
+  areasFromFindings,
+} from '@/services/constitutional/capabilityEvidence';
+export { IMPLEMENTATION_MECHANISMS };
+export type {
+  ImplementationMechanism,
+  CapabilityEvidence,
+  SessionFindings,
+} from '@/services/constitutional/capabilityEvidence';
 
 export interface InvariantBinding {
   /** DB id of the grounding invariant (from the ContextPack slice). */
@@ -63,7 +78,7 @@ export interface ImplementationPack {
   resolvedTerms: ResolvedTerm[];
   /** File/dir globs or subsystem names — empty when unknown, never invented. */
   areasToTouch: string[];
-  implementationMechanism: ImplementationMechanism;
+  implementationMechanism: Mechanism;
   validationPlan: string[];
   receiptPlan: string[];
   canonVersion: string;
@@ -75,94 +90,18 @@ export interface ImplementationPack {
    * RiskQube/ValueQube. Null when the preflight could not run (best-effort —
    * pack generation never blocks on it). */
   preflight: PackPreflight | null;
-  /** The dev-loop session's what-exists-vs-what's-needed inventory (Context
-   * Pack reuse signals + Gap Analysis existing/missing + Consequence Canvas
-   * boundaries), when the caller supplied it. Echoed onto the pack so the
-   * implementation map TRAVELS with the pack instead of dying in the session
-   * (workflow-gap fix, 2026-07-13). Null when no session drove the generation. */
-  sessionFindings: SessionFindings | null;
-}
-
-/**
- * What the development session already knows — the bridge that was missing
- * between the DCC's Context Pack / Gap Analysis / Consequence Canvas stages
- * and pack generation. All fields optional; nothing here is ever invented by
- * the generator — it only folds in what the session actually recorded.
- */
-export interface SessionFindings {
-  /** Gap Analysis EXISTING — capabilities to compose, never re-implement. */
-  existing?: { name: string; path?: string; disposition?: string }[];
-  /** Gap Analysis MISSING — the genuinely new work. */
-  missing?: { name: string; path?: string; complexity?: string; dependencies?: string[] }[];
-  /** Context Pack items with their reuse signals. */
-  contextAssets?: { title: string; path?: string; signal?: string }[];
-  /** Gap Analysis reuse ratio, as a percentage. */
-  reusePercent?: number;
-  /** Consequence Canvas should-never-happen entries — hard boundaries. */
-  boundaries?: string[];
-}
-
-/** Fold the session findings into prompt lines. Pure; empty findings → []. */
-export function sessionFindingsBlock(findings: SessionFindings | undefined): string[] {
-  if (!findings) return [];
-  const lines: string[] = [];
-  const existing = findings.existing ?? [];
-  const missing = findings.missing ?? [];
-  const assets = findings.contextAssets ?? [];
-  const boundaries = findings.boundaries ?? [];
-  if (existing.length || missing.length || assets.length) {
-    lines.push(
-      `The development session has ALREADY inventoried the platform for this goal${
-        typeof findings.reusePercent === 'number' ? ` (${findings.reusePercent}% reuse)` : ''
-      } — the plan MUST build on this inventory and never duplicate an existing capability:`,
-    );
-  }
-  if (existing.length) {
-    lines.push(
-      'EXISTING capabilities (compose these — re-implementing one is a defect):',
-      ...existing.map((e) => `- ${e.name}${e.path ? ` — ${e.path}` : ''}${e.disposition ? ` [${e.disposition}]` : ''}`),
-    );
-  }
-  if (missing.length) {
-    lines.push(
-      'MISSING capabilities (the genuinely new work):',
-      ...missing.map(
-        (m) =>
-          `- ${m.name}${m.path ? ` — ${m.path}` : ''}${m.complexity ? ` (${m.complexity})` : ''}${
-            m.dependencies?.length ? ` deps: ${m.dependencies.join(', ')}` : ''
-          }`,
-      ),
-    );
-  }
-  if (assets.length) {
-    lines.push(
-      'Context assets already assembled:',
-      ...assets.map((a) => `- ${a.title}${a.path ? ` — ${a.path}` : ''}${a.signal ? ` [${a.signal}]` : ''}`),
-    );
-  }
-  if (boundaries.length) {
-    lines.push('Hard boundaries (must NEVER happen):', ...boundaries.map((b) => `- ${b}`));
-  }
-  if (lines.length) {
-    lines.push(
-      'areasToTouch MUST be drawn from these paths (existing extend/wrap/adapt targets + missing suggested locations) plus any glue their dependencies imply — never invented elsewhere.',
-    );
-  }
-  return lines;
-}
-
-/** Deterministic areasToTouch seed from the findings — the paths the session
- *  itself named (extend/wrap/adapt targets + missing locations). Pure. */
-export function areasFromFindings(findings: SessionFindings | undefined): string[] {
-  if (!findings) return [];
-  const out: string[] = [];
-  for (const e of findings.existing ?? []) {
-    if (e.path && e.disposition && e.disposition !== 'use_directly') out.push(e.path);
-  }
-  for (const m of findings.missing ?? []) {
-    if (m.path) out.push(m.path);
-  }
-  return [...new Set(out)];
+  /** Capability Evidence (CFS-029: a persisted constitutional primitive, not
+   * transient session data) — the what-exists-vs-what's-needed inventory the
+   * pack was grounded in. Null only when no evidence was supplied AND none is
+   * persisted for the goal. */
+  capabilityEvidence: Evidence | null;
+  /** Durable id of the persisted evidence row (capability_evidence table) —
+   * evidence outlives sessions; this is the pointer future generations reuse. */
+  capabilityEvidenceId: string | null;
+  /** The Constitutional Decision (CFS-029): HOW the capability should be
+   * realized, decided BEFORE the plan was drafted — over the nine mechanisms
+   * plus 'none' (capability exists; compose, build nothing). */
+  constitutionalDecision: ConstitutionalDecision;
 }
 
 export interface PackPreflight {
@@ -188,7 +127,7 @@ interface LlmDraft {
   receiptPlan?: unknown;
 }
 
-function isMechanism(value: unknown): value is ImplementationMechanism {
+function isMechanism(value: unknown): value is Mechanism {
   return typeof value === 'string' && (IMPLEMENTATION_MECHANISMS as readonly string[]).includes(value);
 }
 
@@ -217,8 +156,19 @@ Rules:
 - receiptPlan: which receipts to emit and when during implementation.
 - Output must parse with JSON.parse: no trailing commas, no comments.`;
 
-function draftUserPrompt(goal: string, pack: ContextPack, findings?: SessionFindings): string {
-  const lines: string[] = [`Capability goal:\n${goal}`, ...sessionFindingsBlock(findings)];
+function draftUserPrompt(
+  goal: string,
+  pack: ContextPack,
+  evidence?: Evidence,
+  decision?: ConstitutionalDecision,
+): string {
+  const lines: string[] = [`Capability goal:\n${goal}`, ...evidenceBlock(evidence)];
+  if (decision) {
+    lines.push(
+      `CONSTITUTIONAL DECISION (already taken — the plan MUST realize the capability through it): ` +
+        `mechanism='${decision.mechanism}'${decision.noBuildRequired ? ' — NO BUILD REQUIRED: plan the COMPOSITION of the existing capabilities, not construction' : ''}. Rationale: ${decision.rationale}`,
+    );
+  }
   if (pack.slice.items.length > 0) {
     lines.push(
       'Governing invariants (bind the plan to these):',
@@ -259,10 +209,13 @@ export async function generateImplementationPack(input: {
   goal: string;
   intentId?: string;
   context?: { domains?: string[] };
-  /** The dev-loop session's inventory (Context Pack / Gap Analysis /
-   * Consequence Canvas) — folds into the draft prompt, seeds areasToTouch
-   * deterministically, and travels on the pack (workflow-gap fix 2026-07-13). */
-  sessionFindings?: SessionFindings;
+  /** Capability Evidence (CFS-029) — the pipeline's what-exists-vs-needed
+   * inventory. When supplied it is PERSISTED (evidence outlives sessions);
+   * when omitted, the latest persisted evidence for the goal is read back. */
+  capabilityEvidence?: Evidence;
+  /** Legacy name for capabilityEvidence (transport-object era) — honoured
+   * when the new field is absent. */
+  sessionFindings?: Evidence;
   /** Sovereignty-drill pin (EXP-004): route the draft through ONE explicit
    * provider instead of the per-stage router. The template fallback applies
    * identically — constitutional operation continues even if the pinned
@@ -279,11 +232,35 @@ export async function generateImplementationPack(input: {
     statement: item.statement,
   }));
 
+  // ── Capability Evidence (CFS-029): persists across sessions ──
+  // Fresh evidence is saved; absent evidence is read back from the store so a
+  // pack generated OUTSIDE the originating session still knows what exists.
+  const suppliedEvidence = input.capabilityEvidence ?? input.sessionFindings;
+  let evidence: Evidence | null = suppliedEvidence ?? null;
+  let evidenceId: string | null = null;
+  if (suppliedEvidence) {
+    evidenceId = await saveCapabilityEvidence({
+      goal: input.goal,
+      intentRef: input.intentId ?? null,
+      evidence: suppliedEvidence,
+    });
+  } else {
+    const persisted = await readLatestCapabilityEvidence(input.goal);
+    if (persisted) {
+      evidence = persisted.evidence;
+      evidenceId = persisted.id;
+    }
+  }
+
+  // ── Constitutional Decision (CFS-029): HOW the capability is realized,
+  // decided BEFORE any plan is drafted — over the nine mechanisms + 'none'.
+  const decision = await decideRealizationMechanism(input.goal, evidence ?? undefined);
+
   let fields = templateFields();
   try {
     const routed = input.providerPin
-      ? await callChatWithUsage(input.providerPin, DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, input.sessionFindings), 900)
-      : await callStage('consequence', DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, input.sessionFindings), 900);
+      ? await callChatWithUsage(input.providerPin, DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, evidence ?? undefined, decision), 900)
+      : await callStage('consequence', DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, evidence ?? undefined, decision), 900);
     const draft = parseJsonLenient<LlmDraft>(routed.text);
     // A draft without a valid mechanism is not a usable plan — degrade to
     // template rather than fabricating around it. Arrays the model omitted
@@ -345,11 +322,23 @@ export async function generateImplementationPack(input: {
     );
   }
 
-  // The session already named the paths — when the draft (LLM or template)
-  // left areasToTouch empty, seed it deterministically from the findings.
-  // Session-named paths, never invented ones (the No-Guessing line holds).
-  if (fields.areasToTouch.length === 0) {
-    fields = { ...fields, areasToTouch: areasFromFindings(input.sessionFindings) };
+  // The evidence already named the paths — when the draft (LLM or template)
+  // left areasToTouch empty, seed it deterministically from the evidence.
+  // Pipeline-named paths, never invented ones (the No-Guessing line holds).
+  // A 'none' decision touches nothing — composition, not construction.
+  if (fields.areasToTouch.length === 0 && !decision.noBuildRequired) {
+    fields = { ...fields, areasToTouch: evidenceAreas(evidence ?? undefined) };
+  }
+
+  // The decided mechanism is authoritative when the draft disagrees (the
+  // decision was taken FIRST, with the evidence in view). 'none' keeps the
+  // draft's mechanism field as its lightest legal value ('knowledge': the
+  // realization is knowing what already exists) — the decision object is the
+  // semantic truth and travels beside it.
+  if (decision.mechanism !== 'none' && fields.implementationMechanism !== decision.mechanism) {
+    fields = { ...fields, implementationMechanism: decision.mechanism };
+  } else if (decision.mechanism === 'none') {
+    fields = { ...fields, implementationMechanism: 'knowledge', areasToTouch: [] };
   }
 
   return {
@@ -361,7 +350,9 @@ export async function generateImplementationPack(input: {
     canonVersion: contextPack.canonVersion,
     generatedAt: new Date().toISOString(),
     preflight,
-    sessionFindings: input.sessionFindings ?? null,
+    capabilityEvidence: evidence,
+    capabilityEvidenceId: evidenceId,
+    constitutionalDecision: decision,
     ...fields,
   };
 }
