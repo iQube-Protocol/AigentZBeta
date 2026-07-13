@@ -188,7 +188,7 @@ export const STUDIO_SKILLS: StudioSkillEntry[] = [
     badge: "A",
     compositeScore: 75,
     provider: "openai",
-    invokeEndpoint: "/api/composer/article/generate",
+    invokeEndpoint: "/api/composer/article-draft", // drift fix 2026-07-13: the real route (was /article/generate, which never existed)
     tags: ["article", "editorial", "copy", "story", "takeaways", "glossary"],
     interfaceSchema: {
       inputs: [

@@ -36,7 +36,7 @@ import {
   type VideoInvariantBrief,
 } from '@/services/video/invariantVideoBrief';
 import { validateVideoBriefCoherence } from '@/services/coherence';
-import { callSovereign } from '@/services/constitutional/modelRouter';
+import { draftCompanionMarkdown } from '@/services/composer/articleDraftService';
 import { alignArticleToBrief, type AlignmentReport } from '@/services/content/alignmentService';
 import { planRender, type RenderPlan } from '@/services/rendering/optimization';
 
@@ -138,28 +138,25 @@ export async function draftArticleFromBrief(
   useLlm = true,
 ): Promise<DraftedArticle> {
   if (!useLlm) return templateArticle(brief, productionTitle);
-  try {
-    const result = await callSovereign(
-      'draft',
-      ARTICLE_SYSTEM_MANDATE,
-      buildArticleUserPrompt(brief, productionTitle),
-      1400,
-      0.4,
-    );
-    const body = result.text?.trim();
-    if (!body) return templateArticle(brief, productionTitle);
-    return {
-      title: productionTitle?.trim() || body.split('\n')[0].replace(/^#+\s*/, '').slice(0, 120),
-      body,
-      composedBy: 'llm',
-      provider: result.provider,
-      model: result.model,
-      sovereignFloor: result.sovereignFloor,
-    };
-  } catch {
-    // Honest fallback — a drafting failure never sinks the plan.
-    return templateArticle(brief, productionTitle);
-  }
+  // CONVERGED (dogfood run 2026-07-13, CS-001 remediation): the LLM seam is
+  // the shared articleDraftService — one drafting home for the platform. The
+  // mandate + prompt pass VERBATIM, so the correspondence contract (article
+  // drafted ONLY from the shared brief) is byte-identical to before.
+  const drafted = await draftCompanionMarkdown({
+    systemMandate: ARTICLE_SYSTEM_MANDATE,
+    userPrompt: buildArticleUserPrompt(brief, productionTitle),
+    maxTokens: 1400,
+    temperature: 0.4,
+  });
+  if (!drafted) return templateArticle(brief, productionTitle); // honest fallback — never sinks the plan
+  return {
+    title: productionTitle?.trim() || drafted.body.split('\n')[0].replace(/^#+\s*/, '').slice(0, 120),
+    body: drafted.body,
+    composedBy: 'llm',
+    provider: drafted.provider,
+    model: drafted.model,
+    sovereignFloor: drafted.sovereignFloor,
+  };
 }
 
 /**
