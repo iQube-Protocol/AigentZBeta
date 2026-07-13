@@ -319,17 +319,20 @@ describe('Development Loop', () => {
   it('returns correct stage labels', () => {
     expect(getStageLabel('intent_capture')).toBe('Intent Capture');
     // CDE: the validation stage is reframed as the constitutional consequence test.
+    expect(getStageLabel('constitutional_decision')).toBe('Constitutional Decision');
     expect(getStageLabel('consequence_validation')).toBe('Constitutional Validation');
     expect(getStageLabel('remediation')).toBe('Remediation');
     expect(getStageLabel('deployment_authorization')).toBe('Deployment Authorization');
   });
 
-  it('returns correct stage indices (CDE inserts remediation + deployment_authorization before complete)', () => {
+  it('returns correct stage indices (CFS-029 inserts constitutional_decision before implementation)', () => {
     expect(getStageIndex('intent_capture')).toBe(0);
-    expect(getStageIndex('consequence_validation')).toBe(5);
-    expect(getStageIndex('remediation')).toBe(6);
-    expect(getStageIndex('deployment_authorization')).toBe(7);
-    expect(getStageIndex('complete')).toBe(8);
+    expect(getStageIndex('constitutional_decision')).toBe(4);
+    expect(getStageIndex('implementation')).toBe(5);
+    expect(getStageIndex('consequence_validation')).toBe(6);
+    expect(getStageIndex('remediation')).toBe(7);
+    expect(getStageIndex('deployment_authorization')).toBe(8);
+    expect(getStageIndex('complete')).toBe(9);
   });
 
   it('builds implementation package when all stages ready', () => {

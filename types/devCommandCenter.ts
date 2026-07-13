@@ -221,6 +221,10 @@ export interface DevLoopState {
   /** LLM-enriched implementation brief (PRD + plan + tasks). When present,
    *  buildImplementationPackage uses it instead of the derived brief. */
   implementationBrief?: string | null;
+  /** The generated Implementation Pack VIEW (T2-safe projection) — session
+   *  state, not layout state, so returning to the Implement capsule rehydrates
+   *  the pack instead of forcing a regeneration (fix 2026-07-13). */
+  generatedPack?: Record<string, unknown> | null;
   /** ICE-7 Remediation fork output — set when a failed consequence check is
    *  remedied in the validation stage rather than accepted. */
   remediationPlan?: RemediationPlan | null;

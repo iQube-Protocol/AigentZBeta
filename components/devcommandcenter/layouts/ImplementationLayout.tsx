@@ -40,8 +40,9 @@ export function ImplementationLayout({
   onDeploymentProposed,
 }: DevLayoutProps & {
   /** Writes the generated pack's markdown back into the session as the
-   * implementation brief — satisfying the stage's advance gate. */
-  onPackGenerated?: (briefMarkdown: string) => void;
+   * implementation brief — satisfying the stage's advance gate. The pack VIEW
+   * travels too, so the session (not this layout) owns pack state. */
+  onPackGenerated?: (briefMarkdown: string, pack?: Record<string, unknown>) => void;
   /** DCIR D1 observation hook — fired after a deployment proposal is
    * successfully recorded. Observe-mode only: no payload, no behavior
    * change; the receipt pipeline stays authoritative. */
@@ -53,7 +54,9 @@ export function ImplementationLayout({
 
   const [generating, setGenerating] = useState(false);
   const [packError, setPackError] = useState<string | null>(null);
-  const [pack, setPack] = useState<PackView | null>(null);
+  // Rehydrate from the SESSION (fix 2026-07-13): leaving and returning to this
+  // capsule must show the same pack, never force a regeneration.
+  const [pack, setPack] = useState<PackView | null>((session.generatedPack as PackView | null) ?? null);
   const [copied, setCopied] = useState(false);
   const [commitRange, setCommitRange] = useState("");
   const [touchesProtected, setTouchesProtected] = useState(false);
@@ -87,7 +90,7 @@ export function ImplementationLayout({
       const p = data.pack as PackView;
       setPack(p);
       setProposal(null);
-      onPackGenerated?.(packMarkdown(p));
+      onPackGenerated?.(packMarkdown(p), p as unknown as Record<string, unknown>);
       // Development-class receipt — the route created an
       // `implementation_pack_generated` receipt and returns its id. Record it
       // so the Dev Receipts panel reflects it (the receipt bug fix at source).

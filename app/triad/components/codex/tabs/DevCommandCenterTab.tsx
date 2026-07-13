@@ -138,6 +138,7 @@ const STAGES: { id: DevLoopStage; label: string; icon: typeof Cpu }[] = [
   { id: "context_assembly", label: "Context", icon: Package },
   { id: "gap_analysis", label: "Gaps", icon: FileSearch },
   { id: "consequence_modeling", label: "Consequences", icon: AlertTriangle },
+  { id: "constitutional_decision", label: "Decide", icon: Scale },
   { id: "implementation", label: "Implement", icon: Cpu },
   { id: "consequence_validation", label: "Validate", icon: CheckCircle },
   { id: "remediation", label: "Remediate", icon: ShieldAlert },
@@ -1208,8 +1209,24 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               onApproveProposal={() => handleApproveProposal("implementation")}
               onDismissProposal={() => handleDismissProposal("implementation")}
               onReceipt={handleReceipt}
-              onPackGenerated={(briefMarkdown) => {
-                setSession(s => ({ ...s, implementationBrief: briefMarkdown, updatedAt: new Date().toISOString() }));
+              onPackGenerated={(briefMarkdown, pack) => {
+                setSession(s => {
+                  const withPack = {
+                    ...s,
+                    implementationBrief: briefMarkdown,
+                    generatedPack: pack ?? s.generatedPack ?? null,
+                    updatedAt: new Date().toISOString(),
+                  };
+                  // Auto-pass to Validate (operator report 2026-07-13: "no auto
+                  // pass to the validate stage"): the pack satisfies the
+                  // implementation gate — the loop advances without a second
+                  // click. advanceStage is gate-checked; a non-implementation
+                  // stage passes through unchanged.
+                  return withPack.stage === "implementation" ? advanceStage(withPack) : withPack;
+                });
+                if (session.stage === "implementation") {
+                  engageCapsuleAndMount("validation");
+                }
                 observe(devImplementationPackGeneratedEvent());
               }}
               onDeploymentProposed={() => observe(devDeploymentProposedEvent())}

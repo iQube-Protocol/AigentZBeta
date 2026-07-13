@@ -240,9 +240,16 @@ export async function generateImplementationPack(input: {
    * provider fails. */
   providerPin?: ExperimentProvider;
 }): Promise<ImplementationPack> {
-  const contextPack = await assembleContextPack(input.goal, {
+  let contextPack = await assembleContextPack(input.goal, {
     domains: input.context?.domains,
   });
+  // Domain-filter fallback (fix 2026-07-13): a live canon with ZERO bindings
+  // meant the caller's domain filter (e.g. the session's relatedCartridges)
+  // matched no invariant rows — grounding then retries UNFILTERED. Honest
+  // widening of scope, never invention; the canon itself is unchanged.
+  if (contextPack.slice.items.length === 0 && (input.context?.domains?.length ?? 0) > 0) {
+    contextPack = await assembleContextPack(input.goal, {});
+  }
 
   const invariantBindings: InvariantBinding[] = contextPack.slice.items.map((item) => ({
     id: item.id,
