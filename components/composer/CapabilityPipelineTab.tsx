@@ -47,6 +47,15 @@ export interface PackView {
     risk: { score: number; flags: string[]; basis: string };
     value: { workPotentialQc: number; basis: string };
   } | null;
+  /** The dev-loop session's what-exists-vs-needed inventory, when a session
+   * drove the generation (workflow-gap fix 2026-07-13). */
+  sessionFindings?: {
+    existing?: { name: string; path?: string; disposition?: string }[];
+    missing?: { name: string; path?: string; complexity?: string; dependencies?: string[] }[];
+    contextAssets?: { title: string; path?: string; signal?: string }[];
+    reusePercent?: number;
+    boundaries?: string[];
+  } | null;
 }
 
 // Which pipeline stages this surface exercises. risk/value/consequence
@@ -71,6 +80,16 @@ ${pack.resolvedTerms.map((t) => `- "${t.term}" → **${t.canonical}**${t.invaria
 
 ## Areas to touch
 ${pack.areasToTouch.map((a) => `- ${a}`).join("\n") || "_not drafted (template pack — determine during implementation)_"}
+${
+  pack.sessionFindings &&
+  ((pack.sessionFindings.existing?.length ?? 0) > 0 || (pack.sessionFindings.missing?.length ?? 0) > 0)
+    ? `
+## What exists vs what is needed (from the dev-loop session${typeof pack.sessionFindings.reusePercent === "number" ? ` · ${pack.sessionFindings.reusePercent}% reuse` : ""})
+${(pack.sessionFindings.existing ?? []).map((e) => `- EXISTING · ${e.name}${e.path ? ` — \`${e.path}\`` : ""}${e.disposition ? ` [${e.disposition}]` : ""}`).join("\n")}
+${(pack.sessionFindings.missing ?? []).map((m) => `- MISSING · ${m.name}${m.path ? ` — \`${m.path}\`` : ""}${m.complexity ? ` (${m.complexity})` : ""}${m.dependencies?.length ? ` deps: ${m.dependencies.join(", ")}` : ""}`).join("\n")}
+${(pack.sessionFindings.boundaries ?? []).map((b) => `- NEVER · ${b}`).join("\n")}`
+    : ""
+}
 
 ## Validation plan
 ${pack.validationPlan.map((v) => `- ${v}`).join("\n")}

@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   const gate = await requireAdmin(request);
   if ('error' in gate) return gate.error;
 
-  let body: { goal?: unknown; intentId?: unknown; domains?: unknown };
+  let body: { goal?: unknown; intentId?: unknown; domains?: unknown; sessionFindings?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -55,10 +55,19 @@ export async function POST(request: NextRequest) {
   const domains = body.domains as string[] | undefined;
 
   try {
+    // The dev-loop session's inventory (Context Pack / Gap Analysis /
+    // Consequence Canvas) — the workflow-gap fix (2026-07-13): what the
+    // session already knows now travels into (and onto) the pack.
+    const sessionFindings =
+      body.sessionFindings && typeof body.sessionFindings === 'object' && !Array.isArray(body.sessionFindings)
+        ? (body.sessionFindings as import('@/services/constitutional/implementationPack').SessionFindings)
+        : undefined;
+
     const pack = await generateImplementationPack({
       goal,
       intentId: body.intentId as string | undefined,
       context: domains && domains.length > 0 ? { domains } : undefined,
+      sessionFindings,
     });
 
     // Best-effort receipt — never blocks the response, but surface its id so

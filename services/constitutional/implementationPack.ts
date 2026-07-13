@@ -75,6 +75,94 @@ export interface ImplementationPack {
    * RiskQube/ValueQube. Null when the preflight could not run (best-effort —
    * pack generation never blocks on it). */
   preflight: PackPreflight | null;
+  /** The dev-loop session's what-exists-vs-what's-needed inventory (Context
+   * Pack reuse signals + Gap Analysis existing/missing + Consequence Canvas
+   * boundaries), when the caller supplied it. Echoed onto the pack so the
+   * implementation map TRAVELS with the pack instead of dying in the session
+   * (workflow-gap fix, 2026-07-13). Null when no session drove the generation. */
+  sessionFindings: SessionFindings | null;
+}
+
+/**
+ * What the development session already knows — the bridge that was missing
+ * between the DCC's Context Pack / Gap Analysis / Consequence Canvas stages
+ * and pack generation. All fields optional; nothing here is ever invented by
+ * the generator — it only folds in what the session actually recorded.
+ */
+export interface SessionFindings {
+  /** Gap Analysis EXISTING — capabilities to compose, never re-implement. */
+  existing?: { name: string; path?: string; disposition?: string }[];
+  /** Gap Analysis MISSING — the genuinely new work. */
+  missing?: { name: string; path?: string; complexity?: string; dependencies?: string[] }[];
+  /** Context Pack items with their reuse signals. */
+  contextAssets?: { title: string; path?: string; signal?: string }[];
+  /** Gap Analysis reuse ratio, as a percentage. */
+  reusePercent?: number;
+  /** Consequence Canvas should-never-happen entries — hard boundaries. */
+  boundaries?: string[];
+}
+
+/** Fold the session findings into prompt lines. Pure; empty findings → []. */
+export function sessionFindingsBlock(findings: SessionFindings | undefined): string[] {
+  if (!findings) return [];
+  const lines: string[] = [];
+  const existing = findings.existing ?? [];
+  const missing = findings.missing ?? [];
+  const assets = findings.contextAssets ?? [];
+  const boundaries = findings.boundaries ?? [];
+  if (existing.length || missing.length || assets.length) {
+    lines.push(
+      `The development session has ALREADY inventoried the platform for this goal${
+        typeof findings.reusePercent === 'number' ? ` (${findings.reusePercent}% reuse)` : ''
+      } — the plan MUST build on this inventory and never duplicate an existing capability:`,
+    );
+  }
+  if (existing.length) {
+    lines.push(
+      'EXISTING capabilities (compose these — re-implementing one is a defect):',
+      ...existing.map((e) => `- ${e.name}${e.path ? ` — ${e.path}` : ''}${e.disposition ? ` [${e.disposition}]` : ''}`),
+    );
+  }
+  if (missing.length) {
+    lines.push(
+      'MISSING capabilities (the genuinely new work):',
+      ...missing.map(
+        (m) =>
+          `- ${m.name}${m.path ? ` — ${m.path}` : ''}${m.complexity ? ` (${m.complexity})` : ''}${
+            m.dependencies?.length ? ` deps: ${m.dependencies.join(', ')}` : ''
+          }`,
+      ),
+    );
+  }
+  if (assets.length) {
+    lines.push(
+      'Context assets already assembled:',
+      ...assets.map((a) => `- ${a.title}${a.path ? ` — ${a.path}` : ''}${a.signal ? ` [${a.signal}]` : ''}`),
+    );
+  }
+  if (boundaries.length) {
+    lines.push('Hard boundaries (must NEVER happen):', ...boundaries.map((b) => `- ${b}`));
+  }
+  if (lines.length) {
+    lines.push(
+      'areasToTouch MUST be drawn from these paths (existing extend/wrap/adapt targets + missing suggested locations) plus any glue their dependencies imply — never invented elsewhere.',
+    );
+  }
+  return lines;
+}
+
+/** Deterministic areasToTouch seed from the findings — the paths the session
+ *  itself named (extend/wrap/adapt targets + missing locations). Pure. */
+export function areasFromFindings(findings: SessionFindings | undefined): string[] {
+  if (!findings) return [];
+  const out: string[] = [];
+  for (const e of findings.existing ?? []) {
+    if (e.path && e.disposition && e.disposition !== 'use_directly') out.push(e.path);
+  }
+  for (const m of findings.missing ?? []) {
+    if (m.path) out.push(m.path);
+  }
+  return [...new Set(out)];
 }
 
 export interface PackPreflight {
@@ -129,8 +217,8 @@ Rules:
 - receiptPlan: which receipts to emit and when during implementation.
 - Output must parse with JSON.parse: no trailing commas, no comments.`;
 
-function draftUserPrompt(goal: string, pack: ContextPack): string {
-  const lines: string[] = [`Capability goal:\n${goal}`];
+function draftUserPrompt(goal: string, pack: ContextPack, findings?: SessionFindings): string {
+  const lines: string[] = [`Capability goal:\n${goal}`, ...sessionFindingsBlock(findings)];
   if (pack.slice.items.length > 0) {
     lines.push(
       'Governing invariants (bind the plan to these):',
@@ -171,6 +259,10 @@ export async function generateImplementationPack(input: {
   goal: string;
   intentId?: string;
   context?: { domains?: string[] };
+  /** The dev-loop session's inventory (Context Pack / Gap Analysis /
+   * Consequence Canvas) — folds into the draft prompt, seeds areasToTouch
+   * deterministically, and travels on the pack (workflow-gap fix 2026-07-13). */
+  sessionFindings?: SessionFindings;
   /** Sovereignty-drill pin (EXP-004): route the draft through ONE explicit
    * provider instead of the per-stage router. The template fallback applies
    * identically — constitutional operation continues even if the pinned
@@ -190,8 +282,8 @@ export async function generateImplementationPack(input: {
   let fields = templateFields();
   try {
     const routed = input.providerPin
-      ? await callChatWithUsage(input.providerPin, DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack), 900)
-      : await callStage('consequence', DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack), 900);
+      ? await callChatWithUsage(input.providerPin, DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, input.sessionFindings), 900)
+      : await callStage('consequence', DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, input.sessionFindings), 900);
     const draft = parseJsonLenient<LlmDraft>(routed.text);
     // A draft without a valid mechanism is not a usable plan — degrade to
     // template rather than fabricating around it. Arrays the model omitted
@@ -253,6 +345,13 @@ export async function generateImplementationPack(input: {
     );
   }
 
+  // The session already named the paths — when the draft (LLM or template)
+  // left areasToTouch empty, seed it deterministically from the findings.
+  // Session-named paths, never invented ones (the No-Guessing line holds).
+  if (fields.areasToTouch.length === 0) {
+    fields = { ...fields, areasToTouch: areasFromFindings(input.sessionFindings) };
+  }
+
   return {
     id: randomUUID(),
     intentId: input.intentId ?? null,
@@ -262,6 +361,7 @@ export async function generateImplementationPack(input: {
     canonVersion: contextPack.canonVersion,
     generatedAt: new Date().toISOString(),
     preflight,
+    sessionFindings: input.sessionFindings ?? null,
     ...fields,
   };
 }

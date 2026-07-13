@@ -65,9 +65,39 @@ export function ImplementationLayout({
     setPackError(null);
     try {
       const domains = session.intent.relatedCartridges.filter(Boolean);
+      // The workflow-gap fix (2026-07-13): the session's Context Pack / Gap
+      // Analysis / Consequence Canvas findings now TRAVEL into pack generation
+      // instead of dying in the session. Everything here was recorded by the
+      // earlier stages — nothing is synthesized at this seam.
+      const sessionFindings = {
+        existing: (session.gapAnalysis?.existing ?? []).map((e) => ({
+          name: e.name,
+          path: e.location,
+          disposition: e.reuseStrategy,
+        })),
+        missing: (session.gapAnalysis?.missing ?? []).map((m) => ({
+          name: m.name,
+          path: m.suggestedLocation,
+          complexity: m.estimatedComplexity,
+          dependencies: m.dependencies,
+        })),
+        contextAssets: (session.contextPack?.items ?? []).map((i) => ({
+          title: i.title,
+          path: i.sourcePath,
+          signal: i.reuseSignal,
+        })),
+        ...(session.gapAnalysis ? { reusePercent: Math.round(session.gapAnalysis.reuseRatio * 100) } : {}),
+        boundaries: (session.consequenceCanvas?.shouldNeverHappen ?? []).map((c) => c.description),
+      };
+      const hasFindings =
+        sessionFindings.existing.length > 0 ||
+        sessionFindings.missing.length > 0 ||
+        sessionFindings.contextAssets.length > 0 ||
+        sessionFindings.boundaries.length > 0;
       const data = await experimentStep("/api/constitutional/implementation-pack", {
         goal: session.intent.goal,
         ...(domains.length > 0 ? { domains } : {}),
+        ...(hasFindings ? { sessionFindings } : {}),
       });
       const p = data.pack as PackView;
       setPack(p);
