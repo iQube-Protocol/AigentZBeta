@@ -215,15 +215,16 @@ ambiguity with the legacy `EXP-nnn` numbers, which are retained on the founding 
 | **CAE** | Constitutional Agency Experiments | delegation, personas, standing, agent sovereignty |
 | **COE** | Constitutional Operations Experiments | Founder Office, Passport, Operation Leap, governance |
 
-**CCE-005 — Constitutional Capability Convergence** is the first flagship experiment of the CCE
-series (canonized 2026-07-13; the number places it fifth in the unified experimental lineage).
+**CCE-006 — Constitutional Capability Convergence** is the first flagship experiment of the CCE
+series (canonized 2026-07-13; numbered SIXTH in the unified experimental lineage — EXP-005
+Provider Choice, executed with published results, holds the fifth slot).
 The founding experiments retain their legacy numbers with PROPOSED retro-classification
 (operator confirms before any renumbering): EXP-001 Living KnowledgeQube → CIE · EXP-002
 Invariant-Carried Video → CIE · EXP-003 Rediscovery Savings → CIE · EXP-004 Sovereignty → CCE ·
-EXP-005 Provider Choice → CCE. Note honestly: legacy `EXP-005` (Provider Choice) and `CCE-005`
-coexist — different series, no collision under series-prefixed numbering.
+EXP-005 Provider Choice → CCE. The unified lineage therefore runs EXP-001…EXP-005 then CCE-006 —
+no number is ever reused across series (operator direction 2026-07-13).
 
 **Constitutional Validation Runs (CVR-nnn)** are the lab's execution instrument for CCE-series
 experiments: a full pipeline run (Evidence → Decision → Execution → Validation → Receipt) whose
 subject is the platform itself. What a CVR validates is constitutional behaviour, not just
-software. CVR-001 executed CCE-005.
+software. CVR-001 executed CCE-006.

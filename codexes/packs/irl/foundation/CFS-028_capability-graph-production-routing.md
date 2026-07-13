@@ -56,9 +56,9 @@ The graph never auto-routes consequence-bearing production. The surface is a **"
 - No execution authority of any kind — D2 remains fully governed by CFS-016; this graph only *describes* who could execute, gated and dormant until D2 ratification.
 - No invented model names, prices, or capabilities — every node traces to a registry entry or an operator declaration.
 
-## 6. Capability Integrity (amendment, operator-ratified 2026-07-13; motivated by CCE-005)
+## 6. Capability Integrity (amendment, operator-ratified 2026-07-13; motivated by CCE-006)
 
-CCE-005's Registry Drift finding — a catalog entry advertising an invocation endpoint that never
+CCE-006's Registry Drift finding — a catalog entry advertising an invocation endpoint that never
 existed — surfaced a new evidence class: the registry's constitutional view of capability can
 diverge from operational reality. **Capability Integrity** makes reachability a constitutional
 property. Every registry entry (and, by extension, every Producer on this graph) should
@@ -73,7 +73,7 @@ eventually answer five questions:
 | **Ratified** | has its canonical status been constitutionally accepted? |
 
 Implementation is a follow-on (§4.5 family): an integrity probe that walks catalog
-`invokeEndpoint`s against the real route table would have caught the CCE-005 phantom endpoint
+`invokeEndpoint`s against the real route table would have caught the CCE-006 phantom endpoint
 mechanically. Integrity results become Constitutional Evidence (CFS-029 evidence split) that the
 Decision stage reasons over.
 

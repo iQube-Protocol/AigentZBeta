@@ -74,7 +74,7 @@ Pack renders now say **Constitutional Validation** and **Constitutional Receipt*
 
 ---
 
-## Amendment — Evidence Split + Constitutional Ratification (operator-ratified 2026-07-13, with CCE-005)
+## Amendment — Evidence Split + Constitutional Ratification (operator-ratified 2026-07-13, with CCE-006)
 
 ### A. Runtime Evidence vs Constitutional Evidence
 
@@ -106,4 +106,4 @@ object is designed alongside D2 (where per-deploy approval is itself a ratificat
 The full audit chain the pipeline now records — **Evidence → Decision → Execution → Validation →
 Receipt (→ Ratification)** — is the platform's own reasoning history: what was observed, why the
 remedy was chosen, what changed, whether it worked, and what is now accepted as constitutional
-state. CCE-005 is its first complete instance.
+state. CCE-006 is its first complete instance.

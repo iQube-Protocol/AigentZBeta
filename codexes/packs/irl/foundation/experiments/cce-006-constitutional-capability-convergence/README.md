@@ -1,10 +1,10 @@
-# CCE-005 — Constitutional Capability Convergence
+# CCE-006 — Constitutional Capability Convergence
 
-**Constitutional Computing Experiment 005 · metaMe IRL — Invariant Research Laboratory**
-**Canonized by operator direction 2026-07-13. The first flagship experiment of the Constitutional Computing (CCE) series.**
+**Constitutional Computing Experiment 006 · metaMe IRL — Invariant Research Laboratory**
+**Canonized by operator direction 2026-07-13 (renumbered from CCE-005 same day: EXP-005 Provider Choice, executed with published results, holds the fifth lineage slot). The first flagship experiment of the Constitutional Computing (CCE) series.**
 **Executed as CVR-001 (Constitutional Validation Run 001) — run record: `codexes/packs/agentiq/updates/2026-07-13_dogfood-run-001-article-convergence.md`.**
 
-> **CCE-005 represents the first empirical evidence that Constitutional Computing is an
+> **CCE-006 represents the first empirical evidence that Constitutional Computing is an
 > executable engineering discipline rather than merely an architectural philosophy.**
 
 ## Research question
@@ -85,10 +85,10 @@ This is the first demonstrated instance of the Human Agency System improving its
 constitutional architecture through constitutional reasoning — the transition from *defining*
 the principles of Constitutional Computing (the prior experimental lineage) to the platform
 *practicing* it. Chrysalis 1.x proved AI-assisted development could be orchestrated; early
-Chrysalis 2.0 proved constitutional reasoning could be structured; CCE-005 is the first evidence
+Chrysalis 2.0 proved constitutional reasoning could be structured; CCE-006 is the first evidence
 the platform can use its own constitutional process to improve itself.
 
-**D2 note (CFS-016):** CCE-005 / CVR-001 is recognized as the first ratifiable demonstration of
+**D2 note (CFS-016):** CCE-006 / CVR-001 is recognized as the first ratifiable demonstration of
 constitutional self-improvement and enters the D1 operating-history evidence file as cycle #1.
 
 ## Follow-on concepts ratified alongside this canonization (operator direction 2026-07-13)

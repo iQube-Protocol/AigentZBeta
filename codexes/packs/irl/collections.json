@@ -57,7 +57,7 @@
       "title": "Experiments",
       "description": "Chrysalis Foundation flywheel experiments — EXP-001 The First Living KnowledgeQube (Constitutional Internet, five renderings + evaluation protocol), EXP-002 Invariant-Carried Video (24s/48s briefs), and EXP-003 Rediscovery Savings (cold vs initialized benchmark).",
       "items": [
-        "foundation/experiments/cce-005-constitutional-capability-convergence/README.md",
+        "foundation/experiments/cce-006-constitutional-capability-convergence/README.md",
         "foundation/experiments/exp-001-living-knowledgeqube/README.md",
         "foundation/experiments/exp-001-living-knowledgeqube/canonical-article.md",
         "foundation/experiments/exp-001-living-knowledgeqube/report.md",
