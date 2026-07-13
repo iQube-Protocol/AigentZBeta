@@ -23,6 +23,8 @@
 
 import { createHash } from 'crypto';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import type { ConstitutionalObject } from '@/types/constitutionalObject';
+import { standingBandFor } from '@/types/constitutionalObject';
 
 // ---------------------------------------------------------------------------
 // The mechanism vocabulary (CFS-015: code is one mechanism among nine)
@@ -194,16 +196,16 @@ export async function saveCapabilityEvidence(input: {
 
 /** Read the LATEST persisted evidence for a goal, or null. This is the
  *  "evidence outlives the session" read — pack generation calls it whenever
- *  no live evidence was supplied. */
+ *  no live evidence was supplied. Carries created_at for the freshness policy. */
 export async function readLatestCapabilityEvidence(
   goal: string,
-): Promise<{ id: string; evidence: CapabilityEvidence } | null> {
+): Promise<{ id: string; evidence: CapabilityEvidence; createdAt: string } | null> {
   const admin = getSupabaseServer();
   if (!admin) return null;
   try {
     const { data, error } = await admin
       .from('capability_evidence')
-      .select('id, evidence')
+      .select('id, evidence, created_at')
       .eq('goal_hash', goalHashFor(goal))
       .order('created_at', { ascending: false })
       .limit(1)
@@ -212,9 +214,90 @@ export async function readLatestCapabilityEvidence(
       softFail('read', error.message);
       return null;
     }
-    return data ? { id: String(data.id), evidence: (data.evidence ?? {}) as CapabilityEvidence } : null;
+    return data
+      ? { id: String(data.id), evidence: (data.evidence ?? {}) as CapabilityEvidence, createdAt: String(data.created_at) }
+      : null;
   } catch (e) {
     softFail('read', e instanceof Error ? e.message : String(e));
     return null;
   }
+}
+
+/** Attach the provenance receipt to a persisted evidence row (CFS-029 §7.2 —
+ *  evidence as a constitutional object carries its receipt). Best-effort. */
+export async function attachReceiptToEvidence(id: string, receiptId: string): Promise<boolean> {
+  const admin = getSupabaseServer();
+  if (!admin) return false;
+  try {
+    const { error } = await admin.from('capability_evidence').update({ receipt_id: receiptId }).eq('id', id);
+    if (error) {
+      softFail('attach-receipt', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    softFail('attach-receipt', e instanceof Error ? e.message : String(e));
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Freshness policy (CFS-029 §7.3) — never ground on stale evidence silently
+// ---------------------------------------------------------------------------
+
+/** Design value (v1): persisted evidence older than this is flagged STALE and
+ *  a re-inventory is recommended — grounding proceeds, loudly, never silently. */
+export const EVIDENCE_FRESHNESS_WINDOW_DAYS = 7;
+
+export type EvidenceFreshness = 'supplied' | 'persisted-fresh' | 'persisted-stale' | 'none';
+
+/** Classify persisted-evidence freshness. Pure — caller supplies `now`. */
+export function evidenceFreshnessFor(createdAt: string, now: string): 'persisted-fresh' | 'persisted-stale' {
+  const ageMs = new Date(now).getTime() - new Date(createdAt).getTime();
+  return ageMs > EVIDENCE_FRESHNESS_WINDOW_DAYS * 24 * 60 * 60 * 1000 ? 'persisted-stale' : 'persisted-fresh';
+}
+
+// ---------------------------------------------------------------------------
+// The evidence as a ConstitutionalObject (CFS-029 §7.2) — pure projection
+// ---------------------------------------------------------------------------
+
+/**
+ * Compose the persisted evidence as a well-formed ConstitutionalObject (the
+ * P0 object model): identity ref is the T2-safe goal-hash commitment;
+ * provenance carries the persistence receipt; standing is a documented v1
+ * DESIGN VALUE (0.5 'validated' band floor — evidence is validated by the
+ * session that produced it, canonical only by future ratification). Pure.
+ */
+export function buildCapabilityEvidenceObject(input: {
+  goal: string;
+  evidence: CapabilityEvidence;
+  evidenceRowId: string | null;
+  receiptId: string | null;
+  createdAt: string;
+}): ConstitutionalObject<CapabilityEvidence> {
+  const hash = goalHashFor(input.goal);
+  const standing = 0.5; // v1 design value — session-validated, not canonized
+  return {
+    identity: {
+      id: `capability-evidence-${hash}`,
+      kind: 'knowledge',
+      ref: `capability-evidence:${hash}`,
+      displayLabel: `Capability Evidence — ${input.goal.trim().slice(0, 80)}`,
+    },
+    version: { version: 1, status: 'active' },
+    standing: { standing, band: standingBandFor(standing), reach: 0 },
+    authority: {
+      minStandingToCompose: 'validated',
+      ratificationRequired: false,
+      governingInvariants: [],
+    },
+    ownership: { ownerCommitment: 'platform-steward' },
+    provenance: {
+      receiptIds: input.receiptId ? [input.receiptId] : [],
+      source: 'authored',
+    },
+    lifecycle: { state: 'active', order: ['draft', 'active', 'deprecated', 'archived'] },
+    dependencies: [],
+    payload: input.evidence,
+  };
 }

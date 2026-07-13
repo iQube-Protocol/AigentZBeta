@@ -31,11 +31,15 @@ import {
   areasFromEvidence as evidenceAreas,
   saveCapabilityEvidence,
   readLatestCapabilityEvidence,
+  evidenceFreshnessFor,
+  EVIDENCE_FRESHNESS_WINDOW_DAYS,
+  type EvidenceFreshness,
   type ImplementationMechanism as Mechanism,
   type CapabilityEvidence as Evidence,
 } from '@/services/constitutional/capabilityEvidence';
 import {
   decideRealizationMechanism,
+  isRealizationMechanism,
   type ConstitutionalDecision,
 } from '@/services/constitutional/constitutionalDecision';
 
@@ -102,6 +106,10 @@ export interface ImplementationPack {
    * realized, decided BEFORE the plan was drafted — over the nine mechanisms
    * plus 'none' (capability exists; compose, build nothing). */
   constitutionalDecision: ConstitutionalDecision;
+  /** Freshness of the grounding evidence (CFS-029 §7.3): 'supplied' (live from
+   * a session) · 'persisted-fresh' · 'persisted-stale' (older than the window
+   * — re-inventory recommended, grounding proceeded LOUDLY) · 'none'. */
+  evidenceFreshness: EvidenceFreshness;
 }
 
 export interface PackPreflight {
@@ -161,8 +169,14 @@ function draftUserPrompt(
   pack: ContextPack,
   evidence?: Evidence,
   decision?: ConstitutionalDecision,
+  evidenceFreshness?: EvidenceFreshness,
 ): string {
   const lines: string[] = [`Capability goal:\n${goal}`, ...evidenceBlock(evidence)];
+  if (evidenceFreshness === 'persisted-stale') {
+    lines.push(
+      `NOTE: the capability evidence above is PERSISTED and older than ${EVIDENCE_FRESHNESS_WINDOW_DAYS} days — treat paths/dispositions as possibly outdated and include a re-inventory step in the validation plan.`,
+    );
+  }
   if (decision) {
     lines.push(
       `CONSTITUTIONAL DECISION (already taken — the plan MUST realize the capability through it): ` +
@@ -216,6 +230,10 @@ export async function generateImplementationPack(input: {
   /** Legacy name for capabilityEvidence (transport-object era) — honoured
    * when the new field is absent. */
   sessionFindings?: Evidence;
+  /** A Constitutional Decision ALREADY taken (the DCC Decision stage, CFS-029
+   * §7.1) — when supplied and valid, the generator honours it instead of
+   * re-deciding (one decision, taken once, travelling forward). */
+  decision?: ConstitutionalDecision;
   /** Sovereignty-drill pin (EXP-004): route the draft through ONE explicit
    * provider instead of the per-stage router. The template fallback applies
    * identically — constitutional operation continues even if the pinned
@@ -238,6 +256,7 @@ export async function generateImplementationPack(input: {
   const suppliedEvidence = input.capabilityEvidence ?? input.sessionFindings;
   let evidence: Evidence | null = suppliedEvidence ?? null;
   let evidenceId: string | null = null;
+  let evidenceFreshness: EvidenceFreshness = suppliedEvidence ? 'supplied' : 'none';
   if (suppliedEvidence) {
     evidenceId = await saveCapabilityEvidence({
       goal: input.goal,
@@ -249,18 +268,25 @@ export async function generateImplementationPack(input: {
     if (persisted) {
       evidence = persisted.evidence;
       evidenceId = persisted.id;
+      // Freshness policy (CFS-029 §7.3): stale evidence still grounds, but
+      // LOUDLY — flagged on the pack + a re-inventory line in the prompt.
+      evidenceFreshness = evidenceFreshnessFor(persisted.createdAt, new Date().toISOString());
     }
   }
 
   // ── Constitutional Decision (CFS-029): HOW the capability is realized,
   // decided BEFORE any plan is drafted — over the nine mechanisms + 'none'.
-  const decision = await decideRealizationMechanism(input.goal, evidence ?? undefined);
+  // A decision already taken at the DCC Decision stage is honoured verbatim.
+  const decision =
+    input.decision && isRealizationMechanism(input.decision.mechanism)
+      ? input.decision
+      : await decideRealizationMechanism(input.goal, evidence ?? undefined);
 
   let fields = templateFields();
   try {
     const routed = input.providerPin
-      ? await callChatWithUsage(input.providerPin, DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, evidence ?? undefined, decision), 900)
-      : await callStage('consequence', DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, evidence ?? undefined, decision), 900);
+      ? await callChatWithUsage(input.providerPin, DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, evidence ?? undefined, decision, evidenceFreshness), 900)
+      : await callStage('consequence', DRAFT_SYSTEM, draftUserPrompt(input.goal, contextPack, evidence ?? undefined, decision, evidenceFreshness), 900);
     const draft = parseJsonLenient<LlmDraft>(routed.text);
     // A draft without a valid mechanism is not a usable plan — degrade to
     // template rather than fabricating around it. Arrays the model omitted
@@ -353,6 +379,7 @@ export async function generateImplementationPack(input: {
     capabilityEvidence: evidence,
     capabilityEvidenceId: evidenceId,
     constitutionalDecision: decision,
+    evidenceFreshness,
     ...fields,
   };
 }

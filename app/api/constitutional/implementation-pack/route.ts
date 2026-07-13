@@ -14,6 +14,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { generateImplementationPack } from '@/services/constitutional/implementationPack';
+import { attachReceiptToEvidence } from '@/services/constitutional/capabilityEvidence';
+import { isRealizationMechanism, type ConstitutionalDecision } from '@/services/constitutional/constitutionalDecision';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
   const gate = await requireAdmin(request);
   if ('error' in gate) return gate.error;
 
-  let body: { goal?: unknown; intentId?: unknown; domains?: unknown; capabilityEvidence?: unknown; sessionFindings?: unknown };
+  let body: { goal?: unknown; intentId?: unknown; domains?: unknown; capabilityEvidence?: unknown; sessionFindings?: unknown; decision?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -66,11 +68,23 @@ export async function POST(request: NextRequest) {
         ? (rawEvidence as import('@/services/constitutional/capabilityEvidence').CapabilityEvidence)
         : undefined;
 
+    // A Constitutional Decision already taken at the DCC Decision stage
+    // (CFS-029 §7.1) — honoured verbatim when structurally valid.
+    const rawDecision = body.decision as ConstitutionalDecision | undefined;
+    const decision =
+      rawDecision &&
+      typeof rawDecision === 'object' &&
+      isRealizationMechanism(rawDecision.mechanism) &&
+      typeof rawDecision.rationale === 'string'
+        ? rawDecision
+        : undefined;
+
     const pack = await generateImplementationPack({
       goal,
       intentId: body.intentId as string | undefined,
       context: domains && domains.length > 0 ? { domains } : undefined,
       capabilityEvidence,
+      decision,
     });
 
     // Best-effort receipt — never blocks the response, but surface its id so
@@ -106,7 +120,31 @@ export async function POST(request: NextRequest) {
       note: `Pack \`${pack.id}\` (${pack.implementationMechanism}, ${pack.invariantBindings.length} invariant bindings)${receiptId ? ` — receipt \`${receiptId}\`` : ''}`,
     });
 
-    return NextResponse.json({ ok: true, pack, receiptId, linear });
+    // CFS-029 §7.2 — fresh evidence is itself a receipted constitutional act:
+    // a knowledge_curated receipt anchors the persistence, attached to the row.
+    let evidenceReceiptId: string | null = null;
+    if (capabilityEvidence && pack.capabilityEvidenceId) {
+      try {
+        const evReceipt = await createActivityReceipt({
+          personaId: gate.persona.personaId,
+          actionType: 'knowledge_curated',
+          summary:
+            `capability evidence recorded — "${goal.slice(0, 100)}" ` +
+            `(${capabilityEvidence.existing?.length ?? 0} existing / ${capabilityEvidence.missing?.length ?? 0} missing` +
+            `${typeof capabilityEvidence.reusePercent === 'number' ? ` · ${capabilityEvidence.reusePercent}% reuse` : ''})`,
+          activeCartridge: 'agentiq',
+          contextShared: ['capability-evidence'],
+        });
+        evidenceReceiptId = evReceipt?.id ?? null;
+        if (evidenceReceiptId) await attachReceiptToEvidence(pack.capabilityEvidenceId, evidenceReceiptId);
+      } catch (err) {
+        console.warn(
+          `[api/constitutional/implementation-pack] evidence receipt failed (non-blocking): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return NextResponse.json({ ok: true, pack, receiptId, evidenceReceiptId, linear });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'pack_generation_failed';
     console.error('[api/constitutional/implementation-pack] generation failed:', message);

@@ -25,6 +25,7 @@ import { PendingProposalCard } from "./PendingProposalCard";
 import { canAdvance, buildImplementationPackage, constitutionalThresholdMet } from "@/services/devCommandCenter";
 import { experimentStep } from "@/components/composer/experimentStepFetch";
 import { packMarkdown, type PackView } from "@/components/composer/CapabilityPipelineTab";
+import { evidenceFromSession } from "./types";
 import type { DevLayoutProps } from "./types";
 
 export function ImplementationLayout({
@@ -65,31 +66,11 @@ export function ImplementationLayout({
     setPackError(null);
     try {
       const domains = session.intent.relatedCartridges.filter(Boolean);
-      // Capability Evidence (CFS-029): the session's Context Pack / Gap
-      // Analysis / Consequence Canvas findings travel into pack generation
-      // AND persist beyond the session (the generator stores them; future
-      // packs for this goal read them back). Everything here was recorded by
-      // the earlier stages — nothing is synthesized at this seam.
-      const capabilityEvidence = {
-        existing: (session.gapAnalysis?.existing ?? []).map((e) => ({
-          name: e.name,
-          path: e.location,
-          disposition: e.reuseStrategy,
-        })),
-        missing: (session.gapAnalysis?.missing ?? []).map((m) => ({
-          name: m.name,
-          path: m.suggestedLocation,
-          complexity: m.estimatedComplexity,
-          dependencies: m.dependencies,
-        })),
-        contextAssets: (session.contextPack?.items ?? []).map((i) => ({
-          title: i.title,
-          path: i.sourcePath,
-          signal: i.reuseSignal,
-        })),
-        ...(session.gapAnalysis ? { reusePercent: Math.round(session.gapAnalysis.reuseRatio * 100) } : {}),
-        boundaries: (session.consequenceCanvas?.shouldNeverHappen ?? []).map((c) => c.description),
-      };
+      // Capability Evidence (CFS-029): the session's stage findings travel
+      // into pack generation AND persist beyond the session. The projection is
+      // shared with the Decision capsule (evidenceFromSession) so both stages
+      // ground on identical evidence.
+      const capabilityEvidence = evidenceFromSession(session);
       const hasEvidence =
         capabilityEvidence.existing.length > 0 ||
         capabilityEvidence.missing.length > 0 ||
@@ -99,6 +80,9 @@ export function ImplementationLayout({
         goal: session.intent.goal,
         ...(domains.length > 0 ? { domains } : {}),
         ...(hasEvidence ? { capabilityEvidence } : {}),
+        // CFS-029 §7.1 — a decision already taken at the Decision stage
+        // travels verbatim: the pipeline decides ONCE.
+        ...(session.constitutionalDecision ? { decision: session.constitutionalDecision } : {}),
       });
       const p = data.pack as PackView;
       setPack(p);

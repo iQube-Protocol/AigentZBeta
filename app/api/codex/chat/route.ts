@@ -2186,6 +2186,7 @@ function buildSystemPrompt(
           context: 'context_assembly',
           'gap-analysis': 'gap_analysis',
           'consequence-canvas': 'consequence_modeling',
+          decision: 'constitutional_decision',
           implementation: 'implementation',
           validation: 'consequence_validation',
           remediation: 'remediation',

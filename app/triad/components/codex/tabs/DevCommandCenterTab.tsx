@@ -28,7 +28,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import {
   Cpu, Target, FileSearch, AlertTriangle, CheckCircle,
   ChevronDown, Package, Layers, ArrowRight,
-  Play, ShieldAlert, Rocket,
+  Play, ShieldAlert, Rocket, Scale,
 } from "lucide-react";
 import { SmartTriadCopilotLayer, type SuggestedLayoutHint, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { ExploreQuickActionsStrip, type ExploreToolId, type ExploreSuggestionMap } from "@/components/metame/copilot/ExploreQuickActionsStrip";
@@ -90,6 +90,7 @@ import {
   ContextLayout,
   GapAnalysisLayout,
   ConsequenceCanvasLayout,
+  DecisionLayout,
   ImplementationLayout,
   ValidationLayout,
   RemediationLayout,
@@ -149,6 +150,7 @@ const STAGE_TO_CAPSULE: Partial<Record<DevLoopStage, DevCapsuleId>> = {
   context_assembly: "context",
   gap_analysis: "gap-analysis",
   consequence_modeling: "consequence-canvas",
+  constitutional_decision: "decision",
   implementation: "implementation",
   consequence_validation: "validation",
   remediation: "remediation",
@@ -163,6 +165,7 @@ const CAPSULE_TO_STAGE: Partial<Record<DevCapsuleId, DevLoopStage>> = {
   context: "context_assembly",
   "gap-analysis": "gap_analysis",
   "consequence-canvas": "consequence_modeling",
+  decision: "constitutional_decision",
   implementation: "implementation",
   validation: "consequence_validation",
   remediation: "remediation",
@@ -201,6 +204,11 @@ const CAPABILITIES: { id: DevCapsuleId; label: string; shortLabel: string; icon:
     hasDataClass: "bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/15",
     emptyClass: "bg-amber-500/5 border-amber-500/15 text-amber-400/60 hover:bg-amber-500/10 hover:text-amber-300",
     iconActiveClass: "text-amber-400", iconEmptyClass: "text-amber-500/50" },
+  { id: "decision", label: "Constitutional Decision", shortLabel: "Decide", icon: Scale,
+    activeClass: "bg-violet-500/20 border-violet-500/40 text-violet-300 ring-1 ring-violet-500/30",
+    hasDataClass: "bg-violet-500/10 border-violet-500/20 text-violet-300 hover:bg-violet-500/15",
+    emptyClass: "bg-violet-500/5 border-violet-500/15 text-violet-400/60 hover:bg-violet-500/10 hover:text-violet-300",
+    iconActiveClass: "text-violet-400", iconEmptyClass: "text-violet-500/50" },
   { id: "implementation", label: "Implementation", shortLabel: "Implement", icon: Cpu,
     activeClass: "bg-indigo-500/20 border-indigo-500/40 text-indigo-300 ring-1 ring-indigo-500/30",
     hasDataClass: "bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/15",
@@ -276,6 +284,7 @@ function capabilityHasData(id: DevCapsuleId, session: DevLoopState): boolean {
     case "context": return session.contextPack !== null && session.contextPack.items.length > 0;
     case "gap-analysis": return session.gapAnalysis !== null;
     case "consequence-canvas": return session.consequenceCanvas !== null && session.consequenceCanvas.successState.length > 0;
+    case "decision": return session.constitutionalDecision != null;
     case "implementation": return Boolean(session.implementationBrief);
     case "validation": return session.validationReport !== null;
     case "remediation": return session.remediationPlan != null;
@@ -1174,6 +1183,20 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               pendingProposal={pendingProposals["consequence-canvas"] ?? null}
               onApproveProposal={() => handleApproveProposal("consequence-canvas")}
               onDismissProposal={() => handleDismissProposal("consequence-canvas")}
+            />
+          )}
+          {isCapsuleLayout && activeCapsuleId === "decision" && (
+            <DecisionLayout
+              session={session}
+              onDismiss={returnToStack}
+              onAdvanceStage={handleAdvanceStage}
+              onDecided={(d) =>
+                setSession(s2 => ({
+                  ...s2,
+                  constitutionalDecision: { ...d, decidedAt: d.decidedAt ?? new Date().toISOString() },
+                  updatedAt: new Date().toISOString(),
+                }))
+              }
             />
           )}
           {isCapsuleLayout && activeCapsuleId === "implementation" && (

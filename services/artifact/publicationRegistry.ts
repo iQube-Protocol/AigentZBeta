@@ -50,6 +50,16 @@ export const PUBLICATION_REGISTER: readonly RegisteredPublication[] = [
     plates: PLATE_COMPOSITIONS['IRL-001'] ?? [],
     state: 'reserved',
   },
+  {
+    // CS-001 formal publication (CFS-029 §7.4, ratified 2026-07-13). Source:
+    // codexes/packs/irl/foundation/CS-001_duplicate-capability-as-constitutional-drift.md
+    // Production follows the same deferred CPS path as IRL-0001.
+    number: 'IRL-0002',
+    seriesCode: 'IRL',
+    title: 'Duplicate Capability as Constitutional Drift — Case Study CS-001',
+    plates: [],
+    state: 'reserved',
+  },
 ] as const;
 
 /** The next canonical number in a series (max existing + 1). Pure. */

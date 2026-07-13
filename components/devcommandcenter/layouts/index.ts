@@ -2,6 +2,7 @@ export { IntentLayout } from "./IntentLayout";
 export { ContextLayout } from "./ContextLayout";
 export { GapAnalysisLayout } from "./GapAnalysisLayout";
 export { ConsequenceCanvasLayout } from "./ConsequenceCanvasLayout";
+export { DecisionLayout } from "./DecisionLayout";
 export { ImplementationLayout } from "./ImplementationLayout";
 export { ValidationLayout } from "./ValidationLayout";
 export { RemediationLayout } from "./RemediationLayout";

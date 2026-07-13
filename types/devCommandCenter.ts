@@ -199,6 +199,7 @@ export type DevLoopStage =
   | 'context_assembly'
   | 'gap_analysis'
   | 'consequence_modeling'
+  | 'constitutional_decision'
   | 'implementation'
   | 'consequence_validation'
   | 'remediation'
@@ -212,6 +213,10 @@ export interface DevLoopState {
   contextPack: ContextPack | null;
   gapAnalysis: CapabilityGapAnalysis | null;
   consequenceCanvas: ConsequenceCanvas | null;
+  /** CFS-029 §7.1 — the Constitutional Decision stage output: HOW the
+   *  capability is realized (nine mechanisms + 'none'), decided BEFORE the
+   *  Implementation Pack. Browser-safe projection of the service decision. */
+  constitutionalDecision?: DevConstitutionalDecision | null;
   validationReport: ConsequenceValidationReport | null;
   /** LLM-enriched implementation brief (PRD + plan + tasks). When present,
    *  buildImplementationPackage uses it instead of the derived brief. */
@@ -224,6 +229,18 @@ export interface DevLoopState {
   receipts: DevLoopReceipt[];
   startedAt: string;
   updatedAt: string;
+}
+
+// ─── Capability 4.5: Constitutional Decision (CFS-029 §7.1) ─────────────────
+
+export interface DevConstitutionalDecision {
+  /** One of the nine mechanisms, or 'none' (capability exists — compose it). */
+  mechanism: string;
+  noBuildRequired: boolean;
+  rationale: string;
+  alternatives: { mechanism: string; reason: string }[];
+  decidedBy: 'llm' | 'heuristic';
+  decidedAt: string;
 }
 
 // ─── Implementation Package (what gets sent to Claude Code) ─────────────────

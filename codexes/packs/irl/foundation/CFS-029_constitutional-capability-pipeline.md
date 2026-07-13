@@ -65,4 +65,8 @@ Pack renders now say **Constitutional Validation** and **Constitutional Receipt*
 ## Ratification record
 
 - [x] **ADOPTED 2026-07-13 by operator direction** (the "three things happening" review). Built same day: CapabilityEvidence primitive + store + migration, Constitutional Decision stage (LLM + pure floor + canary), pack fields + markdown sections, semantic renames, CS-001 case study.
-- [ ] Follow-ons §7.1–7.4 — separately ratified.
+- [x] **§7 RATIFIED — 2026-07-13, by operator direction.** Built same day:
+  §7.1 the DCC **Decision capsule** — `constitutional_decision` is a first-class ICE stage (stage union + strip chip + advance gate + `DecisionLayout` driving `POST /api/constitutional/decision`); the taken decision writes into the session and travels VERBATIM into pack generation (the pipeline decides once).
+  §7.2 **evidence as a constitutional object** — persistence is receipted (`knowledge_curated`, attached to the row via `receipt_id`) and `buildCapabilityEvidenceObject` composes the persisted evidence as a well-formed ConstitutionalObject (T2-safe goal-hash ref; standing 0.5 design value, session-validated).
+  §7.3 **freshness policy** — persisted evidence older than `EVIDENCE_FRESHNESS_WINDOW_DAYS` (7, design value) is flagged `persisted-stale` on the pack, and the draft prompt is instructed to include a re-inventory step: stale evidence grounds LOUDLY, never silently.
+  §7.4 **CS-001 publication** — registered as **IRL-0002** in the Publication Registry (reserved; production follows the deferred CPS path with IRL-0001).

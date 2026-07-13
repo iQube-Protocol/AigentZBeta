@@ -32,6 +32,7 @@ export function createDevLoopSession(): DevLoopState {
     contextPack: null,
     gapAnalysis: null,
     consequenceCanvas: null,
+    constitutionalDecision: null,
     validationReport: null,
     receipts: [],
     startedAt: new Date().toISOString(),
@@ -44,6 +45,7 @@ export const STAGE_ORDER: DevLoopStage[] = [
   'context_assembly',
   'gap_analysis',
   'consequence_modeling',
+  'constitutional_decision',
   'implementation',
   'consequence_validation',
   'remediation',
@@ -152,6 +154,10 @@ export function stageArtifactExists(stage: DevLoopStage, state: DevLoopState): b
       return state.gapAnalysis !== null;
     case 'consequence_modeling':
       return state.consequenceCanvas !== null && state.consequenceCanvas.successState.length > 0;
+    case 'constitutional_decision':
+      // CFS-029 §7.1 — the realization decision must be TAKEN (mechanism +
+      // rationale recorded) before the pipeline plans implementation.
+      return state.constitutionalDecision != null;
     case 'implementation':
       return Boolean(state.implementationBrief);
     case 'consequence_validation':
@@ -221,6 +227,10 @@ export function canAdvance(state: DevLoopState): boolean {
       return state.gapAnalysis !== null;
     case 'consequence_modeling':
       return state.consequenceCanvas !== null && state.consequenceCanvas.successState.length > 0;
+    case 'constitutional_decision':
+      // CFS-029 §7.1 — the realization decision must be TAKEN (mechanism +
+      // rationale recorded) before the pipeline plans implementation.
+      return state.constitutionalDecision != null;
     case 'implementation':
       // The stage is only passable once an implementation brief exists —
       // either the approved implementation_brief proposal or a generated
