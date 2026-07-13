@@ -86,8 +86,9 @@ const SEMANTIC_NAMESPACES = [
 ] as const;
 
 // Resolve a namespace to its invariant ids (proposed/validated/canonical),
-// capped so a segment brief stays legible.
-async function idsForNamespace(namespace: string, limit = 40): Promise<string[]> {
+// capped so a segment brief stays legible. Exported for the video-article
+// skill runner, which grounds the same way.
+export async function idsForNamespace(namespace: string, limit = 40): Promise<string[]> {
   const params = new URLSearchParams({ namespace, limit: String(limit) });
   const res = await personaFetch(`/api/invariants?${params.toString()}`, { cache: "no-store" });
   const data = await res.json();

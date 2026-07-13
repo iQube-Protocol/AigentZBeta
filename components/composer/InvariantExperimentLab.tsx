@@ -16,6 +16,7 @@ import React, { Suspense, useState } from "react";
 import { Beaker, Clapperboard, FileText, Home, Layers, Scale, ShieldCheck } from "lucide-react";
 import CanonicalPlatesTab from "./CanonicalPlatesTab";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
+import VideoArticleSkillRunner from "./VideoArticleSkillRunner";
 import Exp001EvaluationRunner from "./Exp001EvaluationRunner";
 import Exp003RediscoveryRunner from "./Exp003RediscoveryRunner";
 import ExperimentResultsTab from "./ExperimentResultsTab";
@@ -25,10 +26,11 @@ import Exp005ProviderChoiceRunner from "./Exp005ProviderChoiceRunner";
 import ChrysalisTestTab from "./ChrysalisTestTab";
 import HomecomingTestTab from "./HomecomingTestTab";
 
-type LabTab = "video" | "bundle" | "rediscovery" | "sovereignty" | "provider-choice" | "results" | "report" | "plates" | "chrysalis" | "homecoming";
+type LabTab = "video" | "video-article" | "bundle" | "rediscovery" | "sovereignty" | "provider-choice" | "results" | "report" | "plates" | "chrysalis" | "homecoming";
 
 const TABS: { id: LabTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "video", label: "EXP-002 · Video", icon: Clapperboard },
+  { id: "video-article", label: "Video + Article", icon: Clapperboard },
   { id: "bundle", label: "EXP-001 · Bundle Evaluation", icon: Scale },
   { id: "rediscovery", label: "EXP-003 · Rediscovery", icon: Beaker },
   { id: "sovereignty", label: "EXP-004 · Sovereignty", icon: ShieldCheck },
@@ -80,6 +82,11 @@ export default function InvariantExperimentLab() {
       {tab === "video" && (
         <Suspense fallback={null}>
           <InvariantVideoExperimentRunner />
+        </Suspense>
+      )}
+      {tab === "video-article" && (
+        <Suspense fallback={null}>
+          <VideoArticleSkillRunner />
         </Suspense>
       )}
       {tab === "bundle" && <Exp001EvaluationRunner />}

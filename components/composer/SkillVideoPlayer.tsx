@@ -60,6 +60,14 @@ interface SkillVideoPlayerProps {
   segment_prompts?: string[];
   packet?: Record<string, any>;
   experience?: { configuration?: Record<string, any>; metadata?: Record<string, any> };
+  /**
+   * Fired once per GENERATED final video URL (single-segment completion or
+   * multi-segment stitch alike) — the seam callers use to receipt/record the
+   * production (e.g. the video-article skill's video receipt). Never fires
+   * for saved/initial URLs. Optional and additive: existing callers are
+   * unaffected.
+   */
+  onCompleted?: (info: { videoUrl: string }) => void;
 }
 
 interface InvocationResult {
@@ -231,6 +239,7 @@ export default function SkillVideoPlayer({
   segment_prompts,
   packet,
   experience,
+  onCompleted,
 }: SkillVideoPlayerProps) {
   const searchParams = useSearchParams();
   // Sora jobs typically complete in 3–5 min. First poll fires immediately,
@@ -315,6 +324,18 @@ export default function SkillVideoPlayer({
   }, [initialProvider, initial_venice_model, resolvedInitialGenerationId]);
 
   const segmentCount = segmentsForDuration(duration);
+
+  // Completion seam — one signal for EVERY generated-completion path (stitch
+  // or single segment): fire onCompleted exactly once per final video URL.
+  // Saved/initial URLs never fire (resultSource guard).
+  const completedUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    const url = result?.ok ? result.video_url : undefined;
+    if (!url || resultSource !== "generated") return;
+    if (completedUrlRef.current === url) return;
+    completedUrlRef.current = url;
+    onCompleted?.({ videoUrl: url });
+  }, [result, resultSource, onCompleted]);
 
   // Stitch already-generated clips into the final video. Separated from
   // invokeMultiSegment so a failed stitch is retryable on its own — the error
