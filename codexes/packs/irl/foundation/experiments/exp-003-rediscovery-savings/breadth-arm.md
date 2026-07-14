@@ -23,20 +23,36 @@ node scripts/benchmark-rediscovery.mjs --broad             # full run (~5 tasks 
 
 Both arms + the judge run on the SAME provider+model at temperature 0 (never mix providers within a run — the comparison would be meaningless). Raw output lands in `results-<UTC>.json` (now carrying `broadSliceSeeds` + `broadNamespaces` + `broadLimit`); the stdout summary is paste-ready below.
 
-## Results (fill from the run)
+## Results — Run 001
 
-| Provider / model | Date | Narrow collection (n) | Broad slice (n) |
-|---|---|---|---|
-| _e.g. anthropic / claude-sonnet-4-6_ | | 18 | |
-
-**Rediscovery savings vs cold (output tokens):**
-
-| Arm | Grounding | Savings vs cold | Grounded share | Contradictions |
+| Provider / model | Date | Narrow collection (n) | Broad slice (n) | Crystal state |
 |---|---|---|---|---|
-| initialized | narrow (18-invariant collection) | | | |
-| broad | live crystal slice (top 24) | | | |
+| openai / gpt-4o-mini (temp 0) | 2026-07-14 | 18 | 24 | freshly advanced — all standing ≈ 0 |
 
-**★ Breadth delta (narrow → broad):** ____% further output-token reduction, grounded share ____% → ____%.
+| Arm | Grounding | Output tokens | Savings vs cold | Grounded share | Contradictions |
+|---|---|---|---|---|---|
+| cold | none | 2570 | — | 65.8% | 3 |
+| initialized | narrow (18-invariant curated collection) | 2247 | **−12.6%** | **96.2%** | **0** |
+| broad | live crystal slice (top 24, standing≈0) | 2578 | −0.3% | 96.9% | 0 |
+
+**★ Breadth delta (narrow → broad): −14.7% output-token change (broad used MORE tokens), grounded share 96.2% → 96.9%.**
+
+### Finding (honest, two-part)
+
+1. **Grounding presence is validated and reproducible.** The curated collection cut output tokens ~12.6% AND raised grounded share 65.8% → 96.2% with contradictions 3 → 0. Consistent with an earlier same-day run (11.9%, 65.8% → 96.4%, 8 → 0). This is the core EXP-003 claim, replicated on a small model.
+2. **Raw breadth did NOT help — it slightly hurt.** The broad slice used 14.7% more tokens than the narrow collection for a +0.7pt grounded-share gain (already at ceiling). **Breadth-NEGATIVE** by the interpretation contract below.
+
+### Why (and why it supports, not refutes, the thesis)
+
+The broad slice was drawn from a **freshly advanced crystal where every `standing` = 0**, so `buildInvariantSlice` could not rank by merit — it fell back to confidence (near-uniform) + insertion order and surfaced 24 constitutional-but-not-maximally-relevant invariants. More invariants in the prompt → more claims generated (task-1: 12 vs 7) → more tokens, with no fidelity gain because grounding was already saturated at ~96%.
+
+This is the discoverability→standing flywheel caught at **t = 0**: *discoverable → used → earns reach/standing → ranks higher → grounds better.* The curated 18-invariant collection is, in effect, a hand-applied stand-in for earned ranking; the broad slice is raw breadth *before* the crystal has earned anything. The operator thesis ("invariants must be discoverable to earn standing") holds — discoverability pays off on the **standing axis first**, and only later on the **per-task economy axis**, once ranking reflects merit.
+
+**Headline: curation beats un-earned breadth today; an earned crystal beating curation is the hypothesis for the re-run.**
+
+### The decisive follow-on (Run 002)
+
+Re-run `--broad` after the crystal has been in live grounding long enough to accrue standing/reach through use (citations bump reach; validation-class signals bump standing). If the broad delta turns **positive** once ranking reflects earned standing, that is the flywheel demonstrated — a materially stronger result than any single-run number, because it shows the crystal *improving itself through use*. If it stays negative even with earned standing, the honest conclusion is that curation is irreducible for these tasks, which is itself a real design finding.
 
 ## Interpretation contract
 

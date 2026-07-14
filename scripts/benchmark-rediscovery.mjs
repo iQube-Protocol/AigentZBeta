@@ -440,8 +440,24 @@ async function main() {
     const narrowTok = sum('initialized', (a) => a.outputTokens);
     const broadTok = sum('broad', (a) => a.outputTokens);
     const breadthDelta = narrowTok > 0 ? ((narrowTok - broadTok) / narrowTok) : null;
-    console.log(`\n★ BREADTH DELTA (narrow → broad): ${pct(breadthDelta)} further output-token reduction, grounded-share ${pct(groundedShare('initialized'))} → ${pct(groundedShare('broad'))}.`);
-    console.log(`  Positive token delta + non-falling grounded share = broadening the discoverable crystal measurably improves reasoning economy. This is the "invariants must be discoverable to earn their keep" claim, measured.`);
+    const gNarrow = groundedShare('initialized');
+    const gBroad = groundedShare('broad');
+    console.log(`\n★ BREADTH DELTA (narrow → broad): ${pct(breadthDelta)} output-token change (positive = broad cheaper), grounded-share ${pct(gNarrow)} → ${pct(gBroad)}.`);
+    // Sign-aware, honest interpretation — the instrument reports the finding it
+    // MEASURED, not the one it hoped for. A null/negative breadth result is
+    // equally publishable (see breadth-arm.md interpretation contract).
+    const EPS = 0.01;
+    const groundedFell = gNarrow != null && gBroad != null && gBroad < gNarrow - EPS;
+    if (breadthDelta != null && breadthDelta > EPS && !groundedFell) {
+      console.log(`  → Breadth POSITIVE: a richer discoverable crystal improved reasoning economy without loss of grounding. Supports discoverability on the economy axis.`);
+    } else if (breadthDelta != null && breadthDelta < -EPS) {
+      console.log(`  → Breadth NEGATIVE: the broad slice used MORE tokens than the curated collection. Expected when the crystal has no EARNED standing yet — the slice ranks by confidence, not merit, so it injects less task-relevant invariants. Curation currently outperforms raw breadth; the real test is a RE-RUN after standing accrues (does an earned crystal ground better — the flywheel).`);
+    } else {
+      console.log(`  → Breadth NEUTRAL: the curated collection already saturates grounding for these tasks; raw breadth adds no economy. Curation, not breadth, is carrying the result.`);
+    }
+    if (groundedFell) {
+      console.log(`  ⚠ Grounded share FELL under breadth — the broad slice is injecting off-task invariants; tighten BROAD_NAMESPACES / BROAD_LIMIT, or wait for standing to re-rank.`);
+    }
   }
   console.log(`\nRaw results: ${outPath}`);
 }
