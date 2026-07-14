@@ -62,6 +62,15 @@ import { initializeKnowledge, type KnowledgeManifest } from '@/services/invarian
 import { resolveOntology, ontologyPromptBlock, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
 import { MODEL_ROUTING_INVARIANTS } from '@/services/constitutional/modelQube';
 
+// The heaviest chat turns — DCC consequence-validation with a full session
+// ground context + dual-stage proposal schemas — outlive the Lambda DEFAULT
+// duration; the gateway then kills the request with a NON-JSON body, which
+// the client surfaces as the generic "Sorry, I encountered an error" (the
+// route's own JSON error envelope is never reached). Same budget as the
+// other provider-bound long routes (homecoming produce). Fix 2026-07-14:
+// operator hit this deterministically on every "validate the build" turn.
+export const maxDuration = 120;
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!

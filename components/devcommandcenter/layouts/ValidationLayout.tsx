@@ -89,7 +89,7 @@ export function ValidationLayout({
       ) : (
         <div className="text-xs text-slate-400 italic py-8 text-center">
           {session.implementationBrief || session.generatedPack
-            ? "The implementation pack is in place — the loop is AT Constitutional Validation now. In the chat, ask aigentZ to “validate the build against the consequence canvas” — it will check every should-happen and must-never-happen entry and write the validation report here. The report is what unlocks Remediation or Deployment Authorization."
+            ? "The implementation pack is in place — the loop is AT Constitutional Validation now. In the chat, ask aigentZ to “validate the build against the consequence canvas” — it will check every should-happen and must-never-happen entry and write the validation report here. APPROVING the report records the constitutional validation receipt (with this pack's id) — that receipt is what OPENS THE MERGE GATE on the pack's PR in the GitHub capsule, and what unlocks Remediation or Deployment Authorization. If Claude was dispatched, its PR is waiting in the GitHub capsule; merging it deploys."
             : "Validation runs after implementation. Ask aigentZ to validate the build against the consequence canvas — it will check every should-happen and must-never-happen entry."}
         </div>
       )}
