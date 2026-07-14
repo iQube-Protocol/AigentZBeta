@@ -18,15 +18,30 @@
  * dev IS authorizing a deploy — Amplify builds dev on merge. T2-safe summary
  * (PR number/title/head/sha — no persona identifier).
  *
+ * ── Validation gate (2026-07-14, operator-ratified) ──
+ * A PR whose head is an `aigentz/pack-*` branch is a DISPATCHED IMPLEMENTATION
+ * of a specific pack — it merges only when a PASSING consequence-validation
+ * record exists for that pack (`constitutional_validation_recorded` receipt
+ * with `verdict=pass pack=<packId>`, written when the operator approves the
+ * validation report in the DCC Validate stage). We deploy validated code.
+ *
+ * Admin override — never silent: `{ overrideValidation: true, overrideReason }`
+ * (reason ≥ 10 chars) merges anyway, and the act is receipted as
+ * `validation_override_granted` (DVN-anchorable) so the system can run
+ * end-to-end past minor or mistaken infringements WITH a tamper-evident
+ * record of who chose to and why. Non-pack PRs are ungated (their validation
+ * story predates the DCC loop).
+ *
  * Admin-gated (spine). GITHUB_TOKEN server-side only. Body:
- *   { pullNumber: number, expectedHeadSha?: string }
+ *   { pullNumber: number, expectedHeadSha?: string,
+ *     overrideValidation?: boolean, overrideReason?: string }
  * expectedHeadSha (when supplied) is passed to GitHub's merge API — the merge
  * fails 409 if the head moved since the operator reviewed it.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { createActivityReceipt, listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
 import { GITHUB_REPO, githubConfigured, GITHUB_MISSING_ENV } from '@/app/api/dev-command-center/_lib/github';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +51,34 @@ const GH_HEADERS = () => ({
   Accept: 'application/vnd.github+json',
   'X-GitHub-Api-Version': '2022-11-28',
 });
+
+/** The same slug transform dispatchBranchFor applies to a packId — used to
+ *  compare a `pack=<id>` receipt tag against the PR's branch slug. Pure. */
+export function packSlug(id: string): string {
+  return id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+}
+
+/** Extract the pack slug from an `aigentz/pack-<slug>-<sha8>` branch, or null
+ *  for any other branch (non-pack PRs are not validation-gated). Pure. */
+export function packSlugFromBranch(headRef: string): string | null {
+  const m = /^aigentz\/pack-(.+)-[0-9a-f]{8}$/.exec(headRef);
+  return m ? m[1] : null;
+}
+
+/** Does a passing consequence-validation record exist for this pack? Scans the
+ *  merging admin's own `constitutional_validation_recorded` receipts for
+ *  `verdict=pass` + a `pack=<id>` tag whose slug matches the branch's. */
+export function hasPassingValidation(
+  receipts: Array<{ summary?: string | null }>,
+  slug: string,
+): boolean {
+  return receipts.some((r) => {
+    const s = r.summary ?? '';
+    if (!s.includes('verdict=pass')) return false;
+    const m = /\bpack=([^\s"]+)/.exec(s);
+    return m ? packSlug(m[1]) === slug : false;
+  });
+}
 
 export async function POST(request: NextRequest) {
   const persona = await getActivePersona(request);
@@ -47,7 +90,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, configured: false, missingEnv: GITHUB_MISSING_ENV }, { status: 503 });
   }
 
-  let body: { pullNumber?: unknown; expectedHeadSha?: unknown };
+  let body: { pullNumber?: unknown; expectedHeadSha?: unknown; overrideValidation?: unknown; overrideReason?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -93,6 +136,43 @@ export async function POST(request: NextRequest) {
   const title = (pr.title ?? '').slice(0, 140);
   const headRef = pr.head?.ref ?? 'unknown';
 
+  // 1b) Validation gate — pack PRs merge only against a passing validation
+  //     record, or an explicit receipted override (see header).
+  const slug = packSlugFromBranch(headRef);
+  const override = body.overrideValidation === true;
+  const overrideReason = typeof body.overrideReason === 'string' ? body.overrideReason.trim() : '';
+  let validationState: 'passed' | 'overridden' | 'ungated' = 'ungated';
+  if (slug) {
+    if (override) {
+      if (overrideReason.length < 10) {
+        return NextResponse.json(
+          { ok: false, error: 'overrideReason (at least 10 characters) is required to override the validation gate' },
+          { status: 400 },
+        );
+      }
+      validationState = 'overridden';
+    } else {
+      const receipts = await listActivityReceiptsForPersona(persona.personaId, {
+        actionTypes: ['constitutional_validation_recorded'],
+        limit: 100,
+      }).catch(() => []);
+      if (!hasPassingValidation(receipts, slug)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            validationGate: 'blocked',
+            error:
+              `No passing consequence-validation record found for pack '${slug}'. ` +
+              'Run the Validate stage in the Dev Command Center (approve the validation report — verdict must be pass), ' +
+              'then merge. An admin override with a stated reason is available and will be receipted.',
+          },
+          { status: 409 },
+        );
+      }
+      validationState = 'passed';
+    }
+  }
+
   // 2) Merge — GitHub enforces branch protection + required checks here; a
   //    405 (not mergeable) or 409 (head moved) surfaces honestly to the card.
   const mergeRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/pulls/${pullNumber}/merge`, {
@@ -131,6 +211,7 @@ export async function POST(request: NextRequest) {
       summary:
         `PR #${pullNumber} merged to dev from the platform (human execution gate): ` +
         `"${title}" — head ${headRef}, merge ${String(mergeData.sha ?? '').slice(0, 10)}. ` +
+        `Validation gate: ${validationState}. ` +
         'Amplify deploys dev on merge (CFS-016 D1 — the operator authorized in-app).',
       activeCartridge: 'agentiq',
       contextShared: ['dev-command-center'],
@@ -140,12 +221,38 @@ export async function POST(request: NextRequest) {
     // Receipt is provenance, not a gate — the merge already happened.
   }
 
+  // 3b) The override is NEVER silent — its own DVN-anchorable receipt records
+  //     who deployed past the validation gate and why.
+  let overrideReceiptId: string | null = null;
+  if (validationState === 'overridden') {
+    try {
+      const receipt = await createActivityReceipt({
+        personaId: persona.personaId,
+        actionType: 'validation_override_granted',
+        summary:
+          `VALIDATION GATE OVERRIDDEN — PR #${pullNumber} ("${title}", head ${headRef}) merged to dev ` +
+          `WITHOUT a passing consequence-validation record. Reason: "${overrideReason.slice(0, 300)}". ` +
+          `Merge ${String(mergeData.sha ?? '').slice(0, 10)}.`,
+        activeCartridge: 'agentiq',
+        contextShared: ['dev-command-center'],
+      });
+      overrideReceiptId = receipt?.id ?? null;
+    } catch {
+      console.error('[github/merge] validation-override receipt failed — override is under-recorded');
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     merged: true,
     pullNumber,
     sha: mergeData.sha ?? null,
     receiptId,
-    note: 'Merged to dev — Amplify is building the deploy now. The merge is the D1 human gate, exercised in-app.',
+    validationGate: validationState,
+    ...(overrideReceiptId ? { overrideReceiptId } : {}),
+    note:
+      validationState === 'overridden'
+        ? '⚠ Merged WITH a validation override — the deploy is running on unvalidated code and the override is receipted. Validate post-hoc in the DCC.'
+        : 'Merged to dev — Amplify is building the deploy now. The merge is the D1 human gate, exercised in-app.',
   });
 }

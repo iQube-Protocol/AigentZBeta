@@ -119,6 +119,43 @@ Validation: 4/4 esbuild parse gates (merge route, lib, GitHubLayout, read route)
 merge is the real drill — GitHub's own API enforces mergeability, so the failure modes
 (checks pending, conflicts, protection) surface as honest error notes on the PR row.
 
+## Addendum 2 (same day) — merge validation gate + receipted admin override
+
+Operator-ratified after the first live PR (#89): *"we want validated code deployed… We should
+include an admin gated override that enables builds to be deployed even if they fail the
+validation for some reason — with a warning and dvn receipt of a validation check override."*
+
+**The missing receipt half, found and closed:** nothing in the DCC ever wrote the
+`constitutional_validation_recorded` receipt — the validation report lived only in dev-loop
+session state, so no server-checkable record of validation existed. Now
+`handleApproveProposal` (DevCommandCenterTab) fires the record on `validation_report`
+approval: verdict + satisfied/unresolved/unintended counts + **packId** (from the session's
+generated pack). The validation-record route accepts `packId` and tags the summary
+`pack=<id>` for correlation.
+
+**The gate (merge route):** a PR whose head matches `aigentz/pack-<slug>-<sha8>` merges only
+when the merging admin's own receipts contain `constitutional_validation_recorded` with
+`verdict=pass` and a `pack=` tag whose slug matches the branch's (same sanitization as
+`dispatchBranchFor` — round-trip pinned in the drill). Blocked → 409 with instructions.
+Non-pack PRs stay ungated (their validation story predates the DCC loop). Verdicts `partial`
+and `fail` do NOT open the gate.
+
+**The override (never silent):** `{ overrideValidation: true, overrideReason (≥10 chars) }`
+merges anyway; the act is receipted as **`validation_override_granted`** (new action type,
+DVN-anchorable per the permitted-addition rule) naming the PR, branch, merge sha, and the
+stated reason; the response and the PR row carry the ⚠ unvalidated-deploy warning; the
+`deployment_authorized` receipt records `Validation gate: overridden`. The GitHub capsule
+arms a reason-required override form on the blocked PR row.
+
+Validation: 6/6 parse gates; 12/12 gate drill (slug round-trip against PR #89's real packId,
+pass/partial/fail verdicts, wrong-pack and untagged records blocked, non-pack branches
+ungated, mixed-case id sanitization parity). Honest limits: the gate correlates via the
+receipt summary's `pack=` tag (a structured receipt payload field is the cleaner long-term
+home); receipts are scanned persona-scoped (the merging admin's own validations — a
+second admin's validation doesn't open the first's gate; acceptable single-operator, noted
+for multi-admin); validations recorded before this ships carry no `pack=` tag and won't
+open the gate (re-approve the validation report or override once).
+
 ## Honest limits
 
 - **First live dispatch is the real validation.** The workflow cannot run from this sandbox;

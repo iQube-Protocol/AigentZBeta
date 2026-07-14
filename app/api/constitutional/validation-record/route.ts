@@ -8,8 +8,12 @@
  *   - kind='remediation' → `remediation_recorded`
  *
  * POST { goal, kind?, verdict?, satisfiedCount?, unresolvedCount?,
- *        unintendedCount?, remedyCount?, revalidationRequired? }
+ *        unintendedCount?, remedyCount?, revalidationRequired?, packId? }
  *   → { ok: true, receiptId }
+ *
+ * `packId` (2026-07-14, merge validation gate): when supplied, the summary
+ * carries `pack=<id>` so the in-app merge gate can correlate a passing
+ * validation record with the Implementation Pack whose PR is being merged.
  *
  * Admin-gated (spine). The receipt summary is T2-safe: goal excerpt + counts
  * only — NO T0 identifiers (personaId/caseId/rootDid/etc.), no consequence
@@ -39,6 +43,7 @@ export async function POST(request: NextRequest) {
     unintendedCount?: unknown;
     remedyCount?: unknown;
     revalidationRequired?: unknown;
+    packId?: unknown;
   };
   try {
     body = await request.json();
@@ -52,14 +57,18 @@ export async function POST(request: NextRequest) {
   const goal = body.goal.trim();
   const kind = body.kind === 'remediation' ? 'remediation' : 'validation';
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  // Pack correlation for the merge gate — a pack id is a T2-safe generated id
+  // (UUID), never a persona identifier. Whitespace-stripped + bounded.
+  const packId =
+    typeof body.packId === 'string' && body.packId.trim() ? body.packId.trim().replace(/\s+/g, '').slice(0, 80) : null;
 
   // T2-safe summary: goal excerpt + counts only. No T0 identifiers, no bodies.
   const summary =
-    kind === 'remediation'
+    (kind === 'remediation'
       ? `remediation recorded — ${n(body.remedyCount)} remed(ies) revalidation=${body.revalidationRequired === true} goal="${goal.slice(0, 100)}"`
       : `constitutional validation recorded — verdict=${typeof body.verdict === 'string' ? body.verdict : 'unknown'} ` +
         `satisfied=${n(body.satisfiedCount)} unresolved=${n(body.unresolvedCount)} unintended=${n(body.unintendedCount)} ` +
-        `goal="${goal.slice(0, 100)}"`;
+        `goal="${goal.slice(0, 100)}"`) + (packId ? ` pack=${packId}` : '');
 
   const receipt = await createActivityReceipt({
     personaId: persona.personaId,

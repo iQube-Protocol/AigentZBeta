@@ -844,6 +844,37 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     console.log(`[aigentZ ICE] approved ${proposal.kind} → stage ${next.stage}`);
     setSession(next);
     observe(devProposalApprovedEvent(proposal.kind, capsule));
+    // Merge validation gate (2026-07-14): approving a validation report writes
+    // the Constitutional-class receipt SERVER-SIDE — before this, the report
+    // lived only in session state and no `constitutional_validation_recorded`
+    // receipt ever existed, so nothing downstream (the in-app merge gate)
+    // could verify validation happened. packId correlates the record with the
+    // Implementation Pack whose PR the merge gate checks. Fire-and-forget:
+    // a receipt failure never blocks the approval it describes.
+    if (proposal.kind === "validation_report" && next.validationReport && next.intent) {
+      const report = next.validationReport;
+      const packId = (next.generatedPack as { id?: string } | null)?.id;
+      void personaFetch("/api/constitutional/validation-record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: next.intent.goal,
+          kind: "validation",
+          verdict: report.overallVerdict,
+          satisfiedCount: report.satisfied.length,
+          unresolvedCount: report.unresolved.length,
+          unintendedCount: report.unintended.length,
+          ...(packId ? { packId } : {}),
+        }),
+      })
+        .then(async (res) => {
+          const data = (await res.json().catch(() => null)) as { ok?: boolean; receiptId?: string } | null;
+          if (data?.ok && typeof data.receiptId === "string") {
+            handleReceipt({ id: data.receiptId, actionType: "constitutional_validation_recorded" });
+          }
+        })
+        .catch(() => { /* receipt is provenance, not a gate */ });
+    }
     setPendingProposals(prev => {
       const rest = { ...prev };
       delete rest[capsule];
@@ -867,7 +898,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
         text: `[observed] The ${proposal.kind} proposal was approved and the loop advanced to ${next.stage}. Guide me to the next task${nextKind ? ` and, when ready, produce the ${nextKind} proposal` : ''}.`,
       });
     }
-  }, [pendingProposals, session, consumeCapsuleSuggestion, observe, engageCapsuleAndMount]);
+  }, [pendingProposals, session, consumeCapsuleSuggestion, observe, engageCapsuleAndMount, handleReceipt]);
 
   const handleDismissProposal = useCallback((capsule: DevCapsuleId) => {
     const dismissed = pendingProposals[capsule];
