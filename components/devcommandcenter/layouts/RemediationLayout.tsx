@@ -18,11 +18,12 @@
  */
 
 import React, { useMemo, useState } from "react";
-import { AlertTriangle, Check, Lightbulb, Loader2, Play, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Check, Lightbulb, Loader2, Play, ShieldAlert, Wrench } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { PendingProposalCard } from "./PendingProposalCard";
 import { canAdvance, validationRequiresRemediation } from "@/services/devCommandCenter";
 import { experimentStep } from "@/components/composer/experimentStepFetch";
+import { personaFetch } from "@/utils/personaSpine";
 import type { ConsequenceValidationItem } from "@/types/devCommandCenter";
 import type { DevLayoutProps } from "./types";
 
@@ -34,7 +35,12 @@ export function RemediationLayout({
   onApproveProposal,
   onDismissProposal,
   onReceipt,
-}: DevLayoutProps) {
+  onProposal,
+}: DevLayoutProps & {
+  /** Feeds a route-produced remediation_plan proposal into the SAME pending-
+   *  approval path chat proposals use (parent: handleStageProposals). */
+  onProposal?: (proposal: { kind: string; summary: string; data: Record<string, unknown> }) => void;
+}) {
   const canAdvanceNow = canAdvance(session);
   const report = session.validationReport;
   const plan = session.remediationPlan;
@@ -53,6 +59,45 @@ export function RemediationLayout({
 
   const [recording, setRecording] = useState(false);
   const [recorded, setRecorded] = useState<string | null>(null);
+
+  // Dedicated remediation runner (2026-07-14): the auto-fired chat turn asking
+  // for the remediation_plan dies at Amplify's ~30s response ceiling (same
+  // class as the validate turn). This button runs remediation as a focused
+  // job — /api/dev-command-center/remediate — and returns the standard
+  // proposal for approval. Everything not "satisfied" travels: the fork's
+  // high/critical failures PLUS unresolved/partial items.
+  const [planning, setPlanning] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+
+  const generatePlan = async () => {
+    if (!session.intent || !report) return;
+    setPlanning(true);
+    setPlanError(null);
+    try {
+      const all = [...report.satisfied, ...report.unresolved, ...report.unintended];
+      const toRemedy = all.filter((i) => i.verdict !== "satisfied");
+      const res = await personaFetch("/api/dev-command-center/remediate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: session.intent.goal,
+          failures: toRemedy,
+          implementationSummary: session.implementationBrief ?? "",
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; proposal?: { kind: string; summary: string; data: Record<string, unknown> } }
+        | null;
+      if (!res.ok || data?.ok !== true || !data.proposal) {
+        throw new Error(data?.error || `remediation failed (HTTP ${res.status})`);
+      }
+      onProposal?.(data.proposal);
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : "remediation failed");
+    } finally {
+      setPlanning(false);
+    }
+  };
 
   const record = async () => {
     if (!session.intent || !plan) return;
@@ -162,9 +207,25 @@ export function RemediationLayout({
           {recorded && <p className="text-[10px] text-slate-400">{recorded}</p>}
         </div>
       ) : (
-        <div className="text-xs text-slate-400 italic py-4 text-center">
-          No remediation plan yet. Ask aigentZ to remediate the failed consequences — it will propose a
-          remedy and a captured lesson for each, which you approve here.
+        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 space-y-1.5">
+          <div className="text-xs font-semibold text-emerald-300">Generate remediation plan</div>
+          <p className="text-[10px] text-slate-500">
+            Proposes a concrete remedy and a captured lesson for every failed, partial, or unresolved
+            validation item in one focused, invariant-routed inference. You approve the plan here; the
+            loop then re-validates (the safe default) or proceeds to Deployment Authorization.
+          </p>
+          <button
+            onClick={generatePlan}
+            disabled={planning || !report || !session.intent || Boolean(pendingProposal)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 hover:bg-emerald-600 px-2.5 py-1.5 text-xs text-white disabled:opacity-50"
+          >
+            {planning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wrench className="h-3.5 w-3.5" />}
+            {planning ? "Planning…" : "Generate remediation plan"}
+          </button>
+          {planError && <p className="text-xs text-rose-400">{planError}</p>}
+          {!report && (
+            <p className="text-[10px] text-slate-500">No validation report in the session yet — run Validation first.</p>
+          )}
         </div>
       )}
     </div>
