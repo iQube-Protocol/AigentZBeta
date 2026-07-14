@@ -210,7 +210,17 @@ Intent → Curate → Ground → Compose → Evaluate → Receipt → Account(st
 
 The substrate is not static: each pass applies `Φ`, updating `standing`/`reach`, which reorders `≼`, which changes what the next intent curates. **The crystal improves not because it grows, but because experience reorganizes it** (`inv.epistemology.132`).
 
-**Definition 4.2 (Constitutional fixpoint).** A crystal `𝒞` is a *constitutional fixpoint* for a task distribution `𝒟` when `Φ_𝒟(𝒞) ≡ 𝒞` up to the merit order `≼` — repeated constitutional use no longer reorganizes it. **Convergence conjecture (C1):** under a stationary `𝒟` and monotone standing accrual, the flywheel `𝒞₀, Φ𝒞₀, Φ²𝒞₀, …` converges to a neighborhood of the minimum sufficient substrate `K*(𝒟)` (§6.3). This is the central *dynamical* claim of the model; it is **unproven** and its test is EXP-003 Run 002 + longitudinal runs. Integrity constraint (Axiom 1.1 + Law XII): `Φ` may reorganize by standing/reach but may never let reach masquerade as standing — the substrate reorganizes *without losing epistemic integrity*. **[Account step implemented; Φ-dynamics and C1 are the object of the Run-002 line]**
+**Definition 4.2 (Constitutional fixpoint).** A crystal `𝒞` is a *constitutional fixpoint* for a task distribution `𝒟` when `Φ_𝒟(𝒞) ≡ 𝒞` up to the merit order `≼` — repeated constitutional use no longer reorganizes it. **Convergence conjecture (C1):** under a stationary `𝒟` and monotone standing accrual, the flywheel `𝒞₀, Φ𝒞₀, Φ²𝒞₀, …` converges to a neighborhood of the minimum sufficient substrate `K*(𝒟)` (§6.3). This is the central *dynamical* claim of the model; it is **unproven** and its test is the **EXP-006 Constitutional Knowledge Evolution** series (§9A). Integrity constraint (Axiom 1.1 + Law XII): `Φ` may reorganize by standing/reach but may never let reach masquerade as standing — the substrate reorganizes *without losing epistemic integrity*. **[Account step implemented; Φ-dynamics and C1 are the object of the EXP-006 line]**
+
+**Definition 4.3 (Two separable claims — do not conflate).** The flywheel bundles two hypotheses that must be measured independently:
+- **H1 (standing changes):** the Account step actually moves standing — `Φ` is non-trivial. `Account → standing`.
+- **H2 (standing improves retrieval):** the changed standing yields better curation — `standing → better K`.
+
+`H1 ∧ ¬H2` is an informative, publishable outcome (the substrate reorganizes but the reorganization does not help — merit is mis-measured); the model requires **both** to claim the flywheel turns productively.
+
+**Definition 4.4 (Versioned crystal — the reproducibility discipline).** Because `Φ` mutates the substrate, experiments run against a **frozen, versioned** crystal, not a live one: `Crystal v0 → Accrual → freeze → Crystal v1 → experiments`. A crystal version is a scientific artifact — analogous to a model checkpoint or a database migration, but *for knowledge* — so any party can re-run against `Crystal vN`. **Receipted-standing invariant:** every standing increment MUST carry provenance — `Invariant → validated-by Task → Judge → Receipt → standing increment` — never a bare `standing++`. Standing without an auditable justification is opaque and forbidden; the constitutional architecture is strongest when every state transition has provenance (this is IRL Principle 004 applied to the substrate itself). **[freeze/versioning + receipted accrual are EXP-006A deliverables; the discipline is specified here]**
+
+**Remark 4.5 (The crystal is a living constitution, not a library).** The dynamics above make the crystal closer to a constitution than a database: it does not improve by adding articles indiscriminately, but by its principles being interpreted, tested, challenged, amended, and accumulated through validated experience *while preserving continuity*. Growth is not the mechanism of improvement; **reorganization through validated use** is (`inv.epistemology.132`).
 
 ---
 
@@ -328,9 +338,23 @@ Each maps to a runnable experiment; F2/F3 are EXP-003's Run 001/Run 002 line dir
 ## 9. Ratified principles carried by this model
 
 - **IRL Principle 004** (`inv.epistemology.131`, canonical): *experimental instruments must faithfully report observed outcomes regardless of whether those outcomes support the hypothesis.* The model's own falsification section (§8) and the sign-aware instruments (§6's evidence) are bound by it.
-- **Emerging law** (`inv.epistemology.132`, governing principle, empirical confirmation pending EXP-003 Run 002): *knowledge quality scales through organization before accumulation.*
+- **Emerging law** (`inv.epistemology.132`, governing principle, empirical confirmation pending the EXP-006 series): *knowledge quality scales through organization before accumulation.*
 - **Law XII** (standing/reach orthogonality) — Axiom 1.1.
 - **Law XIII** (personhood continuity; the constitutional chain `Personhood → Individualization → Standing → Authority → Consequence`, identity an off-chain projection) — the identity model these definitions assume (IRL-010 §2.11).
+
+---
+
+## 9A. The experimental programme for the flywheel — EXP-006
+
+The dynamical claims of this model (C1, H1/H2, the `K*` open problems P1–P5, and F6/F7) are not testable by a single benchmark. They are the subject of a dedicated **longitudinal** series — *EXP-006, Constitutional Knowledge Evolution* — which supersedes the "EXP-003 Run 002" framing (a static retrieval A/B has become an evolution experiment). Full charter: `experiments/exp-006-constitutional-knowledge-evolution/README.md`. Arms:
+
+- **EXP-006A — Standing Accrual** (tests H1): does validated, *receipted* use move standing? Produces `Crystal v1` (frozen, versioned).
+- **EXP-006B — Standing-weighted Retrieval** (tests H2, P2, F7): on a frozen `Crystal v1`, does standing-ordered curation beat confidence-ordered on economy + fidelity?
+- **EXP-006C — Convergence of Φ** (tests C1, F6): does iterating the flywheel converge, and toward `K*`?
+- **EXP-006D — Cross-domain Transfer** (tests P3): does standing earned on one task family help another (the leakage-free generalization test)?
+- **EXP-006E — Crystal Version Comparison** (versioned artifacts): does `Crystal vN` outperform `vN−1`, and is the gain from reorganization not accumulation?
+
+Design invariants (non-negotiable): **freeze before you measure** (every comparison runs against a versioned, immutable crystal); **every standing increment is receipted** (auditable `Task → Judge → Receipt → increment`, never a bare `standing++`); **H1 and H2 measured independently.**
 
 ---
 

@@ -69,9 +69,11 @@ E = f(B)
 
 EXP-003 Run 001 isolates them: **G** replicates strongly (grounding helps); **B** alone does not (accumulation ≠ improvement); **M** is the untested lever — standing-weighted retrieval is what should make a broad-but-*earned* crystal curate itself. That makes the decisive re-run below a genuine A/B: **standing-weighted retrieval vs confidence-weighted retrieval**, not narrow vs broad. (These reframings — Reasoning Economics, `E=f(G,B,M)`, minimum-sufficient substrate, and IRL Principle 004 on faithful instruments — are carried into IRL-011; see the follow-on.)
 
-### The decisive follow-on (Run 002)
+### The decisive follow-on — deferred + redesigned as EXP-006
 
-Re-run `--broad` after the crystal has been in live grounding long enough to accrue standing/reach through use (citations bump reach; validation-class signals bump standing). If the broad delta turns **positive** once ranking reflects earned standing, that is the flywheel demonstrated — a materially stronger result than any single-run number, because it shows the crystal *improving itself through use*. If it stays negative even with earned standing, the honest conclusion is that curation is irreducible for these tasks, which is itself a real design finding.
+The re-run idea (does an *earned* crystal beat curation?) has **outgrown this experiment**. Deferred by operator + advisor direction 2026-07-14: a naive re-run now is void — standing is a pure function of `timesValidated`, which is 0 across the freshly-advanced crystal, so a "standing-weighted vs confidence-weighted" A/B would compare two labels for the same ordering and return a null *by construction* (recorded per IRL Principle 004). Earning standing first *is* the flywheel, which makes this the institute's first **longitudinal** experiment, not a static benchmark.
+
+It is now the **EXP-006 Constitutional Knowledge Evolution** series (`experiments/exp-006-constitutional-knowledge-evolution/README.md`): 006A Standing Accrual (H1, receipted) → freeze `Crystal v1` → 006B Standing-weighted Retrieval (H2/P2/F7) → 006C Convergence of Φ (C1/F6) → 006D Cross-domain Transfer (P3) → 006E Crystal Version Comparison. If standing-weighted retrieval beats confidence-weighted on a *frozen, earned* crystal, the flywheel is demonstrated (the crystal improving itself through validated use) — materially stronger than any single-run delta. If not, curation is irreducible for these tasks — itself a real finding.
 
 ## Interpretation contract
 
