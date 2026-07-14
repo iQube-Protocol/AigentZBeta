@@ -33,6 +33,8 @@ import {
 } from '@/services/iqube/intentQube';
 import {
   selectNbeCandidates,
+  normalizeNbeName,
+  nbeNameMatchesCompleted,
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
 import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
@@ -309,12 +311,39 @@ export async function buildVentureProgress(
       blak.confidentialStrategyNotes.trim().length > 0,
   };
 
-  // Recent activity — pulled from the IntentQube service.
+  // Recent activity — pulled from the IntentQube service. Fetch a wider
+  // window than the display limit: the extra rows feed (a) the dedupe below
+  // and (b) the completed-work observer signal for Recommended.
   const recentLimit = Math.min(Math.max(input.recentLimit ?? 5, 1), 20);
-  const intents = await listRecentIntentsForPersona(input.personaId, {
-    limit: recentLimit,
-    cartridge: input.cartridge,
+  const allIntents = await listRecentIntentsForPersona(input.personaId, {
+    limit: Math.max(recentLimit, 20),
   });
+
+  // Observer awareness (operator report 2026-07-14): what the operator
+  // completed recently must inform what the cockpit recommends next.
+  const recentlyCompletedNames = allIntents
+    .filter((i) => i.status === 'completed')
+    .map((i) => i.intentName)
+    .filter((n): n is string => typeof n === 'string' && n.trim().length > 0);
+  const completedNormalized = recentlyCompletedNames.map(normalizeNbeName).filter(Boolean);
+
+  // Active Work dedupe (operator report 2026-07-14: "the same actions
+  // repeated multiple times in the venture cockpit"): repeated acts on the
+  // same recommendation create sibling intents with the same name — show
+  // only the MOST RECENT row per (name, cartridge). Rows arrive ordered
+  // created_at desc, so first occurrence wins.
+  const scopedIntents = input.cartridge
+    ? allIntents.filter((i) => i.activeCartridge === input.cartridge)
+    : allIntents;
+  const seenWork = new Set<string>();
+  const intents = scopedIntents
+    .filter((i) => {
+      const key = `${normalizeNbeName(i.intentName)}|${i.activeCartridge}`;
+      if (seenWork.has(key)) return false;
+      seenWork.add(key);
+      return true;
+    })
+    .slice(0, recentLimit);
   const recentActivity: VentureProgressRecentActivity[] = intents.map((i) => {
     // Derived action capabilities — what the operator can do with
     // this row from the cockpit's Active Work context menu. Pure
@@ -375,11 +404,13 @@ export async function buildVentureProgress(
     currentStage,
     scopedCartridge: 'mvl',
     limit: 3,
+    recentlyCompletedNames,
   });
   const mixedActions = selectNbeCandidates({
     activeCartridges: linkedCartridges,
     currentStage,
     limit: 5,
+    recentlyCompletedNames,
   }).filter((c) => c.cartridge !== 'mvl').slice(0, 2);
 
   // Dedupe by id so a fallback NbeCandidate doesn't duplicate a
@@ -388,7 +419,16 @@ export async function buildVentureProgress(
   const fallback = [...avlActions, ...mixedActions]
     .map(toAction)
     .filter((a) => !seen.has(a.id));
-  const recommendedActions = [...catalogActions, ...fallback].slice(0, 8);
+  // Observer awareness on the PRIMARY (activation-catalog) source too:
+  // a catalog action whose label matches recently completed work drops
+  // out of Recommended. Never-empty guard: if the filter clears the whole
+  // row, keep the unfiltered list (everything current is done — repeating
+  // is more honest than an empty cockpit).
+  const combined = [...catalogActions, ...fallback];
+  const freshRecommended = completedNormalized.length > 0
+    ? combined.filter((a) => !nbeNameMatchesCompleted(a.label, completedNormalized))
+    : combined;
+  const recommendedActions = (freshRecommended.length > 0 ? freshRecommended : combined).slice(0, 8);
 
   // LLM rerank — produces per-NBA compose / action prompt hints
   // tailored to the persona's SoT (current stage, active cartridges,

@@ -360,6 +360,54 @@ export interface NbeSelectionContext {
   stageAdvanceEligible?: boolean;
   /** Commercial-spine stage completion map (id → complete), from getCommercialSpineState. */
   spineStagesComplete?: Record<string, boolean>;
+  /**
+   * Names of intents the persona recently COMPLETED — observed from the
+   * IntentQube record (the AR/CPS observer rule: a recommender must know
+   * what its space has already produced). Candidates whose label matches
+   * completed work are deprioritised out of selection so the NBE never
+   * re-recommends what the operator just finished. When EVERY eligible
+   * candidate matches completed work, the unfiltered set is returned
+   * (never an empty recommendation — the rerank's liveContext carries the
+   * completion state so its reason can say "everything current is done").
+   */
+  recentlyCompletedNames?: string[];
+}
+
+/**
+ * Normalize an NBE label / intent name for completed-work matching. Pure.
+ * Lowercase, strip punctuation, collapse whitespace — so "Generate a
+ * venture progress report." and "generate a venture progress report"
+ * compare equal.
+ */
+export function normalizeNbeName(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Containment only counts when the shorter side is a real phrase. */
+const COMPLETED_MATCH_MIN_LEN = 10;
+
+/**
+ * True when a candidate label matches one of the normalized completed
+ * names — exact normalized equality, or containment either way for the
+ * LLM-contextualised titles ("Generate a venture progress report for
+ * Operation Leap" completes the catalog's "Generate a venture progress
+ * report"). Pure — canary-pinned.
+ */
+export function nbeNameMatchesCompleted(label: string, completedNormalized: string[]): boolean {
+  if (completedNormalized.length === 0) return false;
+  const norm = normalizeNbeName(label);
+  if (!norm) return false;
+  return completedNormalized.some((done) => {
+    if (!done) return false;
+    if (done === norm) return true;
+    const shorter = done.length <= norm.length ? done : norm;
+    if (shorter.length < COMPLETED_MATCH_MIN_LEN) return false;
+    return done.includes(norm) || norm.includes(done);
+  });
 }
 
 /** Goal-keyword boost applied per keyword match. Capped at 3 hits per candidate. */
@@ -427,6 +475,7 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
     experienceGoals = [],
     stageAdvanceEligible = false,
     spineStagesComplete = {},
+    recentlyCompletedNames = [],
   } = ctx;
 
   const cartridgeSet = scopedCartridge
@@ -442,7 +491,17 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
     return true;
   });
 
-  const scored = filtered.map((c) => ({
+  // Observer awareness (operator report 2026-07-14: move-forward kept
+  // re-recommending the actions just completed): candidates matching
+  // recently completed intent names drop out of the pool. If that empties
+  // the pool entirely, keep the unfiltered set — never recommend nothing.
+  const completedNormalized = recentlyCompletedNames.map(normalizeNbeName).filter(Boolean);
+  const fresh = completedNormalized.length > 0
+    ? filtered.filter((c) => !nbeNameMatchesCompleted(c.label, completedNormalized))
+    : filtered;
+  const pool = fresh.length > 0 ? fresh : filtered;
+
+  const scored = pool.map((c) => ({
     candidate: c,
     score: c.weight + countGoalHits(c, experienceGoals) * GOAL_BOOST_PER_HIT,
   }));
@@ -463,6 +522,7 @@ export function selectTopNbeForCartridge(
     experienceGoals?: string[];
     stageAdvanceEligible?: boolean;
     spineStagesComplete?: Record<string, boolean>;
+    recentlyCompletedNames?: string[];
   },
 ): NbeCandidate | null {
   const candidates = selectNbeCandidates({
@@ -474,6 +534,7 @@ export function selectTopNbeForCartridge(
     experienceGoals: options?.experienceGoals ?? [],
     stageAdvanceEligible: options?.stageAdvanceEligible ?? false,
     spineStagesComplete: options?.spineStagesComplete ?? {},
+    recentlyCompletedNames: options?.recentlyCompletedNames ?? [],
   });
   return candidates[0] ?? null;
 }
