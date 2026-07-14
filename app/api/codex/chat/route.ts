@@ -29,6 +29,7 @@ import {
   type ComposerSessionContext,
 } from '@/services/copilot/composer';
 import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experienceQube';
+import { listRecentIntentsForPersona } from '@/services/iqube/intentQube';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
@@ -126,6 +127,12 @@ interface UserContext {
     activeCartridges?: string[];
     focusIntent?: string | null;
     alignmentState?: string | null;
+    /** Observer awareness (AR/CPS rule, 2026-07-14): intent names the
+     *  operator recently COMPLETED — the LLM must never re-recommend these,
+     *  even if earlier turns in the conversation did. */
+    recentlyCompletedActions?: string[];
+    /** Intent names currently live (in_progress / awaiting_approval). */
+    activeWork?: string[];
   };
   /**
    * Phase 8 (myCartridge PRD §16) — cartridge-scoped chat context.
@@ -1870,11 +1877,40 @@ async function loadMetameContext(
 ): Promise<UserContext['metameContext']> {
   if (!personaId || typeof personaId !== 'string') return undefined;
   try {
-    const [qube, guide] = await Promise.all([
+    const [qube, guide, intents] = await Promise.all([
       getExperienceQube(personaId).catch(() => null),
       getPersonalGuide(personaId).catch(() => null),
+      // Observer awareness (operator report 2026-07-14: the runtime chat
+      // kept re-recommending JUST-completed actions as "Next Focus" — the
+      // brief/move-forward builders are completion-filtered, but this chat
+      // path never consults them, and the conversation history contains the
+      // model's own stale recommendations). Read the IntentQube record so
+      // the system prompt carries observed completion state.
+      listRecentIntentsForPersona(personaId, { limit: 20 }).catch(() => []),
     ]);
     if (!qube && !guide) return undefined;
+    const dedupe = (names: string[]) => {
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const n of names) {
+        const k = n.trim().toLowerCase();
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        out.push(n.trim());
+      }
+      return out;
+    };
+    const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+    const recentlyCompletedActions = dedupe(
+      intents
+        .filter((i) => i.status === 'completed' && Date.parse(i.createdAt) >= cutoff)
+        .map((i) => i.intentName),
+    ).slice(0, 8);
+    const activeWork = dedupe(
+      intents
+        .filter((i) => i.status === 'in_progress' || i.status === 'awaiting_approval')
+        .map((i) => i.intentName),
+    ).slice(0, 5);
     return {
       experienceName:   qube?.meta.experienceName ?? null,
       experienceType:   qube?.meta.experienceType ?? null,
@@ -1883,6 +1919,8 @@ async function loadMetameContext(
       activeCartridges: qube?.meta.activeCartridges ?? [],
       focusIntent:      guide?.focusIntent ?? null,
       alignmentState:   guide?.alignmentState ?? null,
+      recentlyCompletedActions,
+      activeWork,
     };
   } catch {
     return undefined;
@@ -1954,6 +1992,20 @@ function buildSystemPrompt(
     }
     if (m.focusIntent)      metameLines.push(`- Today's focus (PersonalGuide): ${m.focusIntent}`);
     if (m.alignmentState)   metameLines.push(`- Alignment state: ${m.alignmentState}`);
+    // Observer awareness (AR/CPS rule): completed work is a FACT the reply
+    // must respect. The explicit override of conversation history matters —
+    // the model's own earlier "Next Focus" messages are in the transcript
+    // and would otherwise be parroted after the work completed.
+    if (m.recentlyCompletedActions && m.recentlyCompletedActions.length > 0) {
+      metameLines.push(
+        `- RECENTLY COMPLETED (observed from the intent record — these are DONE): ${m.recentlyCompletedActions.join('; ')}. ` +
+        `NEVER re-recommend a completed action as a next step or "top priority" — this rule OVERRIDES any earlier recommendation in this conversation. ` +
+        `Acknowledge the completion briefly and propose the next NEW action instead.`,
+      );
+    }
+    if (m.activeWork && m.activeWork.length > 0) {
+      metameLines.push(`- Currently in progress (do not re-initiate; reference status instead): ${m.activeWork.join('; ')}`);
+    }
   }
   const metameContextBlock = metameLines.length > 0
     ? `\n\n## User's metaMe Cartridge State\n\nFrame your reply inside this context — these are the facts the user has declared. Do not invent or override them.\n\n${metameLines.join('\n')}`

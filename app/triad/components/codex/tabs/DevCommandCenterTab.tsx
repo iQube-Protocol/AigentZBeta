@@ -697,6 +697,19 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   const handleAdvanceStage = useCallback(() => {
     const prev = sessionRef.current;
     const viewedStage = activeCapsuleId ? CAPSULE_TO_STAGE[activeCapsuleId] : undefined;
+    // When the loop is already PAST the viewed capsule's stage, "proceed" is
+    // pure NAVIGATION, not advancement (operator report 2026-07-14: with the
+    // session parked at consequence_validation, Decide's "Proceed to
+    // implementation" bounced to the blocking Validate capsule — reading as
+    // a skipped Implement). Open the NEXT capsule after the viewed one; its
+    // layout rehydrates from session state (Implementation re-shows the
+    // generated pack), so revisiting completed stages is cheap and honest.
+    const viewedIdx = viewedStage ? STAGE_ORDER.indexOf(viewedStage) : -1;
+    if (viewedIdx >= 0 && STAGE_ORDER.indexOf(prev.stage) > viewedIdx) {
+      const nextCapsule = STAGE_TO_CAPSULE[STAGE_ORDER[viewedIdx + 1]];
+      if (nextCapsule) engageCapsuleAndMount(nextCapsule);
+      return;
+    }
     const linearLimit = STAGE_ORDER.indexOf("consequence_validation");
     const targetIdx = Math.min(
       STAGE_ORDER.indexOf(viewedStage ?? prev.stage),

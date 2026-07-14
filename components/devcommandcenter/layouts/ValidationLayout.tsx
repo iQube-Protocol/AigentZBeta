@@ -88,7 +88,9 @@ export function ValidationLayout({
         </div>
       ) : (
         <div className="text-xs text-slate-400 italic py-8 text-center">
-          Validation runs after implementation. Ask aigentZ to validate the build against the consequence canvas — it will check every should-happen and must-never-happen entry.
+          {session.implementationBrief || session.generatedPack
+            ? "The implementation pack is in place — the loop is AT Constitutional Validation now. In the chat, ask aigentZ to “validate the build against the consequence canvas” — it will check every should-happen and must-never-happen entry and write the validation report here. The report is what unlocks Remediation or Deployment Authorization."
+            : "Validation runs after implementation. Ask aigentZ to validate the build against the consequence canvas — it will check every should-happen and must-never-happen entry."}
         </div>
       )}
     </div>
