@@ -105,6 +105,10 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'constitutional_validation_recorded',
   'remediation_recorded',
   'deployment_authorized',
+  // Merge validation-gate override — an unvalidated deploy authorized by an
+  // admin with a stated reason; anchoring makes the override tamper-evident
+  // (added per the permitted action-type-addition rule).
+  'validation_override_granted',
   'research_lifecycle_transition',
   // Artifact Runtime (CFS-025 Phase 2) — a constitutional-tier artifact was
   // PUBLISHED; anchoring makes the publication commitment tamper-evident.

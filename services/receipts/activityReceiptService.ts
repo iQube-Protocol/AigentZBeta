@@ -100,6 +100,10 @@ export type ActivityActionType =
   | 'constitutional_validation_recorded'
   | 'remediation_recorded'
   | 'deployment_authorized'
+  // Merge validation-gate override (2026-07-14): an admin merged a pack PR
+  // WITHOUT a passing validation record, with a stated reason. The override
+  // is never silent — this receipt is the tamper-evident record of it.
+  | 'validation_override_granted'
   | 'research_lifecycle_transition'
   // Foundational Validation Series — canonical result publication (Experiment
   // Lab). Summary carries the sha256 content commitment of the results JSON;

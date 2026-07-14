@@ -55,6 +55,11 @@ export function GitHubLayout({
   const [armedPr, setArmedPr] = useState<number | null>(null);
   const [mergingPr, setMergingPr] = useState<number | null>(null);
   const [mergeNotes, setMergeNotes] = useState<Record<number, string>>({});
+  // Validation-gate override (admin, receipted, never silent): when the merge
+  // route blocks a pack PR for lack of a passing validation record, this arms
+  // a reason-required override form on that PR row.
+  const [overridePr, setOverridePr] = useState<number | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
 
   // Hold the latest onToolUsed in a ref so the fetch callbacks (and the mount
   // effect that depends on loadOverview) don't get a new identity every time the
@@ -85,7 +90,7 @@ export function GitHubLayout({
 
   useEffect(() => { void loadOverview(); }, [loadOverview]);
 
-  const mergePr = useCallback(async (pullNumber: number) => {
+  const mergePr = useCallback(async (pullNumber: number, override?: { reason: string }) => {
     setMergingPr(pullNumber);
     setArmedPr(null);
     onToolUsedRef.current?.("merge");
@@ -93,21 +98,28 @@ export function GitHubLayout({
       const res = await personaFetchDeadline("/api/dev-command-center/github/merge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pullNumber }),
+        body: JSON.stringify({
+          pullNumber,
+          ...(override ? { overrideValidation: true, overrideReason: override.reason } : {}),
+        }),
       });
       const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
       if (!res.ok || json?.ok !== true) {
+        // Validation gate blocked — arm the receipted override form on this row.
+        if (json?.validationGate === "blocked") setOverridePr(pullNumber);
         setMergeNotes((m) => ({
           ...m,
           [pullNumber]: (typeof json?.error === "string" && json.error) || `merge failed (HTTP ${res.status})`,
         }));
         return;
       }
+      setOverridePr(null);
+      setOverrideReason("");
       setMergeNotes((m) => ({
         ...m,
-        [pullNumber]: `Merged ${String(json.sha ?? "").slice(0, 10)} — Amplify is deploying dev.${
+        [pullNumber]: `${json.validationGate === "overridden" ? "⚠ OVERRIDE — " : ""}Merged ${String(json.sha ?? "").slice(0, 10)} — Amplify is deploying dev.${
           typeof json.receiptId === "string" && json.receiptId ? ` receipt ${String(json.receiptId).slice(0, 8)}…` : ""
-        }`,
+        }${typeof json.overrideReceiptId === "string" && json.overrideReceiptId ? ` override-receipt ${String(json.overrideReceiptId).slice(0, 8)}…` : ""}`,
       }));
       void loadOverview();
     } catch (err) {
@@ -294,8 +306,39 @@ export function GitHubLayout({
                     )}
                   </div>
                   {mergeNotes[pr.number] && (
-                    <div className={`mt-0.5 text-[10px] ${mergeNotes[pr.number].startsWith("Merged") ? "text-emerald-300" : "text-rose-300"}`}>
+                    <div className={`mt-0.5 text-[10px] ${mergeNotes[pr.number].includes("Merged") ? "text-emerald-300" : "text-rose-300"}`}>
                       {mergeNotes[pr.number]}
+                    </div>
+                  )}
+                  {/* Receipted validation-gate override — admin states a reason,
+                      the merge proceeds, and a validation_override_granted
+                      receipt (DVN-anchorable) records the act. Never silent. */}
+                  {overridePr === pr.number && (
+                    <div className="mt-1 rounded border border-amber-500/40 bg-amber-500/10 p-1.5 space-y-1">
+                      <div className="text-[10px] font-semibold text-amber-300">
+                        Override validation gate — deploys UNVALIDATED code; the override is receipted (DVN-anchorable).
+                      </div>
+                      <input
+                        className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-slate-100 text-[10px]"
+                        placeholder="Reason for overriding (required, ≥ 10 chars) — e.g. minor/mistaken infringement, validating post-hoc"
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                      />
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => void mergePr(pr.number, { reason: overrideReason })}
+                          disabled={mergingPr !== null || overrideReason.trim().length < 10}
+                          className="rounded bg-amber-700 hover:bg-amber-600 px-1.5 py-0.5 text-[10px] text-white disabled:opacity-50"
+                        >
+                          Override & merge
+                        </button>
+                        <button
+                          onClick={() => { setOverridePr(null); setOverrideReason(""); }}
+                          className="rounded bg-slate-800 hover:bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
