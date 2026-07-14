@@ -36,6 +36,17 @@
  *   node scripts/benchmark-rediscovery.mjs                       # full run (~20 API calls)
  *   node scripts/benchmark-rediscovery.mjs --provider openai     # force a provider
  *   node scripts/benchmark-rediscovery.mjs --tasks 2             # first N tasks only
+ *   node scripts/benchmark-rediscovery.mjs --broad               # + grounding-breadth arm
+ *
+ * The --broad arm adds a third grounding regime per task: instead of the
+ * fixed 18-invariant collection, it grounds on a domain-scoped slice drawn
+ * LIVE from the whole groundable crystal (canonical+validated in the
+ * constitutional/reasoning/engineering namespaces, top 24 by
+ * standing→confidence→reach — mirroring buildInvariantSlice). It reports the
+ * narrow→broad BREADTH DELTA: the extra rediscovery savings that come purely
+ * from a richer discoverable crystal. Advance the crystal to 'validated'
+ * before running --broad, else the broad slice ≈ the narrow collection and
+ * the delta is uninformative (the harness warns when that happens).
  *
  * Without --provider the first provider with a key (platform order:
  * anthropic → openai → venice) is used. Both arms and the judge always run
@@ -58,6 +69,22 @@ const OUT_DIR = join(REPO, 'codexes/packs/irl/foundation/experiments/exp-003-red
 const DRY_RUN = process.argv.includes('--dry-run');
 const tasksArgIdx = process.argv.indexOf('--tasks');
 const TASK_LIMIT = tasksArgIdx > -1 ? Number(process.argv[tasksArgIdx + 1]) : Infinity;
+
+// Grounding-BREADTH arm (2026-07-14): a third arm grounded not by the fixed
+// 18-invariant collection but by a domain-scoped slice drawn LIVE from the
+// whole groundable crystal, ranked exactly as services/invariants/grounding.ts
+// buildInvariantSlice ranks (standing → confidence → reach). Measures what
+// broadening the discoverable crystal DOES: does richer grounding reduce
+// output-token rediscovery and/or raise grounded share vs the narrow
+// collection? The narrow→broad delta is the value of crystal breadth.
+const BROAD = process.argv.includes('--broad');
+// The domains these constitutional-reasoning tasks operate in — the slice is
+// scoped to them exactly as a real governance reasoning call would scope.
+const BROAD_NAMESPACES = ['constitutional', 'reasoning', 'engineering'];
+// 2× the platform's default grounding limit (12) — a generous governance slice.
+const BROAD_LIMIT = 24;
+// Grounding-eligible statuses — mirrors GROUNDING_STATUSES in grounding.ts.
+const BROAD_STATUSES = ['canonical', 'validated'];
 
 // ── The fixed collection + task set — single source of truth shared with
 // the Experiment Lab front-end (services/experiments/exp003-tasks.json) ──
@@ -148,6 +175,29 @@ function closureBlock(collection) {
     '',
     ...collection.map((inv) => `${inv.marker} ${inv.statement}`),
   ].join('\n');
+}
+
+/**
+ * The BROAD slice — the domain-scoped top-N of the live groundable crystal,
+ * ranked as buildInvariantSlice ranks (standing → confidence → reach). This
+ * is what a real governance reasoning call would ground on once the crystal
+ * is advanced; the harness reads it straight from the DB so the measured
+ * breadth delta reflects the ACTUAL groundable state, not a fixture.
+ */
+async function fetchBroadSlice(supabase) {
+  const { data, error } = await supabase
+    .from('invariants')
+    .select('seed_id, statement, standing, confidence, reach, namespace, status')
+    .in('status', BROAD_STATUSES)
+    .in('namespace', BROAD_NAMESPACES)
+    .order('standing', { ascending: false })
+    .order('confidence', { ascending: false })
+    .order('reach', { ascending: false })
+    .limit(BROAD_LIMIT);
+  if (error) throw new Error(`broad slice fetch failed: ${error.message}`);
+  return (data ?? [])
+    .filter((r) => typeof r.seed_id === 'string' && r.seed_id.startsWith('inv.'))
+    .map((r) => ({ seedId: r.seed_id, marker: markerFor(r.seed_id), statement: r.statement }));
 }
 
 let ACTIVE_PROVIDER = 'anthropic';
@@ -264,13 +314,29 @@ async function main() {
   const tasks = TASKS.slice(0, TASK_LIMIT);
   const block = closureBlock(collection);
 
-  console.log(`EXP-003 rediscovery-savings benchmark`);
+  // BROAD arm slice + block (only when --broad).
+  const broadSlice = BROAD ? await fetchBroadSlice(supabase) : [];
+  const broadBlock = BROAD ? closureBlock(broadSlice) : '';
+
+  console.log(`EXP-003 rediscovery-savings benchmark${BROAD ? ' + grounding-breadth arm' : ''}`);
   console.log(`provider=${ACTIVE_PROVIDER} model=${ACTIVE_MODEL} temperature=0 tasks=${tasks.length} collection=${collection.length} invariants`);
+  if (BROAD) {
+    console.log(`broad slice=${broadSlice.length} invariants (live, ${BROAD_STATUSES.join('+')} in ${BROAD_NAMESPACES.join('/')}, top ${BROAD_LIMIT} by standing→confidence→reach)`);
+    if (broadSlice.length <= collection.length) {
+      console.log(`  ⚠ broad slice (${broadSlice.length}) is not larger than the narrow collection (${collection.length}) — advance the crystal to 'validated' first, else the breadth delta is uninformative.`);
+    }
+  }
 
   if (DRY_RUN) {
     console.log('\n--dry-run: no API calls. Closure block preview:\n');
     console.log(block.split('\n').slice(0, 6).join('\n') + '\n…');
-    console.log(`\nWould run: ${tasks.length} × (cold + initialized + 2 judge passes) = ${tasks.length * 4} API calls.`);
+    if (BROAD) {
+      console.log('\nBroad slice preview:\n');
+      console.log(broadBlock.split('\n').slice(0, 8).join('\n') + '\n…');
+    }
+    const armsPerTask = BROAD ? 3 : 2;
+    const judgesPerTask = BROAD ? 3 : 2;
+    console.log(`\nWould run: ${tasks.length} × (${armsPerTask} answers + ${judgesPerTask} judge passes) = ${tasks.length * (armsPerTask + judgesPerTask)} API calls.`);
     return;
   }
 
@@ -286,12 +352,21 @@ async function main() {
     const init = await callChat(ANSWER_SYSTEM, `${block}\n\nTASK:\n${task.prompt}`, MAX_ANSWER_TOKENS);
     console.log(` ${init.outputTokens} output tokens`);
 
+    let broad = null;
+    if (BROAD) {
+      process.stdout.write('  broad …');
+      broad = await callChat(ANSWER_SYSTEM, `${broadBlock}\n\nTASK:\n${task.prompt}`, MAX_ANSWER_TOKENS);
+      console.log(` ${broad.outputTokens} output tokens`);
+    }
+
     process.stdout.write('  judging …');
     const coldJudge = await judge(collection, task.prompt, cold.text);
     const initJudge = await judge(collection, task.prompt, init.text);
+    // The broad arm is judged against the broad slice it was grounded on.
+    const broadJudge = BROAD ? await judge(broadSlice, task.prompt, broad.text) : null;
     console.log(' done');
 
-    results.push({
+    const entry = {
       taskId: task.id,
       cold: {
         inputTokens: cold.inputTokens,
@@ -307,33 +382,67 @@ async function main() {
         citations: countCitations(init.text, collection),
         answer: init.text,
       },
-    });
+    };
+    if (BROAD) {
+      entry.broad = {
+        inputTokens: broad.inputTokens,
+        outputTokens: broad.outputTokens,
+        judge: broadJudge,
+        citations: countCitations(broad.text, broadSlice),
+        answer: broad.text,
+      };
+    }
+    results.push(entry);
   }
 
   mkdirSync(OUT_DIR, { recursive: true });
   const stamp = new Date().toISOString().slice(0, 10);
   const outPath = join(OUT_DIR, `results-${stamp}.json`);
-  writeFileSync(outPath, JSON.stringify({ provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL, ranAt: new Date().toISOString(), collectionSeeds: SEED_IDS, results }, null, 2));
+  const arms = BROAD ? ['cold', 'initialized', 'broad'] : ['cold', 'initialized'];
+  writeFileSync(outPath, JSON.stringify({
+    provider: ACTIVE_PROVIDER,
+    model: ACTIVE_MODEL,
+    ranAt: new Date().toISOString(),
+    collectionSeeds: SEED_IDS,
+    ...(BROAD ? { broadSliceSeeds: broadSlice.map((i) => i.seedId), broadNamespaces: BROAD_NAMESPACES, broadLimit: BROAD_LIMIT } : {}),
+    results,
+  }, null, 2));
 
   // Summary table (paste into README results section).
   console.log('\n| Task | Arm | Out tokens | Claims | Consistent | Contradicting | Outside | Cited |');
   console.log('|---|---|---|---|---|---|---|---|');
   for (const r of results) {
-    for (const arm of ['cold', 'initialized']) {
+    for (const arm of arms) {
       const a = r[arm];
+      if (!a) continue;
       console.log(
         `| ${r.taskId} | ${arm} | ${a.outputTokens} | ${a.judge.claimsTotal} | ${a.judge.consistent} | ${a.judge.contradicting} | ${a.judge.outside} | ${a.citations.distinctInvariantsCited} |`,
       );
     }
   }
-  const sum = (arm, f) => results.reduce((acc, r) => acc + (f(r[arm]) ?? 0), 0);
+  const sum = (arm, f) => results.reduce((acc, r) => acc + (r[arm] ? (f(r[arm]) ?? 0) : 0), 0);
   const groundedShare = (arm) => {
     const total = sum(arm, (a) => a.judge.claimsTotal);
     return total > 0 ? (sum(arm, (a) => a.judge.consistent) / total) : null;
   };
+  const pct = (v) => (v == null ? 'n/a' : `${(v * 100).toFixed(1)}%`);
   console.log('\nAggregate:');
-  console.log(`  cold:        ${sum('cold', (a) => a.outputTokens)} output tokens, grounded share ${(groundedShare('cold') * 100).toFixed(1)}%, contradictions ${sum('cold', (a) => a.judge.contradicting)}`);
-  console.log(`  initialized: ${sum('initialized', (a) => a.outputTokens)} output tokens, grounded share ${(groundedShare('initialized') * 100).toFixed(1)}%, contradictions ${sum('initialized', (a) => a.judge.contradicting)}`);
+  for (const arm of arms) {
+    console.log(`  ${arm.padEnd(11)}: ${sum(arm, (a) => a.outputTokens)} output tokens, grounded share ${pct(groundedShare(arm))}, contradictions ${sum(arm, (a) => a.judge.contradicting)}`);
+  }
+  // Rediscovery savings (cold is the shared baseline).
+  const coldTokens = sum('cold', (a) => a.outputTokens);
+  const saving = (arm) => (coldTokens > 0 ? ((coldTokens - sum(arm, (a) => a.outputTokens)) / coldTokens) : null);
+  console.log('\nRediscovery savings vs cold (output tokens):');
+  console.log(`  narrow (initialized, ${collection.length} invariants): ${pct(saving('initialized'))}`);
+  if (BROAD) {
+    console.log(`  broad  (live slice, ${broadSlice.length} invariants):   ${pct(saving('broad'))}`);
+    const narrowTok = sum('initialized', (a) => a.outputTokens);
+    const broadTok = sum('broad', (a) => a.outputTokens);
+    const breadthDelta = narrowTok > 0 ? ((narrowTok - broadTok) / narrowTok) : null;
+    console.log(`\n★ BREADTH DELTA (narrow → broad): ${pct(breadthDelta)} further output-token reduction, grounded-share ${pct(groundedShare('initialized'))} → ${pct(groundedShare('broad'))}.`);
+    console.log(`  Positive token delta + non-falling grounded share = broadening the discoverable crystal measurably improves reasoning economy. This is the "invariants must be discoverable to earn their keep" claim, measured.`);
+  }
   console.log(`\nRaw results: ${outPath}`);
 }
 
