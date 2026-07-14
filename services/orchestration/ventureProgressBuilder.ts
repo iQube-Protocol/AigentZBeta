@@ -29,6 +29,7 @@ import {
 } from '@/services/iqube/experienceQube';
 import {
   listRecentIntentsForPersona,
+  setIntentQubeStatus,
   type IntentStatus,
 } from '@/services/iqube/intentQube';
 import {
@@ -235,6 +236,71 @@ function catalogActionToBrief(input: {
     specialist: input.action.specialist ?? null,
     suggestedArtifact: null,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Intent hygiene sweep (operator request 2026-07-14).
+//
+// Repeated acts on the same recommendation created sibling intents that
+// lingered as in_progress forever — the cockpit dedupe hides them, but the
+// underlying rows stayed dirty. This sweep cancels:
+//   - SUPERSEDED live duplicates: an in_progress / awaiting_approval intent
+//     with a NEWER sibling of the same (normalized name, cartridge) — the
+//     newest row is the current state of that action; older live twins are
+//     redundant.
+//   - STALE live singletons: a live intent older than 14 days with no newer
+//     sibling — abandoned work that can never complete itself. The operator
+//     can always re-act; a fresh intent is one click.
+// Completed / failed / cancelled rows are history and are NEVER touched.
+// Best-effort + capped: never throws, never blocks the surface that runs
+// it, at most MAX_SWEEP_CANCELS_PER_RUN mutations per sweep (the backlog
+// drains across a few cockpit loads instead of stalling one).
+// ─────────────────────────────────────────────────────────────────────────
+
+const SWEEP_FETCH_LIMIT = 50;
+const STALE_INTENT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+const MAX_SWEEP_CANCELS_PER_RUN = 20;
+
+export interface IntentSweepResult {
+  cancelledSuperseded: number;
+  cancelledStale: number;
+}
+
+export async function sweepSupersededIntents(personaId: string): Promise<IntentSweepResult> {
+  const result: IntentSweepResult = { cancelledSuperseded: 0, cancelledStale: 0 };
+  if (!personaId) return result;
+  try {
+    const intents = await listRecentIntentsForPersona(personaId, { limit: SWEEP_FETCH_LIMIT });
+    const isLive = (s: IntentStatus) => s === 'in_progress' || s === 'awaiting_approval';
+    const now = Date.now();
+    // Rows arrive created_at desc — the first row seen per key is the
+    // newest and is always retained, whatever its status.
+    const seenKeys = new Set<string>();
+    const toCancel: { id: string; reason: 'superseded' | 'stale' }[] = [];
+    for (const i of intents) {
+      const key = `${normalizeNbeName(i.intentName)}|${i.activeCartridge}`;
+      const hasNewerSibling = seenKeys.has(key);
+      seenKeys.add(key);
+      if (!isLive(i.status)) continue;
+      if (hasNewerSibling) {
+        toCancel.push({ id: i.id, reason: 'superseded' });
+      } else {
+        const age = now - Date.parse(i.createdAt);
+        if (Number.isFinite(age) && age > STALE_INTENT_MAX_AGE_MS) {
+          toCancel.push({ id: i.id, reason: 'stale' });
+        }
+      }
+    }
+    for (const c of toCancel.slice(0, MAX_SWEEP_CANCELS_PER_RUN)) {
+      const updated = await setIntentQubeStatus(c.id, 'cancelled');
+      if (!updated) continue;
+      if (c.reason === 'superseded') result.cancelledSuperseded += 1;
+      else result.cancelledStale += 1;
+    }
+  } catch {
+    // Hygiene never breaks the surface that runs it.
+  }
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

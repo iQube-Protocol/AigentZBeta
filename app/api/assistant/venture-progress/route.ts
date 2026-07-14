@@ -21,7 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { buildVentureProgress } from '@/services/orchestration/ventureProgressBuilder';
+import { buildVentureProgress, sweepSupersededIntents } from '@/services/orchestration/ventureProgressBuilder';
 import { runPreflightGather } from '@/services/capabilities/preflight';
 import { refreshCapabilityStandingFromActivity } from '@/services/crm/standingAccrualService';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
@@ -82,6 +82,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Refresh Capability Standing from live VentureQube signals on each engagement.
     void refreshCapabilityStandingFromActivity(context.personaId);
+
+    // Intent hygiene (operator request 2026-07-14): cancel superseded live
+    // duplicates + 14-day-stale live singletons BEFORE the build so the
+    // cockpit's Active Work reflects the swept record in THIS response.
+    // Best-effort + capped inside the sweep; a failure never blocks the build.
+    const swept = await sweepSupersededIntents(context.personaId);
+    if (swept.cancelledSuperseded > 0 || swept.cancelledStale > 0) {
+      console.log(
+        `[assistant/venture-progress] intent sweep: ${swept.cancelledSuperseded} superseded + ${swept.cancelledStale} stale intent(s) cancelled`,
+      );
+    }
 
     const result = await buildVentureProgress({
       personaId: context.personaId,
