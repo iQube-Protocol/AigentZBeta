@@ -10,6 +10,9 @@ import {
   extractThumbnailFromBuffer,
   persistThumbnailAsset,
 } from "@/app/api/skills/video/_thumbnail";
+// CVR-002 — additive consequence tiering for Studio productions.
+// Best-effort + failure-isolated: never changes how videos are stitched.
+import { tierStudioArtifact } from "@/services/composer/studioArtifactTiering";
 
 /**
  * POST /api/skills/video/stitch
@@ -245,6 +248,21 @@ export async function POST(request: NextRequest) {
       thumbnailUrl = null;
     }
 
+    // CVR-002 tiering (additive, never throws): a stitched video resolves a
+    // durable Supabase URL exactly once per stitch — a completed operational
+    // 'multimedia' production, persisted as an ArtifactRecord. Existing
+    // response fields unchanged.
+    const tiering = await tierStudioArtifact({
+      kind: "studio.video.stitch.completed",
+      title: `Stitched video (${clipUrls.length} clips)`,
+      outputs: [
+        { url: videoUrl },
+        ...(thumbnailUrl ? [{ url: thumbnailUrl, label: "thumbnail" }] : []),
+      ],
+      stitchId,
+      segments: clipUrls.length,
+    });
+
     return NextResponse.json({
       ok: true,
       video_url: videoUrl,
@@ -252,6 +270,7 @@ export async function POST(request: NextRequest) {
       stitch_id: stitchId,
       segments: clipUrls.length,
       experience_id: experienceId || undefined,
+      ...tiering,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
