@@ -892,10 +892,23 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
       engageCapsuleAndMount(nextCapsule);
       // Finding 6: the conversation progresses proactively — one auto-turn
       // per approval transition, sent through the copilot's normal path.
+      // HEAVY stages (validation, remediation) have dedicated runner buttons
+      // in their capsules — the auto-turn for those is GUIDE-ONLY: asking chat
+      // to also produce the fence made the turn outlive Amplify's ~30s
+      // response ceiling, which is exactly how the operator got stranded at
+      // Remediation with a dead auto-turn (2026-07-14).
       const nextKind = STAGE_PROPOSAL_KIND[next.stage];
+      const heavyStageButton =
+        next.stage === "consequence_validation"
+          ? 'the Validate capsule\'s "Run validation" button'
+          : next.stage === "remediation"
+          ? 'the Remediation capsule\'s "Generate remediation plan" button'
+          : null;
       setAutoPrompt({
         id: `auto-${next.stage}-${Date.now()}`,
-        text: `[observed] The ${proposal.kind} proposal was approved and the loop advanced to ${next.stage}. Guide me to the next task${nextKind ? ` and, when ready, produce the ${nextKind} proposal` : ''}.`,
+        text: heavyStageButton
+          ? `[observed] The ${proposal.kind} proposal was approved and the loop advanced to ${next.stage}. Guide me in 2-3 sentences — do NOT produce a proposal fence this turn; ${heavyStageButton} produces it reliably.`
+          : `[observed] The ${proposal.kind} proposal was approved and the loop advanced to ${next.stage}. Guide me to the next task${nextKind ? ` and, when ready, produce the ${nextKind} proposal` : ''}.`,
       });
     }
   }, [pendingProposals, session, consumeCapsuleSuggestion, observe, engageCapsuleAndMount, handleReceipt]);
@@ -1353,6 +1366,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               onApproveProposal={() => handleApproveProposal("remediation")}
               onDismissProposal={() => handleDismissProposal("remediation")}
               onReceipt={handleReceipt}
+              onProposal={(p) => handleStageProposals([p])}
             />
           )}
           {isCapsuleLayout && activeCapsuleId === "deployment-authorization" && (
