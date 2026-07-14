@@ -324,7 +324,9 @@ All experiments run against the production substrate (not a mock), through per-s
 - **Claim scope**: temporal coherence is *measurable* (dimension scores, violations) — not that sequencing is a natural law.
 - **Limitations**: the coherence scorer is itself model-assisted; provider video quality confounds absolute scores (comparisons are within-provider).
 
-### EXP-003 — Computational Efficiency (reasoning compression, CFS-008 §2)
+### EXP-003 — Reasoning Economics (renamed 2026-07-14 from "Computational Efficiency"; reasoning compression, CFS-008 §2)
+
+*Rename ratified 2026-07-14: the experiment now measures cost + grounding + contradictions + retrieval strategy + merit weighting + token economy — economics, not efficiency alone. Machine id `EXP-003` is unchanged (published records are stable). Reasoning economy is modeled as `E = f(G, B, M)` — grounding quality, collection breadth, merit/standing weighting — not `E = f(B)`; the breadth arm (below) isolates the three.*
 - **Config** (`services/experiments/exp003-tasks.json`): **5 constitutional-reasoning tasks** (delegation authority model, reputation-vs-truth, permanent mandate, truthful harm, repealed rule), an **18-invariant collection** with citation markers.
 - **Arms** (`services/experiments/exp003.ts:72`): `cold` (task only) vs `initialized` (task + knowledge manifest) — same tasks, same provider, same model, same token ceiling (`MAX_ANSWER_TOKENS = 1200`). *The baseline Austin asked about is the cold arm.*
 - **Metrics**: output tokens per task (`callChatWithUsage` — provider-reported usage, not estimates); grounding rate (marker citations in the initialized arm); qualitative rediscovery content in cold-arm answers.

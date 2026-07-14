@@ -2005,6 +2005,36 @@
    "provenance": {
     "source": "CFS-009 Law XIII — Individualization (binding law); operator articulation 2026-07-14; implementation witness IRL-010 §2.11"
    }
+  },
+  {
+   "id": "inv.epistemology.131",
+   "namespace": "epistemology",
+   "semantic_type": "law",
+   "statement": "Experimental instruments must faithfully report observed outcomes regardless of whether those outcomes support the hypothesis. An instrument that can only report success is not an instrument.",
+   "status": "proposed",
+   "contexts": [
+    "epistemology",
+    "experiment",
+    "governance"
+   ],
+   "provenance": {
+    "source": "IRL Principle 004 — operator-ratified 2026-07-14. Elevated from the EXP-003 breadth-arm instrument-honesty fix (a hardcoded-optimistic summary that misreported a negative result). Normative constitutional commitment: the runtime is constitutionally bound to truthfully represent evidence."
+   }
+  },
+  {
+   "id": "inv.epistemology.132",
+   "namespace": "epistemology",
+   "semantic_type": "principle",
+   "statement": "Knowledge quality scales through organization before it scales through accumulation: a knowledge substrate improves not because it grows, but because experience reorganizes it. Value is set by constitutional organization and retrieval, not by quantity contained.",
+   "status": "proposed",
+   "contexts": [
+    "epistemology",
+    "reasoning",
+    "governance"
+   ],
+   "provenance": {
+    "source": "Operator-ratified as governing principle 2026-07-14 (advisor: the institute's first emerging scientific law). EMPIRICAL confirmation PENDING EXP-003 Run 002 (Reasoning Economics — standing-weighted vs confidence-weighted retrieval); ratified as research posture, not yet document-verified. First supporting datum: EXP-003 Run 001 (curation dominates accumulation)."
+   }
   }
  ]
 }
