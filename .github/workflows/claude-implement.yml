@@ -1,0 +1,106 @@
+# Claude Implement — the DCC implementation-dispatch receiver (CFS-016 D1-compatible).
+#
+# Triggered by `repository_dispatch` (event_type: claude-implement) from the
+# platform's POST /api/dev-command-center/implement route. Claude Code runs IN CI
+# against the Implementation Pack carried in the payload, implements it on the
+# payload's working branch (aigentz/pack-*), and opens a PR to `dev`.
+#
+# ── D1 (CFS-016): execution stays HUMAN ──
+# Nothing this workflow does reaches `dev` (the deploy branch) by itself:
+#   • the working branch is `aigentz/pack-*` — deliberately NOT `claude/**`,
+#     because merge-claude-to-dev.yml auto-merges claude/** into dev (deploy).
+#   • Claude is instructed to open a PR and NEVER merge it. The operator's PR
+#     merge is the human execution gate; Amplify deploys only from dev.
+#
+# ── Setup (operator, one-time) ──
+#   1. Repo secret ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions).
+#   2. This file must exist on the DEFAULT branch (main) — repository_dispatch
+#      only triggers workflows from the default branch (same gotcha as
+#      merge-claude-to-dev.yml, documented in CLAUDE.md).
+
+name: Claude Implement (DCC dispatch)
+
+on:
+  repository_dispatch:
+    types: [claude-implement]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Create working branch
+        env:
+          BRANCH: ${{ github.event.client_payload.branch }}
+        run: |
+          # Branch names are minted server-side as aigentz/pack-<slug>-<hash>;
+          # refuse anything else (defense against a forged dispatch payload).
+          case "$BRANCH" in
+            aigentz/pack-*) ;;
+            *) echo "refusing non-aigentz/pack-* branch: $BRANCH"; exit 1 ;;
+          esac
+          git checkout -b "$BRANCH"
+
+      # The pack travels as JSON through toJSON() → file, never interpolated
+      # into shell or prompt text (injection-safe).
+      - name: Materialize implementation pack
+        env:
+          PAYLOAD_JSON: ${{ toJSON(github.event.client_payload) }}
+        run: |
+          node -e '
+            const p = JSON.parse(process.env.PAYLOAD_JSON || "{}");
+            const fs = require("fs");
+            fs.writeFileSync("/tmp/implementation-pack.md",
+              String(p.packMarkdown || ""), "utf8");
+            fs.writeFileSync("/tmp/dispatch-meta.json", JSON.stringify({
+              packId: String(p.packId || ""),
+              goal: String(p.goal || ""),
+              branch: String(p.branch || ""),
+            }, null, 2), "utf8");
+          '
+          echo "pack bytes: $(wc -c < /tmp/implementation-pack.md)"
+
+      - name: Claude Code — implement the pack
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are implementing a Dev Command Center Implementation Pack inside CI.
+
+            1. Read /tmp/dispatch-meta.json (packId, goal, working branch) and
+               /tmp/implementation-pack.md (the full Implementation Pack:
+               governing invariants, areas to touch, validation plan, receipt plan).
+            2. Read CLAUDE.md at the repo root FIRST and follow it exactly —
+               especially the protected-files list (identity spine, DVN pipeline,
+               access gates): if the pack requires modifying any protected file,
+               DO NOT modify it — implement everything else and record the
+               blocked step in the PR body under "Requires operator approval".
+            3. Implement the pack on the CURRENT branch (already checked out —
+               never create another branch, never switch branches).
+            4. Validate what you build (at minimum, parse/build checks on every
+               file you touch). Report validation honestly in the PR body.
+            5. Commit in focused commits (imperative, lowercase subjects) and push:
+               git push -u origin HEAD
+            6. Open a pull request to the dev branch:
+               gh pr create --base dev --title "<concise title from the pack goal>" --body "<what was implemented, validation results, honest limits, packId>"
+            7. NEVER push to dev or main directly. NEVER merge the PR. NEVER
+               enable auto-merge. Deployment stays human (CFS-016 D1) — the
+               operator reviews and merges.
+
+            If the pack is empty or unreadable, open no PR; exit with a clear
+            error message instead.
+          claude_args: |
+            --allowedTools "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(npx:*),Bash(node:*),Bash(npm:*),Read,Write,Edit,Glob,Grep"
+        env:
+          GH_TOKEN: ${{ github.token }}

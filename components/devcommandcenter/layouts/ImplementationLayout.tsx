@@ -12,18 +12,23 @@
  *   2. Generate Implementation Pack — the REAL constitutional pipeline
  *      (`/api/constitutional/implementation-pack`): invariant bindings,
  *      consequence preflight, `implementation_pack_generated` receipt.
- *   3. Propose deployment (D1, CFS-016 v1.0) — records the provenance chain
- *      as a `deployment_proposed` receipt. Execution stays human: the pack
- *      is run in Claude Code and pushed manually. The receipts ARE the
- *      "development phase initiated" confirmation.
+ *   3. Dispatch to Claude (2026-07-14, the copy-paste-break fix) — the platform
+ *      DRIVES implementation: `/api/dev-command-center/implement` fires a
+ *      repository_dispatch whose CI workflow runs Claude Code against the pack
+ *      on an `aigentz/pack-*` branch and opens a PR to dev. Receipted as
+ *      `implementation_dispatched`. Execution stays human at the PR merge
+ *      (CFS-016 D1) — nothing reaches dev without the operator.
+ *   4. Propose deployment (D1, CFS-016 v1.0) — records the provenance chain
+ *      as a `deployment_proposed` receipt once the implementation commits exist.
  */
 
 import React, { useMemo, useState } from "react";
-import { Check, Copy, Cpu, Hammer, Loader2, Play } from "lucide-react";
+import { Check, Copy, Cpu, Hammer, Loader2, Play, Rocket } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { PendingProposalCard } from "./PendingProposalCard";
 import { canAdvance, buildImplementationPackage, constitutionalThresholdMet } from "@/services/devCommandCenter";
 import { experimentStep } from "@/components/composer/experimentStepFetch";
+import { personaFetch } from "@/utils/personaSpine";
 import { packMarkdown, type PackView } from "@/components/composer/CapabilityPipelineTab";
 import { evidenceFromSession } from "./types";
 import type { DevLayoutProps } from "./types";
@@ -67,6 +72,47 @@ export function ImplementationLayout({
   const [touchesProtected, setTouchesProtected] = useState(false);
   const [proposing, setProposing] = useState(false);
   const [proposal, setProposal] = useState<string | null>(null);
+  const [dispatching, setDispatching] = useState(false);
+  const [dispatchNote, setDispatchNote] = useState<string | null>(null);
+  const [dispatchedBranch, setDispatchedBranch] = useState<string | null>(null);
+
+  const dispatchToClaude = async () => {
+    if (!pack) return;
+    setDispatching(true);
+    setDispatchNote(null);
+    try {
+      // Single-shot personaFetch, NOT experimentStep: dispatch is a side-effecting
+      // trigger — experimentStep's automatic retry could fire two CI runs on the
+      // same branch after an ambiguous first failure.
+      const res = await personaFetch("/api/dev-command-center/implement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId: pack.id, goal: pack.goal, packMarkdown: packMarkdown(pack) }),
+      });
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || data.ok !== true) {
+        throw new Error(
+          (typeof data.error === "string" && data.error) || `dispatch failed (HTTP ${res.status})`,
+        );
+      }
+      const branch = typeof data.branch === "string" ? data.branch : null;
+      setDispatchedBranch(branch);
+      setDispatchNote(
+        `Dispatched — Claude Code is implementing the pack in CI on ${branch ?? "the working branch"}. ` +
+          `It will open a PR to dev (watch the GitHub capsule). Review + merge to deploy — execution stays human (D1).` +
+          (typeof data.receiptId === "string" && data.receiptId
+            ? ` · receipt ${String(data.receiptId).slice(0, 8)}…`
+            : ""),
+      );
+      if (typeof data.receiptId === "string" && data.receiptId) {
+        onReceipt?.({ id: data.receiptId, actionType: "implementation_dispatched" });
+      }
+    } catch (err) {
+      setDispatchNote(err instanceof Error ? err.message : "dispatch failed");
+    } finally {
+      setDispatching(false);
+    }
+  };
 
   const generate = async () => {
     if (!session.intent) return;
@@ -224,13 +270,34 @@ export function ImplementationLayout({
               </button>
             </div>
 
+            {/* Dispatch to Claude — the platform drives implementation (2026-07-14) */}
+            <div className="rounded border border-emerald-500/25 bg-emerald-500/5 p-2 space-y-1.5">
+              <div className="text-[10px] font-semibold text-emerald-300">Drive implementation — dispatch to Claude</div>
+              <p className="text-[10px] text-slate-500">
+                Hands this pack to Claude Code running in CI: it implements on an{" "}
+                <code className="text-slate-400">aigentz/pack-*</code> branch and opens a PR to dev.
+                Receipted as <code className="text-slate-400">implementation_dispatched</code>. Nothing
+                deploys until you merge the PR — execution stays human (CFS-016 D1).
+              </p>
+              <button
+                onClick={dispatchToClaude}
+                disabled={dispatching}
+                className="inline-flex items-center gap-1 rounded bg-emerald-700 hover:bg-emerald-600 px-2 py-1 text-[11px] text-white disabled:opacity-50"
+              >
+                {dispatching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
+                {dispatching ? "Dispatching…" : "Dispatch to Claude"}
+              </button>
+              {dispatchNote && <p className="text-[10px] text-slate-400">{dispatchNote}</p>}
+            </div>
+
             {/* D1 — propose deployment */}
             <div className="rounded border border-slate-700/40 bg-slate-900/40 p-2 space-y-1.5">
               <div className="text-[10px] font-semibold text-slate-300">Propose deployment (D1 — CFS-016 v1.0)</div>
               <p className="text-[10px] text-slate-500">
                 Records a <code className="text-slate-400">deployment_proposed</code> receipt — the provenance
-                record that the development phase is initiated. Execution stays human: run the pack in Claude
-                Code and push manually. No credentials move.
+                record that the development phase is initiated. Once Claude&apos;s PR exists, put its branch or
+                commit range here{dispatchedBranch ? <> (e.g. <code className="text-slate-400">{dispatchedBranch}</code>)</> : null}.
+                Execution stays human at the merge. No credentials move.
               </p>
               <input
                 className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100 text-[11px]"

@@ -94,6 +94,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'knowledge_evolved',
   'experience_render_validated',
   'implementation_pack_generated',
+  // DCC implementation dispatch — the platform initiated implementation via
+  // Claude Code in CI; anchoring the initiation record makes the development
+  // provenance chain (pack → dispatch → PR → merge) tamper-evident. Added per
+  // the permitted action-type-addition rule.
+  'implementation_dispatched',
   'deployment_proposed',
   // Constitutional Development Environment (CFS-020 CDE) — constitutional
   // consequence-test + remediation + deployment-authorization provenance.

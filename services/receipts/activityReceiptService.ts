@@ -87,6 +87,11 @@ export type ActivityActionType =
   | 'knowledge_evolved'
   | 'experience_render_validated'
   | 'implementation_pack_generated'
+  // DCC implementation dispatch (2026-07-14) — the platform hands the generated
+  // pack to Claude Code running in CI (repository_dispatch → claude-implement
+  // workflow). Provenance that implementation was INITIATED from the platform;
+  // execution stays human at the PR-merge gate (CFS-016 D1). DVN-anchorable.
+  | 'implementation_dispatched'
   | 'deployment_proposed'
   // Constitutional Development Environment (CFS-020 CDE) — the three Dev
   // Receipts classes. constitutional_validation_recorded + remediation_recorded
