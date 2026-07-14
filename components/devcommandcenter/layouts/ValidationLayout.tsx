@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
-import { CheckCircle, AlertTriangle, Play } from "lucide-react";
+import React, { useState } from "react";
+import { CheckCircle, AlertTriangle, Loader2, Play, ShieldCheck } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { PendingProposalCard } from "./PendingProposalCard";
 import { canAdvance } from "@/services/devCommandCenter";
+import { personaFetch } from "@/utils/personaSpine";
 import type { DevLayoutProps } from "./types";
 
 export function ValidationLayout({
@@ -14,9 +15,52 @@ export function ValidationLayout({
   pendingProposal,
   onApproveProposal,
   onDismissProposal,
-}: DevLayoutProps) {
+  onProposal,
+}: DevLayoutProps & {
+  /** Feeds a route-produced validation_report proposal into the SAME pending-
+   *  approval path chat proposals use (parent: handleStageProposals). */
+  onProposal?: (proposal: { kind: string; summary: string; data: Record<string, unknown> }) => void;
+}) {
   const { validationReport: report } = session;
   const canAdvanceNow = canAdvance(session);
+
+  // Dedicated validation runner (2026-07-14): the chat validate turn dies at
+  // Amplify's hard ~30s response ceiling (the copilot mega-prompt + the
+  // longest structured generation of any stage). This button runs the same
+  // validation as a FOCUSED job — /api/dev-command-center/validate, one
+  // compact invariant-routed inference — and returns the standard proposal.
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const canvas = session.consequenceCanvas;
+
+  const runValidation = async () => {
+    if (!session.intent || !canvas) return;
+    setRunning(true);
+    setRunError(null);
+    try {
+      const res = await personaFetch("/api/dev-command-center/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: session.intent.goal,
+          shouldHappen: canvas.shouldHappen,
+          shouldNeverHappen: canvas.shouldNeverHappen,
+          implementationSummary: session.implementationBrief ?? "",
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; proposal?: { kind: string; summary: string; data: Record<string, unknown> } }
+        | null;
+      if (!res.ok || data?.ok !== true || !data.proposal) {
+        throw new Error(data?.error || `validation failed (HTTP ${res.status})`);
+      }
+      onProposal?.(data.proposal);
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : "validation failed");
+    } finally {
+      setRunning(false);
+    }
+  };
 
   const body = (
     <div className="space-y-4">
@@ -26,6 +70,27 @@ export function ValidationLayout({
           onApprove={onApproveProposal}
           onDismiss={onDismissProposal}
         />
+      )}
+
+      {/* The reliable validation lane — always available once a canvas exists. */}
+      {canvas && !pendingProposal && (
+        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 space-y-1.5">
+          <div className="text-xs font-semibold text-emerald-300">Run Constitutional Validation</div>
+          <p className="text-[10px] text-slate-500">
+            Judges every should-happen and must-never-happen entry against the implementation brief in one
+            focused, invariant-routed inference, then surfaces the report for your approval. Approving it
+            records the validation receipt that opens the merge gate on the pack&apos;s PR.
+          </p>
+          <button
+            onClick={runValidation}
+            disabled={running || !session.intent}
+            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 hover:bg-emerald-600 px-2.5 py-1.5 text-xs text-white disabled:opacity-50"
+          >
+            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+            {running ? "Validating…" : "Run validation"}
+          </button>
+          {runError && <p className="text-xs text-rose-400">{runError}</p>}
+        </div>
       )}
 
       {report ? (
