@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-08T14:44:14.260Z",
+  "last_updated": "2026-07-14T13:52:38.090Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e6fb77026a4cceb460194dfd12e96490e05889d7",
-  "latest_commit_short": "e6fb770",
-  "latest_commit_title": "Restructure DevTools into tabs (Environment & Canisters · Telemetry · DVN Pipeline · Escalation Log)",
+  "latest_commit": "a064e14f7df64e3ac42965eb9f4933246dcc98b2",
+  "latest_commit_short": "a064e14",
+  "latest_commit_title": "register 24-second video+article skill in the studio catalog",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a064e14",
+      "full_sha": "a064e14f7df64e3ac42965eb9f4933246dcc98b2",
+      "title": "register 24-second video+article skill in the studio catalog",
+      "author": "claude[bot]",
+      "timestamp": "2026-07-14T13:44:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a064e14.md"
+    },
+    {
+      "sha": "cf5ad6a",
+      "full_sha": "cf5ad6a4b410506057ce70283a9392ef5a020ed1",
+      "title": "add end-to-end orchestration canary for buildVideoArticlePlan",
+      "author": "claude[bot]",
+      "timestamp": "2026-07-14T13:46:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-cf5ad6a.md"
+    },
+    {
+      "sha": "5dda90d",
+      "full_sha": "5dda90db252639536029e80ba857c8362bd71dce",
+      "title": "document video-article pack re-dispatch finding + orchestration canary",
+      "author": "claude[bot]",
+      "timestamp": "2026-07-14T13:46:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5dda90d.md"
+    },
     {
       "sha": "e6fb770",
       "full_sha": "e6fb77026a4cceb460194dfd12e96490e05889d7",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-07-04T04:02:47Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-ebd2caf.md"
-    },
-    {
-      "sha": "a180ab5",
-      "full_sha": "a180ab59e88b250864c680b2a58d0a4864c6fd76",
-      "title": "move invariant registry to canonical home: iqube registry cartridge, sibling tab",
-      "author": "Claude",
-      "timestamp": "2026-07-04T03:27:46Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-a180ab5.md"
-    },
-    {
-      "sha": "802b690",
-      "full_sha": "802b6906b6b679b685470766b37e3ffb52bf04c9",
-      "title": "add invariant registry browsing tab: list, filter, standing/reach, detail view",
-      "author": "Claude",
-      "timestamp": "2026-07-04T03:11:24Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-802b690.md"
-    },
-    {
-      "sha": "569205f",
-      "full_sha": "569205f53ca826a60c33504e6239f15c1fef5cc3",
-      "title": "add single-invariant detail api route for the registry browser",
-      "author": "Claude",
-      "timestamp": "2026-07-04T03:06:27Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-569205f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

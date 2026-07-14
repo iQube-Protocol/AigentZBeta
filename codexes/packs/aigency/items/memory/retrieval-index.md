@@ -3144,3 +3144,18 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-e6fb770.md](../build_/COMMITS/COMMIT-e6fb770.md)
 - Message: Restructure DevTools into tabs (Environment & Canisters · Telemetry · DVN Pipeline · Escalation Log)
+
+## Commit `5dda90d` — 2026-07-14T13:46:49Z
+- Type: `push`
+- Brief: [COMMIT-5dda90d.md](../build_/COMMITS/COMMIT-5dda90d.md)
+- Message: document video-article pack re-dispatch finding + orchestration canary
+
+## Commit `cf5ad6a` — 2026-07-14T13:46:48Z
+- Type: `feat`
+- Brief: [COMMIT-cf5ad6a.md](../build_/COMMITS/COMMIT-cf5ad6a.md)
+- Message: add end-to-end orchestration canary for buildVideoArticlePlan
+
+## Commit `a064e14` — 2026-07-14T13:44:31Z
+- Type: `push`
+- Brief: [COMMIT-a064e14.md](../build_/COMMITS/COMMIT-a064e14.md)
+- Message: register 24-second video+article skill in the studio catalog

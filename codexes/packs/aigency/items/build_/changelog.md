@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`a064e14`](https://github.com/iQube-Protocol/AigentZBeta/commit/a064e14f7df64e3ac42965eb9f4933246dcc98b2) [push] register 24-second video+article skill in the studio catalog (claude[bot], 2026-07-14T13:44:31Z)
+- [`cf5ad6a`](https://github.com/iQube-Protocol/AigentZBeta/commit/cf5ad6a4b410506057ce70283a9392ef5a020ed1) [feat] add end-to-end orchestration canary for buildVideoArticlePlan (claude[bot], 2026-07-14T13:46:48Z)
+- [`5dda90d`](https://github.com/iQube-Protocol/AigentZBeta/commit/5dda90db252639536029e80ba857c8362bd71dce) [push] document video-article pack re-dispatch finding + orchestration canary (claude[bot], 2026-07-14T13:46:49Z)
 - [`e6fb770`](https://github.com/iQube-Protocol/AigentZBeta/commit/e6fb77026a4cceb460194dfd12e96490e05889d7) [refactor] Restructure DevTools into tabs (Environment & Canisters · Telemetry · DVN Pipeline · Escalation Log) (Claude, 2026-07-08T14:42:17Z)
 - [`f354c8b`](https://github.com/iQube-Protocol/AigentZBeta/commit/f354c8b9bec0d741581549018a0049ef263eca91) [fix] Fix CDE tool-viewport hang: timebox every external probe (canister/DVN/GitHub/Linear) (Claude, 2026-07-08T09:20:31Z)
 - [`c34a792`](https://github.com/iQube-Protocol/AigentZBeta/commit/c34a792471c29529def93a9b66a1a22bd39fdb96) [push] Build the Bearing Instrument v1: the constitutional compass, operating within the CCRL reference field (Claude, 2026-07-08T08:29:40Z)
