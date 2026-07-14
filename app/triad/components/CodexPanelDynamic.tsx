@@ -35,6 +35,7 @@ import { getIconComponent } from "./codex/iconMap";
 import { getCachedOrFetch } from "./codex/cache";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useCartridgePersonaGuard } from "@/app/hooks/useCartridgePersonaGuard";
+import { resolveLegacyTabSlug } from "@/data/codex-configs";
 
 
 interface CodexPanelDynamicProps {
@@ -338,6 +339,29 @@ export default function CodexPanelDynamic({
     }
     setActiveTabSlug(enabledTabs[0].slug);
   }, [enabledTabs, activeTabSlug, normalizedInitialTab]);
+
+  // Cartridge-agnostic intra-cartridge tab navigation INSIDE the embed. The
+  // shell viewer (app/(shell)/codex/viewer/page.tsx) listens for the same
+  // `codex:navigate-tab` CustomEvent in the PARENT window — but tab components
+  // render inside this embed's iframe, so their dispatches never cross the
+  // frame boundary. This panel owns the embed's tab state, so it must listen
+  // too (same guard as the viewer: the target must be a currently-enabled tab
+  // of THIS codex — unknown/hidden slugs are ignored, so the seam can't reach
+  // across cartridges or reveal a hidden tab). Legacy slugs resolve first so
+  // pre-rename dispatchers keep working.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ tab?: string }>).detail || {};
+      const raw = detail.tab;
+      if (typeof raw !== "string") return;
+      const target = resolveLegacyTabSlug(raw.trim().toLowerCase());
+      if (target !== activeTabSlug && enabledTabs.some((tab) => tab.slug === target)) {
+        setActiveTabSlug(target);
+      }
+    };
+    window.addEventListener("codex:navigate-tab", handler);
+    return () => window.removeEventListener("codex:navigate-tab", handler);
+  }, [enabledTabs, activeTabSlug]);
 
   const isQriptopian = codexId === 'qripto-codex';
   const [issueSlug, setIssueSlug] = useState<string>(() => {

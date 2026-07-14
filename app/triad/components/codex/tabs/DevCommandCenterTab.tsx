@@ -38,6 +38,7 @@ import type {
   DevLoopStage,
   DevReceiptClass,
   DeploymentAuthorization,
+  DevConstitutionalDecision,
 } from "@/types/devCommandCenter";
 
 import { personaFetch } from "@/utils/personaSpine";
@@ -47,6 +48,7 @@ import {
   isPristineDevLoopSession,
   canAdvance,
   advanceStage,
+  STAGE_ORDER,
   buildImplementationPackage,
   buildIntentSummary,
   buildContextPackSummary,
@@ -680,15 +682,47 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     return () => clearTimeout(timer);
   }, [session]);
 
+  // Advancing MUST be visible (operator report 2026-07-14: "Proceed to
+  // implementation … doing nothing"): the loop advanced in state but the
+  // operator stayed parked on the old capsule — invisible progress reads as a
+  // dead button. Two fixes together:
+  //   1. Advancing from a capsule means "move the loop PAST this capsule's
+  //      stage". A session parked at an EARLIER stage (artifacts approved out
+  //      of order) walks the gate-checked LINEAR prefix until the viewed
+  //      stage is passed — never a single invisible step that lands ON the
+  //      viewed stage. Forks (Validation onward) always single-step: their
+  //      next stage is a real decision, not a formality.
+  //   2. The NEW stage's capsule mounts, so every advance has a destination.
+  // Computed eagerly from the ref (click-driven, so the ref is current).
   const handleAdvanceStage = useCallback(() => {
-    setSession(prev => {
-      const next = advanceStage(prev);
-      if (next.stage !== prev.stage) {
-        console.log(`[aigentZ dev-loop] advanced: ${prev.stage} → ${next.stage}`);
-      }
-      return next;
-    });
-  }, []);
+    const prev = sessionRef.current;
+    const viewedStage = activeCapsuleId ? CAPSULE_TO_STAGE[activeCapsuleId] : undefined;
+    const linearLimit = STAGE_ORDER.indexOf("consequence_validation");
+    const targetIdx = Math.min(
+      STAGE_ORDER.indexOf(viewedStage ?? prev.stage),
+      linearLimit - 1,
+    );
+    let next = advanceStage(prev);
+    while (
+      next.stage !== prev.stage &&
+      canAdvance(next) &&
+      STAGE_ORDER.indexOf(next.stage) <= targetIdx
+    ) {
+      next = advanceStage(next);
+    }
+    if (next.stage === prev.stage) {
+      // Gate not met — nothing advanced. Mount the BLOCKING stage's capsule
+      // so the operator sees WHERE the loop actually is instead of a dead
+      // button (the session can be parked stages behind the viewed capsule).
+      const blocking = STAGE_TO_CAPSULE[prev.stage];
+      if (blocking && blocking !== activeCapsuleId) engageCapsuleAndMount(blocking);
+      return;
+    }
+    console.log(`[aigentZ dev-loop] advanced: ${prev.stage} → ${next.stage}`);
+    setSession(next);
+    const capsule = STAGE_TO_CAPSULE[next.stage];
+    if (capsule) engageCapsuleAndMount(capsule);
+  }, [activeCapsuleId, engageCapsuleAndMount]);
 
   // Receipt-bug fix: every constitutional action's returned receiptId is
   // recorded into session.receipts (idempotent) so the Dev Receipts panel
@@ -1210,23 +1244,46 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               onDismissProposal={() => handleDismissProposal("implementation")}
               onReceipt={handleReceipt}
               onPackGenerated={(briefMarkdown, pack) => {
-                setSession(s => {
-                  const withPack = {
-                    ...s,
-                    implementationBrief: briefMarkdown,
-                    generatedPack: pack ?? s.generatedPack ?? null,
-                    updatedAt: new Date().toISOString(),
-                  };
-                  // Auto-pass to Validate (operator report 2026-07-13: "no auto
-                  // pass to the validate stage"): the pack satisfies the
-                  // implementation gate — the loop advances without a second
-                  // click. advanceStage is gate-checked; a non-implementation
-                  // stage passes through unchanged.
-                  return withPack.stage === "implementation" ? advanceStage(withPack) : withPack;
-                });
-                if (session.stage === "implementation") {
-                  engageCapsuleAndMount("validation");
+                // Auto-pass to Validate (operator reports 2026-07-13 + 07-14:
+                // "no auto pass to the validate stage"). The old guard only
+                // advanced from stage === "implementation" — a session parked
+                // at ANY earlier stage generated a pack and went nowhere. The
+                // pack satisfies every remaining pre-validation gate, so:
+                // fold the pack's constitutional decision into the session
+                // when the Decide capsule was skipped (the pack generation
+                // took one — CFS-029 §7), then fast-forward the gate-checked
+                // walk to Constitutional Validation and mount its capsule.
+                const s = sessionRef.current;
+                const rawDecision = (pack as Record<string, unknown> | null)?.constitutionalDecision as
+                  | Record<string, unknown>
+                  | undefined;
+                const foldedDecision: DevConstitutionalDecision | null =
+                  s.constitutionalDecision ??
+                  (rawDecision && typeof rawDecision.mechanism === "string"
+                    ? {
+                        mechanism: rawDecision.mechanism,
+                        noBuildRequired: Boolean(rawDecision.noBuildRequired),
+                        rationale: typeof rawDecision.rationale === "string" ? rawDecision.rationale : "",
+                        alternatives: Array.isArray(rawDecision.alternatives)
+                          ? (rawDecision.alternatives as { mechanism: string; reason: string }[])
+                          : [],
+                        decidedBy: rawDecision.decidedBy === "llm" ? "llm" : "heuristic",
+                        decidedAt: new Date().toISOString(),
+                      }
+                    : null);
+                let next: DevLoopState = {
+                  ...s,
+                  implementationBrief: briefMarkdown,
+                  generatedPack: pack ?? s.generatedPack ?? null,
+                  constitutionalDecision: foldedDecision,
+                  updatedAt: new Date().toISOString(),
+                };
+                const validationIdx = STAGE_ORDER.indexOf("consequence_validation");
+                while (canAdvance(next) && STAGE_ORDER.indexOf(next.stage) < validationIdx) {
+                  next = advanceStage(next);
                 }
+                setSession(next);
+                if (next.stage === "consequence_validation") engageCapsuleAndMount("validation");
                 observe(devImplementationPackGeneratedEvent());
               }}
               onDeploymentProposed={() => observe(devDeploymentProposedEvent())}

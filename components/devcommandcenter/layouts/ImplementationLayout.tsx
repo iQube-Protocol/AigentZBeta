@@ -54,9 +54,14 @@ export function ImplementationLayout({
 
   const [generating, setGenerating] = useState(false);
   const [packError, setPackError] = useState<string | null>(null);
-  // Rehydrate from the SESSION (fix 2026-07-13): leaving and returning to this
-  // capsule must show the same pack, never force a regeneration.
-  const [pack, setPack] = useState<PackView | null>((session.generatedPack as PackView | null) ?? null);
+  // Rehydrate from the SESSION (fix 2026-07-13, hardened 2026-07-14): leaving
+  // and returning to this capsule must show the same pack, never force a
+  // regeneration. The session value is read EVERY render (not just at mount) —
+  // the initial-only useState missed packs that landed in the session AFTER
+  // this layout mounted (DB hydration, another capsule's write-back), which is
+  // exactly the "Implement still requiring regenerate" the operator hit.
+  const [localPack, setPack] = useState<PackView | null>(null);
+  const pack = localPack ?? ((session.generatedPack as PackView | null) ?? null);
   const [copied, setCopied] = useState(false);
   const [commitRange, setCommitRange] = useState("");
   const [touchesProtected, setTouchesProtected] = useState(false);

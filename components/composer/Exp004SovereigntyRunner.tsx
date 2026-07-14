@@ -57,6 +57,15 @@ interface RehearsalProviderInfo {
   models: { id: string; label: string }[];
 }
 
+interface PublishedRunRow {
+  id: string;
+  experiment: string;
+  provider: string;
+  model: string;
+  contentHash: string;
+  createdAt: string;
+}
+
 // Bundle components each run measures (CFS-018 · operator correction 2026-07-07).
 const BUNDLE_FRONTIER = ["provider-interchangeability", "commercial-independence", "constitutional-operation"];
 const BUNDLE_OPEN_WEIGHT = [...BUNDLE_FRONTIER, "open-weight-independence"];
@@ -80,6 +89,28 @@ export default function Exp004SovereigntyRunner() {
   const [ranMode, setRanMode] = useState<"sovereign" | "rehearsal">("sovereign");
   const [pack, setPack] = useState<PackRow>({ status: "pending" });
   const [publishState, setPublishState] = useState<string | null>(null);
+  // AR/CPS observer awareness (live-drive fix 2026-07-14): the runner OBSERVES
+  // the canonical record on mount instead of pretending no run exists. Prior
+  // runs live in `experiment_results` — an operator returning to this tab sees
+  // what has already been published (a fresh unpublished run is still
+  // session-local by design; persisting drill drafts is a named follow-on).
+  const [publishedRuns, setPublishedRuns] = useState<PublishedRunRow[]>([]);
+  const [publishedError, setPublishedError] = useState<string | null>(null);
+
+  const refreshPublishedRuns = useCallback(async () => {
+    try {
+      const data = await experimentGet("/api/experiments/results");
+      const rows = ((data.results as PublishedRunRow[]) ?? []).filter((r) => r.experiment === "EXP-004");
+      setPublishedRuns(rows);
+      setPublishedError(null);
+    } catch (err) {
+      setPublishedError(err instanceof Error ? err.message : "canonical record unavailable");
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPublishedRuns();
+  }, [refreshPublishedRuns]);
 
   useEffect(() => {
     (async () => {
@@ -279,6 +310,7 @@ export default function Exp004SovereigntyRunner() {
       });
       const publishedMsg = `published — sha256 ${(data.contentHash as string).slice(0, 12)}…`;
       setPublishState(publishedMsg);
+      void refreshPublishedRuns(); // the observed canonical record reflects the new run immediately
       // Instruments ↔ institution (CFS-019): the run's canonical publication
       // advances the research object one legal step. Fire-and-forget — a
       // lifecycle-recording failure never disturbs the published result.
@@ -317,6 +349,32 @@ export default function Exp004SovereigntyRunner() {
           measurements across rungs and concluding across them is the experiment's purpose.
         </p>
       </div>
+
+      {(publishedRuns.length > 0 || publishedError) && (
+        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-300">
+          <div className="font-semibold text-slate-200 mb-1">Canonical record (observed · AR/CPS)</div>
+          {publishedError ? (
+            <p className="text-slate-500">{publishedError}</p>
+          ) : (
+            <ul className="space-y-0.5">
+              {publishedRuns.slice(0, 5).map((r) => (
+                <li key={r.id} className="font-mono text-slate-400">
+                  {r.provider} · {r.model} · sha256 {r.contentHash.slice(0, 12)}… ·{" "}
+                  {new Date(r.createdAt).toLocaleString()}
+                </li>
+              ))}
+              {publishedRuns.length > 5 && (
+                <li className="text-slate-500">+ {publishedRuns.length - 5} earlier published run(s)</li>
+              )}
+            </ul>
+          )}
+          <p className="mt-1 text-slate-500">
+            {publishedRuns.length > 0
+              ? `${publishedRuns.length} published EXP-004 run(s) exist canonically — a fresh run below is a NEW measurement, not a re-do of these.`
+              : null}
+          </p>
+        </div>
+      )}
 
       {!veniceAvailable && mode === "sovereign" && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-3 text-sm text-amber-300">

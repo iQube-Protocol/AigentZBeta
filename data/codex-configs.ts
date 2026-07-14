@@ -4948,6 +4948,11 @@ export const LEGACY_CODEX_SLUGS: Record<string, string> = {
 export const LEGACY_TAB_SLUGS: Record<string, string> = {
   'ccrl-dashboard': 'irl-dashboard',
   'ccrl-research-copilot': 'irl-research-copilot',
+  'ccrl-experiment-lab': 'irl-experiment-lab',
+  'ccrl-charter': 'irl-charter',
+  'ccrl-protocols': 'irl-protocols',
+  'ccrl-invariant-field': 'irl-invariant-field',
+  'ccrl-invariant-registry': 'irl-invariant-registry',
 };
 
 export function resolveLegacyTabSlug(tab: string): string {

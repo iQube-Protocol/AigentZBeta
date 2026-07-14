@@ -704,9 +704,16 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
 
   // ── C3 research ICE loop — the pool of experiments the loop can scope to.
   // Working objects (approved/persisted copilot proposals) override overview
-  // (registry-derived) entries on id collision, matching the persisted-wins rule
-  // used elsewhere. Every entry carries a lifecycle → a loop stage.
+  // (registry-derived) entries on id collision — BUT never downward. The
+  // overview lifecycle is DERIVED from canonical results (published runs are
+  // constitutional fact); a stale working object must not drag a published
+  // experiment back to "designed"/"running". Same derived-floor clamp
+  // `overviewWithPersistedLifecycle` applies server-side (the stuck-EXP-004
+  // defect, live-drive 2026-07-14: publish landed in experiment_results, the
+  // overview said 'published', and the session's old working object silently
+  // overrode it back to pre-run — parking the loop on Run forever).
   const loopExperiments = useMemo(() => {
+    const order = lifecycleOrder.length > 0 ? lifecycleOrder : ["designed", "protocol-ratified", "running", "evaluated", "published", "replicated"];
     const map = new Map<string, { id: string; family: string; lifecycle: ExperimentLifecycleState }>();
     for (const o of overview ?? []) {
       map.set(o.experiment.id, {
@@ -716,10 +723,18 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
       });
     }
     for (const e of researchState.experiments) {
-      map.set(e.experiment.id, { id: e.experiment.id, family: e.experiment.family, lifecycle: e.lifecycle });
+      const derived = map.get(e.experiment.id)?.lifecycle;
+      const floorIdx = derived ? order.indexOf(derived) : -1;
+      const workingIdx = order.indexOf(e.lifecycle);
+      // Clamp UP to the derived floor: unknown states (idx -1) defer to the floor.
+      const lifecycle =
+        floorIdx >= 0 && (workingIdx < 0 || workingIdx < floorIdx)
+          ? (derived as ExperimentLifecycleState)
+          : e.lifecycle;
+      map.set(e.experiment.id, { id: e.experiment.id, family: e.experiment.family, lifecycle });
     }
     return Array.from(map.values());
-  }, [overview, researchState.experiments]);
+  }, [overview, researchState.experiments, lifecycleOrder]);
 
   // The ACTIVE experiment: the operator's explicit pick, else the most-recently-
   // touched working object, else the last known experiment. Null ⇒ Design (no
