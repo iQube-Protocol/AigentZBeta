@@ -33,6 +33,11 @@ export interface SaveArtifactRecordInput {
   body: string;
   receiptId: string | null;
   sovereignty: unknown;
+  /** CVR-003 — the canonical invariant ids that grounded this production
+   *  (`groundingOf(result).invariantIds` from runArtifact, or the composition's
+   *  `grounded.invariantIds`). T2-safe public knowledge-object ids. Requires
+   *  migration 20260714000000 (cited_invariant_ids column); omitted → not sent. */
+  citedInvariantIds?: string[];
 }
 
 export interface ArtifactRecordRow {
@@ -47,6 +52,9 @@ export interface ArtifactRecordRow {
   content_hash: string;
   receipt_id: string | null;
   sovereignty: unknown;
+  /** CVR-003 (migration 20260714000000). jsonb array of invariant ids; absent
+   *  on rows written before the column landed. */
+  cited_invariant_ids?: unknown;
   created_at: string;
 }
 
@@ -68,6 +76,12 @@ export async function saveArtifactRecord(input: SaveArtifactRecordInput): Promis
         content_hash: createHash('sha256').update(input.body).digest('hex'),
         receipt_id: input.receiptId,
         sovereignty: input.sovereignty,
+        // Sent only when supplied AND non-empty: on a DB that predates the
+        // 20260714000000 migration, grounded saves soft-fail (logged) while
+        // every un-grounded save keeps working unchanged.
+        ...(input.citedInvariantIds && input.citedInvariantIds.length > 0
+          ? { cited_invariant_ids: input.citedInvariantIds }
+          : {}),
       })
       .select('id')
       .single();

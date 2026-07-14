@@ -53,8 +53,26 @@
  * stand-in id ONLY in propose-mode where NO receipt is written. The gated
  * publish wiring is documented as the route-layer seam (see PUBLISH GATE below).
  *
- * Server-side: node crypto for T2-safe commitments; no clock, no randomness, no
- * DB access on the propose path.
+ * Server-side: node crypto for T2-safe commitments; no clock, no randomness.
+ *
+ * ── INVARIANT GROUNDING + CITED-INVARIANT RECORDING (CVR-003, 2026-07-14) ──
+ * The runtime is now invariant-AWARE: every non-disposable run resolves the
+ * canonical invariants that ground the production —
+ *   1. CONSUMED from the composition when present (`input.result.grounded
+ *      .invariantIds` — composeArtifact already grounds via buildInvariantSlice;
+ *      zero new I/O, compose-never-fork), else
+ *   2. resolved LIVE via `buildInvariantSlice` scoped to the profile's
+ *      namespaces (best-effort, read-only; an outage never blocks production).
+ * The cited ids ride the result (`groundingOf(result)`), the constitutional
+ * object (payload + authority.governingInvariants), and — via the record
+ * seams — `artifact_records.cited_invariant_ids`. Consequential runs
+ * (operational + constitutional) then CITE the invariants through the
+ * consequence return path (`citeInvariants`, CFS-006 §4) so real platform
+ * production accrues Reach organically (never Standing — Law XII; validation
+ * signals are EXP-006A's receipted accrual, not this seam). Disposable runs
+ * never ground and never cite — scratch work must not inflate Reach.
+ * Amendment to the Phase-1 note above: the run path now performs read-only
+ * grounding I/O + a best-effort reach citation; both are failure-isolated.
  */
 
 import { createHash } from 'crypto';
@@ -81,6 +99,66 @@ import {
 } from '@/types/constitutionalObject';
 import { resolveProfile } from '@/services/artifact/profiles';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import type { InvariantNamespace } from '@/types/invariants';
+
+// ─────────────────────────────────────────────────────────────────────────
+// Invariant grounding (CVR-003) — consume-or-resolve, never block
+// ─────────────────────────────────────────────────────────────────────────
+
+/** The grounding facts a run carries: which canonical invariants ground it,
+ *  and where they came from. Invariant ids are public knowledge-object ids —
+ *  T2-safe by construction. */
+export interface ArtifactGrounding {
+  invariantIds: string[];
+  source: 'composition' | 'live' | 'none';
+}
+
+const NO_GROUNDING: ArtifactGrounding = { invariantIds: [], source: 'none' };
+
+/** Default grounding scope for profiles without a specific mapping. */
+const DEFAULT_GROUNDING_NAMESPACES: InvariantNamespace[] = ['constitutional', 'engineering'];
+
+/** Profile-scoped grounding namespaces — which regions of the crystal a
+ *  production of this profile reasons under. Partial: unlisted profiles use
+ *  the default. Extend here, never inline at a call site. */
+const PROFILE_GROUNDING_NAMESPACES: Partial<Record<ArtifactProfileId, InvariantNamespace[]>> = {
+  research: ['constitutional', 'epistemology', 'reasoning'],
+  software: ['constitutional', 'engineering'],
+  'white-paper': ['constitutional', 'narrative', 'epistemology'],
+  multimedia: ['constitutional', 'style', 'narrative'],
+};
+
+/**
+ * Resolve the invariants grounding this run. Composition-supplied ids win
+ * (the engine already grounded — compose, never fork); otherwise a live,
+ * profile-scoped slice is drawn (dynamic import keeps the propose path free
+ * of a hard DB dependency). Best-effort: any failure degrades to NO_GROUNDING
+ * and production proceeds — grounding informs the record, it never gates it.
+ */
+async function resolveGrounding(
+  profile: ArtifactProfileId,
+  input: ArtifactCompositionInput,
+): Promise<ArtifactGrounding> {
+  const composed = input.result?.grounded?.invariantIds ?? [];
+  if (composed.length > 0) return { invariantIds: composed, source: 'composition' };
+  try {
+    const { buildInvariantSlice } = await import('@/services/invariants/grounding');
+    const namespaces = PROFILE_GROUNDING_NAMESPACES[profile] ?? DEFAULT_GROUNDING_NAMESPACES;
+    const slice = await buildInvariantSlice({ namespaces, limit: 8 });
+    return slice.citedIds.length > 0
+      ? { invariantIds: slice.citedIds, source: 'live' }
+      : NO_GROUNDING;
+  } catch {
+    return NO_GROUNDING;
+  }
+}
+
+/** One-line grounding note for stage evidence. Pure. */
+function groundingDetail(g: ArtifactGrounding): string {
+  return g.invariantIds.length > 0
+    ? `; grounded on ${g.invariantIds.length} canonical invariant(s) [${g.source}]`
+    : '; ungrounded (no composition grounding, live slice unavailable)';
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Commitments — T2-safe, deterministic, one-way (mirrors deploymentObject.ts)
@@ -182,6 +260,7 @@ function buildArtifactObject(args: {
   contentCommitment: string;
   published: boolean;
   receiptIds: string[];
+  grounding: ArtifactGrounding;
 }): ConstitutionalObject {
   const config = resolveProfile(args.profile);
   const standingScore = args.published ? STANDING_PUBLISHED : STANDING_PROPOSED;
@@ -200,6 +279,10 @@ function buildArtifactObject(args: {
     mode: args.context.mode ?? 'propose',
     compositionRef: args.input.compositionRef,
     contentCommitment: args.contentCommitment,
+    // CVR-003 — the invariants this production reasons under (T2-safe public
+    // knowledge-object ids) and how they were resolved.
+    groundedInvariantIds: args.grounding.invariantIds,
+    groundingSource: args.grounding.source,
     reviewGates: config.reviewGates,
     verifier: config.verifier,
     distribution: config.distribution,
@@ -226,7 +309,9 @@ function buildArtifactObject(args: {
     authority: {
       minStandingToCompose: 'validated',
       ratificationRequired: config.ratificationRequired,
-      governingInvariants: ['CFS-025'],
+      // CVR-003: the governing spec + the ACTUAL grounded invariant ids —
+      // real citations replace the bare static label.
+      governingInvariants: ['CFS-025', ...args.grounding.invariantIds],
     },
     ownership: {
       // The ONLY subject handle AR expresses — a one-way commitment, never a
@@ -293,6 +378,7 @@ function runOperational(
   profile: ArtifactProfileId,
   input: ArtifactCompositionInput,
   context: ArtifactContext,
+  grounding: ArtifactGrounding,
 ): ArtifactResult {
   const config = resolveProfile(profile);
   const contentCommitment = deriveContentCommitment(input, context);
@@ -305,7 +391,7 @@ function runOperational(
         return evidence(
           'compose',
           input.result !== null || input.compositionRef !== null ? 'passed' : 'skipped',
-          'consumed the composition result (not re-run)',
+          `consumed the composition result (not re-run)${groundingDetail(grounding)}`,
         );
       case 'review':
         // Real review-gate execution is Phase-1 TODO; record the gates honestly.
@@ -348,6 +434,7 @@ async function runConstitutional(
   profile: ArtifactProfileId,
   input: ArtifactCompositionInput,
   context: ArtifactContext,
+  grounding: ArtifactGrounding,
 ): Promise<ArtifactResult> {
   const config = resolveProfile(profile);
   const contentCommitment = deriveContentCommitment(input, context);
@@ -386,7 +473,7 @@ async function runConstitutional(
           evidence(
             'composition',
             input.result !== null || input.compositionRef !== null ? 'passed' : 'skipped',
-            'consumed the CompositionResult (composeArtifact) — engine not re-implemented',
+            `consumed the CompositionResult (composeArtifact) — engine not re-implemented${groundingDetail(grounding)}`,
           ),
         );
         break;
@@ -492,6 +579,7 @@ async function runConstitutional(
     contentCommitment,
     published: publish,
     receiptIds,
+    grounding,
   });
 
   const registryEntry: ObjectRef | null = publish
@@ -532,11 +620,21 @@ export const runArtifact: RunArtifactFn = async (
 
   switch (consequenceClass) {
     case 'disposable':
+      // Disposable never grounds and never cites — scratch work must not
+      // read the crystal or inflate Reach.
       return runDisposable(input);
-    case 'operational':
-      return runOperational(profile, input, context);
-    case 'constitutional':
-      return runConstitutional(profile, input, context);
+    case 'operational': {
+      const grounding = await resolveGrounding(profile, input);
+      const result = runOperational(profile, input, context, grounding);
+      await citeGrounding(grounding);
+      return { ...result, ..._withGrounding(grounding) };
+    }
+    case 'constitutional': {
+      const grounding = await resolveGrounding(profile, input);
+      const result = await runConstitutional(profile, input, context, grounding);
+      await citeGrounding(grounding);
+      return { ...result, ..._withGrounding(grounding) };
+    }
     default:
       return {
         ok: false,
@@ -572,4 +670,37 @@ function _withEvidence(stages: StageEvidence[]): WithEvidence {
 /** Read the stage evidence off a result produced by runArtifact. */
 export function evidenceOf(result: ArtifactResult & Partial<WithEvidence>): StageEvidence[] {
   return result._evidence ?? [];
+}
+
+/** The grounding carrier merged into a result (additive, non-contract —
+ *  same pattern as WithEvidence; the ratified ArtifactResult is not widened). */
+export interface WithGrounding {
+  _grounding: ArtifactGrounding;
+}
+
+function _withGrounding(grounding: ArtifactGrounding): WithGrounding {
+  return { _grounding: grounding };
+}
+
+/** Read the grounding off a result produced by runArtifact. Callers persisting
+ *  a record pass `groundingOf(result).invariantIds` as `citedInvariantIds`. */
+export function groundingOf(result: ArtifactResult & Partial<WithGrounding>): ArtifactGrounding {
+  return result._grounding ?? NO_GROUNDING;
+}
+
+/**
+ * The consequence return path (CFS-006 §4): a consequential production CITES
+ * the invariants it reasoned under, accruing Reach (adoption — Law XII: never
+ * Standing). Best-effort + awaited-with-catch: a citation failure never
+ * disturbs the production it describes, and nothing is left dangling in a
+ * serverless runtime.
+ */
+async function citeGrounding(grounding: ArtifactGrounding): Promise<void> {
+  if (grounding.invariantIds.length === 0) return;
+  try {
+    const { citeInvariants } = await import('@/services/invariants/grounding');
+    await citeInvariants(grounding.invariantIds);
+  } catch {
+    /* reach citation is best-effort by design */
+  }
 }

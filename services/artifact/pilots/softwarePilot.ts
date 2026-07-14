@@ -53,7 +53,7 @@ import type {
 import type { CompositionResult } from '@/types/composition';
 import type { ObjectRef } from '@/types/constitutionalObject';
 import { findForbiddenObjectKey } from '@/types/constitutionalObject';
-import { runArtifact } from '@/services/artifact/runArtifact';
+import { runArtifact, groundingOf } from '@/services/artifact/runArtifact';
 import {
   generateImplementationPack,
   type ImplementationPack,
@@ -250,6 +250,8 @@ export async function produceSoftwareArtifact(
       brief: args.goal,
       body,
       receiptId: null, // operational tier — no receipt by contract
+      // CVR-003: persist WHICH invariants grounded this production.
+      citedInvariantIds: groundingOf(artifact).invariantIds,
       sovereignty: {
         source: 'implementation-pack',
         packId: pack.id,

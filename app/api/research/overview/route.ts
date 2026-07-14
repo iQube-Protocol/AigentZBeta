@@ -38,6 +38,9 @@ export async function GET(request: NextRequest) {
       title: r.title.slice(0, 80),
       contentHashPrefix: r.content_hash.slice(0, 12),
       receiptId: r.receipt_id,
+      // CVR-003: how many canonical invariants grounded this production
+      // (0 for pre-migration rows and ungrounded/disposable-adjacent saves).
+      groundedInvariants: Array.isArray(r.cited_invariant_ids) ? r.cited_invariant_ids.length : 0,
       createdAt: r.created_at,
     })),
     publications: PUBLICATION_REGISTER.map((p) => ({ number: p.number, title: p.title, state: p.state })),

@@ -25,6 +25,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getKnowledgeBaseService } from '@/services/content/knowledgeBaseService';
 import { produceViaDelegate } from '@/services/homecoming/delegateProduce';
 import { saveArtifactRecord, listArtifactRecords } from '@/services/artifact/artifactRecordStore';
+import { groundingOf } from '@/services/artifact/runArtifact';
 import { accrueProductionStanding, resolveDelegateAgentId } from '@/services/homecoming/delegateStanding';
 import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 import { HOMECOMING_DELEGATES, type HomecomingDelegateId } from '@/types/homecoming';
@@ -116,6 +117,8 @@ export async function POST(req: NextRequest) {
       body: result.body,
       receiptId: result.artifact.receiptId ?? null,
       sovereignty: result.sovereignty,
+      // CVR-003: persist WHICH invariants grounded this production.
+      citedInvariantIds: groundingOf(result.artifact).invariantIds,
     });
   }
 
