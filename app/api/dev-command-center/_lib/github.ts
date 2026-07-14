@@ -9,7 +9,9 @@
  * guessed here beyond that exact fallback; the token is server-side env only
  * and NEVER travels to the client (this module is imported only by API routes).
  *
- * Every operation is read-only (GET). There is no create/update/delete surface.
+ * Every operation in THIS module is read-only (GET). The one write surface —
+ * the in-app PR merge (the human execution gate, 2026-07-14) — is deliberately
+ * route-inlined in app/api/dev-command-center/github/merge/route.ts, not here.
  */
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -122,6 +124,9 @@ export interface GhPull {
   author: string;
   updatedAt: string;
   headRef: string;
+  /** Base branch the PR targets — the in-app merge affordance shows only for
+   *  base === 'dev' (the deploy lane the DCC flow owns). */
+  baseRef: string;
 }
 
 export async function ghOpenPulls(limit = 30): Promise<GhResult<GhPull[]>> {
@@ -132,6 +137,7 @@ export async function ghOpenPulls(limit = 30): Promise<GhResult<GhPull[]>> {
       user: { login?: string } | null;
       updated_at: string;
       head: { ref?: string };
+      base: { ref?: string };
     }>
   >(`/pulls?state=open&per_page=${Math.min(Math.max(limit, 1), 100)}`);
   if (!r.ok || !r.data) return { ok: r.ok, status: r.status, error: r.error };
@@ -144,6 +150,7 @@ export async function ghOpenPulls(limit = 30): Promise<GhResult<GhPull[]>> {
       author: p.user?.login ?? 'unknown',
       updatedAt: (p.updated_at ?? '').slice(0, 10),
       headRef: p.head?.ref ?? '',
+      baseRef: p.base?.ref ?? '',
     })),
   };
 }

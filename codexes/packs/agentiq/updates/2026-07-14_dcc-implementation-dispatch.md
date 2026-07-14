@@ -92,6 +92,33 @@ precisely to keep the auto-merge lane closed.
    `/repos/.../dispatches` (classic PAT `repo` scope covers it; the route returns an honest
    502 with the probable cause if not).
 
+## Addendum (same day) — in-app PR merge: the human gate moves into the platform
+
+Operator: *"Can I merge the PR from within the GitHub viewport or otherwise within the app
+as opposed to having to go to github?"* — yes, built:
+
+- **`POST /api/dev-command-center/github/merge`** — admin-gated; reads the PR first and
+  refuses anything not open or not targeting `dev` (the deploy lane this surface owns —
+  other bases stay a github.com act); merges via GitHub's merge API with a **descriptive
+  merge-commit title** (`Merge PR #N: <title> (<headRef>)` — the CLAUDE.md rule); GitHub's
+  branch protection + required checks still enforce server-side (405/409 surface honestly);
+  receipted as **`deployment_authorized`** — merging to dev IS authorizing the deploy
+  (Amplify builds dev on merge).
+- **`GitHubLayout`** — PR rows now show `head → base` and, for dev-base PRs, a
+  **confirm-then-merge** button (first click arms, second executes — a deploy-triggering act
+  never fires on one click). Result line shows merge sha + receipt. Header eyebrow updated
+  from "read-only" to "read + merge gate"; `_lib/github.ts` stays read-only (the write is
+  route-inlined, documented in both headers). `ghOpenPulls` projection gains `baseRef`.
+
+**D1 statement:** the human execution gate is preserved — it moved *surfaces* (github.com →
+the platform), not *authority* (still the operator's deliberate, confirmed click, now
+receipted). The full loop is now in-platform: intent → pack → dispatch → Claude implements
+in CI → PR → operator merges in the GitHub capsule → Amplify deploys.
+
+Validation: 4/4 esbuild parse gates (merge route, lib, GitHubLayout, read route). First live
+merge is the real drill — GitHub's own API enforces mergeability, so the failure modes
+(checks pending, conflicts, protection) surface as honest error notes on the PR row.
+
 ## Honest limits
 
 - **First live dispatch is the real validation.** The workflow cannot run from this sandbox;

@@ -1,13 +1,18 @@
 "use client";
 
 /**
- * GitHubLayout — read-only repo viewport (CFS-020 CDE).
+ * GitHubLayout — repo viewport (CFS-020 CDE).
  *
  * Branches, recent commits, open PRs, and a file browser, served by
  * /api/dev-command-center/github (GITHUB_TOKEN server-side). When the token is
  * absent the API returns `{ configured: false, missingEnv: 'GITHUB_TOKEN' }`
  * and this layout renders the honest setup notice — never a fabricated state.
  * personaFetch only.
+ *
+ * One write affordance (2026-07-14): PRs targeting dev carry a confirm-then-
+ * merge button (`/api/dev-command-center/github/merge`) — the CFS-016 D1 human
+ * execution gate exercised in-app. Merging dev deploys via Amplify; the act is
+ * receipted as `deployment_authorized`. Everything else stays read-only.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -20,7 +25,7 @@ interface Overview {
   repo: string;
   branches: { name: string; commitSha: string }[];
   commits: { sha: string; message: string; author: string; date: string }[];
-  pulls: { number: number; title: string; author: string; updatedAt: string; headRef: string }[];
+  pulls: { number: number; title: string; author: string; updatedAt: string; headRef: string; baseRef: string }[];
 }
 interface TreeEntry { name: string; type: "file" | "dir"; path: string }
 interface FileView { path: string; text: string; note: string | null }
@@ -44,6 +49,12 @@ export function GitHubLayout({
   const [treePath, setTreePath] = useState("");
   const [entries, setEntries] = useState<TreeEntry[] | null>(null);
   const [file, setFile] = useState<FileView | null>(null);
+
+  // In-app merge state (the D1 human gate). armedPr: first click arms, second
+  // executes — a deploy-triggering act never fires on a single click.
+  const [armedPr, setArmedPr] = useState<number | null>(null);
+  const [mergingPr, setMergingPr] = useState<number | null>(null);
+  const [mergeNotes, setMergeNotes] = useState<Record<number, string>>({});
 
   // Hold the latest onToolUsed in a ref so the fetch callbacks (and the mount
   // effect that depends on loadOverview) don't get a new identity every time the
@@ -73,6 +84,42 @@ export function GitHubLayout({
   }, []);
 
   useEffect(() => { void loadOverview(); }, [loadOverview]);
+
+  const mergePr = useCallback(async (pullNumber: number) => {
+    setMergingPr(pullNumber);
+    setArmedPr(null);
+    onToolUsedRef.current?.("merge");
+    try {
+      const res = await personaFetchDeadline("/api/dev-command-center/github/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pullNumber }),
+      });
+      const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+      if (!res.ok || json?.ok !== true) {
+        setMergeNotes((m) => ({
+          ...m,
+          [pullNumber]: (typeof json?.error === "string" && json.error) || `merge failed (HTTP ${res.status})`,
+        }));
+        return;
+      }
+      setMergeNotes((m) => ({
+        ...m,
+        [pullNumber]: `Merged ${String(json.sha ?? "").slice(0, 10)} — Amplify is deploying dev.${
+          typeof json.receiptId === "string" && json.receiptId ? ` receipt ${String(json.receiptId).slice(0, 8)}…` : ""
+        }`,
+      }));
+      void loadOverview();
+    } catch (err) {
+      const aborted = err instanceof Error && err.name === "AbortError";
+      setMergeNotes((m) => ({
+        ...m,
+        [pullNumber]: aborted ? "merge timed out — check GitHub before retrying (it may have landed)" : err instanceof Error ? err.message : String(err),
+      }));
+    } finally {
+      setMergingPr(null);
+    }
+  }, [loadOverview]);
 
   const browseTree = useCallback(async (path: string) => {
     setFile(null);
@@ -211,8 +258,46 @@ export function GitHubLayout({
             ) : (
               overview.pulls.map((pr) => (
                 <div key={pr.number} className="text-[11px] text-slate-300">
-                  <span className="text-slate-500 font-mono">#{pr.number}</span> {pr.title}
-                  <span className="text-slate-600"> · {pr.author} · {pr.updatedAt}</span>
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-slate-500 font-mono">#{pr.number}</span> {pr.title}
+                      <span className="text-slate-600"> · {pr.author} · {pr.updatedAt} · {pr.headRef} → {pr.baseRef}</span>
+                    </div>
+                    {/* In-app merge — the D1 human gate. Only dev-base PRs (the
+                        deploy lane); confirm-then-merge, never one click. */}
+                    {pr.baseRef === "dev" && !mergeNotes[pr.number]?.startsWith("Merged") && (
+                      armedPr === pr.number ? (
+                        <span className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => void mergePr(pr.number)}
+                            disabled={mergingPr !== null}
+                            className="rounded bg-emerald-700 hover:bg-emerald-600 px-1.5 py-0.5 text-[10px] text-white disabled:opacity-50"
+                          >
+                            Confirm merge → deploys dev
+                          </button>
+                          <button
+                            onClick={() => setArmedPr(null)}
+                            className="rounded bg-slate-800 hover:bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300"
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setArmedPr(pr.number)}
+                          disabled={mergingPr !== null}
+                          className="shrink-0 rounded border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-300 disabled:opacity-50"
+                        >
+                          {mergingPr === pr.number ? <Loader2 className="w-3 h-3 animate-spin" /> : "Merge"}
+                        </button>
+                      )
+                    )}
+                  </div>
+                  {mergeNotes[pr.number] && (
+                    <div className={`mt-0.5 text-[10px] ${mergeNotes[pr.number].startsWith("Merged") ? "text-emerald-300" : "text-rose-300"}`}>
+                      {mergeNotes[pr.number]}
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -246,7 +331,7 @@ export function GitHubLayout({
       surfaceId="dev-github"
       disTemplateId="dev-github-layout-v1"
       headerIcon={<GitBranch className="w-4 h-4" />}
-      headerEyebrow="CDE tool · read-only"
+      headerEyebrow="CDE tool · read + merge gate"
       headerTitle="GitHub"
       headerActions={
         <button
