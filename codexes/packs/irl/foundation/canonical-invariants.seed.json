@@ -1990,6 +1990,21 @@
    "provenance": {
     "source": "Operator articulation, 2026-07-08 — CFS-021: the AgentiQ Liquid Glass interpretation (the platform house style) required the representation contract to carry a MATERIAL role family alongside colour/type/motion."
    }
+  },
+  {
+   "id": "inv.constitutional.130",
+   "namespace": "constitutional",
+   "semantic_type": "law",
+   "statement": "Personhood shall remain continuously individualizable without identity exposure: a constitutional subject persists across time, interactions, and substrates — provably the same subject through personhood proof, a sovereign continuity root, and accrued standing — while identity disclosure remains a discrete, consent-gated act that continuity never requires.",
+   "status": "proposed",
+   "contexts": [
+    "governance",
+    "identity",
+    "privacy"
+   ],
+   "provenance": {
+    "source": "CFS-009 Law XIII — Individualization (binding law); operator articulation 2026-07-14; implementation witness IRL-010 §2.11"
+   }
   }
  ]
 }

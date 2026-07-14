@@ -127,6 +127,8 @@ What persists across time, interactions, and provider substitutions is therefore
 
 This is the runtime's implemented form of the papers' "Identity — establishing persistent continuity across interactions" and "Privacy-Preserving Identifiability" primitives, stated with Law XIII's precision: continuity is a property of personhood/individualization; identity exposure is optional, downstream, and never required for the continuity to hold.
 
+**Canon registration.** Law XIII's constituent statements live in the canonical invariant seed as `inv.constitutional.063–067`, bound by the law-typed invariant `inv.constitutional.130` (constitutional namespace, semantic type `law`): *"Personhood shall remain continuously individualizable without identity exposure: a constitutional subject persists across time, interactions, and substrates — provably the same subject through personhood proof, a sovereign continuity root, and accrued standing — while identity disclosure remains a discrete, consent-gated act that continuity never requires."* Canonization of the family is an operator ratification act recorded in the canon register.
+
 ---
 
 ## Part III — Runtime Architecture (what actually runs)
