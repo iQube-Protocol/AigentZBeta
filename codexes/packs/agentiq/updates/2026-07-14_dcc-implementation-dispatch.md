@@ -156,6 +156,37 @@ second admin's validation doesn't open the first's gate; acceptable single-opera
 for multi-admin); validations recorded before this ships carry no `pack=` tag and won't
 open the gate (re-approve the validation report or override once).
 
+## Addendum 3 (same day) — dedicated validation runner (the Amplify 30s ceiling)
+
+The operator could not complete the Validate stage through chat: every "validate the build"
+turn returned the generic client error, before AND after the API key was funded, before AND
+after `maxDuration = 120` shipped. Root cause established from the platform's documented
+behaviour: **Amplify Hosting hard-caps SSR/API responses at ~30s and does not honor
+`maxDuration`** (amplify-hosting#3475, #3223). The validate chat turn — the copilot
+mega-prompt (KB search + persona + platform knowledge + ground context + dual proposal
+schemas) plus the longest structured generation of any stage — cannot fit that ceiling.
+
+Fix: validation is a structured job, not a conversation. **`POST
+/api/dev-command-center/validate`** (admin-gated) runs ONE focused, invariant-governed
+inference through the canonical Model Router (`callSovereign('validation', …)` — the
+validation purpose maps to the validation reasoning stage, ModelQube-routed with the
+sovereign fallback ladder): compact prompt (canvas entries + a 6k-bounded implementation
+summary), terse bounded JSON output, honest `unresolved` verdicts when the summary is
+silent. The result returns as a standard `validation_report` stage proposal, so the existing
+approval path is unchanged — approve → session report + pack-correlated validation receipt →
+merge gate opens. The Validate capsule gains a **"Run validation"** button (shown once a
+consequence canvas exists) feeding the same `handleStageProposals` path as chat. Chat
+validation remains available when it fits the budget; the button is the reliable lane.
+
+Also fixed this round: `merge-claude-to-dev.yml` no longer produces the forbidden generic
+merge message — the fallback merge commit titles itself with the session branch + head
+commit subject, so the Amplify deploy history names what shipped.
+
+Validation: 3/3 parse gates (route, ValidationLayout, DevCommandCenterTab). Honest limit:
+the runner judges against `session.implementationBrief` (the pack markdown when generated
+from the Implement capsule) — it does not yet read the dispatched PR's actual diff; PR-diff
+validation is the named follow-on.
+
 ## Honest limits
 
 - **First live dispatch is the real validation.** The workflow cannot run from this sandbox;

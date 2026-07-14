@@ -1341,6 +1341,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               pendingProposal={pendingProposals["validation"] ?? null}
               onApproveProposal={() => handleApproveProposal("validation")}
               onDismissProposal={() => handleDismissProposal("validation")}
+              onProposal={(p) => handleStageProposals([p])}
             />
           )}
           {isCapsuleLayout && activeCapsuleId === "remediation" && (
