@@ -75,6 +75,10 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Surface Claude's actual output in the run log — without this, an
+          # API-level failure (bad key, no credits) shows only as
+          # "is_error:true" with no cause (first live dispatch, 2026-07-14).
+          show_full_output: true
           prompt: |
             You are implementing a Dev Command Center Implementation Pack inside CI.
 
