@@ -50,6 +50,25 @@ This is the discoverability→standing flywheel caught at **t = 0**: *discoverab
 
 **Headline: curation beats un-earned breadth today; an earned crystal beating curation is the hypothesis for the re-run.**
 
+### Deeper reframing (operator + Alethean, 2026-07-14): this is not "narrow vs broad" — it is *curated vs accumulated*
+
+The two arms are better named by their epistemic character, not their size:
+
+- The 18-invariant collection was **curated** — intent-selected for these constitutional-reasoning tasks (it *is* an iQube: intent → curation → invariants).
+- The 24-invariant broad slice was **accumulated** — the top-N of a freshly-advanced crystal ranked by confidence (near-uniform), i.e. relevance-blind.
+
+So the real finding generalizes past this experiment: **curation dominates accumulation.** That is the iQube proposition, measured — the platform's differentiator is not context length but *curation quality*. RAG asks "what documents are relevant?"; an iQube asks "what validated invariants should this reasoning begin from?" The broad arm underperformed precisely *because* it accumulated rather than curated.
+
+This also disentangles three orthogonal variables that "better collection" had been conflating — reasoning economy `E` is a function of more than breadth `B`:
+
+```
+E = f(G, B, M)     G = grounding quality   B = collection breadth   M = merit weighting (standing)
+not
+E = f(B)
+```
+
+EXP-003 Run 001 isolates them: **G** replicates strongly (grounding helps); **B** alone does not (accumulation ≠ improvement); **M** is the untested lever — standing-weighted retrieval is what should make a broad-but-*earned* crystal curate itself. That makes the decisive re-run below a genuine A/B: **standing-weighted retrieval vs confidence-weighted retrieval**, not narrow vs broad. (These reframings — Reasoning Economics, `E=f(G,B,M)`, minimum-sufficient substrate, and IRL Principle 004 on faithful instruments — are carried into IRL-011; see the follow-on.)
+
 ### The decisive follow-on (Run 002)
 
 Re-run `--broad` after the crystal has been in live grounding long enough to accrue standing/reach through use (citations bump reach; validation-class signals bump standing). If the broad delta turns **positive** once ranking reflects earned standing, that is the flywheel demonstrated — a materially stronger result than any single-run number, because it shows the crystal *improving itself through use*. If it stays negative even with earned standing, the honest conclusion is that curation is irreducible for these tasks, which is itself a real design finding.

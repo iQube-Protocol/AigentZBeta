@@ -63,6 +63,35 @@ export interface InvariantRecord {
 }
 ```
 
+**Formal definition (the direct answer to "what *is* an invariant, computationally?").** An invariant is a 6-tuple:
+
+```
+I = (S, E, C, V, P, L)
+
+  S — statement          the claim (natural language today; a typed proposition in IRL-011)
+  E — evidence           validation/contradiction accumulators → the epistemic ledger
+                         (timesValidated, timesContradicted, confidenceBasis)
+  C — confidence         C ∈ [0,1], seeded by confidenceBasis (the ladder in §2.1)
+  V — version            monotonic; revision is supersession (V→V′ via supersedesId), never mutation
+  P — provenance         ratifiedSource + provenance/reasoningProvenance (who admitted it, and why)
+  L — composition law    L = COMPOSITION_LAWS[namespace(I)] — how I may legally combine (§2.2, CFS-013)
+```
+
+Two derived scalars ride on top of the tuple and are **kept orthogonal** (Law XII):
+`standing(I)` — constitutional confidence from validation-class signals in E; and
+`reach(I)` — adoption from `timesReferenced`/`timesUsed`. Popularity (reach) can never raise standing.
+
+From the primitive, three operators (their signatures; the algebra and semantics are IRL-011's subject):
+
+```
+Collection    K = {I₁, …, Iₙ}                    an ordered, curated set (or a retrieved slice)
+Compose       Compose(K) → Artifact              legal under ⋀ L(Iⱼ); rejects if any law is weakened (§4.4)
+Retrieve      Retrieve(context) → K ⊆ Crystal    ranked by (standing, confidence, reach); the grounding slice (§4.1)
+Evaluate      Evaluate(Artifact) → Score         the Constitutional Coherence Engine / judge (§4.3, §V)
+```
+
+This compact algebra answers Austin's first question ("what exactly is an invariant") precisely; the **full formal theory** — typed statements, the composition algebra's identities, runtime semantics, the coherence calculus, complexity bounds, and the relationship to statistical inference — is the subject of the companion **IRL-011 (The Computational Model of Invariant Intelligence)**. IRL-010 specifies the *system*; IRL-011 specifies the *theory*. This document deliberately stops at the tuple and the operator signatures.
+
 Three properties make this an *invariant* rather than a database row of text:
 
 - **Lifecycle with disconfirmation built in.** `status` walks draft → proposed → validated → canonical, and can be *rejected*, *deprecated*, or *superseded*. `timesContradicted` is a first-class counter. An invariant that accumulates contradictions is demoted, not defended.
@@ -77,10 +106,28 @@ Invariants live in one of **12 namespaces** (`constitutional, reasoning, enginee
 
 Typed, weighted edges between invariants (`InvariantEdgeRecord`) drawn from **12 canonical edge types** (`derives_from, enables, constrains, contradicts, supersedes, generalizes, specializes, depends_on, supports, validates, explains, composes` — CFS-003 §2), with an enforced acyclicity subset (`ACYCLIC_EDGE_TYPES`) and bounded traversal (`TraversalOptions`: default depth 4, hard cap 8). Implementation: `services/invariants/graph.ts`.
 
-### 2.4 Invariant Collection and InvariantQube
+### 2.4 Invariant Collection and InvariantQube — the curated reasoning substrate
 
 - **Collection** (`InvariantCollectionRecord`): a curated, ordered set of invariants — the unit experiments initialize from.
 - **InvariantQube** (`InvariantQubeRecord`, CFS-004): the *published* form — a versioned package whose `manifest` embeds member statements, the internal edge subgraph, contexts, **aggregate confidence computed weakest-link** and aggregate standing. This is the "compressed expertise" object the papers call a KnowledgeQube in prose.
+
+**The iQube proposition — curation, not accumulation.** The `Retrieve` operator of §2.1 is not document retrieval; it is **intent-guided constitutional curation**. Operator intent selects *which* validated invariants, constitutional principles, and capability evidence should be curated into the reasoning substrate — and the unit being curated is a validated **invariant**, not a document. This is the distinction that differentiates the platform:
+
+```
+RAG                                     iQube
+"What documents are relevant?"          "What validated invariants should
+retrieval of information                 this reasoning begin from?"
+                                        intent-guided curation of intelligence
+```
+
+The composite object, formally (the tuple of §2.1 lifted to the curated set):
+
+```
+iQube = Intent + CuratedInvariants + ConstitutionalProvenance + Standing
+      = (goal, K ⊆ Crystal ranked by merit, P over K, standing over K)
+```
+
+An iQube is therefore a **curated reasoning substrate purpose-built around intent**, not a knowledge container — its value is set by curation quality, not by quantity of contained information. The open scientific question this frames (a candidate first-class research primitive, not just editorial practice): *what is the smallest curated set of validated invariants that solves a class of problems at maximum fidelity and minimum reasoning cost?* — the **minimum sufficient constitutional substrate**. Part V (EXP-003) is the first measurement bearing on it, and its result already points one way: **curation dominates accumulation** (the breadth arm — `experiments/exp-003-rediscovery-savings/breadth-arm.md`).
 
 ### 2.5 Constitutional Runtime (operational definition)
 
@@ -126,6 +173,26 @@ What persists across time, interactions, and provider substitutions is therefore
 - **Accumulation** — Standing accrues to the *continuous subject*, not to an exposed identity (§2.8); it is exactly the persistence of the individualized subject that lets validated action compound.
 
 This is the runtime's implemented form of the papers' "Identity — establishing persistent continuity across interactions" and "Privacy-Preserving Identifiability" primitives, stated with Law XIII's precision: continuity is a property of personhood/individualization; identity exposure is optional, downstream, and never required for the continuity to hold.
+
+**The constitutional chain (Law XIII, refined).** The primitives form a single ordered chain of legitimacy — and identity is **not on it**. Identity is a projection *off* individualization, an optional label, never a link:
+
+```
+Personhood                          (existence — a human is behind the subject)
+    │
+    ▼
+Individualization ───────────────►  Identity   (optional projection; yields reputation, not standing)
+    │
+    ▼
+Standing                            (earned constitutional capability, from consequential action)
+    │
+    ▼
+Authority                           (bounded, delegated on standing)
+    │
+    ▼
+Consequence                         (receipted, standing-updating)
+```
+
+This is why **anonymity and accountability coexist** in the runtime: the chain from personhood to consequence is intact and auditable without identity ever being resolved — accountability rides the individualized subject and its standing, not a name. The chain is already canon: `inv.constitutional.011` (personhood precedes identity), `012` (standing follows action), `013` (authority follows standing), `063` (personhood → individualization → standing; identity an optional derivative), `066` (identity is a branch of individualization, not its gate; it yields reputation, not standing) — the ratified family below binds them.
 
 **Canon registration.** Law XIII's constituent statements live in the canonical invariant seed as `inv.constitutional.063–067`, bound by the law-typed invariant `inv.constitutional.130` (constitutional namespace, semantic type `law`): *"Personhood shall remain continuously individualizable without identity exposure: a constitutional subject persists across time, interactions, and substrates — provably the same subject through personhood proof, a sovereign continuity root, and accrued standing — while identity disclosure remains a discrete, consent-gated act that continuity never requires."* The family was canonized by operator ratification on 2026-07-14 (all six records `canonical`/`document_verified`, `ratified_source` = CFS-009 Law XIII) — the ratification record lives in the canon register (appendix-a). Law XIII therefore exists at all three layers this specification distinguishes: ratified constitutional law, witnessed implementation, and canonical invariants grounding live reasoning.
 
