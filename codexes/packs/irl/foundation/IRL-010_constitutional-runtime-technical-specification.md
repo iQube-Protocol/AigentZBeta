@@ -111,6 +111,22 @@ Earned constitutional reputation: consequential production accrues Constitutiona
 
 Every produced artifact is classified `disposable | operational | constitutional` (`services/artifact/artifactRecordStore.ts`, `profiles.ts`). Disposable is *never persisted*. Nothing is *born* constitutional: promotion is an explicit, receipted operator act. This ladder is the runtime's concrete answer to "consequence as a primitive."
 
+### 2.11 Personhood continuity — Individualization (Law XIII)
+
+A ratified constitutional law of the runtime (CFS-009, Law XIII), and the correction to a common misreading of the identity primitive:
+
+> **Personhood establishes existence. Individualization establishes constitutional continuity. Identity establishes recognizability. Standing establishes constitutional capability.** These are four distinct primitives, not four names for one thing. Personhood precedes individualization; individualization precedes standing; **identity is an optional derivative of individualization** — never a prerequisite for constitutional participation.
+
+What persists across time, interactions, and provider substitutions is therefore not an *identity* (a label) but an **individualized constitutional subject**, isolated continuously without identity exposure:
+
+- **Personhood** — proof a human exists behind the subject, without naming them: World ID verification with a persisted `nullifier_hash` scoping one verified proof per (action, human) (`services/passport/personhoodProof.ts`).
+- **Individualization / continuity root** — the Kybe DID (`rootDid`, `did:fio:`/`did:iq:` family) held strictly T0 server-internal; the subject's outward existence is only ever a T2 alias commitment (`creatorAliasCommitment`, `cohortAliasCommitment`) — the same subject is provably the same subject without being nameable (`types/access.ts`).
+- **Proportional disclosure** — the KYC-bearing `kybeAttestation` is revealed only through an explicit `discloseCredential()` act, never serialized by default; disclosure is an event with a decision, not a side effect (`types/access.ts:208`).
+- **Participation** — the Polity Passport (application → issuance → status machine → locker with T2 identifier isolation; `services/passport/*`).
+- **Accumulation** — Standing accrues to the *continuous subject*, not to an exposed identity (§2.8); it is exactly the persistence of the individualized subject that lets validated action compound.
+
+This is the runtime's implemented form of the papers' "Identity — establishing persistent continuity across interactions" and "Privacy-Preserving Identifiability" primitives, stated with Law XIII's precision: continuity is a property of personhood/individualization; identity exposure is optional, downstream, and never required for the continuity to hold.
+
 ---
 
 ## Part III — Runtime Architecture (what actually runs)
@@ -298,7 +314,7 @@ Per-hypothesis disconfirmation conditions. Each is stated so that a specific exp
 | Capability graph & production routing | **Partial by design** (fitness seeded, costs stubbed, execution edges dormant until D2) | CFS-028 services |
 | Observer awareness (AR/CPS rule) | **Implemented**; per-surface adoption tracked | DCIR seam + artifactProduction |
 | Deployment governance | **D1 implemented** (propose-receipt, human executes); **D2 dormant** (time-gated on D1 history) | CFS-016 |
-| Identity continuity across models | **Planned** | — |
+| Personhood continuity — individualized constitutional subject persists without identity exposure (Law XIII: personhood → individualization → standing; identity an optional derivative) | **Implemented** | `services/passport/{personhoodProof,passportCredential,passportStatusMachine}.ts`, `types/access.ts` (rootDid/kybeAttestation tiers, alias commitments), standing accrual — §2.11 |
 | Cross-model validation of invariant collections | **In progress** (EXP-004/005 machinery exists; systematic sweep outstanding) | — |
 | External replication / third-party adjudication | **Not yet** — the explicit next milestone | — |
 | Multi-run statistics (variance bands) for EXP-003 | **Not yet** (runner supports it) | — |
