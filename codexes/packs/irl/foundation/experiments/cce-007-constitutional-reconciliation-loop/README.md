@@ -1,7 +1,7 @@
-# CCE-007 — Constitutional Reconciliation Loop (candidate)
+# CCE-007 — Constitutional Reconciliation Loop
 
 **Constitutional Computing Experiment 007 · metaMe IRL — Invariant Research Laboratory**
-**Candidate for canonization — awaiting operator ratification, 2026-07-15.**
+**Canonized by operator direction 2026-07-15.**
 **Second demonstration in the CCE lineage. Precedent: CCE-006 (Constitutional Capability Convergence, 2026-07-13) — the first evidence of constitutional self-improvement. CCE-007 extends it: not a Claude Code session narrating its own reasoning, but the PLATFORM'S OWN infrastructure (in-app dispatch, PR-aware validation, receipted reconciliation — CFS-030) driving a full detect → correct → revalidate → deploy cycle end to end.**
 **Executed live by the operator, 2026-07-14/15, via the Dev Command Center.**
 
@@ -116,4 +116,4 @@ single guided session.
 
 ## Ratification record
 
-- [ ] Awaiting operator ratification.
+- [x] **CANONIZED 2026-07-15 by operator direction.**
