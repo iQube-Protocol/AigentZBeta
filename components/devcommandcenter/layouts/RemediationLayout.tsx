@@ -18,7 +18,7 @@
  */
 
 import React, { useMemo, useState } from "react";
-import { AlertTriangle, Check, Lightbulb, Loader2, Play, ShieldAlert, Wrench } from "lucide-react";
+import { AlertTriangle, Check, Lightbulb, Loader2, Play, Rocket, ShieldAlert, Wrench } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { PendingProposalCard } from "./PendingProposalCard";
 import { canAdvance, validationRequiresRemediation } from "@/services/devCommandCenter";
@@ -68,6 +68,64 @@ export function RemediationLayout({
   // high/critical failures PLUS unresolved/partial items.
   const [planning, setPlanning] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
+
+  // The CORRECTION arc (2026-07-15, operator: "how would it resolve it if it
+  // doesn't implement and go back and write the code?"): an approved plan is a
+  // SPECIFICATION — this dispatches it to Claude Code in CI on the SAME pack
+  // branch (the workflow amends an existing branch/PR rather than recreating
+  // it), so the remedies become commits, the PR updates, and re-validation
+  // judges corrected work instead of re-failing the same build.
+  const [dispatching, setDispatching] = useState(false);
+  const [dispatchNote, setDispatchNote] = useState<string | null>(null);
+
+  const dispatchRemedies = async () => {
+    const packId = (session.generatedPack as { id?: string } | null)?.id;
+    if (!plan || !session.intent) return;
+    if (!packId) {
+      setDispatchNote("No pack id in the session — generate the Implementation Pack first (Implement capsule).");
+      return;
+    }
+    setDispatching(true);
+    setDispatchNote(null);
+    try {
+      const brief = [
+        `# Remediation pass — ${session.intent.goal}`,
+        "",
+        "The pack branch already contains the first implementation. Address EACH remedy below by",
+        "amending the code on the same branch. Push to the same branch: if an open PR exists it",
+        "updates automatically; if the previous PR was already merged, open a new PR to dev with",
+        "only the remediation changes.",
+        "",
+        "## Remedies",
+        ...plan.remedies.map(
+          (r) =>
+            `- [${r.consequenceId || "item"}] ${r.description}\n  - Remedy: ${r.remedy}${r.learningNote ? `\n  - Lesson: ${r.learningNote}` : ""}`,
+        ),
+        plan.residualRisk ? `\n## Residual risk\n${plan.residualRisk}` : "",
+      ].join("\n");
+      const res = await personaFetch("/api/dev-command-center/implement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId, goal: `Remediation: ${session.intent.goal}`, packMarkdown: brief }),
+      });
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || data.ok !== true) {
+        throw new Error((typeof data.error === "string" && data.error) || `dispatch failed (HTTP ${res.status})`);
+      }
+      setDispatchNote(
+        `Dispatched — Claude Code is implementing the remedies in CI on ${String(data.branch ?? "the pack branch")}. ` +
+          "When its PR (new or updated) appears, RE-VALIDATE, then merge from Deploy Auth." +
+          (typeof data.receiptId === "string" && data.receiptId ? ` · receipt ${String(data.receiptId).slice(0, 8)}…` : ""),
+      );
+      if (typeof data.receiptId === "string" && data.receiptId) {
+        onReceipt?.({ id: data.receiptId, actionType: "implementation_dispatched" });
+      }
+    } catch (err) {
+      setDispatchNote(err instanceof Error ? err.message : "dispatch failed");
+    } finally {
+      setDispatching(false);
+    }
+  };
 
   const generatePlan = async () => {
     if (!session.intent || !report) return;
@@ -196,15 +254,27 @@ export function RemediationLayout({
               ? "Re-validation required — advancing returns to Constitutional Validation."
               : "Residual risk accepted — advancing proceeds to Deployment Authorization."}
           </div>
-          <button
-            onClick={record}
-            disabled={recording}
-            className="inline-flex items-center gap-1 rounded bg-indigo-700 hover:bg-indigo-600 px-2 py-1 text-[11px] text-white disabled:opacity-50"
-          >
-            {recording ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-            {recording ? "Recording…" : "Record remediation"}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={record}
+              disabled={recording}
+              className="inline-flex items-center gap-1 rounded bg-indigo-700 hover:bg-indigo-600 px-2 py-1 text-[11px] text-white disabled:opacity-50"
+            >
+              {recording ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              {recording ? "Recording…" : "Record remediation"}
+            </button>
+            {/* The correction arc: the plan becomes CODE, not just a record. */}
+            <button
+              onClick={dispatchRemedies}
+              disabled={dispatching}
+              className="inline-flex items-center gap-1 rounded bg-emerald-700 hover:bg-emerald-600 px-2 py-1 text-[11px] text-white disabled:opacity-50"
+            >
+              {dispatching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
+              {dispatching ? "Dispatching…" : "Dispatch remedies to Claude"}
+            </button>
+          </div>
           {recorded && <p className="text-[10px] text-slate-400">{recorded}</p>}
+          {dispatchNote && <p className="text-[10px] text-slate-400">{dispatchNote}</p>}
         </div>
       ) : (
         <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 space-y-1.5">

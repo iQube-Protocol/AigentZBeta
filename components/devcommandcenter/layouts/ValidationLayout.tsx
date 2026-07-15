@@ -46,6 +46,11 @@ export function ValidationLayout({
           shouldHappen: canvas.shouldHappen,
           shouldNeverHappen: canvas.shouldNeverHappen,
           implementationSummary: session.implementationBrief ?? "",
+          // PR-awareness: the route folds the dispatched PR's body + changed
+          // files into the summary so re-validation judges the actual work.
+          ...((session.generatedPack as { id?: string } | null)?.id
+            ? { packId: (session.generatedPack as { id?: string }).id }
+            : {}),
         }),
       });
       const data = (await res.json().catch(() => null)) as

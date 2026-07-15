@@ -50,7 +50,14 @@ jobs:
             aigentz/pack-*) ;;
             *) echo "refusing non-aigentz/pack-* branch: $BRANCH"; exit 1 ;;
           esac
-          git checkout -b "$BRANCH"
+          # Remediation continuity (2026-07-15): a re-dispatch on the same pack
+          # AMENDS the existing branch/PR — never recreates it from dev, which
+          # would discard the first implementation the remedies build on.
+          if git fetch origin "$BRANCH" 2>/dev/null; then
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+          else
+            git checkout -b "$BRANCH"
+          fi
 
       # The pack travels as JSON through toJSON() → file, never interpolated
       # into shell or prompt text (injection-safe).
@@ -96,7 +103,11 @@ jobs:
                file you touch). Report validation honestly in the PR body.
             5. Commit in focused commits (imperative, lowercase subjects) and push:
                git push -u origin HEAD
-            6. Open a pull request to the dev branch:
+            6. If an open PR already exists for this branch (a remediation
+               pass), do NOT create another one — pushing updates it; add a
+               PR comment summarizing the remediation via:
+               gh pr comment <number> --body "<remedies addressed, validation results>"
+               Otherwise open a pull request to the dev branch:
                gh pr create --base dev --title "<concise title from the pack goal>" --body "<what was implemented, validation results, honest limits, packId>"
             7. NEVER push to dev or main directly. NEVER merge the PR. NEVER
                enable auto-merge. Deployment stays human (CFS-016 D1) — the

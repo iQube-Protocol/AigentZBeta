@@ -27,6 +27,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { callSovereign } from '@/services/constitutional/modelRouter';
+import { dispatchBranchFor } from '@/app/api/dev-command-center/implement/route';
+import { GITHUB_REPO } from '@/app/api/dev-command-center/_lib/github';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120; // honored where the platform allows; the call is sized for ~30s regardless
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
   }
 
-  let body: { goal?: unknown; shouldHappen?: unknown; shouldNeverHappen?: unknown; implementationSummary?: unknown };
+  let body: { goal?: unknown; shouldHappen?: unknown; shouldNeverHappen?: unknown; implementationSummary?: unknown; packId?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -83,8 +85,50 @@ export async function POST(request: NextRequest) {
   }
   // The implementation summary is CONTEXT, not the subject — bounded hard so
   // the prompt (and therefore the latency) stays inside the platform ceiling.
-  const implementationSummary =
+  let implementationSummary =
     typeof body.implementationSummary === 'string' ? body.implementationSummary.slice(0, 6000) : '';
+
+  // PR-awareness (2026-07-15, operator: "how would it resolve it if it doesn't
+  // go back and write the code?"): when the pack has a dispatched PR, validate
+  // against the ACTUAL work — the PR body + changed files — not just the
+  // static brief. Critical after a remediation dispatch: the remedies live in
+  // new commits, and judging the stale brief would re-fail forever.
+  // Best-effort: any failure degrades to brief-only validation.
+  const packId = typeof body.packId === 'string' ? body.packId.trim() : '';
+  if (packId && process.env.GITHUB_TOKEN) {
+    try {
+      const branch = dispatchBranchFor(packId);
+      const gh = {
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      };
+      const owner = GITHUB_REPO.split('/')[0];
+      const prsRes = await fetch(
+        `https://api.github.com/repos/${GITHUB_REPO}/pulls?state=open&head=${encodeURIComponent(`${owner}:${branch}`)}`,
+        { headers: gh, cache: 'no-store' },
+      );
+      const prs = prsRes.ok ? ((await prsRes.json()) as Array<{ number: number; body?: string | null }>) : [];
+      if (Array.isArray(prs) && prs.length > 0) {
+        const pr = prs[0];
+        const filesRes = await fetch(
+          `https://api.github.com/repos/${GITHUB_REPO}/pulls/${pr.number}/files?per_page=60`,
+          { headers: gh, cache: 'no-store' },
+        );
+        const files = filesRes.ok
+          ? ((await filesRes.json()) as Array<{ filename: string; additions: number; deletions: number }>)
+          : [];
+        implementationSummary +=
+          `\n\n## Dispatched PR #${pr.number} (${branch}) — the ACTUAL implementation under review\n` +
+          String(pr.body ?? '').slice(0, 3000) +
+          (files.length > 0
+            ? `\n\nChanged files:\n${files.map((f) => `- ${f.filename} (+${f.additions}/-${f.deletions})`).join('\n')}`
+            : '');
+      }
+    } catch {
+      // PR context is additive — brief-only validation proceeds.
+    }
+  }
 
   const system =
     'You are the constitutional consequence-validation engine of a development loop. ' +
