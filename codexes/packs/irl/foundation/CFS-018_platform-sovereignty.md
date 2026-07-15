@@ -220,6 +220,7 @@ A general architectural rule, named once here for reuse, that this spec's sovere
 | Settlement | Q¢, x402, x409, USDC, traditional rails | CRP-003 §5–6, CFI-001 |
 | Constitutional Agreement | x409 (first provider) | CRP-003 §5, CFI-002 (new candidate invariant) |
 | Constitutional evidence storage | AutoDrive, Walrus, TEEs | CRP-003 §7 Workstream 6 (Constitutional Memory) |
+| Development (code-writing execution) | Claude Code (only one built), Anthropic API direct, OpenAI, Gemini, open-weight, specialist agents | CFS-032, the Constitutional Development Router (added 2026-07-16) |
 
 **What this amendment does NOT claim:** it does not assert that every primitive above already HAS a replaceable-provider implementation today (several are single-provider in practice, e.g. inference still runs overwhelmingly on anthropic per the Orchestration/Sovereignty amendment above) — it names the DESIGN RULE the platform holds itself to when building or evaluating a new primitive, not a completion claim. The test the rule gives future work: when a new constitutional capability is proposed, ask "what is the invariant, and what is merely today's implementation of it?" before coupling the two.
 

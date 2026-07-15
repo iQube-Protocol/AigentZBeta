@@ -52,6 +52,22 @@ what was found → where both are recorded → what, if anything, changed as a r
   original one-line table entry, tracked as an open naming question (CRP-002's WP5 amendment,
   2026-07-16 — deliberately NOT ratified yet; see that amendment's honest limits).
 
+## Entry 003 — Reasoning≠inference extends to development≠code-writing
+
+- **First direction:** `inv.engineering.031` (ratified via CFS-015's Phase 2 orchestration
+  amendment, 2026-07-09): *"separate reasoning from inference — the provider infers ONLY;
+  reasoning is the platform's, inference is a swappable object."* Built as the ModelQube router's
+  governing invariant for REASONING/inference routing.
+- **Second direction:** operator + Aletheon dialogue, 2026-07-16, independently arriving at
+  *"Constitutional Development is not defined by who writes the code; it is defined by the
+  constitutional process through which capability is realized"* — for the DEVELOPMENT (code
+  writing) axis, without either party citing inv.engineering.031 as the reason it already applies.
+- **Both recorded in:** CFS-015 (original), CFS-032 §7 (the Constitutional Development Router,
+  2026-07-16), this log.
+- **What changed as a result:** CFS-032 cites inv.engineering.031 as its grounding rather than
+  presenting the closing insight as a fresh discovery — the SAME invariant now explicitly governs
+  two axes (reasoning and development), not two separate principles that happen to rhyme.
+
 ---
 
 ## Honest limits
