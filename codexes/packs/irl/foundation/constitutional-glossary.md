@@ -128,6 +128,14 @@ The constitutional reasoning discipline through which intended capability is tra
 The canonical innovation lifecycle: Intent → Context → Capability → Risk → Value → Price → Consequence → Implementation → Validation → Receipt → Learning. It produces capability, not code; the Implementation Pack is the artifact produced immediately before the Implementation stage.
 - Always call it the Constitutional Capability Pipeline — never "Constitutional Development Pipeline" (superseded name, 2026-07-06)
 
+## Constitutional Development Router
+
+Chartered CFS-032 (2026-07-16), Chrysalis 2.0 Phase 2B. Routes WHICH EXECUTOR writes code once the Constitutional Decision stage (CFS-029 §4) has already decided the realization mechanism is `code` — a distinct axis from the ModelQube router (which routes the platform's OWN reasoning/inference, CFS-015/018) and from CFS-016's deployment authority ladder (who is allowed to execute the git push, unchanged by this router). **Not the same as the retired "Constitutional Development Pipeline" name** (above) — that name was rejected because the whole pipeline is broader than code; this router is deliberately narrow, firing only on a `code` decision. Candidate executors: Claude Code (the only one built), the Anthropic API directly, OpenAI, Gemini, open-weight models, specialist coding agents. Optimizes for constitutional fitness (sovereignty, privacy, standing, capability, cost, latency, rigor, verification, availability), never merely "best model."
+
+## Constitutional Acceptance
+
+Chartered CFS-032 §4 (2026-07-16). A pipeline stage between Validation and Receipt, distinct from Validation: Validation asks *did it work?*; Acceptance asks *does this become part of the constitutional state of the platform* — does it enter the capability registry, become reusable, and inform future Gap Analysis. A capability may validate without being accepted (a one-off fix with no reuse value); Acceptance is a decision, not an automatic consequence of a passing validation.
+
 ## Implementation Pack
 
 The hand-off artifact produced immediately before the Implementation stage of the Capability Pipeline: goal, invariant bindings, areas to touch, validation plan, receipt plan. One constitutional service produces it; it is not the pipeline's centrepiece.
