@@ -15,6 +15,15 @@
  * Validation plan surfaced inline: 24s by construction (2×12s chip), the
  * article's grounding statement (drafted from the SAME brief), and the
  * coherence score (quality gate).
+ *
+ * AUDIENCE (pack 2026-07-15 remedy #1): the same runner serves two personas.
+ *   - `audience="lab"` (default) — the metaMe IRL research framing: invariant
+ *     namespaces, style-continuity toggle, experiment vocabulary.
+ *   - `audience="creator"` — the marketer/creator framing mounted in the
+ *     ComposerStudio Workflows tab: plain-language copy ("theme", "Create my
+ *     24-second video + article"), the same generation controls and route.
+ *   Both drive the identical POST /api/skills/video-article contract — one
+ *   generation path, two persona-appropriate surfaces (Extend, Don't Duplicate).
  */
 
 import { useCallback, useState } from "react";
@@ -24,6 +33,18 @@ import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 import { idsForNamespace } from "@/components/composer/InvariantVideoExperimentRunner";
 
 const SEMANTIC_NAMESPACES = ["constitutional", "reasoning", "capability", "experience", "engineering"] as const;
+
+/** Creator-facing plain-language labels for the semantic namespaces — the
+ *  marketer/creator persona picks a THEME, not an "invariant namespace". */
+const NAMESPACE_THEME_LABELS: Record<string, string> = {
+  constitutional: "Principles & values",
+  reasoning: "Ideas & reasoning",
+  capability: "Product capabilities",
+  experience: "Customer experience",
+  engineering: "How it's built",
+};
+
+export type VideoArticleAudience = "lab" | "creator";
 
 const VIDEO_SKILLS = [
   { id: "venice_video_gen", label: "Venice Video (privacy · Badge A)" },
@@ -51,7 +72,8 @@ interface PlanView {
   articleReceiptId: string | null;
 }
 
-export default function VideoArticleSkillRunner() {
+export default function VideoArticleSkillRunner({ audience = "lab" }: { audience?: VideoArticleAudience } = {}) {
+  const isCreator = audience === "creator";
   const [namespace, setNamespace] = useState<string>("constitutional");
   const [includeStyle, setIncludeStyle] = useState(true);
   const [title, setTitle] = useState("");
@@ -115,29 +137,31 @@ export default function VideoArticleSkillRunner() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h2 className="text-lg font-semibold text-slate-100">Video + Article Skill</h2>
+        <h2 className="text-lg font-semibold text-slate-100">
+          {isCreator ? "Create a 24-second video + article" : "Video + Article Skill"}
+        </h2>
         <p className="text-sm text-slate-400 mt-1">
-          One skill, two corresponding artifacts: a 24-second video (2 × 12s segments, stitched) and a
-          companion article — both generated from the SAME invariant-grounded brief, so correspondence
-          is structural. Article receipt on plan; video receipt on stitch completion.
+          {isCreator
+            ? "Pick a theme, name your piece, and generate a 24-second video (2 × 12s segments) together with a matching companion article. Both come from the same brief, so the article and the video always tell the same story. You can play the video and read the article right here before you publish."
+            : "One skill, two corresponding artifacts: a 24-second video (2 × 12s segments, stitched) and a companion article — both generated from the SAME invariant-grounded brief, so correspondence is structural. Article receipt on plan; video receipt on stitch completion."}
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label className="text-sm text-slate-300">
-          Semantic namespace (the principles)
+          {isCreator ? "Theme" : "Semantic namespace (the principles)"}
           <select
             className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
             value={namespace}
             onChange={(e) => setNamespace(e.target.value)}
           >
             {SEMANTIC_NAMESPACES.map((ns) => (
-              <option key={ns} value={ns}>{ns}</option>
+              <option key={ns} value={ns}>{isCreator ? NAMESPACE_THEME_LABELS[ns] ?? ns : ns}</option>
             ))}
           </select>
         </label>
         <label className="text-sm text-slate-300">
-          Video skill
+          {isCreator ? "Video provider" : "Video skill"}
           <select
             className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
             value={skillId}
@@ -149,7 +173,7 @@ export default function VideoArticleSkillRunner() {
           </select>
         </label>
         <label className="text-sm text-slate-300 md:col-span-2">
-          Production title (optional)
+          {isCreator ? "Title" : "Production title (optional)"}
           <input
             className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-600"
             value={title}
@@ -159,12 +183,14 @@ export default function VideoArticleSkillRunner() {
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-300">
           <input type="checkbox" checked={includeStyle} onChange={(e) => setIncludeStyle(e.target.checked)} />
-          Include style continuity layer (CFS-011)
+          {isCreator ? "Keep a consistent look across both segments" : "Include style continuity layer (CFS-011)"}
         </label>
       </div>
 
       <Button onClick={generate} disabled={loading}>
-        {loading ? "Building brief + article…" : "Generate plan (brief + article)"}
+        {loading
+          ? isCreator ? "Creating your video + article…" : "Building brief + article…"
+          : isCreator ? "Create my video + article" : "Generate plan (brief + article)"}
       </Button>
       {error && <p className="text-sm text-rose-400">{error}</p>}
 

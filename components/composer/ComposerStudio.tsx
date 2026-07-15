@@ -37,6 +37,7 @@ import {
 } from "@/services/dcir/eventStream";
 import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
+import VideoArticleCreatorFlow from "@/components/composer/VideoArticleCreatorFlow";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
 import { CartridgePublishPanel } from "@/components/composer/CartridgePublishPanel";
@@ -12186,6 +12187,9 @@ export const ComposerStudio = () => {
                         )}
                       </div>
 
+                      {/* ── Guided Creator Flow (marketer/creator UX surface) ─ */}
+                      <VideoArticleCreatorFlow />
+
                       {/* ── Studio Skills ─────────────────────────────────── */}
                       {(() => {
                         const allSkills = [
@@ -12242,6 +12246,15 @@ export const ComposerStudio = () => {
                             trustBand: "L3",
                             assetClass: "SkillQube",
                             tags: ["article", "editorial", "copy"],
+                          },
+                          {
+                            id: "skill:video_article_24s",
+                            name: "24-Second Video + Article",
+                            description: "Native composite skill: a 24-second video (2 × 12s) and a matching companion article from one shared brief, with a content-alignment check. Use the Guided Creator Flow below to run it.",
+                            badge: "B",
+                            trustBand: "L3",
+                            assetClass: "SkillQube",
+                            tags: ["video", "article", "24-second", "composite"],
                           },
                         ];
                         const visibleSkills = skillFilterMode === "active" && activeExperienceSkillIds.size > 0

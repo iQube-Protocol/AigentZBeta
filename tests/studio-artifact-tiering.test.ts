@@ -119,4 +119,37 @@ describe('buildStudioRecordBody — T0-inexpressible by construction', () => {
     ]);
     expect(parsed.segments).toBe(2);
   });
+
+  it('carries the content-alignment verdict when present, whitelist-copied (remedy 2026-07-15 #2)', () => {
+    const parsed = JSON.parse(
+      buildStudioRecordBody({
+        kind: 'studio.article.draft.completed',
+        title: 'The Invariant Primitive, in 24 seconds',
+        prompt: 'A continuity block',
+        alignment: {
+          score: 0.91,
+          pass: true,
+          basis: 'heuristic',
+          segmentCoverage: [0.88, 0.94],
+          // Hostile extra property — must not survive the whitelist copy.
+          ...({ personaId: 'p-222' } as unknown as Record<string, never>),
+        },
+      }),
+    );
+    expect(findForbiddenObjectKey(parsed)).toBeNull();
+    expect(parsed.alignment).toEqual({
+      score: 0.91,
+      pass: true,
+      basis: 'heuristic',
+      segmentCoverage: [0.88, 0.94],
+    });
+    expect('personaId' in parsed.alignment).toBe(false);
+  });
+
+  it('alignment is null for productions that carry none', () => {
+    const parsed = JSON.parse(
+      buildStudioRecordBody({ kind: 'studio.image.set.completed', prompt: 'a skyline' }),
+    );
+    expect(parsed.alignment).toBeNull();
+  });
 });

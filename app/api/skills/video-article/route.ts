@@ -26,6 +26,8 @@ import {
   VIDEO_ARTICLE_SEGMENT_COUNT,
 } from '@/services/skills/videoArticleSkill';
 import type { GroundingRef } from '@/services/video/invariantVideoBrief';
+import { tierStudioArtifact } from '@/services/composer/studioArtifactTiering';
+import { alignmentToStudioFields } from '@/services/content/alignmentService';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -60,7 +62,19 @@ export async function POST(request: NextRequest) {
       summary: `video-article skill: ${VIDEO_ARTICLE_TOTAL_SECONDS}s video generated (${VIDEO_ARTICLE_SEGMENT_COUNT} segments, stitched)${body.productionTitle ? ` — "${String(body.productionTitle).slice(0, 80)}"` : ''}`,
       contextShared: ['video-article-skill', 'video'],
     }).catch(() => null);
-    return NextResponse.json({ ok: receipt !== null, videoReceiptId: receipt?.id ?? null });
+    // Studio service — persist the stitched video as an operational Studio
+    // artifact record (never throws; disposable/failed classifications no-op).
+    const videoTier = await tierStudioArtifact({
+      kind: 'studio.video.stitch.completed',
+      title: typeof body.productionTitle === 'string' ? body.productionTitle : '24-second video',
+      outputs: [{ url: videoUrl, label: 'stitched video' }],
+      segments: VIDEO_ARTICLE_SEGMENT_COUNT,
+    });
+    return NextResponse.json({
+      ok: receipt !== null,
+      videoReceiptId: receipt?.id ?? null,
+      studioArtifactRecordId: videoTier.artifactRecordId ?? null,
+    });
   }
 
   // ── Plan — brief + article + coherence; receipt plan item 2 ──
@@ -94,7 +108,29 @@ export async function POST(request: NextRequest) {
         }).catch(() => null)
       : null;
 
-    return NextResponse.json({ ok: true, articleReceiptId: receipt?.id ?? null, ...plan });
+    // Studio service — persist the corresponding article as an operational
+    // Studio artifact record, carrying the Automated Content Alignment verdict
+    // (pack 2026-07-15 remedy #2). This is where alignmentService's output
+    // crosses into the Studio artifact seam. Best-effort; never sinks the plan.
+    const articleTier = plan.article.body
+      ? await tierStudioArtifact({
+          kind: 'studio.article.draft.completed',
+          title: plan.article.title,
+          prompt: plan.brief.continuityBlock,
+          provider: plan.article.provider ?? null,
+          model: plan.article.model ?? null,
+          brief: plan.brief.continuityBlock,
+          segments: plan.segmentCount,
+          alignment: alignmentToStudioFields(plan.alignment),
+        })
+      : { consequenceClass: 'disposable' as const };
+
+    return NextResponse.json({
+      ok: true,
+      articleReceiptId: receipt?.id ?? null,
+      studioArtifactRecordId: articleTier.artifactRecordId ?? null,
+      ...plan,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'video_article_plan_failed';
     console.error('[api/skills/video-article] plan failed:', message);

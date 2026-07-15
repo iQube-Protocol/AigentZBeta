@@ -236,6 +236,7 @@ export const STUDIO_SKILLS: StudioSkillEntry[] = [
         { name: "alignment", type: "AlignmentReport", description: "Heuristic per-segment coverage of the shared brief" },
         { name: "renderPlan", type: "RenderPlan", description: "Segment layout + minimal stitch tree for 24s" },
         { name: "articleReceiptId", type: "string", description: "DVN activity receipt id for the generated article" },
+        { name: "studioArtifactRecordId", type: "string", description: "Studio artifact record id — the article production persisted through the Studio service (studioArtifactTiering) carrying the content-alignment verdict" },
       ],
     },
   },
