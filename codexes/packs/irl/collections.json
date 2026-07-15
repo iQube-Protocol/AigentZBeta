@@ -50,6 +50,7 @@
         "foundation/CFS-027_canonical-plates.md",
         "foundation/CFS-028_capability-graph-production-routing.md",
         "foundation/CFS-029_constitutional-capability-pipeline.md",
+        "foundation/CFS-030_constitutional-reconciliation.md",
         "foundation/CS-001_duplicate-capability-as-constitutional-drift.md",
         "foundation/CHRYSALIS_WORKSTREAM_TRACKER.md",
         "foundation/appendix-a_canonical-invariants.md"
@@ -61,6 +62,7 @@
       "description": "Chrysalis Foundation flywheel experiments \u2014 EXP-001 The First Living KnowledgeQube (Constitutional Internet, five renderings + evaluation protocol), EXP-002 Invariant-Carried Video (24s/48s briefs), and EXP-003 Rediscovery Savings (cold vs initialized benchmark).",
       "items": [
         "foundation/experiments/cce-006-constitutional-capability-convergence/README.md",
+        "foundation/experiments/cce-007-constitutional-reconciliation-loop/README.md",
         "foundation/experiments/exp-001-living-knowledgeqube/README.md",
         "foundation/experiments/exp-001-living-knowledgeqube/canonical-article.md",
         "foundation/experiments/exp-001-living-knowledgeqube/report.md",
