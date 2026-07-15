@@ -38,14 +38,18 @@ Implementation (CI, executor-specific)
         ↓
 Validation                      (existing, CFS-030)
         ↓
-Constitutional Acceptance        ← NEW
+Deployment (D1 merge — CFS-016, unchanged)
         ↓
-Receipt
+Deployment receipt              (existing, deployment_proposed / merge receipts)
         ↓
-Standing Accrual                (named gap — §5)
+Constitutional Acceptance        ← NEW (the registry write — §4)
+        ↓
+Operational Validation → Standing Accrual   (named gap — §5)
         ↓
 Knowledge
 ```
+
+*(Acceptance placement corrected 2026-07-16, same day, operator direction: originally drafted between Validation and Receipt per Aletheon's first sketch; the operator repositioned it to follow Deployment — you only accept into the platform's constitutional state what has actually shipped. §4 records the corrected definition.)*
 
 **Routing dimensions** (proposed, not yet weighted or scored — this is the vocabulary the router optimizes over, not a working scoring function):
 
@@ -71,11 +75,17 @@ Aletheon's proposed pipeline (2026-07-16) named a new stage, "Implementation Str
 
 ## 4. Constitutional Acceptance — a genuinely new object
 
-**Checked before drafting: zero prior use of this term in the codebase.** Distinct from Validation, which asks *did it work?* (tests pass, invariants hold, the diff matches the pack). Acceptance asks a different question: **does this become part of the constitutional state of the platform?** — does it enter the capability registry, become reusable, inform future Gap Analysis (CFS-029 §2's `CapabilityGapReport` stage), and contribute to constitutional knowledge. This distinction is not cosmetic: today, a merged capability ships code, but nothing in the pipeline explicitly confirms it is subsequently REGISTERED as a reusable capability for the NEXT capability request's Gap Analysis to find. CS-001's own case study shows Gap Analysis CAN find "3 EXISTING with reuse dispositions" when a registry read path exists — Constitutional Acceptance is the missing WRITE-side counterpart: the explicit step that says a shipped capability now counts as one of those existing entries, rather than assuming merge alone accomplishes this.
+**Checked before drafting: zero prior use of this term in the codebase.** Distinct from Validation, which asks *did it work?* (tests pass, invariants hold, the diff matches the pack). Acceptance asks a different question: **does this become part of the constitutional state of the platform?**
 
-**Where it sits:** between Validation and Receipt (§2's diagram). A capability that validates but is NOT accepted (e.g., a one-off fix with no reuse value, or a capability the operator deliberately keeps unregistered) still ships and still receipts — it just never becomes a citable, reusable Registry entry. Acceptance is a DECISION, not an automatic consequence of a passing validation.
+**The constitutional act, defined (operator, 2026-07-16, same-day refinement):** Acceptance IS the act of **recording the shipped capability and its associated metadata in the registry as a new constitutional asset** — a `ConstitutionalObject` carrying the capability's identity, provenance (pack id, PR, validation receipts, deployment receipt), governing invariants, and reuse disposition. Not a review meeting, not a second validation — a registry write, receipted like every other consequential act.
 
-**Honest limit:** this section names the distinction and where it sits in the pipeline. It does not specify the registry write mechanism, does not add a receipt action type, and does not change CFS-005's (Registry Evolution) existing scope. Which registry a capability is accepted INTO, and what mechanism performs the write, is deferred to whichever future increment builds this stage.
+**Where it sits (corrected same day):** immediately following Deployment and its receipt (§2's diagram) — not between Validation and Receipt as first sketched. The reasoning: the platform's constitutional state should only ever contain capabilities that actually SHIPPED; accepting a validated-but-unmerged capability would register an asset that doesn't exist in production. This also composes cleanly with §5's Standing sequence — Acceptance records THAT the capability exists as a constitutional asset; Operational Validation then evidences that it WORKS in production; Standing accrues from the latter, never from the former alone (declared → verified → accrued, preserved).
+
+**Why this is a real gap, verified against the code:** today Gap Analysis reads back `capability_evidence` (per-goal evidence rows, the CS-001 fix — how it found "3 EXISTING with reuse dispositions") — but there is NO durable catalog of shipped capabilities anywhere. The Canonical Asset Registry (`services/composition/canonicalAssets.ts`, CFS-022a) registers representation/composition assets (the Bearing Instrument, metaVitruvian, the Plates) as `ConstitutionalObject`s — the right OBJECT SHAPE and the natural precedent — but no shipped CODE capability has ever been recorded in it or any equivalent. Constitutional Acceptance is the missing write-side: the explicit step that turns "code merged" into "capability exists as a citable, reusable constitutional asset the next Gap Analysis can find."
+
+**Acceptance is a DECISION, not an automatic consequence of deployment.** A one-off fix with no reuse value, or a capability the operator deliberately keeps unregistered, still ships and still receipts — it just never becomes a Registry asset.
+
+**Honest limit:** this section now defines the act (a registry write producing a `ConstitutionalObject`) and its position (post-deployment), but the write mechanism is still unbuilt — no route, no receipt action type, no schema addition exists. Whether the capability asset lands in the existing Canonical Asset Registry (extended with a capability kind) or a sibling registry surface is an extend-don't-duplicate decision for the implementing increment; the strong default, per the codebase's own precedent, is extending the existing `ConstitutionalObject` registry rather than minting a parallel one.
 
 ## 5. Standing after deployment — the operator's question, answered against the actual code
 
@@ -118,7 +128,7 @@ Chrysalis 3.0 — Constitutional Society (unscoped, not this spec's concern)
 
 - **No executor beyond Claude Code exists today.** This spec charters the router's shape and vocabulary; it builds no adapter for the Anthropic API directly, OpenAI, Gemini, an open-weight model, or a specialist agent. Each is real, separate engineering work.
 - **The routing dimensions (§2) are named, not scored.** No fitness function, weighting, or ranking algorithm exists yet — this is vocabulary for a future implementation, mirroring how the ModelQube router's `resolveModelQubeRoute` took the equivalent vocabulary and made it operational over months, not in one spec.
-- **Constitutional Acceptance (§4) names a distinction and a pipeline position, not a mechanism.** No registry write path, no new receipt type, no schema change.
+- **Constitutional Acceptance (§4) now defines the act (post-deployment registry write producing a `ConstitutionalObject`) but the mechanism is unbuilt.** No registry write path, no new receipt type, no schema change exists yet.
 - **Standing accrual after deployment (§5) is a verified, real gap** — not wired in code today. This spec names the target sequence; it does not implement it.
 - **CFS-016's deployment ladder (D1/D2/D3) is completely unchanged.** Nothing in this spec proposes, requests, or implies moving past D1.
 - **This is a charter, not an implementation pack.** No code is dispatched, no PR opens, from this spec alone.
