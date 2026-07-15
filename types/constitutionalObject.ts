@@ -66,7 +66,8 @@ export type ConstitutionalObjectKind =
   | 'policy'
   | 'repository'
   | 'deployment'           // a constitutional deployment (CFS-016) — proposal→authorization→execution as a first-class object; EXECUTION stays human under D1
-  | 'atlas_plate';         // a composed Constitutional Atlas Plate (the P2 vertical)
+  | 'atlas_plate'          // a composed Constitutional Atlas Plate (the P2 vertical)
+  | 'capability';          // a SHIPPED capability admitted to the Registry — Constitutional Acceptance (CFS-032 §4)
 
 // ─────────────────────────────────────────────────────────────────────────
 // §2 Identity — T2-safe reference, never a raw subject id

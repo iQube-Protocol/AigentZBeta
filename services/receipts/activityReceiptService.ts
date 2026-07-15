@@ -104,6 +104,14 @@ export type ActivityActionType =
   // WITHOUT a passing validation record, with a stated reason. The override
   // is never silent — this receipt is the tamper-evident record of it.
   | 'validation_override_granted'
+  // Constitutional Acceptance (CFS-032 §4, 2026-07-16): a shipped capability
+  // was admitted into the Capability Registry as a governed constitutional
+  // asset — the capability-level equivalent of constitutional ratification.
+  // capability_operationally_validated (CFS-032 §5) is the Standing accrual
+  // trigger: evidence the deployed capability actually functions in
+  // production. Both DVN-anchorable.
+  | 'capability_registered'
+  | 'capability_operationally_validated'
   | 'research_lifecycle_transition'
   // Foundational Validation Series — canonical result publication (Experiment
   // Lab). Summary carries the sha256 content commitment of the results JSON;

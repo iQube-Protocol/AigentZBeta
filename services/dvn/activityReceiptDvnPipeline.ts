@@ -109,6 +109,14 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // admin with a stated reason; anchoring makes the override tamper-evident
   // (added per the permitted action-type-addition rule).
   'validation_override_granted',
+  // Constitutional Acceptance (CFS-032 §4/§5, 2026-07-16) — a shipped
+  // capability admitted into the Capability Registry (the capability-level
+  // equivalent of constitutional ratification), and its Standing-accrual
+  // trigger (operational evidence in production). Anchoring makes the
+  // acceptance + accrual chain tamper-evident. Added per the permitted
+  // action-type-addition rule.
+  'capability_registered',
+  'capability_operationally_validated',
   'research_lifecycle_transition',
   // Artifact Runtime (CFS-025 Phase 2) — a constitutional-tier artifact was
   // PUBLISHED; anchoring makes the publication commitment tamper-evident.
