@@ -75,6 +75,20 @@ export function ImplementationLayout({
   const [dispatching, setDispatching] = useState(false);
   const [dispatchNote, setDispatchNote] = useState<string | null>(null);
   const [dispatchedBranch, setDispatchedBranch] = useState<string | null>(null);
+  // Linear mirror status — never silent (operator report 2026-07-15: "Linear
+  // tool not showing any project work" traced to a mirror failure that no
+  // surface ever displayed). Honest degradation: shown whenever the server
+  // returned a `linear` result, success or not.
+  const [linearNote, setLinearNote] = useState<string | null>(null);
+  const noteLinear = (linear: unknown) => {
+    if (!linear || typeof linear !== "object") return;
+    const l = linear as { mirrored?: boolean; issueIdentifier?: string; issueUrl?: string; reason?: string };
+    setLinearNote(
+      l.mirrored
+        ? `Linear: ${l.issueIdentifier ?? "issue"} updated${l.issueUrl ? ` (${l.issueUrl})` : ""}`
+        : `Linear not tracking this pack: ${l.reason ?? "mirror skipped"}`,
+    );
+  };
 
   const dispatchToClaude = async () => {
     if (!pack) return;
@@ -107,6 +121,7 @@ export function ImplementationLayout({
       if (typeof data.receiptId === "string" && data.receiptId) {
         onReceipt?.({ id: data.receiptId, actionType: "implementation_dispatched" });
       }
+      noteLinear(data.linear);
     } catch (err) {
       setDispatchNote(err instanceof Error ? err.message : "dispatch failed");
     } finally {
@@ -148,6 +163,7 @@ export function ImplementationLayout({
       if (typeof data.receiptId === "string" && data.receiptId) {
         onReceipt?.({ id: data.receiptId, actionType: "implementation_pack_generated" });
       }
+      noteLinear(data.linear);
     } catch (err) {
       setPackError(err instanceof Error ? err.message : "Pack generation failed");
     } finally {
@@ -242,6 +258,9 @@ export function ImplementationLayout({
           {generating ? "Generating pack…" : "Generate Implementation Pack"}
         </button>
         {packError && <p className="text-xs text-rose-400">{packError}</p>}
+        {linearNote && (
+          <p className={`text-[10px] ${linearNote.startsWith("Linear not") ? "text-amber-400" : "text-slate-500"}`}>{linearNote}</p>
+        )}
 
         {pack && (
           <div className="space-y-2">

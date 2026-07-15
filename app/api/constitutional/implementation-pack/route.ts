@@ -18,6 +18,7 @@ import { attachReceiptToEvidence } from '@/services/constitutional/capabilityEvi
 import { isRealizationMechanism, type ConstitutionalDecision } from '@/services/constitutional/constitutionalDecision';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
+import { packSlug } from '@/app/api/dev-command-center/github/merge/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,13 +112,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Linear mirror (observe-mode, soft-fail): the pack lands the cycle's
-    // issue in Todo. T2-safe note only — pack id + receipt id.
+    // issue in Todo. Keyed on the PACK ID (2026-07-15), not the free-text
+    // goal — the dispatch and merge mirror calls that follow (implement/
+    // route.ts, github/merge/route.ts) converge on this SAME issue only if
+    // the key is stable across a remediation redispatch, whose goal text
+    // differs ("Remediation: X" vs "X"). packSlug(pack.id) is what those
+    // routes derive from the dispatched branch name, so all three stages
+    // land on one issue. T2-safe note only — pack id + receipt id.
     const linear = await mirrorLifecycleToLinear({
       delegate: 'operator',
       profile: 'software',
-      brief: goal,
+      brief: packSlug(pack.id),
       phase: 'pack_generated',
-      note: `Pack \`${pack.id}\` (${pack.implementationMechanism}, ${pack.invariantBindings.length} invariant bindings)${receiptId ? ` — receipt \`${receiptId}\`` : ''}`,
+      note: `Pack \`${pack.id}\` — "${goal.slice(0, 140)}" (${pack.implementationMechanism}, ${pack.invariantBindings.length} invariant bindings)${receiptId ? ` — receipt \`${receiptId}\`` : ''}`,
     });
 
     // CFS-029 §7.2 — fresh evidence is itself a receipted constitutional act:
