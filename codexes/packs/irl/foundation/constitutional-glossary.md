@@ -134,7 +134,7 @@ Chartered CFS-032 (2026-07-16), Chrysalis 2.0 Phase 2B. Routes WHICH EXECUTOR wr
 
 ## Constitutional Acceptance
 
-Chartered CFS-032 §4 (2026-07-16). A pipeline stage between Validation and Receipt, distinct from Validation: Validation asks *did it work?*; Acceptance asks *does this become part of the constitutional state of the platform* — does it enter the capability registry, become reusable, and inform future Gap Analysis. A capability may validate without being accepted (a one-off fix with no reuse value); Acceptance is a decision, not an automatic consequence of a passing validation.
+Chartered CFS-032 §4 (2026-07-16; placement and definition refined same day by operator direction). The pipeline stage immediately following Deployment and its receipt, distinct from Validation: Validation asks *did it work?*; Acceptance asks *does this become part of the constitutional state of the platform?* **The constitutional act is a registry write**: recording the shipped capability and its metadata (pack id, PR, validation + deployment receipts, governing invariants, reuse disposition) as a new constitutional asset — a `ConstitutionalObject`, following the Canonical Asset Registry precedent — so the next Gap Analysis can find and reuse it. Positioned post-deployment because the constitutional state should only contain capabilities that actually shipped. A capability may deploy without being accepted (a one-off fix with no reuse value); Acceptance is a decision, not an automatic consequence of deployment. Mechanism unbuilt as of charter.
 
 ## Implementation Pack
 
