@@ -256,3 +256,31 @@ The programme's question, stated plainly: not *can we make models better?* but *
 - **Constitutional Intelligence** — *decides* what becomes part of the evolving invariant theory. Ratification under Law XI (operator); nothing is `ratified:true` without it.
 
 **Independence is guaranteed by routing, not by promise.** The generator's `draft`/`context` stage and the evaluator's `classification`/`capability` stage resolve to **different providers/models by default** (anthropic-haiku vs openai). The Deltas EXP-006 records are therefore real cross-model disagreements — not a single model agreeing with itself. `runIrlExp001StageA(cirs)` now **requires** the independently-generated CIRS as an argument; it has no PI-authored default to fall back to.
+
+---
+
+## Amendment — WP5, Invariant Morphogenesis (Aletheon + operator dialogue, 2026-07-16)
+
+*(Reconciled before drafting, per the session's discover→reconcile→extend discipline — CFS-019's reconciliation-method amendment, same date. Composition mechanics stay exactly where they are: CFS-013, CFS-014, and Law XV remain the canonical home of HOW invariants compose. This amendment answers a different question WP0–WP4 do not ask: WHAT EMERGES when they do.)*
+
+**The ladder gains a fifth workstream, not a split of an existing one.** An earlier framing of this dialogue proposed dividing "WP2" into two halves — a mislabelling caught before drafting: Knowledge Compression is **WP3** in the ratified ladder (§4), not WP2 (Invariant Discovery). The ladder stays intact and gains one new rung at the end:
+
+```
+WP0 Invariant Theory → WP1 Intent Science → WP2 Invariant Discovery →
+WP3 Knowledge Compression → WP4 Invariant Runtime → WP5 Invariant Morphogenesis
+```
+
+### WP5 — Invariant Morphogenesis
+Studies what happens when composed invariants produce something that was not explicitly encoded in any of them — not a new EXPERIENCE (Law XV/CFS-014 already govern that: consequences are emergent properties of field composition) but a candidate for a genuinely NEW INVARIANT. **Central research question: can invariant composition generate invariants that were not present in any composed input, as opposed to merely generating new outputs from existing ones?** *Deliverable: an observation protocol for candidate emergent invariants arising from WP4 runtime composition, feeding Law XI ratification exactly as WP2's discovery pipeline does — no parallel ratification path.*
+
+**Initial candidate case study — Constitutional Capital.** Not a hypothetical invented for this dialogue: "Standing and Constitutional Capital" is already named among the founding convergent research programmes in the constitutional anchor document (`codexes/packs/polity-core/constitutional-records/invariant-intelligence.md`). Whether "Constitutional Capital" is itself an instance of Standing + Bounded Delegation composing into something neither invariant states alone is WP5's first concrete question to investigate, not assumed here.
+
+**Three modes of morphogenesis, a new research vector:** Human (an operator composes invariants A + B into insight C), Machine (an agent composes A + B + D into insight E), and Hybrid (human validates, machine explores, human reframes, machine recomposes → insight F). Whether these modes produce systematically different emergent structures is an open WP5 question, not a claim.
+
+**The meta-observation this amendment records** (Aletheon, 2026-07-16): the programme's object of study has shifted levels twice — first from *what is knowledge* to *what are invariants*, now from *what are invariants* to *how do invariant structures evolve*. The analogy offered: Biology → Evolutionary Biology, Language → Historical Linguistics, Software → Programming Languages. Recorded as framing, not claimed as proven — WP5 is where it would be tested.
+
+**Named for later, not chartered now — WP6, Invariant Ecology.** How invariant FIELDS (CFS-002 §2a) interact with each other — compete, cooperate, merge, destabilize one another; whether conservation laws exist across fields. Explicitly much further out than WP5; named here only so the ladder's next rung has a place to be discovered later, not built or scheduled by this amendment.
+
+**Honest limits:** WP5 has no experiment series yet (no CCE/CIE/CAE/COE-style series chartered, no EXP-nnn number assigned) — this amendment names a research question, it does not schedule an answer. `types/invariantIntelligence.ts`'s `INVARIANT_INTELLIGENCE_WORKSTREAMS` constant is NOT yet updated to include WP5 — a named code follow-on, not done by this doctrinal amendment. Whether invariant-level emergence (as opposed to experience-level emergence, already proven by Law XV) actually occurs is entirely untested.
+
+**Ratified 2026-07-16 by operator direction**, reconciling Aletheon's review of the prior integration plan — no existing law modified, one new workstream added.

@@ -111,6 +111,10 @@ The self-improvement cycle running alongside the Capability Pipeline: Capability
 
 Intelligence that reasons over a graph of validated, provenance-bearing invariants rather than rediscovering knowledge per inference: canonical ontology precedes reasoning, composition laws govern rendering, validation establishes Standing, citation accrues Reach.
 
+## Invariant Lineage
+
+The traceable chain of derivation through which an invariant emerges, composes, mutates, or propagates across artifacts, fields, and generations (Aletheon, 2026-07-16, proposed as the missing object that makes versioning meaningful). Not a new mechanism — it names the SINGLE graph that CIRS mutations (`propose · merge · split · retire`, CRP-002), KnowledgeQube versioning (CFS-001 Level 3), WP5 morphogenesis candidates (CRP-002 amendment, 2026-07-16), and constitutional amendments (Law X supersession) already each produce in isolation. An Invariant Lineage is what you'd read off by following one invariant's derivation across all four without them being tracked as a single graph today — this term names the object, it does not yet build the graph. See CRP-002's WP5 amendment for the morphogenesis case this concept is meant to eventually connect to.
+
 ## Consequence Engineering
 
 The constitutional reasoning discipline through which intended capability is transformed into predictable constitutional outcomes. Not a service among services — the discipline the constitutional reasoning services collectively execute (operating model: CFS-006a; compositional grounding: Law XV).
