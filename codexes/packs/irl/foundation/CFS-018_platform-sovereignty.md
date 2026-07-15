@@ -204,3 +204,23 @@ CCE-006/CCE-007 (the first two Constitutional Computing Experiments — capabili
 **The relationship, stated plainly:** orchestration is the STRUCTURE that makes sovereignty measurable and improvable — a platform with no constitutional orchestration has no coherent way to even ASK "which provider is this decision routed through, and why." CCE-006/007 prove the structure exists and functions end to end. They do not move any `inv.sovereignty.10x` dimension. The next step toward sovereignty (reducing dependence on any one inference provider) is exactly the sovereign-floor/fallback-ladder trajectory this spec already tracks (§ "Eight routable providers" above) — orchestration and sovereignty converge there, but they are not the same axis, and this experiment pair sits entirely on the orchestration axis.
 
 **Ratified 2026-07-15 by operator direction**, in response to Alethean's review: *"I don't think we've yet demonstrated full constitutional sovereignty. We've demonstrated something slightly different. We've demonstrated constitutional orchestration."*
+
+## Amendment — Constitutional primitives are invariant; providers are replaceable (2026-07-15)
+
+A general architectural rule, named once here for reuse, that this spec's sovereignty bundle (model/provider independence) and CRP-003's settlement-adapter framing (§6, "settlement becomes an implementation detail; integrity is the primitive") turn out to be the SAME rule applied twice, not two separate design choices:
+
+> Constitutional primitives are invariant. Providers are replaceable. — Alethean, 2026-07-15, generalizing from the Horizen pilot's settlement/negotiation stack
+
+**The pattern, named across every place it already holds in this codebase:**
+
+| Constitutional primitive | Provider(s) that implement it | Where this is already ratified |
+|---|---|---|
+| Model inference | anthropic, openai, venice, chaingpt, thirdweb, … | ModelQube registry (§ above, "Eight routable providers") |
+| Identity & Standing | Polity Passport / metaMe | CFS-024, IRL-010 §2.11 |
+| Settlement | Q¢, x402, x409, USDC, traditional rails | CRP-003 §5–6, CFI-001 |
+| Constitutional Agreement | x409 (first provider) | CRP-003 §5, CFI-002 (new candidate invariant) |
+| Constitutional evidence storage | AutoDrive, Walrus, TEEs | CRP-003 §7 Workstream 6 (Constitutional Memory) |
+
+**What this amendment does NOT claim:** it does not assert that every primitive above already HAS a replaceable-provider implementation today (several are single-provider in practice, e.g. inference still runs overwhelmingly on anthropic per the Orchestration/Sovereignty amendment above) — it names the DESIGN RULE the platform holds itself to when building or evaluating a new primitive, not a completion claim. The test the rule gives future work: when a new constitutional capability is proposed, ask "what is the invariant, and what is merely today's implementation of it?" before coupling the two.
+
+**Ratified 2026-07-15 by operator direction**, generalizing from Alethean's Horizen pilot stack decomposition (CRP-003 §7 amendment, same date) into a cross-cutting platform rule.
