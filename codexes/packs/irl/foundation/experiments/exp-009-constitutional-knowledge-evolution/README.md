@@ -1,8 +1,8 @@
-# EXP-006 — Constitutional Knowledge Evolution
+# EXP-009 — Constitutional Knowledge Evolution
 
 **The institute's first longitudinal experiment series.** Charter · status: DESIGN (deferred by operator direction 2026-07-14 — the hypothesis matured faster than the experiment; deferring for the stronger design beats a faster weaker answer).
 
-> Designation note: this series was proposed in review as "EXP-005"; that slot is held by Provider Choice, so it is assigned **EXP-006**. (CCE-006 is a distinct taxonomy prefix — Constitutional Computing Experiment; this is an EXP-series longitudinal study.) Operator confirms the designation and whether it should carry a taxonomy class.
+> **Designation history — a numbering collision, caught and corrected 2026-07-16.** This series was proposed in review as "EXP-005"; that slot is held by Provider Choice, so on 2026-07-14 it was assigned "EXP-006" — but that check missed that **EXP-006 was already taken**: CRP-002 had assigned EXP-006 to *Intent → Invariant Projection Fidelity* on 2026-07-09, registered in code (`types/research.ts` `EXPERIMENT_REGISTRY`, IIVS series, Stage A built in `services/experiments/irlExp001.ts`). Per the no-number-reuse rule (operator direction 2026-07-13) and first-assigned-wins, this DESIGN-status series renumbers to **EXP-009** (007/008 are CRP-002's; 009 was the next free slot, verified). **Mapping for external correspondence:** the 2026-07-16 exchange with the external reviewer refers to "EXP-006A/B (standing-weighted vs confidence-weighted retrieval)" — those are THIS series' sub-experiments, now **EXP-009A/9B**. (CCE-006 is a distinct taxonomy prefix — Constitutional Computing Experiment; this is an EXP-series longitudinal study.) Historical records (tracker rows 64–65, the 2026-07-14 update doc) keep the original "EXP-006" wording append-only; this note is the authoritative resolution.
 
 ## Why this is a new series, not "EXP-003 Run 002"
 
@@ -46,13 +46,13 @@ The crystal is not a library; it is a **living constitution**. It improves not b
 
 | Arm | Name | Tests | Deliverable |
 |---|---|---|---|
-| **EXP-006A** | Standing Accrual | H1, F-none (mechanism) | receipted accrual pass; `Crystal v1` frozen snapshot; before/after standing distribution |
-| **EXP-006B** | Standing-weighted Retrieval | H2, P2, F7 | on frozen `Crystal v1`: standing-ordered vs confidence-ordered curation; economy + fidelity delta |
-| **EXP-006C** | Convergence of Φ | C1, F6 | iterate `v1 → v2 → v3`; does the merit order converge? distance-to-fixpoint per iteration |
-| **EXP-006D** | Cross-domain Transfer | P3 | standing earned on family T₁, tested on held-out family T₂ (the leakage-free generalization test) |
-| **EXP-006E** | Crystal Version Comparison | versioned artifacts | does `Crystal vN` outperform `vN−1`? attribute gain to reorganization, not accumulation |
+| **EXP-009A** | Standing Accrual | H1, F-none (mechanism) | receipted accrual pass; `Crystal v1` frozen snapshot; before/after standing distribution |
+| **EXP-009B** | Standing-weighted Retrieval | H2, P2, F7 | on frozen `Crystal v1`: standing-ordered vs confidence-ordered curation; economy + fidelity delta |
+| **EXP-009C** | Convergence of Φ | C1, F6 | iterate `v1 → v2 → v3`; does the merit order converge? distance-to-fixpoint per iteration |
+| **EXP-009D** | Cross-domain Transfer | P3 | standing earned on family T₁, tested on held-out family T₂ (the leakage-free generalization test) |
+| **EXP-009E** | Crystal Version Comparison | versioned artifacts | does `Crystal vN` outperform `vN−1`? attribute gain to reorganization, not accumulation |
 
-## Accrual mechanism (EXP-006A, specified)
+## Accrual mechanism (EXP-009A, specified)
 
 Per grounded task run: obtain the answer under broad grounding; the judge scores each claim consistent / contradicting / outside against the slice; `countCitations` identifies which invariants were cited. Then, per cited invariant:
 - cited in a majority-consistent answer → `Validate(I)` (`times_validated += 1`) + a `standing_increment` receipt naming (task, judge verdict, hash);
@@ -62,12 +62,12 @@ Per grounded task run: obtain the answer under broad grounding; the judge scores
 ## Relationship to prior work
 
 - Supersedes the "EXP-003 Run 002" framing. EXP-003 (Reasoning Economics) stands as the *static* baseline; its breadth arm (Run 001) is the first datum for `inv.epistemology.132` (curation dominates accumulation).
-- The `E = f(G, B, M)` model (IRL-011 §6) isolates the variables EXP-006B/C manipulate: EXP-006 is where **M** (merit/standing) is finally given real variance.
-- On success, EXP-006 is the empirical body that would move `inv.epistemology.132` from *governing principle* to *document-verified*, and would demote or confirm C1 (IRL-011 §4.2).
+- The `E = f(G, B, M)` model (IRL-011 §6) isolates the variables EXP-009B/C manipulate: EXP-009 is where **M** (merit/standing) is finally given real variance.
+- On success, EXP-009 is the empirical body that would move `inv.epistemology.132` from *governing principle* to *document-verified*, and would demote or confirm C1 (IRL-011 §4.2).
 
 ## Honest limits (carry into any result)
 
 - Longitudinal ⇒ slow by design; not a light lift (the reason for deferral, recorded honestly).
-- Small task corpora inflate in-distribution effects; EXP-006D exists precisely to separate transfer from leakage.
-- Freezing/versioning + receipted accrual are build work (EXP-006A deliverables), not yet implemented — this is a charter, not a result.
+- Small task corpora inflate in-distribution effects; EXP-009D exists precisely to separate transfer from leakage.
+- Freezing/versioning + receipted accrual are build work (EXP-009A deliverables), not yet implemented — this is a charter, not a result.
 - A null anywhere is publishable (Principle 004): `H1 ∧ ¬H2`, non-convergence (F6), or no-transfer (P3) each teach something real about the substrate.
