@@ -123,6 +123,9 @@ Composition is multiplicative, not additive. No field is optional. No field domi
 - **Corollary III — Experience Emergence.** A constitutional experience is an emergent property of field composition. It is not stored. It is composed.
 - **Corollary IV — Constitutional Explainability.** Every constitutional experience shall be decomposable back into the fields and invariants from which it was composed.
 
+### Convergence note (2026-07-16) — treated as confirmatory, not a redefinition
+A later dialogue (operator + Aletheon, 2026-07-16, feeding CFS-019's Invariant Field Theory amendment) independently re-derived two things already sitting in this section: that an Invariant Field is closer to "the space within which invariants interact" than to a mere collection (this is inv.84, "a field is a role, not a container," restated), and that DNA is a compact generative substrate whose composed fields — not any single gene — produce the organism (this is the biology row in the systems table above, word for word: "DNA does not create an organism; it defines the fields whose composition IS the organism"). Recorded here as CONVERGENCE, per Aletheon's framing: *"science values independent convergence... that increases confidence you've identified something stable."* This section's definition is unchanged by the later dialogue — the newer language deepens the presentation, it does not supersede the 2026-07-06 definition. Full log: `CONVERGENCE_LOG.md`.
+
 ## 3. Hierarchy & inheritance
 
 `ontology_classes` is a self-referential tree: `id`, `namespace`, `parent_id`, `semantic_type`, `description`. A class inherits the semantic type and applicability constraints of its ancestors; an invariant classified under `constitutional/delegation/bounds` is retrievable by any ancestor query (`constitutional/delegation`, `constitutional`).
