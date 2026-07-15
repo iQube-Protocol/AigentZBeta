@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`5418dfb`](https://github.com/iQube-Protocol/AigentZBeta/commit/5418dfbdbdbf65bfe51b7e8f88ba99242ed7fb6f) [feat] wire video-article alignment output into the studio artifact service (claude[bot], 2026-07-15T06:03:38Z)
+- [`6cd14f6`](https://github.com/iQube-Protocol/AigentZBeta/commit/6cd14f6cd11587ff7bc06500777ba9e402af7fed) [feat] add marketer/creator-facing video-article flow in studio workflows tab (claude[bot], 2026-07-15T06:03:44Z)
+- [`98ed85c`](https://github.com/iQube-Protocol/AigentZBeta/commit/98ed85ced1892b85f6d6983b50251521a062e581) [push] document video-article remediation: studio integration + creator ux (claude[bot], 2026-07-15T06:03:48Z)
 - [`a064e14`](https://github.com/iQube-Protocol/AigentZBeta/commit/a064e14f7df64e3ac42965eb9f4933246dcc98b2) [push] register 24-second video+article skill in the studio catalog (claude[bot], 2026-07-14T13:44:31Z)
 - [`cf5ad6a`](https://github.com/iQube-Protocol/AigentZBeta/commit/cf5ad6a4b410506057ce70283a9392ef5a020ed1) [feat] add end-to-end orchestration canary for buildVideoArticlePlan (claude[bot], 2026-07-14T13:46:48Z)
 - [`5dda90d`](https://github.com/iQube-Protocol/AigentZBeta/commit/5dda90db252639536029e80ba857c8362bd71dce) [push] document video-article pack re-dispatch finding + orchestration canary (claude[bot], 2026-07-14T13:46:49Z)

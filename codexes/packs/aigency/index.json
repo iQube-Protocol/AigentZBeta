@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-14T13:52:38.090Z",
+  "last_updated": "2026-07-15T06:41:57.934Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a064e14f7df64e3ac42965eb9f4933246dcc98b2",
-  "latest_commit_short": "a064e14",
-  "latest_commit_title": "register 24-second video+article skill in the studio catalog",
+  "latest_commit": "5418dfbdbdbf65bfe51b7e8f88ba99242ed7fb6f",
+  "latest_commit_short": "5418dfb",
+  "latest_commit_title": "wire video-article alignment output into the studio artifact service",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5418dfb",
+      "full_sha": "5418dfbdbdbf65bfe51b7e8f88ba99242ed7fb6f",
+      "title": "wire video-article alignment output into the studio artifact service",
+      "author": "claude[bot]",
+      "timestamp": "2026-07-15T06:03:38Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5418dfb.md"
+    },
+    {
+      "sha": "6cd14f6",
+      "full_sha": "6cd14f6cd11587ff7bc06500777ba9e402af7fed",
+      "title": "add marketer/creator-facing video-article flow in studio workflows tab",
+      "author": "claude[bot]",
+      "timestamp": "2026-07-15T06:03:44Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6cd14f6.md"
+    },
+    {
+      "sha": "98ed85c",
+      "full_sha": "98ed85ced1892b85f6d6983b50251521a062e581",
+      "title": "document video-article remediation: studio integration + creator ux",
+      "author": "claude[bot]",
+      "timestamp": "2026-07-15T06:03:48Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-98ed85c.md"
+    },
     {
       "sha": "a064e14",
       "full_sha": "a064e14f7df64e3ac42965eb9f4933246dcc98b2",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-07-04T05:44:23Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e8372a5.md"
-    },
-    {
-      "sha": "5132d14",
-      "full_sha": "5132d14c2ddccf5ae15082e753d4a45fb432bd1d",
-      "title": "Add Overview/Ontology/Graph views to Invariant Registry",
-      "author": "Claude",
-      "timestamp": "2026-07-04T05:23:45Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5132d14.md"
-    },
-    {
-      "sha": "4b45166",
-      "full_sha": "4b451661d4ce69144fee2af3b57d210eb3a9e834",
-      "title": "Add missing Invariant Intelligence tab to Polity Core cartridge",
-      "author": "Claude",
-      "timestamp": "2026-07-04T04:28:43Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-4b45166.md"
-    },
-    {
-      "sha": "ebd2caf",
-      "full_sha": "ebd2caf9df85cd88a571456691408d63316abc05",
-      "title": "Fix static tabs shadowed by DB codex_tabs and ground runner on namespaces",
-      "author": "Claude",
-      "timestamp": "2026-07-04T04:02:47Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-ebd2caf.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
