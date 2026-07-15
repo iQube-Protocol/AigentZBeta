@@ -42,14 +42,14 @@ Deployment (D1 merge — CFS-016, unchanged)
         ↓
 Deployment receipt              (existing, deployment_proposed / merge receipts)
         ↓
-Constitutional Acceptance        ← NEW (the registry write — §4)
+Registry Registration ≡ Constitutional Acceptance   ← NEW, ONE event (§4)
         ↓
 Operational Validation → Standing Accrual   (named gap — §5)
         ↓
-Knowledge
+Knowledge → future Gap Analysis   (the Registry closes the loop — §4)
 ```
 
-*(Acceptance placement corrected 2026-07-16, same day, operator direction: originally drafted between Validation and Receipt per Aletheon's first sketch; the operator repositioned it to follow Deployment — you only accept into the platform's constitutional state what has actually shipped. §4 records the corrected definition.)*
+*(Acceptance placement corrected 2026-07-16, same day, operator direction: originally drafted between Validation and Receipt per Aletheon's first sketch; the operator repositioned it to follow Deployment — you only accept into the platform's constitutional state what has actually shipped. Aletheon then confirmed the stronger identity, same day: Registry Registration and Constitutional Acceptance are not two stages — they are one event. §4 records both refinements.)*
 
 **Routing dimensions** (proposed, not yet weighted or scored — this is the vocabulary the router optimizes over, not a working scoring function):
 
@@ -85,19 +85,24 @@ Aletheon's proposed pipeline (2026-07-16) named a new stage, "Implementation Str
 
 **Acceptance is a DECISION, not an automatic consequence of deployment.** A one-off fix with no reuse value, or a capability the operator deliberately keeps unregistered, still ships and still receipts — it just never becomes a Registry asset.
 
+**Registry Registration IS Constitutional Acceptance — one event, not two stages (Aletheon, 2026-07-16, confirming the operator's definition).** There is no separate "acceptance ceremony" that precedes or follows the registry write; the admission of the capability into the Registry as a governed constitutional asset IS the acceptance event. Aletheon's framing, adopted: *"Everything before that is engineering. Everything after that is constitutional memory."* Two consequences worth recording:
+
+1. **The Registry, not the receipt, closes the self-improvement loop.** A receipt records that something happened; only Registry Registration makes the shipped capability DISCOVERABLE by the next capability request's Gap Analysis. The lifecycle's last arrow (Knowledge → future Gap Analysis, §2's diagram) runs through the Registry — that is what makes the pipeline constitutionally evolutionary rather than merely well-documented.
+2. **The Registry's role is thereby sharpened: the constitutional ledger of capability, not an asset catalogue.** Every capability admitted has been reasoned about (Constitutional Decision), validated, deployed, receipted, and constitutionally accepted — making Registry Registration the capability-level equivalent of constitutional ratification (the same shape Law XI gives invariants: proposal → ratification → canonical status).
+
 **Honest limit:** this section now defines the act (a registry write producing a `ConstitutionalObject`) and its position (post-deployment), but the write mechanism is still unbuilt — no route, no receipt action type, no schema addition exists. Whether the capability asset lands in the existing Canonical Asset Registry (extended with a capability kind) or a sibling registry surface is an extend-don't-duplicate decision for the implementing increment; the strong default, per the codebase's own precedent, is extending the existing `ConstitutionalObject` registry rather than minting a parallel one.
 
 ## 5. Standing after deployment — the operator's question, answered against the actual code
 
 **The operator asked directly whether Standing is already part of the pipeline after deployment. It is not — verified against the running code, not assumed.** The `standing_accrued` DVN action type exists (`services/dvn/activityReceiptDvnPipeline.ts`), and a working accrual mechanism exists (`services/crm/standingAccrualService.ts`, `services/standing/standingSignalService.ts`) — but grepping every call site of `actionType: 'standing_accrued'` shows it is created ONLY from `standingAccrualService.ts`, which is CRM/venture-domain accrual. **No call site connects a Dev Command Center deployment, merge, or validation receipt to Standing accrual.** Shipping a capability today produces `deployment_proposed` / `deployment_executed` / `constitutional_validation_recorded` receipts (CFS-016, CFS-029/030) — none of which currently triggers `standing_accrued`.
 
-**Aletheon's proposed sequencing is adopted as the target, not yet built:**
+**The target sequencing, refined twice same-day and adopted (not yet built):**
 
 ```
-Deployment → Operational Validation → Receipt → Standing Accrual
+Deployment → Deployment Receipt → Registry Registration (≡ Acceptance, §4) → Operational Validation → Standing Accrual
 ```
 
-Standing should accrue from **verified capability delivered**, not from code merged — the same declared → verified → accrued discipline the platform already applies elsewhere (e.g. delegate Standing in Homecoming, CFS-023). "Operational Validation" here means evidence the deployed capability actually functions in production (a subsequent Chrysalis Test pass, an operator confirmation, or a follow-up experiment), distinct from the PRE-merge Validation stage (CFS-030) that judges the PR before it ships. **This is a named code follow-on, not done by this charter**: wiring a deployment/operational-validation receipt to call `standingAccrualService`'s accrual path (or an equivalent DCC-scoped accrual function — TBD which is the right composition point, extend don't fork) is real engineering work for a future increment.
+Standing should accrue from **verified constitutional contribution**, not from code merged and not from code merely existing — the same declared → verified → accrued discipline the platform already applies elsewhere (e.g. delegate Standing in Homecoming, CFS-023). Aletheon's second refinement (2026-07-16) adds the registration PRECONDITION: *"Standing shouldn't accrue from code existing. It should accrue from a constitutionally accepted capability... contribution that has entered the constitutional order."* The two conditions compose rather than compete: **Registration is the eligibility gate** (only a capability admitted to the constitutional order can accrue Standing at all), and **operational evidence is the accrual trigger** (a subsequent Chrysalis Test pass, an operator confirmation, or a follow-up experiment showing the deployed capability actually functions — distinct from the PRE-merge Validation stage, CFS-030, that judges the PR before it ships). Registered-but-unverified accrues nothing yet; verified-but-unregistered is not in the constitutional order and accrues nothing ever. **This is a named code follow-on, not done by this charter**: wiring the registration + operational-validation receipts to call `standingAccrualService`'s accrual path (or an equivalent DCC-scoped accrual function — TBD which is the right composition point, extend don't fork) is real engineering work for a future increment.
 
 ## 6. Provider Sovereignty and Sovereign Survivability — the objectives this spec completes
 
