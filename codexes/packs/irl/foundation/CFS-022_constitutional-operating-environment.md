@@ -143,7 +143,7 @@ The six questions, mapped to the facet(s) that answer them:
 | 3 | What capability is required? | `identity` + `dependencies` | The Implementation Pack names areas-to-touch, never invents them (CFS-015) |
 | 4 | What consequence will this produce? | the consequence canvas / preflight | Every pack carries a consequence preflight before implementation (CFS-006a) |
 | 5 | What evidence will result? | `provenance` (receipt ids, content commitment) | Every stage of a reconciliation cycle writes its own receipt (CFS-030 §5) |
-| 6 | What standing should accrue from successful execution? | `standing` (score + band) + Reach (Law XII) | `citeInvariants` accrues Reach on a grounded artifact production (CVR-003); Standing accrual is EXP-006A's still-separate, receipted design |
+| 6 | What standing should accrue from successful execution? | `standing` (score + band) + Reach (Law XII) | `citeInvariants` accrues Reach on a grounded artifact production (CVR-003); Standing accrual is EXP-009A's still-separate, receipted design |
 
 **This is a DESCRIPTIVE finding, not a new enforcement mechanism.** No code changes with this amendment — it names a pattern already present because the object model (§"P0 delivered") and the reconciliation loop (CFS-030) both independently arrived at asking these questions. The value of naming it: a future organ's design review can check itself against the six questions directly, rather than re-deriving them per-surface. **Ratified 2026-07-15 by operator direction**, coherence-named per Alethean's review.
 
