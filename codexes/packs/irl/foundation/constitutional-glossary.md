@@ -19,6 +19,14 @@ Computing in which every reasoning surface and every rendering surface is govern
 
 The convergence half of constitutional evolution (CFS-031 §3): capability diverges from the constitution when new code answers a new consequence (the fast loop doing its job), then reconverges when that code's evidence, carried by Standing, ratifies a principle and the constitution reasserts itself over the codebase. Not a one-time gate a build passes through — a continuous process with no final form; the Chrysalis metaphor names this state, not a transition between two stable ones.
 
+## Transaction Reconstitution
+
+Not the same property as Reconstitution above (CRP-003 §7.3, 2026-07-16, distinguished deliberately to avoid a near-collision under one name). Reconstitution is SYSTEM-level: the platform's ongoing convergence of code and constitution. Transaction Reconstitution is per-TRANSACTION: a constitutional receipt trail must, by itself, be sufficient to reconstruct one completed transaction's original intent, Constitutional Agreement, delegated authority, executing agent, outputs, verification, settlement, and standing impact — a replay/audit property, not a claim about platform evolution. A Transaction-Reconstitutable receipt is the unit of evidence that feeds the (unchanged) Reconstitution process; the two terms compose, they are not synonyms.
+
+## Constitutional Agreement
+
+The candidate constitutional primitive (CFI-002, CRP-003 §5/§7.1, added 2026-07-16) that must exist before delegated execution: an explicit, attributable, machine-readable record binding requesting operator, requested capability, selected agent, delegated authority, constraints, verification requirements, and settlement terms. Provider-agnostic by the "primitives are invariant, providers are replaceable" rule (CFS-018 amendment) — `x409` is the first candidate implementation, not the definition. Distinguished from Bounded Delegation (the authority an agreement, once formed, exercises) and from Standing (which qualifies who may be party to an agreement in the first place).
+
 ## Constitutional Coherence
 
 Two complementary readings, both ratified. (1) Structural (CFS-022, 2026-07-15): every layer of the stack — a route handler, a capsule, a pipeline stage, a receipt writer — converges on asking the same six questions before acting: what already exists, what authority do I have, what capability is required, what consequence will this produce, what evidence will result, what standing should accrue. (2) Dynamic (CFS-031, 2026-07-15): the continuous alignment of evolving capabilities with enduring constitutional principles through evidence, standing, and reconstitution — the property that makes a system constitutionally COHERENT rather than merely constitutionally CONSTRAINED, and the upstream property that "AI safety" or "AI governance" describe only downstream symptoms of.
