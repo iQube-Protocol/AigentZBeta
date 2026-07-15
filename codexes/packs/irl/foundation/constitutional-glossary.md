@@ -13,7 +13,27 @@ The platform as a constitutional whole — the environment in which humans and a
 
 ## Constitutional Computing
 
-Computing in which every reasoning surface and every rendering surface is governed by Invariant Intelligence: meaning resolves against canonical ontology before reasoning, composition obeys ratified laws, coherence is validated before rendering, and every consequential act is receipted.
+Computing in which every reasoning surface and every rendering surface is governed by Invariant Intelligence: meaning resolves against canonical ontology before reasoning, composition obeys ratified laws, coherence is validated before rendering, and every consequential act is receipted. Deepened definition (CFS-031, 2026-07-15): Constitutional Computing is a cybernetic system in which every action produces evidence that continuously improves both the operating system and the constitution, allowing evolving code to remain aligned with enduring constitutional principles — a fast loop (code: agents, prompts, models, workflows — intentionally high-variance) continuously reconciled against a slow loop (constitution: invariants, standing, ratified principles — intentionally low-variance), with Standing as the membrane carrying evidence from the fast loop into the slow one. Never reduce this to "AI governed by rules" — the constitution is not a static constraint but the attractor code is continuously reconstituted around.
+
+## Reconstitution
+
+The convergence half of constitutional evolution (CFS-031 §3): capability diverges from the constitution when new code answers a new consequence (the fast loop doing its job), then reconverges when that code's evidence, carried by Standing, ratifies a principle and the constitution reasserts itself over the codebase. Not a one-time gate a build passes through — a continuous process with no final form; the Chrysalis metaphor names this state, not a transition between two stable ones.
+
+## Constitutional Coherence
+
+Two complementary readings, both ratified. (1) Structural (CFS-022, 2026-07-15): every layer of the stack — a route handler, a capsule, a pipeline stage, a receipt writer — converges on asking the same six questions before acting: what already exists, what authority do I have, what capability is required, what consequence will this produce, what evidence will result, what standing should accrue. (2) Dynamic (CFS-031, 2026-07-15): the continuous alignment of evolving capabilities with enduring constitutional principles through evidence, standing, and reconstitution — the property that makes a system constitutionally COHERENT rather than merely constitutionally CONSTRAINED, and the upstream property that "AI safety" or "AI governance" describe only downstream symptoms of.
+
+## Standing
+
+The constitutional memory of accumulated trust — orthogonal to Reach (Law XII, Appendix A: Standing is accumulated trust from validated outcomes; Reach is adoption/citation; never conflate the two). Standing accrues to more than persons: delegates (`services/homecoming/delegateStanding.ts`, CFS-023), invariants (the crystal's `proposed → validated → canonical` climb, Appendix A), and any ConstitutionalObject's `standing` facet (CFS-025). CFS-031 §2 names the completed scope: Standing evaluates people, agents, capabilities, hypotheses, experiments, and research programmes — and names its structural role as the MEMBRANE by which fast-loop evidence crosses into slow-loop constitutional change (`Action → Evidence → Standing → Confidence → Invariant Candidate → Ratification → Constitution`).
+
+## Signal
+
+An OBSERVATION — e.g. "many Founder Operators need financial agents" (CFS-031 §6). Distinct from a Hypothesis, which EXPLAINS a signal. Conceptual vocabulary as of 2026-07-15; no governing invariant is seeded for this term yet — it does not gate composition or anything else until a future seed-and-ratify pass adds one.
+
+## Hypothesis
+
+An EXPLANATION proposed for a Signal — e.g. "standing-informed agent selection reduces Time-to-Value for financial workflows" (CFS-031 §6). Three proposed sources: market-led (from Founder Operator intents), constitutional-led (from the Institute's own theory — the only source exercised as of 2026-07-15, e.g. every CCE-series experiment), and community-led (from participant submissions). All three are designed to converge on the SAME experimental pipeline (CFS-019 Phase C2.1/C3), never a parallel one. Conceptual vocabulary; no governing invariant seeded yet.
 
 ## Constitutional Sovereignty
 

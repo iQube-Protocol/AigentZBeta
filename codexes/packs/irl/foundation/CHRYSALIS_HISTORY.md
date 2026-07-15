@@ -85,3 +85,59 @@ detected its own shortfall, and corrected it, with every step preserved as const
 evidence rather than lost between sessions. Whether that becomes a durable capability or a single
 proof point is for the next several cycles to show; this entry records the moment it was first
 proven possible.
+
+---
+
+## Milestone 002 — Constitutional Computing redefined: the two-rate cybernetic loop (2026-07-15)
+
+**Status: RATIFIED by operator direction, 2026-07-15.** Full spec: `CFS-031_constitutional-cybernetic-loop.md`.
+
+Milestone 001 (above) proved a MECHANISM: the platform can detect its own validation failure and
+close the loop. This milestone names what that mechanism IMPLIES about the platform's own
+governing concept. In dialogue with Alethean the same week, the operator and Alethean converged,
+independently and then jointly, on a deeper definition:
+
+> Constitutional Computing is a cybernetic system in which every action produces evidence that
+> continuously improves both the operating system and the constitution, allowing evolving code
+> to remain aligned with enduring constitutional principles.
+
+The operator's own framing, which Alethean called a sharpening of the definition:
+
+> "It's like the invariants become code, and code and rules realign themselves — they diverge in
+> code creation and they converge again in canonization and standing… The constitution is a
+> compass, effectively, that guides code evolution and brings code evolution back… it's like a
+> persistent chrysalis process whereby once the butterfly is formed, it continues to evolve
+> effectively. There's no stagnation."
+
+### What was ratified
+
+- **The two-rate model** — a fast loop (code: high-variance, daily churn) and a slow loop
+  (constitution: low-variance, invariant/standing-gated) are BOTH intentional, and their
+  difference in rate is what makes the system stable AND adaptive at once.
+- **Standing as the membrane** — the mechanism, already present in scattered form across
+  delegate standing, invariant standing, and object-model standing, is named as ONE shape:
+  Action → Evidence → Standing → Confidence → Invariant Candidate → Ratification → Constitution.
+- **Reconstitution** — the convergence half of the cycle: code diverges from the constitution to
+  answer a new consequence, then reconverges when its evidence ratifies a principle. Not
+  episodic versioning (v1 → v2 → v3) but a continuous, never-final process — the Chrysalis
+  metaphor's stronger, intended reading.
+- **A macro cybernetic vision** (Founder Office → Horizen → Verification → Research → Platform →
+  Market) — ratified explicitly as ARCHITECTURAL VISION, not delivered system. Horizen has no
+  prior footprint in this codebase; Founder Office and Operation Leap remain named-but-deferred
+  workstreams from CFS-015/023. Recording the vision now means these, when eventually built, are
+  built as nodes of this loop rather than isolated features retrofitted into it later.
+- **Signals vs. Hypotheses** — a proposed conceptual pair (observation vs. explanation), added to
+  the glossary as vocabulary; explicitly NOT yet a seeded invariant.
+
+### Honest limits (carried forward, not softened)
+
+The macro loop's only proven arc remains narrow: Invariant Research → New Constitutional
+Primitives → Platform, at the Dev Command Center's capability-development scale — not yet at the
+Founder Office / Market scale the full diagram describes. Two of the three hypothesis sources
+(market-led, community-led) have no feeding mechanism built. This milestone ratifies a DEFINITION
+and a VISION with equal explicitness about which parts are proven (the two-rate model, Standing's
+existing-but-scattered role, Reconstitution as a name for what CFS-030 already mechanizes) and
+which are aspirational (§4/§5/§6 of CFS-031). The distinction is the point: Alethean's own
+framing — "the constitution is not simply computing constrained by principles, it's a cybernetic
+feedback system" — is strengthened, not weakened, by being explicit about what is built versus
+what is envisioned.
