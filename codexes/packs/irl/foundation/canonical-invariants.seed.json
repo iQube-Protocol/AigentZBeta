@@ -2035,6 +2035,21 @@
    "provenance": {
     "source": "Operator-ratified as governing principle 2026-07-14 (advisor: the institute's first emerging scientific law). EMPIRICAL confirmation PENDING EXP-003 Run 002 (Reasoning Economics — standing-weighted vs confidence-weighted retrieval); ratified as research posture, not yet document-verified. First supporting datum: EXP-003 Run 001 (curation dominates accumulation)."
    }
+  },
+  {
+   "id": "inv.epistemology.133",
+   "namespace": "epistemology",
+   "semantic_type": "principle",
+   "statement": "The value of an invariant lies not in how it was discovered, but in its stability across contexts and its ability to organize future reasoning: reasoning that begins from a ratified, reused invariant is not a shortcut relative to reasoning that regenerates it from scratch — invariance, not origin, is the criterion of epistemic worth.",
+   "status": "proposed",
+   "contexts": [
+    "epistemology",
+    "reasoning",
+    "governance"
+   ],
+   "provenance": {
+    "source": "IRL Principle 005 — operator-ratified 2026-07-15 in dialogue with Alethean: \"the origin of the invariance is not what is important, it is the invariance of the invariance.\" Alethean's rephrasing ratified as the canonical statement. Answers the critique (attributed to Austin's Claude) that invariant-extraction work differs from prompt engineering or RAG because it commits to a validated, reusable claim rather than retrieving context. Distinct from 131 (instrument honesty) and 132 (organization scales knowledge quality); related to but not a restatement of either."
+   }
   }
  ]
 }

@@ -16,18 +16,22 @@ This charter deliberately does NOT propose "the three biggest financial categori
 
 This charter introduces a naming convention worth formalizing once, here, for reuse: a **Constitutional Capability Domain** is an IRL-catalogued area of work with three SIMULTANEOUS outputs — Scientific (candidate invariants + experimental evidence), Platform (reusable constitutional primitives implemented in code), and Commercial (a Founder Office capability or service). Financial Services is the first named instance. The category itself (not this charter's specific content) is cross-referenced into CFS-019 as a formal IRL organizing unit, alongside CRP (research programme) and CFS (ratified specification) — a Domain is neither; it is the thing that PRODUCES candidates for both.
 
-## 2. Domain 1 — Treasury & Portfolio Operations
+## 2. Domain 1 — Investment Operations
 
-**Constitutional focus: Bounded Delegation.** Not "pick the best trade" — "operate a digital treasury safely." Typical tasks: multi-chain portfolio visibility, treasury allocation recommendations, rebalancing, yield strategy comparison, stablecoin management, liquidity monitoring, risk exposure summaries. Fits because every technical founder eventually has a treasury; the work is operational, repeatable, and requires coordination between multiple specialized agents — exactly the shape Bounded Delegation already governs (CFS-023 sovereignty layer 3).
+*(Generalized 2026-07-15 from "Treasury & Portfolio Operations" — same constitutional focus and candidate invariants, renamed so the domain reads as capability-generic rather than crypto-treasury-specific. Original name retained here for traceability.)*
+
+**Constitutional focus: Bounded Delegation.** Not "pick the best trade" — "operate an investment or treasury function safely." Scope: portfolio management, asset allocation, treasury, liquidity, yield, capital deployment. Typical tasks: multi-chain portfolio visibility, treasury allocation recommendations, rebalancing, yield strategy comparison, stablecoin management, liquidity monitoring, risk exposure summaries. Fits because every technical founder eventually has a treasury; the work is operational, repeatable, and requires coordination between multiple specialized agents — exactly the shape Bounded Delegation already governs (CFS-023 sovereignty layer 3).
 
 **Candidate invariants** (proposed, unseeded):
 - **F-001 — Verifiable State Before Action.** No portfolio action should be delegated until the current portfolio state has been independently verified.
 - **F-002 — Explainable Allocation.** Every recommended allocation must include an auditable rationale and confidence signal.
 - **F-003 — Delegation Boundaries.** Agents may recommend allocation changes but cannot execute beyond delegated authority.
 
-## 3. Domain 2 — Trading & Execution Orchestration
+## 3. Domain 2 — Market Operations
 
-**Constitutional focus: Standing & Accountability.** Deliberately narrowed: not a better trading bot — the constitutional orchestration layer AROUND trading agents. Aigent Z becomes the constitutional portfolio manager; specialist agents (arbitrage, market-making, sentiment, execution, risk) are the specialists Aigent Z selects among, under explicit authority, with results independently verified before Standing updates.
+*(Generalized 2026-07-15 from "Trading & Execution Orchestration" — same constitutional focus and candidate invariants, renamed so the domain reads as capability-generic rather than crypto-trading-specific. Original name retained here for traceability.)*
+
+**Constitutional focus: Standing & Accountability.** Deliberately narrowed: not a better trading bot — the constitutional orchestration layer AROUND market-facing agents. Scope: trading, execution, market making, arbitrage, rebalancing, order routing. Aigent Z becomes the constitutional portfolio manager; specialist agents (arbitrage, market-making, sentiment, execution, risk) are the specialists Aigent Z selects among, under explicit authority, with results independently verified before Standing updates.
 
 **Candidate invariants** (proposed, unseeded):
 - **F-101 — Separation of Advice and Execution.** Recommendation and execution remain independently attributable.
@@ -36,7 +40,7 @@ This charter introduces a naming convention worth formalizing once, here, for re
 
 ## 4. Domain 3 — Financial Intelligence
 
-**Constitutional focus: Evidence & Verification.** The underserved domain: not trading questions but intelligence questions technical founders spend enormous time answering — which protocol to integrate, which token to accept, what regulations apply, which grants are available, which chains are active, which investors fit their stage. Agent ecosystem: research, protocol, governance, grant, and regulatory agents.
+**Constitutional focus: Evidence & Verification.** The underserved domain: not trading questions but intelligence questions technical founders spend enormous time answering. Scope: research, protocol analysis, risk analysis, governance, opportunity discovery — which protocol to integrate, which token to accept, what regulations apply, which grants are available, which chains are active, which investors fit their stage. Agent ecosystem: research, protocol, governance, grant, and regulatory agents.
 
 **Candidate invariants** (proposed, unseeded):
 - **F-201 — Source Diversity.** High-impact recommendations should incorporate multiple independent evidence sources.
@@ -44,6 +48,8 @@ This charter introduces a naming convention worth formalizing once, here, for re
 - **F-203 — Confidence Calibration.** Confidence should reflect evidence quality, not model certainty.
 
 ## 5. Domain 4 — Constitutional Financial Integrity (the cross-cutting programme)
+
+*(Scope, added 2026-07-15: standing, verification, delegation, settlement integrity, attribution — the properties that must hold across Domains 1–3, not a sixth capability area.)*
 
 Not "Constitutional Financial Agents" (an earlier working title, superseded same-day) — **Constitutional Financial Integrity**, because the focus is how constitutional trust is maintained THROUGH financial interactions, not what agents do within them. This is the programme that studies the constitutional properties of Domains 1–3 themselves.
 
@@ -62,6 +68,8 @@ Not "Constitutional Financial Agents" (an earlier working title, superseded same
 
 ## 6. Domain 5 — Constitutional Commerce, repositioned
 
+*(Scope, added 2026-07-15: micropayments, settlement, revenue distribution, incentive alignment, vendor-neutral execution.)*
+
 **What already exists (verified against the codebase, not asserted):** IRL-010A §3.6 already scores this honestly — Q¢ pricing rails, cart/multi-rail payments, and KNYT commerce are **Implemented (early)**; *constitutional* commerce (standing-mediated exchange) is **Proposed**, flagged ⚑. `agentiq-os`'s protocol docs already name x402 as the ecosystem's declared value-exchange standard (payment intent in HTTP headers, settlement logged as a DVN receipt, linked to a persona FIO handle) — infrastructure exists; this charter does not duplicate it.
 
 **What this domain changes is the FRAME, not the infrastructure:**
@@ -76,17 +84,24 @@ This reframe is why Domain 4 (the invariant layer) and Domain 5 (the operational
 Intent → Standing → Delegation → Verification → Constitutional Integrity → Settlement Adapter
 ```
 
-## 7. The Horizen pilot — proposed experiment series
+## 7. The Horizen pilot — the first domain laboratory for Invariant Field Theory
 
 **⚠ Horizen has zero prior footprint in this codebase (confirmed by search before drafting, per the CFS-031 §7 discipline this charter inherits). Everything below is a PILOT PROPOSAL, not a scheduled or built programme.**
 
-| Series | Domain | Research question |
-|---|---|---|
-| 1 | Treasury Operations | Can bounded delegation improve operational treasury management? |
-| 2 | Trading Orchestration | Does standing-informed orchestration improve financial agent performance? |
-| 3 | Financial Intelligence | Does evidence-aware reasoning reduce Time-to-Value for technical founders? |
+*(Reframed 2026-07-15, same day as the charter, from three separate per-domain research questions to a single field-theory study spanning all five domains — per Alethean's restructuring, and per the CFS-019 "Invariant Field Theory" amendment this pilot is now the first named instance of.)*
 
-Each series would enter the SAME experimental pipeline every other CCE/CIE/CAE/COE experiment already uses (CFS-019 §Phase C2.1/C3) — no parallel research mechanism proposed. Sequencing, staffing, and scheduling are explicitly OUT of this charter's scope (per CRP-001's interface rule: a CRP charters the research question, it does not sequence a Chrysalis deliverable).
+> "Domain: Financial Services. Objective: Discover the invariant field of constitutional finance. Method: Run experiments across the five capability domains. Measurements: Domain invariants, shared invariants, field strength, interference, coherence, and Time-to-Value." — Alethean, 2026-07-15
+
+| Measurement | What it asks, scoped to Financial Services |
+|---|---|
+| Domain invariants | Which candidate invariants (F-001–F-203, CFI-001) hold specifically within one of Domains 1–5? |
+| Shared invariants | Which of those same candidates recur across two or more domains rather than belonging to one — e.g. does "Verification Before Standing" (F-103) turn out to be the same invariant as CFI-001's settlement-integrity clause, expressed twice? |
+| Field strength | Which candidates are load-bearing (many domains depend on them, break the field if removed) versus local (one domain, low transfer)? |
+| Interference | Do any two candidate invariants reinforce, conflict, or produce diminishing returns when composed — the question EXP-003's breadth-arm result (CFS-019's Field Theory amendment) raises as a general possibility, tested here on a concrete domain instead of a knowledge-substrate benchmark? |
+| Coherence | Does the resulting invariant set satisfy CFS-013/014's composition laws, or does the pilot surface a genuine composition failure worth its own finding? |
+| Time-to-Value | Does evidence-aware, field-informed reasoning reduce the time a technical founder spends reaching a usable financial decision, relative to an ungrounded baseline? |
+
+Each series would enter the SAME experimental pipeline every other CCE/CIE/CAE/COE experiment already uses (CFS-019 §Phase C2.1/C3) — no parallel research mechanism proposed. Sequencing, staffing, and scheduling are explicitly OUT of this charter's scope (per CRP-001's interface rule: a CRP charters the research question, it does not sequence a Chrysalis deliverable). **None of these six measurements has an operationalized metric yet** — "field strength" and "interference" in particular are proposed concepts (CFS-019's Field Theory amendment), not yet reduced to a computation; the first Horizen experiment run, whenever scheduled, is where that definition work would actually happen.
 
 ## 8. The loop this charter instantiates
 
@@ -96,12 +111,14 @@ This is CFS-031 §4's macro loop, named there as architectural vision with an ex
 
 ## 9. Honest limits
 
-- **None of Domains 1–5 are built.** No treasury service, no trading-orchestration surface, no financial-intelligence agent, no Constitutional Financial Integrity mechanism, no Constitutional Commerce standing-mediated layer exists as of this charter. What exists is named precisely in §5 and §6 (Q¢, multi-rail payments, x402 documentation) — everything else is proposed.
+- **None of Domains 1–5 are built.** No investment-operations service, no market-operations surface, no financial-intelligence agent, no Constitutional Financial Integrity mechanism, no Constitutional Commerce standing-mediated layer exists as of this charter. What exists is named precisely in §5 and §6 (Q¢, multi-rail payments, x402 documentation) — everything else is proposed.
 - **No candidate invariant in this charter (F-001–F-203, CFI-001, CFI-Q1–Q4) is seeded into the invariant crystal.** They are vocabulary for a future research and ratification cycle, exactly as CFS-031 §6 treats Signals/Hypotheses. Their "F-nnn"/"CFI-nnn" numbering is a DRAFTING convenience, not the crystal's numbering scheme — a future seeding pass must translate each into `inv.finance.<n>` (or the appropriate namespace), never adopt this shorthand as a second numbering system.
-- **The Horizen pilot (§7) is unscheduled.** No experiment in the series has a protocol, a runner, or a date.
+- **The Horizen pilot (§7) is unscheduled**, and its six field-theory measurements (domain invariants, shared invariants, field strength, interference, coherence, Time-to-Value) have no operationalized metric yet — naming them is not defining how to compute them.
 - **"The Blocksee outcome"** (§6) is operator-attested, not code-witnessed, same status as IRL-010A row 3.8: an earlier conditional-commerce pilot planned with a vendor consortium, which fell through — the historical reason for this charter's vendor-neutral commitment, not a fact this document independently verifies.
+- **Domain 1/2 renaming (§2/§3) is a same-day generalization, not a re-scoping.** "Investment Operations" and "Market Operations" cover exactly what "Treasury & Portfolio Operations" and "Trading & Execution Orchestration" covered — the candidate invariants (F-001–F-103) are unchanged; only the header and the explicit scope-item lists changed, so the domains read as capability-generic rather than crypto-specific.
 - **This charter does not sequence or gate any Chrysalis 2.0 deliverable** (CRP-001's interface rule, inherited in full).
 
 ## Ratification record
 
 - [x] **CHARTERED 2026-07-15 by operator direction**, following the CRP-002 precedent (a charter is chartered; invariants within it remain candidates until their own seed-and-ratify pass).
+- [x] **Generalization amendment — RATIFIED 2026-07-15 by operator direction, same day as the charter.** Domain 1 → Investment Operations, Domain 2 → Market Operations (renamed, candidate invariants unchanged); explicit scope-item lists added to all five domains per Alethean's breakdown; §7 Horizen pilot reframed around the six Invariant Field Theory measurements (CFS-019 amendment) in place of three separate per-domain questions.
