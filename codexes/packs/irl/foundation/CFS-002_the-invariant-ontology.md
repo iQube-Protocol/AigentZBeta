@@ -37,6 +37,8 @@ Namespaces are extensible by constitutional process (a canonization request), ne
 ### Definition — Invariant Field
 **An Invariant Field is a coherent domain of interacting invariants that governs the behaviour of a system. Fields are independently verifiable, composable, and give rise to emergent phenomena through their interaction with other fields.**
 
+**Clarification (operator, 2026-07-16): a field EXTENDS invariants, it never replaces them.** An Invariant Field has no existence apart from the invariants occupying it — it is a role invariants play in composition (§ below), not a higher-order entity that supersedes them. Both remain canonical, at their own level: an invariant is canonical as an atomic statement (CFS-001 Level 1); a field is canonical as the organizing role that statement occupies when it composes with others. Ratifying or studying invariant FIELDS (CFS-019's Field Theory amendment, WP5 morphogenesis, CRP-003's domain work) never demotes the underlying invariants to raw material — it is additive, not substitutive.
+
 This definition is deliberately universal: it names no human, no AI, no experience, no software. A gravitational field is not defined by the planets that happen to occupy it — planets express behaviour because they exist within it. An invariant field is the same shape of thing: it is not defined by the experiences that compose within it. **Experience is one observable behaviour a field composition can produce, not the field's defining context.** The same compositional mathematics recurs across every organized system this platform has touched or can name:
 
 | System | Its fields |

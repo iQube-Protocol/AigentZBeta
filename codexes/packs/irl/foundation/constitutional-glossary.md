@@ -107,6 +107,10 @@ The principle that every constitutional cycle increases the capability of the Hu
 
 The self-improvement cycle running alongside the Capability Pipeline: Capability → Operation → Observation → Receipt → Learning → **Improved Capability** (not improved code). Its order is constitutional data.
 
+## Invariant Field
+
+A coherent domain of interacting invariants that governs the behaviour of a system — independently verifiable, composable, and generative of emergent phenomena through interaction with other fields (CFS-002 §2a, ratified 2026-07-06). **An extension of Invariants, not a replacement for them** (operator clarification, 2026-07-16): a field is the functional ROLE one or more invariants occupy during composition, not a container that supersedes the invariants inside it. Invariants remain canonical as atomic statements; fields remain canonical as the organizing role those statements play together. Studying fields (Invariant Field Theory, CFS-019; WP5 Morphogenesis, CRP-002) never demotes the invariants a field composes — both levels stand.
+
 ## Invariant Intelligence
 
 Intelligence that reasons over a graph of validated, provenance-bearing invariants rather than rediscovering knowledge per inference: canonical ontology precedes reasoning, composition laws govern rendering, validation establishes Standing, citation accrues Reach.
