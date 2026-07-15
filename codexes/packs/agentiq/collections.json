@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-15_video-article-remediation-studio-integration-creator-ux.md",
         "updates/2026-07-14_video-article-pack-redispatch-orchestration-canary.md",
         "updates/2026-07-14_dcc-implementation-dispatch.md",
         "updates/2026-07-14_cvr-003-runartifact-invariant-grounding.md",
