@@ -649,6 +649,28 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     };
   }, [engageCapsuleAndMount]);
 
+  // Stage→capsule reconciliation (2026-07-15, operator: "when validation
+  // clears Deploy capsule is not auto opened … so the operator doesn't
+  // mistakenly go back to remediation"). The click-handler flow-through in
+  // handleApproveProposal/handleAdvanceStage ALSO opens the destination
+  // capsule inline, but this effect is the decoupled safety net: it reacts to
+  // the COMMITTED session.stage transition itself, so the pane follows the
+  // loop even if a future stage-advancing path forgets to call
+  // engageCapsuleAndMount inline (exactly the class of gap the operator hit
+  // going Validate → Deployment Authorization). Fires only on an actual stage
+  // CHANGE (never on mount/hydration, which already engages its own capsule)
+  // and always re-pulses the destination chip.
+  const prevStageForCapsuleSyncRef = useRef<DevLoopStage | null>(null);
+  useEffect(() => {
+    const prevStage = prevStageForCapsuleSyncRef.current;
+    prevStageForCapsuleSyncRef.current = session.stage;
+    if (prevStage === null || prevStage === session.stage) return;
+    const capsule = stageCapsuleId(session.stage) as DevCapsuleId | null;
+    if (!capsule) return;
+    setCapsuleSuggestions((prev) => ({ ...prev, [capsule]: true }));
+    if (activeCapsuleId !== capsule) engageCapsuleAndMount(capsule);
+  }, [session.stage, activeCapsuleId, engageCapsuleAndMount]);
+
   // Debounced auto-save: persist ~1.5s after the last session change.
   // Fire-and-forget — persistence must never block the loop. Pristine default
   // sessions are skipped (nothing worth persisting; also skips the initial
