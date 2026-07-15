@@ -74,6 +74,15 @@ In architecture and code, the capability is **Constitutional Evaluation** (or th
 - **Build order is deliberately unspecified.** The natural next slice — the `EvaluationConfiguration` type + folding the two existing instruments under it — is a candidate increment, not a commitment; EXP-010's Phase 1 (which needs only the two built instruments) does not wait for it.
 - This spec composes the EXISTING receipt, hash-commitment, and lifecycle disciplines — any implementation that forks a parallel receipt or versioning path violates it.
 
+## 8. UI surface — IRL OS, the public cartridge (decided + built 2026-07-16)
+
+**Operator decision:** the public face of the institute — and this spec's external-researcher front door — is a **new public-facing cartridge, "IRL OS"** (id `irl-os-cartridge`, slug `irl-os`), exactly as AgentiQ OS is the open public-facing version of AgentiQ. A standalone cartridge, not a tab inside the internal IRL cartridge, so it has **its own URL** (`/triad/embed/codex/irl-os`) that can be surfaced in the runtime and embedded elsewhere.
+
+**v1 is content-only**: the published research corpus (charter, the three constitutional layers, protocols & experiment records, glossary, publications record, programmes) plus a dedicated **Constitutional Evaluation** tab fronting this spec — consuming the SAME `irl` pack as the internal cartridge (single source of truth; the pack is already in the packRegistry skip list, so no auto-generated duplicate). A metaMe QuickLinks entry surfaces it in the runtime.
+
+**Never public:** the internal Experiment Lab (`InvariantExperimentLab`, admin-only, runs spend provider credits). **Named follow-on:** the four interactive-but-public instruments (Dashboard, Research Copilot, Invariant Field Explorer, Invariant Registry) join IRL OS only after an anonymous-read API audit of each. "IRL OS" is the cartridge/product name; CFS-019's pending external-banner decision (Aletheon's proposed "Invariant Intelligence Research Institute") remains pending and is not resolved by this naming.
+
 ## Ratification record
 
 - [x] **CHARTERED 2026-07-16 by operator direction**, from Aletheon's proposal generalizing the external reviewer's capability probe. The two built instances (slice export, judge config) predate the charter by hours — the abstraction was named from working code, not speculation.
+- [x] **§8 UI surface — DECIDED + BUILT 2026-07-16 by operator direction** ("create a new public facing cartridge for this like AgentiQ OS is the open public facing version of AgentiQ"; name confirmed "IRL OS"). `IRL_OS_CARTRIDGE` registered in `CODEX_DEFINITIONS` (`data/codex-configs.ts`), 9 content tabs, `permissions.view: ['*']`, QuickLinks entry added.
