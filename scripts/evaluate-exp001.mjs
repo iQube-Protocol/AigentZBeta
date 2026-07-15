@@ -54,6 +54,30 @@ const DRY_RUN = process.argv.includes('--dry-run');
 const providerArgIdx = process.argv.indexOf('--provider');
 const FORCED_PROVIDER = providerArgIdx > -1 ? process.argv[providerArgIdx + 1] : null;
 
+// ── External judge configuration (EXP-010 charter §7 prerequisite (ii)) ──
+// --judge-config <path> loads a JSON artifact that EXTERNALLY specifies the
+// judge: { "provider": "venice|openai|anthropic", "model"?: "...", "rubrics"?:
+// { "answerSystem"?, "judgeQuestionSystem"?, "judgeCoherenceSystem"? } }.
+// The file's sha256 is printed and recorded in the results JSON — the
+// pre-registration commitment: hash the config, register the hash, then run.
+// An external config is AUTHORITATIVE: passing both --judge-config and a
+// conflicting --provider is an error (never silently resolved).
+import { createHash } from 'node:crypto';
+const judgeConfigIdx = process.argv.indexOf('--judge-config');
+const JUDGE_CONFIG_PATH = judgeConfigIdx > -1 ? process.argv[judgeConfigIdx + 1] : null;
+let JUDGE_CONFIG = null;
+let JUDGE_CONFIG_SHA = null;
+if (JUDGE_CONFIG_PATH) {
+  const raw = readFileSync(resolve(JUDGE_CONFIG_PATH), 'utf-8');
+  JUDGE_CONFIG = JSON.parse(raw);
+  JUDGE_CONFIG_SHA = createHash('sha256').update(raw).digest('hex');
+  if (FORCED_PROVIDER && JUDGE_CONFIG.provider && FORCED_PROVIDER !== JUDGE_CONFIG.provider) {
+    throw new Error(
+      `--provider ${FORCED_PROVIDER} conflicts with judge-config provider ${JUDGE_CONFIG.provider} — the pre-registered config is authoritative; drop the flag`,
+    );
+  }
+}
+
 // ── Collection, artifacts, question bank — single source of truth shared
 // with the Experiment Lab front-end (services/experiments/exp001-config.json) ──
 const EXP001_CONFIG = JSON.parse(
@@ -73,6 +97,15 @@ let ACTIVE_PROVIDER = 'venice';
 let ACTIVE_MODEL = '';
 
 function resolveProvider() {
+  // The pre-registered external judge config wins over everything.
+  if (JUDGE_CONFIG?.provider) {
+    const p = JUDGE_CONFIG.provider;
+    if (!PROVIDERS[p]) throw new Error(`unknown judge-config provider '${p}' (anthropic | openai | venice)`);
+    if (!process.env[PROVIDERS[p].keyEnv] && !DRY_RUN) {
+      throw new Error(`judge-config provider ${p} but ${PROVIDERS[p].keyEnv} is not set`);
+    }
+    return p;
+  }
   if (FORCED_PROVIDER) {
     if (!PROVIDERS[FORCED_PROVIDER]) throw new Error(`unknown --provider '${FORCED_PROVIDER}' (anthropic | openai | venice)`);
     if (!process.env[PROVIDERS[FORCED_PROVIDER].keyEnv] && !DRY_RUN) {
@@ -221,7 +254,7 @@ function parseJson(text) {
   }
 }
 
-const ANSWER_SYSTEM =
+const DEFAULT_ANSWER_SYSTEM =
   'You are an exacting document analyst. Answer strictly from the provided document. ' +
   'If the document does not contain the answer, the answer field must be exactly "NOT DERIVABLE". ' +
   'Support each answer with the invariant markers it relies on, listed in the citations array. ' +
@@ -229,6 +262,9 @@ const ANSWER_SYSTEM =
   '{"answers":[{"q":1,"answer":"...","citations":["C-011","C-016"]}, ...]} covering every question. ' +
   'Every citation is a QUOTED string like "C-011" — never bare, never wrapped in square brackets. ' +
   'Each answer value is ONE line of at most 60 words — no literal newlines inside strings, escape any double quotes.';
+// The external judge config may override any rubric prompt (EXP-010 §7 (ii)) —
+// the override is authoritative and its hash rides the results JSON.
+const ANSWER_SYSTEM = JUDGE_CONFIG?.rubrics?.answerSystem || DEFAULT_ANSWER_SYSTEM;
 
 async function answerPass(label, documentText) {
   const user = [
@@ -274,12 +310,13 @@ async function judgeQuestion(question, collection, answersByArtifact) {
     .filter(Boolean)
     .map((c) => `[${c.marker}] ${c.statement}`);
   const system =
-    'You are an exacting evaluator. You receive one question, the ground-truth invariants it should be answered from, ' +
+    JUDGE_CONFIG?.rubrics?.judgeQuestionSystem ||
+    ('You are an exacting evaluator. You receive one question, the ground-truth invariants it should be answered from, ' +
     'and the answers several documents produced. Judge: (a) per document, is the answer substantively CORRECT relative to the ' +
     'ground-truth invariants (ignore NOT DERIVABLE documents); (b) per document, does the answer contain any claim NOT traceable ' +
     'to the full 18-invariant collection (hallucination); (c) across the documents where the answer was derivable, are the answers ' +
     'the SAME substantive answer (2), compatible but uneven (1), or divergent (0)? ' +
-    'Respond ONLY with JSON: {"consistency": 0|1|2, "perDoc": {"<docId>": {"correct": true|false, "hallucination": true|false}}}';
+    'Respond ONLY with JSON: {"consistency": 0|1|2, "perDoc": {"<docId>": {"correct": true|false, "hallucination": true|false}}}');
   const user = [
     `QUESTION: ${question.text}`,
     question.probe
@@ -312,9 +349,10 @@ async function callJsonWithRetry(system, user, maxTokens) {
 
 async function judgeCoherence(label, answers) {
   const system =
-    'You are an exacting evaluator. You receive one document\'s answers to 15 questions. Judge whether any answer CONTRADICTS ' +
+    JUDGE_CONFIG?.rubrics?.judgeCoherenceSystem ||
+    ('You are an exacting evaluator. You receive one document\'s answers to 15 questions. Judge whether any answer CONTRADICTS ' +
     'another answer from the same document. Respond ONLY with JSON: {"coherence": 0|1|2, "notes": "one sentence"} ' +
-    'where 2 = no contradictions, 1 = tension short of contradiction, 0 = at least one contradiction.';
+    'where 2 = no contradictions, 1 = tension short of contradiction, 0 = at least one contradiction.');
   const user = answers.map((a) => `Q${a.q}: ${a.answer}`).join('\n');
   return callJsonWithRetry(system, user, 300);
 }
@@ -340,7 +378,12 @@ async function main() {
     process.exit(1);
   }
   ACTIVE_PROVIDER = resolveProvider();
-  ACTIVE_MODEL = PROVIDERS[ACTIVE_PROVIDER].model();
+  ACTIVE_MODEL = JUDGE_CONFIG?.model || PROVIDERS[ACTIVE_PROVIDER].model();
+  if (JUDGE_CONFIG) {
+    console.log(`external judge config: ${JUDGE_CONFIG_PATH} (sha256 ${JUDGE_CONFIG_SHA.slice(0, 16)}…)`);
+    const overrides = Object.keys(JUDGE_CONFIG.rubrics ?? {});
+    if (overrides.length > 0) console.log(`  rubric overrides: ${overrides.join(', ')}`);
+  }
 
   const supabase = createClient(url, key);
   const collection = await fetchCollection(supabase);
@@ -463,6 +506,16 @@ async function main() {
     JSON.stringify(
       {
         evaluator: { provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL },
+        // EXP-010 §7 (ii): when the judge was externally specified, the config's
+        // sha256 rides the results — the pre-registration commitment, auditable
+        // by either party.
+        judgeConfig: JUDGE_CONFIG
+          ? {
+              path: JUDGE_CONFIG_PATH,
+              sha256: JUDGE_CONFIG_SHA,
+              rubricOverrides: Object.keys(JUDGE_CONFIG.rubrics ?? {}),
+            }
+          : null,
         ranAt: new Date().toISOString(),
         note: 'Machine-assisted scoring; protocol assigns final rubric authority to a human scorer — review perDoc answers before ratifying.',
         artifactsEvaluated: ARTIFACTS.map((a) => a.id),
