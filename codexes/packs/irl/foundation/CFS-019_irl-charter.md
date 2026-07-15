@@ -228,3 +228,23 @@ no number is ever reused across series (operator direction 2026-07-13).
 experiments: a full pipeline run (Evidence → Decision → Execution → Validation → Receipt) whose
 subject is the platform itself. What a CVR validates is constitutional behaviour, not just
 software. CVR-001 executed CCE-006.
+
+## Amendment — The Lab↔Platform feedback loop, made explicit (2026-07-15)
+
+§1's recursive mandate already states the lab "operates by the principles it investigates." This amendment names the RETURN path CCE-006/007 make concrete for the first time — the direction from Platform back to Lab, which the charter had not previously diagrammed. Per Alethean's review (2026-07-15):
+
+```
+Invariant Research Laboratory  — asks: what constitutional principles are true?
+        ↓  (validated principles: ratified CFS specs, canonical invariants)
+Constitutional Capability Pipeline  — asks: how do we operationalize those principles?
+        ↓  (a capability decision, an implementation pack)
+Platform (Agency / AgentiQ)  — asks: does this capability satisfy its consequence canvas?
+        ↓  (receipts, validation reports, deployed artifacts — operational evidence)
+Invariant Research Laboratory  — the operational evidence becomes the next experiment's subject
+```
+
+CCE-006 and CCE-007 are the loop's first two closures: each is a CCE-series experiment (Lab-owned: research question, hypothesis, method, ratified findings) whose SUBJECT is a Platform event (a capability shipped through the Constitutional Capability Pipeline, CFS-029/030). The loop does not require a human to manually decide "this platform event is worth studying" every time — the CVR/CCE naming convention (above) exists precisely so a Dev Command Center cycle can BE a Constitutional Validation Run by construction, not by a separate observation step bolted on after the fact.
+
+**What this amendment does NOT claim**: the loop is not yet automatic (an operator still decides when a platform event becomes a canonized CCE — as this session's own triage of Alethean's proposed CCE-005/CFS-028/029 demonstrated, correct numbering still requires a human or an agent acting as witness with codebase visibility, per operator direction 2026-07-15: *"You remain the observer and witness… I expect you to keep a handle on numberings, names and titles."*). The loop is a real structural fact about how CCE-006/007 came to exist; it is not (yet) a self-driving pipeline that mines platform events for experiments unprompted.
+
+**Ratified 2026-07-15 by operator direction** — descriptive amendment, no new mechanism.

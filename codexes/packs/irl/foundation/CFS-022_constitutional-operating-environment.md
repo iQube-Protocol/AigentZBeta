@@ -130,7 +130,25 @@ The keystone (G1) is built contract-first: `types/constitutionalObject.ts` + `te
 
 No implementation, no storage — contract only. P1 (Canonical Asset Registry) registers the first real objects onto this contract; P2 (Composition) records `provenance.composedFrom` when it assembles a plate.
 
+## Amendment — Constitutional Coherence: the six recurring questions (2026-07-15)
+
+The eight facets in §"P0 delivered" above are the OBJECT's shape — what every constitutional object CARRIES. This amendment names the companion observation: every LAYER of the stack (a route handler, a capsule, a pipeline stage, a receipt writer, an agent) is converging on asking the SAME six questions before it acts, regardless of what kind of work it's doing. Per Alethean's review (2026-07-15): *"Every layer is beginning to ask the same constitutional questions… those questions are becoming invariant across the stack. That's much more interesting than simple vertical integration. It's constitutional coherence."*
+
+The six questions, mapped to the facet(s) that answer them:
+
+| # | Question | Answered by | Example in this session's build |
+|---|---|---|---|
+| 1 | What already exists? | `provenance` (composedFrom) + the Registry / Capability Evidence | The Constitutional Decision stage reads persisted Capability Evidence before choosing a mechanism (CFS-029 §3) |
+| 2 | What authority do I have? | `authority` (governingInvariants, ratificationRequired) | The merge route refuses a pack PR without a passing validation receipt naming ITS pack (CFS-020 merge gate) |
+| 3 | What capability is required? | `identity` + `dependencies` | The Implementation Pack names areas-to-touch, never invents them (CFS-015) |
+| 4 | What consequence will this produce? | the consequence canvas / preflight | Every pack carries a consequence preflight before implementation (CFS-006a) |
+| 5 | What evidence will result? | `provenance` (receipt ids, content commitment) | Every stage of a reconciliation cycle writes its own receipt (CFS-030 §5) |
+| 6 | What standing should accrue from successful execution? | `standing` (score + band) + Reach (Law XII) | `citeInvariants` accrues Reach on a grounded artifact production (CVR-003); Standing accrual is EXP-006A's still-separate, receipted design |
+
+**This is a DESCRIPTIVE finding, not a new enforcement mechanism.** No code changes with this amendment — it names a pattern already present because the object model (§"P0 delivered") and the reconciliation loop (CFS-030) both independently arrived at asking these questions. The value of naming it: a future organ's design review can check itself against the six questions directly, rather than re-deriving them per-surface. **Ratified 2026-07-15 by operator direction**, coherence-named per Alethean's review.
+
 ## Ratification record
 
 - [x] **P0 (this program-of-record + Constitutional Object Model contract) — RATIFIED + DELIVERED 2026-07-09.** The operator ratified the reframe (COE, not IDE) and the program; the Object Model contract shipped contract-first (`types/constitutionalObject.ts` + canaries, no implementation). IRL/DCIR/Atlas/CDE are recorded as workstreams of the one program (§7). P1 and P2 design specs (`CFS-022a` Canonical Asset Registry, `CFS-022b` Composition engine) are being authored in parallel to de-risk the next builds.
+- [x] **Constitutional Coherence amendment — RATIFIED 2026-07-15 by operator direction** (descriptive; no new enforcement).
 - [ ] P1–P4 — each ratified before build.

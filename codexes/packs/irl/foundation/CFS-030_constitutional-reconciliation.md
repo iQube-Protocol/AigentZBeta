@@ -1,6 +1,6 @@
-# CFS-030 — Constitutional Reconciliation (candidate)
+# CFS-030 — Constitutional Reconciliation
 
-**Chrysalis Foundation Specification · v1.0 · Status: CANDIDATE — awaiting operator ratification.**
+**Chrysalis Foundation Specification · v1.0 · Status: RATIFIED by operator direction 2026-07-15.**
 Companions: CFS-020 (Constitutional Development Environment, ICE stages 6–8: Validate → Remediate → Deploy Auth), CFS-025 (Artifact Runtime), CFS-029 (Constitutional Capability Pipeline — Evidence + Decision, the stages upstream of this one).
 Named per Alethean's framing, 2026-07-15: *"the platform observes a constitutional inconsistency, proposes reconciliation, reconciles, revalidates."*
 
@@ -70,4 +70,4 @@ Every stage of the cycle already writes its own receipt (no new receipt type nee
 
 ## Ratification record
 
-- [ ] Awaiting operator ratification.
+- [x] **RATIFIED 2026-07-15 by operator direction**, in response to Alethean's review naming the mechanism. "You remain the observer and witness… I expect you to keep a handle on numberings, names and titles… your corrections are completely good and stand accordingly."
