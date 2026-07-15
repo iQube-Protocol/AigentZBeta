@@ -4909,6 +4909,187 @@ export const IRL_CARTRIDGE: CodexConfig = {
   ],
 };
 
+/**
+ * IRL OS — the open, public-facing edition of the IRL cartridge, exactly as
+ * AgentiQ OS is the open public-facing version of AgentiQ (operator direction
+ * 2026-07-16, CFS-033 UI-surface decision). Content-only v1: the published
+ * research corpus + the Constitutional Evaluation front door for external
+ * researchers, consuming the SAME `irl` pack as the internal cartridge (the
+ * pack is already in packRegistry's skip list — no auto-duplicate risk).
+ * Its own slug gives it its own embeddable URL (/triad/embed/codex/irl-os).
+ * Deliberately EXCLUDED: InvariantExperimentLab (admin-only, runs spend
+ * provider credits — never public) and the four interactive-but-public
+ * instruments (Dashboard, Research Copilot, Invariant Field Explorer,
+ * Invariant Registry) — those are a named follow-on gated on an
+ * anonymous-read API audit of each.
+ */
+export const IRL_OS_CARTRIDGE: CodexConfig = {
+  id: 'irl-os-cartridge',
+  name: 'IRL OS',
+  slug: 'irl-os',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'system',
+  metadata: {
+    description:
+      'IRL OS — the open edition of the Invariant Research Laboratory: the published constitutional research corpus (CFS specs, experiment records, glossary, canon) and the Constitutional Evaluation front door for external researchers (CFS-033)',
+    icon: 'FlaskConical',
+    color: 'violet',
+    category: 'cartridge',
+    tags: ['irl-os', 'research', 'open', 'constitutional-evaluation', 'experiments', 'invariants', 'publications'],
+  },
+  tabGroups: [
+    { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
+    { id: 'research', label: 'Research', icon: 'Layers', order: 1 },
+    { id: 'evaluation', label: 'Constitutional Evaluation', icon: 'Scale', order: 2 },
+    { id: 'knowledge', label: 'Living Knowledge', icon: 'BookMarked', order: 3 },
+    { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 4 },
+    { id: 'programme', label: 'Programme', icon: 'Target', order: 5 },
+  ],
+  tabs: [
+    {
+      id: 'irl-os-charter',
+      label: 'Charter',
+      slug: 'irl-os-charter',
+      enabled: true,
+      group: 'institution',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_irl-charter.md' },
+      },
+      metadata: { icon: 'Scale', description: 'CFS-019 — the IRL constitution: layers, object model, lifecycles, migration, phases' },
+    },
+    {
+      id: 'irl-os-layer-i',
+      label: 'Layer I — Invariant Intelligence',
+      slug: 'irl-os-layer-i',
+      enabled: true,
+      group: 'research',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/appendix-a_canonical-invariants.md' },
+      },
+      metadata: { icon: 'BookMarked', description: 'Constitutional knowledge — the canon, the CFS corpus, the Foundational Validation Series' },
+    },
+    {
+      id: 'irl-os-layer-ii',
+      label: 'Layer II — Constitutional Computing',
+      slug: 'irl-os-layer-ii',
+      enabled: true,
+      group: 'research',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-015_operation-chrysalis-2-prd.md' },
+      },
+      metadata: { icon: 'Cpu', description: 'Constitutional execution — Operation Chrysalis 2.0, the Capability Pipeline, deployment authority' },
+    },
+    {
+      id: 'irl-os-layer-iii',
+      label: 'Layer III — Constitutional Cybernetics',
+      slug: 'irl-os-layer-iii',
+      enabled: true,
+      group: 'research',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_irl-charter.md' },
+      },
+      metadata: { icon: 'RefreshCw', description: 'Constitutional evolution — feedback, adaptation, multi-agent governance (the frontier)' },
+    },
+    // ── Constitutional Evaluation — the external-researcher front door ──
+    {
+      id: 'irl-os-evaluation',
+      label: 'Constitutional Evaluation',
+      slug: 'irl-os-evaluation',
+      enabled: true,
+      group: 'evaluation',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-033_constitutional-evaluation.md' },
+      },
+      metadata: {
+        icon: 'Scale',
+        description:
+          'CFS-033 — evaluation as a pluggable, receipted, versioned component of every experiment: hash-committed grounding slices, external judge configurations, the Research Package vision. The front door for external researchers.',
+        color: 'violet',
+      },
+    },
+    {
+      id: 'irl-os-protocols',
+      label: 'Protocols & Articles',
+      slug: 'irl-os-protocols',
+      enabled: true,
+      group: 'evaluation',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_experiments' },
+      },
+      metadata: { icon: 'Target', description: 'Experiment designs, protocols, canonical articles, evaluation frameworks — EXP-001…010 incl. the Representation Gauntlet' },
+    },
+    // ── Living Knowledge ──────────────────────────────────────────
+    {
+      id: 'irl-os-glossary',
+      label: 'Glossary & Ontology',
+      slug: 'irl-os-glossary',
+      enabled: true,
+      group: 'knowledge',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/constitutional-glossary.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'The runtime-resolved constitutional vocabulary — one canon for every agent' },
+    },
+    // ── Publications ──────────────────────────────────────────────
+    {
+      id: 'irl-os-records',
+      label: 'Records & Findings',
+      slug: 'irl-os-records',
+      enabled: true,
+      group: 'publications',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'agentiq', collectionId: 'col_updates' },
+      },
+      metadata: { icon: 'BookOpen', description: 'The constitutional record — every increment, finding, and session record (publication lineage)' },
+    },
+    // ── Programme Management ──────────────────────────────────────
+    {
+      id: 'irl-os-programmes',
+      label: 'Research Programmes',
+      slug: 'irl-os-programmes',
+      enabled: true,
+      group: 'programme',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CRP-001_constitutional-research-program-charter.md' },
+      },
+      metadata: { icon: 'Target', description: 'CRP-001 — the research programmes; roadmap and backlog live in the charter (CFS-019 §8)' },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['admin'],
+    admin: ['admin'],
+  },
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
@@ -4933,6 +5114,11 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   STANDING_CARTRIDGE,
   POLITY_CORE_CARTRIDGE,
   IRL_CARTRIDGE,
+  // IRL OS — the open public-facing edition of the IRL cartridge (2026-07-16,
+  // the AgentiQ → AgentiQ OS pattern). Same `irl` pack (already in the
+  // packRegistry skip list); its own slug ('irl-os') gives it its own
+  // embeddable URL. Content-only v1 — see the const's header comment.
+  IRL_OS_CARTRIDGE,
 ];
 
 /**
