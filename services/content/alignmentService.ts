@@ -89,3 +89,49 @@ export function alignArticleToBrief(
     basis: 'heuristic',
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Studio service integration point (pack 2026-07-15 remedy #2)
+//
+// The Studio artifact service (`services/composer/studioArtifactTiering.ts`,
+// the AR/CPS consequence model) is the platform's canonical persistence seam
+// for Studio productions. The video-article skill's article production is a
+// Studio production, so its alignment verdict must travel INTO that service —
+// not stay trapped in the API response. This is the explicit, documented
+// integration point the two modules share: alignmentService OWNS the shape of
+// what the Studio record carries; studioArtifactTiering CONSUMES it (imports
+// `StudioAlignmentFields` from here). The dependency is one-directional
+// (Studio → alignment), so this module stays pure + node-drillable: no DB, no
+// clock, no network — just the T2-safe projection the record body records.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * The T2-safe projection of an AlignmentReport that the Studio artifact
+ * record carries. Numbers + a boolean + per-segment coverage only — no beat
+ * text, no article body, no identifier. Structurally forbidden-key-free
+ * (findForbiddenObjectKey clean).
+ */
+export interface StudioAlignmentFields {
+  /** Mean per-segment coverage (0..1, two decimals). */
+  score: number;
+  /** Every segment cleared the per-segment floor. */
+  pass: boolean;
+  /** How the score was derived — 'heuristic' for the deterministic v1. */
+  basis: 'heuristic';
+  /** Per-segment coverage fractions, in segment order. */
+  segmentCoverage: number[];
+}
+
+/**
+ * Project an AlignmentReport into the fields the Studio artifact service
+ * records. Pure. This is the seam the Studio service imports — call it in the
+ * route right before `tierStudioArtifact(...)` for a video-article production.
+ */
+export function alignmentToStudioFields(report: AlignmentReport): StudioAlignmentFields {
+  return {
+    score: report.score,
+    pass: report.pass,
+    basis: report.basis,
+    segmentCoverage: report.perSegment.map((s) => s.coverage),
+  };
+}
