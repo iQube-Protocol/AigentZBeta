@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CODEX_DEFINITIONS } from '@/data/codex-configs';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { registeredCapabilityBlock } from '@/services/constitutional/capabilityRegistry';
 import type { DevLoopStage } from '@/types/devCommandCenter';
 
 // ─── Cartridge inventory ────────────────────────────────────────────────────
@@ -123,19 +124,30 @@ async function buildRegistryAssetList(): Promise<string> {
  */
 export async function buildStageGroundData(stage: DevLoopStage | string | undefined): Promise<string> {
   if (stage === 'context_assembly') {
-    const registry = await buildRegistryAssetList();
+    const [registry, accepted] = await Promise.all([
+      buildRegistryAssetList(),
+      registeredCapabilityBlock(),
+    ]);
     return [
       '\n\n## Live platform inventories — assemble the context pack from THESE, never invent paths',
       buildCartridgeInventory(),
       buildApiRouteMap(),
       registry,
+      ...(accepted ? [accepted] : []),
     ].join('\n\n');
   }
 
   if (stage === 'gap_analysis') {
-    const registry = await buildRegistryAssetList();
+    // The loop-closing read (CFS-032 §4): constitutionally ACCEPTED capabilities
+    // — shipped, deployed, registered — surface here so gap analysis classifies
+    // them as EXISTING. The Registry, not the receipt, closes the loop.
+    const [registry, accepted] = await Promise.all([
+      buildRegistryAssetList(),
+      registeredCapabilityBlock(),
+    ]);
     return [
       '\n\n## Live capability inventory — classify against THESE under the golden rule (Reuse > Extend > Create)',
+      ...(accepted ? [accepted] : []),
       registry,
       buildCartridgeInventory(),
     ].join('\n\n');
