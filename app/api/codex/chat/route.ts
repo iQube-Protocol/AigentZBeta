@@ -2912,7 +2912,16 @@ export async function POST(request: NextRequest) {
       // state, and aigent-z platform knowledge + stage ground data in parallel
       const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData, resolvedKnowledgeInit, resolvedOntology] = await Promise.all([
         fetchCodexMetadata(domain),
-        searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
+        // Prompt-assembly slimming (2026-07-15, operator-ratified): the
+        // 'aigentMe' domain is an EMPTY content scaffold by design (only
+        // metaKnyts + qriptopian carry KB content — see CLAUDE.md) — yet every
+        // DCC/metaMe turn paid an embedding round-trip (up to the 15s KB
+        // deadline on cold starts) to search it. Assembly is a Promise.all,
+        // so that call alone could burn half the ~30s platform response
+        // ceiling. Skip it; the empty result is identical.
+        domain === 'aigentMe'
+          ? Promise.resolve([] as KBSearchResult[])
+          : searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
         needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
         isAigentZ
