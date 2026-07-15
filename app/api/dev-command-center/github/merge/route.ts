@@ -43,6 +43,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { createActivityReceipt, listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
 import { GITHUB_REPO, githubConfigured, GITHUB_MISSING_ENV } from '@/app/api/dev-command-center/_lib/github';
+import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 
 export const dynamic = 'force-dynamic';
 
@@ -242,6 +243,27 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Linear mirror (observe-mode, soft-fail): the pack's issue closes out —
+  // 'published' for a clean merge, 'deployment_proposed' (stays open, flagged)
+  // for an override, since unvalidated code shouldn't read as done. Same
+  // packSlug key the pack-generation + dispatch calls used (slug is already
+  // sanitized by packSlugFromBranch, so it equals packSlug(packId) verbatim).
+  let linear: Awaited<ReturnType<typeof mirrorLifecycleToLinear>> | null = null;
+  if (slug) {
+    linear = await mirrorLifecycleToLinear({
+      delegate: 'operator',
+      profile: 'software',
+      brief: slug,
+      phase: validationState === 'overridden' ? 'deployment_proposed' : 'published',
+      note:
+        `PR #${pullNumber} merged to dev (${validationState}) — ${String(mergeData.sha ?? '').slice(0, 10)}. ` +
+        (validationState === 'overridden' ? `Override reason: "${overrideReason.slice(0, 200)}".` : 'Amplify deploys dev on merge.'),
+    });
+    if (!linear.mirrored) {
+      console.warn(`[github/merge] Linear mirror skipped: ${linear.reason}`);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     merged: true,
@@ -250,6 +272,7 @@ export async function POST(request: NextRequest) {
     receiptId,
     validationGate: validationState,
     ...(overrideReceiptId ? { overrideReceiptId } : {}),
+    ...(linear ? { linear } : {}),
     note:
       validationState === 'overridden'
         ? '⚠ Merged WITH a validation override — the deploy is running on unvalidated code and the override is receipted. Validate post-hoc in the DCC.'

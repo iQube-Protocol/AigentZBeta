@@ -126,9 +126,18 @@ export function DeploymentAuthorizationLayout({
       }
       setOverrideArmed(false);
       setOverrideReason("");
+      // Linear mirror status folds into the same note — never silent
+      // (operator report 2026-07-15: a failed mirror was invisible everywhere).
+      const linear = json.linear as { mirrored?: boolean; issueIdentifier?: string; reason?: string } | undefined;
+      const linearSuffix = linear
+        ? linear.mirrored
+          ? ` · Linear ${linear.issueIdentifier ?? "issue"} updated`
+          : ` · Linear not updated: ${linear.reason ?? "mirror skipped"}`
+        : "";
       setMergeNote(
         `${json.validationGate === "overridden" ? "⚠ OVERRIDE — " : ""}Merged ${String(json.sha ?? "").slice(0, 10)} — Amplify is deploying dev.` +
-          (typeof json.receiptId === "string" && json.receiptId ? ` receipt ${String(json.receiptId).slice(0, 8)}…` : ""),
+          (typeof json.receiptId === "string" && json.receiptId ? ` receipt ${String(json.receiptId).slice(0, 8)}…` : "") +
+          linearSuffix,
       );
       if (typeof json.receiptId === "string" && json.receiptId) {
         onReceipt?.({ id: json.receiptId, actionType: "deployment_authorized" });

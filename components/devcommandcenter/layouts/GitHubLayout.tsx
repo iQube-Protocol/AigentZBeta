@@ -115,11 +115,19 @@ export function GitHubLayout({
       }
       setOverridePr(null);
       setOverrideReason("");
+      // Linear mirror status folds into the same note — never silent
+      // (operator report 2026-07-15: a failed mirror was invisible everywhere).
+      const linear = json.linear as { mirrored?: boolean; issueIdentifier?: string; reason?: string } | undefined;
+      const linearSuffix = linear
+        ? linear.mirrored
+          ? ` · Linear ${linear.issueIdentifier ?? "issue"} updated`
+          : ` · Linear not updated: ${linear.reason ?? "mirror skipped"}`
+        : "";
       setMergeNotes((m) => ({
         ...m,
         [pullNumber]: `${json.validationGate === "overridden" ? "⚠ OVERRIDE — " : ""}Merged ${String(json.sha ?? "").slice(0, 10)} — Amplify is deploying dev.${
           typeof json.receiptId === "string" && json.receiptId ? ` receipt ${String(json.receiptId).slice(0, 8)}…` : ""
-        }${typeof json.overrideReceiptId === "string" && json.overrideReceiptId ? ` override-receipt ${String(json.overrideReceiptId).slice(0, 8)}…` : ""}`,
+        }${typeof json.overrideReceiptId === "string" && json.overrideReceiptId ? ` override-receipt ${String(json.overrideReceiptId).slice(0, 8)}…` : ""}${linearSuffix}`,
       }));
       void loadOverview();
     } catch (err) {

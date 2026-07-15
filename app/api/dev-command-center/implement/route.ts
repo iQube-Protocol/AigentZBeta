@@ -26,6 +26,8 @@ import { createHash } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { GITHUB_REPO, githubConfigured, GITHUB_MISSING_ENV } from '@/app/api/dev-command-center/_lib/github';
+import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
+import { packSlug } from '@/app/api/dev-command-center/github/merge/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -129,12 +131,33 @@ export async function POST(request: NextRequest) {
     // Receipt is provenance, not a gate.
   }
 
+  // Linear mirror (observe-mode, soft-fail): the pack's issue moves to In
+  // Progress — CI is now producing the artifact. Same packSlug key the
+  // pack-generation call used, so a remediation redispatch (a different goal
+  // string, "Remediation: X") still lands on the SAME issue.
+  const linear = await mirrorLifecycleToLinear({
+    delegate: 'operator',
+    profile: 'software',
+    brief: packSlug(packId),
+    phase: 'artifact_produced',
+    note: `Dispatched to Claude Code in CI on \`${branch}\`. Watch the GitHub capsule for the PR.${
+      receiptId ? ` Receipt \`${receiptId}\`.` : ''
+    }`,
+  });
+  // Never silent (the operator's report, 2026-07-15): a failed/unmirrored
+  // dispatch is visible to the client, not swallowed — the honest-degradation
+  // convention every other CDE tool follows.
+  if (!linear.mirrored) {
+    console.warn(`[dev-command-center/implement] Linear mirror skipped: ${linear.reason}`);
+  }
+
   return NextResponse.json({
     ok: true,
     dispatched: true,
     branch,
     workflow: 'Claude Implement (DCC dispatch)',
     receiptId,
+    linear,
     watch:
       'GitHub → Actions → "Claude Implement (DCC dispatch)". The run implements the pack on ' +
       `${branch} and opens a PR to dev — review + merge to deploy (execution stays human).`,
