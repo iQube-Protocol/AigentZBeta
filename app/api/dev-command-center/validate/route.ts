@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
   ].join('\n');
 
   try {
-    const result = await callSovereign('validation', system, user, 2400, 0);
+    const result = await callSovereign('validation', system, user, 2000, 0);
     const parsed = JSON.parse(extractJson(result.text)) as {
       items?: unknown;
       workflowImpacts?: unknown;

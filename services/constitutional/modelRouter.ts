@@ -53,7 +53,12 @@ const DEFAULT_ROUTES: Record<ReasoningStage, { provider: ConstitutionalProviderI
   value: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   price: { provider: 'openai', model: 'gpt-4o-mini' },
   consequence: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  validation: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  // validation is mechanical CHECKING (judge each canvas entry against a
+  // summary, terse evidence) — haiku-class fits it, and the dedicated
+  // validation runner MUST complete inside the platform's ~30s response
+  // ceiling (sonnet at ~2k structured tokens 504'd live, 2026-07-15).
+  // Override per-stage via the Model Routes UI or CONSTITUTIONAL_ROUTE_VALIDATION.
+  validation: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
 };
 
 // Fallback ladder order — ALWAYS terminates at venice (open-weight, the

@@ -36,10 +36,15 @@ export function RemediationLayout({
   onDismissProposal,
   onReceipt,
   onProposal,
+  onRemediesDispatched,
 }: DevLayoutProps & {
   /** Feeds a route-produced remediation_plan proposal into the SAME pending-
    *  approval path chat proposals use (parent: handleStageProposals). */
   onProposal?: (proposal: { kind: string; summary: string; data: Record<string, unknown> }) => void;
+  /** Flow-through (operator UX direction 2026-07-15): fired after a successful
+   *  remedies dispatch so the parent can pulse + open the Validate capsule and
+   *  narrate the hand-off in the left pane. */
+  onRemediesDispatched?: (branch: string | null) => void;
 }) {
   const canAdvanceNow = canAdvance(session);
   const report = session.validationReport;
@@ -120,6 +125,7 @@ export function RemediationLayout({
       if (typeof data.receiptId === "string" && data.receiptId) {
         onReceipt?.({ id: data.receiptId, actionType: "implementation_dispatched" });
       }
+      onRemediesDispatched?.(typeof data.branch === "string" ? data.branch : null);
     } catch (err) {
       setDispatchNote(err instanceof Error ? err.message : "dispatch failed");
     } finally {

@@ -1367,6 +1367,23 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               onDismissProposal={() => handleDismissProposal("remediation")}
               onReceipt={handleReceipt}
               onProposal={(p) => handleStageProposals([p])}
+              onRemediesDispatched={(branch) => {
+                // Flow-through (operator UX direction 2026-07-15): the loop's
+                // next act is re-validation — pulse the Validate chip, deep-link
+                // the operator into the Validate capsule, and narrate the
+                // hand-off in the left pane (guide-only; the runner button
+                // produces the report).
+                setCapsuleSuggestions((prev) => ({ ...prev, validation: true }));
+                engageCapsuleAndMount("validation");
+                setAutoPrompt({
+                  id: `auto-remedies-dispatched-${Date.now()}`,
+                  text:
+                    `[observed] The remediation plan was dispatched to Claude Code in CI${branch ? ` on ${branch}` : ""}. ` +
+                    "Guide me in 2-3 sentences: CI takes a few minutes to amend the PR; when it lands, I should click " +
+                    "\"Run validation\" in the Validate capsule (it judges the updated PR), approve the report, then merge " +
+                    "from Deploy Auth. Do NOT produce a proposal fence this turn.",
+                });
+              }}
             />
           )}
           {isCapsuleLayout && activeCapsuleId === "deployment-authorization" && (
