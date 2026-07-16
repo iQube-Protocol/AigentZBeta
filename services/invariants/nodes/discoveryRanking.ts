@@ -39,10 +39,10 @@ export const DISCOVERY_RANKING_NODE_ID = 'discovery.ranking';
  * the projection faithful automatically.
  */
 const DIMENSION_INVARIANT_SEED: Record<'importance' | 'novelty' | 'trust' | 'need', string> = {
-  importance: 'inv.reasoning.086', // "explicitly published/consequential content is important"
-  novelty: 'inv.reasoning.087', // "new-to-this-operator surfacing"
-  trust: 'inv.reasoning.088', // "published/curated provenance outranks catalogue"
-  need: 'inv.reasoning.089', // "serve the operator's active intent"
+  importance: 'inv.reasoning.134', // "explicitly published/consequential content is important"
+  novelty: 'inv.reasoning.135', // "new-to-this-operator surfacing"
+  trust: 'inv.reasoning.136', // "published/curated provenance outranks catalogue"
+  need: 'inv.reasoning.137', // "serve the operator's active intent"
 };
 
 /**

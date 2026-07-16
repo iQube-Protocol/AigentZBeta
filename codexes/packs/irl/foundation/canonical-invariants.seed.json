@@ -2050,6 +2050,62 @@
    "provenance": {
     "source": "IRL Principle 005 — operator-ratified 2026-07-15 in dialogue with Alethean: \"the origin of the invariance is not what is important, it is the invariance of the invariance.\" Alethean's rephrasing ratified as the canonical statement. Answers the critique (attributed to Austin's Claude) that invariant-extraction work differs from prompt engineering or RAG because it commits to a validated, reusable claim rather than retrieving context. Distinct from 131 (instrument honesty) and 132 (organization scales knowledge quality); related to but not a restatement of either."
    }
+  },
+  {
+   "id": "inv.reasoning.134",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "Discovery importance: an explicitly published, deployed, or resolved experience is more consequential to surface than unpublished or unresolved catalogue content — the operator's own act of publishing is a constitutional signal of importance.",
+   "status": "proposed",
+   "contexts": [
+    "discovery",
+    "ranking"
+   ],
+   "provenance": {
+    "source": "CFS-035 §10 — the discovery-ranking node's IMPORTANCE dimension, extracted from the scoreCapsule +10 (sourceType==='experience') and +6 (assetStatus==='resolved') magic numbers. The governing invariant whose earned standing will weight this dimension once validated (deriveDimensionWeights in services/invariants/nodes/discoveryRanking.ts)."
+   }
+  },
+  {
+   "id": "inv.reasoning.135",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "Discovery novelty: content that is new to this operator should be surfaced above content they have already seen or selected — discovery must widen, not merely re-present. Realising this dimension requires per-operator exposure/selection history from the Evolution face (a documented Phase-0 gap, currently neutral).",
+   "status": "proposed",
+   "contexts": [
+    "discovery",
+    "ranking"
+   ],
+   "provenance": {
+    "source": "CFS-035 §10 — the discovery-ranking node's NOVELTY dimension. Phase 0 neutral (no incumbent magic number; scoreCapsule has no novelty term). Names the constitutional intent so the gap is explicit rather than silently absent; earns weight once operator exposure history is wired."
+   }
+  },
+  {
+   "id": "inv.reasoning.136",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "Discovery trust: content of published or curated provenance (smart-content, showcase-focus codexes, recognised catalogue tokens) carries more authority than generic catalogue content and should rank accordingly — provenance is a projection of trust.",
+   "status": "proposed",
+   "contexts": [
+    "discovery",
+    "ranking"
+   ],
+   "provenance": {
+    "source": "CFS-035 §10 — the discovery-ranking node's TRUST dimension, extracted from the scoreCapsule +4 (smart-content), +3 (showcase codexSlug) and +2 (showcase token match) magic numbers. Governs the trust weight once validated."
+   }
+  },
+  {
+   "id": "inv.reasoning.137",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "Discovery need: content that serves the operator's active intent (modality/kind fit and prompt-term overlap) should rank above content that does not — discovery is a projection of what the operator is asking for right now, not a static popularity order.",
+   "status": "proposed",
+   "contexts": [
+    "discovery",
+    "ranking"
+   ],
+   "provenance": {
+    "source": "CFS-035 §10 — the discovery-ranking node's NEED dimension, extracted from the scoreCapsule intent↔modality/kind fit branches (+4/+3/+8/+5/+2/+3) and the +1-per-matching-term prompt overlap loop. Governs the need weight once validated."
+   }
   }
  ]
 }
