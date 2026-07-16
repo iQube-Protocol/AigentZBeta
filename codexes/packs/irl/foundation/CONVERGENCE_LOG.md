@@ -68,6 +68,28 @@ what was found → where both are recorded → what, if anything, changed as a r
   presenting the closing insight as a fresh discovery — the SAME invariant now explicitly governs
   two axes (reasoning and development), not two separate principles that happen to rhyme.
 
+## Entry 004 — The structural/constitutional layer separation
+
+- **First direction:** the ratified canon, 2026-07-05/06 — `inv.reasoning.085` (invariant fields
+  are natural/discovered or constitutional/ratified, "differing only in origin"), CFS-021's three
+  invariant families (natural · constitutional · representation), and CFS-019 §2's three layers
+  (Layer I substrate science vs Layers II/III governance engineering).
+- **Second direction:** the 2026-07-16/17 alignment round with the external reviewer — the
+  operator ("structured invariance as first-principle invariance and constitutional invariance as
+  second-order governance of first-principle structured invariance") and Aletheon (Layer 1 raw
+  experience / Layer 2 structural invariants / Layer 3 constitutional runtime) re-derived the
+  separation independently, under adversarial pressure, with Aletheon believing it was new ("I
+  don't think the Institute had fully separated those before").
+- **Both recorded in:** appendix-a entry 85 + CFS-021 + CFS-019 §2 (originals), the CFS-019
+  "Structural before Constitutional" amendment + EXP-010 §7B (the re-derivation), this log.
+- **What changed as a result:** nothing in the ontology — the correction landed on the
+  EXPERIMENTS and prose, which had conflated the layers (EXP-010 §7B disentangles Hypothesis A
+  from Hypothesis B). The convergence matters strategically as well as scientifically: the
+  separation cannot be dismissed as an escape hatch invented under adversarial pressure when it
+  is timestamped in ratified canon ten days before the exchange. Axis caveat carried with it:
+  the operator's distinction is a FUNCTION axis, inv.085's an ORIGIN axis — mapped through the
+  CFS-019 layers, never silently equated.
+
 ---
 
 ## Honest limits
