@@ -63,7 +63,32 @@ If two pre-prompt processes serialize to similar text, that does **not** imply t
 
 **Reconciliation with the 2026-07-16 Representation Gauntlet amendment.** That amendment names *"representation is the independent variable"* for **EXP-010** — correctly, because the gauntlet *varies* representation (invariant-object vs flattened-text vs conventional-prompt) as the experimental handle to isolate whether the substrate matters (its C-vs-D split isolates decomposition itself). This §0 refines, not contradicts, that: the surface representation is the experimental **handle**; what the handle is testing for is the **substrate** — previously validated reasoning — and the programme's optimization **objective** is the reuse of that substrate. "An invariant is a computational object, not a sentence" (EXP-010) and "representations are manifestations of invariants" (§0.5) are the same claim from two directions.
 
-### 0.6 Why this is at the front
+### 0.6 Standing validates invariants — evidence, not popularity
+
+Standing is how a structural invariant is *validated*, and it is emphatically **not** a popularity measure. This **reaffirms** already-canonical law and sharpens it: `inv.constitutional.018` (standing is confidence in veracity, not reputation), `inv.constitutional.060` (truth is established through validation within a domain of applicability, not by popularity), `inv.constitutional.061` (standing expresses constitutional confidence, never a measure of truth), and `inv.constitutional.062` (Reach measures adoption, not validity — the Truth/Standing/Reach separation, Law XII).
+
+- **Standing is evidential, not popular.** An invariant does not derive its veracity from how often it is invoked. **Reach ≠ Standing**: invocation frequency, citation count, social consensus, and reach do not themselves increase standing. *Standing measures repeatability, not visibility.*
+- **Standing is intent-relative.** An invariant's standing is evaluated only against the class of intents it *governs*, never against all possible tasks. An **obscure** invariant, rarely invoked, may hold **extremely high** standing if — whenever its governing intent arises — it consistently proves structurally sufficient. A frequently invoked invariant may hold mediocre standing if it repeatedly fails. Rarity of the governing intent never diminishes the invariant's veracity.
+- **Standing is operational confidence, not truth.** Sharpening `inv.constitutional.061`: standing measures the degree to which a system is *justified in operationalizing* an invariant within a constitutional context — it separates **Use** from **Truth**. Truth belongs to the structural layer (§0.7); standing answers *"given what we currently know, how confidently should this system rely on this invariant right now?"* — a governance question, not a scientific one. (Pythagoras' theorem does not become more true through use; NASA simply has higher operational confidence in Newtonian mechanics for orbital insertion than in an experimental propulsion theory. That is standing.) *(Canonical: `inv.constitutional.145`, joining the Law XII standing canon.)*
+- **The field model.** Intent **activates** the invariant field (it determines *direction* — which field becomes active); structural invariants **define the field's topology**; standing **shapes the operational potential landscape** within it; **projection follows the gradient** to the governing invariants. An invariant is not "important" because everyone uses it — it is important because, when the relevant intent appears, it exerts a strong attractor on reasoning ("invariant mass"). *(Canonical: `inv.reasoning.146`.)*
+
+This is the Institute's protection against the deepest trap in contemporary AI, which equates confidence with frequency (token frequency, citation count, engagement, popularity): **truth accrues through repeated successful validation under the correct conditions, not through repeated exposure.**
+
+### 0.7 The Structural–Constitutional Convergence Principle
+
+§0.6 exposes the coupling between the two invariant classes — the bridge between the science and the governance:
+
+> **Structural invariants establish the persistent substrate of intelligence independently of any particular implementation or system. Constitutional invariants provide the mechanisms by which intelligent systems operationalize, interpret, govern, and evolve their reliance upon that substrate. Constitutional mechanisms therefore do not modify structural truth; they regulate the justified operational use of structural truth within an intelligent system.**
+
+Structural invariants answer **what is true**; constitutional invariants answer **how a system should operationalize that truth**. The constitutional layer does not alter the truth — it alters the system's *relationship* to the truth. The two classes meet **not in the invariant itself but in the interface**: the operationalization of truth (standing / evidence / provenance → operational decision). This is precisely why the runtime (CFS-035; standing, provenance, ratification, the shadow→authoritative flip) belongs to the *second* half of the architecture, not the first. *(Canonical: `inv.reasoning.143`.)*
+
+The cleanest one-line separation, and the reason **Constitutional Computing** exists at all — it is there not to discover or to make structural invariants true, but to make them *usable, governable, evolvable, and trustworthy* in real computational systems:
+
+> **The structural relationships a structural invariant captures are properties of reality; constitutional invariants are properties of the systems that reason about reality.** The first is the science of Invariant Intelligence; the second is the engineering of Constitutional Computing; where they meet is the operationalization of truth.
+
+Consistent with `inv.reasoning.085` / `inv.constitutional.126` (natural/discovered vs constitutional/ratified families) and with `inv.reasoning.142` (the invariant is not its representation). *(Canonical: `inv.epistemology.144`.)*
+
+### 0.8 Why this is at the front
 
 The register-collapse this prevents: reducing everything to alphanumerics is a known limitation of LLMs relative to human cognition (language is a proxy for reality, the gap large world models attempt to address). Naming the substrate — not the serialization — as the object of study is what keeps Invariant Intelligence a distinct category rather than a re-description of retrieval. The pipeline placement, the DNA analogy, the magic-numbers worked example, the seminar-not-experiment methodology, and the full response to Austin are in the supporting amendment at the end of this charter.
 
@@ -407,7 +432,7 @@ Running experiments is cheap for the Institute; the expensive part is **understa
 
 ### A.5 What this amendment did and did not do
 
-- **Did:** state the sharpened central claim at the front of the charter (§0); canonize the taxonomy, theorem, tightened definition, purpose statement, and Representation Principle as `inv.epistemology.138`–`141` + `inv.reasoning.142`; reconcile with the 2026-07-16 Representation Gauntlet amendment; record the dialogue in Convergence Log Entry 007.
+- **Did:** state the sharpened central claim at the front of the charter (§0); canonize the taxonomy, theorem, tightened definition, purpose statement, and Representation Principle as `inv.epistemology.138`–`141` + `inv.reasoning.142`; reconcile with the 2026-07-16 Representation Gauntlet amendment; record the dialogue in Convergence Log Entry 007. **In the same dialogue (2026-07-18), added §0.6 (Standing validates invariants as evidence, not popularity — reaffirming Law XII `inv.constitutional.018/060/061/062`, sharpened with the Use/Truth axis, intent-relativity, and the field model) and §0.7 (the Structural–Constitutional Convergence Principle), canonized as `inv.reasoning.143`, `inv.epistemology.144`, `inv.constitutional.145`, `inv.reasoning.146`; recorded in Convergence Log Entry 008.**
 - **Did not:** claim empirical confirmation. 138 and 141 are *validated* (ratified as the programme's falsifiable central claims), not *canonical*; their confirmation runs through the EXP-nnn lifecycle. Canonizing a definition is never a substitute for an experimental result (CFS-019; Convergence Log honest limits).
 
 **Ratified 2026-07-18 by operator direction.**

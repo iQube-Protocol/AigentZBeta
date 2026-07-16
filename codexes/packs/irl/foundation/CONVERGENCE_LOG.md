@@ -170,15 +170,45 @@ what was found → where both are recorded → what, if anything, changed as a r
 
 ---
 
+## Entry 008 — Standing is evidence, not popularity; and the Structural–Constitutional coupling
+
+- **What happened:** the Austin dialogue continued into the *standing* model. The operator + advisor
+  agent re-derived, from scratch, that standing validates invariants as **evidence, not popularity**;
+  that **Reach ≠ Standing**; and that standing is **intent-relative** (evaluated only against the
+  intents an invariant governs). Then they added a genuinely new synthesis: the **Structural–
+  Constitutional Convergence Principle** — constitutional mechanisms regulate the *justified
+  operational use* of structural truth, they do not modify it.
+- **The convergence signal (rediscovery):** the "evidence not popularity / Reach≠validity / validation
+  within a domain" cluster was **already canon** — `inv.constitutional.018` (standing is confidence in
+  veracity, not reputation), `060` (truth by validation within a domain of applicability, not
+  popularity), `061` (standing ≠ truth), `062` (Reach measures adoption, not validity — Law XII). The
+  dialogue reached these independently without reference to the seed. That is a real convergence datum:
+  the model re-derived ratified Law XII. Per Law XI + the honest-limits below, the already-canonical
+  claims were **reaffirmed, not re-seeded** (avoiding CS-001 duplicate-capability drift).
+- **The genuinely new canon (ratified, not merely converged):** standing as **operational confidence**
+  (the Use/Truth axis, sharpening `061`) → `inv.constitutional.145`; the **invariant field model**
+  (intent = direction, standing = operational potential, projection = gradient; intent-relative
+  standing) → `inv.reasoning.146`; the **Convergence Principle** → `inv.reasoning.143`; **properties of
+  reality vs properties of systems** → `inv.epistemology.144`. These are the operator's explicit
+  ratification, not the convergence.
+- **Recorded in:** CRP-002 §0.6–§0.7 (+ the 2026-07-18 supporting amendment's did/did-not note); this log.
+- **Why it matters:** it names the *coupling* the structural/constitutional separation (Entry 004) left
+  implicit — the interface at which the two layers meet is the operationalization of truth, which is
+  exactly why the runtime is Layer II/III, not Layer I.
+
+---
+
 ## Honest limits
 
-- Seven entries so far. Entries 001–006 all stem from the same operator + Aletheon (+ Claude) pairing
+- Eight entries so far. Entries 001–006 all stem from the same operator + Aletheon (+ Claude) pairing
   within a short window (2026-07-16 to 07-18) — they do not demonstrate a pattern across independent
   AUTHORS or TIME HORIZONS, a weaker form of independence than a third party rediscovering the same
   structure with no access to this codebase. Entry 007 introduces a genuinely external party (Austin's
   agent), but as a *challenger*, not a corroborator — the sharpening is the operator's, produced under
-  that challenge, not an independent rediscovery. Convergence strength should be read accordingly:
-  suggestive, not yet strong evidence; and Entry 007 specifically is adversarial clarification.
+  that challenge, not an independent rediscovery. Entry 008 contains the log's first genuine
+  *rediscovery of already-ratified canon* (Law XII standing/reach was re-derived without reference to
+  the seed) — a stronger convergence datum than the definitional entries, though still intra-pairing.
+  Convergence strength should be read accordingly: suggestive, not yet strong evidence.
 - This log records rediscovery of DEFINITIONS and ANALOGIES, not empirical results. It should not
   be confused with `EXP-nnn` replication (CFS-019's lifecycle definition of "replicated" — ≥2
   distinct providers producing the same experimental result) — that is a much stronger claim than

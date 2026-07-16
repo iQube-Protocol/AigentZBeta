@@ -2185,6 +2185,65 @@
    "provenance": {
     "source": "CRP-002 §0.5 (Three Computational Compressions amendment, 2026-07-18) — the Representation Principle, operator-ratified. Answers the conflation (attributed to Austin's agent) that because everything serializes to tokens the computation is identical: the representation is the transport, not the invariant. Reconciles with and sharpens the CRP-002 2026-07-16 Representation Gauntlet amendment (representation as experimental handle vs the substrate it manifests). Separates structural invariance, constitutional governance, and representation into three distinct concerns. Definitional canon."
    }
+  },
+  {
+   "id": "inv.reasoning.143",
+   "namespace": "reasoning",
+   "semantic_type": "law",
+   "statement": "The Structural–Constitutional Convergence Principle: structural invariants establish the persistent substrate of intelligence independently of any particular implementation or system; constitutional invariants provide the mechanisms by which intelligent systems operationalize, interpret, govern, and evolve their reliance upon that substrate. Constitutional mechanisms therefore do not modify structural truth; they regulate the justified operational use of structural truth within an intelligent system. The two classes meet not in the invariant itself but in the interface — the operationalization of truth.",
+   "status": "canonical",
+   "contexts": [
+    "invariant-intelligence",
+    "ontology",
+    "governance"
+   ],
+   "provenance": {
+    "source": "CRP-002 §0.7 (2026-07-18) — the Structural–Constitutional Convergence Principle, operator-ratified. The coupling mechanism between the science (structural invariants: what is true) and the governance (constitutional invariants: how a system operationalizes that truth). Explains why the runtime (CFS-035) belongs to the second half of the architecture. Extends the structural/constitutional separation (Convergence Log Entry 004) by naming the interface at which they meet. Definitional canon."
+   }
+  },
+  {
+   "id": "inv.epistemology.144",
+   "namespace": "epistemology",
+   "semantic_type": "definition",
+   "statement": "The structural relationships a structural invariant captures are properties of reality — their truth is independent of any system's use (Pythagoras' theorem does not become more true through use). Constitutional invariants are properties of the systems that reason about reality — they govern justified reliance, not truth. The first is the science of Invariant Intelligence; the second is the engineering of Constitutional Computing; where they meet is the operationalization of truth.",
+   "status": "canonical",
+   "contexts": [
+    "invariant-intelligence",
+    "ontology"
+   ],
+   "provenance": {
+    "source": "CRP-002 §0.7 (2026-07-18) — operator-ratified. The clean object-of-discovery vs mechanism-of-use separation. Consistent with inv.reasoning.085 / inv.constitutional.126 (natural/discovered vs constitutional/ratified families) and inv.reasoning.142 (the invariant is not its representation): what is a property of reality is what the invariant CAPTURES, carried by a substrate-constrained representation. Definitional canon."
+   }
+  },
+  {
+   "id": "inv.constitutional.145",
+   "namespace": "constitutional",
+   "semantic_type": "epistemic",
+   "statement": "Standing is operational confidence, not truth: it measures the degree to which a system is justified in operationalizing an invariant within a given constitutional context — it separates Use from Truth. Truth belongs to the structural layer; standing answers 'given what we currently know, how confidently should this system rely on this invariant right now?' — a governance question, not a scientific one.",
+   "status": "canonical",
+   "contexts": [
+    "invariant-intelligence",
+    "standing",
+    "governance"
+   ],
+   "provenance": {
+    "source": "CRP-002 §0.6 (2026-07-18) — operator-ratified. Sharpens inv.constitutional.061 (standing = constitutional confidence, never a measure of truth) by naming the Use axis explicitly: standing measures justified OPERATIONALIZATION, not truth. Reaffirms inv.constitutional.018/060/062 (evidence not popularity; validation within a domain of applicability; Reach≠validity — Law XII). Does not supersede 061; extends it."
+   }
+  },
+  {
+   "id": "inv.reasoning.146",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "The invariant field model: intent activates the invariant field (it determines direction — which field becomes active); structural invariants define the field's topology; standing shapes the operational potential landscape within it; projection follows the gradient to the governing invariants. Standing is intent-relative — an invariant's standing is evaluated only against the class of intents it governs, so an obscure invariant rarely invoked may hold extremely high standing (strong 'invariant mass') if it consistently proves structurally sufficient whenever its governing intent arises.",
+   "status": "canonical",
+   "contexts": [
+    "invariant-intelligence",
+    "standing",
+    "projection"
+   ],
+   "provenance": {
+    "source": "CRP-002 §0.6 (2026-07-18) — operator-ratified. Formalizes the field/potential-landscape picture (intent = direction, standing = depth/operational potential, projection = following the gradient) and canonizes intent-relative standing. Composes the CRP-002 intent-as-projection operator with the Law XII standing canon (inv.constitutional.060/061/062). 'Invariant mass': importance is attractor-strength under the governing intent, not invocation frequency."
+   }
   }
  ]
 }
