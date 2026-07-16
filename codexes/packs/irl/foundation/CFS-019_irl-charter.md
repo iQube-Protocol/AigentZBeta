@@ -297,3 +297,27 @@ Collapsing these three into one register is the specific failure mode this amend
 **Honest limits:** naming a method does not mechanize it — an operator or an agent acting as witness still performs the discover step manually (grep + read before draft); nothing here builds automated collision detection. The three-layer discipline is guidance an author can still fail to follow; it is not enforced by any gate.
 
 **Ratified 2026-07-16 by operator direction, in dialogue with Aletheon.**
+
+## Amendment — Structural before Constitutional: the layer separation, reconciled (2026-07-17)
+
+The Phase 1 alignment round with the external reviewer (EXP-010 §7A/§7B) surfaced what the operator named as the heart of the divergence:
+
+> "The first principle science here is structural invariants, not constitutional ones... structured invariance as first-principle invariance and constitutional invariance as second-order governance of first-principle structured invariance... The runtime is more of a convenience to structural invariance than a first-principle participant. Of course it's essential with constitutional ones, but that is secondary." — operator, 2026-07-17
+
+And the claim that sharpens the whole programme past the "context engineering" category:
+
+> "The information that is curated for the LLM is not intuitive. It's not based on the knowledge, it's based on the invariant substrate." — operator, 2026-07-17
+
+Aletheon's one-sentence synthesis, adopted as the charter's framing sentence for external audiences:
+
+> "Invariant Intelligence is not the study of how to curate better knowledge for AI. It is the study of whether intelligence depends upon a deeper substrate of structural invariants that is distinct from knowledge itself. Constitutional Computing begins only after that substrate has been discovered, providing the mechanisms by which invariant structures can be governed, evolved, trusted, and shared." — Aletheon, 2026-07-17
+
+**Reconciled against the canon — this separation is not new doctrine.** It is the ratified corpus stating itself: `inv.reasoning.085` (2026-07-06 — invariant fields are natural/discovered or constitutional/ratified, "differing only in origin"), CFS-021's three invariant families (natural · constitutional · representation), and this charter's own §2 three-layer architecture — Layer I (Invariant Intelligence: the substrate science) versus Layers II/III (Constitutional Computing/Cybernetics: the governance engineering). What the exchange corrected was not the ontology but the EXPERIMENTS and the prose, which had conflated the layers: the reviewer's Phase 1 gauntlet tests a Layer II delivery question (does the runtime add within-call value?); the Institute's primary hypothesis is the Layer I claim (does invariant organization change the computational properties of reasoning?). EXP-010 §7B records the disentanglement and the parked structural experiment.
+
+**Axis precision (the witness's caveat, binding on future drafting):** the operator's structural/constitutional distinction is a FUNCTION axis — governance-independent substrate versus second-order governance of it. `inv.085`'s natural/constitutional is an ORIGIN axis — discovered versus ratified. A ratified-origin invariant can still be structural in function. The two axes map through this charter's layers; they must never be silently equated.
+
+**Source-independence corollary, restated:** whether an invariant is human- or machine-derived is immaterial to its structural standing — what matters is that it is empirically stable under repeated validation (IRL Principle 005, `inv.epistemology.133`; the "provably invariant" language rule, EXP-010 §5). Provenance matters for trust, not for truth.
+
+**What this amendment does NOT do:** it does not restructure the research programmes (Aletheon's "Programme A / Programme B" redraw is recorded as a framing lens, not adopted — CRP-001/002/003 numbering and structure unchanged); it does not argue the future-architectures point (structured-memory models where objects need not serialize) into Phase 1 — the experiments evaluate the implementation that exists; and it does not seed any invariant.
+
+**Ratified 2026-07-17 by operator direction**, from the operator + external reviewer + Aletheon alignment round.

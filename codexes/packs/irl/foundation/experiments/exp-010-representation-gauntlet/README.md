@@ -85,6 +85,41 @@ Neither answer indicates the coupling failure the reviewer was probing for — t
 
 The same `--judge-config` format is the contract EXP-010's own Phase 1 harness (not yet built — it awaits the signed protocol) will consume — extend, don't duplicate.
 
+## 7A. The Phase 1 freeze + the final four adoptions (2026-07-17, the alignment round)
+
+**The protocol is FROZEN, per the external reviewer's process commitment, adopted symmetrically.** Four arms (A cold · D expert prose · C flattened invariants · B runtime) + the mutation probe + the generative sufficiency probe (below), n≥20 per arm, held-out tasks selected by the external reviewer, jointly specified judge, hashed pre-registration, falsification thresholds agreed in advance. Nothing further is admitted to Phase 1. Every new hypothesis this exchange generates — and it keeps generating good ones — goes to the **Phase 2+ parking lot** (first entry: the structural experiment, §7B). *"Three rounds of refinement have made this a strong design; a fourth makes it a seminar."*
+
+**Adopted 1 — the generative sufficiency probe.** Reconstructability ("invariant compression preserves the generative structure of reasoning, unlike JPEG/ZIP") is a testable claim, so it is now a scored sub-task: the task set includes held-out **derivation** tasks — conclusions that follow from the knowledge but are not stated in it. The claim is supported only if Arm C beats Arm D on derivation specifically, not merely recall. C ≈ D on derivation = the reconstructability claim is unsupported at current scale — publishable either way, per Principle 004.
+
+**Adopted 2 — the token accounting rule.** Budget equality across arms is measured on the **final rendered prompt, as tokenized by the target model**. Structured decomposition carries formatting overhead; it is neither charged a hidden budget tax nor given one.
+
+**Adopted 3 — the mechanistic difference enumeration, ANSWERED from the code (not deferred).** The reviewer is right that at inference time an invariant object has exactly two channels into today's models — serialized text and orchestration — and right that without this enumeration a null B−C would be degenerate and a positive B−C unattributable. The honest table, drawn from the actual grounding path (`services/invariants/grounding.ts buildInvariantSlice` → statement injection → `citeInvariants`), for a single inference:
+
+| Inference-path stage | Arm B (runtime) | Arm C (flattened export) | Differs? |
+|---|---|---|---|
+| Selection | LIVE, per-task, intent/domain-scoped, standing → confidence → reach ranked, deduped, capped | ONE frozen, pre-registered slice (exported by the same ranking at freeze time) | **YES — the load-bearing within-call difference** |
+| Crystal state | live substrate at call time | snapshot at pre-registration | YES (timing) |
+| Serialization | marker-prefixed statements | marker-prefixed statements (the exporter mirrors the runtime slice format) | **NO — essentially identical** |
+| Composition-law validation | applies on composition-class tasks (`validateComposition`) | absent | Only on composition tasks |
+| Post-call citation (`citeInvariants` → Reach) | yes | no | YES — but it CANNOT affect the in-call answer; it is lifecycle |
+
+**Pre-registered prediction, stated before any data exists:** on single-call recall tasks with a fixed, matched slice, **we predict B ≈ C by construction** — the serialization channel is identical. The runtime's within-call claim localizes entirely to **selection-under-intent** (which invariants, per task — the operator's "the curated information is not intuitive; it's based on the invariant substrate, not the knowledge"); everything else the runtime does is lifecycle (mutation locality, standing accrual, versioned merge, governance), which the mutation probe and EXP-009 test, not this gauntlet. Stating this now forecloses both failure modes the reviewer named: a null B−C confirms a prediction rather than requiring an excuse, and a positive B−C is attributable to the one enumerated mechanism.
+
+**Adopted 4 — the Mechanistic Trace artifact** (Aletheon's fifth artifact — a document, not an arm): one worked inference, traced end to end — `Corpus → Invariant Selection → Composition → Conflict Resolution → Serialization → Model → Evaluation → Receipts` — **starting at the corpus, not the prompt**, because selection, compression, canonicalization, and conflict resolution are computation that happens before serialization. Required Phase 1 deliverable alongside the protocol document.
+
+## 7B. The two hypotheses this exchange disentangled (the real fault line, named)
+
+The exchange's closing rounds surfaced that TWO different experiments were hiding inside one design, with different independent variables:
+
+- **Hypothesis B — Execution (Phase 1, frozen, the reviewer's experiment):** given an already-organized invariant substrate, does the runtime add within-call value beyond the content? Independent variable: *how the knowledge is delivered.* This is what B-vs-C measures, with the §7A prediction on record.
+- **Hypothesis A — Structure (the Institute's PRIMARY claim, deliberately NOT in Phase 1):** does organizing raw experience into an invariant substrate change the computational properties of reasoning, versus the raw experience or a conventional expert summary at matched tokens? Independent variable: *what constitutes the knowledge.* Arms, when chartered: raw corpus excerpts / expert summary / invariant substrate — same source material, matched final-prompt tokens (Aletheon's medicine example is the illustrative domain). **Parked to Phase 2 under the identical disciplines** — pre-registration, external task selection, joint judge — and assigned its EXP-nnn number only when chartered (no number minted here).
+
+The layer separation behind this is not new doctrine invented under adversarial pressure — it is the ratified canon, timestamped before this exchange began: `inv.reasoning.085` (2026-07-06: invariant fields are natural/discovered or constitutional/ratified, differing only in origin), CFS-021's three invariant families, and CFS-019 §2's three layers (Layer I — Invariant Intelligence, the substrate science; Layers II/III — Constitutional Computing/Cybernetics, the governance engineering). Phase 1 tests a Layer II delivery question; Hypothesis A tests the Layer I claim. Axis-precision note (the witness's caveat): the operator's structural/constitutional distinction is a FUNCTION axis (governance-independent substrate vs second-order governance of it); inv.085's natural/constitutional is an ORIGIN axis (discovered vs ratified) — they map through the CFS-019 layers and must not be silently equated.
+
+**The four-stage research decomposition, recorded** (Aletheon, 2026-07-17): **Discovery** (can raw experience be distilled into stable invariant representations?) → **Representation** (do those representations improve reasoning over unstructured experience?) → **Execution** (does the runtime further enhance their use?) → **Evolution** (can they be maintained, composed, updated, governed over time?). Phase 1 = Execution; Hypothesis A = Discovery + Representation; EXP-009 = Evolution.
+
+**Pre-committed interpretation of the reviewer's "repricing" scenario:** if B ≈ C within-call (as predicted), the within-call value lives in representation and content — Hypothesis A territory — and the runtime's value lives in selection-under-intent and lifecycle. That is not a retreat from the science; it is the two-layer doctrine stating itself in data. (And per Aletheon: applications don't invalidate science — if invariant organization turns out to derive most of its value from organizing, maintaining, and evolving knowledge, then knowledge organization itself is the intelligence primitive discovered. The dichotomy "lifecycle system vs new science" is false.)
+
 ## 8. Honest limits
 
 - **Nothing here has run.** This charter records a jointly-converging design; the Phase 1 protocol document (arms, task-selection procedure, judge spec, pre-registration mechanism, falsification thresholds) is the external reviewer's to draft and both parties' to sign before execution.
