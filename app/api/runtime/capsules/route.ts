@@ -5,7 +5,7 @@ import { getSmartContentService } from "@/services/content";
 import type { SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleAssetRef, RuntimeCapsuleRecord, RuntimeCapsulesResponse } from "@/types/runtimeCapsules";
 import { runShadow } from "@/services/invariants/engine";
-import { discoveryRankingProjector } from "@/services/invariants/nodes/discoveryRanking";
+import { discoveryRankingProjector, getDiscoveryFieldSnapshot } from "@/services/invariants/nodes/discoveryRanking";
 import fallbackContent from "@/qriptopian-content-export.json";
 
 export const runtime = "nodejs";
@@ -606,7 +606,11 @@ export async function GET(request: NextRequest) {
     // served order is `scored`, unchanged. The flip to authoritative is a
     // separate, operator-gated ratification. Never throws (runShadow guards).
     if (intent !== "play") {
-      runShadow(discoveryRankingProjector, { capsules: deduped, prompt, intent }, scored, (c) => c.id);
+      // Pass the cached discovery Field Snapshot so the projection's dimension
+      // weights derive from the discovery invariants' EARNED standing once they
+      // exist (faithful until then). Guarded — null snapshot ⇒ faithful.
+      const discoverySnapshot = await getDiscoveryFieldSnapshot();
+      runShadow(discoveryRankingProjector, { capsules: deduped, prompt, intent }, scored, (c) => c.id, discoverySnapshot);
     }
 
     return NextResponse.json<RuntimeCapsulesResponse>(
