@@ -21,6 +21,54 @@ This reframes the discipline the platform already named — **Computational Epis
 
 ---
 
+## 0 · The Three Computational Compressions — the central claim, stated precisely (2026-07-18 amendment)
+
+> **Placed at the front of the charter deliberately.** This is the sharpened statement of the programme's central claim, produced in dialogue with **Austin and Austin's agent**. It is stated up front so it is not re-litigated: **Invariant Intelligence is neither prompt engineering nor context engineering. It is a distinct pre-inference compression — of reasoning — with a distinct optimization objective.** Everything else in this charter is downstream of this section. Canonized as `inv.epistemology.138`–`141` + `inv.reasoning.142`.
+
+### 0.1 The three compressions
+
+Every intelligent system performs a compression before inference. **The discriminating question is what it compresses.**
+
+| Discipline | Compresses | Optimization target | Output |
+|---|---|---|---|
+| **Prompt engineering** | instructions | instruction formulation | a prompt |
+| **Context engineering** | knowledge | information relevance | curated knowledge |
+| **Invariant Intelligence** | **reasoning** | **computational reuse** | an invariant substrate |
+
+Elevating this from *three engineering techniques* to *three computational compressions* ties it into the Institute's compression theory (CFS-008) and exposes why this is **not "better context": the optimization target is different.** *(Canonical: `inv.epistemology.140`.)*
+
+### 0.2 The Pre-Prompt Reasoning Theorem
+
+> **Prompt engineering optimizes how reasoning is requested. Context engineering optimizes what knowledge is supplied. Invariant Intelligence optimizes which reasoning need not occur again.**
+
+The whole field in one sentence. *(Canonical: `inv.epistemology.138` — validated, because the optimization claim is exactly what the Institute exists to test.)*
+
+### 0.3 The purpose, and the independent variable
+
+> **The purpose of Invariant Intelligence is not to retrieve better knowledge. It is to reduce the amount of reasoning that must be performed at inference time by reusing previously validated structural reasoning.**
+
+This fixes the programme's independent variable: **not prompts, not context, but the reuse of previously validated reasoning through invariant structures.** Context engineering asks *"given an intent, what information should I provide?"* (optimizing retrieval); Invariant Intelligence asks *"given an intent, what reasoning should never need to happen again?"* (optimizing reuse). *(Canonical: `inv.epistemology.141` — validated, a falsifiable claim owed EXP-nnn confirmation.)*
+
+### 0.4 What an invariant *is* (tightened)
+
+> **A structural invariant is a persistent representation of previously validated reasoning that remains sufficient across a class of intents and can therefore be reused rather than recomputed.**
+
+Not a **fact**, not **knowledge**, not **truth** — *previously validated reasoning*. This is the criterion that also grounds IRL Principle 005 (`inv.epistemology.133`). *(Canonical: `inv.epistemology.139`.)*
+
+### 0.5 The Representation Principle
+
+> **Representations are not invariants. They are manifestations of invariants.** The same structural invariant may be represented as natural language, symbolic logic, a graph, executable code, or a future world-model representation. The representation is constrained by the computational substrate; the invariant is not.
+
+If two pre-prompt processes serialize to similar text, that does **not** imply they performed the same computation — one may have rediscovered the relationships from raw knowledge, the other assembled previously validated invariants. The representation is the transport; the science concerns the process that produced it. This cleanly separates three concerns that were being conflated: **structural invariance** (the science), **constitutional governance** (how invariants evolve, are trusted, versioned, become authoritative — the runtime's job), and **representation** (how an invariant is manifested). *(Canonical: `inv.reasoning.142`.)*
+
+**Reconciliation with the 2026-07-16 Representation Gauntlet amendment.** That amendment names *"representation is the independent variable"* for **EXP-010** — correctly, because the gauntlet *varies* representation (invariant-object vs flattened-text vs conventional-prompt) as the experimental handle to isolate whether the substrate matters (its C-vs-D split isolates decomposition itself). This §0 refines, not contradicts, that: the surface representation is the experimental **handle**; what the handle is testing for is the **substrate** — previously validated reasoning — and the programme's optimization **objective** is the reuse of that substrate. "An invariant is a computational object, not a sentence" (EXP-010) and "representations are manifestations of invariants" (§0.5) are the same claim from two directions.
+
+### 0.6 Why this is at the front
+
+The register-collapse this prevents: reducing everything to alphanumerics is a known limitation of LLMs relative to human cognition (language is a proxy for reality, the gap large world models attempt to address). Naming the substrate — not the serialization — as the object of study is what keeps Invariant Intelligence a distinct category rather than a re-description of retrieval. The pipeline placement, the DNA analogy, the magic-numbers worked example, the seminar-not-experiment methodology, and the full response to Austin are in the supporting amendment at the end of this charter.
+
+---
+
 ## 1. The thesis — intent is the primary computational primitive
 
 Knowledge compression is downstream. The prior scientific question is: **how do you systematically discover the *right* invariants?** That discovery begins *before* curation.
@@ -306,3 +354,60 @@ Studies what happens when composed invariants produce something that was not exp
 **Honest limits:** nothing chartered here has run; two Phase 1 prerequisites are unbuilt (a verbatim slice-export command; an externally specifiable, hashable judge-config artifact — both answered honestly against the code in the charter §7); Claim A is not re-litigated; no invariant is seeded by this amendment.
 
 **Ratified 2026-07-16 by operator direction.**
+
+---
+
+## Amendment — The Three Computational Compressions: supporting doctrine + the Austin dialogue (2026-07-18)
+
+*(The canonical statement lives at the front of this charter, **§0**. This amendment carries the supporting doctrine: the pipeline placement, the DNA analogy, the magic-numbers worked example, the methodology, and the response to Austin. Canonical invariants: `inv.epistemology.138`–`141` + `inv.reasoning.142`. Origin: the operator's dialogue with Austin and Austin's agent — a challenge that forced the programme to identify its true optimization objective.)*
+
+### A.1 The pipeline — where invariants sit
+
+An intelligent system's lifecycle has four routinely-conflated stages:
+
+```
+pre-prompt reasoning  →  prompt  →  post-prompt reasoning  →  inference
+```
+
+- **Pre-prompt reasoning** — everything before a prompt is assembled. Today dominated by **context engineering** (compressing knowledge) and **prompt engineering** (structuring instructions). We claim a third: **invariant extraction**.
+- **The prompt** — the serialized representation that arrives at the model; what model-side work can see.
+- **Post-prompt reasoning / inference** — what the model does with it.
+
+The scientific object of this doctrine lives at the **first** stage. It is not about the prompt representation and not about inference; it is about the computation performed before serialization. The runtime (standing, provenance, ratification, the shadow→authoritative flip, CFS-035) is primarily relevant to the **constitutional** class — how structural invariants evolve and become authoritative. **The science does not depend on the runtime; the runtime operationalizes it.**
+
+### A.2 The DNA analogy — a generative substrate, not a better summary
+
+> Which wild cat left these traces?
+
+One approach compresses all zoological knowledge into a good summary — lungs, organs, limbs, teeth, hair. Another recovers and sequences **DNA**. Both are compressions. Only one identifies the **substrate that determines the organism**. The point is not that intelligence has biological DNA; it is that DNA is not a better *summary* — it is a fundamentally different *representation*, because it captures the **generative substrate** from which the organism can be reconstructed (and beyond physiology: disease patterns, even disposition). Reconstituting an animal from its organs is knowledge compression; from DNA it is substrate reasoning — not the same computation even when they name the same animal.
+
+Our hypothesis: intelligence may possess something analogous — a structural substrate more fundamental than topical knowledge. If it exists, reasoning over it is a different computational process from reasoning over summaries, even when both produce text. Whether it survives experimentation is what the Institute exists to investigate. *(First logged as Convergence Log Entry 002; §0 canonizes what the analogy is an analogy* for*.)*
+
+**The magic numbers as a worked example.** The platform's embedded heuristics — `scoreCapsule`'s `+10/+6/+4`, NBE weights, standing coefficients (CFS-035 §1) — are a live, small-scale instance. These are **uncaptured compressed reasoning**: they would not be surfaced by distilling the repo into summaries, because they are not topical knowledge — they are reasoning performed once and frozen into a constant. Reducing them to a math (`invariant → projection → weight/threshold/branch/ordering`) and measuring which variables are invariant across intents and surfaces is a concrete demonstration of the compression this doctrine names.
+
+### A.3 On experiments — the seminar is not the delay
+
+Running experiments is cheap for the Institute; the expensive part is **understanding the hypothesis before protocols are frozen.** If two parties test *different* hypotheses under the *same* protocol, even a perfect experiment will not resolve the disagreement. Converging on the correct **independent variable** (§0.3) before freezing protocols is therefore part of the scientific process, not a delay to it — a week converging on the hypothesis beats months answering the wrong question. Once the independent variable is agreed, protocol design becomes considerably simpler.
+
+### A.4 The external articulation — response to Austin
+
+*(Preserved as the canonical external-facing statement; companion to §0.)*
+
+> **Austin,**
+>
+> This exchange has been extremely valuable because it exposed something more fundamental than a disagreement about experimental design: we are still converging on what the *independent variable* actually is. Before we freeze protocols, I'd like to clarify the hypothesis itself.
+>
+> **Three stages are being conflated.** (1) *Pre-prompt reasoning* — today dominated by context engineering (compressing knowledge) and prompt engineering (structuring instructions); we claim a third category, **invariant extraction**, whose objective is different: identify the minimal structural substrate already established through prior reasoning as sufficient for a class of intents. Context engineering compresses knowledge; prompt engineering compresses instructions; **invariant extraction compresses reasoning** — it reuses reasoning already performed and validated rather than re-deriving the same structural relationships from raw knowledge. (2) *Prompt representation* — everything ultimately reaches the model as serialized tokens; that is not controversial, but our claim is not about the serialization, it is about what happened *before* it. If two pre-prompt processes serialize to similar text, that does not imply they performed the same computation. (3) *Post-prompt inference* — only here does the model reason; the runtime, orchestration, standing, provenance, and governance largely operate around this lifecycle. Our work separates **structural** invariants (the scientific question) from **constitutional** invariants (how structural invariants evolve, are trusted, versioned, and become authoritative). The science does not depend on the runtime; the runtime operationalizes it.
+>
+> **This isn't "better context."** *Which wild cat left these traces?* One approach compresses all zoological knowledge into a good summary; another recovers and sequences DNA. Both are compressions — only one identifies the substrate that determines the organism. I'm not claiming intelligence has biological DNA; the point is that DNA is not a better summary, it is a fundamentally different representation because it captures the generative substrate from which the organism can be reconstructed. Our hypothesis is that intelligence may possess something analogous: a structural substrate more fundamental than topical knowledge. If it exists, reasoning over it is a different computation from reasoning over summaries, even if both produce text.
+>
+> **On experiments.** Running experiments is not our bottleneck — the platform supports hypothesis definition, protocol versioning, traceability, receipts, standing, projection, ratification, and replay. The expensive part is ensuring the hypothesis is correctly understood *before* experiments are frozen. If we're testing different hypotheses under the same protocol, even a perfect experiment won't resolve the disagreement. So I don't view these conversations as delaying experimentation — I view them as part of the scientific process. I'd rather spend another week converging on the correct hypothesis than months answering the wrong question.
+>
+> **The sharpest formulation.** Context engineering asks: *"Given an intent, what information should I provide?"* Invariant Intelligence asks: *"Given an intent, what reasoning should never need to happen again?"* That is a different optimization objective — the first optimizes information retrieval, the second optimizes computational reuse. If that framing survives scrutiny, the independent variable is neither prompts nor context: it is the reuse of previously validated reasoning through invariant structures. Everything else, including representation and runtime, exists to support that proposition.
+
+### A.5 What this amendment did and did not do
+
+- **Did:** state the sharpened central claim at the front of the charter (§0); canonize the taxonomy, theorem, tightened definition, purpose statement, and Representation Principle as `inv.epistemology.138`–`141` + `inv.reasoning.142`; reconcile with the 2026-07-16 Representation Gauntlet amendment; record the dialogue in Convergence Log Entry 007.
+- **Did not:** claim empirical confirmation. 138 and 141 are *validated* (ratified as the programme's falsifiable central claims), not *canonical*; their confirmation runs through the EXP-nnn lifecycle. Canonizing a definition is never a substitute for an experimental result (CFS-019; Convergence Log honest limits).
+
+**Ratified 2026-07-18 by operator direction.**

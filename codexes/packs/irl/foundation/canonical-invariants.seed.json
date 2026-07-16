@@ -2123,7 +2123,7 @@
     "reasoning-compression"
    ],
    "provenance": {
-    "source": "CFS-036 §2 — the Pre-Prompt Reasoning Theorem, operator-formulated 2026-07-18 in the dialogue with Austin and Austin's agent. Ratified as the field's organizing theorem; the optimization claim (that computational reuse is a distinct and superior objective for a class of intents) is the falsifiable hypothesis the Institute exists to test, hence validated rather than canonical."
+    "source": "CRP-002 §0.2 (Three Computational Compressions amendment, 2026-07-18) — the Pre-Prompt Reasoning Theorem, operator-formulated in the dialogue with Austin and Austin's agent. Ratified as the field's organizing theorem; the optimization claim (that computational reuse is a distinct and superior objective for a class of intents) is the falsifiable hypothesis the Institute exists to test, hence validated rather than canonical."
    }
   },
   {
@@ -2138,7 +2138,7 @@
     "ontology"
    ],
    "provenance": {
-    "source": "CFS-036 §4 — the tightened definition of a structural invariant, operator-ratified 2026-07-18. Sharpens inv.reasoning.081/083 (the Invariant Field) and the CRP-002 invariant-as-projection reading by naming what an invariant IS: previously validated reasoning, not a fact/knowledge/truth. Definitional canon."
+    "source": "CRP-002 §0.4 (Three Computational Compressions amendment, 2026-07-18) — the tightened definition of a structural invariant, operator-ratified. Sharpens inv.reasoning.081/083 (the Invariant Field) and the CRP-002 invariant-as-projection reading by naming what an invariant IS: previously validated reasoning, not a fact/knowledge/truth. Definitional canon."
    }
   },
   {
@@ -2153,7 +2153,7 @@
     "reasoning-compression"
    ],
    "provenance": {
-    "source": "CFS-036 §1 — the Three Computational Compressions taxonomy, operator-formulated 2026-07-18 (elevated from three engineering techniques to three computational compressions, tying into the Institute's compression theory, CFS-008). Definitional canon."
+    "source": "CRP-002 §0.1 (Three Computational Compressions amendment, 2026-07-18) — the Three Computational Compressions taxonomy, operator-formulated (elevated from three engineering techniques to three computational compressions, tying into the Institute's compression theory, CFS-008). Definitional canon."
    }
   },
   {
@@ -2168,7 +2168,7 @@
     "reasoning-compression"
    ],
    "provenance": {
-    "source": "CFS-036 §3 — the canonical purpose statement and the identification of the independent variable (computational reuse), operator-formulated 2026-07-18 in the Austin dialogue. A precise, experimentally-falsifiable scientific claim; ratified as the programme's central claim (CRP-002), empirical confirmation via the EXP-nnn lifecycle — hence validated."
+    "source": "CRP-002 §0.3 (Three Computational Compressions amendment, 2026-07-18) — the canonical purpose statement and the identification of the independent variable (computational reuse), operator-formulated in the Austin dialogue. A precise, experimentally-falsifiable scientific claim; ratified as the programme's central claim, empirical confirmation via the EXP-nnn lifecycle — hence validated."
    }
   },
   {
@@ -2183,7 +2183,7 @@
     "ontology"
    ],
    "provenance": {
-    "source": "CFS-036 §5 — the Representation Principle, operator-ratified 2026-07-18. Answers the conflation (attributed to Austin's agent) that because everything serializes to tokens the computation is identical: the representation is the transport, not the invariant. Separates structural invariance, constitutional governance, and representation into three distinct concerns. Definitional canon."
+    "source": "CRP-002 §0.5 (Three Computational Compressions amendment, 2026-07-18) — the Representation Principle, operator-ratified. Answers the conflation (attributed to Austin's agent) that because everything serializes to tokens the computation is identical: the representation is the transport, not the invariant. Reconciles with and sharpens the CRP-002 2026-07-16 Representation Gauntlet amendment (representation as experimental handle vs the substrate it manifests). Separates structural invariance, constitutional governance, and representation into three distinct concerns. Definitional canon."
    }
   }
  ]

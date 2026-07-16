@@ -152,8 +152,10 @@ what was found → where both are recorded → what, if anything, changed as a r
   previously validated reasoning through invariant structures), not information retrieval.** Formalised
   as the Three Computational Compressions, the Pre-Prompt Reasoning Theorem, the tightened Structural
   Invariant definition, the purpose statement, and the Representation Principle.
-- **Recorded in:** **CFS-036 The Three Computational Compressions** (the doctrine + the response to
-  Austin); canonical invariants `inv.epistemology.138`–`141` + `inv.reasoning.142`; this log.
+- **Recorded in:** **CRP-002 §0** (the up-front central-claim statement) + the CRP-002 2026-07-18
+  supporting amendment (the pipeline, DNA analogy, and the response to Austin) — folded into the
+  programme charter itself, by operator direction, so the distinction is stated up front and not
+  re-litigated; canonical invariants `inv.epistemology.138`–`141` + `inv.reasoning.142`; this log.
 - **What changed as a result:** unlike Entries 001–006 (which recorded rediscovery of definitions
   already latent in the canon), this entry records **canonization of new definitional invariants** and
   the ratification of two falsifiable claims (138, 141). The definitions build on latent canon
@@ -183,6 +185,6 @@ what was found → where both are recorded → what, if anything, changed as a r
   anything recorded here.
 - Convergence is a reason to look harder at a candidate, never a substitute for the seed-and-ratify
   path (Law XI). Entries 001–006 seed/canonize nothing by themselves. Entry 007 is the exception only
-  because the operator performed an explicit ratification act (CFS-036) alongside it — the canonization
+  because the operator performed an explicit ratification act (CRP-002 §0 amendment) alongside it — the canonization
   flows from that ratification, NOT from the convergence; and its two falsifiable claims (138, 141) are
   `validated`, i.e. still owed EXP-nnn confirmation, not asserted true.
