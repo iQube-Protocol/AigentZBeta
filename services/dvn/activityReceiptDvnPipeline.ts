@@ -121,6 +121,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // Artifact Runtime (CFS-025 Phase 2) — a constitutional-tier artifact was
   // PUBLISHED; anchoring makes the publication commitment tamper-evident.
   'artifact_published',
+  // Invariant Engine ratification (CFS-035 §11) — an Invariant Decision Node was
+  // flipped shadow↔authoritative. The runtime now serves the projection (or
+  // reverts); anchoring makes the operator-gated ratification tamper-evident.
+  // Added per the permitted action-type-addition rule (operator-approved).
+  'invariant_node_flipped',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

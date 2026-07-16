@@ -14,9 +14,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { listNodeFlips, setNodeFlip, getNodeFlip } from '@/services/invariants/flipStore';
 import { listRegisteredNodes } from '@/services/invariants/engine';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import '@/services/invariants/nodes'; // ensure nodes are registered for validation
 
 export const dynamic = 'force-dynamic';
@@ -68,5 +70,25 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const state = await getNodeFlip(nodeId);
+
+  // DVN-anchor the ratification act (CFS-035 §11) — operator-approved. Best-effort:
+  // the flip already succeeded, so a receipt/anchor failure must not fail the request.
+  // T2-safe: the summary carries the node id (a public identifier), the new state,
+  // and a sha256 commitment of the flip act; the persona is hashed by the DVN
+  // pipeline (hashPersonaRef) — no raw personaId reaches the receipt payload.
+  try {
+    const commitment = createHash('sha256')
+      .update(`invariant:flip:${nodeId}:${authoritative ? 'authoritative' : 'shadow'}:${state?.flippedAt ?? ''}:${rationale ?? ''}`)
+      .digest('hex');
+    await createActivityReceipt({
+      personaId: persona.personaId,
+      activeCartridge: 'iqube-registry',
+      actionType: 'invariant_node_flipped',
+      summary: `Invariant Decision Node ${nodeId} flipped to ${authoritative ? 'AUTHORITATIVE' : 'shadow'} (CFS-035 ratification). commit:${commitment.slice(0, 32)}`,
+    });
+  } catch {
+    /* anchoring is best-effort; the flip state is already persisted */
+  }
+
   return NextResponse.json({ ok: true, flip: state });
 }

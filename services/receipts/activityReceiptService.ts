@@ -116,7 +116,13 @@ export type ActivityActionType =
   // Foundational Validation Series — canonical result publication (Experiment
   // Lab). Summary carries the sha256 content commitment of the results JSON;
   // DVN-anchorable so the commitment lands in tamper-evident memory.
-  | 'experiment_result_published';
+  | 'experiment_result_published'
+  // Invariant Engine ratification (CFS-035 §11) — an Invariant Decision Node was
+  // flipped between shadow and authoritative (the runtime now serves its
+  // projection, or reverts to the incumbent). The ratification act is
+  // consequential + operator-gated, so it lands in tamper-evident memory.
+  // DVN-anchorable. Summary carries a sha256 commitment of the flip act.
+  | 'invariant_node_flipped';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
