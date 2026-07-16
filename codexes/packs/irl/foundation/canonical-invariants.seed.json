@@ -2244,6 +2244,36 @@
    "provenance": {
     "source": "CRP-002 §0.6 (2026-07-18) — operator-ratified. Formalizes the field/potential-landscape picture (intent = direction, standing = depth/operational potential, projection = following the gradient) and canonizes intent-relative standing. Composes the CRP-002 intent-as-projection operator with the Law XII standing canon (inv.constitutional.060/061/062). 'Invariant mass': importance is attractor-strength under the governing intent, not invocation frequency."
    }
+  },
+  {
+   "id": "inv.reasoning.147",
+   "namespace": "reasoning",
+   "semantic_type": "law",
+   "statement": "Invariant Intelligence has three strata by role: Structural invariants (ontology — what is fundamentally true; properties of reality, independent of observer, computation, and representation); Invariant Representations (interface — how a structural invariant becomes computationally accessible: language, mathematics, symbolic logic, code, graphs, images, DNA, world models, and forms not yet invented); and Constitutional invariants (governance — how a system justifies, trusts, governs, and operationalizes that truth). Representation is not a type of invariant; it is the interface through which invariants become accessible. A structural invariant becomes usable by an intelligent system only through a representation, and the representation is never the invariant.",
+   "status": "canonical",
+   "contexts": [
+    "invariant-intelligence",
+    "ontology",
+    "representation"
+   ],
+   "provenance": {
+    "source": "CRP-002 §0.8 (2026-07-18) — operator-ratified. The missing third pillar: Invariant Representations as the INTERFACE stratum between structural invariants (the science) and the constitutional runtime (the governance). Corrects the co-equal-'type' grouping (inv.constitutional.126 'representation invariants are composed') — the inv.representation.* family (CFS-021, 121-124) are constitutional-in-function invariants that GOVERN the interface; the interface stratum itself is not a type of structural truth. Reconciled against the CFS-019 axis-precision rule: these strata are a ROLE decomposition (ontology/interface/governance), NOT to be equated with CFS-019's Layer I/II/III governance-axis, the structural/constitutional function axis, or inv.reasoning.085's natural/constitutional origin axis. Extends inv.reasoning.142 (representations are manifestations, not invariants) and inv.representation.122 (a constitutional object is independent of its representation)."
+   }
+  },
+  {
+   "id": "inv.epistemology.148",
+   "namespace": "epistemology",
+   "semantic_type": "law",
+   "statement": "The architecture-limitation principle: the inability of a particular computational architecture to faithfully represent or reason over an invariant does not diminish the existence or validity of the invariant — it reveals a limitation of the architecture, not of the invariant. Alphanumeric text is today's dominant representation, not the substrate; that an LLM runtime cannot collapse a representation into alphanumerics does not stop the invariant being true.",
+   "status": "canonical",
+   "contexts": [
+    "invariant-intelligence",
+    "representation",
+    "epistemology"
+   ],
+   "provenance": {
+    "source": "CRP-002 §0.8 (2026-07-18) — operator-ratified. Generalizes the representation-independence claim beyond LLMs: explains LLM spatial-reasoning gaps, human high-dimensional-mathematics limits, and the emergence of world models as architecture limits, never invariant limits. Answers Austin's agent's 'everything reaches the LLM as tokens' — true of the implementation, not the theory. Sharpens inv.reasoning.142 ('the representation is constrained by the computational substrate; the invariant is not') by naming the architecture's reasoning capability, not only its representational form."
+   }
   }
  ]
 }

@@ -88,7 +88,27 @@ The cleanest one-line separation, and the reason **Constitutional Computing** ex
 
 Consistent with `inv.reasoning.085` / `inv.constitutional.126` (natural/discovered vs constitutional/ratified families) and with `inv.reasoning.142` (the invariant is not its representation). *(Canonical: `inv.epistemology.144`.)*
 
-### 0.8 Why this is at the front
+### 0.8 The three strata — ontology · interface · governance
+
+§0.5 (representation) and §0.7 (the structural/constitutional coupling) resolve into a complete architecture. Its middle term — **Invariant Representations** — is the missing third pillar: not a *bridge* (which implies translation) but an **interface** (which implies interaction). Structural invariants become accessible to an intelligent system *only through* a representation; the representation is the interface, never the invariant.
+
+| Stratum | Answers | Is | Examples / mechanisms |
+|---|---|---|---|
+| **Structural** (ontology) | *What is fundamentally true?* | properties of reality — independent of observer, computation, and representation | the invariant substrate |
+| **Invariant Representations** (interface) | *How can a system access and manipulate that truth?* | the interface through which structural invariants become computationally accessible | natural language, mathematics, symbolic logic, code, graphs, vector spaces, images, hieroglyphs, DNA, **world models**, representations not yet invented |
+| **Constitutional** (governance) | *How should a system justify, trust, govern, and operationalize that truth?* | properties of the systems that reason about reality | standing, provenance, orchestration, ratification (the runtime, CFS-035) |
+
+**Representation is not a type of invariant** — it is the *means by which invariants become computationally accessible*. This corrects the grouping in which representation sat beside structural and constitutional as a co-equal "type" (`inv.constitutional.126`'s "representation invariants are composed"): the `inv.representation.*` family (CFS-021 — `121`–`124`) are constitutional-in-function invariants that *govern the interface* (a representation must preserve identity, connotation, provenance across modalities); the interface **stratum** itself is not a type of structural truth. *(Canonical: `inv.reasoning.147`.)*
+
+**Alphanumeric text is today's dominant representation, not the substrate.** Hieroglyphs, a photograph, a CAD model, an equation, a musical score, a DNA sequence, a graph, English prose — none is the underlying reality; all are representations, and each preserves different properties. The move toward **world models** is precisely the field recognising that language is an imperfect, non-deterministic representation of reality — which *strengthens* this theory: language is one representation, not the substrate, so the invariant must never be identified with its linguistic form.
+
+> **The architecture-limitation principle.** The inability of a particular computational architecture to faithfully represent or reason over an invariant does not diminish the existence or validity of the invariant. It reveals a limitation of the architecture, not of the invariant.
+
+This immediately explains why LLMs struggle with certain spatial reasoning, why humans struggle with high-dimensional mathematics, why world models are emerging, and why future architectures may use fundamentally different representations. Austin's agent's *"ultimately everything reaches the LLM as tokens"* is true of the **implementation**, not the **theory** — and the theory must never be defined by the limitations of today's dominant model. *(Canonical: `inv.epistemology.148`.)*
+
+**Reconciliation with the axis-precision rule (CFS-019, binding on drafting).** These three **strata are a ROLE decomposition** (ontology / interface / governance). They must NOT be silently equated with (a) CFS-019's **Layer I / II / III** governance-axis (where Layer I is the substrate science and Layers II/III are the governance engineering — the Structural stratum maps to CFS-019 Layer I, the Constitutional stratum to Layers II/III, and Representation is the interface *between* them, previously implicit); (b) the **function axis** (structural vs constitutional); or (c) `inv.reasoning.085`'s **origin axis** (natural/discovered vs constitutional/ratified). A ratified-origin invariant can still be structural in function. The strata name *roles*, not any of those axes.
+
+### 0.9 Why this is at the front
 
 The register-collapse this prevents: reducing everything to alphanumerics is a known limitation of LLMs relative to human cognition (language is a proxy for reality, the gap large world models attempt to address). Naming the substrate — not the serialization — as the object of study is what keeps Invariant Intelligence a distinct category rather than a re-description of retrieval. The pipeline placement, the DNA analogy, the magic-numbers worked example, the seminar-not-experiment methodology, and the full response to Austin are in the supporting amendment at the end of this charter.
 
@@ -408,6 +428,8 @@ One approach compresses all zoological knowledge into a good summary — lungs, 
 
 Our hypothesis: intelligence may possess something analogous — a structural substrate more fundamental than topical knowledge. If it exists, reasoning over it is a different computational process from reasoning over summaries, even when both produce text. Whether it survives experimentation is what the Institute exists to investigate. *(First logged as Convergence Log Entry 002; §0 canonizes what the analogy is an analogy* for*.)*
 
+**Refinement (2026-07-18, §0.8):** DNA itself is *also a representation* — the encoding biology evolved to carry genetic information; the underlying biological regularities are deeper still. This strengthens rather than weakens the analogy: even the paradigm "substrate" turns out to be a *representation* of something more fundamental (the Representation stratum, §0.8), and the structural invariant is what the representation encodes, never the encoding.
+
 **The magic numbers as a worked example.** The platform's embedded heuristics — `scoreCapsule`'s `+10/+6/+4`, NBE weights, standing coefficients (CFS-035 §1) — are a live, small-scale instance. These are **uncaptured compressed reasoning**: they would not be surfaced by distilling the repo into summaries, because they are not topical knowledge — they are reasoning performed once and frozen into a constant. Reducing them to a math (`invariant → projection → weight/threshold/branch/ordering`) and measuring which variables are invariant across intents and surfaces is a concrete demonstration of the compression this doctrine names.
 
 ### A.3 On experiments — the seminar is not the delay
@@ -432,7 +454,7 @@ Running experiments is cheap for the Institute; the expensive part is **understa
 
 ### A.5 What this amendment did and did not do
 
-- **Did:** state the sharpened central claim at the front of the charter (§0); canonize the taxonomy, theorem, tightened definition, purpose statement, and Representation Principle as `inv.epistemology.138`–`141` + `inv.reasoning.142`; reconcile with the 2026-07-16 Representation Gauntlet amendment; record the dialogue in Convergence Log Entry 007. **In the same dialogue (2026-07-18), added §0.6 (Standing validates invariants as evidence, not popularity — reaffirming Law XII `inv.constitutional.018/060/061/062`, sharpened with the Use/Truth axis, intent-relativity, and the field model) and §0.7 (the Structural–Constitutional Convergence Principle), canonized as `inv.reasoning.143`, `inv.epistemology.144`, `inv.constitutional.145`, `inv.reasoning.146`; recorded in Convergence Log Entry 008.**
+- **Did:** state the sharpened central claim at the front of the charter (§0); canonize the taxonomy, theorem, tightened definition, purpose statement, and Representation Principle as `inv.epistemology.138`–`141` + `inv.reasoning.142`; reconcile with the 2026-07-16 Representation Gauntlet amendment; record the dialogue in Convergence Log Entry 007. **In the same dialogue (2026-07-18), added §0.6 (Standing validates invariants as evidence, not popularity — reaffirming Law XII `inv.constitutional.018/060/061/062`, sharpened with the Use/Truth axis, intent-relativity, and the field model) and §0.7 (the Structural–Constitutional Convergence Principle), canonized as `inv.reasoning.143`, `inv.epistemology.144`, `inv.constitutional.145`, `inv.reasoning.146`; recorded in Convergence Log Entry 008. Finally, added §0.8 (the three strata — ontology · interface · governance — elevating Invariant Representations to the interface stratum, plus the architecture-limitation principle), canonized as `inv.reasoning.147` + `inv.epistemology.148`, reconciled against the CFS-019 axis-precision rule and CFS-021's representation family; recorded in Convergence Log Entry 009.**
 - **Did not:** claim empirical confirmation. 138 and 141 are *validated* (ratified as the programme's falsifiable central claims), not *canonical*; their confirmation runs through the EXP-nnn lifecycle. Canonizing a definition is never a substitute for an experimental result (CFS-019; Convergence Log honest limits).
 
 **Ratified 2026-07-18 by operator direction.**

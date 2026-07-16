@@ -198,9 +198,37 @@ what was found → where both are recorded → what, if anything, changed as a r
 
 ---
 
+## Entry 009 — Invariant Representations as the interface stratum (the third pillar)
+
+- **What happened:** the Austin dialogue reached its architectural conclusion. Over several days the
+  work had separated *structural* invariants (what is true) from *constitutional* invariants (how truth
+  is governed); the operator now named the missing middle term — **Invariant Representations**, the
+  *interface* (not bridge) through which structural invariants become computationally accessible —
+  yielding a complete **ontology · interface · governance** architecture.
+- **The convergence signal (rediscovery, again):** representation-independence was **already latent
+  canon** — `inv.reasoning.142` (representations are manifestations, not invariants; constrained by the
+  substrate, the invariant is not) and `inv.representation.122` (a constitutional object is independent
+  of its representation). The dialogue re-derived and generalized these. Reaffirmed, not re-seeded.
+- **The genuinely new canon:** the **three-strata architecture** with representation as the *interface*
+  stratum (not a co-equal "type") → `inv.reasoning.147`; the **architecture-limitation principle**
+  (an architecture's inability to represent/reason over an invariant is a limit of the architecture,
+  not the invariant) → `inv.epistemology.148`. The hieroglyph / world-models argument and the
+  refinement that *DNA is itself a representation* (strengthening Entry 002) are recorded in CRP-002.
+- **A correction it forced:** `inv.constitutional.126` grouped representation as a third *family* of
+  invariant ("representation invariants are composed"). §0.8 reframes representation as the interface
+  stratum, not a type of structural truth — while the `inv.representation.*` family (CFS-021) remains
+  valid as the constitutional-in-function invariants that *govern* the interface. Recorded as a
+  refinement, not a supersession (126 is not retired; its "family" label is contextualized).
+- **Reconciliation discipline honoured:** the strata are a ROLE decomposition, explicitly NOT equated
+  with CFS-019's Layer I/II/III governance-axis, the structural/constitutional function axis, or
+  `inv.reasoning.085`'s natural/constitutional origin axis (the CFS-019 axis-precision rule, binding).
+- **Recorded in:** CRP-002 §0.8 (+ the 2026-07-18 supporting amendment); this log.
+
+---
+
 ## Honest limits
 
-- Eight entries so far. Entries 001–006 all stem from the same operator + Aletheon (+ Claude) pairing
+- Nine entries so far. Entries 001–006 all stem from the same operator + Aletheon (+ Claude) pairing
   within a short window (2026-07-16 to 07-18) — they do not demonstrate a pattern across independent
   AUTHORS or TIME HORIZONS, a weaker form of independence than a third party rediscovering the same
   structure with no access to this codebase. Entry 007 introduces a genuinely external party (Austin's
