@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { publishExperimentResult } from '@/services/experiments/publishResult';
+import { listPublishedExperimentResults } from '@/services/research/publicReads';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,58 +31,11 @@ const EXPERIMENTS = ['EXP-001', 'EXP-002', 'EXP-003', 'EXP-004'] as const;
 export async function GET(request: NextRequest) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-
-  const client = getSupabaseServer();
-  if (!client) return NextResponse.json({ error: 'storage unavailable' }, { status: 500 });
-
-  const { data, error } = await client
-    .from('experiment_results')
-    .select('id, experiment, provider, model, aggregates, results_json, content_hash, receipt_id, created_at')
-    .order('created_at', { ascending: false })
-    .limit(100);
-  if (error) {
-    const message = /does not exist/i.test(error.message)
-      ? 'experiment_results table missing — apply supabase/migrations/20260704120000_experiment_results.sql'
-      : error.message;
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-
-  // Attach DVN status from the anchoring receipts in one query.
-  const receiptIds = (data ?? []).map((r) => r.receipt_id).filter(Boolean) as string[];
-  const statusByReceipt = new Map<string, { receiptStatus: string; dvnReceiptId: string | null }>();
-  if (receiptIds.length > 0) {
-    const { data: receipts } = await client
-      .from('activity_receipts')
-      .select('id, receipt_status, dvn_receipt_id')
-      .in('id', receiptIds);
-    for (const r of receipts ?? []) {
-      statusByReceipt.set(String(r.id), {
-        receiptStatus: String(r.receipt_status ?? 'local'),
-        dvnReceiptId: (r.dvn_receipt_id as string) ?? null,
-      });
-    }
-  }
-
-  return NextResponse.json({
-    ok: true,
-    results: (data ?? []).map((r) => ({
-      id: r.id,
-      experiment: r.experiment,
-      provider: r.provider,
-      model: r.model,
-      aggregates: r.aggregates,
-      resultsJson: r.results_json,
-      contentHash: r.content_hash,
-      receiptId: r.receipt_id,
-      receiptStatus: r.receipt_id
-        ? statusByReceipt.get(String(r.receipt_id))?.receiptStatus ?? 'local'
-        : null,
-      dvnReceiptId: r.receipt_id
-        ? statusByReceipt.get(String(r.receipt_id))?.dvnReceiptId ?? null
-        : null,
-      createdAt: r.created_at,
-    })),
-  });
+  // Read logic lives in the shared, persona-free module (the public IRL OS
+  // route /api/public/irl/experiments-results calls the SAME reader).
+  const outcome = await listPublishedExperimentResults();
+  if (!outcome.ok) return NextResponse.json({ error: outcome.error }, { status: outcome.status });
+  return NextResponse.json({ ok: true, results: outcome.results });
 }
 
 export async function POST(request: NextRequest) {
