@@ -105,20 +105,68 @@ function fmt(n: number | null | undefined, digits = 2): string {
   return typeof n === "number" ? n.toFixed(digits) : "—";
 }
 
-type Perspective = "health" | "projection" | "nodes" | "field";
+type Perspective = "health" | "projection" | "nodes" | "field" | "graph";
 
 const PERSPECTIVES: Array<{ id: Perspective; label: string }> = [
   { id: "health", label: "Health" },
   { id: "projection", label: "Projection" },
   { id: "nodes", label: "Nodes" },
   { id: "field", label: "Field" },
+  { id: "graph", label: "Graph" },
 ];
+
+// ── Graph data (GET /api/invariants/graph?view=field) ────────────────────────
+interface GraphNode {
+  id: string;
+  seedId: string | null;
+  namespace: string;
+  status: string;
+  standing: number;
+  label: string;
+  statement: string;
+}
+interface GraphEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: string;
+  weight: number;
+}
+interface GraphResponse {
+  ok: boolean;
+  nodeCount: number;
+  edgeCount: number;
+  capped: boolean;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+// Deterministic namespace colour ramp (no external palette dep).
+const NS_COLORS: Record<string, string> = {
+  reasoning: "#a78bfa",
+  constitutional: "#f472b6",
+  engineering: "#60a5fa",
+  experience: "#34d399",
+  capability: "#fbbf24",
+  style: "#f87171",
+  narrative: "#c084fc",
+  sovereignty: "#22d3ee",
+  cybernetics: "#4ade80",
+  interaction: "#fb923c",
+  epistemology: "#e879f9",
+  representation: "#2dd4bf",
+};
+function nsColor(ns: string): string {
+  return NS_COLORS[ns] ?? "#94a3b8";
+}
 
 export const FieldView: React.FC<{ className?: string }> = ({ className }) => {
   const [data, setData] = useState<ObservatoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [perspective, setPerspective] = useState<Perspective>("health");
+  const [graph, setGraph] = useState<GraphResponse | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -138,6 +186,23 @@ export const FieldView: React.FC<{ className?: string }> = ({ className }) => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Lazy-load the graph the first time the Graph perspective is opened.
+  useEffect(() => {
+    if (perspective !== "graph" || graph || graphLoading) return;
+    setGraphLoading(true);
+    void (async () => {
+      try {
+        const res = await personaFetch("/api/invariants/graph?view=field", { cache: "no-store" });
+        const json = (await res.json()) as GraphResponse;
+        if (res.ok && json.ok) setGraph(json);
+      } catch {
+        /* graph is best-effort — perspective renders an empty-state */
+      } finally {
+        setGraphLoading(false);
+      }
+    })();
+  }, [perspective, graph, graphLoading]);
 
   return (
     <div className={`flex flex-col gap-4 ${className || ""}`}>
@@ -187,6 +252,7 @@ export const FieldView: React.FC<{ className?: string }> = ({ className }) => {
           {perspective === "projection" && <ProjectionPerspective data={data} />}
           {perspective === "nodes" && <NodesPerspective data={data} />}
           {perspective === "field" && <FieldPerspective data={data} />}
+          {perspective === "graph" && <GraphPerspective graph={graph} loading={graphLoading} />}
 
           <p className="text-[11px] text-slate-600 px-1">
             {data.note} · canon {data.field.canonVersion || "—"} · generated{" "}
@@ -384,5 +450,119 @@ const FieldPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }) => 
     ) : null}
   </div>
 );
+
+// ── Graph — the field as a node-link diagram (namespace-clustered, no lib) ────
+const GraphPerspective: React.FC<{ graph: GraphResponse | null; loading: boolean }> = ({ graph, loading }) => {
+  const [selected, setSelected] = useState<string | null>(null);
+
+  // Deterministic namespace-clustered layout: clusters on a big ring, nodes on a
+  // small ring within each cluster. Node radius ∝ standing. No physics/lib.
+  const layout = React.useMemo(() => {
+    if (!graph) return null;
+    const W = 760;
+    const H = 520;
+    const cx = W / 2;
+    const cy = H / 2;
+    const byNs = new Map<string, GraphNode[]>();
+    for (const n of graph.nodes) {
+      const arr = byNs.get(n.namespace) ?? [];
+      arr.push(n);
+      byNs.set(n.namespace, arr);
+    }
+    const namespaces = [...byNs.keys()].sort();
+    const clusterR = Math.min(W, H) * 0.36;
+    const pos = new Map<string, { x: number; y: number; r: number; color: string }>();
+    namespaces.forEach((ns, ci) => {
+      const nodesIn = byNs.get(ns)!;
+      const clusterAngle = (ci / Math.max(1, namespaces.length)) * Math.PI * 2 - Math.PI / 2;
+      const gx = cx + Math.cos(clusterAngle) * clusterR;
+      const gy = cy + Math.sin(clusterAngle) * clusterR;
+      const innerR = 20 + Math.min(60, nodesIn.length * 6);
+      nodesIn.forEach((node, ni) => {
+        const a = (ni / Math.max(1, nodesIn.length)) * Math.PI * 2;
+        const x = nodesIn.length === 1 ? gx : gx + Math.cos(a) * innerR;
+        const y = nodesIn.length === 1 ? gy : gy + Math.sin(a) * innerR;
+        const r = 3 + Math.min(7, (node.standing / 100) * 7);
+        pos.set(node.id, { x, y, r, color: nsColor(ns) });
+      });
+    });
+    return { W, H, pos, namespaces };
+  }, [graph]);
+
+  if (loading && !graph) return <div className={`${PANEL} p-8 text-center text-sm text-slate-500`}>Building the field graph…</div>;
+  if (!graph || !layout) return <div className={`${PANEL} p-6 text-sm text-slate-500`}>No graph data available.</div>;
+
+  const selNode = selected ? graph.nodes.find((n) => n.id === selected) ?? null : null;
+
+  return (
+    <div className={`${PANEL} p-4`}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-slate-100">Field graph</h3>
+        <span className="text-[11px] text-slate-500">
+          {graph.nodeCount} nodes · {graph.edgeCount} edges{graph.capped ? " · capped" : ""}
+        </span>
+      </div>
+
+      <div className="w-full overflow-x-auto">
+        <svg viewBox={`0 0 ${layout.W} ${layout.H}`} className="w-full" style={{ maxHeight: 520 }} role="img" aria-label="Constitutional field graph">
+          {/* edges */}
+          {graph.edges.map((e) => {
+            const a = layout.pos.get(e.from);
+            const b = layout.pos.get(e.to);
+            if (!a || !b) return null;
+            return <line key={e.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#334155" strokeWidth={0.6 + e.weight * 0.4} strokeOpacity={0.5} />;
+          })}
+          {/* nodes */}
+          {graph.nodes.map((n) => {
+            const p = layout.pos.get(n.id);
+            if (!p) return null;
+            const isSel = selected === n.id;
+            return (
+              <circle
+                key={n.id}
+                cx={p.x}
+                cy={p.y}
+                r={isSel ? p.r + 2 : p.r}
+                fill={p.color}
+                fillOpacity={selected && !isSel ? 0.35 : 0.9}
+                stroke={isSel ? "#e2e8f0" : "transparent"}
+                strokeWidth={isSel ? 1.5 : 0}
+                className="cursor-pointer transition-all duration-150"
+                onClick={() => setSelected(isSel ? null : n.id)}
+              >
+                <title>{`${n.label} · ${n.namespace} · standing ${fmt(n.standing, 1)}`}</title>
+              </circle>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* namespace legend */}
+      <div className="flex flex-wrap gap-2 mt-2">
+        {layout.namespaces.map((ns) => (
+          <span key={ns} className="inline-flex items-center gap-1 text-[10px] text-slate-400">
+            <span className="w-2 h-2 rounded-full" style={{ background: nsColor(ns) }} />
+            {ns}
+          </span>
+        ))}
+      </div>
+
+      {/* selected node detail */}
+      {selNode ? (
+        <div className={`${SUBPANEL} p-3 mt-3`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono text-slate-300">{selNode.label}</span>
+            <span className="text-[11px] text-slate-500">
+              {selNode.namespace} · {selNode.status} · standing {fmt(selNode.standing, 1)}
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">{selNode.statement}</p>
+        </div>
+      ) : (
+        <p className="text-[11px] text-slate-600 mt-2">Click a node to inspect its statement. Node size ∝ standing; colour = namespace.</p>
+      )}
+    </div>
+  );
+};
 
 export default FieldView;

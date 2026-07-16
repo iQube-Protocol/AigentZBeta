@@ -1,7 +1,9 @@
 /**
  * /api/invariants/graph — graph traversal surface (CFS-003 §4).
  *
- * GET ?root=<id>[,<id>...]           — traversal roots (required)
+ * GET ?view=field                    — whole-field overview (Observatory Graph):
+ *                                       top invariants by standing + their edges
+ *     ?root=<id>[,<id>...]           — traversal roots (required unless view=field)
  *     &edges=<type>[,<type>...]      — edge-type filter
  *     &direction=out|in|both         — default out
  *     &depth=N                       — default 4, cap 8
@@ -14,10 +16,54 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { dependencyClosure, reasoningPath, traverse } from '@/services/invariants';
+import {
+  dependencyClosure,
+  reasoningPath,
+  traverse,
+  listInvariants,
+  listEdgesForInvariants,
+} from '@/services/invariants';
 import { INVARIANT_EDGE_TYPES, type InvariantEdgeType } from '@/types/invariants';
 
 export const dynamic = 'force-dynamic';
+
+const MAX_FIELD_NODES = 80;
+
+/**
+ * Whole-field overview for the Constitutional Observatory Graph perspective:
+ * the top invariants by standing + the edges among them. T1-safe, bounded so the
+ * client render stays light.
+ */
+async function fieldOverview() {
+  const invariants = await listInvariants({ limit: MAX_FIELD_NODES });
+  const ids = invariants.map((i) => i.id);
+  const idSet = new Set(ids);
+  const edgesRaw = ids.length > 0 ? await listEdgesForInvariants(ids, 'both').catch(() => []) : [];
+  const edges = edgesRaw
+    .filter((e) => idSet.has(e.fromInvariantId) && idSet.has(e.toInvariantId))
+    .map((e) => ({ id: e.id, from: e.fromInvariantId, to: e.toInvariantId, type: e.edgeType, weight: e.weight }));
+  const nodes = invariants.map((i) => ({
+    id: i.id,
+    seedId: i.seedId,
+    namespace: i.namespace,
+    semanticType: i.semanticType,
+    status: i.status,
+    standing: i.standing,
+    reach: i.reach,
+    label: i.seedId ?? i.id,
+    statement: i.statement,
+  }));
+  return {
+    ok: true,
+    view: 'field' as const,
+    generatedAt: new Date().toISOString(),
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+    capped: nodes.length >= MAX_FIELD_NODES,
+    nodes,
+    edges,
+  };
+}
 
 export async function GET(request: NextRequest) {
   const persona = await getActivePersona(request);
@@ -26,6 +72,17 @@ export async function GET(request: NextRequest) {
   }
 
   const params = request.nextUrl.searchParams;
+
+  // Whole-field overview (Observatory Graph perspective) — no root required.
+  if (params.get('view') === 'field') {
+    try {
+      return NextResponse.json(await fieldOverview());
+    } catch (error) {
+      console.error('[api/invariants/graph] field overview failed', error);
+      return NextResponse.json({ ok: false, error: 'field_overview_failed' }, { status: 500 });
+    }
+  }
+
   const roots = (params.get('root') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   if (roots.length === 0) {
     return NextResponse.json({ error: 'root is required (invariant id[,id...])' }, { status: 400 });
