@@ -2800,6 +2800,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.6 },
     { id: 'order',        label: 'KNYT',             icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
     { id: 'agentz',       label: 'aigentZ',          icon: 'Cpu',        order: 0.8, activationId: 'aigent-z' },
+    { id: 'research',     label: 'Research',         icon: 'FlaskConical', order: 0.85, activationId: 'researcher' },
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
@@ -3342,6 +3343,23 @@ export const METAME_CODEX: CodexConfig = {
         },
       },
       metadata: { icon: 'History', description: 'Dev loop session history — placeholder until Phase 2 session persistence', color: 'green' },
+    },
+
+    // ── research group (first-class, activation-gated) ───────────────────────
+    // The Research Copilot as a top-level metaMe menu item — the researcher
+    // pathway's peer to the aigentZ Command Center. Gated by the 'researcher'
+    // activation (Sovereignty T1, same tier + entitlement as aigentZ). Feeds
+    // the gated internal Research Copilot; IRL OS carries the public edition.
+    {
+      id: 'metame-research-copilot',
+      label: 'Research Copilot',
+      slug: 'irl-research-copilot',
+      enabled: true,
+      group: 'research',
+      order: 0,
+      type: 'static',
+      config: { component: 'IRLResearchCopilotTab', props: {} },
+      metadata: { icon: 'FlaskConical', description: 'IRL Research Copilot — invariant substrate, experiments, and validation workflow', color: 'violet' },
     },
 
     // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
@@ -4751,6 +4769,11 @@ export const IRL_CARTRIDGE: CodexConfig = {
       group: 'institution',
       order: 0.5,
       type: 'static',
+      // Ungated inside the internal research-lab workspace (the institution's
+      // own surface). The PAID researcher-pathway route to this same copilot is
+      // the metaMe 'research' group, gated by the 'researcher' activation
+      // (Sovereignty T1) — peer to the aigentZ developer copilot. IRL OS carries
+      // the free public instruments (Dashboard/Field/Registry) instead.
       config: { component: 'IRLResearchCopilotTab', props: {} },
       metadata: { icon: 'FlaskConical', description: 'aigentZ narrates the live lab state — DCIR-conforming, narrate-only (research proposal kinds are C2.1, CFS-019)', color: 'violet' },
     },

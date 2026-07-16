@@ -44,7 +44,7 @@ import type { ExperienceModelCardData } from "@/components/metame/cards/Experien
 // Types — mirror the route's accepted body fields.
 // ─────────────────────────────────────────────────────────────────────────
 
-type OperatorArchetype = "citizen" | "entrepreneurial" | "technical" | "creative";
+type OperatorArchetype = "citizen" | "entrepreneurial" | "technical" | "creative" | "research";
 
 type ExperienceType =
   | "personal"
@@ -102,6 +102,7 @@ const OPERATOR_ARCHETYPES: Array<{ value: OperatorArchetype; label: string; hint
   { value: "technical",       label: "Technical",       hint: "Protocol contribution, tooling, infrastructure, or development" },
   { value: "creative",        label: "Creative",        hint: "Editorial, media, IP development, cultural contribution" },
   { value: "citizen",         label: "Citizen",         hint: "Sovereignty journey, identity, governance participation" },
+  { value: "research",        label: "Researcher",      hint: "Invariant Intelligence research, experiments, validation, publications" },
 ];
 
 /** Archetype → sensible experienceType default. Overrideable by the operator. */
@@ -110,6 +111,7 @@ const ARCHETYPE_DEFAULT_TYPE: Record<OperatorArchetype, ExperienceType> = {
   technical:       "venture_building",
   creative:        "creative",
   citizen:         "personal",
+  research:        "personal",
 };
 
 const EXPERIENCE_TYPES: Array<{ value: ExperienceType; label: string; hint: string }> = [

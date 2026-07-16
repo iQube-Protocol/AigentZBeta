@@ -40,6 +40,7 @@ const ARCHETYPE_DOMAINS: Record<OperatorArchetype, string[]> = {
   technical: ['professional', 'education', 'publications', 'validation', 'extraordinary_ability'],
   creative: ['media', 'publications', 'speaking', 'recognition'],
   citizen: ['identity', 'validation', 'recognition', 'professional'],
+  research: ['publications', 'education', 'validation', 'recognition', 'professional'],
 };
 
 export const ARCHETYPE_PATHWAYS = Object.keys(ARCHETYPE_DOMAINS) as OperatorArchetype[];

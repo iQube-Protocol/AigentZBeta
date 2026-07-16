@@ -68,7 +68,7 @@ export interface ActivationAction {
   /** One-line rationale displayed on the action card. */
   rationale: string;
   /** Which specialist takes the hand-off (when present). */
-  specialist?: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
+  specialist?: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto' | 'researcher';
   /** Approval required before queueing. */
   approvalRequired?: boolean;
 }
@@ -190,6 +190,31 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     actions: [
       { action: 'start-dev-intent',   label: 'Start a development intent', rationale: 'aigentZ distills what you want to build into structured intent with users, constraints, and success criteria.', specialist: 'aigent-z' },
       { action: 'validate-build',     label: 'Validate a build',           rationale: 'Run the post-prompt consequence validation against the active canvas.', specialist: 'aigent-z', approvalRequired: true },
+    ],
+  },
+  {
+    id: 'researcher',
+    label: 'Research Copilot',
+    description: 'Invariant Intelligence research — experiments, invariant fields, and validation with the Research Copilot.',
+    longDescription:
+      'Activate the Research Copilot — the researcher pathway\'s peer to the aigentZ developer copilot. Query the invariant substrate, run experiments against pre-registered protocols, project invariant-field counterfactuals, and contribute validated results into the constitutional record, with the Research Copilot as your guide through the full research loop. Requires Sovereignty (Tier 1) or above.',
+    gate: 'gated',
+    tabSlug: 'irl-research-copilot',
+    sourceCartridge: 'metame',
+    icon: 'FlaskConical',
+    color: 'violet',
+    metrics: [
+      // Activity — research loop motion
+      { metric: 'invariants_queried',   class: 'activity', label: 'Invariants queried',   defaultUnit: 'queries',       query: { kind: 'receipts', eventType: 'research.invariant.queried' } },
+      { metric: 'experiments_run',      class: 'activity', label: 'Experiments run',      defaultUnit: 'experiments',   query: { kind: 'receipts', eventType: 'research.experiment.run' } },
+      { metric: 'counterfactuals_projected', class: 'activity', label: 'Counterfactuals projected', defaultUnit: 'projections', query: { kind: 'receipts', eventType: 'research.counterfactual.projected' } },
+      // Outcome — validated contributions to the record
+      { metric: 'results_published',    class: 'outcome',  label: 'Results published',    defaultUnit: 'results',       query: { kind: 'receipts', eventType: 'research.result.published' } },
+      { metric: 'invariants_validated', class: 'outcome',  label: 'Invariants validated', defaultUnit: 'invariants',    query: { kind: 'receipts', eventType: 'research.invariant.validated' } },
+    ],
+    actions: [
+      { action: 'query-invariant-field', label: 'Query the invariant field', rationale: 'The Research Copilot surfaces the invariant substrate and projects counterfactuals for a research question.', specialist: 'researcher' },
+      { action: 'publish-result',        label: 'Publish a validated result', rationale: 'Move a pre-registered experiment result into the published constitutional record.', specialist: 'researcher', approvalRequired: true },
     ],
   },
   {
