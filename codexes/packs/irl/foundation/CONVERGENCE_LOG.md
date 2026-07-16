@@ -90,15 +90,40 @@ what was found → where both are recorded → what, if anything, changed as a r
   the operator's distinction is a FUNCTION axis, inv.085's an ORIGIN axis — mapped through the
   CFS-019 layers, never silently equated.
 
+## Entry 005 — Invariants compress reasoning, and the compression lives in the substrate
+
+- **First direction:** the ratified canon, from the earliest specs — CFS-000 §1 (the three
+  compressions: reasoning / experience / capability — "Reasoning is expensive; its products should
+  be reusable"), CFS-008 (the whole spec: "preserving validated reasoning so that it need not be
+  repeatedly rediscovered"; canonical invariants as "pre-paid reasoning"), and `inv.epistemology.133`
+  (reasoning from a reused invariant "is not a shortcut relative to reasoning that regenerates it").
+- **Second direction:** the 2026-07-18 dialogue (hydrogen/valence, personhood/voting). Under the
+  external reviewer's "isn't this just context engineering?" pressure, the operator and Aletheon
+  re-derived that the claim is **reasoning compression, not knowledge compression**, and — the
+  sharper move — that the compression **resides in the structural substrate**, having happened once
+  at discovery/validation; the runtime reuses and orchestrates it, it does not create it. Aletheon
+  initially believed this was a breakthrough, then on reflection identified it as already-ratified
+  ("that was already part of the Institute's thinking"). The operator: *"this was the foundational
+  insight for me from the earliest days."*
+- **Both recorded in:** CFS-000 §1 + CFS-008 + `inv.epistemology.133` (originals); the CFS-019
+  "three functions of Invariant Intelligence" amendment (2026-07-18) and the minimal-sufficiency
+  probe added to EXP-010 §7B (the re-derivation + the one genuine extension); this log.
+- **What changed as a result:** nothing in the ontology — the reasoning-compression claim and its
+  locus were both already ratified (the latter on 2026-07-17, Entry 004). What was added is a
+  three-function *lens* (compression = substrate / orchestration = intent-projection / governance =
+  runtime) and a new experimental design (minimal-sufficiency ablation, EXP-010 §7B). This entry's
+  value is the convergence itself: a claim independently re-derived under adversarial pressure, then
+  traced back to the founding specs, is a claim the programme can hold with more confidence.
+
 ---
 
 ## Honest limits
 
-- Two entries, both from the same week's dialogue. This log does not yet demonstrate a pattern
-  across independent AUTHORS or independent TIME HORIZONS — both entries involve the same
-  operator + Aletheon pairing, days apart, which is a weaker form of independence than, say, a
-  third party rediscovering the same structure with no access to this codebase at all.
-  Convergence strength should be read accordingly: suggestive, not yet strong evidence.
+- Five entries so far, all stemming from the same operator + Aletheon pairing within a short window
+  (2026-07-16 to 07-18). This log does not yet demonstrate a pattern across independent AUTHORS or
+  independent TIME HORIZONS — a weaker form of independence than, say, a third party rediscovering
+  the same structure with no access to this codebase at all. Convergence strength should be read
+  accordingly: suggestive, not yet strong evidence.
 - This log records rediscovery of DEFINITIONS and ANALOGIES, not empirical results. It should not
   be confused with `EXP-nnn` replication (CFS-019's lifecycle definition of "replicated" — ≥2
   distinct providers producing the same experimental result) — that is a much stronger claim than
