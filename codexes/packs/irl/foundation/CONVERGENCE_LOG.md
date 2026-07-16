@@ -117,9 +117,31 @@ what was found → where both are recorded → what, if anything, changed as a r
 
 ---
 
+## Entry 006 — "Projection": every consequential decision is a projection of the constitutional field
+
+- **First direction:** the ratified canon — CRP-002 (intent as a **projection operator** onto the
+  minimal governing invariant set), IRL-011 §6.3 (`K*`, "the object the entire discipline
+  optimizes"), and the 2026-07-18 CFS-019 three-functions amendment (orchestration = projection).
+- **Second direction:** the 2026-07-18 three-way architecture round (operator × Aletheon × Claude)
+  on making the whole platform invariant-intelligent. Claude observed that the platform's embedded
+  heuristics (magic numbers, thresholds, branches, ordering) are **uncaptured compressed reasoning**;
+  Aletheon independently named the unifying rule — *"every consequential decision should be a
+  projection of the constitutional field, not an isolated heuristic"* — and reached for the word
+  **projection** without reference to CRP-002. Three independent parties converged on "projection" as
+  the governing verb for decisions, the same term already ratified for intent→invariant-set.
+- **Recorded in:** CRP-002 + IRL-011 §6.3 + CFS-019 (originals); **CFS-035 The Invariant Engine**
+  (the charter that operationalizes it — the governing law, the four faces, the node schema); this log.
+- **What changed as a result:** nothing in the ontology — "projection" was already the ratified term.
+  What was added is the *engine* that makes every decision a projection in practice (CFS-035), and the
+  recognition that "Constitutional Projection" (Aletheon's name for replacing heuristics) is the same
+  projection operator applied to decisions rather than to prompts. The convergence strengthens the
+  choice of "projection" as load-bearing platform vocabulary.
+
+---
+
 ## Honest limits
 
-- Five entries so far, all stemming from the same operator + Aletheon pairing within a short window
+- Six entries so far, all stemming from the same operator + Aletheon (+ Claude) pairing within a short window
   (2026-07-16 to 07-18). This log does not yet demonstrate a pattern across independent AUTHORS or
   independent TIME HORIZONS — a weaker form of independence than, say, a third party rediscovering
   the same structure with no access to this codebase at all. Convergence strength should be read
