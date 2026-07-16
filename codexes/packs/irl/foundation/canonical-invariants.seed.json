@@ -2381,6 +2381,17 @@
    "provenance": {
     "source": "CFS-035 §4 (Experience face) + §7 (Invariant Lenses) — implemented as services/invariants/experience.ts and adopted on the discovery-ranking node (2026-07-18). The lens is a projection PARAMETER (per-dimension bias applied on top of standing weights), so per-pathway rendering never forks the field. The specific bias values are declared v0 parameters (candidates for a future inv.lens.* derivation), the same status as node dimension weights."
    }
+  },
+  {
+   "id": "inv.reasoning.158",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "Perception (the Field Extractor): the active region of the constitutional field can be ESTIMATED from an arbitrary input — which invariants that input activates — so grounding may be derived from raw content rather than a hand-specified context. Perception is the layer that precedes projection; a cheap deterministic estimator precedes the inference-heavy (semantic) version, and neither replaces an explicit context, they supply one when none is given.",
+   "status": "proposed",
+   "contexts": ["invariant-intelligence", "reasoning-compression"],
+   "provenance": {
+    "source": "CFS-035 §6 (cognitive layer 1) / §9 — implemented as services/invariants/perception.ts (v0 keyword-heuristic extractField + groundFromInput). Proposed, not validated: this is the newest, least-proven layer; the v0 is a deterministic term-overlap estimator, and the semantic/embedding version is the Gen-3 follow-on the seam is designed to accept as a drop-in. Guarded against over-investment per the plan."
+   }
   }
  ]
 }
