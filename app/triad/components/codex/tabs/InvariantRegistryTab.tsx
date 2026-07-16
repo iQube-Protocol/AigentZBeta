@@ -47,7 +47,16 @@ const VIEW_TABS: { id: BrowserView; label: string; icon: React.ComponentType<{ c
 
 const PAGE_SIZE = 24;
 
-export function InvariantRegistryTab() {
+/**
+ * publicMode (IRL OS, CFS-033 §8): anonymous-safe read-only variant. Fetches
+ * the Browse list from the PUBLIC route (`/api/public/irl/invariants`, no
+ * token) instead of the spine-gated `/api/invariants`, restricts the surface
+ * to the Browse view (the Overview/Ontology/Graph sub-views hit spine-gated
+ * routes not yet given public projections), and disables the detail modal
+ * (which fetches the gated per-id route). The internal cartridge's tab
+ * (publicMode omitted) is byte-for-byte unchanged.
+ */
+export function InvariantRegistryTab({ publicMode = false }: { publicMode?: boolean } = {}) {
   const [view, setView] = useState<BrowserView>("browse");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -80,7 +89,11 @@ export function InvariantRegistryTab() {
       if (status) params.set("status", status);
       if (ontologyClassId) params.set("ontology", ontologyClassId);
       if (search) params.set("q", search);
-      const res = await personaFetch(`/api/invariants?${params.toString()}`, { cache: "no-store" });
+      // Public read: plain fetch at the anonymous public route (no token).
+      // Internal: spine-gated personaFetch, unchanged.
+      const res = publicMode
+        ? await fetch(`/api/public/irl/invariants?${params.toString()}`, { cache: "no-store" })
+        : await personaFetch(`/api/invariants?${params.toString()}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load invariants");
       setRows(data.invariants as InvariantRow[]);
@@ -90,7 +103,7 @@ export function InvariantRegistryTab() {
     } finally {
       setLoading(false);
     }
-  }, [namespace, status, ontologyClassId, search]);
+  }, [namespace, status, ontologyClassId, search, publicMode]);
 
   // Only fetch the browse list while the Browse view is active.
   useEffect(() => {
@@ -140,8 +153,9 @@ export function InvariantRegistryTab() {
         </p>
       </div>
 
-      {/* View switcher */}
-      <div className="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/50 p-1 w-fit">
+      {/* View switcher — Browse only in public mode (other views need
+          spine-gated routes not yet given public projections). */}
+      <div className={`flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/50 p-1 w-fit ${publicMode ? "hidden" : ""}`}>
         {VIEW_TABS.map((t) => {
           const Icon = t.icon;
           return (
@@ -345,7 +359,7 @@ export function InvariantRegistryTab() {
         </>
       )}
 
-      {selectedId && (
+      {selectedId && !publicMode && (
         <InvariantDetailModal invariantId={selectedId} onClose={() => setSelectedId(null)} />
       )}
     </div>

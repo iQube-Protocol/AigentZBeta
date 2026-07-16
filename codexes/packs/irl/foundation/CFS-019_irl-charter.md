@@ -130,6 +130,13 @@ the metaMe Invariant Research Lab** (short: **metaMe IRL** / **IRL**), ratified 
 direction. This supersedes the earlier proposed external banner "The Invariant Intelligence
 Research Institute."
 
+**Confirmed CLOSED (operator direction 2026-07-17):** "The Invariant Intelligence Research
+Institute" is retired as a candidate — it is not the institution's name and is not a pending
+option. The names now stand settled at two levels: the **institution** is **metaMe IRL**; its
+**open, public-facing edition** (the AgentiQ → AgentiQ OS pattern) is **IRL OS** (the cartridge
+shipped 2026-07-16, slug `irl-os`). Any lingering "pending external banner" language elsewhere
+(e.g. an earlier CFS-033 §8 note) is superseded by this closure.
+
 **The founding name "CCRL" / "Constitutional Cybernetics Research Laboratory" is SUPERSEDED
 (operator direction 2026-07-13): the institution is the Invariant Research Laboratory (IRL).**
 "Constitutional Cybernetics" is RETAINED as the *discipline name* for Layer III of its work
