@@ -200,3 +200,54 @@ export function runShadow<TInput, TItem>(
     return null; // observe-mode never degrades the surface
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Scalar value projections — for nodes whose decision is a VALUE (a weight,
+// threshold, or score), not a ranking. Covers the magic-number / threshold
+// forms of compressed reasoning (CFS-035 §2) — e.g. the Standing composite.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface ValueProjection {
+  nodeId: string;
+  /** The projected scalar (e.g. the standing composite). */
+  value: number;
+  /** Dimensional breakdown behind the value (the receipt "why"). */
+  projection: Record<string, number>;
+  citedIds: string[];
+  lens?: string;
+}
+
+export interface ValueShadowComparison {
+  nodeId: string;
+  incumbent: number;
+  projected: number;
+  delta: number;
+  citedIds: string[];
+}
+
+/**
+ * Run a value-projection node in SHADOW against an incumbent scalar. Emits the
+ * delta; the caller ALWAYS keeps the incumbent value. Observe-only; never throws.
+ */
+export function runValueShadow(
+  incumbentValue: number,
+  projection: ValueProjection,
+): ValueShadowComparison | null {
+  try {
+    const cmp: ValueShadowComparison = {
+      nodeId: projection.nodeId,
+      incumbent: incumbentValue,
+      projected: projection.value,
+      delta: projection.value - incumbentValue,
+      citedIds: projection.citedIds,
+    };
+    // eslint-disable-next-line no-console
+    console.log(
+      `[INVARIANT-SHADOW] node=${cmp.nodeId} valueDelta=${cmp.delta.toFixed(4)} ` +
+        `incumbent=${cmp.incumbent.toFixed(2)} projected=${cmp.projected.toFixed(2)} cited=${cmp.citedIds.length}`,
+    );
+    return cmp;
+  } catch {
+    return null;
+  }
+}
