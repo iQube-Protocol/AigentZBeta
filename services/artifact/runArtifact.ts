@@ -59,10 +59,11 @@
  * The runtime is now invariant-AWARE: every non-disposable run resolves the
  * canonical invariants that ground the production —
  *   1. CONSUMED from the composition when present (`input.result.grounded
- *      .invariantIds` — composeArtifact already grounds via buildInvariantSlice;
- *      zero new I/O, compose-never-fork), else
- *   2. resolved LIVE via `buildInvariantSlice` scoped to the profile's
- *      namespaces (best-effort, read-only; an outage never blocks production).
+ *      .invariantIds` — composeArtifact already grounds through the engine's
+ *      Reasoning face; zero new I/O, compose-never-fork), else
+ *   2. resolved LIVE via `groundReasoning` (CFS-035 Phase 1) scoped to the
+ *      profile's namespaces (best-effort, read-only; an outage never blocks
+ *      production).
  * The cited ids ride the result (`groundingOf(result)`), the constitutional
  * object (payload + authority.governingInvariants), and — via the record
  * seams — `artifact_records.cited_invariant_ids`. Consequential runs
