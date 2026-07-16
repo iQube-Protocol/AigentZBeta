@@ -2392,6 +2392,17 @@
    "provenance": {
     "source": "CFS-035 §6 (cognitive layer 1) / §9 — implemented as services/invariants/perception.ts (v0 keyword-heuristic extractField + groundFromInput). Proposed, not validated: this is the newest, least-proven layer; the v0 is a deterministic term-overlap estimator, and the semantic/embedding version is the Gen-3 follow-on the seam is designed to accept as a drop-in. Guarded against over-investment per the plan."
    }
+  },
+  {
+   "id": "inv.cybernetics.159",
+   "namespace": "cybernetics",
+   "semantic_type": "principle",
+   "statement": "The Evolution face closes the engine's cybernetic loop: a SERVED constitutional projection accrues Reach to its governing invariants (adoption, Law XII — usage, never standing), and persisted shadow observations accumulate into ratification candidates that the operator validates (evidence → standing). Standing then derives future projection weights, so the runtime learns: action → evidence → standing → projection → action. Reach accrual is automatic; standing/validation is operator-gated and never automatic.",
+   "status": "validated",
+   "contexts": ["invariant-intelligence", "cybernetics"],
+   "provenance": {
+    "source": "CFS-035 §4 (Evolution face) giving concrete engine form to CFS-031 (the Constitutional Cybernetic Loop). Implemented 2026-07-18: the capsules route cites a served discovery projection's invariants (fire-and-forget Reach accrual), and the Observatory computes per-node ratification candidates from persisted observation stability (services/invariants/observationStore.ts + /api/invariants/observatory). Validated, not fully proven: the automatic Reach half + the reflection surface are real; the outcome-measured standing half (CTR/selection → validation) is gated on outcome instrumentation — a named follow-on. Composes with inv.constitutional.145 (standing = operational confidence) and the Law XII standing canon."
+   }
   }
  ]
 }

@@ -7,6 +7,7 @@ import type { RuntimeCapsuleAssetRef, RuntimeCapsuleRecord, RuntimeCapsulesRespo
 import { runShadow } from "@/services/invariants/engine";
 import { discoveryRankingProjector, getDiscoveryFieldSnapshot, DISCOVERY_RANKING_NODE_ID } from "@/services/invariants/nodes/discoveryRanking";
 import { isNodeAuthoritativeCached } from "@/services/invariants/flipStore";
+import { citeInvariants } from "@/services/invariants/grounding";
 import fallbackContent from "@/qriptopian-content-export.json";
 
 export const runtime = "nodejs";
@@ -619,7 +620,12 @@ export async function GET(request: NextRequest) {
       // authoritative. Cached (30s TTL) + fail-faithful, so the hot path stays fast
       // and defaults to the incumbent on any error.
       if (await isNodeAuthoritativeCached(DISCOVERY_RANKING_NODE_ID)) {
-        served = discoveryRankingProjector({ capsules: deduped, prompt, intent }, discoverySnapshot).ranked.slice(0, limit);
+        const projection = discoveryRankingProjector({ capsules: deduped, prompt, intent }, discoverySnapshot);
+        served = projection.ranked.slice(0, limit);
+        // CFS-035 §4 Evolution — a SERVED projection accrues Reach to its governing
+        // invariants (Law XII adoption; usage, never standing). Fire-and-forget so
+        // the hot path is never blocked; closes the cybernetic loop in code.
+        if (projection.citedIds.length) void citeInvariants(projection.citedIds).catch(() => {});
       }
     }
 

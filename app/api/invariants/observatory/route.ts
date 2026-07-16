@@ -51,11 +51,27 @@ export async function GET(req: NextRequest): Promise<Response> {
   const observations = allObservations();
   const history = await getObservationHistory().catch(() => ({ total: 0, byNode: [] as NodeObservationRollup[], persistenceAvailable: false }));
   const historyByNode = new Map(history.byNode.map((h) => [h.nodeId, h] as const));
-  const nodeView = nodes.map((n) => ({
-    ...n,
-    lastObservation: observations[n.id] ?? null,
-    history: historyByNode.get(n.id) ?? null,
-  }));
+  // Evolution reflection (CFS-035 §4): a node becomes a RATIFICATION CANDIDATE
+  // once it has accumulated enough persisted observations AND shows stable
+  // divergence from the incumbent (rank agreement < 1, or a non-zero value delta).
+  // This is the reflection step — the operator ratifies (validates invariants /
+  // flips) from evidence, never automatically.
+  const EVOLUTION_MIN_OBS = 20;
+  const evolutionCandidate = (h: NodeObservationRollup | null): boolean => {
+    if (!h || h.count < EVOLUTION_MIN_OBS) return false;
+    if (h.meanRankAgreement !== null) return h.meanRankAgreement < 0.999;
+    if (h.meanAbsValueDelta !== null) return h.meanAbsValueDelta > 1e-6;
+    return false;
+  };
+  const nodeView = nodes.map((n) => {
+    const h = historyByNode.get(n.id) ?? null;
+    return {
+      ...n,
+      lastObservation: observations[n.id] ?? null,
+      history: h,
+      evolutionCandidate: evolutionCandidate(h),
+    };
+  });
 
   // ── Field summary + namespace rollup (the constitutional field's state) ──────
   let canonVersion: string | null = null;
@@ -150,6 +166,9 @@ export async function GET(req: NextRequest): Promise<Response> {
     // Durable observation history (null-safe): total sampled + whether persistence is live.
     persistedObservations: history.total,
     persistenceAvailable: history.persistenceAvailable,
+    // Evolution reflection: nodes with enough stable-divergence evidence to warrant
+    // operator ratification (validate invariants / flip). Evidence, never automatic.
+    evolutionCandidates: nodeView.filter((n) => n.evolutionCandidate).length,
     // Grounded provenance: receipts that cited an invariant (null = unmeasured).
     groundedReceiptCount,
   };
