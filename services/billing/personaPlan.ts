@@ -100,6 +100,11 @@ export interface PersonaPlan {
    * DevOn/AigentZ lite access — developers can incubate projects before
    * entering the Founder Office, then graduate them as ventures when ready.
    * Full DevOn operational access is Founder Office (venture_tier != none).
+   *
+   * The Sovereignty tier grants the same flag to the RESEARCHER pathway's
+   * Research Copilot (IRL) — the `researcher` activation gate reuses this
+   * entitlement, so the researcher is the peer of the developer pathway at
+   * this tier (see services/activations/activationPlanGate.ts).
    */
   aigentzLiteAccess: boolean;
   /**

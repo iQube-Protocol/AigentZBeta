@@ -46,7 +46,9 @@ tier, exactly as directed.
 
 | File | Change |
 |---|---|
-| `data/codex-configs.ts` (metaMe cartridge) | new `research` tab **group** (`activationId: 'researcher'`, `FlaskConical` icon, order 0.85 — right after `agentz`) + a gated `Research Copilot` tab (`metame-research-copilot`, slug `irl-research-copilot`, component `IRLResearchCopilotTab`). This is the paid route peer to the aigentZ `Command Center` tab in the `agentz` group. |
+| `data/codex-configs.ts` (metaMe cartridge) | new `research` tab **group** (`activationId: 'researcher'`, `FlaskConical` icon, order 0.85 — right after `agentz`) + a gated `Research Copilot` tab (`metame-research-copilot`, slug `irl-research-copilot`, component `IRLResearchCopilotTab`). This is the paid route peer to the aigentZ `Command Center` tab in the `agentz` group. Group visibility auto-gates on the `researcher` activation via the generic check in `CodexPanelDynamic` — no per-cartridge code. |
+| `components/metame/billing/CitizenLadderModal.tsx` | new `Research Copilot (IRL)` FeatureRow in the tier-comparison table, directly under `DevOn (aigentZ)` — unlocked at Sovereignty (b) and Stewardship (c), locked on Free (a). This is the one user-facing subscription surface that maps the developer copilot to a tier; the Research Copilot now sits beside it at the same tier. |
+| `services/billing/personaPlan.ts` | doc comment on `aigentzLiteAccess` now records that the Sovereignty tier grants the same flag to the researcher pathway's Research Copilot. |
 
 The internal `irl-cartridge` ("metaMe IRL — Research Laboratory") Research Copilot tab is
 left **ungated** — that cartridge is the institution's own workspace, and tab-level
@@ -73,13 +75,33 @@ this paid tier rather than shipping it free.
 
 ---
 
+## What was audited and deliberately NOT changed
+
+- **Founder Office does not route archetypes.** `FounderOfficeTab` enumerates venture paths
+  (`discover | validate | architect`) and venture-execution agents (`VentureAgentConsumer`),
+  not operator archetypes — so it needs no archetype change. The archetype "route into the
+  runtime" is the metaMe menu group (already wired).
+- **Archetype consumers are pass-through.** Every `operatorArchetype` reader outside the three
+  pathway-axis files (`nbeLlmRerank`, `briefBuilder`, the experience-model + standing routes)
+  forwards the value without per-archetype branching, so they handle `research` automatically.
+- **No other archetype-card surface.** The setup wizard's `OPERATOR_ARCHETYPES` is the only
+  archetype-cards UI; `ExperienceModelCard` renders experienceType, not archetype.
+
 ## Open follow-ons (flagged, not built)
 
 1. **Distinct Researcher tier/price** — currently reuses `sovereign_citizen`. A separate
-   purchasable tier is a product decision for the operator.
+   purchasable tier is a product decision for the operator (one-row change to
+   `ACTIVATION_PLAN_GATE.researcher` + `requiredTier`).
 2. **Researcher write access** — `/api/research/objects` writes are admin-gated today; loosening
    to the `researcher` entitlement (so paid researchers can persist results) is a deferred,
    separate change with its own gate review.
-3. **FO pathway selector** — if the Founder Office onboarding surface enumerates the pathways as
-   selectable routes, the Researcher card should be added there to match. (Pending a surface
-   audit.)
+3. **Research Copilot as a roster specialist** — the developer copilot `aigent-z` is also a
+   first-class `SpecialistId` in the aigentMe specialist roster (`specialistRouter.ts` /
+   `specialistRecommender.ts`). Adding a `researcher` specialist would let aigentMe recommend and
+   hand off to the Research Copilot, but it requires a real backing persona definition (system
+   prompt, personality, request type) — a new agent, not just wiring. Deliberately deferred so
+   the roster never surfaces a half-wired "consult Research Copilot" option; the Research Copilot
+   ships as a complete dedicated tab, matching how the aigentZ Command Center is its own tab.
+4. **FounderOffice `VentureAgentConsumer`** — optionally add the Research Copilot as a blueprint
+   hand-off target if researchers should be a venture delegation destination. Not required for the
+   pathway/subscription alignment.
