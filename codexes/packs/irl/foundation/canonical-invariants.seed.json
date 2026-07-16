@@ -2205,14 +2205,14 @@
    "id": "inv.epistemology.144",
    "namespace": "epistemology",
    "semantic_type": "definition",
-   "statement": "The structural relationships a structural invariant captures are properties of reality — their truth is independent of any system's use (Pythagoras' theorem does not become more true through use). Constitutional invariants are properties of the systems that reason about reality — they govern justified reliance, not truth. The first is the science of Invariant Intelligence; the second is the engineering of Constitutional Computing; where they meet is the operationalization of truth.",
+   "statement": "Structural invariants are anchored in reality: a structural invariant is a real regularity of the world (gravity, the Pythagorean relation) that holds independently of any observer, computation, or representation. An intelligent system — natural or synthetic — most often reasons about a structural invariant not directly but through a representation (physics, mathematics, code): the representation is the proxy interface, the invariant is the reality it is anchored in. Constitutional invariants, by contrast, are properties of the systems that reason about reality — they govern justified reliance, not truth. The first is the science of Invariant Intelligence; the second is the engineering of Constitutional Computing; where they meet is the operationalization of truth.",
    "status": "canonical",
    "contexts": [
     "invariant-intelligence",
     "ontology"
    ],
    "provenance": {
-    "source": "CRP-002 §0.7 (2026-07-18) — operator-ratified. The clean object-of-discovery vs mechanism-of-use separation. Consistent with inv.reasoning.085 / inv.constitutional.126 (natural/discovered vs constitutional/ratified families) and inv.reasoning.142 (the invariant is not its representation): what is a property of reality is what the invariant CAPTURES, carried by a substrate-constrained representation. Definitional canon."
+    "source": "CRP-002 §0.7 (2026-07-18) — operator-ratified. The clean object-of-discovery vs mechanism-of-use separation, un-hedged after the Representation stratum (§0.8) made it safe to say the invariant IS the real regularity (gravity example): humans experience gravity directly and reason about it through representations; the invariant is anchored in reality. Reconciled with inv.epistemology.139: 139's 'persistent representation of previously validated reasoning' is the HELD, reusable form a system carries — not the invariant itself, which is the real regularity. Distinguishes three things one word 'representation' could blur: the real regularity (this, 144), the held form (139), the interface (142/147). Consistent with inv.reasoning.085 / inv.constitutional.126. Definitional canon."
    }
   },
   {
@@ -2273,6 +2273,21 @@
    ],
    "provenance": {
     "source": "CRP-002 §0.8 (2026-07-18) — operator-ratified. Generalizes the representation-independence claim beyond LLMs: explains LLM spatial-reasoning gaps, human high-dimensional-mathematics limits, and the emergence of world models as architecture limits, never invariant limits. Answers Austin's agent's 'everything reaches the LLM as tokens' — true of the implementation, not the theory. Sharpens inv.reasoning.142 ('the representation is constrained by the computational substrate; the invariant is not') by naming the architecture's reasoning capability, not only its representational form."
+   }
+  },
+  {
+   "id": "inv.epistemology.149",
+   "namespace": "epistemology",
+   "semantic_type": "principle",
+   "statement": "Operational truth vs absolute truth: the three strata (structural, representation, constitutional) are themselves invariant FIELDS, and in an absolute sense these fields overlap at their boundaries — where one ends and another begins is a matter of magnification and perspective. The Institute's separations are OPERATIONAL truths: sufficient and sharp at the working magnification, not claims of absolute, non-overlapping boundaries. The definitions hold operationally, which is what the discipline requires; absolute cleanliness is neither claimed nor needed.",
+   "status": "canonical",
+   "contexts": [
+    "invariant-intelligence",
+    "epistemology",
+    "composition"
+   ],
+   "provenance": {
+    "source": "CRP-002 §0.8 (2026-07-18) — operator-ratified. The epistemic-register caveat on the whole architecture: the strata (and invariant fields generally, inv.reasoning.081/082) are operationally separable, not absolutely disjoint — the fields overlap by magnification/perspective. Names the OPERATIONAL-vs-ABSOLUTE truth register the discipline works in — the same register standing operates in (inv.constitutional.145, standing = operational confidence). Contextualizes 082's 'independent (verifiable in isolation)' as an operational abstraction, not an absolute-disjointness claim. Protects the doctrine against a false precision the clean diagrams could imply."
    }
   }
  ]

@@ -223,6 +223,15 @@ what was found → where both are recorded → what, if anything, changed as a r
   with CFS-019's Layer I/II/III governance-axis, the structural/constitutional function axis, or
   `inv.reasoning.085`'s natural/constitutional origin axis (the CFS-019 axis-precision rule, binding).
 - **Recorded in:** CRP-002 §0.8 (+ the 2026-07-18 supporting amendment); this log.
+- **Addendum (same dialogue):** two refinements followed. (a) The gravity example resolved an earlier
+  hedge — with the Representation stratum sharp, `inv.epistemology.144` was un-hedged from "the
+  relationships an invariant *captures* are properties of reality" to the direct claim that a structural
+  invariant *is* a real regularity anchored in reality (gravity), which systems reason about *through*
+  representations; reconciled with `inv.epistemology.139` (139's "persistent representation" is the
+  held reusable form, not the invariant itself). (b) An epistemic-register caveat: the three strata are
+  themselves fields that overlap absolutely — the separations are **operational truths** (sharp at the
+  working magnification), not absolute non-overlapping boundaries → `inv.epistemology.149`. Both guard
+  against a false precision the clean architecture could otherwise imply.
 
 ---
 
