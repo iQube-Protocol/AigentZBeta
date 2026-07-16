@@ -41,7 +41,7 @@ export const DISCOVERY_RANKING_NODE_ID = 'discovery.ranking';
  * only surfaces canonical/validated invariants, so a not-yet-ingested seed
  * leaves the projection faithful automatically.
  */
-const DIMENSION_INVARIANT_SEED: Record<'importance' | 'novelty' | 'trust' | 'need', string> = {
+export const DIMENSION_INVARIANT_SEED: Record<'importance' | 'novelty' | 'trust' | 'need', string> = {
   importance: 'inv.reasoning.134', // "explicitly published/consequential content is important"
   novelty: 'inv.reasoning.135', // "new-to-this-operator surfacing"
   trust: 'inv.reasoning.136', // "published/curated provenance outranks catalogue"
@@ -55,7 +55,7 @@ const DIMENSION_INVARIANT_SEED: Record<'importance' | 'novelty' | 'trust' | 'nee
  * overall score scale). Returns all-1 (faithful) when no snapshot is supplied or
  * no discovery invariant has positive standing yet.
  */
-function deriveDimensionWeights(
+export function deriveDimensionWeights(
   snapshot?: FieldSnapshot | null,
 ): Record<'importance' | 'novelty' | 'trust' | 'need', number> {
   const dims = ['importance', 'novelty', 'trust', 'need'] as const;
