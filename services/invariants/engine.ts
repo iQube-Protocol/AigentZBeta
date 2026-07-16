@@ -21,6 +21,7 @@
  */
 
 import { buildInvariantSlice, type GroundingContext, type InvariantSlice } from './grounding';
+import { persistObservation } from './observationStore';
 
 // ─────────────────────────────────────────────────────────────────────────
 // The Field Snapshot — one per intent/request; the shared interface (CFS-035 §5).
@@ -245,6 +246,10 @@ export function allObservations(): Record<string, ShadowComparison | ValueShadow
 function recordObservation(cmp: ShadowComparison | ValueShadowComparison): void {
   try {
     LAST_OBSERVATION.set(cmp.nodeId, cmp);
+    // Durable history for the Constitutional Observatory — fire-and-forget, never
+    // blocks or throws on the observed surface (CFS-035 §11). Guarded inside the
+    // store; degrades to in-memory-only until the migration is applied.
+    void persistObservation(cmp);
   } catch {
     /* never throws */
   }

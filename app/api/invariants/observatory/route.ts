@@ -24,6 +24,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { allObservations, listRegisteredNodes } from '@/services/invariants/engine';
 import { listInvariants, getCanonVersionStamp, getInvariantsBySeedIds } from '@/services/invariants/store';
 import { computeMeasurementRollup } from '@/services/invariants/measurement';
+import { getObservationHistory, type NodeObservationRollup } from '@/services/invariants/observationStore';
 import {
   DIMENSION_INVARIANT_SEED,
   deriveDimensionWeights,
@@ -43,12 +44,16 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
   }
 
-  // ── Node View — every registered Invariant Decision Node + its last observation
+  // ── Node View — every registered Invariant Decision Node + its last (in-instance)
+  //    observation + its persisted history rollup (durable across instances).
   const nodes = listRegisteredNodes();
   const observations = allObservations();
+  const history = await getObservationHistory().catch(() => ({ total: 0, byNode: [] as NodeObservationRollup[], persistenceAvailable: false }));
+  const historyByNode = new Map(history.byNode.map((h) => [h.nodeId, h] as const));
   const nodeView = nodes.map((n) => ({
     ...n,
     lastObservation: observations[n.id] ?? null,
+    history: historyByNode.get(n.id) ?? null,
   }));
 
   // ── Field summary + namespace rollup (the constitutional field's state) ──────
@@ -108,6 +113,10 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   // ── Platform Health — Constitutional Observability metrics DERIVED from the
   // observations already collected + the field rollup (no new instrumentation).
+  // Prefer PERSISTED history (durable, cross-instance) for the mean metrics; fall
+  // back to the in-instance snapshot when persistence isn't available yet.
+  const rankHist = history.byNode.filter((h) => h.meanRankAgreement !== null);
+  const valueHist = history.byNode.filter((h) => h.meanAbsValueDelta !== null);
   const rankObs = Object.values(observations).filter((o) => 'rankAgreement' in o) as Array<{ rankAgreement: number; topAgreement: boolean }>;
   const valueObs = Object.values(observations).filter((o) => 'delta' in o) as Array<{ delta: number }>;
   const health = {
@@ -116,10 +125,21 @@ export async function GET(req: NextRequest): Promise<Response> {
     totalInvariants,
     // Projection accuracy: mean rank agreement across ranking nodes (1 = faithful).
     meanRankAgreement:
-      rankObs.length > 0 ? rankObs.reduce((s, o) => s + o.rankAgreement, 0) / rankObs.length : null,
+      rankHist.length > 0
+        ? Math.round((rankHist.reduce((s, h) => s + (h.meanRankAgreement ?? 0), 0) / rankHist.length) * 1000) / 1000
+        : rankObs.length > 0
+        ? rankObs.reduce((s, o) => s + o.rankAgreement, 0) / rankObs.length
+        : null,
     // Mean absolute value delta across value nodes (0 = faithful).
     meanValueDelta:
-      valueObs.length > 0 ? valueObs.reduce((s, o) => s + Math.abs(o.delta), 0) / valueObs.length : null,
+      valueHist.length > 0
+        ? Math.round((valueHist.reduce((s, h) => s + (h.meanAbsValueDelta ?? 0), 0) / valueHist.length) * 1000) / 1000
+        : valueObs.length > 0
+        ? valueObs.reduce((s, o) => s + Math.abs(o.delta), 0) / valueObs.length
+        : null,
+    // Durable observation history (null-safe): total sampled + whether persistence is live.
+    persistedObservations: history.total,
+    persistenceAvailable: history.persistenceAvailable,
     // Grounded provenance: receipts that cited an invariant (null = unmeasured).
     groundedReceiptCount,
   };

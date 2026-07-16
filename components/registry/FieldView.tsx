@@ -26,6 +26,9 @@ interface NodeMeta {
   lastObservation:
     | { nodeId: string; topAgreement?: boolean; rankAgreement?: number; delta?: number; itemCount?: number }
     | null;
+  history:
+    | { nodeId: string; kind: string; count: number; meanRankAgreement: number | null; meanAbsValueDelta: number | null; lastObservedAt: string | null }
+    | null;
 }
 interface NamespaceMeasurement {
   namespace: string;
@@ -68,6 +71,8 @@ interface ObservatoryResponse {
     totalInvariants: number;
     meanRankAgreement: number | null;
     meanValueDelta: number | null;
+    persistedObservations: number;
+    persistenceAvailable: boolean;
     groundedReceiptCount: number | null;
   };
   note?: string;
@@ -212,15 +217,24 @@ const HealthPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }) =>
           hint="mean |Δ| vs incumbent (0 = faithful)"
         />
         <Metric
+          label="Observations"
+          value={h.persistedObservations}
+          hint={h.persistenceAvailable ? "persisted history" : "in-memory only"}
+        />
+        <Metric
           label="Grounded receipts"
           value={h.groundedReceiptCount === null ? "unmeasured" : h.groundedReceiptCount}
           hint="cited an invariant"
         />
       </div>
-      {h.meanRankAgreement === null && h.meanValueDelta === null ? (
+      {!h.persistenceAvailable ? (
+        <p className="mt-3 text-[11px] text-amber-500/80">
+          Observation persistence table not found — Health reads the per-instance snapshot only. Apply migration{" "}
+          <code className="text-amber-300">20260718000000_invariant_shadow_observations</code> to accrue durable history.
+        </p>
+      ) : h.meanRankAgreement === null && h.meanValueDelta === null ? (
         <p className="mt-3 text-[11px] text-slate-500">
-          No live shadow observations in this instance yet — projections observe as the surfaces run. Observations
-          are per-instance (in-memory); persisted history is a follow-on.
+          No shadow observations recorded yet — projections observe as the surfaces run.
         </p>
       ) : null}
     </div>
@@ -299,7 +313,7 @@ const NodesPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }) => 
           surface <span className="text-slate-300">{n.surface}</span>
           {n.lastObservation ? (
             <span className="ml-2">
-              · last obs:{" "}
+              · last:{" "}
               {typeof n.lastObservation.rankAgreement === "number"
                 ? `rankAgreement ${fmt(n.lastObservation.rankAgreement, 3)}`
                 : typeof n.lastObservation.delta === "number"
@@ -310,6 +324,16 @@ const NodesPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }) => 
             <span className="ml-2 text-slate-600">· not yet observed this instance</span>
           )}
         </div>
+        {n.history ? (
+          <div className="text-[11px] text-slate-500 border-t border-slate-800 pt-2">
+            history: <span className="text-slate-300 tabular-nums">{n.history.count}</span> obs ·{" "}
+            {n.history.meanRankAgreement !== null
+              ? `mean rankAgreement ${fmt(n.history.meanRankAgreement, 3)}`
+              : n.history.meanAbsValueDelta !== null
+              ? `mean |Δ| ${fmt(n.history.meanAbsValueDelta, 3)}`
+              : "—"}
+          </div>
+        ) : null}
       </div>
     ))}
   </div>
