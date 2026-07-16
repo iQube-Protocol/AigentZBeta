@@ -18,7 +18,8 @@ import type { NbeCandidate } from '@/services/orchestration/nbeCatalog';
 import type { InferredStrategy } from '@/services/strategy/strategyInference';
 import type { ActiveCartridgeSlug, ExperienceStage, OperatorArchetype } from '@/services/iqube/experienceQube';
 import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
-import { buildInvariantSlice, citeInvariants, type InvariantSlice } from '@/services/invariants';
+import { citeInvariants, type InvariantSlice } from '@/services/invariants';
+import { groundReasoning } from '@/services/invariants/engine';
 import {
   resolveOntology,
   ontologyPromptBlock,
@@ -129,9 +130,12 @@ async function buildRerankInvariantSlice(
   domains: string[],
 ): Promise<InvariantSlice | null> {
   try {
-    const scoped = domains.length ? await buildInvariantSlice({ domains, limit: 8 }) : null;
+    // Reasoning face (CFS-035 §5) — route through the engine seam, not a
+    // hand-rolled slice. groundReasoning wraps buildInvariantSlice; the slice is
+    // identical, so this is a behaviour-preserving consolidation.
+    const scoped = domains.length ? (await groundReasoning({ domains, limit: 8 })).slice : null;
     if (scoped && scoped.items.length > 0) return scoped;
-    return await buildInvariantSlice({ limit: 8 });
+    return (await groundReasoning({ limit: 8 })).slice;
   } catch (err) {
     console.warn('[nbeLlmRerank] invariant slice build failed (non-fatal):', err);
     return null;

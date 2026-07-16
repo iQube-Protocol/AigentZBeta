@@ -18,6 +18,8 @@
 
 import type { ActiveCartridgeSlug, ExperienceStage } from '@/services/iqube/experienceQube';
 import type { GoogleSource } from '@/services/google/oauth';
+import { runShadow } from '@/services/invariants/engine';
+import { nbeRankingProjector } from '@/services/invariants/nodes/nbeRanking';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types.
@@ -507,7 +509,21 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
   }));
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit).map((s) => s.candidate);
+  const result = scored.slice(0, limit).map((s) => s.candidate);
+
+  // CFS-035 Phase 2 — the NBE-ranking Invariant Decision Node runs in SHADOW
+  // against this weight+goal-fit heuristic: it re-expresses the same score as a
+  // transparent importance/need projection and emits the divergence for the
+  // Evolution face. Observe-only — `result` (the incumbent) is served unchanged.
+  // runShadow never throws.
+  runShadow(
+    nbeRankingProjector,
+    { items: scored.map((s) => ({ candidate: s.candidate, weight: s.candidate.weight, score: s.score })) },
+    result,
+    (c) => c.id,
+  );
+
+  return result;
 }
 
 /**
