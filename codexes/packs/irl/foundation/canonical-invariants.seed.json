@@ -2056,13 +2056,14 @@
    "namespace": "reasoning",
    "semantic_type": "principle",
    "statement": "Discovery importance: an explicitly published, deployed, or resolved experience is more consequential to surface than unpublished or unresolved catalogue content — the operator's own act of publishing is a constitutional signal of importance.",
-   "status": "proposed",
+   "status": "validated",
+   "seed_validations": 4,
    "contexts": [
     "discovery",
     "ranking"
    ],
    "provenance": {
-    "source": "CFS-035 §10 — the discovery-ranking node's IMPORTANCE dimension, extracted from the scoreCapsule +10 (sourceType==='experience') and +6 (assetStatus==='resolved') magic numbers. The governing invariant whose earned standing will weight this dimension once validated (deriveDimensionWeights in services/invariants/nodes/discoveryRanking.ts)."
+    "source": "CFS-035 §10 — the discovery-ranking node's IMPORTANCE dimension, extracted from the scoreCapsule +10 (sourceType==='experience') and +6 (assetStatus==='resolved') magic numbers. The governing invariant whose earned standing weights this dimension (deriveDimensionWeights in services/invariants/nodes/discoveryRanking.ts). Operator-ratified 2026-07-18 with a seed validation prior of 4 (→ standing ≈44.4), encoding its ratified priority among the four discovery dimensions (need>importance>trust>novelty); the prior is superseded by earned validation as the shadow loop accrues real evidence."
    }
   },
   {
@@ -2070,13 +2071,14 @@
    "namespace": "reasoning",
    "semantic_type": "principle",
    "statement": "Discovery novelty: content that is new to this operator should be surfaced above content they have already seen or selected — discovery must widen, not merely re-present. Realising this dimension requires per-operator exposure/selection history from the Evolution face (a documented Phase-0 gap, currently neutral).",
-   "status": "proposed",
+   "status": "validated",
+   "seed_validations": 2,
    "contexts": [
     "discovery",
     "ranking"
    ],
    "provenance": {
-    "source": "CFS-035 §10 — the discovery-ranking node's NOVELTY dimension. Phase 0 neutral (no incumbent magic number; scoreCapsule has no novelty term). Names the constitutional intent so the gap is explicit rather than silently absent; earns weight once operator exposure history is wired."
+    "source": "CFS-035 §10 — the discovery-ranking node's NOVELTY dimension. Phase 0 neutral (no incumbent magic number; scoreCapsule has no novelty term). Names the constitutional intent so the gap is explicit rather than silently absent. Operator-ratified 2026-07-18 with a seed validation prior of 2 (→ standing ≈28.6) — lowest of the four because its runtime signal (operator exposure history) is not yet wired, so its weight is presently inert (the dimension value is 0); the principle is nonetheless ratified and earns weight once the signal lands."
    }
   },
   {
@@ -2084,13 +2086,14 @@
    "namespace": "reasoning",
    "semantic_type": "principle",
    "statement": "Discovery trust: content of published or curated provenance (smart-content, showcase-focus codexes, recognised catalogue tokens) carries more authority than generic catalogue content and should rank accordingly — provenance is a projection of trust.",
-   "status": "proposed",
+   "status": "validated",
+   "seed_validations": 3,
    "contexts": [
     "discovery",
     "ranking"
    ],
    "provenance": {
-    "source": "CFS-035 §10 — the discovery-ranking node's TRUST dimension, extracted from the scoreCapsule +4 (smart-content), +3 (showcase codexSlug) and +2 (showcase token match) magic numbers. Governs the trust weight once validated."
+    "source": "CFS-035 §10 — the discovery-ranking node's TRUST dimension, extracted from the scoreCapsule +4 (smart-content), +3 (showcase codexSlug) and +2 (showcase token match) magic numbers. Operator-ratified 2026-07-18 with a seed validation prior of 3 (→ standing ≈37.5), ranked below importance and need in the discovery priority order; superseded by earned validation."
    }
   },
   {
@@ -2098,13 +2101,14 @@
    "namespace": "reasoning",
    "semantic_type": "principle",
    "statement": "Discovery need: content that serves the operator's active intent (modality/kind fit and prompt-term overlap) should rank above content that does not — discovery is a projection of what the operator is asking for right now, not a static popularity order.",
-   "status": "proposed",
+   "status": "validated",
+   "seed_validations": 5,
    "contexts": [
     "discovery",
     "ranking"
    ],
    "provenance": {
-    "source": "CFS-035 §10 — the discovery-ranking node's NEED dimension, extracted from the scoreCapsule intent↔modality/kind fit branches (+4/+3/+8/+5/+2/+3) and the +1-per-matching-term prompt overlap loop. Governs the need weight once validated."
+    "source": "CFS-035 §10 — the discovery-ranking node's NEED dimension, extracted from the scoreCapsule intent↔modality/kind fit branches (+4/+3/+8/+5/+2/+3) and the +1-per-matching-term prompt overlap loop. Operator-ratified 2026-07-18 with a seed validation prior of 5 (→ standing =50.0), the HIGHEST of the four — serving the operator's active intent is the paramount discovery law. Superseded by earned validation as the shadow loop accrues real evidence."
    }
   }
  ]

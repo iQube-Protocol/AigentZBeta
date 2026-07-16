@@ -37,6 +37,16 @@ const DRY_RUN = process.argv.includes('--dry-run');
 // authored canon).
 const CONFIDENCE = { document_verified: 1.0, principal_verified: 0.85 };
 
+// Standing prior from a seed validation count. MIRRORS computeStandingScore in
+// services/invariants/lifecycle.ts (§6, Law XII) — the SoT there. This is only a
+// bootstrap: recomputeStanding re-derives standing identically from
+// times_validated, so no drift can persist. No contradictions at seed time.
+function standingFromValidations(timesValidated) {
+  const base = timesValidated * 8;
+  const score = base <= 0 ? 0 : (100 * base) / (base + 40);
+  return Math.round(score * 10) / 10;
+}
+
 function loadEnvLocal() {
   for (const file of ['.env.local', '.env.local.temp']) {
     const path = join(REPO, file);
@@ -97,9 +107,10 @@ async function main() {
   let updated = 0;
   for (const inv of seed.invariants) {
     const basis = inv.ratified_source ? 'document_verified' : 'principal_verified';
+    const seedValidations = Number(inv.seed_validations ?? 0);
     const { data: existing } = await supabase
       .from('invariants')
-      .select('id,status')
+      .select('id,status,times_validated')
       .eq('seed_id', inv.id)
       .maybeSingle();
 
@@ -117,14 +128,27 @@ async function main() {
 
     let invariantId;
     if (existing) {
-      const { error } = await supabase.from('invariants').update(row).eq('id', existing.id);
+      const patch = { ...row };
+      // Seed the standing prior only when the row hasn't earned real validation
+      // yet (times_validated 0/null) — same discipline as status preservation:
+      // never clobber evidence the runtime (or operator) has accrued.
+      if (seedValidations > 0 && !existing.times_validated) {
+        patch.times_validated = seedValidations;
+        patch.standing = standingFromValidations(seedValidations);
+      }
+      const { error } = await supabase.from('invariants').update(patch).eq('id', existing.id);
       if (error) throw new Error(`invariant update failed (${inv.id}): ${error.message}`);
       invariantId = existing.id;
       updated++;
     } else {
+      const insertPayload = { ...row, status: inv.status ?? 'proposed' };
+      if (seedValidations > 0) {
+        insertPayload.times_validated = seedValidations;
+        insertPayload.standing = standingFromValidations(seedValidations);
+      }
       const { data, error } = await supabase
         .from('invariants')
-        .insert({ ...row, status: inv.status ?? 'proposed' })
+        .insert(insertPayload)
         .select('id')
         .single();
       if (error) throw new Error(`invariant insert failed (${inv.id}): ${error.message}`);

@@ -29,14 +29,17 @@ import { computeFieldSnapshot, registerNodeMeta } from '../engine';
 export const DISCOVERY_RANKING_NODE_ID = 'discovery.ranking';
 
 /**
- * The discovery-governing invariant per dimension. Once these are seeded (with
- * domain 'discovery'), VALIDATED, and earn standing (the parallel invariant-
- * discovery workstream + operator ingest), the dimension weights derive from
- * their standing and the projection DIVERGES from the incumbent magic numbers —
- * the point at which a shadow→authoritative flip becomes meaningful. Until then
- * the weights stay 1 (faithful). buildInvariantSlice only surfaces
- * canonical/validated invariants, so proposed/absent discovery invariants leave
- * the projection faithful automatically.
+ * The discovery-governing invariant per dimension. These are seeded (context
+ * 'discovery'), operator-ratified to VALIDATED, and carry seed validation priors
+ * (need>importance>trust>novelty) that set their standing — so the dimension
+ * weights derive from that standing and the projection DIVERGES from the
+ * incumbent magic numbers (the point at which a shadow→authoritative flip
+ * becomes meaningful). The divergence is shadow-only; served ranking is
+ * unchanged until a separate flip. Safety net: when no snapshot is supplied, or
+ * before ingest, or if every discovery invariant is at zero standing,
+ * `deriveDimensionWeights` returns all-1 (faithful) — and buildInvariantSlice
+ * only surfaces canonical/validated invariants, so a not-yet-ingested seed
+ * leaves the projection faithful automatically.
  */
 const DIMENSION_INVARIANT_SEED: Record<'importance' | 'novelty' | 'trust' | 'need', string> = {
   importance: 'inv.reasoning.134', // "explicitly published/consequential content is important"
