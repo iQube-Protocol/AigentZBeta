@@ -23,8 +23,10 @@
  */
 
 import type { RuntimeCapsuleRecord } from '@/types/runtimeCapsules';
+import type { OperatorArchetype } from '@/services/iqube/experienceQube';
 import type { DecisionProjection, FieldSnapshot, NodeProjector } from '../engine';
 import { deriveWeightsFromStanding, getCachedFieldSnapshot, registerNodeMeta } from '../engine';
+import { getLens, applyLensToWeights, lensLabel } from '../experience';
 
 export const DISCOVERY_RANKING_NODE_ID = 'discovery.ranking';
 
@@ -83,6 +85,9 @@ export interface DiscoveryRankingInput {
   capsules: RuntimeCapsuleRecord[];
   prompt: string;
   intent: string;
+  /** CFS-035 §7 — the operator pathway whose Invariant Lens shapes the projection.
+   *  Omitted → no lens (unbiased). */
+  archetype?: OperatorArchetype | null;
 }
 
 /**
@@ -147,12 +152,16 @@ export const discoveryRankingProjector: NodeProjector<DiscoveryRankingInput, Run
   input: DiscoveryRankingInput,
   snapshot?: FieldSnapshot | null,
 ): DecisionProjection<RuntimeCapsuleRecord> => {
-  const w = deriveDimensionWeights(snapshot);
+  // Standing-derived weights (Constitutional Projection), then the Experience
+  // face applies the operator pathway's Invariant Lens (CFS-035 §7) — same field,
+  // per-pathway emphasis. No archetype → no lens (unbiased).
+  const lens = getLens(input.archetype ?? null);
+  const w = applyLensToWeights(deriveDimensionWeights(snapshot), lens);
   const scored = input.capsules.map((capsule) => {
     const dims = projectDimensions(capsule, input.prompt, input.intent);
-    // Weighted composite. At faithful weights (all 1) this equals the incumbent
-    // scoreCapsule sum; once discovery invariants earn standing the weights
-    // re-balance the dimensions and the ranking diverges (the meaningful flip).
+    // Weighted composite. At faithful weights (all 1) + no lens this equals the
+    // incumbent scoreCapsule sum; standing and the lens re-balance the dimensions
+    // and the ranking diverges (the meaningful, pathway-aware flip).
     const total =
       w.importance * dims.importance +
       w.novelty * dims.novelty +
@@ -176,5 +185,6 @@ export const discoveryRankingProjector: NodeProjector<DiscoveryRankingInput, Run
       total: r.total,
     })),
     citedIds: snapshot?.citedIds ?? [],
+    lens: lensLabel(lens),
   };
 };

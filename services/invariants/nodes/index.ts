@@ -12,3 +12,4 @@ export * from './discoveryRanking';
 export * from './nbeRanking';
 export * from './standingScore';
 export * from './journeyProgression';
+export * from './routingStage';

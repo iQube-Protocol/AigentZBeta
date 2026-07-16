@@ -2370,6 +2370,17 @@
    "provenance": {
     "source": "CFS-035 §6 — the journey-progression node's disposition rule, extracted from the two-case disposition switch. Makes the guardian-gate branch an explicit citable principle; the node stays faithful."
    }
+  },
+  {
+   "id": "inv.reasoning.157",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "The Experience face — Invariant Lenses: the same constitutional field projects differently per operator pathway. An Invariant Lens is not a separate invariant set but a different projection of one field — it re-balances which dimensions a pathway foregrounds (and re-normalises to preserve scale), never forking the substrate. The five lenses (citizen/clarity, entrepreneurial/progress, technical/observability, creative/inspiration, research/discovery) map 1:1 to the five operator archetypes.",
+   "status": "canonical",
+   "contexts": ["invariant-intelligence", "experience"],
+   "provenance": {
+    "source": "CFS-035 §4 (Experience face) + §7 (Invariant Lenses) — implemented as services/invariants/experience.ts and adopted on the discovery-ranking node (2026-07-18). The lens is a projection PARAMETER (per-dimension bias applied on top of standing weights), so per-pathway rendering never forks the field. The specific bias values are declared v0 parameters (candidates for a future inv.lens.* derivation), the same status as node dimension weights."
+   }
   }
  ]
 }
