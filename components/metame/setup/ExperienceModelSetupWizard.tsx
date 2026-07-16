@@ -102,7 +102,7 @@ const OPERATOR_ARCHETYPES: Array<{ value: OperatorArchetype; label: string; hint
   { value: "technical",       label: "Technical",       hint: "Protocol contribution, tooling, infrastructure, or development" },
   { value: "creative",        label: "Creative",        hint: "Editorial, media, IP development, cultural contribution" },
   { value: "citizen",         label: "Citizen",         hint: "Sovereignty journey, identity, governance participation" },
-  { value: "research",        label: "Researcher",      hint: "Invariant Intelligence research, experiments, validation, publications" },
+  { value: "research",        label: "Research & Discovery", hint: "Structured discovery — experiments, evidence, and validation. For researchers, analysts, and founders doing customer discovery alike" },
 ];
 
 /** Archetype → sensible experienceType default. Overrideable by the operator. */

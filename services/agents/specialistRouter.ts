@@ -46,7 +46,8 @@ export type SpecialistId =
   | 'aigent-c'
   | 'aigent-nakamoto'
   | 'moneypenny'
-  | 'metaye';
+  | 'metaye'
+  | 'researcher';
 
 export type SpecialistRequestType =
   | 'proposal'
@@ -60,7 +61,8 @@ export type SpecialistRequestType =
   | 'decentralisation_brief'
   | 'policy_brief'
   | 'micro_economics_brief'
-  | 'sovereignty_brief';
+  | 'sovereignty_brief'
+  | 'research_brief';
 
 export interface SpecialistContext {
   /** Cartridge the specialist should treat as primary. */
@@ -139,6 +141,7 @@ const SPECIALIST_PERSONA_KEY: Record<SpecialistId, keyof typeof personas | null>
   'aigent-nakamoto': 'aigent-nakamoto',
   moneypenny: 'aigent-moneypenny',
   metaye: 'aigent-metaye',
+  researcher: 'aigent-researcher',
 };
 
 const SPECIALIST_LABELS: Record<SpecialistId, string> = {
@@ -150,6 +153,7 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   'aigent-nakamoto': 'Nakamoto',
   moneypenny: 'MoneyPenny',
   metaye: 'Metayé',
+  researcher: 'Research Copilot',
 };
 
 // Map specialist + cartridge → default request type so the prompt knows
@@ -163,6 +167,7 @@ function inferRequestType(specialistId: SpecialistId, cartridge: string): Specia
   if (specialistId === 'aigent-nakamoto') return 'decentralisation_brief';
   if (specialistId === 'moneypenny') return 'micro_economics_brief';
   if (specialistId === 'metaye') return 'sovereignty_brief';
+  if (specialistId === 'researcher') return 'research_brief';
   // Cartridge hint:
   if (cartridge === 'qriptopian') return 'editorial_angle';
   if (cartridge === 'knyt') return 'mission_recommendation';
@@ -564,6 +569,26 @@ function templateResponse(
       suggestedArtifacts: ['google-doc', 'sheet', 'gmail-draft', 'myworkbench-draft'],
       requiresApproval: true,
       confidence: 'medium',
+    };
+  }
+  if (specialistId === 'researcher') {
+    return {
+      requestType,
+      title: `Research framing for "${intent}"`,
+      summary:
+        `The Research Copilot frames ${intent} as a question in structured discovery: what does the invariant substrate already say, what hypothesis would test the open part, and what would falsify it. Design before data; ratification is a human step.`,
+      recommendations: [
+        `Surface the validated invariants applicable to ${intent}, ranked by standing; mark validated vs experimental vs canonical.`,
+        `Sharpen the open question into a pre-registered, falsifiable hypothesis with agreed thresholds.`,
+        `Separate the structural question (does invariant organization beat raw experience at matched tokens?) from the execution question (does the runtime add within-call value?).`,
+        `Name the next research move — reproduce, run a held-out task, or contribute evidence — and what result would change the corpus.`,
+      ],
+      // Research artifacts are protocol/design docs, the brief that frames
+      // the experiment, and a private working draft to iterate before
+      // proposing (authoring is a proposal — a human ratifies).
+      suggestedArtifacts: ['google-doc', 'brief', 'myworkbench-draft'],
+      requiresApproval: false,
+      confidence: 'high',
     };
   }
   // metaye — Sovereign Cybernetic Polity / governance steward.

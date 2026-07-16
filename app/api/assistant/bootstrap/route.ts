@@ -51,7 +51,7 @@ interface ExperienceModelHint {
 }
 
 interface AssistantSpecialist {
-  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto' | 'moneypenny' | 'metaye';
+  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto' | 'moneypenny' | 'metaye' | 'researcher';
   label: string;
   description: string;
   /** Where this specialist primarily operates from. */
@@ -215,6 +215,13 @@ const AVAILABLE_SPECIALISTS: AssistantSpecialist[] = [
     label: 'Metayé',
     description: 'Sovereign Cybernetic Polity, governance, civic primitives',
     homeCartridge: 'protocol',
+    canAsk: { enabled: true, status: 'available' },
+  },
+  {
+    id: 'researcher',
+    label: 'Research Copilot',
+    description: 'Invariant substrate, experiments, protocols, structured discovery',
+    homeCartridge: 'cross-cutting',
     canAsk: { enabled: true, status: 'available' },
   },
 ];

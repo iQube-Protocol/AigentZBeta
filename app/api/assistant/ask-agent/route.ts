@@ -156,7 +156,7 @@ import { runPreflightGather } from '@/services/capabilities/preflight';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye'];
+const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye', 'researcher'];
 
 /**
  * Aliases that map short / alternate names back onto the canonical
@@ -172,6 +172,9 @@ const SPECIALIST_ALIASES: Record<string, SpecialistId> = {
   metaye: 'metaye',
   'metayé': 'metaye',
   'aigent-metaye': 'metaye',
+  'research-copilot': 'researcher',
+  'aigent-researcher': 'researcher',
+  research: 'researcher',
 };
 
 function resolveSpecialistId(value: unknown): SpecialistId | null {
