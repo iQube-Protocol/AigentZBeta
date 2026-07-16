@@ -243,7 +243,8 @@ export async function resolveOntology(text: string): Promise<OntologyResolution>
 // ---------------------------------------------------------------------------
 
 import type { ContextPack } from '@/types/constitutional';
-import { buildInvariantSlice, citeInvariants, type GroundingContext } from '@/services/invariants/grounding';
+import { citeInvariants, type GroundingContext } from '@/services/invariants/grounding';
+import { groundReasoning } from '@/services/invariants/engine';
 import { getInvariantsBySeedIds } from '@/services/invariants/store';
 
 /**
@@ -254,10 +255,11 @@ export async function assembleContextPack(
   text: string,
   context: GroundingContext = {},
 ): Promise<ContextPack> {
-  const [resolution, slice] = await Promise.all([
+  const [resolution, snapshot] = await Promise.all([
     resolveOntology(text),
-    buildInvariantSlice(context),
+    groundReasoning(context), // CFS-035 Phase 1 — through the Reasoning-face seam
   ]);
+  const slice = snapshot.slice;
   return {
     resolvedTerms: resolution.resolvedTerms,
     slice,

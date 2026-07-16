@@ -32,7 +32,7 @@ import {
   type SpecialistId,
   type SpecialistContext,
 } from '@/services/agents/specialistRouter';
-import { buildInvariantSlice } from '@/services/invariants';
+import { groundReasoning } from '@/services/invariants/engine';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 /**
@@ -50,12 +50,14 @@ async function buildSpecialistInvariantSlice(
   domains: string[],
 ): Promise<{ packetSlice: SpecialistContext['invariantSlice']; invariantIds: string[] }> {
   try {
+    // CFS-035 Phase 1 — grounded through the engine's Reasoning face (groundReasoning)
+    // rather than a hand-rolled slice, so every grounded surface shares one seam.
     const scoped = domains.length
-      ? await buildInvariantSlice({ domains, limit: 8 })
+      ? (await groundReasoning({ domains, limit: 8 })).slice
       : null;
     const slice = scoped && scoped.items.length > 0
       ? scoped
-      : await buildInvariantSlice({ limit: 8 });
+      : (await groundReasoning({ limit: 8 })).slice;
     return {
       // Packet slice cites by seedId (UUIDs are stripped by the router's
       // redaction net); the raw ids stay server-side for the receipt's

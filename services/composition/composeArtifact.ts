@@ -517,11 +517,12 @@ export async function composeArtifact(
   // the pure composeAtlasPlate path never pulls the substrate.
   let grounded: GroundedComponent = { invariantIds: [], closureRootIds: [] };
   try {
-    const { buildInvariantSlice } = await import('@/services/invariants/grounding');
-    const slice = await buildInvariantSlice({
+    // CFS-035 Phase 1 — through the Reasoning-face seam (returns a snapshot).
+    const { groundReasoning } = await import('@/services/invariants/engine');
+    const slice = (await groundReasoning({
       domains: request.grounding.domains,
       ontologyClassIds: request.grounding.ontologyClassIds,
-    });
+    })).slice;
     grounded = { invariantIds: slice.citedIds, closureRootIds: slice.citedIds };
   } catch {
     // Grounding unavailable — proceed with an empty slice (recommendation is

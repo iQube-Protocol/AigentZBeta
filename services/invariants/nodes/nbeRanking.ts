@@ -18,7 +18,7 @@
  */
 
 import type { DecisionProjection, FieldSnapshot } from '../engine';
-import { registerNodeMeta } from '../engine';
+import { deriveWeightsFromStanding, getCachedFieldSnapshot, registerNodeMeta } from '../engine';
 
 export const NBE_RANKING_NODE_ID = 'nbe.ranking';
 
@@ -29,6 +29,23 @@ registerNodeMeta({
   surface: 'next-best-experience',
   description: 'Ranks NBE candidates by an invariant projection (importance/need) instead of static weight + goal-keyword boost.',
 });
+
+/**
+ * The NBE-governing invariant per dimension. Once seeded (context 'nbe'),
+ * validated, and earning standing, the dimension weights derive from that
+ * standing and the ranking DIVERGES from the incumbent weight+boost sum (the
+ * meaningful flip). Faithful (all-1) until then. `importance+need===score` holds
+ * at faithful weights, so shadow adoption is behaviour-preserving.
+ */
+export const NBE_DIMENSION_INVARIANT_SEED: Record<'importance' | 'need', string> = {
+  importance: 'inv.reasoning.151', // "curated priority weight matters"
+  need: 'inv.reasoning.152', // "goal-fit matters"
+};
+
+/** Cached NBE Field Snapshot (60s TTL) — domain 'nbe' scopes the governing slice. */
+export async function getNbeFieldSnapshot(): Promise<FieldSnapshot | null> {
+  return getCachedFieldSnapshot('nbe', { domains: ['nbe'], limit: 8 });
+}
 
 export interface NbeRankingItem<C> {
   candidate: C;
@@ -50,17 +67,20 @@ export function nbeRankingProjector<C>(
   input: NbeRankingInput<C>,
   snapshot?: FieldSnapshot | null,
 ): DecisionProjection<C> {
-  const ranked = input.items
-    .map((it, i) => ({ ...it, i }))
-    .sort((a, b) => (b.score !== a.score ? b.score - a.score : a.i - b.i));
+  const w = deriveWeightsFromStanding(snapshot, NBE_DIMENSION_INVARIANT_SEED);
+  // Weighted composite. At faithful weights (all 1) this equals the incumbent
+  // score (importance+need); once the nbe invariants earn standing the weights
+  // re-balance importance vs need and the ranking diverges (the meaningful flip).
+  const scored = input.items.map((it, i) => {
+    const importance = it.weight;
+    const need = it.score - it.weight;
+    return { it, i, importance, need, total: w.importance * importance + w.need * need };
+  });
+  const ranked = scored.sort((a, b) => (b.total !== a.total ? b.total - a.total : a.i - b.i));
   return {
     nodeId: NBE_RANKING_NODE_ID,
-    ranked: ranked.map((r) => r.candidate),
-    projection: ranked.map((r) => ({
-      importance: r.weight,
-      need: r.score - r.weight,
-      total: r.score,
-    })),
+    ranked: ranked.map((r) => r.it.candidate),
+    projection: ranked.map((r) => ({ importance: r.importance, need: r.need, total: r.total })),
     citedIds: snapshot?.citedIds ?? [],
   };
 }

@@ -24,7 +24,7 @@
 
 import type { RuntimeCapsuleRecord } from '@/types/runtimeCapsules';
 import type { DecisionProjection, FieldSnapshot, NodeProjector } from '../engine';
-import { computeFieldSnapshot, registerNodeMeta } from '../engine';
+import { deriveWeightsFromStanding, getCachedFieldSnapshot, registerNodeMeta } from '../engine';
 
 export const DISCOVERY_RANKING_NODE_ID = 'discovery.ranking';
 
@@ -49,50 +49,22 @@ export const DIMENSION_INVARIANT_SEED: Record<'importance' | 'novelty' | 'trust'
 };
 
 /**
- * Derive per-dimension weights from a Field Snapshot's discovery invariants.
- * Weight ∝ the governing invariant's EARNED standing, normalised so the mean
- * weight is 1 (this re-balances the dimensions by standing without changing the
- * overall score scale). Returns all-1 (faithful) when no snapshot is supplied or
- * no discovery invariant has positive standing yet.
+ * Derive per-dimension weights from a Field Snapshot's discovery invariants —
+ * now the shared engine helper (weight ∝ governing invariant's earned standing,
+ * mean-normalised to 1; all-1 faithful when no snapshot / no standing).
  */
 export function deriveDimensionWeights(
   snapshot?: FieldSnapshot | null,
 ): Record<'importance' | 'novelty' | 'trust' | 'need', number> {
-  const dims = ['importance', 'novelty', 'trust', 'need'] as const;
-  const base = { importance: 1, novelty: 1, trust: 1, need: 1 };
-  if (!snapshot) return base;
-  const bySeed = new Map<string, number>();
-  for (const item of snapshot.slice.items) if (item.seedId) bySeed.set(item.seedId, item.standing);
-  const standings = dims.map((d) => bySeed.get(DIMENSION_INVARIANT_SEED[d]) ?? 0);
-  const total = standings.reduce((a, b) => a + b, 0);
-  if (total <= 0) return base; // no earned discovery standing yet → faithful
-  const mean = total / dims.length;
-  const weights = { ...base };
-  dims.forEach((d, i) => {
-    weights[d] = mean > 0 ? standings[i] / mean : 1;
-  });
-  return weights;
+  return deriveWeightsFromStanding(snapshot, DIMENSION_INVARIANT_SEED);
 }
 
-// ── Cached discovery Field Snapshot (hot-path safe) ──────────────────────────
-// The capsules route is a hot read path, so the snapshot (a DB slice) is cached
-// per-instance with a short TTL. Guarded — any failure yields null → the
-// projection runs faithful. domain 'discovery' scopes the slice to the
-// discovery-governing invariants.
-let _snapCache: { at: number; snap: FieldSnapshot | null } | null = null;
-const SNAP_TTL_MS = 60_000;
-
+/**
+ * Cached discovery Field Snapshot (hot-path safe, 60s TTL) via the shared engine
+ * cache. domain 'discovery' scopes the slice to the discovery-governing invariants.
+ */
 export async function getDiscoveryFieldSnapshot(): Promise<FieldSnapshot | null> {
-  const now = Date.now();
-  if (_snapCache && now - _snapCache.at < SNAP_TTL_MS) return _snapCache.snap;
-  try {
-    const snap = await computeFieldSnapshot({ domains: ['discovery'], limit: 8 });
-    _snapCache = { at: now, snap };
-    return snap;
-  } catch {
-    _snapCache = { at: now, snap: null };
-    return null;
-  }
+  return getCachedFieldSnapshot('discovery', { domains: ['discovery'], limit: 8 });
 }
 
 registerNodeMeta({

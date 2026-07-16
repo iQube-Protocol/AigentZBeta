@@ -2304,6 +2304,72 @@
    "provenance": {
     "source": "CRP-002 §0.4/§0.7 (2026-07-18) — operator-ratified. The bridge that reconciles inv.epistemology.139 (a structural invariant is a persistent representation of previously validated reasoning) with inv.epistemology.144 (a structural invariant is a real regularity anchored in reality). Operator: '139 technically is true — the clarification is that the structural invariant is accessed and codified as a representation. Gravity is real but accessed via a system through representations of it.' Collapses the earlier mis-framing of three objects (real regularity / held form / interface) into two: the real invariant, and its representation (which serves as both the codified held form and the interface, inv.reasoning.147). Composes with inv.reasoning.142 (representations are manifestations of invariants) and inv.epistemology.148 (architecture limits are not invariant limits)."
    }
+  },
+  {
+   "id": "inv.reasoning.151",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "NBE importance: a next-best-experience candidate's curated priority weight expresses how consequential that experience is to surface, independently of the operator's current goal. It is one of the two governing dimensions of NBE ranking (with need).",
+   "status": "proposed",
+   "contexts": ["nbe", "ranking"],
+   "provenance": {
+    "source": "CFS-035 §6 — the NBE-ranking node's IMPORTANCE dimension (services/invariants/nodes/nbeRanking.ts), extracted from selectNbeCandidates' static priority weight. Governs the importance weight once validated + earning standing; until then the node is faithful (importance+need===score)."
+   }
+  },
+  {
+   "id": "inv.reasoning.152",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "NBE need: a next-best-experience candidate's goal-fit (how well it serves the operator's stated goal right now) is the second governing dimension of NBE ranking. Need answers what the operator is trying to do; importance answers what is consequential — the two are distinct and independently weighable.",
+   "status": "proposed",
+   "contexts": ["nbe", "ranking"],
+   "provenance": {
+    "source": "CFS-035 §6 — the NBE-ranking node's NEED dimension, extracted from selectNbeCandidates' goal-keyword boost (score − weight). Governs the need weight once validated; faithful until then."
+   }
+  },
+  {
+   "id": "inv.constitutional.153",
+   "namespace": "constitutional",
+   "semantic_type": "principle",
+   "statement": "Standing veracity dimension: verified-fact quality, coverage, and volume (the veracity sub-score) is the primary governing dimension of a persona's standing composite — standing is earned foremost through demonstrated veracity. Composes with the Law XII standing canon (inv.constitutional.060/061/062).",
+   "status": "proposed",
+   "contexts": ["standing"],
+   "provenance": {
+    "source": "CFS-035 §6 — the standing-score node's VERACITY dimension (services/invariants/nodes/standingScore.ts), extracted from the incumbent veracity*0.7 term. The node's value stays faithful (0.7/0.3) until a bespoke blend-modulation lands; this invariant makes the dimension's governance explicit and citable."
+   }
+  },
+  {
+   "id": "inv.constitutional.154",
+   "namespace": "constitutional",
+   "semantic_type": "principle",
+   "statement": "Standing contribution dimension: reputation accrual from contribution (the contribution sub-score) is the secondary governing dimension of the standing composite, and the sole dimension when no veracity signal is present. Contribution complements veracity; it never substitutes for it (Law XII — reach/adoption is not validity).",
+   "status": "proposed",
+   "contexts": ["standing"],
+   "provenance": {
+    "source": "CFS-035 §6 — the standing-score node's CONTRIBUTION dimension, extracted from the incumbent contribution*0.3 (and contribution-alone) term. Node value faithful until a bespoke modulation lands; the invariant makes the dimension citable and reconciles with inv.constitutional.062 (reach≠validity)."
+   }
+  },
+  {
+   "id": "inv.reasoning.155",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "Journey progression advances one depth rung at a time: an operator's experience depth moves up the universal ladder (pill → capsule → mini_runtime → codex) by a single step per progression, never skipping rungs — depth is earned incrementally on the universal ExperienceStage axis.",
+   "status": "proposed",
+   "contexts": ["progression"],
+   "provenance": {
+    "source": "CFS-035 §6 — the journey-progression node's succession principle (services/invariants/nodes/journeyProgression.ts), extracted from the DEPTH_LADDER[i+1] array succession. The node's value stays faithful (structural succession, not a weighted blend); this invariant makes the governing principle explicit and citable."
+   }
+  },
+  {
+   "id": "inv.reasoning.156",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "Sovereign progression requires guardian approval: at sovereign or escalation journey stages (zero, investor reactivation candidate) the next-experience disposition is 'ask' (guardian-gated), not 'act' — consequential progression at the sovereign tier is never automatic.",
+   "status": "proposed",
+   "contexts": ["progression"],
+   "provenance": {
+    "source": "CFS-035 §6 — the journey-progression node's disposition rule, extracted from the two-case disposition switch. Makes the guardian-gate branch an explicit citable principle; the node stays faithful."
+   }
   }
  ]
 }

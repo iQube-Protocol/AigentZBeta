@@ -142,9 +142,10 @@ async function resolveGrounding(
   const composed = input.result?.grounded?.invariantIds ?? [];
   if (composed.length > 0) return { invariantIds: composed, source: 'composition' };
   try {
-    const { buildInvariantSlice } = await import('@/services/invariants/grounding');
+    // CFS-035 Phase 1 — grounded through the engine's Reasoning face seam.
+    const { groundReasoning } = await import('@/services/invariants/engine');
     const namespaces = PROFILE_GROUNDING_NAMESPACES[profile] ?? DEFAULT_GROUNDING_NAMESPACES;
-    const slice = await buildInvariantSlice({ namespaces, limit: 8 });
+    const slice = (await groundReasoning({ namespaces, limit: 8 })).slice;
     return slice.citedIds.length > 0
       ? { invariantIds: slice.citedIds, source: 'live' }
       : NO_GROUNDING;

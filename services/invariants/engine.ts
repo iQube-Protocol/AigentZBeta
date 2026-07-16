@@ -64,6 +64,61 @@ export async function groundReasoning(
   return computeFieldSnapshot(context, stampedAt);
 }
 
+// ── Shared node helpers (CFS-035 §6) — the discovery-node pattern, generalised
+// so every Invariant Decision Node derives dimension weights + fetches its
+// domain snapshot the same way (extend-don't-duplicate). ─────────────────────
+
+/**
+ * Derive per-dimension weights from a Field Snapshot's governing invariants.
+ * Weight ∝ each dimension's governing invariant's EARNED standing, mean-
+ * normalised to 1 (re-balances dimensions by standing without changing the
+ * overall score scale). Returns all-1 (faithful) when no snapshot is supplied or
+ * no governing invariant has positive standing yet — so a node stays behaviour-
+ * preserving until its invariants earn standing. `seedMap` maps each dimension
+ * key to the seed id of the invariant that governs it.
+ */
+export function deriveWeightsFromStanding<K extends string>(
+  snapshot: FieldSnapshot | null | undefined,
+  seedMap: Record<K, string>,
+): Record<K, number> {
+  const keys = Object.keys(seedMap) as K[];
+  const base = Object.fromEntries(keys.map((k) => [k, 1])) as Record<K, number>;
+  if (!snapshot) return base;
+  const bySeed = new Map<string, number>();
+  for (const item of snapshot.slice.items) if (item.seedId) bySeed.set(item.seedId, item.standing);
+  const standings = keys.map((k) => bySeed.get(seedMap[k]) ?? 0);
+  const total = standings.reduce((a, b) => a + b, 0);
+  if (total <= 0) return base;
+  const mean = total / keys.length;
+  const weights = { ...base };
+  keys.forEach((k, i) => {
+    weights[k] = mean > 0 ? standings[i] / mean : 1;
+  });
+  return weights;
+}
+
+// Per-key cached Field Snapshots for hot node paths. Guarded — any failure
+// yields null (→ faithful projection). Short TTL so standing changes propagate.
+const _snapshotCaches = new Map<string, { at: number; snap: FieldSnapshot | null }>();
+
+export async function getCachedFieldSnapshot(
+  key: string,
+  context: GroundingContext,
+  ttlMs = 60_000,
+): Promise<FieldSnapshot | null> {
+  const now = Date.now();
+  const cached = _snapshotCaches.get(key);
+  if (cached && now - cached.at < ttlMs) return cached.snap;
+  try {
+    const snap = await computeFieldSnapshot(context);
+    _snapshotCaches.set(key, { at: now, snap });
+    return snap;
+  } catch {
+    _snapshotCaches.set(key, { at: now, snap: null });
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Face 2 — Constitutional Projection. The Invariant Decision Node (CFS-035 §6).
 // ─────────────────────────────────────────────────────────────────────────

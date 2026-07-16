@@ -26,7 +26,8 @@ import {
   resolveOntology,
   citeResolvedConcepts,
 } from '@/services/constitutional/ontologyResolver';
-import { buildInvariantSlice, citeInvariants } from '@/services/invariants/grounding';
+import { citeInvariants } from '@/services/invariants/grounding';
+import { groundReasoning } from '@/services/invariants/engine';
 import { getInvariantsBySeedIds } from '@/services/invariants/store';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import type { ResolvedTerm } from '@/types/constitutional';
@@ -71,7 +72,8 @@ export async function instrumentPlanRender(input: {
     const domain = typeof input.cartridge === 'string' ? input.cartridge : undefined;
     const [resolution, slice] = await Promise.all([
       resolveOntology(planText).catch(() => null),
-      buildInvariantSlice(domain ? { domains: [domain], limit: 6 } : { limit: 6 }).catch(() => null),
+      // CFS-035 Phase 1 — through the Reasoning-face seam (returns a snapshot).
+      groundReasoning(domain ? { domains: [domain], limit: 6 } : { limit: 6 }).then((s) => s.slice).catch(() => null),
     ]);
     if (!resolution && !slice) return null;
 
