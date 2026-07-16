@@ -80,9 +80,25 @@ In architecture and code, the capability is **Constitutional Evaluation** (or th
 
 **v1 is content-only**: the published research corpus (charter, the three constitutional layers, protocols & experiment records, glossary, publications record, programmes) plus a dedicated **Constitutional Evaluation** tab fronting this spec — consuming the SAME `irl` pack as the internal cartridge (single source of truth; the pack is already in the packRegistry skip list, so no auto-generated duplicate). A metaMe QuickLinks entry surfaces it in the runtime.
 
-**Never public:** the internal Experiment Lab (`InvariantExperimentLab`, admin-only, runs spend provider credits). **Named follow-on:** the four interactive-but-public instruments (Dashboard, Research Copilot, Invariant Field Explorer, Invariant Registry) join IRL OS only after an anonymous-read API audit of each. "IRL OS" is the cartridge/product name; CFS-019's pending external-banner decision (Aletheon's proposed "Invariant Intelligence Research Institute") remains pending and is not resolved by this naming.
+**Never public:** the internal Experiment Lab (`InvariantExperimentLab`, admin-only, runs spend provider credits).
+
+**Naming — CLOSED (correction, 2026-07-17).** An earlier draft of this section wrongly said the external-banner decision was "still pending." It is not: the institution's name was settled as **metaMe IRL** on 2026-07-09 (CFS-019 naming note), which already superseded "The Invariant Intelligence Research Institute." Per operator direction 2026-07-17 that candidate is now explicitly **retired**. Settled at two levels: the **institution** is **metaMe IRL**; its **public-facing edition** is **IRL OS**.
+
+## 8A. The anonymous-read audit + the first public instrument (2026-07-17)
+
+The §8 "named follow-on" — wiring the four interactive instruments into the public cartridge — was gated on an anonymous-read API audit of each. **Audit run 2026-07-17**, against the actual routes:
+
+| Instrument | Routes (GET) | Anonymous result | Public verdict |
+|---|---|---|---|
+| **Invariant Registry (Browse)** | `/api/invariants` (reuses `listInvariants`, persona used only for the auth gate, data not persona-scoped, T2-safe) | 401 (auth-gated, but data is published canon) | **ELIGIBLE — SHIPPED.** New read-only public route `/api/public/irl/invariants` (capped, reuses the same store reader, no existing gate touched) + `publicMode` on `InvariantRegistryTab` (Browse only; Overview/Ontology/Graph + detail modal disabled — they hit gated routes without public projections). |
+| **Invariant Field Explorer** | `/api/invariants`, `/api/research/invariant-field` (T2-safe, read-only/pure) | 401 | **ELIGIBLE — deferred.** Needs a shared-read extraction of the 415-line spine-gated field route so a public route and the gated route call one module (no duplication, gate untouched). Its own careful increment. |
+| **Dashboard** | `results`, `research/overview` (401), **`constitutional/chrysalis-test` (403, admin — a live credit-touching test)** | 401 + 403 | **PARTIAL — deferred.** Needs public `results` + `overview` projections AND the admin chrysalis-test source dropped in a public variant. |
+| **Research Copilot** | `research/objects` (**admin write**), overview, results, **live LLM chat (spends credits)** | 401 + 403 | **NOT PUBLIC-ELIGIBLE.** Same class as the Experiment Lab — LLM chat + provider credits + admin writes. Permanently internal. |
+
+**Shipped 2026-07-17:** the public Invariant Registry (Browse) — the first live interactive instrument in IRL OS, letting an anonymous visitor browse the real substrate (namespaces, status, Standing, Reach). The other three are recorded above with their exact remaining work and their permanent-internal verdict (Copilot). The audit itself is the deliverable: it converted "four instruments, safety unknown" into one shipped + two scoped + one closed.
 
 ## Ratification record
 
 - [x] **CHARTERED 2026-07-16 by operator direction**, from Aletheon's proposal generalizing the external reviewer's capability probe. The two built instances (slice export, judge config) predate the charter by hours — the abstraction was named from working code, not speculation.
 - [x] **§8 UI surface — DECIDED + BUILT 2026-07-16 by operator direction** ("create a new public facing cartridge for this like AgentiQ OS is the open public facing version of AgentiQ"; name confirmed "IRL OS"). `IRL_OS_CARTRIDGE` registered in `CODEX_DEFINITIONS` (`data/codex-configs.ts`), 9 content tabs, `permissions.view: ['*']`, QuickLinks entry added.
+- [x] **§8A anonymous-read audit + first public instrument + naming closure — 2026-07-17 by operator direction** ("lets run this now"; "IRL OS is the name, close down Invariant Intelligence Research Institute"). Audit run against all four instruments' routes; the public Invariant Registry (Browse) shipped via a new read-only public route (no existing gate touched); Field Explorer + Dashboard scoped as their own increments; Research Copilot ruled permanently internal. The retired banner "Invariant Intelligence Research Institute" confirmed closed (metaMe IRL is the institution, IRL OS the public edition).

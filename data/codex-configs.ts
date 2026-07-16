@@ -5039,12 +5039,26 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     },
     // ── Living Knowledge ──────────────────────────────────────────
     {
+      // Public read-only Invariant Registry (Browse) — the live substrate,
+      // anonymous-safe via /api/public/irl/invariants (audit 2026-07-17). The
+      // FIRST live interactive instrument in the public cartridge.
+      id: 'irl-os-invariant-registry',
+      label: 'Invariant Registry',
+      slug: 'irl-os-invariant-registry',
+      enabled: true,
+      group: 'knowledge',
+      order: 0,
+      type: 'static',
+      config: { component: 'InvariantRegistryTab', props: { publicMode: true } },
+      metadata: { icon: 'BookMarked', description: 'Browse the live constitutional substrate — namespaces, status, Standing, Reach (read-only, public)', color: 'violet' },
+    },
+    {
       id: 'irl-os-glossary',
       label: 'Glossary & Ontology',
       slug: 'irl-os-glossary',
       enabled: true,
       group: 'knowledge',
-      order: 0,
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
