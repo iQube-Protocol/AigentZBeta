@@ -139,16 +139,50 @@ what was found → where both are recorded → what, if anything, changed as a r
 
 ---
 
+## Entry 007 — The independent variable: computational reuse (adversarial clarification, not convergence)
+
+- **What happened:** an extended dialogue with **Austin and Austin's agent** — the first entry
+  involving a genuinely *external* interlocutor, not the operator × Aletheon × Claude triad. Austin's
+  agent did **not** converge: it held that the pre-prompt process is "advanced retrieval / better
+  context" and that because everything serializes to the same token representation the computation is
+  the same. The value came from the **resistance**: defending against that reading forced the operator
+  to identify the programme's true optimization objective.
+- **What was sharpened:** the central claim moved from something readable as prompt/context engineering
+  into a precise, falsifiable one — **the independent variable is computational reuse (reusing
+  previously validated reasoning through invariant structures), not information retrieval.** Formalised
+  as the Three Computational Compressions, the Pre-Prompt Reasoning Theorem, the tightened Structural
+  Invariant definition, the purpose statement, and the Representation Principle.
+- **Recorded in:** **CFS-036 The Three Computational Compressions** (the doctrine + the response to
+  Austin); canonical invariants `inv.epistemology.138`–`141` + `inv.reasoning.142`; this log.
+- **What changed as a result:** unlike Entries 001–006 (which recorded rediscovery of definitions
+  already latent in the canon), this entry records **canonization of new definitional invariants** and
+  the ratification of two falsifiable claims (138, 141). The definitions build on latent canon
+  (Entry 002 the DNA analogy, Entry 005 reasoning-lives-in-the-substrate, CRP-002 intent-as-projection)
+  but the sharp taxonomy + theorem are new.
+- **Independence note:** this is **adversarial clarification, not corroboration.** The external party
+  challenged rather than converged; the sharpening is the operator's, produced under that challenge. It
+  is therefore a *different and in one sense stronger* independence signal than the intra-triad entries
+  (a real outside pressure existed), but it is NOT a third party independently rediscovering the
+  structure. Read it as: the doctrine survived its first external adversarial test and became sharper
+  for it — not as external agreement.
+
+---
+
 ## Honest limits
 
-- Six entries so far, all stemming from the same operator + Aletheon (+ Claude) pairing within a short window
-  (2026-07-16 to 07-18). This log does not yet demonstrate a pattern across independent AUTHORS or
-  independent TIME HORIZONS — a weaker form of independence than, say, a third party rediscovering
-  the same structure with no access to this codebase at all. Convergence strength should be read
-  accordingly: suggestive, not yet strong evidence.
+- Seven entries so far. Entries 001–006 all stem from the same operator + Aletheon (+ Claude) pairing
+  within a short window (2026-07-16 to 07-18) — they do not demonstrate a pattern across independent
+  AUTHORS or TIME HORIZONS, a weaker form of independence than a third party rediscovering the same
+  structure with no access to this codebase. Entry 007 introduces a genuinely external party (Austin's
+  agent), but as a *challenger*, not a corroborator — the sharpening is the operator's, produced under
+  that challenge, not an independent rediscovery. Convergence strength should be read accordingly:
+  suggestive, not yet strong evidence; and Entry 007 specifically is adversarial clarification.
 - This log records rediscovery of DEFINITIONS and ANALOGIES, not empirical results. It should not
   be confused with `EXP-nnn` replication (CFS-019's lifecycle definition of "replicated" — ≥2
   distinct providers producing the same experimental result) — that is a much stronger claim than
   anything recorded here.
-- No entry here seeds, canonizes, or ratifies an invariant. Convergence is a reason to look
-  harder at a candidate, never a substitute for the seed-and-ratify path (Law XI).
+- Convergence is a reason to look harder at a candidate, never a substitute for the seed-and-ratify
+  path (Law XI). Entries 001–006 seed/canonize nothing by themselves. Entry 007 is the exception only
+  because the operator performed an explicit ratification act (CFS-036) alongside it — the canonization
+  flows from that ratification, NOT from the convergence; and its two falsifiable claims (138, 141) are
+  `validated`, i.e. still owed EXP-nnn confirmation, not asserted true.
