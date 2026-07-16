@@ -2212,7 +2212,7 @@
     "ontology"
    ],
    "provenance": {
-    "source": "CRP-002 §0.7 (2026-07-18) — operator-ratified. The clean object-of-discovery vs mechanism-of-use separation, un-hedged after the Representation stratum (§0.8) made it safe to say the invariant IS the real regularity (gravity example): humans experience gravity directly and reason about it through representations; the invariant is anchored in reality. Reconciled with inv.epistemology.139: 139's 'persistent representation of previously validated reasoning' is the HELD, reusable form a system carries — not the invariant itself, which is the real regularity. Distinguishes three things one word 'representation' could blur: the real regularity (this, 144), the held form (139), the interface (142/147). Consistent with inv.reasoning.085 / inv.constitutional.126. Definitional canon."
+    "source": "CRP-002 §0.7 (2026-07-18) — operator-ratified. The clean object-of-discovery vs mechanism-of-use separation, un-hedged after the Representation stratum (§0.8) made it safe to say the invariant IS the real regularity (gravity example): humans experience gravity directly and reason about it through representations; the invariant is anchored in reality. Reconciled with inv.epistemology.139 via the access-and-codification bridge (inv.epistemology.150): the invariant IN REALITY is not a representation, but a system accesses and codifies it only AS a representation, so 139 (the invariant as held) and 144 (the invariant in reality) are two aspects of one invariant, not a contradiction. Two things, not three: the real invariant and its representation (which is both the held form and the interface). Consistent with inv.reasoning.085 / inv.constitutional.126. Definitional canon."
    }
   },
   {
@@ -2288,6 +2288,21 @@
    ],
    "provenance": {
     "source": "CRP-002 §0.8 (2026-07-18) — operator-ratified. The epistemic-register caveat on the whole architecture: the strata (and invariant fields generally, inv.reasoning.081/082) are operationally separable, not absolutely disjoint — the fields overlap by magnification/perspective. Names the OPERATIONAL-vs-ABSOLUTE truth register the discipline works in — the same register standing operates in (inv.constitutional.145, standing = operational confidence). Contextualizes 082's 'independent (verifiable in isolation)' as an operational abstraction, not an absolute-disjointness claim. Protects the doctrine against a false precision the clean diagrams could imply."
+   }
+  },
+  {
+   "id": "inv.epistemology.150",
+   "namespace": "epistemology",
+   "semantic_type": "principle",
+   "statement": "Access and codification: a structural invariant is real (anchored in reality), but an intelligent system accesses and codifies it only as a representation — a system never holds the raw regularity, only a representation of it. Therefore a structural invariant AS HELD BY A SYSTEM is a persistent representation of previously validated reasoning (inv.epistemology.139) about a regularity that IN ITSELF is real (inv.epistemology.144). The two definitions are not in tension: 139 describes the invariant as accessed and codified within a system; 144 describes the invariant in reality. Gravity is real; a system reaches it only through representations of it.",
+   "status": "canonical",
+   "contexts": [
+    "invariant-intelligence",
+    "epistemology",
+    "representation"
+   ],
+   "provenance": {
+    "source": "CRP-002 §0.4/§0.7 (2026-07-18) — operator-ratified. The bridge that reconciles inv.epistemology.139 (a structural invariant is a persistent representation of previously validated reasoning) with inv.epistemology.144 (a structural invariant is a real regularity anchored in reality). Operator: '139 technically is true — the clarification is that the structural invariant is accessed and codified as a representation. Gravity is real but accessed via a system through representations of it.' Collapses the earlier mis-framing of three objects (real regularity / held form / interface) into two: the real invariant, and its representation (which serves as both the codified held form and the interface, inv.reasoning.147). Composes with inv.reasoning.142 (representations are manifestations of invariants) and inv.epistemology.148 (architecture limits are not invariant limits)."
    }
   }
  ]

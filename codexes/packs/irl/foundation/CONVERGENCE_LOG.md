@@ -231,7 +231,12 @@ what was found → where both are recorded → what, if anything, changed as a r
   held reusable form, not the invariant itself). (b) An epistemic-register caveat: the three strata are
   themselves fields that overlap absolutely — the separations are **operational truths** (sharp at the
   working magnification), not absolute non-overlapping boundaries → `inv.epistemology.149`. Both guard
-  against a false precision the clean architecture could otherwise imply.
+  against a false precision the clean architecture could otherwise imply. (c) The 139↔144 reconciliation
+  was then sharpened to its correct form — the invariant *in reality* is not a representation, but a
+  system *accesses and codifies* it only as one, so 139 (invariant as held) and 144 (invariant in
+  reality) are two aspects of one invariant, not two objects → the access-and-codification bridge
+  `inv.epistemology.150`. This corrected an over-framing in the first pass (three objects: real
+  regularity / held form / interface — collapsed to two: the real invariant and its representation).
 
 ---
 
