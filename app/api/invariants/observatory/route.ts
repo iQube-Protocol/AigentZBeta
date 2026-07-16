@@ -25,6 +25,7 @@ import { allObservations, listRegisteredNodes } from '@/services/invariants/engi
 import { listInvariants, getCanonVersionStamp, getInvariantsBySeedIds } from '@/services/invariants/store';
 import { computeMeasurementRollup } from '@/services/invariants/measurement';
 import { getObservationHistory, type NodeObservationRollup } from '@/services/invariants/observationStore';
+import { getNodeFlip } from '@/services/invariants/flipStore';
 import {
   DIMENSION_INVARIANT_SEED,
   deriveDimensionWeights,
@@ -86,10 +87,13 @@ export async function GET(req: NextRequest): Promise<Response> {
     nodeId: string;
     dimensions: Array<{ dimension: DiscoveryDim; seedId: string; standing: number; status: string | null; weight: number }>;
     diverges: boolean;
+    authoritative: boolean;
+    flippedAt: string | null;
   } | null = null;
   try {
     const snapshot = await getDiscoveryFieldSnapshot();
     const weights = deriveDimensionWeights(snapshot);
+    const flip = await getNodeFlip(DISCOVERY_RANKING_NODE_ID).catch(() => null);
     const seedIds = Object.values(DIMENSION_INVARIANT_SEED);
     const records = await getInvariantsBySeedIds(seedIds).catch(() => []);
     const dims = (Object.keys(DIMENSION_INVARIANT_SEED) as DiscoveryDim[]).map((dimension) => {
@@ -106,7 +110,13 @@ export async function GET(req: NextRequest): Promise<Response> {
     // Weights diverge from faithful once any pair differs (i.e. earned standing
     // is differentiated) — the signal that a shadow→authoritative flip is meaningful.
     const diverges = dims.some((d) => Math.abs(d.weight - 1) > 1e-6);
-    discoveryProjection = { nodeId: DISCOVERY_RANKING_NODE_ID, dimensions: dims, diverges };
+    discoveryProjection = {
+      nodeId: DISCOVERY_RANKING_NODE_ID,
+      dimensions: dims,
+      diverges,
+      authoritative: flip?.authoritative === true,
+      flippedAt: flip?.flippedAt ?? null,
+    };
   } catch {
     /* projection view is best-effort */
   }
@@ -147,6 +157,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   return NextResponse.json({
     ok: true,
     generatedAt: new Date().toISOString(),
+    viewer: { isAdmin: persona.cartridgeFlags?.isAdmin === true },
     nodes: nodeView,
     field: {
       canonVersion,

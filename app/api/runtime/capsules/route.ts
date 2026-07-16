@@ -5,7 +5,8 @@ import { getSmartContentService } from "@/services/content";
 import type { SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleAssetRef, RuntimeCapsuleRecord, RuntimeCapsulesResponse } from "@/types/runtimeCapsules";
 import { runShadow } from "@/services/invariants/engine";
-import { discoveryRankingProjector, getDiscoveryFieldSnapshot } from "@/services/invariants/nodes/discoveryRanking";
+import { discoveryRankingProjector, getDiscoveryFieldSnapshot, DISCOVERY_RANKING_NODE_ID } from "@/services/invariants/nodes/discoveryRanking";
+import { isNodeAuthoritativeCached } from "@/services/invariants/flipStore";
 import fallbackContent from "@/qriptopian-content-export.json";
 
 export const runtime = "nodejs";
@@ -599,25 +600,34 @@ export async function GET(request: NextRequest) {
             .map((entry) => entry.capsule)
             .slice(0, limit);
 
-    // CFS-035 Phase 0 — the discovery-ranking Invariant Decision Node runs in
-    // SHADOW against the incumbent `scoreCapsule` order: it re-expresses the
-    // same signals as a transparent projection (importance/novelty/trust/need)
-    // and emits the divergence for the Evolution face. Observe-mode only — the
-    // served order is `scored`, unchanged. The flip to authoritative is a
-    // separate, operator-gated ratification. Never throws (runShadow guards).
+    // CFS-035 — the discovery-ranking Invariant Decision Node. It ALWAYS runs in
+    // SHADOW against the incumbent `scoreCapsule` order (re-expressing the same
+    // signals as an importance/novelty/trust/need projection, emitting the
+    // divergence for the Evolution face). When the node has been flipped to
+    // AUTHORITATIVE (operator-gated, via /api/invariants/flip), the runtime serves
+    // the projection's order instead of the incumbent — the shadow→authoritative
+    // ratification. Faithful by default: absent/false flip ⇒ `scored` served,
+    // unchanged. Guarded end-to-end (runShadow + cached flip check never throw).
+    let served = scored;
     if (intent !== "play") {
       // Pass the cached discovery Field Snapshot so the projection's dimension
       // weights derive from the discovery invariants' EARNED standing once they
       // exist (faithful until then). Guarded — null snapshot ⇒ faithful.
       const discoverySnapshot = await getDiscoveryFieldSnapshot();
       runShadow(discoveryRankingProjector, { capsules: deduped, prompt, intent }, scored, (c) => c.id, discoverySnapshot);
+      // Operator-gated flip — serve the projection when discovery.ranking is
+      // authoritative. Cached (30s TTL) + fail-faithful, so the hot path stays fast
+      // and defaults to the incumbent on any error.
+      if (await isNodeAuthoritativeCached(DISCOVERY_RANKING_NODE_ID)) {
+        served = discoveryRankingProjector({ capsules: deduped, prompt, intent }, discoverySnapshot).ranked.slice(0, limit);
+      }
     }
 
     return NextResponse.json<RuntimeCapsulesResponse>(
       {
         success: true,
-        capsules: scored,
-        total: scored.length,
+        capsules: served,
+        total: served.length,
         focus: SHOWCASE_FOCUS,
       },
       {

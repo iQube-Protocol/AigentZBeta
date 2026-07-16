@@ -57,6 +57,7 @@ interface DiscoveryDimension {
 interface ObservatoryResponse {
   ok: boolean;
   generatedAt: string;
+  viewer?: { isAdmin: boolean };
   nodes: NodeMeta[];
   field: {
     canonVersion: string | null;
@@ -64,7 +65,9 @@ interface ObservatoryResponse {
     byNamespace: NamespaceMeasurement[];
     topReused: TopReused[];
   };
-  projection: { nodeId: string; dimensions: DiscoveryDimension[]; diverges: boolean } | null;
+  projection:
+    | { nodeId: string; dimensions: DiscoveryDimension[]; diverges: boolean; authoritative: boolean; flippedAt: string | null }
+    | null;
   health: {
     nodesRegistered: number;
     nodesObserved: number;
@@ -183,6 +186,35 @@ export const FieldView: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, []);
 
+  const [flipBusy, setFlipBusy] = useState(false);
+  const flip = useCallback(
+    async (nodeId: string, authoritative: boolean) => {
+      setFlipBusy(true);
+      try {
+        const res = await personaFetch("/api/invariants/flip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nodeId,
+            authoritative,
+            rationale: authoritative ? "flipped authoritative from the Observatory" : "reverted to shadow from the Observatory",
+          }),
+        });
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          setError(j.error || `Flip failed (HTTP ${res.status})`);
+        } else {
+          await load();
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Flip failed");
+      } finally {
+        setFlipBusy(false);
+      }
+    },
+    [load],
+  );
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -249,7 +281,14 @@ export const FieldView: React.FC<{ className?: string }> = ({ className }) => {
       ) : data ? (
         <>
           {perspective === "health" && <HealthPerspective data={data} />}
-          {perspective === "projection" && <ProjectionPerspective data={data} />}
+          {perspective === "projection" && (
+            <ProjectionPerspective
+              data={data}
+              isAdmin={data.viewer?.isAdmin === true}
+              flipBusy={flipBusy}
+              onFlip={flip}
+            />
+          )}
           {perspective === "nodes" && <NodesPerspective data={data} />}
           {perspective === "field" && <FieldPerspective data={data} />}
           {perspective === "graph" && <GraphPerspective graph={graph} loading={graphLoading} />}
@@ -307,13 +346,18 @@ const HealthPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }) =>
   );
 };
 
-// ── Projection — the discovery node's live dimension weights ─────────────────
-const ProjectionPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }) => {
+// ── Projection — the discovery node's live dimension weights + flip control ──
+const ProjectionPerspective: React.FC<{
+  data: ObservatoryResponse;
+  isAdmin: boolean;
+  flipBusy: boolean;
+  onFlip: (nodeId: string, authoritative: boolean) => void;
+}> = ({ data, isAdmin, flipBusy, onFlip }) => {
   const p = data.projection;
   if (!p) return <div className={`${PANEL} p-6 text-sm text-slate-500`}>No projection node available.</div>;
   return (
     <div className={`${PANEL} p-4 flex flex-col gap-3`}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-100">{p.nodeId}</h3>
           <p className="text-xs text-slate-500">
@@ -321,16 +365,45 @@ const ProjectionPerspective: React.FC<{ data: ObservatoryResponse }> = ({ data }
             invariant's earned standing (mean-normalised to 1).
           </p>
         </div>
-        <span
-          className={`text-[11px] px-2 py-1 rounded-md border ${
-            p.diverges
-              ? "border-purple-700 bg-purple-950/40 text-purple-300"
-              : "border-slate-700 bg-slate-950/60 text-slate-400"
-          }`}
-        >
-          {p.diverges ? "diverges from incumbent" : "faithful (weights ≈ 1)"}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`text-[11px] px-2 py-1 rounded-md border ${
+              p.authoritative
+                ? "border-emerald-700 bg-emerald-950/40 text-emerald-300"
+                : p.diverges
+                ? "border-purple-700 bg-purple-950/40 text-purple-300"
+                : "border-slate-700 bg-slate-950/60 text-slate-400"
+            }`}
+          >
+            {p.authoritative ? "AUTHORITATIVE (served)" : p.diverges ? "shadow · diverges" : "shadow · faithful"}
+          </span>
+        </div>
       </div>
+
+      {/* operator-gated flip control */}
+      {isAdmin ? (
+        <div className={`${SUBPANEL} p-3 flex items-center justify-between gap-3`}>
+          <div className="text-xs text-slate-400">
+            {p.authoritative ? (
+              <>This node's projection is <span className="text-emerald-300">served live</span>. Revert to serve the incumbent heuristic.</>
+            ) : (
+              <>This node runs in shadow. Flipping makes its projection the <span className="text-purple-300">served order</span> — a consequential, receipted change.</>
+            )}
+            {p.flippedAt ? <span className="text-slate-600"> · last change {new Date(p.flippedAt).toLocaleString()}</span> : null}
+          </div>
+          <button
+            disabled={flipBusy}
+            onClick={() => onFlip(p.nodeId, !p.authoritative)}
+            className={`px-3 py-1.5 text-xs rounded-md border transition disabled:opacity-50 ${
+              p.authoritative
+                ? "border-slate-600 bg-slate-800/60 text-slate-200 hover:bg-slate-700"
+                : "border-emerald-700 bg-emerald-900/40 text-emerald-200 hover:bg-emerald-800/50"
+            }`}
+          >
+            {flipBusy ? "…" : p.authoritative ? "Revert to shadow" : "Flip to authoritative"}
+          </button>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-2">
         {p.dimensions.map((d) => (
           <div key={d.dimension} className={`${SUBPANEL} p-3`}>
