@@ -212,7 +212,46 @@ function CfCountsCard({
   );
 }
 
-export default function InvariantFieldExplorerTab() {
+/** Plain (token-free) transports for publicMode — mirror experimentStepFetch's
+ *  ok-check without attaching a Bearer token. Used only when publicMode is on. */
+async function publicGet(url: string): Promise<Record<string, unknown>> {
+  const res = await fetch(url, { cache: "no-store" });
+  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!res.ok || !data || data.ok !== true) {
+    throw new Error((data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`);
+  }
+  return data;
+}
+async function publicPost(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!res.ok || !data || data.ok !== true) {
+    throw new Error((data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+/**
+ * publicMode (IRL OS, CFS-033 §8A): anonymous-safe read-only variant. Points
+ * every fetch at the PUBLIC routes (`/api/public/irl/invariant-field` +
+ * `/api/public/irl/invariants`) via token-free `fetch`, instead of the
+ * spine-gated routes via personaFetch. The field query/counterfactual LOGIC is
+ * the SAME shared module either way (services/research/invariantFieldQuery) —
+ * only the gate and the transport differ. The internal tab (publicMode omitted)
+ * is unchanged.
+ */
+export default function InvariantFieldExplorerTab({ publicMode = false }: { publicMode?: boolean } = {}) {
+  const FIELD_BASE = publicMode ? "/api/public/irl/invariant-field" : "/api/research/invariant-field";
+  const fieldGet = (suffix: string) =>
+    publicMode ? publicGet(`${FIELD_BASE}${suffix}`) : experimentGet(`${FIELD_BASE}${suffix}`);
+  const fieldPost = (body: Record<string, unknown>) =>
+    publicMode ? publicPost(FIELD_BASE, body) : experimentStep(FIELD_BASE, body);
+
   const [allRows, setAllRows] = useState<InvariantRow[]>([]);
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -234,11 +273,18 @@ export default function InvariantFieldExplorerTab() {
   const [cfError, setCfError] = useState<string | null>(null);
 
   // Picker list — the same substrate reader the Invariant Registry uses.
+  // Public: the token-free public route (same store reader server-side).
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await loadAllInvariants();
+        let data: InvariantRow[];
+        if (publicMode) {
+          const json = await publicGet("/api/public/irl/invariants?limit=250");
+          data = (json.invariants as InvariantRow[]) ?? [];
+        } else {
+          data = await loadAllInvariants();
+        }
         if (!cancelled) setAllRows(data);
       } catch (err) {
         if (!cancelled)
@@ -248,7 +294,7 @@ export default function InvariantFieldExplorerTab() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [publicMode]);
 
   // Field overview whenever nothing is selected (namespace-scoped).
   useEffect(() => {
@@ -261,9 +307,7 @@ export default function InvariantFieldExplorerTab() {
         const params = new URLSearchParams();
         if (namespace) params.set("namespace", namespace);
         const qs = params.toString();
-        const data = (await experimentGet(
-          `/api/research/invariant-field${qs ? `?${qs}` : ""}`,
-        )) as unknown as OverviewResponse;
+        const data = (await fieldGet(qs ? `?${qs}` : "")) as unknown as OverviewResponse;
         if (!cancelled) setOverview(data);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "field unavailable");
@@ -287,8 +331,8 @@ export default function InvariantFieldExplorerTab() {
       setLoading(true);
       setError(null);
       try {
-        const data = (await experimentGet(
-          `/api/research/invariant-field?id=${encodeURIComponent(selectedId)}`,
+        const data = (await fieldGet(
+          `?id=${encodeURIComponent(selectedId)}`,
         )) as unknown as NeighbourhoodResponse;
         if (!cancelled) setNeighbourhood(data);
       } catch (err) {
@@ -334,10 +378,7 @@ export default function InvariantFieldExplorerTab() {
               proposedEdges: [{ toInvariantId: cfTargetId || selectedId, edgeType: cfEdgeType }],
             }
           : { mode: "remove-edge", invariantId: selectedId, edgeId: cfEdgeId };
-      const data = (await experimentStep(
-        "/api/research/invariant-field",
-        body,
-      )) as unknown as CounterfactualResponse;
+      const data = (await fieldPost(body)) as unknown as CounterfactualResponse;
       setCfResult(data);
     } catch (err) {
       setCfError(err instanceof Error ? err.message : "projection unavailable");

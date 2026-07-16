@@ -4942,6 +4942,7 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
     { id: 'research', label: 'Research', icon: 'Layers', order: 1 },
     { id: 'evaluation', label: 'Constitutional Evaluation', icon: 'Scale', order: 2 },
+    { id: 'consequence', label: 'Consequence Engineering', icon: 'Network', order: 2.5 },
     { id: 'knowledge', label: 'Living Knowledge', icon: 'BookMarked', order: 3 },
     { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 4 },
     { id: 'programme', label: 'Programme', icon: 'Target', order: 5 },
@@ -5036,6 +5037,22 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
         props: { packId: 'irl', collectionId: 'col_experiments' },
       },
       metadata: { icon: 'Target', description: 'Experiment designs, protocols, canonical articles, evaluation frameworks — EXP-001…010 incl. the Representation Gauntlet' },
+    },
+    // ── Consequence Engineering ───────────────────────────────────
+    {
+      // Public read-only Invariant Field Explorer — the live enables/
+      // constrains/contradicts field + forecast + counterfactual (what-if)
+      // projection, anonymous-safe via /api/public/irl/invariant-field (both
+      // the gated and public routes call one shared module — 2026-07-17).
+      id: 'irl-os-invariant-field',
+      label: 'Invariant Field',
+      slug: 'irl-os-invariant-field',
+      enabled: true,
+      group: 'consequence',
+      order: 0,
+      type: 'static',
+      config: { component: 'InvariantFieldExplorerTab', props: { publicMode: true } },
+      metadata: { icon: 'Network', description: 'Computational Epistemology made visible — the live enables/constrains/contradicts field + counterfactual projection (read-only, public)', color: 'violet' },
     },
     // ── Living Knowledge ──────────────────────────────────────────
     {
