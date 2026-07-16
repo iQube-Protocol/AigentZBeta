@@ -24,8 +24,17 @@
 
 import type { RuntimeCapsuleRecord } from '@/types/runtimeCapsules';
 import type { DecisionProjection, FieldSnapshot, NodeProjector } from '../engine';
+import { registerNodeMeta } from '../engine';
 
 export const DISCOVERY_RANKING_NODE_ID = 'discovery.ranking';
+
+registerNodeMeta({
+  id: DISCOVERY_RANKING_NODE_ID,
+  kind: 'ranking',
+  dimensions: ['importance', 'novelty', 'trust', 'need'],
+  surface: 'discovery',
+  description: 'Ranks runtime capsules by an invariant projection (importance/novelty/trust/need) instead of scoreCapsule magic numbers.',
+});
 
 /** Showcase signals — mirror the incumbent scorer's local constants. */
 const SHOWCASE_FOCUS = ['qripto', 'knyt'];

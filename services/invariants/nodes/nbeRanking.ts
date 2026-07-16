@@ -18,8 +18,17 @@
  */
 
 import type { DecisionProjection, FieldSnapshot } from '../engine';
+import { registerNodeMeta } from '../engine';
 
 export const NBE_RANKING_NODE_ID = 'nbe.ranking';
+
+registerNodeMeta({
+  id: NBE_RANKING_NODE_ID,
+  kind: 'ranking',
+  dimensions: ['importance', 'need'],
+  surface: 'next-best-experience',
+  description: 'Ranks NBE candidates by an invariant projection (importance/need) instead of static weight + goal-keyword boost.',
+});
 
 export interface NbeRankingItem<C> {
   candidate: C;

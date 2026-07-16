@@ -170,3 +170,58 @@ It is chosen as the pilot because it is self-contained, obviously numeric, immed
 - **It does not reconcile the two journey models** — that is a prerequisite flagged for the `inv.progression.*` node, not resolved here.
 
 **Ratified 2026-07-18 by operator direction**, from the operator × Aletheon × Claude three-way convergence. The Phase-0 build (engine seam + Field Snapshot + Discovery Ranking in shadow mode) is authorized to be chartered as a separate increment under this gate.
+
+---
+
+## Amendment — The Constitutional Field, the three constitutional layers, and the Observatory (2026-07-18)
+
+A follow-on round (operator × Aletheon) reframed what the engine is *for* and added the missing third piece — observation. Ratified as an extension of this charter.
+
+### The constitutional field is the perimeter of the Constitutional Internet
+
+Operator: *"the constitutional field is effectively the perimeter of the Constitutional Internet."* This is a strong architectural definition, adopted. If the Constitutional Internet is the network of constitutionally-governed people, agents, artifacts, agreements, organisations, and transactions, then **the constitutional field is its live shared state and boundary condition** — not merely a reasoning aid internal to Agentic. The containment chain:
+
+```
+Internet → Constitutional Internet → Constitutional Field → Invariant Projections → Local Runtime Decisions
+```
+
+The field is the shared state of the network; the engine projects it into local decisions (§2–§5). This makes precise the operator's other observation — **invariants are a lens/substrate on state**: every platform snapshot can be read as *constitutional state* (authority increased · evidence strengthened · trust weakened · delegation established · discovery expanded · intent clarified) — higher-order state transitions above the variable/object/row layer.
+
+### The three constitutional layers — state / computation / observation
+
+The engine's three runtime *levels* (§4) are now framed as three constitutional *concerns*, cleanly separated:
+
+| Layer | Concern | Is | Realised by |
+|---|---|---|---|
+| **The Constitutional Field** | **State** | the living state of the Constitutional Internet; the substrate observed and projected | the invariant substrate (Registry) + the Field Snapshot |
+| **The Invariant Engine** | **Computation** | projects the field into reasoning, policy, experience, execution | `services/invariants/engine.ts` (the four faces) |
+| **The Constitutional Observatory** | **Observation** | makes the field *visible* — nodes, fields, graphs, projections, receipts, health — to observe, interrogate, and evolve it | the iQube Registry's third view + an Observatory API |
+
+This mirrors state / computation / observation and keeps the CFS-035 §3 guardrail intact: the engine stays constitutional; the Observatory *observes* it and never mutates it.
+
+### The Constitutional Observatory (initially in the iQube Registry)
+
+The iQube Registry evolves from an asset registry into the **Constitutional Observatory**. Today it has **Assets** and **Activity**; it gains a third top-level view — **Field** — the live constitutional view. Five coordinated perspectives (Aletheon):
+
+1. **Node View** — the health of every Invariant Decision Node (confidence, activity, evidence, standing impact, current projection). The control panel.
+2. **Field View** — monitor *fields*, not services: Trust · Authority · Evidence · Delegation · Discovery · Sovereignty · Participation, each with density / stability / growth / divergence / conflicts / dominant invariants. Closer to physics than telemetry.
+3. **Graph View** — invariant / field / artifact / delegation / authority / standing graphs; the value is watching relationships strengthen and weaken over time.
+4. **Projection View** — *why did this decision happen?* Inspect any consequential decision: field → projection → invariant weights → decision → receipts. Explainability.
+5. **Platform Health (Constitutional metrics)** — constitutional integrity · evidence coverage · standing velocity · trust density · delegation efficiency · research confidence · projection accuracy — **Constitutional Observability**, a new telemetry category alongside operational (is the software healthy?) and product (are users succeeding?) observability: *is the constitutional system becoming healthier?*
+
+The Observatory is **bidirectional** (Aletheon) — not read-only. Every visualisation lets a researcher (the Research pathway's first-class surface) ask: why is this field changing? which invariants contributed? which receipts support it? what experiment altered it? which candidate invariants compete? what happens under an alternative projection? It becomes the primary interface for observing, interrogating, and evolving the field.
+
+### Claude's improvements (how to build it well)
+
+1. **The Observatory reads the engine, it does not re-instrument.** It consumes the SAME artefacts the engine already emits — the node registry, the Field Snapshot, the shadow observations, and receipts — so "engine stays constitutional; Observatory observes it" holds mechanically. No parallel telemetry pipeline.
+2. **A node registry in the engine is the single source for the Node View.** The engine exposes every registered Invariant Decision Node with its live metadata (id, inputs, dimensions, last shadow comparison). This also cleans up today's ad-hoc per-node wiring.
+3. **Constitutional-observability metrics are DERIVED from existing signals, not newly collected.** projection accuracy = shadow rank/value agreement over time; standing velocity = `recomputeStanding` deltas; evidence coverage = grounding-slice coverage; trust density = standing distribution. Reuse `services/invariants/measurement.ts`.
+4. **Persist shadow observations** (today they are `[INVARIANT-SHADOW]` logs). A lightweight `invariant_shadow_observations` store (or a receipt type) gives the Field/Node views *history* — divergence over time — the missing piece for the Evolution face to reason over.
+5. **The Projection View reuses `projectInvariantFieldCounterfactual`** (`services/research/invariantFieldQuery.ts`) for "what would happen under an alternative projection" — no new counterfactual engine.
+6. **The Observatory is the natural home for the shadow→authoritative FLIP control.** An operator reads a node's divergence history in the dashboard and flips it (receipted) from there — closing the Evolution loop in the UI, gated exactly where the evidence is visible.
+
+### Build order (Observatory)
+
+Data backbone first (engine node-registry + a read-only Observatory API projecting node/field/health state from existing signals), then the Registry's **Field** view consuming it (Node → Health → Field → Graph → Projection, in ascending build cost). Persisted shadow observations unlock the history-bearing views. The full graph/physics visualisations are the richest, last.
+
+**Ratified 2026-07-18 by operator direction**, operator × Aletheon convergence; Claude improvements adopted.

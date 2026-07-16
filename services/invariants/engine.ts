@@ -195,9 +195,58 @@ export function runShadow<TInput, TItem>(
     const projection = projector(input, snapshot ?? null);
     const cmp = compareShadow(incumbent, projection, keyOf);
     emitShadowObservation(cmp);
+    recordObservation(cmp);
     return cmp;
   } catch {
     return null; // observe-mode never degrades the surface
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Node registry — the single source for the Constitutional Observatory's Node
+// View (CFS-035 Observatory amendment). Nodes self-register their metadata at
+// module load; the shadow runners record each node's last observation. The
+// Observatory READS this — it never re-instruments (engine stays constitutional).
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface NodeMeta {
+  id: string;
+  kind: 'ranking' | 'value';
+  /** The projection dimensions this node exposes (the "why"). */
+  dimensions: string[];
+  /** The product surface / stratum this node governs. */
+  surface: string;
+  description: string;
+}
+
+const NODE_REGISTRY = new Map<string, NodeMeta>();
+const LAST_OBSERVATION = new Map<string, ShadowComparison | ValueShadowComparison>();
+
+/** Register a node's metadata (idempotent). Called at node-module load. */
+export function registerNodeMeta(meta: NodeMeta): void {
+  NODE_REGISTRY.set(meta.id, meta);
+}
+
+/** Every registered node's metadata — the Observatory Node View source. */
+export function listRegisteredNodes(): NodeMeta[] {
+  return [...NODE_REGISTRY.values()];
+}
+
+/** The most recent shadow observation for a node (this instance), or null. */
+export function lastObservation(nodeId: string): ShadowComparison | ValueShadowComparison | null {
+  return LAST_OBSERVATION.get(nodeId) ?? null;
+}
+
+/** All last-observations keyed by node id — the Observatory Health source. */
+export function allObservations(): Record<string, ShadowComparison | ValueShadowComparison> {
+  return Object.fromEntries(LAST_OBSERVATION);
+}
+
+function recordObservation(cmp: ShadowComparison | ValueShadowComparison): void {
+  try {
+    LAST_OBSERVATION.set(cmp.nodeId, cmp);
+  } catch {
+    /* never throws */
   }
 }
 
@@ -246,6 +295,7 @@ export function runValueShadow(
       `[INVARIANT-SHADOW] node=${cmp.nodeId} valueDelta=${cmp.delta.toFixed(4)} ` +
         `incumbent=${cmp.incumbent.toFixed(2)} projected=${cmp.projected.toFixed(2)} cited=${cmp.citedIds.length}`,
     );
+    recordObservation(cmp);
     return cmp;
   } catch {
     return null;

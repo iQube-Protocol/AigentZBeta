@@ -21,8 +21,17 @@
  */
 
 import type { FieldSnapshot, ValueProjection } from '../engine';
+import { registerNodeMeta } from '../engine';
 
 export const STANDING_SCORE_NODE_ID = 'standing.score';
+
+registerNodeMeta({
+  id: STANDING_SCORE_NODE_ID,
+  kind: 'value',
+  dimensions: ['veracity', 'contribution', 'veracityWeight', 'contributionWeight'],
+  surface: 'standing',
+  description: 'Re-expresses the Standing composite (veracity*0.7 + contribution*0.3) as a transparent value projection.',
+});
 
 /** Match the incumbent clamp exactly (0..100, rounded) — keeps the projection faithful. */
 const clamp = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
