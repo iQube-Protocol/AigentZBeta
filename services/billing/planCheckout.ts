@@ -31,6 +31,14 @@ export const TIER_CONFIG = {
     label: 'Tier 1 — Sovereignty',
     planColumns: { plan_tier: 'sovereign_citizen' } as Record<string, string>,
   },
+  // Research Copilot (IRL) — its OWN unlock with a unique SKU, priced at the
+  // same $29/mo stage as Sovereignty but sold separately (NOT bundled into
+  // sovereign_citizen the way aigentZ's aigentzLiteAccess is). Writes only the
+  // dedicated research_tier column, so it coexists with any plan/venture tier.
+  research_copilot: {
+    label: 'Research Copilot (IRL)',
+    planColumns: { research_tier: 'active' } as Record<string, string>,
+  },
   steward: {
     label: 'Tier 2 — Stewardship',
     planColumns: { plan_tier: 'steward', standing_tier: 'professional' } as Record<string, string>,
@@ -313,6 +321,7 @@ export interface PriceRow {
 // always shows prices and checkout can proceed.
 const CODE_LEVEL_TIER_PRICES: Readonly<Record<TierKey, number>> = {
   sovereign_citizen: 2900,
+  research_copilot: 2900, // same $29/mo stage as Sovereignty, sold as its own SKU
   steward: 9900,
   venture_lite: 29900,
   venture_pro: 99900,

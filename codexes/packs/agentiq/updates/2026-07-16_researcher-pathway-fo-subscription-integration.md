@@ -12,9 +12,10 @@ Copilot occupies "a similar tier to the DevOn/AigentZ copilot in the developer p
 
 The Polity Participation Model gains a **fifth operator archetype — the Researcher** —
 a first-class peer to the four existing pathways (`citizen | entrepreneurial | technical |
-creative`). Its paid copilot, the **Research Copilot**, is wired into the subscription /
-Founder Office entitlement flow at the **same tier and with the same entitlement flag** as
-the aigentZ/DevOn developer copilot — no new pricing was invented.
+creative`). Its paid copilot, the **Research Copilot**, is sold as its **own unlock with a
+unique SKU** — the dedicated `research_copilot` tier, priced at the **same $29/mo stage** as
+Sovereignty but **not bundled** into it (just as aigentZ is its own concern). Buying aigentZ
+does not grant the Research Copilot, and vice versa.
 
 ### Pathway axis (the 5th archetype)
 
@@ -29,18 +30,27 @@ The persistence route (`app/api/assistant/experience-model/route.ts`) needed no 
 casts to the `OperatorArchetype` type and the store validates against `VALID_ARCHETYPES`,
 both now inclusive of `research`.
 
-### Subscription / Founder Office entitlement
+### Subscription / Founder Office entitlement — its OWN SKU (operator correction 2026-07-16)
+
+The Research Copilot is a **separate unlock with a unique SKU**, sold on its own — **NOT**
+bundled into the Sovereignty tier the way aigentZ's `aigentzLiteAccess` is. Operator decision:
+its **own dedicated tier**, priced at the **same $29/mo stage** as Sovereignty.
 
 | File | Change |
 |---|---|
-| `services/activations/activationPlanGate.ts` | new `'researcher'` entry in `ACTIVATION_PLAN_GATE`: `{ entitled: (p) => p.aigentzLiteAccess, requiredTier: 'sovereign_citizen' }` — **identical** to the `'aigent-z'` developer-copilot gate. Both resolve through the single `resolveActivationPlanGate` / `isPlanEntitled` path — no parallel gate. |
-| `data/activation-catalog.ts` | new `researcher` catalog entry (`gate: 'gated'`, `tabSlug: 'irl-research-copilot'`, `sourceCartridge: 'metame'`), mirroring the `aigent-z` entry: research-loop activity metrics (invariants queried, experiments run, counterfactuals projected) + outcome metrics (results published, invariants validated) + two NBAs. Adds `'researcher'` to the `ActivationAction.specialist` union. |
+| `supabase/migrations/20260716010000_persona_plans_research_tier.sql` | new `research_tier` column on `persona_plans` (`'none'`/`'active'`, CHECK-constrained), coexisting with `plan_tier`/`venture_tier`/`standing_tier` (the same additive multi-column model). |
+| `services/billing/personaPlan.ts` | new `PersonaPlan.researchCopilotAccess` flag, sourced ONLY from `research_tier === 'active'` — deliberately NOT derived from `sovereignAccess`/`aigentzLiteAccess`. Buying Sovereignty (aigentZ) does not grant it; buying it does not grant aigentZ. Added to the interface, `FREE_PLAN`, `resolve()`, and both `getPersonaPlan` selects. |
+| `services/billing/planCheckout.ts` | new `research_copilot` entry in `TIER_CONFIG` (`planColumns: { research_tier: 'active' }`, label "Research Copilot (IRL)") + `CODE_LEVEL_TIER_PRICES.research_copilot = 2900` ($29). The tier-key-driven checkout route (`/api/billing/checkout`) sells it via Q¢ / PayPal / USDC with no route change. |
+| `services/activations/activationPlanGate.ts` | `'researcher'` gate now `{ entitled: (p) => p.researchCopilotAccess, requiredTier: 'research_copilot' }` — its own flag + its own tier, no longer sharing aigentZ's. |
+| `app/api/billing/plan/route.ts` | admin override sets `researchCopilotAccess: true` (admins get all copilots); the flag surfaces in the plan response automatically. |
+| `data/activation-catalog.ts` | new `researcher` catalog entry (`gate: 'gated'`, `tabSlug: 'irl-research-copilot'`); longDescription now names the dedicated Research Copilot (IRL) tier ($29/mo, sold separately). Adds `'researcher'` to the `ActivationAction.specialist` union. |
+| `components/metame/billing/PlanUpgradeModal.tsx` | added `research_copilot` to `PlanTierKey` + a contained single-tier render branch (`isResearch`): its own header, blurb, single tier card, and a research feature list — reusing all the shared rail / checkout / PayPal / USDC / Q¢ machinery unchanged. The FO comparison path is untouched. |
+| `components/metame/billing/CitizenLadderModal.tsx` | the Research Copilot row now reads "Add-on" across all three citizen columns (it is a separate SKU, not a Sovereignty-bundled feature). |
 
-`aigentzLiteAccess` resolves to `sovereignAccess` (the Sovereignty tier — "for developers to
-incubate pre-FO projects; full operational access is Founder Office"). Reusing it means the
-same Sovereignty subscription that unlocks the aigentZ Command Center unlocks the Research
-Copilot — the Researcher is the fifth route into the Founder Office at the developer copilot's
-tier, exactly as directed.
+Because checkout is tier-key-driven, the SKU is purchasable the moment the tier is in
+`TIER_CONFIG` — `POST /api/billing/checkout { tierKey: 'research_copilot', rail }`. A non-entitled
+persona clicking the gated Research Copilot activation routes (via `resolveActivationPlanGate` →
+`requiredTier: 'research_copilot'`) to the single-tier purchase view.
 
 ### Surface
 
@@ -81,12 +91,13 @@ were updated together.
 ## Why this shape
 
 - **One entitlement resolver, not a parallel gate.** The researcher reuses
-  `resolveActivationPlanGate` and the `aigentzLiteAccess` flag — CLAUDE.md's Identity & Access
-  Spine rule ("don't build parallel gates") applied to the subscription layer.
-- **No new pricing.** The operator's framing was "a similar tier to the DevOn/AigentZ copilot,"
-  so the Research Copilot rides the existing Sovereignty (T1) tier. If a distinct purchasable
-  Researcher tier/price is wanted later, it is a one-row change to `requiredTier` +
-  `ACTIVATION_PLAN_GATE.entitled` — flagged for operator decision.
+  `resolveActivationPlanGate` / `isPlanEntitled` — CLAUDE.md's Identity & Access Spine rule
+  ("don't build parallel gates") applied to the subscription layer. It has its OWN entitlement
+  flag (`researchCopilotAccess`), but resolves through the same gate machinery.
+- **Its own SKU, same price stage.** Per the operator correction (2026-07-16), the Research
+  Copilot is NOT bundled with aigentZ — it is the dedicated `research_copilot` tier at $29/mo
+  (the same stage as Sovereignty), sold separately. Reused the tier-key-driven checkout so no
+  new payment infra was built — a new `TIER_CONFIG` row + a `research_tier` column carry it.
 - **Pathway parity.** The Researcher is now a full archetype everywhere the other four are
   enumerated (type, validation set, standing domains, setup wizard, DB constraint), so Standing
   lenses, NBE reranking, and the setup surface treat it as a first-class pathway.
@@ -107,11 +118,22 @@ were updated together.
 
 ## Operator decisions confirmed (2026-07-16)
 
-1. **Same price and stage as the developer pathway** — confirmed. No distinct Researcher tier or
-   price; the Research Copilot rides the Sovereignty (T1) purchase exactly as DevOn does
-   (`aigentzLiteAccess = sovereignAccess`). Buying Sovereignty unlocks both.
+1. **Its own unlock with a unique SKU, not bundled with aigentZ** — confirmed (this corrected an
+   earlier read that it would ride Sovereignty). Built as the dedicated `research_copilot` tier,
+   priced at the **same $29/mo stage** as Sovereignty but sold separately (own `research_tier`
+   column + own `researchCopilotAccess` flag). Buying aigentZ/Sovereignty does not grant it.
 2. **Research Copilot as a first-class roster specialist** — confirmed and built (see the roster
    section above).
+3. **The research progression ladder** — confirmed ("yes build it"); chartered separately
+   (Phase 22).
+
+### Known limitation (single-row plan model)
+
+`persona_plans` is one row per persona with one shared `current_period_end`. The `research_tier`
+column coexists with `plan_tier`/`venture_tier`, but a persona holding Sovereignty AND the
+Research Copilot shares one renewal date, and `tierKeyForPlanRow` (the renewal reverse-lookup)
+still returns the primary citizen/venture tier. Independent per-SKU renewal would need a separate
+add-on subscriptions table — flagged as a follow-on, consistent with the alpha renewal model.
 
 ## The Researcher as the fifth *value-creation* pathway (Aleatheon framing, recorded)
 

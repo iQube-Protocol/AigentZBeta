@@ -197,7 +197,7 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     label: 'Research Copilot',
     description: 'Invariant Intelligence research — experiments, invariant fields, and validation with the Research Copilot.',
     longDescription:
-      'Activate the Research Copilot — the researcher pathway\'s peer to the aigentZ developer copilot. Query the invariant substrate, run experiments against pre-registered protocols, project invariant-field counterfactuals, and contribute validated results into the constitutional record, with the Research Copilot as your guide through the full research loop. Requires Sovereignty (Tier 1) or above.',
+      'Activate the Research Copilot — the researcher pathway\'s peer to the aigentZ developer copilot. Query the invariant substrate, run experiments against pre-registered protocols, project invariant-field counterfactuals, and contribute validated results into the constitutional record, with the Research Copilot as your guide through the full research loop. Its own unlock — the dedicated Research Copilot (IRL) tier, $29/mo, sold separately from aigentZ.',
     gate: 'gated',
     tabSlug: 'irl-research-copilot',
     sourceCartridge: 'metame',

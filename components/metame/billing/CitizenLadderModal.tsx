@@ -365,7 +365,7 @@ export function CitizenLadderModal({
                 <FeatureRow label="myCluster" a={true} b={true} c={true} />
                 <FeatureRow label="AgentiQ OS" a={true} b={true} c={true} />
                 <FeatureRow label="DevOn (aigentZ)" a={null} b="Lite" c="Full" />
-                <FeatureRow label="Research Copilot (IRL)" a={null} b={true} c={true} />
+                <FeatureRow label="Research Copilot (IRL)" a="Add-on" b="Add-on" c="Add-on" />
 
                 <GroupHeader label="Personas & delegation" />
                 <FeatureRow label="Personas" a="1" b="3" c="8" />

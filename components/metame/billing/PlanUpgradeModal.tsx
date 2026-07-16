@@ -34,7 +34,8 @@ export type PlanTierKey =
   | 'steward'
   | 'venture_lite'
   | 'venture_pro'
-  | 'venture_elite';
+  | 'venture_elite'
+  | 'research_copilot';
 
 interface TierMeta {
   key: PlanTierKey;
@@ -94,6 +95,7 @@ const FO_TIER_LABEL: Record<string, string> = {
   venture_lite: 'Operator',
   venture_pro: 'Operator+',
   venture_elite: 'Portfolio Operator',
+  research_copilot: 'Research Copilot',
 };
 
 // Code-level price fallbacks so the header cards always show a figure even
@@ -102,7 +104,19 @@ const FO_PRICE_FALLBACK: Record<string, string> = {
   venture_lite: '$299/mo',
   venture_pro: '$999/mo',
   venture_elite: '$2,999/mo',
+  research_copilot: '$29/mo',
 };
+
+// Research Copilot (IRL) — its own dedicated tier/SKU. Rendered as a single-tier
+// purchase (not the FO comparison) when the modal is opened for it, reusing all
+// the rail / checkout / PayPal / USDC machinery below.
+const RESEARCH_LADDER: TierMeta[] = [
+  {
+    key: 'research_copilot',
+    name: 'Research Copilot (IRL)',
+    blurb: 'The constitutional research environment — invariant substrate, protocols, experiments, receipts. Sold separately from aigentZ.',
+  },
+];
 
 export function PlanUpgradeModal({
   open,
@@ -112,11 +126,17 @@ export function PlanUpgradeModal({
   onClose,
   onUpgraded,
 }: PlanUpgradeModalProps) {
-  // Always show all three Founder Office tiers in the comparison, regardless of
-  // any `tiers` restriction passed by a scoped CTA — the operator chooses which
-  // package to buy/apply for. `defaultTierKey` still controls pre-selection.
-  const ladder = TIER_LADDER;
-  void tiers;
+  // Research Copilot (IRL) is a standalone tier/SKU — when the modal is opened
+  // for it, render just that single-tier purchase (its own header, blurb, and
+  // feature list) instead of the Founder Office comparison. Everything else
+  // (rail picker, checkout, PayPal/USDC/Q¢) is shared, unchanged.
+  const isResearch =
+    defaultTierKey === 'research_copilot' ||
+    (Array.isArray(tiers) && tiers.length === 1 && tiers[0] === 'research_copilot');
+  // For the Founder Office path, always show all three FO tiers regardless of
+  // any `tiers` restriction — the operator chooses which package to buy/apply
+  // for. `defaultTierKey` still controls pre-selection.
+  const ladder = isResearch ? RESEARCH_LADDER : TIER_LADDER;
 
   const [quotes, setQuotes] = useState<Record<string, TierQuote>>({});
   const [loadingQuotes, setLoadingQuotes] = useState(false);
@@ -327,7 +347,7 @@ export function PlanUpgradeModal({
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
             <ArrowUpCircle className="h-5 w-5 text-purple-400" />
-            <h2 className="text-base font-semibold">Founder Office</h2>
+            <h2 className="text-base font-semibold">{isResearch ? 'Research Copilot (IRL)' : 'Founder Office'}</h2>
           </div>
           <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-white">
             <X className="h-5 w-5" />
@@ -354,12 +374,13 @@ export function PlanUpgradeModal({
         ) : (
           <div className="max-h-[82vh] overflow-y-auto px-5 py-5">
             <p className="mb-4 text-xs text-slate-400">
-              The Founder Office runs your ventures on the VentureQube Pro schema with the
-              operating model. Choose a package to buy — or request complimentary access below.
+              {isResearch
+                ? 'The Research Copilot is its own unlock — a constitutional research environment, sold separately from aigentZ. Buy it below, or request complimentary access.'
+                : 'The Founder Office runs your ventures on the VentureQube Pro schema with the operating model. Choose a package to buy — or request complimentary access below.'}
             </p>
 
             {/* Tier header cards */}
-            <div className="mb-5 grid grid-cols-3 gap-3">
+            <div className={`mb-5 grid gap-3 ${isResearch ? 'grid-cols-1' : 'grid-cols-3'}`}>
               {ladder.map((t) => {
                 const q = quotes[t.key];
                 const price = q ? `${usd(q.priceUsdCents)}/mo` : (loadingQuotes ? '…' : (FO_PRICE_FALLBACK[t.key] ?? '—'));
@@ -379,44 +400,61 @@ export function PlanUpgradeModal({
               })}
             </div>
 
-            {/* Feature comparison table */}
-            <table className="w-full table-fixed text-left">
-              <thead>
-                <tr>
-                  <th className="w-[46%] pb-2 text-[11px] text-slate-600">Feature</th>
-                  <th className="w-[18%] pb-2 text-center text-[11px] text-slate-400">Operator</th>
-                  <th className="w-[18%] pb-2 text-center text-[11px] text-purple-300">Operator+</th>
-                  <th className="w-[18%] pb-2 text-center text-[11px] text-purple-200">Portfolio</th>
-                </tr>
-              </thead>
-              <tbody>
-                <GroupHeader label="Ventures" />
-                <FeatureRow label="Active ventures" a="1" b="3" c="Unlimited" />
-                <FeatureRow label="Portfolio view" a={null} b={true} c={true} />
-                <FeatureRow label="VentureQube Pro 13-layer schema" a={true} b={true} c={true} />
-                <FeatureRow label="Operating model (Chief-of-Staff)" a={true} b={true} c={true} />
+            {/* Feature list — research single-tier vs Founder Office comparison */}
+            {isResearch ? (
+              <ul className="space-y-2 text-sm text-slate-300">
+                {[
+                  'Research Copilot — the researcher pathway\'s peer to the aigentZ developer copilot',
+                  'Query the invariant substrate, ranked by standing',
+                  'Author pre-registered, falsifiable protocols and experiments',
+                  'Project invariant-field counterfactuals',
+                  'Contribute validated results into the constitutional record',
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <table className="w-full table-fixed text-left">
+                <thead>
+                  <tr>
+                    <th className="w-[46%] pb-2 text-[11px] text-slate-600">Feature</th>
+                    <th className="w-[18%] pb-2 text-center text-[11px] text-slate-400">Operator</th>
+                    <th className="w-[18%] pb-2 text-center text-[11px] text-purple-300">Operator+</th>
+                    <th className="w-[18%] pb-2 text-center text-[11px] text-purple-200">Portfolio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <GroupHeader label="Ventures" />
+                  <FeatureRow label="Active ventures" a="1" b="3" c="Unlimited" />
+                  <FeatureRow label="Portfolio view" a={null} b={true} c={true} />
+                  <FeatureRow label="VentureQube Pro 13-layer schema" a={true} b={true} c={true} />
+                  <FeatureRow label="Operating model (Chief-of-Staff)" a={true} b={true} c={true} />
 
-                <GroupHeader label="Personas & delegation" />
-                <FeatureRow label="Personas" a="10" b="15" c="Unlimited" />
-                <FeatureRow label="Bounded delegate aigents" a="35" b="50" c="Unlimited" />
+                  <GroupHeader label="Personas & delegation" />
+                  <FeatureRow label="Personas" a="10" b="15" c="Unlimited" />
+                  <FeatureRow label="Bounded delegate aigents" a="35" b="50" c="Unlimited" />
 
-                <GroupHeader label="Studios & services" />
-                <FeatureRow label="Venture Lab" a={true} b={true} c={true} />
-                <FeatureRow label="Marketa" a={true} b={true} c={true} />
-                <FeatureRow label="metaMe Studio" a={true} b={true} c={true} />
-                <FeatureRow label="Human Mobility Services" a={true} b={true} c={true} />
+                  <GroupHeader label="Studios & services" />
+                  <FeatureRow label="Venture Lab" a={true} b={true} c={true} />
+                  <FeatureRow label="Marketa" a={true} b={true} c={true} />
+                  <FeatureRow label="metaMe Studio" a={true} b={true} c={true} />
+                  <FeatureRow label="Human Mobility Services" a={true} b={true} c={true} />
 
-                <GroupHeader label="Intelligence & standing" />
-                <FeatureRow
-                  label="Premium aigentMe model (or comparable class)"
-                  a={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
-                  b={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
-                  c={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
-                />
-                <FeatureRow label="Professional Standing" a={true} b={true} c={true} />
-                <FeatureRow label="All citizen + Stewardship privileges" a={true} b={true} c={true} />
-              </tbody>
-            </table>
+                  <GroupHeader label="Intelligence & standing" />
+                  <FeatureRow
+                    label="Premium aigentMe model (or comparable class)"
+                    a={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
+                    b={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
+                    c={<ModelCell primary="Opus" alts={['GPT-4.1', 'Gemini Ultra']} />}
+                  />
+                  <FeatureRow label="Professional Standing" a={true} b={true} c={true} />
+                  <FeatureRow label="All citizen + Stewardship privileges" a={true} b={true} c={true} />
+                </tbody>
+              </table>
+            )}
 
             <div className="mt-5 border-t border-white/10 pt-5" />
 

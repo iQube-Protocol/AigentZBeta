@@ -100,13 +100,20 @@ export interface PersonaPlan {
    * DevOn/AigentZ lite access — developers can incubate projects before
    * entering the Founder Office, then graduate them as ventures when ready.
    * Full DevOn operational access is Founder Office (venture_tier != none).
-   *
-   * The Sovereignty tier grants the same flag to the RESEARCHER pathway's
-   * Research Copilot (IRL) — the `researcher` activation gate reuses this
-   * entitlement, so the researcher is the peer of the developer pathway at
-   * this tier (see services/activations/activationPlanGate.ts).
    */
   aigentzLiteAccess: boolean;
+  /**
+   * True when the persona owns the RESEARCHER pathway's Research Copilot (IRL).
+   *
+   * This is its OWN unlock with a unique SKU — the dedicated `research_copilot`
+   * tier (planCheckout.TIER_CONFIG), priced at the same $29/mo stage as
+   * Sovereignty but sold separately. It is deliberately NOT derived from
+   * `aigentzLiteAccess` / `sovereignAccess`: buying Sovereignty (aigentZ) does
+   * NOT grant the Research Copilot, and buying the Research Copilot does not
+   * grant aigentZ. Sourced from the `research_tier` column ('active').
+   * The `researcher` activation gate reads this flag.
+   */
+  researchCopilotAccess: boolean;
   /**
    * Experience-model soft-caps. Tier 0 (free Citizen) is deliberately bounded
    * so the experience model is a focused starter; Tier 1 (sovereignAccess)
@@ -154,6 +161,7 @@ const FREE_PLAN: PersonaPlan = {
   sovereignAccess: false,
   stewardAccess: false,
   aigentzLiteAccess: false,
+  researchCopilotAccess: false,
   // Tier 0 soft-caps: a focused starter experience model.
   experienceGoalLimit: 1,
   kpiLimit: 3,
@@ -200,6 +208,7 @@ function resolve(row: {
   plan_tier?: string;
   venture_tier?: string;
   standing_tier?: string;
+  research_tier?: string;
   status?: string;
 }): PersonaPlan {
   const planTier = (row.plan_tier as AgencyPlanTier) ?? 'citizen';
@@ -212,6 +221,11 @@ function resolve(row: {
   // DevOn/AigentZ lite: Sovereignty tier + for developers to incubate pre-FO projects;
   // full operational DevOn is Founder Office only.
   const aigentzLiteAccess = sovereignAccess;
+  // Research Copilot: its OWN SKU (the dedicated `research_copilot` tier), sold
+  // separately from Sovereignty/aigentZ. Sourced only from the research_tier
+  // column — never derived from sovereignAccess. Founder Office does NOT bundle
+  // it (kept intentionally unbundled per operator direction 2026-07-16).
+  const researchCopilotAccess = row.research_tier === 'active';
   // Professional Standing: steward tier, own professional subscription, or FO Pro/Elite bundle.
   const professionalStanding =
     stewardAccess || standingTier === 'professional' || ventureTier === 'pro' || ventureTier === 'elite';
@@ -237,6 +251,7 @@ function resolve(row: {
     sovereignAccess,
     stewardAccess,
     aigentzLiteAccess,
+    researchCopilotAccess,
     // Experience-model soft-caps ladder:
     //   Free      → goals 1, KPIs 3, cartridges 1
     //   Sovereign → goals 5, KPIs 7, cartridges 5
@@ -272,7 +287,7 @@ export async function getPersonaPlan(
   try {
     const { data, error } = await admin
       .from('persona_plans')
-      .select('plan_tier, venture_tier, standing_tier, status')
+      .select('plan_tier, venture_tier, standing_tier, research_tier, status')
       .eq('persona_id', personaId)
       .maybeSingle();
     if (error || !data) return { ...FREE_PLAN };
@@ -306,7 +321,7 @@ export async function getSubscriberPersonaLimit(
 
     const { data: plans } = await admin
       .from('persona_plans')
-      .select('plan_tier, venture_tier, standing_tier, status')
+      .select('plan_tier, venture_tier, standing_tier, research_tier, status')
       .in('persona_id', ids);
 
     let best = free;
