@@ -4,6 +4,8 @@ import { listPromotedCommunityCapsuleRecords } from "@/services/community-conten
 import { getSmartContentService } from "@/services/content";
 import type { SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleAssetRef, RuntimeCapsuleRecord, RuntimeCapsulesResponse } from "@/types/runtimeCapsules";
+import { runShadow } from "@/services/invariants/engine";
+import { discoveryRankingProjector } from "@/services/invariants/nodes/discoveryRanking";
 import fallbackContent from "@/qriptopian-content-export.json";
 
 export const runtime = "nodejs";
@@ -596,6 +598,16 @@ export async function GET(request: NextRequest) {
             .sort((a, b) => b.score - a.score)
             .map((entry) => entry.capsule)
             .slice(0, limit);
+
+    // CFS-035 Phase 0 — the discovery-ranking Invariant Decision Node runs in
+    // SHADOW against the incumbent `scoreCapsule` order: it re-expresses the
+    // same signals as a transparent projection (importance/novelty/trust/need)
+    // and emits the divergence for the Evolution face. Observe-mode only — the
+    // served order is `scored`, unchanged. The flip to authoritative is a
+    // separate, operator-gated ratification. Never throws (runShadow guards).
+    if (intent !== "play") {
+      runShadow(discoveryRankingProjector, { capsules: deduped, prompt, intent }, scored, (c) => c.id);
+    }
 
     return NextResponse.json<RuntimeCapsulesResponse>(
       {
