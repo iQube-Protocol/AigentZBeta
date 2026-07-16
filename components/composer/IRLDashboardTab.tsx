@@ -105,7 +105,7 @@ const EXPERIMENT_FAMILY: Record<string, string> = {
   "EXP-005": "Provider Choice",
 };
 
-function IRLDashboardContent() {
+function IRLDashboardContent({ publicMode = false }: { publicMode?: boolean }) {
   const [results, setResults] = useState<ResultRow[] | null>(null);
   const [resultsError, setResultsError] = useState<string | null>(null);
   const [chrysalis, setChrysalis] = useState<ChrysalisSummary | null>(null);
@@ -120,33 +120,50 @@ function IRLDashboardContent() {
   const surface = useSurfaceStyle();
 
   useEffect(() => {
+    // Public: token-free fetch at the public routes (same readers server-side).
+    // Internal: spine-gated experimentGet, unchanged.
+    const get = async (publicUrl: string, gatedUrl: string): Promise<Record<string, unknown>> => {
+      if (!publicMode) return experimentGet(gatedUrl);
+      const res = await fetch(publicUrl, { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+      if (!res.ok || !data || data.ok !== true) {
+        throw new Error((data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`);
+      }
+      return data;
+    };
     (async () => {
       try {
-        const data = await experimentGet("/api/experiments/results");
+        const data = await get("/api/public/irl/experiments-results", "/api/experiments/results");
         setResults((data.results as ResultRow[]) ?? []);
       } catch (err) {
         setResultsError(err instanceof Error ? err.message : "results unavailable");
       }
     })();
+    // Chrysalis Test is admin-gated + credit-touching — omit its source entirely
+    // in public mode (the section renders its honest "requires admin" note).
+    if (!publicMode) {
+      (async () => {
+        try {
+          const data = await experimentGet("/api/constitutional/chrysalis-test");
+          setChrysalis((data.summary as ChrysalisSummary) ?? null);
+        } catch (err) {
+          // Admin-gated — degrade honestly for non-admin researchers.
+          setChrysalisNote(err instanceof Error ? err.message : "programme status requires admin");
+        }
+      })();
+    } else {
+      setChrysalisNote("Programme status (Chrysalis Test) is an operator surface — available in the internal metaMe IRL cartridge.");
+    }
     (async () => {
       try {
-        const data = await experimentGet("/api/constitutional/chrysalis-test");
-        setChrysalis((data.summary as ChrysalisSummary) ?? null);
-      } catch (err) {
-        // Admin-gated — degrade honestly for non-admin researchers.
-        setChrysalisNote(err instanceof Error ? err.message : "programme status requires admin");
-      }
-    })();
-    (async () => {
-      try {
-        const data = await experimentGet("/api/research/overview");
+        const data = await get("/api/public/irl/research-overview", "/api/research/overview");
         setOverview((data.experiments as OverviewEntry[]) ?? []);
         setLifecycleOrder((data.lifecycleOrder as string[]) ?? []);
       } catch {
         /* overview degrades silently — the results table below still renders */
       }
     })();
-  }, []);
+  }, [publicMode]);
 
   return (
     <>
@@ -429,10 +446,10 @@ function IRLDashboardContent() {
  * (space-y-6 max-w-5xl) plus the field ground (surface.base) — no extra nesting,
  * no layout change.
  */
-export default function IRLDashboardTab() {
+export default function IRLDashboardTab({ publicMode = false }: { publicMode?: boolean } = {}) {
   return (
     <RepresentationProvider className="space-y-6 max-w-5xl bg-[var(--rep-surface-base)]">
-      <IRLDashboardContent />
+      <IRLDashboardContent publicMode={publicMode} />
     </RepresentationProvider>
   );
 }

@@ -4949,12 +4949,27 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
   ],
   tabs: [
     {
+      // Public read-only Dashboard — mission, published results, derived
+      // lifecycle overview (anonymous-safe via /api/public/irl/* projections,
+      // audit 2026-07-17). The admin/credit-touching Chrysalis Test source is
+      // omitted in publicMode.
+      id: 'irl-os-dashboard',
+      label: 'Dashboard',
+      slug: 'irl-os-dashboard',
+      enabled: true,
+      group: 'institution',
+      order: 0,
+      type: 'static',
+      config: { component: 'IRLDashboardTab', props: { publicMode: true } },
+      metadata: { icon: 'Landmark', description: 'Mission, published Foundational Validation Series results, and the live research-object lifecycle (read-only, public)', color: 'violet' },
+    },
+    {
       id: 'irl-os-charter',
       label: 'Charter',
       slug: 'irl-os-charter',
       enabled: true,
       group: 'institution',
-      order: 0,
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
