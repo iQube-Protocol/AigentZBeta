@@ -46,12 +46,24 @@ intent, see the resolved region — domains, coordinates, coverage/reuse/ttv, th
 operational-vs-research basis split). No existing perspective changed; route
 composes the already-drilled resolution.ts + coordinates.ts.
 
+## IPE Phase 2 (CFS-039) — the IRE → IPE projection bridge, shadow
+`services/invariants/projectionBridge.ts` — `compareProjection` projects a
+resolved field into a node's dimension weights via BOTH the incumbent (standing)
+and the IRE-fed (coordinates) paths and reports agreement. Observe-only. Wired
+into the CFO Resolve route + view: the resolve response carries an
+`ipeProjection` block (discovery.ranking — standing vs coordinate weights + mean
+delta + diverges) and the Observatory renders it. Agrees by construction on the
+standing axis today; the seam surfaces divergence once CCR constitutional-class
+coordinates shift the axis. **4/4 drill.** The resolve→project connection is now
+end-to-end in one place.
+
 ## The pipeline, now standing
 ```
 Intent → IRE (resolve field + coordinates) → KRE (reuse/compose/create) → IPE (project via coordinates) → reasoning
 ```
-All Phase-0, observe-first — the substrate is in place; wiring each into the
-authoritative path (per surface) is the next ratification per engine.
+All observe-first — the substrate is in place, and the IRE→IPE half is wired
+end-to-end (shadow) in the CFO Resolve view. Wiring the KRE into live discovery,
+and flipping any node authoritative, are the next ratifications per engine.
 
 ## Honest limits (carried from the specs)
 - The **Universal Invariant Library seeding** is the operator-run reconciliation
