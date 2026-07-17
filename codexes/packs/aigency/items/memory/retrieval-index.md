@@ -3429,3 +3429,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-95178a2.md](../build_/COMMITS/COMMIT-95178a2.md)
 - Message: fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing
+
+## Commit `6f6039f` — 2026-07-17T19:41:39Z
+- Type: `docs`
+- Brief: [COMMIT-6f6039f.md](../build_/COMMITS/COMMIT-6f6039f.md)
+- Message: docs: IPE Phase 2 (projection bridge) run-doc + tracker; note parallel Polity canonization
