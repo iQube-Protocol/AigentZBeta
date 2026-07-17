@@ -40,6 +40,10 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-17_polity-experience-sovereignty-canonization.md",
+        "updates/2026-07-17_polity-thresholds-canonization.md",
+        "updates/2026-07-17_polity-embodied-canonization.md",
+        "updates/2026-07-17_polity-robots-agents-canonization.md",
         "updates/2026-07-17_polity-papers-canonization-pass2.md",
         "updates/2026-07-16_researcher-pathway-fo-subscription-integration.md",
         "updates/2026-07-16_per-sku-renewal-addons-table-backlog.md",
