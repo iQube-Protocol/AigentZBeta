@@ -2490,6 +2490,29 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      // CRP-003a Increment 3 — the first Founder Office Capability Suite.
+      // Runs the canonical constitutional service pattern (N1 agreement gate +
+      // N2 12-step pipeline) on a Domain-3 (Financial Intelligence, read-only)
+      // capability. Constitutional-agreement (409) gated; commercial tier-gating
+      // is Increment 3b.
+      id: 'financial-services',
+      label: 'Financial Services',
+      slug: 'financial-services',
+      enabled: true,
+      adminOnly: false,
+      order: 0.5,
+      type: 'static',
+      config: {
+        component: 'FinancialServicesTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Landmark',
+        description: 'Constitutional Financial Services Programme (CRP-003a) — Pilot Series 001 with Horizen. Domain 3 Financial Intelligence, constitutional service loop.',
+        color: 'emerald'
+      }
+    },
+    {
       id: 'commercial-funnel',
       label: 'Commercial Funnel',
       slug: 'commercial-funnel',
