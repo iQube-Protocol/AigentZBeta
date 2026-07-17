@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T19:10:18.185Z",
+  "last_updated": "2026-07-17T19:43:36.461Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "95178a26a51c510d7907c019439f396978fd8399",
-  "latest_commit_short": "95178a2",
-  "latest_commit_title": "fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing",
+  "latest_commit": "6f6039fce9c0af1a8e5eabe22eaed05ee52bb184",
+  "latest_commit_short": "6f6039f",
+  "latest_commit_title": "docs: IPE Phase 2 (projection bridge) run-doc + tracker; note parallel Polity canonization",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6f6039f",
+      "full_sha": "6f6039fce9c0af1a8e5eabe22eaed05ee52bb184",
+      "title": "docs: IPE Phase 2 (projection bridge) run-doc + tracker; note parallel Polity canonization",
+      "author": "Claude",
+      "timestamp": "2026-07-17T19:41:39Z",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-6f6039f.md"
+    },
     {
       "sha": "95178a2",
       "full_sha": "95178a26a51c510d7907c019439f396978fd8399",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-06T15:49:16Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7186b5b.md"
-    },
-    {
-      "sha": "ff5abef",
-      "full_sha": "ff5abef797368d776606d4fe120f13f856bb8fbc",
-      "title": "Promote ChainGPT to experiment adapter; rehearsal chain chaingpt → openai → venice-sovereign",
-      "author": "Claude",
-      "timestamp": "2026-07-06T15:40:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ff5abef.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
