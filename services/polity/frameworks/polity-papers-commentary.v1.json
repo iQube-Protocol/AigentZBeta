@@ -14,14 +14,20 @@
       "abbrev": "PoWP",
       "definition": "An estimate of the capability latent within truthful information before that capability is applied. PoWP estimates potential, not realized outcomes.",
       "contributesFrom": "Standing (veracity of declarations) plus the broader signal set defined in the Polity Paper series.",
-      "crossReferencedBy": ["standing-charter", "metacommons-charter"],
+      "crossReferencedBy": [
+        "standing-charter",
+        "metacommons-charter"
+      ],
       "fullText": "papers/polity (Polity Paper series) — see series[].papers[] once ingested."
     },
     "proof_of_time_saved": {
       "abbrev": "PoTS",
       "definition": "Verification of realized value, in three clearly-layered framings of one idea (no new primitives, no new ontology — just clearer layering): (1) PUBLIC MENTAL MODEL = Time-to-Value (instantly understood); (2) INTERNAL METRIC = Proof of Time Saved, PoTS (a measurable component); (3) CONSTITUTIONAL PRINCIPLE = Net Value Acceleration = Time-to-Value minus Risk Repair Burden (max(0, time saved − risk repair)). PoTS is ONE dimension of outcome accrual, not the whole story — an outcome claim also carries claimed value and a risk profile. Outcome claims are self-declared but accrue NOTHING to Standing until verified; verification is the accrual gate. PoTS improves the Polity's ability to understand how realized capability emerges from truthful information.",
       "implementedAs": "Outcome Accrual Evidence — the proofOfOutcomeClaims block on the VentureQube outcome layer (types/ventureQube.ts), verified via /api/venture/qubes/[ventureId]/verify-outcome, accrued into Personal Standing by services/venture/ventureOutcomeAccrual.ts.",
-      "crossReferencedBy": ["standing-charter", "metacommons-charter"],
+      "crossReferencedBy": [
+        "standing-charter",
+        "metacommons-charter"
+      ],
       "fullText": "papers/polity (Polity Paper series) — see series[].papers[] once ingested."
     },
     "time_sovereignty": {
@@ -39,14 +45,82 @@
       "scope": "papers/experience-sovereignty",
       "title": "Experience Sovereignty Series",
       "description": "Foundational papers on experience sovereignty and the operator's ownership of their experience model and progression.",
-      "papers": []
+      "papers": [
+        {
+          "id": "experience-sovereignty-agent-runbook",
+          "paperNumber": 7,
+          "title": "7 Agent Runbook",
+          "scope": "papers/experience-sovereignty",
+          "markdownPath": "items/commentary/experience-sovereignty/07-agent-runbook.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-experience-sovereignty_1779920293125.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 4344
+        }
+      ]
     },
     {
       "id": "coyn-thesis",
       "scope": "papers/coyn-thesis",
       "title": "COYN Thesis Series",
       "description": "The COYN thesis — the economic and value-accrual foundations of the Polity.",
-      "papers": []
+      "papers": [
+        {
+          "id": "coyn-thesis-the-fallacy-of-free-information",
+          "paperNumber": 1,
+          "title": "1 The Fallacy of Free Information",
+          "scope": "papers/coyn-thesis",
+          "markdownPath": "items/commentary/coyn-thesis/01-the-fallacy-of-free-information.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-coyn-thesis_1779911622875.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 4657
+        },
+        {
+          "id": "coyn-thesis-time-sovereignty",
+          "paperNumber": 2,
+          "title": "2 Time Sovereignty",
+          "scope": "papers/coyn-thesis",
+          "markdownPath": "items/commentary/coyn-thesis/02-time-sovereignty.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-coyn-thesis_1779911798217.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 3566
+        },
+        {
+          "id": "coyn-thesis-proof-of-time-saved",
+          "paperNumber": 3,
+          "title": "3 Proof of Time Saved",
+          "scope": "papers/coyn-thesis",
+          "markdownPath": "items/commentary/coyn-thesis/03-proof-of-time-saved.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-coyn-thesis_1779911752194.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 3499
+        },
+        {
+          "id": "coyn-thesis-money-time-and-coyn",
+          "paperNumber": 4,
+          "title": "4 Money Time and COYN",
+          "scope": "papers/coyn-thesis",
+          "markdownPath": "items/commentary/coyn-thesis/04-money-time-and-coyn.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-coyn-thesis_1779911754288.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 3832
+        },
+        {
+          "id": "coyn-thesis-the-sovereign-cybernetic-economy",
+          "paperNumber": 5,
+          "title": "5 The Sovereign Cybernetic Economy",
+          "scope": "papers/coyn-thesis",
+          "markdownPath": "items/commentary/coyn-thesis/05-the-sovereign-cybernetic-economy.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-coyn-thesis_1779911755867.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 3457
+        }
+      ]
     },
     {
       "id": "polity",
@@ -59,9 +133,54 @@
         "elevatedTo": "constitution-agentic-polity",
         "status": "ratified"
       },
-      "papers": []
+      "papers": [
+        {
+          "id": "polity-beyond-the-binary",
+          "paperNumber": 1,
+          "title": "1 Beyond the Binary",
+          "scope": "papers/polity",
+          "markdownPath": "items/commentary/polity/01-beyond-the-binary.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-polity_1779856425607.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 2110
+        },
+        {
+          "id": "polity-from-perimeter-to-polity",
+          "paperNumber": 2,
+          "title": "2 From Perimeter to Polity",
+          "scope": "papers/polity",
+          "markdownPath": "items/commentary/polity/02-from-perimeter-to-polity.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-polity_1779909639350.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 2692
+        },
+        {
+          "id": "polity-citizenship-in-the-agentic-internet",
+          "paperNumber": 3,
+          "title": "3 Citizenship in the Agentic Internet",
+          "scope": "papers/polity",
+          "markdownPath": "items/commentary/polity/03-citizenship-in-the-agentic-internet.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-polity_1779909641667.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 4365
+        },
+        {
+          "id": "polity-the-constitution-of-the-agentic-polity",
+          "paperNumber": 4,
+          "title": "4 The Constitution of the Agentic Polity",
+          "scope": "papers/polity",
+          "markdownPath": "items/commentary/polity/04-the-constitution-of-the-agentic-polity.md",
+          "sourceUrl": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-polity_1779909643233.pdf",
+          "autoDriveCid": null,
+          "extraction": "pdf-parse",
+          "wordCount": 4820
+        }
+      ]
     }
   ],
-  "generatedAt": null,
+  "generatedAt": "2026-07-17T21:47:17.892Z",
   "generatedBy": "scripts/ingest-polity-papers.mjs"
 }
