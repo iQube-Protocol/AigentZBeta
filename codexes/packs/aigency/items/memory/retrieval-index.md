@@ -3489,3 +3489,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-34ab954.md](../build_/COMMITS/COMMIT-34ab954.md)
 - Message: canonize Polity full corpus pass 3: seed inv.polity.207-309 (proposed)
+
+## Commit `1505d97` — 2026-07-17T23:42:13Z
+- Type: `push`
+- Brief: [COMMIT-1505d97.md](../build_/COMMITS/COMMIT-1505d97.md)
+- Message: canonize Knowledge Compression genesis: preserve founding text + seed inv.reasoning.310-321 (proposed)

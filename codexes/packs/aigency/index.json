@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T23:36:27.519Z",
+  "last_updated": "2026-07-17T23:43:59.882Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "34ab954bf6e212f7ce0c80c4765d09b62856f1ef",
-  "latest_commit_short": "34ab954",
-  "latest_commit_title": "canonize Polity full corpus pass 3: seed inv.polity.207-309 (proposed)",
+  "latest_commit": "1505d97d16bbe3ec90165bf8b35d60b6bc046ad5",
+  "latest_commit_short": "1505d97",
+  "latest_commit_title": "canonize Knowledge Compression genesis: preserve founding text + seed inv.reasoning.310-321 (proposed)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1505d97",
+      "full_sha": "1505d97d16bbe3ec90165bf8b35d60b6bc046ad5",
+      "title": "canonize Knowledge Compression genesis: preserve founding text + seed inv.reasoning.310-321 (proposed)",
+      "author": "Claude",
+      "timestamp": "2026-07-17T23:42:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1505d97.md"
+    },
     {
       "sha": "34ab954",
       "full_sha": "34ab954bf6e212f7ce0c80c4765d09b62856f1ef",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T05:12:16Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-94fa7cc.md"
-    },
-    {
-      "sha": "9116c02",
-      "full_sha": "9116c0219aaf12be53ee8c6580675c18151f0b9b",
-      "title": "Execute CCRL Phase D: physical migration of the research corpus into the ccrl pack (atomic)",
-      "author": "Claude",
-      "timestamp": "2026-07-06T22:40:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9116c02.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
