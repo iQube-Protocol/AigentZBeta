@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T22:12:52.053Z",
+  "last_updated": "2026-07-17T23:20:21.747Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9196332acac81f4d6551c8293ac0133d3577cd9d",
-  "latest_commit_short": "9196332",
-  "latest_commit_title": "canonize Polity Papers full text pass 2 — seed inv.polity.175-206 (proposed)",
+  "latest_commit": "54963d397a5d93236182391d89ee3325e1209cf4",
+  "latest_commit_short": "54963d3",
+  "latest_commit_title": "add Polity source texts: Experience Sovereignty, Thresholds, Embodied, Robots-Agents series",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "54963d3",
+      "full_sha": "54963d397a5d93236182391d89ee3325e1209cf4",
+      "title": "add Polity source texts: Experience Sovereignty, Thresholds, Embodied, Robots-Agents series",
+      "author": "Kn0w-1",
+      "timestamp": "2026-07-17T19:18:33-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-54963d3.md"
+    },
     {
       "sha": "9196332",
       "full_sha": "9196332acac81f4d6551c8293ac0133d3577cd9d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-06T22:33:08Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-1f4f986.md"
-    },
-    {
-      "sha": "36c8181",
-      "full_sha": "36c81819e7ff85f40a7b606310b1a86ec645efc6",
-      "title": "Build CCRL C2: DCIR-conforming research copilot (narrate-only, CFS-019)",
-      "author": "Claude",
-      "timestamp": "2026-07-06T20:38:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-36c8181.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
