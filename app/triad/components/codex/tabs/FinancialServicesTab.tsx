@@ -35,11 +35,13 @@ interface StepTrace {
 interface PipelineResult {
   ok: boolean;
   mode: string;
+  domain?: string;
   executed: boolean;
   blockedAtStep: number | null;
   agreementId: string | null;
   trace: StepTrace[];
   verification?: { passed: boolean; requirements: { requirement: string; passed: boolean; detail: string }[] } | null;
+  settlement?: { status: string; intentRef: string | null; note: string } | null;
 }
 
 interface AgreementRow {
@@ -63,10 +65,24 @@ const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-
 const DEFAULT_CAP = "cap-financial-intelligence";
 const DEFAULT_AGENT = "agent-financial-intelligence";
 
+type Domain = "intelligence" | "investment" | "market";
+const DOMAIN_LABEL: Record<Domain, string> = { intelligence: "Financial Intelligence", investment: "Investment Operations", market: "Market Operations" };
+const DOMAIN_INVARIANTS: Record<Domain, string[]> = {
+  intelligence: ["F-201 Source Diversity", "F-202 Evidence Attribution", "F-203 Confidence Calibration"],
+  investment: ["F-001 Verifiable State Before Action", "F-002 Explainable Allocation", "F-003 Delegation Boundaries"],
+  market: ["F-101 Separation of Advice & Execution", "F-102 Standing-Weighted Selection", "F-103 Verification Before Standing"],
+};
+
 export function FinancialServicesTab() {
+  const [domain, setDomain] = useState<Domain>("intelligence");
   const [intent, setIntent] = useState("Which L2 should we integrate for treasury settlement?");
   const [capabilityRef, setCapabilityRef] = useState(DEFAULT_CAP);
   const [agentRef, setAgentRef] = useState(DEFAULT_AGENT);
+  // Money-moving fields (Domains 1/2) — P3 spend cap + settlement terms.
+  const [valueCeiling, setValueCeiling] = useState("500");
+  const [settleRail, setSettleRail] = useState("usdc");
+  const [settleAmount, setSettleAmount] = useState("300");
+  const [settleCurrency, setSettleCurrency] = useState("USD");
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +139,7 @@ export function FinancialServicesTab() {
         const res = await personaFetch("/api/constitutional/service-pipeline", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ intent, capabilityRef, selectedAgentRef: agentRef, mode }),
+          body: JSON.stringify({ intent, capabilityRef, selectedAgentRef: agentRef, domain, mode }),
         });
         const data = await res.json();
         if (!res.ok && res.status !== 409) {
@@ -136,8 +152,10 @@ export function FinancialServicesTab() {
         setRunning(false);
       }
     },
-    [intent, capabilityRef, agentRef],
+    [intent, capabilityRef, agentRef, domain],
   );
+
+  const moneyMoving = domain !== "intelligence";
 
   const agreementId = `agr-${capabilityRef}-${agentRef}`;
 
@@ -146,23 +164,31 @@ export function FinancialServicesTab() {
       setAgrBusy(true);
       setAgrNote(null);
       try {
+        const settlementTerms = moneyMoving
+          ? { rail: settleRail, amount: Number(settleAmount) || 0, currency: settleCurrency }
+          : null;
         const body: Record<string, unknown> =
           action === "form"
             ? {
                 action,
                 agreementId,
-                displayLabel: `Financial Intelligence — ${capabilityRef}`,
+                displayLabel: `${DOMAIN_LABEL[domain]} — ${capabilityRef}`,
                 capabilityRef,
                 selectedAgentRef: agentRef,
                 delegatedAuthority: {
-                  band: "L2",
+                  band: moneyMoving ? "L3" : "L2",
                   allowedActions: ["knowledge_retrieval", "analysis"],
-                  forbiddenActions: ["transfer", "settlement"],
+                  // Executors are advice-only — fund movement stays a separate settlement step.
+                  forbiddenActions: ["transfer"],
                   allowedSurfaces: ["financial-services"],
                   ttlHours: 8,
                   maxActions: 5,
+                  // P3 — money-moving domains MUST declare an enforced ceiling.
+                  valueCeiling: moneyMoving ? Number(valueCeiling) || 0 : null,
                 },
-                verificationRequirements: ["F-201 Source Diversity", "F-202 Evidence Attribution", "F-203 Confidence Calibration"],
+                settlementTerms,
+                verificationRequirements: DOMAIN_INVARIANTS[domain],
+                governingInvariants: ["CRP-003a", "CFI-002", ...(moneyMoving ? ["CFI-001"] : [])],
               }
             : { action, agreementId };
         const res = await personaFetch("/api/constitutional/agreement", {
@@ -179,7 +205,7 @@ export function FinancialServicesTab() {
         setAgrBusy(false);
       }
     },
-    [agreementId, capabilityRef, agentRef, loadAgreements],
+    [agreementId, capabilityRef, agentRef, loadAgreements, domain, moneyMoving, valueCeiling, settleRail, settleAmount, settleCurrency],
   );
 
   return (
@@ -213,7 +239,26 @@ export function FinancialServicesTab() {
 
       {/* Inputs */}
       <div className={`${PANEL} space-y-3 p-4`}>
-        <div className="text-sm font-medium text-slate-100">Financial Intelligence — request</div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm font-medium text-slate-100">{DOMAIN_LABEL[domain]} — request</div>
+          <div className="flex gap-1">
+            {(["intelligence", "investment", "market"] as Domain[]).map((d) => (
+              <button
+                key={d}
+                onClick={() => setDomain(d)}
+                className={`rounded border px-2 py-0.5 text-[11px] ${domain === d ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200" : "border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-200"}`}
+              >
+                {d === "intelligence" ? "Intelligence" : d === "investment" ? "Investment" : "Market"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {moneyMoving && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+            Money-moving domain — the agreement must declare an enforced spend ceiling (P3), and settlement terms
+            bind a settlement intent (never an autonomous transfer). Executors remain advice-only.
+          </div>
+        )}
         <label className="block text-xs text-slate-400">
           Intent
           <textarea
@@ -223,6 +268,29 @@ export function FinancialServicesTab() {
             className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600"
           />
         </label>
+        {moneyMoving && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <label className="block text-xs text-slate-400">
+              Spend ceiling (P3)
+              <input value={valueCeiling} onChange={(e) => setValueCeiling(e.target.value)} inputMode="numeric" className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600" />
+            </label>
+            <label className="block text-xs text-slate-400">
+              Rail
+              <select value={settleRail} onChange={(e) => setSettleRail(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600">
+                <option value="usdc">USDC (Base)</option>
+                <option value="qc">Q¢</option>
+              </select>
+            </label>
+            <label className="block text-xs text-slate-400">
+              Settle amount
+              <input value={settleAmount} onChange={(e) => setSettleAmount(e.target.value)} inputMode="numeric" className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600" />
+            </label>
+            <label className="block text-xs text-slate-400">
+              Currency
+              <input value={settleCurrency} onChange={(e) => setSettleCurrency(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600" />
+            </label>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block text-xs text-slate-400">
             Capability
@@ -250,7 +318,7 @@ export function FinancialServicesTab() {
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium text-slate-100">Constitutional service pattern — trace</div>
             <div className="text-xs text-slate-400">
-              mode {result.mode} · {result.executed ? "executed" : "not executed"}
+              {result.domain ? `${result.domain} · ` : ""}mode {result.mode} · {result.executed ? "executed" : "not executed"}
               {result.blockedAtStep ? ` · blocked@${result.blockedAtStep}` : ""}
               {result.agreementId ? ` · ${result.agreementId}` : ""}
             </div>
@@ -269,6 +337,12 @@ export function FinancialServicesTab() {
             <div className="mt-2 border-t border-slate-800 pt-2 text-xs text-slate-400">
               Verification {result.verification.passed ? "passed" : "observed (not passed)"} —{" "}
               {result.verification.requirements.map((r) => `${r.requirement}: ${r.passed ? "✓" : "✗"}`).join(" · ")}
+            </div>
+          )}
+          {result.settlement && (
+            <div className="mt-2 border-t border-slate-800 pt-2 text-xs text-slate-400">
+              Settlement {result.settlement.status}
+              {result.settlement.intentRef ? ` · intent ${result.settlement.intentRef}` : ""} — {result.settlement.note}
             </div>
           )}
         </div>
