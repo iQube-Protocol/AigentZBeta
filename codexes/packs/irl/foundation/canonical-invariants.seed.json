@@ -14,7 +14,8 @@
   "cybernetics",
   "interaction",
   "epistemology",
-  "representation"
+  "representation",
+  "polity"
  ],
  "notes": "Seed crystal for the Invariant Ontology (CFS-002). status=proposed until ratified via canonization; ratified_source marks statements drawn verbatim from ratified Polity documents.",
  "invariants": [
@@ -2402,6 +2403,171 @@
    "contexts": ["invariant-intelligence", "cybernetics"],
    "provenance": {
     "source": "CFS-035 §4 (Evolution face) giving concrete engine form to CFS-031 (the Constitutional Cybernetic Loop). Implemented 2026-07-18: the capsules route cites a served discovery projection's invariants (fire-and-forget Reach accrual), and the Observatory computes per-node ratification candidates from persisted observation stability (services/invariants/observationStore.ts + /api/invariants/observatory). Validated, not fully proven: the automatic Reach half + the reflection surface are real; the outcome-measured standing half (CTR/selection → validation) is gated on outcome instrumentation — a named follow-on. Composes with inv.constitutional.145 (standing = operational confidence) and the Law XII standing canon."
+   }
+  },
+  {
+   "id": "inv.polity.160",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "Proof of Work Potential (PoWP) is an estimate of the capability latent within truthful information BEFORE that capability is applied. It estimates potential, not realized outcomes; Standing (veracity of declarations) contributes to it, but PoWP never measures results.",
+   "status": "proposed",
+   "contexts": ["polity", "economics", "standing"],
+   "provenance": {
+    "source": "Polity Paper series concept 'proof_of_work_potential' (services/polity/frameworks/polity-papers-commentary.v1.json); The Standing Charter §'Standing and Proof of Work Potential'; The metaCommons Charter. Reaffirms — extends inv.constitutional.018 (Standing = veracity confidence) into the value-estimation layer the charters cross-reference but the crystal does not yet carry. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.161",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "Proof of Time Saved (PoTS) verifies REALIZED value. Its public mental model is Time-to-Value; its constitutional principle is Net Value Acceleration = Time-to-Value minus Risk Repair Burden (max(0, time saved − risk repair)). PoTS improves the Polity's ability to understand how realized capability emerges from truthful information; it does not primarily recalibrate Standing.",
+   "status": "proposed",
+   "contexts": ["polity", "economics", "outcome"],
+   "provenance": {
+    "source": "Polity Paper series concept 'proof_of_time_saved' (services/polity/frameworks/polity-papers-commentary.v1.json); The Standing Charter §'Standing and Proof of Time Saved'; The metaCommons Charter §'Commons Learning'. Implemented in part as the VentureQube outcome layer (types/ventureQube.ts). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.162",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "The verification-accrual gate: a self-declared outcome or value claim accrues NOTHING to Standing until it is verified — verification is the accrual gate. Assertion without verification accrues nothing ('verified over claimed').",
+   "status": "proposed",
+   "contexts": ["polity", "standing", "outcome"],
+   "provenance": {
+    "source": "Polity Participation Model §VI ('Verified over claimed'); Polity Paper series concept 'proof_of_time_saved' (outcome claims accrue nothing until verified). Reaffirms — sharpens inv.constitutional.012 (Standing follows action) with the explicit gate that unverified claims accrue nothing. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.163",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "Time Sovereignty: an individual's time is theirs to direct. Value accrues to those whose time and capability produced it, rather than being extracted by intermediaries.",
+   "status": "proposed",
+   "contexts": ["polity", "sovereignty", "economics"],
+   "provenance": {
+    "source": "Polity Paper series concept 'time_sovereignty' — papers/experience-sovereignty + papers/coyn-thesis (services/polity/frameworks/polity-papers-commentary.v1.json). Genuinely absent from the crystal (the sovereignty.* cluster covers platform/model sovereignty, not time). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.164",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "Experience Sovereignty: operators own and direct their experience — its model, its data, and its progression — rather than surrendering it to an extractive platform.",
+   "status": "proposed",
+   "contexts": ["polity", "sovereignty", "experience"],
+   "provenance": {
+    "source": "Polity Paper series 'Experience Sovereignty' series (papers/experience-sovereignty), concept 'experience_sovereignty' (services/polity/frameworks/polity-papers-commentary.v1.json). Distinct from inv.experience.043 (experience adapts while architecture stays invariant): this governs OWNERSHIP of the experience, not its adaptivity. The series' FACT framing is already canon (inv.epistemology.149); its ownership claim is not. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.165",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "The metaCommons is a field, not a database, marketplace, or social network: it transforms sovereign signals into collective intelligence while preserving privacy, sovereignty, and citizen rights. It aggregates Proof of Work Potential across the Polity and learns through Proof of Time Saved; its purpose is to make latent capability legible without compromising sovereignty.",
+   "status": "proposed",
+   "contexts": ["polity", "commons", "sovereignty"],
+   "provenance": {
+    "source": "The metaCommons Charter v1.0.0 (ratified 2026-06-17; codexes/packs/polity-core/items/METACOMMONS_CHARTER.md; services/polity/frameworks/metacommons-charter.v1.json). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.166",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "Standing calibrates confidence in inputs — it does not gate. Standing calibrates confidence in needs, opportunities, capabilities, partnerships, and ventures; it does not determine a citizen's worth, does not determine venture success, and does not gate access to opportunity.",
+   "status": "proposed",
+   "contexts": ["polity", "standing"],
+   "provenance": {
+    "source": "The Standing Charter §'Constitutional Principle'; The Founder Office Charter §'Standing and Founder Discovery'; VentureQube Spec §'Relationships'. Reaffirms — extends inv.constitutional.061 (Standing is not a measure of truth) with the non-gating claim the charters assert but the crystal does not yet carry. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.167",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "Capability-into-outcome: value is not created from information alone but by identifying the capability latent within information and transforming it into useful work. The institutional purpose of capability discovery (Founder Office) is venture formation, capability development, and value creation — reducing time-to-value and discovery cost — never extraction.",
+   "status": "proposed",
+   "contexts": ["polity", "commons", "venture"],
+   "provenance": {
+    "source": "The Founder Office Charter v1.0.0 (ratified 2026-06-17; codexes/packs/polity-core/items/FOUNDER_OFFICE_CHARTER.md) §'First Principle' + §'Constitutional Principle'; services/polity/frameworks/founder-office-charter.v1.json. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.168",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "The obligation of the citizen is veracity; the obligation of the Polity is interpretation. Citizens are responsible for truthfully representing who they are, what they know, what they can do, what they have done, and what they intend — the Polity, not the citizen, bears the burden of interpreting those signals into confidence.",
+   "status": "proposed",
+   "contexts": ["polity", "standing", "constitutional"],
+   "provenance": {
+    "source": "The Standing Charter §'First Principle' (ratified 2026-06-17). Reaffirms — pairs with inv.constitutional.019 (citizens responsible for veracity, not consequences); the Polity-interpretation half is the load-bearing addition the crystal does not yet carry. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.169",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "Participant agents hold Standing but never citizenship. Participant- (passport-) bearing agents, organizations, and institutions hold Standing (veracity confidence); their rights are participatory and revocable. Standing never confers citizenship, inalienable rights, or governance authority — those remain exclusively with sovereign human citizens.",
+   "status": "proposed",
+   "contexts": ["polity", "standing", "constitutional"],
+   "provenance": {
+    "source": "The Standing Charter §'Who Holds Standing'; Standing Framework v1.0.1 (the 2026-06-17 correction: participant agents DO hold Standing). Reaffirms — refines inv.constitutional.016 (sovereignty is human-only) with the Standing/citizenship distinction the crystal does not yet carry. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.170",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "The delegation envelope is bounded on every dimension and immutable after creation. Every delegation binds scope, duration, spending limits, information-access limits, and operational domains; it is a sealed envelope. No conversation and no agent action may expand it — expansion requires a new, explicit grant from the sponsor.",
+   "status": "proposed",
+   "contexts": ["polity", "delegation", "constitutional"],
+   "provenance": {
+    "source": "The Delegation Framework v1.0.0 (ratified 2026-06-17; codexes/packs/polity-core/items/DELEGATION_FRAMEWORK.md); Autonomous Agent Charter §'Delegation Framework'. Reaffirms — operationalizes inv.constitutional.020 (permanent/unlimited delegation prohibited) with the five bounds + immutability the crystal does not yet enumerate. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.171",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "No orphaned agents. Every autonomous agent traces to a responsible Sponsor (citizen, organization, or bureau); every autonomous action generates an auditable DVN receipt; and agents are always identifiable as non-human actors. Accountability ultimately resolves to a sovereign sponsor.",
+   "status": "proposed",
+   "contexts": ["polity", "agents", "constitutional"],
+   "provenance": {
+    "source": "The Autonomous Agent Constitutional Charter v1.0.0 (ratified 2026-06-17; codexes/packs/polity-core/items/AGENT_CHARTER.md) §'Sponsorship Requirement' + §'Receipts and Accountability'. Reaffirms — extends inv.constitutional.014 (delegation never removes accountability) with the sponsorship/receipt/identifiability trio the crystal does not yet carry. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.172",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "Ventures execute; people participate. The Polity is governed by and for sovereign human citizens: ventures are execution vehicles and agents are delegation instruments, but constitutional authority resides with the people who participate ('people before products').",
+   "status": "proposed",
+   "contexts": ["polity", "participation", "constitutional"],
+   "provenance": {
+    "source": "Polity Participation Model v1.0 (ratified 2026-06-25; codexes/packs/polity-core/items/PARTICIPATION_MODEL.md) §VI. Composes with inv.constitutional.016/017. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.173",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "aigentMe amplifies the operator's sovereignty; it does not replace the operator's judgment. The operator delegates bounded authority to aigentMe, which acts within those bounds and accrues Standing on the operator's behalf — but all consequential actions require operator approval.",
+   "status": "proposed",
+   "contexts": ["polity", "participation", "sovereignty"],
+   "provenance": {
+    "source": "Polity Participation Model v1.0 §IV ('aigentMe as Orchestration Layer', operating principle). Composes with inv.reasoning.156 (sovereign progression requires guardian approval) and the delegation-envelope canon (inv.polity.170). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
+   }
+  },
+  {
+   "id": "inv.polity.174",
+   "namespace": "polity",
+   "semantic_type": "principle",
+   "statement": "A VentureQube is a living venture specification — a sovereign, portable, agent-readable and human-readable container whose purpose is to transform truthful information, demonstrated capability, and collective intelligence into executable ventures. It is not a business plan, pitch deck, or startup profile.",
+   "status": "proposed",
+   "contexts": ["polity", "venture"],
+   "provenance": {
+    "source": "VentureQube Specification v1 (WIP; codexes/packs/polity-core/items/VENTUREQUBE_SPEC.md; engineering SoT types/ventureQube.ts). NOTE: the spec is itself a draft constitutional primitive NOT yet ratified — status here is 'proposed' both as a crystal candidate and as an upstream WIP. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Candidate pending operator ratification (full-text extraction is operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md)."
    }
   }
  ]
