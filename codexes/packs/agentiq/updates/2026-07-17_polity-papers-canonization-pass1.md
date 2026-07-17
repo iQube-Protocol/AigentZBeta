@@ -1,7 +1,7 @@
 # Polity Papers → Canon — Canonization Pass 1 (Reconcile + Seed)
 
 **Date:** 2026-07-17
-**Status:** candidates seeded (`proposed`) — operator ratifies via ingest
+**Status:** RATIFIED into Canon 2026-07-17 (operator: "All ratified") — `inv.polity.160–174` promoted `proposed` → `canonical`
 **Scope:** ratify the governing constitutional CONTENT of the Qriptopian **Polity Papers** into the IRL invariant crystal (Canon)
 **Touched:** `codexes/packs/irl/foundation/canonical-invariants.seed.json` + `appendix-a_canonical-invariants.md` (same-commit lockstep). New namespace `inv.polity.*`, global ids **160–174**.
 
