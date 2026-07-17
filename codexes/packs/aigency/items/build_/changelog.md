@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`9196332`](https://github.com/iQube-Protocol/AigentZBeta/commit/9196332acac81f4d6551c8293ac0133d3577cd9d) [push] canonize Polity Papers full text pass 2 — seed inv.polity.175-206 (proposed) (Claude, 2026-07-17T22:06:47Z)
+- [`1506075`](https://github.com/iQube-Protocol/AigentZBeta/commit/1506075624cc7a41db7e5cd2b7ac69abc550117f) [push] register Polity Papers pass-2 canonization report in agentiq updates collection (Claude, 2026-07-17T22:10:46Z)
 - [`fa50254`](https://github.com/iQube-Protocol/AigentZBeta/commit/fa502546560869012bf0c39e15d0cc9f6616dab8) [push] extract Polity Papers full text pass 2 (10 text-layer papers; 5 vision + 1 download deferred) (Kn0w-1, 2026-07-17T17:48:44-04:00)
 - [`3373fd8`](https://github.com/iQube-Protocol/AigentZBeta/commit/3373fd8bf44735f17833958dc83e842499aa6b6b) [push] document canonical repo (iQube-Protocol) vs stale local clone (Kn0w-1) — stop the recurring wrong-remote trap (Claude, 2026-07-17T21:28:30Z)
 - [`8954ca7`](https://github.com/iQube-Protocol/AigentZBeta/commit/8954ca7ea0599f73dc7cec293e0863c4fabc76cf) [feat] add polity namespace to invariant CHECK constraints (unblocks polity seed ingest) (Claude, 2026-07-17T21:25:26Z)

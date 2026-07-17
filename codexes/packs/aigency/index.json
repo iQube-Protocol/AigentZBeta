@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T21:50:27.379Z",
+  "last_updated": "2026-07-17T22:12:52.053Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fa502546560869012bf0c39e15d0cc9f6616dab8",
-  "latest_commit_short": "fa50254",
-  "latest_commit_title": "extract Polity Papers full text pass 2 (10 text-layer papers; 5 vision + 1 download deferred)",
+  "latest_commit": "9196332acac81f4d6551c8293ac0133d3577cd9d",
+  "latest_commit_short": "9196332",
+  "latest_commit_title": "canonize Polity Papers full text pass 2 — seed inv.polity.175-206 (proposed)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9196332",
+      "full_sha": "9196332acac81f4d6551c8293ac0133d3577cd9d",
+      "title": "canonize Polity Papers full text pass 2 — seed inv.polity.175-206 (proposed)",
+      "author": "Claude",
+      "timestamp": "2026-07-17T22:06:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9196332.md"
+    },
+    {
+      "sha": "1506075",
+      "full_sha": "1506075624cc7a41db7e5cd2b7ac69abc550117f",
+      "title": "register Polity Papers pass-2 canonization report in agentiq updates collection",
+      "author": "Claude",
+      "timestamp": "2026-07-17T22:10:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1506075.md"
+    },
     {
       "sha": "fa50254",
       "full_sha": "fa502546560869012bf0c39e15d0cc9f6616dab8",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-07-06T20:38:39Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-36c8181.md"
-    },
-    {
-      "sha": "4a0e38f",
-      "full_sha": "4a0e38fc1e067c2aa38f545e851e4c99a578d693",
-      "title": "Implement DCIR D1: event stream + observation seam on the Dev Command Center (CFS-020)",
-      "author": "Claude",
-      "timestamp": "2026-07-06T20:12:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-4a0e38f.md"
-    },
-    {
-      "sha": "c0e41ab",
-      "full_sha": "c0e41ab0355de2010aebd705d2a3d65d40355e50",
-      "title": "Charter DCIR (CFS-020 D0): the Dynamic Constitutional Interaction Runtime contract",
-      "author": "Claude",
-      "timestamp": "2026-07-06T19:48:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c0e41ab.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

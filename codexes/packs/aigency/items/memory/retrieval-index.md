@@ -3469,3 +3469,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-fa50254.md](../build_/COMMITS/COMMIT-fa50254.md)
 - Message: extract Polity Papers full text pass 2 (10 text-layer papers; 5 vision + 1 download deferred)
+
+## Commit `1506075` — 2026-07-17T22:10:46Z
+- Type: `push`
+- Brief: [COMMIT-1506075.md](../build_/COMMITS/COMMIT-1506075.md)
+- Message: register Polity Papers pass-2 canonization report in agentiq updates collection
+
+## Commit `9196332` — 2026-07-17T22:06:47Z
+- Type: `push`
+- Brief: [COMMIT-9196332.md](../build_/COMMITS/COMMIT-9196332.md)
+- Message: canonize Polity Papers full text pass 2 — seed inv.polity.175-206 (proposed)
