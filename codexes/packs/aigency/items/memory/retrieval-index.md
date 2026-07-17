@@ -3479,3 +3479,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9196332.md](../build_/COMMITS/COMMIT-9196332.md)
 - Message: canonize Polity Papers full text pass 2 — seed inv.polity.175-206 (proposed)
+
+## Commit `54963d3` — 2026-07-17T19:18:33-04:00
+- Type: `feat`
+- Brief: [COMMIT-54963d3.md](../build_/COMMITS/COMMIT-54963d3.md)
+- Message: add Polity source texts: Experience Sovereignty, Thresholds, Embodied, Robots-Agents series
