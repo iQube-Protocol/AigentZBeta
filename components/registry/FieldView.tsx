@@ -320,6 +320,7 @@ interface ResolveResponse {
   citedCount?: number;
   describe?: string;
   basis?: { operational: Array<{ key: string; class: string }>; researchCount: number; byClass: Record<string, number> };
+  ipeProjection?: { node: string; meanAbsDelta: number; diverges: boolean; describe: string };
   error?: string;
 }
 
@@ -383,6 +384,11 @@ const ResolvePerspective: React.FC = () => {
           {res.basis && (
             <div className="border-t border-slate-800 pt-2 text-slate-500">
               CCR basis: {res.basis.operational.length} operational (computed) · {res.basis.researchCount} research (declared) · structural {res.basis.byClass.structural} / constitutional {res.basis.byClass.constitutional} / operational {res.basis.byClass.operational}
+            </div>
+          )}
+          {res.ipeProjection && (
+            <div className="border-t border-slate-800 pt-2 text-slate-500" title="Standing-derived vs coordinate-derived node weights (shadow)">
+              {res.ipeProjection.describe}
             </div>
           )}
           {res.coordinates && res.coordinates.length > 0 && (

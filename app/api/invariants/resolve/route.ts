@@ -16,6 +16,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { resolveConstitutionalField, describeResolvedField } from '@/services/invariants/resolution';
 import { operationalBasis, researchBasis, vectorsByClass } from '@/services/invariants/coordinates';
+import { compareProjection, describeProjection } from '@/services/invariants/projectionBridge';
+import { DIMENSION_INVARIANT_SEED } from '@/services/invariants/nodes/discoveryRanking';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +37,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     : undefined;
 
   const field = await resolveConstitutionalField(intent, domains ? { domains } : undefined);
+
+  // IPE Phase-2 shadow: project the resolved field into the discovery node's
+  // dimension weights via BOTH the incumbent (standing) and the IRE-fed
+  // (coordinates) paths, and report agreement. Observe-only (CFS-039 §4).
+  const ipe = compareProjection(field, DIMENSION_INVARIANT_SEED);
 
   // T1-safe projection — statements/scores/coordinates only.
   return NextResponse.json({
@@ -57,6 +64,15 @@ export async function POST(req: NextRequest): Promise<Response> {
     invariantCount: field.coordinates.length,
     citedCount: field.citedIds.length,
     describe: describeResolvedField(field),
+    // IPE Phase-2 shadow — the resolve→project connection (discovery node).
+    ipeProjection: {
+      node: 'discovery.ranking',
+      standing: ipe.standing,
+      coordinates: ipe.coordinates,
+      meanAbsDelta: Math.round(ipe.meanAbsDelta * 10000) / 10000,
+      diverges: ipe.diverges,
+      describe: describeProjection(ipe),
+    },
     // The CCR basis summary — what the topography renders against (CFS-038).
     basis: {
       operational: operationalBasis().map((v) => ({ key: v.key, class: v.class, question: v.question })),
