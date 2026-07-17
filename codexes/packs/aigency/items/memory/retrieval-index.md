@@ -3449,3 +3449,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9b7a56f.md](../build_/COMMITS/COMMIT-9b7a56f.md)
 - Message: ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical
+
+## Commit `871697d` — 2026-07-17T21:21:32Z
+- Type: `push`
+- Brief: [COMMIT-871697d.md](../build_/COMMITS/COMMIT-871697d.md)
+- Message: trigger deploy to dev — force fresh rebuild to surface session work (CFSP/IRE-IPE/Polity)
