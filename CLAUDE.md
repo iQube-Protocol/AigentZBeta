@@ -882,6 +882,47 @@ This may change in the future — update this section if the local path moves.
 
 ---
 
+## Canonical Repo vs the Operator's Local Clone — READ BEFORE ANY GIT/DEPLOY/LOCAL-SCRIPT WORK (PARAMOUNT)
+
+**There are TWO GitHub repositories named `AigentZBeta`, and they are NOT the same repo. Confusing them has cost multiple sessions of debugging (stale ingests, "why aren't my changes showing").**
+
+| | Repo | Role |
+|---|---|---|
+| **CANONICAL** | `iQube-Protocol/AigentZBeta` (`https://github.com/iQube-Protocol/AigentZBeta`) | The repo Amplify builds and every Claude Code session pushes to. **This is the source of truth for deploys.** |
+| **STALE / DIVERGED** | `Kn0w-1/AigentZBeta` (the operator's laptop `origin`, via SSH alias `github-aigentz:Kn0w-1/AigentZBeta`) | The operator's local clone points here. It forked from canonical long ago and holds *different* commits. It does **NOT** receive session pushes. |
+
+### What deploys (verified from the Amplify console, 2026-07-17)
+
+- Amplify app **AigentZBeta** → Source repository **`iQube-Protocol/AigentZBeta`**; production branch `main`; branches `dev` / `main` / `staging` all auto-build **Enabled**.
+- The live dev app (`dev-beta.aigentz.me`) builds from **`iQube-Protocol/dev`**. Session dev pushes → this branch → Amplify. The operator's local Kn0w-1 clone is irrelevant to the deployed app.
+
+### The trap (why this keeps biting)
+
+On the operator's laptop, `git pull origin dev` / `git checkout origin/dev -- <file>` pull from **Kn0w-1**, which lacks all session work. So local scripts (e.g. `node scripts/ingest-canonical-invariants.mjs`) silently run against **stale code/seed** and "succeed" on the wrong data. The failure is invisible — no error, just old data.
+
+### The fix — add the canonical repo as a second remote (`iqp`) and source from it
+
+The operator has added this remote. Any local operation that must reflect deployed/session state MUST use `iqp`, never `origin`:
+
+```bash
+# one-time (already done):
+git remote add iqp https://github.com/iQube-Protocol/AigentZBeta.git
+
+# every time you need canonical code/files locally:
+git fetch iqp dev
+git checkout iqp/dev -- <path/to/file>          # pull a specific canonical file
+# or to work on canonical dev directly:
+git checkout -B dev-iqp iqp/dev
+```
+
+**Rule for agents giving the operator local commands:** never tell the operator to `git pull origin dev` or `git checkout origin/...` for anything related to session/deployed work — it reads the stale Kn0w-1 repo. Always route local sync through `iqp` (canonical). When a local script depends on a repo file (seed JSON, config), first `git checkout iqp/dev -- <that file>`.
+
+### Outstanding reconciliation (do NOT silently resolve)
+
+Kn0w-1 holds commits that are **not** in canonical (observed: `Record Base mainnet deploy addresses (QCT, iQubeNFT, QCTReserve)`, marketa-activation work). If any of that is authoritative (**Base-mainnet contract addresses are money-critical**), it must be brought into `iQube-Protocol` deliberately, with operator sign-off on what's authoritative — never auto-merged. Flag it; don't guess.
+
+---
+
 ## Key Directories
 
 ```
