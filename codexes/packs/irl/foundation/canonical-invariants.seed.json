@@ -4460,6 +4460,186 @@
       "provenance": {
         "source": "Polity for Robots & Agents — The Invitation, §2 + §9 — reaffirms inv.constitutional.016 (human sovereignty) and inv.polity.169; newly frames the Polity's purpose as governed cooperation preserving human agency under delegation. Candidate pending operator ratification (Polity for Robots & Agents canonization)."
       }
+    },
+    {
+      "id": "inv.reasoning.310",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Knowledge Compression is the process of identifying and preserving the smallest coherent set of invariants required to faithfully generate, reason about, or execute within a given domain — richer than summarisation, and the stage that sits between Intent and Curation in the Chrysalis operating model.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "compression",
+        "knowledge"
+      ],
+      "provenance": {
+        "source": "The canonical definition. Reaffirms inv.reasoning 'knowledge is a computational object'; originates what CRP-002 §0.1 later names the Three Computational Compressions. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.311",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "The quality of an AI's reasoning is determined more by the coherence of its context than by the quantity of its context: curated context beats undifferentiated context. Capacity scales with hardware; coherence scales with understanding.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "compression",
+        "context"
+      ],
+      "provenance": {
+        "source": "The genesis principle. Reaffirms/extends the curation-dominates-accumulation datum (EXP-003 Run 001); the coherence framing is its origin. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.312",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Generation should never begin from retrieved information; it should begin from compressed invariants. This is the first law of the Invariant Runtime.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "runtime",
+        "compression"
+      ],
+      "provenance": {
+        "source": "The architectural law of Chrysalis. Operationalizes CFS-035 (the Invariant Engine). Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.313",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Intent retrieves invariants, not documents: similarity retrieval answers 'what is similar' and returns context, while governance retrieval answers 'what governs' and returns invariants. iQubes are governance-retrieval and are therefore categorically distinct from vector databases.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "retrieval",
+        "knowledge"
+      ],
+      "provenance": {
+        "source": "The retrieval-model inversion. Distinguishes the iQube proposition from RAG/vector-similarity. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.314",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Invariant-governed generation is neither deterministic nor random but constitutional: managed, predictable generativity in which invariants preserve coherence without prescribing answers — as harmony, key and tempo bound jazz while leaving creativity free.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "generativity",
+        "coherence"
+      ],
+      "provenance": {
+        "source": "'Constitutional generativity' — the operator's distinction from determinism. The generative counterpart to CFS-014 coherence. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.315",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "The Invariant Runtime proceeds: Intent -> Knowledge Compression -> Constitutional Context -> Generation -> Constitutional Validation -> Artifact -> Standing Feedback -> KnowledgeQube Evolution. Learning happens after deployment, and the invariants themselves evolve.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "runtime",
+        "evolution"
+      ],
+      "provenance": {
+        "source": "The operating-model staging. Operationalizes CFS-035; the Standing-Feedback -> Evolution tail is the Evolution face. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.316",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Every artifact derived from an invariant is a test of that invariant: well-curated knowledge propagates with high fidelity across modalities, so faithful propagation raises confidence the invariant is complete while recurring drift localises where it is incompletely encoded. The KnowledgeQube is therefore a scientific object.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "validation",
+        "compression"
+      ],
+      "provenance": {
+        "source": "The propagation-fidelity / stress-test claim — the origin of the Institute's experimental posture (the personhood->identity drift as the first observed residual). Reaffirms the EXP-lifecycle discipline. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.317",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Curated knowledge propagates like a seed, not copied like a file: derivatives inherit the seed's structure and explore its world rather than reproducing its text.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "compression",
+        "knowledge"
+      ],
+      "provenance": {
+        "source": "The seed-propagation principle (the complement of high propagation fidelity). Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.318",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "An iQube is not primarily a container but a knowledge compiler that optimises information organisation over retrieval; its two faces compress on different axes — the metaQube compresses discoverability (who should find this, why, how it relates) and the blakQube compresses understanding (what is the governing invariant).",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "iqube",
+        "compression"
+      ],
+      "provenance": {
+        "source": "The compiler reframing + the two-axis (metaQube/blakQube) compression split — the operator's traversal of both iQube dimensions. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.319",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "A person can be faithfully represented by a small curated set of cognitive invariants rather than an exhaustive history: the Experience Matrix is the compiler that extracts them, memory is compression rather than replay, and this is the bridge between identity and agency — modelling the stable principles through which one perceives, decides and creates.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "experience",
+        "compression"
+      ],
+      "provenance": {
+        "source": "ExperienceQubes as cognitive compilers; the Experience Matrix as compiler-not-runtime; extends the Experience Model (inv.polity.206) into the personal-invariant substrate. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.320",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "The primary reasoning substrate is Intent x Personal Invariants x Domain Invariants = Constitutional Context, from which generation proceeds; conversation history and memory become supplementary rather than primary.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "runtime",
+        "experience"
+      ],
+      "provenance": {
+        "source": "The canonical reasoning-substrate formula (public + personal + intent invariants intersecting). Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
+    },
+    {
+      "id": "inv.reasoning.321",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "The Invariant Runtime is domain-invariant: replacing the constitutional invariant with a medical, legal, engineering, scientific or educational one leaves the architecture unchanged — only the governing invariant changes.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "runtime",
+        "generalization"
+      ],
+      "provenance": {
+        "source": "The domain-generality of the architecture. Reaffirms the CFS-035 field-generalization + Principle 005. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Candidate pending operator ratification (Knowledge Compression genesis canonization)."
+      }
     }
   ]
 }
