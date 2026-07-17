@@ -3494,3 +3494,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1505d97.md](../build_/COMMITS/COMMIT-1505d97.md)
 - Message: canonize Knowledge Compression genesis: preserve founding text + seed inv.reasoning.310-321 (proposed)
+
+## Commit `fc7ba11` — 2026-07-17T23:52:53Z
+- Type: `push`
+- Brief: [COMMIT-fc7ba11.md](../build_/COMMITS/COMMIT-fc7ba11.md)
+- Message: ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot')
