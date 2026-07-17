@@ -89,6 +89,11 @@ export interface ServicePipelineDeps {
   checkStanding: (agentRef: string) => Promise<{ overall: number; trustBandCeiling: string } | null>;
   cite: (invariantIds: string[]) => Promise<void>;
   settle: (terms: SettlementTerms, agreementRef: string) => Promise<SettlementResult>;
+  /** IRE Phase-0 shadow observer (CFS-037): resolve the constitutional field
+   *  the intent requires + return the compact trace line. OBSERVE-ONLY — the
+   *  pipeline folds it into the step-1 trace; it gates nothing, and a failure
+   *  yields null (the step-1 detail stays as before). */
+  resolveField?: (intentText: string) => Promise<string | null>;
 }
 
 const EXECUTOR_ACTION = 'knowledge_retrieval';
@@ -144,6 +149,15 @@ export function defaultServicePipelineDeps(): ServicePipelineDeps {
       await citeInvariants(ids);
     },
     settle: async (terms, agreementRef) => buildSettlementIntent(terms, agreementRef),
+    resolveField: async (intentText) => {
+      try {
+        const { resolveConstitutionalField, describeResolvedField } = await import('@/services/invariants/resolution');
+        const field = await resolveConstitutionalField(intentText);
+        return describeResolvedField(field);
+      } catch {
+        return null;
+      }
+    },
   };
 }
 
@@ -157,7 +171,17 @@ export async function runConstitutionalServicePattern(
   const push = (step: number, name: string, status: StepStatus, detail: string) => trace.push({ step, name, status, detail });
   const done = (r: Omit<ServicePipelineResult, 'mode' | 'domain' | 'trace'>): ServicePipelineResult => ({ ...r, mode, domain, trace });
 
-  push(1, 'Intent', 'ok', `[${domain}] ${input.intent.trim().slice(0, 180)}`);
+  // 1 Intent — enriched by the IRE Phase-0 shadow resolution (CFS-037): the
+  // resolved-field trace rides the step detail; resolution never gates.
+  let ireTrace: string | null = null;
+  if (deps.resolveField) {
+    try {
+      ireTrace = await deps.resolveField(input.intent);
+    } catch {
+      ireTrace = null;
+    }
+  }
+  push(1, 'Intent', 'ok', `[${domain}] ${input.intent.trim().slice(0, 140)}${ireTrace ? ` — ${ireTrace}` : ''}`);
   push(2, 'Discovery', 'ok', `capability=${input.capabilityRef} agent=${input.selectedAgentRef}`);
 
   const gate = await deps.gateCheck({ capabilityRef: input.capabilityRef, selectedAgentRef: input.selectedAgentRef, requestingPersonaId: input.requestingPersonaId });
