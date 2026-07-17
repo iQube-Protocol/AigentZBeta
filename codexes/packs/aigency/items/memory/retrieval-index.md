@@ -3424,3 +3424,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-b053b72.md](../build_/COMMITS/COMMIT-b053b72.md)
 - Message: Add Researcher as the fifth operator pathway + wire into subscription/FO flow
+
+## Commit `95178a2` — 2026-07-17T19:08:10Z
+- Type: `fix`
+- Brief: [COMMIT-95178a2.md](../build_/COMMITS/COMMIT-95178a2.md)
+- Message: fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing

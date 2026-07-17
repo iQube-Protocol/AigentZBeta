@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T17:58:34.000Z",
+  "last_updated": "2026-07-17T19:10:18.185Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b053b72b03968cfc8af11f1201d525dc3fbd27e7",
-  "latest_commit_short": "b053b72",
-  "latest_commit_title": "Add Researcher as the fifth operator pathway + wire into subscription/FO flow",
+  "latest_commit": "95178a26a51c510d7907c019439f396978fd8399",
+  "latest_commit_short": "95178a2",
+  "latest_commit_title": "fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "95178a2",
+      "full_sha": "95178a26a51c510d7907c019439f396978fd8399",
+      "title": "fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing",
+      "author": "Claude",
+      "timestamp": "2026-07-17T19:08:10Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-95178a2.md"
+    },
     {
       "sha": "b053b72",
       "full_sha": "b053b72b03968cfc8af11f1201d525dc3fbd27e7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-06T15:40:31Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-ff5abef.md"
-    },
-    {
-      "sha": "5db7c45",
-      "full_sha": "5db7c45dcdb496807bf0b719349e47593550f3ae",
-      "title": "Add EXP-004 rehearsal arm: frontier fallback validates drill machinery while venice credits pend",
-      "author": "Claude",
-      "timestamp": "2026-07-06T15:36:09Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5db7c45.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

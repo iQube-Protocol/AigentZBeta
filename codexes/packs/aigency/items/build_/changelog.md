@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`95178a2`](https://github.com/iQube-Protocol/AigentZBeta/commit/95178a26a51c510d7907c019439f396978fd8399) [fix] fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing (Claude, 2026-07-17T19:08:10Z)
 - [`b053b72`](https://github.com/iQube-Protocol/AigentZBeta/commit/b053b72b03968cfc8af11f1201d525dc3fbd27e7) [feat] Add Researcher as the fifth operator pathway + wire into subscription/FO flow (Claude, 2026-07-16T03:47:58Z)
 - [`5274122`](https://github.com/iQube-Protocol/AigentZBeta/commit/5274122245d9fbbadde692418cb2af337373df40) [feat] Wire Research Copilot into the subscription tier UI (CitizenLadderModal) (Claude, 2026-07-16T03:50:12Z)
 - [`70d3af5`](https://github.com/iQube-Protocol/AigentZBeta/commit/70d3af55abe3ce7804655c51357985407c2ec7d2) [push] Make Research Copilot a first-class aigentMe roster specialist (Claude, 2026-07-16T04:18:42Z)
