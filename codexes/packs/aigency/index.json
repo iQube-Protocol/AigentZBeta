@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T19:43:36.461Z",
+  "last_updated": "2026-07-17T20:03:39.462Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6f6039fce9c0af1a8e5eabe22eaed05ee52bb184",
-  "latest_commit_short": "6f6039f",
-  "latest_commit_title": "docs: IPE Phase 2 (projection bridge) run-doc + tracker; note parallel Polity canonization",
+  "latest_commit": "9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2",
+  "latest_commit_short": "9b7a56f",
+  "latest_commit_title": "ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9b7a56f",
+      "full_sha": "9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2",
+      "title": "ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical",
+      "author": "Claude",
+      "timestamp": "2026-07-17T20:01:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9b7a56f.md"
+    },
+    {
+      "sha": "8b202b8",
+      "full_sha": "8b202b8566fee8846c6e7473802128eb5bf56315",
+      "title": "canonize Polity Papers pass 1: reconcile + seed inv.polity candidates (proposed)",
+      "author": "Claude",
+      "timestamp": "2026-07-17T19:46:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8b202b8.md"
+    },
+    {
+      "sha": "6307a97",
+      "full_sha": "6307a9712f8491895d2f94d5ae4a8bbb7736647d",
+      "title": "register Polity Papers canonization pass 1 (collections + tracker)",
+      "author": "Claude",
+      "timestamp": "2026-07-17T19:48:55Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6307a97.md"
+    },
     {
       "sha": "6f6039f",
       "full_sha": "6f6039fce9c0af1a8e5eabe22eaed05ee52bb184",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-07-06T18:26:28Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-03b3ead.md"
-    },
-    {
-      "sha": "2d242d0",
-      "full_sha": "2d242d0a5f82359bbc043646297e90ebe7939d06",
-      "title": "Codify Platform Sovereignty as a capability bundle: CFS-018 + invariants 100-107 + PSE series charter",
-      "author": "Claude",
-      "timestamp": "2026-07-06T16:24:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2d242d0.md"
-    },
-    {
-      "sha": "e89e6b7",
-      "full_sha": "e89e6b70fdf1b616dec57ebdcfcb8eb574395285",
-      "title": "Codify the Sovereignty Scale: operator control as a spectrum (S0-S3), not a boolean",
-      "author": "Claude",
-      "timestamp": "2026-07-06T16:04:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e89e6b7.md"
-    },
-    {
-      "sha": "7186b5b",
-      "full_sha": "7186b5bc3fd148d040aff70c1b286c3049cbfb21",
-      "title": "Refine sovereignty as a provider-class property (open-weight), pin with canary",
-      "author": "Claude",
-      "timestamp": "2026-07-06T15:49:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7186b5b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

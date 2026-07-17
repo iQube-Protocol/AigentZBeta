@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`9b7a56f`](https://github.com/iQube-Protocol/AigentZBeta/commit/9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2) [push] ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical (Claude, 2026-07-17T20:01:27Z)
+- [`8b202b8`](https://github.com/iQube-Protocol/AigentZBeta/commit/8b202b8566fee8846c6e7473802128eb5bf56315) [push] canonize Polity Papers pass 1: reconcile + seed inv.polity candidates (proposed) (Claude, 2026-07-17T19:46:17Z)
+- [`6307a97`](https://github.com/iQube-Protocol/AigentZBeta/commit/6307a9712f8491895d2f94d5ae4a8bbb7736647d) [push] register Polity Papers canonization pass 1 (collections + tracker) (Claude, 2026-07-17T19:48:55Z)
 - [`6f6039f`](https://github.com/iQube-Protocol/AigentZBeta/commit/6f6039fce9c0af1a8e5eabe22eaed05ee52bb184) [docs] docs: IPE Phase 2 (projection bridge) run-doc + tracker; note parallel Polity canonization (Claude, 2026-07-17T19:41:39Z)
 - [`95178a2`](https://github.com/iQube-Protocol/AigentZBeta/commit/95178a26a51c510d7907c019439f396978fd8399) [fix] fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing (Claude, 2026-07-17T19:08:10Z)
 - [`b053b72`](https://github.com/iQube-Protocol/AigentZBeta/commit/b053b72b03968cfc8af11f1201d525dc3fbd27e7) [feat] Add Researcher as the fifth operator pathway + wire into subscription/FO flow (Claude, 2026-07-16T03:47:58Z)

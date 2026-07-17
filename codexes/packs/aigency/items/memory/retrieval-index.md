@@ -3434,3 +3434,18 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-6f6039f.md](../build_/COMMITS/COMMIT-6f6039f.md)
 - Message: docs: IPE Phase 2 (projection bridge) run-doc + tracker; note parallel Polity canonization
+
+## Commit `6307a97` — 2026-07-17T19:48:55Z
+- Type: `push`
+- Brief: [COMMIT-6307a97.md](../build_/COMMITS/COMMIT-6307a97.md)
+- Message: register Polity Papers canonization pass 1 (collections + tracker)
+
+## Commit `8b202b8` — 2026-07-17T19:46:17Z
+- Type: `push`
+- Brief: [COMMIT-8b202b8.md](../build_/COMMITS/COMMIT-8b202b8.md)
+- Message: canonize Polity Papers pass 1: reconcile + seed inv.polity candidates (proposed)
+
+## Commit `9b7a56f` — 2026-07-17T20:01:27Z
+- Type: `push`
+- Brief: [COMMIT-9b7a56f.md](../build_/COMMITS/COMMIT-9b7a56f.md)
+- Message: ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical
