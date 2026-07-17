@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T19:50:45.356Z",
+  "last_updated": "2026-07-17T20:03:39.462Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8b202b8566fee8846c6e7473802128eb5bf56315",
-  "latest_commit_short": "8b202b8",
-  "latest_commit_title": "canonize Polity Papers pass 1: reconcile + seed inv.polity candidates (proposed)",
+  "latest_commit": "9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2",
+  "latest_commit_short": "9b7a56f",
+  "latest_commit_title": "ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9b7a56f",
+      "full_sha": "9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2",
+      "title": "ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical",
+      "author": "Claude",
+      "timestamp": "2026-07-17T20:01:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9b7a56f.md"
+    },
     {
       "sha": "8b202b8",
       "full_sha": "8b202b8566fee8846c6e7473802128eb5bf56315",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-06T18:26:28Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-03b3ead.md"
-    },
-    {
-      "sha": "2d242d0",
-      "full_sha": "2d242d0a5f82359bbc043646297e90ebe7939d06",
-      "title": "Codify Platform Sovereignty as a capability bundle: CFS-018 + invariants 100-107 + PSE series charter",
-      "author": "Claude",
-      "timestamp": "2026-07-06T16:24:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2d242d0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -3444,3 +3444,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-8b202b8.md](../build_/COMMITS/COMMIT-8b202b8.md)
 - Message: canonize Polity Papers pass 1: reconcile + seed inv.polity candidates (proposed)
+
+## Commit `9b7a56f` — 2026-07-17T20:01:27Z
+- Type: `push`
+- Brief: [COMMIT-9b7a56f.md](../build_/COMMITS/COMMIT-9b7a56f.md)
+- Message: ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical
