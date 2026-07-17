@@ -75,6 +75,30 @@ export function FinancialServicesTab() {
   const [agrBusy, setAgrBusy] = useState(false);
   const [agrNote, setAgrNote] = useState<string | null>(null);
 
+  // Commercial tier gating (Increment 3b) — reuses the existing plan, no
+  // parallel tiering. Founder Office experience needs ventureLabAccess; Advanced
+  // needs venture_tier pro/elite. Fails closed to preview-only if the plan can't
+  // be read (the paid experience stays gated; the free Preview always works).
+  const [plan, setPlan] = useState<{ ventureLabAccess: boolean; ventureTier: string } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await personaFetch("/api/billing/plan", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (alive && data?.ok) setPlan({ ventureLabAccess: data.ventureLabAccess === true, ventureTier: String(data.ventureTier ?? "none") });
+      } catch {
+        /* best-effort — stays preview-only */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const foEntitled = plan?.ventureLabAccess === true;
+  const advancedEntitled = plan?.ventureTier === "pro" || plan?.ventureTier === "elite";
+
   const loadAgreements = useCallback(async () => {
     try {
       const res = await personaFetch("/api/constitutional/agreement", { cache: "no-store" });
@@ -171,12 +195,17 @@ export function FinancialServicesTab() {
       {/* Three-experience framing */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
-          { t: "Constitutional Preview", d: "Run the constitutional service loop in shadow — see every step. Open to all." },
-          { t: "Founder Office", d: "Form + authorize a Constitutional Agreement; run the delegated call under it." },
-          { t: "Advanced", d: "Multi-agreement orchestration + money-moving domains. Later increments." },
+          { t: "Constitutional Preview", d: "Run the constitutional service loop in shadow — see every step. Open to all.", unlocked: true, tier: "Free" },
+          { t: "Founder Office", d: "Form + authorize a Constitutional Agreement; run the delegated call under it.", unlocked: foEntitled, tier: "Founder Office" },
+          { t: "Advanced", d: "Multi-agreement orchestration + money-moving domains. Later increments.", unlocked: advancedEntitled, tier: "Pro / Elite" },
         ].map((x) => (
-          <div key={x.t} className={`${PANEL} p-4`}>
-            <div className="text-sm font-medium text-slate-100">{x.t}</div>
+          <div key={x.t} className={`${PANEL} p-4 ${x.unlocked ? "" : "opacity-70"}`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-medium text-slate-100">{x.t}</div>
+              <span className={`rounded border px-1.5 py-0.5 text-[10px] ${x.unlocked ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300" : "border-slate-700 bg-slate-800/50 text-slate-400"}`}>
+                {x.unlocked ? "Active" : x.tier}
+              </span>
+            </div>
             <div className="mt-1 text-xs text-slate-400">{x.d}</div>
           </div>
         ))}
@@ -208,8 +237,8 @@ export function FinancialServicesTab() {
           <button onClick={() => void runPipeline("shadow")} disabled={running} className="rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-sm text-violet-200 hover:bg-violet-500/25 disabled:opacity-50">
             {running ? "Running…" : "Run (shadow)"}
           </button>
-          <button onClick={() => void runPipeline("authoritative")} disabled={running} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50 disabled:opacity-50">
-            Run (authoritative)
+          <button onClick={() => void runPipeline("authoritative")} disabled={running || !foEntitled} title={foEntitled ? undefined : "Founder Office tier required"} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50 disabled:opacity-50">
+            Run (authoritative){foEntitled ? "" : " · Founder Office"}
           </button>
         </div>
         {error && <div className="text-xs text-rose-300">{error}</div>}
@@ -252,10 +281,16 @@ export function FinancialServicesTab() {
           Delegated execution refuses (409) without an authorized agreement. Form → accept → authorize for the
           capability + agent above, then run authoritative.
         </p>
+        {!foEntitled && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            The Founder Office experience requires a Founder Office subscription. The Constitutional Preview (Run
+            shadow) above is open to everyone.
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => void doAgreement("form")} disabled={agrBusy} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50 disabled:opacity-50">Form</button>
-          <button onClick={() => void doAgreement("accept")} disabled={agrBusy} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50 disabled:opacity-50">Accept</button>
-          <button onClick={() => void doAgreement("authorize")} disabled={agrBusy} className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50">Authorize</button>
+          <button onClick={() => void doAgreement("form")} disabled={agrBusy || !foEntitled} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50 disabled:opacity-50">Form</button>
+          <button onClick={() => void doAgreement("accept")} disabled={agrBusy || !foEntitled} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50 disabled:opacity-50">Accept</button>
+          <button onClick={() => void doAgreement("authorize")} disabled={agrBusy || !foEntitled} className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50">Authorize</button>
         </div>
         {agrNote && <div className="text-xs text-slate-300">{agrNote}</div>}
         {agreements.length > 0 && (
