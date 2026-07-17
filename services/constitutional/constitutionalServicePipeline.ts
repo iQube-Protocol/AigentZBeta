@@ -1,8 +1,8 @@
 /**
  * constitutionalServicePipeline — the canonical constitutional service pattern
- * (CRP-003a Increment 2; PRD §10) as ONE composable seam. "The canonical
- * Founder Office execution model": every consequential capability runs through
- * the same twelve steps —
+ * (CRP-003a; PRD §10) as ONE composable seam. "The canonical Founder Office
+ * execution model": every consequential capability runs through the same twelve
+ * steps —
  *
  *   1 Intent → 2 Discovery → 3 Constitutional Agreement → 4 Standing Validation
  *   → 5 Policy Validation → 6 Bounded Delegation → 7 Execution → 8 Verification
@@ -10,32 +10,33 @@
  *
  * Step 3 is the N1 gate (requireAuthorizedAgreement): the delegated call (step 7)
  * is REFUSED unless an authorized Constitutional Agreement binds the (operator,
- * capability, agent) triple. That is the whole point of the pattern — the
- * agreement is the precondition of execution.
+ * capability, agent) triple.
  *
- * OBSERVE-FIRST (CFS-017): the pipeline runs in `shadow` mode by default. In
- * shadow, a gate refusal is RECORDED ('shadow-block') and the delegated call is
- * simply not made — the trace shows exactly what the authoritative path WOULD
- * do, with zero side effects, so the loop is proven numerically before it gates
- * a live product surface. In `authoritative` mode the gate BLOCKS (the pipeline
- * returns ok:false at step 3). A shadow→authoritative flip is the later,
- * operator-gated ratification (the CFS-035 discipline).
+ * WIRED (N2b): step 4 reads real delegate standing; step 5 checks the agreement's
+ * forbidden-action envelope; step 7 runs the invariant-grounded Domain-3
+ * executor; step 8 verifies F-201/202/203; step 9 enforces the P3 spend cap when
+ * settlement terms are present (money-moving domains); steps 11/12 cite the
+ * governing + evidence invariants for real Reach accrual — but ONLY in
+ * authoritative mode (shadow observes, never mutates, per CFS-017).
  *
- * Extend-don't-duplicate: step 3 composes N1 (constitutionalAgreement); step 7
- * composes the Domain-3 executor; steps 4/5/11/12 are OBSERVED in N2 (the trace
- * records what the authoritative path checks — readDelegateStanding /
- * evaluateAccess / citeInvariants — wired live in Increment 2b, not half-wired
- * now). Dependency-injected so the control flow is node-testable without
- * Supabase/LLM.
+ * OBSERVE-FIRST (CFS-017), two modes. `shadow` (default): gate refusal recorded
+ * ('shadow-block'), no side effects, no accrual. `authoritative`: the gate (and
+ * the P3 settlement cap) BLOCK. A shadow→authoritative flip is the later
+ * operator-gated ratification.
  *
- * Domain 3 (Financial Intelligence, read-only) is the pilot surface — no
- * settlement, no fund movement (CRP-003a §5 consequence ordering).
+ * Dependency-injected so the control flow is node-testable without Supabase/LLM.
+ * Domain 3 (Financial Intelligence, read-only) carries no settlement; money-
+ * moving Domains 1/2 attach settlementTerms + a valueCeiling and hit step 9's
+ * enforcement.
  */
 
 import {
   requireAuthorizedAgreement,
   getAgreement,
+  spendWithinCap,
   type AgreementGateResult,
+  type DelegatedAuthority,
+  type SettlementTerms,
 } from '@/services/constitutional/constitutionalAgreement';
 import {
   runFinancialIntelligence,
@@ -75,17 +76,31 @@ export interface ServicePipelineResult {
   trace: StepTrace[];
 }
 
-/** The I/O steps, injectable for testing. Defaults wire the real subsystems. */
+/** The authority summary the pipeline reads off an authorized agreement. */
+export interface AuthoritySummary {
+  band: string;
+  governingInvariants: string[];
+  forbiddenActions: string[];
+  valueCeiling: number | null;
+  settlementTerms: SettlementTerms | null;
+}
+
+/** I/O steps, injectable for testing. Defaults wire the real subsystems. */
 export interface ServicePipelineDeps {
   gateCheck: (input: {
     capabilityRef: string;
     selectedAgentRef: string;
     requestingPersonaId: string;
   }) => Promise<AgreementGateResult>;
-  loadAuthority: (agreementId: string) => Promise<{ band: string; governingInvariants: string[] } | null>;
-  execute: (req: FinancialIntelligenceRequest) => FinancialIntelligenceResult;
+  loadAuthority: (agreementId: string) => Promise<AuthoritySummary | null>;
+  execute: (req: FinancialIntelligenceRequest) => Promise<FinancialIntelligenceResult>;
   verify: (result: FinancialIntelligenceResult) => VerificationResult;
+  checkStanding: (agentRef: string) => Promise<{ overall: number; trustBandCeiling: string } | null>;
+  cite: (invariantIds: string[]) => Promise<void>;
 }
+
+/** The action the Domain-3 executor performs — checked against the envelope. */
+const EXECUTOR_ACTION = 'knowledge_retrieval';
 
 export function defaultServicePipelineDeps(): ServicePipelineDeps {
   return {
@@ -93,21 +108,37 @@ export function defaultServicePipelineDeps(): ServicePipelineDeps {
     loadAuthority: async (agreementId) => {
       const row = await getAgreement(agreementId);
       if (!row) return null;
+      const da = row.object.payload.delegatedAuthority;
+      const st = row.object.payload.settlementTerms as SettlementTerms | null;
       return {
-        band: row.object.payload.delegatedAuthority.band,
+        band: da.band,
         governingInvariants: row.object.authority.governingInvariants,
+        forbiddenActions: da.forbiddenActions ?? [],
+        valueCeiling: da.valueCeiling ?? null,
+        settlementTerms: st ?? null,
       };
     },
-    execute: runFinancialIntelligence,
+    // Grounded Domain-3 executor — wire the engine's Reasoning face as the
+    // grounding fn (dynamic import avoids a load-order cycle).
+    execute: (req) =>
+      runFinancialIntelligence(req, async (namespaces, limit) => {
+        const { groundReasoning } = await import('@/services/invariants/engine');
+        const snap = await groundReasoning({ namespaces, limit });
+        return snap.slice.items.map((i) => ({ id: i.id, statement: i.statement }));
+      }),
     verify: verifyFinancialIntelligence,
+    checkStanding: async (agentRef) => {
+      const { readDelegateStanding } = await import('@/services/homecoming/delegateStanding');
+      const s = await readDelegateStanding(agentRef);
+      return s ? { overall: s.overall, trustBandCeiling: s.trustBandCeiling } : null;
+    },
+    cite: async (ids) => {
+      const { citeInvariants } = await import('@/services/invariants/grounding');
+      await citeInvariants(ids);
+    },
   };
 }
 
-/**
- * Run the canonical constitutional service pattern for one intent. Pure control
- * flow over injected deps. `shadow` (default) records the gate decision without
- * side effects; `authoritative` blocks at step 3 on refusal.
- */
 export async function runConstitutionalServicePattern(
   input: ServicePipelineInput,
   deps: ServicePipelineDeps = defaultServicePipelineDeps(),
@@ -116,13 +147,13 @@ export async function runConstitutionalServicePattern(
   const trace: StepTrace[] = [];
   const push = (step: number, name: string, status: StepStatus, detail: string) =>
     trace.push({ step, name, status, detail });
+  const done = (r: Omit<ServicePipelineResult, 'mode' | 'trace'>): ServicePipelineResult => ({ ...r, mode, trace });
 
-  // 1 Intent
+  // 1 Intent · 2 Discovery
   push(1, 'Intent', 'ok', input.intent.trim().slice(0, 200));
-  // 2 Discovery (caller-supplied capability + agent; observed here)
   push(2, 'Discovery', 'ok', `capability=${input.capabilityRef} agent=${input.selectedAgentRef}`);
 
-  // 3 Constitutional Agreement — the N1 gate (the precondition of execution)
+  // 3 Constitutional Agreement — the N1 gate
   const gate = await deps.gateCheck({
     capabilityRef: input.capabilityRef,
     selectedAgentRef: input.selectedAgentRef,
@@ -133,34 +164,47 @@ export async function runConstitutionalServicePattern(
     push(3, 'Constitutional Agreement', 'ok', `authorized agr=${gate.agreementId} (status ${gate.status})`);
   } else if (mode === 'authoritative') {
     push(3, 'Constitutional Agreement', 'refused', `409: ${gate.reason}`);
-    return { ok: false, mode, executed: false, blockedAtStep: 3, gate, agreementId, execution: null, verification: null, trace };
+    return done({ ok: false, executed: false, blockedAtStep: 3, gate, agreementId, execution: null, verification: null });
   } else {
     push(3, 'Constitutional Agreement', 'shadow-block', `WOULD refuse 409: ${gate.reason} — shadow continues, delegated call not made`);
   }
 
   const gateOpen = gate.ok;
-  let band = 'unknown';
-  let governingInvariants: string[] = [];
+  let authority: AuthoritySummary | null = null;
+  if (gateOpen) authority = await deps.loadAuthority(gate.agreementId);
+  const band = authority?.band ?? 'unknown';
+  const governingInvariants = authority?.governingInvariants ?? [];
+
+  // 4 Standing Validation — real delegate standing (informational; the agreement is the authority)
   if (gateOpen) {
-    const authority = await deps.loadAuthority(gate.agreementId);
-    band = authority?.band ?? 'unknown';
-    governingInvariants = authority?.governingInvariants ?? [];
+    const st = await deps.checkStanding(input.selectedAgentRef);
+    push(4, 'Standing Validation', st ? 'ok' : 'observed', st ? `delegate standing ${st.overall} · ceiling ${st.trustBandCeiling} · agreement band ${band}` : `no standing record for ${input.selectedAgentRef} — agreement band ${band} governs`);
+  } else {
+    push(4, 'Standing Validation', 'skipped', 'no agreement');
   }
 
-  // 4 Standing Validation · 5 Policy Validation · 6 Bounded Delegation
-  //   (OBSERVED in N2 — authoritative wiring readDelegateStanding / evaluateAccess
-  //   / the grant envelope is Increment 2b; recorded here, not fabricated).
-  push(4, 'Standing Validation', gateOpen ? 'observed' : 'skipped', gateOpen ? `delegate must clear band ${band} (readDelegateStanding — 2b)` : 'no agreement');
-  push(5, 'Policy Validation', gateOpen ? 'observed' : 'skipped', gateOpen ? 'evaluateAccess (2b)' : 'no agreement');
-  push(6, 'Bounded Delegation', gateOpen ? 'observed' : 'skipped', gateOpen ? `authority band ${band}` : 'no agreement');
+  // 5 Policy Validation — the requested action must not be in the forbidden envelope
+  if (gateOpen) {
+    const forbidden = authority?.forbiddenActions ?? [];
+    const blocked = forbidden.includes(EXECUTOR_ACTION);
+    if (blocked && mode === 'authoritative') {
+      push(5, 'Policy Validation', 'refused', `action '${EXECUTOR_ACTION}' is in the agreement's forbidden envelope`);
+      return done({ ok: false, executed: false, blockedAtStep: 5, gate, agreementId, execution: null, verification: null });
+    }
+    push(5, 'Policy Validation', blocked ? 'shadow-block' : 'ok', blocked ? `WOULD refuse: '${EXECUTOR_ACTION}' forbidden` : `'${EXECUTOR_ACTION}' permitted by the envelope`);
+  } else {
+    push(5, 'Policy Validation', 'skipped', 'no agreement');
+  }
+
+  // 6 Bounded Delegation
+  push(6, 'Bounded Delegation', gateOpen ? 'ok' : 'skipped', gateOpen ? `authority band ${band}${authority?.valueCeiling != null ? ` · spend ceiling ${authority.valueCeiling}` : ' · no spend ceiling (read-only)'}` : 'no agreement');
 
   // 7 Execution — the delegated call, GATED by step 3
   let execution: FinancialIntelligenceResult | null = null;
   let verification: VerificationResult | null = null;
   if (gateOpen) {
-    execution = deps.execute({ intent: input.intent, governingInvariants });
-    push(7, 'Execution', 'ok', execution.live ? 'live Domain-3 intelligence' : 'Domain-3 structured stub (live run = follow-on)');
-    // 8 Verification (F-201/202/203). A failure is OBSERVED in shadow, not blocking.
+    execution = await deps.execute({ intent: input.intent, governingInvariants });
+    push(7, 'Execution', 'ok', execution.live ? `grounded in ${execution.evidenceRefs.length} invariant(s)` : 'un-grounded (no evidence retrieved)');
     verification = deps.verify(execution);
     push(8, 'Verification', verification.passed ? 'ok' : 'observed', `${verification.requirements.filter((r) => r.passed).length}/${verification.requirements.length} requirements passed`);
   } else {
@@ -168,23 +212,45 @@ export async function runConstitutionalServicePattern(
     push(8, 'Verification', 'skipped', 'no execution to verify');
   }
 
-  // 9 Settlement — none for Domain 3 (read-only)
-  push(9, 'Settlement', 'skipped', 'Domain 3 read-only — no settlement (USDC/Q¢ binding is a money-moving-domain increment)');
-  // 10 Evidence — shadow observes (no consequential receipt); authoritative emits one
-  push(10, 'Evidence', mode === 'shadow' ? 'observed' : 'ok', mode === 'shadow' ? 'shadow trace only (CFS-017 observe-first — no consequential receipt)' : 'activity receipt emitted');
-  // 11 Standing Accrual · 12 Invariant Learning (observed; Reach via citeInvariants — 2b)
-  push(11, 'Standing Accrual', gateOpen ? 'observed' : 'skipped', gateOpen ? 'Reach accrual via citeInvariants (2b)' : 'no execution');
-  push(12, 'Invariant Learning', gateOpen ? 'observed' : 'skipped', gateOpen ? (governingInvariants.join(', ') || 'no governing invariants on agreement') : 'no execution');
+  // 9 Settlement — P3 spend-cap enforcement when settlement terms are present.
+  //    Domain 3 (read-only) has no settlementTerms → skipped.
+  if (gateOpen && authority?.settlementTerms) {
+    const terms = authority.settlementTerms;
+    const cap = spendWithinCap({ valueCeiling: authority.valueCeiling } as DelegatedAuthority, terms.amount);
+    if (!cap.ok) {
+      if (mode === 'authoritative') {
+        push(9, 'Settlement', 'refused', `P3 spend cap: ${cap.reason}`);
+        return done({ ok: false, executed: true, blockedAtStep: 9, gate, agreementId, execution, verification });
+      }
+      push(9, 'Settlement', 'shadow-block', `WOULD refuse (P3): ${cap.reason}`);
+    } else {
+      push(9, 'Settlement', 'observed', `within cap: ${terms.amount} ${terms.currency} via ${terms.rail} (≤ ${authority.valueCeiling}); rail execution is a follow-on`);
+    }
+  } else {
+    push(9, 'Settlement', 'skipped', 'no settlement terms (Domain 3 read-only)');
+  }
 
-  return {
-    ok: true,
-    mode,
-    executed: gateOpen,
-    blockedAtStep: null,
-    gate,
-    agreementId,
-    execution,
-    verification,
-    trace,
-  };
+  // 10 Evidence — shadow observes (no consequential receipt); authoritative would emit one
+  push(10, 'Evidence', mode === 'shadow' ? 'observed' : 'ok', mode === 'shadow' ? 'shadow trace only (CFS-017 observe-first — no consequential receipt)' : 'execution trace recorded');
+
+  // 11 Standing Accrual · 12 Invariant Learning — REAL Reach accrual, authoritative only
+  if (gateOpen && mode === 'authoritative') {
+    const ids = [...new Set([...governingInvariants, ...(execution?.evidenceRefs ?? [])])];
+    try {
+      await deps.cite(ids);
+      push(11, 'Standing Accrual', 'ok', `Reach accrued to ${ids.length} invariant(s) (Law XII — Reach only)`);
+    } catch {
+      push(11, 'Standing Accrual', 'observed', 'citation accrual failed (best-effort)');
+    }
+    push(12, 'Invariant Learning', 'ok', ids.join(', ') || 'no invariants to cite');
+  } else if (gateOpen) {
+    const ids = [...new Set([...governingInvariants, ...(execution?.evidenceRefs ?? [])])];
+    push(11, 'Standing Accrual', 'observed', `WOULD accrue Reach to ${ids.length} invariant(s) (shadow does not mutate)`);
+    push(12, 'Invariant Learning', 'observed', ids.join(', ') || 'no invariants');
+  } else {
+    push(11, 'Standing Accrual', 'skipped', 'no execution');
+    push(12, 'Invariant Learning', 'skipped', 'no execution');
+  }
+
+  return done({ ok: true, executed: gateOpen, blockedAtStep: null, gate, agreementId, execution, verification });
 }

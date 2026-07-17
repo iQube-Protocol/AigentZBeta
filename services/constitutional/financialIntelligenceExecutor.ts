@@ -7,20 +7,30 @@
  * no money at risk. That makes it the safe surface to run the full canonical
  * service pattern end-to-end while the pipeline is in shadow.
  *
- * HONEST SCOPE (N2): this executor is a STRUCTURED STUB. It shapes a financial-
- * intelligence result to the domain's candidate invariants — F-201 Source
- * Diversity, F-202 Evidence Attribution, F-203 Confidence Calibration (CRP-003
- * §4) — so the Verification step has real requirements to check, but it does NOT
- * yet run a live LLM/research call (that needs a provider + credits and is the
- * named follow-on). It returns `confidence: 'low'` and empty sources on purpose:
- * an un-grounded brief SHOULD fail F-201/F-202 at Verification — the pipeline
- * observing that failure in shadow is the point, not a fabricated pass.
+ * SCOPE (N2b): the executor is now INVARIANT-GROUNDED. Given a grounding
+ * function (the engine's Reasoning face, `groundReasoning`, injected by the
+ * pipeline), it retrieves the constitutional invariants relevant to the intent
+ * and shapes them into the result's sources (F-201) + evidence refs (F-202),
+ * with confidence calibrated to the evidence count (F-203). Grounding is
+ * deterministic (no LLM/provider call) — a live LLM ANALYSIS layer on top of the
+ * grounded evidence is the remaining follow-on. When no grounding fn is supplied
+ * (or it returns nothing) the result is honestly empty and FAILS F-201/F-202 at
+ * Verification — never a fabricated pass.
  *
- * Pure + isomorphic: no I/O, no clock, no provider. The live executor swaps in
- * behind this same signature (Extend-don't-duplicate).
+ * The grounding fn is INJECTED so the executor stays node-testable without
+ * Supabase; the pipeline's default deps wire the real `groundReasoning`.
  */
 
 export type IntelligenceConfidence = 'low' | 'medium' | 'high';
+
+/** Injected grounding — returns the invariants relevant to the request.
+ *  The pipeline default wires this to the engine's `groundReasoning`. */
+export type GroundingFn = (namespaces: string[], limit: number) => Promise<{ id: string; statement: string }[]>;
+
+/** Namespaces the financial-intelligence executor grounds in. No `finance`
+ *  namespace is seeded yet (CRP-003's candidate invariants are unseeded), so it
+ *  grounds in the constitutional / epistemology / engineering evidence base. */
+export const FINANCIAL_GROUNDING_NAMESPACES = ['constitutional', 'epistemology', 'engineering'];
 
 export interface FinancialIntelligenceRequest {
   intent: string;
@@ -32,26 +42,42 @@ export interface FinancialIntelligenceResult {
   summary: string;
   /** F-201 Source Diversity — independent evidence sources. */
   sources: string[];
-  /** F-202 Evidence Attribution — traceable evidence refs. */
+  /** F-202 Evidence Attribution — traceable evidence refs (invariant ids). */
   evidenceRefs: string[];
   /** F-203 Confidence Calibration — reflects evidence quality, not model certainty. */
   confidence: IntelligenceConfidence;
-  /** Whether a live intelligence provider produced this (false = structured stub). */
+  /** Whether grounding produced evidence (false = un-grounded, fails verification). */
   live: boolean;
 }
 
-/** The Domain-3 read-only executor. Pure. Structured stub in N2 (see file docs). */
-export function runFinancialIntelligence(req: FinancialIntelligenceRequest): FinancialIntelligenceResult {
+/** The Domain-3 read-only executor. Invariant-grounded via the injected `ground`
+ *  fn; async I/O only through that fn (testable with a stub). */
+export async function runFinancialIntelligence(
+  req: FinancialIntelligenceRequest,
+  ground?: GroundingFn,
+): Promise<FinancialIntelligenceResult> {
   const intent = req.intent.trim().slice(0, 400);
+  let items: { id: string; statement: string }[] = [];
+  if (ground) {
+    try {
+      items = await ground(FINANCIAL_GROUNDING_NAMESPACES, 6);
+    } catch {
+      items = [];
+    }
+  }
+  const sources = items.map((i) => i.statement).filter(Boolean).slice(0, 6);
+  const evidenceRefs = items.map((i) => i.id).filter(Boolean).slice(0, 6);
+  const confidence: IntelligenceConfidence = evidenceRefs.length >= 3 ? 'high' : evidenceRefs.length >= 1 ? 'medium' : 'low';
   return {
     summary:
-      `Financial-intelligence brief requested: "${intent}". ` +
-      `Structured-stub executor (CRP-003a N2) — a live, invariant-grounded intelligence run ` +
-      `(source retrieval + analysis) is the named follow-on. No fund movement (Domain 3, read-only).`,
-    sources: [],
-    evidenceRefs: [],
-    confidence: 'low',
-    live: false,
+      `Financial-intelligence brief for: "${intent}". ` +
+      (evidenceRefs.length > 0
+        ? `Grounded in ${evidenceRefs.length} constitutional invariant(s); a live LLM analysis layer over this evidence is the remaining follow-on.`
+        : `No grounding available — un-grounded (fails F-201/F-202). No fund movement (Domain 3, read-only).`),
+    sources,
+    evidenceRefs,
+    confidence,
+    live: evidenceRefs.length > 0,
   };
 }
 

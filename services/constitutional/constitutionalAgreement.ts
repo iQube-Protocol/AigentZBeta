@@ -96,7 +96,38 @@ export interface DelegatedAuthority {
   allowedSurfaces: string[];
   ttlHours: number;
   maxActions: number;
+  /** P3 — enforced spend ceiling (rail's smallest unit). Money-moving domains
+   *  MUST declare one; Domain 3 (read-only) leaves it null. */
   valueCeiling?: number | null;
+}
+
+/** Settlement terms an agreement may carry (money-moving Domains 1/2). `amount`
+ *  is in the rail's smallest unit (Q¢ cents / USDC micro-units). */
+export interface SettlementTerms {
+  rail: string;
+  amount: number;
+  currency: string;
+}
+
+/**
+ * P3 — enforce the delegated authority's value ceiling on a settlement amount.
+ * PURE. A money-moving agreement MUST declare a `valueCeiling`: a null ceiling
+ * with a settlement present is REFUSED (an unbounded delegated spend is exactly
+ * what P3 forbids). An amount over the ceiling is refused. Domain 3 (read-only)
+ * carries no settlement, so it never reaches this check.
+ */
+export function spendWithinCap(authority: DelegatedAuthority, amount: number): { ok: boolean; reason?: string } {
+  const ceiling = authority.valueCeiling;
+  if (ceiling == null) {
+    return { ok: false, reason: 'money movement requires an enforced valueCeiling on the delegated authority (P3) — none declared' };
+  }
+  if (!(amount >= 0)) {
+    return { ok: false, reason: `invalid settlement amount ${amount}` };
+  }
+  if (amount > ceiling) {
+    return { ok: false, reason: `settlement amount ${amount} exceeds the delegated spend ceiling ${ceiling}` };
+  }
+  return { ok: true };
 }
 
 export interface FormAgreementInput {
