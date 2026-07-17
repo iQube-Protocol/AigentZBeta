@@ -97,6 +97,52 @@ export function deriveWeightsFromStanding<K extends string>(
   return weights;
 }
 
+/** Minimal coordinate-bearing shape (CFS-039 / PRD-IPE-001). A resolved field's
+ *  `coordinates` (services/invariants/resolution.ts `InvariantCoordinates`)
+ *  satisfy this structurally — engine.ts (the IPE) never imports the IRE, so
+ *  there is no cycle: the projector consumes a field, it does not construct one. */
+export interface CoordinateBearing {
+  seedId: string | null;
+  structural: {
+    verifiability: { value: number };
+    evidenceDensity: { value: number };
+    adoption: { value: number };
+  };
+}
+
+/**
+ * Invariant Projection Engine (CFS-039) — derive node dimension weights from a
+ * RESOLVED FIELD's constitutional coordinates instead of the raw slice. Weight ∝
+ * each dimension's governing invariant's chosen coordinate axis, mean-normalised
+ * to 1 (the `deriveWeightsFromStanding` generalisation, CFS-037 §5).
+ *
+ * ADDITIVE + BACKWARD-COMPATIBLE by construction: default axis `evidenceDensity`
+ * IS the standing axis, so a field whose coordinates carry standing yields the
+ * SAME weights as `deriveWeightsFromStanding`; and absent/empty coordinates
+ * return all-1 (faithful) — nothing that consumes CFS-035 today changes unless a
+ * caller opts in by passing coordinates. Pure.
+ */
+export function deriveWeightsFromCoordinates<K extends string>(
+  coordinates: CoordinateBearing[] | null | undefined,
+  seedMap: Record<K, string>,
+  axis: 'evidenceDensity' | 'verifiability' | 'adoption' = 'evidenceDensity',
+): Record<K, number> {
+  const keys = Object.keys(seedMap) as K[];
+  const base = Object.fromEntries(keys.map((k) => [k, 1])) as Record<K, number>;
+  if (!coordinates || coordinates.length === 0) return base;
+  const bySeed = new Map<string, number>();
+  for (const c of coordinates) if (c.seedId) bySeed.set(c.seedId, c.structural[axis].value);
+  const vals = keys.map((k) => bySeed.get(seedMap[k]) ?? 0);
+  const total = vals.reduce((a, b) => a + b, 0);
+  if (total <= 0) return base;
+  const mean = total / keys.length;
+  const weights = { ...base };
+  keys.forEach((k, i) => {
+    weights[k] = mean > 0 ? vals[i] / mean : 1;
+  });
+  return weights;
+}
+
 // Per-key cached Field Snapshots for hot node paths. Guarded — any failure
 // yields null (→ faithful projection). Short TTL so standing changes propagate.
 const _snapshotCaches = new Map<string, { at: number; snap: FieldSnapshot | null }>();
