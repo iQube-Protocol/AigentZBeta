@@ -32,6 +32,15 @@ const nextConfig = {
       // browserslist's caniuse-lite data. ~11 MB more headroom under the limit.
       "node_modules/typescript/**",
       "node_modules/caniuse-lite/**",
+      // Auto-generated deploy-trigger commit briefs (~8 MB, 1900+ files and
+      // growing every deploy). They are bundled by the codexes-pack tracing
+      // include below, but the copilot skips them by default
+      // (exclude_deploy_triggers in app/(shell)/copilot/actions/agentiq-codex.ts),
+      // and a missing file is simply skipped at read time (readCodexFile → null).
+      // Shipping build-log metadata in the size-capped SSR Lambda is what tipped
+      // the output past the 230686720-byte hard cap (2026-07-17). Excluded here,
+      // same philosophy as the typescript/caniuse entries above.
+      "codexes/packs/aigency/items/build_/COMMITS/**",
     ],
   },
   // Promoted from experimental in Next 15 — these entries carry the codex-pack
