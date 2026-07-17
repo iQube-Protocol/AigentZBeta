@@ -3459,3 +3459,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8954ca7.md](../build_/COMMITS/COMMIT-8954ca7.md)
 - Message: add polity namespace to invariant CHECK constraints (unblocks polity seed ingest)
+
+## Commit `3373fd8` — 2026-07-17T21:28:30Z
+- Type: `push`
+- Brief: [COMMIT-3373fd8.md](../build_/COMMITS/COMMIT-3373fd8.md)
+- Message: document canonical repo (iQube-Protocol) vs stale local clone (Kn0w-1) — stop the recurring wrong-remote trap

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T21:27:27.580Z",
+  "last_updated": "2026-07-17T21:30:09.786Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8954ca7ea0599f73dc7cec293e0863c4fabc76cf",
-  "latest_commit_short": "8954ca7",
-  "latest_commit_title": "add polity namespace to invariant CHECK constraints (unblocks polity seed ingest)",
+  "latest_commit": "3373fd8bf44735f17833958dc83e842499aa6b6b",
+  "latest_commit_short": "3373fd8",
+  "latest_commit_title": "document canonical repo (iQube-Protocol) vs stale local clone (Kn0w-1) — stop the recurring wrong-remote trap",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3373fd8",
+      "full_sha": "3373fd8bf44735f17833958dc83e842499aa6b6b",
+      "title": "document canonical repo (iQube-Protocol) vs stale local clone (Kn0w-1) — stop the recurring wrong-remote trap",
+      "author": "Claude",
+      "timestamp": "2026-07-17T21:28:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3373fd8.md"
+    },
     {
       "sha": "8954ca7",
       "full_sha": "8954ca7ea0599f73dc7cec293e0863c4fabc76cf",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-06T19:37:54Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-12f76e9.md"
-    },
-    {
-      "sha": "dd32733",
-      "full_sha": "dd3273314b2d0be72d5a75fb86246e5094c16116",
-      "title": "Build CCRL cartridge Phase B: the canonical research surface (CFS-019)",
-      "author": "Claude",
-      "timestamp": "2026-07-06T19:32:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dd32733.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
