@@ -3464,3 +3464,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3373fd8.md](../build_/COMMITS/COMMIT-3373fd8.md)
 - Message: document canonical repo (iQube-Protocol) vs stale local clone (Kn0w-1) — stop the recurring wrong-remote trap
+
+## Commit `fa50254` — 2026-07-17T17:48:44-04:00
+- Type: `push`
+- Brief: [COMMIT-fa50254.md](../build_/COMMITS/COMMIT-fa50254.md)
+- Message: extract Polity Papers full text pass 2 (10 text-layer papers; 5 vision + 1 download deferred)

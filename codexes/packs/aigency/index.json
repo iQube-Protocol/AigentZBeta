@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T21:30:09.786Z",
+  "last_updated": "2026-07-17T21:50:27.379Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3373fd8bf44735f17833958dc83e842499aa6b6b",
-  "latest_commit_short": "3373fd8",
-  "latest_commit_title": "document canonical repo (iQube-Protocol) vs stale local clone (Kn0w-1) — stop the recurring wrong-remote trap",
+  "latest_commit": "fa502546560869012bf0c39e15d0cc9f6616dab8",
+  "latest_commit_short": "fa50254",
+  "latest_commit_title": "extract Polity Papers full text pass 2 (10 text-layer papers; 5 vision + 1 download deferred)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fa50254",
+      "full_sha": "fa502546560869012bf0c39e15d0cc9f6616dab8",
+      "title": "extract Polity Papers full text pass 2 (10 text-layer papers; 5 vision + 1 download deferred)",
+      "author": "Kn0w-1",
+      "timestamp": "2026-07-17T17:48:44-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fa50254.md"
+    },
     {
       "sha": "3373fd8",
       "full_sha": "3373fd8bf44735f17833958dc83e842499aa6b6b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-06T19:48:10Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c0e41ab.md"
-    },
-    {
-      "sha": "12f76e9",
-      "full_sha": "12f76e9661f4c073565c71260cb7dfcc057b5bb7",
-      "title": "Build CCRL research object model + receipted lifecycles (CFS-019 Phase C1)",
-      "author": "Claude",
-      "timestamp": "2026-07-06T19:37:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-12f76e9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

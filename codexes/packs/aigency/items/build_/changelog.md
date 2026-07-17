@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`fa50254`](https://github.com/iQube-Protocol/AigentZBeta/commit/fa502546560869012bf0c39e15d0cc9f6616dab8) [push] extract Polity Papers full text pass 2 (10 text-layer papers; 5 vision + 1 download deferred) (Kn0w-1, 2026-07-17T17:48:44-04:00)
 - [`3373fd8`](https://github.com/iQube-Protocol/AigentZBeta/commit/3373fd8bf44735f17833958dc83e842499aa6b6b) [push] document canonical repo (iQube-Protocol) vs stale local clone (Kn0w-1) — stop the recurring wrong-remote trap (Claude, 2026-07-17T21:28:30Z)
 - [`8954ca7`](https://github.com/iQube-Protocol/AigentZBeta/commit/8954ca7ea0599f73dc7cec293e0863c4fabc76cf) [feat] add polity namespace to invariant CHECK constraints (unblocks polity seed ingest) (Claude, 2026-07-17T21:25:26Z)
 - [`871697d`](https://github.com/iQube-Protocol/AigentZBeta/commit/871697d06683e6db7932bd16d8c1551c4aaa6755) [push] trigger deploy to dev — force fresh rebuild to surface session work (CFSP/IRE-IPE/Polity) (Claude, 2026-07-17T21:21:32Z)
