@@ -108,7 +108,7 @@ function fmt(n: number | null | undefined, digits = 2): string {
   return typeof n === "number" ? n.toFixed(digits) : "—";
 }
 
-type Perspective = "health" | "projection" | "nodes" | "field" | "graph";
+type Perspective = "health" | "projection" | "nodes" | "field" | "graph" | "resolve";
 
 const PERSPECTIVES: Array<{ id: Perspective; label: string }> = [
   { id: "health", label: "Health" },
@@ -116,6 +116,7 @@ const PERSPECTIVES: Array<{ id: Perspective; label: string }> = [
   { id: "nodes", label: "Nodes" },
   { id: "field", label: "Field" },
   { id: "graph", label: "Graph" },
+  { id: "resolve", label: "Resolve" },
 ];
 
 // ── Graph data (GET /api/invariants/graph?view=field) ────────────────────────
@@ -292,6 +293,7 @@ export const FieldView: React.FC<{ className?: string }> = ({ className }) => {
           {perspective === "nodes" && <NodesPerspective data={data} />}
           {perspective === "field" && <FieldPerspective data={data} />}
           {perspective === "graph" && <GraphPerspective graph={graph} loading={graphLoading} />}
+          {perspective === "resolve" && <ResolvePerspective />}
 
           <p className="text-[11px] text-slate-600 px-1">
             {data.note} · canon {data.field.canonVersion || "—"} · generated{" "}
@@ -299,6 +301,104 @@ export const FieldView: React.FC<{ className?: string }> = ({ className }) => {
           </p>
         </>
       ) : null}
+    </div>
+  );
+};
+
+// ── Resolve — the Constitutional Field Observatory's Resolved-Field view ──────
+// (CFS-041 / PRD-CFO-001). Enter an intent; the IRE (CFS-037) resolves the
+// region of the constitutional field it requires + its calibrated coordinates.
+// Read-only; POSTs to /api/invariants/resolve via personaFetch (spine Bearer).
+interface ResolveResponse {
+  ok: boolean;
+  phase?: string;
+  resolvedIntent?: { text: string; domains: string[]; qualificationConfidence: number };
+  confidence?: number;
+  operational?: Record<string, { value: number; basis: string }>;
+  coordinates?: Array<{ invariantId: string; seedId: string | null; structural: Record<string, { value: number; basis: string }>; constitutional: null }>;
+  invariantCount?: number;
+  citedCount?: number;
+  describe?: string;
+  basis?: { operational: Array<{ key: string; class: string }>; researchCount: number; byClass: Record<string, number> };
+  error?: string;
+}
+
+const ResolvePerspective: React.FC = () => {
+  const [intent, setIntent] = useState("Recommend the best treasury allocation given constitutional standing and evidence");
+  const [res, setRes] = useState<ResolveResponse | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const run = useCallback(async () => {
+    setBusy(true);
+    setErr(null);
+    setRes(null);
+    try {
+      const r = await personaFetch("/api/invariants/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent }),
+      });
+      const data = (await r.json()) as ResolveResponse;
+      if (!r.ok || !data.ok) setErr(data.error || `resolve failed (${r.status})`);
+      else setRes(data);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "resolve error");
+    } finally {
+      setBusy(false);
+    }
+  }, [intent]);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-400">
+        Resolution precedes reasoning — enter an intent and the IRE constructs the region of the constitutional
+        field it requires (before any iQube/agent/LLM). Read-only.
+      </p>
+      <textarea
+        value={intent}
+        onChange={(e) => setIntent(e.target.value)}
+        rows={2}
+        className="w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600"
+      />
+      <button onClick={() => void run()} disabled={busy} className="rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-sm text-violet-200 hover:bg-violet-500/25 disabled:opacity-50">
+        {busy ? "Resolving…" : "Resolve field"}
+      </button>
+      {err && <div className="text-xs text-rose-300">{err}</div>}
+      {res && res.ok && (
+        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs">
+          <div className="text-slate-300">{res.describe}</div>
+          <div className="text-slate-500">
+            domains: {res.resolvedIntent?.domains.join(", ") || "unscoped"} · confidence {(res.confidence ?? 0).toFixed(2)} · {res.invariantCount ?? 0} invariant(s) · phase {res.phase}
+          </div>
+          {res.operational && (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(res.operational).map(([k, v]) => (
+                <span key={k} className="rounded border border-slate-700 bg-slate-800/50 px-1.5 py-0.5 text-slate-300" title={v.basis}>
+                  {k} {v.value.toFixed(2)}
+                </span>
+              ))}
+            </div>
+          )}
+          {res.basis && (
+            <div className="border-t border-slate-800 pt-2 text-slate-500">
+              CCR basis: {res.basis.operational.length} operational (computed) · {res.basis.researchCount} research (declared) · structural {res.basis.byClass.structural} / constitutional {res.basis.byClass.constitutional} / operational {res.basis.byClass.operational}
+            </div>
+          )}
+          {res.coordinates && res.coordinates.length > 0 && (
+            <div className="max-h-64 space-y-1 overflow-y-auto border-t border-slate-800 pt-2">
+              {res.coordinates.slice(0, 12).map((c) => (
+                <div key={c.invariantId} className="flex items-center justify-between gap-2">
+                  <span className="truncate text-slate-400">{c.invariantId}</span>
+                  <span className="shrink-0 text-slate-500">
+                    v {c.structural.verifiability.value.toFixed(2)} · e {c.structural.evidenceDensity.value.toFixed(2)} · a {c.structural.adoption.value.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
