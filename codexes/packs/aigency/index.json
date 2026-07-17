@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T21:23:39.129Z",
+  "last_updated": "2026-07-17T21:27:27.580Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "871697d06683e6db7932bd16d8c1551c4aaa6755",
-  "latest_commit_short": "871697d",
-  "latest_commit_title": "trigger deploy to dev — force fresh rebuild to surface session work (CFSP/IRE-IPE/Polity)",
+  "latest_commit": "8954ca7ea0599f73dc7cec293e0863c4fabc76cf",
+  "latest_commit_short": "8954ca7",
+  "latest_commit_title": "add polity namespace to invariant CHECK constraints (unblocks polity seed ingest)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8954ca7",
+      "full_sha": "8954ca7ea0599f73dc7cec293e0863c4fabc76cf",
+      "title": "add polity namespace to invariant CHECK constraints (unblocks polity seed ingest)",
+      "author": "Claude",
+      "timestamp": "2026-07-17T21:25:26Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8954ca7.md"
+    },
     {
       "sha": "871697d",
       "full_sha": "871697d06683e6db7932bd16d8c1551c4aaa6755",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-06T19:32:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-dd32733.md"
-    },
-    {
-      "sha": "b7f270f",
-      "full_sha": "b7f270fd24782fb0bc8171efd681423890b13528",
-      "title": "Fix Bitcoin explorer bug class once and for all: canonical helper + txid provenance",
-      "author": "Claude",
-      "timestamp": "2026-07-06T18:24:01Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-b7f270f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

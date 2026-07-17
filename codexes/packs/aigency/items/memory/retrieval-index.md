@@ -3454,3 +3454,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-871697d.md](../build_/COMMITS/COMMIT-871697d.md)
 - Message: trigger deploy to dev — force fresh rebuild to surface session work (CFSP/IRE-IPE/Polity)
+
+## Commit `8954ca7` — 2026-07-17T21:25:26Z
+- Type: `feat`
+- Brief: [COMMIT-8954ca7.md](../build_/COMMITS/COMMIT-8954ca7.md)
+- Message: add polity namespace to invariant CHECK constraints (unblocks polity seed ingest)
