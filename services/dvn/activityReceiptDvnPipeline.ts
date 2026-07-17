@@ -126,6 +126,14 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // reverts); anchoring makes the operator-gated ratification tamper-evident.
   // Added per the permitted action-type-addition rule (operator-approved).
   'invariant_node_flipped',
+  // Constitutional Agreement (CRP-003a N1 / CFI-002, 2026-07-17) — formation/
+  // acceptance + authorization of a pre-execution agreement binding
+  // intent→agent→authority. DVN is the constitutional anchor of record (x409/
+  // Consenti is the acceptance-proof provider). Anchoring makes the agreement
+  // trail tamper-evident. Added per the permitted action-type-addition rule
+  // (operator-approved 2026-07-17).
+  'agreement_formed',
+  'agreement_authorized',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

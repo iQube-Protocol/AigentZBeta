@@ -169,9 +169,9 @@ Build the **adapter seam** for N1 first, with x409 as one adapter and a local/st
 
 ## 8. Ratification decisions (operator)
 
-1. **Numbering** — CRP-003a (this filing) vs standalone CFS-037. *Recommend CRP-003a* (implementation appendix to the charter).
-2. **First increment** — confirm N1 (Constitutional Agreement keystone), delivered first on Domain 3 (read-only), before any money-moving domain. *Recommended.*
-3. **Agreement anchor** — x409/Consenti anchoring vs the platform's DVN pipeline vs both. Touches the PARAMOUNT-protected DVN pipeline → operator-gated. *Recommend: DVN as anchor of record, x409 as acceptance-proof provider.*
+1. **Numbering** — CRP-003a (this filing) vs standalone CFS-037. **RATIFIED 2026-07-17: CRP-003a.**
+2. **First increment** — N1 (Constitutional Agreement keystone) on Domain 3 (read-only), before any money-moving domain. **RATIFIED 2026-07-17: confirmed.**
+3. **Agreement anchor** — **RATIFIED 2026-07-17: DVN is the constitutional anchor of record; x409/Consenti is the acceptance-proof provider, behind a swappable adapter interface so other acceptance-proof providers are interchangeable (stub/local provider ships alongside x409).**
 
 ## 9. Honest limits
 
@@ -185,4 +185,5 @@ Build the **adapter seam** for N1 first, with x409 as one adapter and a local/st
 
 ## Ratification record
 
-- [ ] **DRAFT 2026-07-17** — implementation spine authored from the operator's PRD v1.0, reconciled against a code-truth inventory (operator: "the code is truth here"). Awaiting operator ratification of §8 decisions 1–3.
+- [x] **DRAFT 2026-07-17** — implementation spine authored from the operator's PRD v1.0, reconciled against a code-truth inventory (operator: "the code is truth here").
+- [x] **§8 decisions 1–3 RATIFIED 2026-07-17 by operator direction:** (1) CRP-003a numbering; (2) N1 first, on Domain 3; (3) DVN anchor of record + x409 acceptance-proof provider behind a swappable adapter interface. Build of Increment 1 (N1) authorized.

@@ -122,7 +122,16 @@ export type ActivityActionType =
   // projection, or reverts to the incumbent). The ratification act is
   // consequential + operator-gated, so it lands in tamper-evident memory.
   // DVN-anchorable. Summary carries a sha256 commitment of the flip act.
-  | 'invariant_node_flipped';
+  | 'invariant_node_flipped'
+  // Constitutional Agreement (CRP-003a N1 / CFI-002, 2026-07-17) — the
+  // intent→agent→authority binding before delegated execution. agreement_formed
+  // fires on acceptance (the acceptance commitment + optional external anchor
+  // ride the summary); agreement_authorized fires when the requesting operator
+  // authorizes delegated execution under it (the 409 gate opens). DVN is the
+  // constitutional anchor of record; x409/Consenti is the acceptance-proof
+  // provider. Both DVN-anchorable.
+  | 'agreement_formed'
+  | 'agreement_authorized';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
