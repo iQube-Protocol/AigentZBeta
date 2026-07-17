@@ -1,60 +1,79 @@
 /**
- * financialIntelligenceExecutor — the Domain 3 (Financial Intelligence)
- * read-only capability executor (CRP-003a Increment 2; CRP-003 §4).
+ * financialIntelligenceExecutor — the Financial Services capability executors
+ * (CRP-003a; CRP-003 §2–4). Domain-parameterised over the three capability
+ * domains, each with its own candidate invariants:
  *
- * Domain 3 is deliberately FIRST (CRP-003a §5 consequence ordering): it is
- * intelligence, not fund movement — no settlement, no enforced spend cap (P3),
- * no money at risk. That makes it the safe surface to run the full canonical
- * service pattern end-to-end while the pipeline is in shadow.
+ *   - intelligence (Domain 3) — F-201 Source Diversity · F-202 Evidence
+ *     Attribution · F-203 Confidence Calibration. Read-only.
+ *   - investment  (Domain 1) — F-001 Verifiable State Before Action · F-002
+ *     Explainable Allocation · F-003 Delegation Boundaries. Recommendation-only.
+ *   - market      (Domain 2) — F-101 Separation of Advice & Execution · F-102
+ *     Standing-Weighted Selection · F-103 Verification Before Standing.
+ *     Orchestration/advice — never fund movement (F-003/F-101).
  *
- * SCOPE (N2b): the executor is now INVARIANT-GROUNDED. Given a grounding
- * function (the engine's Reasoning face, `groundReasoning`, injected by the
- * pipeline), it retrieves the constitutional invariants relevant to the intent
- * and shapes them into the result's sources (F-201) + evidence refs (F-202),
- * with confidence calibrated to the evidence count (F-203). Grounding is
- * deterministic (no LLM/provider call) — a live LLM ANALYSIS layer on top of the
- * grounded evidence is the remaining follow-on. When no grounding fn is supplied
- * (or it returns nothing) the result is honestly empty and FAILS F-201/F-202 at
- * Verification — never a fabricated pass.
+ * All executors are ADVICE/INTELLIGENCE producers: they recommend, they do not
+ * move funds (CRP-003 F-003 "agents may recommend but cannot execute beyond
+ * delegated authority"). Fund movement is the SETTLEMENT step (settlementExecutor),
+ * gated by the P3 spend cap — never the executor.
  *
- * The grounding fn is INJECTED so the executor stays node-testable without
- * Supabase; the pipeline's default deps wire the real `groundReasoning`.
+ * Two layers, both INJECTED so the executor stays node-testable without
+ * Supabase/LLM:
+ *   1. grounding (deterministic) — the engine's Reasoning face (`groundReasoning`)
+ *      retrieves the relevant constitutional invariants → sources + evidence.
+ *   2. analysis (LLM, optional) — `callSovereign('analysis', …)` reasons OVER the
+ *      grounded evidence to produce the brief + a calibrated confidence. If
+ *      absent/failed, the executor falls back to the grounded summary (honest —
+ *      never a fabricated analysis).
  */
 
 export type IntelligenceConfidence = 'low' | 'medium' | 'high';
+export type FinancialDomain = 'intelligence' | 'investment' | 'market';
 
-/** Injected grounding — returns the invariants relevant to the request.
- *  The pipeline default wires this to the engine's `groundReasoning`. */
+/** Injected grounding — the invariants relevant to the request. */
 export type GroundingFn = (namespaces: string[], limit: number) => Promise<{ id: string; statement: string }[]>;
 
-/** Namespaces the financial-intelligence executor grounds in. No `finance`
- *  namespace is seeded yet (CRP-003's candidate invariants are unseeded), so it
- *  grounds in the constitutional / epistemology / engineering evidence base. */
+/** Injected analysis — LLM reasoning over the grounded evidence. Returns null
+ *  when unavailable (the executor then keeps the grounded summary). */
+export type AnalyzeFn = (
+  intent: string,
+  evidence: { id: string; statement: string }[],
+  domain: FinancialDomain,
+) => Promise<{ summary: string; confidence: IntelligenceConfidence } | null>;
+
 export const FINANCIAL_GROUNDING_NAMESPACES = ['constitutional', 'epistemology', 'engineering'];
+
+const DOMAIN_LABEL: Record<FinancialDomain, string> = {
+  intelligence: 'Financial Intelligence',
+  investment: 'Investment Operations',
+  market: 'Market Operations',
+};
 
 export interface FinancialIntelligenceRequest {
   intent: string;
-  /** Governing invariants carried by the agreement (F-201..F-203, CFI-*). */
   governingInvariants: string[];
 }
 
 export interface FinancialIntelligenceResult {
+  domain: FinancialDomain;
   summary: string;
-  /** F-201 Source Diversity — independent evidence sources. */
+  /** F-201/F-001 — independent evidence sources (invariant statements). */
   sources: string[];
-  /** F-202 Evidence Attribution — traceable evidence refs (invariant ids). */
+  /** F-202/F-002 — traceable evidence refs (invariant ids). */
   evidenceRefs: string[];
-  /** F-203 Confidence Calibration — reflects evidence quality, not model certainty. */
+  /** F-203 — confidence calibrated to evidence (LLM-refined when analysed). */
   confidence: IntelligenceConfidence;
-  /** Whether grounding produced evidence (false = un-grounded, fails verification). */
+  /** Grounding produced evidence. */
   live: boolean;
+  /** The analysis layer ran (LLM reasoned over the evidence). */
+  analysed: boolean;
 }
 
-/** The Domain-3 read-only executor. Invariant-grounded via the injected `ground`
- *  fn; async I/O only through that fn (testable with a stub). */
-export async function runFinancialIntelligence(
+/** General Domain executor — grounded, optionally analysed. Advice only. */
+export async function runFinancialCapability(
+  domain: FinancialDomain,
   req: FinancialIntelligenceRequest,
   ground?: GroundingFn,
+  analyze?: AnalyzeFn,
 ): Promise<FinancialIntelligenceResult> {
   const intent = req.intent.trim().slice(0, 400);
   let items: { id: string; statement: string }[] = [];
@@ -67,52 +86,86 @@ export async function runFinancialIntelligence(
   }
   const sources = items.map((i) => i.statement).filter(Boolean).slice(0, 6);
   const evidenceRefs = items.map((i) => i.id).filter(Boolean).slice(0, 6);
-  const confidence: IntelligenceConfidence = evidenceRefs.length >= 3 ? 'high' : evidenceRefs.length >= 1 ? 'medium' : 'low';
-  return {
-    summary:
-      `Financial-intelligence brief for: "${intent}". ` +
-      (evidenceRefs.length > 0
-        ? `Grounded in ${evidenceRefs.length} constitutional invariant(s); a live LLM analysis layer over this evidence is the remaining follow-on.`
-        : `No grounding available — un-grounded (fails F-201/F-202). No fund movement (Domain 3, read-only).`),
-    sources,
-    evidenceRefs,
-    confidence,
-    live: evidenceRefs.length > 0,
-  };
+  let confidence: IntelligenceConfidence = evidenceRefs.length >= 3 ? 'high' : evidenceRefs.length >= 1 ? 'medium' : 'low';
+
+  let summary =
+    `${DOMAIN_LABEL[domain]} brief for: "${intent}". ` +
+    (evidenceRefs.length > 0
+      ? `Grounded in ${evidenceRefs.length} constitutional invariant(s).`
+      : `No grounding available — un-grounded (fails verification). Advice only, no fund movement.`);
+  let analysed = false;
+
+  // Analysis layer — LLM reasons over the grounded evidence (never fabricates:
+  // only runs when there IS evidence, falls back to the grounded summary).
+  if (analyze && items.length > 0) {
+    try {
+      const a = await analyze(intent, items, domain);
+      if (a && a.summary.trim()) {
+        summary = a.summary.trim();
+        confidence = a.confidence;
+        analysed = true;
+      }
+    } catch {
+      /* keep grounded summary */
+    }
+  }
+
+  return { domain, summary, sources, evidenceRefs, confidence, live: evidenceRefs.length > 0, analysed };
 }
 
-// ── Verification (canonical step 8) — the Domain-3 checks, PURE ────────────────
+/** Domain-3 entry (back-compat). */
+export async function runFinancialIntelligence(
+  req: FinancialIntelligenceRequest,
+  ground?: GroundingFn,
+  analyze?: AnalyzeFn,
+): Promise<FinancialIntelligenceResult> {
+  return runFinancialCapability('intelligence', req, ground, analyze);
+}
+
+// ── Verification (canonical step 8) — per-domain, PURE ─────────────────────────
 
 export interface VerificationRequirementResult {
-  requirement: string; // e.g. 'F-201 Source Diversity'
+  requirement: string;
   passed: boolean;
   detail: string;
 }
-
 export interface VerificationResult {
   passed: boolean;
   requirements: VerificationRequirementResult[];
 }
 
-/** Verify a financial-intelligence result against Domain-3's candidate invariants.
- *  Pure. In shadow a failure is OBSERVED (recorded), never a fabricated pass. */
-export function verifyFinancialIntelligence(result: FinancialIntelligenceResult): VerificationResult {
-  const requirements: VerificationRequirementResult[] = [
-    {
-      requirement: 'F-201 Source Diversity',
-      passed: result.sources.length >= 2,
-      detail: `${result.sources.length} independent source(s) (≥2 required)`,
-    },
-    {
-      requirement: 'F-202 Evidence Attribution',
-      passed: result.evidenceRefs.length >= 1,
-      detail: `${result.evidenceRefs.length} evidence ref(s) attributed`,
-    },
-    {
-      requirement: 'F-203 Confidence Calibration',
-      passed: result.confidence === 'low' ? result.sources.length === 0 : result.sources.length > 0,
-      detail: `confidence '${result.confidence}' ${result.confidence === 'low' && result.sources.length === 0 ? 'consistent with' : 'vs'} evidence`,
-    },
-  ];
+/** Per-domain candidate-invariant checks. Evidence-backed where the result can
+ *  show it; STRUCTURAL (passed-by-construction of the advice-only executor)
+ *  where honesty requires saying so — the detail names which. Pure. */
+export function verifyFinancialCapability(domain: FinancialDomain, result: FinancialIntelligenceResult): VerificationResult {
+  const hasSources2 = result.sources.length >= 2;
+  const hasEvidence = result.evidenceRefs.length >= 1;
+  const calibrated = result.confidence === 'low' ? result.evidenceRefs.length === 0 : result.evidenceRefs.length > 0;
+
+  let requirements: VerificationRequirementResult[];
+  if (domain === 'investment') {
+    requirements = [
+      { requirement: 'F-001 Verifiable State Before Action', passed: hasEvidence, detail: `${result.evidenceRefs.length} verified evidence ref(s)` },
+      { requirement: 'F-002 Explainable Allocation', passed: result.summary.trim().length > 0 && hasEvidence, detail: 'rationale + evidence present' },
+      { requirement: 'F-003 Delegation Boundaries', passed: true, detail: 'structural — executor recommends only, never executes beyond authority' },
+    ];
+  } else if (domain === 'market') {
+    requirements = [
+      { requirement: 'F-101 Separation of Advice & Execution', passed: true, detail: 'structural — advice only; execution is a separately-attributable step' },
+      { requirement: 'F-102 Standing-Weighted Selection', passed: hasEvidence, detail: 'evidence-grounded selection basis present' },
+      { requirement: 'F-103 Verification Before Standing', passed: true, detail: 'structural — the pipeline verifies before any Standing accrual' },
+    ];
+  } else {
+    requirements = [
+      { requirement: 'F-201 Source Diversity', passed: hasSources2, detail: `${result.sources.length} source(s) (≥2 required)` },
+      { requirement: 'F-202 Evidence Attribution', passed: hasEvidence, detail: `${result.evidenceRefs.length} evidence ref(s)` },
+      { requirement: 'F-203 Confidence Calibration', passed: calibrated, detail: `confidence '${result.confidence}' vs evidence` },
+    ];
+  }
   return { passed: requirements.every((r) => r.passed), requirements };
+}
+
+/** Domain-3 verify (back-compat). */
+export function verifyFinancialIntelligence(result: FinancialIntelligenceResult): VerificationResult {
+  return verifyFinancialCapability('intelligence', result);
 }

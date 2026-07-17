@@ -23,6 +23,9 @@ import {
   runConstitutionalServicePattern,
   type ServicePipelineMode,
 } from '@/services/constitutional/constitutionalServicePipeline';
+import type { FinancialDomain } from '@/services/constitutional/financialIntelligenceExecutor';
+
+const DOMAINS: FinancialDomain[] = ['intelligence', 'investment', 'market'];
 
 export const dynamic = 'force-dynamic';
 
@@ -44,12 +47,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'intent, capabilityRef, selectedAgentRef required' }, { status: 400 });
   }
   const mode: ServicePipelineMode = body.mode === 'authoritative' ? 'authoritative' : 'shadow';
+  const domain: FinancialDomain = DOMAINS.includes(body.domain as FinancialDomain) ? (body.domain as FinancialDomain) : 'intelligence';
 
   const result = await runConstitutionalServicePattern({
     intent,
     capabilityRef,
     selectedAgentRef,
     requestingPersonaId: pr.persona.personaId,
+    domain,
     mode,
   });
 
