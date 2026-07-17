@@ -2650,6 +2650,486 @@
       "provenance": {
         "source": "VentureQube Specification v1 (WIP; codexes/packs/polity-core/items/VENTUREQUBE_SPEC.md; engineering SoT types/ventureQube.ts). NOTE: the spec is itself a draft constitutional primitive NOT yet ratified — status here is 'proposed' both as a crystal candidate and as an upstream WIP. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); this claim is machine-mirrored in services/polity/frameworks/. Ratified into Canon by operator 2026-07-17 (canonization pass 1). Full-text extraction of the source PDFs remains operator-run per codexes/packs/agentiq/updates/2026-06-22_polity-papers-ingest-workflow-backlog.md."
       }
+    },
+    {
+      "id": "inv.polity.175",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Personhood precedes permission. The sovereign natural person stands prior to platform membership, institutional preference, and state convenience; no platform, institution, delegated actor, or governing system may create, revoke, or diminish personhood. The polity does not GRANT personhood — it recognizes it, attests it, and builds civic standing upon it; proof of personhood is constitutional recognition, not a grant of dignity from the polity.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "personhood"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Preamble + Article I §2 + Article II §7 + Appendix A. Extends inv.constitutional.011 (personhood precedes identity) and inv.constitutional.063 with the personhood-vs-permission ordering and the recognize-not-grant stance. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.176",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "The constitutional priority chain: foundational rights precede citizenship, citizenship precedes delegated power, and policy is subordinate to constitutional order. Legitimacy resolves in this descending order; a lower stratum may be built upon a higher one but never supersede it.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "hierarchy"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article I §3-4 + Article III §11 + Appendix A. Composes with inv.constitutional.015 (authority may be delegated; sovereignty may not). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.177",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "The human-rights floor: no governance system, policy, delegated actor, or agent may reduce a sovereign natural person below the floor of inalienable human rights, and the polity is constituted and interpreted in compatibility with international human rights law. The stateless person is not an exception to the polity but its constitutional test — where conventional civic recognition fails, personhood, dignity, and foundational rights must not.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "rights"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article I §6-7 + Article IX; Paper 'Citizenship in the Agentic Internet' §III (the stateless-person test, UDHR Article 15). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.178",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Proof of personhood is the constitutional key that makes foundational rights operational. KybeDIDs serve as the canonical anchors of proof of personhood; Root DIDs, Root DID proxies, and DiDQubes are contextual practical layers through which standing, disclosure, representation, delegation, and participation are exercised — and no practical identity layer may be used to negate the rights that attach to proven personhood.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "identity",
+        "personhood"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article II §2-5; Paper 'Citizenship in the Agentic Internet' §III + Glossary. Composes with inv.constitutional.024 (re-identifying identifiers never leave the server) and inv.constitutional.063 (identity is an optional derivative). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.179",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Rights within the polity are of four constitutionally distinct classes — foundational (attach to proven personhood), civic (arise from recognized standing), institutional (arise from collective standing), and delegated (scoped authority exercised on behalf of another) — and are never a single undifferentiated class. Where rights conflict, interpretation proceeds in descending order foundational > civic > institutional > delegated, and no lower-order claim overrides a higher-order rights floor without lawful, necessary, proportionate, and reviewable justification.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "rights"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article III §1-12 + Glossary; Paper 'Citizenship in the Agentic Internet' §III (rights-class table). The #1 deferred item from pass 1 (the Constitution's specific articles). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.180",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Citizenship is durable civic standing — a relation of rights, duties, answerability, and participation within constitutional order — and is not reducible to identity, authentication, access, or platform membership. The ladder is distinct: identity establishes recognition, personhood the nature of the subject, membership belonging within a domain, standing recognized civic status, citizenship durable civic rights and duties. Not every actor is a citizen and not every citizen is a direct actor; citizenship without duty collapses into consumption.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "standing"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article IV §1-14; Paper 'Citizenship in the Agentic Internet' §II + §V. Composes with inv.constitutional.016 and pass-1 inv.polity.169. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.181",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Personas are contextual civic surfaces through which standing, role, participation, and reputation are expressed; they never replace or exhaust the sovereign natural person behind them. The polity may recognize differentiated civic standing for persons, personas, institutions, communities, delegated actors, and bounded agentic actors, but only while that recognition remains constitutionally coherent and rights-compatible.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "standing"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article IV §8-11; Paper 'Citizenship in the Agentic Internet' §IV. Extends pass-1 inv.polity.169 (participant agents hold Standing but never citizenship) with the persona-as-surface distinction. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.182",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Bounded autonomy under delegated stewardship is the recurring constitutional pattern across familial, educational, institutional, enterprise, and agentic domains: a subject retains real privacy, agency, discretion, and room for development while another actor holds bounded responsibility to protect or govern the conditions of that participation. Autonomy is not absolute unconstrained freedom and stewardship is not unlimited supervisory domination; the constitutional task is to preserve legitimate autonomy while keeping stewardship bounded, accountable, necessary, and proportionate — stewardship may never extinguish the dignity, developmental agency, privacy, or lawful standing of the subject.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "stewardship"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article V §1-13 + Article VIII (institutional application); Paper 'Citizenship in the Agentic Internet' §V. The single pattern that unifies youth, enterprise, and agentic governance. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.183",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Agents are not sovereign natural persons and hold no foundational rights by virtue of personhood, but they may be commissioned as bounded instruments of stewardship, guardianship, auditing, policy enforcement, harm detection, and rights protection — provided that authority is disclosed, bounded, reviewable, and auditable. Any agentic action materially affecting constitutional rights, civic standing, access, exclusion, or delegated stewardship is subject to receipt, traceability, review, and challenge, and no agent may conclusively resolve a conflict involving foundational rights without human-accountable review.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "agents",
+        "constitutional"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article VI §1-8 + Article IX §5. Extends pass-1 inv.polity.171 (no orphaned agents) with the rights-affecting-action review gate and the agent-as-instrument-of-stewardship framing. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.184",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Escalation over silent execution: where a delegated actor or agent encounters a conflict between local policy, institutional instruction, civic jurisdiction, and foundational rights, that conflict triggers escalation through defined layers of review — policy review, human oversight, and where necessary constitutional review — rather than silent execution. Jurisdiction shall not erase personhood, and all materially rights-affecting escalations are receipted, reviewable, and challengeable.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "agents",
+        "governance"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article IX §3-7. Gives the 'escalate' disposition its constitutional grounding; composes with inv.reasoning.156 (sovereign progression is 'ask'). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.185",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "The constitutional operating model is open, plural, and non-monopolized. The standards for personhood, standing, rights protection, stewardship, runtime governance, and escalation are openly specifiable; reference implementations may lead and operationalize the polity but may not exhaust or monopolize its legitimate implementation. No single commercial implementation holds exclusive constitutional legitimacy by market position, first-mover status, or reference designation, and subjects retain rights of portability, interoperability, and migration — losing no constitutional standing by moving between compliant implementations.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "openness"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article I §10-11 + Article X §1-7 + Appendix B. Names AgentiQ OS as an open operating substrate and metaProof as a reference (not exclusive) implementor. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.186",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Constitutional restraint: the Constitution is amendable in form but bound in spirit. No amendment is valid if it purports to negate the dignity of the sovereign natural person, the priority of personhood over permission, the foundational rights floor, the subordination of policy to constitutional order, or the requirement that delegated power remain bounded, disclosed, auditable, and reviewable. Amendments to entrenched principles require heightened, supermajoritarian review, and no amendment gains legitimacy by administrative enactment, market dominance, technical inevitability, or platform convenience.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "amendment"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article XII §1-10. Extends inv.constitutional.023 (append-only supersession) and inv.constitutional.022 (canonical status requires human ratification) with the entrenchment clause. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.187",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Youth and developmentally vulnerable subjects are rights-bearing persons whose dignity, developmental agency, and foundational rights remain intact within all protected environments. Youth protection is grounded in rights-preserving guardianship and bounded stewardship — not paternal domination or total administrative control — and treats age-bounded belonging, anti-masquerade, and anti-grooming safeguards as legitimate constitutional concerns. No youth-protection mechanism is constitutionally legitimate if it destroys the conditions under which healthy citizenship, privacy, trust, and self-formation develop.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "guardianship"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article VII §1-12; Paper 'Citizenship in the Agentic Internet' §II + §VI (guardian agents, cohort safety). A specialization of inv.polity.182 for protected development. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.188",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Constitutional order must be taught, inhabited, and culturally transmitted, not merely administered: civic formation is a legitimate constitutional concern. Logos explains the order, mythos teaches it, and ethos binds it — AgentiQ and metaMe express the logos (rendering the polity's structures and runtimes intelligible), KNYT and analogous civic worlds express the mythos (rendering the order narratable and rehearsable), and the Constitution is the ethos. Mythic and participatory instruments are legitimate only when directed toward dignity and rights-preserving belonging, never manipulation, extractive attention capture, or concealment of harm.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "constitutional",
+        "formation"
+      ],
+      "provenance": {
+        "source": "The Constitution of the Agentic Polity (Paper 4), Article XI §1-11; Paper 'Citizenship in the Agentic Internet' §VII (KNYT and civic formation). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.189",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "From perimeter to polity: as the internet becomes agentic it ceases to be merely a network of systems and becomes an emergent polity — a mixed society of humans, personas, agents, institutions, assets, models, and economic rails. The decisive question is no longer who can get in but who or what may act, on which objects, under which rights, in which contexts, through which delegates, with what evidence, and with what consequences. The real perimeter is policy, not place; policy is the executable constitution of the agentic internet — the codified grammar of governance, subordinate to constitutional order — not a rules engine or bolt-on security layer.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "governance",
+        "constitutional"
+      ],
+      "provenance": {
+        "source": "Paper 'From Perimeter to Polity' §I-VI; Paper 'Beyond the Binary' §6 (the policy-centric perimeter). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.190",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Post-binary layered architecture: mature digital systems do not choose a side of the centralized/decentralized, open/closed, on-chain/off-chain binaries — they assign each guarantee to the right layer. Separate protocol from product, trust from storage, custody from control, and working state from canonical state. Privacy, auditability, and censorship resistance are distinct guarantees requiring distinct mechanisms, and infrastructure is chosen by capability objective and threat model, not by ideology. Composition is maturity, not compromise.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "architecture",
+        "governance"
+      ],
+      "provenance": {
+        "source": "Paper 'Beyond the Binary' §3-10 (the five-distinction layered model; storage by objective; working state is not canonical state). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.191",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "metaMe Runtime is a constitutional runtime — a protected time-space through which sovereign control, delegated guardianship, institutional policy, and bounded agentic delegation can all be expressed under constitutional principles, without collapsing into anarchy or into total administrative domination. Its purpose is to protect the human's agency inside the loop, not to automate the human out of it.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "runtime",
+        "sovereignty"
+      ],
+      "provenance": {
+        "source": "Paper 'Citizenship in the Agentic Internet' §VI; Paper 'Time Sovereignty' §12 (sovereign time spaces). Composes with pass-1 inv.polity.164 (Experience Sovereignty). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.192",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Information is work potential — never really free, always consequential somewhere. It may be free at the point of access, but once received, interpreted, transmitted, stored, trained on, revealed, concealed, priced, delegated, or acted upon it changes the state of a system; free access is not consequence-free activation. The governing question is therefore not whether information should be open or closed, but who governs the activation loop.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "information"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 1 'The Fallacy of Free Information' §1-3 + §14 + Working Doctrine. The premise underlying pass-1 inv.polity.160 (Proof of Work Potential). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.193",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Open context. Governed payload. Accountable activation. Information behaves contextually, not by binary: the commons should be richest at the level of context (an open contextual layer — the metaNet — through which assets are discovered, described, classified, and routed) while payloads remain governed and every activation remains accountable. Openness is not exposure, privacy is not secrecy, governance is not enclosure, and compensation is not commodification.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "information"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 1 'The Fallacy of Free Information' §8-9 + §14; the post-binary information doctrine repeated across the COYN series. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.194",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Cybernetics is humans and agents in a looped feedback system (signal to interpretation to action to feedback to adaptation). Every such loop is either extractive — centered on the platform-machine that captures signals and turns them into prediction, targeting, monetization, and behavioral manipulation — or sovereign — centered on the participant who governs the flow of context, permissions, assistance, action, and consequence. Sovereign cybernetics protects participant agency inside the loop; an agentic polity is a self-governing feedback system for human and agentic coordination.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "cybernetics",
+        "sovereignty"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 1 'The Fallacy of Free Information' §1 + §7-8 + §13; Paper 2 'Time Sovereignty' §10. Distinct from pass-1 inv.polity.165 (metaCommons is a field). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.195",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Money is one of humanity's most powerful information classes because it collapses value into price — but price is only one signal about value, and not all value can be reduced to price. COYN (Currency Of Your Net-work) re-expands price into context: it is not money for data but a signal currency for verified knowledge work, relating value back to risk, context, intent, provenance, time, and consequence. In the settlement architecture Qc settles the micro-event while COYN captures the higher-order value signal.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "coyn"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 1 §4 + §12, Paper 4 'Money, Time, and COYN' §2-6 + §14. Deepens pass-1 inv.polity.163 (Time Sovereignty) with the money/price/value distinction. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.196",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Three signal currencies occupy three distinct signal domains: the dollar signals price (market liquidity and settlement), Bitcoin signals state (a proof-of-work-secured, time-ordered timechain for anchoring proof commitments — not a truth machine), and COYN signals consequential knowledge work (verified time-value, risk, and accountable consequence). COYN does not replace the dollar or Bitcoin; it addresses a different signal domain.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "coyn"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 4 'Money, Time, and COYN' §3-6 + §19; Paper 3 'Proof of Time Saved' §6 (Bitcoin as timechain, not truth machine). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.197",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Risk gates value. Risk is not only a pricing input but a permissioning input: it determines whether activation is permitted at all and under what conditions, and value does not erase risk. Market demand can discover price for legitimate activation, but it cannot override risk, cannot legitimize impermissible use, and cannot purchase permission to externalize harm — a high bid never overrides privacy, safety, ecological risk, personal rights, or collective sovereignty.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "risk"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 1 §10, Paper 4 §11 + §17, Paper 5 'The Sovereign Cybernetic Economy' §14 ('markets that cannot buy away risk'). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.198",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Information integrity is a time-risk delta: good information compresses time-to-value, bad information expands time-to-repair (the shadow ledger of bad information, which imposes work on the future). The correct measure of value is time-to-value-adding-state-change, not time-to-output. Accordingly Proof of Time Saved is computed as Baseline Time minus Actual Time minus Repair Burden minus Risk Burden, counted only after a validity threshold clears — no validity, no proof; a fast bad output is not time saved, it is repair deferred.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "outcome"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 2 'Time Sovereignty' §5-6, Paper 3 'Proof of Time Saved' §4-5 + §8. Deepens pass-1 inv.polity.161 (PoTS = Time-to-Value minus Risk Repair Burden) with the explicit four-term measurement stack, and pass-1 inv.polity.162 with the 'no validity, no proof' gate. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.199",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "The value of an information asset is not fully known at access, so the transaction model prices at access and settles at consequence: access creates the right to use, activation creates the obligation to account, and feedback is a transaction obligation without which the system cannot learn. Access rights are not retention rights and activation rights are not derivative rights; some information should not be transferred but only activated, and controlled activation (secure enclaves, policy-controlled inference, zero-retention terms) turns sensitive information into usable work potential without forcing payload exposure.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "settlement"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 4 'Money, Time, and COYN' §8-10 (performance-based settlement; controlled use and derivative rights spectrum). Grounds the platform's gated-content and controlled-execution model. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.200",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Time sovereignty governs humans and agents differently: human time is existential (finite, embodied, morally significant — bad information wastes life) while agentic time is operational (latency, compute, context windows, tool calls, verification and repair loops — bad information burns cycles). Good information turns test-time compute into valid work; bad information turns it into repair. iQubes are coordination primitives between human time and agentic compute, converting activation-ready context into valid outcomes and reducing the uncertainty tax on agentic work.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "cybernetics",
+        "sovereignty"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 2 'Time Sovereignty' §7-9. Extends pass-1 inv.polity.163 (Time Sovereignty) with the human-existential vs agentic-operational split and the test-time-compute governance frame. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.201",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "An iQube is a container of work potential, not merely a data container: it structures information together with its context, provenance, rights, ownership, privacy conditions, access policy, risk profile, value profile, time-saving potential, activation constraints, and settlement logic so the asset becomes contextually sovereign — discoverable, governable, permissionable, activatable, and accountable. Its deeper function is to make consequence governable before activation, which makes iQubes the consequence-bearing economic primitives of the sovereign cybernetic economy.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "iqube"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 1 §11, Paper 2 §9, Paper 5 'The Sovereign Cybernetic Economy' §9. Definitional for the core primitive; composes with pass-1 inv.polity.160 (PoWP). The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.202",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "The sovereign cybernetic economy is the economy of the agentic polity: information organizes work, work moves matter, and matter records consequence — you cannot reorganize the material world without reorganizing the informational world. Because Earth is a closed cybernetic system, consequence is global and cannot be permanently externalized (what cannot be audited cannot be regenerated at scale). A degenerative economy captures work potential and externalizes repair burden; a regenerative economy senses consequence, verifies outcomes, repairs harm, and improves the conditions of its own continuation — extraction captures work potential, regeneration restores it.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "cybernetics"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 5 'The Sovereign Cybernetic Economy' §2-8 + §16-17. The capstone economic model. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.203",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "The economy of the sovereign self: the self is the unit of agency and the polity is the field of consequence, so the system maximizes individual agency until that agency unjustly diminishes the sovereignty of others — the boundary of the sovereign self is consequence. An economy of self is not an economy of selfishness; service to self becomes extraction when it imposes unaccounted cost, risk, harm, or repair burden on others. The economy is planetary in consequence but personal in agency.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "economics",
+        "sovereignty"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 5 'The Sovereign Cybernetic Economy' §11. The ethical keystone bounding pass-1 inv.polity.163/164 with consequence-accountability. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.204",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "Accountable speech: free speech protects expression, but in the agentic internet speech can be amplified, targeted, automated, and operationalized by agents — it becomes action inside a feedback loop. Accountable speech governs that consequential activation. Agency is the capacity to act and accountability is the obligation to answer for consequence; agency without accountability becomes domination, accountability without agency becomes control, and sovereignty requires both.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "governance",
+        "sovereignty"
+      ],
+      "provenance": {
+        "source": "COYN Thesis Paper 2 'Time Sovereignty' §11. A distinct governance principle absent from the crystal. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.205",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "The Experience Vibing operating rule: the agent recommends, the user authorizes, and the metaMe stack validates, filters, and activates. The agent's job is to reduce user cognitive load while preserving user agency — it asks the user only for intent, audience, privacy, and desired outcome, never burdening them with low-level technical decisions (BlakQube schemas, tokenQube logic, DVN receipt formats, Registry compliance), which the system infers and validates. Agents may prepare, recommend, structure, and route, but may never unilaterally canonize content, self-publish, grant access rights, expose private payloads, or impersonate another agent.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "agents",
+        "experience"
+      ],
+      "provenance": {
+        "source": "Experience Sovereignty Paper 7 'Agent Runbook' §2 + §5-6 + §16 (Core Operating Rule; Agent Boundaries; Safety and Sovereignty Rules). Extends pass-1 inv.polity.173 (aigentMe amplifies sovereignty) into the operating rule for every copilot surface; composes with inv.constitutional.022. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
+    },
+    {
+      "id": "inv.polity.206",
+      "namespace": "polity",
+      "semantic_type": "principle",
+      "statement": "The Experience Model is the core instrument of experience sovereignty: it is composed of Experience Strategy, Experience Ladder, Experience Matrix, Experience Journey, and Experience State, configured by the operator together with aigentMe — the operator's Runtime regent and chief of staff, which governs the Runtime relationship, permissions, activations, and cross-cartridge priorities. The operator owns and directs this model rather than surrendering it to an extractive platform.",
+      "status": "proposed",
+      "contexts": [
+        "polity",
+        "experience",
+        "sovereignty"
+      ],
+      "provenance": {
+        "source": "Experience Sovereignty Paper 7 'Agent Runbook' §4 (Experience Model; aigentMe as Runtime regent). Extends pass-1 inv.polity.164 (Experience Sovereignty) with the five-component Experience Model composition. The Polity Papers are DVN-receipted in the Qriptopian cartridge (codex_media_assets, series='qriptopian'; enumerated by GET /api/codex/qripto/papers); full text extracted 2026-07-17 to codexes/packs/polity-core/items/commentary/. Candidate pending operator ratification (Polity Papers canonization pass 2)."
+      }
     }
   ]
 }
