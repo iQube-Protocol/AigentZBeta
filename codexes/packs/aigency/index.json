@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T20:03:39.462Z",
+  "last_updated": "2026-07-17T21:23:39.129Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2",
-  "latest_commit_short": "9b7a56f",
-  "latest_commit_title": "ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical",
+  "latest_commit": "871697d06683e6db7932bd16d8c1551c4aaa6755",
+  "latest_commit_short": "871697d",
+  "latest_commit_title": "trigger deploy to dev — force fresh rebuild to surface session work (CFSP/IRE-IPE/Polity)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "871697d",
+      "full_sha": "871697d06683e6db7932bd16d8c1551c4aaa6755",
+      "title": "trigger deploy to dev — force fresh rebuild to surface session work (CFSP/IRE-IPE/Polity)",
+      "author": "Claude",
+      "timestamp": "2026-07-17T21:21:32Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-871697d.md"
+    },
     {
       "sha": "9b7a56f",
       "full_sha": "9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-06T18:24:01Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-b7f270f.md"
-    },
-    {
-      "sha": "03b3ead",
-      "full_sha": "03b3ead918f50d59d98dcb3d3de617975d3f1da4",
-      "title": "Charter the CCRL (CFS-019 Phase A): institution, object model, IA, cybernetics invariants 108-111",
-      "author": "Claude",
-      "timestamp": "2026-07-06T18:26:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-03b3ead.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
