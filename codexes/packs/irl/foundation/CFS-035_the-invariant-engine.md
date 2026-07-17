@@ -1,5 +1,7 @@
 # CFS-035 — The Invariant Engine: constitutional runtime, the layer × surface matrix, and the Field Snapshot
 
+> **Rename in progress (CFS-037 / PRD-IRE-001, proposed 2026-07-17):** this engine is being reframed as the **Invariant Projection Engine (IPE)** — it *projects and applies* a resolved constitutional field. The complementary **Invariant Resolution Engine (IRE, CFS-037)** *constructs* the field (intent → resolved invariants + constitutional coordinates) that this engine then projects. The IPE never resolves invariants; it consumes a Resolved Constitutional Field the IRE produced. The doc/code rename (Invariant Engine → IPE) is a separate tracked increment (low code risk — no exported symbol is literally `InvariantEngine`); this charter's content is unchanged, only its role is narrowed to projection. See CFS-037 §1/§9/§12.
+
 **Status:** Ratified (charter) — ratify-before-build gate for the invariant-engine workstream.
 **Date:** 2026-07-18
 **Depends on:** CFS-000 §1 (Compression Theory), CFS-008 (Reasoning Compression), CRP-002 (intent as a projection operator), IRL-011 §6.3 (`K*`), CFS-019 (IRL charter + the three layers + the structural/constitutional and three-functions amendments), CFS-017 (observe-mode-first seam), CFS-020 (DCIR adoption seam), CFS-021 (representation invariants), `types/constitutional.ts` (the six Constitutional Reasoning Services).
