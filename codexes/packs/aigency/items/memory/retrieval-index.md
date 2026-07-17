@@ -3144,3 +3144,33 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-e6fb770.md](../build_/COMMITS/COMMIT-e6fb770.md)
 - Message: Restructure DevTools into tabs (Environment & Canisters · Telemetry · DVN Pipeline · Escalation Log)
+
+## Commit `5dda90d` — 2026-07-14T13:46:49Z
+- Type: `push`
+- Brief: [COMMIT-5dda90d.md](../build_/COMMITS/COMMIT-5dda90d.md)
+- Message: document video-article pack re-dispatch finding + orchestration canary
+
+## Commit `cf5ad6a` — 2026-07-14T13:46:48Z
+- Type: `feat`
+- Brief: [COMMIT-cf5ad6a.md](../build_/COMMITS/COMMIT-cf5ad6a.md)
+- Message: add end-to-end orchestration canary for buildVideoArticlePlan
+
+## Commit `a064e14` — 2026-07-14T13:44:31Z
+- Type: `push`
+- Brief: [COMMIT-a064e14.md](../build_/COMMITS/COMMIT-a064e14.md)
+- Message: register 24-second video+article skill in the studio catalog
+
+## Commit `98ed85c` — 2026-07-15T06:03:48Z
+- Type: `push`
+- Brief: [COMMIT-98ed85c.md](../build_/COMMITS/COMMIT-98ed85c.md)
+- Message: document video-article remediation: studio integration + creator ux
+
+## Commit `6cd14f6` — 2026-07-15T06:03:44Z
+- Type: `feat`
+- Brief: [COMMIT-6cd14f6.md](../build_/COMMITS/COMMIT-6cd14f6.md)
+- Message: add marketer/creator-facing video-article flow in studio workflows tab
+
+## Commit `5418dfb` — 2026-07-15T06:03:38Z
+- Type: `feat`
+- Brief: [COMMIT-5418dfb.md](../build_/COMMITS/COMMIT-5418dfb.md)
+- Message: wire video-article alignment output into the studio artifact service

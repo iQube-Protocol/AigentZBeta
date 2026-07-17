@@ -47,6 +47,7 @@
 
 import type { ArtifactProfileId } from '@/types/artifactRuntime';
 import { saveArtifactRecord } from '@/services/artifact/artifactRecordStore';
+import type { StudioAlignmentFields } from '@/services/content/alignmentService';
 
 /** The tier a Studio production runs under. Never constitutional. */
 export interface StudioArtifactTier {
@@ -122,6 +123,14 @@ export interface StudioRecordBodyInput {
   stitchId?: string | null;
   /** Segment count for stitched videos. */
   segments?: number | null;
+  /**
+   * Automated Content Alignment verdict for video-article productions (pack
+   * 2026-07-15 remedy #2). The T2-safe projection built by
+   * `alignmentToStudioFields` in services/content/alignmentService — how well
+   * the drafted article covers the shared video brief. Absent for productions
+   * that carry no alignment (image sets, plain video stitches).
+   */
+  alignment?: StudioAlignmentFields | null;
 }
 
 /**
@@ -146,6 +155,16 @@ export function buildStudioRecordBody(input: StudioRecordBodyInput): string {
     generationId: input.generationId ?? null,
     stitchId: input.stitchId ?? null,
     segments: typeof input.segments === 'number' ? input.segments : null,
+    // Alignment is whitelist-copied field-by-field — same T0-inexpressibility
+    // guarantee as the rest of the body (no spread of the input object).
+    alignment: input.alignment
+      ? {
+          score: input.alignment.score,
+          pass: input.alignment.pass,
+          basis: input.alignment.basis,
+          segmentCoverage: (input.alignment.segmentCoverage ?? []).slice(0, 12),
+        }
+      : null,
   });
 }
 

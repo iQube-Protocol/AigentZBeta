@@ -211,6 +211,36 @@ export const STUDIO_SKILLS: StudioSkillEntry[] = [
     },
   },
   {
+    id: "skill:video_article_24s",
+    name: "24-Second Video + Article",
+    description:
+      "Native composite skill: builds a 2-segment (2×12s = 24s) invariant-grounded video brief and drafts the corresponding companion article from the SAME brief, so the article and video correspond by construction. Returns the brief, the drafted article, a heuristic content-alignment score (per-segment coverage of the shared brief), and the structural render plan (segment layout + minimal stitch tree). The client drives SkillVideoPlayer with { duration: 24, segment_prompts } to produce and stitch the clips. Composes Video Generation — Venice and Article / Story Generation; never re-implements them.",
+    assetClass: "SkillQube",
+    trustBand: "L3_PRODUCTION_CANDIDATE",
+    badge: "B",
+    compositeScore: 74,
+    provider: "agentiq",
+    invokeEndpoint: "/api/skills/video-article",
+    tags: ["video", "article", "24-second", "invariant-grounded", "content-alignment", "composite", "sovereign", "studio-native"],
+    interfaceSchema: {
+      inputs: [
+        { name: "groundings", type: "GroundingRef[]", required: true, description: "Invariant/collection groundings; each needs a role and either collectionId or invariantIds" },
+        { name: "productionTitle", type: "string", required: false },
+        { name: "useLlm", type: "boolean", required: false, description: "false forces the deterministic template path (no provider key)" },
+        { name: "mode", type: "string", required: false, description: '"plan" (default) | "video-complete"' },
+        { name: "videoUrl", type: "string", required: false, description: "Required when mode is video-complete — the stitched video URL" },
+      ],
+      outputs: [
+        { name: "brief", type: "VideoInvariantBrief", description: "2-segment invariant-grounded brief" },
+        { name: "article", type: "DraftedArticle", description: "Companion article drafted from the same brief" },
+        { name: "alignment", type: "AlignmentReport", description: "Heuristic per-segment coverage of the shared brief" },
+        { name: "renderPlan", type: "RenderPlan", description: "Segment layout + minimal stitch tree for 24s" },
+        { name: "articleReceiptId", type: "string", description: "DVN activity receipt id for the generated article" },
+        { name: "studioArtifactRecordId", type: "string", description: "Studio artifact record id — the article production persisted through the Studio service (studioArtifactTiering) carrying the content-alignment verdict" },
+      ],
+    },
+  },
+  {
     id: "skill:crm_data_cleanup",
     name: "CRM Data Cleanup",
     description:

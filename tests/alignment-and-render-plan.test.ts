@@ -16,9 +16,11 @@ import {
   salientTokens,
   segmentCoverage,
   alignArticleToBrief,
+  alignmentToStudioFields,
   SEGMENT_COVERAGE_FLOOR,
 } from '@/services/content/alignmentService';
 import { planRender, CLIP_SECONDS_CAP, MAX_SEGMENTS } from '@/services/rendering/optimization';
+import { findForbiddenObjectKey } from '@/types/constitutionalObject';
 
 describe('Automated Content Alignment (heuristic)', () => {
   it('keeps invariant markers as strong cues and drops stopwords', () => {
@@ -60,6 +62,24 @@ describe('Automated Content Alignment (heuristic)', () => {
 
   it('empty segment list never passes vacuously', () => {
     expect(alignArticleToBrief([], 'anything').pass).toBe(false);
+  });
+
+  it('projects a T2-safe Studio integration payload (remedy 2026-07-15 #2)', () => {
+    const report = alignArticleToBrief(
+      [
+        { index: 0, beat: 'The primitive appears with provenance anchoring' },
+        { index: 1, beat: 'Composition graph forms between invariants' },
+      ],
+      'The primitive appears carrying provenance anchoring. Then the composition graph forms between invariants.',
+    );
+    const fields = alignmentToStudioFields(report);
+    expect(fields.score).toBe(report.score);
+    expect(fields.pass).toBe(report.pass);
+    expect(fields.basis).toBe('heuristic');
+    expect(fields.segmentCoverage).toEqual(report.perSegment.map((s) => s.coverage));
+    // The Studio record body carries numbers + a boolean only — never a
+    // forbidden T0 identifier, never beat text or article body.
+    expect(findForbiddenObjectKey(fields)).toBeNull();
   });
 });
 
