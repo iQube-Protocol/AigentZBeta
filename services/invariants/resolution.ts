@@ -39,6 +39,7 @@
 import type { GroundingContext } from './grounding';
 import { computeFieldSnapshot, type FieldSnapshot } from './engine';
 import { extractField, type FieldExtraction } from './perception';
+import { basisFor } from './coordinates';
 
 // ─────────────────────────────────────────────────────────────────────────
 // The Universal Invariant Library (CFS-037 §4) — candidate baseline, unseeded.
@@ -163,10 +164,12 @@ export function calibrateStructural(item: {
     invariantId: item.id,
     seedId: item.seedId,
     structural: {
-      verifiability: { value: clamp01(item.confidence), basis: 'derived:confidence' },
-      evidenceDensity: { value: clamp01(item.standing), basis: 'derived:standing' },
+      // Basis strings come from the Constitutional Coordinates Registry
+      // (CFS-038) — the single provenance source, never an inline literal.
+      verifiability: { value: clamp01(item.confidence), basis: basisFor('verifiability') },
+      evidenceDensity: { value: clamp01(item.standing), basis: basisFor('evidenceDensity') },
       // Reach is unbounded adoption count — squash to [0,1) transparently.
-      adoption: { value: clamp01(item.reach / (item.reach + 5)), basis: 'derived:reach/(reach+5)' },
+      adoption: { value: clamp01(item.reach / (item.reach + 5)), basis: basisFor('adoption') },
     },
     constitutional: null,
   };
@@ -181,10 +184,10 @@ export function calibrateOperational(
   const meanStanding = n > 0 ? coordinates.reduce((s, c) => s + c.structural.evidenceDensity.value, 0) / n : 0;
   const coverage = clamp01(n / 8); // 8 = the default slice cap — full slice ⇒ full coverage
   return {
-    knowledgeCoverage: { value: coverage, basis: 'derived:sliceSize/8' },
-    reusePotential: { value: clamp01(meanStanding), basis: 'derived:mean(standing)' },
+    knowledgeCoverage: { value: coverage, basis: basisFor('knowledgeCoverage') },
+    reusePotential: { value: clamp01(meanStanding), basis: basisFor('reusePotential') },
     // Named proxy — canon that exists AND is earned collapses time (CRP-002).
-    timeToValue: { value: clamp01(coverage * (0.5 + meanStanding / 2)), basis: 'proxy:coverage×(0.5+standing/2)' },
+    timeToValue: { value: clamp01(coverage * (0.5 + meanStanding / 2)), basis: basisFor('timeToValue') },
   };
 }
 
