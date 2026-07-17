@@ -3174,3 +3174,253 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5418dfb.md](../build_/COMMITS/COMMIT-5418dfb.md)
 - Message: wire video-article alignment output into the studio artifact service
+
+## Commit `b728906` — 2026-07-17T17:53:01Z
+- Type: `push`
+- Brief: [COMMIT-b728906.md](../build_/COMMITS/COMMIT-b728906.md)
+- Message: author the CFS-037 PRD family: CCR / IPE / KRE / CFO (docs-first, reconciled)
+
+## Commit `55da157` — 2026-07-17T17:01:26Z
+- Type: `docs`
+- Brief: [COMMIT-55da157.md](../build_/COMMITS/COMMIT-55da157.md)
+- Message: docs: CFS-037 IRE ratified + P0 run doc + tracker (collections registered)
+
+## Commit `63399de` — 2026-07-17T17:00:38Z
+- Type: `push`
+- Brief: [COMMIT-63399de.md](../build_/COMMITS/COMMIT-63399de.md)
+- Message: build IRE Phase 0 (CFS-037): shadow resolution seam + Horizen pipeline observer
+
+## Commit `be5942a` — 2026-07-17T16:57:01Z
+- Type: `push`
+- Brief: [COMMIT-be5942a.md](../build_/COMMITS/COMMIT-be5942a.md)
+- Message: author CFS-037 / PRD-IRE-001 Invariant Resolution Engine (RATIFIED; P0 authorized)
+
+## Commit `85e0532` — 2026-07-17T15:02:44Z
+- Type: `docs`
+- Brief: [COMMIT-85e0532.md](../build_/COMMITS/COMMIT-85e0532.md)
+- Message: docs: CRP-003a money-moving domains run doc + tracker (collections registered)
+
+## Commit `bc51d94` — 2026-07-17T15:01:45Z
+- Type: `push`
+- Brief: [COMMIT-bc51d94.md](../build_/COMMITS/COMMIT-bc51d94.md)
+- Message: CRP-003a: money-moving agreement UI (domain selector + spend cap + settlement)
+
+## Commit `f8774e8` — 2026-07-17T14:59:24Z
+- Type: `push`
+- Brief: [COMMIT-f8774e8.md](../build_/COMMITS/COMMIT-f8774e8.md)
+- Message: CRP-003a: Domain 1/2 executors + LLM analysis layer + settlement binding
+
+## Commit `c658f88` — 2026-07-17T14:44:11Z
+- Type: `docs`
+- Brief: [COMMIT-c658f88.md](../build_/COMMITS/COMMIT-c658f88.md)
+- Message: docs: CRP-003a 3b + 2b + P3 run doc + tracker (collections registered)
+
+## Commit `b795373` — 2026-07-17T14:43:06Z
+- Type: `push`
+- Brief: [COMMIT-b795373.md](../build_/COMMITS/COMMIT-b795373.md)
+- Message: build CRP-003a Increment 2b + P3: grounded executor, live-wired steps, spend cap
+
+## Commit `42f99e3` — 2026-07-17T14:37:11Z
+- Type: `push`
+- Brief: [COMMIT-42f99e3.md](../build_/COMMITS/COMMIT-42f99e3.md)
+- Message: CRP-003a Increment 3b: tier-gate the three Financial Services experiences
+
+## Commit `439b116` — 2026-07-17T01:26:25Z
+- Type: `push`
+- Brief: [COMMIT-439b116.md](../build_/COMMITS/COMMIT-439b116.md)
+- Message: build CRP-003a Increment 3 (N3): the Financial Services Capability Suite surface
+
+## Commit `6178eca` — 2026-07-17T00:40:59Z
+- Type: `push`
+- Brief: [COMMIT-6178eca.md](../build_/COMMITS/COMMIT-6178eca.md)
+- Message: build CRP-003a Increment 2 (N2): canonical service pattern, shadow on Domain 3
+
+## Commit `a35a6ee` — 2026-07-17T00:23:50Z
+- Type: `push`
+- Brief: [COMMIT-a35a6ee.md](../build_/COMMITS/COMMIT-a35a6ee.md)
+- Message: build CRP-003a Increment 1 (N1): the Constitutional Agreement primitive
+
+## Commit `46e7354` — 2026-07-17T00:07:39Z
+- Type: `push`
+- Brief: [COMMIT-46e7354.md](../build_/COMMITS/COMMIT-46e7354.md)
+- Message: author CRP-003a Constitutional Financial Services Programme implementation spine (docs-first)
+
+## Commit `d233171` — 2026-07-16T23:57:19Z
+- Type: `feat`
+- Brief: [COMMIT-d233171.md](../build_/COMMITS/COMMIT-d233171.md)
+- Message: add Homecoming closeout items (Elythian memory upload, Constitutional Observer delegate) + open CFSP Horizen pilot row
+
+## Commit `3af1af6` — 2026-07-16T23:53:44Z
+- Type: `fix`
+- Brief: [COMMIT-3af1af6.md](../build_/COMMITS/COMMIT-3af1af6.md)
+- Message: reconcile Chrysalis tracker with CFS-035 shipped state + fix stale grounding comment
+
+## Commit `8481526` — 2026-07-16T23:04:28Z
+- Type: `push`
+- Brief: [COMMIT-8481526.md](../build_/COMMITS/COMMIT-8481526.md)
+- Message: CFS-035 Phase 4: close the Evolution cybernetic loop + OS-wide
+
+## Commit `7392598` — 2026-07-16T23:01:14Z
+- Type: `push`
+- Brief: [COMMIT-7392598.md](../build_/COMMITS/COMMIT-7392598.md)
+- Message: CFS-035 Phase 3: Field Extractor (Perception layer) v0 seam
+
+## Commit `e49714c` — 2026-07-16T22:59:16Z
+- Type: `push`
+- Brief: [COMMIT-e49714c.md](../build_/COMMITS/COMMIT-e49714c.md)
+- Message: CFS-035 Phase 2: Experience face + Invariant Lenses + routing node
+
+## Commit `a6baa9b` — 2026-07-16T22:29:04Z
+- Type: `fix`
+- Brief: [COMMIT-a6baa9b.md](../build_/COMMITS/COMMIT-a6baa9b.md)
+- Message: CFS-035 Phase 1 finish: grounding consolidation + node invariants + flip-receipt CHECK fix
+
+## Commit `3a2f4db` — 2026-07-16T21:25:31Z
+- Type: `push`
+- Brief: [COMMIT-3a2f4db.md](../build_/COMMITS/COMMIT-3a2f4db.md)
+- Message: attribute operational-truth register to Polity Papers FACT + log canonization backlog
+
+## Commit `9576050` — 2026-07-16T21:21:42Z
+- Type: `push`
+- Brief: [COMMIT-9576050.md](../build_/COMMITS/COMMIT-9576050.md)
+- Message: reconcile 139/144 precisely: the access-and-codification bridge (inv.epistemology.150)
+
+## Commit `8392f60` — 2026-07-16T21:17:58Z
+- Type: `feat`
+- Brief: [COMMIT-8392f60.md](../build_/COMMITS/COMMIT-8392f60.md)
+- Message: un-hedge structural-invariants-are-reality + add operational-truth register (CRP-002 §0.7-0.8)
+
+## Commit `6b2e5a2` — 2026-07-16T20:59:45Z
+- Type: `push`
+- Brief: [COMMIT-6b2e5a2.md](../build_/COMMITS/COMMIT-6b2e5a2.md)
+- Message: canonize Invariant Representations as the interface stratum (CRP-002 §0.8)
+
+## Commit `8bc16a9` — 2026-07-16T20:44:12Z
+- Type: `push`
+- Brief: [COMMIT-8bc16a9.md](../build_/COMMITS/COMMIT-8bc16a9.md)
+- Message: canonize Standing-as-evidence + the Structural-Constitutional Convergence Principle (CRP-002 §0.6-0.7)
+
+## Commit `0ffeb9a` — 2026-07-16T20:25:36Z
+- Type: `push`
+- Brief: [COMMIT-0ffeb9a.md](../build_/COMMITS/COMMIT-0ffeb9a.md)
+- Message: CRP-002 §0 + supporting amendment: the Three Computational Compressions content
+
+## Commit `a05fcff` — 2026-07-16T20:24:42Z
+- Type: `push`
+- Brief: [COMMIT-a05fcff.md](../build_/COMMITS/COMMIT-a05fcff.md)
+- Message: fold the Three Computational Compressions into CRP-002 as a front-of-charter amendment
+
+## Commit `242184d` — 2026-07-16T19:54:06Z
+- Type: `push`
+- Brief: [COMMIT-242184d.md](../build_/COMMITS/COMMIT-242184d.md)
+- Message: DVN-anchor the shadow->authoritative flip (CFS-035 §11)
+
+## Commit `d427283` — 2026-07-16T19:51:33Z
+- Type: `push`
+- Brief: [COMMIT-d427283.md](../build_/COMMITS/COMMIT-d427283.md)
+- Message: canonize CFS-036 The Three Computational Compressions
+
+## Commit `0cd56ac` — 2026-07-16T18:25:19Z
+- Type: `push`
+- Brief: [COMMIT-0cd56ac.md](../build_/COMMITS/COMMIT-0cd56ac.md)
+- Message: operator-gated shadow->authoritative flip control (CFS-035 §11)
+
+## Commit `f0c2691` — 2026-07-16T18:20:05Z
+- Type: `feat`
+- Brief: [COMMIT-f0c2691.md](../build_/COMMITS/COMMIT-f0c2691.md)
+- Message: add Graph perspective to the Constitutional Observatory (CFS-035 §12)
+
+## Commit `1cb6490` — 2026-07-16T18:17:33Z
+- Type: `push`
+- Brief: [COMMIT-1cb6490.md](../build_/COMMITS/COMMIT-1cb6490.md)
+- Message: persist shadow observations for Observatory history (CFS-035 §12)
+
+## Commit `5e13061` — 2026-07-16T18:10:15Z
+- Type: `push`
+- Brief: [COMMIT-5e13061.md](../build_/COMMITS/COMMIT-5e13061.md)
+- Message: build Constitutional Observatory Field view in iQube Registry (CFS-035 §12)
+
+## Commit `83508b6` — 2026-07-16T17:52:10Z
+- Type: `feat`
+- Brief: [COMMIT-83508b6.md](../build_/COMMITS/COMMIT-83508b6.md)
+- Message: wire discovery-dimension standing priors so the shadow flip diverges
+
+## Commit `e2c6663` — 2026-07-16T17:43:51Z
+- Type: `push`
+- Brief: [COMMIT-e2c6663.md](../build_/COMMITS/COMMIT-e2c6663.md)
+- Message: seed CFS-035 discovery-ranking invariants (inv.reasoning.134-137)
+
+## Commit `1597f98` — 2026-07-16T17:28:56Z
+- Type: `push`
+- Brief: [COMMIT-1597f98.md](../build_/COMMITS/COMMIT-1597f98.md)
+- Message: CFS-035: invariant-derived discovery weighting — make the flip meaningful
+
+## Commit `320f389` — 2026-07-16T17:25:51Z
+- Type: `push`
+- Brief: [COMMIT-320f389.md](../build_/COMMITS/COMMIT-320f389.md)
+- Message: CFS-035: Constitutional Observatory doctrine + node registry + journey node
+
+## Commit `13de68d` — 2026-07-16T16:57:47Z
+- Type: `push`
+- Brief: [COMMIT-13de68d.md](../build_/COMMITS/COMMIT-13de68d.md)
+- Message: Reconcile journey models: ExperienceStage universal, KNYT journey its projection
+
+## Commit `2c25762` — 2026-07-16T16:55:25Z
+- Type: `push`
+- Brief: [COMMIT-2c25762.md](../build_/COMMITS/COMMIT-2c25762.md)
+- Message: CFS-035: standing-score shadow node + standalone-standing-canister stub/backlog
+
+## Commit `0fc9950` — 2026-07-16T16:51:55Z
+- Type: `push`
+- Brief: [COMMIT-0fc9950.md](../build_/COMMITS/COMMIT-0fc9950.md)
+- Message: trigger deploy to dev: CFS-035 engine Phase 0-2 shadow nodes (type-check + build)
+
+## Commit `7ac6f40` — 2026-07-16T16:39:03Z
+- Type: `push`
+- Brief: [COMMIT-7ac6f40.md](../build_/COMMITS/COMMIT-7ac6f40.md)
+- Message: CFS-035 Phase 1 + a second shadow node — Reasoning-face consolidation + NBE ranking
+
+## Commit `56af2b8` — 2026-07-16T16:33:54Z
+- Type: `push`
+- Brief: [COMMIT-56af2b8.md](../build_/COMMITS/COMMIT-56af2b8.md)
+- Message: Build CFS-035 Invariant Engine Phase 0 — seam + discovery-ranking shadow node
+
+## Commit `62451e4` — 2026-07-16T16:22:59Z
+- Type: `push`
+- Brief: [COMMIT-62451e4.md](../build_/COMMITS/COMMIT-62451e4.md)
+- Message: Charter CFS-035 The Invariant Engine (ratify-before-build gate)
+
+## Commit `2387b3d` — 2026-07-16T04:57:44Z
+- Type: `push`
+- Brief: [COMMIT-2387b3d.md](../build_/COMMITS/COMMIT-2387b3d.md)
+- Message: Ratify the three functions of Invariant Intelligence + minimal-sufficiency probe
+
+## Commit `a13541c` — 2026-07-16T04:48:39Z
+- Type: `push`
+- Brief: [COMMIT-a13541c.md](../build_/COMMITS/COMMIT-a13541c.md)
+- Message: Backlog: per-SKU renewal via persona_plan_addons table
+
+## Commit `a932a8e` — 2026-07-16T04:41:14Z
+- Type: `push`
+- Brief: [COMMIT-a932a8e.md](../build_/COMMITS/COMMIT-a932a8e.md)
+- Message: Charter CFS-034 research progression ladder + standing->rung mapping helper
+
+## Commit `dafb68b` — 2026-07-16T04:38:27Z
+- Type: `push`
+- Brief: [COMMIT-dafb68b.md](../build_/COMMITS/COMMIT-dafb68b.md)
+- Message: Sell Research Copilot as its own dedicated tier/SKU, unbundled from aigentZ
+
+## Commit `70d3af5` — 2026-07-16T04:18:42Z
+- Type: `push`
+- Brief: [COMMIT-70d3af5.md](../build_/COMMITS/COMMIT-70d3af5.md)
+- Message: Make Research Copilot a first-class aigentMe roster specialist
+
+## Commit `5274122` — 2026-07-16T03:50:12Z
+- Type: `feat`
+- Brief: [COMMIT-5274122.md](../build_/COMMITS/COMMIT-5274122.md)
+- Message: Wire Research Copilot into the subscription tier UI (CitizenLadderModal)
+
+## Commit `b053b72` — 2026-07-16T03:47:58Z
+- Type: `feat`
+- Brief: [COMMIT-b053b72.md](../build_/COMMITS/COMMIT-b053b72.md)
+- Message: Add Researcher as the fifth operator pathway + wire into subscription/FO flow
