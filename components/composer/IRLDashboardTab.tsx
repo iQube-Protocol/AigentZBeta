@@ -176,7 +176,7 @@ function IRLDashboardContent({ publicMode = false }: { publicMode?: boolean }) {
               className="text-lg font-semibold text-[var(--rep-ink-body)]"
               style={{ fontFamily: "var(--rep-type-title)" }}
             >
-              Constitutional Cybernetics Research Laboratory
+              metaMe IRL — Invariant Research Lab
             </h2>
           </div>
           {/* The Bearing Instrument (CFS-021 §5) operating WITHIN the reference
@@ -209,15 +209,23 @@ function IRLDashboardContent({ publicMode = false }: { publicMode?: boolean }) {
           </div>
         </div>
         <p className="mt-2 text-sm text-[var(--rep-ink-body)]">
-          The constitutional scientific institution of the platform (CFS-019). Mission: establish
-          Constitutional Cybernetics as an empirical engineering discipline through repeatable,
-          auditable, constitutionally governed experimentation.
+          The Institute's research laboratory (CFS-019). We treat reasoning as a substrate: validated
+          reasoning is captured as structural invariants so that both human and machine cognition can
+          reuse it rather than repeatedly rediscover it. Every claim here is tested through repeatable,
+          auditable, constitutionally governed experiments — never asserted.
         </p>
         <p className="mt-2 text-xs text-[var(--rep-ink-muted)]">
           {/* The lab's principal claim — the single reserved gold emphasis (highlight.principal). */}
-          <span className="font-semibold text-[var(--rep-highlight-principal)]">Central hypothesis:</span> Invariant Fields
-          constitute measurable structures through which computational behaviour, constitutional
-          coherence and consequence can be predicted, governed and experimentally validated.
+          <span className="font-semibold text-[var(--rep-highlight-principal)]">Central hypothesis (the Hybrid Intelligence Thesis, <span className="italic">proposed</span>):</span>{" "}
+          the highest-performing intelligence systems are neither purely human nor purely artificial but
+          hybrid systems in which structural invariants provide a shared substrate — a common language —
+          through which validated reasoning accumulates and is reused across both (<span className="italic">inv.reasoning.329</span>).
+        </p>
+        <p className="mt-2 text-xs text-[var(--rep-ink-muted)]">
+          <span className="font-semibold">Companion hypothesis (<span className="italic">proposed</span>):</span>{" "}
+          intelligence is a property of structured invariant fields and the transformations between them —
+          models are one mechanism for traversing those fields, not the field itself (<span className="italic">inv.reasoning.323</span>).
+          The Foundational Validation Series and the Validation Programme exist to test these.
         </p>
         <p className="mt-2 text-xs text-[var(--rep-ink-muted)] italic">
           The laboratory operates by the principles it investigates — its own operation is its first
