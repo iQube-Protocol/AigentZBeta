@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T23:43:59.882Z",
+  "last_updated": "2026-07-17T23:54:45.305Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1505d97d16bbe3ec90165bf8b35d60b6bc046ad5",
-  "latest_commit_short": "1505d97",
-  "latest_commit_title": "canonize Knowledge Compression genesis: preserve founding text + seed inv.reasoning.310-321 (proposed)",
+  "latest_commit": "fc7ba1127e7a525f6021d39cc80e4dd0bbc4336b",
+  "latest_commit_short": "fc7ba11",
+  "latest_commit_title": "ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot')",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fc7ba11",
+      "full_sha": "fc7ba1127e7a525f6021d39cc80e4dd0bbc4336b",
+      "title": "ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot')",
+      "author": "Claude",
+      "timestamp": "2026-07-17T23:52:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fc7ba11.md"
+    },
     {
       "sha": "1505d97",
       "full_sha": "1505d97d16bbe3ec90165bf8b35d60b6bc046ad5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T05:14:36Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-ce85ec4.md"
-    },
-    {
-      "sha": "94fa7cc",
-      "full_sha": "94fa7cc40695df545306dcd15df66baf2e6a815a",
-      "title": "Integrate Aletheon institute framing: Computational Epistemology, the inversion, programme nomenclature, briefing package (CFS-019)",
-      "author": "Claude",
-      "timestamp": "2026-07-07T05:12:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-94fa7cc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
