@@ -84,6 +84,7 @@ const REPS = Number(flag('reps', 3));
 const LIMIT = ARGS.limit ? Number(flag('limit', Infinity)) : Infinity;
 const PERSONA_CAP = ARGS.personas ? Number(flag('personas', 99)) : 99;
 const DRY = !!ARGS['dry-run'];
+const BAND = String(flag('band', 'anchored')); // anchored | breadth | all — default the corpus-dense set
 const INTENTS_PATH = String(flag('intents', 'services/experiments/instrument-validation-intents.json'));
 const OUT_DIR = String(flag('out', 'codexes/packs/irl/foundation/experiments/irv-001-invariant-resolution-validation/results'));
 if (!HOST) { console.error('Missing --host (e.g. --host=https://dev-beta.aigentz.me)'); process.exit(1); }
@@ -155,10 +156,14 @@ async function ireResolve(intent) {
 
 async function main() {
   const cfg = JSON.parse(readFileSync(join(REPO, INTENTS_PATH), 'utf8'));
-  let intents = cfg.intents.slice(0, Number.isFinite(LIMIT) ? LIMIT : cfg.intents.length);
+  // Band filter (v0.2): 'anchored' = corpus-dense constitutional intents (engine
+  // quality), 'breadth' = cross-domain desert probe (corpus breadth), 'all' = both.
+  // Intents without a band are treated as 'anchored' (back-compat).
+  const banded = cfg.intents.filter((i) => BAND === 'all' || (i.band ?? 'anchored') === BAND);
+  let intents = banded.slice(0, Number.isFinite(LIMIT) ? LIMIT : banded.length);
   ACTIVE_PROVIDER = resolveProvider();
   ACTIVE_MODEL = PROVIDERS[ACTIVE_PROVIDER].model();
-  console.log(`[iv] host=${HOST} · exp=${EXP} · reps=${REPS} · intents=${intents.length} · provider=${ACTIVE_PROVIDER}/${ACTIVE_MODEL}${DRY ? ' · DRY-RUN' : ''}`);
+  console.log(`[iv] host=${HOST} · exp=${EXP} · band=${BAND} · reps=${REPS} · intents=${intents.length} · provider=${ACTIVE_PROVIDER}/${ACTIVE_MODEL}${DRY ? ' · DRY-RUN' : ''}`);
 
   // seedId -> statement map (public, no creds)
   let stmtBySeed = {};
@@ -264,7 +269,7 @@ async function main() {
   const outDir = join(REPO, OUT_DIR);
   mkdirSync(outDir, { recursive: true });
   const stamp = new Date().toISOString().slice(0, 10);
-  const payload = { experiment: EXP === 'ipv' ? 'IPV-001' : 'IRV-001', kind: 'instrument-validation', framing: 'Synthetic Expert Baseline (SEB) — engineering calibration, NOT a Delphi study; personas are correlated models, not independent experts.', host: HOST, provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL, reps: REPS, tokens: TOKENS, generatedAt: new Date().toISOString(), summary, results };
+  const payload = { experiment: EXP === 'ipv' ? 'IPV-001' : 'IRV-001', kind: 'instrument-validation', band: BAND, framing: 'Synthetic Expert Baseline (SEB) — engineering calibration, NOT a Delphi study; personas are correlated models, not independent experts.', host: HOST, provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL, reps: REPS, tokens: TOKENS, generatedAt: new Date().toISOString(), summary, results };
   const json = JSON.stringify(payload, null, 2);
   const hash = createHash('sha256').update(json).digest('hex');
   const base = `${EXP}-results-${stamp}`;
