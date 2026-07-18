@@ -1,74 +1,102 @@
-# CFS-044 — The Open Lab: Reviewer Engagement, Private Slices, and the IRL OS Repo
+# CFS-044 — The Open Lab: Research Spaces, the Four Surfaces, and the Runtime as Place of Record
 
-**Chrysalis Foundation · Constitutional Charter · Status: PROPOSED (plan for ratification; Phase 0 is executable today)**
-**Date:** 2026-07-18
-**Operator direction:** "Everything either in the application or in the repo. All constitutional, within the runtime. No emails and notifications. Public + user-agnostic → the IRL OS cartridge and repo. User-specific → gated in the application. Give them a private space without requiring them to be signed up already. Don't turn this into a massive parallel operation — I need a framework whereby they can sign the contract in their slice of the IRL OS cartridge and we get on with it."
+**Chrysalis Foundation · Constitutional Charter v2 (consolidated Claude × Aletheon, 2026-07-18) · Status: PROPOSED (ratify-before-build; Phase 0 executable today)**
+**Operator direction:** everything in the application or the repo — constitutional, inside the runtime; no emails beyond invitation; private engagement without pre-existing signup; a capability that generalises to every future reviewer/researcher; thinnest viable implementation, nothing throwaway.
 
 ---
 
-## 1. The two-surface law
+## 1. The governing principle (candidate constitutional invariant — for ratification)
 
-Every piece of IRL content and interaction lives on exactly one of two surfaces:
+> **The Runtime is the Place of Record.** Constitutional collaborations occur within the constitutional runtime itself. Emails, PDFs, detached documents, and ad-hoc communications are convenience mechanisms for *invitation only*; the canonical state — instructions, agreements, provenance, and collaboration history — exists inside the runtime.
 
-| Surface | What lives there | Access |
-|---|---|---|
-| **PUBLIC** — the IRL OS cartridge + the IRL OS repo | The open corpus: CFS specs, experiment protocols, validation records, the invariant registry/field, published results, the one-pager, the runner scripts | Anonymous. No login, no persona. |
-| **PRIVATE** — the Reviewer Desk (a persona-gated slice of the IRL OS cartridge) | Anything addressed to a specific participant: their agreement, their instructions, their engagement thread, their research workspace | Spine-gated: persona + cohort membership (+ delegated agents under them). |
+This is the next architectural invariant of the Constitutional Internet: **there is no "outside" of the constitutional runtime.** The email→PDF→website→GitHub→application chain collapses to `Invitation → Runtime → everything else`. The invitation email says one thing — *"you've been invited"* — one click, done.
 
-Nothing travels by email. An "invitation to the open lab" is one link into the public surface; everything specific to a participant materialises in their private slice once they exist.
+*Proposed for the canon on operator ratification (governance/architecture principle → `canonical` per the hypothesis-vs-canon discipline; it asserts how the Institute works, not an empirical claim).*
 
-## 2. The chicken-and-egg, solved: the invite-claim pattern
+## 2. The four surfaces (supersedes v1's two-surface law)
 
-The problem: Austin's agreement is specific to him, but he has no personaId and his agent has no agent id yet. The solution is a **claim code** (the pattern the platform already uses for capability-URLs):
+```
+IRL OS
+├── PUBLIC          open science — protocols, registry, experiments, records,
+│                   articles, roadmaps. No identity required.
+├── COHORT          invitation-only shared spaces — Reviewer, Academic,
+│                   Partner, Investor, Pilot cohorts. Shared by members.
+├── PERSONAL        one Research Space per participant — their agreements,
+│                   receipts, submissions, notes, delegated agents, thread.
+│                   Only them (+ their delegated agents).
+└── CONSTITUTIONAL  things requiring constitutional execution — x409,
+                    delegation, passport, receipts, voting, ratification,
+                    publication.
+```
 
-1. **The Institute creates a Reviewer Engagement record** keyed by an unguessable `inviteCode`, carrying: display label, the agreement template (capability, bounded authority terms), the participant-facing instructions (markdown), and the doc links. **No persona fields — it is addressed to whoever claims the code.**
-2. **The invitation is one public link**: the IRL OS cartridge with `?invite=<code>` — e.g. `…/triad/embed/codex/irl-os-cartridge?tab=irl-os-reviewer-desk&invite=<code>&theme=dark&density=wide`.
-3. **Austin onboards through the existing flows** (nothing new): Passport Apply (captcha, anonymous-citizen) → sponsor his agent (existing bounded-delegation surface). Now a personaId and agent ref exist.
-4. **Claiming binds identity to engagement**: with the invite code present and a persona resolved, the Reviewer Desk claims the engagement — the persona joins the **`irl-reviewers` cohort**, the engagement record binds `personaCommitment` + agent ref, and his private slice populates: instructions, the agreement card, the thread.
-5. **Signing happens in the slice**: the agreement is formed from the engagement's template at claim time (his real agent ref as `selectedAgentRef`), his agent accepts (in-app button → the public accept route already deployed), you authorize (owner-gated, in-app button on your side of the same card). Receipted end-to-end; the countersignature = EXP-P1 §15 freeze.
+Each solves a different problem; v1's "private" conflated COHORT and PERSONAL — they are distinct. Every piece of IRL content and interaction lives on exactly one surface.
 
-One code, one link, zero emails, no pre-existing identity required — and the identity that claims it is the identity the contract binds.
+## 3. Research Spaces + the Reserved lifecycle (solves the chicken-and-egg)
 
-## 3. The Reviewer Desk (the "My Canvas of IRL OS")
+The capability is named **Research Spaces** (not "My Canvas", not "My Research"). Every participant has one. The lifecycle inverts "create workspace after signup" to **"reserve workspace before signup"** — anchor to an *Invitation*, never to a Persona that doesn't exist yet:
 
-A new persona-gated tab in the IRL OS cartridge: **`irl-os-reviewer-desk`**. Renders, for the resolved persona's engagements:
+```
+Invitation (unguessable token)
+      ↓
+Reserved Research Space        ← exists NOW, status: Reserved; the agreement,
+      ↓                          instructions, and thread are already waiting inside
+Passport (existing Apply flow, captcha)
+      ↓
+Persona (+ sponsored agent → agent identity)
+      ↓
+Space ACTIVATED                ← claim binds persona + agent to the space;
+                                 everything waiting becomes visible; persona
+                                 joins the engagement's cohort (irl-reviewers)
+```
 
-- **Instructions panel** — the engagement's markdown (this replaces "send them a doc").
-- **Agreement card** — live status (proposed → accepted → authorized), terms, TTL/budget; Accept button (delegated agent side), Authorize button (owner side only — the same owner-commitment gate).
-- **Submission panel** — their submissions under the agreement + remaining budget (reads the same public endpoints).
-- **Engagement thread** — Phase 2: a QubeTalk thread per engagement (`irl-reviewer-<code>`) for the 1:1 channel, in-runtime, receipted.
+Exactly the GitHub-invite mental model. Inside a Space: agreements · tasks · QubeTalk thread · assigned experiments · receipts · reviews · publications · notes · delegated agents.
 
-Generalises to every future reviewer/researcher: one engagement record each, same tab, same mechanics. This is the rollout capability, not a one-off for Austin.
+**The agreement flow becomes:** Reserved Space (agreement waiting, formed from the engagement template) → review → **agent accepts** (in-space; the deployed public accept route — binds only to the pre-named/claimed agent ref) → **operator countersigns** (in-space; owner-commitment gate — the same act is the EXP-P1 §15 freeze) → receipts → done. Exactly once, entirely in-runtime.
 
-## 4. The IRL OS repo (open-source split)
+**Trust model (unchanged from v1 — no new trust surface):** the invitation token is a capability ref (unguessable, shared privately); acceptance can only bind the named delegate; authorization remains owner-only (`authorizeAgreement` owner-commitment match — Principal–Delegate Separation, CFS-043 §2); every transition is receipted. Activation composes the *existing* cohort machinery + agreement primitives + passport flows.
 
-Mirror the AgentiQ OS pattern: a **separate public repo** (proposed name: `iQube-Protocol/IRL-OS`) that carries the open corpus — the contents of `codexes/packs/irl/` (specs, protocols, records, seed crystal, appendix) plus the public runner scripts (`run-instrument-validation.mjs`, `export-grounding-slice.mjs`, `evaluate-exp001.mjs`).
+## 4. QubeTalk is the communications layer (core, not Phase 2)
 
-- **Sync direction: one-way, AigentZBeta → IRL-OS.** AigentZBeta stays the source of truth; a GitHub Action on pushes to `dev` touching `codexes/packs/irl/**` (or the named scripts) copies/subtree-pushes into IRL-OS. The cartridge and the repo can never drift because both render the same files.
-- **Access rule = the two-surface law**: anything in the pack is by definition public and user-agnostic (this is already true — the pack ships in the open cartridge). Anything user-specific lives in the application, never in either repo.
-- **Constraint**: this session's GitHub scope is `iQube-Protocol/AigentZBeta` only — the new repo must be created by the operator (or a session granted access); the sync workflow + content layout can be prepared in this repo in advance.
+No emails beyond the invitation. Austin doesn't receive messages — he receives **QubeTalk from IRL, inside his Research Space** (a thread per engagement, e.g. `irl-reviewer-<token>`). Everything becomes a conversation — the GitHub-Issues model — in-runtime and receipt-eligible. All subsequent instructions, discussion, feedback, and requests live there.
 
-## 5. What ships when
+## 5. The IRL OS public repository
 
-| Phase | What | Status |
-|---|---|---|
-| **0 — out the door NOW (no build)** | Invitation = public cartridge links; contract via the already-deployed public agreement route; operator signs via runbook; docs readable at the cartridge + GitHub page links | **Live today** — this is the current Austin path; Phase 1 upgrades its ergonomics, not its trust model |
-| **1 — the Desk (small build, the one that removes curl + email)** | `irl-reviewers` cohort + Reviewer Engagement record (table + claim route) + `irl-os-reviewer-desk` tab (instructions, agreement card with in-app Accept/Authorize, submissions) + invite-claim binding | The framework asked for; single tab + one small table + thin routes over existing agreement/cohort primitives |
-| **2 — the channel + the split** | QubeTalk thread per engagement; `iQube-Protocol/IRL-OS` public repo + one-way sync action; CFS-043a guided onboarding surfaced inside the Desk | Follow-on |
+IRL OS is not an application feature; it is a **constitutional research operating system** and deserves its own public repo — `iQube-Protocol/IRL-OS` — mirroring AgentiQ → AgentiQ OS.
 
-**Phase discipline:** Phase 1 invents no new trust surface — the cohort gate is the existing cohort machinery, the agreement card calls the existing form/accept/authorize + public routes, the Desk is one more spine-gated tab. Extend, don't duplicate.
+- **Contents:** the PUBLIC surface only — `codexes/packs/irl/` (specs, protocols, records, seed crystal, appendix) + the public runner scripts (`run-instrument-validation.mjs`, `export-grounding-slice.mjs`, `evaluate-exp001.mjs`).
+- **Sync: one-way, AigentZBeta → IRL-OS** (GitHub Action on `dev` pushes touching `codexes/packs/irl/**`). AigentZBeta stays source of truth; cartridge and repo render the same files, so they cannot drift.
+- **The four-surface law governs content placement:** PUBLIC-surface material may live in the repo; COHORT/PERSONAL/CONSTITUTIONAL material lives only in the application, gated.
+- **Constraint:** this session's GitHub scope is `iQube-Protocol/AigentZBeta` only — the operator creates the IRL-OS repo; the sync workflow + layout are prepared in this repo in advance.
 
-## 6. Decision points for the operator
+## 6. The thinnest viable implementation (the consolidated build plan)
 
-1. Ratify the two-surface law + invite-claim pattern (this charter).
-2. Approve Phase 1 build (the Desk) — or ship Austin on Phase 0 now and build the Desk in parallel for the next reviewer.
-3. Create `iQube-Protocol/IRL-OS` (operator action — outside this session's repo scope) when ready for the open-source split.
+Not the whole system — the smallest slice that preserves the architecture, so nothing is throwaway and nothing migrates later:
+
+| # | Step | Composes | Blocks Austin? |
+|---|---|---|---|
+| 1 | **Welcome tab** on the IRL OS cartridge — permanent public landing page: explains the programme, links protocols, guides new reviewers. Replaces the standalone reviewer document (the one-pager's public half folds in; invitation links point here). | `AgentiqCartridgeTab` over a new pack doc | No — additive |
+| 2 | **Reserved Research Spaces** — `research_spaces` table keyed by invitation token (not personaId); claim route binds persona + sponsored agent on Passport completion; `irl-reviewers` cohort membership on activation. | existing passport apply + sponsored-agents + cohort machinery | The core build |
+| 3 | **`irl-os-research-space` tab** (PERSONAL surface) — renders the resolved persona's Space: instructions, the **x409 agreement card** (status, terms, in-app Accept for the delegated agent, in-app Authorize for the owner), submissions + budget. | deployed public agreement/accept/submit routes + gated authorize | With #2 |
+| 4 | **Agreement-in-space** — the engagement template forms the agreement at claim time with the *real* claimed agent ref; countersignature activates agreement + bounded delegation. | `formAgreement`/`acceptAgreement`/`authorizeAgreement` | With #3 |
+| 5 | **QubeTalk thread per Space** — the 1:1 channel, in-runtime. | existing QubeTalk channel machinery | Can trail by days |
+| 6 | **IRL-OS public repo + one-way sync** — operator creates repo; sync action prepared here. | GitHub Action | No — parallel track |
+
+**Build order:** 1 → 2 → 3/4 together → 5 → 6 (6 can start any time; it is operator-gated).
+
+**Phase 0 remains live today** (public cartridge links + deployed public agreement/submit routes + the operator runbook): if Austin must move before steps 2–4 land, the current path works end-to-end with the identical trust model — the Space upgrades ergonomics, not trust. The two paths converge: an agreement formed via Phase 0 appears in his Space the moment it activates.
+
+## 7. Decision points for the operator
+
+1. **Ratify** the Runtime-is-the-Place-of-Record principle (→ canon) + the four-surface model + the Reserved Research Space lifecycle.
+2. **Authorize the thinnest-viable build** (steps 1–5).
+3. **Create `iQube-Protocol/IRL-OS`** when ready (outside this session's scope); the sync action lands here first.
+4. **Austin timing:** launch on Phase 0 now, or wait for the Space (steps 1–4). Recommendation: authorize the build immediately and let whichever finishes first carry him — nothing built is throwaway either way.
 
 ---
 
 ## Ratification record
 
-- [ ] PROPOSED 2026-07-18 (operator direction: everything in app or repo, constitutional, no email; private slices without pre-existing signup; reviewer cohort; IRL OS child repo; QubeTalk as the 1:1 framework).
-- [ ] Operator ratifies the two-surface law + invite-claim pattern.
-- [ ] Phase 1 (Reviewer Desk) build authorized.
-- [ ] IRL-OS repo created + sync action landed (Phase 2).
+- [ ] PROPOSED v2 2026-07-18 — consolidated Claude (v1: invite-claim, trust-model grounding, honest phasing, repo constraint) × Aletheon (runtime-as-place-of-record principle, four surfaces, Reserved lifecycle, Research Spaces naming, Welcome tab, QubeTalk-as-core, thinnest-viable framing).
+- [ ] Operator ratifies the principle (→ canonical invariant) + four surfaces + Reserved lifecycle.
+- [ ] Thinnest-viable build (steps 1–5) authorized.
+- [ ] IRL-OS repo created + sync action landed.
