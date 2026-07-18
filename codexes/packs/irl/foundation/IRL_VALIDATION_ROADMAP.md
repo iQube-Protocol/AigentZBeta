@@ -25,6 +25,20 @@ No experiment may silently become a proof of another class's claim. Each pre-reg
 
 ---
 
+## Stage 0 — validate the instrument first (IRV-001 · IPV-001)
+
+Before any science, the newly-introduced **IRE** (Invariant Resolution Engine) and **IPE** (Invariant Projection Engine) get an engineering shake-down — flight-testing the aircraft before inviting observers aboard. This is hypothesis-class **Operational**: it scores the *engines*, not LLM task performance, and its results are calibration, not claims.
+
+- **IRV-001 — Invariant Resolution Validation** (`experiments/irv-001-invariant-resolution-validation/`): does the IRE resolve a sensible, **stable, reproducible** governing-invariant field? Measured against a **Synthetic Expert Baseline (SEB)** — LLM expert personas that independently name a task's load-bearing properties (never using the word "invariant"), consensus-aggregated, then mapped against the IRE field for coverage / compression / novelty. **The SEB is explicitly NOT a Delphi study** (correlated models, not independent humans); it is engineering calibration, human validators a later upgrade.
+- **IPV-001 — Invariant Projection Validation** (`experiments/ipv-001-invariant-projection-validation/`): are the IPE's projections exactly **reproducible** across repeated runs on the frozen substrate?
+
+This decomposes the whole pipeline so **every transition is measurable**:
+```
+Experience → Synthetic Expert Extraction → IRE → IPE → Runtime → LLM
+                       └──── IRV-001 ────┘ └IPV┘
+```
+Runner: `scripts/run-instrument-validation.mjs` (public `/api/public/irl/resolve` for IRE/IPE, one provider key for the personas + judge). Both are **runnable now** — they need no external sign-off. Passing Stage 0 lets us honestly tell an external reviewer *"the engineering validation completed before the science began"*, and — if a later science result surprises — distinguishes an immature engine from a real finding.
+
 ## The three programmes (running now)
 
 ### Programme A — External Comparative Validation · **EXP-P1** (Austin protocol)
@@ -55,7 +69,15 @@ Phase 0 — Foundations                         [COMPLETE]
   persisted observations)
         │
         ▼
-Phase 1 — External Validation                 [NOW]   Programme A · EXP-P1
+Stage 0 — Instrument Validation               [NOW]   IRV-001 · IPV-001
+  validate the IRE + IPE ENGINES before they carry any science
+  (calibrate the telescope before observing) — engineering, not
+  scientific: stability · reproducibility · sensible slices ·
+  no pathologies. IRV-001 uses a Synthetic Expert Baseline (SEB,
+  NOT a Delphi study). Clears the instrument for Phase 1+.
+        │
+        ▼
+Phase 1 — External Validation                 [NEXT]  Programme A · EXP-P1
         │  run Austin's protocol · publish either way
         ▼
 Phase 2 — Structural Validation               [NOW/NEXT]  Programme B · EXP-P2

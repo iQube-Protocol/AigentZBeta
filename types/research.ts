@@ -181,6 +181,29 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     protocolRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
     governingInvariants: ['inv.epistemology.119'],
   },
+  // Stage 0 — Instrument Validation (2026-07-17). Validate the IRE + IPE engines
+  // before they carry any science (IRL_VALIDATION_ROADMAP.md). Hypothesis class:
+  // Operational — scores the engines, not LLM task performance.
+  {
+    id: 'IRV-001',
+    layer: 'I',
+    family: 'Instrument Validation — Invariant Resolution (Operational)',
+    seriesId: 'IV0',
+    hypothesis:
+      'Does the IRE resolve a sensible, stable, reproducible governing-invariant field for an intent, measured against a Synthetic Expert Baseline (coverage / compression / novelty / stability)? Engineering calibration, not a scientific claim; SEB is not a Delphi study.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/irv-001-invariant-resolution-validation/README.md',
+    governingInvariants: ['inv.reasoning.310', 'inv.reasoning.322'],
+  },
+  {
+    id: 'IPV-001',
+    layer: 'I',
+    family: 'Instrument Validation — Invariant Projection (Operational)',
+    seriesId: 'IV0',
+    hypothesis:
+      'Are the IPE’s projections exactly reproducible across repeated runs on the frozen substrate (standing + coordinate dimension weights, meanAbsDelta, diverges)? Reproducibility is necessary, not sufficient — semantics are EXP-P2 B4.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/ipv-001-invariant-projection-validation/README.md',
+    governingInvariants: ['inv.reasoning.312', 'inv.reasoning.315'],
+  },
   // Validation Programme v1 (2026-07-17) — the three orthogonal-by-hypothesis-class
   // experiments (IRL_VALIDATION_ROADMAP.md). Each answers ONE class; none proves another's.
   {
@@ -236,6 +259,13 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     claim: 'Intent projects onto minimal invariant sets; those sets reason more faithfully at lower entropy and propagate across modalities — and the disagreements teach us what an invariant is.',
     members: ['EXP-006', 'EXP-007', 'EXP-008'],
     charterRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+  },
+  {
+    id: 'IV0',
+    name: 'Instrument Validation (Stage 0)',
+    claim: 'The IRE + IPE engines are stable, reproducible instruments — validated before they carry any science (calibrate the telescope before observing).',
+    members: ['IRV-001', 'IPV-001'],
+    charterRef: 'codexes/packs/irl/foundation/IRL_VALIDATION_ROADMAP.md',
   },
   {
     id: 'VP1',
