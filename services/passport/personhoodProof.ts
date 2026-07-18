@@ -8,11 +8,25 @@
  *   developer.worldcoin.org cloud endpoint — no on-chain calls, no SDK
  *   install required for the server-side verification step.
  *
+ * signal_hash (2026-07-18 fix): every <WorldIdButton> call site in this repo
+ * passes a `signal` prop (the passport id), which IDKitWidget bakes into the
+ * proof's public inputs client-side via its own hashToField(signal). The
+ * cloud verify endpoint's `signal_hash` field must be given that SAME hashed
+ * value — sending the raw signal string there (the prior bug) never matches
+ * what the proof was generated against, so verification fails every time a
+ * signal is used (which is always, in this codebase). Fixed by hashing with
+ * @worldcoin/idkit-core's hashToField (already an installed transitive dep of
+ * @worldcoin/idkit — no new package) before it reaches the wire. Verified
+ * against Worldcoin's own documented backend pattern:
+ * `import { hashToField } from "@worldcoin/idkit-core/hashing"`.
+ *
  * Dev fallback: when secrets are unset (local/dev sandbox), tokens
  * prefixed 'dev-' verify successfully so the flow is testable without
  * the providers. Real World ID nullifier hashes are base16 hex; they
  * never collide with 'dev-' prefix.
  */
+
+import { hashToField } from '@worldcoin/idkit-core/hashing';
 
 export type PersonhoodProofType = 'captcha' | 'world_id' | 'agent_declaration' | 'operator_attestation';
 
@@ -89,7 +103,11 @@ export async function verifyWorldIdProof(
         proof: payload.proof,
         verification_level: payload.verification_level,
         action: payload.action ?? defaultAction,
-        signal_hash: payload.signal ?? undefined,
+        // MUST be hashToField(signal).digest, not the raw signal string — the
+        // client-side proof was generated against the hashed value (see the
+        // module header note). Omitted entirely when no signal was used,
+        // matching IDKitWidget's own behavior of only hashing when passed one.
+        signal_hash: payload.signal ? hashToField(payload.signal).digest : undefined,
       }),
     });
     const json = (await res.json()) as { success?: boolean; code?: string; detail?: string };
