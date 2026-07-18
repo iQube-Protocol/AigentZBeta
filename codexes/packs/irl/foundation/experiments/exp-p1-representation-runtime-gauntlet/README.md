@@ -132,6 +132,10 @@ Bundle hash published (IRL OS cartridge public URL and/or independent timestampi
 
 Upon completion: all rendered prompts, raw model outputs, judge outputs, selection logs (Arm B per-task slices), mutation-probe artifacts, and analysis scripts are published to the shared environment, hash-consistent with the bundle. Either party may republish in full. No results are quotable externally except against the published dataset.
 
+**Publication is two-phase (CFS-042):**
+- **Phase 1 — internally executed.** The Institute publishes the result set admin-gated through `POST /api/experiments/results` (receipted, `content_hash`-committed, DVN-anchorable, verifiable trustlessly against the frozen bundle). This is the deliverable that ships first; nothing about it depends on the external-submission path.
+- **Phase 2 — passport-delegated external submission (next phase).** Austin's *agent* may submit its independently-run result set directly into constitutional memory through `POST /api/experiments/results/external`, under a **Polity Passport + bounded `DelegatedAuthority`**, authorized once by an **x409 Constitutional Agreement** the operator countersigns, and cohort/payment-tier gated. The submission carries `origin:'external'` + the agreement/agent commitments (T2-safe — no raw ids), is honestly labelled *independently submitted* vs *internally executed* (§13), and is verified by the identical hash-consistency check. Full charter: `foundation/CFS-042_external-result-submission.md`. Phase 2 does not replace Phase 1's admin door; it adds a second, bounded, revocable door beside it.
+
 ## 12. Interpretation Table (agreed in advance; no post-hoc reframing)
 
 | Outcome pattern | Agreed interpretation |

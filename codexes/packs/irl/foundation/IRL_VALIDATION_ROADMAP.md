@@ -118,6 +118,15 @@ Austin's agent asked for the ability to **re-run any arm and the judge without I
 
 The IRL OS cartridge is the delivery surface: its **Constitutional Evaluation** tab is the external front door (the pre-registration protocols + bundle hashes), **Records & Findings** publishes results hash-consistent with the bundle, and the public Invariant Registry + Field Explorer let the external party inspect the exact substrate an arm grounded against.
 
+### Two-phase submission (CFS-042)
+
+Replication is one direction (fetch → re-run → hash-compare); **submission** is the return direction, and it runs in two phases:
+
+- **Phase 1 — internally executed (ships first).** The Institute publishes every result set admin-gated through `POST /api/experiments/results` — receipted, `content_hash`-committed, DVN-anchorable, verifiable trustlessly against the frozen bundle. This is the weekend deliverable and depends on nothing external.
+- **Phase 2 — passport-delegated external submission (next phase).** The external party's *agent* submits its independently-run result set directly through `POST /api/experiments/results/external`, under a **Polity Passport + bounded `DelegatedAuthority`** (scoped surface, TTL, `maxActions`, optional `valueCeiling`), authorized once by an **x409 Constitutional Agreement** the operator countersigns, and **cohort/payment-tier gated**. Submissions carry `origin:'external'` + T2-safe agreement/agent commitments, are honestly labelled *independently submitted* vs *internally executed*, and are verified by the identical hash-consistency check. This dogfoods the platform's own constitutional primitives and turns CFS-033 §5's "distinct parties" from prose into a countersigned, revocable, receipted fact. Phase 2 is a second bounded door beside the admin door — it never replaces Phase 1. **Full charter: `foundation/CFS-042_external-result-submission.md`.**
+
+Austin's agent gets Phase-2 access as a **next phase**; the EXP-P1 results themselves are published Phase-1 (internally executed) first.
+
 ---
 
 ## The deeper claim this programme is uncovering
