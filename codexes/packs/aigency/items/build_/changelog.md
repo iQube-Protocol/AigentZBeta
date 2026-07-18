@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`eb18469`](https://github.com/iQube-Protocol/AigentZBeta/commit/eb1846930adbf26c81679c62129bdec0b26d9409) [push] refine inv.polity.238 hierarchy: Ethics->Law->Economics->Consequence->Code (operator) (Claude, 2026-07-18T00:07:22Z)
 - [`fc7ba11`](https://github.com/iQube-Protocol/AigentZBeta/commit/fc7ba1127e7a525f6021d39cc80e4dd0bbc4336b) [push] ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot') (Claude, 2026-07-17T23:52:53Z)
 - [`1505d97`](https://github.com/iQube-Protocol/AigentZBeta/commit/1505d97d16bbe3ec90165bf8b35d60b6bc046ad5) [push] canonize Knowledge Compression genesis: preserve founding text + seed inv.reasoning.310-321 (proposed) (Claude, 2026-07-17T23:42:13Z)
 - [`34ab954`](https://github.com/iQube-Protocol/AigentZBeta/commit/34ab954bf6e212f7ce0c80c4765d09b62856f1ef) [push] canonize Polity full corpus pass 3: seed inv.polity.207-309 (proposed) (Claude, 2026-07-17T23:34:38Z)
