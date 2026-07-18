@@ -117,6 +117,9 @@ import { IQubeRegistryDocsTab } from "./tabs/IQubeRegistryDocsTab";
 import { IQubeRegistryIntakeTab } from "./tabs/IQubeRegistryIntakeTab";
 import { InvariantRegistryTab } from "./tabs/InvariantRegistryTab";
 import InvariantExperimentLab from "@/components/composer/InvariantExperimentLab";
+import ExperimentResultsTab from "@/components/composer/ExperimentResultsTab";
+import ExperimentReportTab from "@/components/composer/ExperimentReportTab";
+import CanonicalPlatesTab from "@/components/composer/CanonicalPlatesTab";
 import CapabilityPipelineTab from "@/components/composer/CapabilityPipelineTab";
 import IRLDashboardTab from "@/components/composer/IRLDashboardTab";
 import IRLResearchCopilotTab from "@/components/composer/IRLResearchCopilotTab";
@@ -301,6 +304,9 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IQubeRegistryIntakeTab,
   InvariantRegistryTab,
   InvariantExperimentLab,
+  ExperimentResultsTab,
+  ExperimentReportTab,
+  CanonicalPlatesTab,
   CapabilityPipelineTab,
   IRLDashboardTab,
   IRLResearchCopilotTab,
