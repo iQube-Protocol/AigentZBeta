@@ -204,7 +204,11 @@ async function main() {
       }
       // consensus
       const consIn = JSON.stringify(perExpert.map((e) => ({ role: e.role, properties: e.properties })));
-      const consOut = DRY ? '{"consensus":[]}' : await callModel(cfg.seb.consensus_instruction, consIn, 1500, JUDGE_MODEL);
+      // Consensus forms the SEB BASELINE — keep it on the persona model so the
+      // baseline is not moved by --judge-model (only the overlap scorer below is
+      // the judge). Mixing the judge model in here confounds the metric: a
+      // different consensus model changes nSeb and every denominator.
+      const consOut = DRY ? '{"consensus":[]}' : await callModel(cfg.seb.consensus_instruction, consIn, 1500);
       const consensus = parseJson(consOut)?.consensus || [];
       // ── overlap judge: SEB consensus <-> IRE invariants ──
       const ireStatements = ireSeeds.map((s) => stmtBySeed[s]).filter(Boolean);
