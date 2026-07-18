@@ -48,6 +48,30 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '..');
 
+// ── load provider keys from .env.local / .env (no dotenv dep) ────────────────
+// The runner reads process.env directly; most operators keep OPENAI_API_KEY /
+// VENICE_API_KEY / ANTHROPIC_API_KEY in .env.local rather than exporting them
+// into the shell. Load those files here so `--provider openai` just works.
+function loadEnvFiles() {
+  for (const name of ['.env.local', '.env']) {
+    const p = join(REPO, name);
+    if (!existsSync(p)) continue;
+    let text;
+    try { text = readFileSync(p, 'utf8'); } catch { continue; }
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq < 0) continue;
+      const key = line.slice(0, eq).replace(/^export\s+/, '').trim();
+      let val = line.slice(eq + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
+      if (key && process.env[key] === undefined) process.env[key] = val;
+    }
+  }
+}
+loadEnvFiles();
+
 // ── args ──────────────────────────────────────────────────────────────────
 const ARGS = Object.fromEntries(process.argv.slice(2).map((a) => {
   const [k, v] = a.replace(/^--/, '').split('=');
