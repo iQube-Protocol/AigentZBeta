@@ -3509,3 +3509,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-81e1abd.md](../build_/COMMITS/COMMIT-81e1abd.md)
 - Message: fix Invariant Registry: register polity namespace + raise public cap so all 319 invariants surface
+
+## Commit `76f9df6` — 2026-07-18T00:53:43Z
+- Type: `push`
+- Brief: [COMMIT-76f9df6.md](../build_/COMMITS/COMMIT-76f9df6.md)
+- Message: author IRL Validation Roadmap + seed invariant-field first principles (322/323)
