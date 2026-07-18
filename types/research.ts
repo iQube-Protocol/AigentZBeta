@@ -181,6 +181,38 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     protocolRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
     governingInvariants: ['inv.epistemology.119'],
   },
+  // Validation Programme v1 (2026-07-17) — the three orthogonal-by-hypothesis-class
+  // experiments (IRL_VALIDATION_ROADMAP.md). Each answers ONE class; none proves another's.
+  {
+    id: 'EXP-P1',
+    layer: 'I',
+    family: 'Representation & Runtime Gauntlet (Comparative)',
+    seriesId: 'VP1',
+    hypothesis:
+      'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally specified controls? The externally-countersigned freeze of EXP-010’s four-arm design.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md',
+    governingInvariants: ['inv.reasoning.310', 'inv.reasoning.313', 'inv.reasoning.318'],
+  },
+  {
+    id: 'EXP-P2',
+    layer: 'I',
+    family: 'Structural Invariance (Structural)',
+    seriesId: 'VP1',
+    hypothesis:
+      'Can structural invariants be discovered, composed and reused as a reasoning substrate independently of prompt/context engineering — tested representation-vs-representation on ONE corpus (same-corpus control). The empirical test of inv.reasoning.323.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p2-structural-invariance/README.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+  },
+  {
+    id: 'EXP-P3',
+    layer: 'I',
+    family: 'Capability Validation (Capability)',
+    seriesId: 'VP1',
+    hypothesis:
+      'What becomes practical because reasoning is a reusable invariant field? Demonstration (not proof): consequence engineering by field projection vs similarity-retrieval baseline on held-out changes.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p3-capability-validation/README.md',
+    governingInvariants: ['inv.reasoning.322', 'inv.reasoning.313'],
+  },
 ];
 
 export const SERIES_REGISTRY: ResearchSeries[] = [
@@ -204,6 +236,13 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     claim: 'Intent projects onto minimal invariant sets; those sets reason more faithfully at lower entropy and propagate across modalities — and the disagreements teach us what an invariant is.',
     members: ['EXP-006', 'EXP-007', 'EXP-008'],
     charterRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+  },
+  {
+    id: 'VP1',
+    name: 'Validation Programme v1',
+    claim: 'Three orthogonal experiments — Comparative (does it beat context engineering?), Structural (is the substrate real?), Capability (what does it enable?) — each answering one hypothesis class, together a more complete validation than any alone.',
+    members: ['EXP-P1', 'EXP-P2', 'EXP-P3'],
+    charterRef: 'codexes/packs/irl/foundation/IRL_VALIDATION_ROADMAP.md',
   },
 ];
 
