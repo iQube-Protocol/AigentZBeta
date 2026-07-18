@@ -73,7 +73,13 @@ const PROVIDERS = {
 let ACTIVE_PROVIDER = 'venice';
 function resolveProvider() {
   const forced = flag('provider', null);
-  if (forced) { if (!PROVIDERS[forced]) throw new Error(`unknown --provider '${forced}'`); if (!process.env[PROVIDERS[forced].keyEnv]) throw new Error(`--provider ${forced} but ${PROVIDERS[forced].keyEnv} not set`); return forced; }
+  if (forced) {
+    if (!PROVIDERS[forced]) throw new Error(`unknown --provider '${forced}'`);
+    // In --dry-run no API call is made, so a missing key is fine — let the
+    // operator validate the openai/anthropic path without a key present.
+    if (!DRY && !process.env[PROVIDERS[forced].keyEnv]) throw new Error(`--provider ${forced} but ${PROVIDERS[forced].keyEnv} not set`);
+    return forced;
+  }
   for (const name of ['venice', 'openai', 'anthropic']) if (process.env[PROVIDERS[name].keyEnv]) return name;
   if (DRY) return 'venice';
   throw new Error('no provider key — set VENICE_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY');
