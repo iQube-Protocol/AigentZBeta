@@ -247,6 +247,18 @@ The spine is the single source of truth for:
 
 Tests in `tests/persona-broadcast-handshake.test.ts` and `tests/access-spine.test.ts` enforce this. Mirror the canary pattern in any test suite you add.
 
+### Owner self-view exception + the three-level reference model (operator-ratified 2026-07-18)
+
+The T0 rule's enforcement boundary is the **network/chain boundary** — DVN receipts, persona broadcasts, locker metadata, chain payloads, and the T1 `active-persona` surface. It does NOT forbid an owner-authenticated, Bearer-scoped self-view route from returning the **caller's own** persona UUIDs (the same exposure class as `/api/wallet/persona`): the client is the sovereign surface where an owner decrypts and sees their own BlakQube-secured data. Never extend this to other users' identifiers, and never feed a self-view value into any receipt/broadcast/chain path.
+
+The raw persona UUID is a **private root identifier, not a public key**. Three reference levels serve three trust domains (full doc: `codexes/packs/agentiq/updates/2026-07-18_three-level-persona-reference-model.md`):
+
+1. **Private Persona UUID** — owner recovery/support/config handle; wallet self-view only (masked by default, copy with warning).
+2. **Polity Public Reference** — `personaPublicRef()` in `services/identity/personaReferences.ts` (same sha256/16-hex derivation as the DVN pipeline's `hashPersonaRef`); the stable governed-ecosystem handle; the ONLY persona identifier for receipts.
+3. **Pairwise External Service Reference** — keyed HMAC per (persona, audience), issued/revoked via `/api/wallet/identity/references`; the handle for third-party services (prevents cross-service correlation).
+
+Never describe level 2 as unlinkable across services, and never present the raw UUID as the credential to paste into third parties.
+
 ### Don't rebuild these — the spine already provides them
 
 | Tempting parallel implementation | Use this instead |

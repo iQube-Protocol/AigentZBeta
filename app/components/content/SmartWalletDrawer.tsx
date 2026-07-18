@@ -17,6 +17,7 @@ import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPerson
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
+import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
 import LibraryShelf from "./LibraryShelf";
 import PurchaseFlow, { type PurchaseStep, type PaymentMethod } from "./PurchaseFlow";
@@ -733,6 +734,9 @@ export default function SmartWalletDrawer({
   }
   const [identityProfile, setIdentityProfile] = useState<IdentityProfile | null>(null);
   const [rootDidExpanded, setRootDidExpanded] = useState(false);
+  // Persona & Agent IDs inventory (three-level reference model). Collapsed by
+  // default; the inventory component mounts (and fetches) only when opened.
+  const [personaRefsExpanded, setPersonaRefsExpanded] = useState(false);
 
   // Purchase flow state
   const [purchaseStep, setPurchaseStep] = useState<PurchaseStep>("idle");
@@ -3805,6 +3809,32 @@ export default function SmartWalletDrawer({
                         {!identityProfile && (
                           <div className="text-white/30 italic">Loading…</div>
                         )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Persona & Agent IDs — the reference inventory (three-level
+                    model): private UUIDs (masked, owner-only), Polity public
+                    refs, and pairwise external service refs. Ends the
+                    treasure hunt for persona/agent UUIDs. */}
+                {sessionEmail && (
+                  <div className="mt-3 rounded-xl bg-white/[0.03] ring-1 ring-white/10">
+                    <button
+                      onClick={() => setPersonaRefsExpanded((v) => !v)}
+                      className="w-full flex items-center justify-between px-3 py-2 text-[11px] text-white/60 hover:text-white/80"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <IdCard className="w-3.5 h-3.5 text-cyan-400" />
+                        <span className="uppercase tracking-wider">Persona &amp; Agent IDs</span>
+                      </span>
+                      {personaRefsExpanded
+                        ? <ChevronDown className="w-3.5 h-3.5" />
+                        : <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+                    {personaRefsExpanded && (
+                      <div className="px-3 pb-3">
+                        <PersonaReferencesInventory />
                       </div>
                     )}
                   </div>
