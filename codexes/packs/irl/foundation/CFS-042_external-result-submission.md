@@ -32,6 +32,14 @@ This is not a convenience feature. It is the programme **dogfooding its own cons
 
 **Discipline:** Phase 2 does not weaken, replace, or route around Phase 1. It is a *second door* with its own lock. The admin door stays. This mirrors the platform's Extend-Don't-Duplicate law and the public-read pattern (`/api/public/irl/*` added a read-only route beside the gated one; this adds a delegated-write route beside the admin one).
 
+### Adoption posture — Phase-2-first for the countersigned partner (operator direction, 2026-07-18)
+
+The two-phase split above is the **rollout frame for the wider IRL OS user base**: most external users meet Phase 1 first (read + replicate) and graduate to Phase 2 (delegated submission) as they mature. But for the **countersigned EXP-P1 partner (Austin), adopt Phase 2 from the outset** — do not stage it behind a Phase-1 period.
+
+The reason is that it collapses two acts into one. The **x409 Constitutional Agreement the partner signs to get started IS the same signature that freezes EXP-P1** (§15 sign-off) **and authorizes their agent's submission**. Rather than "sign the protocol now, get a submission capability later," the onboarding handshake and the delegation grant are a single constitutional act: signing the agreement is *how you begin*, and it simultaneously (a) freezes the pre-registration bundle, (b) issues the agent's bounded passport, and (c) opens the submission door. This brings the partner **into the constitutional operating model from day one** — they don't consume the platform, they enter an agreement with it — which is precisely the posture the whole programme is trying to demonstrate.
+
+This does **not** re-complicate the design: the same primitives, the same endpoint, the same gates. It is only a statement of *when* Austin crosses into Phase 2 (immediately, not after a Phase-1 interval). Phase 1's admin door still exists and the Institute still self-publishes internally-executed results through it; Austin is simply onboarded straight to the delegated door. For the general population, the staged two-phase rollout stands.
+
 ---
 
 ## 3. Composition — the primitives this stands on (all confirmed to exist)
@@ -132,12 +140,14 @@ POST /api/experiments/results/external
 
 ## 9. What ships when (build order — NOT this doc)
 
-1. **Phase 1 (now):** widen the EXPERIMENTS allow-list + `publishResult` union + migration (§8). Publish EXP-P1/Stage-0 results admin-gated through the existing route. Nothing else changes.
-2. **Phase 2a (charter → build):** the `experiment-submission` cohort entitlement + the agent-passport resolution seam.
-3. **Phase 2b:** `POST /api/experiments/results/external` composing §7, entitlement gate + `requireAuthorizedAgreement` + optional `spendWithinCap` + `publishExperimentResult(origin:'external')`.
-4. **Phase 2c:** the operator-facing x409 authorization flow (form → agent-accept via Consenti → operator-authorize) that mints Austin's agreement, and the IRL OS **Constitutional Evaluation** tab surface that shows the external party the agreement terms + the submission front door.
+The sequencing is set by *when each piece is actually needed*, which — helpfully — does not gate the weekend start on the full Phase-2 build:
 
-No code lands from this charter. This file is the ratification gate.
+1. **At kickoff / freeze (the signature — primitive already built):** Austin signs the **x409 Constitutional Agreement** via the existing agreement flow (`formAgreement` → agent-accept via Consenti → operator-`authorizeAgreement`; the N1 primitive is already shipped — CRP-003a Increment 1). This one act *is* his Phase-2 onboarding: it freezes the EXP-P1 pre-registration bundle (§15), mints his agent's **bounded passport**, and pre-authorizes the submission triple. **Nothing new needs building for the signature** — it composes shipped primitives. This is what brings the partner into the constitutional operating model from day one.
+2. **Phase-1 prerequisite (before any result publishes, internal or external):** widen the EXPERIMENTS allow-list + `publishResult` union + migration (§8). Blocks internal publication too, so it ships regardless.
+3. **Before results are ready to submit (weeks after freeze, per EXP-P1 §13 timeline — not a weekend blocker):** build `POST /api/experiments/results/external` composing §7 — the `experiment-submission` cohort entitlement, the agent-passport resolution seam, the entitlement + `requireAuthorizedAgreement` gates, optional `spendWithinCap`, and `publishExperimentResult(origin:'external')`.
+4. **Alongside (3):** the IRL OS **Constitutional Evaluation** tab surface that shows the partner their agreement terms + the submission front door.
+
+**The key sequencing fact:** signing (step 1) uses only built primitives and can happen at freeze; the submission endpoint (step 3) is only exercised once runs complete, so its build has the whole main-runs window and never blocks getting started. No code lands from *this doc* — the charter is the ratification gate; steps 2–4 are separately authorized builds.
 
 ---
 
@@ -148,13 +158,14 @@ No code lands from this charter. This file is the ratification gate.
 **Honest caveats (do not oversell):**
 - An externally *submitted* result is still only as trustworthy as its **hash-consistency with the frozen bundle** — submission origin is a provenance label, not a proof of correctness. The dual-run hash-compare (EXP-P1 §8, §11) remains the integrity mechanism; this charter changes who may write, not what makes a write believable.
 - Passport delegation makes external submission *possible and bounded*; it does not make the external party *independent of the Institute's instrument*. Independence is still bounded by whatever components are technically re-runnable (EXP-P1 §13) — anything not re-runnable stays labelled `internally executed`.
-- This is a **next phase**. Phase 1 (internal, admin-published) is the weekend deliverable; Phase 2 is the credibility upgrade that follows, not a blocker on getting the first results out.
+- **For the wider IRL OS population** Phase 2 is a graduation from Phase 1; **for the countersigned partner it is the entry point** (§2 adoption posture). The two are not in tension because the *signature* (built primitives, at freeze) and the *submission endpoint* (built during the runs window) are separable in time — onboarding Austin straight to Phase 2 does not gate the weekend start on the endpoint build (§9).
 
 ---
 
 ## Ratification record
 
-- [ ] PROPOSED 2026-07-18 (operator direction: "public results-submission endpoint, cohort/payment gated, via a Polity Passport with bounded delegation for [the external] agent … include that as a next phase … provide internally executed first … use bounded delegation and our x409 contract to sign this off").
-- [ ] Operator ratifies the two-phase model + the capability triple (`irl:experiment-result:submit`).
+- [ ] PROPOSED 2026-07-18 (operator direction: "public results-submission endpoint, cohort/payment gated, via a Polity Passport with bounded delegation for [the external] agent … use bounded delegation and our x409 contract to sign this off").
+- [x] Adoption posture set 2026-07-18: two-phase split is the **wider-rollout** frame; the **countersigned EXP-P1 partner adopts Phase 2 from the outset** — the x409 signature that starts them IS the onboarding act (operator: "ask them to adopt the second phase from the get go as we want to use it to sign the agreement to actually get started … brings them into a constitutional operating model from the get go").
+- [ ] Operator ratifies the capability triple (`irl:experiment-result:submit`) + the Phase-2-first onboarding for Austin.
 - [ ] §8 EXPERIMENTS allow-list widened (Phase-1 prerequisite) — separate, ships first.
 - [ ] Phase 2 build authorized (separate gate; not this doc).
