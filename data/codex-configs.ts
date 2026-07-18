@@ -4763,14 +4763,17 @@ export const IRL_CARTRIDGE: CodexConfig = {
     category: 'cartridge',
     tags: ['irl', 'research', 'constitutional-cybernetics', 'experiments', 'invariants', 'publications'],
   },
+  // Five-space IA (operator + Aletheon, 2026-07-18 — mirrors IRL_OS_CARTRIDGE):
+  // Institution → Research → Laboratory → Publications → Participation.
+  // Consequence Engineering + Living Knowledge fold into Laboratory/Research
+  // as capabilities; Programme joins Institution; Participation is the
+  // constitutional collaboration space.
   tabGroups: [
     { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
     { id: 'research', label: 'Research', icon: 'Layers', order: 1 },
     { id: 'laboratory', label: 'Laboratory', icon: 'FlaskConical', order: 2 },
-    { id: 'consequence', label: 'Consequence Engineering', icon: 'Network', order: 2.5 },
-    { id: 'knowledge', label: 'Living Knowledge', icon: 'BookMarked', order: 3 },
-    { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 4 },
-    { id: 'programme', label: 'Programme', icon: 'Target', order: 5 },
+    { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 3 },
+    { id: 'participation', label: 'Participation', icon: 'ShieldCheck', order: 4 },
   ],
   tabs: [
     {
@@ -4890,8 +4893,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Invariant Field',
       slug: 'irl-invariant-field',
       enabled: true,
-      group: 'consequence',
-      order: 0,
+      group: 'laboratory',
+      order: 3,
       type: 'static',
       config: { component: 'InvariantFieldExplorerTab', props: {} },
       metadata: { icon: 'Network', description: 'Computational Epistemology made visible — the live enables/constrains/contradicts field + consequence forecast (CFS-019 Phase E first slice)', color: 'violet' },
@@ -4902,8 +4905,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Invariant Registry',
       slug: 'irl-invariant-registry',
       enabled: true,
-      group: 'knowledge',
-      order: 0,
+      group: 'laboratory',
+      order: 2,
       type: 'static',
       config: { component: 'InvariantRegistryTab', props: {} },
       metadata: { icon: 'BookMarked', description: 'The live substrate — namespaces, status, Standing, Reach, contexts, graph edges', color: 'violet' },
@@ -4913,8 +4916,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Glossary & Ontology',
       slug: 'irl-glossary',
       enabled: true,
-      group: 'knowledge',
-      order: 1,
+      group: 'research',
+      order: 3,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -4943,14 +4946,91 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Research Programmes',
       slug: 'irl-programmes',
       enabled: true,
-      group: 'programme',
-      order: 0,
+      group: 'institution',
+      order: 2,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CRP-001_constitutional-research-program-charter.md' },
       },
       metadata: { icon: 'Target', description: 'CRP-001 — the twelve research programmes; roadmap and backlog live in the charter (CFS-019 §8)' },
+    },
+    // ── Participation ─────────────────────────────────────────────
+    // The constitutional collaboration space (five-space IA, 2026-07-18 —
+    // mirrors IRL_OS_CARTRIDGE). Overview lands first; passport capabilities
+    // follow. Components already in TabRenderer.componentRegistry.
+    {
+      id: 'irl-participation-overview',
+      label: 'Overview',
+      slug: 'irl-participation-overview',
+      enabled: true,
+      group: 'participation',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/PARTICIPATION_overview.md' },
+      },
+      metadata: { icon: 'ShieldCheck', description: 'How to join the Invariant Research Lab — roles, the passport → delegation → agreement path, and the public API for delegated agents', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-apply',
+      label: 'Apply',
+      slug: 'irl-passport-apply',
+      enabled: true,
+      group: 'participation',
+      order: 1,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood (World ID upgrades to verified citizen)', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-delegation',
+      label: 'Delegation',
+      slug: 'irl-passport-delegation',
+      enabled: true,
+      group: 'participation',
+      order: 2,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-registry',
+      label: 'Registry',
+      slug: 'irl-passport-registry',
+      enabled: true,
+      group: 'participation',
+      order: 3,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-locker',
+      label: 'Locker',
+      slug: 'irl-passport-locker',
+      enabled: true,
+      group: 'participation',
+      order: 4,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-steward',
+      label: 'Steward',
+      slug: 'irl-passport-steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'participation',
+      order: 5,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — admin only', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('steward', 'irl-passport-steward');
+      },
     },
   ],
 };
