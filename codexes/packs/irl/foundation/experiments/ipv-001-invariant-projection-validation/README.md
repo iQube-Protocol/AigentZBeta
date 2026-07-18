@@ -44,5 +44,6 @@ Writes `results/ipv-results-<date>.json` + `.manifest.json` (sha256).
 ## Ratification record
 
 - [x] READY TO RUN — chartered 2026-07-17 (operator direction; Stage-0 shake-down).
-- [ ] Full run; reproducibility = 100% confirmed or nondeterminism triaged.
-- [ ] IPE cleared for EXP-P1/P2/P3.
+- [x] Sibling IRV-001 shakedown (2026-07-18) confirmed the shared substrate: **IRE seed-set stability = 1.0** across all reps (the reproducibility precondition IPV depends on). The one pathology found there (unscoped-fallback discovery pollution) is fixed in `resolution.ts`.
+- [ ] Full IPV run (`--exp ipv`, anchored band): standing/coordinate reproducibility = 100% confirmed or nondeterminism triaged — run alongside the IRV record run.
+- [ ] IPE cleared for EXP-P1/P2/P3 (expected: reproducible by construction on the frozen substrate; the run confirms no caching/ordering nondeterminism).
