@@ -3519,3 +3519,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-afdd507.md](../build_/COMMITS/COMMIT-afdd507.md)
 - Message: charter the three-experiment Validation Programme v1 (EXP-P1/P2/P3)
+
+## Commit `a10f5fd` — 2026-07-18T01:11:40Z
+- Type: `feat`
+- Brief: [COMMIT-a10f5fd.md](../build_/COMMITS/COMMIT-a10f5fd.md)
+- Message: add Stage-0 instrument validation (IRV-001/IPV-001) — shake down IRE+IPE before the science
