@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-17T23:54:45.305Z",
+  "last_updated": "2026-07-18T00:09:36.350Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fc7ba1127e7a525f6021d39cc80e4dd0bbc4336b",
-  "latest_commit_short": "fc7ba11",
-  "latest_commit_title": "ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot')",
+  "latest_commit": "eb1846930adbf26c81679c62129bdec0b26d9409",
+  "latest_commit_short": "eb18469",
+  "latest_commit_title": "refine inv.polity.238 hierarchy: Ethics->Law->Economics->Consequence->Code (operator)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "eb18469",
+      "full_sha": "eb1846930adbf26c81679c62129bdec0b26d9409",
+      "title": "refine inv.polity.238 hierarchy: Ethics->Law->Economics->Consequence->Code (operator)",
+      "author": "Claude",
+      "timestamp": "2026-07-18T00:07:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-eb18469.md"
+    },
     {
       "sha": "fc7ba11",
       "full_sha": "fc7ba1127e7a525f6021d39cc80e4dd0bbc4336b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T05:56:49Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-dcda7bc.md"
-    },
-    {
-      "sha": "ce85ec4",
-      "full_sha": "ce85ec409569ac5afc644c158419e4626fecc6f9",
-      "title": "Fix DCC loop: proposal preview-before-approve, flow-through on approval, resilient fence extraction (operator findings)",
-      "author": "Claude",
-      "timestamp": "2026-07-07T05:14:36Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-ce85ec4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

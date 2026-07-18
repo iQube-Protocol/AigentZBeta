@@ -3499,3 +3499,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-fc7ba11.md](../build_/COMMITS/COMMIT-fc7ba11.md)
 - Message: ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot')
+
+## Commit `eb18469` — 2026-07-18T00:07:22Z
+- Type: `push`
+- Brief: [COMMIT-eb18469.md](../build_/COMMITS/COMMIT-eb18469.md)
+- Message: refine inv.polity.238 hierarchy: Ethics->Law->Economics->Consequence->Code (operator)
