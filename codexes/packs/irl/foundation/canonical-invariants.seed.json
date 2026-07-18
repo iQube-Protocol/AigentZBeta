@@ -4745,6 +4745,81 @@
    "provenance": {
     "source": "Operator + Aletheon reflection on the Stage-0 shakedown results (2026-07-18): the hybrid-intelligence thesis clarification. Disentangles Hypothesis A (can AI identify invariants better than humans — an engineering/calibration question about the IRE) from Hypothesis B (the actual thesis: reasoning performed once and preserved as structural invariants outperforms repeatedly rediscovering the same reasoning). Operator-ratified 2026-07-18."
    }
+  },
+  {
+   "id": "inv.reasoning.329",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "The Hybrid Intelligence Thesis: the highest-performing intelligence systems will be neither purely human nor purely artificial, but hybrid systems in which structural invariants provide a shared substrate through which previously validated reasoning is accumulated, operationalised, and reused across both human and machine cognition. Neither replaces the other; each amplifies the other.",
+   "status": "proposed",
+   "contexts": [
+    "reasoning",
+    "hybrid-intelligence",
+    "hypothesis"
+   ],
+   "provenance": {
+    "source": "The Hybrid Intelligence Thesis refinement (operator + Aletheon, 2026-07-18): the thesis moves decisively off any 'AI beats humans' framing to the question of whether a shared invariant substrate enables cumulative hybrid intelligence neither humans nor machines achieve in isolation. Strengthens the hybrid-intelligence doctrine already in canon and extends inv.reasoning.324-328. Definitional clarifications operator-ratified 2026-07-18; the two hypotheses enter proposed (under test, mirroring inv.reasoning.323). THE central research hypothesis of the Institute — proposed, falsifiable, not validated."
+   }
+  },
+  {
+   "id": "inv.reasoning.330",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "An invariant is a transferable reasoning primitive that is independent of the intelligence that discovered it. Once discovered and validated, an invariant is no longer human reasoning nor machine reasoning — it becomes part of a shared cognitive substrate both can converge on, contribute to, and reuse.",
+   "status": "canonical",
+   "contexts": [
+    "reasoning",
+    "hybrid-intelligence",
+    "substrate"
+   ],
+   "provenance": {
+    "source": "The Hybrid Intelligence Thesis refinement (operator + Aletheon, 2026-07-18): the thesis moves decisively off any 'AI beats humans' framing to the question of whether a shared invariant substrate enables cumulative hybrid intelligence neither humans nor machines achieve in isolation. Strengthens the hybrid-intelligence doctrine already in canon and extends inv.reasoning.324-328. Definitional clarifications operator-ratified 2026-07-18; the two hypotheses enter proposed (under test, mirroring inv.reasoning.323)."
+   }
+  },
+  {
+   "id": "inv.reasoning.331",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "Invariants are the common language of hybrid intelligence. Knowledge transfer between human and machine through natural language alone is lossy — much of the reasoning stays implicit; a shared invariant substrate lets both systems operate against the same structure without recreating each other's reasoning. Serialization into a prompt is merely one current transport mechanism: the invariant exists before the prompt and beyond the prompt.",
+   "status": "canonical",
+   "contexts": [
+    "reasoning",
+    "hybrid-intelligence",
+    "representation"
+   ],
+   "provenance": {
+    "source": "The Hybrid Intelligence Thesis refinement (operator + Aletheon, 2026-07-18): the thesis moves decisively off any 'AI beats humans' framing to the question of whether a shared invariant substrate enables cumulative hybrid intelligence neither humans nor machines achieve in isolation. Strengthens the hybrid-intelligence doctrine already in canon and extends inv.reasoning.324-328. Definitional clarifications operator-ratified 2026-07-18; the two hypotheses enter proposed (under test, mirroring inv.reasoning.323). Directly answers the recurring external question 'where is the novelty if the invariant ends up as text in the prompt?'"
+   }
+  },
+  {
+   "id": "inv.reasoning.332",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "The division of cognitive labour in hybrid intelligence is an open research question, not an assumption. At the current stage of the programme, human expertise provides the richest known source of validated reasoning from which structural invariants can be extracted; whether humans, machines, or hybrid systems ultimately prove superior at invariant discovery is itself something the programme must test, never presuppose.",
+   "status": "canonical",
+   "contexts": [
+    "reasoning",
+    "hybrid-intelligence",
+    "methodology"
+   ],
+   "provenance": {
+    "source": "The Hybrid Intelligence Thesis refinement (operator + Aletheon, 2026-07-18): the thesis moves decisively off any 'AI beats humans' framing to the question of whether a shared invariant substrate enables cumulative hybrid intelligence neither humans nor machines achieve in isolation. Strengthens the hybrid-intelligence doctrine already in canon and extends inv.reasoning.324-328. Definitional clarifications operator-ratified 2026-07-18; the two hypotheses enter proposed (under test, mirroring inv.reasoning.323). The intellectual-honesty guard: preserves the vision without overclaiming discovery superiority for any party."
+   }
+  },
+  {
+   "id": "inv.reasoning.333",
+   "namespace": "reasoning",
+   "semantic_type": "principle",
+   "statement": "The Cumulative Intelligence Hypothesis: civilizations become more intelligent not because individual reasoning continually improves, but because validated reasoning accumulates into an increasingly reusable structural substrate — as DNA lets biological adaptations accumulate across generations, invariant substrates may let reasoning adaptations accumulate across generations of both humans and machines. The analogy is a research framing, not an asserted truth.",
+   "status": "proposed",
+   "contexts": [
+    "reasoning",
+    "hybrid-intelligence",
+    "hypothesis"
+   ],
+   "provenance": {
+    "source": "The Hybrid Intelligence Thesis refinement (operator + Aletheon, 2026-07-18): the thesis moves decisively off any 'AI beats humans' framing to the question of whether a shared invariant substrate enables cumulative hybrid intelligence neither humans nor machines achieve in isolation. Strengthens the hybrid-intelligence doctrine already in canon and extends inv.reasoning.324-328. Definitional clarifications operator-ratified 2026-07-18; the two hypotheses enter proposed (under test, mirroring inv.reasoning.323). The second hypothesis hiding inside the thesis — proposed, a research question."
+   }
   }
  ]
 }
