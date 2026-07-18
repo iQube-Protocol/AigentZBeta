@@ -26,7 +26,7 @@ import { listPublishedExperimentResults } from '@/services/research/publicReads'
 
 export const dynamic = 'force-dynamic';
 
-const EXPERIMENTS = ['EXP-001', 'EXP-002', 'EXP-003', 'EXP-004'] as const;
+const EXPERIMENTS = ['EXP-001', 'EXP-002', 'EXP-003', 'EXP-004', 'EXP-P1', 'EXP-P2', 'EXP-P3', 'IRV-001', 'IPV-001'] as const;
 
 export async function GET(request: NextRequest) {
   const persona = await getActivePersona(request);
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   if (!client) return NextResponse.json({ error: 'storage unavailable' }, { status: 500 });
 
   const outcome = await publishExperimentResult(client, persona.personaId, {
-    experiment: body.experiment as 'EXP-001' | 'EXP-002' | 'EXP-003' | 'EXP-004',
+    experiment: body.experiment as (typeof EXPERIMENTS)[number],
     provider: body.provider,
     model: body.model,
     aggregates: body.aggregates ?? {},
