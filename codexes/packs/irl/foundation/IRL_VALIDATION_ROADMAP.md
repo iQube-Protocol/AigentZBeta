@@ -143,11 +143,18 @@ Replication is one direction (fetch → re-run → hash-compare); **submission**
 
 ## The deeper claim this programme is uncovering
 
-The scientific novelty is not ultimately *"we have better context"* or even *"we have reasoning compression."* It is **`inv.reasoning.323`**: intelligence is a property of structured invariant fields and the transformations between them, and models are one mechanism for traversing those fields — not the field itself. That is a far larger hypothesis than anything about prompt or context engineering, and — for the first time — it is empirically testable, because there is now both a sufficiently rich invariant corpus and an instrument capable of running controlled experiments against it. EXP-P2 is where that test begins.
+The scientific novelty is not ultimately *"we have better context"* or even *"we have reasoning compression."* Two central hypotheses, both proposed and under test:
+
+- **`inv.reasoning.323`** — intelligence is a property of structured invariant fields and the transformations between them; models are one mechanism for traversing those fields, not the field itself. EXP-P2 is where that test begins.
+- **`inv.reasoning.329` — the Hybrid Intelligence Thesis** — the highest-performing intelligence systems will be neither purely human nor purely artificial, but hybrid systems in which invariants provide the shared substrate through which validated reasoning accumulates and is reused across both human and machine cognition. The programme's primary claim is not that an extraction algorithm outperforms experts; it is that **a shared invariant substrate enables cumulative hybrid intelligence neither achieves in isolation** — distinctive, and falsifiable. Its companion, the **Cumulative Intelligence Hypothesis** (`inv.reasoning.333`), frames the generational version: validated reasoning accumulating into a reusable substrate, as DNA accumulates biological adaptation.
+
+Both are empirically testable for the first time, because there is now a sufficiently rich invariant corpus and an instrument capable of running controlled experiments against it.
 
 ## Related canon
 - `inv.reasoning.322` — value scales with relationships, not count (the library→field shift).
-- `inv.reasoning.323` — intelligence is a property of fields, not models (the central hypothesis, proposed/under-test).
+- `inv.reasoning.323` — intelligence is a property of fields, not models (central hypothesis, proposed/under-test).
+- `inv.reasoning.324–328` — the hybrid-intelligence thesis clarification: source independence · machine-operational not machine-discovered · engine-as-instrument · lived expertise · track separation (canonical, 2026-07-18).
+- `inv.reasoning.329–333` — the Hybrid Intelligence Thesis + Cumulative Intelligence Hypothesis (329/333 proposed hypotheses; 330–332 canonical clarifications, 2026-07-18).
 - `inv.reasoning.310–321` — the Knowledge Compression genesis (`GENESIS_knowledge-compression.md`).
 - CRP-002 — the Three Computational Compressions.
 - CFS-033 — Constitutional Evaluation (the experimental operating system: pluggable, receipted, versioned evaluation + distributed replication).
