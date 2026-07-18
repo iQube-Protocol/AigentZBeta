@@ -4863,7 +4863,7 @@ export const IRL_CARTRIDGE: CodexConfig = {
     // ── metaMe IRL — Invariant Research Lab ────────────────────────
     {
       id: 'irl-experiment-lab',
-      label: 'metaMe IRL',
+      label: 'Experiments',
       slug: 'irl-experiment-lab',
       enabled: true,
       adminOnly: true,
@@ -4887,53 +4887,13 @@ export const IRL_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'Target', description: 'Experiment designs, protocols, canonical articles, evaluation frameworks' },
     },
-    // ── Laboratory outputs — promoted out of the Experiment Lab's strip to
-    // second-level Laboratory tabs (operator direction 2026-07-18), so the
-    // lab's left navigator holds only the actual experiments and tests.
-    // adminOnly for parity: previously reachable only via the adminOnly lab.
-    {
-      id: 'irl-results',
-      label: 'Results',
-      slug: 'irl-results',
-      enabled: true,
-      adminOnly: true,
-      group: 'laboratory',
-      order: 2,
-      type: 'static',
-      config: { component: 'ExperimentResultsTab' },
-      metadata: { icon: 'ShieldCheck', description: 'Canonical published experiment results — content-hashed, receipted, DVN-anchorable', color: 'violet' },
-    },
-    {
-      id: 'irl-report',
-      label: 'Report',
-      slug: 'irl-report',
-      enabled: true,
-      adminOnly: true,
-      group: 'laboratory',
-      order: 3,
-      type: 'static',
-      config: { component: 'ExperimentReportTab' },
-      metadata: { icon: 'FileText', description: 'Experiment report view — aggregate findings across runs', color: 'violet' },
-    },
-    {
-      id: 'irl-plates',
-      label: 'Canonical Plates',
-      slug: 'irl-plates',
-      enabled: true,
-      adminOnly: true,
-      group: 'laboratory',
-      order: 4,
-      type: 'static',
-      config: { component: 'CanonicalPlatesTab' },
-      metadata: { icon: 'Layers', description: 'Canonical plates — composed constitutional artifacts from the plate pipeline', color: 'violet' },
-    },
-    {
+                {
       id: 'irl-invariant-field',
       label: 'Invariant Field',
       slug: 'irl-invariant-field',
       enabled: true,
       group: 'laboratory',
-      order: 6,
+      order: 3,
       type: 'static',
       config: { component: 'InvariantFieldExplorerTab', props: {} },
       metadata: { icon: 'Network', description: 'Computational Epistemology made visible — the live enables/constrains/contradicts field + consequence forecast (CFS-019 Phase E first slice)', color: 'violet' },
@@ -4945,7 +4905,7 @@ export const IRL_CARTRIDGE: CodexConfig = {
       slug: 'irl-invariant-registry',
       enabled: true,
       group: 'laboratory',
-      order: 5,
+      order: 2,
       type: 'static',
       config: { component: 'InvariantRegistryTab', props: {} },
       metadata: { icon: 'BookMarked', description: 'The live substrate — namespaces, status, Standing, Reach, contexts, graph edges', color: 'violet' },

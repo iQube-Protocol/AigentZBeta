@@ -1,30 +1,30 @@
 "use client";
 
 /**
- * metaMe IRL — the Invariant Research Lab (formerly "Experiment Lab").
+ * metaMe IRL — the Experiments surface of the Invariant Research Lab.
  *
- * The lab bench for running the lab's instruments through the front end
- * (no terminal). Experiments are arranged as a LEFT-HAND navigator grouped by
- * series (five-space Laboratory IA, 2026-07-18 — Aletheon's "the left menu
- * becomes the experiment navigator"): the Foundational Validation Series
- * (EXP-001 KnowledgeQube bundle evaluation, EXP-002 invariant-carried video,
- * EXP-003 rediscovery savings, EXP-004 sovereignty, EXP-005 provider choice)
- * and the constitutional acceptance tests (Chrysalis Test, Homecoming Test).
+ * A LEFT-HAND navigator grouped by section (2026-07-18):
+ *   • Foundational Series — EXP-001 bundle evaluation, EXP-002 invariant-carried
+ *     video, EXP-003 rediscovery savings, EXP-004 sovereignty, EXP-005 provider
+ *     choice (+ the Video+Article skill runner).
+ *   • Acceptance Tests — the constitutional acceptance tests (Chrysalis,
+ *     Homecoming).
+ *   • Outputs — the lab's produced artifacts: Results (canonical published
+ *     results), Report (live → canonical → published lifecycle), Canonical
+ *     Plates (composed constitutional assets). Grouped here alongside the
+ *     experiments rather than as separate Laboratory tabs (operator direction).
  *
- * The OUTPUT surfaces (Results, Report, Canonical Plates) are no longer inside
- * the lab — they are their own second-level Laboratory tabs in the internal
- * IRL cartridge (irl-results / irl-report / irl-plates), so the navigator here
- * holds only the actual experiments and tests.
+ * The lab's mission/hypothesis intro now lives on the Institution dashboard
+ * (IRLDashboardTab) — this surface shows only a per-item overview above the
+ * selected runner, so the page is the experiments, not a re-stated charter.
  *
- * Mounted in: /admin/studio/invariant-video (direct link, kept for bookmark
- * stability), the AgentiQ cartridge's metaMe IRL tab, and the internal IRL
- * cartridge's Laboratory group (irl-experiment-lab, adminOnly).
- *
- * Sidebar pattern mirrors AgentiqCartridgeTab (w-56 ↔ w-8 collapsible rail).
+ * Mounted in: /admin/studio/invariant-video, the AgentiQ cartridge's lab tab,
+ * and the internal IRL cartridge's Laboratory group (label "Experiments",
+ * adminOnly). Sidebar pattern mirrors AgentiqCartridgeTab (w-56 ↔ w-8 rail).
  */
 
 import React, { Suspense, useState } from "react";
-import { Beaker, ChevronLeft, ChevronRight, Clapperboard, Home, Scale, ShieldCheck } from "lucide-react";
+import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, Home, Layers, Scale, ShieldCheck } from "lucide-react";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
 import VideoArticleSkillRunner from "./VideoArticleSkillRunner";
 import Exp001EvaluationRunner from "./Exp001EvaluationRunner";
@@ -33,46 +33,64 @@ import Exp004SovereigntyRunner from "./Exp004SovereigntyRunner";
 import Exp005ProviderChoiceRunner from "./Exp005ProviderChoiceRunner";
 import ChrysalisTestTab from "./ChrysalisTestTab";
 import HomecomingTestTab from "./HomecomingTestTab";
+import ExperimentResultsTab from "./ExperimentResultsTab";
+import ExperimentReportTab from "./ExperimentReportTab";
+import CanonicalPlatesTab from "./CanonicalPlatesTab";
 
-type LabTab = "bundle" | "video" | "video-article" | "rediscovery" | "sovereignty" | "provider-choice" | "chrysalis" | "homecoming";
+type LabTab =
+  | "bundle" | "video" | "video-article" | "rediscovery" | "sovereignty" | "provider-choice"
+  | "chrysalis" | "homecoming"
+  | "results" | "report" | "plates";
 
 interface LabEntry {
   id: LabTab;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** One-line overview shown above the runner — "what this tests / is". */
+  blurb: string;
 }
 
-/** The experiment navigator, grouped by series. Grouping is authored here —
- *  several entries (Video+Article, the acceptance tests) have no
- *  EXPERIMENT_REGISTRY id, so it cannot be derived from types/research.ts. */
+/** The lab navigator, grouped. Grouping + per-item overviews are authored here —
+ *  several entries have no EXPERIMENT_REGISTRY id, so it cannot be derived. */
 const SECTIONS: { title: string; items: LabEntry[] }[] = [
   {
     title: "Foundational Series",
     items: [
-      { id: "bundle", label: "EXP-001 · Bundle Evaluation", icon: Scale },
-      { id: "video", label: "EXP-002 · Video", icon: Clapperboard },
-      { id: "video-article", label: "Video + Article", icon: Clapperboard },
-      { id: "rediscovery", label: "EXP-003 · Rediscovery", icon: Beaker },
-      { id: "sovereignty", label: "EXP-004 · Sovereignty", icon: ShieldCheck },
-      { id: "provider-choice", label: "EXP-005 · Provider Choice", icon: ShieldCheck },
+      { id: "bundle", label: "EXP-001 · Bundle Evaluation", icon: Scale, blurb: "Semantic fidelity — does a KnowledgeQube's invariant bundle preserve meaning when a judge scores it against the source?" },
+      { id: "video", label: "EXP-002 · Video", icon: Clapperboard, blurb: "Temporal fidelity — does an invariant-carried multi-segment video stay coherent across segments grounded in one field?" },
+      { id: "video-article", label: "Video + Article", icon: Clapperboard, blurb: "The Video+Article skill — generate a video and its companion article from the same invariant grounding." },
+      { id: "rediscovery", label: "EXP-003 · Rediscovery", icon: Beaker, blurb: "Computational efficiency — how much reasoning is saved when a task starts from initialized invariants vs cold rediscovery." },
+      { id: "sovereignty", label: "EXP-004 · Sovereignty", icon: ShieldCheck, blurb: "Sovereignty — the same reasoning holds under a sovereign (self-hosted) provider, not only a frontier one." },
+      { id: "provider-choice", label: "EXP-005 · Provider Choice", icon: ShieldCheck, blurb: "Provider choice — outcome stability across interchangeable model providers at equal grounding." },
     ],
   },
   {
     title: "Acceptance Tests",
     items: [
-      { id: "chrysalis", label: "Chrysalis Test", icon: ShieldCheck },
-      { id: "homecoming", label: "Homecoming Test", icon: Home },
+      { id: "chrysalis", label: "Chrysalis Test", icon: ShieldCheck, blurb: "Constitutional acceptance — the platform passes its own governed-execution acceptance criteria (Chrysalis)." },
+      { id: "homecoming", label: "Homecoming Test", icon: Home, blurb: "Constitutional acceptance — the return-to-canon acceptance criteria (Homecoming)." },
+    ],
+  },
+  {
+    title: "Outputs",
+    items: [
+      { id: "results", label: "Results", icon: ShieldCheck, blurb: "Canonical published experiment results — content-hashed, receipted, and DVN-anchorable." },
+      { id: "report", label: "Report", icon: FileText, blurb: "Experiment reports through their lifecycle — live drafts, canonical (DVN-minted) records, and published outputs." },
+      { id: "plates", label: "Canonical Plates", icon: Layers, blurb: "Canonical plates — composed constitutional artifacts (assets) from the plate pipeline." },
     ],
   },
 ];
 
+const ALL_ITEMS = SECTIONS.flatMap((s) => s.items);
+
 export default function InvariantExperimentLab({ density }: { density?: "narrow" | "wide" } = {}) {
-  const [tab, setTab] = useState<LabTab>("video");
+  const [tab, setTab] = useState<LabTab>("bundle");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(density === "narrow");
+  const active = ALL_ITEMS.find((i) => i.id === tab);
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Experiment navigator (left) — mirrors the AgentiqCartridgeTab sidebar */}
+      {/* Navigator (left) — mirrors the AgentiqCartridgeTab sidebar */}
       <div
         className={`flex-shrink-0 border-r border-slate-800 bg-slate-900/40 overflow-y-auto transition-all duration-200 ${
           sidebarCollapsed ? "w-8" : "w-56"
@@ -82,12 +100,12 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
           <div className="flex flex-col items-center gap-2 py-2">
             <button
               onClick={() => setSidebarCollapsed(false)}
-              title="Expand experiment navigator"
+              title="Expand navigator"
               className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
-            {SECTIONS.flatMap((s) => s.items).map((item) => {
+            {ALL_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
                 <button
@@ -136,6 +154,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
                               ? "bg-blue-500/20 text-blue-200"
                               : "bg-white/5 text-slate-300 hover:bg-white/10"
                           }`}
+                          title={item.blurb}
                         >
                           <Icon className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
                           <span className="truncate">{item.label}</span>
@@ -150,19 +169,14 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         )}
       </div>
 
-      {/* Selected experiment (right) */}
+      {/* Selected item (right) — per-item overview + the runner */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-slate-100">metaMe IRL — Invariant Research Lab</h2>
-          <p className="text-sm text-slate-400 mt-1">
-            The lab bench of metaMe IRL. It hosts the Foundational Validation Series — orthogonal
-            validations of the same primitive: semantic fidelity (EXP-001), temporal fidelity (EXP-002),
-            computational efficiency (EXP-003), sovereignty (EXP-004), provider choice (EXP-005) — and
-            the constitutional acceptance tests (Chrysalis, Homecoming). Every run is a separate
-            experiment instance — record provider/model with each result; never merge cross-model rows.
-            Results, Report, and Canonical Plates live as their own Laboratory tabs.
-          </p>
-        </div>
+        {active && (
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-slate-100">{active.label}</h2>
+            <p className="mt-1 text-xs text-slate-400 max-w-3xl">{active.blurb}</p>
+          </div>
+        )}
 
         {/* Each runner holds its own run state; switching unmounts (unchanged). */}
         {tab === "video" && (
@@ -181,6 +195,9 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "provider-choice" && <Exp005ProviderChoiceRunner />}
         {tab === "chrysalis" && <ChrysalisTestTab />}
         {tab === "homecoming" && <HomecomingTestTab />}
+        {tab === "results" && <ExperimentResultsTab />}
+        {tab === "report" && <ExperimentReportTab />}
+        {tab === "plates" && <CanonicalPlatesTab />}
       </div>
     </div>
   );
