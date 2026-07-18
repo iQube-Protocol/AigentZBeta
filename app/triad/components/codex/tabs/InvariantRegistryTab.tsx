@@ -148,8 +148,10 @@ export function InvariantRegistryTab({ publicMode = false }: { publicMode?: bool
       <div>
         <h2 className="text-lg font-semibold text-slate-100">Invariant Registry</h2>
         <p className="text-sm text-slate-400 mt-1">
-          The live constitutional substrate (CFS-001..014). Standing (validated confidence) and Reach
-          (adoption) are orthogonal and never conflated (Law XII).
+          The live constitutional substrate. The namespace chips below count invariants per namespace
+          (all statuses, not a standing-filtered subset). Standing (validated confidence) and Reach
+          (adoption) are orthogonal and never conflated (Law XII) — a newly-canonized invariant begins
+          at Standing 0 and Reach 0 until it is validated and adopted in use.
         </p>
       </div>
 

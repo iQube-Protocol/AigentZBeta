@@ -30,7 +30,14 @@ export type InvariantNamespace =
   | 'cybernetics'
   | 'interaction'
   | 'epistemology'
-  | 'representation';
+  | 'representation'
+  // Polity namespace entered the seed crystal (canonical-invariants.seed.json)
+  // via the Polity Papers canonization (2026-07-17) ahead of this type —
+  // widened when the drift surfaced as (a) the ontology_classes CHECK
+  // constraint violation and (b) the Invariant Registry omitting all 136
+  // operator-ratified polity invariants. The Polity Papers are the
+  // constitutional-architecture corpus, so polity composes as constitutional.
+  | 'polity';
 
 export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
   'constitutional',
@@ -45,6 +52,7 @@ export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
   'interaction',
   'epistemology',
   'representation',
+  'polity',
 ];
 
 /**
@@ -79,6 +87,11 @@ export const COMPOSITION_LAWS: Record<InvariantNamespace, CompositionLaw> = {
   interaction: 'contextual',    // DCIR-class invariants resolve per-surface/per-context at render time
   epistemology: 'normative',    // truth/standing rules (Law XII family) bind every knowledge act
   representation: 'global',     // representation continuity applies identically to every surface (as style)
+  // Polity Papers canonization (2026-07-17), operator-ratified to canonical.
+  // The Polity corpus is the constitutional-architecture family, so it composes
+  // distributively as the constitutional namespace does (each unit foregrounds
+  // a subset of the polity's rights/standing/delegation/presence guarantees).
+  polity: 'distributive',
 };
 
 export type InvariantStatus =

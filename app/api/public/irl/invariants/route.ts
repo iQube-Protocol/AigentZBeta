@@ -34,7 +34,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const PUBLIC_LIMIT_CAP = 250;
+// Raised 250 -> 500 (2026-07-17): the live substrate reached 319 invariants
+// after the Polity Papers canonization, so a 250 cap silently truncated the
+// registry to the highest-Standing 250 and hid all 136 operator-ratified
+// polity invariants (Standing 0 until validated). 500 matches the store's own
+// ceiling (services/invariants/store.ts listInvariants: Math.min(limit, 500)).
+const PUBLIC_LIMIT_CAP = 500;
 
 function isNamespace(value: unknown): value is InvariantNamespace {
   return typeof value === 'string' && (INVARIANT_NAMESPACES as string[]).includes(value);
