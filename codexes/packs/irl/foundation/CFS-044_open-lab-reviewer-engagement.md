@@ -1,6 +1,8 @@
 # CFS-044 — The Open Lab: Research Spaces, the Four Surfaces, and the Runtime as Place of Record
 
 **Chrysalis Foundation · Constitutional Charter v2 (consolidated Claude × Aletheon, 2026-07-18) · Status: PROPOSED (ratify-before-build; Phase 0 executable today)**
+
+> **v3 interim amendment (2026-07-18, BUILT):** the operator resolved the navigation question for now — **Participation is the fifth top-level domain** of the IRL OS cartridge (`Institution · Research · Laboratory · Publications · Participation`, shipped as a config-only regroup with a public doc-based Participation **Overview** landing first — never dropping a visitor into the Passport form). The deeper interface architecture (three-layer shell model, identity-menu treatments, pinned utilities, personalized home) is **explicitly deferred to a strategic whole-estate review** — the wallet "Welcome" chip remains the untouched cross-cartridge platform primitive. The nav now reads as the lifecycle of scientific engagement: learn → understand → discover → read → join. Everything else in this charter (Reserved Research Spaces, in-space agreement signing, QubeTalk, the IRL-OS repo) remains proposed and unbuilt.
 **Operator direction:** everything in the application or the repo — constitutional, inside the runtime; no emails beyond invitation; private engagement without pre-existing signup; a capability that generalises to every future reviewer/researcher; thinnest viable implementation, nothing throwaway.
 
 ---

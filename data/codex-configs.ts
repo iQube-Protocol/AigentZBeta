@@ -4984,20 +4984,25 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     category: 'cartridge',
     tags: ['irl-os', 'research', 'open', 'constitutional-evaluation', 'experiments', 'invariants', 'publications'],
   },
+  // Five-space IA (operator + Aletheon, 2026-07-18 — CFS-044 v3): the nav reads
+  // as the lifecycle of scientific engagement — Institution (who we are) →
+  // Research (what we know) → Laboratory (how we discover) → Publications
+  // (what we've shared) → Participation (how you join). Constitutional
+  // Evaluation, Consequence Engineering, and the Registry/Field are laboratory
+  // CAPABILITIES, not destinations; the Passport is one capability inside
+  // Participation. Deep links are group-independent (slug-only selection), so
+  // regrouping preserves every published ?tab= link. The wallet "Welcome" chip
+  // is the cross-cartridge platform shell — never overloaded by this nav.
   tabGroups: [
     { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
     { id: 'research', label: 'Research', icon: 'Layers', order: 1 },
-    { id: 'evaluation', label: 'Constitutional Evaluation', icon: 'Scale', order: 2 },
-    { id: 'consequence', label: 'Consequence Engineering', icon: 'Network', order: 2.5 },
-    { id: 'knowledge', label: 'Living Knowledge', icon: 'BookMarked', order: 3 },
-    { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 4 },
-    { id: 'programme', label: 'Programme', icon: 'Target', order: 5 },
-    // Polity Passport — first-class mirror of the AgentiQ OS passport group
-    // (2026-07-18). Gives IRL OS embed users (e.g. an external validation
-    // partner + their agent, CFS-042/CFS-043) passport application + bounded
-    // delegation without the full metaMe thin client. SmartWallet deep-dives
+    { id: 'laboratory', label: 'Laboratory', icon: 'FlaskConical', order: 2 },
+    { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 3 },
+    // Participation — the constitutional collaboration space (CFS-042/043/044):
+    // overview + passport + bounded delegation for external partners and their
+    // agents, without the full metaMe thin client. SmartWallet deep-dives
     // remain available via the floating copilot.
-    { id: 'passport', label: 'Polity Passport', icon: 'ShieldCheck', order: 6 },
+    { id: 'participation', label: 'Participation', icon: 'ShieldCheck', order: 4 },
   ],
   tabs: [
     {
@@ -5077,8 +5082,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       label: 'Constitutional Evaluation',
       slug: 'irl-os-evaluation',
       enabled: true,
-      group: 'evaluation',
-      order: 0,
+      group: 'laboratory',
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -5096,8 +5101,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       label: 'Protocols & Articles',
       slug: 'irl-os-protocols',
       enabled: true,
-      group: 'evaluation',
-      order: 1,
+      group: 'laboratory',
+      order: 0,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -5105,23 +5110,22 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'Target', description: 'Experiment designs, protocols, canonical articles, evaluation frameworks — EXP-001…010 incl. the Representation Gauntlet' },
     },
-    // ── Consequence Engineering ───────────────────────────────────
     {
       // Public read-only Invariant Field Explorer — the live enables/
       // constrains/contradicts field + forecast + counterfactual (what-if)
       // projection, anonymous-safe via /api/public/irl/invariant-field (both
       // the gated and public routes call one shared module — 2026-07-17).
+      // Registry + Field = two views over the Substrate (laboratory).
       id: 'irl-os-invariant-field',
       label: 'Invariant Field',
       slug: 'irl-os-invariant-field',
       enabled: true,
-      group: 'consequence',
-      order: 0,
+      group: 'laboratory',
+      order: 3,
       type: 'static',
       config: { component: 'InvariantFieldExplorerTab', props: { publicMode: true } },
       metadata: { icon: 'Network', description: 'Computational Epistemology made visible — the live enables/constrains/contradicts field + counterfactual projection (read-only, public)', color: 'violet' },
     },
-    // ── Living Knowledge ──────────────────────────────────────────
     {
       // Public read-only Invariant Registry (Browse) — the live substrate,
       // anonymous-safe via /api/public/irl/invariants (audit 2026-07-17). The
@@ -5130,8 +5134,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       label: 'Invariant Registry',
       slug: 'irl-os-invariant-registry',
       enabled: true,
-      group: 'knowledge',
-      order: 0,
+      group: 'laboratory',
+      order: 2,
       type: 'static',
       config: { component: 'InvariantRegistryTab', props: { publicMode: true } },
       metadata: { icon: 'BookMarked', description: 'Browse the live constitutional substrate — namespaces, status, Standing, Reach (read-only, public)', color: 'violet' },
@@ -5141,8 +5145,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       label: 'Glossary & Ontology',
       slug: 'irl-os-glossary',
       enabled: true,
-      group: 'knowledge',
-      order: 1,
+      group: 'research',
+      order: 3,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -5165,14 +5169,15 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'BookOpen', description: 'The constitutional record — every increment, finding, and session record (publication lineage)' },
     },
-    // ── Programme Management ──────────────────────────────────────
     {
+      // Research Programmes live under Institution — the programme is part of
+      // "who we are" (five-space IA, 2026-07-18).
       id: 'irl-os-programmes',
       label: 'Research Programmes',
       slug: 'irl-os-programmes',
       enabled: true,
-      group: 'programme',
-      order: 0,
+      group: 'institution',
+      order: 2,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -5180,18 +5185,34 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'Target', description: 'CRP-001 — the research programmes; roadmap and backlog live in the charter (CFS-019 §8)' },
     },
-    // ── Polity Passport ───────────────────────────────────────────
-    // Mirror of AGENTIQ_OS_CARTRIDGE's passport group (2026-07-18). Apply +
-    // Registry + Locker + Delegation public; Steward adminOnly. Components are
-    // already registered in TabRenderer.componentRegistry — config-only, no
-    // new imports. Deep-linkable via /triad/embed/codex/irl-os?tab=<slug>.
+    // ── Participation ─────────────────────────────────────────────
+    // The constitutional collaboration space (five-space IA, 2026-07-18):
+    // Overview lands first (never drop a visitor into the Passport form —
+    // Aletheon), then the passport capabilities (mirror of AGENTIQ_OS's
+    // passport group). Apply + Delegation + Registry + Locker public; Steward
+    // adminOnly. Components already in TabRenderer.componentRegistry —
+    // config-only. Deep-linkable via /triad/embed/codex/irl-os?tab=<slug>.
+    {
+      id: 'irl-os-participation-overview',
+      label: 'Overview',
+      slug: 'irl-os-participation-overview',
+      enabled: true,
+      group: 'participation',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/PARTICIPATION_overview.md' },
+      },
+      metadata: { icon: 'ShieldCheck', description: 'How to join the Invariant Research Lab — roles, the passport → delegation → agreement path, and the public API for delegated agents', color: 'violet' },
+    },
     {
       id: 'irl-os-passport-apply',
       label: 'Apply',
       slug: 'irl-os-passport-apply',
       enabled: true,
-      group: 'passport',
-      order: 0,
+      group: 'participation',
+      order: 1,
       type: 'static',
       config: { component: 'PassportBureauApplyTab' },
       metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood (World ID upgrades to verified citizen)', color: 'violet' },
@@ -5201,8 +5222,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       label: 'Delegation',
       slug: 'irl-os-passport-delegation',
       enabled: true,
-      group: 'passport',
-      order: 1,
+      group: 'participation',
+      order: 2,
       type: 'static',
       config: { component: 'BoundedDelegationTab' },
       metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
@@ -5212,8 +5233,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       label: 'Registry',
       slug: 'irl-os-passport-registry',
       enabled: true,
-      group: 'passport',
-      order: 2,
+      group: 'participation',
+      order: 3,
       type: 'static',
       config: { component: 'PassportRegistryTab' },
       metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
@@ -5223,8 +5244,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       label: 'Locker',
       slug: 'irl-os-passport-locker',
       enabled: true,
-      group: 'passport',
-      order: 3,
+      group: 'participation',
+      order: 4,
       type: 'static',
       config: { component: 'LockerTab' },
       metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
@@ -5235,8 +5256,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       slug: 'irl-os-passport-steward',
       enabled: true,
       adminOnly: true,
-      group: 'passport',
-      order: 4,
+      group: 'participation',
+      order: 5,
       type: 'static',
       config: { component: 'PassportBureauStewardTab' },
       metadata: { icon: 'Gavel', description: 'Steward review queue — admin only', color: 'violet' },
