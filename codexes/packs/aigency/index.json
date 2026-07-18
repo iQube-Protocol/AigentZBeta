@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-18T00:47:27.739Z",
+  "last_updated": "2026-07-18T00:55:25.164Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "81e1abd635d7f72561823d21200bc62fa83cfcaf",
-  "latest_commit_short": "81e1abd",
-  "latest_commit_title": "fix Invariant Registry: register polity namespace + raise public cap so all 319 invariants surface",
+  "latest_commit": "76f9df6cfda89ab50179f01419a4a35df6193f95",
+  "latest_commit_short": "76f9df6",
+  "latest_commit_title": "author IRL Validation Roadmap + seed invariant-field first principles (322/323)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "76f9df6",
+      "full_sha": "76f9df6cfda89ab50179f01419a4a35df6193f95",
+      "title": "author IRL Validation Roadmap + seed invariant-field first principles (322/323)",
+      "author": "Claude",
+      "timestamp": "2026-07-18T00:53:43Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-76f9df6.md"
+    },
     {
       "sha": "81e1abd",
       "full_sha": "81e1abd635d7f72561823d21200bc62fa83cfcaf",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T06:16:44Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-585165e.md"
-    },
-    {
-      "sha": "346eca6",
-      "full_sha": "346eca6088c06f1a9c6acb146f6d39c97740ee43",
-      "title": "Wire aigentZ default turn to gpt-4o (reliable stage-fence emission)",
-      "author": "Claude",
-      "timestamp": "2026-07-07T06:04:23Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-346eca6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

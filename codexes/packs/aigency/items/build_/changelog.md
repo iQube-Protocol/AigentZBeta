@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`76f9df6`](https://github.com/iQube-Protocol/AigentZBeta/commit/76f9df6cfda89ab50179f01419a4a35df6193f95) [push] author IRL Validation Roadmap + seed invariant-field first principles (322/323) (Claude, 2026-07-18T00:53:43Z)
 - [`81e1abd`](https://github.com/iQube-Protocol/AigentZBeta/commit/81e1abd635d7f72561823d21200bc62fa83cfcaf) [fix] fix Invariant Registry: register polity namespace + raise public cap so all 319 invariants surface (Claude, 2026-07-18T00:45:49Z)
 - [`eb18469`](https://github.com/iQube-Protocol/AigentZBeta/commit/eb1846930adbf26c81679c62129bdec0b26d9409) [push] refine inv.polity.238 hierarchy: Ethics->Law->Economics->Consequence->Code (operator) (Claude, 2026-07-18T00:07:22Z)
 - [`fc7ba11`](https://github.com/iQube-Protocol/AigentZBeta/commit/fc7ba1127e7a525f6021d39cc80e4dd0bbc4336b) [push] ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot') (Claude, 2026-07-17T23:52:53Z)
