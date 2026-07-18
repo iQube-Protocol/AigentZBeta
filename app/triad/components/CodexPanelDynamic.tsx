@@ -980,12 +980,12 @@ export default function CodexPanelDynamic({
                     </span>
                   )}
                   {activeGroupDef && <span className="hidden md:inline text-xs text-slate-600">·</span>}
-                  <span className="hidden md:inline text-xs font-semibold text-white whitespace-nowrap">{activeTabTitle}</span>
-                  {activeTabDescription && (
-                    <span className="hidden sm:block truncate text-xs text-slate-500 max-w-52" title={activeTabDescription}>
-                      {activeTabDescription}
-                    </span>
-                  )}
+                  <span
+                    className="hidden md:inline text-xs font-semibold text-white whitespace-nowrap"
+                    title={activeTabDescription || undefined}
+                  >
+                    {activeTabTitle}
+                  </span>
                 </div>
               </div>
               )}
