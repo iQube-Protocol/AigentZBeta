@@ -100,8 +100,18 @@ Canonical lifecycle every collaboration follows:
 invitation → agreement → passport → delegation → locker → QubeTalk →
 experiment → submission → standing.
 
-Already live after this push: Overview, Passport (Apply), Delegation, Locker
-(now including Invitations claim + Agreements execution inline), QubeTalk-in-
-Locker. To build: dedicated Invitations + Agreements sub-tabs (list views over
-`x409_invitations` + `constitutional_agreements`), Cohorts, Standing,
-Submissions surfaces composing existing endpoints.
+### Consolidation (operator, same day)
+
+The executable v1 collapses further: **Agreements live inside the Locker**
+(the claim box + Review & execute panel — no separate Agreements tab),
+**no Cohorts tab**, and **Standing is added as a Participation tab**.
+Final Participation nav: Overview · Apply · Delegation · Locker (invitations
++ agreements + QubeTalk inline) · Passport Registry · **Standing** ·
+Steward (admin).
+
+Standing shipped as `ParticipationStandingTab` (both cartridges): standing
+lanes (personal/delegated/stewardship/capability + overall + band), reach
+(reputation, lifetime CVs, tasks completed), and the receipted contribution
+history — composed from the existing `/api/wallet/tasks` and
+`/api/assistant/receipts` endpoints, no new server surface. Submissions
+remains the one deferred surface.
