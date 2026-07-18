@@ -3504,3 +3504,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-eb18469.md](../build_/COMMITS/COMMIT-eb18469.md)
 - Message: refine inv.polity.238 hierarchy: Ethics->Law->Economics->Consequence->Code (operator)
+
+## Commit `81e1abd` — 2026-07-18T00:45:49Z
+- Type: `fix`
+- Brief: [COMMIT-81e1abd.md](../build_/COMMITS/COMMIT-81e1abd.md)
+- Message: fix Invariant Registry: register polity namespace + raise public cap so all 319 invariants surface
