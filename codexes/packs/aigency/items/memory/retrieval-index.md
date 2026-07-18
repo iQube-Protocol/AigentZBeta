@@ -3514,3 +3514,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-76f9df6.md](../build_/COMMITS/COMMIT-76f9df6.md)
 - Message: author IRL Validation Roadmap + seed invariant-field first principles (322/323)
+
+## Commit `afdd507` — 2026-07-18T01:01:20Z
+- Type: `push`
+- Brief: [COMMIT-afdd507.md](../build_/COMMITS/COMMIT-afdd507.md)
+- Message: charter the three-experiment Validation Programme v1 (EXP-P1/P2/P3)
