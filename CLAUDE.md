@@ -1303,6 +1303,19 @@ space through the observer pattern (observed, never asserted).**
   production path or narrating production state from static data is an infraction
   (the CS-001 / stale-handoff defect class).
 
+## Hypothesis vs Canon — Epistemic Honesty Discipline (IRL corpus)
+
+**Empirical hypotheses NEVER enter the invariant canon as `canonical`, regardless of how central or beloved they are. They enter and remain `proposed` until the experiments that test them produce supporting evidence.**
+
+Operator-delegated standing instruction (2026-07-18): the operator relies on agents to keep the terminology honest here — including correcting the operator's own drafts when they drift.
+
+- **`canonical`** is for definitions, methods, governance rules, and doctrine the operator ratifies as *how the Institute works* (e.g. `inv.reasoning.324` source independence, `330` transferable reasoning primitive, `332` division-of-labour-is-open).
+- **`proposed`** is for claims about the world that experiments exist to test (e.g. `323` intelligence-is-a-property-of-fields, `329` the Hybrid Intelligence Thesis, `333` the Cumulative Intelligence Hypothesis). Ratifying a hypothesis before its evidence exists would undermine the falsifiability that makes the research programme credible.
+- The same discipline applies to prose: reports and external documents must never state a `proposed` hypothesis as established fact, must report calibration metrics (e.g. IRV coverage) as proxies with their model config rather than pass/fail scores, and must not entangle discovery-calibration results with structural-thesis evidence (`inv.reasoning.326`/`328`).
+- When an operator instruction would canonize a hypothesis, flag it and recommend `proposed` — the operator has confirmed this is the wanted behaviour, not obstruction.
+
+---
+
 ## Adding to This File
 
 When a new rule, pattern, or constraint is established during development, add it here immediately.
