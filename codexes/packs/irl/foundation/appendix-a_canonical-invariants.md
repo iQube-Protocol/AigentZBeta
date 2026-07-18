@@ -601,3 +601,11 @@ Format mirrors the polity section of the canonical appendix: `N. *(polity · pri
 320. *(reasoning · principle)* **The reasoning-substrate formula** — The primary reasoning substrate is Intent x Personal Invariants x Domain Invariants = Constitutional Context, from which generation proceeds; conversation history and memory become supplementary rather than primary.
 321. *(reasoning · principle)* **Domain-generality of the Invariant Runtime** — The Invariant Runtime is domain-invariant: replacing the constitutional invariant with a medical, legal, engineering, scientific or educational one leaves the architecture unchanged — only the governing invariant changes.
 
+
+## Additions — Invariant-field first principles (2026-07-17) — `proposed`
+
+*(Authored as the corpus crossed 319 invariants and the Institute became an experimental instrument. The programme's emphasis shifts from library to field. 323 is the central hypothesis the Structural Invariance experiment programme (EXP-P2) exists to test — proposed, not validated.)*
+
+322. *(reasoning · principle)* **Value scales with relationships, not count** — the value of an invariant intelligence system is proportional not to how many invariants it stores but to the quality of relationships it can discover, validate, and operationalise between them; invariants are basis vectors, the field is where intelligence emerges.
+323. *(reasoning · principle)* **Intelligence is a property of fields, not models** — intelligence is a property of structured invariant fields and the transformations between them; models are one mechanism for traversing those fields, not the field itself. *(The central hypothesis EXP-P2 tests — proposed, not validated.)*
+

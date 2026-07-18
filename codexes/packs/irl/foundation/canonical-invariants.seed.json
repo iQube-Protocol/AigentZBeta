@@ -4640,6 +4640,36 @@
       "provenance": {
         "source": "The domain-generality of the architecture. Reaffirms the CFS-035 field-generalization + Principle 005. Thresholds-series genesis dialogue (the founding text of invariant theory — the ContentQube Production Pipeline + Constitutional Seeds + Tabs 13-14 work; see GENESIS_knowledge-compression.md). Originates the doctrine later formalized as CRP-002 Three Computational Compressions + CFS-035. Operator-ratified into Canon 2026-07-17 (Knowledge Compression genesis canonization)."
       }
+    },
+    {
+      "id": "inv.reasoning.322",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "The value of an invariant intelligence system is not proportional to the number of invariants it stores, but to the quality of the relationships it can discover, validate, and operationalise between them. Individual invariants are the basis vectors; the field — the structure of their relationships — is where intelligence emerges.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "field",
+        "knowledge"
+      ],
+      "provenance": {
+        "source": "Operator-added first principle (Aletheon dialogue, 2026-07-17, on the corpus crossing 319 invariants) — shifts emphasis from building a library to building a field. Extends the Invariant Field (inv.reasoning.081/083) + CFS-035. Candidate pending operator ratification."
+      }
+    },
+    {
+      "id": "inv.reasoning.323",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "statement": "Intelligence is not fundamentally a property of models; it is a property of structured invariant fields and the transformations between them. Models are one mechanism for traversing those fields, not the field itself.",
+      "status": "proposed",
+      "contexts": [
+        "reasoning",
+        "field",
+        "intelligence"
+      ],
+      "provenance": {
+        "source": "The central research hypothesis the Structural Invariance programme (Experiment B / EXP-P2) exists to test empirically — NOT yet validated (mirrors the governing-hypothesis-pending-EXP posture of inv.reasoning.132). Aletheon dialogue, 2026-07-17. Candidate pending operator ratification; empirical confirmation via the EXP-P2 structural experiments."
+      }
     }
   ]
 }
