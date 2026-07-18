@@ -32,13 +32,20 @@ This is not a policy we bolt on; it falls out of the agreement lifecycle's shape
 
 **Therefore:** an agent that drafts an agreement naming *itself* as `selectedAgentRef` and accepts it (its side) still cannot make the gate pass. The gate stays closed until a **human principal** — the owning persona, authenticated as themselves — authorizes. Self-delegation (agent grants itself authority) and self-sponsorship (agent brings itself into existence as its own sponsor) are both structurally unreachable: both require occupying the owner/authorizer slot, which is bound to a human persona commitment the agent does not hold.
 
-### 2.1 The one design requirement that keeps this airtight
+### 2.1 The one design requirement — resolved by GRADED proof-of-humanity
 
-The guarantee is only as strong as the **identity boundary between "agent acting" and "human authorizing."** If the guiding agent could perform the `authorize` call *under the human's own authenticated persona*, the separation would be cosmetic. So the build MUST enforce:
+The guarantee is only as strong as the **identity boundary between "agent acting" and "human authorizing."** If the guiding agent could perform the `authorize` call *under the human's own authenticated persona*, the separation would be cosmetic. The build MUST therefore make `authorize` a **human-present action** — and the platform already ships a *graded* proof-of-humanity ladder to prove human presence at the right strength for the risk:
 
-> **The `authorize` step is a human-gated action.** It requires the principal's own authentication — their Passport signature / a step-up factor / their authenticated session acting as themselves — and is **never delegable to the guiding agent.** The agent may pre-fill, explain, and recommend the terms; the human presses authorize as themselves. Everything else in the flow the agent may drive; this one step it may not.
+> **Proof-of-humanity strength scales with contract risk. The `authorize` step requires a personhood proof graded to what is being delegated — weak by default, strong for sensitive/money-moving contracts.** The platform's ladder (`services/passport/personhoodProof.ts`: `PersonhoodProofType = 'captcha' | 'world_id' | …`) distinguishes **weak** (Cloudflare Turnstile CAPTCHA) from **strong** (Worldcoin World ID → `passport_grade = 'verified_citizen'`, `world_id_verified_at`). The required grade is read from the contract itself:
 
-This is the seam where the guided-onboarding build must be careful: the passport application and the `authorize` action run under the **human principal's identity**; the agent's guidance and its own `accept` run under the **agent's identity**. The two never merge. (Concretely: do not let the guided-onboarding agent hold or replay the human's Supabase/persona credential for the authorize call — authorize is a human-present action, mirroring the in-app PR-merge human execution gate already precedented in this codebase.)
+| Contract risk (from the `DelegatedAuthority`) | Required proof-of-humanity | Example |
+|---|---|---|
+| Low — read/write, `valueCeiling: null`, no settlement | **Weak (captcha)** — already taken at passport application; no added friction | **Austin's EXP-P1 result submission** |
+| High — money-moving (`settlementTerms` present, declared `valueCeiling`), high band | **Strong (World ID / passkey)** — the authorizing persona must be `verified_citizen` | **Constitutional Financial Services (CRP-003)** Domain 1/2 |
+
+**Operator direction (2026-07-18):** for Austin and his agent, mandate only the **weak captcha** proof — the passport application already carries it, so the authorize step inherits a human-present proof with *zero* extra friction. Reserve World ID / passkey for **higher-risk or higher-value contracts** (the Constitutional Financial Services programme, where it is key). Do not impose strong verification where the contract's risk doesn't warrant it — unnecessary friction is itself a failure mode.
+
+This still closes the seam: the `authorize` action runs under the **human principal's identity** carrying *at least* a weak personhood proof the agent cannot forge (the guiding agent has no captcha/World-ID personhood of its own), while the agent's guidance and its own `accept` run under the **agent's identity**. The strength dial rises with the stakes; the boundary holds at every grade. (Precedent: the passport submit route already refuses on `!verifyWeakProof(...)`; the strong verifier `verifyWorldIdProof` is applied on the same seam only where the contract's risk requires it. Insertion point + graded logic in §7 and CFS-043a.)
 
 ---
 
@@ -79,16 +86,17 @@ CFS-042 (Austin's experiment-submission onboarding) is the **pilot instance** of
 
 **Principal–Delegate Separation** — *A delegated authority is granted only by the human principal who owns it, under the principal's own authentication; a delegate can never sponsor, form-ownership-over, or authorize its own authority.* This is the constitutional invariant the guided-onboarding capability makes load-bearing, and the safeguard that lets agent-driven recruitment scale without ever admitting ungoverned self-delegation. Proposed for ratification alongside this charter (the `constitutional` namespace).
 
+**Graded Proof-of-Humanity** — *The strength of the personhood proof required to authorize a delegation scales with the contract's risk: weak (captcha) for low-risk read/write delegations, strong (World ID / passkey) for money-moving or high-value contracts.* Verification is a dial set by stakes, not a fixed toll — imposing strong proof where the risk doesn't warrant it is unnecessary friction, and accepting weak proof where funds move is under-protection. Proposed alongside Principal–Delegate Separation (`constitutional` namespace); it is the rule that keeps the safeguard proportionate across the Austin (weak) and Constitutional Financial Services (strong) ends of the spectrum.
+
 ---
 
-## 7. What ships when (build order — NOT this doc)
+## 7. What ships when (build order)
 
-1. **The guided-onboarding script/flow** — an agent skill/capability that walks a principal through steps 1–5 (§3), composing the *existing* agreement endpoints (`/api/constitutional/agreement` form/accept/authorize) + the Passport application surface. No new trust primitive.
-2. **The human-gated authorize seam (§2.1)** — ensure `authorize` requires the principal's own authentication and is not performable by the guiding agent (the single security-critical build requirement).
-3. **Marketa packaging** — distribute the capability to agents; instrument the recruitment loop + `agreement_authorized` receipts as the audit trail.
-4. **Generalize from CFS-042** — Austin's experiment-submission agreement as the first live run; then Horizen agents.
-
-No code lands from *this doc* — the charter is the ratification gate. Steps 1–4 are separately authorized builds.
+1. **The guided-onboarding script/flow** — **DONE (2026-07-18):** `CFS-043a_guided-onboarding-script.md` — the agent playbook that walks a principal through steps 1–5 (§3), composing the *existing* agreement endpoints (`/api/constitutional/agreement` form/accept/authorize) + the Passport surfaces. No new trust primitive.
+2. **The Passport surfaces on IRL OS** — **DONE (2026-07-18):** the `passport` tab group added to `IRL_OS_CARTRIDGE` (`data/codex-configs.ts`) — Apply / Delegation / Registry / Locker / Steward, mirroring AgentiQ OS. Components already in `TabRenderer.componentRegistry` (config-only). Deep-linkable via `/triad/embed/codex/irl-os?tab=irl-os-passport-*`, so the partner + agent onboard from the IRL OS embed alone (no full metaMe thin client); SmartWallet deep-dives via the floating copilot (`initialTab="iqube"`).
+3. **The graded authorize gate (§2.1)** — **PROPOSED (needs operator go):** in `POST /api/constitutional/agreement` (`action:'authorize'`), before `authorizeAgreement`, require a personhood proof **graded to the contract**: default **weak captcha** (Austin — inherited from passport application, no extra call); require **strong** (`verify` the passport is `verified_citizen` via `polity_passport_records.world_id_verified_at`, pattern from `app/api/persona/sponsored-agents/route.ts:187`, or verify a fresh `WorldIdProofBundle` inline via `verifyWorldIdProof`) **only when the agreement's `DelegatedAuthority` is money-moving** (`settlementTerms` present / declared `valueCeiling` / high band). The required grade is written into the agreement object's existing unused `verificationRequirements` slot at `form` time, so the gate reads the requirement off the contract rather than hard-coding it. This is the one change that touches the constitutional agreement path, so it awaits explicit operator approval before wiring. **For Austin, weak captcha is sufficient and no new gate work is strictly required to start** — his passport application already carries a captcha proof.
+4. **Marketa packaging** — distribute the capability to agents; instrument the recruitment loop + `agreement_authorized` receipts as the audit trail. *(Follow-on.)*
+5. **Generalize from CFS-042** — Austin's experiment-submission agreement as the first live run; then Horizen agents. *(Follow-on.)*
 
 ---
 

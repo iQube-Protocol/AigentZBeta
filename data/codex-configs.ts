@@ -4992,6 +4992,12 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     { id: 'knowledge', label: 'Living Knowledge', icon: 'BookMarked', order: 3 },
     { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 4 },
     { id: 'programme', label: 'Programme', icon: 'Target', order: 5 },
+    // Polity Passport — first-class mirror of the AgentiQ OS passport group
+    // (2026-07-18). Gives IRL OS embed users (e.g. an external validation
+    // partner + their agent, CFS-042/CFS-043) passport application + bounded
+    // delegation without the full metaMe thin client. SmartWallet deep-dives
+    // remain available via the floating copilot.
+    { id: 'passport', label: 'Polity Passport', icon: 'ShieldCheck', order: 6 },
   ],
   tabs: [
     {
@@ -5173,6 +5179,70 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
         props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CRP-001_constitutional-research-program-charter.md' },
       },
       metadata: { icon: 'Target', description: 'CRP-001 — the research programmes; roadmap and backlog live in the charter (CFS-019 §8)' },
+    },
+    // ── Polity Passport ───────────────────────────────────────────
+    // Mirror of AGENTIQ_OS_CARTRIDGE's passport group (2026-07-18). Apply +
+    // Registry + Locker + Delegation public; Steward adminOnly. Components are
+    // already registered in TabRenderer.componentRegistry — config-only, no
+    // new imports. Deep-linkable via /triad/embed/codex/irl-os?tab=<slug>.
+    {
+      id: 'irl-os-passport-apply',
+      label: 'Apply',
+      slug: 'irl-os-passport-apply',
+      enabled: true,
+      group: 'passport',
+      order: 0,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood (World ID upgrades to verified citizen)', color: 'violet' },
+    },
+    {
+      id: 'irl-os-passport-delegation',
+      label: 'Delegation',
+      slug: 'irl-os-passport-delegation',
+      enabled: true,
+      group: 'passport',
+      order: 1,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
+    },
+    {
+      id: 'irl-os-passport-registry',
+      label: 'Registry',
+      slug: 'irl-os-passport-registry',
+      enabled: true,
+      group: 'passport',
+      order: 2,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'irl-os-passport-locker',
+      label: 'Locker',
+      slug: 'irl-os-passport-locker',
+      enabled: true,
+      group: 'passport',
+      order: 3,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
+    },
+    {
+      id: 'irl-os-passport-steward',
+      label: 'Steward',
+      slug: 'irl-os-passport-steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'passport',
+      order: 4,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — admin only', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('steward', 'irl-os-passport-steward');
+      },
     },
   ],
   permissions: {
