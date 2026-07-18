@@ -110,14 +110,20 @@ function resolveProvider() {
   throw new Error('no provider key — set VENICE_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY');
 }
 let ACTIVE_MODEL = '';
+// Optional stronger model for the JUDGE steps (consensus + overlap judge) —
+// the persona extraction stays on ACTIVE_MODEL (cheap/diverse); scoring wants a
+// stronger semantic matcher so coverage isn't dinged by weak judging. Same
+// provider as ACTIVE_PROVIDER; defaults to ACTIVE_MODEL when unset.
+const JUDGE_MODEL = flag('judge-model', null);
 let TOKENS = 0;
-async function callModel(system, user, maxTokens = 1200) {
+async function callModel(system, user, maxTokens = 1200, modelOverride = null) {
   if (DRY) return '{"properties":[]}';
+  const model = modelOverride || ACTIVE_MODEL;
   if (ACTIVE_PROVIDER === 'anthropic') {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: ACTIVE_MODEL, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
+      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
     });
     if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 160)}`);
     const d = await res.json();
@@ -128,7 +134,7 @@ async function callModel(system, user, maxTokens = 1200) {
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', Authorization: `Bearer ${process.env[PROVIDERS[ACTIVE_PROVIDER].keyEnv]}` },
-    body: JSON.stringify({ model: ACTIVE_MODEL, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
+    body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
   });
   if (!res.ok) throw new Error(`${ACTIVE_PROVIDER} ${res.status}: ${(await res.text()).slice(0, 160)}`);
   const d = await res.json();
@@ -163,7 +169,7 @@ async function main() {
   let intents = banded.slice(0, Number.isFinite(LIMIT) ? LIMIT : banded.length);
   ACTIVE_PROVIDER = resolveProvider();
   ACTIVE_MODEL = PROVIDERS[ACTIVE_PROVIDER].model();
-  console.log(`[iv] host=${HOST} · exp=${EXP} · band=${BAND} · reps=${REPS} · intents=${intents.length} · provider=${ACTIVE_PROVIDER}/${ACTIVE_MODEL}${DRY ? ' · DRY-RUN' : ''}`);
+  console.log(`[iv] host=${HOST} · exp=${EXP} · band=${BAND} · reps=${REPS} · intents=${intents.length} · provider=${ACTIVE_PROVIDER} · persona=${ACTIVE_MODEL} · judge=${JUDGE_MODEL || ACTIVE_MODEL}${DRY ? ' · DRY-RUN' : ''}`);
 
   // seedId -> statement map (public, no creds)
   let stmtBySeed = {};
@@ -198,13 +204,13 @@ async function main() {
       }
       // consensus
       const consIn = JSON.stringify(perExpert.map((e) => ({ role: e.role, properties: e.properties })));
-      const consOut = DRY ? '{"consensus":[]}' : await callModel(cfg.seb.consensus_instruction, consIn, 1500);
+      const consOut = DRY ? '{"consensus":[]}' : await callModel(cfg.seb.consensus_instruction, consIn, 1500, JUDGE_MODEL);
       const consensus = parseJson(consOut)?.consensus || [];
       // ── overlap judge: SEB consensus <-> IRE invariants ──
       const ireStatements = ireSeeds.map((s) => stmtBySeed[s]).filter(Boolean);
       const judgeSys = 'You compare two lists describing what governs a task. List E = experts\' consensus properties. List I = the engine\'s selected statements. Map them: a MATCH is an expert property whose meaning is captured by some engine statement. Return JSON {"matched":[{"expert":"...","engine":"..."}],"omitted":["expert property with no engine match"],"discovered":["engine statement with no expert match"]}. Judge meaning, not wording.';
       const judgeUser = `E = ${JSON.stringify(consensus.map((c) => c.property || c))}\nI = ${JSON.stringify(ireStatements)}`;
-      const judged = DRY ? { matched: [], omitted: [], discovered: [] } : (parseJson(await callModel(judgeSys, judgeUser, 1500)) || { matched: [], omitted: [], discovered: [] });
+      const judged = DRY ? { matched: [], omitted: [], discovered: [] } : (parseJson(await callModel(judgeSys, judgeUser, 1500, JUDGE_MODEL)) || { matched: [], omitted: [], discovered: [] });
       const nSeb = consensus.length || (judged.matched.length + judged.omitted.length);
       const nIre = ireStatements.length || (judged.matched.length + judged.discovered.length);
       row.irv = {
@@ -269,7 +275,7 @@ async function main() {
   const outDir = join(REPO, OUT_DIR);
   mkdirSync(outDir, { recursive: true });
   const stamp = new Date().toISOString().slice(0, 10);
-  const payload = { experiment: EXP === 'ipv' ? 'IPV-001' : 'IRV-001', kind: 'instrument-validation', band: BAND, framing: 'Synthetic Expert Baseline (SEB) — engineering calibration, NOT a Delphi study; personas are correlated models, not independent experts.', host: HOST, provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL, reps: REPS, tokens: TOKENS, generatedAt: new Date().toISOString(), summary, results };
+  const payload = { experiment: EXP === 'ipv' ? 'IPV-001' : 'IRV-001', kind: 'instrument-validation', band: BAND, framing: 'Synthetic Expert Baseline (SEB) — engineering calibration, NOT a Delphi study; personas are correlated models, not independent experts.', host: HOST, provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL, personaModel: ACTIVE_MODEL, judgeModel: JUDGE_MODEL || ACTIVE_MODEL, reps: REPS, tokens: TOKENS, generatedAt: new Date().toISOString(), summary, results };
   const json = JSON.stringify(payload, null, 2);
   const hash = createHash('sha256').update(json).digest('hex');
   const base = `${EXP}-results-${stamp}`;
