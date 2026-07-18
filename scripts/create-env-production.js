@@ -128,6 +128,10 @@ const envVars = [
   'MARKETA_DISCOVERY_SOURCES',
   // Polity Passport Bureau — credential HMAC signing (Phase A stub)
   'PASSPORT_BUREAU_CREDENTIAL_SECRET',
+  // Pairwise External Service References — keyed HMAC derivation for the
+  // three-level persona reference model. When unset, external-ref issuance
+  // is disabled (private UUIDs + Polity public refs still work).
+  'PERSONA_PAIRWISE_REF_SECRET',
   // PersonaQube — Sui + Walrus mint rail (Polity Passport rail).
   // When unset, mintPersonaToSui falls back to stub mode (deterministic
   // fake IDs). Setting all three switches the route to real on-chain mint.
