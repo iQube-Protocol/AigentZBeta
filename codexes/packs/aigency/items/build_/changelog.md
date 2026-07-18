@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`afdd507`](https://github.com/iQube-Protocol/AigentZBeta/commit/afdd507e5c26b89eabc56c7a3bdd74d8f9e12191) [push] charter the three-experiment Validation Programme v1 (EXP-P1/P2/P3) (Claude, 2026-07-18T01:01:20Z)
 - [`76f9df6`](https://github.com/iQube-Protocol/AigentZBeta/commit/76f9df6cfda89ab50179f01419a4a35df6193f95) [push] author IRL Validation Roadmap + seed invariant-field first principles (322/323) (Claude, 2026-07-18T00:53:43Z)
 - [`81e1abd`](https://github.com/iQube-Protocol/AigentZBeta/commit/81e1abd635d7f72561823d21200bc62fa83cfcaf) [fix] fix Invariant Registry: register polity namespace + raise public cap so all 319 invariants surface (Claude, 2026-07-18T00:45:49Z)
 - [`eb18469`](https://github.com/iQube-Protocol/AigentZBeta/commit/eb1846930adbf26c81679c62129bdec0b26d9409) [push] refine inv.polity.238 hierarchy: Ethics->Law->Economics->Consequence->Code (operator) (Claude, 2026-07-18T00:07:22Z)

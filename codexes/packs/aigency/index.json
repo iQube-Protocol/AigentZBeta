@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-18T00:55:25.164Z",
+  "last_updated": "2026-07-18T01:03:06.483Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "76f9df6cfda89ab50179f01419a4a35df6193f95",
-  "latest_commit_short": "76f9df6",
-  "latest_commit_title": "author IRL Validation Roadmap + seed invariant-field first principles (322/323)",
+  "latest_commit": "afdd507e5c26b89eabc56c7a3bdd74d8f9e12191",
+  "latest_commit_short": "afdd507",
+  "latest_commit_title": "charter the three-experiment Validation Programme v1 (EXP-P1/P2/P3)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "afdd507",
+      "full_sha": "afdd507e5c26b89eabc56c7a3bdd74d8f9e12191",
+      "title": "charter the three-experiment Validation Programme v1 (EXP-P1/P2/P3)",
+      "author": "Claude",
+      "timestamp": "2026-07-18T01:01:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-afdd507.md"
+    },
     {
       "sha": "76f9df6",
       "full_sha": "76f9df6cfda89ab50179f01419a4a35df6193f95",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T07:05:09Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c2f7076.md"
-    },
-    {
-      "sha": "585165e",
-      "full_sha": "585165e31333e22520ca3a1c2af03f659e72e3a2",
-      "title": "Build CCRL Phase E first slice: Invariant Field Explorer (Computational Epistemology made visible)",
-      "author": "Claude",
-      "timestamp": "2026-07-07T06:16:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-585165e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
