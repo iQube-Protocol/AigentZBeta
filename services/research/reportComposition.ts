@@ -151,6 +151,8 @@ export interface ReportVersionRow {
   sovereignty: unknown;
   grounded_on: unknown;
   created_at: string;
+  /** Stage 3 of the lifecycle: set = publicly visible in Publications → Reports. */
+  published_at?: string | null;
 }
 
 const MISSING = 'research_report_versions';
@@ -209,6 +211,56 @@ export async function listReportVersions(scope = 'all'): Promise<ReportVersionRo
     .select('*')
     .eq('scope', scope)
     .order('version', { ascending: false });
+  if (error) return [];
+  return (data ?? []) as ReportVersionRow[];
+}
+
+/**
+ * Stage 3 — publish (or unpublish) a canonical version. Publishing requires
+ * the version to be canonical in full: minted (receipt_id set), because the
+ * public surface presents published reports as receipt-anchored records.
+ */
+export async function setReportVersionPublished(
+  scope: string,
+  version: number,
+  publish: boolean,
+): Promise<{ ok: true; publishedAt: string | null } | { ok: false; error: string; code?: string }> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase configuration missing' };
+  const { data: row, error: readErr } = await admin
+    .from('research_report_versions')
+    .select('id, receipt_id, published_at')
+    .eq('scope', scope)
+    .eq('version', version)
+    .maybeSingle();
+  if (readErr) {
+    if (readErr.message.includes('published_at')) {
+      return { ok: false, code: 'migration_pending', error: 'published_at column not provisioned — apply 20260723000000.' };
+    }
+    return { ok: false, error: readErr.message };
+  }
+  if (!row) return { ok: false, error: `No canonical version v${version} for scope '${scope}'` };
+  if (publish && !row.receipt_id) {
+    return { ok: false, error: 'Version has no DVN receipt yet — regenerate (mint) before publishing' };
+  }
+  const publishedAt = publish ? new Date().toISOString() : null;
+  const { error } = await admin
+    .from('research_report_versions')
+    .update({ published_at: publishedAt })
+    .eq('id', row.id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, publishedAt };
+}
+
+/** All published report versions across scopes (public surface), newest first. */
+export async function listPublishedReports(): Promise<ReportVersionRow[]> {
+  const admin = getSupabaseServer();
+  if (!admin) return [];
+  const { data, error } = await admin
+    .from('research_report_versions')
+    .select('*')
+    .not('published_at', 'is', null)
+    .order('published_at', { ascending: false });
   if (error) return [];
   return (data ?? []) as ReportVersionRow[];
 }

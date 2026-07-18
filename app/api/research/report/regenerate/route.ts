@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
         contentHash: v.content_hash,
         receiptId: v.receipt_id,
         createdAt: v.created_at,
+        publishedAt: v.published_at ?? null,
         sovereignty: v.sovereignty,
         // content included so the tab can render the latest canonical report
         content: v.content,

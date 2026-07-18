@@ -4939,6 +4939,19 @@ export const IRL_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'BookOpen', description: 'The constitutional record — every increment, finding, and session record (publication lineage)' },
     },
+    {
+      // Stage 3 of the report lifecycle — canonical reports an admin published.
+      // Same public surface as IRL OS: published reports are public by definition.
+      id: 'irl-reports',
+      label: 'Reports',
+      slug: 'irl-reports',
+      enabled: true,
+      group: 'publications',
+      order: 1,
+      type: 'static',
+      config: { component: 'PublishedReportsTab', props: {} },
+      metadata: { icon: 'BookOpen', description: 'Published research reports — canonical, DVN-receipted findings reports made public' },
+    },
     // ── Programme Management ──────────────────────────────────────
     {
       id: 'irl-programmes',
@@ -5247,6 +5260,18 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
         props: { packId: 'agentiq', collectionId: 'col_updates' },
       },
       metadata: { icon: 'BookOpen', description: 'The constitutional record — every increment, finding, and session record (publication lineage)' },
+    },
+    {
+      // Stage 3 of the report lifecycle — canonical reports an admin published.
+      id: 'irl-os-reports',
+      label: 'Reports',
+      slug: 'irl-os-reports',
+      enabled: true,
+      group: 'publications',
+      order: 1,
+      type: 'static',
+      config: { component: 'PublishedReportsTab', props: {} },
+      metadata: { icon: 'BookOpen', description: 'Published research reports — canonical, DVN-receipted findings reports made public' },
     },
     {
       // Research Programmes live under Institution — the programme is part of
