@@ -37,6 +37,7 @@
  */
 
 import type { GroundingContext } from './grounding';
+import type { InvariantNamespace } from '../../types/invariants';
 import { computeFieldSnapshot, type FieldSnapshot } from './engine';
 import { extractField, type FieldExtraction } from './perception';
 import { basisFor } from './coordinates';
@@ -69,7 +70,7 @@ export type UniversalInvariant = (typeof UNIVERSAL_INVARIANT_LIBRARY)[number];
 
 /** Namespaces the universal pass grounds in until the library is seeded —
  *  the closest seeded proxy for the baseline constitutional questions. */
-const UNIVERSAL_PROXY_NAMESPACES = ['constitutional', 'epistemology'];
+const UNIVERSAL_PROXY_NAMESPACES: InvariantNamespace[] = ['constitutional', 'epistemology'];
 
 // ─────────────────────────────────────────────────────────────────────────
 // Constitutional Coordinates (CFS-037 §5) — Phase-0 calibration
@@ -230,13 +231,23 @@ export async function resolveConstitutionalField(
   }
 
   // 3 Expand — universal ∪ perceived domains (+ caller extras)
+  //
+  // Empty-perception discipline (IRV-001 shakedown finding, 2026-07-18): when
+  // perception localizes NO domain and the caller supplies none, DO NOT ground
+  // unscoped — an unscoped grounding returns the GLOBAL highest-standing slice,
+  // which is dominated by high-standing engine-node invariants (e.g. the
+  // discovery-ranking node) that are irrelevant to a domain-reasoning intent.
+  // The honest fallback is the universal constitutional/epistemology baseline
+  // (the same proxy namespaces the universal pass uses), NOT the global top.
+  const callerDomains = Array.isArray(extra?.domains) && extra.domains.length > 0;
+  const noDomainLocalized = extraction.empty && !callerDomains;
   let snapshot: FieldSnapshot | null = null;
   try {
-    snapshot = await computeFieldSnapshot({
-      ...extra,
-      domains: extraction.empty ? extra?.domains : extraction.domains,
-      limit: extra?.limit ?? 8,
-    });
+    snapshot = await computeFieldSnapshot(
+      noDomainLocalized
+        ? { ...extra, namespaces: UNIVERSAL_PROXY_NAMESPACES, domains: undefined, limit: extra?.limit ?? 8 }
+        : { ...extra, domains: extraction.empty ? extra?.domains : extraction.domains, limit: extra?.limit ?? 8 },
+    );
   } catch {
     snapshot = null;
   }
