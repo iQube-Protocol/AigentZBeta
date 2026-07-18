@@ -3600,7 +3600,7 @@
       "id": "inv.polity.238",
       "namespace": "polity",
       "semantic_type": "principle",
-      "statement": "Healthy civilisations are built on the hierarchy Ethics → Law → Economics → Code: code should never define law, law should constrain code, and law itself should be grounded in ethics. The platform Internet inverted this order — code shaped economics, economics shaped law, and ethics were left to catch up — making software the de facto constitution. 'Code is law' gets the order exactly backwards.",
+      "statement": "Healthy civilisations are built on the hierarchy Ethics → Law → Economics → Consequence → Code: code should never define law, law should constrain code, consequence should govern code, and law itself should be grounded in ethics. The platform Internet inverted this order — code shaped economics, economics shaped law, and ethics were left to catch up — making software the de facto constitution. 'Code is law' gets the order exactly backwards.",
       "status": "canonical",
       "contexts": [
         "polity",
@@ -3608,7 +3608,7 @@
         "governance"
       ],
       "provenance": {
-        "source": "Thresholds — 'The Internet Needs a Constitution' ('Code Became Law') — new claim (the Ethics→Law→Economics→Code hierarchy and its platform-era inversion). Operator-ratified into Canon 2026-07-17 (Thresholds / Constitutional Internet canonization)."
+        "source": "Thresholds — 'The Internet Needs a Constitution' ('Code Became Law') — new claim (the Ethics→Law→Economics→Consequence→Code hierarchy and its platform-era inversion). Operator-ratified into Canon 2026-07-17 (Thresholds / Constitutional Internet canonization)."
       }
     },
     {

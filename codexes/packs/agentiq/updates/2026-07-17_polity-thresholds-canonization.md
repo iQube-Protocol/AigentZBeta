@@ -35,7 +35,7 @@ This pass separates **constitutional invariants** (canonized below) from **edito
 | The Constitutional Internet (network→society; civic layer above transport) | **Newly seeded** — `inv.polity.235` |
 | The Threshold (every generation crosses into a new civic order) | **Newly seeded** — `inv.polity.236` |
 | Entity before identity (identity is one mode of social recognizability) | **Newly seeded** — `inv.polity.237` (extends 175) |
-| Ethics → Law → Economics → Code (platform internet inverted it) | **Newly seeded** — `inv.polity.238` |
+| Ethics → Law → Economics → Consequence → Code (platform internet inverted it) | **Newly seeded** — `inv.polity.238` |
 | The constitutional vacuum (absent principles, software/capital fill it) | **Newly seeded** — `inv.polity.239` |
 | Intelligence → Agency → Representation (three-stage evolution) | **Newly seeded** — `inv.polity.240` |
 | Legitimacy is the missing primitive (representation needs governance) | **Newly seeded** — `inv.polity.241` |
@@ -65,7 +65,7 @@ This pass separates **constitutional invariants** (canonized below) from **edito
 - **235 — The Constitutional Internet:** the network became a society, and the response is a constitutional civic layer above transport, not another platform.
 - **236 — The Threshold:** every generation crosses a threshold into a new civic order; the response follows a crossing already made, it does not predict one.
 - **237 — Entity before identity:** personhood precedes identity; identity is just one way an entity becomes socially recognizable.
-- **238 — Ethics → Law → Economics → Code:** code should not define law, law should constrain code; the platform internet inverted the hierarchy.
+- **238 — Ethics → Law → Economics → Consequence → Code:** code should not define law, law should constrain code; the platform internet inverted the hierarchy.
 - **239 — The constitutional vacuum:** when constitutional principles are absent, software, ToS, and capital assume constitutional functions by architecture.
 - **240 — Intelligence → Agency → Representation:** AI evolves through three questions, ending in "can machines legitimately represent us?".
 - **241 — Legitimacy is the missing primitive:** representation needs authority, accountability, governance, and evidence — legitimacy, not capability.
