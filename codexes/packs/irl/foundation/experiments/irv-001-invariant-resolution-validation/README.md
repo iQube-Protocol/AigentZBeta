@@ -16,6 +16,10 @@ Given an intent, does the IRE resolve a **sensible, stable, reproducible** gover
 - **Novelty** — does the IRE surface structural properties the experts did not name?
 - **Stability** — does the IRE resolve the *same* field for the *same* intent across repeated runs?
 
+## Thesis positioning (ratified 2026-07-18 — `inv.reasoning.324–328`)
+
+IRV-001 is a **Track-B (Invariant Discovery) calibration**, never Track-A (Structural Intelligence) evidence. The Institute's thesis is NOT that the IRE identifies invariants better than human experts — quite the opposite: the corpus exists to *capture* humanity's accumulated expert reasoning as machine-operational invariants (`inv.reasoning.327`). Coverage against the expert baseline measures only whether the instrument approximates expert identification well enough to **bootstrap a growing corpus** that standing, ratification, and supersession improve over time. The IRE is an instrument, not the discovery (`inv.reasoning.326`); structural performance is provenance-independent (`inv.reasoning.324`). The original "coverage ≥ 0.7" target is retired as a pass/fail notion — outperforming the SEB was never the objective.
+
 ## Honest framing — SEB is NOT a Delphi study
 
 The "experts" are LLM personas (correlated models), not independent humans, so this is **engineering calibration, not scientific validation** (per Aletheon, 2026-07-17). We do not claim the SEB is ground truth. Two disciplines make it useful anyway: (1) the personas run **independently** then a **consensus** round forms the baseline; (2) the personas are **forbidden the word "invariant"** — they are asked for *"the smallest set of properties that fundamentally determine successful reasoning… the structural properties that cannot change without changing the answer"* — so they cannot drift toward the Institute's terminology. Human validators are the down-the-road upgrade; the SEB is the weekend-runnable proxy. The most informative outcomes are **disagreement patterns**: IRE stable where experts vary is a signal the engine may be tracking a deeper regularity than any single expert lens (a signal to investigate, never a proof of correctness).

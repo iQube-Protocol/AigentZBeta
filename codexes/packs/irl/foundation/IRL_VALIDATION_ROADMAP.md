@@ -23,6 +23,18 @@ No experiment may silently become a proof of another class's claim. Each pre-reg
 
 *A Comparative experiment cannot accidentally become a proof of Structural Invariance. A Structural experiment does not need to beat GPT-5 to be valuable. A Capability experiment does not need to validate the substrate — it demonstrates what the validated substrate enables.*
 
+### The three research tracks (ratified 2026-07-18 — `inv.reasoning.324–328`)
+
+Above the hypothesis classes sits a coarser separation that must never entangle. The Stage-0 shakedown made it load-bearing:
+
+| Track | Questions | Status |
+|---|---|---|
+| **A — Structural Intelligence** (the core science) | Do invariants exist? Can reasoning be compressed? Does invariant representation improve inference? Does invariant projection outperform topical context? | The thesis. EXP-P1/P2/P3 live here. |
+| **B — Invariant Discovery** | Can AI discover invariants? Can humans? Do hybrid teams discover better ones? Does standing improve discovery? | Important, **secondary**. IRV-001's coverage metric lives here — calibration, never structural evidence. |
+| **C — Constitutional Operation** | Standing, governance, ratification, provenance, delegation, lifecycle. | Operational, not the underlying science. |
+
+The governing distinction: **Invariant Intelligence does not require machine-discovered invariants; it requires machine-operational invariants** (`inv.reasoning.325`). The thesis is that reusing preserved reasoning I(R) beats repeatedly recomputing R — and nothing in that claim says where R came from (`inv.reasoning.324`, source independence). The IRE is an instrument, not the discovery (`inv.reasoning.326` — the PCR/DNA distinction): a Track-B calibration result (0.57/0.21 coverage) is never evidence for or against Track A.
+
 ---
 
 ## Stage 0 — validate the instrument first (IRV-001 · IPV-001)

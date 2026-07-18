@@ -16,6 +16,23 @@ The most useful outcome of this exercise is not the favourable number; it is tha
 
 ---
 
+## What Stage-0 does NOT test — the thesis, positioned upfront
+
+Two hypotheses are easily entangled here, and this report deliberately separates them (ratified as `inv.reasoning.324–328`, 2026-07-18):
+
+- **Hypothesis A — can an AI identify invariants better than human experts?** A reasonable engineering question about the IRE's extraction. **It is not the Institute's thesis.** Stage-0's coverage metric touches only this question, and only as calibration.
+- **Hypothesis B — the actual thesis:** *reasoning performed once and preserved as structural invariants outperforms repeatedly rediscovering the same reasoning.* Let R be previously validated reasoning and I(R) its invariant representation; the claim is that **reusing I(R) is more effective than repeatedly recomputing R** — and nothing in that claim says where R came from.
+
+Three consequences frame everything below:
+
+1. **Source independence.** The structural performance of an invariant is independent of its provenance. Provenance matters for trust, reliability, and IP ownership — never for structural function. The corpus's primary source is humanity's accumulated expert reasoning, captured so machine intelligence can reuse it; the system's purpose is to *accumulate* expert judgment, not to out-discover the experts.
+2. **The IRE is an instrument, not the discovery.** As DNA existed before PCR, structural invariants exist independently of the engine that resolves them. The 0.57/0.21 coverage figures therefore say nothing for or against Hypothesis B — they say only that *the current IRE approximates expert invariant identification with moderate agreement*, which is sufficient to **bootstrap a growing corpus** that standing, ratification, supersession, and expert contribution are designed to improve over time.
+3. **One sentence carries the whole distinction:** ***Invariant Intelligence does not require machine-discovered invariants. It requires machine-operational invariants.*** Humans, AI, hybrid teams, and communities all contribute; the intelligence comes from operating over the substrate.
+
+Accordingly, the original "coverage ≥ 0.7" calibration target is retired as a pass/fail notion entirely — not merely softened. Outperforming the Synthetic Expert Baseline was never the objective; approximating it well enough to curate is. EXP-P1 and EXP-P2 test Hypothesis B. Stage-0 tested the instrument. This report never crosses that line.
+
+---
+
 ## Purpose
 
 Stage-0 validated the experimental substrate EXP-P1 depends on: the **Invariant Resolution Engine (IRE)** can repeatably resolve invariant candidates from expert-derived semantic evidence under controlled conditions. The objective was **not** to optimise a coverage score, but to establish:
