@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-18_x409-locker-exchange-and-participation-v1.md",
         "updates/2026-07-18_three-level-persona-reference-model.md",
         "updates/2026-07-17_genesis-knowledge-compression-canonization.md",
         "updates/2026-07-17_polity-experience-sovereignty-canonization.md",

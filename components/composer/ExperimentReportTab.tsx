@@ -376,11 +376,13 @@ export default function ExperimentReportTab() {
   const [mode, setMode] = useState<"report" | "briefing">("report");
   // Canonical (regenerated + DVN-receipted) report versions — the narrative is
   // regenerated from the COLLECTIVE findings and saved as a verifiable version.
-  interface CanonVersion { version: number; title: string; content: string; contentHash: string; receiptId: string | null; createdAt: string }
+  interface CanonVersion { version: number; title: string; content: string; contentHash: string; receiptId: string | null; createdAt: string; publishedAt?: string | null }
   const [canonical, setCanonical] = useState<CanonVersion | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [regenNote, setRegenNote] = useState<string | null>(null);
   const [source, setSource] = useState<"live" | "canonical">("live");
+  // Stage 3 — publish the canonical version to the public Publications → Reports tab.
+  const [publishing, setPublishing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -424,6 +426,24 @@ export default function ExperimentReportTab() {
       setRegenerating(false);
     }
   }, []);
+
+  const togglePublish = useCallback(async () => {
+    if (!canonical) return;
+    setPublishing(true);
+    setRegenNote(null);
+    const publish = !canonical.publishedAt;
+    try {
+      const res = await experimentStep("/api/research/report/publish", { scope: "all", version: canonical.version, publish });
+      setCanonical({ ...canonical, publishedAt: (res.publishedAt as string | null) ?? null });
+      setRegenNote(publish
+        ? `Canonical v${canonical.version} PUBLISHED — now visible in Publications → Reports`
+        : `Canonical v${canonical.version} unpublished (withdrawn from the public tab; canonical record intact)`);
+    } catch (err) {
+      setRegenNote(`⚠ ${err instanceof Error ? err.message : "publish failed"}`);
+    } finally {
+      setPublishing(false);
+    }
+  }, [canonical]);
 
   const liveReport = useMemo(() => buildReport(results, new Date()), [results]);
   const report = source === "canonical" && canonical ? canonical.content : liveReport;
@@ -507,6 +527,25 @@ export default function ExperimentReportTab() {
           {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           {regenerating ? "Regenerating…" : "Regenerate canonical report"}
         </button>
+        {canonical && (
+          <button
+            onClick={togglePublish}
+            disabled={publishing || (!canonical.publishedAt && !canonical.receiptId)}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
+              canonical.publishedAt
+                ? "border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60"
+                : "border-emerald-500/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25"
+            }`}
+            title={canonical.publishedAt
+              ? `Published ${new Date(canonical.publishedAt).toLocaleDateString()} — click to withdraw from the public Publications → Reports tab`
+              : canonical.receiptId
+                ? "Publish this canonical version to the public Publications → Reports tab"
+                : "Receipt pending — a version must be DVN-minted before it can be published"}
+          >
+            {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+            {publishing ? "Working…" : canonical.publishedAt ? `Published v${canonical.version} · Unpublish` : `Publish v${canonical.version}`}
+          </button>
+        )}
         {regenNote && <span className="basis-full text-[10px] text-slate-400">{regenNote}</span>}
       </div>
 
