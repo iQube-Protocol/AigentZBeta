@@ -1,8 +1,6 @@
 # EXP-P1 Reviewer Package — Cover Note (Austin)
 
-**Draft for send · 2026-07-18 · from Dele Atanda (Invariant Research Lab) to Austin Ambrozi (Autonomi Solutions)**
-
-> Reviewer-facing framing discipline (do not revise on send): lead with **0.21 full-band + corpus-density explanation + 1.0 stability + 100% IPV reproducibility + documented confound corrections**. Do NOT foreground the 0.57 densest-region figure — it is preserved in the record for diagnostic use only. The strongest reviewer story is experimental discipline, not metric optimisation.
+<!-- The sendable note is the text between the two horizontal rules below. Everything under "Internal — not for send" is repo-only context and must not be included when sending. -->
 
 ---
 
@@ -52,6 +50,10 @@ Best,
 Dele
 
 ---
+
+# Internal — not for send
+
+> Framing discipline (do not revise on send): lead with **0.21 full-band + corpus-density explanation + 1.0 stability + 100% IPV reproducibility + documented confound corrections**. Do NOT foreground the 0.57 densest-region figure — it is preserved in the record for diagnostic use only. The strongest reviewer story is experimental discipline, not metric optimisation.
 
 ## Attachment sources (repo paths — attach/export these on send)
 
