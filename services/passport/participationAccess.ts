@@ -65,6 +65,15 @@ export const ASSIGNABLE_EXPERIMENTS: { id: string; label: string }[] = [
   { id: 'EXP-003', label: 'EXP-003 · Rediscovery Savings' },
   { id: 'EXP-004', label: 'EXP-004 · Sovereignty' },
   { id: 'EXP-005', label: 'EXP-005 · Provider Choice' },
+  // Invariant Intelligence Validation Series (EXP-006 runs in-app; 007/008 are
+  // design-stage, assignable so a reviewer can scope + develop them).
+  { id: 'EXP-006', label: 'EXP-006 · Projection Fidelity' },
+  { id: 'EXP-007', label: 'EXP-007 · Reasoning Entropy' },
+  { id: 'EXP-008', label: 'EXP-008 · Cross-Modal Reuse' },
+  // Validation Programme (design-stage).
+  { id: 'EXP-P1', label: 'EXP-P1 · Representation Gauntlet' },
+  { id: 'EXP-P2', label: 'EXP-P2 · Projection Semantics' },
+  { id: 'EXP-P3', label: 'EXP-P3 · Programme Arm 3' },
 ];
 
 /**
@@ -110,6 +119,8 @@ export interface AccessInvitationRow {
   status: string;
   createdAt: string;
   revokedAt: string | null;
+  /** Experiment ids this invitation scopes the reviewer to (null/[] = all). */
+  allowedExperiments: string[] | null;
 }
 
 function toInvitationRow(r: Record<string, unknown>): AccessInvitationRow {
@@ -125,6 +136,7 @@ function toInvitationRow(r: Record<string, unknown>): AccessInvitationRow {
     status: String(r.status),
     createdAt: String(r.created_at),
     revokedAt: (r.revoked_at as string | null) ?? null,
+    allowedExperiments: ((r.allowed_experiments as string[] | null) ?? null),
   };
 }
 
@@ -202,6 +214,8 @@ export interface AccessGrantView {
   receiptId: string | null;
   /** T2-safe holder commitment — never the raw persona id. */
   holderRef: string;
+  /** Experiment ids this grant scopes the reviewer to (null/[] = all). */
+  allowedExperiments: string[] | null;
 }
 
 export async function listAccessGrants(admin: SupabaseClient, domain?: AccessDomain): Promise<AccessGrantView[]> {
@@ -219,6 +233,7 @@ export async function listAccessGrants(admin: SupabaseClient, domain?: AccessDom
     expiresAt: (r.expires_at as string | null) ?? null,
     receiptId: (r.receipt_id as string | null) ?? null,
     holderRef: createHash('sha256').update(String(r.persona_id)).digest('hex').slice(0, 16),
+    allowedExperiments: ((r.allowed_experiments as string[] | null) ?? null),
   }));
 }
 
