@@ -19,6 +19,7 @@ import { Award, Check, Copy, Gavel, Loader2, Plus, ShieldCheck, X } from 'lucide
 import { authedFetchHeaders } from '@/utils/supabaseBrowser';
 
 interface DomainDef { id: string; label: string; roles: string[] }
+interface AssignableExperiment { id: string; label: string }
 interface InvitationRow {
   id: string;
   accessDomain: string;
@@ -46,6 +47,10 @@ interface AppCounts { total: number; pending: number; agentAssisted: number }
 
 export function StewardParticipationTab() {
   const [domains, setDomains] = useState<DomainDef[]>([]);
+  const [assignableExperiments, setAssignableExperiments] = useState<AssignableExperiment[]>([]);
+  interface PendingResult { id: string; experiment: string; provider: string; model: string; contentHash: string; submitterRef: string | null; createdAt: string }
+  const [pendingResults, setPendingResults] = useState<PendingResult[]>([]);
+  const [resultBusy, setResultBusy] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
   const [grants, setGrants] = useState<GrantRow[]>([]);
   const [applications, setApplications] = useState<AppCounts | null>(null);
@@ -59,6 +64,9 @@ export function StewardParticipationTab() {
   const [formRecipient, setFormRecipient] = useState('');
   const [formMaxUses, setFormMaxUses] = useState(1);
   const [formExpiresDays, setFormExpiresDays] = useState(30);
+  // Per-invitation experiment scoping (research-lab domain). Empty = all.
+  const [formExperiments, setFormExperiments] = useState<string[]>([]);
+  const [formOtherExperiment, setFormOtherExperiment] = useState("");
   const [issuing, setIssuing] = useState(false);
   // The one-time issued code — shown until dismissed, never recoverable after.
   const [issued, setIssued] = useState<{ code: string; inviteUrl: string } | null>(null);
@@ -77,6 +85,7 @@ export function StewardParticipationTab() {
         return;
       }
       setDomains(data.domains ?? []);
+      setAssignableExperiments(data.assignableExperiments ?? []);
       setInvitations(data.invitations ?? []);
       setGrants(data.grants ?? []);
       setApplications(data.applications ?? null);
@@ -87,9 +96,34 @@ export function StewardParticipationTab() {
     }
   }, []);
 
+  const loadResults = useCallback(async () => {
+    try {
+      const headers = await authedFetchHeaders({ Accept: "application/json" });
+      const res = await fetch("/api/steward/participation/results", { cache: "no-store", headers: headers ?? undefined });
+      const data = await res.json();
+      if (res.ok && data?.ok) setPendingResults(data.pending ?? []);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  const decideResult = useCallback(async (resultId: string, action: "approve" | "reject") => {
+    setResultBusy(resultId);
+    try {
+      const headers = await authedFetchHeaders({ "Content-Type": "application/json" });
+      await fetch("/api/steward/participation/results", {
+        method: "PATCH",
+        headers: headers ?? undefined,
+        body: JSON.stringify({ resultId, action }),
+      });
+      await loadResults();
+    } finally {
+      setResultBusy(null);
+    }
+  }, [loadResults]);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadResults();
+  }, [load, loadResults]);
 
   const domain = domains.find((d) => d.id === activeDomain);
 
@@ -114,6 +148,10 @@ export function StewardParticipationTab() {
           intendedRecipient: formRecipient || undefined,
           maxUses: formMaxUses,
           expiresInDays: formExpiresDays || undefined,
+          allowedExperiments:
+            domain?.id === 'research-lab'
+              ? [...formExperiments, ...(formOtherExperiment.trim() ? [formOtherExperiment.trim()] : [])]
+              : undefined,
         }),
       });
       const data = await res.json();
@@ -124,6 +162,8 @@ export function StewardParticipationTab() {
       setIssued({ code: data.code, inviteUrl: data.inviteUrl });
       setFormLabel('');
       setFormRecipient('');
+      setFormExperiments([]);
+      setFormOtherExperiment('');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Invitation issue failed');
@@ -276,6 +316,44 @@ export function StewardParticipationTab() {
               </label>
             </div>
           </div>
+
+          {/* Experiment scoping — research-lab only. No selection = all
+              experiments; select a subset to restrict the reviewer. Acceptance
+              tests, reports, and plates always stay admin-only. */}
+          {activeDomain === 'research-lab' && (
+            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2.5">
+              <div className="text-[11px] text-slate-400 mb-1.5">
+                Experiments this invitation grants <span className="text-slate-500">(none = all)</span>
+              </div>
+              <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                {assignableExperiments.map((exp) => {
+                  const checked = formExperiments.includes(exp.id);
+                  return (
+                    <label key={exp.id} className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() =>
+                          setFormExperiments((prev) =>
+                            checked ? prev.filter((e) => e !== exp.id) : [...prev, exp.id],
+                          )
+                        }
+                        className="h-3 w-3 accent-violet-500"
+                      />
+                      <span className="truncate">{exp.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <input
+                value={formOtherExperiment}
+                onChange={(e) => setFormOtherExperiment(e.target.value)}
+                placeholder="Other (free text — e.g. a custom protocol id)"
+                className="mt-1.5 w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500"
+              />
+            </div>
+          )}
+
           <button
             onClick={issueInvitation}
             disabled={issuing || !formRole}
@@ -378,6 +456,48 @@ export function StewardParticipationTab() {
             </div>
           )}
         </div>
+
+        {/* Result publications — participant results awaiting public approval
+            (mirrors the myCanvas publish-approval pattern). Cross-domain, shown
+            on the research-lab workspace where results originate. */}
+        {activeDomain === 'research-lab' && (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 space-y-2">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+              <ShieldCheck className="h-4 w-4 text-amber-300" /> Result publications — pending approval ({pendingResults.length})
+            </h3>
+            {pendingResults.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">
+                No results awaiting approval. Participants save results privately; when they request public publication,
+                the submission appears here for approval before it joins the published canon.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {pendingResults.map((r) => (
+                  <div key={r.id} className="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
+                    <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">{r.experiment}</span>
+                    <span className="text-slate-400 shrink-0">{r.provider}/{r.model}</span>
+                    {r.submitterRef && <code className="font-mono text-cyan-300/70 shrink-0" title="Submitter — T2-safe commitment">{r.submitterRef}</code>}
+                    <span className="min-w-0 flex-1 truncate font-mono text-slate-500">sha256 {r.contentHash.slice(0, 16)}…</span>
+                    <button
+                      onClick={() => void decideResult(r.id, 'approve')}
+                      disabled={resultBusy === r.id}
+                      className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20 shrink-0"
+                    >
+                      {resultBusy === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Approve'}
+                    </button>
+                    <button
+                      onClick={() => void decideResult(r.id, 'reject')}
+                      disabled={resultBusy === r.id}
+                      className="rounded border border-slate-600 px-2 py-0.5 text-[10px] text-slate-400 hover:text-rose-300 shrink-0"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

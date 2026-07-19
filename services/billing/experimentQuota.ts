@@ -16,24 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getPersonaPlan, STEWARD_EXPERIMENT_CAP } from '@/services/billing/personaPlan';
-
-/**
- * True when the persona holds an active research-lab access grant
- * (Constitutional Access Service) — i.e. a comp'd reviewer who onboarded
- * through an invitation, not the paid plan. Their access to run experiments
- * comes from the grant, not persona_plans.
- */
-async function hasResearchLabGrant(admin: SupabaseClient, personaId: string): Promise<boolean> {
-  const { data, error } = await admin
-    .from('access_grants')
-    .select('id')
-    .eq('persona_id', personaId)
-    .eq('access_domain', 'research-lab')
-    .eq('status', 'active')
-    .limit(1);
-  if (error) return false; // pre-migration / no table → no grant
-  return (data?.length ?? 0) > 0;
-}
+import { getGrantedExperiments } from '@/services/passport/participationAccess';
 
 /** 'YYYY-MM' for a given date. Callers pass the run time (no argless Date). */
 export function periodKey(now: Date): string {
@@ -57,16 +40,28 @@ export async function checkExperimentQuota(
   personaId: string,
   now: Date,
   isAdmin: boolean,
+  /** When provided, also enforce that a grant-scoped reviewer is assigned this
+   *  experiment (admins and paid full-access callers are unrestricted). */
+  experimentId?: string,
 ): Promise<QuotaState> {
   if (isAdmin) return { allowed: true, cap: Infinity, used: 0, remaining: Infinity };
 
   const plan = await getPersonaPlan(admin, personaId);
   let cap = plan.experimentMonthlyCap;
+  const paidFullAccess = cap > 0; // paid Sovereign-research / Steward → all experiments
+
   // Comp'd reviewers (CAS research-lab grant) run experiments without a paid
   // plan — their whole job is to reproduce everything, so they get the full
-  // (Steward-level) allowance rather than the paid-light 3/month.
-  if (cap <= 0 && (await hasResearchLabGrant(admin, personaId))) {
-    cap = STEWARD_EXPERIMENT_CAP;
+  // (Steward-level) allowance rather than the paid-light 3/month, BUT scoped
+  // to the experiments their invitation assigned them.
+  if (!paidFullAccess) {
+    const granted = await getGrantedExperiments(admin, personaId);
+    if (granted.hasGrant) {
+      cap = STEWARD_EXPERIMENT_CAP;
+      if (experimentId && granted.allowed !== 'all' && !granted.allowed.has(experimentId)) {
+        return { allowed: false, cap, used: 0, remaining: 0, reason: `Your invitation does not include ${experimentId}` };
+      }
+    }
   }
   if (cap <= 0) {
     return { allowed: false, cap: 0, used: 0, remaining: 0, reason: 'Research access required to run experiments' };

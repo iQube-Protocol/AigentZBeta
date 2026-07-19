@@ -48,7 +48,7 @@ async function requireAdmin(request: NextRequest) {
   // Otherwise the caller needs research access (Sovereign-selected research,
   // Steward, or the research add-on) AND remaining monthly experiment quota.
   if (!client) return isAdmin ? { persona } : { error: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
-  const q = await checkExperimentQuota(client, persona.personaId, new Date(), isAdmin);
+  const q = await checkExperimentQuota(client, persona.personaId, new Date(), isAdmin, 'EXP-001');
   if (!q.allowed) {
     return { error: NextResponse.json({ error: 'forbidden', message: q.reason ?? 'Research access required to run experiments' }, { status: 403 }) };
   }

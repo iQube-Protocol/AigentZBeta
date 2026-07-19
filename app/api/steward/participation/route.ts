@@ -16,6 +16,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   ACCESS_DOMAINS,
+  ASSIGNABLE_EXPERIMENTS,
   DOMAIN_LABELS,
   DOMAIN_ROLES,
   isAccessDomain,
@@ -64,6 +65,7 @@ export async function GET(req: NextRequest) {
     {
       ok: true,
       domains: ACCESS_DOMAINS.map((d) => ({ id: d, label: DOMAIN_LABELS[d], roles: DOMAIN_ROLES[d] })),
+      assignableExperiments: ASSIGNABLE_EXPERIMENTS,
       invitations,
       grants,
       applications,
