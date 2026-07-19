@@ -23,8 +23,9 @@
  * adminOnly). Sidebar pattern mirrors AgentiqCartridgeTab (w-56 ↔ w-8 rail).
  */
 
-import React, { Suspense, useState } from "react";
-import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, Home, Layers, Scale, ShieldCheck } from "lucide-react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
+import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, Home, Layers, Lock, Scale, ShieldCheck } from "lucide-react";
+import { personaFetch } from "@/utils/personaSpine";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
 import VideoArticleSkillRunner from "./VideoArticleSkillRunner";
 import Exp001EvaluationRunner from "./Exp001EvaluationRunner";
@@ -81,12 +82,92 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
   },
 ];
 
-const ALL_ITEMS = SECTIONS.flatMap((s) => s.items);
+/** Foundational item → experiment id, for per-invitation scoping. Items with
+ *  no experiment id (e.g. the Video+Article skill) ride with their series. */
+const ITEM_EXPERIMENT: Partial<Record<LabTab, string>> = {
+  bundle: "EXP-001",
+  video: "EXP-002",
+  "video-article": "EXP-002",
+  rediscovery: "EXP-003",
+  sovereignty: "EXP-004",
+  "provider-choice": "EXP-005",
+};
+
+interface AccessInfo {
+  isAdmin: boolean;
+  access: "all" | "scoped" | "none";
+  allowed: string[];
+}
 
 export default function InvariantExperimentLab({ density }: { density?: "narrow" | "wide" } = {}) {
-  const [tab, setTab] = useState<LabTab>("bundle");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(density === "narrow");
-  const active = ALL_ITEMS.find((i) => i.id === tab);
+  const [accessInfo, setAccessInfo] = useState<AccessInfo | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await personaFetch("/api/experiments/access", { cache: "no-store" });
+        const d = await res.json();
+        if (d?.ok) setAccessInfo({ isAdmin: Boolean(d.isAdmin), access: d.access, allowed: d.allowed ?? [] });
+        else setAccessInfo({ isAdmin: false, access: "none", allowed: [] });
+      } catch {
+        setAccessInfo({ isAdmin: false, access: "none", allowed: [] });
+      }
+    })();
+  }, []);
+
+  // Filter what this caller may see. Admins see everything. Paid/full access
+  // sees the whole Foundational Series. A scoped reviewer sees only their
+  // assigned experiments. Acceptance Tests + Outputs stay admin-only.
+  const sections = useMemo(() => {
+    if (!accessInfo) return SECTIONS; // optimistic until access resolves
+    if (accessInfo.isAdmin) return SECTIONS;
+    const allowSet = new Set(accessInfo.allowed);
+    const out: typeof SECTIONS = [];
+    for (const section of SECTIONS) {
+      if (section.title !== "Foundational Series") continue; // admin-only sections hidden
+      const items = section.items.filter((it) => {
+        if (accessInfo.access === "all") return true;
+        if (accessInfo.access === "scoped") {
+          const exp = ITEM_EXPERIMENT[it.id];
+          return exp ? allowSet.has(exp) : false;
+        }
+        return false;
+      });
+      if (items.length > 0) out.push({ ...section, items });
+    }
+    return out;
+  }, [accessInfo]);
+
+  const allItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
+  const [tab, setTab] = useState<LabTab>("bundle");
+
+  // Keep the selected tab within the visible set (a scoped reviewer's default
+  // may be filtered out).
+  useEffect(() => {
+    if (allItems.length > 0 && !allItems.some((i) => i.id === tab)) {
+      setTab(allItems[0].id);
+    }
+  }, [allItems, tab]);
+
+  const active = allItems.find((i) => i.id === tab);
+
+  // Non-admin with no research access → upsell instead of a broken runner.
+  if (accessInfo && !accessInfo.isAdmin && accessInfo.access === "none") {
+    return (
+      <div className="mx-auto max-w-lg p-8 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/15">
+          <Lock className="h-6 w-6 text-violet-300" />
+        </div>
+        <h2 className="text-base font-semibold text-slate-100">Research access required</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Running experiments needs research access — either a Sovereign or Steward plan, or a reviewer invitation to a
+          specific experiment. Read the lab and publications freely; unlock the runners to reproduce the series
+          yourself.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -105,7 +186,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
-            {ALL_ITEMS.map((item) => {
+            {allItems.map((item) => {
               const Icon = item.icon;
               return (
                 <button
@@ -137,7 +218,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
               </button>
             </div>
             <div className="space-y-3">
-              {SECTIONS.map((section) => (
+              {sections.map((section) => (
                 <div key={section.title}>
                   <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     {section.title}

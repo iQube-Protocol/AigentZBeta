@@ -57,6 +57,43 @@ export function isAccessDomain(v: string): v is AccessDomain {
   return (ACCESS_DOMAINS as readonly string[]).includes(v);
 }
 
+/** The runnable experiments an invitation can scope a reviewer to. Acceptance
+ *  tests, reports, and plates are deliberately absent — they stay admin-only. */
+export const ASSIGNABLE_EXPERIMENTS: { id: string; label: string }[] = [
+  { id: 'EXP-001', label: 'EXP-001 · Bundle Evaluation' },
+  { id: 'EXP-002', label: 'EXP-002 · Invariant-Carried Video' },
+  { id: 'EXP-003', label: 'EXP-003 · Rediscovery Savings' },
+  { id: 'EXP-004', label: 'EXP-004 · Sovereignty' },
+  { id: 'EXP-005', label: 'EXP-005 · Provider Choice' },
+];
+
+/**
+ * Resolve a persona's research-lab experiment access from their active grants.
+ * Returns 'all' when unrestricted (paid access is handled separately; here a
+ * grant with no allowed_experiments means the whole series), or the union set
+ * of assigned experiment ids across grants.
+ */
+export async function getGrantedExperiments(
+  admin: SupabaseClient,
+  personaId: string,
+): Promise<{ hasGrant: boolean; allowed: 'all' | Set<string> }> {
+  const { data, error } = await admin
+    .from('access_grants')
+    .select('allowed_experiments')
+    .eq('persona_id', personaId)
+    .eq('access_domain', 'research-lab')
+    .eq('status', 'active');
+  if (error || !data || data.length === 0) return { hasGrant: false, allowed: new Set() };
+  const union = new Set<string>();
+  let anyUnrestricted = false;
+  for (const row of data) {
+    const list = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
+    if (!list || list.length === 0) anyUnrestricted = true;
+    else for (const e of list) union.add(e);
+  }
+  return { hasGrant: true, allowed: anyUnrestricted ? 'all' : union };
+}
+
 function hashCode(rawCode: string): string {
   return createHash('sha256').update(rawCode).digest('hex');
 }
@@ -102,6 +139,9 @@ export async function createAccessInvitation(
     maxUses?: number;
     expiresInDays?: number;
     issuerPersonaId: string;
+    /** Experiment ids/labels this invitation scopes the reviewer to. Empty =
+     *  unrestricted. Only meaningful for the research-lab domain. */
+    allowedExperiments?: string[];
   },
 ): Promise<{ ok: true; rawCode: string; invitation: AccessInvitationRow } | { ok: false; error: string }> {
   if (!DOMAIN_ROLES[input.domain].includes(input.role)) {
@@ -111,6 +151,9 @@ export async function createAccessInvitation(
   const expiresAt = input.expiresInDays
     ? new Date(Date.now() + input.expiresInDays * 86_400_000).toISOString()
     : null;
+  const allowedExperiments = (input.allowedExperiments ?? [])
+    .map((e) => e.trim())
+    .filter(Boolean);
   const { data, error } = await admin
     .from('access_invitations')
     .insert({
@@ -122,6 +165,7 @@ export async function createAccessInvitation(
       max_uses: Math.max(1, input.maxUses ?? 1),
       expires_at: expiresAt,
       issuer_persona_id: input.issuerPersonaId,
+      allowed_experiments: allowedExperiments.length > 0 ? allowedExperiments : null,
     })
     .select('*')
     .single();
@@ -253,6 +297,9 @@ export async function claimAccessInvitation(
       source: 'invitation',
       source_id: inv.id,
       receipt_id: receiptId,
+      // Carry the invitation's experiment scoping onto the grant, so the
+      // run gate can enforce which experiments this reviewer may run.
+      allowed_experiments: (inv as { allowed_experiments?: string[] | null }).allowed_experiments ?? null,
     })
     .select('id, access_domain, role, granted_at')
     .single();
