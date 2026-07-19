@@ -32,6 +32,16 @@ ALTER TABLE public.experiment_results
   ADD COLUMN IF NOT EXISTS approved_by_persona_id uuid,
   ADD COLUMN IF NOT EXISTS approved_at timestamptz;
 
+-- Backfill: every pre-existing row is historical ADMIN-published canon (the
+-- participant-submit path, which stamps submitted_by_persona_id, did not exist
+-- before this migration). The NOT NULL DEFAULT 'private' above would otherwise
+-- hide the entire existing canon from the visibility-filtered public reader.
+-- Fail-closed default stays 'private' for any future insert that omits it;
+-- this promotes only the legacy admin rows. Idempotent.
+UPDATE public.experiment_results
+  SET visibility = 'published'
+  WHERE submitted_by_persona_id IS NULL AND visibility <> 'published';
+
 -- Idempotent CHECK for visibility.
 DO $$
 BEGIN

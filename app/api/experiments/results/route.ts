@@ -102,5 +102,6 @@ export async function POST(request: NextRequest) {
     contentHash: outcome.contentHash,
     receiptId: outcome.receiptId ?? null,
     receiptStatus: outcome.receiptStatus ?? null,
+    visibility,
   });
 }
