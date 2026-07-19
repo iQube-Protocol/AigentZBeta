@@ -12,7 +12,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Loader2, Play, Square } from "lucide-react";
-import { experimentGet, experimentStep, recordRunLifecycle, lifecycleNote } from "./experimentStepFetch";
+import { experimentGet, experimentStep, recordRunLifecycle, lifecycleNote, publishStatePrefix } from "./experimentStepFetch";
 import { RequestPublishControl } from "./RequestPublishControl";
 
 type Provider = "anthropic" | "openai" | "venice";
@@ -201,7 +201,7 @@ export default function Exp001EvaluationRunner({ canRequestPublish = false }: { 
             answersByArtifact,
           },
       });
-      const publishedMsg = `published — sha256 ${String(data.contentHash).slice(0, 16)}… (receipt ${data.receiptStatus ?? "created"})`;
+      const publishedMsg = `${publishStatePrefix(data.visibility)} — sha256 ${String(data.contentHash).slice(0, 16)}… (receipt ${data.receiptStatus ?? "created"})`;
       setPublishState(publishedMsg);
       // Instruments ↔ institution (CFS-019): the run's canonical publication
       // advances the research object one legal step. Fire-and-forget.

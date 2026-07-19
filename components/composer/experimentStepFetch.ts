@@ -93,6 +93,18 @@ export function lifecycleNote(outcome: RunLifecycleOutcome | null): string {
   return `lifecycle: no advance — ${outcome.reason ?? "refused"} (${outcome.state ?? outcome.from ?? "?"})`;
 }
 
+/**
+ * Honest confirmation prefix for a publish response, keyed on the authoritative
+ * `visibility` the server returns. Admins publish straight to the canon; a
+ * participant either saves privately or submits for steward approval — the
+ * message must not claim "published" for those.
+ */
+export function publishStatePrefix(visibility: unknown): string {
+  if (visibility === "pending") return "submitted for publication — awaiting steward approval";
+  if (visibility === "private") return "saved privately";
+  return "published";
+}
+
 /** POST one experiment step, with one automatic retry on failure. */
 export async function experimentStep(
   url: string,

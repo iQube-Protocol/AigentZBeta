@@ -39,11 +39,24 @@ export async function listPublishedExperimentResults(): Promise<PublishedResults
   const client = getSupabaseServer();
   if (!client) return { ok: false, error: 'storage unavailable', status: 500 };
 
-  const { data, error } = await client
+  const cols = 'id, experiment, provider, model, aggregates, results_json, content_hash, receipt_id, created_at';
+  // Only steward-approved (or admin-published) results join the public canon —
+  // participant private/pending submissions must never leak here. Pre-migration
+  // installs lack the `visibility` column, so fall back to the unfiltered read
+  // (there are no participant submits before the column exists).
+  let { data, error } = await client
     .from('experiment_results')
-    .select('id, experiment, provider, model, aggregates, results_json, content_hash, receipt_id, created_at')
+    .select(cols)
+    .eq('visibility', 'published')
     .order('created_at', { ascending: false })
     .limit(100);
+  if (error && /visibility/i.test(error.message)) {
+    ({ data, error } = await client
+      .from('experiment_results')
+      .select(cols)
+      .order('created_at', { ascending: false })
+      .limit(100));
+  }
   if (error) {
     const message = /does not exist/i.test(error.message)
       ? 'experiment_results table missing — apply supabase/migrations/20260704120000_experiment_results.sql'

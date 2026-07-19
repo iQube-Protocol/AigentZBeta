@@ -23,7 +23,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Play, Shuffle, Upload } from "lucide-react";
-import { experimentGet, experimentStep, recordRunLifecycle, lifecycleNote } from "./experimentStepFetch";
+import { experimentGet, experimentStep, recordRunLifecycle, lifecycleNote, publishStatePrefix } from "./experimentStepFetch";
 import { RequestPublishControl } from "./RequestPublishControl";
 
 interface DrillTask {
@@ -236,7 +236,7 @@ export default function Exp005ProviderChoiceRunner({ canRequestPublish = false }
         aggregates,
         results,
       });
-      const publishedMsg = `published — sha256 ${(data.contentHash as string).slice(0, 12)}…`;
+      const publishedMsg = `${publishStatePrefix(data.visibility)} — sha256 ${(data.contentHash as string).slice(0, 12)}…`;
       setPublishState(publishedMsg);
       // Instruments ↔ institution (CFS-019): the run's canonical publication
       // advances the research object one legal step. Fire-and-forget.
