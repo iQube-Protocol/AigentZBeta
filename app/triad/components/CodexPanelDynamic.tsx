@@ -25,6 +25,7 @@ const SmartWalletDrawer = dynamic(
 );
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
+import { CopilotHostProvider } from "@/app/components/codex/CopilotHostContext";
 import { personaFetch } from "@/utils/personaSpine";
 import { useActivations } from "@/services/activations/ActivationsContext";
 import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
@@ -38,6 +39,77 @@ import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useCartridgePersonaGuard } from "@/app/hooks/useCartridgePersonaGuard";
 import { resolveLegacyTabSlug } from "@/data/codex-configs";
 
+/**
+ * SmartTriad copilot registry (Phase 1 of the Context-Aware Copilot PRD,
+ * operator + Aletheon direction 2026-07-19). The floating copilot mounts on
+ * EVERY cartridge tab: cartridges listed here get their curated persona/copy;
+ * every other cartridge gets a sensible default whose placeholder derives from
+ * the cartridge's display name ("Ask about <name>...") — never a hardcoded
+ * cross-cartridge leak like "Ask about KNYT content...". Set `disabled: true`
+ * to suppress the copilot on a cartridge explicitly.
+ */
+interface CartridgeCopilotConfig {
+  disabled?: boolean;
+  accentColor?: string;
+  agent?: { id: string; name: string };
+  promptPlaceholder?: string;
+  initialMessage?: string;
+  quickPrompts?: string[];
+}
+
+const CARTRIDGE_COPILOTS: Record<string, CartridgeCopilotConfig> = {
+  'marketa-codex': {
+    accentColor: 'rose',
+    agent: { id: 'aigent-marketa', name: 'Marketa' },
+    promptPlaceholder: 'Ask Marketa about campaigns, partners, or content...',
+    initialMessage: "I'm Marketa — your venture studio copilot. Ask me about the active campaigns, partner activation, content packs, or what to do next.",
+    quickPrompts: ['Campaign status', 'Next email to fire', 'Partner pipeline', 'Write a social post', 'Propose a content pack'],
+  },
+  'knyt-codex': {
+    accentColor: 'amber',
+    agent: { id: 'aigent-kn0w1', name: 'KNYT Copilot' },
+    promptPlaceholder: 'Ask about episodes, characters, bundles...',
+    quickPrompts: ['What episodes are available?', 'Show me bundle deals', 'KNYT Cards explained', 'Investor pricing'],
+  },
+  'metame-codex': {
+    accentColor: 'emerald',
+    agent: { id: 'aigent-me', name: 'aigentMe' },
+    promptPlaceholder: 'Ask aigentMe about your ExperienceModel, briefs, or next move...',
+    initialMessage: "I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything.",
+    quickPrompts: ['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1', 'Ask Nakamoto'],
+  },
+  'polity-passport-bureau-cartridge': {
+    accentColor: 'violet',
+    agent: { id: 'aigent-z', name: 'Aigent Z' },
+    promptPlaceholder: 'Ask about your passport, agent delegation, or locker…',
+    initialMessage: "I'm Aigent Z — your guide through the Polity Passport Bureau. Citizen Passports, Participant Passports, agent genesis, bounded delegation, the Locker, ENS, and verifiable credentials — ask me anything.",
+    quickPrompts: ['How do I claim a Citizen Passport?', 'How do I sponsor an agent?', 'What does World ID verification add?', 'Show my bound agents', 'How does the Locker work?'],
+  },
+  'human-mobility-services-cartridge': {
+    accentColor: 'emerald',
+    agent: { id: 'aigent-z', name: 'aigentMe' },
+    promptPlaceholder: 'Ask about your case, workstreams, or critical dates…',
+    initialMessage: "I'm aigentMe — your confidentiality guardian for this mobility case. BlakQube protocol is active. Ask me about housing, education, relocation timelines, or workstream status.",
+    quickPrompts: ['What are the most urgent deadlines?', 'What is the housing workstream status?', 'What school applications are pending?', 'Summarise the relocation timeline', 'What does BlakQube compartmentalisation mean for this case?'],
+  },
+  // IRL — the Invariant Research Lab (public IRL OS + internal metaMe IRL).
+  // Onboarding-aware copy: the copilot is the participant's guide through
+  // accession (passport → access → experiments) as well as the research canon.
+  'irl-os-cartridge': {
+    accentColor: 'violet',
+    agent: { id: 'aigent-z', name: 'IRL Guide' },
+    promptPlaceholder: 'Ask about IRL OS research...',
+    initialMessage: "I'm your guide to the Invariant Research Lab. Ask me about the research programme, the invariant canon, how to claim your Polity Passport, delegate your agent (optional), or run your assigned experiments.",
+    quickPrompts: ['How do I claim my passport?', 'How do I get research access?', 'What experiments can I run?', 'Explain the invariant canon', 'How do I delegate my agent?'],
+  },
+  'irl-cartridge': {
+    accentColor: 'violet',
+    agent: { id: 'aigent-z', name: 'IRL Guide' },
+    promptPlaceholder: 'Ask about metaMe IRL research...',
+    initialMessage: "I'm your guide to the internal Invariant Research Laboratory — instruments, live experiments, publications, and stewardship. Ask me anything about the lab.",
+    quickPrompts: ['What experiments are running?', 'Show the latest results', 'Explain the Chrysalis Test', 'What needs steward approval?'],
+  },
+};
 
 interface CodexPanelDynamicProps {
   codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex' (Agentiq Cartridge)
@@ -158,11 +230,10 @@ export default function CodexPanelDynamic({
     (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
     null;
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
-  const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
-  const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
-  const [metameCopilotOpen, setMetameCopilotOpen] = useState(false);
-  const [passportCopilotOpen, setPassportCopilotOpen] = useState(false);
-  const [hmsCopilotOpen, setHmsCopilotOpen] = useState(false);
+  // One copilot open-state for the config-driven mount (SmartTriad Phase 1 —
+  // the floating copilot renders on EVERY cartridge unless its config disables
+  // it, replacing the per-cartridge hardcoded blocks + open states).
+  const [copilotOpen, setCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -710,6 +781,7 @@ export default function CodexPanelDynamic({
 
   return (
     <SmartTriadProvider personaId={resolvedPersonaId}>
+     <CopilotHostProvider>
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         {!singleTabMode && (() => {
           const accentColor = codex.metadata.color || 'indigo';
@@ -1132,110 +1204,32 @@ export default function CodexPanelDynamic({
 
       <SmartTriadSurfaces personaId={resolvedPersonaId} onPersonaChange={handlePersonaChange} cartridgeSlug={codexId} />
 
-      {codexId === 'marketa-codex' && (
-        <CodexCopilotLayer
-          isOpen={marketaCopilotOpen}
-          onClose={() => setMarketaCopilotOpen(false)}
-          onOpen={() => setMarketaCopilotOpen(true)}
-          variant="floating"
-          accentColor="rose"
-          agent={{ id: 'aigent-marketa', name: 'Marketa' }}
-          personaId={resolvedPersonaId ?? 'aigent-marketa'}
-          enableInferenceRendering
-          promptPlaceholder="Ask Marketa about campaigns, partners, or content..."
-          initialMessage="I'm Marketa — your venture studio copilot. Ask me about the active campaigns, partner activation, content packs, or what to do next."
-          quickPrompts={['Campaign status', 'Next email to fire', 'Partner pipeline', 'Write a social post', 'Propose a content pack']}
-        />
-      )}
-      {codexId === 'knyt-codex' && activeTabSlug.startsWith('store-') && (
-        <CodexCopilotLayer
-          isOpen={knytCopilotOpen}
-          onClose={() => setKnytCopilotOpen(false)}
-          onOpen={() => setKnytCopilotOpen(true)}
-          variant="floating"
-          accentColor="amber"
-          agent={{ id: 'aigent-kn0w1', name: 'KNYT Copilot' }}
-          personaId={resolvedPersonaId ?? undefined}
-          enableInferenceRendering
-          contextId={`knyt-${activeTabSlug}`}
-          promptPlaceholder="Ask about episodes, characters, bundles..."
-          quickPrompts={['What episodes are available?', 'Show me bundle deals', 'KNYT Cards explained', 'Investor pricing']}
-        />
-      )}
-
-      {/* Aigent Me — copilot on every metaMe cartridge tab.
-          Emerald branding per the locked decision; persona = 'aigent-me' so
-          the chat route picks up the Aigent Me system prompt from
-          app/data/personas.ts. */}
-      {codexId === 'metame-codex' && (
-        <CodexCopilotLayer
-          isOpen={metameCopilotOpen}
-          onClose={() => setMetameCopilotOpen(false)}
-          onOpen={() => setMetameCopilotOpen(true)}
-          variant="floating"
-          accentColor="emerald"
-          agent={{ id: 'aigent-me', name: 'aigentMe' }}
-          personaId={resolvedPersonaId ?? 'aigent-me'}
-          enableInferenceRendering
-          contextId={`metame-${activeTabSlug}`}
-          promptPlaceholder="Ask aigentMe about your ExperienceModel, briefs, or next move..."
-          initialMessage="I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything."
-          quickPrompts={['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1', 'Ask Nakamoto']}
-        />
-      )}
-
-      {/* Polity Passport Bureau — copilot on every passport tab.
-          Violet branding to match the cartridge accent. Agent: aigent-z
-          (system orchestrator + cartridge owner) — operator placeholder,
-          will reassign later. Per 2026-06-13 Sprint 8 plan. */}
-      {codexId === 'polity-passport-bureau-cartridge' && (
-        <CodexCopilotLayer
-          isOpen={passportCopilotOpen}
-          onClose={() => setPassportCopilotOpen(false)}
-          onOpen={() => setPassportCopilotOpen(true)}
-          variant="floating"
-          accentColor="violet"
-          agent={{ id: 'aigent-z', name: 'Aigent Z' }}
-          personaId={resolvedPersonaId ?? undefined}
-          enableInferenceRendering
-          contextId={`passport-${activeTabSlug}`}
-          promptPlaceholder="Ask about your passport, agent delegation, or locker…"
-          initialMessage="I'm Aigent Z — your guide through the Polity Passport Bureau. Citizen Passports, Participant Passports, agent genesis, bounded delegation, the Locker, ENS, and verifiable credentials — ask me anything."
-          quickPrompts={[
-            'How do I claim a Citizen Passport?',
-            'How do I sponsor an agent?',
-            'What does World ID verification add?',
-            'Show my bound agents',
-            'How does the Locker work?',
-          ]}
-        />
-      )}
-
-      {/* Human Mobility Services — aigentMe copilot.
-          Emerald branding. aigentMe is the sole disclosure broker for
-          BlakQube cases. Per PSC-001 / G5 gap closure 2026-06-17. */}
-      {codexId === 'human-mobility-services-cartridge' && (
-        <CodexCopilotLayer
-          isOpen={hmsCopilotOpen}
-          onClose={() => setHmsCopilotOpen(false)}
-          onOpen={() => setHmsCopilotOpen(true)}
-          variant="floating"
-          accentColor="emerald"
-          agent={{ id: 'aigent-z', name: 'aigentMe' }}
-          personaId={resolvedPersonaId ?? undefined}
-          enableInferenceRendering
-          contextId={`hms-${activeTabSlug}`}
-          promptPlaceholder="Ask about your case, workstreams, or critical dates…"
-          initialMessage="I'm aigentMe — your confidentiality guardian for this mobility case. BlakQube protocol is active. Ask me about housing, education, relocation timelines, or workstream status."
-          quickPrompts={[
-            'What are the most urgent deadlines?',
-            'What is the housing workstream status?',
-            'What school applications are pending?',
-            'Summarise the relocation timeline',
-            'What does BlakQube compartmentalisation mean for this case?',
-          ]}
-        />
-      )}
+      {/* SmartTriad floating copilot — config-driven, mounts on EVERY cartridge
+          tab (Phase 1 of the Context-Aware Copilot PRD). Curated cartridges get
+          their persona/copy from CARTRIDGE_COPILOTS; every other cartridge gets
+          the default whose placeholder derives from the cartridge display name.
+          contextId carries cartridge+tab so the chat context follows the user. */}
+      {(() => {
+        const cfg = CARTRIDGE_COPILOTS[codexId] ?? {};
+        if (cfg.disabled) return null;
+        return (
+          <CodexCopilotLayer
+            isOpen={copilotOpen}
+            onClose={() => setCopilotOpen(false)}
+            onOpen={() => setCopilotOpen(true)}
+            variant="floating"
+            hostRole="panel"
+            accentColor={cfg.accentColor ?? codex.metadata.color ?? 'cyan'}
+            agent={cfg.agent ?? { id: 'aigent-z', name: 'Aigent Z' }}
+            personaId={resolvedPersonaId ?? cfg.agent?.id ?? undefined}
+            enableInferenceRendering
+            contextId={`${codexId}-${activeTabSlug}`}
+            promptPlaceholder={cfg.promptPlaceholder ?? `Ask about ${displayCodexName}...`}
+            initialMessage={cfg.initialMessage}
+            quickPrompts={cfg.quickPrompts}
+          />
+        );
+      })()}
 
       {/* Standalone SmartWallet overlay launched from the active-persona
           header badge. variant="overlay" renders the full wallet on top of
@@ -1253,6 +1247,7 @@ export default function CodexPanelDynamic({
           agent={{ id: resolvedPersonaId ?? codexId, name: headerPersonaLabel ?? 'Wallet' }}
         />
       )}
+     </CopilotHostProvider>
     </SmartTriadProvider>
   );
 }

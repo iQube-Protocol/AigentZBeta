@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
+import { useCopilotHost } from "./CopilotHostContext";
 const SmartWalletDrawer = dynamic(() => import("../content/SmartWalletDrawer"), { ssr: false });
 import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
 import {
@@ -85,6 +86,13 @@ interface CodexCopilotLayerProps {
   messages?: CopilotMessage[];
   onMessagesChange?: (messages: CopilotMessage[]) => void;
   promptPlaceholder?: string;
+  /**
+   * Floating-copilot dedupe role (CopilotHostContext). 'tab' (default) —
+   * a specialized tab-level copilot; registers itself so the shell's generic
+   * copilot yields. 'panel' — the cartridge shell's generic copilot; renders
+   * nothing while any tab-level host is mounted.
+   */
+  hostRole?: 'tab' | 'panel';
   footerContent?: React.ReactNode;
   panelClassName?: string;
   floatingInput?: boolean;
@@ -172,7 +180,8 @@ export function CodexCopilotLayer({
   seedMessages,
   messages,
   onMessagesChange,
-  promptPlaceholder = "Ask about KNYT content...",
+  promptPlaceholder = "Ask a question...",
+  hostRole = 'tab',
   footerContent,
   panelClassName,
   floatingInput = false,
@@ -193,6 +202,17 @@ export function CodexCopilotLayer({
   accentColor = 'cyan',
   walletTabSignal,
 }: CodexCopilotLayerProps) {
+  // Floating-copilot dedupe (CopilotHostContext): a 'tab'-role floating layer
+  // registers itself; the shell's 'panel'-role generic layer yields (renders
+  // null, below, after all hooks) while any tab-level host is mounted — so a
+  // tab's specialized copilot always wins over the generic shell one.
+  const { tabHosts, registerTabHost } = useCopilotHost();
+  useEffect(() => {
+    if (variant === 'floating' && hostRole === 'tab') return registerTabHost();
+    return undefined;
+  }, [variant, hostRole, registerTabHost]);
+  const yieldToTabHost = variant === 'floating' && hostRole === 'panel' && tabHosts > 0;
+
   // Full accent palette — every cyan-* class in this component is derived
   // from these tokens so a single accentColor prop fully re-themes the
   // surface (e.g. emerald for metaMe / Aigent Me).
@@ -1053,6 +1073,10 @@ export function CodexCopilotLayer({
       walletLayoutNotifiedRef.current = false;
     }
   }, [currentWalletLayout, variant, walletEmbeddedAnchor, walletPanelCollapsed, walletPanelOpen]);
+
+  // Placed after every hook (rules of hooks): the shell's generic copilot
+  // yields entirely while a tab-level specialized copilot is mounted.
+  if (yieldToTabHost) return null;
 
   return (
     <>
