@@ -19,6 +19,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { authedFetchHeaders } from "@/utils/supabaseBrowser";
+import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 
 interface Props {
   codexId: string;
@@ -38,6 +39,14 @@ function goToTab(slug: string) {
 
 export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) {
   const prefix = codexId.includes("irl-os") ? "irl-os" : codexId === "irl-cartridge" ? "irl" : null;
+
+  // The delegation observer needs a persona id for its query. The embed URL's
+  // personaId param is often absent (in-cartridge navigation), so mirror
+  // BoundedDelegationTab's fallback: the session's own personas. Without this
+  // the Delegate step never registered as done even with an active delegation
+  // (operator report 2026-07-19).
+  const { sessionPersonas } = useSupabaseSessionPersonas();
+  const effectivePersonaId = personaId ?? sessionPersonas[0]?.id ?? null;
 
   const steps = useMemo(() => {
     if (!prefix) return [] as { key: StepKey; label: string; slug: string; optional?: boolean }[];
@@ -72,8 +81,8 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
         const [accessRes, walletRes, delegationRes] = await Promise.allSettled([
           fetch("/api/participation/my-access", init),
           fetch("/api/polity-passport/wallet", init),
-          personaId
-            ? fetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(personaId)}`, init)
+          effectivePersonaId
+            ? fetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(effectivePersonaId)}`, init)
             : Promise.reject(),
         ]);
 
@@ -118,7 +127,7 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
       }
     })();
     return () => { cancelled = true; };
-  }, [prefix, onStepTab, personaId]);
+  }, [prefix, onStepTab, effectivePersonaId]);
 
   if (!prefix || !onStepTab) return null;
 

@@ -2128,6 +2128,14 @@ function buildSystemPrompt(
         lines.push(`### Quick links available as chips below the chat`);
         for (const l of links) lines.push(`- ${l.label}${l.codexSlug ? ' (opens another cartridge)' : ''}`);
       }
+      // Phase 2 — IRE-curated platform invariants (resolved from THIS message).
+      const platformInvariants = Array.isArray(gc.platformInvariants)
+        ? (gc.platformInvariants as Array<Record<string, unknown>>)
+        : [];
+      if (platformInvariants.length > 0) {
+        lines.push(`### Governing platform invariants (IRE-resolved for this question — cite by seed id when they ground a claim)`);
+        for (const inv of platformInvariants) lines.push(`- [${inv.seedId}] ${inv.statement}`);
+      }
       groundContextBlock = `\n\n## Surface & operator context — ground your answer in THIS\n\nYou are the copilot for the cartridge named above. Keep answers scoped to this cartridge's domain; use the operator state to tailor guidance (e.g. if their passport is 'none' and they ask about participating, walk them through applying first; if 'issued' but not claimed, point at claiming; delegation is OPTIONAL — never present it as required to run experiments). Prefer NAVIGATING the operator over describing UI: when a quick link above matches the need, tell them to use that chip by name. Never invent state not listed here.\n\nANSWER FULLY, NOW: when the operator asks how to do something, give the concrete steps immediately in this reply, tailored to their state above. Replying with only an acknowledgment ("I can help with that", "Sure, happy to help") and no steps is a FAILURE — never do it.\n\n${lines.join('\n')}`;
     } catch {
       // Malformed context — fall back to the persona's default framing.
@@ -3009,6 +3017,35 @@ export async function POST(request: NextRequest) {
       });
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
+
+      // SmartTriad Phase 2 (PRD §5, IRE-curated L1 — unlocked by the IRV-001/
+      // IPV-001 Stage-0 calibration, 2026-07-18): resolve the operator's
+      // message through the Invariant Resolution Engine and inject the
+      // governing platform invariants as ground truth. Intent → IRE → relevant
+      // invariants — selected per interaction, never bulk-loaded, so each
+      // copilot keeps room for both platform and domain knowledge. T2-safe
+      // (statements + seed ids only). Best-effort: an IRE failure degrades to
+      // the Phase-1b context, never blocks the chat.
+      if (
+        userContext?.groundContext &&
+        (userContext.groundContext as Record<string, unknown>).surface === 'smart-triad' &&
+        typeof message === 'string' &&
+        message.trim().length > 0
+      ) {
+        try {
+          const { resolveConstitutionalField } = await import('@/services/invariants/resolution');
+          const field = await resolveConstitutionalField(message);
+          const items = (field.snapshot?.slice.items ?? []).slice(0, 8);
+          if (items.length > 0) {
+            (userContext.groundContext as Record<string, unknown>).platformInvariants = items.map((i) => ({
+              seedId: i.seedId ?? i.id,
+              statement: i.statement,
+            }));
+          }
+        } catch {
+          // IRE unavailable — Phase-1b context stands on its own.
+        }
+      }
 
       systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined);
 
