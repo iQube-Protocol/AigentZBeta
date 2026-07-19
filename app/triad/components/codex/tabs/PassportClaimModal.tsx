@@ -30,6 +30,7 @@ interface WorldIdProofBundle {
   merkle_root: string;
   nullifier_hash: string;
   verification_level: 'orb' | 'device';
+  signal?: string;
 }
 
 interface PassportClaimModalProps {
@@ -147,7 +148,8 @@ export function PassportClaimModal({
       const res = await fetch('/api/polity-passport/verify-worldid', {
         method: 'POST',
         headers: headers ?? { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passportId, ...proof }),
+        // Route contract is { passportId, proof: {...} } — nested, not spread.
+        body: JSON.stringify({ passportId, proof }),
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {

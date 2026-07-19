@@ -27,6 +27,14 @@ export interface WorldIdProofBundle {
   merkle_root: string;
   nullifier_hash: string;
   verification_level: 'orb' | 'device';
+  /**
+   * The signal the proof was generated against (2026-07-19 fix). When the
+   * widget is given a `signal` prop, IDKit bakes hashToField(signal) into
+   * the proof's public inputs — the server MUST send the matching
+   * signal_hash to the Cloud Verifier or the proof is rejected. Threading
+   * it through the bundle is what makes that possible.
+   */
+  signal?: string;
 }
 
 interface Props {
@@ -77,12 +85,13 @@ export function WorldIdButton({
         merkle_root: '0x0',
         nullifier_hash: `0x${Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64)}`,
         verification_level: 'orb',
+        ...(signal ? { signal } : {}),
       };
       await onProof(devProof);
     } finally {
       setInternalBusy(false);
     }
-  }, [onProof]);
+  }, [onProof, signal]);
 
   const handleSuccess = useCallback(
     async (result: ISuccessResult) => {
@@ -93,13 +102,14 @@ export function WorldIdButton({
           merkle_root: result.merkle_root,
           nullifier_hash: result.nullifier_hash,
           verification_level: result.verification_level === VerificationLevel.Orb ? 'orb' : 'device',
+          ...(signal ? { signal } : {}),
         };
         await onProof(proof);
       } finally {
         setInternalBusy(false);
       }
     },
-    [onProof],
+    [onProof, signal],
   );
 
   // Dev fallback path — no app id configured. Server-side verifyWorldIdProof
