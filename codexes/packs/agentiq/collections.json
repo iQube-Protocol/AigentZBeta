@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-19_prd-smarttriad-context-aware-copilot.md",
         "updates/2026-07-19_proposed-datasets-metrics-exp007-008-p1-p2.md",
         "updates/2026-07-19_accession-stepper-and-reviewer-experiments.md",
         "updates/2026-07-19_irl-os-payment-model.md",
