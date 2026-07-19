@@ -71,7 +71,7 @@ export function StewardParticipationTab() {
   const [formOtherExperiment, setFormOtherExperiment] = useState("");
   const [issuing, setIssuing] = useState(false);
   // The one-time issued code — shown until dismissed, never recoverable after.
-  const [issued, setIssued] = useState<{ code: string; inviteUrl: string } | null>(null);
+  const [issued, setIssued] = useState<{ code: string; inviteUrl: string; allowedExperiments: string[] | null } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [revokeBusy, setRevokeBusy] = useState<string | null>(null);
 
@@ -161,7 +161,11 @@ export function StewardParticipationTab() {
         setError(data?.error || 'Invitation issue failed');
         return;
       }
-      setIssued({ code: data.code, inviteUrl: data.inviteUrl });
+      setIssued({
+        code: data.code,
+        inviteUrl: data.inviteUrl,
+        allowedExperiments: data.invitation?.allowedExperiments ?? null,
+      });
       setFormLabel('');
       setFormRecipient('');
       setFormExperiments([]);
@@ -382,7 +386,19 @@ export function StewardParticipationTab() {
                   {copied === 'url' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-slate-400 hover:text-white" />}
                 </button>
               </div>
-              <button onClick={() => setIssued(null)} className="text-[10px] text-slate-400 hover:text-slate-200">Dismiss</button>
+              {activeDomain === 'research-lab' && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
+                  <span className="uppercase tracking-wide text-slate-500">Scoped to:</span>
+                  {issued.allowedExperiments && issued.allowedExperiments.length > 0 ? (
+                    issued.allowedExperiments.map((x) => (
+                      <span key={x} className="rounded border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-indigo-300">{x}</span>
+                    ))
+                  ) : (
+                    <span className="text-amber-300">ALL experiments (no restriction was saved — select experiments above before issuing to scope it)</span>
+                  )}
+                </div>
+              )}
+              <button onClick={() => setIssued(null)} className="mt-1 text-[10px] text-slate-400 hover:text-slate-200">Dismiss</button>
             </div>
           )}
         </div>
