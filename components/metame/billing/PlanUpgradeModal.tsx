@@ -35,7 +35,8 @@ export type PlanTierKey =
   | 'venture_lite'
   | 'venture_pro'
   | 'venture_elite'
-  | 'research_copilot';
+  | 'research_copilot'
+  | 'aigentz';
 
 interface TierMeta {
   key: PlanTierKey;
@@ -96,6 +97,7 @@ const FO_TIER_LABEL: Record<string, string> = {
   venture_pro: 'Operator+',
   venture_elite: 'Portfolio Operator',
   research_copilot: 'Research Copilot',
+  aigentz: 'aigentZ / DevOn',
 };
 
 // Code-level price fallbacks so the header cards always show a figure even
@@ -105,6 +107,7 @@ const FO_PRICE_FALLBACK: Record<string, string> = {
   venture_pro: '$999/mo',
   venture_elite: '$2,999/mo',
   research_copilot: '$29/mo',
+  aigentz: '$29/mo',
 };
 
 // Research Copilot (IRL) — its own dedicated tier/SKU. Rendered as a single-tier
@@ -115,6 +118,16 @@ const RESEARCH_LADDER: TierMeta[] = [
     key: 'research_copilot',
     name: 'Research Copilot (IRL)',
     blurb: 'The constitutional research environment — invariant substrate, protocols, experiments, receipts. Sold separately from aigentZ.',
+  },
+];
+
+// aigentZ / DevOn standalone add-on (IRL OS payment model, 2026-07-19) — the
+// peer of the Research Copilot add-on. Same single-tier purchase pattern.
+const AIGENTZ_LADDER: TierMeta[] = [
+  {
+    key: 'aigentz',
+    name: 'aigentZ / DevOn',
+    blurb: 'The aigentZ Development Command Center — consequence-engineered building. Add it on alongside the Research Agent without going to Steward.',
   },
 ];
 
@@ -133,10 +146,15 @@ export function PlanUpgradeModal({
   const isResearch =
     defaultTierKey === 'research_copilot' ||
     (Array.isArray(tiers) && tiers.length === 1 && tiers[0] === 'research_copilot');
+  // aigentZ / DevOn standalone add-on — same single-tier render as research.
+  const isAigentz =
+    defaultTierKey === 'aigentz' ||
+    (Array.isArray(tiers) && tiers.length === 1 && tiers[0] === 'aigentz');
+  const isSingleTier = isResearch || isAigentz;
   // For the Founder Office path, always show all three FO tiers regardless of
   // any `tiers` restriction — the operator chooses which package to buy/apply
   // for. `defaultTierKey` still controls pre-selection.
-  const ladder = isResearch ? RESEARCH_LADDER : TIER_LADDER;
+  const ladder = isAigentz ? AIGENTZ_LADDER : isResearch ? RESEARCH_LADDER : TIER_LADDER;
 
   const [quotes, setQuotes] = useState<Record<string, TierQuote>>({});
   const [loadingQuotes, setLoadingQuotes] = useState(false);
@@ -347,7 +365,7 @@ export function PlanUpgradeModal({
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
             <ArrowUpCircle className="h-5 w-5 text-purple-400" />
-            <h2 className="text-base font-semibold">{isResearch ? 'Research Copilot (IRL)' : 'Founder Office'}</h2>
+            <h2 className="text-base font-semibold">{isAigentz ? 'aigentZ / DevOn' : isResearch ? 'Research Copilot (IRL)' : 'Founder Office'}</h2>
           </div>
           <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-white">
             <X className="h-5 w-5" />
@@ -374,13 +392,15 @@ export function PlanUpgradeModal({
         ) : (
           <div className="max-h-[82vh] overflow-y-auto px-5 py-5">
             <p className="mb-4 text-xs text-slate-400">
-              {isResearch
+              {isAigentz
+                ? 'aigentZ / DevOn is available as a standalone add-on — bolt it on alongside the Research Agent without going to Steward. Buy it below, or request complimentary access.'
+                : isResearch
                 ? 'The Research Copilot is its own unlock — a constitutional research environment, sold separately from aigentZ. Buy it below, or request complimentary access.'
                 : 'The Founder Office runs your ventures on the VentureQube Pro schema with the operating model. Choose a package to buy — or request complimentary access below.'}
             </p>
 
             {/* Tier header cards */}
-            <div className={`mb-5 grid gap-3 ${isResearch ? 'grid-cols-1' : 'grid-cols-3'}`}>
+            <div className={`mb-5 grid gap-3 ${isSingleTier ? 'grid-cols-1' : 'grid-cols-3'}`}>
               {ladder.map((t) => {
                 const q = quotes[t.key];
                 const price = q ? `${usd(q.priceUsdCents)}/mo` : (loadingQuotes ? '…' : (FO_PRICE_FALLBACK[t.key] ?? '—'));
@@ -400,16 +420,24 @@ export function PlanUpgradeModal({
               })}
             </div>
 
-            {/* Feature list — research single-tier vs Founder Office comparison */}
-            {isResearch ? (
+            {/* Feature list — single-tier (research/aigentZ) vs Founder Office comparison */}
+            {isSingleTier ? (
               <ul className="space-y-2 text-sm text-slate-300">
-                {[
+                {(isAigentz
+                  ? [
+                      'aigentZ Development Command Center — consequence-engineered building',
+                      'Distill intents, assemble context packs, analyze capability gaps',
+                      'Model consequences and validate implementations against them',
+                      'aigentZ as your copilot through the full dev loop',
+                      'Add-on: stacks alongside the Research Agent',
+                    ]
+                  : [
                   'Research Copilot — the researcher pathway\'s peer to the aigentZ developer copilot',
                   'Query the invariant substrate, ranked by standing',
                   'Author pre-registered, falsifiable protocols and experiments',
                   'Project invariant-field counterfactuals',
                   'Contribute validated results into the constitutional record',
-                ].map((line) => (
+                ]).map((line) => (
                   <li key={line} className="flex items-start gap-2">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                     <span>{line}</span>

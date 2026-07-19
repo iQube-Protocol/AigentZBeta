@@ -18,6 +18,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { checkExperimentQuota } from '@/services/billing/experimentQuota';
 import {
   exp004AnswerStep,
   exp004Battery,
@@ -37,9 +39,16 @@ export const dynamic = 'force-dynamic';
 
 async function requireAdmin(request: NextRequest) {
   const persona = await getActivePersona(request);
-  if (!persona) return { error: NextResponse.json({ error: 'unauthenticated' }, { status: 401 }) };
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return { error: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
+  if (!persona?.personaId) return { error: NextResponse.json({ error: 'unauthenticated' }, { status: 401 }) };
+  const isAdmin = Boolean(persona.cartridgeFlags?.isAdmin);
+  const client = getSupabaseServer();
+  // Admins are never blocked or metered (operator direction 2026-07-19).
+  // Otherwise the caller needs research access (Sovereign-selected research,
+  // Steward, or the research add-on) AND remaining monthly experiment quota.
+  if (!client) return isAdmin ? { persona } : { error: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
+  const q = await checkExperimentQuota(client, persona.personaId, new Date(), isAdmin);
+  if (!q.allowed) {
+    return { error: NextResponse.json({ error: 'forbidden', message: q.reason ?? 'Research access required to run experiments' }, { status: 403 }) };
   }
   return { persona };
 }
