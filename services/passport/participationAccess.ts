@@ -119,6 +119,8 @@ export interface AccessInvitationRow {
   status: string;
   createdAt: string;
   revokedAt: string | null;
+  /** Experiment ids this invitation scopes the reviewer to (null/[] = all). */
+  allowedExperiments: string[] | null;
 }
 
 function toInvitationRow(r: Record<string, unknown>): AccessInvitationRow {
@@ -134,6 +136,7 @@ function toInvitationRow(r: Record<string, unknown>): AccessInvitationRow {
     status: String(r.status),
     createdAt: String(r.created_at),
     revokedAt: (r.revoked_at as string | null) ?? null,
+    allowedExperiments: ((r.allowed_experiments as string[] | null) ?? null),
   };
 }
 
@@ -211,6 +214,8 @@ export interface AccessGrantView {
   receiptId: string | null;
   /** T2-safe holder commitment — never the raw persona id. */
   holderRef: string;
+  /** Experiment ids this grant scopes the reviewer to (null/[] = all). */
+  allowedExperiments: string[] | null;
 }
 
 export async function listAccessGrants(admin: SupabaseClient, domain?: AccessDomain): Promise<AccessGrantView[]> {
@@ -228,6 +233,7 @@ export async function listAccessGrants(admin: SupabaseClient, domain?: AccessDom
     expiresAt: (r.expires_at as string | null) ?? null,
     receiptId: (r.receipt_id as string | null) ?? null,
     holderRef: createHash('sha256').update(String(r.persona_id)).digest('hex').slice(0, 16),
+    allowedExperiments: ((r.allowed_experiments as string[] | null) ?? null),
   }));
 }
 

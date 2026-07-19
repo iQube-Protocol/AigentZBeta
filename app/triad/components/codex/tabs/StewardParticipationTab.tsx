@@ -31,6 +31,7 @@ interface InvitationRow {
   expiresAt: string | null;
   status: string;
   createdAt: string;
+  allowedExperiments: string[] | null;
 }
 interface GrantRow {
   id: string;
@@ -42,6 +43,7 @@ interface GrantRow {
   expiresAt: string | null;
   receiptId: string | null;
   holderRef: string;
+  allowedExperiments: string[] | null;
 }
 interface AppCounts { total: number; pending: number; agentAssisted: number }
 
@@ -393,7 +395,7 @@ export function StewardParticipationTab() {
           ) : (
             <div className="space-y-1">
               {domainInvitations.map((inv) => (
-                <div key={inv.id} className="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
+                <div key={inv.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
                   <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">{inv.role}</span>
                   <span className="min-w-0 flex-1 truncate text-slate-300">
                     {inv.label || 'Untitled invitation'}
@@ -423,6 +425,18 @@ export function StewardParticipationTab() {
                         : <X className="h-3 w-3 text-slate-400 hover:text-red-400" />}
                     </button>
                   )}
+                  {activeDomain === 'research-lab' && (
+                    <div className="basis-full flex flex-wrap items-center gap-1 pt-0.5 text-[10px] text-slate-500">
+                      <span className="uppercase tracking-wide">Experiments:</span>
+                      {inv.allowedExperiments && inv.allowedExperiments.length > 0 ? (
+                        inv.allowedExperiments.map((x) => (
+                          <span key={x} className="rounded border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-indigo-300">{x}</span>
+                        ))
+                      ) : (
+                        <span className="text-slate-400">all (unrestricted)</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -439,7 +453,7 @@ export function StewardParticipationTab() {
           ) : (
             <div className="space-y-1">
               {domainGrants.map((g) => (
-                <div key={g.id} className="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
+                <div key={g.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
                   <code className="font-mono text-cyan-300/80 shrink-0" title="Holder — T2-safe commitment reference">{g.holderRef}</code>
                   <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">{g.role}</span>
                   <span className="text-slate-500 shrink-0">via {g.source}</span>
@@ -451,6 +465,18 @@ export function StewardParticipationTab() {
                   )}
                   <span className={`shrink-0 ${g.status === 'active' ? 'text-emerald-300' : 'text-slate-500'}`}>{g.status}</span>
                   <span className="text-slate-500 shrink-0">{new Date(g.grantedAt).toLocaleDateString()}</span>
+                  {activeDomain === 'research-lab' && (
+                    <div className="basis-full flex flex-wrap items-center gap-1 pt-0.5 text-[10px] text-slate-500">
+                      <span className="uppercase tracking-wide">Assigned:</span>
+                      {g.allowedExperiments && g.allowedExperiments.length > 0 ? (
+                        g.allowedExperiments.map((x) => (
+                          <span key={x} className="rounded border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-indigo-300">{x}</span>
+                        ))
+                      ) : (
+                        <span className="text-slate-400">all (unrestricted)</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

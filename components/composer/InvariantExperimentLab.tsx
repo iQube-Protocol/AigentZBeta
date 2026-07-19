@@ -294,6 +294,31 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
 
       {/* Selected item (right) — per-item overview + the runner */}
       <div className="flex-1 overflow-y-auto p-4">
+        {/* Assigned-experiments checklist — a scoped reviewer's teed-up set (their
+            invitation's allowed_experiments). Chips jump to each runner. */}
+        {accessInfo && !accessInfo.isAdmin && accessInfo.access === "scoped" && allItems.length > 0 && (
+          <div className="mb-4 rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3">
+            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-indigo-200">
+              Your assigned experiments ({allItems.length}) — teed up to run
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {allItems.map((it) => (
+                <button
+                  key={it.id}
+                  onClick={() => setTab(it.id)}
+                  className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                    tab === it.id
+                      ? "border-indigo-400 bg-indigo-500/25 text-indigo-100"
+                      : "border-slate-700 bg-slate-900/40 text-slate-300 hover:bg-slate-800"
+                  }`}
+                >
+                  {ITEM_EXPERIMENT[it.id] ?? it.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {active && (
           <div className="mb-4">
             <h2 className="text-base font-semibold text-slate-100">{active.label}</h2>
