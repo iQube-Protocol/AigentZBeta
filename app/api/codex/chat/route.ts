@@ -3110,6 +3110,10 @@ export async function POST(request: NextRequest) {
                   // (human-approved); 'active'/'candidate' = machine tier.
                   status: m.humanValidated ? 'validated' : m.status,
                 }));
+                // A2: server-held row ids for trajectory capture (memory
+                // activations). Never echoed to the client — the response
+                // serialises platformInvariants only.
+                gcNow.retrievedMemoryIds = memory.map((m) => m.id);
               }
             }
           } catch {
@@ -3372,6 +3376,13 @@ export async function POST(request: NextRequest) {
         : [];
       if (compileCartridgeId) {
         const compilePersonaId = activePersonaCtx.personaId;
+        // A2: memory activations (server-held ids) + opaque session marker
+        // (client-generated random token — sanitised in the service).
+        const compileMemoryIds = Array.isArray(gcDone.retrievedMemoryIds)
+          ? (gcDone.retrievedMemoryIds as string[]).map(String)
+          : [];
+        const compileSessionMarker =
+          typeof gcDone.sessionMarker === 'string' ? gcDone.sessionMarker : undefined;
         after(async () => {
           const { compileInteraction } = await import('@/services/memory/memoryCompilation');
           await compileInteraction({
@@ -3380,6 +3391,8 @@ export async function POST(request: NextRequest) {
             userMessage: message,
             assistantResponse: responseForClient,
             sourceSeedIds: compileSeedIds,
+            retrievedMemoryIds: compileMemoryIds,
+            sessionMarker: compileSessionMarker,
           });
         });
       }

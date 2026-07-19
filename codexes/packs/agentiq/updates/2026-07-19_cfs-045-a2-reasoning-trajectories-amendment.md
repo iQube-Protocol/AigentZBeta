@@ -1,6 +1,6 @@
 # CFS-045-A2 — Reasoning Trajectories Amendment (Remember How, Not Just What)
 
-**Status: `draft` — second amendment to the ratified CFS-045 charter. Docs-first: the schema and capture code below ship only on operator ratification.**
+**Status: `ratified` (operator, 2026-07-19 — all six checklist items). v1.2 BUILT the same day: migration `20260801000000_reasoning_trajectories.sql` (trajectory table + `evidence` jsonb on memory_invariants — operator must run it with the earlier memory SQL), trajectory capture folded into the existing compilation pass (intent digest + cited/discarded in the same model call, one row per compiled turn incl. 'none'), typed evidence events (`runtime_reuse` on confirm/strengthen, `human_validation` on A1 validate), 500-row retention prune, opaque client session marker, and `GET /api/memory/trajectories` (recent + recurrence summary). EXP-013 remains chartered-not-run.**
 Source: operator direction ("what's also important was the process that it took to generate the invariants") + Aletheon's three-artifact framing (2026-07-19), following the A1 partnership-memory build.
 
 ---
