@@ -32,6 +32,24 @@ export interface SmartTriadObserverContext {
   delegationActive?: boolean;
   /** Active access grants, as domain/role labels (T1-safe). */
   participation?: { domain: string; role: string }[];
+  /** Platform admin (server-resolved; optimistic UI only — routes re-gate). */
+  isAdmin?: boolean;
+}
+
+/**
+ * A copilot-invocable OPERATION (Phase 3 Actions): a deterministic, explicit
+ * platform action the copilot surfaces as a chip. Always confirm-gated in the
+ * UI and ALWAYS re-gated server-side (admin/entitlement) — the chip is a
+ * convenience, never an authority.
+ */
+export interface SmartTriadOperation {
+  id: string;
+  label: string;
+  route: string;
+  method?: 'POST' | 'PATCH';
+  body?: Record<string, unknown>;
+  /** Confirmation copy shown before executing. */
+  confirm: string;
 }
 
 export interface SmartTriadContext {
@@ -41,4 +59,6 @@ export interface SmartTriadContext {
   cartridge: { id: string; name: string; tab: string };
   observer: SmartTriadObserverContext;
   deepLinks: SmartTriadDeepLink[];
+  /** Admin-only operational actions (empty for non-admins). */
+  operations: SmartTriadOperation[];
 }

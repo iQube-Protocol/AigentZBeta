@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { personaFetch } from "@/utils/personaSpine";
-import type { SmartTriadContext, SmartTriadDeepLink, SmartTriadObserverContext } from "@/types/smartTriadContext";
+import type { SmartTriadContext, SmartTriadDeepLink, SmartTriadObserverContext, SmartTriadOperation } from "@/types/smartTriadContext";
 
 /** Per-cartridge deep-link catalogs. IRL tab slugs differ by edition (irl-os-*
  *  public vs irl-* internal) — resolved from the codexId. */
@@ -38,6 +38,31 @@ function deepLinksFor(codexId: string): SmartTriadDeepLink[] {
     return [
       { label: "Passport Bureau", codexSlug: "polity-passport-bureau-cartridge" },
       { label: "Research Lab", codexSlug: "irl-os-cartridge", codexTab: "irl-os-welcome" },
+    ];
+  }
+  return [];
+}
+
+/** Admin-only copilot operations per cartridge (Phase 3 Actions). Every route
+ *  here is ALREADY admin-gated server-side; the chip is a convenience. */
+function operationsFor(codexId: string): SmartTriadOperation[] {
+  if (codexId === "irl-os-cartridge" || codexId === "irl-cartridge") {
+    return [
+      {
+        id: "backfill-results",
+        label: "Backfill repo records",
+        route: "/api/experiments/results/backfill",
+        method: "POST",
+        confirm: "Publish the repo-bundled records (historical EXP runs + IRV/IPV Stage-0) into the canonical results? Idempotent — already-published entries skip.",
+      },
+      {
+        id: "regenerate-report",
+        label: "Regenerate canonical report",
+        route: "/api/research/report/regenerate",
+        method: "POST",
+        body: { scope: "all" },
+        confirm: "Regenerate the canonical findings report from the collective record? Saves a new DVN-receipted version (model call).",
+      },
     ];
   }
   return [];
@@ -75,6 +100,11 @@ export function useSmartTriadContext(
             ? "issued"
             : "none";
       } catch { /* best-effort */ }
+      try {
+        const res = await personaFetch("/api/experiments/access", { cache: "no-store" });
+        const d = await res.json();
+        next.isAdmin = Boolean(d?.isAdmin);
+      } catch { /* best-effort */ }
       if (!cancelled) setObserver(next);
     })();
     return () => { cancelled = true; };
@@ -88,6 +118,8 @@ export function useSmartTriadContext(
       cartridge: { id: codexId, name: cartridgeName, tab: activeTabSlug },
       observer,
       deepLinks: deepLinksFor(codexId),
+      // Operations only surface for admins (optimistic; routes re-gate).
+      operations: observer.isAdmin ? operationsFor(codexId) : [],
     }),
     [codexId, cartridgeName, activeTabSlug, observer],
   );
