@@ -22,7 +22,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { ArrowRight, BookOpen, FlaskConical, Loader2, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, Bot, BookOpen, FlaskConical, Loader2, ShieldCheck, UserRound, Users } from "lucide-react";
 
 interface Grant {
   accessDomain: string;
@@ -77,8 +77,10 @@ export function IRLWelcomeTab() {
   const p = tabPrefix();
   const PARTICIPATION_TAB = `${p}-participation-overview`;
   const APPLY_TAB = `${p}-passport-apply`;
+  const DELEGATION_TAB = `${p}-passport-delegation`;
   const LAB_TAB = `${p}-experiment-lab`;
   const REPORTS_TAB = `${p}-reports`;
+  const HUMAN_TAB = authed ? APPLY_TAB : PARTICIPATION_TAB;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -136,13 +138,36 @@ export function IRLWelcomeTab() {
             </p>
           </div>
 
-          <button
-            onClick={() => goToTab(authed ? APPLY_TAB : PARTICIPATION_TAB)}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-violet-500"
-          >
-            {authed ? "Begin onboarding" : "How to participate"}
-            <ArrowRight className="h-4 w-4" />
-          </button>
+          {/* Two prominent, equal setup routes — either path takes you all the
+              way through accession. Human (green) = do it yourself; Agent
+              (magenta) = delegate an agent to administer it for you. */}
+          <p className="mt-8 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Choose how to set up — either route works</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => goToTab(HUMAN_TAB)}
+              className="group flex flex-col items-start gap-1 rounded-2xl border border-emerald-500/40 bg-emerald-600/90 px-5 py-4 text-left transition hover:bg-emerald-500"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
+                <UserRound className="h-4 w-4" /> Set up myself
+                <ArrowRight className="h-4 w-4 opacity-70 transition group-hover:translate-x-0.5" />
+              </span>
+              <span className="text-[11px] leading-snug text-emerald-50/90">
+                Walk the accession yourself — apply for your Passport, accept the agreement, and run experiments directly.
+              </span>
+            </button>
+            <button
+              onClick={() => goToTab(DELEGATION_TAB)}
+              className="group flex flex-col items-start gap-1 rounded-2xl border border-fuchsia-500/40 bg-fuchsia-600/90 px-5 py-4 text-left transition hover:bg-fuchsia-500"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
+                <Bot className="h-4 w-4" /> Set up with my agent
+                <ArrowRight className="h-4 w-4 opacity-70 transition group-hover:translate-x-0.5" />
+              </span>
+              <span className="text-[11px] leading-snug text-fuchsia-50/90">
+                Delegate an AI agent to administer the setup on your behalf — you still hold the keys (accept terms, claim, delegate).
+              </span>
+            </button>
+          </div>
         </>
       )}
     </div>
