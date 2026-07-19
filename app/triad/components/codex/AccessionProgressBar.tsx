@@ -82,8 +82,12 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
         let passportDone = false;
         if (walletRes.status === "fulfilled" && walletRes.value.ok) {
           const d = await walletRes.value.json();
-          const passports = (d?.passports ?? d?.items ?? []) as Array<{ claimedAt?: string | null; claimed_at?: string | null }>;
-          passportDone = passports.some((p) => p.claimedAt || p.claimed_at);
+          // /api/polity-passport/wallet returns issued passports under
+          // `passportQubes`. Having an issued passport record clears the
+          // "Passport" (apply) step — claiming the credential happens later at
+          // the Access/Locker step.
+          const passports = (d?.passportQubes ?? d?.passports ?? d?.items ?? []) as Array<{ passportId?: string; claimedAt?: string | null }>;
+          passportDone = passports.some((p) => p.passportId);
         }
         let delegationDone = false;
         if (delegationRes.status === "fulfilled" && delegationRes.value.ok) {

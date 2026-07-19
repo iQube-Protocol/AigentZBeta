@@ -105,13 +105,14 @@ export function publishStatePrefix(visibility: unknown): string {
   return "published";
 }
 
-/** POST one experiment step, with one automatic retry on failure. */
+/** POST (or another method) one experiment step, with one automatic retry. */
 export async function experimentStep(
   url: string,
   body: Record<string, unknown>,
+  method: "POST" | "PATCH" | "PUT" = "POST",
 ): Promise<Record<string, unknown>> {
   const init: RequestInit = {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   };

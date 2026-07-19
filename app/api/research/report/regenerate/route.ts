@@ -20,6 +20,7 @@ import {
   composeCanonicalReport,
   persistReportVersion,
   listReportVersions,
+  attachReportReceipt,
 } from '@/services/research/reportComposition';
 
 export const dynamic = 'force-dynamic';
@@ -52,6 +53,38 @@ export async function GET(req: NextRequest) {
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );
+}
+
+/**
+ * PATCH — mint the DVN-anchorable publication receipt for an EXISTING canonical
+ * version that was persisted without one (so it can be published without a full,
+ * hash-changing regenerate). Body: { scope?: string, version: number }.
+ */
+export async function PATCH(req: NextRequest) {
+  const persona = await getActivePersona(req);
+  if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
+  if (!persona.cartridgeFlags?.isAdmin) return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
+
+  const body = (await req.json().catch(() => ({}))) as { scope?: string; version?: number };
+  const scope = typeof body.scope === 'string' && body.scope.trim() ? body.scope.trim() : 'all';
+  if (typeof body.version !== 'number') {
+    return NextResponse.json({ ok: false, error: 'version (number) is required' }, { status: 400 });
+  }
+
+  const receipt = await createActivityReceipt({
+    personaId: persona.personaId,
+    activeCartridge: 'irl',
+    actionType: 'artifact_published',
+    summary: `canonical research report receipt minted (${scope} v${body.version})`,
+    contextShared: ['irl-research', 'canonical-report', 'artifact-runtime'],
+  }).catch(() => null);
+  if (!receipt?.id) {
+    return NextResponse.json({ ok: false, error: 'receipt mint failed — try again' }, { status: 502 });
+  }
+
+  const attached = await attachReportReceipt(scope, body.version, receipt.id);
+  if (!attached.ok) return NextResponse.json({ ok: false, error: attached.error }, { status: 500 });
+  return NextResponse.json({ ok: true, scope, version: body.version, receiptId: attached.receiptId });
 }
 
 export async function POST(req: NextRequest) {
