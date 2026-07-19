@@ -139,9 +139,9 @@ export default function ExperimentResultsTab() {
             onClick={backfill}
             disabled={backfilling}
             className="inline-flex items-center gap-1.5 rounded-md border border-indigo-800 bg-indigo-950/40 px-2.5 py-1.5 text-xs text-indigo-300 hover:bg-indigo-900/40"
-            title="Publish the repo-bundled historical run records (run-1 EXP-001/EXP-003, EXP-002 run-2) — idempotent"
+            title="Publish the repo-bundled records not yet in the canon (EXP-001/002/003 historical runs + the IRV/IPV-001 Stage-0 instrument-validation records) — idempotent, already-published entries skip by content hash"
           >
-            <History className="h-3.5 w-3.5" /> {backfilling ? "Backfilling…" : "Backfill historical runs"}
+            <History className="h-3.5 w-3.5" /> {backfilling ? "Backfilling…" : "Backfill repo records"}
           </button>
           <button
             onClick={load}
