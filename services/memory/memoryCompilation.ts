@@ -127,6 +127,11 @@ Respond with STRICT JSON only, no prose:
 {"outcome":"merged","targetId":"<id A>","secondTargetId":"<id B>","statement":"<unified statement>"} — two existing invariants are the same pattern.
 {"outcome":"split","targetId":"<existing id>","statements":["<part 1>","<part 2>"]} — one invariant conflates two distinct patterns.
 
+EVERY response additionally carries the reasoning-trajectory fields (CFS-045-A2):
+"intentDigest": a <=200 char compression of what the operator was trying to achieve — a general statement, NEVER quoting the message, NEVER containing names/emails/identifiers.
+"citedSeedIds": the subset of the ACTIVATED PLATFORM INVARIANT seed ids the reply's reasoning actually leaned on (empty array if none).
+"citedMemoryIds": the subset of existing memory invariant ids the reply's reasoning actually leaned on (empty array if none).
+
 Be conservative: prefer "none" over a weak candidate. One outcome only.`;
 
 /**
@@ -143,16 +148,23 @@ export async function compileInteraction(args: {
   assistantResponse: string;
   /** Platform invariant seed ids that grounded the turn (T2-safe refs). */
   sourceSeedIds?: string[];
+  /** Memory row ids retrieved into the ground truth this turn (A2). */
+  retrievedMemoryIds?: string[];
+  /** Opaque client-generated random session token (A2) — grouping only. */
+  sessionMarker?: string;
 }): Promise<{ outcome: CompilationOutcome } | null> {
-  const { personaId, cartridgeId, userMessage, assistantResponse, sourceSeedIds } = args;
+  const { personaId, cartridgeId, userMessage, assistantResponse, sourceSeedIds, retrievedMemoryIds, sessionMarker } = args;
   try {
     const existing = await retrieveMemoryInvariants(personaId, cartridgeId, 20);
     const existingBlock = existing.length
       ? existing.map((m) => `- id=${m.id} [${m.status}, conf=${m.confidence.toFixed(2)}] ${m.statement}`).join('\n')
       : '(none yet)';
-    const user = `EXISTING MEMORY INVARIANTS:\n${existingBlock}\n\nINTERACTION:\nOperator: ${userMessage.slice(0, 1500)}\nCopilot: ${assistantResponse.slice(0, 2000)}`;
+    const activatedBlock = (sourceSeedIds ?? []).length
+      ? (sourceSeedIds ?? []).join(', ')
+      : '(none)';
+    const user = `EXISTING MEMORY INVARIANTS:\n${existingBlock}\n\nACTIVATED PLATFORM INVARIANTS (seed ids, in resolution order): ${activatedBlock}\n\nINTERACTION:\nOperator: ${userMessage.slice(0, 1500)}\nCopilot: ${assistantResponse.slice(0, 2000)}`;
 
-    const result = await callSovereign('extraction', COMPILATION_SYSTEM, user, 400, 0);
+    const result = await callSovereign('extraction', COMPILATION_SYSTEM, user, 500, 0);
     const jsonMatch = result.text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
     const parsed = JSON.parse(jsonMatch[0]) as {
@@ -161,6 +173,9 @@ export async function compileInteraction(args: {
       secondTargetId?: string;
       statement?: string;
       statements?: string[];
+      intentDigest?: string;
+      citedSeedIds?: string[];
+      citedMemoryIds?: string[];
     };
     const outcome = parsed.outcome as CompilationOutcome | undefined;
     if (!outcome) return null;
@@ -168,6 +183,8 @@ export async function compileInteraction(args: {
     const now = new Date().toISOString();
     const byId = new Map(existing.map((m) => [m.id, m]));
     const target = parsed.targetId ? byId.get(parsed.targetId) : undefined;
+    // A2: the invariant this turn produced/affected — recorded on the trajectory.
+    let producedInvariantId: string | null = null;
 
     switch (outcome) {
       case 'none':
@@ -198,14 +215,15 @@ export async function compileInteraction(args: {
       case 'candidate': {
         const statement = String(parsed.statement ?? '');
         if (!isT1Safe(statement)) return null;
-        await client().from('memory_invariants').insert({
+        const { data: inserted } = await client().from('memory_invariants').insert({
           persona_id: personaId,
           cartridge_id: cartridgeId,
           statement,
           status: 'candidate',
           confidence: 0.5,
           source_seed_ids: sourceSeedIds ?? [],
-        });
+        }).select('id').single();
+        producedInvariantId = inserted?.id ? String(inserted.id) : null;
         break;
       }
       case 'refuted': {
@@ -230,7 +248,7 @@ export async function compileInteraction(args: {
         // consume a human-validated row.
         if (target.humanValidated || second.humanValidated) return null;
         await client().from('memory_invariants').update({ status: 'retired', updated_at: now }).in('id', [target.id, second.id]);
-        await client().from('memory_invariants').insert({
+        const { data: mergedRow } = await client().from('memory_invariants').insert({
           persona_id: personaId,
           cartridge_id: cartridgeId,
           statement,
@@ -239,7 +257,8 @@ export async function compileInteraction(args: {
           support_count: target.supportCount + second.supportCount,
           lineage: { merged_from: [target.id, second.id] },
           source_seed_ids: sourceSeedIds ?? [],
-        });
+        }).select('id').single();
+        producedInvariantId = mergedRow?.id ? String(mergedRow.id) : null;
         break;
       }
       case 'split': {
@@ -262,10 +281,73 @@ export async function compileInteraction(args: {
       default:
         return null;
     }
+    if (!producedInvariantId && target && outcome !== 'none') producedInvariantId = target.id;
+
+    // A2 evidence — runtime-reuse provenance on re-evidenced invariants.
+    if ((outcome === 'confirmed' || outcome === 'strengthened') && target) {
+      await appendEvidence(target.id, 'runtime_reuse');
+    }
+
+    // A2 trajectory — one row per compiled turn (including 'none': reasoning
+    // that taught nothing durable is still reasoning worth studying). Intent
+    // digest is model-produced and T1-guarded; a guard failure degrades the
+    // digest, never blocks the trajectory.
+    try {
+      const rawDigest = String(parsed.intentDigest ?? '').slice(0, 200);
+      const intentDigest = rawDigest && isT1Safe(rawDigest) ? rawDigest : '(digest unavailable)';
+      const activated = (sourceSeedIds ?? []).filter(Boolean);
+      const citedSeeds = Array.isArray(parsed.citedSeedIds)
+        ? parsed.citedSeedIds.map(String).filter((s) => activated.includes(s))
+        : [];
+      const memoryPool = new Set([...(retrievedMemoryIds ?? []), ...existing.map((m) => m.id)]);
+      const citedMemory = Array.isArray(parsed.citedMemoryIds)
+        ? parsed.citedMemoryIds.map(String).filter((s) => memoryPool.has(s))
+        : [];
+      const marker = typeof sessionMarker === 'string' && /^[a-z0-9]{4,32}$/i.test(sessionMarker) ? sessionMarker : null;
+      await client().from('reasoning_trajectories').insert({
+        persona_id: personaId,
+        cartridge_id: cartridgeId,
+        intent_digest: intentDigest,
+        activated_seed_ids: activated,
+        memory_ids_cited: citedMemory,
+        discarded_seed_ids: activated.filter((s) => !citedSeeds.includes(s)),
+        outcome,
+        produced_invariant_id: producedInvariantId,
+        session_marker: marker,
+      });
+      // Retention: trajectories are study material, not substrate — cap 500
+      // per (persona, cartridge), oldest pruned.
+      const { data: overflow } = await client()
+        .from('reasoning_trajectories')
+        .select('id')
+        .eq('persona_id', personaId)
+        .eq('cartridge_id', cartridgeId)
+        .order('created_at', { ascending: false })
+        .range(500, 599);
+      if (overflow && overflow.length > 0) {
+        await client().from('reasoning_trajectories').delete().in('id', overflow.map((r) => r.id));
+      }
+    } catch {
+      // Trajectory capture is additive — its failure never undoes the outcome.
+    }
+
     return { outcome };
   } catch (err) {
     console.error('[MemoryCompilation] compile failed (silent to operator):', err instanceof Error ? err.message : err);
     return null;
+  }
+}
+
+/** A2 evidence — append one typed provenance event to an invariant's
+ *  evidence array (capped at 50 events; oldest dropped). */
+async function appendEvidence(id: string, kind: string, ref?: string): Promise<void> {
+  try {
+    const { data } = await client().from('memory_invariants').select('evidence').eq('id', id).single();
+    const events = Array.isArray(data?.evidence) ? data.evidence : [];
+    events.push({ kind, at: new Date().toISOString(), ...(ref ? { ref } : {}) });
+    await client().from('memory_invariants').update({ evidence: events.slice(-50) }).eq('id', id);
+  } catch {
+    // Evidence is provenance enrichment — never load-bearing for the write.
   }
 }
 
@@ -383,8 +465,75 @@ export async function validateMemoryInvariant(
       .eq('persona_id', personaId)
       .eq('id', id)
       .lt('confidence', 0.8);
+    // A2 evidence — human validation is provenance on the invariant.
+    await appendEvidence(id, 'human_validation');
   }
   return true;
+}
+
+export interface ReasoningTrajectoryRecord {
+  id: string;
+  cartridgeId: string;
+  intentDigest: string;
+  activatedSeedIds: string[];
+  memoryIdsCited: string[];
+  discardedSeedIds: string[];
+  outcome: string;
+  producedInvariantId: string | null;
+  sessionMarker: string | null;
+  createdAt: string;
+}
+
+/** A2 owner self-view — recent reasoning trajectories (study material). */
+export async function listTrajectories(personaId: string, limit = 50): Promise<ReasoningTrajectoryRecord[]> {
+  const { data } = await client()
+    .from('reasoning_trajectories')
+    .select('id, cartridge_id, intent_digest, activated_seed_ids, memory_ids_cited, discarded_seed_ids, outcome, produced_invariant_id, session_marker, created_at')
+    .eq('persona_id', personaId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    cartridgeId: String(r.cartridge_id),
+    intentDigest: String(r.intent_digest),
+    activatedSeedIds: Array.isArray(r.activated_seed_ids) ? r.activated_seed_ids.map(String) : [],
+    memoryIdsCited: Array.isArray(r.memory_ids_cited) ? r.memory_ids_cited.map(String) : [],
+    discardedSeedIds: Array.isArray(r.discarded_seed_ids) ? r.discarded_seed_ids.map(String) : [],
+    outcome: String(r.outcome),
+    producedInvariantId: r.produced_invariant_id ? String(r.produced_invariant_id) : null,
+    sessionMarker: r.session_marker ? String(r.session_marker) : null,
+    createdAt: String(r.created_at),
+  }));
+}
+
+export interface TrajectoryRecurrence {
+  /** Activation-sequence signature (seed ids joined with ' > '). */
+  signature: string;
+  count: number;
+  /** Share of these turns that produced/affected an invariant (vs 'none'). */
+  productiveShare: number;
+}
+
+/**
+ * A2 recurrence summary — the seed of the reasoning-dynamics research
+ * surface (EXP-013 studies this properly; this is the observational view).
+ * Which activation sequences recur, and how often they produce something.
+ */
+export async function trajectoryRecurrence(personaId: string, top = 5): Promise<TrajectoryRecurrence[]> {
+  const rows = await listTrajectories(personaId, 200);
+  const groups = new Map<string, { count: number; productive: number }>();
+  for (const t of rows) {
+    if (t.activatedSeedIds.length === 0) continue;
+    const sig = t.activatedSeedIds.join(' > ');
+    const g = groups.get(sig) ?? { count: 0, productive: 0 };
+    g.count += 1;
+    if (t.outcome !== 'none') g.productive += 1;
+    groups.set(sig, g);
+  }
+  return [...groups.entries()]
+    .map(([signature, g]) => ({ signature, count: g.count, productiveShare: g.count > 0 ? g.productive / g.count : 0 }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, top);
 }
 
 export interface PartnershipMetrics {

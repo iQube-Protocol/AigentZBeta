@@ -263,6 +263,13 @@ export function CodexCopilotLayer({
   // on earlier turns, accumulated from resolved_invariants echoes and sent
   // back as groundContext.sessionInvariants. T2-safe (seed ids + statements).
   const sessionInvariantsRef = useRef<Array<{ seedId: string; statement: string }>>([]);
+  // CFS-045-A2 session marker — opaque random token grouping this mount's
+  // turns into one reasoning session for trajectory capture. NEVER derived
+  // from any identifier.
+  const sessionMarkerRef = useRef<string>("");
+  if (!sessionMarkerRef.current) {
+    sessionMarkerRef.current = Math.random().toString(36).slice(2, 12);
+  }
   const accumulateResolvedInvariants = (
     incoming: CodexChatResponse["resolved_invariants"],
   ) => {
@@ -1016,8 +1023,14 @@ export function CodexCopilotLayer({
           ...(groundContext
             ? {
                 groundContext:
-                  groundContext.surface === "smart-triad" && sessionInvariantsRef.current.length > 0
-                    ? { ...groundContext, sessionInvariants: sessionInvariantsRef.current }
+                  groundContext.surface === "smart-triad"
+                    ? {
+                        ...groundContext,
+                        sessionMarker: sessionMarkerRef.current,
+                        ...(sessionInvariantsRef.current.length > 0
+                          ? { sessionInvariants: sessionInvariantsRef.current }
+                          : {}),
+                      }
                     : groundContext,
               }
             : {}),
