@@ -28,9 +28,10 @@ const MIGRATION = '20260724000000_x409_invitations.sql';
 
 function inviteUrlFor(req: NextRequest, code: string): string {
   const origin = new URL(req.url).origin;
-  // Participation → Locker of the public IRL OS cartridge (slug irl-os;
-  // locker tab slug irl-os-passport-locker — data/codex-configs.ts).
-  return `${origin}/triad/embed/codex/irl-os?tab=irl-os-passport-locker&x409=${code}`;
+  // The accession invitation page (2026-07-19) — human view + linked
+  // machine-readable twin. Its Begin action deep-links the code into the
+  // IRL OS Participation → Locker claim flow.
+  return `${origin}/invite/${code}`;
 }
 
 export async function POST(req: NextRequest) {

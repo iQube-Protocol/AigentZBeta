@@ -66,7 +66,10 @@ export async function POST(req: NextRequest) {
     ok: true,
     // Shown once — the steward copies it now or reissues later.
     code: result.rawCode,
-    inviteUrl: `${origin}/triad/embed/codex/irl-os?tab=irl-os-passport-locker&invite=${result.rawCode}`,
+    // The accession invitation page — the single entry point (human view +
+    // linked machine-readable twin). The page's Begin action carries the
+    // code into the Locker claim flow.
+    inviteUrl: `${origin}/invite/${result.rawCode}`,
     invitation: result.invitation,
   });
 }
