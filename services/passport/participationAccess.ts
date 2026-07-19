@@ -375,12 +375,14 @@ export async function autoClaimEmailInvitation(
   if (emails.size === 0) return false;
 
   // Find an active, unexpired, uses-remaining invitation in this domain whose
-  // intended recipient matches one of the caller's emails.
+  // intended recipient matches one of the caller's emails. Newest-first so the
+  // steward's most recent (correctly-scoped) invitation wins over stale ones.
   const { data: invRows } = await admin
     .from('access_invitations')
     .select('*')
     .eq('access_domain', domain)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
   const now = Date.now();
   const match = (invRows ?? []).find((inv) => {
     const recip = String((inv as { intended_recipient?: string | null }).intended_recipient ?? '').trim().toLowerCase();
