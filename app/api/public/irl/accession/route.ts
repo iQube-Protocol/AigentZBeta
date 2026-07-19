@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { DOMAIN_LABELS, type AccessDomain } from '@/services/passport/participationAccess';
+import { publicOrigin } from '@/utils/publicOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
   const admin = getSupabaseServer();
   if (!admin) return NextResponse.json({ ok: false, error: 'Service unavailable' }, { status: 500 });
 
-  const origin = url.origin;
+  const origin = publicOrigin(req);
   const beginUrl = `${origin}/triad/embed/codex/irl-os?tab=irl-os-passport-locker&${code.startsWith('x409-') ? 'x409' : 'invite'}=${code}`;
 
   const resources = {
