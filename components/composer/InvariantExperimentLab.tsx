@@ -24,14 +24,17 @@
  */
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
-import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, Home, Layers, Lock, Scale, ShieldCheck } from "lucide-react";
+import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, FlaskConical, Home, Layers, Lock, Scale, ShieldCheck } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { EXPERIMENT_REGISTRY } from "@/types/research";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
 import VideoArticleSkillRunner from "./VideoArticleSkillRunner";
 import Exp001EvaluationRunner from "./Exp001EvaluationRunner";
 import Exp003RediscoveryRunner from "./Exp003RediscoveryRunner";
 import Exp004SovereigntyRunner from "./Exp004SovereigntyRunner";
 import Exp005ProviderChoiceRunner from "./Exp005ProviderChoiceRunner";
+import Exp006ProjectionRunner from "./Exp006ProjectionRunner";
+import ExperimentDesignStagePanel from "./ExperimentDesignStagePanel";
 import ChrysalisTestTab from "./ChrysalisTestTab";
 import HomecomingTestTab from "./HomecomingTestTab";
 import ExperimentResultsTab from "./ExperimentResultsTab";
@@ -40,8 +43,21 @@ import CanonicalPlatesTab from "./CanonicalPlatesTab";
 
 type LabTab =
   | "bundle" | "video" | "video-article" | "rediscovery" | "sovereignty" | "provider-choice"
+  | "projection" | "entropy" | "propagation"
+  | "vp1" | "vp2" | "vp3"
   | "chrysalis" | "homecoming"
   | "results" | "report" | "plates";
+
+/** Registered experiments whose in-app runner isn't built yet — rendered as a
+ *  design-stage panel (visible + teed up, honest about not-yet-runnable). The
+ *  metadata comes from EXPERIMENT_REGISTRY so hypothesis text isn't duplicated. */
+const DESIGN_STAGE_TAB_EXP: Partial<Record<LabTab, string>> = {
+  entropy: "EXP-007",
+  propagation: "EXP-008",
+  vp1: "EXP-P1",
+  vp2: "EXP-P2",
+  vp3: "EXP-P3",
+};
 
 interface LabEntry {
   id: LabTab;
@@ -63,6 +79,22 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
       { id: "rediscovery", label: "EXP-003 · Rediscovery", icon: Beaker, blurb: "Computational efficiency — how much reasoning is saved when a task starts from initialized invariants vs cold rediscovery." },
       { id: "sovereignty", label: "EXP-004 · Sovereignty", icon: ShieldCheck, blurb: "Sovereignty — the same reasoning holds under a sovereign (self-hosted) provider, not only a frontier one." },
       { id: "provider-choice", label: "EXP-005 · Provider Choice", icon: ShieldCheck, blurb: "Provider choice — outcome stability across interchangeable model providers at equal grounding." },
+    ],
+  },
+  {
+    title: "Invariant Intelligence Series",
+    items: [
+      { id: "projection", label: "EXP-006 · Projection Fidelity", icon: FlaskConical, blurb: "Intent → invariant projection fidelity (Stage A) — predict the invariant set for an intent, score it against an independent reference (CIRS), classify the deltas." },
+      { id: "entropy", label: "EXP-007 · Reasoning Entropy", icon: FlaskConical, blurb: "Reasoning entropy reduction — invariant-initialised reasoning vs a four-arm retrieval ladder (the honest bar is beating our own production KB)." },
+      { id: "propagation", label: "EXP-008 · Cross-Modal Reuse", icon: FlaskConical, blurb: "Cross-modal invariant reuse — one invariant set propagates across modalities with high fidelity (blind reviewers reconstruct the set)." },
+    ],
+  },
+  {
+    title: "Validation Programme",
+    items: [
+      { id: "vp1", label: "EXP-P1 · Representation Gauntlet", icon: FlaskConical, blurb: "Representation & runtime gauntlet — the comparative programme experiment (design stage; runs via the backend harness)." },
+      { id: "vp2", label: "EXP-P2 · Projection Semantics", icon: FlaskConical, blurb: "Projection semantics — the second orthogonal-by-hypothesis-class programme experiment (design stage)." },
+      { id: "vp3", label: "EXP-P3 · Programme Arm 3", icon: FlaskConical, blurb: "The third orthogonal programme experiment (design stage; runs via the backend harness)." },
     ],
   },
   {
@@ -91,6 +123,12 @@ const ITEM_EXPERIMENT: Partial<Record<LabTab, string>> = {
   rediscovery: "EXP-003",
   sovereignty: "EXP-004",
   "provider-choice": "EXP-005",
+  projection: "EXP-006",
+  entropy: "EXP-007",
+  propagation: "EXP-008",
+  vp1: "EXP-P1",
+  vp2: "EXP-P2",
+  vp3: "EXP-P3",
 };
 
 interface AccessInfo {
@@ -278,6 +316,19 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "rediscovery" && <Exp003RediscoveryRunner canRequestPublish={canRequestPublish} />}
         {tab === "sovereignty" && <Exp004SovereigntyRunner canRequestPublish={canRequestPublish} />}
         {tab === "provider-choice" && <Exp005ProviderChoiceRunner canRequestPublish={canRequestPublish} />}
+        {tab === "projection" && <Exp006ProjectionRunner canRequestPublish={canRequestPublish} />}
+        {DESIGN_STAGE_TAB_EXP[tab] && (() => {
+          const expId = DESIGN_STAGE_TAB_EXP[tab]!;
+          const reg = EXPERIMENT_REGISTRY.find((e) => e.id === expId);
+          return (
+            <ExperimentDesignStagePanel
+              experimentId={expId}
+              family={reg?.family ?? expId}
+              hypothesis={reg?.hypothesis ?? "Protocol published; see the registry."}
+              protocolRef={reg?.protocolRef}
+            />
+          );
+        })()}
         {tab === "chrysalis" && <ChrysalisTestTab />}
         {tab === "homecoming" && <HomecomingTestTab />}
         {tab === "results" && <ExperimentResultsTab />}
