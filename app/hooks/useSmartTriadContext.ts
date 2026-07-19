@@ -43,6 +43,47 @@ function deepLinksFor(codexId: string): SmartTriadDeepLink[] {
   return [];
 }
 
+/** L2 corpus refs (PRD §7) — the named domain-corpus surfaces the cartridge's
+ *  copilot is grounded on. Labels the model can cite/point at; retrieval
+ *  itself flows through the agent's KB. */
+function corpusRefsFor(codexId: string): string[] {
+  if (codexId === "irl-os-cartridge" || codexId === "irl-cartridge") {
+    return [
+      "invariant canon (ratified + proposed registry)",
+      "experiment records (EXP/IRV/IPV results + Stage-0 calibrations)",
+      "Polity Papers corpus",
+      "research glossary + platform ontology",
+      "lab state (active experiments, participation, publications)",
+    ];
+  }
+  if (codexId === "polity-passport-bureau-cartridge") {
+    return [
+      "passport lifecycle (apply → issue → claim)",
+      "steward workflows (review, invitations, sponsorship)",
+      "participation + access-domain model",
+      "bounded delegation contracts",
+    ];
+  }
+  if (codexId === "metame-codex") {
+    return [
+      "metaMe sovereign identity model (personas, wallet, BlakQube)",
+      "intent + receipt ledger (myLedger / myWorkspace)",
+      "cartridge catalog + cross-cartridge navigation",
+    ];
+  }
+  return [];
+}
+
+/** What the copilot can DO on this surface (PRD §7). Labels only — the
+ *  mechanisms are the deep-link chips, operation chips, and guidance. */
+function capabilitiesFor(codexId: string, isAdmin: boolean): string[] {
+  const caps = ["answer from cartridge corpus", "navigate via quick-link chips", "guide onboarding by observed state"];
+  if ((codexId === "irl-os-cartridge" || codexId === "irl-cartridge") && isAdmin) {
+    caps.push("run admin operations (confirm-gated chips)");
+  }
+  return caps;
+}
+
 /** Admin-only copilot operations per cartridge (Phase 3 Actions). Every route
  *  here is ALREADY admin-gated server-side; the chip is a convenience. */
 function operationsFor(codexId: string): SmartTriadOperation[] {
@@ -115,11 +156,12 @@ export function useSmartTriadContext(
     () => ({
       surface: "smart-triad" as const,
       platform: { ontologyVersion: "v1" },
-      cartridge: { id: codexId, name: cartridgeName, tab: activeTabSlug },
+      cartridge: { id: codexId, name: cartridgeName, tab: activeTabSlug, corpusRefs: corpusRefsFor(codexId) },
       observer,
       deepLinks: deepLinksFor(codexId),
       // Operations only surface for admins (optimistic; routes re-gate).
       operations: observer.isAdmin ? operationsFor(codexId) : [],
+      capabilities: capabilitiesFor(codexId, Boolean(observer.isAdmin)),
     }),
     [codexId, cartridgeName, activeTabSlug, observer],
   );

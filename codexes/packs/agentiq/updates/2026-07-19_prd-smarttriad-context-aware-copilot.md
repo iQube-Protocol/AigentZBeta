@@ -1,6 +1,6 @@
 # PRD — SmartTriad Context-Aware Copilot (Phase 1)
 
-**Status: `ratified` (operator, 2026-07-19). Phase 1a SHIPPED; Phase 1b build authorized and in progress; phases 2/3 remain design-gated on IRV-001 calibration.**
+**Status: `ratified` (operator, 2026-07-19). Phases 1a/1b/2 SHIPPED (incl. the 1b registry→cartridge-metadata follow-on). Phase 3 in progress: Actions slice 1, L2 corpus layer, inference-driven navigation, and constitutional memory v0 shipped 2026-07-19.**
 Source: operator direction + Aletheon's architectural framing (2026-07-19).
 
 ## Objective
@@ -30,9 +30,10 @@ neutral (`"Ask a question..."`). Copy authored per cartridge:
 IRL OS → "Ask about IRL OS research...", metaMe IRL → "Ask about metaMe IRL
 research...", Passport Bureau, Marketa, metaMe, HMS keep their curated lines.
 
-**Remaining:** move the registry values onto cartridge metadata
-(`cartridge.copilot.placeholder` in `data/codex-configs.ts`) so cartridge
-authors own their copy — mechanical follow-on.
+**Follow-on shipped (2026-07-19):** the `CARTRIDGE_COPILOTS` registry was
+deleted; copilot copy now lives on cartridge metadata (`codex.copilot` /
+`CodexCopilotConfig` in `data/codex-configs.ts` + `types/codex.ts`) so
+cartridge authors own their copy.
 
 ## 2. Floating copilot consistency — ✅ SHIPPED (Phase 1a)
 
@@ -107,6 +108,18 @@ Phase 1b: a `deepLinks` section in `SmartTriadContext` the chat route can cite;
 the inference renderer already renders suggestion chips — extend them to
 dispatch navigation instead of only inserting prompt text.
 
+**Shipped (2026-07-19), two mechanisms:**
+1. *Deterministic chips* (Phase 1b) — the deep-link catalog renders as a
+   single-row carousel above the prompt input, always available.
+2. *Inference-driven navigation* (the §6 full goal) — the smart-triad system
+   prompt instructs the model to embed `[[nav:<label>]]` markers inline when
+   directing the operator to a cataloged destination. `CodexCopilotLayer`
+   validates each marker against the `deepLinks` catalog (verbatim label,
+   case-insensitive): matched markers render as clickable `→ Label` chips
+   under the reply; unknown labels degrade to plain text — never a dead chip.
+   Navigation execution stays deterministic (`navigateDeepLink`): the model
+   chooses WHEN to navigate, the layer controls WHERE navigation can go.
+
 ## 7. The SmartTriadContext contract — Phase 1b
 
 ```ts
@@ -126,6 +139,15 @@ interface SmartTriadContext {
 T-discipline: observer context is T1-safe surface only (labels/booleans/slugs —
 never personaId/authProfileId), matching the spine's identifier tiers.
 
+**Contract as shipped (2026-07-19, `types/smartTriadContext.ts`):** all PRD
+fields are live — `cartridge.corpusRefs` (L2 domain-corpus surfaces, rendered
+in the ground block as "answer FROM these surfaces"), `capabilities` (what the
+copilot can DO on this surface), plus two fields the PRD didn't anticipate:
+`operations` (Phase 3 Actions — admin-only confirm-gated chips) and
+`sessionInvariants` (constitutional memory v0, below). The `platform.principles`
+field was superseded by the stronger Phase-2 mechanism (IRE-resolved
+`platformInvariants` injected per message).
+
 ## 8. SmartTriad as the user-facing IRE (Aletheon §9) — Phase 3 (architectural principle)
 
 Define the embedded copilot as the **presentation layer of the IRE**, not "chat":
@@ -140,6 +162,26 @@ context, not by hardcoded prompts — so IRE improvements lift every cartridge's
 copilot simultaneously. Future: ResearchQube/CapabilityQube retrieval,
 constitutional memory, observer modelling, persona-aware + bounded-delegate
 conversations, cross-cartridge orchestration.
+
+### Phase 3 slice log
+
+- **Slice 1 — Actions (shipped 2026-07-19):** `SmartTriadOperation` chips
+  (amber, confirm-gated, `personaFetch`-executed, ALWAYS re-gated server-side;
+  surfaced only when `observer.isAdmin`). First operations: backfill repo
+  records, regenerate canonical report (IRL).
+- **Slice 2 — Constitutional memory v0 (shipped 2026-07-19):** the chat route
+  echoes the invariants that grounded each turn (`resolved_invariants`,
+  T2-safe seed ids + statements); the layer accumulates them per session
+  (dedupe by seedId, cap 12) and sends them back as
+  `groundContext.sessionInvariants`; the route merges them with the current
+  turn's IRE resolution (current turn leads, memory tops up) so guidance stays
+  constitutionally consistent across the session. Memory is session-scoped and
+  client-held — nothing persists server-side.
+- **Slice 3 — Inference-driven navigation (shipped 2026-07-19):** see §6.
+
+**Remaining Phase 3 scope (unbuilt):** ResearchQube/CapabilityQube retrieval,
+persistent constitutional memory, observer *modelling* (vs. today's snapshot),
+persona-aware + bounded-delegate conversations, cross-cartridge orchestration.
 
 ## Architectural principle (for ratification)
 
@@ -156,6 +198,7 @@ conversations, cross-cartridge orchestration.
 | Phase | Scope | Status |
 |---|---|---|
 | 1a | Dynamic placeholder · launcher on every cartridge · dedupe | ✅ shipped 2026-07-19 |
-| 1b | SmartTriadContext contract · observer grounding · deep-link chips | ✅ shipped 2026-07-19 (registry → cartridge metadata remains a mechanical follow-on) |
+| 1b | SmartTriadContext contract · observer grounding · deep-link chips | ✅ shipped 2026-07-19 (incl. the registry → cartridge metadata follow-on: `codex.copilot` in `data/codex-configs.ts`) |
 | 2 | IRE-curated L1 platform ground truth | ✅ v1 shipped 2026-07-19 (gate passed: IRV-001 stability 1.0 / IPV-001 100% reproducible, Stage-0 record 2026-07-18; smart-triad surfaces resolve each message through the IRE and ground on up to 8 governing invariants, cited by seed id) |
-| 3 | SmartTriad as the user-facing IRE (full runtime) | architectural direction |
+| — | L2 corpus layer (`corpusRefs` + `capabilities` in the contract + ground block) | ✅ shipped 2026-07-19 |
+| 3 | SmartTriad as the user-facing IRE (full runtime) | in progress — slices 1 (Actions), 2 (constitutional memory v0), 3 (inference-driven navigation) shipped 2026-07-19; see the Phase 3 slice log in §8 for remaining scope |
