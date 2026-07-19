@@ -201,8 +201,10 @@ export async function listActivations(
       /* plan unavailable — premium gated as usual */
     }
   }
-  return ACTIVATION_CATALOG.map((entry) =>
-    rowToSurface(entry, existing.get(entry.id), options?.isAdmin ?? false, plan),
+  const isAdminCaller = options?.isAdmin ?? false;
+  // Admin-only cards (metaMe IRL) hidden from non-admins entirely.
+  return ACTIVATION_CATALOG.filter((entry) => !entry.adminOnly || isAdminCaller).map((entry) =>
+    rowToSurface(entry, existing.get(entry.id), isAdminCaller, plan),
   );
 }
 

@@ -33,12 +33,12 @@ export interface ActivationPlanGate {
 export const ACTIVATION_PLAN_GATE: Record<string, ActivationPlanGate> = {
   // Sovereignty tier (T1) — aigentZ lite + developer incubation
   'aigent-z': { entitled: (p) => p.aigentzLiteAccess, requiredTier: 'sovereign_citizen' },
-  // Research Copilot (IRL) — the researcher pathway's peer to the aigentZ/DevOn
-  // developer copilot, but sold as its OWN unlock with a unique SKU (the
-  // dedicated `research_copilot` tier, $29/mo — same stage as Sovereignty).
-  // Deliberately its OWN entitlement flag, NOT aigentzLiteAccess: buying aigentZ
-  // (Sovereignty) does not grant the Research Copilot, and vice versa.
-  'researcher': { entitled: (p) => p.researchCopilotAccess, requiredTier: 'research_copilot' },
+  // Research Copilot (IRL) — as of the IRL OS payment model (2026-07-19) this
+  // is a Sovereign-tier path (pick research at Sovereignty) with Steward
+  // granting it in full, plus the standalone research_copilot add-on. The
+  // primary upsell is Sovereignty ($29, either/or), so requiredTier points
+  // there; researchCopilotAccess already accepts the add-on + steward too.
+  'researcher': { entitled: (p) => p.researchCopilotAccess, requiredTier: 'sovereign_citizen' },
   // Founder Office tiers (venture_lite+)
   'venture-lab': { entitled: (p) => p.ventureLabAccess, requiredTier: 'venture_lite' },
   'marketa': { entitled: (p) => p.marketaAccess, requiredTier: 'venture_lite' },
