@@ -2128,6 +2128,13 @@ function buildSystemPrompt(
         lines.push(`### Quick links available as chips below the chat`);
         for (const l of links) lines.push(`- ${l.label}${l.codexSlug ? ' (opens another cartridge)' : ''}`);
       }
+      // Phase 3 Actions — admin operations surfaced as amber chips. The model
+      // can DIRECT the operator to run one by name; it can never execute them.
+      const operations = Array.isArray(gc.operations) ? (gc.operations as Array<Record<string, unknown>>) : [];
+      if (operations.length > 0) {
+        lines.push(`### Operations available to this (admin) operator — amber chips below the chat`);
+        for (const op of operations) lines.push(`- ${op.label}`);
+      }
       // Phase 2 — IRE-curated platform invariants (resolved from THIS message).
       const platformInvariants = Array.isArray(gc.platformInvariants)
         ? (gc.platformInvariants as Array<Record<string, unknown>>)

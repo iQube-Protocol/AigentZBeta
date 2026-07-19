@@ -23,6 +23,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ArrowRight, Bot, BookOpen, FlaskConical, Loader2, ShieldCheck, UserRound, Users } from "lucide-react";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface Grant {
   accessDomain: string;
@@ -60,7 +61,11 @@ export function IRLWelcomeTab() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/participation/my-access", { cache: "no-store" });
+        // personaFetch, NEVER raw fetch — my-access resolves the caller through
+        // the spine and needs the Bearer token; raw fetch always reads as
+        // unauthenticated, which made this page blind to a fully-onboarded
+        // persona (operator report 2026-07-19; CLAUDE.md spine-fetch rule).
+        const res = await personaFetch("/api/participation/my-access", { cache: "no-store" });
         const data = await res.json();
         setAuthed(Boolean(data?.authenticated));
         setGrants(data?.grants ?? []);
@@ -142,28 +147,33 @@ export function IRLWelcomeTab() {
               way through accession. Human (green) = do it yourself; Agent
               (magenta) = delegate an agent to administer it for you. */}
           <p className="mt-8 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Choose how to set up — either route works</p>
+          {/* Liquid-glass setup routes (operator 2026-07-19): translucent accent
+              tint + backdrop blur per the house glass style — human = emerald,
+              agent = violet (the page accent), never solid fills. */}
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <button
               onClick={() => goToTab(HUMAN_TAB)}
-              className="group flex flex-col items-start gap-1 rounded-2xl border border-emerald-500/40 bg-emerald-600/90 px-5 py-4 text-left transition hover:bg-emerald-500"
+              className="group flex flex-col items-start gap-1 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-5 py-4 text-left shadow-lg shadow-black/30 transition hover:bg-emerald-500/25"
+              style={{ backdropFilter: "blur(16px) saturate(140%)" }}
             >
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
-                <UserRound className="h-4 w-4" /> Set up myself
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100">
+                <UserRound className="h-4 w-4 text-emerald-300" /> Set up myself
                 <ArrowRight className="h-4 w-4 opacity-70 transition group-hover:translate-x-0.5" />
               </span>
-              <span className="text-[11px] leading-snug text-emerald-50/90">
+              <span className="text-[11px] leading-snug text-slate-300">
                 Walk the accession yourself — apply for your Passport, accept the agreement, and run experiments directly.
               </span>
             </button>
             <button
               onClick={() => goToTab(DELEGATION_TAB)}
-              className="group flex flex-col items-start gap-1 rounded-2xl border border-fuchsia-500/40 bg-fuchsia-600/90 px-5 py-4 text-left transition hover:bg-fuchsia-500"
+              className="group flex flex-col items-start gap-1 rounded-2xl border border-violet-500/40 bg-violet-500/15 px-5 py-4 text-left shadow-lg shadow-black/30 transition hover:bg-violet-500/25"
+              style={{ backdropFilter: "blur(16px) saturate(140%)" }}
             >
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
-                <Bot className="h-4 w-4" /> Set up with my agent
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-violet-100">
+                <Bot className="h-4 w-4 text-violet-300" /> Set up with my agent
                 <ArrowRight className="h-4 w-4 opacity-70 transition group-hover:translate-x-0.5" />
               </span>
-              <span className="text-[11px] leading-snug text-fuchsia-50/90">
+              <span className="text-[11px] leading-snug text-slate-300">
                 Delegate an AI agent to administer the setup on your behalf — you still hold the keys (accept terms, claim, delegate).
               </span>
             </button>

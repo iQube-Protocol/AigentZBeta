@@ -1168,6 +1168,7 @@ export default function CodexPanelDynamic({
             quickPrompts={cfg.quickPrompts}
             groundContext={smartTriadContext as unknown as Record<string, unknown>}
             deepLinks={smartTriadContext.deepLinks}
+            operations={smartTriadContext.operations}
           />
         );
       })()}

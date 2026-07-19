@@ -8,7 +8,8 @@ import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { useCopilotHost } from "./CopilotHostContext";
 import { buildCodexUrl } from "@/utils/codex-nav";
-import type { SmartTriadDeepLink } from "@/types/smartTriadContext";
+import { personaFetch } from "@/utils/personaSpine";
+import type { SmartTriadDeepLink, SmartTriadOperation } from "@/types/smartTriadContext";
 const SmartWalletDrawer = dynamic(() => import("../content/SmartWalletDrawer"), { ssr: false });
 import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
 import {
@@ -98,6 +99,9 @@ interface CodexCopilotLayerProps {
   /** Deterministic navigation chips (SmartTriad PRD §5) rendered above the
    *  prompt input — same-cartridge tabs + cross-cartridge deep links. */
   deepLinks?: SmartTriadDeepLink[];
+  /** Copilot-invocable operations (Phase 3 Actions) — confirm-gated chips;
+   *  every route re-gates server-side (admin/entitlement). */
+  operations?: SmartTriadOperation[];
   footerContent?: React.ReactNode;
   panelClassName?: string;
   floatingInput?: boolean;
@@ -188,6 +192,7 @@ export function CodexCopilotLayer({
   promptPlaceholder = "Ask a question...",
   hostRole = 'tab',
   deepLinks,
+  operations,
   footerContent,
   panelClassName,
   floatingInput = false,
@@ -218,6 +223,34 @@ export function CodexCopilotLayer({
     return undefined;
   }, [variant, hostRole, registerTabHost]);
   const yieldToTabHost = variant === 'floating' && hostRole === 'panel' && tabHosts > 0;
+
+  // Operation execution (Phase 3 Actions): confirm → personaFetch (Bearer) →
+  // one-line outcome note. The route is the authority (admin/entitlement
+  // re-gated server-side); the chip is only a convenience.
+  const [opBusy, setOpBusy] = useState<string | null>(null);
+  const [opNote, setOpNote] = useState<string | null>(null);
+  const runOperation = useCallback(async (op: SmartTriadOperation) => {
+    if (!window.confirm(op.confirm)) return;
+    setOpBusy(op.id);
+    setOpNote(null);
+    try {
+      const res = await personaFetch(op.route, {
+        method: op.method ?? 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        ...(op.body ? { body: JSON.stringify(op.body) } : {}),
+      });
+      const data = await res.json().catch(() => ({}));
+      setOpNote(
+        res.ok && data?.ok !== false
+          ? `${op.label}: done ✓`
+          : `${op.label}: ${data?.error ?? data?.message ?? `HTTP ${res.status}`}`,
+      );
+    } catch (err) {
+      setOpNote(`${op.label}: ${err instanceof Error ? err.message : 'failed'}`);
+    } finally {
+      setOpBusy(null);
+    }
+  }, []);
 
   // Deep-link chip navigation (SmartTriad PRD §5): same-cartridge tabs switch
   // via the codex:navigate-tab seam; cross-cartridge targets navigate via
@@ -1403,9 +1436,9 @@ export function CodexCopilotLayer({
                           via codex:navigate-tab, cross-cartridge via
                           buildCodexUrl. Rendered by the layer (never parsed
                           from model output) so navigation is always reliable. */}
-                      {deepLinks && deepLinks.length > 0 && (
+                      {((deepLinks && deepLinks.length > 0) || (operations && operations.length > 0)) && (
                         <div className="mb-1.5 flex flex-wrap items-center gap-1">
-                          {deepLinks.map((dl) => (
+                          {(deepLinks ?? []).map((dl) => (
                             <button
                               key={dl.label}
                               onClick={() => navigateDeepLink(dl)}
@@ -1415,6 +1448,20 @@ export function CodexCopilotLayer({
                               {dl.label}
                             </button>
                           ))}
+                          {/* Operations (Phase 3 Actions) — amber, confirm-gated,
+                              server-re-gated. Distinct from navigation chips. */}
+                          {(operations ?? []).map((op) => (
+                            <button
+                              key={op.id}
+                              onClick={() => void runOperation(op)}
+                              disabled={opBusy !== null}
+                              className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200 transition hover:bg-amber-500/20 disabled:opacity-50"
+                              title={op.confirm}
+                            >
+                              {opBusy === op.id ? "Running…" : `▸ ${op.label}`}
+                            </button>
+                          ))}
+                          {opNote && <span className="basis-full text-[10px] text-slate-400">{opNote}</span>}
                         </div>
                       )}
                       {!floatingInput && (
