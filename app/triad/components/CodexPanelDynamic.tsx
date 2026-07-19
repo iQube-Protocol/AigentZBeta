@@ -98,14 +98,17 @@ const CARTRIDGE_COPILOTS: Record<string, CartridgeCopilotConfig> = {
   // accession (passport → access → experiments) as well as the research canon.
   'irl-os-cartridge': {
     accentColor: 'violet',
-    agent: { id: 'aigent-z', name: 'IRL Guide' },
+    // aigent-researcher — the IRL Research Copilot persona (participant-facing
+    // structured-discovery voice), NOT aigent-z (the engineering intelligence,
+    // whose terse status-label style produced acknowledgment-only answers).
+    agent: { id: 'aigent-researcher', name: 'IRL Guide' },
     promptPlaceholder: 'Ask about IRL OS research...',
     initialMessage: "I'm your guide to the Invariant Research Lab. Ask me about the research programme, the invariant canon, how to claim your Polity Passport, delegate your agent (optional), or run your assigned experiments.",
     quickPrompts: ['How do I claim my passport?', 'How do I get research access?', 'What experiments can I run?', 'Explain the invariant canon', 'How do I delegate my agent?'],
   },
   'irl-cartridge': {
     accentColor: 'violet',
-    agent: { id: 'aigent-z', name: 'IRL Guide' },
+    agent: { id: 'aigent-researcher', name: 'IRL Guide' },
     promptPlaceholder: 'Ask about metaMe IRL research...',
     initialMessage: "I'm your guide to the internal Invariant Research Laboratory — instruments, live experiments, publications, and stewardship. Ask me anything about the lab.",
     quickPrompts: ['What experiments are running?', 'Show the latest results', 'Explain the Chrysalis Test', 'What needs steward approval?'],
