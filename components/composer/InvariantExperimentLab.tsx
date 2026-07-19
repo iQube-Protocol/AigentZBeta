@@ -34,6 +34,7 @@ import Exp003RediscoveryRunner from "./Exp003RediscoveryRunner";
 import Exp004SovereigntyRunner from "./Exp004SovereigntyRunner";
 import Exp005ProviderChoiceRunner from "./Exp005ProviderChoiceRunner";
 import Exp006ProjectionRunner from "./Exp006ProjectionRunner";
+import ExpP3CapabilityRunner from "./ExpP3CapabilityRunner";
 import ExperimentDesignStagePanel from "./ExperimentDesignStagePanel";
 import ChrysalisTestTab from "./ChrysalisTestTab";
 import HomecomingTestTab from "./HomecomingTestTab";
@@ -56,7 +57,7 @@ const DESIGN_STAGE_TAB_EXP: Partial<Record<LabTab, string>> = {
   propagation: "EXP-008",
   vp1: "EXP-P1",
   vp2: "EXP-P2",
-  vp3: "EXP-P3",
+  // vp3 (EXP-P3) has a real harness — mounted below, not a design-stage panel.
 };
 
 interface LabEntry {
@@ -94,7 +95,7 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
     items: [
       { id: "vp1", label: "EXP-P1 · Representation Gauntlet", icon: FlaskConical, blurb: "Representation & runtime gauntlet — the comparative programme experiment (design stage; runs via the backend harness)." },
       { id: "vp2", label: "EXP-P2 · Projection Semantics", icon: FlaskConical, blurb: "Projection semantics — the second orthogonal-by-hypothesis-class programme experiment (design stage)." },
-      { id: "vp3", label: "EXP-P3 · Programme Arm 3", icon: FlaskConical, blurb: "The third orthogonal programme experiment (design stage; runs via the backend harness)." },
+      { id: "vp3", label: "EXP-P3 · Capability Validation", icon: FlaskConical, blurb: "Consequence engineering by field projection vs baseline retrieval — real harness; runs against a sealed ≥20-change ground-truth set." },
     ],
   },
   {
@@ -342,6 +343,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "sovereignty" && <Exp004SovereigntyRunner canRequestPublish={canRequestPublish} />}
         {tab === "provider-choice" && <Exp005ProviderChoiceRunner canRequestPublish={canRequestPublish} />}
         {tab === "projection" && <Exp006ProjectionRunner canRequestPublish={canRequestPublish} />}
+        {tab === "vp3" && <ExpP3CapabilityRunner canRequestPublish={canRequestPublish} />}
         {DESIGN_STAGE_TAB_EXP[tab] && (() => {
           const expId = DESIGN_STAGE_TAB_EXP[tab]!;
           const reg = EXPERIMENT_REGISTRY.find((e) => e.id === expId);
