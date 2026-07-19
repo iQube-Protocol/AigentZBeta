@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { checkExperimentQuota, recordExperimentRun } from '@/services/billing/experimentQuota';
 import { publishExperimentResult } from '@/services/experiments/publishResult';
 import { listPublishedExperimentResults } from '@/services/research/publicReads';
 
@@ -40,9 +41,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const persona = await getActivePersona(request);
-  if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  if (!persona?.personaId) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  // Publishing a result IS completing an experiment — this is the single
+  // count point for the monthly cap. Admins are never blocked or metered;
+  // otherwise the caller needs research access AND remaining quota.
+  const isAdmin = Boolean(persona.cartridgeFlags?.isAdmin);
+  const quotaClient = getSupabaseServer();
+  if (!quotaClient) return NextResponse.json({ error: 'storage unavailable' }, { status: 500 });
+  const quota = await checkExperimentQuota(quotaClient, persona.personaId, new Date(), isAdmin);
+  if (!quota.allowed) {
+    return NextResponse.json({ error: 'quota_exceeded', message: quota.reason ?? 'Research access required' }, { status: 403 });
   }
 
   let body: {
@@ -77,6 +85,9 @@ export async function POST(request: NextRequest) {
   if (!outcome.ok) {
     return NextResponse.json({ error: outcome.error ?? 'publish failed' }, { status: 500 });
   }
+  // One completed experiment = one counted run against the monthly cap.
+  // Admins are not counted (recordExperimentRun no-ops for admins).
+  await recordExperimentRun(quotaClient, persona.personaId, new Date(), isAdmin);
   return NextResponse.json({
     ok: true,
     id: outcome.id,
