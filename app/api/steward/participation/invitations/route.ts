@@ -16,6 +16,7 @@ import {
   isAccessDomain,
   revokeAccessInvitation,
 } from '@/services/passport/participationAccess';
+import { publicOrigin } from '@/utils/publicOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error }, { status });
   }
 
-  const origin = new URL(req.url).origin;
+  const origin = publicOrigin(req);
   return NextResponse.json({
     ok: true,
     // Shown once — the steward copies it now or reissues later.

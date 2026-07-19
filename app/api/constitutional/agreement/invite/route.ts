@@ -21,17 +21,18 @@ import { randomBytes } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getAgreement } from '@/services/constitutional/constitutionalAgreement';
+import { publicOrigin } from '@/utils/publicOrigin';
 
 export const dynamic = 'force-dynamic';
 
 const MIGRATION = '20260724000000_x409_invitations.sql';
 
 function inviteUrlFor(req: NextRequest, code: string): string {
-  const origin = new URL(req.url).origin;
   // The accession invitation page (2026-07-19) — human view + linked
   // machine-readable twin. Its Begin action deep-links the code into the
-  // IRL OS Participation → Locker claim flow.
-  return `${origin}/invite/${code}`;
+  // IRL OS Participation → Locker claim flow. publicOrigin avoids the
+  // proxy's internal localhost:3000 leaking into the emailed link.
+  return `${publicOrigin(req)}/invite/${code}`;
 }
 
 export async function POST(req: NextRequest) {
