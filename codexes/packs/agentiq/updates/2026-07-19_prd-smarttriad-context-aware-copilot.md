@@ -157,5 +157,5 @@ conversations, cross-cartridge orchestration.
 |---|---|---|
 | 1a | Dynamic placeholder · launcher on every cartridge · dedupe | ✅ shipped 2026-07-19 |
 | 1b | SmartTriadContext contract · observer grounding · deep-link chips | ✅ shipped 2026-07-19 (registry → cartridge metadata remains a mechanical follow-on) |
-| 2 | IRE-curated L1 platform ground truth (post IRV-001 calibration) | ratify-before-build |
+| 2 | IRE-curated L1 platform ground truth | ✅ v1 shipped 2026-07-19 (gate passed: IRV-001 stability 1.0 / IPV-001 100% reproducible, Stage-0 record 2026-07-18; smart-triad surfaces resolve each message through the IRE and ground on up to 8 governing invariants, cited by seed id) |
 | 3 | SmartTriad as the user-facing IRE (full runtime) | architectural direction |
