@@ -67,6 +67,81 @@ const HISTORICAL: PublishResultInput[] = [
     results: exp002Run2,
     skipIfExists: true,
   },
+  // Stage-0 instrument validation record runs (2026-07-18) — ratified in the
+  // IRV/IPV READMEs + STAGE-0_HANDOFF.md. The raw result JSONs were not
+  // committed to the repo; what the repo attests (and what we publish) is the
+  // RECORDED SUMMARY, carrying the original full-record sha256s inside for
+  // provenance. Honest framing per the ratified record: stability is the gate;
+  // coverage is a model-sensitive SEB proxy reported with its exact config,
+  // never a pass/fail score.
+  {
+    experiment: 'IRV-001',
+    provider: 'openai',
+    model: 'persona gpt-4o-mini · judge gpt-4o',
+    aggregates: {
+      run: 'stage-0-record',
+      date: '2026-07-18',
+      intents: 10,
+      reps: 3,
+      band: 'anchored',
+      stability: 1.0,
+      compression: 0.65,
+      coverageMean: 0.21,
+      coverageDensest: 0.57,
+      novelty: 0.75,
+      note: 'Stability is the gate; coverage is a model-sensitive SEB proxy (swung 0.13→0.57 on byte-identical engine output across judge configs) reported with its exact config, never pass/fail. Instrument validated for EXP-P1.',
+    },
+    results: {
+      experiment: 'IRV-001',
+      kind: 'instrument-validation-record-summary',
+      date: '2026-07-18',
+      framing:
+        'Synthetic Expert Baseline (SEB) engineering calibration — Track-B discovery calibration, never Track-A structural evidence. Personas are correlated models, not independent experts.',
+      config: { band: 'anchored', intents: 10, reps: 3, personaModel: 'gpt-4o-mini', judgeModel: 'gpt-4o' },
+      summary: { stability: 1.0, compression: 0.65, coverageMean: 0.21, coverageDensest: 0.57, novelty: 0.75 },
+      findings: [
+        'Discovery-node pollution found and fixed (unscoped-fallback) — the one pathology.',
+        'Test banded to the corpus: anchored (corpus-dense) vs breadth; coverage tracks corpus density.',
+        'Judge/persona/consensus un-confounded: --judge-model moves only the overlap scorer; SEB baseline stays on the persona model.',
+      ],
+      verdict:
+        'Instrument validated for EXP-P1 on stability + no-pathology + qualitative on-domain relevance (coverage a reported proxy, not the gate).',
+      fullRecordSha256: '258b64fda9aa9686',
+      provenance:
+        'Recorded summary of the 2026-07-18 record run (irv-001 README ratification record + STAGE-0_HANDOFF.md). Raw results JSON retained off-repo; its sha256 above is the original content commitment.',
+    },
+    skipIfExists: true,
+  },
+  {
+    experiment: 'IPV-001',
+    provider: 'openai',
+    model: 'deterministic (IRE/IPE frozen substrate)',
+    aggregates: {
+      run: 'stage-0-record',
+      date: '2026-07-18',
+      intents: 10,
+      reps: 5,
+      band: 'anchored',
+      standingReproducibleRate: 1.0,
+      coordinateReproducibleRate: 1.0,
+      seedSetStability: 1.0,
+      note: '100% reproducible — zero nondeterminism. Reproducibility is necessary, not sufficient (projection semantics are EXP-P2 B4). IPE validated for EXP-P1.',
+    },
+    results: {
+      experiment: 'IPV-001',
+      kind: 'instrument-validation-record-summary',
+      date: '2026-07-18',
+      framing:
+        'IPE reproducibility validation on the frozen substrate — confirms the by-construction determinism holds live (no caching/ordering/race nondeterminism).',
+      config: { band: 'anchored', intents: 10, reps: 5, route: 'POST /api/public/irl/resolve' },
+      summary: { standingReproducibleRate: 1.0, coordinateReproducibleRate: 1.0, seedSetStability: 1.0 },
+      verdict: 'IPE validated for EXP-P1 — 100% reproducible, zero nondeterminism observed.',
+      fullRecordSha256: '8f86238069142fcf',
+      provenance:
+        'Recorded summary of the 2026-07-18 record run (ipv-001 README ratification record). Raw results JSON retained off-repo; its sha256 above is the original content commitment.',
+    },
+    skipIfExists: true,
+  },
 ];
 
 export async function POST(request: NextRequest) {
