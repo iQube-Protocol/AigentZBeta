@@ -1,6 +1,6 @@
 # PRD — SmartTriad Context-Aware Copilot (Phase 1)
 
-**Status: `proposed` — for operator ratification. Phase 1 UI foundations SHIPPED 2026-07-19; phases 2+ are ratify-before-build.**
+**Status: `ratified` (operator, 2026-07-19). Phase 1a SHIPPED; Phase 1b build authorized and in progress; phases 2/3 remain design-gated on IRV-001 calibration.**
 Source: operator direction + Aletheon's architectural framing (2026-07-19).
 
 ## Objective
@@ -156,6 +156,6 @@ conversations, cross-cartridge orchestration.
 | Phase | Scope | Status |
 |---|---|---|
 | 1a | Dynamic placeholder · launcher on every cartridge · dedupe | ✅ shipped 2026-07-19 |
-| 1b | SmartTriadContext contract · observer grounding · deep-link chips · registry → cartridge metadata | next build |
+| 1b | SmartTriadContext contract · observer grounding · deep-link chips | ✅ shipped 2026-07-19 (registry → cartridge metadata remains a mechanical follow-on) |
 | 2 | IRE-curated L1 platform ground truth (post IRV-001 calibration) | ratify-before-build |
 | 3 | SmartTriad as the user-facing IRE (full runtime) | architectural direction |
