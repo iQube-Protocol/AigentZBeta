@@ -17,7 +17,7 @@
  */
 
 import React, { use, useEffect, useState } from "react";
-import { ArrowRight, Bot, FileText, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Bot, Check, Copy, FileText, Loader2, ShieldCheck } from "lucide-react";
 
 interface Accession {
   ok: boolean;
@@ -37,6 +37,7 @@ export default function InvitePage({ params }: { params: Promise<{ code: string 
   const { code } = use(params);
   const [accession, setAccession] = useState<Accession | null>(null);
   const [loading, setLoading] = useState(true);
+  const [agentCopied, setAgentCopied] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -51,8 +52,32 @@ export default function InvitePage({ params }: { params: Promise<{ code: string 
     })();
   }, [code]);
 
-  const beginUrl = accession?.resources?.locker ?? "#";
+  // Self-path Begin → the Passport Apply step (the Locker is passport-scoped
+  // and unauthorized until a passport is issued).
+  const beginUrl = accession?.resources?.passportApply ?? "#";
+  const continueUrl = accession?.resources?.dashboard ?? "#";
   const agentUrl = `/api/public/irl/accession?code=${encodeURIComponent(code)}`;
+
+  // One-click agent handoff: a ready-to-paste prompt the user drops into their
+  // agent (Claude, etc.). The agent reads the accession object and administers
+  // onboarding; the human still performs passport, claim, and delegation.
+  const agentHandoff = (() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const invitePage = typeof window !== "undefined" ? window.location.href : "";
+    return [
+      "Please help me join the Invariant Research Lab as a reviewer and administer my onboarding.",
+      "Read my accession invitation below and walk me through it — you may prepare, explain, and fetch materials, but I will perform the human steps (applying for my Passport, claiming the invitation, and delegating authority to you).",
+      "",
+      `Invitation: ${invitePage}`,
+      `Machine-readable accession object (fetch this first): ${origin}${agentUrl}`,
+    ].join("\n");
+  })();
+
+  const copyAgentHandoff = () => {
+    navigator.clipboard.writeText(agentHandoff);
+    setAgentCopied(true);
+    setTimeout(() => setAgentCopied(false), 2500);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -119,37 +144,64 @@ export default function InvitePage({ params }: { params: Promise<{ code: string 
               </p>
             </div>
 
-            {/* One button */}
-            <a
-              href={beginUrl}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-violet-500"
-            >
-              {accession.onboarded ? "Continue in the Lab" : "Begin Review"}
-              <ArrowRight className="h-4 w-4" />
-            </a>
-
-            {/* For AI agents — the machine-readable twin */}
-            <div className="mt-10 border-t border-slate-800 pt-5 space-y-2">
+            {accession.onboarded ? (
               <a
-                href={agentUrl}
-                className="inline-flex items-center gap-1.5 text-[12px] text-slate-400 hover:text-slate-200"
+                href={continueUrl}
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-violet-500"
               >
-                <Bot className="h-3.5 w-3.5" />
-                For AI agents: machine-readable accession object (JSON)
+                Continue in the Lab
+                <ArrowRight className="h-4 w-4" />
               </a>
-              <p className="text-[11px] leading-snug text-slate-500">
-                Give this page&apos;s URL to your agent. A capable agent will discover the accession object above and
-                administer your onboarding — your acceptance, claim, and delegation remain yours.
-              </p>
-              {accession.resources?.protocolDoc && (
+            ) : (
+              <>
+                {/* PRIMARY — agent-led onboarding. The agent administers; the
+                    human performs the constitutional acts. Near one-click:
+                    copy a ready-to-paste prompt for your agent. */}
+                <div className="mt-8 rounded-2xl border border-violet-500/40 bg-violet-500/10 p-5">
+                  <div className="flex items-center gap-2">
+                    <Bot className="h-5 w-5 text-violet-300" />
+                    <h2 className="text-sm font-semibold text-slate-100">Have your agent get you started</h2>
+                  </div>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-slate-300">
+                    The fastest way in: your AI agent reads this invitation and administers your onboarding, while you
+                    perform the human steps (passport, claim, delegation). Copy the handoff and paste it to your agent
+                    (Claude, etc.).
+                  </p>
+                  <button
+                    onClick={copyAgentHandoff}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-violet-500"
+                  >
+                    {agentCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {agentCopied ? "Copied — paste it to your agent" : "Provide to your agent"}
+                  </button>
+                  <a
+                    href={agentUrl}
+                    className="mt-3 block text-[11px] text-violet-300/70 hover:text-violet-200"
+                  >
+                    Or view the machine-readable accession object (JSON) →
+                  </a>
+                </div>
+
+                {/* SECONDARY — do it yourself. Correctly starts at the Passport
+                    (Apply), NOT the Locker (which is passport-scoped). */}
                 <a
-                  href={accession.resources.protocolDoc}
-                  className="inline-flex items-center gap-1.5 text-[12px] text-slate-400 hover:text-slate-200"
+                  href={beginUrl}
+                  className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white"
                 >
-                  <FileText className="h-3.5 w-3.5" /> Experimental protocol (EXP-P1)
+                  Or begin yourself — apply for your Passport first
+                  <ArrowRight className="h-4 w-4" />
                 </a>
-              )}
-            </div>
+
+                {accession.resources?.protocolDoc && (
+                  <a
+                    href={accession.resources.protocolDoc}
+                    className="mt-6 flex items-center gap-1.5 border-t border-slate-800 pt-5 text-[12px] text-slate-400 hover:text-slate-200"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> Experimental protocol (EXP-P1)
+                  </a>
+                )}
+              </>
+            )}
           </>
         )}
       </div>

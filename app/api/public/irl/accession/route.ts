@@ -40,15 +40,21 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ ok: false, error: 'Service unavailable' }, { status: 500 });
 
   const origin = publicOrigin(req);
-  const beginUrl = `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-locker&${code.startsWith('x409-') ? 'x409' : 'invite'}=${code}`;
+  const codeParam = code.startsWith('x409-') ? 'x409' : 'invite';
+  // Begin → the Passport Apply step (NOT the Locker): the Locker is
+  // passport-scoped and shows "not authorized" until the principal has a
+  // passport. Sequence: sign in → passport → delegation → claim in Locker.
+  // The invite code rides along so the later Locker claim can read it.
+  const beginUrl = `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-apply&${codeParam}=${code}`;
+  const lockerClaimUrl = `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-locker&${codeParam}=${code}`;
 
   const resources = {
     invitationPage: `${origin}/invite/${code}`,
     dashboard: `${origin}/triad/embed/codex/irl-os-cartridge`,
     participationOverview: `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-participation-overview`,
-    passportApply: `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-apply`,
+    passportApply: beginUrl,
     delegation: `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-delegation`,
-    locker: beginUrl,
+    locker: lockerClaimUrl,
     protocolDoc: `${origin}/api/public/irl/doc?path=foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md`,
     agreementApi: `${origin}/api/public/irl/agreement`,
     resultsSubmitApi: `${origin}/api/public/irl/experiments/submit`,
@@ -89,9 +95,8 @@ export async function GET(req: NextRequest) {
           : [
               'Read this accession object fully before acting',
               'Walk your principal through creating an account and persona (dashboard link)',
-              'Guide your principal to the invitation page and the Begin action',
-              'HUMAN ACT: your principal signs in and claims the invitation code in the Locker',
-              'Guide your principal through the Passport Apply flow (weak proof of humanity suffices for this programme)',
+              'HUMAN ACT: your principal applies for a Polity Passport (Apply tab — weak proof of humanity suffices for this programme). The Passport must be issued before the Locker is authorized.',
+              'HUMAN ACT: your principal claims this invitation in the Locker to activate their reviewer access',
               'HUMAN ACT: your principal grants you bounded delegation (Delegation tab)',
               'Fetch the experimental protocol and invariant materials',
               'Execute experiments; submit results via the submission API under your delegation',
