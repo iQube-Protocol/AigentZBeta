@@ -22,6 +22,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { checkExperimentQuota } from '@/services/billing/experimentQuota';
 import { runIrlExp001StageA } from '@/services/experiments/irlExp001';
 import { generateCandidateCIRS } from '@/services/experiments/cirsGenerator';
 
@@ -29,9 +31,15 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   const persona = await getActivePersona(request);
-  if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  if (!persona?.personaId) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  // Admin-or-entitled: admins bypass; otherwise the caller needs research access
+  // scoped to EXP-006 (per-invitation) with remaining quota.
+  const isAdmin = Boolean(persona.cartridgeFlags?.isAdmin);
+  const quotaClient = getSupabaseServer();
+  if (!quotaClient) return NextResponse.json({ error: 'storage unavailable' }, { status: 500 });
+  const quota = await checkExperimentQuota(quotaClient, persona.personaId, new Date(), isAdmin, 'EXP-006');
+  if (!quota.allowed) {
+    return NextResponse.json({ error: 'forbidden', message: quota.reason ?? 'Research access required' }, { status: 403 });
   }
 
   try {

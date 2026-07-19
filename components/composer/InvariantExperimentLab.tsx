@@ -163,13 +163,13 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
     const allowSet = new Set(accessInfo.allowed);
     const out: typeof SECTIONS = [];
     for (const section of SECTIONS) {
-      if (section.title !== "Foundational Series") continue; // admin-only sections hidden
+      // Keep only items that map to an assignable experiment. Items with no
+      // experiment id (acceptance tests, reports, plates) stay admin-only.
       const items = section.items.filter((it) => {
+        const exp = ITEM_EXPERIMENT[it.id];
+        if (!exp) return false;
         if (accessInfo.access === "all") return true;
-        if (accessInfo.access === "scoped") {
-          const exp = ITEM_EXPERIMENT[it.id];
-          return exp ? allowSet.has(exp) : false;
-        }
+        if (accessInfo.access === "scoped") return allowSet.has(exp);
         return false;
       });
       if (items.length > 0) out.push({ ...section, items });

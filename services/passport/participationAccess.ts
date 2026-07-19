@@ -65,6 +65,15 @@ export const ASSIGNABLE_EXPERIMENTS: { id: string; label: string }[] = [
   { id: 'EXP-003', label: 'EXP-003 · Rediscovery Savings' },
   { id: 'EXP-004', label: 'EXP-004 · Sovereignty' },
   { id: 'EXP-005', label: 'EXP-005 · Provider Choice' },
+  // Invariant Intelligence Validation Series (EXP-006 runs in-app; 007/008 are
+  // design-stage, assignable so a reviewer can scope + develop them).
+  { id: 'EXP-006', label: 'EXP-006 · Projection Fidelity' },
+  { id: 'EXP-007', label: 'EXP-007 · Reasoning Entropy' },
+  { id: 'EXP-008', label: 'EXP-008 · Cross-Modal Reuse' },
+  // Validation Programme (design-stage).
+  { id: 'EXP-P1', label: 'EXP-P1 · Representation Gauntlet' },
+  { id: 'EXP-P2', label: 'EXP-P2 · Projection Semantics' },
+  { id: 'EXP-P3', label: 'EXP-P3 · Programme Arm 3' },
 ];
 
 /**
