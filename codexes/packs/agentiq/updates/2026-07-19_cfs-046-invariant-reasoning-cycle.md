@@ -1,6 +1,6 @@
 # CFS-046 — The Invariant Reasoning Cycle (Inference as Midpoint)
 
-**Status: `draft` — candidate for ratification. Doctrine-capture over a running mechanism: the cycle described here is already implemented (CFS-045 + A1 + A2 closed the loop on 2026-07-19); this spec names it, locates inference within it, and separates the ratifiable doctrine from the `proposed` hypotheses.**
+**Status: `ratified` (operator, 2026-07-19 — all five checklist items, including explicit confirmation of the doctrine/hypothesis placements: doctrine candidates 1–4 enter as doctrine; the unit-of-intelligence and compounding time-to-value claims enter as `proposed`). Doctrine-capture over a running mechanism: the cycle described here is already implemented (CFS-045 + A1 + A2 closed the loop on 2026-07-19); this spec names it, locates inference within it, and separates the ratifiable doctrine from the `proposed` hypotheses. EXP-014 is chartered and runs once the trajectory corpus reaches ~200 rows.**
 Source: operator synthesis + Aletheon's cycle framing (2026-07-19), reflecting on the memory workstream and the pre-inference compression conversation with Austin's agent.
 
 ---
