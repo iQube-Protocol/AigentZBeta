@@ -5225,6 +5225,22 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'RefreshCw', description: 'Constitutional evolution — feedback, adaptation, multi-agent governance (the frontier)' },
     },
+    {
+      // The runnable Experiments surface for reviewers/researchers (2026-07-19).
+      // NOT adminOnly — access is enforced server-side at the run routes
+      // (admin OR research-entitled OR an active research-lab access grant).
+      // This is where an onboarded reviewer independently reproduces the
+      // Foundational Series: EXP-001–005 + Results/Report outputs.
+      id: 'irl-os-experiment-lab',
+      label: 'Experiments',
+      slug: 'irl-os-experiment-lab',
+      enabled: true,
+      group: 'laboratory',
+      order: 0,
+      type: 'static',
+      config: { component: 'InvariantExperimentLab', props: { density: 'narrow' } },
+      metadata: { icon: 'FlaskConical', description: 'Run the Foundational Series live and independently — EXP-001–005, Results, and Report. Requires research access (Sovereign/Steward) or a reviewer grant.' },
+    },
     // ── Constitutional Evaluation — the external-researcher front door ──
     {
       id: 'irl-os-evaluation',
