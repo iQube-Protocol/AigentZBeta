@@ -144,6 +144,23 @@ export interface CodexTab {
   subTabs?: CodexTab[];
 }
 
+/**
+ * SmartTriad copilot configuration authored ON the cartridge definition
+ * (SmartTriad Context-Aware Copilot PRD §1, ratified 2026-07-19 — the
+ * `cartridge.copilot.*` API). Cartridge authors own their copilot's voice;
+ * cartridges without one get the shell default (placeholder derived from the
+ * cartridge display name, Aigent Z persona). `disabled: true` suppresses the
+ * shell's floating copilot on this cartridge entirely.
+ */
+export interface CodexCopilotConfig {
+  disabled?: boolean;
+  accentColor?: string;
+  agent?: { id: string; name: string };
+  promptPlaceholder?: string;
+  initialMessage?: string;
+  quickPrompts?: string[];
+}
+
 export interface CodexConfig {
   id: string;                    // Unique identifier (e.g., 'knyt-codex')
   name: string;                  // Display name
@@ -155,6 +172,8 @@ export interface CodexConfig {
   tabs: CodexTab[];
   /** Optional tab groups — define top-level headers that cluster sub-tabs. */
   tabGroups?: TabGroup[];
+  /** SmartTriad copilot config for this cartridge (PRD §1). */
+  copilot?: CodexCopilotConfig;
   permissions: CodexPermissions;
   liquidUI?: CodexLiquidUIConfig;
   /**

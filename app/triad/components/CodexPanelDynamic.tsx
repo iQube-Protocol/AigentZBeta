@@ -40,81 +40,6 @@ import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useCartridgePersonaGuard } from "@/app/hooks/useCartridgePersonaGuard";
 import { resolveLegacyTabSlug } from "@/data/codex-configs";
 
-/**
- * SmartTriad copilot registry (Phase 1 of the Context-Aware Copilot PRD,
- * operator + Aletheon direction 2026-07-19). The floating copilot mounts on
- * EVERY cartridge tab: cartridges listed here get their curated persona/copy;
- * every other cartridge gets a sensible default whose placeholder derives from
- * the cartridge's display name ("Ask about <name>...") — never a hardcoded
- * cross-cartridge leak like "Ask about KNYT content...". Set `disabled: true`
- * to suppress the copilot on a cartridge explicitly.
- */
-interface CartridgeCopilotConfig {
-  disabled?: boolean;
-  accentColor?: string;
-  agent?: { id: string; name: string };
-  promptPlaceholder?: string;
-  initialMessage?: string;
-  quickPrompts?: string[];
-}
-
-const CARTRIDGE_COPILOTS: Record<string, CartridgeCopilotConfig> = {
-  'marketa-codex': {
-    accentColor: 'rose',
-    agent: { id: 'aigent-marketa', name: 'Marketa' },
-    promptPlaceholder: 'Ask Marketa about campaigns, partners, or content...',
-    initialMessage: "I'm Marketa — your venture studio copilot. Ask me about the active campaigns, partner activation, content packs, or what to do next.",
-    quickPrompts: ['Campaign status', 'Next email to fire', 'Partner pipeline', 'Write a social post', 'Propose a content pack'],
-  },
-  'knyt-codex': {
-    accentColor: 'amber',
-    agent: { id: 'aigent-kn0w1', name: 'KNYT Copilot' },
-    promptPlaceholder: 'Ask about episodes, characters, bundles...',
-    quickPrompts: ['What episodes are available?', 'Show me bundle deals', 'KNYT Cards explained', 'Investor pricing'],
-  },
-  'metame-codex': {
-    accentColor: 'emerald',
-    agent: { id: 'aigent-me', name: 'aigentMe' },
-    promptPlaceholder: 'Ask aigentMe about your ExperienceModel, briefs, or next move...',
-    initialMessage: "I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything.",
-    quickPrompts: ['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1', 'Ask Nakamoto'],
-  },
-  'polity-passport-bureau-cartridge': {
-    accentColor: 'violet',
-    agent: { id: 'aigent-z', name: 'Aigent Z' },
-    promptPlaceholder: 'Ask about your passport, agent delegation, or locker…',
-    initialMessage: "I'm Aigent Z — your guide through the Polity Passport Bureau. Citizen Passports, Participant Passports, agent genesis, bounded delegation, the Locker, ENS, and verifiable credentials — ask me anything.",
-    quickPrompts: ['How do I claim a Citizen Passport?', 'How do I sponsor an agent?', 'What does World ID verification add?', 'Show my bound agents', 'How does the Locker work?'],
-  },
-  'human-mobility-services-cartridge': {
-    accentColor: 'emerald',
-    agent: { id: 'aigent-z', name: 'aigentMe' },
-    promptPlaceholder: 'Ask about your case, workstreams, or critical dates…',
-    initialMessage: "I'm aigentMe — your confidentiality guardian for this mobility case. BlakQube protocol is active. Ask me about housing, education, relocation timelines, or workstream status.",
-    quickPrompts: ['What are the most urgent deadlines?', 'What is the housing workstream status?', 'What school applications are pending?', 'Summarise the relocation timeline', 'What does BlakQube compartmentalisation mean for this case?'],
-  },
-  // IRL — the Invariant Research Lab (public IRL OS + internal metaMe IRL).
-  // Onboarding-aware copy: the copilot is the participant's guide through
-  // accession (passport → access → experiments) as well as the research canon.
-  'irl-os-cartridge': {
-    accentColor: 'violet',
-    // aigent-researcher — the IRL Research Copilot persona (participant-facing
-    // structured-discovery voice), NOT aigent-z (the engineering intelligence,
-    // whose terse status-label style produced acknowledgment-only answers).
-    agent: { id: 'aigent-researcher', name: 'IRL Guide' },
-    promptPlaceholder: 'Ask about IRL OS research...',
-    initialMessage: "I'm your guide to the Invariant Research Lab. Ask me about the research programme, the invariant canon, how to claim your Polity Passport, delegate your agent (optional), or run your assigned experiments.",
-    quickPrompts: ['How do I claim my passport?', 'How do I get research access?', 'What experiments can I run?', 'Explain the invariant canon', 'How do I delegate my agent?'],
-  },
-  'irl-cartridge': {
-    accentColor: 'violet',
-    agent: { id: 'aigent-researcher', name: 'IRL Guide' },
-    promptPlaceholder: 'Ask about metaMe IRL research...',
-    initialMessage: "I'm your guide to the internal Invariant Research Laboratory — instruments, live experiments, publications, and stewardship. Ask me anything about the lab.",
-    quickPrompts: ['What experiments are running?', 'Show the latest results', 'Explain the Chrysalis Test', 'What needs steward approval?'],
-  },
-};
-
 interface CodexPanelDynamicProps {
   codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex' (Agentiq Cartridge)
   theme?: 'light' | 'dark';
@@ -1219,11 +1144,12 @@ export default function CodexPanelDynamic({
 
       {/* SmartTriad floating copilot — config-driven, mounts on EVERY cartridge
           tab (Phase 1 of the Context-Aware Copilot PRD). Curated cartridges get
-          their persona/copy from CARTRIDGE_COPILOTS; every other cartridge gets
+          their persona/copy from the definition's `copilot` field
+          (data/codex-configs.ts — PRD §1 cartridge.copilot API); others get
           the default whose placeholder derives from the cartridge display name.
           contextId carries cartridge+tab so the chat context follows the user. */}
       {(() => {
-        const cfg = CARTRIDGE_COPILOTS[codexId] ?? {};
+        const cfg = codex.copilot ?? {};
         if (cfg.disabled) return null;
         return (
           <CodexCopilotLayer
