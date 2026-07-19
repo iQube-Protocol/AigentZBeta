@@ -297,6 +297,12 @@ export const KNYT_CODEX: CodexConfig = {
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-kn0w1',
+  copilot: {
+    accentColor: 'amber',
+    agent: { id: 'aigent-kn0w1', name: 'KNYT Copilot' },
+    promptPlaceholder: 'Ask about episodes, characters, bundles...',
+    quickPrompts: ['What episodes are available?', 'Show me bundle deals', 'KNYT Cards explained', 'Investor pricing'],
+  },
   metadata: {
     description: 'KNYT Protocol knowledge base, lore, and world-building',
     icon: 'BookOpen',
@@ -2809,6 +2815,13 @@ export const METAME_CODEX: CodexConfig = {
   enabled: true,
   version: '1.0.0',
   owner: 'metame-guardian',
+  copilot: {
+    accentColor: 'emerald',
+    agent: { id: 'aigent-me', name: 'aigentMe' },
+    promptPlaceholder: 'Ask aigentMe about your ExperienceModel, briefs, or next move...',
+    initialMessage: "I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything.",
+    quickPrompts: ['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1', 'Ask Nakamoto'],
+  },
   metadata: {
     description: 'metaMe sovereignty layer: experience framework, progression model, PCS ladder, and next-best-pathway logic',
     icon: 'Hexagon',
@@ -3762,6 +3775,13 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-marketa',
+  copilot: {
+    accentColor: 'rose',
+    agent: { id: 'aigent-marketa', name: 'Marketa' },
+    promptPlaceholder: 'Ask Marketa about campaigns, partners, or content...',
+    initialMessage: "I'm Marketa — your venture studio copilot. Ask me about the active campaigns, partner activation, content packs, or what to do next.",
+    quickPrompts: ['Campaign status', 'Next email to fire', 'Partner pipeline', 'Write a social post', 'Propose a content pack'],
+  },
   metadata: {
     description: 'Venture Studio Partner OS — campaign management, partner co-design, and pack publishing',
     icon: 'TrendingUp',
@@ -4172,6 +4192,13 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
   enabled: true,
   version: '0.1.0',
   owner: 'aigent-z',
+  copilot: {
+    accentColor: 'violet',
+    agent: { id: 'aigent-z', name: 'Aigent Z' },
+    promptPlaceholder: 'Ask about your passport, agent delegation, or locker…',
+    initialMessage: "I'm Aigent Z — your guide through the Polity Passport Bureau. Citizen Passports, Participant Passports, agent genesis, bounded delegation, the Locker, ENS, and verifiable credentials — ask me anything.",
+    quickPrompts: ['How do I claim a Citizen Passport?', 'How do I sponsor an agent?', 'What does World ID verification add?', 'Show my bound agents', 'How does the Locker work?'],
+  },
   metadata: {
     description: 'Apply for, issue, and steward Polity Passports — anonymous citizen personhood + conditional participant standing.',
     icon: 'ShieldCheck',
@@ -4316,6 +4343,13 @@ export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
   enabled: true,
   version: '0.1.0',
   owner: 'aigent-z',
+  copilot: {
+    accentColor: 'emerald',
+    agent: { id: 'aigent-z', name: 'aigentMe' },
+    promptPlaceholder: 'Ask about your case, workstreams, or critical dates…',
+    initialMessage: "I'm aigentMe — your confidentiality guardian for this mobility case. BlakQube protocol is active. Ask me about housing, education, relocation timelines, or workstream status.",
+    quickPrompts: ['What are the most urgent deadlines?', 'What is the housing workstream status?', 'What school applications are pending?', 'Summarise the relocation timeline', 'What does BlakQube compartmentalisation mean for this case?'],
+  },
   metadata: {
     description: 'Polity capability preservation — strategic repatriation, relocation, and family mobility services.',
     icon: 'Home',
@@ -4772,6 +4806,13 @@ export const IRL_CARTRIDGE: CodexConfig = {
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-z',
+  copilot: {
+    accentColor: 'violet',
+    agent: { id: 'aigent-researcher', name: 'IRL Guide' },
+    promptPlaceholder: 'Ask about metaMe IRL research...',
+    initialMessage: "I'm your guide to the internal Invariant Research Laboratory — instruments, live experiments, publications, and stewardship. Ask me anything about the lab.",
+    quickPrompts: ['What experiments are running?', 'Show the latest results', 'Explain the Chrysalis Test', 'What needs steward approval?'],
+  },
   metadata: {
     description: 'Constitutional Cybernetics Research Laboratory — the constitutional scientific institution: experiments, series, programmes, publications, and the living invariant substrate (CFS-019)',
     icon: 'FlaskConical',
@@ -5110,6 +5151,15 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
   enabled: true,
   version: '1.0.0',
   owner: 'system',
+  copilot: {
+    accentColor: 'violet',
+    // aigent-researcher — the IRL Research Copilot persona (participant-facing
+    // structured-discovery voice), NOT aigent-z (engineering intelligence).
+    agent: { id: 'aigent-researcher', name: 'IRL Guide' },
+    promptPlaceholder: 'Ask about IRL OS research...',
+    initialMessage: "I'm your guide to the Invariant Research Lab. Ask me about the research programme, the invariant canon, how to claim your Polity Passport, delegate your agent (optional), or run your assigned experiments.",
+    quickPrompts: ['How do I claim my passport?', 'How do I get research access?', 'What experiments can I run?', 'Explain the invariant canon', 'How do I delegate my agent?'],
+  },
   metadata: {
     description:
       'IRL OS — the open edition of the Invariant Research Laboratory: the published constitutional research corpus (CFS specs, experiment records, glossary, canon) and the Constitutional Evaluation front door for external researchers (CFS-033)',
