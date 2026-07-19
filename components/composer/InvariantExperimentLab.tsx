@@ -36,18 +36,17 @@ import Exp005ProviderChoiceRunner from "./Exp005ProviderChoiceRunner";
 import Exp006ProjectionRunner from "./Exp006ProjectionRunner";
 import ExpP3CapabilityRunner from "./ExpP3CapabilityRunner";
 import ExperimentDesignStagePanel from "./ExperimentDesignStagePanel";
+import InstrumentValidationPanel from "./InstrumentValidationPanel";
 import ChrysalisTestTab from "./ChrysalisTestTab";
 import HomecomingTestTab from "./HomecomingTestTab";
 import ExperimentResultsTab from "./ExperimentResultsTab";
 import ExperimentReportTab from "./ExperimentReportTab";
 import CanonicalPlatesTab from "./CanonicalPlatesTab";
 
-type LabTab =
-  | "bundle" | "video" | "video-article" | "rediscovery" | "sovereignty" | "provider-choice"
-  | "projection" | "entropy" | "propagation"
-  | "vp1" | "vp2" | "vp3"
-  | "chrysalis" | "homecoming"
-  | "results" | "report" | "plates";
+/** Known tab ids plus dynamic `reg:<EXPERIMENT_ID>` entries from the registry
+ *  completeness guard (any registered experiment not hand-mounted below is
+ *  auto-surfaced so nothing falls through the gaps — operator 2026-07-19). */
+type LabTab = string;
 
 /** Registered experiments whose in-app runner isn't built yet — rendered as a
  *  design-stage panel (visible + teed up, honest about not-yet-runnable). The
@@ -91,6 +90,13 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
     ],
   },
   {
+    title: "Instrument Validation (Stage 0)",
+    items: [
+      { id: "irv", label: "IRV-001 · Resolution Validation", icon: ShieldCheck, blurb: "Stage-0 calibration of the IRE against a Synthetic Expert Baseline — stability is the gate, coverage a reported proxy. Record run complete (2026-07-18)." },
+      { id: "ipv", label: "IPV-001 · Projection Validation", icon: ShieldCheck, blurb: "Stage-0 reproducibility validation of the IPE on the frozen substrate — 100% reproducible record run (2026-07-18)." },
+    ],
+  },
+  {
     title: "Validation Programme",
     items: [
       { id: "vp1", label: "EXP-P1 · Representation Gauntlet", icon: FlaskConical, blurb: "Representation & runtime gauntlet — the comparative programme experiment (design stage; runs via the backend harness)." },
@@ -127,10 +133,40 @@ const ITEM_EXPERIMENT: Partial<Record<LabTab, string>> = {
   projection: "EXP-006",
   entropy: "EXP-007",
   propagation: "EXP-008",
+  irv: "IRV-001",
+  ipv: "IPV-001",
   vp1: "EXP-P1",
   vp2: "EXP-P2",
   vp3: "EXP-P3",
 };
+
+/** Tab id → experiment id, including dynamic `reg:<id>` guard entries. */
+function expIdForTab(id: LabTab): string | undefined {
+  return ITEM_EXPERIMENT[id] ?? (id.startsWith("reg:") ? id.slice(4) : undefined);
+}
+
+// ── Registry completeness guard (operator 2026-07-19) ────────────────────────
+// Every experiment in EXPERIMENT_REGISTRY must surface in this panel. Any id
+// not hand-mounted above is auto-added as a `reg:<id>` entry rendering a
+// design-stage panel from its registry metadata — so a newly registered
+// experiment can never silently fall through the gaps (the IRV/IPV omission
+// this guard was born from).
+{
+  const mounted = new Set(Object.values(ITEM_EXPERIMENT));
+  const unmounted = EXPERIMENT_REGISTRY.filter((e) => !mounted.has(e.id));
+  if (unmounted.length > 0) {
+    const idx = SECTIONS.findIndex((s) => s.title === "Acceptance Tests");
+    SECTIONS.splice(idx < 0 ? SECTIONS.length : idx, 0, {
+      title: "Registered — pending surface",
+      items: unmounted.map((e) => ({
+        id: `reg:${e.id}`,
+        label: `${e.id} · ${e.family}`,
+        icon: FlaskConical,
+        blurb: e.hypothesis.length > 160 ? `${e.hypothesis.slice(0, 160)}…` : e.hypothesis,
+      })),
+    });
+  }
+}
 
 interface AccessInfo {
   isAdmin: boolean;
@@ -167,7 +203,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
       // Keep only items that map to an assignable experiment. Items with no
       // experiment id (acceptance tests, reports, plates) stay admin-only.
       const items = section.items.filter((it) => {
-        const exp = ITEM_EXPERIMENT[it.id];
+        const exp = expIdForTab(it.id);
         if (!exp) return false;
         if (accessInfo.access === "all") return true;
         if (accessInfo.access === "scoped") return allowSet.has(exp);
@@ -313,7 +349,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
                       : "border-slate-700 bg-slate-900/40 text-slate-300 hover:bg-slate-800"
                   }`}
                 >
-                  {ITEM_EXPERIMENT[it.id] ?? it.label}
+                  {expIdForTab(it.id) ?? it.label}
                 </button>
               ))}
             </div>
@@ -344,8 +380,20 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "provider-choice" && <Exp005ProviderChoiceRunner canRequestPublish={canRequestPublish} />}
         {tab === "projection" && <Exp006ProjectionRunner canRequestPublish={canRequestPublish} />}
         {tab === "vp3" && <ExpP3CapabilityRunner canRequestPublish={canRequestPublish} />}
-        {DESIGN_STAGE_TAB_EXP[tab] && (() => {
-          const expId = DESIGN_STAGE_TAB_EXP[tab]!;
+        {(tab === "irv" || tab === "ipv") && (() => {
+          const expId = tab === "irv" ? "IRV-001" : "IPV-001";
+          const reg = EXPERIMENT_REGISTRY.find((e) => e.id === expId);
+          return (
+            <InstrumentValidationPanel
+              experimentId={expId}
+              family={reg?.family ?? expId}
+              hypothesis={reg?.hypothesis ?? ""}
+              protocolRef={reg?.protocolRef}
+            />
+          );
+        })()}
+        {(DESIGN_STAGE_TAB_EXP[tab] || tab.startsWith("reg:")) && (() => {
+          const expId = DESIGN_STAGE_TAB_EXP[tab] ?? tab.slice(4);
           const reg = EXPERIMENT_REGISTRY.find((e) => e.id === expId);
           return (
             <ExperimentDesignStagePanel
