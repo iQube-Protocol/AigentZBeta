@@ -18,7 +18,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getPersonaPlan } from '@/services/billing/personaPlan';
 import { checkExperimentQuota } from '@/services/billing/experimentQuota';
-import { ASSIGNABLE_EXPERIMENTS, getGrantedExperiments } from '@/services/passport/participationAccess';
+import { ASSIGNABLE_EXPERIMENTS, autoClaimEmailInvitation, getGrantedExperiments } from '@/services/passport/participationAccess';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +42,16 @@ export async function GET(req: NextRequest) {
     if (plan.experimentMonthlyCap > 0) {
       access = 'all'; // paid Sovereign-research / Steward → all experiments
     } else {
+      // An emailed, authorized citizen has access without a manual claim: if the
+      // caller's own email matches an active research-lab invitation, auto-claim
+      // it into a grant (idempotent) before resolving.
+      if (persona.authProfileId) {
+        await autoClaimEmailInvitation(
+          admin,
+          { personaId: persona.personaId, authProfileId: persona.authProfileId },
+          'research-lab',
+        ).catch(() => false);
+      }
       const granted = await getGrantedExperiments(admin, persona.personaId);
       if (granted.hasGrant) {
         if (granted.allowed === 'all') access = 'all';
