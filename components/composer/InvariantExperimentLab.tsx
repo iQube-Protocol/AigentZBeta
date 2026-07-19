@@ -140,6 +140,10 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
   }, [accessInfo]);
 
   const allItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
+  // Reviewers/participants save results privately and may request public
+  // publication (steward-approved). Admins publish straight to the canon, so
+  // they never see the request-publish control.
+  const canRequestPublish = Boolean(accessInfo && !accessInfo.isAdmin);
   const [tab, setTab] = useState<LabTab>("bundle");
 
   // Keep the selected tab within the visible set (a scoped reviewer's default
@@ -270,10 +274,10 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
             <VideoArticleSkillRunner />
           </Suspense>
         )}
-        {tab === "bundle" && <Exp001EvaluationRunner />}
-        {tab === "rediscovery" && <Exp003RediscoveryRunner />}
-        {tab === "sovereignty" && <Exp004SovereigntyRunner />}
-        {tab === "provider-choice" && <Exp005ProviderChoiceRunner />}
+        {tab === "bundle" && <Exp001EvaluationRunner canRequestPublish={canRequestPublish} />}
+        {tab === "rediscovery" && <Exp003RediscoveryRunner canRequestPublish={canRequestPublish} />}
+        {tab === "sovereignty" && <Exp004SovereigntyRunner canRequestPublish={canRequestPublish} />}
+        {tab === "provider-choice" && <Exp005ProviderChoiceRunner canRequestPublish={canRequestPublish} />}
         {tab === "chrysalis" && <ChrysalisTestTab />}
         {tab === "homecoming" && <HomecomingTestTab />}
         {tab === "results" && <ExperimentResultsTab />}

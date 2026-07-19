@@ -13,6 +13,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Loader2, Play, Square } from "lucide-react";
 import { experimentGet, experimentStep, recordRunLifecycle, lifecycleNote } from "./experimentStepFetch";
+import { RequestPublishControl } from "./RequestPublishControl";
 
 type Provider = "anthropic" | "openai" | "venice";
 
@@ -39,7 +40,7 @@ interface QuestionScore {
 
 const isNotDerivable = (a: string) => /not\s+derivable/i.test(a);
 
-export default function Exp001EvaluationRunner() {
+export default function Exp001EvaluationRunner({ canRequestPublish = false }: { canRequestPublish?: boolean } = {}) {
   const [artifacts, setArtifacts] = useState<string[]>([]);
   const [questions, setQuestions] = useState<QuestionMeta[]>([]);
   const [providers, setProviders] = useState<Record<string, boolean>>({});
@@ -53,6 +54,7 @@ export default function Exp001EvaluationRunner() {
   const [coherence, setCoherence] = useState<Record<string, { coherence: number; notes?: string }>>({});
   const [answersByArtifact, setAnswersByArtifact] = useState<Record<string, AnswerRow[]>>({});
   const [publishState, setPublishState] = useState<string | null>(null);
+  const [requestPublish, setRequestPublish] = useState(false);
   const abortRef = useRef(false);
 
   useEffect(() => {
@@ -186,6 +188,7 @@ export default function Exp001EvaluationRunner() {
           experiment: "EXP-001",
           provider,
           model: model || "(provider default)",
+          requestPublish: canRequestPublish && requestPublish,
           aggregates: { consistencyAvg, explainAvg, hallucinationTotal, coherenceAvg, restraint },
           results: {
             experiment: "EXP-001",
@@ -309,10 +312,13 @@ export default function Exp001EvaluationRunner() {
             className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             title="Human adjudication of machine flags still applies — the published record notes it"
           >
-            Publish canonically
+            {canRequestPublish ? (requestPublish ? "Submit for publication" : "Save result") : "Publish canonically"}
           </button>
         )}
       </div>
+      {complete && canRequestPublish && (
+        <RequestPublishControl requestPublish={requestPublish} onChange={setRequestPublish} disabled={publishState === "publishing"} />
+      )}
 
       {running && (
         <div className="flex items-center gap-2 text-sm text-slate-300">
