@@ -52,13 +52,31 @@ export interface SmartTriadOperation {
   confirm: string;
 }
 
+/**
+ * A previously-cited platform invariant carried across turns (Phase 3
+ * constitutional memory v0). T2-safe: seed id + statement only.
+ */
+export interface SmartTriadCitedInvariant {
+  seedId: string;
+  statement: string;
+}
+
 export interface SmartTriadContext {
   /** Ground-context discriminator for the chat route. */
   surface: 'smart-triad';
   platform: { ontologyVersion: string };
-  cartridge: { id: string; name: string; tab: string };
+  /** L2 — the active cartridge. corpusRefs name the cartridge's domain
+   *  corpus surfaces (PRD §7) so the copilot knows WHAT it is grounded on. */
+  cartridge: { id: string; name: string; tab: string; corpusRefs: string[] };
   observer: SmartTriadObserverContext;
   deepLinks: SmartTriadDeepLink[];
   /** Admin-only operational actions (empty for non-admins). */
   operations: SmartTriadOperation[];
+  /** What this copilot can DO on this surface (PRD §7) — navigation,
+   *  operations, guidance domains. Labels only. */
+  capabilities: string[];
+  /** Constitutional memory v0 — invariants the IRE resolved on EARLIER turns
+   *  of this session (accumulated client-side from chat responses, merged
+   *  server-side with the current turn's resolution, deduped by seedId). */
+  sessionInvariants?: SmartTriadCitedInvariant[];
 }

@@ -161,11 +161,18 @@ export type CopilotMessage = {
   timestamp: Date;
   variant?: "bubble" | "panel";
   walletActions?: WalletActionPayload[];
+  /** Navigation chips the MODEL emitted via [[nav:Label]] markers, validated
+   *  against the deepLinks catalog (SmartTriad PRD §6 — inference-driven
+   *  navigation). Rendered under the message; unknown labels are dropped. */
+  navChips?: SmartTriadDeepLink[];
 };
 
 type CodexChatResponse = {
   response?: string;
   wallet_actions?: unknown;
+  /** Invariants that grounded this turn (SmartTriad Phase 3 constitutional
+   *  memory v0) — accumulated client-side, sent back as sessionInvariants. */
+  resolved_invariants?: Array<{ seedId?: string; statement?: string }>;
 };
 
 export function CodexCopilotLayer({
@@ -251,6 +258,53 @@ export function CodexCopilotLayer({
       setOpBusy(null);
     }
   }, []);
+
+  // Constitutional memory v0 (SmartTriad Phase 3): invariants the IRE resolved
+  // on earlier turns, accumulated from resolved_invariants echoes and sent
+  // back as groundContext.sessionInvariants. T2-safe (seed ids + statements).
+  const sessionInvariantsRef = useRef<Array<{ seedId: string; statement: string }>>([]);
+  const accumulateResolvedInvariants = (
+    incoming: CodexChatResponse["resolved_invariants"],
+  ) => {
+    if (!Array.isArray(incoming) || incoming.length === 0) return;
+    const merged: Array<{ seedId: string; statement: string }> = [];
+    const seen = new Set<string>();
+    // Newest resolution first, then prior memory — cap at 12, matching the
+    // server-side merge ceiling.
+    for (const inv of [...incoming, ...sessionInvariantsRef.current]) {
+      const seedId = String(inv?.seedId ?? "");
+      const statement = String(inv?.statement ?? "");
+      if (!seedId || !statement || seen.has(seedId) || merged.length >= 12) continue;
+      seen.add(seedId);
+      merged.push({ seedId, statement });
+    }
+    sessionInvariantsRef.current = merged;
+  };
+
+  // Inference-driven navigation (SmartTriad PRD §6): the model embeds
+  // [[nav:Label]] markers in its reply; labels are validated VERBATIM against
+  // the deepLinks catalog (case-insensitive) so navigation stays deterministic
+  // — a marker with an unknown label degrades to plain text, never a dead
+  // chip. Matched markers become clickable chips under the message.
+  const extractNavMarkers = (
+    text: string,
+  ): { cleaned: string; chips: SmartTriadDeepLink[] } => {
+    const catalog = deepLinks ?? [];
+    if (catalog.length === 0 || !text.includes("[[nav:")) return { cleaned: text, chips: [] };
+    const chips: SmartTriadDeepLink[] = [];
+    const seen = new Set<string>();
+    const cleaned = text.replace(/\[\[nav:([^\]]{1,80})\]\]/g, (_m, raw: string) => {
+      const label = raw.trim();
+      const match = catalog.find((dl) => dl.label.toLowerCase() === label.toLowerCase());
+      if (match && !seen.has(match.label)) {
+        seen.add(match.label);
+        chips.push(match);
+      }
+      // The marker itself reads as the destination name in the sentence.
+      return match ? match.label : label;
+    });
+    return { cleaned, chips };
+  };
 
   // Deep-link chip navigation (SmartTriad PRD §5): same-cartridge tabs switch
   // via the codex:navigate-tab seam; cross-cartridge targets navigate via
@@ -951,21 +1005,35 @@ export function CodexCopilotLayer({
           chatHistory,
           // DCIR observation seam (optional, additive): omitted entirely when
           // the host cartridge doesn't pass the groundContext prop, so every
-          // existing caller's request body is unchanged.
-          ...(groundContext ? { groundContext } : {}),
+          // existing caller's request body is unchanged. On smart-triad
+          // surfaces the accumulated session invariants ride along
+          // (constitutional memory v0).
+          ...(groundContext
+            ? {
+                groundContext:
+                  groundContext.surface === "smart-triad" && sessionInvariantsRef.current.length > 0
+                    ? { ...groundContext, sessionInvariants: sessionInvariantsRef.current }
+                    : groundContext,
+              }
+            : {}),
           ...extraContext,
         }),
       });
       const data = (await response.json().catch(() => ({}))) as CodexChatResponse;
       const structuredWalletActions = normalizeWalletActions(data?.wallet_actions);
+      accumulateResolvedInvariants(data?.resolved_invariants);
+      // PRD §6 — lift [[nav:Label]] markers out of the reply into chips.
+      const navParsed =
+        typeof data?.response === "string" ? extractNavMarkers(data.response) : null;
       updateMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: data?.response || "I can help with that.",
+          content: navParsed?.cleaned || data?.response || "I can help with that.",
           timestamp: new Date(),
           walletActions: structuredWalletActions.length > 0 ? structuredWalletActions : undefined,
+          navChips: navParsed && navParsed.chips.length > 0 ? navParsed.chips : undefined,
         },
       ]);
     } catch {
@@ -1244,6 +1312,25 @@ export function CodexCopilotLayer({
                                 ) : (
                                   msg.content
                                 )}
+                                {/* Inference-driven navigation (PRD §6) — chips
+                                    the MODEL emitted via [[nav:...]] markers,
+                                    validated against the deepLinks catalog. */}
+                                {msg.navChips && msg.navChips.length > 0 ? (
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {msg.navChips.map((chip) => (
+                                      <button
+                                        key={`${msg.id}-nav-${chip.label}`}
+                                        type="button"
+                                        onClick={() => navigateDeepLink(chip)}
+                                        title={chip.codexSlug ? `Open ${chip.label} (another cartridge)` : `Go to ${chip.label}`}
+                                        className={`inline-flex items-center gap-1 rounded-full border ${ACCENT.pillBorder} ${ACCENT.pillBg} px-2.5 py-1 text-[11px] font-medium ${ACCENT.pillText} transition-colors ${ACCENT.pillHoverBg}`}
+                                      >
+                                        <span aria-hidden>→</span>
+                                        <span>{chip.label}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : null}
                                 {walletActionCards.length > 0 ? (
                                   <div className="mt-2 flex flex-wrap gap-1.5">
                                     {walletActionCards.map((card) => (

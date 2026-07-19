@@ -2114,6 +2114,18 @@ function buildSystemPrompt(
       const lines: string[] = [];
       lines.push(`### Active surface`);
       lines.push(`- Cartridge: **${cart.name ?? cart.id ?? 'unknown'}** (tab: ${cart.tab ?? 'unknown'})`);
+      // L2 corpus refs (PRD §7) — name the domain surfaces this copilot is
+      // grounded on so answers cite the right corpus, not generic knowledge.
+      const corpusRefs = Array.isArray(cart.corpusRefs) ? (cart.corpusRefs as string[]) : [];
+      if (corpusRefs.length > 0) {
+        lines.push(`### Cartridge ground-truth corpus (answer FROM these surfaces; name them when citing)`);
+        for (const ref of corpusRefs) lines.push(`- ${ref}`);
+      }
+      const capabilities = Array.isArray(gc.capabilities) ? (gc.capabilities as string[]) : [];
+      if (capabilities.length > 0) {
+        lines.push(`### Your capabilities on this surface`);
+        for (const cap of capabilities) lines.push(`- ${cap}`);
+      }
       lines.push(`### Operator state (observed, T1-safe)`);
       lines.push(`- Authenticated: ${obs.authenticated ? 'yes' : 'no'}`);
       if (obs.passportState) lines.push(`- Passport: ${obs.passportState}`);
@@ -2140,10 +2152,10 @@ function buildSystemPrompt(
         ? (gc.platformInvariants as Array<Record<string, unknown>>)
         : [];
       if (platformInvariants.length > 0) {
-        lines.push(`### Governing platform invariants (IRE-resolved for this question — cite by seed id when they ground a claim)`);
+        lines.push(`### Governing platform invariants (IRE-resolved for this question + session memory — cite by seed id when they ground a claim)`);
         for (const inv of platformInvariants) lines.push(`- [${inv.seedId}] ${inv.statement}`);
       }
-      groundContextBlock = `\n\n## Surface & operator context — ground your answer in THIS\n\nYou are the copilot for the cartridge named above. Keep answers scoped to this cartridge's domain; use the operator state to tailor guidance (e.g. if their passport is 'none' and they ask about participating, walk them through applying first; if 'issued' but not claimed, point at claiming; delegation is OPTIONAL — never present it as required to run experiments). Prefer NAVIGATING the operator over describing UI: when a quick link above matches the need, tell them to use that chip by name. Never invent state not listed here.\n\nANSWER FULLY, NOW: when the operator asks how to do something, give the concrete steps immediately in this reply, tailored to their state above. Replying with only an acknowledgment ("I can help with that", "Sure, happy to help") and no steps is a FAILURE — never do it.\n\n${lines.join('\n')}`;
+      groundContextBlock = `\n\n## Surface & operator context — ground your answer in THIS\n\nYou are the copilot for the cartridge named above. Keep answers scoped to this cartridge's domain; use the operator state to tailor guidance (e.g. if their passport is 'none' and they ask about participating, walk them through applying first; if 'issued' but not claimed, point at claiming; delegation is OPTIONAL — never present it as required to run experiments). Prefer NAVIGATING the operator over describing UI: when a quick link above matches the need, tell them to use that chip by name. Never invent state not listed here.\n\nNAVIGATION MARKERS: when you direct the operator to a destination that appears in the quick-links list, embed the marker [[nav:<label>]] inline at that point of your reply, using the label VERBATIM from the list (e.g. "start by claiming your passport [[nav:Claim Passport]]"). The UI renders each marker as a clickable chip; the raw marker is never shown to the operator. Use ONLY labels from the quick-links list — never invent one — and do not wrap markers in backticks or quotes.\n\nANSWER FULLY, NOW: when the operator asks how to do something, give the concrete steps immediately in this reply, tailored to their state above. Replying with only an acknowledgment ("I can help with that", "Sure, happy to help") and no steps is a FAILURE — never do it.\n\n${lines.join('\n')}`;
     } catch {
       // Malformed context — fall back to the persona's default framing.
     }
@@ -3043,12 +3055,29 @@ export async function POST(request: NextRequest) {
           const { resolveConstitutionalField } = await import('@/services/invariants/resolution');
           const field = await resolveConstitutionalField(message);
           const items = (field.snapshot?.slice.items ?? []).slice(0, 8);
-          if (items.length > 0) {
-            (userContext.groundContext as Record<string, unknown>).platformInvariants = items.map((i) => ({
-              seedId: i.seedId ?? i.id,
-              statement: i.statement,
-            }));
+          const merged: Array<{ seedId: string; statement: string }> = items.map((i) => ({
+            seedId: String(i.seedId ?? i.id),
+            statement: String(i.statement),
+          }));
+          // Phase 3 constitutional memory v0 — invariants cited on EARLIER
+          // turns (accumulated client-side from resolved_invariants echoes)
+          // stay in the ground truth so guidance remains constitutionally
+          // consistent across the session. Current-turn resolution leads;
+          // memory tops up to a hard cap. Dedupe by seedId. T2-safe.
+          const gcNow = userContext.groundContext as Record<string, unknown>;
+          const remembered = Array.isArray(gcNow.sessionInvariants)
+            ? (gcNow.sessionInvariants as Array<Record<string, unknown>>)
+            : [];
+          const seen = new Set(merged.map((m) => m.seedId));
+          for (const inv of remembered) {
+            if (merged.length >= 12) break;
+            const seedId = String(inv.seedId ?? '');
+            const statement = String(inv.statement ?? '');
+            if (!seedId || !statement || seen.has(seedId)) continue;
+            seen.add(seedId);
+            merged.push({ seedId, statement });
           }
+          if (merged.length > 0) gcNow.platformInvariants = merged;
         } catch {
           // IRE unavailable — Phase-1b context stands on its own.
         }
@@ -3317,6 +3346,14 @@ export async function POST(request: NextRequest) {
         title: r.title,
         category: r.contentCategory,
       })) : undefined,
+      // SmartTriad Phase 3 constitutional memory v0 — echo the invariants that
+      // grounded THIS turn (current resolution + carried session memory) so
+      // the client can accumulate them and send them back as
+      // groundContext.sessionInvariants on the next turn. T2-safe content.
+      resolved_invariants:
+        (userContext?.groundContext as Record<string, unknown> | undefined)?.surface === 'smart-triad'
+          ? ((userContext?.groundContext as Record<string, unknown>).platformInvariants ?? undefined)
+          : undefined,
     });
 
   } catch (error) {
