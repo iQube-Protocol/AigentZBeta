@@ -1277,88 +1277,10 @@ export function CodexCopilotLayer({
                         )}
                       </div>
 
-                      {showWalletMenu && (
-                        <div
-                          className={`absolute left-3 right-3 transition-opacity duration-200 ${
-                            `${walletMenuBottomClass} z-20`
-                          } ${
-                            walletMenuVisible || walletMenuHover
-                              ? "opacity-100 pointer-events-auto"
-                              : "opacity-0 pointer-events-none"
-                          }`}
-                          onMouseEnter={handleWalletMenuEnter}
-                          onMouseLeave={handleWalletMenuLeave}
-                        >
-                          <div className="pointer-events-auto mx-auto flex w-full items-center justify-between rounded-2xl border border-white/10 bg-transparent px-3 py-2">
-                            {!walletActionsCollapsed ? (
-                              <div className="min-w-0 flex-1 overflow-x-auto no-scrollbar">
-                                <div className="grid min-w-full grid-flow-col auto-cols-[minmax(2.5rem,1fr)] items-center gap-2">
-                                {["wallet", "library", "tasks", "reputation", "rewards", "payments"].map((tab) => (
-                                  <button
-                                    key={tab}
-                                    onClick={() => {
-                                      setWalletPanelTab(tab as WalletTab);
-                                      setWalletPanelOpen(true);
-                                      setWalletPanelCollapsed(false);
-                                    }}
-                                    className={`h-10 w-full rounded-lg ring-1 transition-colors ${
-                                      walletPanelOpen && walletPanelTab === tab && !walletPanelCollapsed
-                                        ? ACCENT_PANEL_ACTIVE
-                                        : "bg-white/5 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                                    }`}
-                                  >
-                                    <span className="flex h-full w-full items-center justify-center">
-                                      {tab === "wallet" && <Wallet className="w-4 h-4" />}
-                                      {tab === "library" && <BookOpen className="w-4 h-4" />}
-                                      {tab === "tasks" && <CheckSquare className="w-4 h-4" />}
-                                      {tab === "reputation" && <Trophy className="w-4 h-4" />}
-                                      {tab === "rewards" && <Gift className="w-4 h-4" />}
-                                      {tab === "payments" && <CreditCard className="w-4 h-4" />}
-                                    </span>
-                                  </button>
-                                ))}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-1 items-center justify-center">
-                                <button
-                                  onClick={() => setWalletActionsCollapsed(false)}
-                                  className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                                >
-                                  <Wallet className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2">
-                              {!walletActionsCollapsed && (
-                                <button
-                                  onClick={() => setWalletActionsCollapsed(true)}
-                                  className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                                >
-                                  <PanelBottomClose className="w-4 h-4" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  if (!walletPanelOpen) {
-                                    setWalletPanelOpen(true);
-                                    setWalletPanelCollapsed(false);
-                                  } else {
-                                    setWalletPanelCollapsed((prev) => !prev);
-                                  }
-                                }}
-                                className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                              >
-                                {walletPanelOpen && !walletPanelCollapsed ? (
-                                  <PanelRightClose className="w-4 h-4" />
-                                ) : (
-                                  <PanelRightOpen className="w-4 h-4" />
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      {/* Floating wallet icons bar retired (2026-07-19) — it
+                          overlapped the quick-action carousel + inference copy and
+                          its lazy chunk could fail to load. The wallet now launches
+                          from the single Wallet icon in the nav-menu footer below. */}
                     </div>
 
                     {!disablePromptInput ? (
@@ -1437,31 +1359,36 @@ export function CodexCopilotLayer({
                           buildCodexUrl. Rendered by the layer (never parsed
                           from model output) so navigation is always reliable. */}
                       {((deepLinks && deepLinks.length > 0) || (operations && operations.length > 0)) && (
-                        <div className="mb-1.5 flex flex-wrap items-center gap-1">
-                          {(deepLinks ?? []).map((dl) => (
-                            <button
-                              key={dl.label}
-                              onClick={() => navigateDeepLink(dl)}
-                              className={`rounded-full border px-2 py-0.5 text-[10px] transition ${ACCENT.pillBorder} ${ACCENT.pillBg} ${ACCENT.pillText} ${ACCENT.pillHoverBg}`}
-                              title={dl.codexSlug ? `Open ${dl.label} (another cartridge)` : `Go to ${dl.label}`}
-                            >
-                              {dl.label}
-                            </button>
-                          ))}
-                          {/* Operations (Phase 3 Actions) — amber, confirm-gated,
-                              server-re-gated. Distinct from navigation chips. */}
-                          {(operations ?? []).map((op) => (
-                            <button
-                              key={op.id}
-                              onClick={() => void runOperation(op)}
-                              disabled={opBusy !== null}
-                              className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200 transition hover:bg-amber-500/20 disabled:opacity-50"
-                              title={op.confirm}
-                            >
-                              {opBusy === op.id ? "Running…" : `▸ ${op.label}`}
-                            </button>
-                          ))}
-                          {opNote && <span className="basis-full text-[10px] text-slate-400">{opNote}</span>}
+                        <div className="mb-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-1.5 py-1 backdrop-blur">
+                          {/* Single-row carousel: chips never wrap; overflow scrolls
+                              horizontally. The opaque slate backing keeps chips and
+                              the inference copy behind them both legible. */}
+                          <div className="flex flex-nowrap items-center gap-1 overflow-x-auto no-scrollbar">
+                            {(deepLinks ?? []).map((dl) => (
+                              <button
+                                key={dl.label}
+                                onClick={() => navigateDeepLink(dl)}
+                                className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] transition ${ACCENT.pillBorder} ${ACCENT.pillBg} ${ACCENT.pillText} ${ACCENT.pillHoverBg}`}
+                                title={dl.codexSlug ? `Open ${dl.label} (another cartridge)` : `Go to ${dl.label}`}
+                              >
+                                {dl.label}
+                              </button>
+                            ))}
+                            {/* Operations (Phase 3 Actions) — amber, confirm-gated,
+                                server-re-gated. Distinct from navigation chips. */}
+                            {(operations ?? []).map((op) => (
+                              <button
+                                key={op.id}
+                                onClick={() => void runOperation(op)}
+                                disabled={opBusy !== null}
+                                className="shrink-0 whitespace-nowrap rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200 transition hover:bg-amber-500/20 disabled:opacity-50"
+                                title={op.confirm}
+                              >
+                                {opBusy === op.id ? "Running…" : `▸ ${op.label}`}
+                              </button>
+                            ))}
+                          </div>
+                          {opNote && <div className="mt-1 text-[10px] text-slate-400">{opNote}</div>}
                         </div>
                       )}
                       {!floatingInput && (
@@ -1572,8 +1499,22 @@ export function CodexCopilotLayer({
                               </button>
                             </div>
                           )}
-                          {/* RIGHT: badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
+                          {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
                           <div className="relative flex items-center gap-1">
+                            {showWalletMenu && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setWalletPanelTab("wallet");
+                                  setWalletPanelOpen(true);
+                                  setWalletPanelCollapsed(false);
+                                }}
+                                title="Open wallet"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                              >
+                                <Wallet className="w-4 h-4" />
+                              </button>
+                            )}
                             {!hideAvatarToggle && (
                               <>
                                 {contextOptions && contextOptions.length > 0 ? (
@@ -1737,8 +1678,22 @@ export function CodexCopilotLayer({
                             </button>
                           </div>
                         )}
-                        {/* RIGHT: badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
+                        {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
                         <div className="relative flex items-center gap-1">
+                          {showWalletMenu && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setWalletPanelTab("wallet");
+                                setWalletPanelOpen(true);
+                                setWalletPanelCollapsed(false);
+                              }}
+                              title="Open wallet"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                            >
+                              <Wallet className="w-4 h-4" />
+                            </button>
+                          )}
                           {!hideAvatarToggle && (
                             <>
                               {contextOptions && contextOptions.length > 0 ? (
