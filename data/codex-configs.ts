@@ -4279,6 +4279,22 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
       config: { component: 'PassportBureauStewardTab' },
       metadata: { icon: 'Gavel', description: 'Steward review queue — approve, deny, request info', color: 'violet' },
     },
+    {
+      // Constitutional Access Service (2026-07-18): one invitation/grant
+      // mechanism across every permissioned area (passport, research lab,
+      // venture lab, metaMe studio, developer studio). Surfaces as a
+      // Steward sub-tab wherever the Steward tab mounts (subTabs getter).
+      id: 'passport-bureau-access',
+      label: 'Access & Invitations',
+      slug: 'access-invitations',
+      enabled: true,
+      adminOnly: true,
+      group: 'steward',
+      order: 1,
+      type: 'static',
+      config: { component: 'StewardParticipationTab' },
+      metadata: { icon: 'Award', description: 'Issue and steward bounded bearer invitations and access grants across all permissioned domains', color: 'violet' },
+    },
   ],
   permissions: {
     view: ['*'],

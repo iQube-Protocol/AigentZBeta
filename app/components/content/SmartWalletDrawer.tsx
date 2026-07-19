@@ -113,6 +113,7 @@ interface WorldIdProofBundle {
   merkle_root: string;
   nullifier_hash: string;
   verification_level: 'orb' | 'device';
+  signal?: string;
 }
 
 

@@ -32,6 +32,7 @@ interface WorldIdProofBundle {
   merkle_root: string;
   nullifier_hash: string;
   verification_level: 'orb' | 'device';
+  signal?: string;
 }
 
 const DOCUMENT_CLASSES = [
@@ -289,11 +290,13 @@ export function LockerTab() {
     void load();
   }, [load]);
 
-  // Invitation deep link: /…?x409=<code> pre-fills the claim input so the
-  // invitee lands, signs in, and claims in one motion.
+  // Invitation deep link: /…?x409=<code> (agreement) or ?invite=<code>
+  // (access invitation) pre-fills the claim input so the invitee lands,
+  // signs in, and claims in one motion.
   useEffect(() => {
     try {
-      const code = new URLSearchParams(window.location.search).get('x409');
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('x409') || params.get('invite');
       if (code) setX409Code(code);
     } catch { /* non-fatal */ }
   }, []);
@@ -306,18 +309,29 @@ export function LockerTab() {
     setError(null);
     try {
       const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
-      const res = await fetch('/api/polity-passport/locker/claim-agreement', {
-        method: 'POST',
-        headers: headers ?? undefined,
-        body: JSON.stringify({ inviteCode: code }),
-      });
+      // Two invitation kinds share this box, routed by prefix:
+      //   x409-… → agreement claim (contract lands in the locker)
+      //   pinv-… → access invitation (Constitutional Access Service grant)
+      const isAccessInvite = code.startsWith('pinv-');
+      const res = await fetch(
+        isAccessInvite ? '/api/participation/claim' : '/api/polity-passport/locker/claim-agreement',
+        {
+          method: 'POST',
+          headers: headers ?? undefined,
+          body: JSON.stringify(isAccessInvite ? { code } : { inviteCode: code }),
+        },
+      );
       const data = await res.json();
       if (!res.ok || !data?.ok) {
         setX409Note(`⚠ ${data?.error || 'Claim failed'}`);
         return;
       }
       setX409Code('');
-      setNotice(`Contract claimed into your locker: ${data.item?.displayName ?? ''}`);
+      setNotice(
+        isAccessInvite
+          ? `Access granted: ${data.grant?.accessDomain ?? ''} · ${data.grant?.role ?? ''}${data.alreadyGranted ? ' (already held)' : ''}`
+          : `Contract claimed into your locker: ${data.item?.displayName ?? ''}`,
+      );
       await load(true);
     } catch (e) {
       setX409Note(`⚠ ${e instanceof Error ? e.message : 'Claim failed'}`);
@@ -587,7 +601,11 @@ export function LockerTab() {
       const res = await fetch('/api/polity-passport/verify-worldid', {
         method: 'POST',
         headers: headers ?? { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passportId, ...proof }),
+        // The route contract is { passportId, proof: {...} } — NESTED. The
+        // previous spread ({ passportId, ...proof }) flattened the bundle,
+        // so body.proof became the semaphore string and the route 400'd
+        // with "passportId and proof.nullifier_hash are required".
+        body: JSON.stringify({ passportId, proof }),
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
@@ -1075,17 +1093,18 @@ export function LockerTab() {
       <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 space-y-2">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-violet-300" />
-          <h3 className="text-sm font-semibold text-slate-200">x409 agreement invitation</h3>
+          <h3 className="text-sm font-semibold text-slate-200">Invitation</h3>
         </div>
         <p className="text-[11px] text-slate-400">
-          Invited to a project-initiation contract? Enter your invitation code — the agreement will appear
-          in your locker below as a contract to review and execute.
+          Invited to a contract or a permissioned area? Enter your invitation code. Contract invitations
+          (x409-…) land the agreement in your locker to review and execute; access invitations (pinv-…)
+          grant your role in the invited domain.
         </p>
         <div className="flex items-center gap-2">
           <input
             value={x409Code}
             onChange={(e) => setX409Code(e.target.value)}
-            placeholder="x409-…"
+            placeholder="x409-… or pinv-…"
             className="flex-1 min-w-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-100 font-mono placeholder:text-slate-500"
           />
           <button
