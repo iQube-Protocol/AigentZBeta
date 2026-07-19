@@ -24,6 +24,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Play, Shuffle, Upload } from "lucide-react";
 import { experimentGet, experimentStep, recordRunLifecycle, lifecycleNote } from "./experimentStepFetch";
+import { RequestPublishControl } from "./RequestPublishControl";
 
 interface DrillTask {
   id: string;
@@ -61,7 +62,7 @@ const BUNDLE_BASE = [
 const OPEN_WEIGHT_COMPONENT = "open-weight-participation";
 const MIN_PROVIDERS = 2;
 
-export default function Exp005ProviderChoiceRunner() {
+export default function Exp005ProviderChoiceRunner({ canRequestPublish = false }: { canRequestPublish?: boolean } = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<DrillTask[]>([]);
@@ -71,6 +72,7 @@ export default function Exp005ProviderChoiceRunner() {
   const [rows, setRows] = useState<TaskRow[]>([]);
   const [ranRotation, setRanRotation] = useState<string[]>([]);
   const [publishState, setPublishState] = useState<string | null>(null);
+  const [requestPublish, setRequestPublish] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -230,6 +232,7 @@ export default function Exp005ProviderChoiceRunner() {
         experiment: "EXP-005",
         provider: ranRotation.join("+"),
         model: "provider-defaults",
+        requestPublish: canRequestPublish && requestPublish,
         aggregates,
         results,
       });
@@ -371,8 +374,19 @@ export default function Exp005ProviderChoiceRunner() {
             className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
           >
             <Upload className="h-3.5 w-3.5" />
-            {publishState === "publishing" ? "Publishing…" : "Publish canonically"}
+            {publishState === "publishing"
+              ? "Publishing…"
+              : canRequestPublish
+                ? requestPublish
+                  ? "Submit for publication"
+                  : "Save result"
+                : "Publish canonically"}
           </button>
+          {canRequestPublish && (
+            <div className="mt-2">
+              <RequestPublishControl requestPublish={requestPublish} onChange={setRequestPublish} disabled={publishState === "publishing"} />
+            </div>
+          )}
           {publishState && publishState !== "publishing" && (
             <p className="mt-1 text-xs text-slate-400">{publishState}</p>
           )}
