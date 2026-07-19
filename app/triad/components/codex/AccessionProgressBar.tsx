@@ -40,12 +40,17 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
   const prefix = codexId.includes("irl-os") ? "irl-os" : codexId === "irl-cartridge" ? "irl" : null;
 
   const steps = useMemo(() => {
-    if (!prefix) return [] as { key: StepKey; label: string; slug: string }[];
+    if (!prefix) return [] as { key: StepKey; label: string; slug: string; optional?: boolean }[];
+    // Access (claim the invitation → research-lab grant) comes right after
+    // Passport, so an invited citizen can reach + run their assigned experiment
+    // WITHOUT delegating an agent. Delegation is OPTIONAL — a convenience for
+    // having an agent run the experiment on your behalf, never a gate (operator
+    // direction 2026-07-19).
     return [
       { key: "welcome" as const, label: "Welcome", slug: `${prefix}-welcome` },
       { key: "passport" as const, label: "Passport", slug: `${prefix}-passport-apply` },
-      { key: "delegation" as const, label: "Delegate", slug: `${prefix}-passport-delegation` },
       { key: "access" as const, label: "Access", slug: `${prefix}-passport-locker` },
+      { key: "delegation" as const, label: "Delegate (optional)", slug: `${prefix}-passport-delegation`, optional: true },
       { key: "experiments" as const, label: "Experiments", slug: `${prefix}-experiment-lab` },
     ];
   }, [prefix]);
@@ -118,10 +123,11 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
   if (!prefix || !onStepTab) return null;
 
   const activeIdx = steps.findIndex((s) => s.slug === activeSlug);
-  // Auto-advance: the first still-incomplete step is where the participant is
-  // pulled next. "Experiments" is the terminal destination (never marked done),
-  // so once passport/delegation/access are cleared this resolves there.
-  const nextStep = steps.find((s) => !done[s.key]);
+  // Auto-advance: the first still-incomplete REQUIRED step is where the
+  // participant is pulled next. Optional steps (Delegate) are never a gate, so
+  // the pull goes Passport → Access → Experiments; delegation can be done any
+  // time but is never required to reach or run experiments.
+  const nextStep = steps.find((s) => !s.optional && !done[s.key]);
   const showContinue = !loading && nextStep && nextStep.slug !== activeSlug;
 
   return (
@@ -131,7 +137,11 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
         {steps.map((step, i) => {
           const isDone = done[step.key];
           const isCurrent = i === activeIdx;
-          const reachable = isDone || i <= activeIdx || (i > 0 && done[steps[i - 1].key]);
+          // Reachable once every PRIOR REQUIRED step is done — optional steps
+          // (Delegate) never block a later step. So Experiments unlocks on
+          // Access alone, without delegating.
+          const priorRequiredDone = steps.slice(0, i).filter((s) => !s.optional).every((s) => done[s.key]);
+          const reachable = isDone || i <= activeIdx || priorRequiredDone;
           return (
             <React.Fragment key={step.key}>
               {i > 0 && (

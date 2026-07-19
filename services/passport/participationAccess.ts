@@ -331,3 +331,100 @@ export async function claimAccessInvitation(
     grant: { id: String(grant.id), accessDomain: String(grant.access_domain), role: String(grant.role), grantedAt: String(grant.granted_at) },
   };
 }
+
+/**
+ * Auto-claim an email-scoped invitation (operator direction 2026-07-19): if the
+ * caller's OWN email matches an active invitation's intended_recipient, create
+ * the grant WITHOUT a manual claim ceremony — an emailed, authorized citizen has
+ * access; the claim/delegation ceremony is a convenience, never a gate. This
+ * keeps the canonical grant model (audit row + receipt) intact rather than a
+ * parallel read-only access path.
+ *
+ * T0 discipline: the caller's own emails are resolved server-side and never
+ * serialized/receipted (only the domain/role label lands on the receipt).
+ * Idempotent: a standing grant short-circuits. Returns true iff a grant exists
+ * for the domain after this call.
+ */
+export async function autoClaimEmailInvitation(
+  admin: SupabaseClient,
+  caller: { personaId: string; authProfileId: string; passportId?: string | null },
+  domain: AccessDomain,
+): Promise<boolean> {
+  // Already granted → nothing to do.
+  const { data: existingGrant } = await admin
+    .from('access_grants')
+    .select('id')
+    .eq('persona_id', caller.personaId)
+    .eq('access_domain', domain)
+    .eq('status', 'active')
+    .limit(1);
+  if (existingGrant && existingGrant.length > 0) return true;
+  if (!caller.authProfileId) return false;
+
+  // Resolve the caller's own active emails (T0 self — server-only).
+  const { data: emailRows } = await admin
+    .from('crm_auth_profile_emails')
+    .select('email_normalized')
+    .eq('auth_profile_id', caller.authProfileId)
+    .eq('status', 'active');
+  const emails = new Set(
+    (emailRows ?? [])
+      .map((r) => String((r as { email_normalized?: string }).email_normalized ?? '').trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (emails.size === 0) return false;
+
+  // Find an active, unexpired, uses-remaining invitation in this domain whose
+  // intended recipient matches one of the caller's emails.
+  const { data: invRows } = await admin
+    .from('access_invitations')
+    .select('*')
+    .eq('access_domain', domain)
+    .eq('status', 'active');
+  const now = Date.now();
+  const match = (invRows ?? []).find((inv) => {
+    const recip = String((inv as { intended_recipient?: string | null }).intended_recipient ?? '').trim().toLowerCase();
+    if (!recip || !emails.has(recip)) return false;
+    if (inv.expires_at && new Date(String(inv.expires_at)).getTime() < now) return false;
+    if (Number(inv.uses) >= Number(inv.max_uses)) return false;
+    return true;
+  });
+  if (!match) return false;
+
+  const role = String(match.role);
+  let receiptId: string | null = null;
+  try {
+    const receipt = await createActivityReceipt({
+      personaId: caller.personaId,
+      actionType: 'passport_privilege_changed',
+      summary: `Access granted via email invitation: ${DOMAIN_LABELS[domain] ?? domain} · ${role}`,
+      activeCartridge: 'polity-passport',
+    });
+    receiptId = receipt?.id ?? null;
+  } catch {
+    // Receipt failure never blocks the grant.
+  }
+
+  const { data: grant, error } = await admin
+    .from('access_grants')
+    .insert({
+      persona_id: caller.personaId,
+      passport_id: caller.passportId ?? null,
+      access_domain: domain,
+      role,
+      source: 'invitation',
+      source_id: match.id,
+      receipt_id: receiptId,
+      allowed_experiments: (match as { allowed_experiments?: string[] | null }).allowed_experiments ?? null,
+    })
+    .select('id')
+    .single();
+  if (error || !grant) return false;
+
+  const nextUses = Number(match.uses) + 1;
+  await admin
+    .from('access_invitations')
+    .update({ uses: nextUses, ...(nextUses >= Number(match.max_uses) ? { status: 'exhausted' } : {}) })
+    .eq('id', match.id);
+  return true;
+}
