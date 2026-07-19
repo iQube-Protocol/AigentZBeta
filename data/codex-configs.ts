@@ -4793,6 +4793,19 @@ export const IRL_CARTRIDGE: CodexConfig = {
   ],
   tabs: [
     {
+      // IRL home / welcome landing (observer-aware) — first tab so the
+      // internal lab also lands here. Mirrors the IRL OS welcome.
+      id: 'irl-welcome',
+      label: 'Welcome',
+      slug: 'irl-welcome',
+      enabled: true,
+      group: 'institution',
+      order: -1,
+      type: 'static',
+      config: { component: 'IRLWelcomeTab' },
+      metadata: { icon: 'Sparkles', description: 'Welcome to the Invariant Research Lab — how to join, and where to go once you have', color: 'violet' },
+    },
+    {
       id: 'irl-dashboard',
       label: 'Dashboard',
       slug: 'irl-dashboard',
@@ -5126,6 +5139,21 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     { id: 'participation', label: 'Participation', icon: 'ShieldCheck', order: 4 },
   ],
   tabs: [
+    {
+      // The IRL home / welcome screen — observer-aware landing (2026-07-19):
+      // invitational onboarding ladder for newcomers; "welcome back" pointing
+      // deeper once the persona holds a research-lab grant. First tab, so the
+      // cartridge lands here.
+      id: 'irl-os-welcome',
+      label: 'Welcome',
+      slug: 'irl-os-welcome',
+      enabled: true,
+      group: 'institution',
+      order: -1,
+      type: 'static',
+      config: { component: 'IRLWelcomeTab' },
+      metadata: { icon: 'Sparkles', description: 'Welcome to the Invariant Research Lab — how to join, and where to go once you have' },
+    },
     {
       // Public read-only Dashboard — mission, published results, derived
       // lifecycle overview (anonymous-safe via /api/public/irl/* projections,
