@@ -26,6 +26,7 @@ const SmartWalletDrawer = dynamic(
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { CopilotHostProvider } from "@/app/components/codex/CopilotHostContext";
+import { useSmartTriadContext } from "@/app/hooks/useSmartTriadContext";
 import { personaFetch } from "@/utils/personaSpine";
 import { useActivations } from "@/services/activations/ActivationsContext";
 import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
@@ -550,6 +551,15 @@ export default function CodexPanelDynamic({
       activeSubTabs[0]
     );
   }, [activeSubTabs, activeSubSubTabSlug]);
+
+  // SmartTriadContext (PRD §7, ratified 2026-07-19) — cartridge + T1-safe
+  // observer + deep links, fed to the shell copilot as its ground context.
+  // Called before the loading/error early-returns (rules of hooks).
+  const smartTriadContext = useSmartTriadContext(
+    codexId,
+    codex?.name ?? codexId,
+    activeTabSlug,
+  );
 
   // Tier-4: subTabs of the currently-active tier-3 tab. Filtered by the
   // same gates as tier-3 so admin/per-cartridge tabs don't leak through
@@ -1227,6 +1237,8 @@ export default function CodexPanelDynamic({
             promptPlaceholder={cfg.promptPlaceholder ?? `Ask about ${displayCodexName}...`}
             initialMessage={cfg.initialMessage}
             quickPrompts={cfg.quickPrompts}
+            groundContext={smartTriadContext as unknown as Record<string, unknown>}
+            deepLinks={smartTriadContext.deepLinks}
           />
         );
       })()}

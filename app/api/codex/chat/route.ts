@@ -2099,7 +2099,48 @@ function buildSystemPrompt(
     }
   };
 
-  if (resolvedPersonaId === 'aigent-me' && userContext?.groundContext) {
+  // SmartTriad context (PRD §7, ratified 2026-07-19) — the shell copilot's
+  // generic ground block, persona-agnostic. Narrates the active cartridge/tab,
+  // the caller's T1-safe observer posture (grants / passport / delegation —
+  // NEVER a T0 identifier; the client contract only sends labels), and the
+  // deterministic deep-link chips rendered under the chat, so answers stay
+  // cartridge-scoped and navigational instead of generic.
+  if (userContext?.groundContext && (userContext.groundContext as Record<string, unknown>).surface === 'smart-triad') {
+    try {
+      const gc = userContext.groundContext as Record<string, unknown>;
+      const cart = (gc.cartridge ?? {}) as Record<string, unknown>;
+      const obs = (gc.observer ?? {}) as Record<string, unknown>;
+      const links = Array.isArray(gc.deepLinks) ? (gc.deepLinks as Array<Record<string, unknown>>) : [];
+      const lines: string[] = [];
+      lines.push(`### Active surface`);
+      lines.push(`- Cartridge: **${cart.name ?? cart.id ?? 'unknown'}** (tab: ${cart.tab ?? 'unknown'})`);
+      lines.push(`### Operator state (observed, T1-safe)`);
+      lines.push(`- Authenticated: ${obs.authenticated ? 'yes' : 'no'}`);
+      if (obs.passportState) lines.push(`- Passport: ${obs.passportState}`);
+      if (typeof obs.delegationActive === 'boolean') lines.push(`- Agent delegation active: ${obs.delegationActive ? 'yes' : 'no'}`);
+      const participation = Array.isArray(obs.participation) ? (obs.participation as Array<Record<string, unknown>>) : [];
+      if (participation.length > 0) {
+        lines.push(`- Participation grants: ${participation.map((p) => `${p.domain}/${p.role}`).join(', ')}`);
+      } else if (obs.authenticated) {
+        lines.push(`- Participation grants: none yet (not onboarded to any access domain)`);
+      }
+      if (links.length > 0) {
+        lines.push(`### Quick links available as chips below the chat`);
+        for (const l of links) lines.push(`- ${l.label}${l.codexSlug ? ' (opens another cartridge)' : ''}`);
+      }
+      groundContextBlock = `\n\n## Surface & operator context — ground your answer in THIS\n\nYou are the copilot for the cartridge named above. Keep answers scoped to this cartridge's domain; use the operator state to tailor guidance (e.g. if their passport is 'none' and they ask about participating, walk them through applying first; if 'issued' but not claimed, point at claiming; delegation is OPTIONAL — never present it as required to run experiments). Prefer NAVIGATING the operator over describing UI: when a quick link above matches the need, tell them to use that chip by name. Never invent state not listed here.\n\n${lines.join('\n')}`;
+    } catch {
+      // Malformed context — fall back to the persona's default framing.
+    }
+  }
+
+  if (
+    resolvedPersonaId === 'aigent-me' &&
+    userContext?.groundContext &&
+    // The shell copilot's smart-triad context is handled by the generic block
+    // above — don't let this NBA-shaped parser overwrite it.
+    (userContext.groundContext as Record<string, unknown>).surface !== 'smart-triad'
+  ) {
     try {
       const gc = userContext.groundContext as Record<string, unknown>;
       const brief = gc.brief as Record<string, unknown> | null | undefined;
