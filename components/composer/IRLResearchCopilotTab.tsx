@@ -690,6 +690,26 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Design-stage hand-off (2026-07-19): the Experiment Lab's design-stage panels
+  // (EXP-007/008, EXP-P1..P3) can flow a not-yet-runnable experiment INTO the
+  // copilot to be developed into a constitutionally-compliant protocol. The
+  // panel dispatches `irl:develop-experiment` with the experiment context; the
+  // copilot scopes to it and seeds the develop intent (observed, not asserted).
+  useEffect(() => {
+    const onDevelop = (e: Event) => {
+      const d = (e as CustomEvent).detail as { experimentId?: string; family?: string; hypothesis?: string } | undefined;
+      if (!d?.experimentId) return;
+      setActiveExperimentId(d.experimentId);
+      observe(surfacePromptSelectedEvent(
+        SURFACE,
+        `develop ${d.experimentId}${d.family ? ` (${d.family})` : ""} into a constitutionally-compliant experiment${d.hypothesis ? ` — hypothesis: ${d.hypothesis}` : ""}`,
+      ));
+    };
+    window.addEventListener('irl:develop-experiment', onDevelop as EventListener);
+    return () => window.removeEventListener('irl:develop-experiment', onDevelop as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Run-stage hand-off (C3 loop tightening, 2026-07-07): one-click navigation to
   // the Experiment Lab tab via the cartridge-agnostic `codex:navigate-tab` seam
   // the viewer listens for (mirrors KNYT's `knyt:navigate-tab`). This is
