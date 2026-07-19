@@ -2162,7 +2162,7 @@ function buildSystemPrompt(
         ? (gc.memoryInvariants as Array<Record<string, unknown>>)
         : [];
       if (memoryInvariants.length > 0) {
-        lines.push(`### Operator memory invariants (compiled from prior sessions — durable patterns, not conversation history; treat 'candidate' entries as tentative)`);
+        lines.push(`### Partnership memory invariants (compiled from prior sessions — durable patterns, not conversation history). Weight 'validated' highest (human-ratified), 'active' as working inference, 'candidate' as tentative`);
         for (const m of memoryInvariants) lines.push(`- [${m.status}] ${m.statement}`);
       }
       groundContextBlock = `\n\n## Surface & operator context — ground your answer in THIS\n\nYou are the copilot for the cartridge named above. Keep answers scoped to this cartridge's domain; use the operator state to tailor guidance (e.g. if their passport is 'none' and they ask about participating, walk them through applying first; if 'issued' but not claimed, point at claiming; delegation is OPTIONAL — never present it as required to run experiments). Prefer NAVIGATING the operator over describing UI: when a quick link above matches the need, tell them to use that chip by name. Never invent state not listed here.\n\nNAVIGATION MARKERS: when you direct the operator to a destination that appears in the quick-links list, embed the marker [[nav:<label>]] inline at that point of your reply, using the label VERBATIM from the list (e.g. "start by claiming your passport [[nav:Claim Passport]]"). The UI renders each marker as a clickable chip; the raw marker is never shown to the operator. Use ONLY labels from the quick-links list — never invent one — and do not wrap markers in backticks or quotes.\n\nANSWER FULLY, NOW: when the operator asks how to do something, give the concrete steps immediately in this reply, tailored to their state above. Replying with only an acknowledgment ("I can help with that", "Sure, happy to help") and no steps is a FAILURE — never do it.\n\n${lines.join('\n')}`;
@@ -3106,7 +3106,9 @@ export async function POST(request: NextRequest) {
               if (memory.length > 0) {
                 gcNow.memoryInvariants = memory.map((m) => ({
                   statement: m.statement,
-                  status: m.status,
+                  // CFS-045-A1 tiers: 'validated' = partnership-ratified
+                  // (human-approved); 'active'/'candidate' = machine tier.
+                  status: m.humanValidated ? 'validated' : m.status,
                 }));
               }
             }

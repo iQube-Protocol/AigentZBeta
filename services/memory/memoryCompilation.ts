@@ -25,6 +25,9 @@ export interface MemoryInvariantRecord {
   cartridgeId: string;
   statement: string;
   status: 'candidate' | 'active' | 'retired';
+  /** CFS-045-A1: true = partnership-ratified (human-validated) memory.
+   *  Machine compaction must never merge/retire these; only the human can. */
+  humanValidated: boolean;
   confidence: number;
   supportCount: number;
   refuteCount: number;
@@ -73,10 +76,12 @@ export async function retrieveMemoryInvariants(
   try {
     const { data } = await client()
       .from('memory_invariants')
-      .select('id, cartridge_id, statement, status, confidence, support_count, refute_count, created_at, updated_at, last_confirmed_at')
+      .select('id, cartridge_id, statement, status, human_validated, confidence, support_count, refute_count, created_at, updated_at, last_confirmed_at')
       .eq('persona_id', personaId)
       .eq('cartridge_id', cartridgeId)
       .in('status', ['active', 'candidate'])
+      // Partnership-ratified memory outranks working inference (CFS-045-A1).
+      .order('human_validated', { ascending: false })
       .order('confidence', { ascending: false })
       .order('updated_at', { ascending: false })
       .limit(limit);
@@ -85,6 +90,7 @@ export async function retrieveMemoryInvariants(
       cartridgeId: String(r.cartridge_id),
       statement: String(r.statement),
       status: r.status as MemoryInvariantRecord['status'],
+      humanValidated: Boolean(r.human_validated),
       confidence: Number(r.confidence),
       supportCount: Number(r.support_count),
       refuteCount: Number(r.refute_count),
@@ -209,8 +215,10 @@ export async function compileInteraction(args: {
           refute_count: refutes,
           confidence: Math.max(0.05, target.confidence - 0.2),
           updated_at: now,
-          // Repeated refutation retires the invariant.
-          ...(refutes >= 2 ? { status: 'retired' } : {}),
+          // Repeated refutation retires MACHINE-tier invariants only.
+          // CFS-045-A1: only the human retires what a human has ratified —
+          // a validated row accrues refute evidence but never auto-retires.
+          ...(refutes >= 2 && !target.humanValidated ? { status: 'retired' } : {}),
         }).eq('id', target.id);
         break;
       }
@@ -218,6 +226,9 @@ export async function compileInteraction(args: {
         const second = parsed.secondTargetId ? byId.get(parsed.secondTargetId) : undefined;
         const statement = String(parsed.statement ?? '');
         if (!target || !second || !isT1Safe(statement)) return null;
+        // CFS-045-A1: merging retires the sources — machine ops must never
+        // consume a human-validated row.
+        if (target.humanValidated || second.humanValidated) return null;
         await client().from('memory_invariants').update({ status: 'retired', updated_at: now }).in('id', [target.id, second.id]);
         await client().from('memory_invariants').insert({
           persona_id: personaId,
@@ -234,6 +245,8 @@ export async function compileInteraction(args: {
       case 'split': {
         const statements = Array.isArray(parsed.statements) ? parsed.statements.slice(0, 2).map(String) : [];
         if (!target || statements.length !== 2 || !statements.every(isT1Safe)) return null;
+        // CFS-045-A1: splitting retires the source — never a validated row.
+        if (target.humanValidated) return null;
         await client().from('memory_invariants').update({ status: 'retired', updated_at: now }).eq('id', target.id);
         await client().from('memory_invariants').insert(statements.map((s) => ({
           persona_id: personaId,
@@ -266,7 +279,10 @@ export async function compactMemory(
   cartridgeId: string,
 ): Promise<{ merged: number; retired: number } | null> {
   try {
-    const rows = await retrieveMemoryInvariants(personaId, cartridgeId, 50);
+    const all = await retrieveMemoryInvariants(personaId, cartridgeId, 50);
+    // CFS-045-A1 compaction guard: human-validated rows are partnership-
+    // ratified memory — the machine never sees them as compaction material.
+    const rows = all.filter((m) => !m.humanValidated);
     if (rows.length < 4) return { merged: 0, retired: 0 };
     const listing = rows.map((m) => `- id=${m.id} [${m.status}, conf=${m.confidence.toFixed(2)}, support=${m.supportCount}, refutes=${m.refuteCount}] ${m.statement}`).join('\n');
     const result = await callSovereign(
@@ -315,9 +331,10 @@ export async function compactMemory(
 export async function listMemoryInvariants(personaId: string): Promise<MemoryInvariantRecord[]> {
   const { data } = await client()
     .from('memory_invariants')
-    .select('id, cartridge_id, statement, status, confidence, support_count, refute_count, created_at, updated_at, last_confirmed_at')
+    .select('id, cartridge_id, statement, status, human_validated, confidence, support_count, refute_count, created_at, updated_at, last_confirmed_at')
     .eq('persona_id', personaId)
     .neq('status', 'retired')
+    .order('human_validated', { ascending: false })
     .order('updated_at', { ascending: false })
     .limit(100);
   return (data ?? []).map((r) => ({
@@ -325,6 +342,7 @@ export async function listMemoryInvariants(personaId: string): Promise<MemoryInv
     cartridgeId: String(r.cartridge_id),
     statement: String(r.statement),
     status: r.status as MemoryInvariantRecord['status'],
+    humanValidated: Boolean(r.human_validated),
     confidence: Number(r.confidence),
     supportCount: Number(r.support_count),
     refuteCount: Number(r.refute_count),
@@ -332,6 +350,92 @@ export async function listMemoryInvariants(personaId: string): Promise<MemoryInv
     updatedAt: String(r.updated_at),
     lastConfirmedAt: r.last_confirmed_at ? String(r.last_confirmed_at) : null,
   }));
+}
+
+/**
+ * CFS-045-A1 human validation — the constitutional distinction between
+ * candidate inference and ratified memory. Owner-scoped (the persona filter
+ * is the ownership gate). validated_at stamps BOTH actions so
+ * reviewed = validated_at IS NOT NULL (partnership-metrics bookkeeping).
+ */
+export async function validateMemoryInvariant(
+  personaId: string,
+  id: string,
+  action: 'validate' | 'reject',
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const patch =
+    action === 'validate'
+      ? { human_validated: true, status: 'active', validated_at: now, updated_at: now }
+      : // Human rejection is immediate — no two-strike rule for the human.
+        { human_validated: false, status: 'retired', validated_at: now, updated_at: now };
+  const { error, count } = await client()
+    .from('memory_invariants')
+    .update(patch, { count: 'exact' })
+    .eq('persona_id', personaId)
+    .eq('id', id);
+  if (error || (count ?? 0) === 0) return false;
+  if (action === 'validate') {
+    // Confidence floor 0.8 for ratified memory — raise, never lower.
+    await client()
+      .from('memory_invariants')
+      .update({ confidence: 0.8 })
+      .eq('persona_id', personaId)
+      .eq('id', id)
+      .lt('confidence', 0.8);
+  }
+  return true;
+}
+
+export interface PartnershipMetrics {
+  total: number;
+  validated: number;
+  reviewed: number;
+  /** validated ÷ reviewed — how often the human ratifies what the machine proposes. */
+  acceptanceRate: number | null;
+  /** rows with refute evidence ÷ total — how often invariants get revised. */
+  revisionRate: number | null;
+  /** Per-cartridge share of validated among non-retired — domain stability. */
+  stabilityByCartridge: Record<string, number>;
+}
+
+/**
+ * CFS-045-A1 partnership metrics — properties of the HYBRID system, not of
+ * either participant alone. Computed from the substrate, no new writes.
+ * The observer-modelling slice consumes these to model the evolution of the
+ * partnership.
+ */
+export async function partnershipMetrics(personaId: string): Promise<PartnershipMetrics> {
+  const { data } = await client()
+    .from('memory_invariants')
+    .select('cartridge_id, status, human_validated, validated_at, refute_count')
+    .eq('persona_id', personaId)
+    .limit(1000);
+  const rows = data ?? [];
+  const total = rows.length;
+  const validated = rows.filter((r) => r.human_validated).length;
+  const reviewed = rows.filter((r) => r.validated_at).length;
+  const revised = rows.filter((r) => Number(r.refute_count) > 0).length;
+  const byCart: Record<string, { validated: number; live: number }> = {};
+  for (const r of rows) {
+    if (r.status === 'retired') continue;
+    const k = String(r.cartridge_id);
+    byCart[k] = byCart[k] ?? { validated: 0, live: 0 };
+    byCart[k].live += 1;
+    if (r.human_validated) byCart[k].validated += 1;
+  }
+  const stabilityByCartridge: Record<string, number> = {};
+  for (const [k, v] of Object.entries(byCart)) {
+    stabilityByCartridge[k] = v.live > 0 ? v.validated / v.live : 0;
+  }
+  return {
+    total,
+    validated,
+    reviewed,
+    acceptanceRate: reviewed > 0 ? validated / reviewed : null,
+    revisionRate: total > 0 ? revised / total : null,
+    stabilityByCartridge,
+  };
 }
 
 /** Owner self-view: delete one's OWN memory invariant. The persona filter is

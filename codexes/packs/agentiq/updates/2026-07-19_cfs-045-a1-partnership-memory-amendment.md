@@ -1,6 +1,6 @@
 # CFS-045-A1 — Partnership Memory Amendment (Memory Belongs to the Collaboration)
 
-**Status: `draft` — amendment to the ratified CFS-045 charter. Docs-first: the schema/state-machine changes below ship only on operator ratification.**
+**Status: `ratified` (operator, 2026-07-19 — all five checklist items). v1.1 BUILT the same day: migration `20260731000000_memory_invariants_validation.sql` (operator must run it with the base table SQL), `validateMemoryInvariant` + `partnershipMetrics` in the memory service, `PATCH /api/memory/invariants` (validate/reject), retrieval priority + `[validated]` ground-block labels, and the full machine-guard set (refute never auto-retires a validated row; merge/split/compaction never consume one). EXP-012 remains chartered-not-run.**
 Source: operator observation + Aletheon's partnership-memory framing (2026-07-19), immediately following the CFS-045 v1 build.
 
 ---
