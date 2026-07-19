@@ -32,6 +32,10 @@ export interface PublishResultInput {
   results: unknown;
   /** Backfill mode: skip silently if this exact content is already published. */
   skipIfExists?: boolean;
+  /** Publication state (participant publishing flow). Defaults to 'published'
+   *  to preserve the historical admin-canon behaviour; reviewer submits pass
+   *  'private' or 'pending'. */
+  visibility?: 'private' | 'pending' | 'published';
 }
 
 export interface PublishResultOutcome {
@@ -74,6 +78,8 @@ export async function publishExperimentResult(
       aggregates: input.aggregates,
       results_json: resultsJson,
       content_hash: contentHash,
+      visibility: input.visibility ?? 'published',
+      submitted_by_persona_id: personaId,
     })
     .select('id')
     .single();

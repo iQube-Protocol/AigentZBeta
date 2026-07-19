@@ -48,6 +48,9 @@ interface AppCounts { total: number; pending: number; agentAssisted: number }
 export function StewardParticipationTab() {
   const [domains, setDomains] = useState<DomainDef[]>([]);
   const [assignableExperiments, setAssignableExperiments] = useState<AssignableExperiment[]>([]);
+  interface PendingResult { id: string; experiment: string; provider: string; model: string; contentHash: string; submitterRef: string | null; createdAt: string }
+  const [pendingResults, setPendingResults] = useState<PendingResult[]>([]);
+  const [resultBusy, setResultBusy] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
   const [grants, setGrants] = useState<GrantRow[]>([]);
   const [applications, setApplications] = useState<AppCounts | null>(null);
@@ -93,9 +96,34 @@ export function StewardParticipationTab() {
     }
   }, []);
 
+  const loadResults = useCallback(async () => {
+    try {
+      const headers = await authedFetchHeaders({ Accept: "application/json" });
+      const res = await fetch("/api/steward/participation/results", { cache: "no-store", headers: headers ?? undefined });
+      const data = await res.json();
+      if (res.ok && data?.ok) setPendingResults(data.pending ?? []);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  const decideResult = useCallback(async (resultId: string, action: "approve" | "reject") => {
+    setResultBusy(resultId);
+    try {
+      const headers = await authedFetchHeaders({ "Content-Type": "application/json" });
+      await fetch("/api/steward/participation/results", {
+        method: "PATCH",
+        headers: headers ?? undefined,
+        body: JSON.stringify({ resultId, action }),
+      });
+      await loadResults();
+    } finally {
+      setResultBusy(null);
+    }
+  }, [loadResults]);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadResults();
+  }, [load, loadResults]);
 
   const domain = domains.find((d) => d.id === activeDomain);
 
@@ -428,6 +456,48 @@ export function StewardParticipationTab() {
             </div>
           )}
         </div>
+
+        {/* Result publications — participant results awaiting public approval
+            (mirrors the myCanvas publish-approval pattern). Cross-domain, shown
+            on the research-lab workspace where results originate. */}
+        {activeDomain === 'research-lab' && (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 space-y-2">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+              <ShieldCheck className="h-4 w-4 text-amber-300" /> Result publications — pending approval ({pendingResults.length})
+            </h3>
+            {pendingResults.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">
+                No results awaiting approval. Participants save results privately; when they request public publication,
+                the submission appears here for approval before it joins the published canon.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {pendingResults.map((r) => (
+                  <div key={r.id} className="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
+                    <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">{r.experiment}</span>
+                    <span className="text-slate-400 shrink-0">{r.provider}/{r.model}</span>
+                    {r.submitterRef && <code className="font-mono text-cyan-300/70 shrink-0" title="Submitter — T2-safe commitment">{r.submitterRef}</code>}
+                    <span className="min-w-0 flex-1 truncate font-mono text-slate-500">sha256 {r.contentHash.slice(0, 16)}…</span>
+                    <button
+                      onClick={() => void decideResult(r.id, 'approve')}
+                      disabled={resultBusy === r.id}
+                      className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20 shrink-0"
+                    >
+                      {resultBusy === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Approve'}
+                    </button>
+                    <button
+                      onClick={() => void decideResult(r.id, 'reject')}
+                      disabled={resultBusy === r.id}
+                      className="rounded border border-slate-600 px-2 py-0.5 text-[10px] text-slate-400 hover:text-rose-300 shrink-0"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

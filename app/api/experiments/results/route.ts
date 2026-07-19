@@ -59,6 +59,9 @@ export async function POST(request: NextRequest) {
     model?: string;
     aggregates?: Record<string, unknown>;
     results?: unknown;
+    /** Reviewer opt-in: request PUBLIC publication (→ pending steward approval)
+     *  rather than saving privately. Ignored for admins (who publish to canon). */
+    requestPublish?: boolean;
   };
   try {
     body = await request.json();
@@ -75,12 +78,17 @@ export async function POST(request: NextRequest) {
   const client = getSupabaseServer();
   if (!client) return NextResponse.json({ error: 'storage unavailable' }, { status: 500 });
 
+  // Visibility: admins publish straight to the canon; a participant/reviewer
+  // saves PRIVATE by default, or 'pending' when they request public publication
+  // (which a steward must approve before it joins the published canon).
+  const visibility = isAdmin ? 'published' : body.requestPublish ? 'pending' : 'private';
   const outcome = await publishExperimentResult(client, persona.personaId, {
     experiment: body.experiment as (typeof EXPERIMENTS)[number],
     provider: body.provider,
     model: body.model,
     aggregates: body.aggregates ?? {},
     results: body.results,
+    visibility,
   });
   if (!outcome.ok) {
     return NextResponse.json({ error: outcome.error ?? 'publish failed' }, { status: 500 });
