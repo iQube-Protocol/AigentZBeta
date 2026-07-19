@@ -994,7 +994,12 @@ export function CodexCopilotLayer({
 
       const extraContext = getChatRequestContext?.(message) || {};
 
-      const response = await fetch("/api/codex/chat", {
+      // personaFetch (not raw fetch): attaches the Supabase Bearer when a
+      // session exists so the route can spine-resolve the caller — required
+      // for CFS-045 memory compilation. Degrades to an anonymous request
+      // (no Authorization header) when signed out; behaviour is otherwise
+      // identical to the previous raw fetch.
+      const response = await personaFetch("/api/codex/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

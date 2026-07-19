@@ -104,6 +104,14 @@ function operationsFor(codexId: string): SmartTriadOperation[] {
         body: { scope: "all" },
         confirm: "Regenerate the canonical findings report from the collective record? Saves a new DVN-receipted version (model call).",
       },
+      {
+        id: "compact-memory",
+        label: "Compact memory",
+        route: "/api/memory/invariants/compact",
+        method: "POST",
+        body: { cartridgeId: codexId },
+        confirm: "Compact YOUR copilot memory for this cartridge (CFS-045)? Merges near-duplicate memory invariants and retires stale ones — owner-scoped, reversible only by re-learning.",
+      },
     ];
   }
   return [];
