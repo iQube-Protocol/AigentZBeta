@@ -30,6 +30,7 @@ import { useActivations } from "@/services/activations/ActivationsContext";
 import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { TabRenderer } from "./codex/TabRenderer";
+import { AccessionProgressBar } from "./codex/AccessionProgressBar";
 import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
 import { getIconComponent } from "./codex/iconMap";
 import { getCachedOrFetch } from "./codex/cache";
@@ -1101,6 +1102,12 @@ export default function CodexPanelDynamic({
               `activeGroup && activeGroupSubTabs.length > 1` (siblings) or
               `activeSubTabs.length > 0` (single-tab group with subTabs). */}
           <div className="flex-1 min-h-0 overflow-y-auto">
+            {/* IRL accession stepper — self-scopes to IRL cartridges + the
+                onboarding step tabs; observes real state and pulls the user
+                along (Welcome → Passport → Delegate → Access → Experiments). */}
+            {activeTab && (
+              <AccessionProgressBar codexId={codexId} activeSlug={activeTab.slug} personaId={resolvedPersonaId} />
+            )}
             {activeTab && (
               <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>
                 <TabRenderer
