@@ -1,6 +1,6 @@
 # CFS-045 — Memory Compilation Charter (Post-Inference Knowledge Compression)
 
-**Status: `draft` — candidate for ratification. Docs-first, ratify-before-build: no table is created and no pipeline code ships until the operator ratifies this charter.**
+**Status: `ratified` (operator, 2026-07-19 — all six checklist items). v1 BUILT the same day: migration `20260729000000_memory_invariants.sql` (operator must run it — see the SQL in the session hand-off), `services/memory/memoryCompilation.ts` (compile / retrieve / compact / self-view), `/api/memory/invariants` (+ `/compact`), chat-route wiring (retrieval into the smart-triad ground block; post-response compilation via next/server `after()`), and the "Compact memory" operation chip. EXP-011 remains chartered-not-run.**
 Source: operator direction + Aletheon's memory-as-compression framing (2026-07-19), in response to the SmartTriad Phase 3 sequencing decision (persistent memory first).
 
 ---

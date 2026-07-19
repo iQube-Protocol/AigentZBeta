@@ -15,7 +15,7 @@
  * - Qriptopian (Qriptopian Codex) - MoneyPenny persona
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getEmbeddingService } from '@/services/content/embeddingService';
 import {
@@ -2155,6 +2155,16 @@ function buildSystemPrompt(
         lines.push(`### Governing platform invariants (IRE-resolved for this question + session memory — cite by seed id when they ground a claim)`);
         for (const inv of platformInvariants) lines.push(`- [${inv.seedId}] ${inv.statement}`);
       }
+      // CFS-045 constitutional memory — the operator's compiled memory
+      // invariants (what survived reasoning in prior sessions, never
+      // transcripts). Tailor guidance to these durable patterns.
+      const memoryInvariants = Array.isArray(gc.memoryInvariants)
+        ? (gc.memoryInvariants as Array<Record<string, unknown>>)
+        : [];
+      if (memoryInvariants.length > 0) {
+        lines.push(`### Operator memory invariants (compiled from prior sessions — durable patterns, not conversation history; treat 'candidate' entries as tentative)`);
+        for (const m of memoryInvariants) lines.push(`- [${m.status}] ${m.statement}`);
+      }
       groundContextBlock = `\n\n## Surface & operator context — ground your answer in THIS\n\nYou are the copilot for the cartridge named above. Keep answers scoped to this cartridge's domain; use the operator state to tailor guidance (e.g. if their passport is 'none' and they ask about participating, walk them through applying first; if 'issued' but not claimed, point at claiming; delegation is OPTIONAL — never present it as required to run experiments). Prefer NAVIGATING the operator over describing UI: when a quick link above matches the need, tell them to use that chip by name. Never invent state not listed here.\n\nNAVIGATION MARKERS: when you direct the operator to a destination that appears in the quick-links list, embed the marker [[nav:<label>]] inline at that point of your reply, using the label VERBATIM from the list (e.g. "start by claiming your passport [[nav:Claim Passport]]"). The UI renders each marker as a clickable chip; the raw marker is never shown to the operator. Use ONLY labels from the quick-links list — never invent one — and do not wrap markers in backticks or quotes.\n\nANSWER FULLY, NOW: when the operator asks how to do something, give the concrete steps immediately in this reply, tailored to their state above. Replying with only an acknowledgment ("I can help with that", "Sure, happy to help") and no steps is a FAILURE — never do it.\n\n${lines.join('\n')}`;
     } catch {
       // Malformed context — fall back to the persona's default framing.
@@ -3081,6 +3091,29 @@ export async function POST(request: NextRequest) {
         } catch {
           // IRE unavailable — Phase-1b context stands on its own.
         }
+        // CFS-045 constitutional memory (persistent layer, ratified
+        // 2026-07-19): retrieve the operator's compiled memory invariants for
+        // this cartridge into the ground truth. SPINE-RESOLVED persona ONLY —
+        // the body's personaId fallback is never trusted for memory (durable
+        // per-persona state). Best-effort: no persona / no table → no memory.
+        if (activePersonaCtx?.personaId) {
+          try {
+            const { retrieveMemoryInvariants } = await import('@/services/memory/memoryCompilation');
+            const gcNow = userContext.groundContext as Record<string, unknown>;
+            const cartId = String(((gcNow.cartridge ?? {}) as Record<string, unknown>).id ?? '');
+            if (cartId) {
+              const memory = await retrieveMemoryInvariants(activePersonaCtx.personaId, cartId, 6);
+              if (memory.length > 0) {
+                gcNow.memoryInvariants = memory.map((m) => ({
+                  statement: m.statement,
+                  status: m.status,
+                }));
+              }
+            }
+          } catch {
+            // Memory unavailable — the turn proceeds without it.
+          }
+        }
       }
 
       systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined);
@@ -3317,6 +3350,38 @@ export async function POST(request: NextRequest) {
     console.log('[CodexChat] Response length:', responseForClient.length);
     console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');
     console.log('[CodexChat] Response ending:', responseForClient.substring(responseForClient.length - 200));
+
+    // CFS-045 Memory Compilation — the turn's reasoning is not finished when
+    // the answer is generated; it ends when the learning has been compressed.
+    // Runs AFTER the response is sent (next/server after()) so the hot path
+    // is never blocked. Spine-resolved persona ONLY (durable per-persona
+    // state is never keyed from a client-supplied id). Silent on failure.
+    if (
+      activePersonaCtx?.personaId &&
+      userContext?.groundContext &&
+      (userContext.groundContext as Record<string, unknown>).surface === 'smart-triad' &&
+      typeof message === 'string' &&
+      message.trim().length > 0
+    ) {
+      const gcDone = userContext.groundContext as Record<string, unknown>;
+      const compileCartridgeId = String(((gcDone.cartridge ?? {}) as Record<string, unknown>).id ?? '');
+      const compileSeedIds = Array.isArray(gcDone.platformInvariants)
+        ? (gcDone.platformInvariants as Array<Record<string, unknown>>).map((i) => String(i.seedId ?? '')).filter(Boolean)
+        : [];
+      if (compileCartridgeId) {
+        const compilePersonaId = activePersonaCtx.personaId;
+        after(async () => {
+          const { compileInteraction } = await import('@/services/memory/memoryCompilation');
+          await compileInteraction({
+            personaId: compilePersonaId,
+            cartridgeId: compileCartridgeId,
+            userMessage: message,
+            assistantResponse: responseForClient,
+            sourceSeedIds: compileSeedIds,
+          });
+        });
+      }
+    }
 
     return NextResponse.json({
       response: responseForClient,

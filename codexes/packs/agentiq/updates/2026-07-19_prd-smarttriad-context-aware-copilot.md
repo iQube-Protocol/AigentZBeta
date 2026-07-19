@@ -178,6 +178,12 @@ conversations, cross-cartridge orchestration.
   constitutionally consistent across the session. Memory is session-scoped and
   client-held — nothing persists server-side.
 - **Slice 3 — Inference-driven navigation (shipped 2026-07-19):** see §6.
+- **Slice 4 — Persistent constitutional memory (CFS-045, ratified + built
+  2026-07-19):** the Memory Compilation layer — post-inference knowledge
+  compression into a persona-keyed `memory_invariants` substrate; retrieval
+  into the ground block; owner self-view + delete; owner-scoped compaction.
+  Charter: `2026-07-19_cfs-045-memory-compilation-charter.md`. Supersedes the
+  "persistent constitutional memory" line in the remaining-scope list below.
 
 **Remaining Phase 3 scope (unbuilt):** ResearchQube/CapabilityQube retrieval,
 persistent constitutional memory, observer *modelling* (vs. today's snapshot),
