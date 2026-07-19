@@ -445,6 +445,21 @@ export default function ExperimentReportTab() {
     }
   }, [canonical]);
 
+  const mintReceipt = useCallback(async () => {
+    if (!canonical) return;
+    setPublishing(true);
+    setRegenNote(null);
+    try {
+      const res = await experimentStep("/api/research/report/regenerate", { scope: "all", version: canonical.version }, "PATCH");
+      setCanonical({ ...canonical, receiptId: (res.receiptId as string | null) ?? null });
+      setRegenNote(`Receipt minted for v${canonical.version} — you can now publish`);
+    } catch (err) {
+      setRegenNote(`⚠ ${err instanceof Error ? err.message : "receipt mint failed"}`);
+    } finally {
+      setPublishing(false);
+    }
+  }, [canonical]);
+
   const liveReport = useMemo(() => buildReport(results, new Date()), [results]);
   const report = source === "canonical" && canonical ? canonical.content : liveReport;
   const sharedText = useMemo(() => (mode === "briefing" ? buildBriefing(report) : report), [mode, report]);
@@ -527,10 +542,21 @@ export default function ExperimentReportTab() {
           {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           {regenerating ? "Regenerating…" : "Regenerate canonical report"}
         </button>
-        {canonical && (
+        {canonical && !canonical.publishedAt && !canonical.receiptId && (
+          <button
+            onClick={mintReceipt}
+            disabled={publishing}
+            className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/25 disabled:opacity-50"
+            title="This version has no publication receipt yet — mint the DVN-anchorable receipt so it can be published (no regenerate, hash unchanged)"
+          >
+            {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+            {publishing ? "Minting…" : `Mint receipt for v${canonical.version}`}
+          </button>
+        )}
+        {canonical && (canonical.publishedAt || canonical.receiptId) && (
           <button
             onClick={togglePublish}
-            disabled={publishing || (!canonical.publishedAt && !canonical.receiptId)}
+            disabled={publishing}
             className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
               canonical.publishedAt
                 ? "border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60"
@@ -538,9 +564,7 @@ export default function ExperimentReportTab() {
             }`}
             title={canonical.publishedAt
               ? `Published ${new Date(canonical.publishedAt).toLocaleDateString()} — click to withdraw from the public Publications → Reports tab`
-              : canonical.receiptId
-                ? "Publish this canonical version to the public Publications → Reports tab"
-                : "Receipt pending — a version must be DVN-minted before it can be published"}
+              : "Publish this canonical version to the public Publications → Reports tab"}
           >
             {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
             {publishing ? "Working…" : canonical.publishedAt ? `Published v${canonical.version} · Unpublish` : `Publish v${canonical.version}`}

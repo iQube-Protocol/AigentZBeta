@@ -252,6 +252,36 @@ export async function setReportVersionPublished(
   return { ok: true, publishedAt };
 }
 
+/**
+ * Attach a receipt id to a canonical version that was persisted without one
+ * (e.g. the receipt write failed at regeneration time). Idempotent-ish: refuses
+ * to overwrite an existing receipt. Lets the operator mint the missing anchor
+ * and publish an existing version without a full (hash-changing) regenerate.
+ */
+export async function attachReportReceipt(
+  scope: string,
+  version: number,
+  receiptId: string,
+): Promise<{ ok: true; receiptId: string } | { ok: false; error: string }> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase configuration missing' };
+  const { data: row, error: readErr } = await admin
+    .from('research_report_versions')
+    .select('id, receipt_id')
+    .eq('scope', scope)
+    .eq('version', version)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+  if (!row) return { ok: false, error: `No canonical version v${version} for scope '${scope}'` };
+  if (row.receipt_id) return { ok: true, receiptId: String(row.receipt_id) };
+  const { error } = await admin
+    .from('research_report_versions')
+    .update({ receipt_id: receiptId })
+    .eq('id', row.id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, receiptId };
+}
+
 /** All published report versions across scopes (public surface), newest first. */
 export async function listPublishedReports(): Promise<ReportVersionRow[]> {
   const admin = getSupabaseServer();
