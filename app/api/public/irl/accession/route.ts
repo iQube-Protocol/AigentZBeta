@@ -40,14 +40,14 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ ok: false, error: 'Service unavailable' }, { status: 500 });
 
   const origin = publicOrigin(req);
-  const beginUrl = `${origin}/triad/embed/codex/irl-os?tab=irl-os-passport-locker&${code.startsWith('x409-') ? 'x409' : 'invite'}=${code}`;
+  const beginUrl = `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-locker&${code.startsWith('x409-') ? 'x409' : 'invite'}=${code}`;
 
   const resources = {
     invitationPage: `${origin}/invite/${code}`,
-    dashboard: `${origin}/triad/embed/codex/irl-os`,
-    participationOverview: `${origin}/triad/embed/codex/irl-os?tab=irl-os-participation-overview`,
-    passportApply: `${origin}/triad/embed/codex/irl-os?tab=irl-os-passport-apply`,
-    delegation: `${origin}/triad/embed/codex/irl-os?tab=irl-os-passport-delegation`,
+    dashboard: `${origin}/triad/embed/codex/irl-os-cartridge`,
+    participationOverview: `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-participation-overview`,
+    passportApply: `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-apply`,
+    delegation: `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-delegation`,
     locker: beginUrl,
     protocolDoc: `${origin}/api/public/irl/doc?path=foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md`,
     agreementApi: `${origin}/api/public/irl/agreement`,
