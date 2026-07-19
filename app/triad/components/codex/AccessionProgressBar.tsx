@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { authedFetchHeaders } from "@/utils/supabaseBrowser";
 
 interface Props {
@@ -114,10 +114,16 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
   if (!prefix || !onStepTab) return null;
 
   const activeIdx = steps.findIndex((s) => s.slug === activeSlug);
+  // Auto-advance: the first still-incomplete step is where the participant is
+  // pulled next. "Experiments" is the terminal destination (never marked done),
+  // so once passport/delegation/access are cleared this resolves there.
+  const nextStep = steps.find((s) => !done[s.key]);
+  const showContinue = !loading && nextStep && nextStep.slug !== activeSlug;
 
   return (
     <div className="border-b border-slate-800 bg-slate-900/40 px-4 py-2.5">
-      <div className="mx-auto flex max-w-3xl items-center">
+      <div className="mx-auto flex max-w-3xl items-center gap-3">
+        <div className="flex flex-1 items-center">
         {steps.map((step, i) => {
           const isDone = done[step.key];
           const isCurrent = i === activeIdx;
@@ -162,6 +168,17 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
             </React.Fragment>
           );
         })}
+        </div>
+        {showContinue && nextStep && (
+          <button
+            onClick={() => goToTab(nextStep.slug)}
+            className="flex shrink-0 items-center gap-1 rounded-md border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-[11px] font-semibold text-violet-200 hover:bg-violet-500/25"
+            title={`Continue to ${nextStep.label}`}
+          >
+            {done[steps[activeIdx]?.key] ? "Continue" : "Next"} <span className="hidden sm:inline">→ {nextStep.label}</span>
+            <ArrowRight className="h-3 w-3 sm:hidden" />
+          </button>
+        )}
       </div>
     </div>
   );
