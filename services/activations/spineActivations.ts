@@ -401,7 +401,10 @@ export async function listActivations(
     }
   }
 
-  return ACTIVATION_CATALOG.map((entry) => {
+  // Admin-only cards (e.g. metaMe IRL) are hidden from non-admins entirely —
+  // discovery + server-side gate. Payment-gating is a future stub.
+  const isAdminCaller = options?.isAdmin ?? false;
+  return ACTIVATION_CATALOG.filter((entry) => !entry.adminOnly || isAdminCaller).map((entry) => {
     const qube = qubeIndex.get(entry.id);
     const edition = qube ? heldEditions.get(qube.qube_id) : undefined;
     const planEntitled = isPlanEntitled(entry.id, plan);
