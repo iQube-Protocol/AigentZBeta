@@ -103,17 +103,23 @@ export interface PersonaPlan {
    */
   aigentzLiteAccess: boolean;
   /**
-   * True when the persona owns the RESEARCHER pathway's Research Copilot (IRL).
-   *
-   * This is its OWN unlock with a unique SKU — the dedicated `research_copilot`
-   * tier (planCheckout.TIER_CONFIG), priced at the same $29/mo stage as
-   * Sovereignty but sold separately. It is deliberately NOT derived from
-   * `aigentzLiteAccess` / `sovereignAccess`: buying Sovereignty (aigentZ) does
-   * NOT grant the Research Copilot, and buying the Research Copilot does not
-   * grant aigentZ. Sourced from the `research_tier` column ('active').
-   * The `researcher` activation gate reads this flag.
+   * True when the persona has Research Copilot (IRL) access. As of the IRL OS
+   * payment model (2026-07-19) this is granted three ways: Steward (both
+   * services), a Sovereign subscriber who SELECTED research (sovereign_selection
+   * = 'research'), or the standalone `research_tier` add-on ('active'). The
+   * `researcher` activation gate reads this flag. See resolve() for the exact
+   * derivation and grandfathering.
    */
   researchCopilotAccess: boolean;
+  /**
+   * Monthly experiment-run allowance (IRL OS payment model, 2026-07-19).
+   *   0                       → no research access (free / aigentZ-only sovereign)
+   *   RESEARCH_LIGHT (3)      → Research Copilot light (sovereign-selected research
+   *                             OR the standalone research add-on)
+   *   STEWARD_EXPERIMENT_CAP  → Steward (full) — a high cap, not unlimited.
+   * Enforced at the experiment-run chokepoint via experimentQuota.
+   */
+  experimentMonthlyCap: number;
   /**
    * Experience-model soft-caps. Tier 0 (free Citizen) is deliberately bounded
    * so the experience model is a focused starter; Tier 1 (sovereignAccess)
@@ -144,6 +150,11 @@ export interface PersonaPlan {
 /** Sentinel for "no practical cap". */
 const UNLIMITED = 9999;
 
+// Experiment-run monthly caps (IRL OS payment model, 2026-07-19). Steward is a
+// HIGH cap, deliberately not unlimited (operator direction). Adjust here.
+export const RESEARCH_LIGHT_EXPERIMENT_CAP = 3;
+export const STEWARD_EXPERIMENT_CAP = 50;
+
 const FREE_PLAN: PersonaPlan = {
   planTier: 'citizen',
   ventureTier: 'none',
@@ -162,6 +173,7 @@ const FREE_PLAN: PersonaPlan = {
   stewardAccess: false,
   aigentzLiteAccess: false,
   researchCopilotAccess: false,
+  experimentMonthlyCap: 0,
   // Tier 0 soft-caps: a focused starter experience model.
   experienceGoalLimit: 1,
   kpiLimit: 3,
@@ -209,6 +221,8 @@ function resolve(row: {
   venture_tier?: string;
   standing_tier?: string;
   research_tier?: string;
+  sovereign_selection?: string | null;
+  aigentz_tier?: string;
   status?: string;
 }): PersonaPlan {
   const planTier = (row.plan_tier as AgencyPlanTier) ?? 'citizen';
@@ -218,14 +232,29 @@ function resolve(row: {
   // Citizen-ladder upgrade flags. Founder Office (paid) implies all citizen privileges.
   const sovereignAccess = paid || SOVEREIGN_TIERS.has(planTier);
   const stewardAccess = paid || STEWARD_TIERS.has(planTier);
-  // DevOn/AigentZ lite: Sovereignty tier + for developers to incubate pre-FO projects;
-  // full operational DevOn is Founder Office only.
-  const aigentzLiteAccess = sovereignAccess;
-  // Research Copilot: its OWN SKU (the dedicated `research_copilot` tier), sold
-  // separately from Sovereignty/aigentZ. Sourced only from the research_tier
-  // column — never derived from sovereignAccess. Founder Office does NOT bundle
-  // it (kept intentionally unbundled per operator direction 2026-07-16).
-  const researchCopilotAccess = row.research_tier === 'active';
+  // IRL OS payment model (operator 2026-07-19): the Sovereign tier grants
+  // EITHER aigentZ OR Research Copilot (light) — the subscriber picks one
+  // (sovereign_selection). Steward grants BOTH. Either service is also
+  // available as a standalone add-on (aigentz_tier / research_tier) so a
+  // subscriber on one path can bolt the other on without going to Steward.
+  //
+  // Grandfathering: sovereign_selection NULL reads as 'aigentz', so every
+  // existing Sovereign subscriber keeps aigentZ until they explicitly switch;
+  // research_tier === 'active' holders keep Research Copilot (add-on clause).
+  const sovereignSelection = (row.sovereign_selection as string | null) ?? 'aigentz';
+  const aigentzAddon = row.aigentz_tier === 'active';
+  const researchAddon = row.research_tier === 'active';
+  const aigentzLiteAccess =
+    stewardAccess || (sovereignAccess && sovereignSelection === 'aigentz') || aigentzAddon;
+  const researchCopilotAccess =
+    stewardAccess || (sovereignAccess && sovereignSelection === 'research') || researchAddon;
+  // Monthly experiment allowance: Steward high cap; light (research via
+  // sovereign selection OR add-on) = 3; otherwise none.
+  const experimentMonthlyCap = stewardAccess
+    ? STEWARD_EXPERIMENT_CAP
+    : researchCopilotAccess
+      ? RESEARCH_LIGHT_EXPERIMENT_CAP
+      : 0;
   // Professional Standing: steward tier, own professional subscription, or FO Pro/Elite bundle.
   const professionalStanding =
     stewardAccess || standingTier === 'professional' || ventureTier === 'pro' || ventureTier === 'elite';
@@ -252,6 +281,7 @@ function resolve(row: {
     stewardAccess,
     aigentzLiteAccess,
     researchCopilotAccess,
+    experimentMonthlyCap,
     // Experience-model soft-caps ladder:
     //   Free      → goals 1, KPIs 3, cartridges 1
     //   Sovereign → goals 5, KPIs 7, cartridges 5
@@ -287,7 +317,7 @@ export async function getPersonaPlan(
   try {
     const { data, error } = await admin
       .from('persona_plans')
-      .select('plan_tier, venture_tier, standing_tier, research_tier, status')
+      .select('plan_tier, venture_tier, standing_tier, research_tier, sovereign_selection, aigentz_tier, status')
       .eq('persona_id', personaId)
       .maybeSingle();
     if (error || !data) return { ...FREE_PLAN };
@@ -321,7 +351,7 @@ export async function getSubscriberPersonaLimit(
 
     const { data: plans } = await admin
       .from('persona_plans')
-      .select('plan_tier, venture_tier, standing_tier, research_tier, status')
+      .select('plan_tier, venture_tier, standing_tier, research_tier, sovereign_selection, aigentz_tier, status')
       .in('persona_id', ids);
 
     let best = free;
