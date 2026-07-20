@@ -22,52 +22,30 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { getMergedLinkedAuthProfileIds } from '@/services/wallet/multiEmailIdentity';
+import { resolvePersonhood } from '@/services/identity/personhoodResolver';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { hasActiveDelegation } from '@/services/delegation/delegationGrantStore';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * DidQube observation levels (operator ratification 2026-07-20):
- * each credential is observed at ITS constitutional level, never flattened
- * onto the active persona:
+ * DidQube observation levels (operator ratification 2026-07-20): each
+ * credential is observed at ITS DidQube class, never flattened onto the
+ * active persona:
  *
- *   - PASSPORT — personhood-level (kybe-DID-rooted; a level BENEATH persona).
- *     A person who holds a passport holds it regardless of which of their
- *     personas is currently active. Until a first-class DidQube personhood
- *     resolver exists, personhood ≡ the caller's merged auth profiles → all
- *     their active personas (the same enumeration the spine itself uses).
+ *   - PASSPORT — KYBE-driven (proof-of-life class; World ID as humanity
+ *     verification). Held by the PERSON: observed across the kybe chain
+ *     (root_identity → did_persona) AND the person's spine personas (legacy
+ *     persona_id-keyed records) — see services/identity/personhoodResolver.
  *   - ACCESS — issued "to the person via their persona/passport" (migration
- *     20260725000000's own contract) → observed across the person's personas.
- *   - DELEGATION — persona-scoped by design (an agent is delegated BY a
- *     persona) → observed on the ACTIVE persona only.
+ *     20260725000000's contract) → observed across the person's personas.
+ *   - DELEGATION — agents are bounded at the PERSONA class → observed on the
+ *     ACTIVE persona only.
  *
  * Flattening passport/access onto the active persona was the 2026-07-20
- * observer regression: switching personas made a real passport read as
- * absent. Composition only — no spine file is modified here.
+ * observer regression: switching personas made a genuinely-held passport
+ * read as absent. Composition only — no spine file is modified here.
  */
-async function listPersonhoodPersonaIds(
-  admin: NonNullable<ReturnType<typeof getSupabaseServer>>,
-  authProfileId: string,
-  activePersonaId: string,
-): Promise<string[]> {
-  try {
-    const linked = await getMergedLinkedAuthProfileIds(authProfileId).catch(() => []);
-    const profileIds = Array.from(new Set([authProfileId, ...linked]));
-    const { data } = await admin
-      .from('personas')
-      .select('id')
-      .in('auth_profile_id', profileIds)
-      .eq('status', 'active');
-    const ids = (data ?? []).map((r) => String((r as { id: unknown }).id));
-    return ids.length > 0 ? ids : [activePersonaId];
-  } catch {
-    // Fail-degraded, never fail-open: fall back to the active persona only.
-    return [activePersonaId];
-  }
-}
-
 export async function GET(req: NextRequest) {
   const persona = await getActivePersona(req);
   if (!persona?.personaId) {
@@ -81,13 +59,16 @@ export async function GET(req: NextRequest) {
 
   // Personhood set — T0, server-internal only. Never serialised; every field
   // returned below is a boolean or role string keyed to the caller themselves.
-  const personhoodIds = await listPersonhoodPersonaIds(admin, persona.authProfileId, persona.personaId);
+  const personhood = await resolvePersonhood(req, admin, {
+    authProfileId: persona.authProfileId,
+    activePersonaId: persona.personaId,
+  });
 
   // ACCESS — person-level (grant issued to the person via persona/passport).
   const { data, error } = await admin
     .from('access_grants')
     .select('access_domain, role, status, granted_at')
-    .in('persona_id', personhoodIds)
+    .in('persona_id', personhood.spinePersonaIds)
     .eq('status', 'active');
 
   // Pre-migration / no grants → clean empty state (still "authenticated").
@@ -97,23 +78,27 @@ export async function GET(req: NextRequest) {
     grantedAt: String(g.granted_at),
   }));
 
-  // PASSPORT — personhood-level. Any passport record held by any of the
-  // person's personas clears the Passport step (claiming the credential
-  // happens later at the Locker). Best-effort — a missing table pre-migration
+  // PASSPORT — kybe/personhood-level. A record is the person's when EITHER
+  // key matches: spine persona_id (spine-path issuance) OR did_persona_id
+  // (bureau-minted kybe chain). Best-effort — a missing table pre-migration
   // reads as "no passport".
   let passportIssued = false;
   try {
-    const { data: pp } = await admin
-      .from('polity_passport_records')
-      .select('passport_id')
-      .in('persona_id', personhoodIds)
-      .limit(1);
+    let q = admin.from('polity_passport_records').select('passport_id').limit(1);
+    if (personhood.didPersonaIds.length > 0) {
+      q = q.or(
+        `persona_id.in.(${personhood.spinePersonaIds.join(',')}),did_persona_id.in.(${personhood.didPersonaIds.join(',')})`,
+      );
+    } else {
+      q = q.in('persona_id', personhood.spinePersonaIds);
+    }
+    const { data: pp } = await q;
     passportIssued = Array.isArray(pp) && pp.length > 0;
   } catch {
     /* pre-migration → false */
   }
 
-  // DELEGATION — persona-scoped by design: observed on the ACTIVE persona.
+  // DELEGATION — persona-class by design: observed on the ACTIVE persona.
   const delegationActive = await hasActiveDelegation(persona.personaId);
 
   return NextResponse.json(
