@@ -5005,6 +5005,62 @@
       "provenance": {
         "source": "CFS-048 Invariant Discovery Engine charter — operator + Aletheon ratification 2026-07-20"
       }
+    },
+    {
+      "id": "inv.reasoning.340",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "discovery",
+        "epistemology"
+      ],
+      "statement": "Invariants are discovered domain-first: a domain's governing invariants come from that domain's evidence before any cross-domain generalisation, and universality is discovered by comparison across domains, never presupposed.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Phase 1a — methodology correction from the Financial Services first-run (operator + Aletheon 2026-07-20)"
+      }
+    },
+    {
+      "id": "inv.reasoning.341",
+      "namespace": "reasoning",
+      "semantic_type": "definition",
+      "contexts": [
+        "discovery",
+        "ontology"
+      ],
+      "statement": "Discovered invariants are scoped on a ladder from domain to sub-domain to capability to task, extending the single-inheritance ontology-class hierarchy; cross-domain and constitutional invariants are the emergent result of recurrence across independently discovered domains, expressed through contexts and edges rather than presupposed parents.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Phase 1a — domain ladder (operator + Aletheon 2026-07-20)"
+      }
+    },
+    {
+      "id": "inv.reasoning.342",
+      "namespace": "reasoning",
+      "semantic_type": "heuristic",
+      "contexts": [
+        "discovery",
+        "standing"
+      ],
+      "statement": "Cross-framework convergence — the count of independent evidence sources implying a candidate — is a discovery prioritisation signal, not a validity claim; support is evidence, not truth, so broad convergence raises validation priority and never confidence directly.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Phase 1a — convergence signal, respecting Law XII (operator + Aletheon 2026-07-20)"
+      }
+    },
+    {
+      "id": "inv.reasoning.343",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "discovery",
+        "reasoning-compression"
+      ],
+      "statement": "A domain's governing invariants form a minimum sufficient basis: the smallest validated set that grounds the domain's reasoning at a target fidelity; sufficiency is an experiment, and sub-domain bases refine rather than contradict the domain basis.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Phase 1a — K*_domain framing, instance of IRL-011 §6.3 / P5 (operator + Aletheon 2026-07-20)"
+      }
     }
   ]
 }

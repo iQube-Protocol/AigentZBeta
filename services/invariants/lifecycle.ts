@@ -73,7 +73,14 @@ export interface DiscoverInvariantResult {
 }
 
 export async function discoverInvariant(
-  input: CreateInvariantInput & { contexts?: { domain: string; interpretation?: string }[] },
+  input: CreateInvariantInput & {
+    contexts?: {
+      domain: string;
+      interpretation?: string | null;
+      applicabilityConditions?: Record<string, unknown> | null;
+      retrievalTags?: string[];
+    }[];
+  },
   actor: { personaId: string; sessionId?: string } | null,
 ): Promise<DiscoverInvariantResult> {
   const { canonical, issues } = canonicalizeStatement(input.statement);
@@ -94,6 +101,8 @@ export async function discoverInvariant(
       invariantId: invariant.id,
       domain: ctx.domain,
       interpretation: ctx.interpretation ?? null,
+      applicabilityConditions: ctx.applicabilityConditions ?? null,
+      retrievalTags: ctx.retrievalTags,
     });
   }
 

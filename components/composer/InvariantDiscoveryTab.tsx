@@ -1,32 +1,58 @@
 "use client";
 
 /**
- * Invariant Discovery Engine workspace — CFS-048 Phase 0 (constitutional arm).
+ * Invariant Discovery Engine workspace — CFS-048 Phase 1a (constitutional arm).
  * The upstream primitive: assemble domain evidence → run constitutional
  * discovery → review candidate invariants → promote into the canonical
  * registry as `proposed` (never canonical — validation stays separate).
+ *
+ * Phase 1a adds the domain LADDER (discover at the domain baseline OR a
+ * sub-domain beneath it — Payments/Trading/… or the CRP-003 capability domains)
+ * and two self-measuring signals per candidate: an ABSTRACTION-LEVEL badge (L2/L3
+ * — verbatim/summary are rejected) and a CROSS-FRAMEWORK CONVERGENCE chip (how
+ * many independent sources imply it — a priority signal, not validity). Open
+ * candidates sort by convergence.
  *
  * Laboratory-internal, admin-gated. Financial Services is the first domain.
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, Sparkles, Check, X, FileText } from "lucide-react";
+import { Loader2, Plus, Sparkles, Check, X, FileText, Layers, Star } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 
 interface Evidence {
-  id: string; domain: string; title: string;
+  id: string; domain: string; subDomain: string | null; title: string;
   sourceKind: string; content: string; sourceRef: string | null; createdAt: string;
 }
+interface Convergence { supportCount: number; frameworks: string[]; tier: "single" | "strong" | "broad" }
 interface Candidate {
-  id: string; domain: string; discoveryClass: string; statement: string;
+  id: string; domain: string; subDomain: string | null;
+  scopeLevel: "domain" | "sub-domain" | "capability";
+  abstractionLevel: "L0" | "L1" | "L2" | "L3" | "L4" | null;
+  discoveryClass: string; statement: string;
   rationale: string; evidenceIds: string[]; confidence: number;
-  status: "candidate" | "promoted" | "rejected"; promotedInvariantId: string | null; createdAt: string;
+  status: "candidate" | "promoted" | "rejected"; promotedInvariantId: string | null;
+  createdAt: string; convergence?: Convergence;
 }
+interface Preset { value: string; label: string }
 
 const SOURCE_KINDS = ["legislation", "regulation", "compliance", "standard", "contract", "policy", "other"];
 
+const ABSTRACTION_META: Record<string, { label: string; cls: string }> = {
+  L2: { label: "L2 · cross-regulation", cls: "border-sky-500/40 bg-sky-500/10 text-sky-300" },
+  L3: { label: "L3 · domain-constitutional", cls: "border-violet-500/40 bg-violet-500/10 text-violet-300" },
+  L4: { label: "L4 · domain-independent", cls: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
+};
+const CONVERGENCE_META: Record<Convergence["tier"], string> = {
+  broad: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  strong: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+  single: "border-slate-600 bg-slate-800 text-slate-400",
+};
+
 export default function InvariantDiscoveryTab() {
   const [domain] = useState("financial-services");
+  const [subDomain, setSubDomain] = useState<string>(""); // "" = domain baseline
+  const [presets, setPresets] = useState<Preset[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,18 +63,26 @@ export default function InvariantDiscoveryTab() {
   const [eKind, setEKind] = useState("regulation");
   const [eRef, setERef] = useState("");
   const [eContent, setEContent] = useState("");
+  const [eSubDomain, setESubDomain] = useState(""); // "" = domain-wide evidence
+
+  const scopeLabel = subDomain ? (presets.find((p) => p.value === subDomain)?.label ?? subDomain) : "Domain baseline";
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await personaFetch(`/api/invariants/discovery?domain=${encodeURIComponent(domain)}`, { cache: "no-store" });
+      const qs = new URLSearchParams({ domain });
+      if (subDomain) qs.set("subDomain", subDomain);
+      const res = await personaFetch(`/api/invariants/discovery?${qs.toString()}`, { cache: "no-store" });
       const data = await res.json();
-      if (data?.ok) { setEvidence(data.evidence ?? []); setCandidates(data.candidates ?? []); }
-      else setNotice(`⚠ ${data?.error ?? "Load failed"}`);
+      if (data?.ok) {
+        setEvidence(data.evidence ?? []);
+        setCandidates(data.candidates ?? []);
+        if (Array.isArray(data.subDomainPresets)) setPresets(data.subDomainPresets);
+      } else setNotice(`⚠ ${data?.error ?? "Load failed"}`);
     } catch (e) {
       setNotice(`⚠ ${e instanceof Error ? e.message : "Load failed"}`);
     } finally { setLoading(false); }
-  }, [domain]);
+  }, [domain, subDomain]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -69,14 +103,18 @@ export default function InvariantDiscoveryTab() {
 
   const addEvidence = useCallback(async () => {
     if (!eTitle.trim() || !eContent.trim()) { setNotice("⚠ title and content required"); return; }
-    const r = await post({ action: "add-evidence", title: eTitle, sourceKind: eKind, sourceRef: eRef || undefined, content: eContent }, "add");
-    if (r) { setETitle(""); setERef(""); setEContent(""); setShowAdd(false); setNotice("✓ Evidence added"); await load(); }
-  }, [eTitle, eKind, eRef, eContent, post, load]);
+    const r = await post({
+      action: "add-evidence", title: eTitle, sourceKind: eKind,
+      sourceRef: eRef || undefined, content: eContent,
+      subDomain: eSubDomain || undefined,
+    }, "add");
+    if (r) { setETitle(""); setERef(""); setEContent(""); setESubDomain(""); setShowAdd(false); setNotice("✓ Evidence added"); await load(); }
+  }, [eTitle, eKind, eRef, eContent, eSubDomain, post, load]);
 
   const extract = useCallback(async () => {
-    const r = await post({ action: "extract" }, "extract");
-    if (r) { setNotice(`✓ Discovery run — ${(r.candidates ?? []).length} candidate(s) proposed`); await load(); }
-  }, [post, load]);
+    const r = await post({ action: "extract", subDomain: subDomain || undefined }, "extract");
+    if (r) { setNotice(`✓ Discovery run (${scopeLabel}) — ${(r.candidates ?? []).length} candidate(s) proposed`); await load(); }
+  }, [post, load, subDomain, scopeLabel]);
 
   const promote = useCallback(async (id: string) => {
     const r = await post({ action: "promote", candidateId: id }, `promote-${id}`);
@@ -88,7 +126,11 @@ export default function InvariantDiscoveryTab() {
     if (r) { await load(); }
   }, [post, load]);
 
-  const open = candidates.filter((c) => c.status === "candidate");
+  const open = candidates
+    .filter((c) => c.status === "candidate")
+    // Priority order: strongest cross-framework convergence first (a priority
+    // signal, not validity — Law XII), then confidence.
+    .sort((a, b) => (b.convergence?.supportCount ?? 0) - (a.convergence?.supportCount ?? 0) || b.confidence - a.confidence);
   const closed = candidates.filter((c) => c.status !== "candidate");
 
   return (
@@ -96,10 +138,29 @@ export default function InvariantDiscoveryTab() {
       <div>
         <h3 className="text-base font-semibold text-slate-100">Invariant Discovery Engine — Financial Services</h3>
         <p className="text-sm text-slate-400 mt-1">
-          CFS-048 Phase 0 · constitutional arm. Assemble evidence → discover candidate invariants (compression,
-          not summarisation) → promote into the registry as <span className="text-violet-300">proposed</span>. Discovery
-          never canonises — validation stays a separate, earned act.
+          CFS-048 · constitutional arm. Assemble evidence → discover candidate invariants (compression, not
+          summarisation) → promote into the registry as <span className="text-violet-300">proposed</span>. Discovery is
+          domain-first: discover the domain baseline, then ladder into sub-domains. Universality is discovered later by
+          cross-domain comparison — never presupposed.
         </p>
+      </div>
+
+      {/* Scope bar — domain baseline vs a sub-domain rung */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Layers className="h-3.5 w-3.5 text-slate-400" /> Scope</span>
+        <span className="rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300">Financial Services</span>
+        <span className="text-slate-600">›</span>
+        <select
+          value={subDomain}
+          onChange={(e) => setSubDomain(e.target.value)}
+          className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100"
+        >
+          <option value="">Domain baseline (whole domain)</option>
+          {presets.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+        <span className="text-[11px] text-slate-500">
+          {subDomain ? "sub-domain invariants refine the baseline" : "the invariants that hold across the whole domain"}
+        </span>
       </div>
       {notice && <p className="text-xs text-slate-300">{notice}</p>}
 
@@ -111,7 +172,7 @@ export default function InvariantDiscoveryTab() {
             <button onClick={() => setShowAdd((s) => !s)} className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"><Plus className="h-3 w-3" /> Add evidence</button>
             <button onClick={() => void extract()} disabled={busy !== null || evidence.length === 0}
               className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
-              {busy === "extract" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Discover candidates
+              {busy === "extract" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Discover {subDomain ? `${scopeLabel} ` : ""}invariants
             </button>
           </div>
         </div>
@@ -125,8 +186,15 @@ export default function InvariantDiscoveryTab() {
                 {SOURCE_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
               </select>
             </div>
-            <input value={eRef} onChange={(e) => setERef(e.target.value)} placeholder="Source reference / URL (optional)"
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500" />
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <input value={eRef} onChange={(e) => setERef(e.target.value)} placeholder="Source reference / URL (optional)"
+                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500" />
+              <select value={eSubDomain} onChange={(e) => setESubDomain(e.target.value)} title="Tag this source to a sub-domain, or leave domain-wide"
+                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100">
+                <option value="">Domain-wide (applies to all sub-domains)</option>
+                {presets.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
             <textarea value={eContent} onChange={(e) => setEContent(e.target.value)} rows={6} placeholder="Paste the regulatory/compliance text…"
               className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-[11px] text-slate-100 placeholder:text-slate-500" />
             <button onClick={() => void addEvidence()} disabled={busy === "add"}
@@ -139,13 +207,14 @@ export default function InvariantDiscoveryTab() {
         {loading ? (
           <div className="flex items-center gap-2 py-2 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
         ) : evidence.length === 0 ? (
-          <p className="text-xs text-slate-500 italic">No evidence yet. Add regulatory/compliance text to discover candidate invariants.</p>
+          <p className="text-xs text-slate-500 italic">No evidence in scope. Add regulatory/compliance text to discover candidate invariants.</p>
         ) : (
           <div className="space-y-1">
             {evidence.map((e) => (
               <div key={e.id} className="flex items-center gap-2 rounded bg-white/5 px-2 py-1 text-[11px]">
                 <span className="rounded-full border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{e.sourceKind}</span>
                 <span className="min-w-0 flex-1 truncate text-slate-300">{e.title}</span>
+                {e.subDomain && <span className="rounded-full border border-slate-700 px-1.5 py-0.5 text-[9px] text-slate-500">{e.subDomain}</span>}
                 <span className="text-slate-500">{e.content.length.toLocaleString()} chars</span>
               </div>
             ))}
@@ -155,29 +224,40 @@ export default function InvariantDiscoveryTab() {
 
       {/* Stages 2-3 — Candidate Explorer */}
       <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
-        <h4 className="text-sm font-semibold text-slate-200">Candidate invariants <span className="text-slate-500">({open.length} awaiting review)</span></h4>
+        <h4 className="text-sm font-semibold text-slate-200">Candidate invariants <span className="text-slate-500">({open.length} awaiting review · {scopeLabel})</span></h4>
         {open.length === 0 ? (
-          <p className="text-xs text-slate-500 italic">No open candidates. Add evidence and run discovery.</p>
+          <p className="text-xs text-slate-500 italic">No open candidates in scope. Add evidence and run discovery.</p>
         ) : (
           <div className="space-y-2">
-            {open.map((c) => (
-              <div key={c.id} className="rounded-md border border-violet-500/20 bg-violet-500/5 p-2.5 space-y-1">
-                <p className="text-sm text-slate-100">{c.statement}</p>
-                {c.rationale && <p className="text-[11px] text-slate-400">{c.rationale}</p>}
-                <div className="flex items-center gap-2 pt-0.5">
-                  <span className="text-[10px] text-slate-500">confidence {Math.round(c.confidence * 100)}% · {c.evidenceIds.length} evidence · {c.discoveryClass}</span>
-                  <span className="flex-1" />
-                  <button onClick={() => void promote(c.id)} disabled={busy !== null}
-                    className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50">
-                    {busy === `promote-${c.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Promote → proposed
-                  </button>
-                  <button onClick={() => void reject(c.id)} disabled={busy !== null}
-                    className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:text-rose-300 disabled:opacity-50">
-                    <X className="h-3 w-3" /> Reject
-                  </button>
+            {open.map((c) => {
+              const abs = c.abstractionLevel ? ABSTRACTION_META[c.abstractionLevel] : null;
+              const cv = c.convergence;
+              return (
+                <div key={c.id} className="rounded-md border border-violet-500/20 bg-violet-500/5 p-2.5 space-y-1">
+                  <p className="text-sm text-slate-100">{c.statement}</p>
+                  {c.rationale && <p className="text-[11px] text-slate-400">{c.rationale}</p>}
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <span className="text-[10px] text-slate-500">confidence {Math.round(c.confidence * 100)}% · {c.evidenceIds.length} evidence · {c.discoveryClass}</span>
+                    {abs && <span className={`rounded-full border px-1.5 py-0.5 text-[9px] ${abs.cls}`}>{abs.label}</span>}
+                    {cv && (
+                      <span title={cv.frameworks.join(" · ") || "no linked sources"}
+                        className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] ${CONVERGENCE_META[cv.tier]}`}>
+                        <Star className="h-2.5 w-2.5" /> {cv.supportCount} framework{cv.supportCount === 1 ? "" : "s"}
+                      </span>
+                    )}
+                    <span className="flex-1" />
+                    <button onClick={() => void promote(c.id)} disabled={busy !== null}
+                      className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50">
+                      {busy === `promote-${c.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Promote → proposed
+                    </button>
+                    <button onClick={() => void reject(c.id)} disabled={busy !== null}
+                      className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:text-rose-300 disabled:opacity-50">
+                      <X className="h-3 w-3" /> Reject
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {closed.length > 0 && (

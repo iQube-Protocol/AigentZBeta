@@ -1,0 +1,77 @@
+/**
+ * CFS-048 Phase 1a canaries — the domain ladder + self-measuring signals.
+ *
+ * Pins the deterministic seams added on top of the discovery engine:
+ *   1. computeConvergence — distinct-source support + tier (a priority signal,
+ *      not validity: Law XII), deduped on sourceRef/title.
+ *   2. abstraction-level normalisation — tolerant of case/whitespace, invalid → null.
+ *   3. scope-threading discipline — promotion still lands 'proposed' /
+ *      'agent_verified' (unchanged) AND now threads scope into contexts
+ *      applicabilityConditions (source-level assertion).
+ */
+
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { computeConvergence, type EvidenceRow } from '@/services/invariants/discoveryEngine';
+
+function ev(id: string, title: string, sourceRef: string | null): EvidenceRow {
+  return { id, domain: 'financial-services', subDomain: null, title, sourceKind: 'regulation', content: 'x', sourceRef, createdAt: '' };
+}
+
+describe('computeConvergence (cross-framework support — priority, not validity)', () => {
+  const evidence: EvidenceRow[] = [
+    ev('a', 'FATF R10', 'fatf-r10'),
+    ev('b', 'FATF R16', 'fatf-r16'),
+    ev('c', 'Basel Core', 'basel'),
+    ev('d', 'MiCA', 'mica'),
+    ev('e', 'GDPR Art.5', 'gdpr'),
+  ];
+
+  it('counts distinct source documents and lists their frameworks', () => {
+    const cv = computeConvergence(['a', 'c', 'd'], evidence);
+    expect(cv.supportCount).toBe(3);
+    expect(cv.frameworks).toEqual(['FATF R10', 'Basel Core', 'MiCA']);
+    expect(cv.tier).toBe('strong');
+  });
+
+  it('tiers: single (1) / strong (2-4) / broad (>=5)', () => {
+    expect(computeConvergence(['a'], evidence).tier).toBe('single');
+    expect(computeConvergence(['a', 'b'], evidence).tier).toBe('strong');
+    expect(computeConvergence(['a', 'b', 'c', 'd', 'e'], evidence).tier).toBe('broad');
+  });
+
+  it('dedups one document ingested twice (same sourceRef → counts once)', () => {
+    const dup = [...evidence, { ...ev('f', 'FATF R10 (copy)', 'fatf-r10') }];
+    const cv = computeConvergence(['a', 'f'], dup);
+    expect(cv.supportCount).toBe(1);
+  });
+
+  it('ignores evidence ids not present (stale reference)', () => {
+    const cv = computeConvergence(['a', 'zzz'], evidence);
+    expect(cv.supportCount).toBe(1);
+  });
+});
+
+describe('scope-ladder discipline (source-level, mirrors the discovery canary)', () => {
+  const src = readFileSync(join(__dirname, '..', 'services', 'invariants', 'discoveryEngine.ts'), 'utf8');
+
+  it("promotion still lands 'proposed' with 'agent_verified' — unchanged by the ladder", () => {
+    expect(src).toMatch(/status:\s*'proposed'/);
+    expect(src).toMatch(/confidenceBasis:\s*'agent_verified'/);
+    expect(src).not.toMatch(/status:\s*'canonical'/);
+    expect(src).not.toMatch(/\bcanonizeInvariant\b/);
+    expect(src).not.toMatch(/\bvalidateInvariant\b/);
+  });
+
+  it('threads the scope ladder into contexts applicabilityConditions (inv.reasoning.341)', () => {
+    expect(src).toMatch(/applicabilityConditions:\s*\{/);
+    expect(src).toMatch(/scopeLevel/);
+    expect(src).toMatch(/subDomain/);
+    expect(src).toMatch(/abstractionLevel/);
+  });
+
+  it('rejects L0/L1 abstraction candidates (verbatim/summary never emitted)', () => {
+    expect(src).toMatch(/lvl !== 'L0' && lvl !== 'L1'/);
+  });
+});
