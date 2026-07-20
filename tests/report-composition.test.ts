@@ -30,6 +30,10 @@ const manifest: FindingsManifest = {
       runs: [{ provider: 'openai', model: 'gpt-4o', aggregates: { groundedPct: 95.8, sovereigntyRung: 's2-substitutable' }, contentHash: '2b67527f75280b4eaa', at: '2026-07-10' }],
     },
   ],
+  // A run-complete-but-unpublished member (EXP-005) sits in canonical sequence
+  // between EXP-004 and EXP-006 — surfaced as pending so the narrative places it
+  // in-slot without a fabricated result.
+  pending: [{ id: 'EXP-005', family: 'Provider Choice', seriesId: 'PSE' }],
   groundedOn: ['ff0a442ebbc98a28aa', '2b67527f75280b4eaa'],
 };
 
@@ -50,5 +54,17 @@ describe('buildFindingsGrounding — the collective record the narrative regener
     expect(g).toContain('openai/gpt-4o');
     expect(g).toContain('sovereigntyRung');
     expect(g).toContain('2b67527f75280b4e');
+  });
+
+  it('surfaces PENDING members in canonical order with an explicit no-invention instruction (EXP-005 not silently missing)', () => {
+    const g = buildFindingsGrounding(manifest);
+    expect(g).toContain('PENDING');
+    expect(g).toContain('EXP-005');
+    expect(g).toContain('publication pending');
+    expect(g).toContain('DO NOT invent');
+  });
+
+  it('declares the canonical sequence must be preserved (no appended tail)', () => {
+    expect(buildFindingsGrounding(manifest)).toContain('CANONICAL SEQUENCE');
   });
 });
