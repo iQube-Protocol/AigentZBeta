@@ -65,7 +65,17 @@ export type StudioProductionKind =
   | 'studio.video.generation.submitted'
   | 'studio.video.generation.simulated'
   | 'studio.video.generation.completed'
-  | 'studio.video.stitch.completed';
+  | 'studio.video.stitch.completed'
+  // Constitutional Video experience (2026-07-19): the grammar-bound plan and
+  // its completed (stitched, voiced) production.
+  | 'studio.video.constitutional.plan.completed'
+  | 'studio.video.constitutional.completed'
+  // Voiceover mux — a durable voiced segment persisted to storage.
+  | 'studio.video.voiceover.mux.completed'
+  // Coherent Bundle Generation (operationalizes EXP-001's proven capability).
+  | 'studio.bundle.coherent.completed'
+  // The opt-in bundle judgement (separate skill; never part of generation).
+  | 'studio.bundle.judgement.completed';
 
 /**
  * The classification map — production kind → tier. PURE data; the single
@@ -85,6 +95,18 @@ const STUDIO_ARTIFACT_TIERS: Record<StudioProductionKind, StudioArtifactTier> = 
   'studio.article.draft.failed': { profile: 'documentation', consequenceClass: 'disposable' },
   'studio.video.generation.submitted': { profile: 'multimedia', consequenceClass: 'disposable' },
   'studio.video.generation.simulated': { profile: 'multimedia', consequenceClass: 'disposable' },
+  // Constitutional Video experience — the grammar-bound plan is durable
+  // editorial work product; the completed voiced/stitched film is media.
+  // "Constitutional" names the content genre, NOT the consequence class —
+  // like every Studio production these are OPERATIONAL and promotable later
+  // (operator decision 2026-07-19).
+  'studio.video.constitutional.plan.completed': { profile: 'documentation', consequenceClass: 'operational' },
+  'studio.video.constitutional.completed': { profile: 'multimedia', consequenceClass: 'operational' },
+  'studio.video.voiceover.mux.completed': { profile: 'multimedia', consequenceClass: 'operational' },
+  // Coherent Bundle Generation — the bundle (shared brief + assets) is
+  // durable work product; the opt-in judgement is durable evidence.
+  'studio.bundle.coherent.completed': { profile: 'documentation', consequenceClass: 'operational' },
+  'studio.bundle.judgement.completed': { profile: 'documentation', consequenceClass: 'operational' },
 };
 
 /** Fail-safe default for kinds the map does not name: disposable. */
@@ -131,6 +153,33 @@ export interface StudioRecordBodyInput {
    * that carry no alignment (image sets, plain video stitches).
    */
   alignment?: StudioAlignmentFields | null;
+  /**
+   * Coherence/judgement evidence for coherent-bundle productions (2026-07-19).
+   * `kind:'coherence'` + `method:'coherence-score/built-in'` — the cheap
+   * deterministic score every bundle carries. `kind:'experiment'` +
+   * `method:'judge/optional'` — the opt-in judgement (never mandatory).
+   * Whitelist-copied like `alignment`; numeric summary only.
+   */
+  evaluation?: StudioEvidenceFields | null;
+}
+
+/** T2-safe evidence projection riding on bundle/video artifact records. */
+export interface StudioEvidenceFields {
+  kind: 'coherence' | 'experiment';
+  method: 'coherence-score/built-in' | 'judge/optional';
+  /** Receipt id / judgement record ref ({ref, note} evidence pattern). */
+  ref: string | null;
+  score: number | null;
+  pass: boolean;
+  detail: {
+    briefCoherence?: number | null;
+    grammarViolations?: number;
+    articleAlignment?: number | null;
+    verdictCounts?: { preserved: number; weakened: number; contradicted: number; absent: number };
+    coherence?: number | null;
+  };
+  /** null for the built-in deterministic score. */
+  judgedBy: { provider: string; model: string } | null;
 }
 
 /**
@@ -163,6 +212,27 @@ export function buildStudioRecordBody(input: StudioRecordBodyInput): string {
           pass: input.alignment.pass,
           basis: input.alignment.basis,
           segmentCoverage: (input.alignment.segmentCoverage ?? []).slice(0, 12),
+        }
+      : null,
+    // Evidence is whitelist-copied field-by-field — same T0-inexpressibility
+    // guarantee as alignment (no spread of the input object).
+    evaluation: input.evaluation
+      ? {
+          kind: input.evaluation.kind,
+          method: input.evaluation.method,
+          ref: input.evaluation.ref ?? null,
+          score: typeof input.evaluation.score === 'number' ? input.evaluation.score : null,
+          pass: input.evaluation.pass === true,
+          detail: {
+            briefCoherence: input.evaluation.detail?.briefCoherence ?? null,
+            grammarViolations: input.evaluation.detail?.grammarViolations ?? undefined,
+            articleAlignment: input.evaluation.detail?.articleAlignment ?? null,
+            verdictCounts: input.evaluation.detail?.verdictCounts ?? undefined,
+            coherence: input.evaluation.detail?.coherence ?? null,
+          },
+          judgedBy: input.evaluation.judgedBy
+            ? { provider: input.evaluation.judgedBy.provider, model: input.evaluation.judgedBy.model }
+            : null,
         }
       : null,
   });
