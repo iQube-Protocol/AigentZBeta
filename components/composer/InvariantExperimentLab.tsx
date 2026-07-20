@@ -408,7 +408,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "homecoming" && <HomecomingTestTab />}
         {tab === "results" && <ExperimentResultsTab />}
         {tab === "report" && <ExperimentReportTab />}
-        {tab === "plates" && <CanonicalPlatesTab />}
+        {tab === "plates" && <CanonicalPlatesTab isAdmin={Boolean(accessInfo?.isAdmin)} />}
       </div>
     </div>
   );
