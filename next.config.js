@@ -27,6 +27,14 @@ const nextConfig = {
       "node_modules/@napi-rs/canvas-linux-x64-musl/**",
       "node_modules/@img/sharp-libvips-linuxmusl-x64/**",
       "node_modules/@img/sharp-linuxmusl-x64/**",
+      // Next's own SWC native compiler — standalone traces BOTH the glibc and
+      // musl prebuilt binaries; Amazon Linux (glibc) loads the gnu copy and
+      // never the musl one (~40 MB). Dropping it is the same safe move as the
+      // canvas/sharp musl excludes above and reclaims the headroom that tipped
+      // the 2026-07-19 build past the 230686720-byte output cap. If SWC ever
+      // fails to load at runtime, the runtime moved off glibc — revisit here.
+      "node_modules/@next/swc-linux-x64-musl/**",
+      "node_modules/@swc/core-linux-x64-musl/**",
       // Build-time-only deps Next conservatively traces but the runtime never
       // executes: the TypeScript compiler (no runtime import in this app) and
       // browserslist's caniuse-lite data. ~11 MB more headroom under the limit.
