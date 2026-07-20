@@ -306,6 +306,37 @@ fetch("/api/persona/...");  // same problem
 
 The bug pattern: when a hook / utility uses raw `fetch`, every spine endpoint returns 401, the hook silently falls into its empty / fail-closed state, and downstream gates (admin tabs, paywalls, persona switches) deny without any console error. Symptoms feel like "the feature just doesn't work for this user" — but the operator IS authenticated; the FE is just failing to attach the token. Cost the team a multi-hour debug loop on 2026-05-26 with the admin-tab visibility regression.
 
+#### `authedFetchHeaders` is ALSO forbidden for spine endpoints — it is persona-UNAWARE (2026-07-20 incident)
+
+**`authedFetchHeaders` / `getSupabaseAccessToken` + `fetch` is NOT an acceptable substitute for `personaFetch` on a spine endpoint.** It attaches the Bearer token (so it does not 401), which makes it *look* like it works — but it carries **no persona selection**. On a spine endpoint, `getActivePersona` then resolves a **fallback persona**, not the operator's currently-active one. For an operator who owns several personas (the normal case), the surface silently reads the WRONG persona's state: passport shows absent, delegation shows inactive, grants show empty — for data that genuinely exists on the active persona. This is MORE dangerous than the raw-`fetch` 401 because it fails *silently and plausibly* (real-looking data for the wrong identity) instead of failing closed.
+
+**The whole point of the spine is that identity is resolved ONE way, everywhere. Two transports that resolve two different personas is the exact inconsistency the spine exists to abolish.** A component that reads passport via `authedFetchHeaders` and access via `personaFetch` will show a self-contradictory state and flip between renders. This happened in `AccessionProgressBar` on 2026-07-20 and cost a live-debugging loop.
+
+**Required — pass the active persona hint whenever the surface knows it:**
+
+```ts
+import { personaFetch } from "@/utils/personaSpine";
+
+// A surface that receives the active personaId (embed prop, context, bridge)
+// MUST pass it as personaIdHint so the spine resolves THAT persona — not a
+// fallback. Every read on the surface uses the SAME hint, so they agree.
+const res = await personaFetch("/api/participation/my-access", {
+  cache: "no-store",
+  personaIdHint: personaId,   // ← the embed's resolvedPersonaId / ctx persona
+});
+```
+
+If a surface does not have the personaId to hand, `personaFetch` falls back to `localStorage['currentPersonaId']` (the spine's own record of the active persona) — still correct, still the spine. What is NEVER acceptable is bypassing the spine to attach the Bearer yourself.
+
+#### Hard checklist — before you write ANY client→`/api/*` call
+
+1. Does the route handler call `getActivePersona` or `getCallerIdentityContext`? If yes → it is a spine endpoint.
+2. Client call to a spine endpoint → **`personaFetch` only.** Never `fetch(...)`, never `authedFetchHeaders(...) + fetch(...)`, never axios/XHR.
+3. If the surface has the active `personaId` (prop / context / bridge), pass it as `personaIdHint`. All reads on the surface use the same hint.
+4. A single component MUST NOT mix `personaFetch` with any other transport for identity reads — one transport, one resolved persona, or the state self-contradicts.
+
+**Enforcement:** `tests/persona-spine-fetch.test.ts` is the canary — it greps client components for `authedFetchHeaders`/raw `fetch` against the spine-endpoint allowlist and FAILS the build if a new one appears. If you add a spine surface, it must pass this test; do not weaken the test to make a violation pass. Identity is the foundation of the entire protocol — a break here compounds through every gate, receipt, and grant downstream. There are no "just this once" exceptions, no "it works with the Bearer" shortcuts, and no alpha-phase carve-outs.
+
 **Debugging from DevTools / a browser URL bar** — neither sends the Authorization header. Pull the token from `localStorage` and attach it manually:
 
 ```js
