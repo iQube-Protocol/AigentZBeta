@@ -15,7 +15,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Award, Check, Copy, Gavel, Loader2, Plus, ShieldCheck, X } from 'lucide-react';
+import { Award, Check, Copy, Gavel, Loader2, Plus, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { authedFetchHeaders } from '@/utils/supabaseBrowser';
 
 interface DomainDef { id: string; label: string; roles: string[] }
@@ -32,6 +32,7 @@ interface InvitationRow {
   status: string;
   createdAt: string;
   allowedExperiments: string[] | null;
+  codeFingerprint: string;
 }
 interface GrantRow {
   id: string;
@@ -74,6 +75,7 @@ export function StewardParticipationTab() {
   const [issued, setIssued] = useState<{ code: string; inviteUrl: string; allowedExperiments: string[] | null } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [revokeBusy, setRevokeBusy] = useState<string | null>(null);
+  const [reissueBusy, setReissueBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -190,6 +192,57 @@ export function StewardParticipationTab() {
       await load();
     } finally {
       setRevokeBusy(null);
+    }
+  }, [load]);
+
+  // Reissue — the secure recovery path for a lost bearer code. The raw code is
+  // never stored (hashed at rest, shown once), so it cannot be re-shown; instead
+  // mint a FRESH invitation with the same scoping, surface its one-time code, and
+  // revoke the old one so only the new code claims. Expiry is preserved as the
+  // remaining days on the original (min 1); no remaining expiry → no expiry.
+  const reissueInvitation = useCallback(async (inv: InvitationRow) => {
+    setReissueBusy(inv.id);
+    setError(null);
+    try {
+      const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      const remainingDays = inv.expiresAt
+        ? Math.max(1, Math.ceil((new Date(inv.expiresAt).getTime() - Date.now()) / 86_400_000))
+        : undefined;
+      const res = await fetch('/api/steward/participation/invitations', {
+        method: 'POST',
+        headers: headers ?? undefined,
+        body: JSON.stringify({
+          domain: inv.accessDomain,
+          role: inv.role,
+          label: inv.label || undefined,
+          intendedRecipient: inv.intendedRecipient || undefined,
+          maxUses: inv.maxUses,
+          expiresInDays: remainingDays,
+          allowedExperiments:
+            inv.accessDomain === 'research-lab' ? (inv.allowedExperiments ?? []) : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setError(data?.error || 'Reissue failed');
+        return;
+      }
+      setIssued({
+        code: data.code,
+        inviteUrl: data.inviteUrl,
+        allowedExperiments: data.invitation?.allowedExperiments ?? null,
+      });
+      // Revoke the old invitation so only the freshly-issued code can claim.
+      await fetch('/api/steward/participation/invitations', {
+        method: 'PATCH',
+        headers: headers ?? undefined,
+        body: JSON.stringify({ invitationId: inv.id, action: 'revoke' }),
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Reissue failed');
+    } finally {
+      setReissueBusy(null);
     }
   }, [load]);
 
@@ -417,6 +470,17 @@ export function StewardParticipationTab() {
                     {inv.label || 'Untitled invitation'}
                     {inv.intendedRecipient && <span className="text-slate-500"> → {inv.intendedRecipient}</span>}
                   </span>
+                  {/* Non-secret fingerprint — identifies the invitation without
+                      exposing the claimable bearer code (never stored). Copyable
+                      so the steward can correlate against records. */}
+                  <button
+                    onClick={() => copy(`fp-${inv.id}`, inv.codeFingerprint)}
+                    title={`Code fingerprint (first 12 hex of the code hash) — non-secret identifier, not the claimable code. Invitation id: ${inv.id}`}
+                    className="flex items-center gap-1 rounded border border-slate-700 bg-slate-950/50 px-1.5 py-0.5 font-mono text-[10px] text-slate-400 hover:text-slate-200 shrink-0"
+                  >
+                    {copied === `fp-${inv.id}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    {inv.codeFingerprint}…
+                  </button>
                   <span className="text-slate-500 shrink-0">{inv.uses}/{inv.maxUses} used</span>
                   <span
                     className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${
@@ -429,6 +493,21 @@ export function StewardParticipationTab() {
                   >
                     {inv.status}
                   </span>
+                  {/* Reissue — mint a fresh code with the same scoping when the
+                      original code was lost (it can never be re-shown). Available
+                      while the invitation is still claimable (active). */}
+                  {inv.status === 'active' && (
+                    <button
+                      title="Reissue — mint a fresh one-time code with the same scoping and revoke this one (the original code cannot be re-shown)"
+                      onClick={() => void reissueInvitation(inv)}
+                      disabled={reissueBusy === inv.id || revokeBusy === inv.id}
+                      className="p-0.5 shrink-0"
+                    >
+                      {reissueBusy === inv.id
+                        ? <Loader2 className="h-3 w-3 animate-spin text-slate-400" />
+                        : <RefreshCw className="h-3 w-3 text-slate-400 hover:text-violet-300" />}
+                    </button>
+                  )}
                   {inv.status === 'active' && (
                     <button
                       title="Revoke this invitation"

@@ -121,6 +121,11 @@ export interface AccessInvitationRow {
   revokedAt: string | null;
   /** Experiment ids this invitation scopes the reviewer to (null/[] = all). */
   allowedExperiments: string[] | null;
+  /** Non-secret identifier: the first 12 hex of the stored sha256(code_hash).
+   *  Lets the steward tell invitations apart / correlate one against a code
+   *  they hold, WITHOUT exposing the claimable bearer code (which is never
+   *  stored — hashed at rest, shown once). One-way: cannot recover the code. */
+  codeFingerprint: string;
 }
 
 function toInvitationRow(r: Record<string, unknown>): AccessInvitationRow {
@@ -137,6 +142,7 @@ function toInvitationRow(r: Record<string, unknown>): AccessInvitationRow {
     createdAt: String(r.created_at),
     revokedAt: (r.revoked_at as string | null) ?? null,
     allowedExperiments: ((r.allowed_experiments as string[] | null) ?? null),
+    codeFingerprint: String(r.code_hash ?? '').slice(0, 12),
   };
 }
 
