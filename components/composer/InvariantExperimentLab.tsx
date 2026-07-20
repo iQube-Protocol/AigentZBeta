@@ -72,6 +72,16 @@ interface LabEntry {
  *  several entries have no EXPERIMENT_REGISTRY id, so it cannot be derived. */
 const SECTIONS: { title: string; items: LabEntry[] }[] = [
   {
+    // The upstream primitive sits FIRST — evidence → candidates feed every
+    // series below it. Placed at the top so it's unmissable (operator 2026-07-20:
+    // it was buried below the fold under Acceptance Tests). Admin-only via the
+    // section filter (no experiment id).
+    title: "Discovery",
+    items: [
+      { id: "discovery", label: "Invariant Discovery", icon: Sparkles, blurb: "CFS-048 · the upstream primitive — discover candidate invariants for a domain (Financial Services, constitutional arm) from evidence, then promote into the registry as proposed for validation." },
+    ],
+  },
+  {
     title: "Foundational Series",
     items: [
       { id: "bundle", label: "EXP-001 · Bundle Evaluation", icon: Scale, blurb: "Semantic fidelity — does a KnowledgeQube's invariant bundle preserve meaning when a judge scores it against the source?" },
@@ -110,12 +120,6 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
     items: [
       { id: "chrysalis", label: "Chrysalis Test", icon: ShieldCheck, blurb: "Constitutional acceptance — the platform passes its own governed-execution acceptance criteria (Chrysalis)." },
       { id: "homecoming", label: "Homecoming Test", icon: Home, blurb: "Constitutional acceptance — the return-to-canon acceptance criteria (Homecoming)." },
-    ],
-  },
-  {
-    title: "Discovery",
-    items: [
-      { id: "discovery", label: "Invariant Discovery", icon: Sparkles, blurb: "CFS-048 · the upstream primitive — discover candidate invariants for a domain (Financial Services, constitutional arm) from evidence, then promote into the registry as proposed for validation." },
     ],
   },
   {

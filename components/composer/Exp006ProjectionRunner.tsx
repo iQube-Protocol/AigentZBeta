@@ -12,9 +12,9 @@
  */
 
 import React, { useState } from "react";
-import { Loader2, Play, Upload } from "lucide-react";
-import { experimentStep, recordRunLifecycle, lifecycleNote, publishStatePrefix } from "./experimentStepFetch";
-import { RequestPublishControl } from "./RequestPublishControl";
+import { Loader2, Play } from "lucide-react";
+import { experimentStep } from "./experimentStepFetch";
+import { ExperimentResultActions } from "./ExperimentResultActions";
 
 interface DeltaRow {
   intent?: string;
@@ -42,13 +42,10 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
   const [aggregate, setAggregate] = useState<Aggregate | null>(null);
   const [rows, setRows] = useState<DeltaRow[]>([]);
   const [ranAt, setRanAt] = useState<string | null>(null);
-  const [publishState, setPublishState] = useState<string | null>(null);
-  const [requestPublish, setRequestPublish] = useState(false);
 
   const run = async () => {
     setRunning(true);
     setError(null);
-    setPublishState(null);
     try {
       const data = await experimentStep("/api/experiments/irl-exp001", {});
       setAggregate((data.aggregate as Aggregate) ?? null);
@@ -58,49 +55,6 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
       setError(err instanceof Error ? err.message : "run failed");
     } finally {
       setRunning(false);
-    }
-  };
-
-  // Save the run so it survives navigation. Admins publish straight to canon;
-  // a reviewer saves privately, or submits for steward approval when they
-  // opt in (same contract as every other experiment runner).
-  const publish = async () => {
-    if (!aggregate) return;
-    setPublishState("publishing");
-    try {
-      const aggregates = {
-        intents: aggregate.intents ?? rows.length,
-        meanOverlap: aggregate.meanOverlap,
-        meanPrecision: aggregate.meanPrecision,
-        meanRecall: aggregate.meanRecall,
-        deltaCount: aggregate.deltaCount,
-      };
-      const results = {
-        experiment: "EXP-006",
-        claim:
-          "IIVS Stage A (CRP-002): intent → invariant projection fidelity, predicted through the sovereign invariant-aware router and scored against an independently generated CIRS reference; Invariant Deltas classified as first-class WP0 data.",
-        aggregate,
-        rows,
-        ranAt: ranAt ?? new Date().toISOString(),
-      };
-      const data = await experimentStep("/api/experiments/results", {
-        experiment: "EXP-006",
-        provider: "sovereign-router",
-        model: "invariant-aware",
-        requestPublish: canRequestPublish && requestPublish,
-        aggregates,
-        results,
-      });
-      const publishedMsg = `${publishStatePrefix(data.visibility)} — sha256 ${(data.contentHash as string).slice(0, 12)}…`;
-      setPublishState(publishedMsg);
-      const lc = await recordRunLifecycle(
-        "EXP-006",
-        "results-published",
-        `EXP-006 run published: intents=${aggregates.intents} meanOverlap=${pct(aggregate.meanOverlap)} deltas=${aggregate.deltaCount ?? 0}`,
-      );
-      setPublishState(`${publishedMsg} · ${lifecycleNote(lc)}`);
-    } catch (err) {
-      setPublishState(err instanceof Error ? err.message : "publish failed");
     }
   };
 
@@ -161,34 +115,33 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
         </div>
       )}
 
-      {/* Save / publish — so a completed run survives navigation. Same contract
-          as every other runner: admin → canon; reviewer → private or (opt-in)
-          submitted for steward approval. */}
+      {/* Save + copy — so a completed run survives navigation AND can be lifted
+          out for offline analysis (per-intent predicted/reference/deltas).
+          Shared global footer: admin → canon; reviewer → private or (opt-in)
+          submitted for steward approval. Copy is client-only, always available. */}
       {aggregate && !running && (
-        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-          <button
-            onClick={publish}
-            disabled={publishState === "publishing"}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
-          >
-            <Upload className="h-3.5 w-3.5" />
-            {publishState === "publishing"
-              ? "Saving…"
-              : canRequestPublish
-                ? requestPublish
-                  ? "Submit for publication"
-                  : "Save result"
-                : "Publish canonically"}
-          </button>
-          {canRequestPublish && (
-            <div className="mt-2">
-              <RequestPublishControl requestPublish={requestPublish} onChange={setRequestPublish} disabled={publishState === "publishing"} />
-            </div>
-          )}
-          {publishState && publishState !== "publishing" && (
-            <p className="mt-1 text-xs text-slate-400">{publishState}</p>
-          )}
-        </div>
+        <ExperimentResultActions
+          experiment="EXP-006"
+          provider="sovereign-router"
+          model="invariant-aware"
+          canRequestPublish={canRequestPublish}
+          aggregates={{
+            intents: aggregate.intents ?? rows.length,
+            meanOverlap: aggregate.meanOverlap,
+            meanPrecision: aggregate.meanPrecision,
+            meanRecall: aggregate.meanRecall,
+            deltaCount: aggregate.deltaCount,
+          }}
+          results={{
+            experiment: "EXP-006",
+            claim:
+              "IIVS Stage A (CRP-002): intent → invariant projection fidelity, predicted through the sovereign invariant-aware router and scored against an independently generated CIRS reference; Invariant Deltas classified as first-class WP0 data.",
+            aggregate,
+            rows,
+            ranAt: ranAt ?? new Date().toISOString(),
+          }}
+          lifecycleSummary={`EXP-006 run published: intents=${aggregate.intents ?? rows.length} meanOverlap=${pct(aggregate.meanOverlap)} deltas=${aggregate.deltaCount ?? 0}`}
+        />
       )}
     </div>
   );
