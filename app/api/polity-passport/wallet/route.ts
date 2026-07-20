@@ -15,6 +15,7 @@ import {
   isClaimable,
   type PassportRecordRow,
 } from '@/services/passport/passportCredential';
+import { publicOrigin } from '@/utils/publicOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +53,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    const host = req.nextUrl.origin;
+    // Behind Amplify's proxy, req.nextUrl.origin is the INTERNAL
+    // localhost:3000 — which then leaks into the passport's issuer +
+    // statusListUrl and is unresolvable/unverifiable by any recipient.
+    // publicOrigin resolves the externally-reachable host (env / forwarded
+    // headers) instead. No hardcoded hostnames (No-Guessing rule).
+    const host = publicOrigin(req);
     const passportQubes = (data ?? []).map((row) => {
       const record = row as unknown as PassportRecordRow;
       const claimedAt = ((row as Record<string, unknown>).credential_claimed_at as string | undefined) ?? null;

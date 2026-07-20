@@ -22,6 +22,7 @@ import {
   isClaimable,
   type PassportRecordRow,
 } from '@/services/passport/passportCredential';
+import { publicOrigin } from '@/utils/publicOrigin';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +78,7 @@ export async function GET(
     const admin = getSupabaseServer();
     if (!admin) return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
 
-    const result = await loadAndBuild(passportId, admin, req.nextUrl.origin);
+    const result = await loadAndBuild(passportId, admin, publicOrigin(req));
     if (result.err) return result.err;
 
     return NextResponse.json(
@@ -114,7 +115,7 @@ export async function POST(
       return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
     }
 
-    const result = await loadAndBuild(passportId, admin, req.nextUrl.origin);
+    const result = await loadAndBuild(passportId, admin, publicOrigin(req));
     if (result.err) return result.err;
 
     // Sponsor-custodian authorization (Phase 1 / G2): a polity_bound agent has
