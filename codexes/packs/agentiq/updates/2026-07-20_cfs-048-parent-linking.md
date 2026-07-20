@@ -10,6 +10,8 @@ Aletheon's keystone: once Compare has earned a domain invariant (e.g. *Transpare
 - **UI** — promoting a sub-domain candidate opens an inline confirm panel: suggested parents with similarity, checkboxes (strong matches preselected), *Link N & promote* / *Promote (no parent)* / *Cancel*. Domain-level candidates promote directly.
 - **Compare's fifth class — `equivalent`** (Aletheon): the SAME invariant as a baseline item at a different abstraction level — distinct from `split` (two invariants). This stops abstraction mismatches from being mislabelled as novelty, and directly feeds EXP-006A's abstraction-delta handling.
 
+**Retro-link for already-promoted invariants.** Invariants promoted BEFORE parent-linking existed (the Domain Baseline, Investment Operations, Market Operations sets) are orphaned in the graph. The Domain Baseline invariants need nothing — they are the parent layer. The promoted **sub-domain** invariants get a **"Link parents"** affordance in the Reviewed list: same suggest→confirm flow, calling `linkPromotedParents` to attach `specializes` edges to the existing invariant (no re-promotion). Idempotent — `createSpecializesEdges` skips parents already linked (via `listEdgesForInvariants`) and self-loops.
+
 No new doctrine needed — this realises `inv.reasoning.341` ("the ladder … expressed through contexts and **edges**, not presupposed parents"). No migration — uses the existing invariant `edges` table via `addEdge`.
 
 ## Files

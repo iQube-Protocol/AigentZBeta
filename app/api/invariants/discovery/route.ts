@@ -24,6 +24,7 @@ import {
   compareSubDomains,
   suggestParents,
   promoteCandidate,
+  linkPromotedParents,
   rejectCandidate,
   type EvidenceKind,
 } from '@/services/invariants/discoveryEngine';
@@ -125,12 +126,19 @@ export async function POST(req: NextRequest) {
       const r = await promoteCandidate(admin, body.candidateId, { personaId: persona.personaId }, parentIds);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
+    case 'link-parents': {
+      // Retro-link an already-promoted sub-domain invariant to its domain parents.
+      if (!body.candidateId) return NextResponse.json({ ok: false, error: 'candidateId required' }, { status: 400 });
+      const parentIds = Array.isArray(body.parentInvariantIds) ? body.parentInvariantIds.filter((x) => typeof x === 'string') : [];
+      const r = await linkPromotedParents(admin, body.candidateId, parentIds);
+      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
     case 'reject': {
       if (!body.candidateId) return NextResponse.json({ ok: false, error: 'candidateId required' }, { status: 400 });
       const r = await rejectCandidate(admin, body.candidateId);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     default:
-      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, suggest-parents, promote, reject' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, suggest-parents, promote, link-parents, reject' }, { status: 400 });
   }
 }

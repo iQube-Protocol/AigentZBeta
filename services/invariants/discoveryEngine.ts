@@ -24,6 +24,7 @@ import { createHash } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { callSovereign } from '@/services/constitutional/modelRouter';
 import { discoverInvariant, addEdge } from '@/services/invariants/lifecycle';
+import { listEdgesForInvariants } from '@/services/invariants/store';
 import { similarity } from '@/services/invariants/comparison';
 import type { InvariantNamespace, InvariantSemanticType } from '@/types/invariants';
 
@@ -484,6 +485,59 @@ export interface ParentSuggestion {
 }
 
 /**
+ * Create `specializes` edges from a child invariant to each parent, idempotently
+ * (skips parents already linked and self-loops). A graph, not a tree — multiple
+ * parents allowed. Edge failures only log; they never throw. Shared by promotion
+ * (new invariants) and retro-linking (already-promoted invariants).
+ */
+async function createSpecializesEdges(childInvariantId: string, parentIds: string[], rationale: string): Promise<number> {
+  const uniqueParents = [...new Set(parentIds)].filter((id) => id && id !== childInvariantId);
+  if (uniqueParents.length === 0) return 0;
+  let existing = new Set<string>();
+  try {
+    const edges = await listEdgesForInvariants([childInvariantId], 'out', ['specializes']);
+    existing = new Set(edges.map((e) => e.toInvariantId));
+  } catch { /* best-effort dedup — proceed without it */ }
+  let linked = 0;
+  for (const parentId of uniqueParents) {
+    if (existing.has(parentId)) continue;
+    try {
+      await addEdge({ fromInvariantId: childInvariantId, toInvariantId: parentId, edgeType: 'specializes', rationale });
+      linked += 1;
+    } catch (edgeErr) {
+      console.error(`[CFS-048] specializes-edge failed ${childInvariantId}→${parentId}: ${edgeErr instanceof Error ? edgeErr.message : String(edgeErr)}`);
+    }
+  }
+  return linked;
+}
+
+/**
+ * Retro-link an ALREADY-PROMOTED sub-domain invariant to domain parents — for
+ * invariants promoted before parent-linking existed (Investment/Market Ops etc.).
+ * Same operator-confirmed contract; attaches `specializes` edges to the existing
+ * invariant without re-promoting. Idempotent.
+ */
+export async function linkPromotedParents(
+  admin: SupabaseClient,
+  candidateId: string,
+  parentInvariantIds: string[],
+): Promise<{ ok: true; linkedParents: number } | { ok: false; error: string }> {
+  const { data: c } = await admin
+    .from('discovery_candidates')
+    .select('domain, sub_domain, promoted_invariant_id, status')
+    .eq('id', candidateId)
+    .maybeSingle();
+  if (!c) return { ok: false, error: 'candidate not found' };
+  if (c.status !== 'promoted' || !c.promoted_invariant_id) return { ok: false, error: 'candidate is not promoted — nothing to link' };
+  const linked = await createSpecializesEdges(
+    String(c.promoted_invariant_id),
+    parentInvariantIds,
+    `CFS-048 retro-link: sub-domain invariant specializes domain invariant (${String(c.sub_domain ?? c.domain)})`,
+  );
+  return { ok: true, linkedParents: linked };
+}
+
+/**
  * Suggest parent domain invariants a sub-domain candidate could `specialize`
  * (Aletheon's keystone). Parents = already-promoted DOMAIN-level invariants in
  * the same domain (baseline or Compare-earned), ranked by statement similarity.
@@ -575,22 +629,13 @@ export async function promoteCandidate(
 
     // Parent-linking (Aletheon keystone): the promoted sub-domain invariant
     // `specializes` each operator-confirmed parent domain invariant, turning the
-    // registry into an ontology (a graph, not a tree — multiple parents allowed).
-    // Edge failures never fail the promotion (the invariant already exists).
-    let linkedParents = 0;
-    for (const parentId of [...new Set(parentInvariantIds)].filter((id) => id && id !== result.invariant.id)) {
-      try {
-        await addEdge({
-          fromInvariantId: result.invariant.id,
-          toInvariantId: parentId,
-          edgeType: 'specializes',
-          rationale: `CFS-048: sub-domain invariant specializes domain invariant (${String(c.sub_domain ?? c.domain)})`,
-        });
-        linkedParents += 1;
-      } catch (edgeErr) {
-        console.error(`[CFS-048] specializes-edge failed ${result.invariant.id}→${parentId}: ${edgeErr instanceof Error ? edgeErr.message : String(edgeErr)}`);
-      }
-    }
+    // registry into an ontology (a graph, not a tree). Edge failures never fail
+    // the promotion (the invariant already exists).
+    const linkedParents = await createSpecializesEdges(
+      result.invariant.id,
+      parentInvariantIds,
+      `CFS-048: sub-domain invariant specializes domain invariant (${String(c.sub_domain ?? c.domain)})`,
+    );
     return { ok: true, invariantId: result.invariant.id, linkedParents };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'promotion failed' };
