@@ -33,6 +33,11 @@ export type EvidenceKind =
 /** The scope ladder (CFS-048 Phase 1a). "field" is reserved for the abstract
  *  invariant field — the industry axis is `domain`, areas beneath are sub-domains. */
 export type DiscoveryScopeLevel = 'domain' | 'sub-domain' | 'capability';
+/** How a Compare output relates to the domain baseline (Aletheon 2026-07-20):
+ *  supported = recurs across ≥2 sub-domains; specialized = one branch only;
+ *  split = one baseline invariant that is really several; novel = absent from
+ *  the baseline, discovered independently across sub-domains. */
+export type CompareClassification = 'supported' | 'specialized' | 'split' | 'novel';
 /** Constitutional-abstraction ladder: L0 verbatim · L1 summary · L2 cross-
  *  regulation · L3 domain-constitutional · L4 domain-independent. Discovery
  *  targets L2-L3; L4 is discovered later by cross-domain comparison. */
@@ -72,6 +77,11 @@ export interface CandidateRow {
   status: 'candidate' | 'promoted' | 'rejected';
   promotedInvariantId: string | null;
   createdAt: string;
+  /** 'compare' = emerged from cross-sub-domain compression, not direct extraction. */
+  stage: 'constitutional' | 'compare';
+  classification: CompareClassification | null;
+  /** Sub-domains that manifest a Compare output (its coverage). */
+  coverage: string[] | null;
   /** Enriched at read time (route/service), not stored. */
   convergence?: ConvergenceInfo;
 }
@@ -319,6 +329,140 @@ export function enrichConvergence(candidates: CandidateRow[], evidence: Evidence
   return candidates.map((c) => ({ ...c, convergence: computeConvergence(c.evidenceIds, evidence) }));
 }
 
+// ── Cross-sub-domain Compare (CFS-048 Phase 2 — earned domain invariants) ─────
+
+const COMPARE_SYSTEM = `You are the Compare stage of an Invariant Discovery Engine. You are given the candidate
+invariants independently discovered for SEVERAL SUB-DOMAINS of one domain, plus the domain's provisional
+BASELINE hypotheses. Your job is COMPRESSION, not merging text: find the same governing invariant
+manifesting across sub-domains and compress each cluster into ONE domain-level invariant.
+
+Method:
+- Cluster manifestations that express the SAME underlying invariant across sub-domains (e.g. "verifiable
+  accountability" (payments) + "transaction accountability" (banking) + "market transparency" (trading)
+  → one accountability invariant).
+- REWRITE UPWARD into invariant form — a timeless governing principle, NOT a policy statement.
+  Bad: "Trading activities must ensure transparency." Good: "Traceability enables accountability."
+- Classify each compressed candidate against the baseline:
+    supported    — recurs INDEPENDENTLY across ≥2 sub-domains (list them in coverage)
+    specialized  — appears in only ONE sub-domain (belongs lower in the hierarchy)
+    split        — a single baseline hypothesis that actually contains two distinct invariants
+    novel        — recurs across sub-domains but is ABSENT from the baseline (the most valuable)
+- coverage = the exact sub-domain names (from the input) that manifest this invariant.
+- Do NOT invent invariants unsupported by the sub-domain candidates. Compress what is there.
+- The baseline hypotheses are NOT ground truth — they may be supported, split, specialized, or found
+  incomplete. Treat them as hypotheses to test against the accumulated sub-domain evidence.
+
+Output STRICT JSON: {"candidates":[{"statement":"<invariant form>","rationale":"which manifestations compress into this and how","classification":"supported|specialized|split|novel","coverage":["<sub-domain>",...],"abstractionLevel":"L3"|"L4"}]}`;
+
+interface CompareExtraction {
+  candidates: { statement: string; rationale?: string; classification?: string; coverage?: string[]; abstractionLevel?: string }[];
+}
+
+/**
+ * Compare the independently-discovered sub-domain candidate sets of a domain and
+ * compress recurrence into EARNED domain-level invariants (Aletheon 2026-07-20).
+ * The original domain baseline is passed as provisional hypotheses to test, not
+ * truth. Compare outputs persist as domain-scoped candidates tagged
+ * provenance.stage='compare' with their classification + coverage; confidence is
+ * driven by INDEPENDENT RECURRENCE (coverage breadth), not model self-report.
+ */
+export async function compareSubDomains(
+  admin: SupabaseClient,
+  domain: string,
+): Promise<{ ok: true; candidates: CandidateRow[]; comparedSubDomains: string[] } | { ok: false; error: string }> {
+  // Gather open sub-domain candidates for the domain, grouped by sub-domain.
+  const { data: subData, error: subErr } = await admin
+    .from('discovery_candidates')
+    .select('*')
+    .eq('domain', domain)
+    .eq('status', 'candidate')
+    .not('sub_domain', 'is', null);
+  if (subErr) return { ok: false, error: subErr.message };
+  const subRows = (subData ?? []).map(toCandidateRow);
+  const bySub = new Map<string, CandidateRow[]>();
+  for (const r of subRows) {
+    if (!r.subDomain) continue;
+    const arr = bySub.get(r.subDomain) ?? [];
+    arr.push(r);
+    bySub.set(r.subDomain, arr);
+  }
+  const comparedSubDomains = [...bySub.keys()];
+  if (comparedSubDomains.length < 2) {
+    return { ok: false, error: 'Compare needs candidates in at least 2 sub-domains — run more sub-domain discovery first.' };
+  }
+
+  // Baseline = the domain's provisional hypotheses (direct-extraction, not compare).
+  const { data: baseData } = await admin
+    .from('discovery_candidates')
+    .select('*')
+    .eq('domain', domain)
+    .is('sub_domain', null)
+    .eq('status', 'candidate');
+  const baseline = (baseData ?? []).map(toCandidateRow).filter((c) => c.stage !== 'compare');
+
+  const subBlock = comparedSubDomains
+    .map((sd) => `SUB-DOMAIN "${sd}":\n` + bySub.get(sd)!.slice(0, 8).map((c) => `- ${c.statement}`).join('\n'))
+    .join('\n\n');
+  const baseBlock = baseline.length
+    ? `PROVISIONAL DOMAIN BASELINE (hypotheses to test):\n${baseline.slice(0, 12).map((c) => `- ${c.statement}`).join('\n')}`
+    : 'PROVISIONAL DOMAIN BASELINE: (none yet)';
+  const user = `DOMAIN: ${domain}\n\n${subBlock}\n\n${baseBlock}`;
+
+  let parsed: CompareExtraction;
+  let governing: string[] = [];
+  try {
+    const call = await callSovereign('analysis', COMPARE_SYSTEM, user, 2200, 0);
+    governing = call.governingInvariants ?? [];
+    parsed = JSON.parse(extractJson(call.text)) as CompareExtraction;
+  } catch (e) {
+    return { ok: false, error: `compare inference failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  const raw = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
+  const rows = raw
+    .filter((c) => c && typeof c.statement === 'string' && c.statement.trim())
+    .slice(0, 16)
+    .map((c) => {
+      const coverage = (Array.isArray(c.coverage) ? c.coverage : []).filter((s) => comparedSubDomains.includes(s));
+      const classification: CompareClassification =
+        ['supported', 'specialized', 'split', 'novel'].includes(String(c.classification))
+          ? (c.classification as CompareClassification)
+          : coverage.length >= 2 ? 'supported' : 'specialized';
+      // Confidence from INDEPENDENT RECURRENCE (coverage breadth), not self-report.
+      const cov = coverage.length || 1;
+      const confidence = Math.min(0.97, 0.55 + 0.1 * cov);
+      // Union of evidence across the contributing sub-domains → convergence still meaningful.
+      const contributing = subRows.filter((r) => r.subDomain && coverage.includes(r.subDomain));
+      const evidenceIds = [...new Set(contributing.flatMap((r) => r.evidenceIds))];
+      return {
+        domain,
+        sub_domain: null,
+        scope_level: 'domain' as const,
+        abstraction_level: normalizeAbstraction(c.abstractionLevel) ?? 'L3',
+        discovery_class: 'constitutional' as const,
+        statement: c.statement.trim(),
+        rationale: (c.rationale ?? '').trim(),
+        evidence_ids: evidenceIds,
+        confidence,
+        discovery_provenance: {
+          stage: 'compare',
+          classification,
+          coverage,
+          contributingCandidateIds: contributing.map((r) => r.id),
+          comparedSubDomains,
+          governingInvariants: governing,
+        },
+      };
+    });
+  if (rows.length === 0) return { ok: true, candidates: [], comparedSubDomains };
+
+  const { data, error } = await admin.from('discovery_candidates').insert(rows).select('*');
+  if (error) return { ok: false, error: error.message };
+  const inserted = (data ?? []).map(toCandidateRow);
+  // Convergence over the domain's whole evidence corpus.
+  const evidence = await listEvidence(admin, domain);
+  return { ok: true, candidates: enrichConvergence(inserted, evidence), comparedSubDomains };
+}
+
 // ── Stage 5 · Promotion into the canonical lifecycle (lands at `proposed`) ──
 
 /**
@@ -401,6 +545,7 @@ export async function rejectCandidate(admin: SupabaseClient, candidateId: string
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 function toCandidateRow(r: Record<string, unknown>): CandidateRow {
+  const prov = (r.discovery_provenance ?? {}) as Record<string, unknown>;
   return {
     id: String(r.id), domain: String(r.domain),
     subDomain: (r.sub_domain as string | null) ?? null,
@@ -413,6 +558,10 @@ function toCandidateRow(r: Record<string, unknown>): CandidateRow {
     status: String(r.status) as CandidateRow['status'],
     promotedInvariantId: (r.promoted_invariant_id as string | null) ?? null,
     createdAt: String(r.created_at),
+    stage: prov.stage === 'compare' ? 'compare' : 'constitutional',
+    classification: (['supported', 'specialized', 'split', 'novel'].includes(String(prov.classification))
+      ? (prov.classification as CompareClassification) : null),
+    coverage: Array.isArray(prov.coverage) ? (prov.coverage as string[]) : null,
   };
 }
 

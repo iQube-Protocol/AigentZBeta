@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, Sparkles, Check, X, FileText, Layers, Star } from "lucide-react";
+import { Loader2, Plus, Sparkles, Check, X, FileText, Layers, Star, GitCompare } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 
 interface Evidence {
@@ -25,6 +25,7 @@ interface Evidence {
   sourceKind: string; content: string; sourceRef: string | null; createdAt: string;
 }
 interface Convergence { supportCount: number; frameworks: string[]; tier: "single" | "strong" | "broad" }
+type Classification = "supported" | "specialized" | "split" | "novel";
 interface Candidate {
   id: string; domain: string; subDomain: string | null;
   scopeLevel: "domain" | "sub-domain" | "capability";
@@ -33,8 +34,18 @@ interface Candidate {
   rationale: string; evidenceIds: string[]; confidence: number;
   status: "candidate" | "promoted" | "rejected"; promotedInvariantId: string | null;
   createdAt: string; convergence?: Convergence;
+  stage?: "constitutional" | "compare";
+  classification?: Classification | null;
+  coverage?: string[] | null;
 }
 interface Preset { value: string; label: string }
+
+const CLASSIFICATION_META: Record<Classification, { label: string; cls: string }> = {
+  supported: { label: "Supported", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
+  novel: { label: "Novel", cls: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
+  specialized: { label: "Specialized", cls: "border-sky-500/40 bg-sky-500/10 text-sky-300" },
+  split: { label: "Split", cls: "border-violet-500/40 bg-violet-500/10 text-violet-300" },
+};
 
 const SOURCE_KINDS = ["legislation", "regulation", "compliance", "standard", "contract", "policy", "other"];
 
@@ -116,6 +127,17 @@ export default function InvariantDiscoveryTab() {
     if (r) { setNotice(`✓ Discovery run (${scopeLabel}) — ${(r.candidates ?? []).length} candidate(s) proposed`); await load(); }
   }, [post, load, subDomain, scopeLabel]);
 
+  // Phase 2: compress the independently-discovered sub-domain candidate sets into
+  // EARNED domain-level invariants (runs at the domain-baseline scope).
+  const compare = useCallback(async () => {
+    setSubDomain(""); // compare outputs land at the domain baseline
+    const r = await post({ action: "compare" }, "compare");
+    if (r) {
+      setNotice(`✓ Compared ${(r.comparedSubDomains ?? []).length} sub-domains → ${(r.candidates ?? []).length} domain candidate(s) (supported / specialized / split / novel)`);
+      await load();
+    }
+  }, [post, load]);
+
   const promote = useCallback(async (id: string) => {
     const r = await post({ action: "promote", candidateId: id }, `promote-${id}`);
     if (r) { setNotice(`✓ Promoted → proposed in the registry (validation next)`); await load(); }
@@ -170,6 +192,13 @@ export default function InvariantDiscoveryTab() {
           <h4 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200"><FileText className="h-4 w-4 text-slate-400" /> Evidence <span className="text-slate-500">({evidence.length})</span></h4>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowAdd((s) => !s)} className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"><Plus className="h-3 w-3" /> Add evidence</button>
+            {!subDomain && (
+              <button onClick={() => void compare()} disabled={busy !== null}
+                title="Compress the independently-discovered sub-domain candidates into earned domain-level invariants"
+                className="inline-flex items-center gap-1.5 rounded-md border border-fuchsia-500/40 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-200 hover:bg-fuchsia-500/20 disabled:opacity-50">
+                {busy === "compare" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitCompare className="h-3.5 w-3.5" />} Compare sub-domains
+              </button>
+            )}
             <button onClick={() => void extract()} disabled={busy !== null || evidence.length === 0}
               className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
               {busy === "extract" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Discover {subDomain ? `${scopeLabel} ` : ""}invariants
@@ -224,7 +253,10 @@ export default function InvariantDiscoveryTab() {
 
       {/* Stages 2-3 — Candidate Explorer */}
       <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
-        <h4 className="text-sm font-semibold text-slate-200">Candidate invariants <span className="text-slate-500">({open.length} awaiting review · {scopeLabel})</span></h4>
+        <h4 className="text-sm font-semibold text-slate-200">
+          {subDomain ? "Sub-domain invariant candidates" : "Domain invariant candidates"}
+          <span className="text-slate-500"> ({open.length} awaiting review · {scopeLabel})</span>
+        </h4>
         {open.length === 0 ? (
           <p className="text-xs text-slate-500 italic">No open candidates in scope. Add evidence and run discovery.</p>
         ) : (
@@ -232,17 +264,29 @@ export default function InvariantDiscoveryTab() {
             {open.map((c) => {
               const abs = c.abstractionLevel ? ABSTRACTION_META[c.abstractionLevel] : null;
               const cv = c.convergence;
+              const cls = c.stage === "compare" && c.classification ? CLASSIFICATION_META[c.classification] : null;
+              const frameworkLabel = cv
+                ? (cv.frameworks.length > 0 && cv.frameworks.length <= 3
+                    ? cv.frameworks.join(" · ")
+                    : `${cv.supportCount} framework${cv.supportCount === 1 ? "" : "s"}`)
+                : null;
               return (
-                <div key={c.id} className="rounded-md border border-violet-500/20 bg-violet-500/5 p-2.5 space-y-1">
+                <div key={c.id} className={`rounded-md border p-2.5 space-y-1 ${c.stage === "compare" ? "border-fuchsia-500/30 bg-fuchsia-500/5" : "border-violet-500/20 bg-violet-500/5"}`}>
                   <p className="text-sm text-slate-100">{c.statement}</p>
                   {c.rationale && <p className="text-[11px] text-slate-400">{c.rationale}</p>}
                   <div className="flex flex-wrap items-center gap-2 pt-0.5">
                     <span className="text-[10px] text-slate-500">confidence {Math.round(c.confidence * 100)}% · {c.evidenceIds.length} evidence · {c.discoveryClass}</span>
+                    {cls && <span className={`rounded-full border px-1.5 py-0.5 text-[9px] ${cls.cls}`}>{cls.label}</span>}
+                    {c.stage === "compare" && Array.isArray(c.coverage) && c.coverage.length > 0 && (
+                      <span title={c.coverage.join(" · ")} className="rounded-full border border-fuchsia-500/30 px-1.5 py-0.5 text-[9px] text-fuchsia-300/90">
+                        {c.coverage.length} sub-domain{c.coverage.length === 1 ? "" : "s"}
+                      </span>
+                    )}
                     {abs && <span className={`rounded-full border px-1.5 py-0.5 text-[9px] ${abs.cls}`}>{abs.label}</span>}
                     {cv && (
                       <span title={cv.frameworks.join(" · ") || "no linked sources"}
                         className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] ${CONVERGENCE_META[cv.tier]}`}>
-                        <Star className="h-2.5 w-2.5" /> {cv.supportCount} framework{cv.supportCount === 1 ? "" : "s"}
+                        <Star className="h-2.5 w-2.5" /> {frameworkLabel}
                       </span>
                     )}
                     <span className="flex-1" />

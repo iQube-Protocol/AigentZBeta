@@ -21,6 +21,7 @@ import {
   listEvidence,
   listCandidates,
   runConstitutionalDiscovery,
+  compareSubDomains,
   promoteCandidate,
   rejectCandidate,
   type EvidenceKind,
@@ -104,6 +105,11 @@ export async function POST(req: NextRequest) {
     }
     case 'extract': {
       const r = await runConstitutionalDiscovery(admin, domain, { subDomain });
+      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
+    case 'compare': {
+      // Cross-sub-domain compression → earned domain-level candidates (Phase 2).
+      const r = await compareSubDomains(admin, domain);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     case 'promote': {

@@ -5061,6 +5061,34 @@
       "provenance": {
         "source": "CFS-048 Phase 1a — K*_domain framing, instance of IRL-011 §6.3 / P5 (operator + Aletheon 2026-07-20)"
       }
+    },
+    {
+      "id": "inv.reasoning.344",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "discovery",
+        "epistemology"
+      ],
+      "statement": "A domain-level invariant is earned by cross-sub-domain compression: its support is the degree to which it recurs independently across sub-domains, not a model's self-reported confidence. The initial domain baseline is a provisional hypothesis set that later sub-domain evidence may support, split, specialize, or expose as incomplete.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Phase 2 Compare — earned domain invariants (operator + Aletheon 2026-07-20)"
+      }
+    },
+    {
+      "id": "inv.reasoning.345",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "discovery",
+        "reasoning-compression"
+      ],
+      "statement": "Invariant discovery is recursive compression: evidence to domain invariants, domain to cross-domain invariants, and cross-domain to constitutional invariants are distinct compression operations at rising abstraction. Higher-order invariants are earned through repeated independent discovery and comparison, never presupposed a priori.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Phase 2 Compare — recursive-compression methodology (operator + Aletheon 2026-07-20)"
+      }
     }
   ]
 }
