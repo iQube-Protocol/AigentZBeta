@@ -5370,11 +5370,17 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'BookOpen', description: 'The runtime-resolved constitutional vocabulary — one canon for every agent' },
     },
     // ── Publications ──────────────────────────────────────────────
+    // Records & Findings is INTERNAL-ONLY (operator direction 2026-07-20):
+    // it is the working record of every development decision — laboratory
+    // material, not public-domain publication. The internal metaMe IRL
+    // edition keeps its irl-records tab; the public IRL OS edition
+    // publishes only Reports + Canonical Plates (+ ratified protocols).
+    // Internal IRL = the laboratory; IRL OS = the publishing layer.
     {
       id: 'irl-os-records',
       label: 'Records & Findings',
       slug: 'irl-os-records',
-      enabled: true,
+      enabled: false,
       group: 'publications',
       order: 0,
       type: 'static',
@@ -5382,7 +5388,7 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
         component: 'AgentiqCartridgeTab',
         props: { packId: 'agentiq', collectionId: 'col_updates' },
       },
-      metadata: { icon: 'BookOpen', description: 'The constitutional record — every increment, finding, and session record (publication lineage)' },
+      metadata: { icon: 'BookOpen', description: 'INTERNAL — the constitutional record lives in the metaMe IRL edition only' },
     },
     {
       // Stage 3 of the report lifecycle — canonical reports an admin published.
