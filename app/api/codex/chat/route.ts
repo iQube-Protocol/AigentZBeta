@@ -1868,6 +1868,48 @@ This user is a story enthusiast interested in the metaKnyts universe.
 const KNYT_FOCUSED_AGENTS = new Set(['aigent-kn0w1', 'aigent-marketa']);
 
 /**
+ * Franchise-NEUTRAL role guidelines — for every persona outside
+ * KNYT_FOCUSED_AGENTS. The lore-flavoured getRoleGuidelines blocks name
+ * metaKnyts explicitly, and injecting them for every persona bled metaKnyts
+ * references into unrelated surfaces (the IRL research copilot described
+ * invariants "in the context of the metaKnyts universe" — operator report
+ * 2026-07-20). metaKnyts lore stays confined to the KNYT cartridge agents
+ * or explicit user enquiries; it is never ambient system-prompt material.
+ */
+function getNeutralRoleGuidelines(role: UserRole): string {
+  switch (role) {
+    case 'investor':
+      return `
+## User Context: INVESTOR
+This user is business/value-focused.
+- Be professional and data-oriented; surface economics only when relevant to their question`;
+    case 'creative':
+      return `
+## User Context: CREATIVE
+This user is a creator.
+- Be inspiring and concrete; focus on the tools and content of the CURRENT cartridge`;
+    case 'developer':
+      return `
+## User Context: DEVELOPER
+This user is a technical builder.
+- Be precise and technical; ground answers in this platform's actual architecture`;
+    case 'entrepreneur':
+      return `
+## User Context: ENTREPRENEUR
+This user is business-focused.
+- Be professional and opportunity-focused within the current cartridge's scope`;
+    case 'fan':
+    default:
+      return `
+## User Context: PARTICIPANT
+This user is engaging with the current cartridge's content.
+- Answer within THIS cartridge's domain. Do not import lore, characters, or
+  framing from other cartridges (e.g. metaKnyts/KNYT) unless the user
+  explicitly asks about them`;
+  }
+}
+
+/**
  * Load the metaMe cartridge state for a persona so aigentMe can answer
  * inside the user's actual workstream context. Reads ExperienceQube.meta
  * (experience name / type, primary goal, current stage, active cartridges)
@@ -1955,8 +1997,13 @@ function buildSystemPrompt(
     personas['aigent-kn0w1'];
   const personaIntro = personaConfig.systemPrompt;
 
-  // Get role-specific guidelines
-  const roleGuidelines = userContext ? getRoleGuidelines(userContext.primaryRole) : getRoleGuidelines('fan');
+  // Get role-specific guidelines. Lore-flavoured blocks (which name
+  // metaKnyts) are KNYT-cartridge material — only KNYT-focused agents get
+  // them. Every other persona gets franchise-neutral guidelines so KNYT
+  // lore never bleeds into IRL / metaMe / studio inference (2026-07-20).
+  const roleGuidelines = KNYT_FOCUSED_AGENTS.has(resolvedPersonaId)
+    ? (userContext ? getRoleGuidelines(userContext.primaryRole) : getRoleGuidelines('fan'))
+    : getNeutralRoleGuidelines(userContext?.primaryRole ?? 'fan');
 
   // Build metaMe policy block when settings are present
   const policyLines: string[] = [];
