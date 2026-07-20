@@ -75,6 +75,29 @@ frontend:
         - echo "Patching standalone server.js to load dotenv at runtime..."
         - node scripts/patch-standalone-dotenv.js
 
+        # Amplify Hosting SSR compute has a HARD 220 MB (230686720 byte)
+        # uncompressed bundle limit — not an app-configurable quota (AWS docs +
+        # aws-amplify/amplify-hosting#3841/#3863/#3647/#3699/#3980 confirm the
+        # same literal byte value is a platform ceiling). Next's file tracing
+        # conservatively bundles native binaries for platforms other than the
+        # one Amplify's Lambda actually runs (linux x64 glibc) into
+        # .next/standalone/node_modules. Deleting the non-runtime platform
+        # variants AFTER build, directly on the packaged filesystem, is AWS's
+        # own documented remedy for this error (troubleshooting-ssr-deployment)
+        # and — unlike next.config.js outputFileTracingExcludes on a per-route
+        # key — is not subject to any cross-route include/dedupe semantics:
+        # bytes removed here are gone from the artifact, full stop.
+        - echo "=== .next/standalone size BEFORE native-binary cleanup ==="
+        - du -sh .next/standalone 2>/dev/null || true
+        - echo "Removing non-linux-x64-gnu native binaries (build-only; unused at Amplify SSR runtime)..."
+        - find .next/standalone/node_modules/@next -maxdepth 1 -type d -name "swc-*" ! -name "swc-linux-x64-gnu" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@swc -maxdepth 1 -type d -name "core-*" ! -name "core-linux-x64-gnu" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@esbuild -maxdepth 1 -type d ! -name "linux-x64" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@img -maxdepth 1 -type d \( -name "sharp-*" -o -name "*-libvips-*" \) ! -name "sharp-linux-x64" ! -name "sharp-libvips-linux-x64" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@napi-rs -maxdepth 1 -type d -name "canvas-*" ! -name "canvas-linux-x64-gnu" -exec rm -rf {} + 2>/dev/null || true
+        - echo "=== .next/standalone size AFTER native-binary cleanup ==="
+        - du -sh .next/standalone 2>/dev/null || true
+
   artifacts:
     baseDirectory: .next
     files:
