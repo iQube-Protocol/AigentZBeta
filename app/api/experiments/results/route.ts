@@ -27,7 +27,16 @@ import { listPublishedExperimentResults } from '@/services/research/publicReads'
 
 export const dynamic = 'force-dynamic';
 
-const EXPERIMENTS = ['EXP-001', 'EXP-002', 'EXP-003', 'EXP-004', 'EXP-P1', 'EXP-P2', 'EXP-P3', 'IRV-001', 'IPV-001'] as const;
+// Every experiment the lab can RUN must be publishable — otherwise a completed
+// run has no way to save and is lost on navigation (operator report 2026-07-20:
+// EXP-005/006 posted here and 400'd because they were missing). Keep this in
+// step with the runnable set + ASSIGNABLE_EXPERIMENTS (participationAccess.ts);
+// 007/008 are design-stage but allowlisted so their runners save the moment
+// they ship.
+const EXPERIMENTS = [
+  'EXP-001', 'EXP-002', 'EXP-003', 'EXP-004', 'EXP-005', 'EXP-006', 'EXP-007', 'EXP-008',
+  'EXP-P1', 'EXP-P2', 'EXP-P3', 'IRV-001', 'IPV-001',
+] as const;
 
 export async function GET(request: NextRequest) {
   const persona = await getActivePersona(request);
