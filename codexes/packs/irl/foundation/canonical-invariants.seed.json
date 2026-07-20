@@ -4922,6 +4922,89 @@
       "provenance": {
         "source": "Operator ratification 2026-07-20 — DidQube three-class model (observer/spine alignment session)"
       }
+    },
+    {
+      "id": "inv.reasoning.334",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "epistemics",
+        "discovery"
+      ],
+      "statement": "Invariants are discovered from evidence, not generated. The discovery engine proposes candidate invariants; it never asserts truth. Discovery, not invention.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Invariant Discovery Engine charter — operator + Aletheon ratification 2026-07-20"
+      }
+    },
+    {
+      "id": "inv.reasoning.335",
+      "namespace": "reasoning",
+      "semantic_type": "constraint",
+      "contexts": [
+        "discovery",
+        "provenance"
+      ],
+      "statement": "Evidence-first provenance: no candidate invariant exists without traceable provenance to at least one evidence source.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Invariant Discovery Engine charter — operator + Aletheon ratification 2026-07-20"
+      }
+    },
+    {
+      "id": "inv.reasoning.336",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "discovery",
+        "epistemics"
+      ],
+      "statement": "Invariant discovery is a reasoning-compression problem: the objective is the smallest reusable explanatory structure that accounts for recurring patterns across a domain, not document summarisation.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Invariant Discovery Engine charter — operator + Aletheon ratification 2026-07-20"
+      }
+    },
+    {
+      "id": "inv.reasoning.337",
+      "namespace": "reasoning",
+      "semantic_type": "law",
+      "contexts": [
+        "discovery",
+        "validation"
+      ],
+      "statement": "A candidate invariant remains proposed until the validation harness supports it; only validated candidates become canonical. Discovery never bypasses validation.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Invariant Discovery Engine charter — operator + Aletheon ratification 2026-07-20"
+      }
+    },
+    {
+      "id": "inv.reasoning.338",
+      "namespace": "reasoning",
+      "semantic_type": "definition",
+      "contexts": [
+        "discovery"
+      ],
+      "statement": "Invariants are discovered across three classes: constitutional (normative — obligations, rights, governance, compliance), structural (descriptive — conservation, dependency, sequencing, feedback), and experiential (elicited from practitioners). Each is subject to the same validation gate.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Invariant Discovery Engine charter — operator + Aletheon ratification 2026-07-20"
+      }
+    },
+    {
+      "id": "inv.reasoning.339",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "discovery",
+        "cybernetics"
+      ],
+      "statement": "The runtime is itself a discovery source: every execution generates evidence that can challenge, refine, or strengthen the invariant library, closing a self-improving discovery loop.",
+      "status": "canonical",
+      "provenance": {
+        "source": "CFS-048 Invariant Discovery Engine charter — operator + Aletheon ratification 2026-07-20"
+      }
     }
   ]
 }
