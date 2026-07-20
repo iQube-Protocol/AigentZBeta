@@ -147,6 +147,48 @@ export async function readActiveGrant(personaId: string): Promise<DelegationGran
   }
 }
 
+/**
+ * Durable "does this persona have an active delegation?" — for read-only
+ * observers (the accession progress bar, IRL welcome) that must reflect the
+ * SAME state the delegation GET route returns, WITHOUT the client having to
+ * supply a persona_id (which mismatched the server's active persona and left
+ * the Delegate step stuck; operator report 2026-07-20).
+ *
+ * Mirrors the delegation route's durable sources, minus the in-memory cache
+ * (server-only, unreachable here): the delegation_grants ledger first, then the
+ * orchestration_events fallback (latest z_delegated not superseded by a more
+ * recent control_returned_to_metame, and not past its TTL). Best-effort — any
+ * error reads as "no active delegation" rather than throwing.
+ */
+export async function hasActiveDelegation(personaId: string): Promise<boolean> {
+  if (!personaId) return false;
+  // 1. Durable ledger (the canonical rehydration source).
+  const grant = await readActiveGrant(personaId);
+  if (grant) return true;
+
+  // 2. orchestration_events fallback — the delegation POST always awaits a
+  //    z_delegated event, so this survives even when the ledger migration is
+  //    pending. Latest event of either type wins; a revoke supersedes a grant.
+  const admin = getSupabaseServer();
+  if (!admin) return false;
+  try {
+    const { data } = await admin
+      .from('orchestration_events')
+      .select('event_type, metadata, created_at')
+      .eq('active_cartridge', 'agentiq-os-cartridge')
+      .filter('metadata->>persona_id', 'eq', personaId)
+      .in('event_type', ['z_delegated', 'control_returned_to_metame'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data?.event_type !== 'z_delegated' || !data.metadata) return false;
+    const expiresAt = (data.metadata as Record<string, unknown>).expires_at;
+    return typeof expiresAt === 'string' && new Date(expiresAt) > new Date();
+  } catch {
+    return false;
+  }
+}
+
 /** Mark the persona's active grant revoked (user revoke / control return). */
 export async function revokeActiveGrant(personaId: string, reason: string): Promise<void> {
   const admin = getSupabaseServer();
