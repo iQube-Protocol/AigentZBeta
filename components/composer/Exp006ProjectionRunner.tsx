@@ -59,6 +59,20 @@ interface Graded {
   };
   [k: string]: unknown;
 }
+interface Topology {
+  available?: boolean;
+  reason?: string;
+  aggregate?: {
+    meanStructural?: number;
+    meanCausalCoverage?: number;
+    meanMinimality?: number;
+    meanProjectionFidelity?: number;
+    deltaClasses?: { abstraction?: number; omission?: number; redundant?: number };
+    graphConfirmedAbstractions?: number;
+    embeddingAbstractions?: number;
+  };
+  [k: string]: unknown;
+}
 
 const pct = (v: unknown) => (typeof v === "number" ? `${Math.round(v * 100)}%` : "—");
 
@@ -69,17 +83,21 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
   const [rows, setRows] = useState<DeltaRow[]>([]);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [graded, setGraded] = useState<Graded | null>(null);
+  const [topology, setTopology] = useState<Topology | null>(null);
   const [ranAt, setRanAt] = useState<string | null>(null);
 
   const run = async (withBaselines: boolean) => {
     setRunning(withBaselines ? "baselines" : "plain");
     setError(null);
     try {
-      const data = await experimentStep("/api/experiments/irl-exp001", withBaselines ? { baselines: true } : {});
+      // The embedding-heavy run computes baselines AND EXP-006A topology scoring
+      // in one pass (both need embeddings); the plain run stays lexical + graded.
+      const data = await experimentStep("/api/experiments/irl-exp001", withBaselines ? { baselines: true, topology: true } : {});
       setAggregate((data.aggregate as Aggregate) ?? null);
       setRows(((data.results as DeltaRow[]) ?? []).slice(0, 40));
       setComparison((data.comparison as Comparison) ?? null);
       setGraded((data.graded as Graded) ?? null);
+      setTopology((data.topology as Topology) ?? null);
       setRanAt((data.at as string) ?? new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "run failed");
@@ -122,7 +140,7 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
           className="inline-flex items-center gap-1.5 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-200 hover:bg-indigo-500/20 disabled:opacity-50"
         >
           {running === "baselines" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5" />}
-          {running === "baselines" ? "Running + baselines…" : "Run with baselines"}
+          {running === "baselines" ? "Running + baselines + topology…" : "Run with baselines + topology (EXP-006A)"}
         </button>
       </div>
 
@@ -188,6 +206,43 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
             gaps: {graded.aggregate.genuineMissingCount ?? 0} missing · {graded.aggregate.genuineRedundantCount ?? 0} redundant.
             Exact is the unaltered published baseline; semantic-equivalence + subsumption tiers are the documented next step.
           </div>
+        </div>
+      )}
+
+      {topology && (
+        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+          <div className="mb-2 text-xs font-semibold text-slate-200">EXP-006A — topology / abstraction-aware fidelity</div>
+          {topology.available === false ? (
+            <p className="text-[11px] text-amber-300/80">unavailable{topology.reason ? ` — ${topology.reason}` : ""} (needs an embedding provider)</p>
+          ) : topology.aggregate ? (
+            <>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  ["Projection fidelity", pct(topology.aggregate.meanProjectionFidelity)],
+                  ["Structural (lexical)", pct(topology.aggregate.meanStructural)],
+                  ["Causal coverage", pct(topology.aggregate.meanCausalCoverage)],
+                  ["Minimality", pct(topology.aggregate.meanMinimality)],
+                ].map(([k, v]) => (
+                  <div key={k} className="rounded-md bg-white/5 px-2.5 py-1.5">
+                    <div className="text-[10px] uppercase tracking-wide text-slate-500">{k}</div>
+                    <div className="text-sm font-semibold text-slate-100">{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-sky-300">
+                  {topology.aggregate.deltaClasses?.abstraction ?? 0} abstraction
+                  {" "}({topology.aggregate.graphConfirmedAbstractions ?? 0} graph-confirmed · {topology.aggregate.embeddingAbstractions ?? 0} embedding)
+                </span>
+                <span className="rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-rose-300">{topology.aggregate.deltaClasses?.omission ?? 0} omission</span>
+                <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-slate-400">{topology.aggregate.deltaClasses?.redundant ?? 0} redundant</span>
+              </div>
+              <div className="mt-2 text-[10px] text-slate-500">
+                Subsumption is graph-truth first (specializes/generalizes edges), embedding proxy where a label isn&apos;t a
+                registry node. Genuine gaps = omissions; abstraction deltas are same-family, different-level — not failures.
+              </div>
+            </>
+          ) : null}
         </div>
       )}
 
@@ -282,6 +337,7 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
             aggregate,
             rows,
             ...(graded ? { graded } : {}),
+            ...(topology ? { topology } : {}),
             ...(comparison ? { comparison } : {}),
             ranAt: ranAt ?? new Date().toISOString(),
           }}

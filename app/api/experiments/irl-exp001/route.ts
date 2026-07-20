@@ -28,6 +28,7 @@ import { runIrlExp001StageA } from '@/services/experiments/irlExp001';
 import { generateCandidateCIRS } from '@/services/experiments/cirsGenerator';
 import { runBaselines } from '@/services/experiments/exp006Baselines';
 import { gradeProjectionRun } from '@/services/experiments/gradedProjectionScore';
+import { scoreTopologyRun } from '@/services/experiments/topologyProjectionScore';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,9 +49,11 @@ export async function POST(request: NextRequest) {
   // random/keyword/semantic floor is only computed when requested, since the
   // semantic arm calls an embedding provider.
   let withBaselines = false;
+  let withTopology = false;
   try {
-    const body = (await request.json().catch(() => ({}))) as { baselines?: boolean };
+    const body = (await request.json().catch(() => ({}))) as { baselines?: boolean; topology?: boolean };
     withBaselines = body?.baselines === true;
+    withTopology = body?.topology === true;
   } catch { /* no body — plain run */ }
 
   try {
@@ -64,6 +67,10 @@ export async function POST(request: NextRequest) {
     // tier alongside it + the GENUINE deltas, so morphological/separator variants
     // (accessibility≈accessible, root_cause≈root-cause) stop being double-counted.
     const graded = gradeProjectionRun(results);
+    // EXP-006A (opt-in): topology/abstraction-aware scoring. The subsumption
+    // oracle is graph-first (specializes edges as ground truth), embedding proxy
+    // fallback. Embedding-heavy, so it rides with the same opt-in as baselines.
+    const topology = withTopology ? await scoreTopologyRun(results) : null;
     // Baselines run against the SAME CIRS so the comparison is exact. The
     // sovereign arm's summary is folded in for a side-by-side table.
     const comparison = withBaselines
@@ -87,6 +94,7 @@ export async function POST(request: NextRequest) {
       aggregate,
       results,
       graded,
+      topology,
       comparison,
     });
   } catch (err) {
