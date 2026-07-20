@@ -22,6 +22,18 @@ const nextConfig = {
   // those at runtime. If canvas/sharp ever fail at runtime with a "module not
   // found" for a platform binary, the runtime moved off glibc — revisit here.
   outputFileTracingExcludes: {
+    // The agentiq/updates changelog is 2.8 MB across 250+ CFS/PRD session
+    // docs and grows every deploy. It is traced into THREE Lambdas — both
+    // copilot chat routes (via the codexes/packs/agentiq/**/*.md include) AND
+    // /api/admin/registry/docs. Shipping the full change-log into the two
+    // size-capped copilot Lambdas is what re-tipped the output past the
+    // 230686720-byte cap (2026-07-20) — same class as the build_/COMMITS
+    // exclusion below. Drop it from the copilot chat routes ONLY: the copilot
+    // still grounds on the agentiq ITEMS (product knowledge); it just no
+    // longer searches the session change-log. The Updates tab keeps working —
+    // /api/admin/registry/docs still traces updates/**/*.md (not excluded here).
+    "/api/codex/chat": ["codexes/packs/agentiq/updates/**"],
+    "/api/codex/chat/aigentiq": ["codexes/packs/agentiq/updates/**"],
     "*": [
       // musl native binaries — Lambda is glibc, never loads these (~48 MB)
       "node_modules/@napi-rs/canvas-linux-x64-musl/**",
