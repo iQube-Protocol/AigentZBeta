@@ -68,6 +68,16 @@ interface SkillVideoPlayerProps {
    * unaffected.
    */
   onCompleted?: (info: { videoUrl: string }) => void;
+  /**
+   * Additive (Constitutional Video audio, 2026-07-19): a post-process applied
+   * to each generated segment URL BEFORE stitching — the constitutional-video
+   * runner uses it to mux a voiceover onto each silent clip via
+   * /api/skills/video/mux-audio. Receives the clip URL + its index, returns
+   * the processed URL. Omitted → segments stitch as-is (silent), unchanged.
+   */
+  segment_post_process?: (clipUrl: string, index: number) => Promise<string>;
+  /** Preserve the audio track through the stitch (voiced segments). Default false. */
+  preserveAudio?: boolean;
 }
 
 interface InvocationResult {
@@ -140,6 +150,10 @@ const SEGMENT_MAX_POLL_ATTEMPTS = 24; // ~6 min per clip
 export async function stitchHierarchical(
   urls: string[],
   experienceId: string | undefined,
+  // Additive (Constitutional Video audio, 2026-07-19): preserve the AAC track
+  // when the source clips are voiced segments. Default false — existing
+  // callers stitch silently, byte-identical.
+  preserveAudio = false,
 ): Promise<{ ok: boolean; video_url?: string; thumbnail_url?: string; error?: string }> {
   // Warm-up: resolve/download the ffmpeg binary server-side BEFORE the first
   // stitch pass, so the binary fetch doesn't eat into the stitch request's
@@ -151,7 +165,7 @@ export async function stitchHierarchical(
     const res = await fetch("/api/skills/video/stitch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clips, experience_id: experienceId || undefined }),
+      body: JSON.stringify({ clips, experience_id: experienceId || undefined, preserve_audio: preserveAudio }),
     })
       .then((r) => r.json())
       .catch(() => ({ ok: false, error: "Stitch request failed" }));
@@ -193,8 +207,10 @@ function segmentsForDuration(seconds: number): number {
   return Math.min(MAX_SEGMENTS, Math.ceil(n / SEGMENT_SECONDS));
 }
 
-/** Poll a single generation's status route until it yields a playable URL. */
-async function pollSegmentToUrl(
+/** Poll a single generation's status route until it yields a playable URL.
+ *  Exported so the constitutional-video runner can re-generate a single
+ *  segment (G6 per-segment operability) and resolve it to a URL. */
+export async function pollSegmentToUrl(
   genId: string,
   provider: "venice" | "openai",
   veniceModel: string | undefined,
@@ -237,6 +253,8 @@ export default function SkillVideoPlayer({
   initial_generation_id,
   initial_venice_model,
   segment_prompts,
+  segment_post_process,
+  preserveAudio = false,
   packet,
   experience,
   onCompleted,
@@ -345,7 +363,7 @@ export default function SkillVideoPlayer({
     setState("invoking");
     setStatusMessage("Stitching clips into the final video…");
     try {
-      const stitchRes = await stitchHierarchical(urls, experience_id);
+      const stitchRes = await stitchHierarchical(urls, experience_id, preserveAudio);
       if (!stitchRes.ok || !stitchRes.video_url) {
         throw new Error(stitchRes.error || "Failed to stitch clips into the final video");
       }
@@ -372,7 +390,7 @@ export default function SkillVideoPlayer({
       setResultSource("none");
       setStatusMessage(null);
     }
-  }, [experience_id, resolvedProvider]);
+  }, [experience_id, resolvedProvider, preserveAudio]);
 
   // Long-video path: generate `segments` clips (≤12s each) then stitch them.
   const invokeMultiSegment = useCallback(async (segments: number) => {
@@ -456,13 +474,30 @@ export default function SkillVideoPlayer({
 
       // 2. Resolve each segment to a completed URL (immediate or via polling).
       setStatusMessage(`Rendering ${segments} clips… this can take a few minutes.`);
-      const urls = await Promise.all(
+      let urls = await Promise.all(
         submits.map((s) =>
           s.video_url
             ? Promise.resolve(s.video_url as string)
             : pollSegmentToUrl(s.generation_id, s.provider || resolvedProvider, s.venice_model),
         ),
       );
+
+      // 2b. Per-segment post-process (Constitutional Video: mux voiceover onto
+      // each silent clip). Sequential so the mux route isn't hit N-at-once;
+      // additive — no-op when the prop is absent. A failed mux keeps the
+      // silent clip (honest degradation), never sinks the production.
+      if (segment_post_process) {
+        setStatusMessage(`Adding voiceover to ${segments} clips…`);
+        const processed: string[] = [];
+        for (let i = 0; i < urls.length; i += 1) {
+          try {
+            processed.push(await segment_post_process(urls[i], i));
+          } catch {
+            processed.push(urls[i]);
+          }
+        }
+        urls = processed;
+      }
 
       // 3. Stitch the clips into one file. >3 clips (e.g. a 48s/4-segment
       // production) is stitched hierarchically since /api/skills/video/stitch
@@ -481,7 +516,7 @@ export default function SkillVideoPlayer({
       setResultSource("none");
       setStatusMessage(null);
     }
-  }, [skill_id, prompt, segment_prompts, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, resolvedProvider, stitchAndFinish]);
+  }, [skill_id, prompt, segment_prompts, segment_post_process, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model, resolvedProvider, stitchAndFinish]);
 
   const invoke = useCallback(async () => {
     if (!skill_id) return;

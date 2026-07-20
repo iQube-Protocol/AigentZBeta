@@ -137,6 +137,11 @@ export async function POST(request: NextRequest) {
     const clips: unknown = body?.clips;
     const experienceId: string | null =
       typeof body?.experience_id === "string" ? body.experience_id : null;
+    // Additive (Constitutional Video audio, 2026-07-19): when the source clips
+    // carry a uniform AAC track (from the per-segment mux-audio route),
+    // preserve it through the stitch. Default false — existing callers
+    // (video-article etc.) keep the silent, byte-identical behaviour.
+    const preserveAudio: boolean = body?.preserve_audio === true;
 
     if (!Array.isArray(clips) || clips.some((c) => typeof c !== "string" || !c.trim())) {
       return NextResponse.json(
@@ -199,8 +204,11 @@ export async function POST(request: NextRequest) {
         outputPath,
       ]);
     } catch (copyErr) {
-      // Fallback: re-encode into a uniform H.264 stream. AI clips are silent,
-      // so we drop audio (-an) to avoid concat failures on missing audio tracks.
+      // Fallback: re-encode into a uniform H.264 stream. By default AI clips
+      // are silent, so we drop audio (-an) to avoid concat failures on missing
+      // audio tracks. When preserve_audio is set (constitutional-video voiced
+      // segments, which all carry a uniform AAC track from the mux route),
+      // re-encode audio to AAC instead of dropping it.
       console.warn(
         "[VideoStitch] stream-copy concat failed, re-encoding:",
         copyErr instanceof Error ? copyErr.message : copyErr,
@@ -213,7 +221,7 @@ export async function POST(request: NextRequest) {
         "-preset", "veryfast",
         "-crf", "20",
         "-pix_fmt", "yuv420p",
-        "-an",
+        ...(preserveAudio ? ["-c:a", "aac", "-ar", "44100"] : ["-an"]),
         "-movflags", "+faststart",
         "-y",
         outputPath,
