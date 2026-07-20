@@ -44,22 +44,58 @@ describe('EXP-005 provider-choice drill', () => {
     expect(EXP005_MIN_PROVIDERS).toBe(2);
   });
 
-  it('switchIntegrity: constitutional failure iff a task did not complete', () => {
+  it('switchIntegrity: a clean multi-provider run HOLDS; the ONLY failure is a constitutional defect', () => {
     const ok: Exp005TaskResult[] = [
-      { taskId: 't1', answerProvider: 'openai', judgeProvider: 'venice', completed: true },
-      { taskId: 't2', answerProvider: 'venice', judgeProvider: 'openai', completed: true },
+      { taskId: 't1', answerProvider: 'openai', judgeProvider: 'venice', outcome: 'completed', contradicting: 0 },
+      { taskId: 't2', answerProvider: 'venice', judgeProvider: 'openai', outcome: 'completed', contradicting: 0 },
     ];
     const good = exp005SwitchIntegrity(ok);
+    expect(good.verdict).toBe('held');
     expect(good.constitutionalFailures).toBe(0);
+    expect(good.constitutionalPortability).toBe('held');
     expect(good.completedAcrossProviders).toBe(true);
     expect(good.crossJudgePairs).toHaveLength(2);
 
-    const bad = exp005SwitchIntegrity([
-      ...ok,
-      { taskId: 't3', answerProvider: 'chaingpt', judgeProvider: null, completed: false },
+    // A reached+judged answer that contradicts the collection = the ONLY thing
+    // that counts against switch integrity → verdict constitutional_failure.
+    const defect = exp005SwitchIntegrity([
+      { taskId: 't1', answerProvider: 'openai', judgeProvider: 'venice', outcome: 'completed', contradicting: 0 },
+      { taskId: 't2', answerProvider: 'venice', judgeProvider: 'chaingpt', outcome: 'constitutionally_failed', contradicting: 5 },
     ]);
-    expect(bad.constitutionalFailures).toBe(1);
-    expect(bad.completedAcrossProviders).toBe(false);
+    expect(defect.constitutionalFailures).toBe(1);
+    expect(defect.verdict).toBe('constitutional_failure');
+    expect(defect.constitutionalPortability).toBe('broken');
+  });
+
+  it('switchIntegrity: timeout / provider_unavailable / judge_failed are infra classes — NOT constitutional failures; run is inconclusive', () => {
+    const s = exp005SwitchIntegrity([
+      { taskId: 't1', answerProvider: 'openai', judgeProvider: 'venice', outcome: 'completed', contradicting: 0 },
+      { taskId: 't2', answerProvider: 'venice', judgeProvider: 'chaingpt', outcome: 'timed_out' },
+      { taskId: 't3', answerProvider: 'chaingpt', judgeProvider: 'openai', outcome: 'provider_unavailable' },
+      { taskId: 't4', answerProvider: 'openai', judgeProvider: 'venice', outcome: 'judge_failed' },
+    ]);
+    expect(s.constitutionalFailures).toBe(0);
+    expect(s.timedOut).toBe(1);
+    expect(s.providerUnavailable).toBe(1);
+    expect(s.judgeFailed).toBe(1);
+    expect(s.verdict).toBe('inconclusive');
+    expect(s.providersUnavailable).toEqual(['venice', 'chaingpt']);
+  });
+
+  it('operationalViability: a provider can be viable JUDGING but not ANSWERING (the venice signature)', () => {
+    // venice times out as an answerer twice, but judges fine — two independent axes.
+    const s = exp005SwitchIntegrity([
+      { taskId: 't1', answerProvider: 'openai', judgeProvider: 'venice', outcome: 'completed', contradicting: 0 },
+      { taskId: 't2', answerProvider: 'venice', judgeProvider: 'chaingpt', outcome: 'timed_out' },
+      { taskId: 't3', answerProvider: 'chaingpt', judgeProvider: 'openai', outcome: 'completed', contradicting: 0 },
+      { taskId: 't4', answerProvider: 'openai', judgeProvider: 'venice', outcome: 'completed', contradicting: 0 },
+      { taskId: 't5', answerProvider: 'venice', judgeProvider: 'chaingpt', outcome: 'timed_out' },
+    ]);
+    expect(s.operationalViability.venice.answerViable).toBe(false); // timed out answering
+    expect(s.operationalViability.venice.judgeViable).toBe(true); // judged fine
+    // No constitutional defect among the completed tasks → portability not broken.
+    expect(s.constitutionalFailures).toBe(0);
+    expect(s.verdict).toBe('inconclusive'); // infra timeouts prevented a full clean sweep
   });
 
   it('bundle components + rung: pinned set on completion, nothing on failure', () => {
