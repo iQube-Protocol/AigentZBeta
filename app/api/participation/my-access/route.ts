@@ -37,10 +37,17 @@ export const dynamic = 'force-dynamic';
  *     verification). Held by the PERSON: observed across the kybe chain
  *     (root_identity → did_persona) AND the person's spine personas (legacy
  *     persona_id-keyed records) — see services/identity/personhoodResolver.
- *   - ACCESS — issued "to the person via their persona/passport" (migration
- *     20260725000000's contract) → observed across the person's personas.
- *   - DELEGATION — agents are bounded at the PERSONA class → observed on the
- *     ACTIVE persona only.
+ *   - ACCESS — citizen-level access rights sit at the PERSONHOOD level →
+ *     observed across the person's personas.
+ *   - DELEGATION — the bounded agent is BOUND TO THE CITIZEN'S PASSPORT
+ *     (person-level binding) but ACTS THROUGH a persona and inherits that
+ *     persona's identifiability state. Observation ("has the person
+ *     delegated?") is therefore person-level; the acting context — and the
+ *     identifiability the agent inherits — is persona-scoped at act time.
+ *
+ * Doctrine (operator, 2026-07-20): the person remains ANONYMOUS by default —
+ * identity is surfaced only via the persona — while STANDING ACCRUES TO THE
+ * PERSON. The passport is what enables continuity of personhood anonymously.
  *
  * Flattening passport/access onto the active persona was the 2026-07-20
  * observer regression: switching personas made a genuinely-held passport
@@ -98,8 +105,21 @@ export async function GET(req: NextRequest) {
     /* pre-migration → false */
   }
 
-  // DELEGATION — persona-class by design: observed on the ACTIVE persona.
-  const delegationActive = await hasActiveDelegation(persona.personaId);
+  // DELEGATION — the bounded agent is bound to the citizen's PASSPORT
+  // (person-level), so observation is person-level: delegated via ANY of the
+  // person's personas = delegated. Active persona first (fast path); the
+  // acting context — and the identifiability the agent inherits — remains
+  // persona-scoped at act time.
+  let delegationActive = await hasActiveDelegation(persona.personaId);
+  if (!delegationActive) {
+    for (const pid of personhood.spinePersonaIds) {
+      if (pid === persona.personaId) continue;
+      if (await hasActiveDelegation(pid)) {
+        delegationActive = true;
+        break;
+      }
+    }
+  }
 
   return NextResponse.json(
     { ok: true, authenticated: true, grants, passportIssued, delegationActive },
