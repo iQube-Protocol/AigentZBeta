@@ -61,6 +61,11 @@ const nextConfig = {
       // the output past the 230686720-byte hard cap (2026-07-17). Excluded here,
       // same philosophy as the typescript/caniuse entries above.
       "codexes/packs/aigency/items/build_/COMMITS/**",
+      // The auto-generated build changelog — same build-log class as COMMITS
+      // above (grows every deploy; 374KB on 2026-07-20 when the output tipped
+      // the cap by ~194KB). Same safety: a missing pack file is skipped at
+      // read time; no surface depends on shipping it inside the Lambda.
+      "codexes/packs/aigency/items/build_/changelog.md",
     ],
   },
   // Promoted from experimental in Next 15 — these entries carry the codex-pack
