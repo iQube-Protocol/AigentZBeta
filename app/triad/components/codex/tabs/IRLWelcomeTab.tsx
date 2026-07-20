@@ -57,6 +57,7 @@ function goToTab(slug: string) {
 export function IRLWelcomeTab() {
   const [grants, setGrants] = useState<Grant[] | null>(null);
   const [authed, setAuthed] = useState(false);
+  const [passportIssued, setPassportIssued] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -65,10 +66,13 @@ export function IRLWelcomeTab() {
         // the spine and needs the Bearer token; raw fetch always reads as
         // unauthenticated, which made this page blind to a fully-onboarded
         // persona (operator report 2026-07-19; CLAUDE.md spine-fetch rule).
+        // my-access is the single active-persona source of truth: grants +
+        // passportIssued + delegationActive (operator report 2026-07-20).
         const res = await personaFetch("/api/participation/my-access", { cache: "no-store" });
         const data = await res.json();
         setAuthed(Boolean(data?.authenticated));
         setGrants(data?.grants ?? []);
+        setPassportIssued(Boolean(data?.passportIssued));
       } catch {
         setGrants([]);
       }
@@ -82,10 +86,23 @@ export function IRLWelcomeTab() {
   const p = tabPrefix();
   const PARTICIPATION_TAB = `${p}-participation-overview`;
   const APPLY_TAB = `${p}-passport-apply`;
+  const ACCESS_TAB = `${p}-passport-locker`;
   const DELEGATION_TAB = `${p}-passport-delegation`;
   const LAB_TAB = `${p}-experiment-lab`;
   const REPORTS_TAB = `${p}-reports`;
-  const HUMAN_TAB = authed ? APPLY_TAB : PARTICIPATION_TAB;
+  // The "Set up myself" route must advance to the caller's ACTUAL next
+  // incomplete step, not always Apply — a person who already has a passport
+  // sent back to Apply hits a dead-end and gets stuck (operator report
+  // 2026-07-20). Sequence: sign in → Passport (Apply) → Access (claim the
+  // research-lab invitation in the Locker) → Experiments. Delegation is
+  // optional and never gates, so it is not the human-route target.
+  const HUMAN_TAB = !authed
+    ? PARTICIPATION_TAB
+    : !passportIssued
+      ? APPLY_TAB
+      : !onboarded
+        ? ACCESS_TAB
+        : LAB_TAB;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">

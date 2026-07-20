@@ -18,8 +18,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
-import { authedFetchHeaders } from "@/utils/supabaseBrowser";
-import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface Props {
   codexId: string;
@@ -37,16 +36,8 @@ function goToTab(slug: string) {
   }
 }
 
-export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) {
+export function AccessionProgressBar({ codexId, activeSlug }: Props) {
   const prefix = codexId.includes("irl-os") ? "irl-os" : codexId === "irl-cartridge" ? "irl" : null;
-
-  // The delegation observer needs a persona id for its query. The embed URL's
-  // personaId param is often absent (in-cartridge navigation), so mirror
-  // BoundedDelegationTab's fallback: the session's own personas. Without this
-  // the Delegate step never registered as done even with an active delegation
-  // (operator report 2026-07-19).
-  const { sessionPersonas } = useSupabaseSessionPersonas();
-  const effectivePersonaId = personaId ?? sessionPersonas[0]?.id ?? null;
 
   const steps = useMemo(() => {
     if (!prefix) return [] as { key: StepKey; label: string; slug: string; optional?: boolean }[];
@@ -76,38 +67,21 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
     let cancelled = false;
     (async () => {
       try {
-        const headers = await authedFetchHeaders({ Accept: "application/json" });
-        const init: RequestInit = { cache: "no-store", headers: headers ?? undefined };
-        const [accessRes, walletRes, delegationRes] = await Promise.allSettled([
-          fetch("/api/participation/my-access", init),
-          fetch("/api/polity-passport/wallet", init),
-          effectivePersonaId
-            ? fetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(effectivePersonaId)}`, init)
-            : Promise.reject(),
-        ]);
+        // ONE active-persona source of truth (passport + access + delegation),
+        // all resolved server-side from getActivePersona. personaFetch (NOT raw
+        // fetch) — my-access reads the caller through the spine and needs the
+        // Bearer token (CLAUDE.md spine-fetch rule). This replaces the old
+        // three-endpoint read whose delegation query used a client-supplied
+        // persona_id that mismatched the active persona (operator 2026-07-20).
+        const res = await personaFetch("/api/participation/my-access", { cache: "no-store" });
+        const d = res.ok ? await res.json() : null;
 
-        let authed = false;
-        let accessDone = false;
-        if (accessRes.status === "fulfilled" && accessRes.value.ok) {
-          const d = await accessRes.value.json();
-          authed = Boolean(d?.authenticated);
-          accessDone = Array.isArray(d?.grants) && d.grants.some((g: { accessDomain?: string }) => g.accessDomain === "research-lab");
-        }
-        let passportDone = false;
-        if (walletRes.status === "fulfilled" && walletRes.value.ok) {
-          const d = await walletRes.value.json();
-          // /api/polity-passport/wallet returns issued passports under
-          // `passportQubes`. Having an issued passport record clears the
-          // "Passport" (apply) step — claiming the credential happens later at
-          // the Access/Locker step.
-          const passports = (d?.passportQubes ?? d?.passports ?? d?.items ?? []) as Array<{ passportId?: string; claimedAt?: string | null }>;
-          passportDone = passports.some((p) => p.passportId);
-        }
-        let delegationDone = false;
-        if (delegationRes.status === "fulfilled" && delegationRes.value.ok) {
-          const d = await delegationRes.value.json();
-          delegationDone = Boolean(d?.active);
-        }
+        const authed = Boolean(d?.authenticated);
+        const passportDone = Boolean(d?.passportIssued);
+        const accessDone =
+          Array.isArray(d?.grants) &&
+          d.grants.some((g: { accessDomain?: string }) => g.accessDomain === "research-lab");
+        const delegationDone = Boolean(d?.delegationActive);
 
         if (!cancelled) {
           setDone({
@@ -127,7 +101,7 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
       }
     })();
     return () => { cancelled = true; };
-  }, [prefix, onStepTab, effectivePersonaId]);
+  }, [prefix, onStepTab]);
 
   if (!prefix || !onStepTab) return null;
 
