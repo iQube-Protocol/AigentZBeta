@@ -61,6 +61,17 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
     welcome: false, passport: false, delegation: false, access: false, experiments: false,
   });
   const [loading, setLoading] = useState(true);
+  // Bumped when a step tab completes an act (e.g. delegation granted fires
+  // 'accession:refresh') so the bar re-observes IMMEDIATELY — previously it
+  // fetched once on mount and stayed stale until a full page reload
+  // (operator report 2026-07-20: Delegate never flipped green after granting).
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setRefreshTick((t) => t + 1);
+    window.addEventListener("accession:refresh", bump);
+    return () => window.removeEventListener("accession:refresh", bump);
+  }, []);
 
   const onStepTab = steps.some((s) => s.slug === activeSlug);
 
@@ -124,7 +135,9 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
       }
     })();
     return () => { cancelled = true; };
-  }, [prefix, onStepTab, personaId]);
+    // activeSlug: re-observe on every step-tab hop (state changes as the
+    // participant acts); refreshTick: immediate re-observe on accession:refresh.
+  }, [prefix, onStepTab, personaId, activeSlug, refreshTick]);
 
   if (!prefix || !onStepTab) return null;
 

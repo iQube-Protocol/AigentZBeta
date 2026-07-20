@@ -523,6 +523,9 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         setShowGrantForm(false);
         await loadDelegation();
         if (showAudit) await loadAuditEvents();
+        // Nudge shell observers (AccessionProgressBar) to re-read state —
+        // the Delegate step flips green immediately, not on next page load.
+        try { window.dispatchEvent(new CustomEvent("accession:refresh")); } catch { /* non-fatal */ }
       }
     } catch {
       setError("Grant request failed.");
