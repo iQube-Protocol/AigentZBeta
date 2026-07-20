@@ -77,6 +77,37 @@ export default function CanonicalPlatesTab({ isAdmin = false }: { isAdmin?: bool
   const [cSvg, setCSvg] = useState("");
   const [cPng, setCPng] = useState("");
   const [cPdf, setCPdf] = useState("");
+  const [uploadingKind, setUploadingKind] = useState<string | null>(null);
+
+  // Upload a rendering file → storage, populate the matching asset ref. The
+  // JSON structure is still the plate; this just captures the visual as one
+  // rendering (SVG/PNG/PDF). Paste-a-URL remains available as a fallback for
+  // externally-hosted renderings.
+  const uploadAsset = useCallback(async (kind: "svg" | "png" | "pdf", file: File) => {
+    setUploadingKind(kind);
+    setNotice(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("kind", kind);
+      // personaFetch leaves FormData's multipart boundary intact (no forced
+      // Content-Type) and attaches the Bearer — spine transport, admin-gated.
+      const res = await personaFetch("/api/constitutional/canonical-plates/asset", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok || data?.ok === false) {
+        setNotice(`⚠ ${data?.error ?? "Upload failed"}`);
+        return;
+      }
+      if (kind === "svg") setCSvg(data.url);
+      else if (kind === "png") setCPng(data.url);
+      else setCPdf(data.url);
+      setNotice(`✓ ${kind.toUpperCase()} rendering uploaded`);
+    } catch (e) {
+      setNotice(`⚠ ${e instanceof Error ? e.message : "Upload failed"}`);
+    } finally {
+      setUploadingKind(null);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -214,13 +245,28 @@ export default function CanonicalPlatesTab({ isAdmin = false }: { isAdmin?: bool
             <input value={cDeps} onChange={(e) => setCDeps(e.target.value)} placeholder="Dependencies (comma-sep CP numbers: CP-001, CP-002)"
               className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500" />
           </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-            <input value={cSvg} onChange={(e) => setCSvg(e.target.value)} placeholder="SVG rendering URL (optional)"
-              className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500" />
-            <input value={cPng} onChange={(e) => setCPng(e.target.value)} placeholder="PNG rendering URL (optional)"
-              className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500" />
-            <input value={cPdf} onChange={(e) => setCPdf(e.target.value)} placeholder="PDF rendering URL (optional)"
-              className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500" />
+          {/* Renderings — upload a diagram/infographic file OR paste a URL.
+              The uploaded file's public URL populates the same asset ref. */}
+          <div className="space-y-1.5">
+            <div className="text-[11px] text-slate-400">Renderings <span className="text-slate-500">(optional — upload a file or paste a URL)</span></div>
+            {([
+              { kind: "svg" as const, accept: ".svg,image/svg+xml", val: cSvg, set: setCSvg },
+              { kind: "png" as const, accept: "image/png", val: cPng, set: setCPng },
+              { kind: "pdf" as const, accept: "application/pdf", val: cPdf, set: setCPdf },
+            ]).map(({ kind, accept, val, set }) => (
+              <div key={kind} className="flex items-center gap-2">
+                <span className="w-9 shrink-0 text-[10px] uppercase text-slate-500">{kind}</span>
+                <label className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-700">
+                  {uploadingKind === kind ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                  Upload
+                  <input type="file" accept={accept} className="hidden"
+                    disabled={uploadingKind !== null}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAsset(kind, f); e.target.value = ""; }} />
+                </label>
+                <input value={val} onChange={(e) => set(e.target.value)} placeholder={`${kind.toUpperCase()} URL`}
+                  className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500" />
+              </div>
+            ))}
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => { const p = composerPayload(); if (p) void act("validate", undefined, p); }}
