@@ -26,6 +26,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { checkExperimentQuota } from '@/services/billing/experimentQuota';
 import { runIrlExp001StageA } from '@/services/experiments/irlExp001';
 import { generateCandidateCIRS } from '@/services/experiments/cirsGenerator';
+import { runBaselines } from '@/services/experiments/exp006Baselines';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,12 +43,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'forbidden', message: quota.reason ?? 'Research access required' }, { status: 403 });
   }
 
+  // Opt-in comparator arms (Aletheon 2026-07-20: "43% compared to what?"). The
+  // random/keyword/semantic floor is only computed when requested, since the
+  // semantic arm calls an embedding provider.
+  let withBaselines = false;
+  try {
+    const body = (await request.json().catch(() => ({}))) as { baselines?: boolean };
+    withBaselines = body?.baselines === true;
+  } catch { /* no body — plain run */ }
+
   try {
     // Generative role: independently propose the reference set, blind to any
     // prior CIRS version (never PI-authored). Evaluative role then predicts +
     // scores against it inside runIrlExp001StageA.
     const cirs = await generateCandidateCIRS();
     const { results, aggregate } = await runIrlExp001StageA(cirs);
+    // Baselines run against the SAME CIRS so the comparison is exact. The
+    // sovereign arm's summary is folded in for a side-by-side table.
+    const comparison = withBaselines
+      ? {
+          sovereign: {
+            arm: 'sovereign' as const,
+            available: true,
+            meanPrecision: aggregate.meanPrecision,
+            meanRecall: aggregate.meanRecall,
+            meanF1: aggregate.meanF1,
+          },
+          ...(await runBaselines(cirs)),
+        }
+      : null;
     return NextResponse.json({
       ok: true,
       experiment: 'EXP-006',
@@ -56,6 +80,7 @@ export async function POST(request: NextRequest) {
       cirs,
       aggregate,
       results,
+      comparison,
     });
   } catch (err) {
     return NextResponse.json(

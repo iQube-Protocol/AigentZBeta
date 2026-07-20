@@ -12,7 +12,7 @@
  */
 
 import React, { useState } from "react";
-import { Loader2, Play } from "lucide-react";
+import { Loader2, Play, BarChart3 } from "lucide-react";
 import { experimentStep } from "./experimentStepFetch";
 import { ExperimentResultActions } from "./ExperimentResultActions";
 
@@ -33,23 +33,41 @@ interface Aggregate {
   deltaCount?: number;
   [k: string]: unknown;
 }
+interface ArmSummary {
+  arm?: string;
+  available?: boolean;
+  reason?: string;
+  meanPrecision?: number;
+  meanRecall?: number;
+  meanF1?: number;
+}
+interface Comparison {
+  vocabularySize?: number;
+  sovereign?: ArmSummary;
+  random?: ArmSummary;
+  keyword?: ArmSummary;
+  semantic?: ArmSummary;
+  [k: string]: unknown;
+}
 
 const pct = (v: unknown) => (typeof v === "number" ? `${Math.round(v * 100)}%` : "—");
 
 export default function Exp006ProjectionRunner({ canRequestPublish = false }: { canRequestPublish?: boolean } = {}) {
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] = useState<false | "plain" | "baselines">(false);
   const [error, setError] = useState<string | null>(null);
   const [aggregate, setAggregate] = useState<Aggregate | null>(null);
   const [rows, setRows] = useState<DeltaRow[]>([]);
+  const [comparison, setComparison] = useState<Comparison | null>(null);
   const [ranAt, setRanAt] = useState<string | null>(null);
 
-  const run = async () => {
-    setRunning(true);
+  const run = async (withBaselines: boolean) => {
+    setRunning(withBaselines ? "baselines" : "plain");
     setError(null);
     try {
-      const data = await experimentStep("/api/experiments/irl-exp001", {});
+      const data = await experimentStep("/api/experiments/irl-exp001", withBaselines ? { baselines: true } : {});
       setAggregate((data.aggregate as Aggregate) ?? null);
       setRows(((data.results as DeltaRow[]) ?? []).slice(0, 40));
+      setComparison((data.comparison as Comparison) ?? null);
       setRanAt((data.at as string) ?? new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "run failed");
@@ -57,6 +75,16 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
       setRunning(false);
     }
   };
+
+  // Ordered arms for the comparator table — sovereign (system under test) first,
+  // then the floor. Aletheon 2026-07-20: a fidelity number is only interpretable
+  // against these comparators.
+  const ARM_LABELS: Array<[keyof Comparison, string]> = [
+    ["sovereign", "Sovereign router (under test)"],
+    ["semantic", "Semantic retrieval"],
+    ["keyword", "Keyword (lexical)"],
+    ["random", "Random (chance floor)"],
+  ];
 
   return (
     <div className="space-y-3">
@@ -66,14 +94,25 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
         here — canonical publication is a separate operator-ratified step.
       </p>
 
-      <button
-        onClick={run}
-        disabled={running}
-        className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-      >
-        {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-        {running ? "Running Stage A…" : "Run Stage A"}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => run(false)}
+          disabled={running !== false}
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+        >
+          {running === "plain" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+          {running === "plain" ? "Running Stage A…" : "Run Stage A"}
+        </button>
+        <button
+          onClick={() => run(true)}
+          disabled={running !== false}
+          title="Run Stage A plus random / keyword / semantic comparator arms against the same reference — answers '43% compared to what?'"
+          className="inline-flex items-center gap-1.5 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-200 hover:bg-indigo-500/20 disabled:opacity-50"
+        >
+          {running === "baselines" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5" />}
+          {running === "baselines" ? "Running + baselines…" : "Run with baselines"}
+        </button>
+      </div>
 
       {error && <div className="rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-300">{error}</div>}
 
@@ -98,6 +137,59 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
           {typeof aggregate.deltaCount === "number" && (
             <div className="mt-2 text-[11px] text-amber-300/80">{aggregate.deltaCount} Invariant Delta(s) classified — first-class WP0 data.</div>
           )}
+        </div>
+      )}
+
+      {comparison && (
+        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+            <BarChart3 className="h-3.5 w-3.5 text-indigo-300" />
+            Comparator arms — scored against the same CIRS reference
+            {typeof comparison.vocabularySize === "number" && (
+              <span className="font-normal text-slate-500">· field vocab {comparison.vocabularySize}</span>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-slate-500">
+                  <th className="py-1 pr-3 text-left font-medium">Arm</th>
+                  <th className="px-2 py-1 text-right font-medium">Precision</th>
+                  <th className="px-2 py-1 text-right font-medium">Recall</th>
+                  <th className="px-2 py-1 text-right font-medium">F1</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ARM_LABELS.map(([key, label]) => {
+                  const arm = comparison[key] as ArmSummary | undefined;
+                  if (!arm) return null;
+                  const isSovereign = key === "sovereign";
+                  const unavailable = arm.available === false;
+                  return (
+                    <tr key={key} className={isSovereign ? "text-slate-100" : "text-slate-300"}>
+                      <td className={`py-1 pr-3 ${isSovereign ? "font-semibold" : ""}`}>{label}</td>
+                      {unavailable ? (
+                        <td className="px-2 py-1 text-right text-slate-500" colSpan={3}>
+                          unavailable{arm.reason ? ` — ${arm.reason}` : ""}
+                        </td>
+                      ) : (
+                        <>
+                          <td className="px-2 py-1 text-right tabular-nums">{pct(arm.meanPrecision)}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{pct(arm.meanRecall)}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{pct(arm.meanF1)}</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-2 text-[10px] text-slate-500">
+            Baselines predict exactly k=|reference| labels from the shared field vocabulary (no arm sees the
+            per-intent answer), so precision≈recall — a fair floor for the sovereign arm. Human baseline is a
+            separate annotation pass (not run here).
+          </div>
         </div>
       )}
 
@@ -138,6 +230,7 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
               "IIVS Stage A (CRP-002): intent → invariant projection fidelity, predicted through the sovereign invariant-aware router and scored against an independently generated CIRS reference; Invariant Deltas classified as first-class WP0 data.",
             aggregate,
             rows,
+            ...(comparison ? { comparison } : {}),
             ranAt: ranAt ?? new Date().toISOString(),
           }}
           lifecycleSummary={`EXP-006 run published: intents=${aggregate.intents ?? rows.length} meanOverlap=${pct(aggregate.meanOverlap)} deltas=${aggregate.deltaCount ?? 0}`}
