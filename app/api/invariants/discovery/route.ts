@@ -22,6 +22,7 @@ import {
   listCandidates,
   runConstitutionalDiscovery,
   compareSubDomains,
+  suggestParents,
   promoteCandidate,
   rejectCandidate,
   type EvidenceKind,
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
     content?: string;
     sourceRef?: string;
     candidateId?: string;
+    parentInvariantIds?: string[];
   };
   const domain = body.domain?.trim() || DEFAULT_DOMAIN;
   const subDomain = body.subDomain?.trim() || null;
@@ -112,9 +114,15 @@ export async function POST(req: NextRequest) {
       const r = await compareSubDomains(admin, domain);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
+    case 'suggest-parents': {
+      if (!body.candidateId) return NextResponse.json({ ok: false, error: 'candidateId required' }, { status: 400 });
+      const suggestions = await suggestParents(admin, body.candidateId);
+      return NextResponse.json({ ok: true, suggestions });
+    }
     case 'promote': {
       if (!body.candidateId) return NextResponse.json({ ok: false, error: 'candidateId required' }, { status: 400 });
-      const r = await promoteCandidate(admin, body.candidateId, { personaId: persona.personaId });
+      const parentIds = Array.isArray(body.parentInvariantIds) ? body.parentInvariantIds.filter((x) => typeof x === 'string') : [];
+      const r = await promoteCandidate(admin, body.candidateId, { personaId: persona.personaId }, parentIds);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     case 'reject': {
@@ -123,6 +131,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     default:
-      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, promote, reject' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, suggest-parents, promote, reject' }, { status: 400 });
   }
 }

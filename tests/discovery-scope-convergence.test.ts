@@ -88,8 +88,28 @@ describe('Compare discipline (Phase 2 — earned domain invariants)', () => {
     expect(src).toMatch(/0\.55 \+ 0\.1 \* cov/);
   });
 
-  it('classifies against the baseline (supported/specialized/split/novel) and treats baseline as hypotheses', () => {
-    for (const k of ['supported', 'specialized', 'split', 'novel']) expect(src).toContain(`'${k}'`);
+  it('classifies against the baseline (supported/specialized/split/novel/equivalent) and treats baseline as hypotheses', () => {
+    for (const k of ['supported', 'specialized', 'split', 'novel', 'equivalent']) expect(src).toContain(`'${k}'`);
     expect(src).toMatch(/NOT ground truth|hypotheses to test/i);
+  });
+});
+
+describe('parent-linking discipline (keystone — graph, not tree)', () => {
+  const src = readFileSync(join(__dirname, '..', 'services', 'invariants', 'discoveryEngine.ts'), 'utf8');
+
+  it('promotion links via specializes edges (child specializes domain parent)', () => {
+    expect(src).toMatch(/edgeType:\s*'specializes'/);
+    expect(src).toMatch(/fromInvariantId:\s*result\.invariant\.id/);
+  });
+
+  it('allows multiple parents and never fails promotion on an edge error', () => {
+    expect(src).toMatch(/new Set\(parentInvariantIds\)/);
+    // edge creation is wrapped so a failure only logs, never throws out of promote.
+    expect(src).toMatch(/\[CFS-048\] specializes-edge failed/);
+  });
+
+  it('suggests parents from promoted DOMAIN-level invariants, ranked by similarity', () => {
+    expect(src).toMatch(/is\('sub_domain', null\)[\s\S]*?eq\('status', 'promoted'\)/);
+    expect(src).toMatch(/\.sort\(\(a, b\) => b\.similarity - a\.similarity\)/);
   });
 });
