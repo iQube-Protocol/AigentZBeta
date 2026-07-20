@@ -49,6 +49,16 @@ interface Comparison {
   semantic?: ArmSummary;
   [k: string]: unknown;
 }
+interface GradedTier { meanPrecision?: number; meanRecall?: number; meanF1?: number }
+interface Graded {
+  aggregate?: {
+    exact?: GradedTier;
+    normalized?: GradedTier;
+    genuineMissingCount?: number;
+    genuineRedundantCount?: number;
+  };
+  [k: string]: unknown;
+}
 
 const pct = (v: unknown) => (typeof v === "number" ? `${Math.round(v * 100)}%` : "—");
 
@@ -58,6 +68,7 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
   const [aggregate, setAggregate] = useState<Aggregate | null>(null);
   const [rows, setRows] = useState<DeltaRow[]>([]);
   const [comparison, setComparison] = useState<Comparison | null>(null);
+  const [graded, setGraded] = useState<Graded | null>(null);
   const [ranAt, setRanAt] = useState<string | null>(null);
 
   const run = async (withBaselines: boolean) => {
@@ -68,6 +79,7 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
       setAggregate((data.aggregate as Aggregate) ?? null);
       setRows(((data.results as DeltaRow[]) ?? []).slice(0, 40));
       setComparison((data.comparison as Comparison) ?? null);
+      setGraded((data.graded as Graded) ?? null);
       setRanAt((data.at as string) ?? new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "run failed");
@@ -137,6 +149,45 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
           {typeof aggregate.deltaCount === "number" && (
             <div className="mt-2 text-[11px] text-amber-300/80">{aggregate.deltaCount} Invariant Delta(s) classified — first-class WP0 data.</div>
           )}
+        </div>
+      )}
+
+      {graded?.aggregate && (
+        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+          <div className="mb-2 text-xs font-semibold text-slate-200">
+            Graded scoring — the same run at rising match tolerance
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-slate-500">
+                  <th className="py-1 pr-3 text-left font-medium">Tier</th>
+                  <th className="px-2 py-1 text-right font-medium">Precision</th>
+                  <th className="px-2 py-1 text-right font-medium">Recall</th>
+                  <th className="px-2 py-1 text-right font-medium">F1</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="text-slate-400">
+                  <td className="py-1 pr-3">Exact (raw Stage-A baseline)</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{pct(graded.aggregate.exact?.meanPrecision)}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{pct(graded.aggregate.exact?.meanRecall)}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{pct(graded.aggregate.exact?.meanF1)}</td>
+                </tr>
+                <tr className="text-slate-100">
+                  <td className="py-1 pr-3 font-semibold">Normalized (morphology + separators)</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{pct(graded.aggregate.normalized?.meanPrecision)}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{pct(graded.aggregate.normalized?.meanRecall)}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{pct(graded.aggregate.normalized?.meanF1)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-2 text-[10px] text-slate-500">
+            After folding morphological/separator variants (accessibility≈accessible, root_cause≈root-cause), genuine
+            gaps: {graded.aggregate.genuineMissingCount ?? 0} missing · {graded.aggregate.genuineRedundantCount ?? 0} redundant.
+            Exact is the unaltered published baseline; semantic-equivalence + subsumption tiers are the documented next step.
+          </div>
         </div>
       )}
 
@@ -230,6 +281,7 @@ export default function Exp006ProjectionRunner({ canRequestPublish = false }: { 
               "IIVS Stage A (CRP-002): intent → invariant projection fidelity, predicted through the sovereign invariant-aware router and scored against an independently generated CIRS reference; Invariant Deltas classified as first-class WP0 data.",
             aggregate,
             rows,
+            ...(graded ? { graded } : {}),
             ...(comparison ? { comparison } : {}),
             ranAt: ranAt ?? new Date().toISOString(),
           }}

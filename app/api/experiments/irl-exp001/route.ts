@@ -27,6 +27,7 @@ import { checkExperimentQuota } from '@/services/billing/experimentQuota';
 import { runIrlExp001StageA } from '@/services/experiments/irlExp001';
 import { generateCandidateCIRS } from '@/services/experiments/cirsGenerator';
 import { runBaselines } from '@/services/experiments/exp006Baselines';
+import { gradeProjectionRun } from '@/services/experiments/gradedProjectionScore';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,11 @@ export async function POST(request: NextRequest) {
     // scores against it inside runIrlExp001StageA.
     const cirs = await generateCandidateCIRS();
     const { results, aggregate } = await runIrlExp001StageA(cirs);
+    // Graded scorer (Aletheon 2026-07-20): the exact-match aggregate above is the
+    // raw Stage-A baseline (never overwritten); `graded` reports the normalized
+    // tier alongside it + the GENUINE deltas, so morphological/separator variants
+    // (accessibility≈accessible, root_cause≈root-cause) stop being double-counted.
+    const graded = gradeProjectionRun(results);
     // Baselines run against the SAME CIRS so the comparison is exact. The
     // sovereign arm's summary is folded in for a side-by-side table.
     const comparison = withBaselines
@@ -80,6 +86,7 @@ export async function POST(request: NextRequest) {
       cirs,
       aggregate,
       results,
+      graded,
       comparison,
     });
   } catch (err) {
