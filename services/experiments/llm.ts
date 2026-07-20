@@ -138,12 +138,13 @@ export interface ChatResult {
 }
 
 /**
- * Provider-call budget. The hosting gateway kills SSR requests at ~30s and
- * answers with an EMPTY body — which Safari's res.json() surfaces as "The
- * string did not match the expected pattern" (observed on the first
- * cartridge-mounted EXP-003 run, 2026-07-05). Aborting the provider call at
- * 25s lets the route return a clean JSON error the client's automatic step
- * retry can act on, instead of an opaque gateway timeout.
+ * Provider-call budget (the execution envelope). The hosting gateway kills SSR
+ * requests at ~30s and answers with an EMPTY body — which Safari's res.json()
+ * surfaces as "The string did not match the expected pattern" (observed on the
+ * first cartridge-mounted EXP-003 run, 2026-07-05). Aborting the provider call
+ * at 25s lets the route return a clean JSON timeout the client can classify
+ * (`timed_out`) and, for transient classes only, retry once against the SAME
+ * provider — never an opaque gateway timeout, never a silent re-route.
  */
 const PROVIDER_TIMEOUT_MS = 25_000;
 
@@ -155,7 +156,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, provider: string
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error(
-        `${provider} timed out after ${PROVIDER_TIMEOUT_MS / 1000}s — transient; the client retries this step automatically`,
+        `${provider} timed out after ${PROVIDER_TIMEOUT_MS / 1000}s (execution envelope exceeded) — transient; retried once against the same provider`,
       );
     }
     throw err;
