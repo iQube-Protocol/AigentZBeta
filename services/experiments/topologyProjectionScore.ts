@@ -4,83 +4,105 @@
  * EXP-006's exact-set metric plateaus because the sovereign router projects
  * invariants ONE ABSTRACTION LEVEL HIGHER than the flat CIRS reference:
  *   intent "authenticated delegation API" → router {authentication, delegation,
- *   security} SUBSUMES reference {token-validation, scope-limitation, secure-
- *   access, ...}. Exact scoring reads that as F1=0.0; it is not a projection
- *   failure, it is an abstraction/vocabulary mismatch. EXP-006A reclassifies each
- *   disagreement instead of counting it binary, and scores CAUSAL agreement, not
- *   lexical agreement:
+ *   security} SUBSUMES reference {token-validation, scope-limitation, ...}. Exact
+ *   scoring reads that as F1=0.0; it is not a projection failure, it is an
+ *   abstraction/vocabulary mismatch. EXP-006A reclassifies each disagreement and
+ *   scores CAUSAL agreement, not lexical:
  *
  *   vocabulary  — folds under canonical normalization (accessibility≈accessible)
- *   abstraction — predicted is in the same causal family as a reference item but
- *                 at a different level (authentication ↔ secure-access)
+ *   abstraction — predicted subsumes/generalizes a reference item (same causal
+ *                 family, different level)
  *   omission    — reference item with no predicted relation (a genuine gap)
  *   redundant   — predicted item with no reference relation
  *
- * Projection Fidelity is a COMPOSITE (structural + causal coverage + minimality),
- * so a low lexical F1 can coexist with a high causal-agreement score — the point
- * of EXP-006A. The abstraction/omission split needs a "same family" signal; v1
- * uses embedding cosine (the graph-based version, using the Compare `specializes`
- * edges, is the documented successor once CIRS labels are registry nodes).
+ * SUBSUMPTION ORACLE — the abstraction/omission split needs a "does predicted
+ * subsume reference?" signal. The GROUND TRUTH is the invariant graph's
+ * `specializes`/`generalizes` edges (built by CFS-048 parent-linking): if the
+ * predicted concept resolves to an ANCESTOR of the reference concept, that is a
+ * confirmed abstraction. Where a label doesn't resolve to a graph node (generic
+ * CIRS vocabulary that isn't yet a registry invariant), it falls back to
+ * embedding cosine as a proxy. The aggregate reports how many abstraction deltas
+ * were graph-confirmed vs proxy, so the two are never conflated.
  *
- * The CLASSIFIER is pure (takes a similarity function) so it is canary-testable
- * without a provider; the async runner supplies embeddings.
+ * Projection Fidelity is a COMPOSITE (structural + causal coverage + minimality),
+ * so a low lexical F1 can coexist with a high causal-agreement score.
+ *
+ * The CLASSIFIER is pure (takes a relation function) so it is canary-testable
+ * without a provider or DB; the async runner supplies embeddings + the graph.
  */
 
 import { canonicalizeLabel } from '@/services/experiments/gradedProjectionScore';
 import { getEmbeddingService } from '@/services/content/embeddingService';
+import { listInvariants, listEdgesForInvariants } from '@/services/invariants/store';
 
 /** Cosine ≥ MATCH → same invariant (recovered); [FAMILY, MATCH) → same family,
- *  different level (abstraction delta); < FAMILY → unrelated. */
+ *  different level (abstraction delta); < FAMILY → unrelated. Graph subsumption
+ *  overrides these bands (it is ground truth). */
 export const MATCH_THRESHOLD = 0.82;
 export const FAMILY_THRESHOLD = 0.62;
 
-export interface AbstractionPair { predicted: string; reference: string; similarity: number }
+/** The relation between a predicted and a reference label. */
+export interface Relation { sim: number; graphSubsumes: boolean }
+export type RelationFn = (predicted: string, reference: string) => Relation;
+
+export interface AbstractionPair { predicted: string; reference: string; similarity: number; source: 'graph' | 'embedding' }
 
 export interface TopologyIntentScore {
   intent: string;
-  lexicalMatches: number;      // exact / normalized (the old metric's overlap)
-  semanticMatches: number;     // additional, cosine ≥ MATCH
-  abstractionPairs: AbstractionPair[]; // same family, different level
-  omissions: string[];         // reference items genuinely absent
-  redundancies: string[];      // predicted items unrelated to the reference
-  structural: number;          // lexical recall
-  causalCoverage: number;      // (full + ½·abstraction) / |reference|
-  minimality: number;          // on-target predictions / |predicted|
-  projectionFidelity: number;  // composite
+  lexicalMatches: number;
+  semanticMatches: number;
+  abstractionPairs: AbstractionPair[];
+  omissions: string[];
+  redundancies: string[];
+  structural: number;
+  causalCoverage: number;
+  minimality: number;
+  projectionFidelity: number;
 }
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 /**
- * Classify one intent's projection against its reference. Pure: `sim(a,b)`
- * returns a similarity in [0,1] (cosine in the async path; synthetic in tests).
- * Greedy one-to-one matching: canonical (lexical) first, then best-cosine.
+ * Classify one intent's projection against its reference. Pure: `rel(p,r)` gives
+ * `{ sim, graphSubsumes }`. Greedy one-to-one matching: lexical (canonical) →
+ * graph subsumption (ground truth) → semantic (cosine) → abstraction band →
+ * omission. Graph-confirmed abstractions are preferred over cosine proxies.
  */
 export function classifyProjection(
   intent: string,
   predicted: string[],
   reference: string[],
-  sim: (a: string, b: string) => number,
+  rel: RelationFn,
 ): TopologyIntentScore {
   const pred = predicted.map((l) => ({ label: l, canon: canonicalizeLabel(l), used: false }));
   const ref = reference.map((l) => ({ label: l, canon: canonicalizeLabel(l), matched: false }));
 
-  // 1. Lexical (exact / normalized) — canonical-label equality.
+  // 1. Lexical (exact / normalized).
   let lexicalMatches = 0;
   for (const r of ref) {
     const p = pred.find((p) => !p.used && p.canon === r.canon);
     if (p) { p.used = true; r.matched = true; lexicalMatches += 1; }
   }
 
-  // 2. Semantic / abstraction — best available predicted per remaining reference.
-  let semanticMatches = 0;
+  // 2. Graph subsumption (ground truth) — a predicted ancestor of the reference.
   const abstractionPairs: AbstractionPair[] = [];
+  for (const r of ref) {
+    if (r.matched) continue;
+    const gp = pred.find((p) => !p.used && rel(p.label, r.label).graphSubsumes);
+    if (gp) {
+      gp.used = true; r.matched = true;
+      abstractionPairs.push({ predicted: gp.label, reference: r.label, similarity: Number(rel(gp.label, r.label).sim.toFixed(3)), source: 'graph' });
+    }
+  }
+
+  // 3. Semantic / embedding-band — best available predicted per remaining reference.
+  let semanticMatches = 0;
   for (const r of ref) {
     if (r.matched) continue;
     let best: { p: typeof pred[number]; s: number } | null = null;
     for (const p of pred) {
       if (p.used) continue;
-      const s = sim(p.label, r.label);
+      const s = rel(p.label, r.label).sim;
       if (!best || s > best.s) best = { p, s };
     }
     if (!best) continue;
@@ -88,9 +110,8 @@ export function classifyProjection(
       best.p.used = true; r.matched = true; semanticMatches += 1;
     } else if (best.s >= FAMILY_THRESHOLD) {
       best.p.used = true; r.matched = true;
-      abstractionPairs.push({ predicted: best.p.label, reference: r.label, similarity: Number(best.s.toFixed(3)) });
+      abstractionPairs.push({ predicted: best.p.label, reference: r.label, similarity: Number(best.s.toFixed(3)), source: 'embedding' });
     }
-    // else: leave r unmatched → omission
   }
 
   const omissions = ref.filter((r) => !r.matched).map((r) => r.label);
@@ -102,8 +123,6 @@ export function classifyProjection(
   const structural = clamp01(lexicalMatches / refN);
   const causalCoverage = clamp01((full + 0.5 * abstractionPairs.length) / refN);
   const minimality = clamp01((full + abstractionPairs.length) / predN);
-  // Composite — weight causal coverage highest (EXP-006A's whole point), keep the
-  // lexical floor honest, and reward minimal sufficient projections.
   const projectionFidelity = clamp01(0.35 * structural + 0.45 * causalCoverage + 0.2 * minimality);
 
   return { intent, lexicalMatches, semanticMatches, abstractionPairs, omissions, redundancies, structural, causalCoverage, minimality, projectionFidelity };
@@ -116,11 +135,15 @@ export interface TopologyAggregate {
   meanMinimality: number;
   meanProjectionFidelity: number;
   deltaClasses: { abstraction: number; omission: number; redundant: number };
+  /** How many abstraction deltas were confirmed by the graph vs embedding proxy. */
+  graphConfirmedAbstractions: number;
+  embeddingAbstractions: number;
 }
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
 export function topologyAggregate(scores: TopologyIntentScore[]): TopologyAggregate {
+  const pairs = scores.flatMap((s) => s.abstractionPairs);
   return {
     intentCount: scores.length,
     meanStructural: mean(scores.map((s) => s.structural)),
@@ -128,10 +151,12 @@ export function topologyAggregate(scores: TopologyIntentScore[]): TopologyAggreg
     meanMinimality: mean(scores.map((s) => s.minimality)),
     meanProjectionFidelity: mean(scores.map((s) => s.projectionFidelity)),
     deltaClasses: {
-      abstraction: scores.reduce((a, s) => a + s.abstractionPairs.length, 0),
+      abstraction: pairs.length,
       omission: scores.reduce((a, s) => a + s.omissions.length, 0),
       redundant: scores.reduce((a, s) => a + s.redundancies.length, 0),
     },
+    graphConfirmedAbstractions: pairs.filter((p) => p.source === 'graph').length,
+    embeddingAbstractions: pairs.filter((p) => p.source === 'embedding').length,
   };
 }
 
@@ -142,11 +167,83 @@ function cosine(a: number[], b: number[]): number {
   return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
 }
 
+// ── Graph subsumption oracle (ground truth from `specializes`/`generalizes`) ──
+
+/**
+ * Build a `subsumes(pred, ref)` oracle from the invariant graph: true iff the
+ * predicted concept resolves to an ANCESTOR of the reference concept via
+ * child→parent (`specializes`) edges. Labels resolve to invariant nodes by
+ * canonical-token containment in the invariant's statement — so a label only
+ * hits when the registry actually contains a matching invariant (generic CIRS
+ * vocabulary won't, and correctly falls through to the embedding proxy). Loads a
+ * bounded slice; degrades to a no-op oracle on any failure.
+ */
+export async function buildGraphSubsumptionOracle(): Promise<(pred: string, ref: string) => boolean> {
+  try {
+    const invs = await listInvariants({ status: ['proposed', 'validated', 'canonical'], limit: 1000 });
+    if (invs.length === 0) return () => false;
+    const edges = await listEdgesForInvariants(invs.map((i) => i.id), 'both', ['specializes', 'generalizes']);
+    // child → parents adjacency. specializes: from=child,to=parent; generalizes is the inverse.
+    const parents = new Map<string, Set<string>>();
+    const addParent = (child: string, parent: string) => {
+      const set = parents.get(child) ?? new Set<string>();
+      set.add(parent); parents.set(child, set);
+    };
+    for (const e of edges) {
+      if (e.edgeType === 'specializes') addParent(e.fromInvariantId, e.toInvariantId);
+      else if (e.edgeType === 'generalizes') addParent(e.toInvariantId, e.fromInvariantId);
+    }
+    // token → invariant ids (canonical tokens of each statement).
+    const tokenIndex = new Map<string, Set<string>>();
+    for (const inv of invs) {
+      for (const tok of canonicalizeLabel(inv.statement).split('-').filter((t) => t.length >= 4)) {
+        const set = tokenIndex.get(tok) ?? new Set<string>();
+        set.add(inv.id); tokenIndex.set(tok, set);
+      }
+    }
+    const resolve = (label: string): Set<string> => {
+      const toks = canonicalizeLabel(label).split('-').filter((t) => t.length >= 4);
+      if (toks.length === 0) return new Set();
+      // Intersection: an invariant whose statement contains ALL the label's tokens.
+      let acc: Set<string> | null = null;
+      for (const t of toks) {
+        const ids = tokenIndex.get(t) ?? new Set<string>();
+        acc = acc === null ? new Set(ids) : new Set([...acc].filter((x) => ids.has(x)));
+        if (acc.size === 0) break;
+      }
+      return acc ?? new Set();
+    };
+    const ancestors = (node: string): Set<string> => {
+      const seen = new Set<string>();
+      const stack = [node];
+      let depth = 0;
+      while (stack.length && depth < 64) {
+        const cur = stack.pop()!;
+        for (const p of parents.get(cur) ?? []) if (!seen.has(p)) { seen.add(p); stack.push(p); }
+        depth += 1;
+      }
+      return seen;
+    };
+    return (pred: string, ref: string): boolean => {
+      const predNodes = resolve(pred);
+      const refNodes = resolve(ref);
+      if (predNodes.size === 0 || refNodes.size === 0) return false;
+      for (const rn of refNodes) {
+        const anc = ancestors(rn);
+        for (const pn of predNodes) if (anc.has(pn)) return true;
+      }
+      return false;
+    };
+  } catch {
+    return () => false;
+  }
+}
+
 /**
  * Score a whole EXP-006 run with topology awareness. Embeds every distinct label
- * once, builds the similarity function, and classifies each intent. Degrades to
- * { available:false } (never a fabricated score) when no embedding provider is
- * configured — mirroring the semantic baseline arm.
+ * once for the cosine proxy, builds the graph oracle (ground truth), and
+ * classifies each intent. Degrades to { available:false } when no embedding
+ * provider is configured.
  */
 export async function scoreTopologyRun(
   rows: { intent?: string; predicted?: string[]; reference?: string[] }[],
@@ -167,12 +264,13 @@ export async function scoreTopologyRun(
   } catch (e) {
     return { available: false, reason: e instanceof Error ? e.message : 'embedding provider unavailable' };
   }
-  const sim = (a: string, b: string) => {
+  const graphSubsumes = await buildGraphSubsumptionOracle();
+  const rel: RelationFn = (a, b) => {
     const va = vectors.get(a.trim()); const vb = vectors.get(b.trim());
-    return va && vb ? cosine(va, vb) : 0;
+    return { sim: va && vb ? cosine(va, vb) : 0, graphSubsumes: graphSubsumes(a, b) };
   };
   const perIntent = rows.map((r) =>
-    classifyProjection(r.intent ?? '', Array.isArray(r.predicted) ? r.predicted : [], Array.isArray(r.reference) ? r.reference : [], sim),
+    classifyProjection(r.intent ?? '', Array.isArray(r.predicted) ? r.predicted : [], Array.isArray(r.reference) ? r.reference : [], rel),
   );
   return { available: true, perIntent, aggregate: topologyAggregate(perIntent) };
 }
