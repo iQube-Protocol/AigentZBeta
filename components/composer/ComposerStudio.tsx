@@ -38,6 +38,7 @@ import {
 import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 import VideoArticleCreatorFlow from "@/components/composer/VideoArticleCreatorFlow";
+import ConstitutionalVideoCreatorFlow from "@/components/composer/ConstitutionalVideoCreatorFlow";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
 import { CartridgePublishPanel } from "@/components/composer/CartridgePublishPanel";
@@ -4280,6 +4281,28 @@ export const ComposerStudio = () => {
         setTemplateQuery(query);
       }
       return "Template filters updated.";
+    },
+  });
+
+  // Constitutional Video — callable by name from the composer copilot. Surfaces
+  // the blank-canvas experience (the operator supplies content; the skill
+  // supplies the grammar). Discovery-level: filters the template picker to the
+  // constitutional-video template + guided creator flow.
+  useCopilotAction({
+    name: "composer_create_constitutional_video",
+    description:
+      "Open the Constitutional Video experience — a 24/36/48-second invariant-grounded video (a blank canvas bound by the constitutional grammar). Optionally as an integrated-artefacts bundle (video + companion article from one substrate). The operator supplies what the video is about; the skill supplies the rules and grounding.",
+    parameters: [
+      { name: "subject", type: "string", description: "What the video is about (the operator's content direction)", required: false },
+      { name: "durationSeconds", type: "number", description: "24, 36, or 48", required: false },
+      { name: "bundle", type: "boolean", description: "Generate the integrated-artefacts bundle (video + companion article)", required: false },
+    ],
+    handler: async ({ subject }) => {
+      setTemplateIntent("task");
+      setTemplateQuery("constitutional video invariant threshold");
+      return subject
+        ? `Opening the Constitutional Video experience for "${subject}". Use the guided creator flow to set the invariant grounding, duration, and threshold CTA, then generate.`
+        : "Opening the Constitutional Video experience. Describe what the video is about, choose the invariant grounding + duration + threshold CTA, then generate.";
     },
   });
 
@@ -12189,6 +12212,7 @@ export const ComposerStudio = () => {
 
                       {/* ── Guided Creator Flow (marketer/creator UX surface) ─ */}
                       <VideoArticleCreatorFlow />
+                      <ConstitutionalVideoCreatorFlow />
 
                       {/* ── Studio Skills ─────────────────────────────────── */}
                       {(() => {
