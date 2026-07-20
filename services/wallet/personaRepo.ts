@@ -116,6 +116,15 @@ async function ensureAuthProfileExistsById(authProfileId: string): Promise<strin
 export type CallerIdentityContext = {
   authProfileId: string;
   email: string | null;
+  /**
+   * Supabase auth user id (T0, server-internal — NEVER serialise). Additive
+   * 2026-07-20: this is the key into root_identity.auth_user_id, the entry
+   * point of the DidQube chain (root DID → kybe DID). Populated only on the
+   * Bearer-token path — header/dev fallbacks carry null. Exposing it here
+   * keeps ONE token parser; personhood resolvers compose it rather than
+   * re-parsing the JWT (no parallel resolvers).
+   */
+  authUserId?: string | null;
 };
 
 async function getOrCreateCanonicalAuthProfileId(email: string): Promise<string | null> {
@@ -244,6 +253,7 @@ export async function getCallerIdentityContext(request: NextRequest): Promise<Ca
           return {
             authProfileId: canonicalAuthProfileId,
             email: tokenEmail,
+            authUserId: userId,
           };
         }
       } catch {
@@ -254,6 +264,7 @@ export async function getCallerIdentityContext(request: NextRequest): Promise<Ca
     return {
       authProfileId: userId,
       email: tokenEmail,
+      authUserId: userId,
     };
   }
 
