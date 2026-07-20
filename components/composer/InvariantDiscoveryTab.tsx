@@ -77,7 +77,7 @@ export default function InvariantDiscoveryTab() {
   const [eRef, setERef] = useState("");
   const [eContent, setEContent] = useState("");
   const [eSubDomain, setESubDomain] = useState(""); // "" = domain-wide evidence
-  const [linkFor, setLinkFor] = useState<{ id: string; suggestions: ParentSuggestion[]; selected: Set<string> } | null>(null);
+  const [linkFor, setLinkFor] = useState<{ id: string; mode: "promote" | "relink"; suggestions: ParentSuggestion[]; selected: Set<string> } | null>(null);
 
   const scopeLabel = subDomain ? (presets.find((p) => p.value === subDomain)?.label ?? subDomain) : "Domain baseline";
 
@@ -151,15 +151,30 @@ export default function InvariantDiscoveryTab() {
     }
   }, [post, load]);
 
+  // Retro-link an already-promoted sub-domain invariant to its domain parents.
+  const relink = useCallback(async (id: string, parentInvariantIds: string[]) => {
+    const r = await post({ action: "link-parents", candidateId: id, parentInvariantIds }, `relink-${id}`);
+    if (r) {
+      const linked = Number(r.linkedParents ?? 0);
+      setNotice(linked > 0 ? `✓ Linked — specializes ${linked} parent invariant${linked === 1 ? "" : "s"}` : "✓ No new parent links (already linked or none selected)");
+      setLinkFor(null);
+      await load();
+    }
+  }, [post, load]);
+
   // Sub-domain candidates route through a parent-link confirm (Aletheon keystone):
   // propose parent domain invariants, operator confirms which to `specialize`.
-  const startPromote = useCallback(async (c: Candidate) => {
-    if (!c.subDomain) { void promote(c.id, []); return; } // domain-level → direct
+  const openLinkPanel = useCallback(async (c: Candidate, mode: "promote" | "relink") => {
     const r = await post({ action: "suggest-parents", candidateId: c.id }, `suggest-${c.id}`);
     const suggestions: ParentSuggestion[] = (r?.suggestions as ParentSuggestion[]) ?? [];
     // Preselect strong matches (similarity ≥ 0.2) so the common case is one click.
-    setLinkFor({ id: c.id, suggestions, selected: new Set(suggestions.filter((s) => s.similarity >= 0.2).map((s) => s.invariantId)) });
-  }, [post, promote]);
+    setLinkFor({ id: c.id, mode, suggestions, selected: new Set(suggestions.filter((s) => s.similarity >= 0.2).map((s) => s.invariantId)) });
+  }, [post]);
+
+  const startPromote = useCallback(async (c: Candidate) => {
+    if (!c.subDomain) { void promote(c.id, []); return; } // domain-level → direct
+    await openLinkPanel(c, "promote");
+  }, [promote, openLinkPanel]);
 
   const toggleParent = useCallback((invariantId: string) => {
     setLinkFor((lf) => {
@@ -181,6 +196,41 @@ export default function InvariantDiscoveryTab() {
     // signal, not validity — Law XII), then confidence.
     .sort((a, b) => (b.convergence?.supportCount ?? 0) - (a.convergence?.supportCount ?? 0) || b.confidence - a.confidence);
   const closed = candidates.filter((c) => c.status !== "candidate");
+
+  // Operator-confirmed parent-link panel — reused by promote (open candidates)
+  // and retro-link (already-promoted candidates). Branch on linkFor.mode.
+  const renderLinkPanel = (candidateId: string) => {
+    if (linkFor?.id !== candidateId) return null;
+    const lf = linkFor;
+    const confirm = () => { if (lf.mode === "promote") void promote(candidateId, [...lf.selected]); else void relink(candidateId, [...lf.selected]); };
+    const confirmLabel = lf.mode === "promote"
+      ? (lf.selected.size > 0 ? `Link ${lf.selected.size} & promote` : "Promote (no parent)")
+      : (lf.selected.size > 0 ? `Link ${lf.selected.size} parent${lf.selected.size === 1 ? "" : "s"}` : "Close");
+    return (
+      <div className="mt-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1.5">
+        <div className="text-[10px] uppercase tracking-wide text-emerald-300/80">
+          {lf.mode === "promote" ? "Link as a specialization of a domain invariant (optional)" : "Link this promoted invariant to its domain parent(s)"}
+        </div>
+        {lf.suggestions.length === 0 ? (
+          <p className="text-[11px] text-slate-500 italic">No promoted domain invariants yet — promote domain candidates first to build the parent layer.</p>
+        ) : (
+          lf.suggestions.map((s) => (
+            <label key={s.invariantId} className="flex cursor-pointer items-start gap-2 text-[11px] text-slate-300">
+              <input type="checkbox" className="mt-0.5 accent-emerald-500" checked={lf.selected.has(s.invariantId)} onChange={() => toggleParent(s.invariantId)} />
+              <span className="min-w-0 flex-1">{s.statement} <span className="text-slate-500">· sim {s.similarity}</span></span>
+            </label>
+          ))
+        )}
+        <div className="flex items-center gap-2 pt-0.5">
+          <button onClick={confirm} disabled={busy !== null}
+            className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50">
+            <Check className="h-3 w-3" /> {confirmLabel}
+          </button>
+          <button onClick={() => setLinkFor(null)} className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:text-slate-200">Cancel</button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -327,32 +377,7 @@ export default function InvariantDiscoveryTab() {
                     </button>
                   </div>
 
-                  {/* Parent-link confirm — the sub-domain invariant `specializes` the
-                      chosen domain invariant(s); a graph, not a tree. Operator-confirmed. */}
-                  {linkFor?.id === c.id && (
-                    <div className="mt-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1.5">
-                      <div className="text-[10px] uppercase tracking-wide text-emerald-300/80">
-                        Link as a specialization of a domain invariant (optional)
-                      </div>
-                      {linkFor.suggestions.length === 0 ? (
-                        <p className="text-[11px] text-slate-500 italic">No promoted domain invariants yet — promote domain candidates first to build the parent layer.</p>
-                      ) : (
-                        linkFor.suggestions.map((s) => (
-                          <label key={s.invariantId} className="flex cursor-pointer items-start gap-2 text-[11px] text-slate-300">
-                            <input type="checkbox" className="mt-0.5 accent-emerald-500" checked={linkFor.selected.has(s.invariantId)} onChange={() => toggleParent(s.invariantId)} />
-                            <span className="min-w-0 flex-1">{s.statement} <span className="text-slate-500">· sim {s.similarity}</span></span>
-                          </label>
-                        ))
-                      )}
-                      <div className="flex items-center gap-2 pt-0.5">
-                        <button onClick={() => void promote(c.id, [...linkFor.selected])} disabled={busy !== null}
-                          className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50">
-                          <Check className="h-3 w-3" /> {linkFor.selected.size > 0 ? `Link ${linkFor.selected.size} & promote` : "Promote (no parent)"}
-                        </button>
-                        <button onClick={() => setLinkFor(null)} className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:text-slate-200">Cancel</button>
-                      </div>
-                    </div>
-                  )}
+                  {renderLinkPanel(c.id)}
                 </div>
               );
             })}
@@ -363,9 +388,21 @@ export default function InvariantDiscoveryTab() {
             <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Reviewed ({closed.length})</div>
             <div className="space-y-1">
               {closed.map((c) => (
-                <div key={c.id} className="flex items-center gap-2 rounded bg-white/5 px-2 py-1 text-[11px]">
-                  <span className={`rounded-full border px-1.5 py-0.5 text-[9px] ${c.status === "promoted" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-slate-600 text-slate-500"}`}>{c.status}</span>
-                  <span className="min-w-0 flex-1 truncate text-slate-400">{c.statement}</span>
+                <div key={c.id} className="rounded bg-white/5 px-2 py-1">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className={`rounded-full border px-1.5 py-0.5 text-[9px] ${c.status === "promoted" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-slate-600 text-slate-500"}`}>{c.status}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-400">{c.statement}</span>
+                    {/* Retro-link: already-promoted sub-domain invariants (e.g. Investment/
+                        Market Ops) that predate parent-linking can link up to the baseline. */}
+                    {c.status === "promoted" && c.subDomain && (
+                      <button onClick={() => void openLinkPanel(c, "relink")} disabled={busy !== null}
+                        title="Link this promoted sub-domain invariant to its domain parent(s)"
+                        className="inline-flex flex-shrink-0 items-center gap-1 rounded border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300/90 hover:bg-emerald-500/10 disabled:opacity-50">
+                        {busy === `suggest-${c.id}` || busy === `relink-${c.id}` ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <GitCompare className="h-2.5 w-2.5" />} Link parents
+                      </button>
+                    )}
+                  </div>
+                  {renderLinkPanel(c.id)}
                 </div>
               ))}
             </div>

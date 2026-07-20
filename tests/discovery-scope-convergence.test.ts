@@ -97,15 +97,21 @@ describe('Compare discipline (Phase 2 — earned domain invariants)', () => {
 describe('parent-linking discipline (keystone — graph, not tree)', () => {
   const src = readFileSync(join(__dirname, '..', 'services', 'invariants', 'discoveryEngine.ts'), 'utf8');
 
-  it('promotion links via specializes edges (child specializes domain parent)', () => {
+  it('links via specializes edges (child specializes domain parent), idempotently', () => {
     expect(src).toMatch(/edgeType:\s*'specializes'/);
-    expect(src).toMatch(/fromInvariantId:\s*result\.invariant\.id/);
+    expect(src).toMatch(/fromInvariantId:\s*childInvariantId/);
+    // Dedup: skip parents already linked (out-edges of the child).
+    expect(src).toMatch(/listEdgesForInvariants\(\[childInvariantId\], 'out', \['specializes'\]\)/);
   });
 
-  it('allows multiple parents and never fails promotion on an edge error', () => {
-    expect(src).toMatch(/new Set\(parentInvariantIds\)/);
-    // edge creation is wrapped so a failure only logs, never throws out of promote.
+  it('allows multiple parents and never fails on an edge error', () => {
+    expect(src).toMatch(/new Set\(parentIds\)/);
     expect(src).toMatch(/\[CFS-048\] specializes-edge failed/);
+  });
+
+  it('retro-links already-promoted invariants (Investment/Market Ops) without re-promoting', () => {
+    expect(src).toMatch(/export async function linkPromotedParents/);
+    expect(src).toMatch(/status !== 'promoted'/);
   });
 
   it('suggests parents from promoted DOMAIN-level invariants, ranked by similarity', () => {
