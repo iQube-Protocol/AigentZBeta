@@ -15,17 +15,19 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import exp003Config from '@/services/experiments/exp003-tasks.json';
 
-/** Every experiment id legal to publish. Foundational series (EXP-001..004) +
- *  the Validation Programme (EXP-P1/P2/P3) + Stage-0 instrument validation
- *  (IRV-001 / IPV-001). The DB CHECK (migration 20260721000000) accepts the
- *  matching patterns; this union is the application-layer source of truth. */
+/** The NAMED experiment ids — used by callers that deliberately restrict scope
+ *  (e.g. the public external-submission route). It is NOT a limit on what the
+ *  service can publish: experiment publishing is global-by-shape (operator
+ *  direction 2026-07-20), validated by format at the caller + the DB CHECK, so
+ *  every current AND future experiment saves without a code change here. */
 export type PublishableExperiment =
   | 'EXP-001' | 'EXP-002' | 'EXP-003' | 'EXP-004'
   | 'EXP-P1' | 'EXP-P2' | 'EXP-P3'
   | 'IRV-001' | 'IPV-001';
 
 export interface PublishResultInput {
-  experiment: PublishableExperiment;
+  /** Any valid experiment id (shape-validated by the caller + DB CHECK). */
+  experiment: string;
   provider: string;
   model: string;
   aggregates: Record<string, unknown>;

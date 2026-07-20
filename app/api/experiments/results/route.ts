@@ -27,16 +27,14 @@ import { listPublishedExperimentResults } from '@/services/research/publicReads'
 
 export const dynamic = 'force-dynamic';
 
-// Every experiment the lab can RUN must be publishable — otherwise a completed
-// run has no way to save and is lost on navigation (operator report 2026-07-20:
-// EXP-005/006 posted here and 400'd because they were missing). Keep this in
-// step with the runnable set + ASSIGNABLE_EXPERIMENTS (participationAccess.ts);
-// 007/008 are design-stage but allowlisted so their runners save the moment
-// they ship.
-const EXPERIMENTS = [
-  'EXP-001', 'EXP-002', 'EXP-003', 'EXP-004', 'EXP-005', 'EXP-006', 'EXP-007', 'EXP-008',
-  'EXP-P1', 'EXP-P2', 'EXP-P3', 'IRV-001', 'IPV-001',
-] as const;
+// Experiment publishing is GLOBAL BY SHAPE, not an enumerated allowlist
+// (operator direction 2026-07-20): every current AND future experiment saves
+// without a code change here. We validate the id's FORMAT and let policy handle
+// the rest — `visibility` below gives admins straight-to-canon publication and
+// users a private save (or steward-approved 'pending' when they opt in). The
+// experiment_results DB CHECK enforces the SAME shape (migration
+// 20260722000000), so app + DB agree; a completed run is never lost again.
+const EXPERIMENT_ID_RE = /^[A-Z][A-Z0-9]*(-[A-Z0-9]+)+$/;
 
 export async function GET(request: NextRequest) {
   const persona = await getActivePersona(request);
@@ -77,8 +75,12 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   }
-  if (!EXPERIMENTS.includes(body.experiment as (typeof EXPERIMENTS)[number])) {
-    return NextResponse.json({ error: `experiment must be one of: ${EXPERIMENTS.join(', ')}` }, { status: 400 });
+  const experimentId = typeof body.experiment === 'string' ? body.experiment.trim().toUpperCase() : '';
+  if (!EXPERIMENT_ID_RE.test(experimentId)) {
+    return NextResponse.json(
+      { error: 'experiment must be a valid id (letters/digits with a hyphen), e.g. EXP-006, EXP-P1, IRV-001' },
+      { status: 400 },
+    );
   }
   if (typeof body.provider !== 'string' || typeof body.model !== 'string' || body.results === undefined) {
     return NextResponse.json({ error: 'provider, model, and results are required' }, { status: 400 });
@@ -92,7 +94,7 @@ export async function POST(request: NextRequest) {
   // (which a steward must approve before it joins the published canon).
   const visibility = isAdmin ? 'published' : body.requestPublish ? 'pending' : 'private';
   const outcome = await publishExperimentResult(client, persona.personaId, {
-    experiment: body.experiment as (typeof EXPERIMENTS)[number],
+    experiment: experimentId,
     provider: body.provider,
     model: body.model,
     aggregates: body.aggregates ?? {},
