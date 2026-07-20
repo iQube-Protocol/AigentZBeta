@@ -39,6 +39,13 @@ export interface ExperimentFindings {
 export interface FindingsManifest {
   scope: string;
   experiments: ExperimentFindings[];
+  /**
+   * In-scope registry members with NO canonical runs yet, in canonical order.
+   * Surfaced so the narrative can place them in sequence as "publication
+   * pending" (never a silently-missing gap, e.g. EXP-005 between EXP-004 and
+   * EXP-006) — the model is told NOT to invent results for these.
+   */
+  pending: Array<{ id: string; family: string; seriesId: string }>;
   /** All canonical result content hashes the narrative is grounded on. */
   groundedOn: string[];
 }
@@ -71,26 +78,32 @@ export async function gatherFindings(scope = 'all'): Promise<FindingsManifest> {
   const inScope = (id: string) =>
     scope === 'all' || id === scope || EXPERIMENT_REGISTRY.find((e) => e.id === id)?.seriesId === scope;
 
-  const experiments: ExperimentFindings[] = EXPERIMENT_REGISTRY.filter((e) => inScope(e.id))
-    .map((e) => {
-      const entry = overview.find((o) => o.experiment.id === e.id);
-      const runs = runsByExp[e.id] ?? [];
-      // Only surface experiments that actually have canonical runs OR a known
-      // lifecycle beyond 'designed' — the report speaks to real evidence.
-      return {
-        id: e.id,
-        family: e.family,
-        hypothesis: e.hypothesis,
-        lifecycle: entry?.lifecycle ?? 'designed',
-        publishedRuns: entry?.publishedRuns ?? runs.length,
-        distinctProviders: entry?.distinctProviders ?? new Set(runs.map((r) => r.provider)).size,
-        runs,
-      };
-    })
-    .filter((e) => e.publishedRuns > 0);
+  // Registry order is canonical — preserve it (the narrative is sequenced by it).
+  const inScopeMembers = EXPERIMENT_REGISTRY.filter((e) => inScope(e.id));
+  const allFindings: ExperimentFindings[] = inScopeMembers.map((e) => {
+    const entry = overview.find((o) => o.experiment.id === e.id);
+    const runs = runsByExp[e.id] ?? [];
+    return {
+      id: e.id,
+      family: e.family,
+      hypothesis: e.hypothesis,
+      lifecycle: entry?.lifecycle ?? 'designed',
+      publishedRuns: entry?.publishedRuns ?? runs.length,
+      distinctProviders: entry?.distinctProviders ?? new Set(runs.map((r) => r.provider)).size,
+      runs,
+    };
+  });
+
+  // Experiments with real evidence carry the findings; the rest are surfaced as
+  // "pending" (in canonical order) so the narrative can place them in sequence
+  // without inventing results — never a silently-missing gap.
+  const experiments = allFindings.filter((e) => e.publishedRuns > 0);
+  const pending = inScopeMembers
+    .filter((e) => (allFindings.find((f) => f.id === e.id)?.publishedRuns ?? 0) === 0)
+    .map((e) => ({ id: e.id, family: e.family, seriesId: e.seriesId }));
 
   const groundedOn = experiments.flatMap((e) => e.runs.map((r) => r.contentHash)).filter(Boolean);
-  return { scope, experiments, groundedOn };
+  return { scope, experiments, pending, groundedOn };
 }
 
 /** A text grounding of the whole canonical record — what the narrative regenerates FROM. Pure. */
@@ -101,13 +114,23 @@ export function buildFindingsGrounding(manifest: FindingsManifest): string {
       .join('\n');
     return `${e.id} — ${e.family}\n  hypothesis: ${e.hypothesis}\n  lifecycle: ${e.lifecycle} · publishedRuns: ${e.publishedRuns} · distinctProviders: ${e.distinctProviders}\n${runLines}`;
   });
-  return `CANONICAL FINDINGS TO DATE (scope: ${manifest.scope}) — ${manifest.experiments.length} experiment(s) with published runs:\n\n${lines.join('\n\n')}`;
+  const pendingBlock =
+    manifest.pending.length > 0
+      ? `\n\nPENDING (in-scope, canonical order — run complete or designed, NO canonical runs yet; place these in sequence as "publication pending" and DO NOT invent any result for them):\n${manifest.pending
+          .map((p) => `  ${p.id} — ${p.family} (series ${p.seriesId})`)
+          .join('\n')}`
+      : '';
+  return `CANONICAL FINDINGS TO DATE (scope: ${manifest.scope}) — ${manifest.experiments.length} experiment(s) with published runs, listed in CANONICAL SEQUENCE (report MUST preserve this order):\n\n${lines.join('\n\n')}${pendingBlock}`;
 }
 
 const REPORT_SYSTEM = [
-  'You are composing the CANONICAL Findings Report of the metaMe Invariant Research Lab (Foundational Research Series).',
-  'REGENERATE THE ENTIRE REPORT as a coherent whole from the canonical findings manifest — the introduction, the framing of which experiments exist and what they COLLECTIVELY establish, a section per experiment, and cross-cutting conclusions must ALL reflect EVERY experiment present. Never describe the series as "three experiments" if the manifest lists more; the narrative must stay coherent with the collective record.',
-  'Ground STRICTLY on the manifest: never invent a result, a number, an experiment, or a claim not present. Where a run is single-model or a formal pass is open, say so. Include a short trust-model note (each run stores exact results JSON + a sha256 content commitment, DVN-anchorable).',
+  'You are composing the CANONICAL Findings Report of the metaMe Invariant Research Lab.',
+  'REGENERATE THE ENTIRE REPORT as a coherent whole from the canonical findings manifest — the introduction, the framing of which experiments exist and what they COLLECTIVELY establish, a section per experiment, and cross-cutting conclusions must ALL reflect EVERY experiment present. Never describe the programme as "three experiments" if the manifest lists more; the narrative must stay coherent with the collective record.',
+  // Dogfood the platform's own composition laws (EXP-002): sequential narrative
+  // order + a global coherence field. The report is ONE ordered spine, never a
+  // narrated head with an appended out-of-order tail.
+  'SEQUENCE (mandatory): emit experiment sections in the EXACT canonical order given in the manifest, grouped under their series. Do NOT reorder, and do NOT append a catch-all "additional experiments" section at the end — every experiment sits in its canonical slot. Place each PENDING experiment in its correct sequence position, described as "publication pending", so there is never a visible gap (e.g. EXP-005 must appear between EXP-004 and EXP-006). The introduction must be a coherent programme map of ALL series and members present — intro and body must not drift.',
+  'Ground STRICTLY on the manifest: never invent a result, a number, an experiment, or a claim not present. For PENDING experiments state only their aim/hypothesis and "publication pending" — never a fabricated result. Where a run is single-model or a formal pass is open, say so. Include a short trust-model note (each run stores exact results JSON + a sha256 content commitment, DVN-anchorable).',
   'Follow the CPS editorial arc (Problem → Opportunity → Constitutional Principle → Architecture/Findings → Implications) in standards-body register (W3C / IEEE / NIST / IBM Research), not marketing. Output Markdown.',
 ].join('\n\n');
 
