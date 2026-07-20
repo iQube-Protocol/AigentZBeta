@@ -29,6 +29,14 @@ frontend:
         - npm install --os=linux --cpu=x64 sharp
     build:
       commands:
+        # CONSTITUTIONAL GATE — fail the deploy on any NEW persona-spine
+        # violation (persona-unaware client fetch). Runs first, before the
+        # expensive build. Identity is foundational; a break here compounds
+        # through every gate/receipt/grant downstream. See CLAUDE.md →
+        # "Client-side spine fetches" and scripts/check-persona-spine.mjs.
+        - echo "=== Persona-spine gate ==="
+        - node scripts/check-persona-spine.mjs
+
         - echo "Creating .env.production with required SSR env vars..."
         - rm -f .env.production
 

@@ -1,0 +1,12 @@
+{
+  "_comment": "Persona-spine debt ratchet. Files here were ALREADY using a persona-unaware client transport (authedFetchHeaders / getSupabaseAccessToken) when the gate was introduced on 2026-07-20. They are allowed to pass the gate as tracked debt. As each is migrated to personaFetch (with personaIdHint), DELETE it from this list — the ratchet only tightens, never loosens. NEVER add a new file here to make a violation pass; fix the violation instead. Full inventory incl. the raw-fetch/getSession classes the string-gate can't catch: see the 2026-07-20 persona-spine audit.",
+  "knownViolations": [
+    "app/triad/components/codex/tabs/LockerTab.tsx",
+    "app/triad/components/codex/tabs/ParticipationStandingTab.tsx",
+    "app/triad/components/codex/tabs/PassportBureauApplyTab.tsx",
+    "app/triad/components/codex/tabs/PassportBureauStewardTab.tsx",
+    "app/triad/components/codex/tabs/PassportClaimModal.tsx",
+    "app/triad/components/codex/tabs/PassportEnsTab.tsx",
+    "app/triad/components/codex/tabs/StewardParticipationTab.tsx"
+  ]
+}

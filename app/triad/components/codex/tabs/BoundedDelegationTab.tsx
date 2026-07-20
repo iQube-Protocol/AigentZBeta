@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { personaFetch } from "@/utils/personaSpine";
-import { authedFetchHeaders } from "@/utils/supabaseBrowser";
 
 interface DelegateAgent {
   agentRootId: string;
@@ -317,10 +316,8 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     async function fetchSponsoredAgents() {
       setAgentsLoading(true);
       try {
-        const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
-        const res = await fetch('/api/persona/sponsored-agents', {
+        const res = await personaFetch('/api/persona/sponsored-agents', {
           cache: 'no-store',
-          headers: headers ?? undefined,
         });
         if (res.ok) {
           const data = await res.json();
