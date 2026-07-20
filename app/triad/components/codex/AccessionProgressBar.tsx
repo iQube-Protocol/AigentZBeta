@@ -41,16 +41,18 @@ export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) 
 
   const steps = useMemo(() => {
     if (!prefix) return [] as { key: StepKey; label: string; slug: string; optional?: boolean }[];
-    // Access (claim the invitation → research-lab grant) comes right after
-    // Passport, so an invited citizen can reach + run their assigned experiment
-    // WITHOUT delegating an agent. Delegation is OPTIONAL — a convenience for
-    // having an agent run the experiment on your behalf, never a gate (operator
-    // direction 2026-07-19).
+    // Ladder order (operator direction 2026-07-20): Passport → Delegate
+    // (OPTIONAL) → Access → Experiments. Delegation follows passport issuance
+    // (the passport auto-assigns the persona the agent is delegated through)
+    // and PRECEDES Access, because an agent administering access on the
+    // citizen's behalf must already hold delegated authority. Delegation
+    // remains OPTIONAL and never gates: the citizen can claim Access
+    // themselves via their passport — Access is mandatory, delegation is not.
     return [
       { key: "welcome" as const, label: "Welcome", slug: `${prefix}-welcome` },
       { key: "passport" as const, label: "Passport", slug: `${prefix}-passport-apply` },
-      { key: "access" as const, label: "Access", slug: `${prefix}-passport-locker` },
       { key: "delegation" as const, label: "Delegate (optional)", slug: `${prefix}-passport-delegation`, optional: true },
+      { key: "access" as const, label: "Access", slug: `${prefix}-passport-locker` },
       { key: "experiments" as const, label: "Experiments", slug: `${prefix}-experiment-lab` },
     ];
   }, [prefix]);
