@@ -989,6 +989,104 @@ export function initializeDefaultTemplates(): void {
     tags: ['video', 'article', 'bundle', 'sora', 'venice', 'ai-generation'],
   };
 
+  // Constitutional Video (2026-07-19) — a BLANK CANVAS bound by the
+  // constitutional grammar. The operator supplies what the video is about
+  // (content direction); the skill supplies the rules (cadence, one-invariant
+  // thresholds, CTA ceremony) and the invariant grounding. 24/36/48s.
+  const constitutionalVideoTemplate: TemplateData = {
+    id: 'constitutional-video',
+    name: 'Constitutional Video',
+    description:
+      'Generate a 24/36/48-second invariant-grounded constitutional video — complete 12-second micro-films that stitch seamlessly and stand alone, each ending on one constitutional threshold statement, closing on a threshold-crossing CTA. A blank canvas bound by the constitutional grammar: you supply the subject and concepts; the skill supplies the rules and the invariant grounding. Full voiceover audio.',
+    category: 'content',
+    complexity: 'intermediate',
+    estimated_time: 20,
+    required_components: ['ToolQube'],
+    optional_components: ['DataQube'],
+    steps: [
+      {
+        id: 'content_direction',
+        title: 'Content Direction',
+        description: 'What is this video about? Describe the subject and the constitutional ideas it explores — this is your blank canvas.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'subject', name: 'What the video is about', type: 'textarea', required: true },
+            { id: 'concepts', name: 'Constitutional concepts to explore (comma-separated)', type: 'text', required: false },
+            { id: 'audience', name: 'Audience (optional)', type: 'text', required: false },
+            { id: 'tone', name: 'Tone (optional)', type: 'text', required: false },
+          ],
+        },
+      },
+      {
+        id: 'invariant_grounding',
+        title: 'Invariant Grounding',
+        description: 'Choose the invariant namespace/collection the threshold statements are grounded in.',
+        type: 'selection',
+        required: true,
+        component_type: 'ToolQube',
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'semantic_namespace', name: 'Grounding namespace', type: 'text', required: false, default_value: 'constitutional' },
+            { id: 'style_namespace', name: 'Style namespace (optional)', type: 'text', required: false },
+            { id: 'narrative_namespace', name: 'Narrative namespace (optional)', type: 'text', required: false },
+          ],
+        },
+      },
+      {
+        id: 'duration_and_cta',
+        title: 'Duration & Threshold CTA',
+        description: 'Pick the length and configure the closing threshold-crossing call to action.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            {
+              id: 'durationSeconds', name: 'Duration', type: 'select', required: true, default_value: '48',
+              options: [
+                { value: '24', label: '24 seconds (2 segments)' },
+                { value: '36', label: '36 seconds (3 segments)' },
+                { value: '48', label: '48 seconds (4 segments)' },
+              ],
+            },
+            {
+              id: 'cta_target', name: 'CTA target', type: 'select', required: true, default_value: 'passport',
+              options: [
+                { value: 'passport', label: 'Claim Passport' },
+                { value: 'delegation', label: 'Delegate an Agent' },
+                { value: 'founder-office', label: 'Founder Office' },
+                { value: 'research-lab', label: 'Research Lab' },
+                { value: 'custom', label: 'Custom' },
+              ],
+            },
+            { id: 'cta_claimLine', name: 'Claim line (e.g. "Claim Your Polity Passport.")', type: 'text', required: true },
+          ],
+        },
+      },
+      {
+        id: 'generate',
+        title: 'Generate',
+        description: 'Generate the grammar-bound plan, render the voiced segments, and stitch the film.',
+        type: 'configuration',
+        required: true,
+        ui_config: { layout: 'form', fields: [] },
+      },
+      {
+        id: 'review',
+        title: 'Review',
+        description: 'Review the stitched video, per-segment thresholds, grammar verdict, and coherence score.',
+        type: 'configuration',
+        required: false,
+        ui_config: { layout: 'form', fields: [] },
+      },
+    ],
+    tags: ['video', 'constitutional', 'invariant-grounded', 'micro-film', 'threshold', 'voiceover', 'blank-canvas'],
+  };
+
   createTemplate(contentAnalysisTemplate);
   createTemplate(interactiveStoryTemplate);
   createTemplate(qriptopianReadingSprint);
@@ -996,6 +1094,7 @@ export function initializeDefaultTemplates(): void {
   createTemplate(aiImageGeneration);
   createTemplate(aiArticleDraft);
   createTemplate(videoArticleBundle);
+  createTemplate(constitutionalVideoTemplate);
 }
 
 // Initialize default templates on import
