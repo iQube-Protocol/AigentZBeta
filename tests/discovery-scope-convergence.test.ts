@@ -75,3 +75,21 @@ describe('scope-ladder discipline (source-level, mirrors the discovery canary)',
     expect(src).toMatch(/lvl !== 'L0' && lvl !== 'L1'/);
   });
 });
+
+describe('Compare discipline (Phase 2 — earned domain invariants)', () => {
+  const src = readFileSync(join(__dirname, '..', 'services', 'invariants', 'discoveryEngine.ts'), 'utf8');
+
+  it('needs at least 2 sub-domains and never invents unsupported invariants', () => {
+    expect(src).toMatch(/comparedSubDomains\.length < 2/);
+    expect(src).toMatch(/Do NOT invent invariants unsupported/);
+  });
+
+  it('confidence is recurrence-based (coverage breadth), not model self-report', () => {
+    expect(src).toMatch(/0\.55 \+ 0\.1 \* cov/);
+  });
+
+  it('classifies against the baseline (supported/specialized/split/novel) and treats baseline as hypotheses', () => {
+    for (const k of ['supported', 'specialized', 'split', 'novel']) expect(src).toContain(`'${k}'`);
+    expect(src).toMatch(/NOT ground truth|hypotheses to test/i);
+  });
+});
