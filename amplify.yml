@@ -101,7 +101,7 @@ frontend:
         # loads: source maps (*.map) across the whole .next tree, and any type
         # declarations / package docs that slipped into the traced node_modules.
         # None are require()d at runtime — deleting them cannot change behaviour.
-        - echo "Removing source maps + non-runtime dev artifacts (safe: never loaded at SSR runtime)..."
+        - echo "Removing source maps + non-runtime dev artifacts (never loaded at SSR runtime)..."
         - find .next -type f -name "*.map" -delete 2>/dev/null || true
         - find .next/standalone/node_modules -type f \( -name "*.d.ts" -o -name "*.md" -o -name "*.markdown" -o -iname "readme*" -o -iname "license*" -o -iname "licence*" -o -iname "changelog*" -o -name "*.map" \) -delete 2>/dev/null || true
         - echo "=== .next/standalone size AFTER native-binary + dev-artifact cleanup ==="
