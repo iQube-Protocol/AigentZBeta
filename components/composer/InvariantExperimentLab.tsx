@@ -24,7 +24,7 @@
  */
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
-import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, FlaskConical, Home, Layers, Lock, Scale, ShieldCheck } from "lucide-react";
+import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, FlaskConical, Home, Layers, Lock, Scale, ShieldCheck, Sparkles } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { EXPERIMENT_REGISTRY } from "@/types/research";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
@@ -42,6 +42,7 @@ import HomecomingTestTab from "./HomecomingTestTab";
 import ExperimentResultsTab from "./ExperimentResultsTab";
 import ExperimentReportTab from "./ExperimentReportTab";
 import CanonicalPlatesTab from "./CanonicalPlatesTab";
+import InvariantDiscoveryTab from "./InvariantDiscoveryTab";
 
 /** Known tab ids plus dynamic `reg:<EXPERIMENT_ID>` entries from the registry
  *  completeness guard (any registered experiment not hand-mounted below is
@@ -109,6 +110,12 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
     items: [
       { id: "chrysalis", label: "Chrysalis Test", icon: ShieldCheck, blurb: "Constitutional acceptance — the platform passes its own governed-execution acceptance criteria (Chrysalis)." },
       { id: "homecoming", label: "Homecoming Test", icon: Home, blurb: "Constitutional acceptance — the return-to-canon acceptance criteria (Homecoming)." },
+    ],
+  },
+  {
+    title: "Discovery",
+    items: [
+      { id: "discovery", label: "Invariant Discovery", icon: Sparkles, blurb: "CFS-048 · the upstream primitive — discover candidate invariants for a domain (Financial Services, constitutional arm) from evidence, then promote into the registry as proposed for validation." },
     ],
   },
   {
@@ -409,6 +416,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "results" && <ExperimentResultsTab />}
         {tab === "report" && <ExperimentReportTab />}
         {tab === "plates" && <CanonicalPlatesTab isAdmin={Boolean(accessInfo?.isAdmin)} />}
+        {tab === "discovery" && <InvariantDiscoveryTab />}
       </div>
     </div>
   );
