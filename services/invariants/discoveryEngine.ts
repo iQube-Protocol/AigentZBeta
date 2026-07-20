@@ -272,8 +272,8 @@ function toCandidateRow(r: Record<string, unknown>): CandidateRow {
   };
 }
 
-/** Tolerate a model that wraps JSON in prose/fences. */
-function extractJson(text: string): string {
+/** Tolerate a model that wraps JSON in prose/fences. Exported for the canary. */
+export function extractJson(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) return fenced[1].trim();
   const first = text.indexOf('{');
