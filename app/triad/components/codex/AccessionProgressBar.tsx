@@ -18,7 +18,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
+import { authedFetchHeaders } from "@/utils/supabaseBrowser";
 
 interface Props {
   codexId: string;
@@ -67,21 +67,43 @@ export function AccessionProgressBar({ codexId, activeSlug }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        // ONE active-persona source of truth (passport + access + delegation),
-        // all resolved server-side from getActivePersona. personaFetch (NOT raw
-        // fetch) — my-access reads the caller through the spine and needs the
-        // Bearer token (CLAUDE.md spine-fetch rule). This replaces the old
-        // three-endpoint read whose delegation query used a client-supplied
-        // persona_id that mismatched the active persona (operator 2026-07-20).
-        const res = await personaFetch("/api/participation/my-access", { cache: "no-store" });
-        const d = res.ok ? await res.json() : null;
+        // Passport is read from the WALLET endpoint (its authoritative source —
+        // the same call that rendered the Passport step green before) and
+        // access + delegation from my-access. Both via authedFetchHeaders, the
+        // exact transport the working version used, so all three resolve the
+        // SAME active persona. (A regression 2026-07-20 moved passport onto
+        // my-access.passportIssued and swapped the transport — passport stopped
+        // registering. Restored here; delegation still comes from my-access's
+        // server-resolved flag, which is the actual bug this component needed
+        // fixed — no more client-supplied persona_id mismatch.)
+        const headers = await authedFetchHeaders({ Accept: "application/json" });
+        const init: RequestInit = { cache: "no-store", headers: headers ?? undefined };
+        const [walletRes, accessRes] = await Promise.allSettled([
+          fetch("/api/polity-passport/wallet", init),
+          fetch("/api/participation/my-access", init),
+        ]);
 
-        const authed = Boolean(d?.authenticated);
-        const passportDone = Boolean(d?.passportIssued);
-        const accessDone =
-          Array.isArray(d?.grants) &&
-          d.grants.some((g: { accessDomain?: string }) => g.accessDomain === "research-lab");
-        const delegationDone = Boolean(d?.delegationActive);
+        let passportDone = false;
+        if (walletRes.status === "fulfilled" && walletRes.value.ok) {
+          const w = await walletRes.value.json();
+          const passports = (w?.passportQubes ?? w?.passports ?? w?.items ?? []) as Array<{ passportId?: string }>;
+          passportDone = passports.some((p) => p.passportId);
+        }
+
+        let authed = false;
+        let accessDone = false;
+        let delegationDone = false;
+        if (accessRes.status === "fulfilled" && accessRes.value.ok) {
+          const d = await accessRes.value.json();
+          authed = Boolean(d?.authenticated);
+          accessDone =
+            Array.isArray(d?.grants) &&
+            d.grants.some((g: { accessDomain?: string }) => g.accessDomain === "research-lab");
+          delegationDone = Boolean(d?.delegationActive);
+          // Fallback: if the wallet call didn't resolve a passport but my-access
+          // did, still clear the step (never regress a real passport to amber).
+          if (!passportDone) passportDone = Boolean(d?.passportIssued);
+        }
 
         if (!cancelled) {
           setDone({
