@@ -23,7 +23,8 @@
 import { createHash } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { callSovereign } from '@/services/constitutional/modelRouter';
-import { discoverInvariant } from '@/services/invariants/lifecycle';
+import { discoverInvariant, addEdge } from '@/services/invariants/lifecycle';
+import { similarity } from '@/services/invariants/comparison';
 import type { InvariantNamespace, InvariantSemanticType } from '@/types/invariants';
 
 export type DiscoveryClass = 'constitutional' | 'structural' | 'experiential';
@@ -36,8 +37,11 @@ export type DiscoveryScopeLevel = 'domain' | 'sub-domain' | 'capability';
 /** How a Compare output relates to the domain baseline (Aletheon 2026-07-20):
  *  supported = recurs across ≥2 sub-domains; specialized = one branch only;
  *  split = one baseline invariant that is really several; novel = absent from
- *  the baseline, discovered independently across sub-domains. */
-export type CompareClassification = 'supported' | 'specialized' | 'split' | 'novel';
+ *  the baseline; equivalent = the SAME invariant as a baseline item at a different
+ *  abstraction level (not two invariants — a level mismatch; keeps abstraction
+ *  mismatches from being mislabelled as novelty). */
+export type CompareClassification = 'supported' | 'specialized' | 'split' | 'novel' | 'equivalent';
+const COMPARE_CLASSES: readonly string[] = ['supported', 'specialized', 'split', 'novel', 'equivalent'];
 /** Constitutional-abstraction ladder: L0 verbatim · L1 summary · L2 cross-
  *  regulation · L3 domain-constitutional · L4 domain-independent. Discovery
  *  targets L2-L3; L4 is discovered later by cross-domain comparison. */
@@ -347,6 +351,8 @@ Method:
     specialized  — appears in only ONE sub-domain (belongs lower in the hierarchy)
     split        — a single baseline hypothesis that actually contains two distinct invariants
     novel        — recurs across sub-domains but is ABSENT from the baseline (the most valuable)
+    equivalent   — the SAME invariant as a baseline item but expressed at a different abstraction
+                   level (a level mismatch, NOT a new invariant — do not mark these novel or split)
 - coverage = the exact sub-domain names (from the input) that manifest this invariant.
 - Do NOT invent invariants unsupported by the sub-domain candidates. Compress what is there.
 - The baseline hypotheses are NOT ground truth — they may be supported, split, specialized, or found
@@ -424,7 +430,7 @@ export async function compareSubDomains(
     .map((c) => {
       const coverage = (Array.isArray(c.coverage) ? c.coverage : []).filter((s) => comparedSubDomains.includes(s));
       const classification: CompareClassification =
-        ['supported', 'specialized', 'split', 'novel'].includes(String(c.classification))
+        COMPARE_CLASSES.includes(String(c.classification))
           ? (c.classification as CompareClassification)
           : coverage.length >= 2 ? 'supported' : 'specialized';
       // Confidence from INDEPENDENT RECURRENCE (coverage breadth), not self-report.
@@ -471,11 +477,50 @@ export async function compareSubDomains(
  * receipt). Carries evidence provenance so the invariant traces back to its
  * sources (inv.reasoning.335).
  */
+export interface ParentSuggestion {
+  invariantId: string;
+  statement: string;
+  similarity: number;
+}
+
+/**
+ * Suggest parent domain invariants a sub-domain candidate could `specialize`
+ * (Aletheon's keystone). Parents = already-promoted DOMAIN-level invariants in
+ * the same domain (baseline or Compare-earned), ranked by statement similarity.
+ * The engine PROPOSES; the operator confirms — the edge is never automatic.
+ */
+export async function suggestParents(admin: SupabaseClient, candidateId: string): Promise<ParentSuggestion[]> {
+  const { data: c } = await admin
+    .from('discovery_candidates')
+    .select('domain, sub_domain, statement')
+    .eq('id', candidateId)
+    .maybeSingle();
+  if (!c) return [];
+  // Promoted domain-level invariants (sub_domain IS NULL, status promoted) in this domain.
+  const { data: parents } = await admin
+    .from('discovery_candidates')
+    .select('promoted_invariant_id, statement')
+    .eq('domain', String(c.domain))
+    .is('sub_domain', null)
+    .eq('status', 'promoted')
+    .not('promoted_invariant_id', 'is', null);
+  const stmt = String(c.statement ?? '');
+  return (parents ?? [])
+    .map((p) => ({
+      invariantId: String(p.promoted_invariant_id),
+      statement: String(p.statement ?? ''),
+      similarity: Number(similarity(stmt, String(p.statement ?? '')).toFixed(3)),
+    }))
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, 4);
+}
+
 export async function promoteCandidate(
   admin: SupabaseClient,
   candidateId: string,
   actor: { personaId: string; sessionId?: string },
-): Promise<{ ok: true; invariantId: string } | { ok: false; error: string }> {
+  parentInvariantIds: string[] = [],
+): Promise<{ ok: true; invariantId: string; linkedParents: number } | { ok: false; error: string }> {
   const { data: c, error } = await admin
     .from('discovery_candidates')
     .select('*')
@@ -527,7 +572,26 @@ export async function promoteCandidate(
       .from('discovery_candidates')
       .update({ status: 'promoted', promoted_invariant_id: result.invariant.id, updated_at: new Date().toISOString() })
       .eq('id', candidateId);
-    return { ok: true, invariantId: result.invariant.id };
+
+    // Parent-linking (Aletheon keystone): the promoted sub-domain invariant
+    // `specializes` each operator-confirmed parent domain invariant, turning the
+    // registry into an ontology (a graph, not a tree — multiple parents allowed).
+    // Edge failures never fail the promotion (the invariant already exists).
+    let linkedParents = 0;
+    for (const parentId of [...new Set(parentInvariantIds)].filter((id) => id && id !== result.invariant.id)) {
+      try {
+        await addEdge({
+          fromInvariantId: result.invariant.id,
+          toInvariantId: parentId,
+          edgeType: 'specializes',
+          rationale: `CFS-048: sub-domain invariant specializes domain invariant (${String(c.sub_domain ?? c.domain)})`,
+        });
+        linkedParents += 1;
+      } catch (edgeErr) {
+        console.error(`[CFS-048] specializes-edge failed ${result.invariant.id}→${parentId}: ${edgeErr instanceof Error ? edgeErr.message : String(edgeErr)}`);
+      }
+    }
+    return { ok: true, invariantId: result.invariant.id, linkedParents };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'promotion failed' };
   }
@@ -559,7 +623,7 @@ function toCandidateRow(r: Record<string, unknown>): CandidateRow {
     promotedInvariantId: (r.promoted_invariant_id as string | null) ?? null,
     createdAt: String(r.created_at),
     stage: prov.stage === 'compare' ? 'compare' : 'constitutional',
-    classification: (['supported', 'specialized', 'split', 'novel'].includes(String(prov.classification))
+    classification: (COMPARE_CLASSES.includes(String(prov.classification))
       ? (prov.classification as CompareClassification) : null),
     coverage: Array.isArray(prov.coverage) ? (prov.coverage as string[]) : null,
   };

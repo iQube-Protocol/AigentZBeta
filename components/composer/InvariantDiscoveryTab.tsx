@@ -25,7 +25,8 @@ interface Evidence {
   sourceKind: string; content: string; sourceRef: string | null; createdAt: string;
 }
 interface Convergence { supportCount: number; frameworks: string[]; tier: "single" | "strong" | "broad" }
-type Classification = "supported" | "specialized" | "split" | "novel";
+type Classification = "supported" | "specialized" | "split" | "novel" | "equivalent";
+interface ParentSuggestion { invariantId: string; statement: string; similarity: number }
 interface Candidate {
   id: string; domain: string; subDomain: string | null;
   scopeLevel: "domain" | "sub-domain" | "capability";
@@ -45,6 +46,7 @@ const CLASSIFICATION_META: Record<Classification, { label: string; cls: string }
   novel: { label: "Novel", cls: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
   specialized: { label: "Specialized", cls: "border-sky-500/40 bg-sky-500/10 text-sky-300" },
   split: { label: "Split", cls: "border-violet-500/40 bg-violet-500/10 text-violet-300" },
+  equivalent: { label: "Equivalent", cls: "border-teal-500/40 bg-teal-500/10 text-teal-300" },
 };
 
 const SOURCE_KINDS = ["legislation", "regulation", "compliance", "standard", "contract", "policy", "other"];
@@ -75,6 +77,7 @@ export default function InvariantDiscoveryTab() {
   const [eRef, setERef] = useState("");
   const [eContent, setEContent] = useState("");
   const [eSubDomain, setESubDomain] = useState(""); // "" = domain-wide evidence
+  const [linkFor, setLinkFor] = useState<{ id: string; suggestions: ParentSuggestion[]; selected: Set<string> } | null>(null);
 
   const scopeLabel = subDomain ? (presets.find((p) => p.value === subDomain)?.label ?? subDomain) : "Domain baseline";
 
@@ -138,10 +141,34 @@ export default function InvariantDiscoveryTab() {
     }
   }, [post, load]);
 
-  const promote = useCallback(async (id: string) => {
-    const r = await post({ action: "promote", candidateId: id }, `promote-${id}`);
-    if (r) { setNotice(`✓ Promoted → proposed in the registry (validation next)`); await load(); }
+  const promote = useCallback(async (id: string, parentInvariantIds: string[] = []) => {
+    const r = await post({ action: "promote", candidateId: id, parentInvariantIds }, `promote-${id}`);
+    if (r) {
+      const linked = Number(r.linkedParents ?? 0);
+      setNotice(`✓ Promoted → proposed${linked > 0 ? ` · specializes ${linked} parent invariant${linked === 1 ? "" : "s"}` : ""} (validation next)`);
+      setLinkFor(null);
+      await load();
+    }
   }, [post, load]);
+
+  // Sub-domain candidates route through a parent-link confirm (Aletheon keystone):
+  // propose parent domain invariants, operator confirms which to `specialize`.
+  const startPromote = useCallback(async (c: Candidate) => {
+    if (!c.subDomain) { void promote(c.id, []); return; } // domain-level → direct
+    const r = await post({ action: "suggest-parents", candidateId: c.id }, `suggest-${c.id}`);
+    const suggestions: ParentSuggestion[] = (r?.suggestions as ParentSuggestion[]) ?? [];
+    // Preselect strong matches (similarity ≥ 0.2) so the common case is one click.
+    setLinkFor({ id: c.id, suggestions, selected: new Set(suggestions.filter((s) => s.similarity >= 0.2).map((s) => s.invariantId)) });
+  }, [post, promote]);
+
+  const toggleParent = useCallback((invariantId: string) => {
+    setLinkFor((lf) => {
+      if (!lf) return lf;
+      const selected = new Set(lf.selected);
+      if (selected.has(invariantId)) selected.delete(invariantId); else selected.add(invariantId);
+      return { ...lf, selected };
+    });
+  }, []);
 
   const reject = useCallback(async (id: string) => {
     const r = await post({ action: "reject", candidateId: id }, `reject-${id}`);
@@ -290,15 +317,42 @@ export default function InvariantDiscoveryTab() {
                       </span>
                     )}
                     <span className="flex-1" />
-                    <button onClick={() => void promote(c.id)} disabled={busy !== null}
+                    <button onClick={() => void startPromote(c)} disabled={busy !== null}
                       className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50">
-                      {busy === `promote-${c.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Promote → proposed
+                      {busy === `promote-${c.id}` || busy === `suggest-${c.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Promote → proposed
                     </button>
                     <button onClick={() => void reject(c.id)} disabled={busy !== null}
                       className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:text-rose-300 disabled:opacity-50">
                       <X className="h-3 w-3" /> Reject
                     </button>
                   </div>
+
+                  {/* Parent-link confirm — the sub-domain invariant `specializes` the
+                      chosen domain invariant(s); a graph, not a tree. Operator-confirmed. */}
+                  {linkFor?.id === c.id && (
+                    <div className="mt-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1.5">
+                      <div className="text-[10px] uppercase tracking-wide text-emerald-300/80">
+                        Link as a specialization of a domain invariant (optional)
+                      </div>
+                      {linkFor.suggestions.length === 0 ? (
+                        <p className="text-[11px] text-slate-500 italic">No promoted domain invariants yet — promote domain candidates first to build the parent layer.</p>
+                      ) : (
+                        linkFor.suggestions.map((s) => (
+                          <label key={s.invariantId} className="flex cursor-pointer items-start gap-2 text-[11px] text-slate-300">
+                            <input type="checkbox" className="mt-0.5 accent-emerald-500" checked={linkFor.selected.has(s.invariantId)} onChange={() => toggleParent(s.invariantId)} />
+                            <span className="min-w-0 flex-1">{s.statement} <span className="text-slate-500">· sim {s.similarity}</span></span>
+                          </label>
+                        ))
+                      )}
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <button onClick={() => void promote(c.id, [...linkFor.selected])} disabled={busy !== null}
+                          className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50">
+                          <Check className="h-3 w-3" /> {linkFor.selected.size > 0 ? `Link ${linkFor.selected.size} & promote` : "Promote (no parent)"}
+                        </button>
+                        <button onClick={() => setLinkFor(null)} className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:text-slate-200">Cancel</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
