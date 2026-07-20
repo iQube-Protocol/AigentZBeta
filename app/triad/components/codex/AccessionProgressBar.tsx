@@ -18,7 +18,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
-import { authedFetchHeaders } from "@/utils/supabaseBrowser";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface Props {
   codexId: string;
@@ -36,7 +36,7 @@ function goToTab(slug: string) {
   }
 }
 
-export function AccessionProgressBar({ codexId, activeSlug }: Props) {
+export function AccessionProgressBar({ codexId, activeSlug, personaId }: Props) {
   const prefix = codexId.includes("irl-os") ? "irl-os" : codexId === "irl-cartridge" ? "irl" : null;
 
   const steps = useMemo(() => {
@@ -67,20 +67,19 @@ export function AccessionProgressBar({ codexId, activeSlug }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        // Passport is read from the WALLET endpoint (its authoritative source —
-        // the same call that rendered the Passport step green before) and
-        // access + delegation from my-access. Both via authedFetchHeaders, the
-        // exact transport the working version used, so all three resolve the
-        // SAME active persona. (A regression 2026-07-20 moved passport onto
-        // my-access.passportIssued and swapped the transport — passport stopped
-        // registering. Restored here; delegation still comes from my-access's
-        // server-resolved flag, which is the actual bug this component needed
-        // fixed — no more client-supplied persona_id mismatch.)
-        const headers = await authedFetchHeaders({ Accept: "application/json" });
-        const init: RequestInit = { cache: "no-store", headers: headers ?? undefined };
+        // PERSONA SPINE ONLY (CLAUDE.md hard rule): every read goes through
+        // personaFetch, and we pass the embed's resolvedPersonaId as the
+        // personaIdHint so the spine resolves the caller's ACTIVE persona —
+        // the same persona across ALL three steps. Passport comes from its
+        // authoritative source (the wallet), access + delegation from
+        // my-access; both on the spine, both hinted, so they never disagree
+        // about who the caller is. (The prior authedFetchHeaders/raw-fetch
+        // reads were persona-UNAWARE and resolved a fallback persona — the
+        // inconsistency that made passport/delegation flip between renders.)
+        const spineInit = { cache: "no-store" as const, personaIdHint: personaId };
         const [walletRes, accessRes] = await Promise.allSettled([
-          fetch("/api/polity-passport/wallet", init),
-          fetch("/api/participation/my-access", init),
+          personaFetch("/api/polity-passport/wallet", spineInit),
+          personaFetch("/api/participation/my-access", spineInit),
         ]);
 
         let passportDone = false;
@@ -123,7 +122,7 @@ export function AccessionProgressBar({ codexId, activeSlug }: Props) {
       }
     })();
     return () => { cancelled = true; };
-  }, [prefix, onStepTab]);
+  }, [prefix, onStepTab, personaId]);
 
   if (!prefix || !onStepTab) return null;
 
