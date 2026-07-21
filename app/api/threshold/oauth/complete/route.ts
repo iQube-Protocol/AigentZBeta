@@ -79,13 +79,27 @@ export async function POST(request: NextRequest) {
   });
   if (!formed.ok) return NextResponse.json({ ok: false, error: `form failed: ${formed.reason}` }, { status: 503 });
 
-  // 2. The agent accepts its OWN side (acceptorType agent) — not an authorization.
-  const accepted = await acceptAgreement(personaId, { agreementId, acceptorType: 'agent', acceptorId: agentAlias });
-  if (!accepted.ok) return NextResponse.json({ ok: false, error: `accept failed: ${accepted.reason}` }, { status: 503 });
+  // The whole delegation is IDEMPOTENT across retries: a prior attempt may have
+  // already advanced this agreement (same agreementId = thr-<handshakeCode>) to
+  // 'accepted' or 'authorized'. Only run each transition from its valid prior
+  // state — re-accepting an already-authorized agreement is illegal and must be
+  // skipped, not treated as a failure.
+  let status = formed.agreement.status;
+
+  // 2. The agent accepts its OWN side (acceptorType agent) — only from 'proposed'.
+  if (status === 'proposed') {
+    const accepted = await acceptAgreement(personaId, { agreementId, acceptorType: 'agent', acceptorId: agentAlias });
+    if (!accepted.ok) return NextResponse.json({ ok: false, error: `accept failed: ${accepted.reason}` }, { status: 503 });
+    status = accepted.agreement.status;
+  }
 
   // 3. The HUMAN authorizes — this click IS the constitutional authorization act.
-  const authorized = await authorizeAgreement(personaId, { agreementId });
-  if (!authorized.ok) return NextResponse.json({ ok: false, error: `authorize failed: ${authorized.reason}` }, { status: 403 });
+  //    Skip if a prior attempt already authorized it (authorizeAgreement is itself
+  //    idempotent, but skipping avoids a redundant receipt).
+  if (status !== 'authorized') {
+    const authorized = await authorizeAgreement(personaId, { agreementId });
+    if (!authorized.ok) return NextResponse.json({ ok: false, error: `authorize failed: ${authorized.reason}` }, { status: 403 });
+  }
 
   // 4. Mint the one-time OAuth authorization code bound to the crossing (T2 only).
   const issued = await issueAuthorizationCode({
