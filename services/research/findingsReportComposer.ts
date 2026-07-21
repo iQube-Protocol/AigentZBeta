@@ -158,25 +158,31 @@ real narrative-mapping defect pre-render — fixed same day.)
   follow-up (EXP-002b) maps the coherence field's shape via adjacent-swap
   perturbations at zero generation cost.`,
 
-  "EXP-003": () => `**Aim.** Quantify the cost of *not* having validated knowledge: five fixed
-constitutional-design tasks answered twice by the same model at temperature
-0 — once cold, once initialized with the 18-invariant collection.
+  "EXP-003": () => `**Aim.** Measure the *economics* of reasoning under invariant grounding — not
+token cost alone, but the joint behaviour of grounding presence, token cost,
+contradictions, curation, breadth, retrieval strategy and merit weighting. The
+narrow question ("does initialisation reduce rediscovery cost?") is the first
+foundational run of a broader reasoning-economics programme.
 
-**Methodology.** Per-task token accounting (input + output) plus an
-independent judge decomposing each answer into claims scored consistent /
-contradicting / outside the collection, and citation counting against
-invariant markers. The efficiency claim requires the initialized arm to be
-cheaper AND more grounded, not merely shorter.
+**Methodology.** Five fixed constitutional-design tasks answered twice by the
+same model at temperature 0 — once cold, once initialised with the 18-invariant
+collection. Per-task token accounting (input + output) plus an independent judge
+decomposing each answer into claims scored consistent / contradicting / outside
+the collection, and citation counting against invariant markers. The economics
+claim requires the initialised arm to be cheaper AND more grounded, not merely
+shorter.
 
-**Execution (run 1, 2026-07-04).** Model: venice/llama-3.3-70b, both arms.
+**Execution (foundational run, 2026-07-04).** Model: venice/llama-3.3-70b, both arms.
 
-**Findings.** Initialized answers used **26.7% fewer tokens** with **100%
-grounded claims** (zero contradictions of the collection) and dense
-citations; cold answers were longer, uncited, and — most tellingly — one
-cold answer **independently rediscovered a failure mode the collection
-already encodes** (conflating standing with popularity, the platform's
-ratified Law XII distinction) and got it wrong, while the initialized arm
-avoided it by construction. Pre-paid reasoning eliminated the rediscovery.`,
+**Findings (first foundational run).** Initialised answers used **26.7% fewer
+tokens** with **100% grounded claims** (zero contradictions of the collection)
+and dense citations; cold answers were longer, uncited, and — most tellingly —
+one cold answer **independently rediscovered a failure mode the collection
+already encodes** (conflating standing with popularity, the platform's ratified
+Law XII distinction) and got it wrong, while the initialised arm avoided it by
+construction. Pre-paid reasoning eliminated the rediscovery. Follow-on
+reasoning-economics arms (breadth vs curation, retrieval strategy, merit
+weighting) extend this first result — see the cross-cutting conclusions.`,
 
   "EXP-004": (rows) => `**Aim.** Test whether invariant-grounded constitutional operation **survives on
 a non-frontier, self-hostable (open-weight) provider alone** — quality may
@@ -245,9 +251,17 @@ export interface FindingsReportInput {
 export function composeFindingsReport({ runsByExp, now }: FindingsReportInput): string {
   const byExp = (id: string): ReportRun[] => runsByExp[id] ?? [];
   const runCount = (id: string) => byExp(id).length;
-  const memberStatus = (id: string) => {
-    const c = runCount(id);
-    return c > 0 ? `**validated** (${c} canonical run${c > 1 ? "s" : ""})` : "run complete; canonical publication pending";
+  // "validated" alone overclaims for external readers (single runs, internal
+  // adjudication, no independent replication yet). Science experiments are
+  // "supported — canonical internal run complete"; instrument-validation
+  // experiments (IV0) legitimately establish "operationally validated".
+  const memberStatus = (exp: ResearchExperiment) => {
+    const c = runCount(exp.id);
+    if (c === 0) return "run complete; canonical publication pending";
+    const runs = `${c} canonical run${c > 1 ? "s" : ""}`;
+    return exp.seriesId === "IV0"
+      ? `**operationally validated** (${runs})`
+      : `**supported** — canonical internal run complete (${runs})`;
   };
 
   const allRuns = Object.values(runsByExp).flat();
@@ -272,7 +286,7 @@ export function composeFindingsReport({ runsByExp, now }: FindingsReportInput): 
     .map((s) => {
       const members = included
         .filter((e) => e.seriesId === s.id)
-        .map((e) => `  - **${e.id}** — ${e.family}: ${memberStatus(e.id)}`)
+        .map((e) => `  - **${e.id}** — ${e.family}: ${memberStatus(e)}`)
         .join("\n");
       return `**${s.name}.** ${s.claim}\n${members}`;
     })
@@ -323,14 +337,16 @@ export function composeFindingsReport({ runsByExp, now }: FindingsReportInput): 
 ## ${introNo}. Introduction — what is being validated
 
 The platform's core knowledge primitive is the **invariant**: a versioned,
-provenance-bearing statement of validated knowledge (e.g. *"Authority follows
-standing"*), stored in a graph, classified by an ontology, and composed by
-per-class composition laws into experiences — articles, reports, stories,
-video, agent behaviour. The claim under test is **reasoning compression**:
-that a curated collection of validated invariants functions as compressed,
-reusable expertise which survives transformation across modalities, survives
-composition across time, and measurably reduces the cost of reasoning while
-improving its fidelity.
+provenance-bearing **knowledge claim governed through a validation lifecycle**
+(proposed → validated → canonical, with rejected and superseded states), stored
+in a graph and classified by an ontology — the primitive is distinct from its
+maturity state. **Validated and canonical invariants may be curated into
+reasoning substrates**, composed by per-class composition laws into experiences
+(articles, reports, stories, video, agent behaviour). The claim under test is
+**reasoning compression**: that a *curated* collection of validated invariants
+functions as compressed, reusable expertise which survives transformation across
+modalities, survives composition across time, and measurably improves the
+economics of reasoning — lower cost at equal or better fidelity.
 
 The research programme is organised into **series**, each isolating a distinct
 property of the invariant substrate. This report reflects the **full canonical
@@ -354,18 +370,25 @@ the platform's Results interface does this in-browser, taking no server
 assertion on faith. The hashes in the data tables below are those
 commitments.
 
+A \`dvn_failed\` status in a run table means the local canonical result and its
+content commitment were written successfully, but the external (on-chain)
+anchoring step did not complete — the result remains fully hash-verifiable while
+decentralised anchoring is pending remediation. It never indicates experimental
+invalidity, only that the anchor is outstanding.
+
 ${expSections}
 ${orphanSections ? orphanSections + "\n" : ""}---
 
 ## ${conclusionsNo}. Cross-cutting conclusions (current)
 
-1. **One primitive, validated along orthogonal axes across several series.**
+1. **One primitive, examined along orthogonal axes across several series.**
    Semantic fidelity across modalities (FVS), temporal fidelity across
-   sequential composition (FVS), reasoning-cost reduction (FVS), constitutional
+   sequential composition (FVS), reasoning economics (FVS), constitutional
    operation under a sovereign provider and across interchangeable providers
    (Platform Sovereignty), and mechanism-level projection fidelity (Invariant
    Intelligence) — the same invariant substrate examined from independent
-   directions, each a separate measurable property.
+   directions, each a separate measurable property. These are canonical
+   *internal* runs, not yet independently replicated (see Limitations).
 2. **Constitutional restraint is a distinct, measurable property.** Refusing
    to derive what the knowledge does not contain (15/15 probes in EXP-001) is
    separable from avoiding false assertions — and it is the property that
@@ -381,6 +404,14 @@ ${orphanSections ? orphanSections + "\n" : ""}---
    alternative coherent trajectory through the same invariant space) as a
    legitimate, scoreable operation. *This report is composed under that same
    law — its section order is the coherence maximum over the experiment set.*
+5. **Curation dominates accumulation (emerging).** Initial reasoning-economics
+   results indicate curated invariant sets outperform broader, unearned
+   collections: grounding presence improves fidelity, but breadth *without*
+   relevance or merit weighting adds cost without material gain. This connects
+   the science directly to the iQube proposition (curated, provenance-bearing
+   knowledge over raw accumulation). It is an **emerging finding**, stated here
+   pending the breadth-arm's canonical publication — not yet a canonical-run
+   result in the tables above.
 
 ## ${limitationsNo}. Limitations, stated plainly
 
