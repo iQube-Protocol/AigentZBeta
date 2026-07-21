@@ -54,6 +54,10 @@ export default function ExperimentResultsTab() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillNote, setBackfillNote] = useState<string | null>(null);
+  // Per-row DVN-retry state + optimistic status override so a successful retry
+  // flips the chip dvn_failed → dvn_pending without a full refetch.
+  const [retry, setRetry] = useState<Record<string, { loading: boolean; error: string | null }>>({});
+  const [statusOverride, setStatusOverride] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,6 +117,28 @@ export default function ExperimentResultsTab() {
     setVerify((v) => ({ ...v, [row.id]: "verifying" }));
     const hash = await sha256Hex(row.resultsJson);
     setVerify((v) => ({ ...v, [row.id]: hash === row.contentHash ? "verified" : "mismatch" }));
+  };
+
+  // Re-kick a receipt whose DVN anchor failed (e.g. the canister was out of
+  // cycles). Uses the same spine-authed retry route as the myLedger receipt
+  // card; only enabled for rows with a receiptId in dvn_failed.
+  const retryDvn = async (row: PublishedResult) => {
+    if (!row.receiptId) return;
+    setRetry((s) => ({ ...s, [row.id]: { loading: true, error: null } }));
+    try {
+      const body = await experimentStep(
+        `/api/assistant/receipts/${encodeURIComponent(row.receiptId)}/retry-dvn`,
+        {},
+      );
+      const next = typeof body.receiptStatus === "string" ? (body.receiptStatus as string) : "dvn_pending";
+      setStatusOverride((o) => ({ ...o, [row.id]: next }));
+      setRetry((s) => ({ ...s, [row.id]: { loading: false, error: null } }));
+    } catch (err) {
+      setRetry((s) => ({
+        ...s,
+        [row.id]: { loading: false, error: err instanceof Error ? err.message : "retry failed" },
+      }));
+    }
   };
 
   const download = (row: PublishedResult) => {
@@ -176,9 +202,14 @@ export default function ExperimentResultsTab() {
             </span>
             <span className="text-xs text-slate-400">{row.provider} / {row.model}</span>
             <span className="text-xs text-slate-600">{new Date(row.createdAt).toLocaleString()}</span>
-            <span className={`rounded px-2 py-0.5 text-[10px] ${DVN_CHIP[row.receiptStatus ?? "local"] ?? DVN_CHIP.local}`}>
-              {row.receiptStatus ?? "no receipt"}
-            </span>
+            {(() => {
+              const eff = statusOverride[row.id] ?? row.receiptStatus;
+              return (
+                <span className={`rounded px-2 py-0.5 text-[10px] ${DVN_CHIP[eff ?? "local"] ?? DVN_CHIP.local}`}>
+                  {eff ?? "no receipt"}
+                </span>
+              );
+            })()}
             {verify[row.id] === "verified" && (
               <span className="inline-flex items-center gap-1 rounded bg-emerald-900/50 px-2 py-0.5 text-[10px] text-emerald-300">
                 <ShieldCheck className="h-3 w-3" /> hash verified in-browser
@@ -223,7 +254,21 @@ export default function ExperimentResultsTab() {
             >
               {expanded === row.id ? "Hide raw" : "View raw"}
             </button>
+            {(statusOverride[row.id] ?? row.receiptStatus) === "dvn_failed" && row.receiptId && (
+              <button
+                onClick={() => retryDvn(row)}
+                disabled={retry[row.id]?.loading}
+                title="Re-submit this receipt's DVN anchor (e.g. after the canister was topped up with cycles)"
+                className="inline-flex items-center gap-1.5 rounded-md border border-rose-800 bg-rose-950/40 px-2.5 py-1 text-xs text-rose-200 hover:bg-rose-900/40 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${retry[row.id]?.loading ? "animate-spin" : ""}`} />
+                {retry[row.id]?.loading ? "Retrying…" : "Retry DVN"}
+              </button>
+            )}
           </div>
+          {retry[row.id]?.error && (
+            <div className="text-[11px] text-rose-400">Retry failed: {retry[row.id]?.error}</div>
+          )}
 
           {expanded === row.id && (
             <pre className="max-h-80 overflow-auto rounded border border-slate-800 bg-slate-950 p-2 text-[10px] text-slate-400 whitespace-pre-wrap break-all">
