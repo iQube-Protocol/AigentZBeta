@@ -23,6 +23,7 @@ const session = (scope: string[]): ScopedSession => ({
   scope,
   initiatingService: 'irl',
   expiresAt: null,
+  serviceAgreements: {},
 });
 
 describe('hasScope', () => {
