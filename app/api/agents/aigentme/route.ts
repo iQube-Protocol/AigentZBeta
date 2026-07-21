@@ -23,6 +23,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { sponsorPolityAgent } from '@/services/agents/sponsorPolityAgent';
 import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
+import { listOwnedPersonaRows } from '@/services/identity/constitutionalContext';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 
 export const dynamic = 'force-dynamic';
@@ -56,11 +57,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
     }
 
+    // Person-scoped (CFS-024): the aigentMe belongs to the person, so look across
+    // every persona the caller owns — not only the active one.
+    const ownedRows = await listOwnedPersonaRows(persona.authProfileId);
+    const ownedPersonaIds = Array.from(new Set([persona.personaId, ...ownedRows.map((r) => r.id)]));
     const { data, error } = await admin
       .from('agent_root_identity')
       .select(AGENT_SELECT)
-      .eq('sponsor_persona_id', persona.personaId)
+      .in('sponsor_persona_id', ownedPersonaIds)
       .eq('is_aigent_me', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -119,12 +126,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
     }
 
-    // Idempotent — return the existing aigentMe if one is already designated.
+    // CFS-024: an agent belongs to the PERSON, not the active persona. Resolve
+    // the caller's full persona roster so both the idempotency check and the
+    // Citizen-Passport sponsor lookup are person-scoped — otherwise creating an
+    // aigentMe while an agent-persona (e.g. Aigent Z) is active fails with
+    // "citizen passport required" even though the person HAS a citizen passport
+    // on another persona.
+    const ownedRows = await listOwnedPersonaRows(persona.authProfileId);
+    const ownedPersonaIds = Array.from(new Set([persona.personaId, ...ownedRows.map((r) => r.id)]));
+
+    // Idempotent — return the existing aigentMe if the PERSON already has one.
     const { data: existing, error: existingErr } = await admin
       .from('agent_root_identity')
       .select(AGENT_SELECT)
-      .eq('sponsor_persona_id', persona.personaId)
+      .in('sponsor_persona_id', ownedPersonaIds)
       .eq('is_aigent_me', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (existingErr && !existingErr.message.includes('is_aigent_me')) {
       return NextResponse.json({ ok: false, error: existingErr.message }, { status: 500 });
@@ -133,11 +151,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, agent: projectAgent(existing), created: false });
     }
 
-    // Resolve the caller's active Citizen Passport — the sponsoring credential.
+    // Resolve the caller's Citizen Passport across ALL their personas — the
+    // sponsoring credential belongs to the person. Sponsor AS the persona that
+    // holds it (not necessarily the active one).
     const { data: citizenRows, error: citizenErr } = await admin
       .from('polity_passport_records')
-      .select('passport_id, citizen_status, issued_at')
-      .eq('persona_id', persona.personaId)
+      .select('passport_id, persona_id, citizen_status, issued_at')
+      .in('persona_id', ownedPersonaIds)
       .eq('passport_class', 'citizen')
       .in('citizen_status', ['active', 'renewal_due'])
       .order('issued_at', { ascending: false })
@@ -152,11 +172,12 @@ export async function POST(req: NextRequest) {
           ok: false,
           code: 'citizen_passport_required',
           error:
-            'An active Citizen Passport is required to create your aigentMe. Apply for your passport first.',
+            'An active Citizen Passport is required to create your aigentMe. Apply for your Citizen Passport on any of your personas first.',
         },
         { status: 409 },
       );
     }
+    const sponsorPersonaId = String(citizen.persona_id ?? persona.personaId);
 
     const body = (await req.json().catch(() => ({}))) as CreateBody;
     // Public, non-T0 slug. Random suffix keeps it unique without leaking the
@@ -166,7 +187,7 @@ export async function POST(req: NextRequest) {
 
     const outcome = await sponsorPolityAgent({
       admin,
-      sponsorPersonaId: persona.personaId,
+      sponsorPersonaId,
       sponsorPassportId: citizen.passport_id,
       slug,
       displayName: body.displayName?.trim() || 'aigentMe',

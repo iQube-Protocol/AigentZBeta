@@ -32,6 +32,7 @@ interface WorldIdProofBundle {
   merkle_root: string;
   nullifier_hash: string;
   verification_level: 'orb' | 'device';
+  signal?: string;
 }
 
 interface PublicPassport {
@@ -455,6 +456,7 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
                             href="#delegation"
                             onClick={(e) => {
                               e.preventDefault();
+                              window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: 'delegation' } }));
                               const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
                               if (tabButtons.length > 0) (tabButtons[0] as HTMLElement).click();
                             }}
@@ -468,6 +470,7 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
                             href="#delegation"
                             onClick={(e) => {
                               e.preventDefault();
+                              window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: 'delegation' } }));
                               const tabButtons = document.querySelectorAll('[data-tab-slug="passport-bureau-delegation"]');
                               if (tabButtons.length > 0) (tabButtons[0] as HTMLElement).click();
                             }}

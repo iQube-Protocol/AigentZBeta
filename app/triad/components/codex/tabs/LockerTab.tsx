@@ -32,6 +32,7 @@ interface WorldIdProofBundle {
   merkle_root: string;
   nullifier_hash: string;
   verification_level: 'orb' | 'device';
+  signal?: string;
 }
 
 const DOCUMENT_CLASSES = [
@@ -174,6 +175,23 @@ export function LockerTab() {
   const [claimBusy, setClaimBusy] = useState<string | null>(null);
   const [pendingApplications, setPendingApplications] = useState<PendingApplication[]>([]);
   const [qubeTalkChannels, setQubeTalkChannels] = useState<QubeTalkChannel[]>([]);
+  // x409 Locker exchange (CFS-042/044): claim an invited agreement into the
+  // locker, then review + drive its acceptance from the contract item.
+  const [x409Code, setX409Code] = useState('');
+  const [x409ClaimBusy, setX409ClaimBusy] = useState(false);
+  const [x409OpenItemId, setX409OpenItemId] = useState<string | null>(null);
+  interface X409AgreementView {
+    agreementId: string;
+    displayLabel: string | null;
+    status: string;
+    selectedAgentRef: string | null;
+    delegatedAuthority: unknown;
+    constraints: unknown[];
+    acceptance: { provider: string; acceptorType: string; acceptedAt: string | null } | null;
+  }
+  const [x409Agreement, setX409Agreement] = useState<X409AgreementView | null>(null);
+  const [x409Busy, setX409Busy] = useState(false);
+  const [x409Note, setX409Note] = useState<string | null>(null);
   const [qubeTalkCollapsed, setQubeTalkCollapsed] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
@@ -271,6 +289,117 @@ export function LockerTab() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Invitation deep link: /…?x409=<code> (agreement) or ?invite=<code>
+  // (access invitation) pre-fills the claim input so the invitee lands,
+  // signs in, and claims in one motion.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('x409') || params.get('invite');
+      if (code) setX409Code(code);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  const handleClaimX409 = useCallback(async () => {
+    const code = x409Code.trim();
+    if (!code) return;
+    setX409ClaimBusy(true);
+    setX409Note(null);
+    setError(null);
+    try {
+      const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
+      // Two invitation kinds share this box, routed by prefix:
+      //   x409-… → agreement claim (contract lands in the locker)
+      //   pinv-… → access invitation (Constitutional Access Service grant)
+      const isAccessInvite = code.startsWith('pinv-');
+      const res = await fetch(
+        isAccessInvite ? '/api/participation/claim' : '/api/polity-passport/locker/claim-agreement',
+        {
+          method: 'POST',
+          headers: headers ?? undefined,
+          body: JSON.stringify(isAccessInvite ? { code } : { inviteCode: code }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setX409Note(`⚠ ${data?.error || 'Claim failed'}`);
+        return;
+      }
+      setX409Code('');
+      setNotice(
+        isAccessInvite
+          ? `Access granted: ${data.grant?.accessDomain ?? ''} · ${data.grant?.role ?? ''}${data.alreadyGranted ? ' (already held)' : ''}`
+          : `Contract claimed into your locker: ${data.item?.displayName ?? ''}`,
+      );
+      await load(true);
+    } catch (e) {
+      setX409Note(`⚠ ${e instanceof Error ? e.message : 'Claim failed'}`);
+    } finally {
+      setX409ClaimBusy(false);
+    }
+  }, [x409Code, load]);
+
+  const handleOpenX409 = useCallback(async (itemId: string) => {
+    if (x409OpenItemId === itemId) {
+      setX409OpenItemId(null);
+      setX409Agreement(null);
+      return;
+    }
+    setX409OpenItemId(itemId);
+    setX409Agreement(null);
+    setX409Note(null);
+    try {
+      const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
+      const res = await fetch(`/api/polity-passport/locker/agreement/${itemId}`, {
+        cache: 'no-store',
+        headers: headers ?? undefined,
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setX409Note(`⚠ ${data?.error || 'Could not load the agreement'}`);
+        return;
+      }
+      setX409Agreement(data.agreement as typeof x409Agreement);
+    } catch (e) {
+      setX409Note(`⚠ ${e instanceof Error ? e.message : 'Could not load the agreement'}`);
+    }
+  }, [x409OpenItemId]);
+
+  const handleAcceptX409 = useCallback(async () => {
+    if (!x409Agreement?.agreementId || !x409Agreement.selectedAgentRef) return;
+    setX409Busy(true);
+    setX409Note(null);
+    try {
+      // The public x409 route: acceptance binds ONLY the pre-named agent ref.
+      const res = await fetch('/api/public/irl/agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'accept',
+          agreementId: x409Agreement.agreementId,
+          acceptorId: x409Agreement.selectedAgentRef,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setX409Note(`⚠ ${data?.error || 'Acceptance failed'}`);
+        return;
+      }
+      setX409Note('Terms accepted for the named agent. Awaiting operator authorization (Principal–Delegate Separation).');
+      // Refresh the open panel's agreement state in place (no toggle).
+      if (x409OpenItemId) {
+        const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
+        const rf = await fetch(`/api/polity-passport/locker/agreement/${x409OpenItemId}`, { cache: 'no-store', headers: headers ?? undefined });
+        const rfData = await rf.json();
+        if (rf.ok && rfData?.ok) setX409Agreement(rfData.agreement as typeof x409Agreement);
+      }
+    } catch (e) {
+      setX409Note(`⚠ ${e instanceof Error ? e.message : 'Acceptance failed'}`);
+    } finally {
+      setX409Busy(false);
+    }
+  }, [x409Agreement, x409OpenItemId]);
 
   const handleTrackLocation = useCallback(async () => {
     if (!navigator.geolocation) {
@@ -472,7 +601,11 @@ export function LockerTab() {
       const res = await fetch('/api/polity-passport/verify-worldid', {
         method: 'POST',
         headers: headers ?? { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passportId, ...proof }),
+        // The route contract is { passportId, proof: {...} } — NESTED. The
+        // previous spread ({ passportId, ...proof }) flattened the bundle,
+        // so body.proof became the semaphore string and the route 400'd
+        // with "passportId and proof.nullifier_hash are required".
+        body: JSON.stringify({ passportId, proof }),
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
@@ -744,6 +877,9 @@ export function LockerTab() {
                             href="#delegation"
                             onClick={(e) => {
                               e.preventDefault();
+                              // Canonical intra-cartridge nav seam (the viewer + KNYT listen; matches on slug).
+                              window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: 'delegation' } }));
+                              // Legacy fallback for surfaces that render a data-tab-slug attribute.
                               const btn = document.querySelector('[data-tab-slug="passport-bureau-delegation"]');
                               if (btn) (btn as HTMLElement).click();
                             }}
@@ -951,6 +1087,38 @@ export function LockerTab() {
         )}
       </div>
 
+      {/* x409 invitation claim — the contract-delivery seam (CFS-042/044).
+          An invited party pastes (or arrives with ?x409=) their code and the
+          agreement lands in this locker as a contract item to execute. */}
+      <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-violet-300" />
+          <h3 className="text-sm font-semibold text-slate-200">Invitation</h3>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Invited to a contract or a permissioned area? Enter your invitation code. Contract invitations
+          (x409-…) land the agreement in your locker to review and execute; access invitations (pinv-…)
+          grant your role in the invited domain.
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            value={x409Code}
+            onChange={(e) => setX409Code(e.target.value)}
+            placeholder="x409-… or pinv-…"
+            className="flex-1 min-w-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-100 font-mono placeholder:text-slate-500"
+          />
+          <button
+            onClick={handleClaimX409}
+            disabled={x409ClaimBusy || !x409Code.trim()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+          >
+            {x409ClaimBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
+            Claim contract
+          </button>
+        </div>
+        {x409Note && <p className="text-[11px] text-slate-300">{x409Note}</p>}
+      </div>
+
       {/* Items list */}
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-slate-200">Your locker items</h3>
@@ -1017,6 +1185,70 @@ export function LockerTab() {
                         </div>
                       )}
                     </div>
+                    {/* x409 contract review + execution (only on agreement items) */}
+                    {item.contentType === 'application/x409-agreement+json' && (
+                      <div className="pt-1 space-y-2">
+                        <button
+                          onClick={() => void handleOpenX409(item.itemId)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/15 px-2.5 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/25"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          {x409OpenItemId === item.itemId ? 'Close contract' : 'Review & execute contract'}
+                        </button>
+                        {x409OpenItemId === item.itemId && (
+                          <div className="rounded-lg border border-violet-500/30 bg-slate-950/60 p-3 space-y-2 text-[11px]">
+                            {!x409Agreement ? (
+                              <p className="flex items-center gap-1.5 text-slate-400">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Loading agreement…
+                              </p>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-slate-100 font-medium">{x409Agreement.displayLabel || 'Constitutional Agreement'}</span>
+                                  {['formed', 'accepted', 'authorized', 'executed'].map((stage) => (
+                                    <span
+                                      key={stage}
+                                      className={cls(
+                                        'rounded-full border px-2 py-0.5 text-[10px]',
+                                        x409Agreement.status === stage
+                                          ? 'border-violet-400 bg-violet-500/20 text-violet-200'
+                                          : 'border-slate-700 text-slate-500',
+                                      )}
+                                    >
+                                      {stage}
+                                    </span>
+                                  ))}
+                                </div>
+                                <p className="text-slate-400">
+                                  Named agent: <code className="text-sky-300">{x409Agreement.selectedAgentRef ?? '—'}</code>
+                                </p>
+                                {x409Agreement.delegatedAuthority != null && (
+                                  <pre className="whitespace-pre-wrap break-words rounded bg-slate-900/80 p-2 text-[10px] text-slate-300 font-mono max-h-40 overflow-y-auto">
+                                    {JSON.stringify({ delegatedAuthority: x409Agreement.delegatedAuthority, constraints: x409Agreement.constraints }, null, 2)}
+                                  </pre>
+                                )}
+                                {x409Agreement.acceptance ? (
+                                  <p className="text-emerald-300">
+                                    ✓ Terms accepted ({x409Agreement.acceptance.provider}
+                                    {x409Agreement.acceptance.acceptedAt ? ` · ${new Date(x409Agreement.acceptance.acceptedAt).toLocaleString()}` : ''})
+                                    {x409Agreement.status === 'accepted' && ' — awaiting operator authorization.'}
+                                  </p>
+                                ) : (
+                                  <button
+                                    onClick={handleAcceptX409}
+                                    disabled={x409Busy || !x409Agreement.selectedAgentRef}
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                                  >
+                                    {x409Busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                                    Accept terms as the named agent
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {/* Grant action buttons */}
                     {agents.length > 0 && (
                       <div className="flex items-center gap-1.5 flex-wrap pt-1">

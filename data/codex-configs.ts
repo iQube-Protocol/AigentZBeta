@@ -297,6 +297,12 @@ export const KNYT_CODEX: CodexConfig = {
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-kn0w1',
+  copilot: {
+    accentColor: 'amber',
+    agent: { id: 'aigent-kn0w1', name: 'KNYT Copilot' },
+    promptPlaceholder: 'Ask about episodes, characters, bundles...',
+    quickPrompts: ['What episodes are available?', 'Show me bundle deals', 'KNYT Cards explained', 'Investor pricing'],
+  },
   metadata: {
     description: 'KNYT Protocol knowledge base, lore, and world-building',
     icon: 'BookOpen',
@@ -1702,7 +1708,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
+          packId: 'irl',
           collectionId: 'col_foundation'
         }
       },
@@ -1722,13 +1728,49 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
+          packId: 'irl',
           collectionId: 'col_experiments'
         }
       },
       metadata: {
         icon: 'Target',
         description: 'Chrysalis flywheel experiments — Living KnowledgeQube + Invariant Video'
+      }
+    },
+    {
+      id: 'experiment-lab',
+      label: 'metaMe IRL',
+      slug: 'experiment-lab',
+      enabled: true,
+      adminOnly: true,
+      group: 'memory',
+      order: 2.3,
+      type: 'static',
+      config: {
+        component: 'InvariantExperimentLab',
+        props: {}
+      },
+      metadata: {
+        icon: 'FlaskConical',
+        description: 'metaMe Invariant Research Lab — run the Foundational Validation Series + the constitutional tests (Chrysalis, Homecoming) live. Admin-only; runs spend provider credits.'
+      }
+    },
+    {
+      id: 'capability-pipeline',
+      label: 'Capability Pipeline',
+      slug: 'capability-pipeline',
+      enabled: true,
+      adminOnly: true,
+      group: 'memory',
+      order: 2.4,
+      type: 'static',
+      config: {
+        component: 'CapabilityPipelineTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Hammer',
+        description: 'Aigent Z as development interface (CFS-015 Strand Two): state a capability goal, get the constitutionally grounded Implementation Pack — admin-only'
       }
     },
     {
@@ -2454,6 +2496,29 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      // CRP-003a Increment 3 — the first Founder Office Capability Suite.
+      // Runs the canonical constitutional service pattern (N1 agreement gate +
+      // N2 12-step pipeline) on a Domain-3 (Financial Intelligence, read-only)
+      // capability. Constitutional-agreement (409) gated; commercial tier-gating
+      // is Increment 3b.
+      id: 'financial-services',
+      label: 'Financial Services',
+      slug: 'financial-services',
+      enabled: true,
+      adminOnly: false,
+      order: 0.5,
+      type: 'static',
+      config: {
+        component: 'FinancialServicesTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Landmark',
+        description: 'Constitutional Financial Services Programme (CRP-003a) — Pilot Series 001 with Horizen. Domain 3 Financial Intelligence, constitutional service loop.',
+        color: 'emerald'
+      }
+    },
+    {
       id: 'commercial-funnel',
       label: 'Commercial Funnel',
       slug: 'commercial-funnel',
@@ -2750,6 +2815,13 @@ export const METAME_CODEX: CodexConfig = {
   enabled: true,
   version: '1.0.0',
   owner: 'metame-guardian',
+  copilot: {
+    accentColor: 'emerald',
+    agent: { id: 'aigent-me', name: 'aigentMe' },
+    promptPlaceholder: 'Ask aigentMe about your ExperienceModel, briefs, or next move...',
+    initialMessage: "I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything.",
+    quickPrompts: ['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1', 'Ask Nakamoto'],
+  },
   metadata: {
     description: 'metaMe sovereignty layer: experience framework, progression model, PCS ladder, and next-best-pathway logic',
     icon: 'Hexagon',
@@ -2764,6 +2836,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.6 },
     { id: 'order',        label: 'KNYT',             icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
     { id: 'agentz',       label: 'aigentZ',          icon: 'Cpu',        order: 0.8, activationId: 'aigent-z' },
+    { id: 'research',     label: 'Research',         icon: 'FlaskConical', order: 0.85, activationId: 'researcher' },
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
@@ -3308,6 +3381,23 @@ export const METAME_CODEX: CodexConfig = {
       metadata: { icon: 'History', description: 'Dev loop session history — placeholder until Phase 2 session persistence', color: 'green' },
     },
 
+    // ── research group (first-class, activation-gated) ───────────────────────
+    // The Research Copilot as a top-level metaMe menu item — the researcher
+    // pathway's peer to the aigentZ Command Center. Gated by the 'researcher'
+    // activation (Sovereignty T1, same tier + entitlement as aigentZ). Feeds
+    // the gated internal Research Copilot; IRL OS carries the public edition.
+    {
+      id: 'metame-research-copilot',
+      label: 'Research Copilot',
+      slug: 'irl-research-copilot',
+      enabled: true,
+      group: 'research',
+      order: 0,
+      type: 'static',
+      config: { component: 'IRLResearchCopilotTab', props: {} },
+      metadata: { icon: 'FlaskConical', description: 'IRL Research Copilot — invariant substrate, experiments, and validation workflow', color: 'violet' },
+    },
+
     // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
     // metaMe mirror of AgentiQ OS — Operation Chrysalis target nav.
     // No aigentZ mirror here — the Command Center is accessed exclusively via
@@ -3685,6 +3775,13 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-marketa',
+  copilot: {
+    accentColor: 'rose',
+    agent: { id: 'aigent-marketa', name: 'Marketa' },
+    promptPlaceholder: 'Ask Marketa about campaigns, partners, or content...',
+    initialMessage: "I'm Marketa — your venture studio copilot. Ask me about the active campaigns, partner activation, content packs, or what to do next.",
+    quickPrompts: ['Campaign status', 'Next email to fire', 'Partner pipeline', 'Write a social post', 'Propose a content pack'],
+  },
   metadata: {
     description: 'Venture Studio Partner OS — campaign management, partner co-design, and pack publishing',
     icon: 'TrendingUp',
@@ -4095,6 +4192,13 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
   enabled: true,
   version: '0.1.0',
   owner: 'aigent-z',
+  copilot: {
+    accentColor: 'violet',
+    agent: { id: 'aigent-z', name: 'Aigent Z' },
+    promptPlaceholder: 'Ask about your passport, agent delegation, or locker…',
+    initialMessage: "I'm Aigent Z — your guide through the Polity Passport Bureau. Citizen Passports, Participant Passports, agent genesis, bounded delegation, the Locker, ENS, and verifiable credentials — ask me anything.",
+    quickPrompts: ['How do I claim a Citizen Passport?', 'How do I sponsor an agent?', 'What does World ID verification add?', 'Show my bound agents', 'How does the Locker work?'],
+  },
   metadata: {
     description: 'Apply for, issue, and steward Polity Passports — anonymous citizen personhood + conditional participant standing.',
     icon: 'ShieldCheck',
@@ -4202,6 +4306,22 @@ export const POLITY_PASSPORT_BUREAU_CARTRIDGE: CodexConfig = {
       config: { component: 'PassportBureauStewardTab' },
       metadata: { icon: 'Gavel', description: 'Steward review queue — approve, deny, request info', color: 'violet' },
     },
+    {
+      // Constitutional Access Service (2026-07-18): one invitation/grant
+      // mechanism across every permissioned area (passport, research lab,
+      // venture lab, metaMe studio, developer studio). Surfaces as a
+      // Steward sub-tab wherever the Steward tab mounts (subTabs getter).
+      id: 'passport-bureau-access',
+      label: 'Access & Invitations',
+      slug: 'access-invitations',
+      enabled: true,
+      adminOnly: true,
+      group: 'steward',
+      order: 1,
+      type: 'static',
+      config: { component: 'StewardParticipationTab' },
+      metadata: { icon: 'Award', description: 'Issue and steward bounded bearer invitations and access grants across all permissioned domains', color: 'violet' },
+    },
   ],
   permissions: {
     view: ['*'],
@@ -4223,6 +4343,13 @@ export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
   enabled: true,
   version: '0.1.0',
   owner: 'aigent-z',
+  copilot: {
+    accentColor: 'emerald',
+    agent: { id: 'aigent-z', name: 'aigentMe' },
+    promptPlaceholder: 'Ask about your case, workstreams, or critical dates…',
+    initialMessage: "I'm aigentMe — your confidentiality guardian for this mobility case. BlakQube protocol is active. Ask me about housing, education, relocation timelines, or workstream status.",
+    quickPrompts: ['What are the most urgent deadlines?', 'What is the housing workstream status?', 'What school applications are pending?', 'Summarise the relocation timeline', 'What does BlakQube compartmentalisation mean for this case?'],
+  },
   metadata: {
     description: 'Polity capability preservation — strategic repatriation, relocation, and family mobility services.',
     icon: 'Home',
@@ -4666,6 +4793,732 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
   ],
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// IRL — Constitutional Cybernetics Research Laboratory (CFS-019, Phase B)
+// The canonical research SURFACE: every research asset reachable here, in
+// place (canonical-surface-first migration; physical consolidation into a
+// irl pack is Phase D). Hand-curated per the dual-source rule.
+// ─────────────────────────────────────────────────────────────────────────────
+export const IRL_CARTRIDGE: CodexConfig = {
+  id: 'irl-cartridge',
+  name: 'metaMe IRL — Research Laboratory',
+  slug: 'irl-cartridge',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'aigent-z',
+  copilot: {
+    accentColor: 'violet',
+    agent: { id: 'aigent-researcher', name: 'IRL Guide' },
+    promptPlaceholder: 'Ask about metaMe IRL research...',
+    initialMessage: "I'm your guide to the internal Invariant Research Laboratory — instruments, live experiments, publications, and stewardship. Ask me anything about the lab.",
+    quickPrompts: ['What experiments are running?', 'Show the latest results', 'Explain the Chrysalis Test', 'What needs steward approval?'],
+  },
+  metadata: {
+    description: 'Constitutional Cybernetics Research Laboratory — the constitutional scientific institution: experiments, series, programmes, publications, and the living invariant substrate (CFS-019)',
+    icon: 'FlaskConical',
+    color: 'violet',
+    category: 'cartridge',
+    tags: ['irl', 'research', 'constitutional-cybernetics', 'experiments', 'invariants', 'publications'],
+  },
+  // Five-space IA (operator + Aletheon, 2026-07-18 — mirrors IRL_OS_CARTRIDGE):
+  // Institution → Research → Laboratory → Publications → Participation.
+  // Consequence Engineering + Living Knowledge fold into Laboratory/Research
+  // as capabilities; Programme joins Institution; Participation is the
+  // constitutional collaboration space.
+  tabGroups: [
+    { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
+    { id: 'research', label: 'Research', icon: 'Layers', order: 1 },
+    { id: 'laboratory', label: 'Laboratory', icon: 'FlaskConical', order: 2 },
+    { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 3 },
+    { id: 'participation', label: 'Participation', icon: 'ShieldCheck', order: 4 },
+  ],
+  tabs: [
+    {
+      // IRL home / welcome landing (observer-aware) — first tab so the
+      // internal lab also lands here. Mirrors the IRL OS welcome.
+      id: 'irl-welcome',
+      label: 'Welcome',
+      slug: 'irl-welcome',
+      enabled: true,
+      group: 'institution',
+      order: -1,
+      type: 'static',
+      config: { component: 'IRLWelcomeTab' },
+      metadata: { icon: 'Sparkles', description: 'Welcome to the Invariant Research Lab — how to join, and where to go once you have', color: 'violet' },
+    },
+    {
+      id: 'irl-dashboard',
+      label: 'Dashboard',
+      slug: 'irl-dashboard',
+      enabled: true,
+      group: 'institution',
+      order: 0,
+      type: 'static',
+      config: { component: 'IRLDashboardTab', props: {} },
+      metadata: { icon: 'Landmark', description: 'Mission, live programme status (Chrysalis Test), recent canonical results, roadmap', color: 'violet' },
+    },
+    {
+      id: 'irl-research-copilot',
+      label: 'Research Copilot',
+      slug: 'irl-research-copilot',
+      enabled: true,
+      group: 'institution',
+      order: 0.5,
+      type: 'static',
+      // Ungated inside the internal research-lab workspace (the institution's
+      // own surface). The PAID researcher-pathway route to this same copilot is
+      // the metaMe 'research' group, gated by the 'researcher' activation
+      // (Sovereignty T1) — peer to the aigentZ developer copilot. IRL OS carries
+      // the free public instruments (Dashboard/Field/Registry) instead.
+      config: { component: 'IRLResearchCopilotTab', props: {} },
+      metadata: { icon: 'FlaskConical', description: 'aigentZ narrates the live lab state — DCIR-conforming, narrate-only (research proposal kinds are C2.1, CFS-019)', color: 'violet' },
+    },
+    {
+      id: 'irl-charter',
+      label: 'Charter',
+      slug: 'irl-charter',
+      enabled: true,
+      group: 'institution',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_irl-charter.md' },
+      },
+      metadata: { icon: 'Scale', description: 'CFS-019 — the IRL constitution: layers, object model, lifecycles, migration, phases' },
+    },
+    // ── Research, by constitutional layer ─────────────────────────
+    {
+      id: 'layer-i',
+      label: 'Layer I — Invariant Intelligence',
+      slug: 'layer-i',
+      enabled: true,
+      group: 'research',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/appendix-a_canonical-invariants.md' },
+      },
+      metadata: { icon: 'BookMarked', description: 'Constitutional knowledge — the canon, the CFS corpus, the Foundational Validation Series (foundation complete)' },
+    },
+    {
+      id: 'layer-ii',
+      label: 'Layer II — Constitutional Computing',
+      slug: 'layer-ii',
+      enabled: true,
+      group: 'research',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-015_operation-chrysalis-2-prd.md' },
+      },
+      metadata: { icon: 'Cpu', description: 'Constitutional execution — Operation Chrysalis 2.0, the Capability Pipeline, deployment authority (alpha)' },
+    },
+    {
+      id: 'layer-iii',
+      label: 'Layer III — Constitutional Cybernetics',
+      slug: 'layer-iii',
+      enabled: true,
+      group: 'research',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_irl-charter.md' },
+      },
+      metadata: { icon: 'RefreshCw', description: 'Constitutional evolution — feedback, adaptation, multi-agent governance (nascent: the frontier)' },
+    },
+    // ── metaMe IRL — Invariant Research Lab ────────────────────────
+    {
+      id: 'irl-experiment-lab',
+      label: 'Experiments',
+      slug: 'irl-experiment-lab',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 0,
+      type: 'static',
+      config: { component: 'InvariantExperimentLab', props: {} },
+      metadata: { icon: 'FlaskConical', description: 'metaMe Invariant Research Lab — run the series live: EXP-001–005 + Results (canonical publish) + Report + Chrysalis Test + Homecoming Test. Admin-only; runs spend provider credits.' },
+    },
+    {
+      id: 'irl-protocols',
+      label: 'Protocols & Articles',
+      slug: 'irl-protocols',
+      enabled: true,
+      group: 'laboratory',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_experiments' },
+      },
+      metadata: { icon: 'Target', description: 'Experiment designs, protocols, canonical articles, evaluation frameworks' },
+    },
+                {
+      id: 'irl-invariant-field',
+      label: 'Invariant Field',
+      slug: 'irl-invariant-field',
+      enabled: true,
+      group: 'laboratory',
+      order: 3,
+      type: 'static',
+      config: { component: 'InvariantFieldExplorerTab', props: {} },
+      metadata: { icon: 'Network', description: 'Computational Epistemology made visible — the live enables/constrains/contradicts field + consequence forecast (CFS-019 Phase E first slice)', color: 'violet' },
+    },
+    // ── Living Knowledge ──────────────────────────────────────────
+    {
+      id: 'irl-invariant-registry',
+      label: 'Invariant Registry',
+      slug: 'irl-invariant-registry',
+      enabled: true,
+      group: 'laboratory',
+      order: 2,
+      type: 'static',
+      config: { component: 'InvariantRegistryTab', props: {} },
+      metadata: { icon: 'BookMarked', description: 'The live substrate — namespaces, status, Standing, Reach, contexts, graph edges', color: 'violet' },
+    },
+    {
+      id: 'irl-glossary',
+      label: 'Glossary & Ontology',
+      slug: 'irl-glossary',
+      enabled: true,
+      group: 'research',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/constitutional-glossary.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'The runtime-resolved constitutional vocabulary — one canon for every agent' },
+    },
+    // ── Publications ──────────────────────────────────────────────
+    {
+      id: 'irl-records',
+      label: 'Records & Findings',
+      slug: 'irl-records',
+      enabled: true,
+      group: 'publications',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'agentiq', collectionId: 'col_updates' },
+      },
+      metadata: { icon: 'BookOpen', description: 'The constitutional record — every increment, finding, and session record (publication lineage)' },
+    },
+    {
+      // Stage 3 of the report lifecycle — canonical reports an admin published.
+      // Same public surface as IRL OS: published reports are public by definition.
+      id: 'irl-reports',
+      label: 'Reports',
+      slug: 'irl-reports',
+      enabled: true,
+      group: 'publications',
+      order: 1,
+      type: 'static',
+      config: { component: 'PublishedReportsTab', props: {} },
+      metadata: { icon: 'BookOpen', description: 'Published research reports — canonical, DVN-receipted findings reports made public' },
+    },
+    // ── Programme Management ──────────────────────────────────────
+    {
+      id: 'irl-programmes',
+      label: 'Research Programmes',
+      slug: 'irl-programmes',
+      enabled: true,
+      group: 'institution',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CRP-001_constitutional-research-program-charter.md' },
+      },
+      metadata: { icon: 'Target', description: 'CRP-001 — the twelve research programmes; roadmap and backlog live in the charter (CFS-019 §8)' },
+    },
+    // ── Participation ─────────────────────────────────────────────
+    // The constitutional collaboration space (five-space IA, 2026-07-18 —
+    // mirrors IRL_OS_CARTRIDGE). Overview lands first; passport capabilities
+    // follow. Components already in TabRenderer.componentRegistry.
+    {
+      id: 'irl-participation-overview',
+      label: 'Overview',
+      slug: 'irl-participation-overview',
+      enabled: true,
+      group: 'participation',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/PARTICIPATION_overview.md' },
+      },
+      metadata: { icon: 'ShieldCheck', description: 'How to join the Invariant Research Lab — roles, the passport → delegation → agreement path, and the public API for delegated agents', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-apply',
+      label: 'Apply',
+      slug: 'irl-passport-apply',
+      enabled: true,
+      group: 'participation',
+      order: 1,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood (World ID upgrades to verified citizen)', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-delegation',
+      label: 'Delegation',
+      slug: 'irl-passport-delegation',
+      enabled: true,
+      group: 'participation',
+      order: 2,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-registry',
+      label: 'Passport Registry',
+      slug: 'irl-passport-registry',
+      enabled: true,
+      group: 'participation',
+      order: 4,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-locker',
+      label: 'Locker',
+      slug: 'irl-passport-locker',
+      enabled: true,
+      group: 'participation',
+      order: 3,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
+    },
+    {
+      // Participation v1 (2026-07-18): the participant's constitutional
+      // standing — lanes, reach, receipted contribution history.
+      id: 'irl-participation-standing',
+      label: 'Standing',
+      slug: 'irl-participation-standing',
+      enabled: true,
+      group: 'participation',
+      order: 5,
+      type: 'static',
+      config: { component: 'ParticipationStandingTab' },
+      metadata: { icon: 'Award', description: 'Your standing with the Institute — lanes, reach, and receipted contribution history', color: 'violet' },
+    },
+    {
+      id: 'irl-passport-steward',
+      label: 'Steward',
+      slug: 'irl-passport-steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'participation',
+      order: 6,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — admin only', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('steward', 'irl-passport-steward');
+      },
+    },
+  ],
+};
+
+/**
+ * IRL OS — the open, public-facing edition of the IRL cartridge, exactly as
+ * AgentiQ OS is the open public-facing version of AgentiQ (operator direction
+ * 2026-07-16, CFS-033 UI-surface decision). Content-only v1: the published
+ * research corpus + the Constitutional Evaluation front door for external
+ * researchers, consuming the SAME `irl` pack as the internal cartridge (the
+ * pack is already in packRegistry's skip list — no auto-duplicate risk).
+ * Its own slug gives it its own embeddable URL (/triad/embed/codex/irl-os).
+ * Deliberately EXCLUDED: InvariantExperimentLab (admin-only, runs spend
+ * provider credits — never public) and the four interactive-but-public
+ * instruments (Dashboard, Research Copilot, Invariant Field Explorer,
+ * Invariant Registry) — those are a named follow-on gated on an
+ * anonymous-read API audit of each.
+ */
+export const IRL_OS_CARTRIDGE: CodexConfig = {
+  id: 'irl-os-cartridge',
+  name: 'IRL OS',
+  slug: 'irl-os',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'system',
+  copilot: {
+    accentColor: 'violet',
+    // aigent-researcher — the IRL Research Copilot persona (participant-facing
+    // structured-discovery voice), NOT aigent-z (engineering intelligence).
+    agent: { id: 'aigent-researcher', name: 'IRL Guide' },
+    promptPlaceholder: 'Ask about IRL OS research...',
+    initialMessage: "I'm your guide to the Invariant Research Lab. Ask me about the research programme, the invariant canon, how to claim your Polity Passport, delegate your agent (optional), or run your assigned experiments.",
+    quickPrompts: ['How do I claim my passport?', 'How do I get research access?', 'What experiments can I run?', 'Explain the invariant canon', 'How do I delegate my agent?'],
+  },
+  metadata: {
+    description:
+      'IRL OS — the open edition of the Invariant Research Laboratory: the published constitutional research corpus (CFS specs, experiment records, glossary, canon) and the Constitutional Evaluation front door for external researchers (CFS-033)',
+    icon: 'FlaskConical',
+    color: 'violet',
+    category: 'cartridge',
+    tags: ['irl-os', 'research', 'open', 'constitutional-evaluation', 'experiments', 'invariants', 'publications'],
+  },
+  // Five-space IA (operator + Aletheon, 2026-07-18 — CFS-044 v3): the nav reads
+  // as the lifecycle of scientific engagement — Institution (who we are) →
+  // Research (what we know) → Laboratory (how we discover) → Publications
+  // (what we've shared) → Participation (how you join). Constitutional
+  // Evaluation, Consequence Engineering, and the Registry/Field are laboratory
+  // CAPABILITIES, not destinations; the Passport is one capability inside
+  // Participation. Deep links are group-independent (slug-only selection), so
+  // regrouping preserves every published ?tab= link. The wallet "Welcome" chip
+  // is the cross-cartridge platform shell — never overloaded by this nav.
+  tabGroups: [
+    { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
+    { id: 'research', label: 'Research', icon: 'Layers', order: 1 },
+    { id: 'laboratory', label: 'Laboratory', icon: 'FlaskConical', order: 2 },
+    { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 3 },
+    // Participation — the constitutional collaboration space (CFS-042/043/044):
+    // overview + passport + bounded delegation for external partners and their
+    // agents, without the full metaMe thin client. SmartWallet deep-dives
+    // remain available via the floating copilot.
+    { id: 'participation', label: 'Participation', icon: 'ShieldCheck', order: 4 },
+  ],
+  tabs: [
+    {
+      // The IRL home / welcome screen — observer-aware landing (2026-07-19):
+      // invitational onboarding ladder for newcomers; "welcome back" pointing
+      // deeper once the persona holds a research-lab grant. First tab, so the
+      // cartridge lands here.
+      id: 'irl-os-welcome',
+      label: 'Welcome',
+      slug: 'irl-os-welcome',
+      enabled: true,
+      group: 'institution',
+      order: -1,
+      type: 'static',
+      config: { component: 'IRLWelcomeTab' },
+      metadata: { icon: 'Sparkles', description: 'Welcome to the Invariant Research Lab — how to join, and where to go once you have' },
+    },
+    {
+      // Public read-only Dashboard — mission, published results, derived
+      // lifecycle overview (anonymous-safe via /api/public/irl/* projections,
+      // audit 2026-07-17). The admin/credit-touching Chrysalis Test source is
+      // omitted in publicMode.
+      id: 'irl-os-dashboard',
+      label: 'Dashboard',
+      slug: 'irl-os-dashboard',
+      enabled: true,
+      group: 'institution',
+      order: 0,
+      type: 'static',
+      config: { component: 'IRLDashboardTab', props: { publicMode: true } },
+      metadata: { icon: 'Landmark', description: 'Mission, published Foundational Validation Series results, and the live research-object lifecycle (read-only, public)', color: 'violet' },
+    },
+    {
+      id: 'irl-os-charter',
+      label: 'Charter',
+      slug: 'irl-os-charter',
+      enabled: true,
+      group: 'institution',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_irl-charter.md' },
+      },
+      metadata: { icon: 'Scale', description: 'CFS-019 — the IRL constitution: layers, object model, lifecycles, migration, phases' },
+    },
+    {
+      id: 'irl-os-layer-i',
+      label: 'Layer I — Invariant Intelligence',
+      slug: 'irl-os-layer-i',
+      enabled: true,
+      group: 'research',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/appendix-a_canonical-invariants.md' },
+      },
+      metadata: { icon: 'BookMarked', description: 'Constitutional knowledge — the canon, the CFS corpus, the Foundational Validation Series' },
+    },
+    {
+      id: 'irl-os-layer-ii',
+      label: 'Layer II — Constitutional Computing',
+      slug: 'irl-os-layer-ii',
+      enabled: true,
+      group: 'research',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-015_operation-chrysalis-2-prd.md' },
+      },
+      metadata: { icon: 'Cpu', description: 'Constitutional execution — Operation Chrysalis 2.0, the Capability Pipeline, deployment authority' },
+    },
+    {
+      id: 'irl-os-layer-iii',
+      label: 'Layer III — Constitutional Cybernetics',
+      slug: 'irl-os-layer-iii',
+      enabled: true,
+      group: 'research',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-019_irl-charter.md' },
+      },
+      metadata: { icon: 'RefreshCw', description: 'Constitutional evolution — feedback, adaptation, multi-agent governance (the frontier)' },
+    },
+    {
+      // The runnable Experiments surface for reviewers/researchers (2026-07-19).
+      // NOT adminOnly — access is enforced server-side at the run routes
+      // (admin OR research-entitled OR an active research-lab access grant).
+      // This is where an onboarded reviewer independently reproduces the
+      // Foundational Series: EXP-001–005 + Results/Report outputs.
+      id: 'irl-os-experiment-lab',
+      label: 'Experiments',
+      slug: 'irl-os-experiment-lab',
+      enabled: true,
+      group: 'laboratory',
+      order: 0,
+      type: 'static',
+      config: { component: 'InvariantExperimentLab', props: { density: 'narrow' } },
+      metadata: { icon: 'FlaskConical', description: 'Run the Foundational Series live and independently — EXP-001–005, Results, and Report. Requires research access (Sovereign/Steward) or a reviewer grant.' },
+    },
+    // ── Constitutional Evaluation — the external-researcher front door ──
+    {
+      id: 'irl-os-evaluation',
+      label: 'Constitutional Evaluation',
+      slug: 'irl-os-evaluation',
+      enabled: true,
+      group: 'laboratory',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CFS-033_constitutional-evaluation.md' },
+      },
+      metadata: {
+        icon: 'Scale',
+        description:
+          'CFS-033 — evaluation as a pluggable, receipted, versioned component of every experiment: hash-committed grounding slices, external judge configurations, the Research Package vision. The front door for external researchers.',
+        color: 'violet',
+      },
+    },
+    {
+      id: 'irl-os-protocols',
+      label: 'Protocols & Articles',
+      slug: 'irl-os-protocols',
+      enabled: true,
+      group: 'laboratory',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_experiments' },
+      },
+      metadata: { icon: 'Target', description: 'Experiment designs, protocols, canonical articles, evaluation frameworks — EXP-001…010 incl. the Representation Gauntlet' },
+    },
+    {
+      // Public read-only Invariant Field Explorer — the live enables/
+      // constrains/contradicts field + forecast + counterfactual (what-if)
+      // projection, anonymous-safe via /api/public/irl/invariant-field (both
+      // the gated and public routes call one shared module — 2026-07-17).
+      // Registry + Field = two views over the Substrate (laboratory).
+      id: 'irl-os-invariant-field',
+      label: 'Invariant Field',
+      slug: 'irl-os-invariant-field',
+      enabled: true,
+      group: 'laboratory',
+      order: 3,
+      type: 'static',
+      config: { component: 'InvariantFieldExplorerTab', props: { publicMode: true } },
+      metadata: { icon: 'Network', description: 'Computational Epistemology made visible — the live enables/constrains/contradicts field + counterfactual projection (read-only, public)', color: 'violet' },
+    },
+    {
+      // Public read-only Invariant Registry (Browse) — the live substrate,
+      // anonymous-safe via /api/public/irl/invariants (audit 2026-07-17). The
+      // FIRST live interactive instrument in the public cartridge.
+      id: 'irl-os-invariant-registry',
+      label: 'Invariant Registry',
+      slug: 'irl-os-invariant-registry',
+      enabled: true,
+      group: 'laboratory',
+      order: 2,
+      type: 'static',
+      config: { component: 'InvariantRegistryTab', props: { publicMode: true } },
+      metadata: { icon: 'BookMarked', description: 'Browse the live constitutional substrate — namespaces, status, Standing, Reach (read-only, public)', color: 'violet' },
+    },
+    {
+      id: 'irl-os-glossary',
+      label: 'Glossary & Ontology',
+      slug: 'irl-os-glossary',
+      enabled: true,
+      group: 'research',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/constitutional-glossary.md' },
+      },
+      metadata: { icon: 'BookOpen', description: 'The runtime-resolved constitutional vocabulary — one canon for every agent' },
+    },
+    // ── Publications ──────────────────────────────────────────────
+    // Records & Findings is INTERNAL-ONLY (operator direction 2026-07-20):
+    // it is the working record of every development decision — laboratory
+    // material, not public-domain publication. The internal metaMe IRL
+    // edition keeps its irl-records tab; the public IRL OS edition
+    // publishes only Reports + Canonical Plates (+ ratified protocols).
+    // Internal IRL = the laboratory; IRL OS = the publishing layer.
+    {
+      id: 'irl-os-records',
+      label: 'Records & Findings',
+      slug: 'irl-os-records',
+      enabled: false,
+      group: 'publications',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'agentiq', collectionId: 'col_updates' },
+      },
+      metadata: { icon: 'BookOpen', description: 'INTERNAL — the constitutional record lives in the metaMe IRL edition only' },
+    },
+    {
+      // Stage 3 of the report lifecycle — canonical reports an admin published.
+      id: 'irl-os-reports',
+      label: 'Reports',
+      slug: 'irl-os-reports',
+      enabled: true,
+      group: 'publications',
+      order: 1,
+      type: 'static',
+      config: { component: 'PublishedReportsTab', props: {} },
+      metadata: { icon: 'BookOpen', description: 'Published research reports — canonical, DVN-receipted findings reports made public' },
+    },
+    {
+      // Research Programmes live under Institution — the programme is part of
+      // "who we are" (five-space IA, 2026-07-18).
+      id: 'irl-os-programmes',
+      label: 'Research Programmes',
+      slug: 'irl-os-programmes',
+      enabled: true,
+      group: 'institution',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/CRP-001_constitutional-research-program-charter.md' },
+      },
+      metadata: { icon: 'Target', description: 'CRP-001 — the research programmes; roadmap and backlog live in the charter (CFS-019 §8)' },
+    },
+    // ── Participation ─────────────────────────────────────────────
+    // The constitutional collaboration space (five-space IA, 2026-07-18):
+    // Overview lands first (never drop a visitor into the Passport form —
+    // Aletheon), then the passport capabilities (mirror of AGENTIQ_OS's
+    // passport group). Apply + Delegation + Registry + Locker public; Steward
+    // adminOnly. Components already in TabRenderer.componentRegistry —
+    // config-only. Deep-linkable via /triad/embed/codex/irl-os?tab=<slug>.
+    {
+      id: 'irl-os-participation-overview',
+      label: 'Overview',
+      slug: 'irl-os-participation-overview',
+      enabled: true,
+      group: 'participation',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: { packId: 'irl', collectionId: 'col_foundation', defaultPath: 'foundation/PARTICIPATION_overview.md' },
+      },
+      metadata: { icon: 'ShieldCheck', description: 'How to join the Invariant Research Lab — roles, the passport → delegation → agreement path, and the public API for delegated agents', color: 'violet' },
+    },
+    {
+      id: 'irl-os-passport-apply',
+      label: 'Apply',
+      slug: 'irl-os-passport-apply',
+      enabled: true,
+      group: 'participation',
+      order: 1,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab' },
+      metadata: { icon: 'FileCheck2', description: 'Apply for a Polity Passport — anonymous citizen personhood (World ID upgrades to verified citizen)', color: 'violet' },
+    },
+    {
+      id: 'irl-os-passport-delegation',
+      label: 'Delegation',
+      slug: 'irl-os-passport-delegation',
+      enabled: true,
+      group: 'participation',
+      order: 2,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab' },
+      metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
+    },
+    {
+      id: 'irl-os-passport-registry',
+      label: 'Passport Registry',
+      slug: 'irl-os-passport-registry',
+      enabled: true,
+      group: 'participation',
+      order: 4,
+      type: 'static',
+      config: { component: 'PassportRegistryTab' },
+      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
+    },
+    {
+      id: 'irl-os-passport-locker',
+      label: 'Locker',
+      slug: 'irl-os-passport-locker',
+      enabled: true,
+      group: 'participation',
+      order: 3,
+      type: 'static',
+      config: { component: 'LockerTab' },
+      metadata: { icon: 'Lock', description: 'Encrypted vault for passport-related items — agent-gated access', color: 'violet' },
+    },
+    {
+      // Participation v1 (2026-07-18): the participant's constitutional
+      // standing — lanes, reach, receipted contribution history.
+      id: 'irl-os-participation-standing',
+      label: 'Standing',
+      slug: 'irl-os-participation-standing',
+      enabled: true,
+      group: 'participation',
+      order: 5,
+      type: 'static',
+      config: { component: 'ParticipationStandingTab' },
+      metadata: { icon: 'Award', description: 'Your standing with the Institute — lanes, reach, and receipted contribution history', color: 'violet' },
+    },
+    {
+      id: 'irl-os-passport-steward',
+      label: 'Steward',
+      slug: 'irl-os-passport-steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'participation',
+      order: 6,
+      type: 'static',
+      config: { component: 'PassportBureauStewardTab' },
+      metadata: { icon: 'Gavel', description: 'Steward review queue — admin only', color: 'violet' },
+      get subTabs() {
+        return polityPassportTabsByGroup('steward', 'irl-os-passport-steward');
+      },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['admin'],
+    admin: ['admin'],
+  },
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
@@ -4689,14 +5542,46 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   HUMAN_MOBILITY_SERVICES_CARTRIDGE,
   STANDING_CARTRIDGE,
   POLITY_CORE_CARTRIDGE,
+  IRL_CARTRIDGE,
+  // IRL OS — the open public-facing edition of the IRL cartridge (2026-07-16,
+  // the AgentiQ → AgentiQ OS pattern). Same `irl` pack (already in the
+  // packRegistry skip list); its own slug ('irl-os') gives it its own
+  // embeddable URL. Content-only v1 — see the const's header comment.
+  IRL_OS_CARTRIDGE,
 ];
 
+/**
+ * Legacy slug/id aliases — renamed cartridges keep their old deep links alive.
+ * 2026-07-13: the lab's ccrl-* machine slugs migrated to irl-* (operator
+ * direction); old bookmarks, embed URLs, and stored links resolve through
+ * these aliases. Tab-level aliases cover `?tab=` params the same way.
+ */
+export const LEGACY_CODEX_SLUGS: Record<string, string> = {
+  'ccrl-cartridge': 'irl-cartridge',
+};
+
+export const LEGACY_TAB_SLUGS: Record<string, string> = {
+  'ccrl-dashboard': 'irl-dashboard',
+  'ccrl-research-copilot': 'irl-research-copilot',
+  'ccrl-experiment-lab': 'irl-experiment-lab',
+  'ccrl-charter': 'irl-charter',
+  'ccrl-protocols': 'irl-protocols',
+  'ccrl-invariant-field': 'irl-invariant-field',
+  'ccrl-invariant-registry': 'irl-invariant-registry',
+};
+
+export function resolveLegacyTabSlug(tab: string): string {
+  return LEGACY_TAB_SLUGS[tab] ?? tab;
+}
+
 export function getCodexById(id: string): CodexConfig | undefined {
-  return CODEX_DEFINITIONS.find(codex => codex.id === id);
+  const resolved = LEGACY_CODEX_SLUGS[id] ?? id;
+  return CODEX_DEFINITIONS.find(codex => codex.id === resolved);
 }
 
 export function getCodexBySlug(slug: string): CodexConfig | undefined {
-  return CODEX_DEFINITIONS.find(codex => codex.slug === slug);
+  const resolved = LEGACY_CODEX_SLUGS[slug] ?? slug;
+  return CODEX_DEFINITIONS.find(codex => codex.slug === resolved);
 }
 
 export function getEnabledCodexes(): CodexConfig[] {

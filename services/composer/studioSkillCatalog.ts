@@ -188,7 +188,7 @@ export const STUDIO_SKILLS: StudioSkillEntry[] = [
     badge: "A",
     compositeScore: 75,
     provider: "openai",
-    invokeEndpoint: "/api/composer/article/generate",
+    invokeEndpoint: "/api/composer/article-draft", // drift fix 2026-07-13: the real route (was /article/generate, which never existed)
     tags: ["article", "editorial", "copy", "story", "takeaways", "glossary"],
     interfaceSchema: {
       inputs: [
@@ -207,6 +207,36 @@ export const STUDIO_SKILLS: StudioSkillEntry[] = [
         { name: "takeaways", type: "string[]" },
         { name: "glossary", type: "Array<{ term, definition }>" },
         { name: "nextAction", type: "string" },
+      ],
+    },
+  },
+  {
+    id: "skill:video_article_24s",
+    name: "24-Second Video + Article",
+    description:
+      "Native composite skill: builds a 2-segment (2×12s = 24s) invariant-grounded video brief and drafts the corresponding companion article from the SAME brief, so the article and video correspond by construction. Returns the brief, the drafted article, a heuristic content-alignment score (per-segment coverage of the shared brief), and the structural render plan (segment layout + minimal stitch tree). The client drives SkillVideoPlayer with { duration: 24, segment_prompts } to produce and stitch the clips. Composes Video Generation — Venice and Article / Story Generation; never re-implements them.",
+    assetClass: "SkillQube",
+    trustBand: "L3_PRODUCTION_CANDIDATE",
+    badge: "B",
+    compositeScore: 74,
+    provider: "agentiq",
+    invokeEndpoint: "/api/skills/video-article",
+    tags: ["video", "article", "24-second", "invariant-grounded", "content-alignment", "composite", "sovereign", "studio-native"],
+    interfaceSchema: {
+      inputs: [
+        { name: "groundings", type: "GroundingRef[]", required: true, description: "Invariant/collection groundings; each needs a role and either collectionId or invariantIds" },
+        { name: "productionTitle", type: "string", required: false },
+        { name: "useLlm", type: "boolean", required: false, description: "false forces the deterministic template path (no provider key)" },
+        { name: "mode", type: "string", required: false, description: '"plan" (default) | "video-complete"' },
+        { name: "videoUrl", type: "string", required: false, description: "Required when mode is video-complete — the stitched video URL" },
+      ],
+      outputs: [
+        { name: "brief", type: "VideoInvariantBrief", description: "2-segment invariant-grounded brief" },
+        { name: "article", type: "DraftedArticle", description: "Companion article drafted from the same brief" },
+        { name: "alignment", type: "AlignmentReport", description: "Heuristic per-segment coverage of the shared brief" },
+        { name: "renderPlan", type: "RenderPlan", description: "Segment layout + minimal stitch tree for 24s" },
+        { name: "articleReceiptId", type: "string", description: "DVN activity receipt id for the generated article" },
+        { name: "studioArtifactRecordId", type: "string", description: "Studio artifact record id — the article production persisted through the Studio service (studioArtifactTiering) carrying the content-alignment verdict" },
       ],
     },
   },
@@ -272,6 +302,81 @@ export const STUDIO_SKILLS: StudioSkillEntry[] = [
       ],
     },
   },
+  {
+    id: "skill:constitutional_video",
+    name: "Constitutional Video",
+    description:
+      "Generate a 24/36/48-second invariant-grounded constitutional video: N complete 12-second micro-films (fade-in → body → one constitutional threshold statement → breath) that stitch seamlessly and stand alone. A blank canvas bound by the constitutional grammar — the operator supplies what the video is about; the skill supplies the rules and a threshold-crossing CTA ceremony. Full voiceover audio.",
+    assetClass: "SkillQube",
+    trustBand: "L3_PRODUCTION_CANDIDATE",
+    badge: "A",
+    compositeScore: 80,
+    provider: "agentiq",
+    invokeEndpoint: "/api/skills/constitutional-video",
+    tags: ["video", "constitutional", "invariant-grounded", "micro-film", "threshold", "voiceover", "24s", "36s", "48s"],
+    interfaceSchema: {
+      inputs: [
+        { name: "contentDirection", type: "object", required: true, description: "{ subject, concepts?, audience?, tone? } — what the video is about (blank canvas)" },
+        { name: "groundings", type: "GroundingRef[]", required: true, description: "invariant groundings (style/narrative/semantic)" },
+        { name: "durationSeconds", type: "number", required: true, description: "24 | 36 | 48" },
+        { name: "cta", type: "object", required: true, description: "{ target, claimLine, closingTriplet?, closingInvariantId? }" },
+      ],
+      outputs: [
+        { name: "segments", type: "ConstitutionalSegment[]", description: "cadence-scaffolded prompts + threshold + voiceover per segment" },
+        { name: "grammar", type: "object", description: "{ pass, violations }" },
+        { name: "coherence", type: "object", description: "constitutional coherence score" },
+      ],
+    },
+  },
+  {
+    id: "skill:coherent_bundle_generation",
+    name: "Invariant-Coherent Bundle Generation",
+    description:
+      "Operationalizes the EXP-001-proven capability: from one invariant substrate, generate a bundle of mutually-coherent assets (constitutional video + companion article) that are coherent by construction. Ships a built-in deterministic coherence score fed back into the invariant engine. Independent judgement is a separate, optional skill — never required.",
+    assetClass: "SkillQube",
+    trustBand: "L3_PRODUCTION_CANDIDATE",
+    badge: "A",
+    compositeScore: 80,
+    provider: "agentiq",
+    invokeEndpoint: "/api/skills/coherent-bundle",
+    tags: ["bundle", "coherent", "invariant-grounded", "video", "article", "shared-substrate", "operationalized"],
+    interfaceSchema: {
+      inputs: [
+        { name: "contentDirection", type: "object", required: true, description: "what the bundle is about (shared across assets)" },
+        { name: "groundings", type: "GroundingRef[]", required: true },
+        { name: "assets", type: "string[]", required: true, description: "['constitutional_video_plan','article']" },
+        { name: "video", type: "object", required: false, description: "{ durationSeconds, cta } — required for the video asset" },
+      ],
+      outputs: [
+        { name: "brief", type: "VideoInvariantBrief", description: "the shared substrate every asset derives from" },
+        { name: "coherence", type: "object", description: "built-in deterministic coherence score" },
+      ],
+    },
+  },
+  {
+    id: "skill:bundle_judgement",
+    name: "Bundle Judgement (optional)",
+    description:
+      "Independent, opt-in fidelity judgement of an ALREADY-GENERATED bundle — a judge scores the produced artefacts against their grounding invariants (preserved/weakened/contradicted/absent) and flags untraceable claims. Generation never requires this; it spends model credits and is invoked as its own task when independent verification is wanted, returning remediation hints.",
+    assetClass: "SkillQube",
+    trustBand: "L3_PRODUCTION_CANDIDATE",
+    badge: "A",
+    compositeScore: 78,
+    provider: "agentiq",
+    invokeEndpoint: "/api/skills/coherent-bundle",
+    tags: ["judgement", "fidelity", "optional", "invariant-grounded", "verification", "remediation"],
+    interfaceSchema: {
+      inputs: [
+        { name: "action", type: "string", required: true, description: '"judge"' },
+        { name: "documents", type: "JudgeDocument[]", required: true, description: "the produced artefacts to judge" },
+        { name: "invariant_ids", type: "string[]", required: true, description: "the grounding invariants" },
+        { name: "provider", type: "string", required: true, description: "anthropic | openai | venice" },
+      ],
+      outputs: [
+        { name: "report", type: "JudgementReport", description: "score, per-invariant verdicts, remediation hints" },
+      ],
+    },
+  },
 ];
 
 export const STUDIO_BUNDLES: StudioBundleEntry[] = [
@@ -298,6 +403,18 @@ export const STUDIO_BUNDLES: StudioBundleEntry[] = [
     presetId: "video_article_bundle",
     blockKinds: ["video_generation", "article_draft", "deployment"],
     tags: ["bundle", "video", "article", "watch", "make"],
+  },
+  {
+    id: "workflow:constitutional_video_integrated_bundle",
+    name: "Constitutional Video + Integrated Artefacts",
+    description:
+      "Generate a coherent bundle from one invariant substrate — a constitutional video (voiced, stitched) plus a companion article, coherent by construction — with a built-in coherence score. Optionally run an independent fidelity judgement (never required), then deploy.",
+    assetClass: "WorkflowQube",
+    engine: "inline",
+    triggerType: "manual",
+    presetId: "constitutional_video_integrated_bundle",
+    blockKinds: ["coherent_bundle", "deployment"],
+    tags: ["bundle", "constitutional", "video", "article", "coherent", "integrated-artefacts"],
   },
 ];
 

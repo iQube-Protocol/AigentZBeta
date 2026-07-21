@@ -5,6 +5,7 @@
 // DVN messages represent the point where transactions leave our system for LayerZero settlement
 import { EventEmitter } from 'events';
 import { QCT_CONTRACTS } from '@/config/qct-contracts';
+import { btcApiBase } from '@/services/ops/btcExplorer';
 
 // Global storage for server-side persistence
 declare global {
@@ -140,7 +141,7 @@ export class QCTEventListener extends EventEmitter {
         chainId: 'bitcoin',
         name: 'Bitcoin Testnet',
         type: 'bitcoin',
-        rpcUrl: process.env.NEXT_PUBLIC_RPC_BTC_TESTNET || 'https://mempool.space/testnet/api',
+        rpcUrl: btcApiBase(),
         runesId: QCT_CONTRACTS.bitcoin.establishmentTx,
         startBlock: 0,
         confirmations: 3,

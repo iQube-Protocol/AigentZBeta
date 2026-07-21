@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
+import { recordServerCall } from '@/services/devCommandCenter/requestTelemetry';
 
 const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
 
 export async function GET() {
+  const t0 = Date.now();
   try {
     if (IS_BUILD) {
       return NextResponse.json({
@@ -36,6 +38,7 @@ export async function GET() {
         })
       : [];
     
+    recordServerCall({ method: 'GET', path: '/api/ops/dvn/pending', status: 200, ms: Date.now() - t0 });
     return NextResponse.json({
       ok: true,
       messages: serializedMessages,

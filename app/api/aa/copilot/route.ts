@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import type OpenAI from "openai"; // type-only — tool-definition typing; no runtime client
+import { callSovereignToolChat, type SovereignToolMessage } from "@/services/constitutional/sovereignToolChat";
 
 export const dynamic = "force-dynamic";
 
@@ -269,8 +270,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
     // Build the user message
     let userMessage = "";
     if (intent) {
@@ -287,20 +286,22 @@ ${simulate ? "Mode: SIMULATION (dry-run)" : "Mode: LIVE"}
 ${context ? `Additional context: ${JSON.stringify(context)}` : ""}
 `;
 
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    const messages: SovereignToolMessage[] = [
       { role: "system", content: COPILOT_SYSTEM_PROMPT },
       { role: "user", content: `${contextInfo}\n\nRequest: ${userMessage}` },
     ];
 
-    // Call OpenAI with tools
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+    // Invariant-aware, SOVEREIGN tool-calling (CFS-015 Phase 2). Was a single
+    // gpt-4o call with no fallback; now routes through the sovereign tool ladder
+    // (openai → open-weight venice floor) so the agent survives a frontier
+    // outage. The caller still owns tool EXECUTION below.
+    const response = await callSovereignToolChat({
       messages,
       tools: TOOLS,
-      tool_choice: "auto",
+      toolChoice: "auto",
     });
 
-    const assistantMessage = response.choices[0].message;
+    const assistantMessage = response.message;
     const toolCalls: string[] = [];
     let structuredResult: any = null;
 
@@ -327,14 +328,11 @@ ${context ? `Additional context: ${JSON.stringify(context)}` : ""}
         content: JSON.stringify(structuredResult),
       });
 
-      const finalResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages,
-      });
+      const finalResponse = await callSovereignToolChat({ messages });
 
       return NextResponse.json({
         success: true,
-        responseText: finalResponse.choices[0].message.content,
+        responseText: finalResponse.message.content,
         structuredResult,
         toolCalls,
         tenantId,

@@ -10,6 +10,9 @@ import {
   extractThumbnailFromBuffer,
   persistThumbnailAsset,
 } from "@/app/api/skills/video/_thumbnail";
+// CVR-002 — additive consequence tiering for Studio productions.
+// Best-effort + failure-isolated: never changes how videos are stitched.
+import { tierStudioArtifact } from "@/services/composer/studioArtifactTiering";
 
 /**
  * POST /api/skills/video/stitch
@@ -111,6 +114,22 @@ function runFfmpeg(ffmpegPath: string, args: string[]): Promise<void> {
   });
 }
 
+/**
+ * GET /api/skills/video/stitch — warm-up. Resolves (downloading into /tmp if
+ * needed) the ffmpeg binary so the subsequent POST doesn't pay the ~30MB
+ * fetch inside its own request budget. Called best-effort by
+ * stitchHierarchical before the first stitch pass.
+ */
+export async function GET() {
+  try {
+    await getFfmpegPath();
+    return NextResponse.json({ ok: true, ffmpeg: "ready" });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ ok: false, error: `ffmpeg unavailable: ${detail}` }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   let tmpDir: string | null = null;
   try {
@@ -118,6 +137,11 @@ export async function POST(request: NextRequest) {
     const clips: unknown = body?.clips;
     const experienceId: string | null =
       typeof body?.experience_id === "string" ? body.experience_id : null;
+    // Additive (Constitutional Video audio, 2026-07-19): when the source clips
+    // carry a uniform AAC track (from the per-segment mux-audio route),
+    // preserve it through the stitch. Default false — existing callers
+    // (video-article etc.) keep the silent, byte-identical behaviour.
+    const preserveAudio: boolean = body?.preserve_audio === true;
 
     if (!Array.isArray(clips) || clips.some((c) => typeof c !== "string" || !c.trim())) {
       return NextResponse.json(
@@ -125,7 +149,14 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    const clipUrls = (clips as string[]).map((c) => c.trim());
+    // Segment URLs from the status routes can be RELATIVE proxy paths
+    // (/api/skills/video/<id>, /api/skills/video/venice/<queueId>?model=…) —
+    // resolve them against this request's origin so the server-side download
+    // works for proxied clips, not just absolute storage/provider URLs.
+    const clipUrls = (clips as string[]).map((c) => {
+      const trimmed = c.trim();
+      return trimmed.startsWith("/") ? new URL(trimmed, request.nextUrl.origin).toString() : trimmed;
+    });
     if (clipUrls.length < MIN_CLIPS || clipUrls.length > MAX_CLIPS) {
       return NextResponse.json(
         { ok: false, error: `provide between ${MIN_CLIPS} and ${MAX_CLIPS} clips` },
@@ -136,9 +167,10 @@ export async function POST(request: NextRequest) {
     let ffmpegPath: string;
     try {
       ffmpegPath = await getFfmpegPath();
-    } catch {
+    } catch (ffmpegErr) {
+      const detail = ffmpegErr instanceof Error ? ffmpegErr.message : String(ffmpegErr);
       return NextResponse.json(
-        { ok: false, error: "ffmpeg binary unavailable — cannot stitch clips" },
+        { ok: false, error: `ffmpeg binary unavailable — cannot stitch clips (${detail})` },
         { status: 500 },
       );
     }
@@ -172,8 +204,11 @@ export async function POST(request: NextRequest) {
         outputPath,
       ]);
     } catch (copyErr) {
-      // Fallback: re-encode into a uniform H.264 stream. AI clips are silent,
-      // so we drop audio (-an) to avoid concat failures on missing audio tracks.
+      // Fallback: re-encode into a uniform H.264 stream. By default AI clips
+      // are silent, so we drop audio (-an) to avoid concat failures on missing
+      // audio tracks. When preserve_audio is set (constitutional-video voiced
+      // segments, which all carry a uniform AAC track from the mux route),
+      // re-encode audio to AAC instead of dropping it.
       console.warn(
         "[VideoStitch] stream-copy concat failed, re-encoding:",
         copyErr instanceof Error ? copyErr.message : copyErr,
@@ -186,7 +221,7 @@ export async function POST(request: NextRequest) {
         "-preset", "veryfast",
         "-crf", "20",
         "-pix_fmt", "yuv420p",
-        "-an",
+        ...(preserveAudio ? ["-c:a", "aac", "-ar", "44100"] : ["-an"]),
         "-movflags", "+faststart",
         "-y",
         outputPath,
@@ -221,6 +256,21 @@ export async function POST(request: NextRequest) {
       thumbnailUrl = null;
     }
 
+    // CVR-002 tiering (additive, never throws): a stitched video resolves a
+    // durable Supabase URL exactly once per stitch — a completed operational
+    // 'multimedia' production, persisted as an ArtifactRecord. Existing
+    // response fields unchanged.
+    const tiering = await tierStudioArtifact({
+      kind: "studio.video.stitch.completed",
+      title: `Stitched video (${clipUrls.length} clips)`,
+      outputs: [
+        { url: videoUrl },
+        ...(thumbnailUrl ? [{ url: thumbnailUrl, label: "thumbnail" }] : []),
+      ],
+      stitchId,
+      segments: clipUrls.length,
+    });
+
     return NextResponse.json({
       ok: true,
       video_url: videoUrl,
@@ -228,6 +278,7 @@ export async function POST(request: NextRequest) {
       stitch_id: stitchId,
       segments: clipUrls.length,
       experience_id: experienceId || undefined,
+      ...tiering,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

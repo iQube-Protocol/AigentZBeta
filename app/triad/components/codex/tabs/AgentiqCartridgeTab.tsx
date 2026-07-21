@@ -33,10 +33,33 @@ interface FileResponse {
   data?: unknown;
 }
 
+function titleCase(s: string): string {
+  return s.replace(/[_-]+/g, " ").trim().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Human label for a collection doc. For EXPERIMENT docs — whose parent directory
+ * carries the id (e.g. `.../exp-p3-capability-validation/README.md`) — prefix the
+ * label with the experiment id so a column of README files is identifiable at a
+ * glance (EXP-006, CCE-006, EXP-P3, IRV-001…). Non-experiment docs keep the
+ * plain prettified-filename behaviour.
+ */
 function formatLabel(path: string): string {
   const parts = path.split("/");
-  const name = parts[parts.length - 1] || path;
-  return name.replace(/\.md$/i, "").replace(/[_-]+/g, " ");
+  const file = (parts[parts.length - 1] || path).replace(/\.md$/i, "");
+  const parent = parts.length >= 2 ? parts[parts.length - 2] : "";
+  const expMatch = parent.match(/^(exp|cce|irv|ipv)-(p?\d+[a-z]?)\b/i);
+  if (expMatch) {
+    const id = `${expMatch[1].toUpperCase()}-${expMatch[2].toUpperCase()}`; // EXP-P3 · CCE-006 · IRV-001 · EXP-006
+    if (/^readme$/i.test(file)) {
+      // README → "EXP-P3 · Capability Validation" (nice name from the dir slug).
+      const slug = parent.replace(/^(exp|cce|irv|ipv)-p?\d+[a-z]?-?/i, "");
+      return slug ? `${id} · ${titleCase(slug)}` : id;
+    }
+    // A companion doc → "EXP-001 · Canonical Article".
+    return `${id} · ${titleCase(file)}`;
+  }
+  return file.replace(/[_-]+/g, " ");
 }
 
 interface CodexSource {

@@ -46,6 +46,25 @@ const envVars = [
   'CHAINGPT_API_SECRET',
   'CHAIN_GPT_API_SECRET',
   'CHAINGPT_MODEL',
+  // ── thirdweb Nebula — server-side inference (secret key via x-secret-key) ──
+  // Only these reach the SSR runtime; a key set in Amplify but missing here
+  // never reaches process.env (the GITHUB_TOKEN regression class).
+  'THIRDWEB_SECRET_KEY',
+  'THIRDWEB_CLIENT_ID',
+  'THIRDWEB_NEBULA_URL',
+  'THIRDWEB_MODEL',
+  // ── xAI Grok (OpenAI-compatible) — both key spellings accepted by the adapter ──
+  'XAI_API_KEY',
+  'GROK_API_KEY',
+  'XAI_MODEL',
+  'GROK_MODEL',
+  // ── Google Gemini (generateContent) — three key spellings accepted ──
+  'GEMINI_API_KEY',
+  'GOOGLE_AI_API_KEY',
+  'GOOGLE_GENERATIVE_AI_API_KEY',
+  'GEMINI_MODEL',
+  // ── Groq (OpenAI-compatible, open-weight Llama) — GROQ_API_KEY already above ──
+  'GROQ_MODEL',
   'FIO_API_ENDPOINT',
   'FIO_CHAIN_ID',
   'FIO_SYSTEM_PUBLIC_KEY',
@@ -109,6 +128,10 @@ const envVars = [
   'MARKETA_DISCOVERY_SOURCES',
   // Polity Passport Bureau — credential HMAC signing (Phase A stub)
   'PASSPORT_BUREAU_CREDENTIAL_SECRET',
+  // Pairwise External Service References — keyed HMAC derivation for the
+  // three-level persona reference model. When unset, external-ref issuance
+  // is disabled (private UUIDs + Polity public refs still work).
+  'PERSONA_PAIRWISE_REF_SECRET',
   // PersonaQube — Sui + Walrus mint rail (Polity Passport rail).
   // When unset, mintPersonaToSui falls back to stub mode (deterministic
   // fake IDs). Setting all three switches the route to real on-chain mint.
@@ -181,6 +204,15 @@ const envVars = [
   'DFX_NETWORK',
   'WALLET_CANISTER_ID',
   'CROSS_CHAIN_SERVICE_CANISTER_ID',
+  // Reputation Query Hub (rqh) + Reward Hub — a deployed canister pair
+  // (canister_ids.json: rqh zdjf3-…, reward_hub lvo2w-…). Reward/reputation
+  // reads in services/crm/taskCanisterService.ts fall back to the hardcoded
+  // ids, but the ops health check, services/ops/icpService.ts, and the CDE
+  // diagnostics read the env WITHOUT a fallback — so they render "not
+  // configured" unless the id reaches the SSR runtime. Allowlisting the plain
+  // server vars lets these be provisioned without a NEXT_PUBLIC_ exposure.
+  'RQH_CANISTER_ID',
+  'REWARD_HUB_CANISTER_ID',
   'CYCLES_PROXY_URL',
   'CYCLES_PROXY_KEY',
   // Operator ops bearer for backstop tools (paypal/recover, etc.).
@@ -216,6 +248,16 @@ const envVars = [
   'LINKEDIN_ENRICH_URL',
   'LINKEDIN_ENRICH_KEY',
   'PROXYCURL_API_KEY',
+  // Dev Command Center (CFS-020 CDE) read-only tool viewports. Set in the
+  // Amplify console but MUST be allowlisted here or they never reach the SSR
+  // runtime (console vars are build-time only) — the GitHub/Linear panes then
+  // read undefined and render "not configured" despite the console showing them.
+  // GITHUB_REPOSITORY is optional (github.ts falls back to iQube-Protocol/AigentZBeta).
+  'GITHUB_TOKEN',
+  'GITHUB_REPOSITORY',
+  'LINEAR_API_KEY',
+  // Linear lifecycle mirror target team (e.g. 'ENG') — services/linear/lifecycleMirror.ts
+  'LINEAR_TEAM_KEY',
 ];
 
 let content = '';

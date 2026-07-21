@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw, Copy, ExternalLink } from "lucide-react";
 import { useCanisterHealth } from "@/hooks/ops/useCanisterHealth";
 import { useBTC_Testnet } from "@/hooks/ops/useBTC_Testnet";
+import { btcExplorerBase, btcTxUrl, btcBlockHeightUrl, isBitcoinTxid } from "@/services/ops/btcExplorer";
 
 // Extend ChainStatus type to include latestTx if not present
 type ChainStatus = {
@@ -742,20 +743,16 @@ export default function OpsPage() {
           if (key === "btc_testnet") {
             const ok = btc.data?.ok ?? false;
             const at = btc.data?.at ?? "—";
-            const rpcApi = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET || '';
-            // Show the actual API being used, not just the configured one
-            const actualEndpoint = (btc.data as any)?.details?.includes('blockstream.info') ? 'blockstream.info/testnet' : 
-                                  (btc.data as any)?.details?.includes('mempool.space') ? 'mempool.space/testnet' : 
-                                  rpcApi ? rpcApi.replace(/^https?:\/\//, '').replace(/\/api\/?$/, '') : '—';
-            const rpcHost = actualEndpoint;
+            // Show the actual API host in use — btcService reports it as
+            // "endpoint: <host>" (provider-agnostic; defaults to blockstream).
+            const endpointMatch = String((btc.data as any)?.details ?? '').match(/endpoint:\s*([^\s(]+)/);
+            const rpcHost = endpointMatch?.[1] ?? btcExplorerBase().replace(/^https?:\/\//, '');
             // Get block height from testnet data, not anchor data
             const blockHeight = typeof (btc.data as any)?.blockHeight === 'number' ? (btc.data as any).blockHeight : '—';
             const _rawTxid = btc.anchor?.txid || btc.latestTx?.txid;
             // Only show real 64-char hex txids — mock/placeholder values produce 404s
-            const isRealTxid = (s: string | undefined) => typeof s === 'string' && /^[a-f0-9]{64}$/i.test(s);
-            const latestTx = isRealTxid(_rawTxid) ? (_rawTxid as string) : '—';
-            const explorerBase = 'https://blockstream.info/testnet';
-            const txUrl = (latestTx !== '—') ? `${explorerBase}/tx/${latestTx}` : undefined;
+            const latestTx = isBitcoinTxid(_rawTxid) ? _rawTxid : '—';
+            const txUrl = (latestTx !== '—') ? btcTxUrl(latestTx) : undefined;
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
@@ -799,7 +796,7 @@ export default function OpsPage() {
                   <span className="flex items-center gap-1 max-w-[60%] justify-end">
                     {blockHeight !== '—' ? (
                       <>
-                        <a href={`https://blockstream.info/testnet/block-height/${blockHeight}`} target="_blank" rel="noreferrer" className="text-xs text-indigo-300 hover:text-white inline-flex items-center gap-1">
+                        <a href={btcBlockHeightUrl(blockHeight)} target="_blank" rel="noreferrer" className="text-xs text-indigo-300 hover:text-white inline-flex items-center gap-1">
                           <span>{blockHeight}</span>
                           <ExternalLink size={12} className="flex-shrink-0" />
                         </a>
@@ -1159,14 +1156,12 @@ export default function OpsPage() {
             const anchorStatus = btc.anchor?.status;
             const details = btc.anchor?.details ?? '';
             const latestTx = btc.latestTx;
-            const explorer = 'https://blockstream.info/testnet';
-            // Only use txid for display - lastAnchorId is a batch ID, not a Bitcoin txid
-            // Helper to check if string is a valid Bitcoin txid (64 hex chars)
-            const isValidBitcoinTxid = (str: string | undefined) => typeof str === 'string' && /^[a-f0-9]{64}$/i.test(str);
-            // Guard: never link mock/placeholder txids — they produce 404s on the explorer
-            const displayTx = isValidBitcoinTxid(txid) ? txid : undefined;
-            const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
-            const latestTxUrl = isValidBitcoinTxid(latestTx?.txid) ? `${explorer.replace('/api','')}/tx/${latestTx!.txid}` : undefined;
+            // Only use txid for display - lastAnchorId is a batch ID (Merkle
+            // root), not a Bitcoin txid — a root is ALSO 64-hex, so provenance
+            // (anchor.txid only) is the real guard; the shape check is backstop.
+            const displayTx = isBitcoinTxid(txid) ? txid : undefined;
+            const txUrl = displayTx ? btcTxUrl(displayTx) : undefined;
+            const latestTxUrl = isBitcoinTxid(latestTx?.txid) ? btcTxUrl(latestTx!.txid) : undefined;
             async function doAnchor() {
               try {
                 const response = await fetch('/api/ops/btc/anchor', { method: 'POST' });
@@ -1639,7 +1634,7 @@ export default function OpsPage() {
                 case 421614: return 'https://sepolia.arbiscan.io/tx/';
                 case 84532: return 'https://sepolia.basescan.org/tx/';
                 case 101: return 'https://explorer.solana.com/tx/?cluster=testnet';
-                case 0: return 'https://blockstream.info/testnet/tx/';
+                case 0: return `${btcExplorerBase()}/tx/`;
                 default: return 'https://sepolia.etherscan.io/tx/';
               }
             };

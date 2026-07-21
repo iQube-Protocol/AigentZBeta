@@ -7,7 +7,10 @@
       "type": "static",
       "order": 0,
       "enabled": true,
-      "metadata": { "icon": "Landmark", "category": "main" },
+      "metadata": {
+        "icon": "Landmark",
+        "category": "main"
+      },
       "items": [
         "items/CONSTITUTION.md"
       ]
@@ -19,7 +22,10 @@
       "type": "static",
       "order": 0.5,
       "enabled": true,
-      "metadata": { "icon": "Landmark", "category": "main" },
+      "metadata": {
+        "icon": "Landmark",
+        "category": "main"
+      },
       "items": [
         "items/CONSTITUTION_OF_AGENTIC_POLITY.md"
       ]
@@ -31,7 +37,10 @@
       "type": "static",
       "order": 0.75,
       "enabled": true,
-      "metadata": { "icon": "Infinity", "category": "main" },
+      "metadata": {
+        "icon": "Infinity",
+        "category": "main"
+      },
       "items": [
         "constitutional-records/invariant-intelligence.md"
       ]
@@ -43,7 +52,10 @@
       "type": "static",
       "order": 1,
       "enabled": true,
-      "metadata": { "icon": "Bot", "category": "main" },
+      "metadata": {
+        "icon": "Bot",
+        "category": "main"
+      },
       "items": [
         "items/AGENT_CHARTER.md"
       ]
@@ -55,7 +67,10 @@
       "type": "static",
       "order": 2,
       "enabled": true,
-      "metadata": { "icon": "Link2", "category": "main" },
+      "metadata": {
+        "icon": "Link2",
+        "category": "main"
+      },
       "items": [
         "items/DELEGATION_FRAMEWORK.md"
       ]
@@ -67,7 +82,10 @@
       "type": "static",
       "order": 3,
       "enabled": true,
-      "metadata": { "icon": "Award", "category": "main" },
+      "metadata": {
+        "icon": "Award",
+        "category": "main"
+      },
       "items": [
         "items/STANDING_CHARTER.md"
       ]
@@ -79,7 +97,10 @@
       "type": "static",
       "order": 4,
       "enabled": true,
-      "metadata": { "icon": "Globe", "category": "main" },
+      "metadata": {
+        "icon": "Globe",
+        "category": "main"
+      },
       "items": [
         "items/METACOMMONS_CHARTER.md"
       ]
@@ -91,7 +112,10 @@
       "type": "static",
       "order": 5,
       "enabled": true,
-      "metadata": { "icon": "Rocket", "category": "main" },
+      "metadata": {
+        "icon": "Rocket",
+        "category": "main"
+      },
       "items": [
         "items/FOUNDER_OFFICE_CHARTER.md"
       ]
@@ -103,7 +127,10 @@
       "type": "static",
       "order": 5.5,
       "enabled": true,
-      "metadata": { "icon": "Users", "category": "main" },
+      "metadata": {
+        "icon": "Users",
+        "category": "main"
+      },
       "items": [
         "items/PARTICIPATION_MODEL.md"
       ]
@@ -115,7 +142,10 @@
       "type": "static",
       "order": 6,
       "enabled": true,
-      "metadata": { "icon": "Layers", "category": "main" },
+      "metadata": {
+        "icon": "Layers",
+        "category": "main"
+      },
       "items": [
         "items/VENTUREQUBE_SPEC.md"
       ]
@@ -127,7 +157,10 @@
       "type": "static",
       "order": 3,
       "enabled": true,
-      "metadata": { "icon": "Award", "category": "main" },
+      "metadata": {
+        "icon": "Award",
+        "category": "main"
+      },
       "items": [
         "items/STANDING_FRAMEWORK.md"
       ]
@@ -139,7 +172,10 @@
       "type": "static",
       "order": 4,
       "enabled": true,
-      "metadata": { "icon": "Scale", "category": "main" },
+      "metadata": {
+        "icon": "Scale",
+        "category": "main"
+      },
       "items": [
         "items/GOVERNANCE_FRAMEWORK.md"
       ]
@@ -151,7 +187,10 @@
       "type": "static",
       "order": 5,
       "enabled": true,
-      "metadata": { "icon": "FileText", "category": "main" },
+      "metadata": {
+        "icon": "FileText",
+        "category": "main"
+      },
       "items": [
         "items/AMENDMENT_RECORDS.md"
       ]
@@ -163,7 +202,10 @@
       "type": "static",
       "order": 6,
       "enabled": true,
-      "metadata": { "icon": "Code", "category": "main" },
+      "metadata": {
+        "icon": "Code",
+        "category": "main"
+      },
       "items": [
         "items/MACHINE_READABLE.md"
       ]
@@ -175,9 +217,12 @@
       "type": "static",
       "order": 7,
       "enabled": true,
-      "metadata": { "icon": "BookOpen", "category": "commentary" },
+      "metadata": {
+        "icon": "BookOpen",
+        "category": "commentary"
+      },
       "items": [
-        "items/commentary/README.md"
+        "items/commentary/experience-sovereignty/07-agent-runbook.md"
       ]
     },
     {
@@ -187,9 +232,16 @@
       "type": "static",
       "order": 8,
       "enabled": true,
-      "metadata": { "icon": "BookOpen", "category": "commentary" },
+      "metadata": {
+        "icon": "BookOpen",
+        "category": "commentary"
+      },
       "items": [
-        "items/commentary/README.md"
+        "items/commentary/coyn-thesis/01-the-fallacy-of-free-information.md",
+        "items/commentary/coyn-thesis/02-time-sovereignty.md",
+        "items/commentary/coyn-thesis/03-proof-of-time-saved.md",
+        "items/commentary/coyn-thesis/04-money-time-and-coyn.md",
+        "items/commentary/coyn-thesis/05-the-sovereign-cybernetic-economy.md"
       ]
     },
     {
@@ -199,9 +251,15 @@
       "type": "static",
       "order": 9,
       "enabled": true,
-      "metadata": { "icon": "BookOpen", "category": "commentary" },
+      "metadata": {
+        "icon": "BookOpen",
+        "category": "commentary"
+      },
       "items": [
-        "items/commentary/README.md"
+        "items/commentary/polity/01-beyond-the-binary.md",
+        "items/commentary/polity/02-from-perimeter-to-polity.md",
+        "items/commentary/polity/03-citizenship-in-the-agentic-internet.md",
+        "items/commentary/polity/04-the-constitution-of-the-agentic-polity.md"
       ]
     }
   ]

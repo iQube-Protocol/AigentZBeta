@@ -13,7 +13,7 @@ import React from "react";
 import type { CodexTab } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { AlertCircle } from "lucide-react";
-import { liquidTemplateRegistry } from "./liquidTemplates/registry";
+import { liquidExperienceRenderer } from "./liquidTemplates/liquidExperienceRenderer";
 
 // Import static tab components
 import { ScrollsTab } from "./tabs/ScrollsTab";
@@ -79,6 +79,7 @@ import { MarketaPublishTab } from "@/app/(shell)/marketa/components/MarketaPubli
 import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
 import { FounderOfficeTab } from "./tabs/FounderOfficeTab";
+import { FinancialServicesTab } from "./tabs/FinancialServicesTab";
 import { VentureFunnelTab } from "./tabs/VentureFunnelTab";
 import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
 import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
@@ -115,10 +116,19 @@ import { IQubeRegistryVocabularyTab } from "./tabs/IQubeRegistryVocabularyTab";
 import { IQubeRegistryDocsTab } from "./tabs/IQubeRegistryDocsTab";
 import { IQubeRegistryIntakeTab } from "./tabs/IQubeRegistryIntakeTab";
 import { InvariantRegistryTab } from "./tabs/InvariantRegistryTab";
+import InvariantExperimentLab from "@/components/composer/InvariantExperimentLab";
+import PublishedReportsTab from "@/components/composer/PublishedReportsTab";
+import CapabilityPipelineTab from "@/components/composer/CapabilityPipelineTab";
+import IRLDashboardTab from "@/components/composer/IRLDashboardTab";
+import IRLResearchCopilotTab from "@/components/composer/IRLResearchCopilotTab";
+import InvariantFieldExplorerTab from "@/components/composer/InvariantFieldExplorerTab";
 import { PassportBureauApplyTab } from "./tabs/PassportBureauApplyTab";
 import { PassportBureauStewardTab } from "./tabs/PassportBureauStewardTab";
 import { PassportRegistryTab } from "./tabs/PassportRegistryTab";
 import { LockerTab } from "./tabs/LockerTab";
+import { ParticipationStandingTab } from "./tabs/ParticipationStandingTab";
+import { StewardParticipationTab } from "./tabs/StewardParticipationTab";
+import { IRLWelcomeTab } from "./tabs/IRLWelcomeTab";
 import { PassportDoctrineTab } from "./tabs/PassportDoctrineTab";
 import { PassportEnsTab } from "./tabs/PassportEnsTab";
 import { PassportBeingTab } from "./tabs/PassportBeingTab";
@@ -257,6 +267,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   VentureLabGrowthMatrixTab,
   VentureLabPortfolioTab,
   FounderOfficeTab,
+  FinancialServicesTab,
   VentureFunnelTab,
   QriptopianEditTab,
   QriptopianAdminTab,
@@ -293,10 +304,19 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IQubeRegistryDocsTab,
   IQubeRegistryIntakeTab,
   InvariantRegistryTab,
+  InvariantExperimentLab,
+  PublishedReportsTab,
+  CapabilityPipelineTab,
+  IRLDashboardTab,
+  IRLResearchCopilotTab,
+  InvariantFieldExplorerTab,
   PassportBureauApplyTab,
   PassportBureauStewardTab,
   PassportRegistryTab,
   LockerTab,
+  ParticipationStandingTab,
+  StewardParticipationTab,
+  IRLWelcomeTab,
   PassportDoctrineTab,
   PassportEnsTab,
   PassportBeingTab,
@@ -494,19 +514,18 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, 
       );
     }
 
-    const Template = liquidTemplate ? liquidTemplateRegistry[liquidTemplate] : undefined;
-    if (Template) {
-      return (
-        <Template
-          theme={theme}
-          density={density}
-          personaId={personaId}
-          issueSlug={issueSlug}
-          forcedDevice={previewDevice}
-          dataSource={dataSource}
-          {...tab.config.props}
-        />
-      );
+    // Resolve through the named rendering seam (CFS-007, Law VI) — the
+    // adapter owns template resolution + context binding; this component
+    // owns only JSX instantiation.
+    const rendered = liquidTemplate
+      ? liquidExperienceRenderer.render(
+          { surface: liquidTemplate, props: { issueSlug, dataSource, ...tab.config.props } },
+          { theme, density, personaId, device: previewDevice },
+        )
+      : null;
+    if (rendered) {
+      const { Component } = rendered;
+      return <Component {...rendered.props} />;
     }
 
     return (

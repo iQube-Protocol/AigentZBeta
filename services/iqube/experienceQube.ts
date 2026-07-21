@@ -71,7 +71,7 @@ export type ActiveCartridgeSlug =
  * Operator archetype from the Polity Participation Model. T1 (public-safe).
  * Feeds NBE reranking so aigentMe biases toward archetype-appropriate moves.
  */
-export type OperatorArchetype = 'citizen' | 'entrepreneurial' | 'technical' | 'creative';
+export type OperatorArchetype = 'citizen' | 'entrepreneurial' | 'technical' | 'creative' | 'research';
 
 /** Public-safe slice — surfaces to the browser. T1. */
 export interface ExperienceQubeMeta {
@@ -159,7 +159,7 @@ const VALID_TYPES = new Set<ExperienceType>([
   'personal', 'creative', 'venture', 'client', 'portfolio', 'venture_building',
 ]);
 const VALID_ARCHETYPES = new Set<OperatorArchetype>([
-  'citizen', 'entrepreneurial', 'technical', 'creative',
+  'citizen', 'entrepreneurial', 'technical', 'creative', 'research',
 ]);
 const VALID_STAGES = new Set<ExperienceStage>([
   'setup', 'alpha_activation', 'launch', 'growth', 'scale',

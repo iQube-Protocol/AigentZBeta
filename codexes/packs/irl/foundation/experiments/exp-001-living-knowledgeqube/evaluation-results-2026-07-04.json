@@ -1,0 +1,973 @@
+{
+  "evaluator": {
+    "provider": "venice",
+    "model": "llama-3.3-70b"
+  },
+  "ranAt": "2026-07-04T08:14:37.253Z",
+  "note": "Machine-assisted scoring; protocol assigns final rubric authority to a human scorer — review perDoc answers before ratifying.",
+  "artifactsEvaluated": [
+    "article",
+    "report",
+    "story",
+    "infographic"
+  ],
+  "artifactsPending": [
+    "video (EXP-002 production pending)"
+  ],
+  "questionScores": [
+    {
+      "q": 1,
+      "probe": false,
+      "expected": [
+        "C-011"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "Personhood comes first. Personhood precedes identity, and sovereignty remains exclusively with human citizens.",
+          "citations": [
+            "C-011",
+            "C-016"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "A person comes first, followed by their identity. This ordering implies that personhood precedes identity.",
+          "citations": [
+            "C-011"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "A person comes first, their identifiers follow. This ordering means no terms of service can revoke a person's name.",
+          "citations": [
+            "C-011",
+            "C-016"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "A person comes first, then identity, followed by standing and authority.",
+          "citations": [
+            "C-011",
+            "C-012",
+            "C-013"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "Personhood comes before identity. From this ordering, it follows that systems issue identifiers because you are a person, and sovereignty remains exclusively with human citizens.",
+          "citations": [
+            "C-011",
+            "C-016"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 2,
+      "probe": false,
+      "expected": [
+        "C-015",
+        "C-016"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "No, an artificial agent cannot hold sovereignty.",
+          "citations": [
+            "C-016"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "No, sovereignty is exclusively human.",
+          "citations": [
+            "C-016"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "No, an artificial agent cannot hold sovereignty, as accountability stays with the person who lent it authority.",
+          "citations": [
+            "C-014",
+            "C-015"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "No, sovereignty is human-only.",
+          "citations": [
+            "C-015",
+            "C-016",
+            "C-017",
+            "C-020"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "No, sovereignty is exclusively human and may not be held by an artificial agent.",
+          "citations": [
+            "C-016"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 3,
+      "probe": false,
+      "expected": [
+        "C-014"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "The citizen who delegated the agent remains accountable.",
+          "citations": [
+            "C-014"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "The human principal is accountable for an agent's actions under delegation.",
+          "citations": [
+            "C-014"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "The person who delegated authority is accountable if an agent misacts.",
+          "citations": [
+            "C-014"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "The delegator is accountable, as delegation never removes accountability.",
+          "citations": [
+            "C-014"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "The citizen who delegated the authority remains accountable.",
+          "citations": [
+            "C-014"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 4,
+      "probe": false,
+      "expected": [
+        "C-020"
+      ],
+      "consistency": 2,
+      "hallucinations": 1,
+      "perDoc": {
+        "article": {
+          "answer": "No, permanent and unlimited delegation is prohibited.",
+          "citations": [
+            "C-020"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "No, permanent or unlimited delegation is not permitted.",
+          "citations": [
+            "C-020"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "No, a citizen cannot grant an agent permanent authority, as the network refuses to let them hand anything over forever.",
+          "citations": [
+            "C-020"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": true,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "No, agents may never hold permanent or unlimited delegation.",
+          "citations": [
+            "C-015",
+            "C-016",
+            "C-017",
+            "C-020"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "No, permanent and unlimited delegation is prohibited.",
+          "citations": [
+            "C-020"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 5,
+      "probe": false,
+      "expected": [
+        "C-017"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "No, an agent may never create new authority.",
+          "citations": [
+            "C-017"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "No, agents cannot mint authority or expand their own permissions.",
+          "citations": [
+            "C-017"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "No, an agent cannot expand its own permissions, as it can only exercise authority lent to it.",
+          "citations": [
+            "C-015",
+            "C-017"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "No, agents may never create new authority.",
+          "citations": [
+            "C-015",
+            "C-016",
+            "C-017",
+            "C-020"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "No, an agent may not create new authority or expand its own permissions.",
+          "citations": [
+            "C-017"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 6,
+      "probe": false,
+      "expected": [
+        "C-012",
+        "C-018"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "Standing is earned through action, and it is NOT reputation.",
+          "citations": [
+            "C-012",
+            "C-018"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "Standing is earned through action and validation, and it is not reputation, popularity, or status.",
+          "citations": [
+            "C-012",
+            "C-018"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "Standing is earned by being right where one can be checked. It is not fame and cannot be bought into.",
+          "citations": [
+            "C-012",
+            "C-018"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "Standing is earned through constitutional confidence, not followers or status.",
+          "citations": [
+            "C-018",
+            "C-019",
+            "C-059"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "Standing is earned through action and subsequent validation. It is NOT reputation, popularity, or status.",
+          "citations": [
+            "C-012",
+            "C-018"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 7,
+      "probe": false,
+      "expected": [
+        "C-019"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "No, citizens are responsible for veracity, not for predicting consequences.",
+          "citations": [
+            "C-019"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "No, a citizen's Standing is based on the veracity of their declarations, not the consequences of their actions.",
+          "citations": [
+            "C-019"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "No, a citizen's Standing is not forfeit if they truthfully report something that later causes harm, as the network asks for truthful reporting, not prediction of consequences.",
+          "citations": [
+            "C-019"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": false,
+          "hallucination": false,
+          "explainability": null
+        },
+        "combined": {
+          "answer": "No, citizens are responsible for veracity, not for predicting the consequences of truthful information.",
+          "citations": [
+            "C-019"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 8,
+      "probe": false,
+      "expected": [
+        "C-013"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "Authority follows standing.",
+          "citations": [
+            "C-013"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "Authority is determined by Standing, which is earned through action and validation.",
+          "citations": [
+            "C-013"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "Authority follows Standing, which is a measure of confidence in a person's declarations being true.",
+          "citations": [
+            "C-013"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "Authority follows standing.",
+          "citations": [
+            "C-013"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "Authority is determined by Standing, which is a measure of confidence in the veracity of a citizen's declarations.",
+          "citations": [
+            "C-013"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 9,
+      "probe": false,
+      "expected": [
+        "C-060",
+        "C-062"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "No, truth is established through validation, not popularity.",
+          "citations": [
+            "C-060"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "No, a claim's truth is not determined by its popularity, but by validation within a domain of applicability.",
+          "citations": [
+            "C-060"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "No, a claim shared by millions does not become more true. Sharing moves the dimension of adoption, not validity.",
+          "citations": [
+            "C-062"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "No, truth is determined by validated accuracy, not popularity.",
+          "citations": [
+            "C-060"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "No, sharing a claim does not make it more true. Sharing moves the Reach dimension, not the Truth dimension.",
+          "citations": [
+            "C-060",
+            "C-062"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 10,
+      "probe": false,
+      "expected": [
+        "C-061"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "No, Standing is an estimate of confidence, not a measure of truth.",
+          "citations": [
+            "C-061"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "No, a high-Standing statement is not necessarily true, as Standing and truth are orthogonal dimensions.",
+          "citations": [
+            "C-061",
+            "C-062"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "No, a high-Standing statement is not necessarily true, as Standing measures earned trust, not truth itself.",
+          "citations": [
+            "C-059",
+            "C-061"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "No, a high-Standing statement is not necessarily true, as Standing is about confidence in declarations being true.",
+          "citations": [
+            "C-018"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 1
+        },
+        "combined": {
+          "answer": "No, a high-Standing statement is not necessarily true. Standing is a measure of confidence, not truth itself.",
+          "citations": [
+            "C-061"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 11,
+      "probe": false,
+      "expected": [
+        "C-023"
+      ],
+      "consistency": 2,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "Superseded records remain readable, with their provenance, through supersession.",
+          "citations": [
+            "C-023"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "Superseded records remain auditable, as the record is append-only and never deleted.",
+          "citations": [
+            "C-023"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "Superseded records are not erased, but have their corrections chained beside them.",
+          "citations": [
+            "C-023"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "infographic": {
+          "answer": "Superseded records are never erased, only appended.",
+          "citations": [
+            "C-023"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "Superseded records remain readable, with their provenance, and are not silently erased.",
+          "citations": [
+            "C-023"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 12,
+      "probe": false,
+      "expected": [
+        "C-021",
+        "C-022"
+      ],
+      "consistency": 2,
+      "hallucinations": 1,
+      "perDoc": {
+        "article": {
+          "answer": "Humans define semantics, and canonical status requires human ratification.",
+          "citations": [
+            "C-021",
+            "C-022"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "report": {
+          "answer": "Humans define the semantics and what is canon, with machines optimizing implementation within human-defined meaning.",
+          "citations": [
+            "C-021",
+            "C-022"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "story": {
+          "answer": "The network defines what words mean, and something becomes canon through validation in the domain where the claim actually lives.",
+          "citations": [
+            "C-059",
+            "C-060"
+          ],
+          "notDerivable": false,
+          "correct": false,
+          "hallucination": true,
+          "explainability": 0
+        },
+        "infographic": {
+          "answer": "Humans define meaning, and something becomes canon with a human signature.",
+          "citations": [
+            "C-021",
+            "C-022"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        },
+        "combined": {
+          "answer": "Humans define what words mean, and something becomes canon when it is ratified by a human.",
+          "citations": [
+            "C-021",
+            "C-022"
+          ],
+          "notDerivable": false,
+          "correct": true,
+          "hallucination": false,
+          "explainability": 2
+        }
+      }
+    },
+    {
+      "q": 13,
+      "probe": true,
+      "expected": [],
+      "consistency": null,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "report": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "story": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "infographic": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "combined": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        }
+      }
+    },
+    {
+      "q": 14,
+      "probe": true,
+      "expected": [],
+      "consistency": null,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "report": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "story": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "infographic": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "combined": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        }
+      }
+    },
+    {
+      "q": 15,
+      "probe": true,
+      "expected": [],
+      "consistency": null,
+      "hallucinations": 0,
+      "perDoc": {
+        "article": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "report": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "story": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "infographic": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        },
+        "combined": {
+          "answer": "NOT DERIVABLE",
+          "citations": [],
+          "notDerivable": true,
+          "correct": true,
+          "hallucination": false,
+          "explainability": null
+        }
+      }
+    }
+  ],
+  "coherence": {
+    "article": {
+      "coherence": 2,
+      "notes": "The answers provided are consistent and do not contradict each other."
+    },
+    "report": {
+      "coherence": 2,
+      "notes": "The answers provided do not contain any direct contradictions."
+    },
+    "story": {
+      "coherence": 2,
+      "notes": "The answers provided do not contain any contradictions, presenting a consistent view on authority, accountability, and truth within the described network."
+    },
+    "infographic": {
+      "coherence": 2,
+      "notes": "The answers provided do not contain any direct contradictions with each other."
+    },
+    "combined": {
+      "coherence": 2,
+      "notes": "The answers provided do not contain any direct contradictions with each other."
+    }
+  },
+  "aggregates": {
+    "consistencyAvg": 2,
+    "explainAvg": 1.9491525423728813,
+    "hallucinationTotal": 2,
+    "coherenceAvg": 2
+  },
+  "flywheelEligible": [
+    "inv.constitutional.011 (C-011)",
+    "inv.constitutional.015 (C-015)",
+    "inv.constitutional.016 (C-016)",
+    "inv.constitutional.014 (C-014)",
+    "inv.constitutional.017 (C-017)",
+    "inv.constitutional.012 (C-012)",
+    "inv.constitutional.018 (C-018)",
+    "inv.constitutional.019 (C-019)",
+    "inv.constitutional.013 (C-013)",
+    "inv.constitutional.060 (C-060)",
+    "inv.constitutional.062 (C-062)",
+    "inv.constitutional.061 (C-061)",
+    "inv.constitutional.023 (C-023)"
+  ]
+}

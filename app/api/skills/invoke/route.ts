@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+// CVR-002 — additive consequence tiering for Studio productions.
+// Best-effort + failure-isolated: never changes how videos are generated.
+import { tierStudioArtifact } from "@/services/composer/studioArtifactTiering";
 
 /**
  * POST /api/skills/invoke
@@ -524,7 +527,30 @@ export async function POST(request: NextRequest) {
 
     console.log(`[SkillInvoke] ${skill.name} invoked (${mode}/${provider}) — ${invocationId}${generationId ? ` [${provider}:${generationId}]` : ""}`);
 
+    // CVR-002 tiering (additive, never throws). At invoke time a video job is
+    // almost always only SUBMITTED — the video does not exist yet, so the
+    // production is disposable and NEVER persisted here (completion is
+    // client-polled through /api/skills/video/[id]/status, which repeats and
+    // is therefore not a safe single-shot record seam — see the CVR-002 run
+    // record). Only the rare immediate-completion branch (videoUrl resolved
+    // in-response) is a completed durable production → operational record.
+    const tiering = await tierStudioArtifact({
+      kind:
+        mode !== "live"
+          ? "studio.video.generation.simulated"
+          : videoUrl
+            ? "studio.video.generation.completed"
+            : "studio.video.generation.submitted",
+      title: String(prompt).slice(0, 120),
+      prompt: String(prompt),
+      provider,
+      model: isVenice ? veniceModel : "sora-2",
+      outputs: videoUrl ? [{ url: videoUrl }] : [],
+      generationId,
+    });
+
     return NextResponse.json({
+      ...tiering,
       ok: true,
       invocation_id: invocationId,
       skill_id,

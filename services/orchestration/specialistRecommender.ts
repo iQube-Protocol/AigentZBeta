@@ -66,6 +66,7 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   'aigent-nakamoto': 'Nakamoto',
   moneypenny: 'MoneyPenny',
   metaye: 'Metayé',
+  researcher: 'Research Copilot',
 };
 
 const SPECIALIST_DESCRIPTIONS: Record<SpecialistId, string> = {
@@ -77,6 +78,7 @@ const SPECIALIST_DESCRIPTIONS: Record<SpecialistId, string> = {
   'aigent-nakamoto': 'Decentralisation, Qripto protocols, ecosystem policy',
   moneypenny: 'Q¢ economics, micro-transactions, payment ops',
   metaye: 'Sovereign Cybernetic Polity, governance, civic primitives',
+  researcher: 'Invariant substrate, experiments, protocols, structured discovery',
 };
 
 /**
@@ -90,6 +92,7 @@ const SPECIALIST_ACTIVATION_GATE: Record<SpecialistId, { id: string; label: stri
   quill: { id: 'qriptopian', label: 'The Qriptopian' },
   kn0w1: { id: 'mycanvas', label: 'myCanvas / KNYT' },
   metaye: { id: 'order-of-metaye', label: 'Order of Metayé' },
+  researcher: { id: 'researcher', label: 'Research Copilot' },
   'aigent-z': null,
   'aigent-c': null,
   'aigent-nakamoto': null,
@@ -111,6 +114,9 @@ const CARTRIDGE_PRIMARY_SPECIALIST: Record<string, SpecialistId> = {
   'venture-lab': 'aigent-z',
   'metame-studio': 'aigent-z',
   metame: 'aigent-z',
+  'irl-cartridge': 'researcher',
+  'irl-os': 'researcher',
+  researcher: 'researcher',
 };
 
 function computeRoster(activeActivationIds: Set<string>): SpecialistRosterEntry[] {

@@ -247,6 +247,18 @@ The spine is the single source of truth for:
 
 Tests in `tests/persona-broadcast-handshake.test.ts` and `tests/access-spine.test.ts` enforce this. Mirror the canary pattern in any test suite you add.
 
+### Owner self-view exception + the three-level reference model (operator-ratified 2026-07-18)
+
+The T0 rule's enforcement boundary is the **network/chain boundary** — DVN receipts, persona broadcasts, locker metadata, chain payloads, and the T1 `active-persona` surface. It does NOT forbid an owner-authenticated, Bearer-scoped self-view route from returning the **caller's own** persona UUIDs (the same exposure class as `/api/wallet/persona`): the client is the sovereign surface where an owner decrypts and sees their own BlakQube-secured data. Never extend this to other users' identifiers, and never feed a self-view value into any receipt/broadcast/chain path.
+
+The raw persona UUID is a **private root identifier, not a public key**. Three reference levels serve three trust domains (full doc: `codexes/packs/agentiq/updates/2026-07-18_three-level-persona-reference-model.md`):
+
+1. **Private Persona UUID** — owner recovery/support/config handle; wallet self-view only (masked by default, copy with warning).
+2. **Polity Public Reference** — `personaPublicRef()` in `services/identity/personaReferences.ts` (same sha256/16-hex derivation as the DVN pipeline's `hashPersonaRef`); the stable governed-ecosystem handle; the ONLY persona identifier for receipts.
+3. **Pairwise External Service Reference** — keyed HMAC per (persona, audience), issued/revoked via `/api/wallet/identity/references`; the handle for third-party services (prevents cross-service correlation).
+
+Never describe level 2 as unlinkable across services, and never present the raw UUID as the credential to paste into third parties.
+
 ### Don't rebuild these — the spine already provides them
 
 | Tempting parallel implementation | Use this instead |
@@ -293,6 +305,37 @@ fetch("/api/persona/...");  // same problem
 ```
 
 The bug pattern: when a hook / utility uses raw `fetch`, every spine endpoint returns 401, the hook silently falls into its empty / fail-closed state, and downstream gates (admin tabs, paywalls, persona switches) deny without any console error. Symptoms feel like "the feature just doesn't work for this user" — but the operator IS authenticated; the FE is just failing to attach the token. Cost the team a multi-hour debug loop on 2026-05-26 with the admin-tab visibility regression.
+
+#### `authedFetchHeaders` is ALSO forbidden for spine endpoints — it is persona-UNAWARE (2026-07-20 incident)
+
+**`authedFetchHeaders` / `getSupabaseAccessToken` + `fetch` is NOT an acceptable substitute for `personaFetch` on a spine endpoint.** It attaches the Bearer token (so it does not 401), which makes it *look* like it works — but it carries **no persona selection**. On a spine endpoint, `getActivePersona` then resolves a **fallback persona**, not the operator's currently-active one. For an operator who owns several personas (the normal case), the surface silently reads the WRONG persona's state: passport shows absent, delegation shows inactive, grants show empty — for data that genuinely exists on the active persona. This is MORE dangerous than the raw-`fetch` 401 because it fails *silently and plausibly* (real-looking data for the wrong identity) instead of failing closed.
+
+**The whole point of the spine is that identity is resolved ONE way, everywhere. Two transports that resolve two different personas is the exact inconsistency the spine exists to abolish.** A component that reads passport via `authedFetchHeaders` and access via `personaFetch` will show a self-contradictory state and flip between renders. This happened in `AccessionProgressBar` on 2026-07-20 and cost a live-debugging loop.
+
+**Required — pass the active persona hint whenever the surface knows it:**
+
+```ts
+import { personaFetch } from "@/utils/personaSpine";
+
+// A surface that receives the active personaId (embed prop, context, bridge)
+// MUST pass it as personaIdHint so the spine resolves THAT persona — not a
+// fallback. Every read on the surface uses the SAME hint, so they agree.
+const res = await personaFetch("/api/participation/my-access", {
+  cache: "no-store",
+  personaIdHint: personaId,   // ← the embed's resolvedPersonaId / ctx persona
+});
+```
+
+If a surface does not have the personaId to hand, `personaFetch` falls back to `localStorage['currentPersonaId']` (the spine's own record of the active persona) — still correct, still the spine. What is NEVER acceptable is bypassing the spine to attach the Bearer yourself.
+
+#### Hard checklist — before you write ANY client→`/api/*` call
+
+1. Does the route handler call `getActivePersona` or `getCallerIdentityContext`? If yes → it is a spine endpoint.
+2. Client call to a spine endpoint → **`personaFetch` only.** Never `fetch(...)`, never `authedFetchHeaders(...) + fetch(...)`, never axios/XHR.
+3. If the surface has the active `personaId` (prop / context / bridge), pass it as `personaIdHint`. All reads on the surface use the same hint.
+4. A single component MUST NOT mix `personaFetch` with any other transport for identity reads — one transport, one resolved persona, or the state self-contradicts.
+
+**Enforcement:** `tests/persona-spine-fetch.test.ts` is the canary — it greps client components for `authedFetchHeaders`/raw `fetch` against the spine-endpoint allowlist and FAILS the build if a new one appears. If you add a spine surface, it must pass this test; do not weaken the test to make a violation pass. Identity is the foundation of the entire protocol — a break here compounds through every gate, receipt, and grant downstream. There are no "just this once" exceptions, no "it works with the Bearer" shortcuts, and no alpha-phase carve-outs.
 
 **Debugging from DevTools / a browser URL bar** — neither sends the Authorization header. Pull the token from `localStorage` and attach it manually:
 
@@ -407,6 +450,38 @@ This is a mature, actively evolving codebase. Before writing any new code:
 - **Never create new UI components** without first checking `components/ui/`, `components/composer/`, `components/registry/`, and `components/` root.
 - Canonical shared primitives include: `ConfirmDialog`, `IQubeCard`, `FilterSection`, `ViewModeToggle` — use them.
 - Prefer editing an existing file to creating a new one, even if the change is larger.
+
+---
+
+## Canonical Surface Styling — SLATE house style, NOT white hairlines (PARAMOUNT)
+
+**The AgentiQ / metaMe house style for panels, cards, capsules, and glass surfaces is TRANSLUCENT SLATE with SLATE borders. White hairline borders are an OLDER RESIDUAL pattern — a bug, not the style guide. Do not introduce them, and do not "correct" a slate surface back to a white-hairline one.**
+
+The operator has had to correct this repeatedly. It is now codified so no agent reintroduces it.
+
+### The house style (use exactly this)
+
+| Surface property | Canonical value | Tailwind equivalent |
+|---|---|---|
+| Panel fill | `rgba(15, 23, 42, 0.4)` (translucent slate-900) | `bg-slate-900/40` |
+| Hairline / border | `#1E293B` (slate-800) | `border-slate-800` |
+| Backdrop blur | soft — `blur(16px) saturate(140%)` | (glass surfaces only) |
+| Elevation | plain drop shadow — `0 4px 24px rgba(0,0,0,0.3)` | `shadow-lg` / `shadow-black/30` |
+
+**No white inset top-highlight.** `inset 0 1px 0 rgba(255,255,255,0.05)` is part of the deprecated residual — omit it.
+
+### Forbidden — the residual white-hairline pattern
+
+- `border-white/10`, `border-white/5`, `border-white/[0.08]` on panels/cards/capsules → use `border-slate-800`.
+- `rgba(255,255,255,0.10)` (or any `rgba(255,255,255,...)`) as a **border/hairline** value.
+- A white inset top-highlight in a `boxShadow`.
+- `styles/drawer.css`'s legacy white glass tokens as a reference for NEW surfaces — those are the residual; the slate values above are ground truth.
+
+(White text/ink and white as an *emphasis fill* are fine — this rule governs **borders/hairlines and panel chrome**, not typography.)
+
+### Representation-system binding
+
+The Constitutional Representation System encodes this house style as the default interpretation **AgentiQ Liquid Glass** (`services/representation/interpretations/agentiqLiquidGlass.ts`): `material.hairline: '#1E293B'`, `material.tint: 'rgba(15,23,42,0.4)'`, `material.elevation` with no white inset, `border.subtle: '#1E293B'`. Adopted surfaces consume it via `useSurfaceStyle()` / `var(--rep-border-subtle)` and inherit the correct slate look automatically — never hardcode a border colour on a representation-adopted surface. If you edit the glass interpretation, keep it slate; the `tests/representation-system.test.ts` contract laws (and the dashboard zero-literal canary) enforce the surface but not the white-vs-slate choice, so this rule is the guard.
 
 ---
 
@@ -850,6 +925,47 @@ This may change in the future — update this section if the local path moves.
 
 ---
 
+## Canonical Repo vs the Operator's Local Clone — READ BEFORE ANY GIT/DEPLOY/LOCAL-SCRIPT WORK (PARAMOUNT)
+
+**There are TWO GitHub repositories named `AigentZBeta`, and they are NOT the same repo. Confusing them has cost multiple sessions of debugging (stale ingests, "why aren't my changes showing").**
+
+| | Repo | Role |
+|---|---|---|
+| **CANONICAL** | `iQube-Protocol/AigentZBeta` (`https://github.com/iQube-Protocol/AigentZBeta`) | The repo Amplify builds and every Claude Code session pushes to. **This is the source of truth for deploys.** |
+| **STALE / DIVERGED** | `Kn0w-1/AigentZBeta` (the operator's laptop `origin`, via SSH alias `github-aigentz:Kn0w-1/AigentZBeta`) | The operator's local clone points here. It forked from canonical long ago and holds *different* commits. It does **NOT** receive session pushes. |
+
+### What deploys (verified from the Amplify console, 2026-07-17)
+
+- Amplify app **AigentZBeta** → Source repository **`iQube-Protocol/AigentZBeta`**; production branch `main`; branches `dev` / `main` / `staging` all auto-build **Enabled**.
+- The live dev app (`dev-beta.aigentz.me`) builds from **`iQube-Protocol/dev`**. Session dev pushes → this branch → Amplify. The operator's local Kn0w-1 clone is irrelevant to the deployed app.
+
+### The trap (why this keeps biting)
+
+On the operator's laptop, `git pull origin dev` / `git checkout origin/dev -- <file>` pull from **Kn0w-1**, which lacks all session work. So local scripts (e.g. `node scripts/ingest-canonical-invariants.mjs`) silently run against **stale code/seed** and "succeed" on the wrong data. The failure is invisible — no error, just old data.
+
+### The fix — add the canonical repo as a second remote (`iqp`) and source from it
+
+The operator has added this remote. Any local operation that must reflect deployed/session state MUST use `iqp`, never `origin`:
+
+```bash
+# one-time (already done):
+git remote add iqp https://github.com/iQube-Protocol/AigentZBeta.git
+
+# every time you need canonical code/files locally:
+git fetch iqp dev
+git checkout iqp/dev -- <path/to/file>          # pull a specific canonical file
+# or to work on canonical dev directly:
+git checkout -B dev-iqp iqp/dev
+```
+
+**Rule for agents giving the operator local commands:** never tell the operator to `git pull origin dev` or `git checkout origin/...` for anything related to session/deployed work — it reads the stale Kn0w-1 repo. Always route local sync through `iqp` (canonical). When a local script depends on a repo file (seed JSON, config), first `git checkout iqp/dev -- <that file>`.
+
+### Outstanding reconciliation (do NOT silently resolve)
+
+Kn0w-1 holds commits that are **not** in canonical (observed: `Record Base mainnet deploy addresses (QCT, iQubeNFT, QCTReserve)`, marketa-activation work). If any of that is authoritative (**Base-mainnet contract addresses are money-critical**), it must be brought into `iQube-Protocol` deliberately, with operator sign-off on what's authoritative — never auto-merged. Flag it; don't guess.
+
+---
+
 ## Key Directories
 
 ```
@@ -1210,6 +1326,36 @@ After setting the four env vars in Amplify, **trigger a rebuild** — the `NEXT_
 3. Let the copilot own the wallet activation — no parallel wallet triggers.
 
 This is non-negotiable because it's the only path with a reproducible working precedent. Until a config-driven copilot+wallet system replaces the hardcoded `codexId` list (Phase B Sprint 8 follow-on), every new cartridge that needs in-place wallet access must follow this recipe.
+
+---
+
+## Artifact Production — AR/CPS + Observer Awareness (CANONICAL RULE)
+
+**Every surface or system that produces artifacts (documents, media, compositions, business
+artifacts, code packs) MUST (1) produce through the Artifact Runtime / CPS seams — never a
+parallel production path — and (2) consume the current state of artifact production in its
+space through the observer pattern (observed, never asserted).**
+
+- Production: `runArtifact` / the AR pilots / `saveArtifactRecord` for persistence;
+  CPS renderers for document profiles; receipts via the unified writer.
+- Awareness: surfaces fold `artifactProduction` state (recent `artifact_records` + the
+  Publication Register) into their ground/observation context — the pattern
+  `/api/research/overview` + `IRLResearchCopilotTab` implement (2026-07-13). A copilot that
+  narrates a space must know what that space has produced.
+- Adoption is per-surface and tracked in the Chrysalis tracker; hand-wiring a parallel
+  production path or narrating production state from static data is an infraction
+  (the CS-001 / stale-handoff defect class).
+
+## Hypothesis vs Canon — Epistemic Honesty Discipline (IRL corpus)
+
+**Empirical hypotheses NEVER enter the invariant canon as `canonical`, regardless of how central or beloved they are. They enter and remain `proposed` until the experiments that test them produce supporting evidence.**
+
+Operator-delegated standing instruction (2026-07-18): the operator relies on agents to keep the terminology honest here — including correcting the operator's own drafts when they drift.
+
+- **`canonical`** is for definitions, methods, governance rules, and doctrine the operator ratifies as *how the Institute works* (e.g. `inv.reasoning.324` source independence, `330` transferable reasoning primitive, `332` division-of-labour-is-open).
+- **`proposed`** is for claims about the world that experiments exist to test (e.g. `323` intelligence-is-a-property-of-fields, `329` the Hybrid Intelligence Thesis, `333` the Cumulative Intelligence Hypothesis). Ratifying a hypothesis before its evidence exists would undermine the falsifiability that makes the research programme credible.
+- The same discipline applies to prose: reports and external documents must never state a `proposed` hypothesis as established fact, must report calibration metrics (e.g. IRV coverage) as proxies with their model config rather than pass/fail scores, and must not entangle discovery-calibration results with structural-thesis evidence (`inv.reasoning.326`/`328`).
+- When an operator instruction would canonize a hypothesis, flag it and recommend `proposed` — the operator has confirmed this is the wanted behaviour, not obstruction.
 
 ---
 

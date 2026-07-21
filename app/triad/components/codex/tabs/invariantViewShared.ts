@@ -15,6 +15,12 @@ export const NAMESPACES = [
   "capability",
   "style",
   "narrative",
+  "sovereignty",
+  "cybernetics",
+  "interaction",
+  "epistemology",
+  "representation",
+  "polity",
 ] as const;
 
 export type Namespace = (typeof NAMESPACES)[number];
@@ -37,6 +43,12 @@ export const NAMESPACE_COLOR: Record<string, string> = {
   capability: "bg-emerald-950/60 text-emerald-300 border-emerald-800",
   style: "bg-pink-950/60 text-pink-300 border-pink-800",
   narrative: "bg-indigo-950/60 text-indigo-300 border-indigo-800",
+  sovereignty: "bg-teal-950/60 text-teal-300 border-teal-800",
+  cybernetics: "bg-sky-950/60 text-sky-300 border-sky-800",
+  interaction: "bg-fuchsia-950/60 text-fuchsia-300 border-fuchsia-800",
+  epistemology: "bg-lime-950/60 text-lime-300 border-lime-800",
+  representation: "bg-rose-950/60 text-rose-300 border-rose-800",
+  polity: "bg-yellow-950/60 text-yellow-300 border-yellow-800",
 };
 
 /** Solid dot/bar colour per namespace — for charts where a border-box tag
@@ -49,6 +61,12 @@ export const NAMESPACE_FILL: Record<string, string> = {
   capability: "bg-emerald-500",
   style: "bg-pink-500",
   narrative: "bg-indigo-500",
+  sovereignty: "bg-teal-500",
+  cybernetics: "bg-sky-500",
+  interaction: "bg-fuchsia-500",
+  epistemology: "bg-lime-500",
+  representation: "bg-rose-500",
+  polity: "bg-yellow-500",
 };
 
 /** Hex equivalents of NAMESPACE_FILL — for inline SVG (graph nodes/strokes)
@@ -61,6 +79,12 @@ export const NAMESPACE_HEX: Record<string, string> = {
   capability: "#10b981",
   style: "#ec4899",
   narrative: "#6366f1",
+  sovereignty: "#14b8a6",
+  cybernetics: "#0ea5e9",
+  interaction: "#d946ef",
+  epistemology: "#84cc16",
+  representation: "#f43f5e",
+  polity: "#eab308",
 };
 
 export const STATUS_COLOR: Record<string, string> = {

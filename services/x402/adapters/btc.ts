@@ -4,6 +4,7 @@
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as btcSignerIdl } from '@/services/ops/idl/btc_signer_psbt';
 import { createHash } from 'crypto';
+import { btcCanonicalApiBaseFor } from '@/services/ops/btcExplorer';
 
 export type BtcCustodyPlan = {
   network: 'mainnet'|'testnet'|'signet'|'regtest';
@@ -35,9 +36,7 @@ function toDerivationPath(iqubeRef: string): Uint8Array[] {
 }
 
 function blockstreamBase(network: string): string {
-  return network === 'mainnet'
-    ? 'https://blockstream.info/api'
-    : 'https://blockstream.info/testnet/api';
+  return btcCanonicalApiBaseFor(network === 'mainnet' ? 'mainnet' : 'testnet');
 }
 
 interface RawUtxo { txid: string; vout: number; value: number }

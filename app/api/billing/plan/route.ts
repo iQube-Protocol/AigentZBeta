@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
       sovereignAccess: true,
       stewardAccess: true,
       aigentzLiteAccess: true,
+      researchCopilotAccess: true,
       experienceGoalLimit: 9999,
       kpiLimit: 9999,
       cartridgeLimit: 9999,

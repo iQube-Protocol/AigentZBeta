@@ -22,7 +22,23 @@ import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
+// DCIR observation seam (CFS-020 §6, observe-mode-first) — the Studio
+// Composer is the THIRD instrumented surface (after the Dev Command Center
+// and the aigentMe welcome). Observe-mode ONLY: events are appended as
+// side-effect lines on existing handlers, and the next copilot turn reads
+// the compacted tail via the CodexCopilotLayer `groundContext` prop. No
+// affordance-gating, no auto-act on this surface.
+import {
+  studioExperienceComposedEvent,
+  studioExperiencePublishedEvent,
+  studioPreviewRenderedEvent,
+  studioSessionStartedEvent,
+  studioSkillOutputEvent,
+} from "@/services/dcir/eventStream";
+import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
+import VideoArticleCreatorFlow from "@/components/composer/VideoArticleCreatorFlow";
+import ConstitutionalVideoCreatorFlow from "@/components/composer/ConstitutionalVideoCreatorFlow";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
 import { CartridgePublishPanel } from "@/components/composer/CartridgePublishPanel";
@@ -2624,6 +2640,22 @@ export const ComposerStudio = () => {
     }
   };
 
+  // ── DCIR D1 observation seam (CFS-020 §6, observe-mode-first) ──────────────
+  // In-session ring buffer of typed observations of what already happened on
+  // this surface. `observe()` only appends; it never blocks a render, never
+  // mutates a handler's outcome, and never gates an affordance. The compacted
+  // tail feeds the copilot's next turn via `copilotGroundContext` below.
+  // DCIR D4: the observation seam adopted via the universal substrate hook
+  // (useDcirSeam) — replaces the hand-wired [dcirEvents]+observe+three-field
+  // block. `events` is the same in-session ring buffer; `observe` appends
+  // exactly as before; `groundObservation` carries the three server-contract
+  // fields spread into copilotGroundContext below.
+  const { observe, groundObservation } = useDcirSeam({
+    surface: "studio-composer",
+    workflowStage: session?.status ?? null,
+    activeCapsule: experiencePanelTab,
+  });
+
   const requestArticleDraftArtifact = useCallback(
     async (params: {
       experienceName?: string | null;
@@ -2660,12 +2692,17 @@ export const ComposerStudio = () => {
         });
         if (!response.ok) return fallback;
         const data = await response.json();
+        if (data?.articleDraft) {
+          // DCIR observation (side-effect only): skill kind label, never the
+          // prompt or the drafted body.
+          observe(studioSkillOutputEvent("article-draft"));
+        }
         return (data?.articleDraft as ArticleDraftArtifact | null) || fallback;
       } catch {
         return fallback;
       }
     },
-    [],
+    [observe],
   );
   const requestImageBundleArtifacts = useCallback(
     async (params: {
@@ -2736,6 +2773,14 @@ export const ComposerStudio = () => {
         : [];
 
       if (assets.length > 0) {
+        // DCIR observation (side-effect only): asset count + provider id,
+        // never the prompts or asset URLs.
+        observe(
+          studioSkillOutputEvent(
+            `image-bundle (${assets.length} asset${assets.length === 1 ? "" : "s"})`,
+            providerId,
+          ),
+        );
         await persistGeneratedAssetsForExperience({
           experienceId: params.experienceId,
           assets,
@@ -2747,7 +2792,7 @@ export const ComposerStudio = () => {
 
       return assets;
     },
-    [activePersonaId, userId],
+    [activePersonaId, userId, observe],
   );
 
   const requestVideoBundleArtifacts = useCallback(
@@ -2794,6 +2839,9 @@ export const ComposerStudio = () => {
       if (!data?.ok || !data.generation_id) return null;
 
       const provider = data.provider || "venice";
+      // DCIR observation (side-effect only): skill kind + provider id, never
+      // the prompt or the generated video URL.
+      observe(studioSkillOutputEvent("video", provider));
       const generationId = data.generation_id;
       const videoUrl =
         data.video_url ||
@@ -2823,7 +2871,7 @@ export const ComposerStudio = () => {
 
       return asset;
     },
-    [activePersonaId, userId],
+    [activePersonaId, userId, observe],
   );
 
   const requestedExperienceId =
@@ -4236,6 +4284,28 @@ export const ComposerStudio = () => {
     },
   });
 
+  // Constitutional Video — callable by name from the composer copilot. Surfaces
+  // the blank-canvas experience (the operator supplies content; the skill
+  // supplies the grammar). Discovery-level: filters the template picker to the
+  // constitutional-video template + guided creator flow.
+  useCopilotAction({
+    name: "composer_create_constitutional_video",
+    description:
+      "Open the Constitutional Video experience — a 24/36/48-second invariant-grounded video (a blank canvas bound by the constitutional grammar). Optionally as an integrated-artefacts bundle (video + companion article from one substrate). The operator supplies what the video is about; the skill supplies the rules and grounding.",
+    parameters: [
+      { name: "subject", type: "string", description: "What the video is about (the operator's content direction)", required: false },
+      { name: "durationSeconds", type: "number", description: "24, 36, or 48", required: false },
+      { name: "bundle", type: "boolean", description: "Generate the integrated-artefacts bundle (video + companion article)", required: false },
+    ],
+    handler: async ({ subject }) => {
+      setTemplateIntent("task");
+      setTemplateQuery("constitutional video invariant threshold");
+      return subject
+        ? `Opening the Constitutional Video experience for "${subject}". Use the guided creator flow to set the invariant grounding, duration, and threshold CTA, then generate.`
+        : "Opening the Constitutional Video experience. Describe what the video is about, choose the invariant grounding + duration + threshold CTA, then generate.";
+    },
+  });
+
   const composerAgent = agentConfigs["aigent-z"];
   const handleCopilotPrompt = (prompt: string) => {
     const lower = prompt.toLowerCase();
@@ -4822,6 +4892,8 @@ export const ComposerStudio = () => {
       setStepData({});
       setExperience(null);
       setExperiencePanelTab("customizer");
+      // DCIR observation (side-effect only): template slug, a category label.
+      observe(studioSessionStartedEvent(selectedTemplate.id));
     } catch (err: any) {
       setSessionError(err.message || "Failed to start session");
     } finally {
@@ -4902,6 +4974,8 @@ export const ComposerStudio = () => {
           setEditingExperienceId(options.editingExperienceId);
         }
         setExperiencePanelTab("customizer");
+        // DCIR observation (side-effect only): template slug, a category label.
+        observe(studioSessionStartedEvent(templateId));
 
         setTimeout(() => {
           templateCustomizerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -4919,7 +4993,7 @@ export const ComposerStudio = () => {
         setIsSaving(false);
       }
     },
-    [tenantId, userId]
+    [tenantId, userId, observe]
   );
 
   const updateSession = async (nextStep: number) => {
@@ -5388,6 +5462,9 @@ export const ComposerStudio = () => {
         setSelectedExperienceId(completedExperience.id);
         setPreviewAction(`Review ${completedExperience.name}`);
         setExperiencePanelTab("exqubes");
+        // DCIR observation (side-effect only): template slug — never the
+        // experience name or any of its content.
+        observe(studioExperienceComposedEvent(session.template_id || "experience"));
       }
 
       if (editingExperienceId && completedExperience) {
@@ -5487,6 +5564,8 @@ export const ComposerStudio = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Publish failed');
       setPublishedReceiptId(data.dvn_receipt_id ?? data.job_id ?? 'published');
+      // DCIR observation (side-effect only): the handoff moment, no ids.
+      observe(studioExperiencePublishedEvent());
     } catch (err: any) {
       console.error('[publishToRegistry]', err);
     } finally {
@@ -7618,6 +7697,26 @@ export const ComposerStudio = () => {
     return () => window.removeEventListener("message", handleGenerateImagesMessage);
   }, [previewExperience, requestImageBundleArtifacts, refreshExperienceFromServer]);
 
+  // DCIR observation seam — ground context for the studio copilot (CFS-020
+  // §6, observe-mode-first). The compacted event tail + constitutional state
+  // snapshot + session-mined behavioural patterns travel to /api/codex/chat
+  // via the CodexCopilotLayer `groundContext` prop. Everything here is a
+  // category label or count: template slugs, skill kinds, tab ids, provider
+  // ids. NEVER a personaId/authProfileId/rootDid, experience name, prompt
+  // body, or asset URL. `persona` on the snapshot stays null by construction
+  // (buildStateSnapshot never populates it on this seam).
+  const copilotGroundContext = useMemo<Record<string, unknown>>(
+    () => ({
+      surface: "studio-composer",
+      // DCIR D4: the three observation fields (recentEvents / stateSnapshot /
+      // observedPatterns — the server contract) come from the substrate hook's
+      // groundObservation, memoized on [events, surface, workflowStage,
+      // activeCapsule] exactly as the hand-wired version was.
+      ...groundObservation,
+    }),
+    [groundObservation],
+  );
+
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
       const lower = prompt.toLowerCase();
@@ -8019,6 +8118,8 @@ export const ComposerStudio = () => {
                   setRuntimePreviewLoaded(true);
                   setRuntimePreviewErrored(false);
                   postRuntimePreviewDeviceContext(previewDevice);
+                  // DCIR observation (side-effect only): device class label.
+                  observe(studioPreviewRenderedEvent(previewDevice));
                 }}
                 onError={() => {
                   setRuntimePreviewLoaded(false);
@@ -8224,6 +8325,7 @@ export const ComposerStudio = () => {
                     onUserPrompt={handleComposerUserPrompt}
                     onMessagesChange={(msgs) => { copilotConversationRef.current = msgs; }}
                     getChatRequestContext={buildComposerChatRequestContext}
+                    groundContext={copilotGroundContext}
                     agent={{
                       id: composerAgent.id,
                       name: composerAgent.name,
@@ -12108,6 +12210,10 @@ export const ComposerStudio = () => {
                         )}
                       </div>
 
+                      {/* ── Guided Creator Flow (marketer/creator UX surface) ─ */}
+                      <VideoArticleCreatorFlow />
+                      <ConstitutionalVideoCreatorFlow />
+
                       {/* ── Studio Skills ─────────────────────────────────── */}
                       {(() => {
                         const allSkills = [
@@ -12164,6 +12270,15 @@ export const ComposerStudio = () => {
                             trustBand: "L3",
                             assetClass: "SkillQube",
                             tags: ["article", "editorial", "copy"],
+                          },
+                          {
+                            id: "skill:video_article_24s",
+                            name: "24-Second Video + Article",
+                            description: "Native composite skill: a 24-second video (2 × 12s) and a matching companion article from one shared brief, with a content-alignment check. Use the Guided Creator Flow below to run it.",
+                            badge: "B",
+                            trustBand: "L3",
+                            assetClass: "SkillQube",
+                            tags: ["video", "article", "24-second", "composite"],
                           },
                         ];
                         const visibleSkills = skillFilterMode === "active" && activeExperienceSkillIds.size > 0

@@ -1,10 +1,10 @@
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
-import {
-  generateRuntimeSurfacePlan,
-  mapDeviceTypeToDeviceContext,
-  mapRuntimeIntent,
-} from "@/services/metame/surfacePlanningService";
+import { generateRuntimeSurfacePlan } from "@/services/metame/surfacePlanningService";
 import { surfacePlanToA2UIPayload } from "@/services/a2ui/surfacePlanAdapter";
+import {
+  a2uiExperienceRenderer,
+  A2UI_SURFACE_PLAN,
+} from "@/services/a2ui/a2uiExperienceRenderer";
 
 export const a2uiGenerateSurfacePayloadAction = {
   name: "a2ui_generate_surface_payload",
@@ -85,48 +85,22 @@ Use when user asks to generate/preview A2UI payloads for SmartTriad or Liquid UI
     threadId?: string;
   }) => {
     try {
-      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-      const planId = `a2ui_plan_${Date.now()}_${deviceType}_${runtimeIntent}`;
-
-      const surfacePlanResponse = await fetch(`${baseUrl}/api/metame/runtime/plan`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      // Render through the named seam (CFS-007, Law VI) — the adapter owns
+      // plan generation + payload adaptation; this action owns only the
+      // CopilotKit result shaping.
+      const rendered = await a2uiExperienceRenderer.render(
+        {
+          surface: A2UI_SURFACE_PLAN,
+          props: { modules, runtimeIntent, codexId, capsuleId, threadId },
         },
-        body: JSON.stringify({
-          plan_id: planId,
-          session_id: sessionId,
-          cartridge,
-          intent: mapRuntimeIntent(runtimeIntent),
-          device_context: mapDeviceTypeToDeviceContext(deviceType),
-          codex_id: codexId,
-          capsule_id: capsuleId,
-          thread_id: threadId,
-          modules,
-          verification: {
-            dis_ref: { kind: "doc_ref", id: `dis:${cartridge}:v0` },
-            constraint_manifest_ref: { kind: "doc_ref", id: `constraints:${cartridge}:v0` },
-            parity_report_ref: { kind: "doc_ref", id: "parity:pending" },
-          },
-        }),
-      });
-
-      if (!surfacePlanResponse.ok) {
-        const errorText = await surfacePlanResponse.text();
-        return {
-          success: false,
-          error: `Surface plan generation failed: ${errorText}`,
-        };
-      }
-
-      const surfacePlan = await surfacePlanResponse.json();
-      const a2uiPayload = surfacePlanToA2UIPayload(surfacePlan);
+        { sessionId, cartridge, device: deviceType },
+      );
 
       return {
         success: true,
-        message: `Generated A2UI payload with ${a2uiPayload.modules.length} module nodes`,
-        surfacePlan,
-        a2uiPayload,
+        message: `Generated A2UI payload with ${rendered.a2uiPayload.modules.length} module nodes`,
+        surfacePlan: rendered.surfacePlan,
+        a2uiPayload: rendered.a2uiPayload,
       };
     } catch (error: any) {
       return {

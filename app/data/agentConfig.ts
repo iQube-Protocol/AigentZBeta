@@ -1,3 +1,4 @@
+import { btcApiBase, btcExplorerBase } from '@/services/ops/btcExplorer';
 export interface AgentConfig {
   id: string;
   name: string;
@@ -181,8 +182,8 @@ export const chainConfigs = {
     id: 0,
     name: "Bitcoin Testnet",
     symbol: "BTC",
-    rpcUrl: "https://blockstream.info/testnet/api",
-    explorerUrl: "https://blockstream.info/testnet"
+    rpcUrl: btcApiBase(),
+    explorerUrl: btcExplorerBase()
   },
   solana: {
     id: 101,

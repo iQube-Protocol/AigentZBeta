@@ -154,6 +154,16 @@ const ACTIVE_IQUBES: ActiveIQubeRecord[] = [
   { id: "iq_me_thirdweb_llm", agentId: "aigent-me", iQubeType: "ModelQube", enabled: true, providerId: "thirdweb", providerKind: "llm", modelId: "thirdweb-web3-llm", modelLabel: "ThirdWeb Web3 LLM" },
   { id: "iq_me_anthropic_sonnet", agentId: "aigent-me", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-sonnet", modelLabel: "Claude 3.5 Sonnet" },
 
+  // aigentZ (Development Command Center). gpt-4o is FIRST = the default turn:
+  // the DCC's structured stage_data fence emission is unreliable on
+  // gpt-4o-mini (operator field report 2026-07-06 — promise-without-
+  // production, worst at gap analysis); gpt-4o emits the fences reliably.
+  // gpt-4o-mini stays selectable; the server-side fence-enforcement retry is
+  // the backstop for whichever model is chosen.
+  { id: "iq_z_openai_gpt4o", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o", modelLabel: "GPT-4o" },
+  { id: "iq_z_openai_gpt4o_mini", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o-mini", modelLabel: "GPT-4o Mini" },
+  { id: "iq_z_anthropic_sonnet", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-sonnet", modelLabel: "Claude 3.5 Sonnet" },
+
   // Kn0w1
   { id: "iq_kn0w1_openai_gpt4o_mini", agentId: "aigent-kn0w1", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o-mini", modelLabel: "GPT-4o Mini" },
   { id: "iq_kn0w1_venice_reasoning", agentId: "aigent-kn0w1", iQubeType: "ModelQube", enabled: true, providerId: "venice", providerKind: "llm", modelId: "venice-reasoning", modelLabel: "Venice Reasoning" },

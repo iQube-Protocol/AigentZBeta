@@ -25,6 +25,11 @@ import {
 } from '@/services/delegation/delegationGrantStore';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { enqueueActivityReceiptAnchor } from '@/services/dvn/activityReceiptDvnPipeline';
+import {
+  resolveDelegateAgentIdByDid,
+  readDelegateStanding,
+  delegateStandingAllowsBand,
+} from '@/services/homecoming/delegateStanding';
 
 // ============================================================================
 // Types
@@ -356,6 +361,33 @@ export async function POST(request: NextRequest) {
         },
         { status: 403 },
       );
+    }
+
+    // Dual grant gate, DELEGATE side (operator decision 2026-07-12, option (c)):
+    // L1/L2 stay grantor-gated only (the bootstrap floor — a new agent can be
+    // delegated and then EARN its climb by producing). L3+ additionally require
+    // the delegate's OWN earned trust-band ceiling (the CFS-023×CFS-025
+    // Standing loop; server-resolved — never client-asserted) to reach the
+    // requested band. Admins can accelerate a delegate's standing via
+    // POST /api/homecoming/agent/standing for testing.
+    if (!delegateStandingAllowsBand(trust_band, 'L1_EXPERIMENTAL')) {
+      const delegateAgentId = await resolveDelegateAgentIdByDid(agentRootDid);
+      const delegateStanding = delegateAgentId ? await readDelegateStanding(delegateAgentId) : null;
+      const earnedCeiling = delegateStanding?.trustBandCeiling ?? 'L1_EXPERIMENTAL';
+      if (!delegateStandingAllowsBand(trust_band, earnedCeiling)) {
+        return NextResponse.json(
+          {
+            error:
+              `Delegate has not earned ${trust_band}. Earned ceiling: ${earnedCeiling}` +
+              ` (standing ${delegateStanding?.overall ?? 0}). Standing accrues by producing` +
+              ` consequential artifacts; an admin can accelerate it for testing.`,
+            trust_band,
+            delegate_earned_ceiling: earnedCeiling,
+            delegate_standing: delegateStanding?.overall ?? 0,
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const clampedTtl = Math.min(Math.max(ttl_hours, 1), 8);

@@ -17,6 +17,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { validateVideoBriefCoherence } from '@/services/coherence';
 import { buildVideoInvariantBrief, type GroundingRef } from '@/services/video/invariantVideoBrief';
+import { resolveOntology } from '@/services/constitutional/ontologyResolver';
+import { citeInvariants } from '@/services/invariants/grounding';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +68,54 @@ export async function POST(request: NextRequest) {
     // Rendering: the brief ships with its CoherenceResult so the renderer
     // (and the operator) see pass/violations before any generation runs.
     const coherence = validateVideoBriefCoherence(brief);
-    return NextResponse.json({ ok: true, brief, coherence });
+
+    // Phase 1B (CFS-015): the rendering surface completes the constitutional
+    // cycle — Ontology (output-side drift check over the COMPOSED prose),
+    // Validation (coherence above), Receipt (invariants_used), Learning
+    // (Reach citation). All best-effort: the brief never blocks on them.
+    const composedProse = [
+      brief.continuityBlock,
+      ...brief.segments.map((seg) => seg.prompt),
+    ].join('\n');
+    const ontology = await resolveOntology(composedProse).catch((err) => {
+      console.warn('[api/video/invariant-brief] ontology resolution failed (non-fatal):', err);
+      return null;
+    });
+    if (ontology && ontology.unresolved.length > 0) {
+      console.warn(
+        `[api/video/invariant-brief] non-canonical terms in composed brief: ${ontology.unresolved.join(', ')}`,
+      );
+    }
+
+    const invariantsUsed = Array.from(
+      new Set([
+        ...brief.styleInvariantIds,
+        ...brief.narrativeInvariantIds,
+        ...brief.semanticInvariantIds,
+      ]),
+    );
+    // Reach (Law XII): a render that consumes invariants is adoption.
+    void citeInvariants(invariantsUsed).catch(() => {});
+    // Receipt: T2-safe summary — counts + CCS only, no identifiers.
+    void createActivityReceipt({
+      personaId: persona.personaId,
+      actionType: 'experience_render_validated',
+      summary: `invariant video brief validated — segments=${brief.segments.length} ccs=${coherence.constitutionalScore ?? 'n/a'} pass=${coherence.pass} invariants=${invariantsUsed.length}${ontology ? ` ontologyUnresolved=${ontology.unresolved.length}` : ''}`,
+      activeCartridge: 'agentiq',
+      invariantsUsed,
+    }).catch((err) => {
+      console.warn('[api/video/invariant-brief] receipt failed (non-fatal):', err);
+      return null;
+    });
+
+    return NextResponse.json({
+      ok: true,
+      brief,
+      coherence,
+      ...(ontology
+        ? { ontology: { resolvedTerms: ontology.resolvedTerms, unresolved: ontology.unresolved, canonVersion: ontology.canonVersion } }
+        : {}),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'brief_failed';
     console.error('[api/video/invariant-brief] failed', error);

@@ -87,6 +87,11 @@ const PROMPT_TEMPLATES_BY_SPECIALIST: Partial<Record<SpecialistId, string[]>> = 
     "What's the AgentiQ OS builder take on…",
     "Frame this for an onboarding flow that…",
   ],
+  researcher: [
+    "What does the invariant substrate already say about…",
+    "Frame a testable, pre-registered hypothesis for…",
+    "What would falsify the claim that…",
+  ],
 };
 
 function SpecialistsLayoutComponent(props: RightPaneLayoutProps) {

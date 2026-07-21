@@ -68,7 +68,7 @@ export interface ActivationAction {
   /** One-line rationale displayed on the action card. */
   rationale: string;
   /** Which specialist takes the hand-off (when present). */
-  specialist?: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
+  specialist?: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto' | 'researcher';
   /** Approval required before queueing. */
   approvalRequired?: boolean;
 }
@@ -82,6 +82,12 @@ export interface ActivationCatalogEntry {
   gate: ActivationGate;
   tabSlug: string;
   sourceCartridge: ActiveCartridgeSlug | 'metame' | 'polity-passport-bureau' | 'standing-cartridge' | 'human-mobility-services' | 'polity-core';
+  /**
+   * Admin-only discovery card. Hidden from non-admins in the catalog and
+   * blocked server-side. Payment-gating is a future stub — when a plan tier
+   * governs this surface, add it to ACTIVATION_PLAN_GATE and drop adminOnly.
+   */
+  adminOnly?: boolean;
   icon?: string;
   color?: string;
   /** KPI metrics this activation exposes. Empty / undefined = none. */
@@ -191,6 +197,57 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
       { action: 'start-dev-intent',   label: 'Start a development intent', rationale: 'aigentZ distills what you want to build into structured intent with users, constraints, and success criteria.', specialist: 'aigent-z' },
       { action: 'validate-build',     label: 'Validate a build',           rationale: 'Run the post-prompt consequence validation against the active canvas.', specialist: 'aigent-z', approvalRequired: true },
     ],
+  },
+  {
+    // IRL OS card (IRL OS payment model, 2026-07-19). The card IS IRL OS; the
+    // Research Agent is the premium service within it, mirroring aigentZ:
+    //   Free      → IRL OS content (open).
+    //   Sovereign → the Research Agent (light — 3 experiments/mo), the either/or
+    //               peer of aigentZ at $29/mo.
+    //   Steward   → the Research Agent in full (high experiment cap) + aigentZ.
+    // Entitlement flag stays researchCopilotAccess; requiredTier upsells
+    // Sovereignty (activationPlanGate). Retains id 'researcher' so existing
+    // grants/deep-links keep resolving.
+    id: 'researcher',
+    label: 'IRL OS',
+    description: 'The Invariant Research Lab OS — read the lab free; unlock the Research Agent to run experiments.',
+    longDescription:
+      'IRL OS is the Invariant Research Lab operating system: read the research, publications, and invariant substrate for free. The Research Agent is the premium service within it — the researcher pathway\'s peer to the aigentZ developer copilot. At Sovereignty ($29/mo) pick the Research Agent (light — 3 experiments/month) as your either/or unlock alongside aigentZ; Steward grants the Research Agent in full (high monthly experiment cap) plus aigentZ. The standalone Research Copilot add-on remains available for developers who want it alongside aigentZ.',
+    gate: 'gated',
+    tabSlug: 'irl-research-copilot',
+    sourceCartridge: 'metame',
+    icon: 'FlaskConical',
+    color: 'violet',
+    metrics: [
+      // Activity — research loop motion
+      { metric: 'invariants_queried',   class: 'activity', label: 'Invariants queried',   defaultUnit: 'queries',       query: { kind: 'receipts', eventType: 'research.invariant.queried' } },
+      { metric: 'experiments_run',      class: 'activity', label: 'Experiments run',      defaultUnit: 'experiments',   query: { kind: 'receipts', eventType: 'research.experiment.run' } },
+      { metric: 'counterfactuals_projected', class: 'activity', label: 'Counterfactuals projected', defaultUnit: 'projections', query: { kind: 'receipts', eventType: 'research.counterfactual.projected' } },
+      // Outcome — validated contributions to the record
+      { metric: 'results_published',    class: 'outcome',  label: 'Results published',    defaultUnit: 'results',       query: { kind: 'receipts', eventType: 'research.result.published' } },
+      { metric: 'invariants_validated', class: 'outcome',  label: 'Invariants validated', defaultUnit: 'invariants',    query: { kind: 'receipts', eventType: 'research.invariant.validated' } },
+    ],
+    actions: [
+      { action: 'query-invariant-field', label: 'Query the invariant field', rationale: 'The Research Copilot surfaces the invariant substrate and projects counterfactuals for a research question.', specialist: 'researcher' },
+      { action: 'publish-result',        label: 'Publish a validated result', rationale: 'Move a pre-registered experiment result into the published constitutional record.', specialist: 'researcher', approvalRequired: true },
+    ],
+  },
+  {
+    // metaMe IRL — the internal Research Laboratory (the operator/steward
+    // edition with the interactive experiment instruments). Admin-only for
+    // now; payment-gating is a future stub (add to ACTIVATION_PLAN_GATE and
+    // drop adminOnly when a tier governs it).
+    id: 'metame-irl',
+    label: 'metaMe IRL',
+    description: 'The internal Invariant Research Laboratory — operator instruments, live experiments, and stewardship.',
+    longDescription:
+      'metaMe IRL is the internal edition of the Invariant Research Lab: the interactive experiment instruments, live programme status (Chrysalis Test), and stewardship surfaces. Admin-only for now — payment-gating is a planned future tier.',
+    gate: 'gated',
+    tabSlug: 'irl-dashboard',
+    sourceCartridge: 'metame',
+    adminOnly: true,
+    icon: 'Landmark',
+    color: 'violet',
   },
   {
     id: 'qriptopian',

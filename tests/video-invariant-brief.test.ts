@@ -181,9 +181,12 @@ describe('narrative grounding (CFS-012) — sequential, never round-robin', () =
       useLlm: false,
     });
     const mapped = brief.segments.map((s) => s.narrativeInvariantId);
-    // floor(i*5/4) for i=0..3 → 0,1,2,3 → narr-1..narr-4 (narr-5 compressed out
-    // at this segment count — never reordered, always monotonic non-decreasing).
-    expect(mapped).toEqual(['narr-1', 'narr-2', 'narr-3', 'narr-4']);
+    // Endpoint-anchored round(i*(5-1)/(4-1)) for i=0..3 → 0,1,3,4 → the arc
+    // opens on narr-1 and CLOSES on narr-5; the interior beat narr-3 is the
+    // one compressed out — a fixed arc sacrifices interior beats before its
+    // resolution (fix 2026-07-04, found by the Coherence Engine on EXP-002's
+    // first production brief). Never reordered, always monotonic.
+    expect(mapped).toEqual(['narr-1', 'narr-2', 'narr-4', 'narr-5']);
     const ordinals = mapped.map((id) => Number(id!.split('-')[1]));
     for (let i = 1; i < ordinals.length; i++) {
       expect(ordinals[i]).toBeGreaterThanOrEqual(ordinals[i - 1]); // monotonic — never goes backward
@@ -231,5 +234,61 @@ describe('narrative grounding (CFS-012) — sequential, never round-robin', () =
     });
     expect(brief.narrativeInvariantIds).toEqual([]);
     expect(brief.segments.every((s) => s.narrativeInvariantId === null)).toBe(true);
+  });
+});
+
+describe('Law XV — Compositional Fields: no field is inert (multiplicative composition)', () => {
+  // Law XV: experience = semantic × style × narrative — changing ANY field
+  // must change EVERY composed segment prompt (fields are locally independent,
+  // globally dependent; composition is multiplicative, not additive).
+  const base = {
+    groundings: [
+      { collectionId: 'style-collection', role: 'style' },
+      { collectionId: 'semantic-collection', role: 'semantic' },
+      { collectionId: 'narrative-collection', role: 'narrative' },
+    ],
+    segmentCount: 2,
+    useLlm: false,
+  } as const;
+
+  it('changing the style field changes every segment prompt', async () => {
+    const a = await buildVideoInvariantBrief({ ...base, groundings: [...base.groundings] });
+    const b = await buildVideoInvariantBrief({
+      ...base,
+      groundings: [
+        { invariantIds: ['style-1'], role: 'style' }, // style-2 removed
+        { collectionId: 'semantic-collection', role: 'semantic' },
+        { collectionId: 'narrative-collection', role: 'narrative' },
+      ],
+    });
+    for (let i = 0; i < base.segmentCount; i++) {
+      expect(a.segments[i].prompt).not.toEqual(b.segments[i].prompt);
+    }
+  });
+
+  it('changing the narrative field changes every segment prompt', async () => {
+    const a = await buildVideoInvariantBrief({ ...base, groundings: [...base.groundings] });
+    const b = await buildVideoInvariantBrief({
+      ...base,
+      groundings: base.groundings.filter((g) => g.role !== 'narrative'),
+    });
+    for (let i = 0; i < base.segmentCount; i++) {
+      expect(a.segments[i].prompt).not.toEqual(b.segments[i].prompt);
+    }
+  });
+
+  it('changing the semantic field changes every segment prompt', async () => {
+    const a = await buildVideoInvariantBrief({ ...base, groundings: [...base.groundings] });
+    const b = await buildVideoInvariantBrief({
+      ...base,
+      groundings: [
+        { collectionId: 'style-collection', role: 'style' },
+        { invariantIds: ['sem-1', 'sem-2'], role: 'semantic' }, // sem-3/sem-4 removed
+        { collectionId: 'narrative-collection', role: 'narrative' },
+      ],
+    });
+    for (let i = 0; i < base.segmentCount; i++) {
+      expect(a.segments[i].prompt).not.toEqual(b.segments[i].prompt);
+    }
   });
 });

@@ -6,6 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
+import { useCopilotHost } from "./CopilotHostContext";
+import { buildCodexUrl } from "@/utils/codex-nav";
+import { personaFetch } from "@/utils/personaSpine";
+import type { SmartTriadDeepLink, SmartTriadOperation } from "@/types/smartTriadContext";
 const SmartWalletDrawer = dynamic(() => import("../content/SmartWalletDrawer"), { ssr: false });
 import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
 import {
@@ -70,11 +74,34 @@ interface CodexCopilotLayerProps {
     | void
   >;
   getChatRequestContext?: (prompt: string) => Record<string, unknown> | undefined;
+  /**
+   * Optional right-pane ground truth (DCIR observation seam, CFS-020).
+   * When present, it is forwarded verbatim as the `groundContext` field of
+   * the /api/codex/chat POST body — the same field name and shape
+   * SmartTriadCopilotLayer sends — so the server needs no new contract.
+   * Defaults to undefined: cartridges that don't pass it get a byte-identical
+   * request body (zero behavior change). Purely additive; observation only —
+   * it never gates or alters anything in this layer.
+   */
+  groundContext?: Record<string, unknown>;
   initialMessage?: string;
   seedMessages?: CopilotMessage[];
   messages?: CopilotMessage[];
   onMessagesChange?: (messages: CopilotMessage[]) => void;
   promptPlaceholder?: string;
+  /**
+   * Floating-copilot dedupe role (CopilotHostContext). 'tab' (default) —
+   * a specialized tab-level copilot; registers itself so the shell's generic
+   * copilot yields. 'panel' — the cartridge shell's generic copilot; renders
+   * nothing while any tab-level host is mounted.
+   */
+  hostRole?: 'tab' | 'panel';
+  /** Deterministic navigation chips (SmartTriad PRD §5) rendered above the
+   *  prompt input — same-cartridge tabs + cross-cartridge deep links. */
+  deepLinks?: SmartTriadDeepLink[];
+  /** Copilot-invocable operations (Phase 3 Actions) — confirm-gated chips;
+   *  every route re-gates server-side (admin/entitlement). */
+  operations?: SmartTriadOperation[];
   footerContent?: React.ReactNode;
   panelClassName?: string;
   floatingInput?: boolean;
@@ -134,11 +161,18 @@ export type CopilotMessage = {
   timestamp: Date;
   variant?: "bubble" | "panel";
   walletActions?: WalletActionPayload[];
+  /** Navigation chips the MODEL emitted via [[nav:Label]] markers, validated
+   *  against the deepLinks catalog (SmartTriad PRD §6 — inference-driven
+   *  navigation). Rendered under the message; unknown labels are dropped. */
+  navChips?: SmartTriadDeepLink[];
 };
 
 type CodexChatResponse = {
   response?: string;
   wallet_actions?: unknown;
+  /** Invariants that grounded this turn (SmartTriad Phase 3 constitutional
+   *  memory v0) — accumulated client-side, sent back as sessionInvariants. */
+  resolved_invariants?: Array<{ seedId?: string; statement?: string }>;
 };
 
 export function CodexCopilotLayer({
@@ -157,11 +191,15 @@ export function CodexCopilotLayer({
   onPrompt,
   onUserPrompt,
   getChatRequestContext,
+  groundContext,
   initialMessage,
   seedMessages,
   messages,
   onMessagesChange,
-  promptPlaceholder = "Ask about KNYT content...",
+  promptPlaceholder = "Ask a question...",
+  hostRole = 'tab',
+  deepLinks,
+  operations,
   footerContent,
   panelClassName,
   floatingInput = false,
@@ -182,6 +220,117 @@ export function CodexCopilotLayer({
   accentColor = 'cyan',
   walletTabSignal,
 }: CodexCopilotLayerProps) {
+  // Floating-copilot dedupe (CopilotHostContext): a 'tab'-role floating layer
+  // registers itself; the shell's 'panel'-role generic layer yields (renders
+  // null, below, after all hooks) while any tab-level host is mounted — so a
+  // tab's specialized copilot always wins over the generic shell one.
+  const { tabHosts, registerTabHost } = useCopilotHost();
+  useEffect(() => {
+    if (variant === 'floating' && hostRole === 'tab') return registerTabHost();
+    return undefined;
+  }, [variant, hostRole, registerTabHost]);
+  const yieldToTabHost = variant === 'floating' && hostRole === 'panel' && tabHosts > 0;
+
+  // Operation execution (Phase 3 Actions): confirm → personaFetch (Bearer) →
+  // one-line outcome note. The route is the authority (admin/entitlement
+  // re-gated server-side); the chip is only a convenience.
+  const [opBusy, setOpBusy] = useState<string | null>(null);
+  const [opNote, setOpNote] = useState<string | null>(null);
+  const runOperation = useCallback(async (op: SmartTriadOperation) => {
+    if (!window.confirm(op.confirm)) return;
+    setOpBusy(op.id);
+    setOpNote(null);
+    try {
+      const res = await personaFetch(op.route, {
+        method: op.method ?? 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        ...(op.body ? { body: JSON.stringify(op.body) } : {}),
+      });
+      const data = await res.json().catch(() => ({}));
+      setOpNote(
+        res.ok && data?.ok !== false
+          ? `${op.label}: done ✓`
+          : `${op.label}: ${data?.error ?? data?.message ?? `HTTP ${res.status}`}`,
+      );
+    } catch (err) {
+      setOpNote(`${op.label}: ${err instanceof Error ? err.message : 'failed'}`);
+    } finally {
+      setOpBusy(null);
+    }
+  }, []);
+
+  // Constitutional memory v0 (SmartTriad Phase 3): invariants the IRE resolved
+  // on earlier turns, accumulated from resolved_invariants echoes and sent
+  // back as groundContext.sessionInvariants. T2-safe (seed ids + statements).
+  const sessionInvariantsRef = useRef<Array<{ seedId: string; statement: string }>>([]);
+  // CFS-045-A2 session marker — opaque random token grouping this mount's
+  // turns into one reasoning session for trajectory capture. NEVER derived
+  // from any identifier.
+  const sessionMarkerRef = useRef<string>("");
+  if (!sessionMarkerRef.current) {
+    sessionMarkerRef.current = Math.random().toString(36).slice(2, 12);
+  }
+  const accumulateResolvedInvariants = (
+    incoming: CodexChatResponse["resolved_invariants"],
+  ) => {
+    if (!Array.isArray(incoming) || incoming.length === 0) return;
+    const merged: Array<{ seedId: string; statement: string }> = [];
+    const seen = new Set<string>();
+    // Newest resolution first, then prior memory — cap at 12, matching the
+    // server-side merge ceiling.
+    for (const inv of [...incoming, ...sessionInvariantsRef.current]) {
+      const seedId = String(inv?.seedId ?? "");
+      const statement = String(inv?.statement ?? "");
+      if (!seedId || !statement || seen.has(seedId) || merged.length >= 12) continue;
+      seen.add(seedId);
+      merged.push({ seedId, statement });
+    }
+    sessionInvariantsRef.current = merged;
+  };
+
+  // Inference-driven navigation (SmartTriad PRD §6): the model embeds
+  // [[nav:Label]] markers in its reply; labels are validated VERBATIM against
+  // the deepLinks catalog (case-insensitive) so navigation stays deterministic
+  // — a marker with an unknown label degrades to plain text, never a dead
+  // chip. Matched markers become clickable chips under the message.
+  const extractNavMarkers = (
+    text: string,
+  ): { cleaned: string; chips: SmartTriadDeepLink[] } => {
+    const catalog = deepLinks ?? [];
+    if (catalog.length === 0 || !text.includes("[[nav:")) return { cleaned: text, chips: [] };
+    const chips: SmartTriadDeepLink[] = [];
+    const seen = new Set<string>();
+    const cleaned = text.replace(/\[\[nav:([^\]]{1,80})\]\]/g, (_m, raw: string) => {
+      const label = raw.trim();
+      const match = catalog.find((dl) => dl.label.toLowerCase() === label.toLowerCase());
+      if (match && !seen.has(match.label)) {
+        seen.add(match.label);
+        chips.push(match);
+      }
+      // The marker itself reads as the destination name in the sentence.
+      return match ? match.label : label;
+    });
+    return { cleaned, chips };
+  };
+
+  // Deep-link chip navigation (SmartTriad PRD §5): same-cartridge tabs switch
+  // via the codex:navigate-tab seam; cross-cartridge targets navigate via
+  // buildCodexUrl (identity-propagating — personaId travels with the link).
+  const navigateDeepLink = useCallback((dl: SmartTriadDeepLink) => {
+    try {
+      if (dl.codexSlug) {
+        window.location.href = buildCodexUrl(dl.codexSlug, {
+          tab: dl.codexTab,
+          personaId: personaId || undefined,
+        });
+        return;
+      }
+      if (dl.tab) {
+        window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: dl.tab } }));
+      }
+    } catch { /* non-fatal */ }
+  }, [personaId]);
+
   // Full accent palette — every cyan-* class in this component is derived
   // from these tokens so a single accentColor prop fully re-themes the
   // surface (e.g. emerald for metaMe / Aigent Me).
@@ -852,7 +1001,12 @@ export function CodexCopilotLayer({
 
       const extraContext = getChatRequestContext?.(message) || {};
 
-      const response = await fetch("/api/codex/chat", {
+      // personaFetch (not raw fetch): attaches the Supabase Bearer when a
+      // session exists so the route can spine-resolve the caller — required
+      // for CFS-045 memory compilation. Degrades to an anonymous request
+      // (no Authorization header) when signed out; behaviour is otherwise
+      // identical to the previous raw fetch.
+      const response = await personaFetch("/api/codex/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -861,19 +1015,43 @@ export function CodexCopilotLayer({
           personaId: personaId || null,
           contextId: contextId || null,
           chatHistory,
+          // DCIR observation seam (optional, additive): omitted entirely when
+          // the host cartridge doesn't pass the groundContext prop, so every
+          // existing caller's request body is unchanged. On smart-triad
+          // surfaces the accumulated session invariants ride along
+          // (constitutional memory v0).
+          ...(groundContext
+            ? {
+                groundContext:
+                  groundContext.surface === "smart-triad"
+                    ? {
+                        ...groundContext,
+                        sessionMarker: sessionMarkerRef.current,
+                        ...(sessionInvariantsRef.current.length > 0
+                          ? { sessionInvariants: sessionInvariantsRef.current }
+                          : {}),
+                      }
+                    : groundContext,
+              }
+            : {}),
           ...extraContext,
         }),
       });
       const data = (await response.json().catch(() => ({}))) as CodexChatResponse;
       const structuredWalletActions = normalizeWalletActions(data?.wallet_actions);
+      accumulateResolvedInvariants(data?.resolved_invariants);
+      // PRD §6 — lift [[nav:Label]] markers out of the reply into chips.
+      const navParsed =
+        typeof data?.response === "string" ? extractNavMarkers(data.response) : null;
       updateMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: data?.response || "I can help with that.",
+          content: navParsed?.cleaned || data?.response || "I can help with that.",
           timestamp: new Date(),
           walletActions: structuredWalletActions.length > 0 ? structuredWalletActions : undefined,
+          navChips: navParsed && navParsed.chips.length > 0 ? navParsed.chips : undefined,
         },
       ]);
     } catch {
@@ -1039,6 +1217,10 @@ export function CodexCopilotLayer({
     }
   }, [currentWalletLayout, variant, walletEmbeddedAnchor, walletPanelCollapsed, walletPanelOpen]);
 
+  // Placed after every hook (rules of hooks): the shell's generic copilot
+  // yields entirely while a tab-level specialized copilot is mounted.
+  if (yieldToTabHost) return null;
+
   return (
     <>
       {variant === "floating" && !isOpen && !disableActivationButton && !showActivationButton && (
@@ -1148,6 +1330,25 @@ export function CodexCopilotLayer({
                                 ) : (
                                   msg.content
                                 )}
+                                {/* Inference-driven navigation (PRD §6) — chips
+                                    the MODEL emitted via [[nav:...]] markers,
+                                    validated against the deepLinks catalog. */}
+                                {msg.navChips && msg.navChips.length > 0 ? (
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {msg.navChips.map((chip) => (
+                                      <button
+                                        key={`${msg.id}-nav-${chip.label}`}
+                                        type="button"
+                                        onClick={() => navigateDeepLink(chip)}
+                                        title={chip.codexSlug ? `Open ${chip.label} (another cartridge)` : `Go to ${chip.label}`}
+                                        className={`inline-flex items-center gap-1 rounded-full border ${ACCENT.pillBorder} ${ACCENT.pillBg} px-2.5 py-1 text-[11px] font-medium ${ACCENT.pillText} transition-colors ${ACCENT.pillHoverBg}`}
+                                      >
+                                        <span aria-hidden>→</span>
+                                        <span>{chip.label}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : null}
                                 {walletActionCards.length > 0 ? (
                                   <div className="mt-2 flex flex-wrap gap-1.5">
                                     {walletActionCards.map((card) => (
@@ -1181,88 +1382,10 @@ export function CodexCopilotLayer({
                         )}
                       </div>
 
-                      {showWalletMenu && (
-                        <div
-                          className={`absolute left-3 right-3 transition-opacity duration-200 ${
-                            `${walletMenuBottomClass} z-20`
-                          } ${
-                            walletMenuVisible || walletMenuHover
-                              ? "opacity-100 pointer-events-auto"
-                              : "opacity-0 pointer-events-none"
-                          }`}
-                          onMouseEnter={handleWalletMenuEnter}
-                          onMouseLeave={handleWalletMenuLeave}
-                        >
-                          <div className="pointer-events-auto mx-auto flex w-full items-center justify-between rounded-2xl border border-white/10 bg-transparent px-3 py-2">
-                            {!walletActionsCollapsed ? (
-                              <div className="min-w-0 flex-1 overflow-x-auto no-scrollbar">
-                                <div className="grid min-w-full grid-flow-col auto-cols-[minmax(2.5rem,1fr)] items-center gap-2">
-                                {["wallet", "library", "tasks", "reputation", "rewards", "payments"].map((tab) => (
-                                  <button
-                                    key={tab}
-                                    onClick={() => {
-                                      setWalletPanelTab(tab as WalletTab);
-                                      setWalletPanelOpen(true);
-                                      setWalletPanelCollapsed(false);
-                                    }}
-                                    className={`h-10 w-full rounded-lg ring-1 transition-colors ${
-                                      walletPanelOpen && walletPanelTab === tab && !walletPanelCollapsed
-                                        ? ACCENT_PANEL_ACTIVE
-                                        : "bg-white/5 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                                    }`}
-                                  >
-                                    <span className="flex h-full w-full items-center justify-center">
-                                      {tab === "wallet" && <Wallet className="w-4 h-4" />}
-                                      {tab === "library" && <BookOpen className="w-4 h-4" />}
-                                      {tab === "tasks" && <CheckSquare className="w-4 h-4" />}
-                                      {tab === "reputation" && <Trophy className="w-4 h-4" />}
-                                      {tab === "rewards" && <Gift className="w-4 h-4" />}
-                                      {tab === "payments" && <CreditCard className="w-4 h-4" />}
-                                    </span>
-                                  </button>
-                                ))}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-1 items-center justify-center">
-                                <button
-                                  onClick={() => setWalletActionsCollapsed(false)}
-                                  className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                                >
-                                  <Wallet className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2">
-                              {!walletActionsCollapsed && (
-                                <button
-                                  onClick={() => setWalletActionsCollapsed(true)}
-                                  className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                                >
-                                  <PanelBottomClose className="w-4 h-4" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  if (!walletPanelOpen) {
-                                    setWalletPanelOpen(true);
-                                    setWalletPanelCollapsed(false);
-                                  } else {
-                                    setWalletPanelCollapsed((prev) => !prev);
-                                  }
-                                }}
-                                className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                              >
-                                {walletPanelOpen && !walletPanelCollapsed ? (
-                                  <PanelRightClose className="w-4 h-4" />
-                                ) : (
-                                  <PanelRightOpen className="w-4 h-4" />
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      {/* Floating wallet icons bar retired (2026-07-19) — it
+                          overlapped the quick-action carousel + inference copy and
+                          its lazy chunk could fail to load. The wallet now launches
+                          from the single Wallet icon in the nav-menu footer below. */}
                     </div>
 
                     {!disablePromptInput ? (
@@ -1334,6 +1457,44 @@ export function CodexCopilotLayer({
                             </div>
                           </div>
                         </>
+                      )}
+                      {/* Deep-link chips (SmartTriad PRD §5) — deterministic
+                          navigation the copilot surfaces: same-cartridge tabs
+                          via codex:navigate-tab, cross-cartridge via
+                          buildCodexUrl. Rendered by the layer (never parsed
+                          from model output) so navigation is always reliable. */}
+                      {((deepLinks && deepLinks.length > 0) || (operations && operations.length > 0)) && (
+                        <div className="mb-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-1.5 py-1 backdrop-blur">
+                          {/* Single-row carousel: chips never wrap; overflow scrolls
+                              horizontally. The opaque slate backing keeps chips and
+                              the inference copy behind them both legible. */}
+                          <div className="flex flex-nowrap items-center gap-1 overflow-x-auto no-scrollbar">
+                            {(deepLinks ?? []).map((dl) => (
+                              <button
+                                key={dl.label}
+                                onClick={() => navigateDeepLink(dl)}
+                                className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] transition ${ACCENT.pillBorder} ${ACCENT.pillBg} ${ACCENT.pillText} ${ACCENT.pillHoverBg}`}
+                                title={dl.codexSlug ? `Open ${dl.label} (another cartridge)` : `Go to ${dl.label}`}
+                              >
+                                {dl.label}
+                              </button>
+                            ))}
+                            {/* Operations (Phase 3 Actions) — amber, confirm-gated,
+                                server-re-gated. Distinct from navigation chips. */}
+                            {(operations ?? []).map((op) => (
+                              <button
+                                key={op.id}
+                                onClick={() => void runOperation(op)}
+                                disabled={opBusy !== null}
+                                className="shrink-0 whitespace-nowrap rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200 transition hover:bg-amber-500/20 disabled:opacity-50"
+                                title={op.confirm}
+                              >
+                                {opBusy === op.id ? "Running…" : `▸ ${op.label}`}
+                              </button>
+                            ))}
+                          </div>
+                          {opNote && <div className="mt-1 text-[10px] text-slate-400">{opNote}</div>}
+                        </div>
                       )}
                       {!floatingInput && (
                         <div>
@@ -1443,8 +1604,22 @@ export function CodexCopilotLayer({
                               </button>
                             </div>
                           )}
-                          {/* RIGHT: badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
+                          {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
                           <div className="relative flex items-center gap-1">
+                            {showWalletMenu && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setWalletPanelTab("wallet");
+                                  setWalletPanelOpen(true);
+                                  setWalletPanelCollapsed(false);
+                                }}
+                                title="Open wallet"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                              >
+                                <Wallet className="w-4 h-4" />
+                              </button>
+                            )}
                             {!hideAvatarToggle && (
                               <>
                                 {contextOptions && contextOptions.length > 0 ? (
@@ -1608,8 +1783,22 @@ export function CodexCopilotLayer({
                             </button>
                           </div>
                         )}
-                        {/* RIGHT: badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
+                        {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
                         <div className="relative flex items-center gap-1">
+                          {showWalletMenu && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setWalletPanelTab("wallet");
+                                setWalletPanelOpen(true);
+                                setWalletPanelCollapsed(false);
+                              }}
+                              title="Open wallet"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                            >
+                              <Wallet className="w-4 h-4" />
+                            </button>
+                          )}
                           {!hideAvatarToggle && (
                             <>
                               {contextOptions && contextOptions.length > 0 ? (

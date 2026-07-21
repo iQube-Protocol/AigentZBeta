@@ -19,7 +19,9 @@
  * Server-only.
  */
 
-import { listInvariants, recordUsage } from './index';
+import { getCanonVersionStamp, listInvariants } from './store';
+import { dependencyClosure } from './graph';
+import { recordUsage } from './lifecycle';
 import type {
   InvariantNamespace,
   InvariantRecord,
@@ -171,4 +173,132 @@ export async function buildInvariantSlice(context: GroundingContext = {}): Promi
 export async function citeInvariants(invariantIds: string[]): Promise<void> {
   const unique = [...new Set(invariantIds.filter(Boolean))];
   await Promise.allSettled(unique.map((id) => recordUsage(id)));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Knowledge initialization (CFS-006 §3 / CFS-008 §5)
+// "Compressed expertise in, rediscovery out": at session/intent start the
+// runtime loads the dependency closure of the context-relevant canonical
+// invariants, so the working context begins already knowing what the
+// platform has validated.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** A node of a knowledge-initialization manifest (T1-safe projection). */
+export interface KnowledgeNode {
+  id: string;
+  seedId: string | null;
+  statement: string;
+  namespace: InvariantNamespace;
+  semanticType: InvariantSemanticType | null;
+  standing: number;
+  /** Traversal depth from a root (0 = surfaced directly by the context slice). */
+  depth: number;
+}
+
+export interface KnowledgeManifest {
+  /** Cache signature — (context, class-set, canon version), CFS-008 §5. */
+  signature: string;
+  canonVersion: string;
+  /** Ids the context slice surfaced directly (the closure roots). */
+  rootIds: string[];
+  /** Roots + their depends_on/composes closure, depth-annotated. */
+  nodes: KnowledgeNode[];
+  truncated: boolean;
+}
+
+// House-style in-process cache (mirrors services/identity/fioCache.ts):
+// module-level Map with per-entry expiry + in-flight de-dup. The canon
+// version in the key is the real invalidation signal (canonical objects
+// change only by supersession); the version stamp itself is probed at most
+// once per VERSION_TTL_MS, and manifests are re-derived only when the stamp
+// moves. Lambda instances are ephemeral — this is a warm-path saver, not a
+// correctness dependency.
+const MANIFEST_TTL_MS = 10 * 60 * 1000;
+const VERSION_TTL_MS = 60 * 1000;
+const manifestCache = new Map<string, { value: KnowledgeManifest; expiresAt: number }>();
+const manifestInflight = new Map<string, Promise<KnowledgeManifest>>();
+let versionCache: { value: string; expiresAt: number } | null = null;
+
+async function currentCanonVersion(): Promise<string> {
+  const now = Date.now();
+  if (versionCache && versionCache.expiresAt > now) return versionCache.value;
+  const value = await getCanonVersionStamp();
+  versionCache = { value, expiresAt: now + VERSION_TTL_MS };
+  return value;
+}
+
+function contextSignature(context: GroundingContext): string {
+  return [
+    (context.namespaces ?? []).slice().sort().join(','),
+    (context.domains ?? []).slice().sort().join(','),
+    (context.ontologyClassIds ?? []).slice().sort().join(','),
+    String(context.limit ?? 10),
+  ].join('|');
+}
+
+async function buildManifest(
+  context: GroundingContext,
+  signature: string,
+  canonVersion: string,
+): Promise<KnowledgeManifest> {
+  // Roots: canonical members of the context slice; a young canon may have
+  // nothing ratified to 'canonical' yet, so fall back to validated knowledge
+  // rather than initializing empty (CFS-008 §1 — validated IS knowledge).
+  const limit = context.limit ?? 10;
+  let slice = await buildInvariantSlice({ ...context, statuses: ['canonical'], limit });
+  if (slice.items.length === 0) {
+    slice = await buildInvariantSlice({ ...context, limit });
+  }
+  const rootIds = slice.citedIds;
+
+  const nodes: KnowledgeNode[] = [];
+  let truncated = false;
+  if (rootIds.length > 0) {
+    const domain = context.domains?.length === 1 ? context.domains[0] : undefined;
+    const closure = await dependencyClosure(rootIds, domain);
+    truncated = closure.truncated;
+    for (const node of closure.nodes) {
+      nodes.push({
+        id: node.invariant.id,
+        seedId: node.invariant.seedId,
+        statement: node.invariant.statement,
+        namespace: node.invariant.namespace,
+        semanticType: node.invariant.semanticType,
+        standing: node.invariant.standing,
+        depth: node.depth,
+      });
+    }
+  }
+
+  return { signature, canonVersion, rootIds, nodes, truncated };
+}
+
+/**
+ * Load (or reuse) the knowledge-initialization manifest for a runtime
+ * context. Cached per (context, canon version); a supersession anywhere in
+ * the knowledge statuses moves the canon stamp and rebuilds on next probe.
+ */
+export async function initializeKnowledge(
+  context: GroundingContext = {},
+): Promise<KnowledgeManifest> {
+  const canonVersion = await currentCanonVersion();
+  const key = `${contextSignature(context)}|v:${canonVersion}`;
+
+  const now = Date.now();
+  const cached = manifestCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.value;
+
+  const inflight = manifestInflight.get(key);
+  if (inflight) return inflight;
+
+  const promise = buildManifest(context, key, canonVersion)
+    .then((manifest) => {
+      manifestCache.set(key, { value: manifest, expiresAt: Date.now() + MANIFEST_TTL_MS });
+      return manifest;
+    })
+    .finally(() => {
+      manifestInflight.delete(key);
+    });
+  manifestInflight.set(key, promise);
+  return promise;
 }

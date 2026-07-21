@@ -14,7 +14,10 @@ type ExperienceLike = {
   configuration?: RecordLike | null;
 };
 
-export type ExperienceBundlePresetId = "image_article_bundle" | "video_article_bundle";
+export type ExperienceBundlePresetId =
+  | "image_article_bundle"
+  | "video_article_bundle"
+  | "constitutional_video_integrated_bundle";
 
 export type ExperienceBundlePreset = {
   id: ExperienceBundlePresetId;
@@ -284,11 +287,15 @@ export function resolveExperienceBundleBlockOutputs(
   const persistedVideo = asRecord(merged.video_generation);
   const persistedArticle = asRecord(merged.article_draft);
   const persistedDeployment = asRecord(merged.deployment);
+  // Coherent bundle: persisted-only (no inference heuristics — the runner
+  // writes block_outputs.coherent_bundle when it produces the bundle).
+  const persistedCoherentBundle = asRecord(merged.coherent_bundle);
 
   resolved.image_generation = persistedImage || buildInferredMediaOutput(experience, "image") || undefined;
   resolved.video_generation = persistedVideo || buildInferredMediaOutput(experience, "video") || undefined;
   resolved.article_draft = persistedArticle || buildInferredArticleOutput(experience) || undefined;
   resolved.deployment = persistedDeployment || buildInferredDeploymentOutput(experience) || undefined;
+  resolved.coherent_bundle = persistedCoherentBundle || undefined;
 
   return resolved;
 }
@@ -304,7 +311,7 @@ function getPersistedBundleBlockStatuses(
   const fromConfiguration = asRecord(configurationState.block_statuses) ?? {};
   const merged = { ...fromConfiguration, ...fromMetadata };
   const resolved: Partial<Record<ExperienceBlockKind, ExperienceBundleBlockStatus>> = {};
-  for (const kind of ["image_generation", "video_generation", "article_draft", "deployment"] as const) {
+  for (const kind of ["image_generation", "video_generation", "article_draft", "coherent_bundle", "deployment"] as const) {
     const value = merged[kind];
     if (
       value === "not_started" ||
@@ -319,25 +326,31 @@ function getPersistedBundleBlockStatuses(
 }
 
 function getBundleTemplateDescriptor(presetId: ExperienceBundlePresetId) {
-  return presetId === "video_article_bundle"
-    ? {
-        id: "bundle:video_article_stack_v1",
-        label: "Watch Companion Stack",
-      }
-    : {
-        id: "bundle:image_article_stack_v1",
-        label: "Editorial Experience Stack",
-      };
+  if (presetId === "video_article_bundle") {
+    return { id: "bundle:video_article_stack_v1", label: "Watch Companion Stack" };
+  }
+  if (presetId === "constitutional_video_integrated_bundle") {
+    return { id: "bundle:constitutional_video_integrated_v1", label: "Constitutional Threshold Stack" };
+  }
+  return { id: "bundle:image_article_stack_v1", label: "Editorial Experience Stack" };
 }
 
 function getBlockLabel(kind: ExperienceBlockKind) {
   if (kind === "image_generation") return "Image Generation";
   if (kind === "video_generation") return "Video Generation";
   if (kind === "article_draft") return "Article Draft";
+  if (kind === "coherent_bundle") return "Coherent Bundle";
   return "Deployment";
 }
 
 function getSuggestedAction(kind: ExperienceBlockKind, status: ExperienceBundleBlockStatus) {
+  if (kind === "coherent_bundle") {
+    if (status === "ready_for_review") return "Review video + article";
+    // Judgement is an optional post-accept affordance, never a gate.
+    if (status === "accepted") return "Optionally judge fidelity";
+    if (status === "in_progress") return "Continue bundle generation";
+    return "Generate the bundle";
+  }
   if (kind === "article_draft") {
     if (status === "ready_for_review") return "Review draft";
     if (status === "accepted") return "Move to deployment";
@@ -390,6 +403,22 @@ export function listExperienceBundlePresets(manifest: ExperienceBlockManifest): 
       nextActions: ["Refine video prompt", "Draft supporting copy", "Deploy watch bundle"],
       recommended: supportsBundle(manifest, ["video_generation", "article_draft"]),
     },
+    {
+      id: "constitutional_video_integrated_bundle",
+      label: "Constitutional Video + Integrated Artefacts",
+      summary:
+        "Generate a coherent bundle from one invariant substrate — a constitutional video (voiced, stitched) and a companion article, coherent by construction — with a built-in coherence score. Optionally run an independent judgement, then deploy.",
+      blockKinds: ["coherent_bundle", "deployment"],
+      bundleTemplateId: "bundle:constitutional_video_integrated_v1",
+      bundleTemplateLabel: "Constitutional Threshold Stack",
+      sequencing: [
+        "Generate the coherent bundle from one invariant substrate — video plan, voiced segments, stitched film, and companion article, all from the same brief.",
+        "Review the built-in coherence score (attached to the bundle as evidence). Optionally run an independent judgement — it is never required.",
+        "Deploy when the bundle is accepted.",
+      ],
+      nextActions: ["Generate coherent bundle", "Review coherence evidence", "Deploy"],
+      recommended: supportsBundle(manifest, ["coherent_bundle"]),
+    },
   ];
 }
 
@@ -398,7 +427,13 @@ export function getAppliedExperienceBundle(experience: ExperienceLike | null | u
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const record = raw as RecordLike;
   const presetId = record.presetId;
-  if (presetId !== "image_article_bundle" && presetId !== "video_article_bundle") return null;
+  if (
+    presetId !== "image_article_bundle" &&
+    presetId !== "video_article_bundle" &&
+    presetId !== "constitutional_video_integrated_bundle"
+  ) {
+    return null;
+  }
   return {
     presetId,
     label: typeof record.label === "string" ? record.label : presetId,
@@ -417,6 +452,7 @@ export function getAppliedExperienceBundle(experience: ExperienceLike | null | u
             kind === "image_generation" ||
             kind === "video_generation" ||
             kind === "article_draft" ||
+            kind === "coherent_bundle" ||
             kind === "deployment",
         )
       : [],
@@ -520,6 +556,7 @@ export function resolveExperienceBundleSequencingState(
       kind === "image_generation" ||
       kind === "video_generation" ||
       kind === "article_draft" ||
+      kind === "coherent_bundle" ||
       kind === "deployment",
   );
   const blocks = orderedBlocks.map((kind): ExperienceBundleBlockState => {
@@ -539,6 +576,22 @@ export function resolveExperienceBundleSequencingState(
           : blockOutputs.video_generation || hasGeneratedAssetType(experience, "video")
             ? "accepted"
             : persisted || "in_progress";
+    } else if (kind === "coherent_bundle") {
+      // ready_for_review when the bundle has produced its video + article;
+      // accepted only on operator accept. Judgement is NEVER consulted for
+      // status — it is an optional post-accept affordance.
+      const out = asRecord(blockOutputs.coherent_bundle);
+      const hasVideo = Boolean(out && firstString([out.video_url]));
+      const hasArticle = Boolean(out && (out.article || firstString([out.article_ref, out.article_title])));
+      if (persisted === "accepted") {
+        status = "accepted";
+      } else if (out && hasVideo && hasArticle) {
+        status = "ready_for_review";
+      } else if (persisted) {
+        status = persisted;
+      } else if (out) {
+        status = "in_progress";
+      }
     } else if (kind === "article_draft") {
       if (persisted === "accepted" || persisted === "in_progress") {
         status = persisted;
@@ -606,6 +659,16 @@ export function resolveExperienceBundleFlowTarget(
   blockKind: ExperienceBlockKind | null | undefined,
 ): ExperienceBundleFlowTarget | null {
   if (!bundle || !blockKind) return null;
+
+  if (blockKind === "coherent_bundle") {
+    return {
+      blockKind,
+      templateId: "constitutional-video",
+      templateLabel: "Constitutional Video",
+      label: "coherent bundle flow",
+      summary: "Open the Constitutional Video runner in bundle mode — generate the voiced video and companion article from one invariant substrate.",
+    };
+  }
 
   if (blockKind === "video_generation") {
     return {

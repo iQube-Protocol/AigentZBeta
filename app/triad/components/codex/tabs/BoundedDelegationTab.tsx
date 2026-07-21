@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Shield, ShieldCheck, ShieldX, Clock, Activity, AlertTriangle,
   CheckCircle2, Loader2, ChevronDown, ChevronUp, Receipt, Wallet,
@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { personaFetch } from "@/utils/personaSpine";
-import { authedFetchHeaders } from "@/utils/supabaseBrowser";
 
 interface DelegateAgent {
   agentRootId: string;
@@ -19,6 +18,9 @@ interface DelegateAgent {
   /** True for the platform/system agents — delegation gated to admins. */
   isSystem?: boolean;
 }
+
+/** The capacity a bound agent acts in FOR a persona (CFS-024 assignment). */
+type AssignmentRole = "aigentMe" | "delegate";
 
 // System (platform) agents. Delegating to these is admin-only — they are the
 // shared orchestration agents, not personal delegates.
@@ -156,7 +158,14 @@ function mapAgent(a: Record<string, unknown>): DelegateAgent {
 
 export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const { sessionPersonas } = useSupabaseSessionPersonas();
-  const activePersona = sessionPersonas.find((p) => p.id === personaId) ?? sessionPersonas[0] ?? null;
+
+  // CFS-024 persona-first: delegation is EXERCISED at the persona level. The
+  // operator selects "who am I delegating as", and every section below derives
+  // from that ONE persona — so the tab, the wallet, and the resolver all agree.
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(personaId ?? null);
+  const effectivePersonaId = selectedPersonaId ?? personaId ?? sessionPersonas[0]?.id ?? null;
+  const activePersona =
+    sessionPersonas.find((p) => p.id === effectivePersonaId) ?? sessionPersonas[0] ?? null;
 
   const [activeSubTab, setActiveSubTab] = useState<"delegation" | "demo">("delegation");
 
@@ -179,18 +188,20 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
   // Delegate roster state.
   const [selectedAgent, setSelectedAgent] = useState<DelegateAgent | null>(null);
-  const [otherAgents, setOtherAgents] = useState<DelegateAgent[]>([]); // sponsored, non-aigentMe
+  const [otherAgents, setOtherAgents] = useState<DelegateAgent[]>([]); // sponsored (active persona), non-aigentMe
+  const [boundAgents, setBoundAgents] = useState<DelegateAgent[]>([]); // person-scoped (CFS-024), all personas
   const [agentsLoading, setAgentsLoading] = useState(false);
+
+  // Per-persona ASSIGNMENTS (CFS-024 Phase 3) — for the SELECTED persona. Many
+  // agents may be assigned; exactly one is aigentMe.
+  const [assignments, setAssignments] = useState<Array<{ agentRootId: string; role: AssignmentRole }>>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [assignmentBusy, setAssignmentBusy] = useState<string | null>(null); // agentRootId in flight
 
   // Slot 1 — aigentMe (the citizen's primary personal delegate).
   const [aigentMe, setAigentMe] = useState<DelegateAgent | null>(null);
   const [aigentMeLoading, setAigentMeLoading] = useState(true);
   const [creatingAigentMe, setCreatingAigentMe] = useState(false);
-
-  // Slots 2 & 3 — assignable to a pre-existing agent (client-side selection;
-  // only one delegation is active at a time, so slot assignment is UX scaffolding).
-  const [slot2, setSlot2] = useState<DelegateAgent | null>(null);
-  const [slot3, setSlot3] = useState<DelegateAgent | null>(null);
 
   // System-agent delegation is admin-only.
   const [isAdmin, setIsAdmin] = useState(false);
@@ -206,7 +217,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [curatedSkillsOnly, setCuratedSkillsOnly] = useState(true);
   const [explainBeforeActing, setExplainBeforeActing] = useState(false);
 
-  const pid = personaId ?? "anonymous";
+  const pid = effectivePersonaId ?? "anonymous";
   const maxGrantableBand = BUCKET_TO_BAND[activePersona?.reputationBucket ?? 0] ?? "L1_EXPERIMENTAL";
   const bandIndex = TRUST_BANDS.indexOf(maxGrantableBand);
 
@@ -305,10 +316,8 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     async function fetchSponsoredAgents() {
       setAgentsLoading(true);
       try {
-        const headers = await authedFetchHeaders({ 'Accept': 'application/json' });
-        const res = await fetch('/api/persona/sponsored-agents', {
+        const res = await personaFetch('/api/persona/sponsored-agents', {
           cache: 'no-store',
-          headers: headers ?? undefined,
         });
         if (res.ok) {
           const data = await res.json();
@@ -329,9 +338,132 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     return () => { cancelled = true; };
   }, []);
 
+  // CFS-024 — the person-scoped bound-agent roster. Bound agents belong to the
+  // constitutional PERSON, not the active persona, so a delegate sponsored under
+  // a DIFFERENT persona (e.g. Aletheon, stood up under the passport-holder
+  // persona) must still appear here. The single-source-of-truth resolver returns
+  // them across every persona the caller owns. Merged with the active-persona
+  // sponsored list below (deduped) so nothing is lost if a surface lags.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/identity/constitutional-context', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const bound = data?.context?.boundAgents;
+        if (!cancelled && Array.isArray(bound)) {
+          const mapped: DelegateAgent[] = bound.map((b: Record<string, unknown>) => ({
+            agentRootId: String(b.agentId ?? ''),
+            displayName: String(b.displayName ?? 'Agent'),
+            didUri: String(b.agentDid ?? ''),
+            agentClass: String(b.agentClass ?? 'polity_bound'),
+            isAigentMe: false,
+          }));
+          setBoundAgents(mapped);
+        }
+      } catch {
+        // Person-scoped roster is additive — sponsored-agents remains the base.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (showAudit) loadAuditEvents();
   }, [showAudit, loadAuditEvents]);
+
+  // Per-persona assignments for the SELECTED persona. Reloads whenever the
+  // operator switches "delegating as".
+  const loadAssignments = useCallback(async () => {
+    if (!effectivePersonaId) { setAssignments([]); return; }
+    setAssignmentsLoading(true);
+    try {
+      const res = await personaFetch(
+        `/api/identity/persona-assignments?personaId=${encodeURIComponent(effectivePersonaId)}`,
+        { cache: 'no-store' },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.assignments)) {
+          setAssignments(
+            data.assignments.map((a: { agentRootId: string; role: AssignmentRole }) => ({
+              agentRootId: String(a.agentRootId),
+              role: a.role === 'aigentMe' ? 'aigentMe' : 'delegate',
+            })),
+          );
+        }
+      }
+    } catch {
+      // Assignments are additive — the tab still renders the bound roster.
+    } finally {
+      setAssignmentsLoading(false);
+    }
+  }, [effectivePersonaId]);
+
+  useEffect(() => {
+    loadAssignments();
+  }, [loadAssignments]);
+
+  // Switching persona clears the in-flight grant selection so it never leaks
+  // across personas.
+  useEffect(() => {
+    setSelectedAgent(null);
+    setShowGrantForm(false);
+  }, [effectivePersonaId]);
+
+  // Assign a bound agent to the selected persona (role delegate|aigentMe), then
+  // reload. Setting aigentMe demotes the prior aigentMe server-side.
+  const mutateAssignment = useCallback(
+    async (agentRootId: string, role: AssignmentRole) => {
+      if (!effectivePersonaId) return;
+      setAssignmentBusy(agentRootId);
+      setError(null);
+      try {
+        const res = await personaFetch('/api/identity/persona-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personaId: effectivePersonaId, agentRootId, role }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setError(data.error ?? 'Could not update assignment.');
+        } else {
+          await loadAssignments();
+        }
+      } catch {
+        setError('Assignment request failed.');
+      } finally {
+        setAssignmentBusy(null);
+      }
+    },
+    [effectivePersonaId, loadAssignments],
+  );
+
+  const removeAssignment = useCallback(
+    async (agentRootId: string) => {
+      if (!effectivePersonaId) return;
+      setAssignmentBusy(agentRootId);
+      setError(null);
+      try {
+        const res = await personaFetch(
+          `/api/identity/persona-assignments?personaId=${encodeURIComponent(effectivePersonaId)}&agentRootId=${encodeURIComponent(agentRootId)}`,
+          { method: 'DELETE' },
+        );
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setError(data.error ?? 'Could not remove assignment.');
+        } else {
+          await loadAssignments();
+        }
+      } catch {
+        setError('Unassign request failed.');
+      } finally {
+        setAssignmentBusy(null);
+      }
+    },
+    [effectivePersonaId, loadAssignments],
+  );
 
   async function handleCreateAigentMe() {
     setCreatingAigentMe(true);
@@ -391,6 +523,9 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         setShowGrantForm(false);
         await loadDelegation();
         if (showAudit) await loadAuditEvents();
+        // Nudge shell observers (AccessionProgressBar) to re-read state —
+        // the Delegate step flips green immediately, not on next page load.
+        try { window.dispatchEvent(new CustomEvent("accession:refresh")); } catch { /* non-fatal */ }
       }
     } catch {
       setError("Grant request failed.");
@@ -421,16 +556,71 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const lastBlockedEvent = auditEvents.find((e) => e.event_type === "policy_blocked");
   const hasInjectionWarning = !!lastBlockedEvent;
 
-  // Assignable pool for slots 2 & 3: sponsored non-aigentMe agents, plus the
-  // system agents only when the caller is an admin. Excludes whatever is in
-  // the OTHER assignable slot so the same agent can't occupy both.
-  function assignableFor(slot: 2 | 3): DelegateAgent[] {
-    const taken = slot === 2 ? slot3 : slot2;
-    const systemPool = isAdmin ? PLATFORM_AGENTS : [];
-    return [...otherAgents, ...systemPool].filter(
-      (a) => !taken || a.agentRootId !== taken.agentRootId,
+  // The delegate pool = active-persona sponsored agents ∪ person-scoped bound
+  // agents (CFS-024), deduped by agentRootId (falling back to didUri), with the
+  // aigentMe (slot 1) removed. This is what makes a cross-persona delegate like
+  // Aletheon appear even when a different persona is active.
+  const pooledOtherAgents = useMemo<DelegateAgent[]>(() => {
+    const seen = new Set<string>();
+    const aigentMeKeys = new Set(
+      [aigentMe?.agentRootId, aigentMe?.didUri].filter((k): k is string => !!k),
     );
-  }
+    const out: DelegateAgent[] = [];
+    for (const a of [...otherAgents, ...boundAgents]) {
+      const key = a.agentRootId || a.didUri;
+      if (!key || seen.has(key)) continue;
+      if (aigentMeKeys.has(a.agentRootId) || aigentMeKeys.has(a.didUri)) continue;
+      seen.add(key);
+      if (a.agentRootId) seen.add(a.agentRootId);
+      if (a.didUri) seen.add(a.didUri);
+      out.push(a);
+    }
+    return out;
+  }, [otherAgents, boundAgents, aigentMe]);
+
+  // Every agent the caller could assign: the person's bound roster (+ system
+  // agents for admins), deduped. Assignment agentRootId == agent_root_identity
+  // row id, which is what boundAgents/otherAgents carry, so lookups match.
+  const allKnownAgents = useMemo<DelegateAgent[]>(() => {
+    const seen = new Set<string>();
+    const out: DelegateAgent[] = [];
+    for (const a of [
+      ...(aigentMe ? [aigentMe] : []),
+      ...pooledOtherAgents,
+      ...(isAdmin ? PLATFORM_AGENTS : []),
+    ]) {
+      const k = a.agentRootId || a.didUri;
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      out.push(a);
+    }
+    return out;
+  }, [aigentMe, pooledOtherAgents, isAdmin]);
+
+  const assignedRoleByAgent = useMemo(() => {
+    const m = new Map<string, AssignmentRole>();
+    for (const a of assignments) m.set(a.agentRootId, a.role);
+    return m;
+  }, [assignments]);
+
+  // The selected persona's assignments, resolved to agents (aigentMe first).
+  const assignedAgentsList = useMemo(() => {
+    return assignments
+      .map((a) => {
+        const agent = allKnownAgents.find(
+          (x) => x.agentRootId === a.agentRootId || x.didUri === a.agentRootId,
+        );
+        return agent ? { agent, role: a.role } : null;
+      })
+      .filter((x): x is { agent: DelegateAgent; role: AssignmentRole } => x !== null)
+      .sort((l, r) => (l.role === 'aigentMe' ? -1 : r.role === 'aigentMe' ? 1 : 0));
+  }, [assignments, allKnownAgents]);
+
+  // Bound agents not yet assigned to this persona — the "Assign an agent" pool.
+  const unassignedRoster = useMemo(
+    () => allKnownAgents.filter((a) => !assignedRoleByAgent.has(a.agentRootId)),
+    [allKnownAgents, assignedRoleByAgent],
+  );
 
   async function runDemoAction(type: "allowed" | "denied") {
     const prompt =
@@ -479,112 +669,6 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     }
   }
 
-  // A single delegate slot card (selectable as the grant target).
-  function SlotCard({
-    slotNumber,
-    title,
-    agent,
-    onAssign,
-    onClear,
-    assignable,
-    primary,
-  }: {
-    slotNumber: number;
-    title: string;
-    agent: DelegateAgent | null;
-    onAssign?: (a: DelegateAgent) => void;
-    onClear?: () => void;
-    assignable?: DelegateAgent[];
-    primary?: boolean;
-  }) {
-    const selected = !!agent && selectedAgent?.agentRootId === agent.agentRootId;
-    return (
-      <div
-        className={`rounded-xl border p-3 transition ${
-          selected
-            ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30"
-            : "border-slate-700/50 bg-slate-900/30"
-        }`}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700/60 text-[10px] font-semibold text-slate-300">
-              {slotNumber}
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</span>
-            {primary && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-                <Crown className="h-2.5 w-2.5" /> primary
-              </span>
-            )}
-          </div>
-          {agent && onClear && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="text-[10px] text-slate-500 hover:text-slate-300"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-
-        {agent ? (
-          <button
-            type="button"
-            onClick={() => setSelectedAgent(agent)}
-            className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left"
-          >
-            <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${selected ? "bg-violet-500/30" : "bg-slate-700/50"}`}>
-              <Bot className={`h-4 w-4 ${selected ? "text-violet-300" : "text-slate-400"}`} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className={`text-sm font-medium truncate ${selected ? "text-violet-200" : "text-slate-200"}`}>
-                {agent.displayName}
-              </p>
-              <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {agent.isSystem && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
-                  <Lock className="h-2.5 w-2.5" /> system
-                </span>
-              )}
-              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
-                {agent.agentClass.replace(/_/g, ' ')}
-              </span>
-              {selected && <CheckCircle2 className="h-4 w-4 text-violet-400" />}
-            </div>
-          </button>
-        ) : assignable ? (
-          assignable.length > 0 ? (
-            <select
-              value=""
-              onChange={(e) => {
-                const a = assignable.find((x) => x.agentRootId === e.target.value);
-                if (a && onAssign) onAssign(a);
-              }}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300"
-            >
-              <option value="" disabled>
-                Assign an agent…
-              </option>
-              {assignable.map((a) => (
-                <option key={a.agentRootId} value={a.agentRootId}>
-                  {a.displayName}{a.isSystem ? ' (system · admin)' : ''}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p className="text-[11px] text-slate-500 px-1 py-1">
-              No additional agents yet. Sponsor one from <span className="text-slate-400">Polity Passport → Apply</span>, or develop a new agent — then assign it here.
-            </p>
-          )
-        ) : null}
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-5 max-w-2xl">
       <div className="flex items-start gap-4">
@@ -619,94 +703,147 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
       {activeSubTab === "delegation" && (<>
 
-      {/* Delegate roster — 3 slots, aigentMe primary */}
+      {/* Persona-first delegation (CFS-024): choose who you're delegating AS */}
+      <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <Wallet className="h-4 w-4 text-violet-400" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Delegating as</p>
+        </div>
+        {sessionPersonas.length > 0 ? (
+          <select
+            value={effectivePersonaId ?? ""}
+            onChange={(e) => setSelectedPersonaId(e.target.value || null)}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200"
+          >
+            {sessionPersonas.map((p) => (
+              <option key={p.id} value={p.id}>{p.displayName}</option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-[11px] text-slate-500">Loading your personas…</p>
+        )}
+        <p className="text-[10px] text-slate-500">
+          Every agent is bound to your citizen. Each persona assigns which of them act on its behalf — exactly one as its aigentMe.
+        </p>
+      </div>
+
+      {/* Assigned agents for the selected persona */}
       <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bot className="h-4 w-4 text-violet-400" />
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your Delegates</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Assigned agents{activePersona ? ` · ${activePersona.displayName}` : ""}
+            </p>
           </div>
-          <span className="text-[10px] text-slate-500">One active delegation at a time</span>
+          <span className="text-[10px] text-slate-500">One aigentMe · many delegates</span>
         </div>
 
-        {/* Slot 1 — aigentMe */}
-        {aigentMeLoading ? (
+        {assignmentsLoading || agentsLoading ? (
           <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Loading your aigentMe…
+            <Loader2 className="h-3 w-3 animate-spin" /> Loading assignments…
           </div>
-        ) : aigentMe ? (
-          <SlotCard slotNumber={1} title="aigentMe" agent={aigentMe} primary />
+        ) : assignedAgentsList.length === 0 ? (
+          <p className="text-[11px] text-slate-400">
+            No agents assigned to this persona yet. Assign one below — the first you mark as aigentMe becomes this persona&apos;s primary delegate.
+          </p>
         ) : (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-            <div className="flex items-center gap-1.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700/60 text-[10px] font-semibold text-slate-300">1</span>
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">aigentMe</span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-                <Crown className="h-2.5 w-2.5" /> primary
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Your aigentMe is your personal bounded delegate — the agent that represents you across metaMe. Create it once and it appears in your wallet and here as delegate&nbsp;1.
-            </p>
-            <button
-              type="button"
-              onClick={handleCreateAigentMe}
-              disabled={creatingAigentMe}
-              className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
-            >
-              {creatingAigentMe ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {creatingAigentMe ? "Creating…" : "Create my aigentMe"}
-            </button>
+          <div className="space-y-2">
+            {assignedAgentsList.map(({ agent, role }) => {
+              const selected = selectedAgent?.agentRootId === agent.agentRootId;
+              const busy = assignmentBusy === agent.agentRootId;
+              return (
+                <div
+                  key={agent.agentRootId}
+                  className={`rounded-xl border p-3 transition ${selected ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30" : "border-slate-700/50 bg-slate-900/30"}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAgent(agent)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    >
+                      <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${selected ? "bg-violet-500/30" : "bg-slate-700/50"}`}>
+                        <Bot className={`h-4 w-4 ${selected ? "text-violet-300" : "text-slate-400"}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-medium truncate ${selected ? "text-violet-200" : "text-slate-200"}`}>{agent.displayName}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
+                      </div>
+                    </button>
+                    {role === "aigentMe" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                        <Crown className="h-2.5 w-2.5" /> aigentMe
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => mutateAssignment(agent.agentRootId, "aigentMe")}
+                        className="inline-flex items-center gap-1 rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+                      >
+                        {busy ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Crown className="h-2.5 w-2.5" />} Make aigentMe
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => removeAssignment(agent.agentRootId)}
+                      className="text-[10px] text-slate-500 hover:text-rose-300 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Slot 2 */}
-        <SlotCard
-          slotNumber={2}
-          title="Delegate 2"
-          agent={slot2}
-          assignable={assignableFor(2)}
-          onAssign={(a) => { setSlot2(a); setSelectedAgent(a); }}
-          onClear={() => { setSlot2(null); if (selectedAgent?.agentRootId === slot2?.agentRootId) setSelectedAgent(null); }}
-        />
+        {/* Assign an agent from the person's bound roster */}
+        {unassignedRoster.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const nextRole: AssignmentRole = assignedAgentsList.some((a) => a.role === "aigentMe") ? "delegate" : "aigentMe";
+              mutateAssignment(e.target.value, nextRole);
+            }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300"
+          >
+            <option value="" disabled>Assign an agent…</option>
+            {unassignedRoster.map((a) => (
+              <option key={a.agentRootId} value={a.agentRootId}>
+                {a.displayName}{a.isSystem ? " (system · admin)" : ""}
+              </option>
+            ))}
+          </select>
+        )}
 
-        {/* Slot 3 */}
-        <SlotCard
-          slotNumber={3}
-          title="Delegate 3"
-          agent={slot3}
-          assignable={assignableFor(3)}
-          onAssign={(a) => { setSlot3(a); setSelectedAgent(a); }}
-          onClear={() => { setSlot3(null); if (selectedAgent?.agentRootId === slot3?.agentRootId) setSelectedAgent(null); }}
-        />
+        {unassignedRoster.length === 0 && assignedAgentsList.length === 0 && !assignmentsLoading && !agentsLoading && (
+          <p className="text-[11px] text-slate-500">
+            No agents bound to your citizen yet. Sponsor one from <span className="text-slate-400">Polity Passport → Apply</span>, or create your aigentMe below — then assign it here.
+          </p>
+        )}
 
-        {agentsLoading && (
-          <div className="flex items-center gap-2 text-slate-500 text-[10px]">
-            <Loader2 className="h-3 w-3 animate-spin" /> Loading agents…
-          </div>
+        {!aigentMe && (
+          <button
+            type="button"
+            onClick={handleCreateAigentMe}
+            disabled={creatingAigentMe}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+          >
+            {creatingAigentMe ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {creatingAigentMe ? "Creating…" : "Create a new aigentMe agent"}
+          </button>
         )}
 
         {!isAdmin && (
           <p className="flex items-center gap-1.5 text-[10px] text-slate-500">
             <Lock className="h-3 w-3" />
-            Delegating to system agents (Aigent Z, Aigent C-OS, Marketa, Kn0w1) is restricted to admins.
+            System agents (Aigent Z, Aigent C-OS, Marketa, Kn0w1) are admin-only.
           </p>
         )}
-
-        {/* Premium stub — simultaneous multi-delegate activation (option B) */}
-        <div className="flex items-center justify-between rounded-xl border border-slate-700/40 bg-slate-800/20 px-3 py-2.5 opacity-80">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-amber-400/70" />
-            <div>
-              <p className="text-xs font-medium text-slate-300">Activate all 3 delegates at once</p>
-              <p className="text-[10px] text-slate-500">Run multiple bounded delegations in parallel.</p>
-            </div>
-          </div>
-          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-            <Lock className="h-2.5 w-2.5" /> Premium — coming soon
-          </span>
-        </div>
       </div>
 
       {/* Injection warning banner */}
@@ -803,7 +940,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           {delegationAgentDid && (() => {
             const allAgents = [
               ...(aigentMe ? [aigentMe] : []),
-              ...otherAgents,
+              ...pooledOtherAgents,
               ...PLATFORM_AGENTS,
             ];
             const matched = allAgents.find((a) => a.agentRootId === delegationAgentDid || a.didUri === delegationAgentDid);

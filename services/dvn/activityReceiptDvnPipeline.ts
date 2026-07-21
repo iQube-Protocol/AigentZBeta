@@ -70,6 +70,10 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // are the verified-progress provenance the grounded progress report reads.
   'operator_action_logged',
   'standing_document_added',
+  // Foundational Validation Series — published experiment results carry a
+  // sha256 content commitment in the summary; anchoring makes the commitment
+  // tamper-evident (added per the permitted action-type-addition rule).
+  'experiment_result_published',
   // Standing accrual — NVA-backed outcome credit anchored for audit trail
   'standing_accrued',
   // Autonomous agent delegation lifecycle — provenance of who was delegated what
@@ -88,6 +92,48 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // Consequence Operating Model (Phase 3) — forecast + flywheel evolution
   'consequence_forecast_recorded',
   'knowledge_evolved',
+  'experience_render_validated',
+  'implementation_pack_generated',
+  // DCC implementation dispatch — the platform initiated implementation via
+  // Claude Code in CI; anchoring the initiation record makes the development
+  // provenance chain (pack → dispatch → PR → merge) tamper-evident. Added per
+  // the permitted action-type-addition rule.
+  'implementation_dispatched',
+  'deployment_proposed',
+  // Constitutional Development Environment (CFS-020 CDE) — constitutional
+  // consequence-test + remediation + deployment-authorization provenance.
+  'constitutional_validation_recorded',
+  'remediation_recorded',
+  'deployment_authorized',
+  // Merge validation-gate override — an unvalidated deploy authorized by an
+  // admin with a stated reason; anchoring makes the override tamper-evident
+  // (added per the permitted action-type-addition rule).
+  'validation_override_granted',
+  // Constitutional Acceptance (CFS-032 §4/§5, 2026-07-16) — a shipped
+  // capability admitted into the Capability Registry (the capability-level
+  // equivalent of constitutional ratification), and its Standing-accrual
+  // trigger (operational evidence in production). Anchoring makes the
+  // acceptance + accrual chain tamper-evident. Added per the permitted
+  // action-type-addition rule.
+  'capability_registered',
+  'capability_operationally_validated',
+  'research_lifecycle_transition',
+  // Artifact Runtime (CFS-025 Phase 2) — a constitutional-tier artifact was
+  // PUBLISHED; anchoring makes the publication commitment tamper-evident.
+  'artifact_published',
+  // Invariant Engine ratification (CFS-035 §11) — an Invariant Decision Node was
+  // flipped shadow↔authoritative. The runtime now serves the projection (or
+  // reverts); anchoring makes the operator-gated ratification tamper-evident.
+  // Added per the permitted action-type-addition rule (operator-approved).
+  'invariant_node_flipped',
+  // Constitutional Agreement (CRP-003a N1 / CFI-002, 2026-07-17) — formation/
+  // acceptance + authorization of a pre-execution agreement binding
+  // intent→agent→authority. DVN is the constitutional anchor of record (x409/
+  // Consenti is the acceptance-proof provider). Anchoring makes the agreement
+  // trail tamper-evident. Added per the permitted action-type-addition rule
+  // (operator-approved 2026-07-17).
+  'agreement_formed',
+  'agreement_authorized',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

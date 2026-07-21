@@ -27,6 +27,14 @@ export interface WorldIdProofBundle {
   merkle_root: string;
   nullifier_hash: string;
   verification_level: 'orb' | 'device';
+  /**
+   * The signal the proof was generated against (2026-07-19 fix). When the
+   * widget is given a `signal` prop, IDKit bakes hashToField(signal) into
+   * the proof's public inputs — the server MUST send the matching
+   * signal_hash to the Cloud Verifier or the proof is rejected. Threading
+   * it through the bundle is what makes that possible.
+   */
+  signal?: string;
 }
 
 interface Props {
@@ -44,6 +52,13 @@ interface Props {
   disabled?: boolean;
   /** Busy/loading state. */
   busy?: boolean;
+  /**
+   * Minimum verification level. `VerificationLevel.Device` (default) accepts a
+   * device OR orb proof — device is the lower grade, orb the higher. Pass
+   * `VerificationLevel.Orb` to require orb-only. The server records which level
+   * the proof actually carried, so grade follows the proof.
+   */
+  minVerificationLevel?: VerificationLevel;
 }
 
 const PUBLIC_APP_ID = process.env.NEXT_PUBLIC_WORLD_ID_APP_ID;
@@ -57,6 +72,7 @@ export function WorldIdButton({
   label = 'Verify with World ID',
   disabled,
   busy,
+  minVerificationLevel = VerificationLevel.Device,
 }: Props) {
   const [internalBusy, setInternalBusy] = useState(false);
   const isBusy = busy || internalBusy;
@@ -69,12 +85,13 @@ export function WorldIdButton({
         merkle_root: '0x0',
         nullifier_hash: `0x${Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64)}`,
         verification_level: 'orb',
+        ...(signal ? { signal } : {}),
       };
       await onProof(devProof);
     } finally {
       setInternalBusy(false);
     }
-  }, [onProof]);
+  }, [onProof, signal]);
 
   const handleSuccess = useCallback(
     async (result: ISuccessResult) => {
@@ -85,13 +102,14 @@ export function WorldIdButton({
           merkle_root: result.merkle_root,
           nullifier_hash: result.nullifier_hash,
           verification_level: result.verification_level === VerificationLevel.Orb ? 'orb' : 'device',
+          ...(signal ? { signal } : {}),
         };
         await onProof(proof);
       } finally {
         setInternalBusy(false);
       }
     },
-    [onProof],
+    [onProof, signal],
   );
 
   // Dev fallback path — no app id configured. Server-side verifyWorldIdProof
@@ -122,7 +140,7 @@ export function WorldIdButton({
       app_id={PUBLIC_APP_ID as `app_${string}`}
       action={action ?? PUBLIC_ACTION_ID}
       signal={signal}
-      verification_level={VerificationLevel.Orb}
+      verification_level={minVerificationLevel}
       onSuccess={handleSuccess}
     >
       {({ open }) => (

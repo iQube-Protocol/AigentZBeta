@@ -6,8 +6,10 @@ import { idlFactory as evmIdl } from '@/services/ops/idl/evm_rpc';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
 import { idlFactory as rqhIdl } from '@/services/ops/idl/rqh';
 import { idlFactory as rewardHubIdl } from '@/services/ops/idl/reward_hub';
+import { recordServerCall } from '@/services/devCommandCenter/requestTelemetry';
 
 export async function GET() {
+  const t0 = Date.now();
   try {
     // Base env ids
     const POS_ID = (process.env.PROOF_OF_STATE_CANISTER_ID || process.env.NEXT_PUBLIC_PROOF_OF_STATE_CANISTER_ID) as string;
@@ -86,7 +88,7 @@ export async function GET() {
       details: DVN_ID ? `id: ${DVN_ID}` : 'not configured',
     };
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       ok: canisters.ok,
       canisters: {
         ...canisters,
@@ -112,6 +114,8 @@ export async function GET() {
       dvn,
       at: new Date().toISOString(),
     });
+    recordServerCall({ method: 'GET', path: '/api/ops/canisters/health', status: 200, ms: Date.now() - t0 });
+    return res;
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Failed to load canister health' }, { status: 500 });
   }

@@ -133,9 +133,21 @@ function seedOrdinal(invariant: InvariantRecord): number {
 
 /**
  * CFS-012 §4 — narrative beats are sequential and never round-robin.
- * Segment i (of N) renders the beat at arc-position floor(i * beatCount / N),
- * so the fixed story order is preserved regardless of how segment count and
- * beat count relate (compressing beats together, never reordering them).
+ * Segment i (of N) renders the beat at the ENDPOINT-ANCHORED arc position
+ * round(i * (beatCount-1) / (N-1)): the first segment always renders the
+ * opening beat and the last segment always renders the closing beat, with
+ * interior beats compressed or stretched proportionally in between — order
+ * always preserved (the position is monotonic in i), never reordered.
+ *
+ * Fix 2026-07-04 (found by the Coherence Engine on EXP-002's first
+ * production brief): the previous floor(i * beatCount / N) mapping dropped
+ * the TERMINAL beat whenever beatCount > segmentCount (5 beats → 4 segments
+ * rendered N-001..N-004 and the transformation never resolved). CFS-014's
+ * narrative validator flagged "arc does not close on the last beat" — a
+ * fixed arc must sacrifice interior beats before its resolution.
+ *
+ * Degenerate case: a single segment renders the opening beat (an arc cannot
+ * traverse in one segment; the coherence validator will warn, honestly).
  */
 function mapNarrativeToSegments(
   narrativeInvariants: InvariantRecord[],
@@ -143,8 +155,9 @@ function mapNarrativeToSegments(
 ): (InvariantRecord | null)[] {
   if (narrativeInvariants.length === 0) return Array.from({ length: segmentCount }, () => null);
   const ordered = [...narrativeInvariants].sort((a, b) => seedOrdinal(a) - seedOrdinal(b));
+  if (segmentCount === 1) return [ordered[0]];
   return Array.from({ length: segmentCount }, (_, i) =>
-    ordered[Math.floor((i * ordered.length) / segmentCount)],
+    ordered[Math.round((i * (ordered.length - 1)) / (segmentCount - 1))],
   );
 }
 

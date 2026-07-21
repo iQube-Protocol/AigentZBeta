@@ -17,7 +17,11 @@ import { getPDFExtractionService, type PDFExtractionResult, type TextChunk } fro
 // Types
 // ============================================================================
 
-export type ContentDomain = 'metaKnyts' | 'qriptopian';
+// 'homecoming' is the operator's Constitutional Knowledge Repository (CFS-023
+// Knowledge Homecoming) — imported memory/exports/PRDs, kept in its own domain
+// so it never mixes with metaKnyts/qriptopian content. The domain column is
+// VARCHAR(50) with no CHECK, so this is a pure type widening (no migration).
+export type ContentDomain = 'metaKnyts' | 'qriptopian' | 'homecoming';
 export type DocumentSourceType = 'pdf' | 'episode' | 'character' | 'lore' | 'article';
 export type ExtractionStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type EntityType = 'character' | 'location' | 'organization' | 'concept' | 'item';

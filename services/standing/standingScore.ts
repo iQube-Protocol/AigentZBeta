@@ -19,6 +19,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OperatorArchetype } from '@/services/iqube/experienceQube';
+import { runValueShadow } from '@/services/invariants/engine';
+import { standingScoreProjector } from '@/services/invariants/nodes/standingScore';
 
 /** Confidence-level weights for verified facts (Standing Charter veracity). */
 const CONFIDENCE_WEIGHT: Record<string, number> = {
@@ -40,6 +42,7 @@ const ARCHETYPE_DOMAINS: Record<OperatorArchetype, string[]> = {
   technical: ['professional', 'education', 'publications', 'validation', 'extraordinary_ability'],
   creative: ['media', 'publications', 'speaking', 'recognition'],
   citizen: ['identity', 'validation', 'recognition', 'professional'],
+  research: ['publications', 'education', 'validation', 'recognition', 'professional'],
 };
 
 export const ARCHETYPE_PATHWAYS = Object.keys(ARCHETYPE_DOMAINS) as OperatorArchetype[];
@@ -194,6 +197,12 @@ export async function computeStandingScore(
     veracityScore > 0
       ? clamp(veracityScore * 0.7 + contributionScore * 0.3)
       : clamp(contributionScore);
+
+  // CFS-035 Phase 2 — the standing-score Invariant Decision Node runs in SHADOW:
+  // it re-expresses the veracity/contribution composite as a transparent value
+  // projection and emits the delta for the Evolution face. Observe-only — the
+  // served `score` is unchanged. runValueShadow never throws.
+  runValueShadow(score, standingScoreProjector({ veracityScore, contributionScore }));
 
   const bucket = Math.min(4, Math.floor(score / 25) + (score > 0 && score < 25 ? 1 : 0));
   const qualified = hasCompiledVsp || score >= QUALIFY_THRESHOLD;

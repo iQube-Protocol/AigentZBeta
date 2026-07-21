@@ -9,7 +9,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { callAnthropicJson, callOpenAiJson } from '@/services/agents/_lib/llmDraftHelper';
+import { stripJsonFences } from '@/services/agents/_lib/llmDraftHelper';
+import { callSovereign } from '@/services/constitutional/modelRouter';
 
 export const STANDING_GRAPH_SYSTEM = `You are a capability graph builder for the Verified Standing Profile system.
 
@@ -78,8 +79,12 @@ export async function buildStandingGraph(
 
   const userPrompt = `Build a Standing Asset Graph from these verified facts:\n\n${JSON.stringify(grouped, null, 2)}`;
 
-  let raw = await callAnthropicJson(STANDING_GRAPH_SYSTEM, userPrompt, 3000);
-  if (!raw) raw = await callOpenAiJson(STANDING_GRAPH_SYSTEM, userPrompt, 3000);
+  // Invariant-aware, sovereign inference (CFS-015 Phase 2): 'analysis' routes to
+  // the consequence stage (the same claude-sonnet-4-6 used here) via the
+  // ModelQube route, with the sovereign fallback ladder down to the open-weight
+  // floor on frontier outage. Fence stripping preserved.
+  const result = await callSovereign('analysis', STANDING_GRAPH_SYSTEM, userPrompt, 3000).catch(() => null);
+  const raw = result?.text ? stripJsonFences(result.text) : null;
   if (!raw) return { ok: false, status: 502, error: 'Graph generation failed' };
 
   let graph: unknown;

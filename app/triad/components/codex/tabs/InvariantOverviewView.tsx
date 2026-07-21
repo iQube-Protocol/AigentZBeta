@@ -207,9 +207,12 @@ export function InvariantOverviewView({
 }
 
 function toneClass(tone: "standing" | "reach") {
-  // Standing → purple (validation), Reach → cyan (adoption). Distinct hues so
-  // the two axes are never visually confused.
-  return tone === "standing" ? "bg-purple-500" : "bg-cyan-500";
+  // Standing → emerald (validation earned — positive), Reach → cyan
+  // (adoption). Constant positive hues, distinct so the two Law XII axes are
+  // never visually confused; magnitude is carried by fill, not colour. Matches
+  // the Browse/detail Dots palette (operator direction 2026-07-04: low
+  // standing is YOUNG, not bad — never render earned evidence in red).
+  return tone === "standing" ? "bg-emerald-500" : "bg-cyan-500";
 }
 
 function ScoreBar({ label, value, tone }: { label: string; value: number; tone: "standing" | "reach" }) {

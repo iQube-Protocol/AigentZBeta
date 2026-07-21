@@ -20,10 +20,11 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Database, Filter, ChevronRight, Loader2, AlertCircle, RefreshCw, LayoutGrid, List } from 'lucide-react';
+import { Database, Filter, ChevronRight, Loader2, AlertCircle, RefreshCw, LayoutGrid, List, Radar } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { IQubeCard } from '@/components/iqube/IQubeCard';
 import { IQubeDetailModal } from '@/components/iqube/IQubeDetailModal';
+import { FieldView } from '@/components/registry/FieldView';
 import { cartridgeViewToLegacyTemplate } from '@/services/registry/legacy/legacyAdapter';
 import type { RegistryCartridgeView } from '@/types/registry-canonical';
 
@@ -91,7 +92,7 @@ export function IQubeRegistryBrowseTab() {
   const [adminLoading, setAdminLoading] = useState<string | null>(null);
 
   // Phase C C2/C3 — view mode + shared modal mount
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'grid' | 'field'>('table');
   const [modalTemplateId, setModalTemplateId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -200,6 +201,20 @@ export function IQubeRegistryBrowseTab() {
             >
               <LayoutGrid className="w-3.5 h-3.5" /> Grid
             </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('field')}
+              className={classNames(
+                'px-2.5 py-1.5 text-xs inline-flex items-center gap-1.5 transition-colors border-l border-slate-700',
+                viewMode === 'field'
+                  ? 'bg-violet-500/20 text-violet-200'
+                  : 'bg-slate-800/40 text-slate-400 hover:text-slate-200',
+              )}
+              aria-pressed={viewMode === 'field'}
+              title="Constitutional Field — the Observatory"
+            >
+              <Radar className="w-3.5 h-3.5" /> Field
+            </button>
           </div>
           <button
             onClick={load}
@@ -211,7 +226,8 @@ export function IQubeRegistryBrowseTab() {
         </div>
       </header>
 
-      {/* Filter chips */}
+      {/* Filter chips (iQube browse only — the Field view has its own chrome) */}
+      {viewMode !== 'field' && (
       <div className="flex flex-wrap items-center gap-2">
         <Filter className="w-3.5 h-3.5 text-slate-500" />
         <button
@@ -240,16 +256,21 @@ export function IQubeRegistryBrowseTab() {
           </button>
         ))}
       </div>
+      )}
+
+      {/* Field view — the Constitutional Observatory (CFS-035 §12). Own data
+          source (the engine), independent of the iQube entries above. */}
+      {viewMode === 'field' && <FieldView />}
 
       {/* Content */}
-      {loading && (
+      {viewMode !== 'field' && loading && (
         <div className="flex items-center gap-2 text-sm text-slate-400 py-8 justify-center">
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading registry…
         </div>
       )}
 
-      {error && (
+      {viewMode !== 'field' && error && (
         <div className="flex items-start gap-2 p-3 rounded-md bg-rose-900/30 border border-rose-700/50 text-rose-200 text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <div>
@@ -262,7 +283,7 @@ export function IQubeRegistryBrowseTab() {
         </div>
       )}
 
-      {!loading && !error && entries.length === 0 && (
+      {viewMode !== 'field' && !loading && !error && entries.length === 0 && (
         <div className="text-sm text-slate-500 py-8 text-center">
           No iQubes for this filter. Run the backfill at{' '}
           <code>/api/admin/registry/backfill</code> if you expect rows.

@@ -29,6 +29,12 @@ export type ActivityActionType =
   | 'intent_queued'
   | 'specialist_consulted'
   | 'artifact_created'
+  // Artifact Runtime constitutional publication (CFS-025 Phase 2; DVN-anchorable).
+  // The one production-receipt action type: a constitutional-tier artifact was
+  // PUBLISHED (not merely created). Added to ANCHORABLE_ACTION_TYPES so the
+  // publication commitment lands in tamper-evident memory. See
+  // services/artifact/receiptReconciliation.md.
+  | 'artifact_published'
   | 'artifact_sent'
   | 'approval_granted'
   | 'approval_rejected'
@@ -78,7 +84,54 @@ export type ActivityActionType =
   // curated stays local (high volume, pre-decision).
   | 'knowledge_curated'
   | 'consequence_forecast_recorded'
-  | 'knowledge_evolved';
+  | 'knowledge_evolved'
+  | 'experience_render_validated'
+  | 'implementation_pack_generated'
+  // DCC implementation dispatch (2026-07-14) — the platform hands the generated
+  // pack to Claude Code running in CI (repository_dispatch → claude-implement
+  // workflow). Provenance that implementation was INITIATED from the platform;
+  // execution stays human at the PR-merge gate (CFS-016 D1). DVN-anchorable.
+  | 'implementation_dispatched'
+  | 'deployment_proposed'
+  // Constitutional Development Environment (CFS-020 CDE) — the three Dev
+  // Receipts classes. constitutional_validation_recorded + remediation_recorded
+  // are the Constitutional class; deployment_authorized is the Deployment class
+  // (alongside deployment_proposed). All DVN-anchorable.
+  | 'constitutional_validation_recorded'
+  | 'remediation_recorded'
+  | 'deployment_authorized'
+  // Merge validation-gate override (2026-07-14): an admin merged a pack PR
+  // WITHOUT a passing validation record, with a stated reason. The override
+  // is never silent — this receipt is the tamper-evident record of it.
+  | 'validation_override_granted'
+  // Constitutional Acceptance (CFS-032 §4, 2026-07-16): a shipped capability
+  // was admitted into the Capability Registry as a governed constitutional
+  // asset — the capability-level equivalent of constitutional ratification.
+  // capability_operationally_validated (CFS-032 §5) is the Standing accrual
+  // trigger: evidence the deployed capability actually functions in
+  // production. Both DVN-anchorable.
+  | 'capability_registered'
+  | 'capability_operationally_validated'
+  | 'research_lifecycle_transition'
+  // Foundational Validation Series — canonical result publication (Experiment
+  // Lab). Summary carries the sha256 content commitment of the results JSON;
+  // DVN-anchorable so the commitment lands in tamper-evident memory.
+  | 'experiment_result_published'
+  // Invariant Engine ratification (CFS-035 §11) — an Invariant Decision Node was
+  // flipped between shadow and authoritative (the runtime now serves its
+  // projection, or reverts to the incumbent). The ratification act is
+  // consequential + operator-gated, so it lands in tamper-evident memory.
+  // DVN-anchorable. Summary carries a sha256 commitment of the flip act.
+  | 'invariant_node_flipped'
+  // Constitutional Agreement (CRP-003a N1 / CFI-002, 2026-07-17) — the
+  // intent→agent→authority binding before delegated execution. agreement_formed
+  // fires on acceptance (the acceptance commitment + optional external anchor
+  // ride the summary); agreement_authorized fires when the requesting operator
+  // authorizes delegated execution under it (the 409 gate opens). DVN is the
+  // constitutional anchor of record; x409/Consenti is the acceptance-proof
+  // provider. Both DVN-anchorable.
+  | 'agreement_formed'
+  | 'agreement_authorized';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

@@ -86,9 +86,12 @@ export {
 export {
   buildInvariantSlice,
   citeInvariants,
+  initializeKnowledge,
   type GroundingContext,
   type InvariantSlice,
   type InvariantSliceItem,
+  type KnowledgeManifest,
+  type KnowledgeNode,
 } from './grounding';
 
 export {

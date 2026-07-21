@@ -23,6 +23,7 @@ import {
   selectTopNbeForCartridge,
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
+import { listRecentIntentsForPersona } from '@/services/iqube/intentQube';
 import { getConnectionStatuses, type GoogleSource } from '@/services/google/oauth';
 import { inferStrategy } from '@/services/strategy/strategyInference';
 import { evaluateStageProgression } from '@/services/strategy/stageProgression';
@@ -53,6 +54,53 @@ async function readConnectedWorkspaceSources(personaId: string): Promise<GoogleS
   } catch {
     return [];
   }
+}
+
+/** How far back a completed intent suppresses its matching NBE candidate. */
+const COMPLETED_INTENT_LOOKBACK_MS = 72 * 60 * 60 * 1000;
+
+/**
+ * Observer awareness (the AR/CPS rule, operator report 2026-07-14: the
+ * brief / move-forward kept re-recommending actions just completed): the
+ * names of intents this persona COMPLETED recently. Fed into NBE selection
+ * (matching candidates drop out of the pool) and into the rerank's
+ * liveContext (so contextual titles + the top-action reason acknowledge
+ * what is already done instead of asserting it as new work). Tolerant —
+ * failures return [] and the recommendation degrades to its pre-observer
+ * baseline rather than failing the surface.
+ */
+async function readRecentlyCompletedIntentNames(personaId: string): Promise<string[]> {
+  try {
+    const intents = await listRecentIntentsForPersona(personaId, { limit: 20 });
+    const cutoff = Date.now() - COMPLETED_INTENT_LOOKBACK_MS;
+    return intents
+      .filter((i) => i.status === 'completed' && Date.parse(i.createdAt) >= cutoff)
+      .map((i) => i.intentName)
+      .filter((n): n is string => typeof n === 'string' && n.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fold the observed completion state into the rerank's liveContext. The
+ * completion block goes FIRST so it survives the rerank prompt's 600-char
+ * liveContext cap even when a preflight summary is long. Pure.
+ */
+function foldCompletedIntoLiveContext(
+  liveContext: string | null | undefined,
+  recentlyCompletedNames: string[],
+): string | null {
+  const completedBlock =
+    recentlyCompletedNames.length > 0
+      ? `Recently completed by the operator (observed from the IntentQube record — do NOT re-recommend these; acknowledge them and pick the next move):\n${recentlyCompletedNames
+          .map((n) => `- ${n}`)
+          .join('\n')}`
+      : null;
+  const parts = [completedBlock, liveContext].filter(
+    (s): s is string => typeof s === 'string' && s.trim().length > 0,
+  );
+  return parts.length > 0 ? parts.join('\n\n') : null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -184,7 +232,7 @@ function buildGuidanceNote(
 
 export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   const adminClient = getSupabaseServer();
-  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan] = await Promise.all([
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan, recentlyCompletedNames] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
@@ -196,6 +244,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     adminClient
       ? getPersonaPlan(adminClient, input.personaId).catch(() => null)
       : Promise.resolve(null),
+    readRecentlyCompletedIntentNames(input.personaId),
   ]);
   const modelOverride = getPlanModelId(personaPlan);
 
@@ -240,6 +289,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         experienceGoals,
         stageAdvanceEligible,
         spineStagesComplete,
+        recentlyCompletedNames,
       })
     : selectNbeCandidates({
         activeCartridges,
@@ -249,6 +299,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         experienceGoals,
         stageAdvanceEligible,
         spineStagesComplete,
+        recentlyCompletedNames,
       });
 
   const rerank = await llmRerankNbeCandidates(nbeCandidates, {
@@ -258,7 +309,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     experienceGoals,
     strategy,
     operatorArchetype: qube?.meta.operatorArchetype ?? null,
-    liveContext: input.liveContext ?? null,
+    liveContext: foldCompletedIntoLiveContext(input.liveContext, recentlyCompletedNames),
     modelOverride,
   });
   nbeCandidates = rerank.ranked;
@@ -357,7 +408,7 @@ export async function buildMoveForward(input: {
   liveContext?: string | null;
 }): Promise<MoveForwardShape> {
   const adminClient = getSupabaseServer();
-  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan] = await Promise.all([
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan, recentlyCompletedNames] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
@@ -369,6 +420,7 @@ export async function buildMoveForward(input: {
     adminClient
       ? getPersonaPlan(adminClient, input.personaId).catch(() => null)
       : Promise.resolve(null),
+    readRecentlyCompletedIntentNames(input.personaId),
   ]);
   const modelOverride = getPlanModelId(personaPlan);
 
@@ -404,6 +456,7 @@ export async function buildMoveForward(input: {
       experienceGoals,
       stageAdvanceEligible,
       spineStagesComplete,
+      recentlyCompletedNames,
     });
     altsRaw = selectNbeCandidates({
       activeCartridges,
@@ -414,6 +467,7 @@ export async function buildMoveForward(input: {
       experienceGoals,
       stageAdvanceEligible,
       spineStagesComplete,
+      recentlyCompletedNames,
     }).filter((c) => c.id !== topCandidate?.id);
   } else {
     const baseline = selectNbeCandidates({
@@ -424,6 +478,7 @@ export async function buildMoveForward(input: {
       experienceGoals,
       stageAdvanceEligible,
       spineStagesComplete,
+      recentlyCompletedNames,
     });
     const rerank = await llmRerankNbeCandidates(baseline, {
       currentStage,
@@ -432,7 +487,7 @@ export async function buildMoveForward(input: {
       experienceGoals,
       strategy,
       operatorArchetype: qube?.meta.operatorArchetype ?? null,
-      liveContext: input.liveContext ?? null,
+      liveContext: foldCompletedIntoLiveContext(input.liveContext, recentlyCompletedNames),
       modelOverride,
     });
     topCandidate = rerank.ranked[0] ?? null;

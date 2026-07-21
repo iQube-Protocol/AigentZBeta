@@ -22,16 +22,50 @@ const nextConfig = {
   // those at runtime. If canvas/sharp ever fail at runtime with a "module not
   // found" for a platform binary, the runtime moved off glibc — revisit here.
   outputFileTracingExcludes: {
+    // The agentiq/updates changelog is 2.8 MB across 250+ CFS/PRD session
+    // docs and grows every deploy. It is traced into THREE Lambdas — both
+    // copilot chat routes (via the codexes/packs/agentiq/**/*.md include) AND
+    // /api/admin/registry/docs. Shipping the full change-log into the two
+    // size-capped copilot Lambdas is what re-tipped the output past the
+    // 230686720-byte cap (2026-07-20) — same class as the build_/COMMITS
+    // exclusion below. Drop it from the copilot chat routes ONLY: the copilot
+    // still grounds on the agentiq ITEMS (product knowledge); it just no
+    // longer searches the session change-log. The Updates tab keeps working —
+    // /api/admin/registry/docs still traces updates/**/*.md (not excluded here).
+    "/api/codex/chat": ["codexes/packs/agentiq/updates/**"],
+    "/api/codex/chat/aigentiq": ["codexes/packs/agentiq/updates/**"],
     "*": [
       // musl native binaries — Lambda is glibc, never loads these (~48 MB)
       "node_modules/@napi-rs/canvas-linux-x64-musl/**",
       "node_modules/@img/sharp-libvips-linuxmusl-x64/**",
       "node_modules/@img/sharp-linuxmusl-x64/**",
+      // Next's own SWC native compiler — standalone traces BOTH the glibc and
+      // musl prebuilt binaries; Amazon Linux (glibc) loads the gnu copy and
+      // never the musl one (~40 MB). Dropping it is the same safe move as the
+      // canvas/sharp musl excludes above and reclaims the headroom that tipped
+      // the 2026-07-19 build past the 230686720-byte output cap. If SWC ever
+      // fails to load at runtime, the runtime moved off glibc — revisit here.
+      "node_modules/@next/swc-linux-x64-musl/**",
+      "node_modules/@swc/core-linux-x64-musl/**",
       // Build-time-only deps Next conservatively traces but the runtime never
       // executes: the TypeScript compiler (no runtime import in this app) and
       // browserslist's caniuse-lite data. ~11 MB more headroom under the limit.
       "node_modules/typescript/**",
       "node_modules/caniuse-lite/**",
+      // Auto-generated deploy-trigger commit briefs (~8 MB, 1900+ files and
+      // growing every deploy). They are bundled by the codexes-pack tracing
+      // include below, but the copilot skips them by default
+      // (exclude_deploy_triggers in app/(shell)/copilot/actions/agentiq-codex.ts),
+      // and a missing file is simply skipped at read time (readCodexFile → null).
+      // Shipping build-log metadata in the size-capped SSR Lambda is what tipped
+      // the output past the 230686720-byte hard cap (2026-07-17). Excluded here,
+      // same philosophy as the typescript/caniuse entries above.
+      "codexes/packs/aigency/items/build_/COMMITS/**",
+      // The auto-generated build changelog — same build-log class as COMMITS
+      // above (grows every deploy; 374KB on 2026-07-20 when the output tipped
+      // the cap by ~194KB). Same safety: a missing pack file is skipped at
+      // read time; no surface depends on shipping it inside the Lambda.
+      "codexes/packs/aigency/items/build_/changelog.md",
     ],
   },
   // Promoted from experimental in Next 15 — these entries carry the codex-pack
@@ -40,6 +74,20 @@ const nextConfig = {
   // the top level (Next 15 ignores experimental.outputFileTracingIncludes).
   outputFileTracingIncludes: {
     "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
+    // EXP-001 evaluation step API reads the Living KnowledgeQube artifact
+    // markdown at runtime (services/experiments/exp001.ts). Without this the
+    // Lambda ships without the files and every 'answers' step 500s.
+    "/api/experiments/exp001": [
+      "./codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube/*.md",
+    ],
+    // NOTE: an attempt to trace ffmpeg-static's binary (~70-80MB) into the
+    // stitch/status routes here (2026-07-05) pushed the Amplify build output
+    // past its 220 MiB hard cap (230686720 bytes) and broke ALL deploys —
+    // reverted same day. The bundle-size-safe fix now lives in
+    // app/api/skills/video/_thumbnail.ts:getFfmpegPath — the binary is
+    // fetched into /tmp on first use (ffmpeg-static's own pinned release,
+    // gzipped) and cached per container. Do not re-add a trace entry for
+    // ffmpeg-static here.
     // Stage 8+ docs tab — markdown reader serves the legibility profile
     // (docs/) + the PRD trail (codexes/packs/agentiq/updates/). Without
     // these the Lambda bundle ships without the .md files and the route
@@ -62,6 +110,10 @@ const nextConfig = {
       "./codexes/packs/aigency/**/*.json",
       "./codexes/packs/agentiq/**/*.md",
       "./codexes/packs/agentiq/**/*.json",
+      // Canonical Ontology Service (CFS-015) parses the terminology canon at
+      // runtime; without this the resolver silently falls back to its
+      // built-in mirror.
+      "./docs/platform-ontology.md",
     ],
     "/api/codex/chat/aigentiq": [
       "./codexes/packs/aigency/**/*.md",

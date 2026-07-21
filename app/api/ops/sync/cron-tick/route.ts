@@ -28,6 +28,7 @@ import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as posIdl } from '@/services/ops/idl/proof_of_state';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { isBitcoinTxid } from '@/services/ops/btcExplorer';
 import { tickChainAdvances, type ChainTickSummary } from '@/services/intentChains/cronAdvance';
 
 export const runtime = 'nodejs';
@@ -48,7 +49,11 @@ interface TickResult {
   drift_after: number;
   duration_ms: number;
   batch_id?: string;
+  /** ONLY ever a real 64-hex Bitcoin txid — status strings are forbidden
+   * here (they polluted anchor_history; see the 2026-07-06 audit). */
   anchor_txid?: string;
+  /** The canister anchor() status text, kept when it was NOT a txid. */
+  anchor_status_text?: string;
   receipt_count?: number;
   error?: string;
   config: AnchorConfig;
@@ -251,6 +256,25 @@ export async function POST(request: NextRequest) {
     const batchResult = await pos.batch_now();
     const anchorResult = await pos.anchor();
 
+    // anchor() returns a STATUS TEXT (per get_anchor_status semantics), not
+    // necessarily a Bitcoin txid — persisting it blindly polluted
+    // anchor_history.anchor_txid with non-txid strings (2026-07-06 audit).
+    // Persist it only when txid-shaped; otherwise best-effort read the real
+    // btc_anchor_txid back from the latest batch.
+    const anchorText = typeof anchorResult === 'string' ? anchorResult : String(anchorResult);
+    let anchorTxid: string | undefined = isBitcoinTxid(anchorText) ? anchorText : undefined;
+    if (!anchorTxid) {
+      try {
+        const batches = await pos.get_batches();
+        const latest = Array.isArray(batches) && batches.length > 0 ? batches[batches.length - 1] : null;
+        const raw = latest?.btc_anchor_txid;
+        const candidate = Array.isArray(raw) ? raw[0] : raw;
+        if (isBitcoinTxid(candidate)) anchorTxid = candidate;
+      } catch {
+        /* best-effort — anchor_txid stays unset rather than polluted */
+      }
+    }
+
     // Read drift after
     const [posAfter, dvnAfter] = await Promise.all([
       pos.get_pending_count().catch(() => BigInt(0)),
@@ -266,7 +290,8 @@ export async function POST(request: NextRequest) {
       drift_after: driftAfter,
       duration_ms: Date.now() - tickStart,
       batch_id: typeof batchResult === 'string' ? batchResult : String(batchResult),
-      anchor_txid: typeof anchorResult === 'string' ? anchorResult : String(anchorResult),
+      anchor_txid: anchorTxid,
+      anchor_status_text: anchorTxid ? undefined : anchorText,
       receipt_count: posCount,
       config,
       at: new Date().toISOString(),

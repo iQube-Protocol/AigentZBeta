@@ -1,0 +1,108 @@
+# Findings Report — sequential + coherent composition (dogfooding EXP-002)
+
+**Date:** 2026-07-20 · **Area:** IRL Research Laboratory → Outputs → Report
+**Files:** `components/composer/ExperimentReportTab.tsx`, `services/research/reportComposition.ts`, `tests/report-composition.test.ts`
+
+## Problem (operator)
+
+The lab-generated Findings Report read as **incoherent**: it narrated EXP-001/002/003,
+jumped to EXP-006, then dumped EXP-004 / IPV-001 / IRV-001 into a §10 "Additional
+experiments" tail — **out of numeric order, and with EXP-005 missing entirely**. It was
+"an appended document", not a coherent sequential report. The operator's instruction: use
+the platform's own **coherence + sequencing invariants** (the ones EXP-002 validated) so the
+generator produces one ordered, coherent document — the introduction a comprehensive
+reflection of all experiments to date, the body sequenced by experiment.
+
+This is a self-application: the report generator was itself committing the **sequencing
+failure** EXP-002 studied ("sequence is scored, not validated"; composition obeys a
+sequential narrative law + a global coherence field).
+
+## Fix — compose along the canonical registry spine
+
+Both composition paths now sequence off the pinned `EXPERIMENT_REGISTRY` + `SERIES_REGISTRY`
+(`types/research.ts`) instead of hardcoded sections + an auto-tail.
+
+**Live draft (`ExperimentReportTab.buildReport`) — deterministic:**
+- **Sequential composition:** experiments emitted in canonical registry order, grouped under
+  their series (FVS → PSE → IIVS → IV0 → …). No `§10` tail — every experiment sits in its
+  canonical slot. Section numbers are computed dynamically (the count varies with the record).
+- **Global coherence:** the introduction is a generated **programme map** of every series +
+  its members' live status, from the same registry+record that drives the body — intro and
+  body can no longer drift. The frozen "three orthogonal experiments" preamble is gone.
+- **No silent gaps:** an experiment that is run-complete but unpublished (e.g. **EXP-005**)
+  appears in its correct slot as *publication pending* rather than vanishing. EXP-005 now
+  renders at §7, between EXP-004 (§6) and EXP-006 (§8).
+- **No data loss:** a published run whose id is outside the registry is still shown, in
+  sequence, under a labelled "Further experiments" block — the registry drives *order*, never
+  suppression of real canonical evidence.
+- Authored prose retained for EXP-001/002/003/006; EXP-004/005 given proper authored aims
+  from their READMEs; instrument-validation runs (IRV/IPV) get a framed section from their
+  registry hypothesis rather than a bare table dump.
+- Title generalised to "The metaMe Invariant Research Lab — Findings Report" (matches the
+  canonical scope title) since the report now spans several series, not just the FVS.
+
+**Canonical regenerate (`composeCanonicalReport`) — made DETERMINISTIC (addendum 2026-07-20):**
+The first version routed the canonical regenerate through a sovereign LLM
+(`callSovereign`) to rewrite the whole report. On dev it exceeded the ~30s gateway envelope
+and returned **HTTP 504 with an empty body**, so no new version was ever persisted —
+"Regenerate canonical report" appeared to do nothing and the canonical version stayed stale.
+
+Fix: extract the deterministic composer into a shared pure module
+`services/research/findingsReportComposer.ts` (`composeFindingsReport`) and use it from BOTH
+the live-draft tab AND `composeCanonicalReport`. The canonical regenerate no longer calls a
+model — it composes the exact same coherent, sequential report instantly from the
+`experiment_results` record, hashes it, and persists the next version. There is now ONE
+composition of record (no client/server drift). `gatherFindings` / `buildFindingsGrounding`
+remain (canaried) as the honest findings manifest; the `sovereignty` descriptor on a canonical
+version now reads `provider: deterministic · model: findings-report-composer`. Per-row DVN
+column defaults to `local` in the snapshot; the report *version* carries the DVN-anchorable
+publication receipt as before.
+
+## Verification
+
+- Executed the `buildReport` composition logic against the operator's real published set
+  (EXP-001/002/003/004/006 + IPV-001 + IRV-001, plus a synthetic orphan): numbering 1→N with
+  no gaps, series in canonical order, EXP-005 at §7 between EXP-004 and EXP-006, orphan
+  preserved under "Further experiments".
+- `tests/report-composition.test.ts` extended with canaries for the pending-in-sequence
+  behaviour and the "CANONICAL SEQUENCE / no appended tail" grounding contract.
+- `tests/findings-report-composer.test.ts` (new) pins the shared composer directly:
+  EXP-005 in-slot as publication-pending between EXP-004 and EXP-006, canonical series order,
+  contiguous 1→N section numbering, no appended "Additional experiments" tail, orphan runs
+  under "Further experiments", and empty-record safety.
+- Type-check + full canary suite run in CI (node_modules is not provisioned in the session
+  sandbox).
+
+## Aletheon review corrections (addendum 2026-07-20)
+
+Applied to the shared composer (`findingsReportComposer.ts`) + registry:
+
+- **EXP-003 renamed Computational Efficiency → Reasoning Economics** (registry
+  `family`, dashboard label, authored body). The 26.7% token result is reframed
+  as the *first foundational run* of a broader reasoning-economics programme
+  (grounding, token cost, contradictions, curation, breadth, retrieval strategy,
+  merit weighting).
+- **"validated" softened** — the programme map now reads "**supported** —
+  canonical internal run complete" for the science series (FVS/PSE/IIVS) and
+  keeps "**operationally validated**" only for the instrument-validation series
+  (IV0), avoiding the external-reader implication of independent/publication-grade
+  validation.
+- **`dvn_failed` explained** — a sentence in the Trust model clarifies it means
+  the local hash-verifiable result was written but external anchoring is pending
+  remediation, never experimental invalidity.
+- **Invariant primitive reformulated** — "a versioned, provenance-bearing
+  knowledge claim governed through a validation lifecycle" (primitive distinct
+  from maturity state); "validated and canonical invariants may be curated into
+  reasoning substrates."
+- **Curation-dominates-accumulation** added as an explicit *emerging* cross-cutting
+  finding (curated sets beat unearned breadth; breadth without merit weighting
+  adds cost without gain) — connects the science to the iQube proposition,
+  flagged as pending the breadth-arm's canonical publication.
+- EXP-005's section already carries the corrected five-class taxonomy + two axes
+  (constitutional portability / operational viability) from the instrument fix.
+
+## Doctrine
+
+The report is now composed under the same law it reports on: its section order is the
+coherence maximum over the experiment set (EXP-002). The composition note in the report header
+states this explicitly.

@@ -150,7 +150,7 @@ export function InvariantDetailModal({
                   Standing <span className="text-slate-600">(validation-class only — Law XII)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Dots value={invariant.standing / 10} kind="reliability" title="Standing" />
+                  <Dots value={invariant.standing / 10} colorClass="text-emerald-400" title="Standing" />
                   <span className="text-sm text-slate-300">{invariant.standing.toFixed(1)}</span>
                 </div>
               </div>
@@ -159,7 +159,7 @@ export function InvariantDetailModal({
                   Reach <span className="text-slate-600">(adoption-class only — Law XII)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Dots value={invariant.reach / 10} kind="trust" title="Reach" />
+                  <Dots value={invariant.reach / 10} colorClass="text-cyan-400" title="Reach" />
                   <span className="text-sm text-slate-300">{invariant.reach.toFixed(1)}</span>
                 </div>
               </div>

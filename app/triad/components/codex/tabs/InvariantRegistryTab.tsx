@@ -47,7 +47,16 @@ const VIEW_TABS: { id: BrowserView; label: string; icon: React.ComponentType<{ c
 
 const PAGE_SIZE = 24;
 
-export function InvariantRegistryTab() {
+/**
+ * publicMode (IRL OS, CFS-033 §8): anonymous-safe read-only variant. Fetches
+ * the Browse list from the PUBLIC route (`/api/public/irl/invariants`, no
+ * token) instead of the spine-gated `/api/invariants`, restricts the surface
+ * to the Browse view (the Overview/Ontology/Graph sub-views hit spine-gated
+ * routes not yet given public projections), and disables the detail modal
+ * (which fetches the gated per-id route). The internal cartridge's tab
+ * (publicMode omitted) is byte-for-byte unchanged.
+ */
+export function InvariantRegistryTab({ publicMode = false }: { publicMode?: boolean } = {}) {
   const [view, setView] = useState<BrowserView>("browse");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -80,7 +89,11 @@ export function InvariantRegistryTab() {
       if (status) params.set("status", status);
       if (ontologyClassId) params.set("ontology", ontologyClassId);
       if (search) params.set("q", search);
-      const res = await personaFetch(`/api/invariants?${params.toString()}`, { cache: "no-store" });
+      // Public read: plain fetch at the anonymous public route (no token).
+      // Internal: spine-gated personaFetch, unchanged.
+      const res = publicMode
+        ? await fetch(`/api/public/irl/invariants?${params.toString()}`, { cache: "no-store" })
+        : await personaFetch(`/api/invariants?${params.toString()}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load invariants");
       setRows(data.invariants as InvariantRow[]);
@@ -90,7 +103,7 @@ export function InvariantRegistryTab() {
     } finally {
       setLoading(false);
     }
-  }, [namespace, status, ontologyClassId, search]);
+  }, [namespace, status, ontologyClassId, search, publicMode]);
 
   // Only fetch the browse list while the Browse view is active.
   useEffect(() => {
@@ -135,13 +148,16 @@ export function InvariantRegistryTab() {
       <div>
         <h2 className="text-lg font-semibold text-slate-100">Invariant Registry</h2>
         <p className="text-sm text-slate-400 mt-1">
-          The live constitutional substrate (CFS-001..014). Standing (validated confidence) and Reach
-          (adoption) are orthogonal and never conflated (Law XII).
+          The live constitutional substrate. The namespace chips below count invariants per namespace
+          (all statuses, not a standing-filtered subset). Standing (validated confidence) and Reach
+          (adoption) are orthogonal and never conflated (Law XII) — a newly-canonized invariant begins
+          at Standing 0 and Reach 0 until it is validated and adopted in use.
         </p>
       </div>
 
-      {/* View switcher */}
-      <div className="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/50 p-1 w-fit">
+      {/* View switcher — Browse only in public mode (other views need
+          spine-gated routes not yet given public projections). */}
+      <div className={`flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/50 p-1 w-fit ${publicMode ? "hidden" : ""}`}>
         {VIEW_TABS.map((t) => {
           const Icon = t.icon;
           return (
@@ -278,8 +294,8 @@ export function InvariantRegistryTab() {
                   </div>
                   <p className="text-sm text-slate-200 line-clamp-3">{inv.statement}</p>
                   <div className="mt-2 flex items-center gap-4">
-                    <Dots value={inv.standing / 10} kind="reliability" title="Standing" size="xs" />
-                    <Dots value={inv.reach / 10} kind="trust" title="Reach" size="xs" />
+                    <Dots value={inv.standing / 10} colorClass="text-emerald-400" title="Standing" size="xs" />
+                    <Dots value={inv.reach / 10} colorClass="text-cyan-400" title="Reach" size="xs" />
                   </div>
                 </button>
               ))}
@@ -319,10 +335,10 @@ export function InvariantRegistryTab() {
                         </span>
                       </td>
                       <td className="px-3 py-2">
-                        <Dots value={inv.standing / 10} kind="reliability" title="Standing" size="xs" />
+                        <Dots value={inv.standing / 10} colorClass="text-emerald-400" title="Standing" size="xs" />
                       </td>
                       <td className="px-3 py-2">
-                        <Dots value={inv.reach / 10} kind="trust" title="Reach" size="xs" />
+                        <Dots value={inv.reach / 10} colorClass="text-cyan-400" title="Reach" size="xs" />
                       </td>
                     </tr>
                   ))}
@@ -345,7 +361,7 @@ export function InvariantRegistryTab() {
         </>
       )}
 
-      {selectedId && (
+      {selectedId && !publicMode && (
         <InvariantDetailModal invariantId={selectedId} onClose={() => setSelectedId(null)} />
       )}
     </div>

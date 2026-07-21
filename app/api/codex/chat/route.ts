@@ -15,7 +15,7 @@
  * - Qriptopian (Qriptopian Codex) - MoneyPenny persona
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getEmbeddingService } from '@/services/content/embeddingService';
 import {
@@ -29,12 +29,47 @@ import {
   type ComposerSessionContext,
 } from '@/services/copilot/composer';
 import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experienceQube';
+import { listRecentIntentsForPersona } from '@/services/iqube/intentQube';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
-import { buildStageInstructionBlock, extractStageProposals } from '@/services/devCommandCenter/stageOrchestrator';
+import {
+  buildStageInstructionBlock,
+  extractStageProposals,
+  detectRequestedStage,
+  looksLikeUnfulfilledProposalPromise,
+  STAGE_PROPOSAL_KIND,
+  type StageProposalKind,
+} from '@/services/devCommandCenter/stageOrchestrator';
+import type { DevLoopStage } from '@/types/devCommandCenter';
+import {
+  buildResearchInstructionBlock,
+  extractResearchProposals,
+} from '@/services/research/proposals';
+import { researchStageProposalKind, isResearchLoopStage } from '@/services/research/researchLoop';
+import {
+  APPLIED_RESEARCH_CHAIN,
+  ROADMAP_PRIORITIZATION_CRITERIA,
+  RESEARCH_THEMES,
+  OPEN_CONSTITUTIONAL_QUESTIONS,
+  CONSTITUTIONAL_DISTINCTIONS,
+} from '@/types/research';
+import { renderObservationLines } from '@/services/dcir/eventStream';
+import { renderStateSnapshotLines, DCIR_OBSERVED_PATTERN_LIMIT } from '@/services/dcir/stateEngine';
 import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
+import { initializeKnowledge, type KnowledgeManifest } from '@/services/invariants';
+import { resolveOntology, ontologyPromptBlock, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
+import { MODEL_ROUTING_INVARIANTS } from '@/services/constitutional/modelQube';
+
+// The heaviest chat turns — DCC consequence-validation with a full session
+// ground context + dual-stage proposal schemas — outlive the Lambda DEFAULT
+// duration; the gateway then kills the request with a NON-JSON body, which
+// the client surfaces as the generic "Sorry, I encountered an error" (the
+// route's own JSON error envelope is never reached). Same budget as the
+// other provider-bound long routes (homecoming produce). Fix 2026-07-14:
+// operator hit this deterministically on every "validate the build" turn.
+export const maxDuration = 120;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -101,6 +136,12 @@ interface UserContext {
     activeCartridges?: string[];
     focusIntent?: string | null;
     alignmentState?: string | null;
+    /** Observer awareness (AR/CPS rule, 2026-07-14): intent names the
+     *  operator recently COMPLETED — the LLM must never re-recommend these,
+     *  even if earlier turns in the conversation did. */
+    recentlyCompletedActions?: string[];
+    /** Intent names currently live (in_progress / awaiting_approval). */
+    activeWork?: string[];
   };
   /**
    * Phase 8 (myCartridge PRD §16) — cartridge-scoped chat context.
@@ -660,7 +701,12 @@ function buildProviderAttempts(
     pushAttempt(provider.id, preferredModel);
   }
 
-  for (const fallbackProviderId of ['openai', 'venice', 'anthropic', 'chaingpt'] as RuntimeProviderId[]) {
+  // Sovereign-survivability (CFS-015 principle 4, governed by MODEL_ROUTING_INVARIANTS):
+  // the fallback ladder ALWAYS terminates at the open-weight provider (venice), so
+  // reasoning survives a frontier outage instead of ending on a frontier rung. venice
+  // moves from 2nd to LAST — the requested/primary path above is untouched; only the
+  // last-resort order changes.
+  for (const fallbackProviderId of ['openai', 'anthropic', 'chaingpt', 'venice'] as RuntimeProviderId[]) {
     pushAttempt(fallbackProviderId);
   }
 
@@ -1822,6 +1868,48 @@ This user is a story enthusiast interested in the metaKnyts universe.
 const KNYT_FOCUSED_AGENTS = new Set(['aigent-kn0w1', 'aigent-marketa']);
 
 /**
+ * Franchise-NEUTRAL role guidelines — for every persona outside
+ * KNYT_FOCUSED_AGENTS. The lore-flavoured getRoleGuidelines blocks name
+ * metaKnyts explicitly, and injecting them for every persona bled metaKnyts
+ * references into unrelated surfaces (the IRL research copilot described
+ * invariants "in the context of the metaKnyts universe" — operator report
+ * 2026-07-20). metaKnyts lore stays confined to the KNYT cartridge agents
+ * or explicit user enquiries; it is never ambient system-prompt material.
+ */
+function getNeutralRoleGuidelines(role: UserRole): string {
+  switch (role) {
+    case 'investor':
+      return `
+## User Context: INVESTOR
+This user is business/value-focused.
+- Be professional and data-oriented; surface economics only when relevant to their question`;
+    case 'creative':
+      return `
+## User Context: CREATIVE
+This user is a creator.
+- Be inspiring and concrete; focus on the tools and content of the CURRENT cartridge`;
+    case 'developer':
+      return `
+## User Context: DEVELOPER
+This user is a technical builder.
+- Be precise and technical; ground answers in this platform's actual architecture`;
+    case 'entrepreneur':
+      return `
+## User Context: ENTREPRENEUR
+This user is business-focused.
+- Be professional and opportunity-focused within the current cartridge's scope`;
+    case 'fan':
+    default:
+      return `
+## User Context: PARTICIPANT
+This user is engaging with the current cartridge's content.
+- Answer within THIS cartridge's domain. Do not import lore, characters, or
+  framing from other cartridges (e.g. metaKnyts/KNYT) unless the user
+  explicitly asks about them`;
+  }
+}
+
+/**
  * Load the metaMe cartridge state for a persona so aigentMe can answer
  * inside the user's actual workstream context. Reads ExperienceQube.meta
  * (experience name / type, primary goal, current stage, active cartridges)
@@ -1840,11 +1928,40 @@ async function loadMetameContext(
 ): Promise<UserContext['metameContext']> {
   if (!personaId || typeof personaId !== 'string') return undefined;
   try {
-    const [qube, guide] = await Promise.all([
+    const [qube, guide, intents] = await Promise.all([
       getExperienceQube(personaId).catch(() => null),
       getPersonalGuide(personaId).catch(() => null),
+      // Observer awareness (operator report 2026-07-14: the runtime chat
+      // kept re-recommending JUST-completed actions as "Next Focus" — the
+      // brief/move-forward builders are completion-filtered, but this chat
+      // path never consults them, and the conversation history contains the
+      // model's own stale recommendations). Read the IntentQube record so
+      // the system prompt carries observed completion state.
+      listRecentIntentsForPersona(personaId, { limit: 20 }).catch(() => []),
     ]);
     if (!qube && !guide) return undefined;
+    const dedupe = (names: string[]) => {
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const n of names) {
+        const k = n.trim().toLowerCase();
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        out.push(n.trim());
+      }
+      return out;
+    };
+    const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+    const recentlyCompletedActions = dedupe(
+      intents
+        .filter((i) => i.status === 'completed' && Date.parse(i.createdAt) >= cutoff)
+        .map((i) => i.intentName),
+    ).slice(0, 8);
+    const activeWork = dedupe(
+      intents
+        .filter((i) => i.status === 'in_progress' || i.status === 'awaiting_approval')
+        .map((i) => i.intentName),
+    ).slice(0, 5);
     return {
       experienceName:   qube?.meta.experienceName ?? null,
       experienceType:   qube?.meta.experienceType ?? null,
@@ -1853,6 +1970,8 @@ async function loadMetameContext(
       activeCartridges: qube?.meta.activeCartridges ?? [],
       focusIntent:      guide?.focusIntent ?? null,
       alignmentState:   guide?.alignmentState ?? null,
+      recentlyCompletedActions,
+      activeWork,
     };
   } catch {
     return undefined;
@@ -1868,6 +1987,8 @@ function buildSystemPrompt(
   liveContext?: KnytLiveContext,
   activeSkill?: Know1SkillId | null,
   platformKnowledgeBlock?: string,
+  knowledgeInit?: KnowledgeManifest | null,
+  latestUserMessage?: string,
 ): string {
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
   const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
@@ -1876,8 +1997,13 @@ function buildSystemPrompt(
     personas['aigent-kn0w1'];
   const personaIntro = personaConfig.systemPrompt;
 
-  // Get role-specific guidelines
-  const roleGuidelines = userContext ? getRoleGuidelines(userContext.primaryRole) : getRoleGuidelines('fan');
+  // Get role-specific guidelines. Lore-flavoured blocks (which name
+  // metaKnyts) are KNYT-cartridge material — only KNYT-focused agents get
+  // them. Every other persona gets franchise-neutral guidelines so KNYT
+  // lore never bleeds into IRL / metaMe / studio inference (2026-07-20).
+  const roleGuidelines = KNYT_FOCUSED_AGENTS.has(resolvedPersonaId)
+    ? (userContext ? getRoleGuidelines(userContext.primaryRole) : getRoleGuidelines('fan'))
+    : getNeutralRoleGuidelines(userContext?.primaryRole ?? 'fan');
 
   // Build metaMe policy block when settings are present
   const policyLines: string[] = [];
@@ -1922,6 +2048,20 @@ function buildSystemPrompt(
     }
     if (m.focusIntent)      metameLines.push(`- Today's focus (PersonalGuide): ${m.focusIntent}`);
     if (m.alignmentState)   metameLines.push(`- Alignment state: ${m.alignmentState}`);
+    // Observer awareness (AR/CPS rule): completed work is a FACT the reply
+    // must respect. The explicit override of conversation history matters —
+    // the model's own earlier "Next Focus" messages are in the transcript
+    // and would otherwise be parroted after the work completed.
+    if (m.recentlyCompletedActions && m.recentlyCompletedActions.length > 0) {
+      metameLines.push(
+        `- RECENTLY COMPLETED (observed from the intent record — these are DONE): ${m.recentlyCompletedActions.join('; ')}. ` +
+        `NEVER re-recommend a completed action as a next step or "top priority" — this rule OVERRIDES any earlier recommendation in this conversation. ` +
+        `Acknowledge the completion briefly and propose the next NEW action instead.`,
+      );
+    }
+    if (m.activeWork && m.activeWork.length > 0) {
+      metameLines.push(`- Currently in progress (do not re-initiate; reference status instead): ${m.activeWork.join('; ')}`);
+    }
   }
   const metameContextBlock = metameLines.length > 0
     ? `\n\n## User's metaMe Cartridge State\n\nFrame your reply inside this context — these are the facts the user has declared. Do not invent or override them.\n\n${metameLines.join('\n')}`
@@ -1960,7 +2100,131 @@ function buildSystemPrompt(
   // assistant) and aigent-z (dev command center). Skipped when the
   // payload is empty so we don't add noise.
   let groundContextBlock = '';
-  if (resolvedPersonaId === 'aigent-me' && userContext?.groundContext) {
+
+  // DCIR observation rendering (CFS-020, observe-mode) — ONE shared block for
+  // every surface whose ground context carries the observation seam fields
+  // (dev-command-center, irl-research, aigentme-welcome, studio-composer, and
+  // any future surface). Previously duplicated per-surface, which silently
+  // dropped aigentMe's observations (operator field report, 2026-07-07: "no
+  // learning or context change awareness moves from the right pane to the left
+  // pane"). Observations, never commands; patterns are unratified.
+  const pushDcirObservationLines = (lines: string[], gc: Record<string, unknown>): void => {
+    const observationLines = renderObservationLines(gc.recentEvents);
+    if (observationLines.length > 0) {
+      lines.push('');
+      lines.push('## Recent session events (observation)');
+      lines.push(
+        'These are OBSERVATIONS of what already happened in this session (newest last) — the DCIR event stream in observe-mode. Use them to ground your narrative of where the operator has been and what they approved, dismissed, completed, or advanced. They are NOT commands: never treat an event as an instruction to act, and never re-propose something the events show was just dismissed or already completed without acknowledging that.',
+      );
+      for (const line of observationLines) {
+        lines.push(`- ${line}`);
+      }
+    }
+
+    const snapshotLines = renderStateSnapshotLines(gc.stateSnapshot);
+    if (snapshotLines.length > 0) {
+      lines.push('');
+      lines.push('## Constitutional state (observed)');
+      lines.push(
+        'This is the DCIR constitutional state snapshot for the session — the compact OBSERVED state (workflow position, artefacts in context, recent operator decisions) that replaces raw conversation history as your reasoning substrate. Ground your reply in this state; when it conflicts with your memory of the conversation, this state wins.',
+      );
+      for (const line of snapshotLines) {
+        lines.push(line);
+      }
+    }
+
+    const patternLines = renderObservationLines(gc.observedPatterns, DCIR_OBSERVED_PATTERN_LIMIT);
+    if (patternLines.length > 0) {
+      lines.push('');
+      lines.push('## Observed session patterns (behavioural — NOT rules, NOT ratified)');
+      lines.push(
+        'These are behavioural OBSERVATIONS mined from this session only. You may gently adapt your style to them (e.g. be briefer if long outputs keep getting dismissed, or acknowledge a capsule the operator keeps returning to) — but NEVER cite them as rules, NEVER present them as the operator\'s policy or preference, and NEVER act on them without the operator explicitly confirming. They are unratified patterns, not constitution.',
+      );
+      for (const line of patternLines) {
+        lines.push(`- ${line}`);
+      }
+    }
+  };
+
+  // SmartTriad context (PRD §7, ratified 2026-07-19) — the shell copilot's
+  // generic ground block, persona-agnostic. Narrates the active cartridge/tab,
+  // the caller's T1-safe observer posture (grants / passport / delegation —
+  // NEVER a T0 identifier; the client contract only sends labels), and the
+  // deterministic deep-link chips rendered under the chat, so answers stay
+  // cartridge-scoped and navigational instead of generic.
+  if (userContext?.groundContext && (userContext.groundContext as Record<string, unknown>).surface === 'smart-triad') {
+    try {
+      const gc = userContext.groundContext as Record<string, unknown>;
+      const cart = (gc.cartridge ?? {}) as Record<string, unknown>;
+      const obs = (gc.observer ?? {}) as Record<string, unknown>;
+      const links = Array.isArray(gc.deepLinks) ? (gc.deepLinks as Array<Record<string, unknown>>) : [];
+      const lines: string[] = [];
+      lines.push(`### Active surface`);
+      lines.push(`- Cartridge: **${cart.name ?? cart.id ?? 'unknown'}** (tab: ${cart.tab ?? 'unknown'})`);
+      // L2 corpus refs (PRD §7) — name the domain surfaces this copilot is
+      // grounded on so answers cite the right corpus, not generic knowledge.
+      const corpusRefs = Array.isArray(cart.corpusRefs) ? (cart.corpusRefs as string[]) : [];
+      if (corpusRefs.length > 0) {
+        lines.push(`### Cartridge ground-truth corpus (answer FROM these surfaces; name them when citing)`);
+        for (const ref of corpusRefs) lines.push(`- ${ref}`);
+      }
+      const capabilities = Array.isArray(gc.capabilities) ? (gc.capabilities as string[]) : [];
+      if (capabilities.length > 0) {
+        lines.push(`### Your capabilities on this surface`);
+        for (const cap of capabilities) lines.push(`- ${cap}`);
+      }
+      lines.push(`### Operator state (observed, T1-safe)`);
+      lines.push(`- Authenticated: ${obs.authenticated ? 'yes' : 'no'}`);
+      if (obs.passportState) lines.push(`- Passport: ${obs.passportState}`);
+      if (typeof obs.delegationActive === 'boolean') lines.push(`- Agent delegation active: ${obs.delegationActive ? 'yes' : 'no'}`);
+      const participation = Array.isArray(obs.participation) ? (obs.participation as Array<Record<string, unknown>>) : [];
+      if (participation.length > 0) {
+        lines.push(`- Participation grants: ${participation.map((p) => `${p.domain}/${p.role}`).join(', ')}`);
+      } else if (obs.authenticated) {
+        lines.push(`- Participation grants: none yet (not onboarded to any access domain)`);
+      }
+      if (links.length > 0) {
+        lines.push(`### Quick links available as chips below the chat`);
+        for (const l of links) lines.push(`- ${l.label}${l.codexSlug ? ' (opens another cartridge)' : ''}`);
+      }
+      // Phase 3 Actions — admin operations surfaced as amber chips. The model
+      // can DIRECT the operator to run one by name; it can never execute them.
+      const operations = Array.isArray(gc.operations) ? (gc.operations as Array<Record<string, unknown>>) : [];
+      if (operations.length > 0) {
+        lines.push(`### Operations available to this (admin) operator — amber chips below the chat`);
+        for (const op of operations) lines.push(`- ${op.label}`);
+      }
+      // Phase 2 — IRE-curated platform invariants (resolved from THIS message).
+      const platformInvariants = Array.isArray(gc.platformInvariants)
+        ? (gc.platformInvariants as Array<Record<string, unknown>>)
+        : [];
+      if (platformInvariants.length > 0) {
+        lines.push(`### Governing platform invariants (IRE-resolved for this question + session memory — cite by seed id when they ground a claim)`);
+        for (const inv of platformInvariants) lines.push(`- [${inv.seedId}] ${inv.statement}`);
+      }
+      // CFS-045 constitutional memory — the operator's compiled memory
+      // invariants (what survived reasoning in prior sessions, never
+      // transcripts). Tailor guidance to these durable patterns.
+      const memoryInvariants = Array.isArray(gc.memoryInvariants)
+        ? (gc.memoryInvariants as Array<Record<string, unknown>>)
+        : [];
+      if (memoryInvariants.length > 0) {
+        lines.push(`### Partnership memory invariants (compiled from prior sessions — durable patterns, not conversation history). Weight 'validated' highest (human-ratified), 'active' as working inference, 'candidate' as tentative`);
+        for (const m of memoryInvariants) lines.push(`- [${m.status}] ${m.statement}`);
+      }
+      groundContextBlock = `\n\n## Surface & operator context — ground your answer in THIS\n\nYou are the copilot for the cartridge named above. Keep answers scoped to this cartridge's domain; use the operator state to tailor guidance (e.g. if their passport is 'none' and they ask about participating, walk them through applying first; if 'issued' but not claimed, point at claiming; delegation is OPTIONAL — never present it as required to run experiments). Prefer NAVIGATING the operator over describing UI: when a quick link above matches the need, tell them to use that chip by name. Never invent state not listed here.\n\nNAVIGATION MARKERS: when you direct the operator to a destination that appears in the quick-links list, embed the marker [[nav:<label>]] inline at that point of your reply, using the label VERBATIM from the list (e.g. "start by claiming your passport [[nav:Claim Passport]]"). The UI renders each marker as a clickable chip; the raw marker is never shown to the operator. Use ONLY labels from the quick-links list — never invent one — and do not wrap markers in backticks or quotes.\n\nANSWER FULLY, NOW: when the operator asks how to do something, give the concrete steps immediately in this reply, tailored to their state above. Replying with only an acknowledgment ("I can help with that", "Sure, happy to help") and no steps is a FAILURE — never do it.\n\n${lines.join('\n')}`;
+    } catch {
+      // Malformed context — fall back to the persona's default framing.
+    }
+  }
+
+  if (
+    resolvedPersonaId === 'aigent-me' &&
+    userContext?.groundContext &&
+    // The shell copilot's smart-triad context is handled by the generic block
+    // above — don't let this NBA-shaped parser overwrite it.
+    (userContext.groundContext as Record<string, unknown>).surface !== 'smart-triad'
+  ) {
     try {
       const gc = userContext.groundContext as Record<string, unknown>;
       const brief = gc.brief as Record<string, unknown> | null | undefined;
@@ -2036,6 +2300,11 @@ function buildSystemPrompt(
         lines.push(`### Queued intents (already approved, awaiting execution)\n- ${queuedIds.join(', ')}`);
       }
 
+      // DCIR observation seam (aigentme-welcome surface) — the same
+      // observe-mode block the dev/research surfaces get, so completed tasks
+      // and capsule activity flow into the copilot's awareness.
+      pushDcirObservationLines(lines, gc);
+
       if (lines.length > 0) {
         groundContextBlock = `\n\n## Right-pane ground truth — narrate THIS, do not invent\n\nThe operator's right pane is currently showing the structured data below. Your reply MUST mirror these exact rows — refer to each NBA by its label and rationale, cite the persona's primary goal / stage / active cartridges as the framing axis, and use the per-NBA hint (when present) as the starting frame for any "Act" guidance. NEVER emit placeholder strings like "[Priority 1]", "[Action 1]", or "[Event/Document/Message 1]" — those indicate you ignored this block. If the operator asks "give me my daily brief", paraphrase the brief below as a short narrative followed by 2-3 sentences of WHY each NBA is the move right now.\n\n${lines.join('\n')}`;
       }
@@ -2083,26 +2352,163 @@ function buildSystemPrompt(
           lines.push(gc.validationSummary as string);
         }
 
-        groundContextBlock = `\n\n## Dev loop ground truth — narrate THIS, do not invent\n\nYou are aigentZ, the development command center agent. The operator's right pane shows the Dev Command Center with the session state below. Your replies MUST reference this exact state — cite the current stage, the intent goal, the gap analysis ratios, and consequence guardrails when relevant. Guide the operator through the dev loop: intent → context → gaps → consequences → implementation → validation → complete.\n\nWhen you suggest an action, emit a [layout:<id>|<substance>] tag (same format as aigent-me). Valid dev IDs: intent, context, gap-analysis, consequence-canvas, validation, project-overview, terminal, github, devtools, linear.\n\n${lines.join('\n')}`;
+        // DCIR observation seam — shared block (see pushDcirObservationLines).
+        pushDcirObservationLines(lines, gc);
+
+        groundContextBlock = `\n\n## Dev loop ground truth — narrate THIS, do not invent\n\nYou are aigentZ, the development command center agent. The operator's right pane shows the Dev Command Center with the session state below. Your replies MUST reference this exact state — cite the current stage, the intent goal, the gap analysis ratios, and consequence guardrails when relevant. Guide the operator through the dev loop: intent → context → gaps → consequences → implementation → validation → complete.\n\nWhen you suggest an action, emit a [layout:<id>|<substance>] tag (same format as aigent-me). Valid dev IDs: intent, context, gap-analysis, consequence-canvas, implementation, validation, project-overview, terminal, github, devtools, linear.\n\n${lines.join('\n')}`;
 
         // ICE engine (Phase 1A): stage-specific execution instructions +
         // the structured stage_data proposal contract for this stage.
-        // When the operator is viewing a specific capsule (activeCapsule),
-        // use that capsule's corresponding stage for the instruction block
-        // so aigentZ emits the right kind of proposal — not the session's
-        // official stage which may be behind the viewed capsule.
+        // Stage precedence, deterministic:
+        //   1. the stage the operator's MESSAGE explicitly requests
+        //      (detectRequestedStage) — fixes the capsule-override trap where
+        //      "validate the build" typed while the Consequence Canvas
+        //      capsule was open produced another consequence_canvas proposal
+        //      that read like a validation confirmation;
+        //   2. the viewed capsule's stage (activeCapsule);
+        //   3. the session's official stage.
         const CAPSULE_TO_STAGE: Record<string, string> = {
           intent: 'intent_capture',
           context: 'context_assembly',
           'gap-analysis': 'gap_analysis',
           'consequence-canvas': 'consequence_modeling',
+          decision: 'constitutional_decision',
+          implementation: 'implementation',
           validation: 'consequence_validation',
+          remediation: 'remediation',
+          'deployment-authorization': 'deployment_authorization',
         };
         const viewedCapsule = typeof gc.activeCapsule === 'string' ? gc.activeCapsule : null;
-        const effectiveStage =
+        const requestedStage = latestUserMessage ? detectRequestedStage(latestUserMessage) : null;
+        const contextStage =
           (viewedCapsule && CAPSULE_TO_STAGE[viewedCapsule]) ||
           (typeof gc.activeStage === 'string' ? gc.activeStage : undefined);
-        groundContextBlock += buildStageInstructionBlock(effectiveStage);
+        const effectiveStage = requestedStage || contextStage;
+        // The detected stage is a hint, not a suppressor: when it differs
+        // from the capsule/session stage, BOTH schemas are presented and the
+        // LLM emits the kind the operator's request actually means.
+        const altStage = requestedStage && contextStage !== requestedStage ? contextStage : null;
+        groundContextBlock += buildStageInstructionBlock(effectiveStage, altStage);
+
+        // Feedback Coordinator (CFS-020 #12, first slice) — the surface sends
+        // an `[observed]`-prefixed turn when an approval advanced the loop.
+        // The turn is observation-initiated, not operator-typed: respond as a
+        // short proactive guide, not a session recap.
+        if (typeof latestUserMessage === 'string' && latestUserMessage.trimStart().startsWith('[observed]')) {
+          groundContextBlock += `\n\n## Observation-initiated turn (Feedback Coordinator)\n\nThis turn was TRIGGERED BY AN OBSERVED STATE CHANGE (a proposal approval advanced the dev loop) — the operator did not type it. Respond with a SHORT proactive guide to the next task (2-4 sentences, no full-session recap), then proceed to produce the next stage's proposal fence if your ground data suffices. If it does not suffice, ask the ONE question that unblocks it instead of emitting a fence built on invented data.`;
+        }
+      }
+
+      // aigent-z IRL Research Copilot ground truth (CFS-019 C2) —
+      // NARRATE-ONLY by design: the copilot observes and narrates the live
+      // lab state (lifecycles derived from the canonical record, series
+      // claims, hash-committed results). Deliberately NO stage instruction
+      // block and NO proposal contract on this surface — research
+      // stage-proposal kinds (experiment design, finding drafts) are C2.1,
+      // their own increment after usage observation, per the dev-loop
+      // misroute precedent (CFS-015).
+      if (gc.surface === 'irl-research') {
+        const lines: string[] = [];
+
+        lines.push(`### IRL research laboratory — live state`);
+        const lifecycleOrder = Array.isArray(gc.lifecycleOrder) ? (gc.lifecycleOrder as string[]) : [];
+        if (lifecycleOrder.length > 0) {
+          lines.push(`- Experiment lifecycle order: ${lifecycleOrder.join(' → ')}`);
+        }
+        // CFS-019 C3 — the research ICE loop position for the ACTIVE experiment.
+        // design → protocol → run → analyze → publish. The `run` stage is the
+        // Experiment Lab hand-off: running is NOT a copilot action (execution
+        // stays in the lab, the research analog of CFS-016 D1). Narrate the
+        // stage and, at `run`, point the operator to the Experiment Lab.
+        if (isResearchLoopStage(gc.activeExperimentStage)) {
+          const activeId = typeof gc.activeExperimentId === 'string' ? gc.activeExperimentId : null;
+          lines.push(
+            `- Research ICE loop stage${activeId ? ` for ${activeId}` : ''}: **${gc.activeExperimentStage}** (design → protocol → run → analyze → publish)`,
+          );
+          if (gc.activeExperimentStage === 'run') {
+            lines.push(
+              `  • The active experiment is at the RUN stage — running is EXECUTED in the Experiment Lab (the EXP-001…005 runner tabs), NOT here. Point the operator to the Experiment Lab; the run advances the lifecycle, which advances the loop to Analyze. Do NOT emit a proposal fence for a run.`,
+            );
+          }
+        }
+        if (typeof gc.overviewError === 'string' && gc.overviewError) {
+          lines.push(`- Overview UNAVAILABLE (degrade honestly — say so, do not invent state): ${gc.overviewError}`);
+        }
+        const experiments = Array.isArray(gc.experiments) ? (gc.experiments as Array<Record<string, unknown>>) : [];
+        if (experiments.length > 0) {
+          lines.push(`- Experiments (lifecycle DERIVED from the canonical record, never asserted):`);
+          for (const e of experiments) {
+            lines.push(
+              `  • **${e.id}** (${e.family}) — lifecycle: ${e.lifecycle} · ${e.publishedRuns} published run(s) · ${e.distinctProviders} distinct provider(s)`,
+            );
+          }
+        }
+        const seriesList = Array.isArray(gc.series) ? (gc.series as Array<Record<string, unknown>>) : [];
+        if (seriesList.length > 0) {
+          lines.push(`- Series claims:`);
+          for (const s of seriesList) {
+            const members = Array.isArray(s.members) ? (s.members as string[]).join(', ') : '';
+            lines.push(`  • **${s.id}** (${s.name}; members: ${members}) — claim: ${s.claim}`);
+          }
+        }
+        if (typeof gc.resultsError === 'string' && gc.resultsError) {
+          lines.push(`- Canonical results UNAVAILABLE (degrade honestly): ${gc.resultsError}`);
+        }
+        const recentResults = Array.isArray(gc.recentResults) ? (gc.recentResults as Array<Record<string, unknown>>) : [];
+        if (recentResults.length > 0) {
+          lines.push(`- Latest canonical results (hash-committed):`);
+          for (const r of recentResults) {
+            lines.push(`  • ${r.experiment} · ${r.provider} · commitment ${r.contentHashPrefix}… · ${r.createdAt}`);
+          }
+        }
+
+        // Research Roadmap Expansion (CFS-019 amendment, 2026-07-07) — the
+        // applied-research agenda the Copilot PLANS against. Static charter
+        // constants (types/research.ts), rendered so proposals are framed by
+        // the roadmap, open questions stay hypotheses (never asserted answers),
+        // and the applied-research chain + the method of distinctions inform how
+        // the copilot structures research questions.
+        lines.push('');
+        lines.push('### Research agenda (CFS-019 roadmap — plan against THIS)');
+        lines.push(
+          `- Applied Constitutional Research: the objective is not theory alone but constitutional capabilities that can be implemented, validated, and integrated — implementation is PART of research. Preferred outcome chain: ${APPLIED_RESEARCH_CHAIN.join(' → ')}.`,
+        );
+        lines.push(`- Prioritize research satisfying ALL THREE: ${ROADMAP_PRIORITIZATION_CRITERIA.map((c) => c.toLowerCase()).join('; ')}.`);
+        lines.push('- Reasoning Systems programme (EXPLORATORY — long-term; frame every item as a hypothesis, never assume answers where evidence does not yet exist). Themes:');
+        for (const t of RESEARCH_THEMES) {
+          lines.push(`  • **${t.title}** — investigate: ${t.investigate.join(', ')}.${t.hypothesis ? ` Working hypothesis (refine or falsify, do not prove): ${t.hypothesis}` : ''}`);
+        }
+        lines.push('- Open Constitutional Questions — keep these as EXPLICIT questions, hypothesis-driven until experimental evidence supports an answer; never present as conclusions:');
+        for (const q of OPEN_CONSTITUTIONAL_QUESTIONS) lines.push(`  • ${q}`);
+        lines.push(
+          `- Research METHOD (the laboratory's emerging style — guidance, NOT a ratified law): progress comes from discovering the correct constitutional DISTINCTIONS and then validating them experimentally. Distinctions already surfaced: ${CONSTITUTIONAL_DISTINCTIONS.join('; ')}. When structuring a research question, prefer sharpening a distinction over proposing a grand theory.`,
+        );
+
+        // DCIR observation seam — shared block (see pushDcirObservationLines).
+        pushDcirObservationLines(lines, gc);
+
+        groundContextBlock = `\n\n## IRL research ground truth — narrate THIS, do not invent\n\nYou are aigentZ operating as the IRL research copilot (the Constitutional Cybernetics Research Laboratory, CFS-019). The operator's right pane shows the live lab state below. Your replies MUST narrate this exact state — cite experiments by id and family, lifecycle states as DERIVED facts (published = a canonical run exists; replicated = runs on ≥2 distinct providers), series claims verbatim, and results by their hash commitments. When you plan or propose research, frame it by the Research agenda below: prioritize applied items (implementable + experimentally validatable + a pathway to constitutional capability), keep open questions as hypotheses rather than answers, and structure questions by sharpening a constitutional distinction. NEVER invent experiments, runs, providers, or lifecycle states not present below; when a section is marked UNAVAILABLE, say so honestly. Narration is your PRIMARY mandate; do NOT emit [layout:...] tags on this surface.\n\n${lines.join('\n')}`;
+        // CFS-019 C2.1 — research proposal kinds (ICE reuse): when the operator
+        // asks aigentZ to DESIGN an experiment, RATIFY a protocol, RECORD a
+        // finding, or DRAFT a publication, it emits a structured
+        // ```research_data proposal (extracted below, returned as
+        // stage_proposals, rendered as a pending approval card). SUGGEST-ONLY
+        // and lifecycle-legal — nothing commits without operator approval.
+        //
+        // CFS-019 C3 (research ICE loop): the tab sends the ACTIVE experiment's
+        // loop stage. When that stage produces a proposal kind (design →
+        // experiment_proposal, protocol → protocol_draft, analyze → finding,
+        // publish → publication_draft), narrow the instruction block to that ONE
+        // schema so the copilot primarily expects the stage's object — mirroring
+        // how the dev branch feeds buildStageInstructionBlock the current stage.
+        // At the RUN stage (proposal kind null — the lab hand-off) NO kind is
+        // passed: the full four-schema block is offered and the CONDITIONAL fence
+        // contract is unchanged (running narrates, it never emits a fence).
+        const activeStage = isResearchLoopStage(gc.activeExperimentStage)
+          ? gc.activeExperimentStage
+          : undefined;
+        const stageKind = activeStage ? researchStageProposalKind(activeStage) : null;
+        groundContextBlock += buildResearchInstructionBlock(stageKind ?? undefined);
       }
     } catch {
       // groundContext malformed — fall back to general narrative.
@@ -2249,7 +2655,26 @@ After your response, add:
   const platformBlock =
     resolvedPersonaId === 'aigent-z' && platformKnowledgeBlock ? platformKnowledgeBlock : '';
 
-  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}`;
+  // Knowledge initialization (CFS-006 §3) — the canonical invariant closure
+  // for this context, injected for the platform/system agents so every turn
+  // begins already knowing what the platform has validated. Statements cite
+  // by seedId marker (same convention as the specialist router); the model
+  // is bound to reason from these, never contradict one, and cite what it
+  // relies on. KNYT content personas keep their tighter prompt budget.
+  const canonBlock =
+    knowledgeInit && knowledgeInit.nodes.length > 0
+      ? `
+
+## Validated Invariants — Canonical Memory (knowledge initialization)
+
+Reason FROM these validated invariants rather than re-deriving from scratch. Never contradict one; if the ask conflicts with an invariant, say so. Cite the markers of the invariants you rely on.
+
+${knowledgeInit.nodes
+          .map((n) => `- ${n.seedId ? `[${n.seedId}] ` : ''}(${n.namespace}) ${n.statement}`)
+          .join('\n')}`
+      : '';
+
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}${canonBlock}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -2465,9 +2890,88 @@ export async function POST(request: NextRequest) {
     let metadata: CodexMetadata | null = null;
     let kbResults: KBSearchResult[] = [];
     let systemPrompt = '';
+    // ICE fence-enforcement retry context (operator field report 2026-07-06):
+    // non-null ONLY for aigent-z turns on the dev-command-center surface whose
+    // effective stage produces a proposal kind. Every other surface — including
+    // the narrate-only irl-research surface — leaves it null, so the
+    // promised-but-missing-fence retry below can never fire there.
+    let fenceRetryKind: StageProposalKind | null = null;
+    // IRL research surface (CFS-019 C2.1): the copilot promises a research
+    // proposal but sometimes emits no ```research_data fence, so no pending card
+    // appears in the right pane (operator field report, 2026-07-07). Unlike the
+    // dev loop this surface has no stage, so eligibility is keyed on the surface
+    // alone; the retry only actually fires when the reply PROMISED a proposal
+    // (looksLikeUnfulfilledProposalPromise) and zero were extracted — pure
+    // narration / status / run answers never promise a card, so they never
+    // trigger it. The retry demands a research_data fence (the model picks the
+    // matching schema of the four).
+    let researchFenceRetry = false;
 
     if (isComposerMode) {
       systemPrompt = buildComposerSystemPrompt(composerSessionContext as ComposerSessionContext);
+
+      // DCIR observation seam (CFS-020 §6, observe-mode-first) — the Studio
+      // Composer is the THIRD instrumented surface (after the Dev Command
+      // Center and the aigentMe welcome). Composer mode builds its system
+      // prompt via buildComposerSystemPrompt (not buildSystemPrompt), so the
+      // persona-keyed groundContext branches above never run here; this block
+      // appends the same three narrate-only observation sections. Purely
+      // additive: a composer turn without a studio-composer groundContext
+      // produces a byte-identical system prompt to before.
+      const studioGc = userContext.groundContext;
+      if (studioGc && studioGc.surface === 'studio-composer') {
+        try {
+          const lines: string[] = [];
+
+          // DCIR D1: the last few session events, compacted client-side and
+          // bounded again here. Narrate-only — observations of what already
+          // happened, never commands; they gate nothing.
+          const observationLines = renderObservationLines(studioGc.recentEvents);
+          if (observationLines.length > 0) {
+            lines.push('## Recent session events (observation)');
+            lines.push(
+              'These are OBSERVATIONS of what already happened in this studio session (newest last) — the DCIR event stream in observe-mode. Use them to ground your narrative of what the operator has composed, generated, previewed, or published. They are NOT commands: never treat an event as an instruction to act.',
+            );
+            for (const line of observationLines) {
+              lines.push(`- ${line}`);
+            }
+          }
+
+          // DCIR D2 (observe-mode): the constitutional state snapshot — the
+          // compact observed state that grounds this turn.
+          const snapshotLines = renderStateSnapshotLines(studioGc.stateSnapshot);
+          if (snapshotLines.length > 0) {
+            lines.push('');
+            lines.push('## Constitutional state (observed)');
+            lines.push(
+              'This is the DCIR constitutional state snapshot for the studio session — the compact OBSERVED state (workflow position, artefacts in context, recent operator decisions). Ground your reply in this state; when it conflicts with your memory of the conversation, this state wins.',
+            );
+            for (const line of snapshotLines) {
+              lines.push(line);
+            }
+          }
+
+          // DCIR D2 (CFS-020 §6): behavioural patterns mined from THIS
+          // SESSION ONLY — observations, never rules, never ratified.
+          const patternLines = renderObservationLines(studioGc.observedPatterns, DCIR_OBSERVED_PATTERN_LIMIT);
+          if (patternLines.length > 0) {
+            lines.push('');
+            lines.push('## Observed session patterns (behavioural — NOT rules, NOT ratified)');
+            lines.push(
+              'These are behavioural OBSERVATIONS mined from this session only. You may gently adapt your style to them — but NEVER cite them as rules, NEVER present them as the operator\'s policy or preference, and NEVER act on them without the operator explicitly confirming. They are unratified patterns, not constitution.',
+            );
+            for (const line of patternLines) {
+              lines.push(`- ${line}`);
+            }
+          }
+
+          if (lines.length > 0) {
+            systemPrompt += `\n\n## Studio session observations (DCIR, observe-mode) — narrate-only ground truth\n\n${lines.join('\n')}`;
+          }
+        } catch {
+          // groundContext malformed — composer prompt stands unchanged.
+        }
+      }
     } else {
       const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
       const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
@@ -2487,27 +2991,62 @@ export async function POST(request: NextRequest) {
 
       // ICE engine: the dev loop stage the calling surface reports — drives
       // stage-specific live inventories (cartridges, API routes, registry).
-      // Prefer the viewed capsule's stage over the session's official stage
-      // so live inventories match what the operator is looking at.
+      // MUST resolve to the SAME effective stage as the instruction block
+      // (requested > viewed capsule > session stage) — operator finding 4,
+      // 2026-07-06: this previously skipped detectRequestedStage, so a
+      // free-typed "analyze the gaps" while another capsule was open got
+      // gap-stage instructions but mismatched (or no) ground data, starving
+      // the stage_data fence.
       const CAPSULE_STAGE_MAP: Record<string, string> = {
         intent: 'intent_capture',
         context: 'context_assembly',
         'gap-analysis': 'gap_analysis',
         'consequence-canvas': 'consequence_modeling',
+        implementation: 'implementation',
         validation: 'consequence_validation',
+        remediation: 'remediation',
+        'deployment-authorization': 'deployment_authorization',
       };
       const gc_ = groundContext as Record<string, unknown> | undefined;
       const viewedCapsule_ = gc_ && typeof gc_.activeCapsule === 'string' ? gc_.activeCapsule : null;
+      const requestedStage_ =
+        isAigentZ && gc_?.surface === 'dev-command-center' && typeof message === 'string'
+          ? detectRequestedStage(message)
+          : null;
       const devLoopStage = isAigentZ
-        ? (viewedCapsule_ && CAPSULE_STAGE_MAP[viewedCapsule_]) ||
+        ? requestedStage_ ||
+          (viewedCapsule_ && CAPSULE_STAGE_MAP[viewedCapsule_]) ||
           (gc_ && typeof gc_.activeStage === 'string' ? gc_.activeStage as string : undefined)
         : undefined;
 
+      // Fence-enforcement retry eligibility: mirrors buildStageInstructionBlock's
+      // stage coercion (unknown/undefined stage → intent_capture) so the retry
+      // demands the SAME proposal kind the instruction block asked for. Only
+      // 'complete' maps to null (no proposal kind → no retry).
+      if (isAigentZ && gc_?.surface === 'dev-command-center') {
+        const stageForKind: DevLoopStage =
+          typeof devLoopStage === 'string' && devLoopStage in STAGE_PROPOSAL_KIND
+            ? (devLoopStage as DevLoopStage)
+            : 'intent_capture';
+        fenceRetryKind = STAGE_PROPOSAL_KIND[stageForKind];
+      } else if (isAigentZ && gc_?.surface === 'irl-research') {
+        researchFenceRetry = true;
+      }
+
       // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
       // state, and aigent-z platform knowledge + stage ground data in parallel
-      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData] = await Promise.all([
+      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData, resolvedKnowledgeInit, resolvedOntology] = await Promise.all([
         fetchCodexMetadata(domain),
-        searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
+        // Prompt-assembly slimming (2026-07-15, operator-ratified): the
+        // 'aigentMe' domain is an EMPTY content scaffold by design (only
+        // metaKnyts + qriptopian carry KB content — see CLAUDE.md) — yet every
+        // DCC/metaMe turn paid an embedding round-trip (up to the 15s KB
+        // deadline on cold starts) to search it. Assembly is a Promise.all,
+        // so that call alone could burn half the ~30s platform response
+        // ceiling. Skip it; the empty result is identical.
+        domain === 'aigentMe'
+          ? Promise.resolve([] as KBSearchResult[])
+          : searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
         needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
         isAigentZ
@@ -2522,6 +3061,25 @@ export async function POST(request: NextRequest) {
               return '';
             })
           : Promise.resolve(''),
+        // Knowledge initialization (CFS-006 §3): the canonical invariant
+        // closure for this context. Cached per (context, canon version) in
+        // the Invariant Service, so warm turns cost no extra queries.
+        // Enrichment-only — any failure yields null and the turn proceeds.
+        initializeKnowledge({
+          domains: [domain, cartridgeContext?.cartridgeSlug].filter(
+            (d, i, a): d is string => Boolean(d) && a.indexOf(d) === i,
+          ),
+        }).catch((err) => {
+          console.warn('[CodexChat] knowledge initialization failed (non-fatal):', err);
+          return null;
+        }),
+        // Canonical Ontology Service (CFS-015): resolve the message's terms
+        // against canon BEFORE reasoning. Enrichment-only — failure yields
+        // null and the turn proceeds.
+        resolveOntology(message).catch((err) => {
+          console.warn('[CodexChat] ontology resolution failed (non-fatal):', err);
+          return null;
+        }),
       ]);
       const platformKnowledgeBlock = `${resolvedPlatformKnowledge}${resolvedStageGroundData}`;
       metadata = resolvedMetadata;
@@ -2536,7 +3094,91 @@ export async function POST(request: NextRequest) {
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined);
+      // SmartTriad Phase 2 (PRD §5, IRE-curated L1 — unlocked by the IRV-001/
+      // IPV-001 Stage-0 calibration, 2026-07-18): resolve the operator's
+      // message through the Invariant Resolution Engine and inject the
+      // governing platform invariants as ground truth. Intent → IRE → relevant
+      // invariants — selected per interaction, never bulk-loaded, so each
+      // copilot keeps room for both platform and domain knowledge. T2-safe
+      // (statements + seed ids only). Best-effort: an IRE failure degrades to
+      // the Phase-1b context, never blocks the chat.
+      if (
+        userContext?.groundContext &&
+        (userContext.groundContext as Record<string, unknown>).surface === 'smart-triad' &&
+        typeof message === 'string' &&
+        message.trim().length > 0
+      ) {
+        try {
+          const { resolveConstitutionalField } = await import('@/services/invariants/resolution');
+          const field = await resolveConstitutionalField(message);
+          const items = (field.snapshot?.slice.items ?? []).slice(0, 8);
+          const merged: Array<{ seedId: string; statement: string }> = items.map((i) => ({
+            seedId: String(i.seedId ?? i.id),
+            statement: String(i.statement),
+          }));
+          // Phase 3 constitutional memory v0 — invariants cited on EARLIER
+          // turns (accumulated client-side from resolved_invariants echoes)
+          // stay in the ground truth so guidance remains constitutionally
+          // consistent across the session. Current-turn resolution leads;
+          // memory tops up to a hard cap. Dedupe by seedId. T2-safe.
+          const gcNow = userContext.groundContext as Record<string, unknown>;
+          const remembered = Array.isArray(gcNow.sessionInvariants)
+            ? (gcNow.sessionInvariants as Array<Record<string, unknown>>)
+            : [];
+          const seen = new Set(merged.map((m) => m.seedId));
+          for (const inv of remembered) {
+            if (merged.length >= 12) break;
+            const seedId = String(inv.seedId ?? '');
+            const statement = String(inv.statement ?? '');
+            if (!seedId || !statement || seen.has(seedId)) continue;
+            seen.add(seedId);
+            merged.push({ seedId, statement });
+          }
+          if (merged.length > 0) gcNow.platformInvariants = merged;
+        } catch {
+          // IRE unavailable — Phase-1b context stands on its own.
+        }
+        // CFS-045 constitutional memory (persistent layer, ratified
+        // 2026-07-19): retrieve the operator's compiled memory invariants for
+        // this cartridge into the ground truth. SPINE-RESOLVED persona ONLY —
+        // the body's personaId fallback is never trusted for memory (durable
+        // per-persona state). Best-effort: no persona / no table → no memory.
+        if (activePersonaCtx?.personaId) {
+          try {
+            const { retrieveMemoryInvariants } = await import('@/services/memory/memoryCompilation');
+            const gcNow = userContext.groundContext as Record<string, unknown>;
+            const cartId = String(((gcNow.cartridge ?? {}) as Record<string, unknown>).id ?? '');
+            if (cartId) {
+              const memory = await retrieveMemoryInvariants(activePersonaCtx.personaId, cartId, 6);
+              if (memory.length > 0) {
+                gcNow.memoryInvariants = memory.map((m) => ({
+                  statement: m.statement,
+                  // CFS-045-A1 tiers: 'validated' = partnership-ratified
+                  // (human-approved); 'active'/'candidate' = machine tier.
+                  status: m.humanValidated ? 'validated' : m.status,
+                }));
+                // A2: server-held row ids for trajectory capture (memory
+                // activations). Never echoed to the client — the response
+                // serialises platformInvariants only.
+                gcNow.retrievedMemoryIds = memory.map((m) => m.id);
+              }
+            }
+          } catch {
+            // Memory unavailable — the turn proceeds without it.
+          }
+        }
+      }
+
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined);
+
+      // Canonical Ontology (CFS-015): append canonical-term guidance to the
+      // prompt and cite the governing invariants (Reach, Law XII) —
+      // fire-and-forget so the hot path never waits on the flywheel.
+      if (resolvedOntology) {
+        const ontologyBlock = ontologyPromptBlock(resolvedOntology);
+        if (ontologyBlock) systemPrompt += `\n${ontologyBlock}`;
+        void citeResolvedConcepts(resolvedOntology).catch(() => {});
+      }
     }
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);
@@ -2576,6 +3218,12 @@ export async function POST(request: NextRequest) {
           providerId: executionResult.providerId,
           modelId: executionResult.modelId,
         });
+        // Sovereign-survivability provenance (CFS-015 principle 4): when the
+        // open-weight floor (venice) answered after a frontier rung failed, the
+        // reasoning survived a frontier outage — record the governing invariants.
+        if (executionResult.providerId === 'venice' && attempt !== providerAttempts[0]) {
+          console.warn('[CodexChat] answered on open-weight sovereign floor (venice) — governed by', MODEL_ROUTING_INVARIANTS.join(', '));
+        }
         break;
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
@@ -2624,12 +3272,130 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
-    // ICE engine: pull structured stage_data proposals (aigent-z only) out of
-    // the reply before layout-tag stripping; they return as stage_proposals.
-    const { cleanText: messageSansStageData, proposals: stageProposals } =
-      resolvedAgentId === 'aigent-z'
-        ? extractStageProposals(assistantMessage)
-        : { cleanText: assistantMessage, proposals: [] };
+    // ICE engine: pull structured proposals (aigent-z only) out of the reply
+    // before layout-tag stripping; they return as stage_proposals. Two fence
+    // families share the channel, surface-scoped so they never collide:
+    //  - ```stage_data  → dev-command-center stages (STAGE_PROPOSAL_KIND)
+    //  - ```research_data → IRL research objects (CFS-019 C2.1)
+    // Running both extractors for aigent-z is surface-agnostic: the dev surface
+    // never emits research_data and the irl-research surface never emits
+    // stage_data, so each pass is a no-op on the other surface.
+    let messageSansStageData = assistantMessage;
+    let stageProposals: Array<{ kind: string; summary: string; data: Record<string, unknown> }> = [];
+    if (resolvedAgentId === 'aigent-z') {
+      const stageEx = extractStageProposals(messageSansStageData);
+      messageSansStageData = stageEx.cleanText;
+      stageProposals = stageEx.proposals;
+      const researchEx = extractResearchProposals(messageSansStageData);
+      messageSansStageData = researchEx.cleanText;
+      if (researchEx.proposals.length > 0) {
+        stageProposals = [...stageProposals, ...researchEx.proposals];
+      }
+    }
+
+    // ICE fence enforcement — server-side retry (operator field report,
+    // 2026-07-06, deployed test on gpt-4o-mini): small models sometimes
+    // NARRATE creating a stage proposal ("I will now prepare a context
+    // proposal… This proposal is now awaiting your approval") while emitting
+    // ZERO ```stage_data fences. The lenient fence repair in
+    // extractStageProposals only fixes fences that ARRIVE — this failure is
+    // zero fences, so no pending card appears and the loop stalls (worst at
+    // gap analysis, the largest payload). When the reply promises a proposal
+    // but extraction found none, make exactly ONE follow-up call to the SAME
+    // provider/model (same messages plus an appended user-role instruction
+    // demanding the fence alone) and attach the follow-up's proposals to the
+    // ORIGINAL visible reply. Strictly scoped: aigent-z + dev-command-center
+    // surface only (fenceRetryKind is null everywhere else, including the
+    // narrate-only irl-research surface) + stageProposals.length === 0 +
+    // one retry max. If the retry still yields nothing, append an honest
+    // line — never let the model's promise stand unfulfilled silently.
+    if (
+      resolvedAgentId === 'aigent-z' &&
+      fenceRetryKind !== null &&
+      stageProposals.length === 0 &&
+      looksLikeUnfulfilledProposalPromise(messageSansStageData)
+    ) {
+      console.warn(
+        `[CodexChat] fence-enforcement: reply promised a ${fenceRetryKind} proposal with zero stage_data fences — retrying once`,
+      );
+      try {
+        const fenceRetryResult = await executeProviderAttempt(
+          { providerId: executionResult.providerId, modelId: executionResult.modelId },
+          systemPrompt,
+          [
+            ...conversationHistory,
+            { role: 'user', content: message },
+            { role: 'assistant', content: assistantMessage },
+          ],
+          `Your previous reply promised a proposal but did not include the required \`\`\`stage_data fence. Output ONLY the fenced stage_data JSON for the ${fenceRetryKind} proposal now — no prose.`,
+          isMarketa,
+          resolvedCallerPersonaId,
+        );
+        const retryExtraction = extractStageProposals(fenceRetryResult.content || '');
+        if (retryExtraction.proposals.length > 0) {
+          stageProposals = retryExtraction.proposals;
+          console.log(
+            '[CodexChat] fence-enforcement retry recovered proposals:',
+            retryExtraction.proposals.map((p) => p.kind).join(', '),
+          );
+        }
+      } catch (retryError) {
+        console.warn(
+          '[CodexChat] fence-enforcement retry call failed:',
+          retryError instanceof Error ? retryError.message : retryError,
+        );
+      }
+      if (stageProposals.length === 0) {
+        messageSansStageData = `${messageSansStageData}\n\n(No structured proposal was produced — say "try again" to regenerate.)`;
+      }
+    }
+
+    // IRL research-surface fence enforcement — the same discipline as the dev
+    // loop above, but keyed on the surface (no stage) and demanding a
+    // ```research_data fence. Fires ONLY when the reply promised a proposal and
+    // none was extracted, so narrate/status/run answers (which never promise a
+    // card) are untouched.
+    if (
+      resolvedAgentId === 'aigent-z' &&
+      researchFenceRetry &&
+      stageProposals.length === 0 &&
+      looksLikeUnfulfilledProposalPromise(messageSansStageData)
+    ) {
+      console.warn(
+        '[CodexChat] research fence-enforcement: reply promised a research proposal with zero research_data fences — retrying once',
+      );
+      try {
+        const researchRetryResult = await executeProviderAttempt(
+          { providerId: executionResult.providerId, modelId: executionResult.modelId },
+          systemPrompt,
+          [
+            ...conversationHistory,
+            { role: 'user', content: message },
+            { role: 'assistant', content: assistantMessage },
+          ],
+          'Your previous reply promised a research proposal but did not include the required ```research_data fence. Output ONLY the fenced research_data JSON now — choose the ONE schema (experiment_proposal | protocol_draft | finding | publication_draft) that matches what you promised — no prose.',
+          isMarketa,
+          resolvedCallerPersonaId,
+        );
+        const researchRetry = extractResearchProposals(researchRetryResult.content || '');
+        if (researchRetry.proposals.length > 0) {
+          stageProposals = [...stageProposals, ...researchRetry.proposals];
+          console.log(
+            '[CodexChat] research fence-enforcement retry recovered proposals:',
+            researchRetry.proposals.map((p) => p.kind).join(', '),
+          );
+        }
+      } catch (retryError) {
+        console.warn(
+          '[CodexChat] research fence-enforcement retry call failed:',
+          retryError instanceof Error ? retryError.message : retryError,
+        );
+      }
+      if (stageProposals.length === 0) {
+        messageSansStageData = `${messageSansStageData}\n\n(No structured proposal reached the right pane — say "try again" to regenerate it.)`;
+      }
+    }
+
     const walletActions = inferWalletActions(message, messageSansStageData);
     const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData, chatHistory);
     const responseForClient = stripLayoutTags(messageSansStageData);
@@ -2637,6 +3403,47 @@ export async function POST(request: NextRequest) {
     console.log('[CodexChat] Response length:', responseForClient.length);
     console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');
     console.log('[CodexChat] Response ending:', responseForClient.substring(responseForClient.length - 200));
+
+    // CFS-045 Memory Compilation — the turn's reasoning is not finished when
+    // the answer is generated; it ends when the learning has been compressed.
+    // Runs AFTER the response is sent (next/server after()) so the hot path
+    // is never blocked. Spine-resolved persona ONLY (durable per-persona
+    // state is never keyed from a client-supplied id). Silent on failure.
+    if (
+      activePersonaCtx?.personaId &&
+      userContext?.groundContext &&
+      (userContext.groundContext as Record<string, unknown>).surface === 'smart-triad' &&
+      typeof message === 'string' &&
+      message.trim().length > 0
+    ) {
+      const gcDone = userContext.groundContext as Record<string, unknown>;
+      const compileCartridgeId = String(((gcDone.cartridge ?? {}) as Record<string, unknown>).id ?? '');
+      const compileSeedIds = Array.isArray(gcDone.platformInvariants)
+        ? (gcDone.platformInvariants as Array<Record<string, unknown>>).map((i) => String(i.seedId ?? '')).filter(Boolean)
+        : [];
+      if (compileCartridgeId) {
+        const compilePersonaId = activePersonaCtx.personaId;
+        // A2: memory activations (server-held ids) + opaque session marker
+        // (client-generated random token — sanitised in the service).
+        const compileMemoryIds = Array.isArray(gcDone.retrievedMemoryIds)
+          ? (gcDone.retrievedMemoryIds as string[]).map(String)
+          : [];
+        const compileSessionMarker =
+          typeof gcDone.sessionMarker === 'string' ? gcDone.sessionMarker : undefined;
+        after(async () => {
+          const { compileInteraction } = await import('@/services/memory/memoryCompilation');
+          await compileInteraction({
+            personaId: compilePersonaId,
+            cartridgeId: compileCartridgeId,
+            userMessage: message,
+            assistantResponse: responseForClient,
+            sourceSeedIds: compileSeedIds,
+            retrievedMemoryIds: compileMemoryIds,
+            sessionMarker: compileSessionMarker,
+          });
+        });
+      }
+    }
 
     return NextResponse.json({
       response: responseForClient,
@@ -2666,6 +3473,14 @@ export async function POST(request: NextRequest) {
         title: r.title,
         category: r.contentCategory,
       })) : undefined,
+      // SmartTriad Phase 3 constitutional memory v0 — echo the invariants that
+      // grounded THIS turn (current resolution + carried session memory) so
+      // the client can accumulate them and send them back as
+      // groundContext.sessionInvariants on the next turn. T2-safe content.
+      resolved_invariants:
+        (userContext?.groundContext as Record<string, unknown> | undefined)?.surface === 'smart-triad'
+          ? ((userContext?.groundContext as Record<string, unknown>).platformInvariants ?? undefined)
+          : undefined,
     });
 
   } catch (error) {
