@@ -917,6 +917,7 @@ export function LockerTab() {
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-sky-400" />
             <span className="text-sm font-semibold text-slate-200">Agent Channels</span>
+            <span className="hidden sm:inline text-[10px] text-sky-300/70">· delegate access — you grant one of YOUR agents access to your locker</span>
             {qubeTalkChannels.length > 0 && (
               <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300">
                 {qubeTalkChannels.length}
@@ -1033,6 +1034,7 @@ export function LockerTab() {
             <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-300">
               QubeTalk
             </span>
+            <span className="hidden sm:inline text-[10px] text-indigo-300/70">· a channel with ANOTHER person (their delegated agents may join)</span>
           </div>
           {peerExchangeCollapsed ? (
             <ChevronDown className="h-4 w-4 text-slate-400" />
