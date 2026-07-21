@@ -87,9 +87,14 @@ export interface CandidateRow {
   classification: CompareClassification | null;
   /** Sub-domains that manifest a Compare output (its coverage). */
   coverage: string[] | null;
-  /** Recursive-compression classification (parent-child): where this domain
-   *  invariant sits in the derivation hierarchy. Null until compressed. */
-  compression?: { depth: 'root' | 'derived'; derivesFromCandidateIds: string[]; rationale: string } | null;
+  /** Recursive-compression proposal (parent-child): the node's role + its TYPED,
+   *  not-yet-materialised proposed parent edges. Null until compressed. */
+  compression?: {
+    role: 'root' | 'derived';
+    parents: { parentCandidateId: string; relationship: CompressionRelationship; claim: string; confidence: number }[];
+    rationale: string;
+    materialized: boolean;
+  } | null;
   /** Enriched at read time (route/service), not stored. */
   convergence?: ConvergenceInfo;
 }
@@ -492,48 +497,93 @@ export async function compareSubDomains(
 
 // ── Recursive compression (parent-child keystone) ────────────────────────────
 
+/**
+ * The relationship a derived invariant bears to a parent — TYPED, not a generic
+ * "derived" (Aletheon 2026-07-21: "enables/governs" ≠ "logically entailed").
+ * Each maps to an existing graph edge type at materialisation.
+ */
+export const COMPRESSION_RELATIONSHIPS = ['entails', 'specializes', 'depends_on', 'supports'] as const;
+export type CompressionRelationship = (typeof COMPRESSION_RELATIONSHIPS)[number];
+
+/** Relationship (child→parent) → graph InvariantEdgeType. */
+const RELATIONSHIP_EDGE_TYPE: Record<CompressionRelationship, string> = {
+  entails: 'derives_from', // parent logically entails child ⇒ child derives_from parent
+  specializes: 'specializes',
+  depends_on: 'depends_on',
+  supports: 'supports',
+};
+
+// De-biased: the pass DISCOVERS structure, it does not confirm a preferred
+// ontology. No worked FS example names which invariant is a root — that would
+// steer the result. Relationship types are defined abstractly; a node may be a
+// root, may have several parents, and different valid structures may result.
 const COMPRESS_DOMAIN_SYSTEM = `You are the RECURSIVE COMPRESSION stage of an Invariant Discovery Engine. You are given the
-DOMAIN-LEVEL invariants already discovered for one domain (each emerged from cross-sub-domain
-compression). Your job is to find the DERIVATION STRUCTURE among them: which invariants are FOUNDATIONAL
-(roots) and which are DERIVED (entailed by, a specialisation of, or a downstream consequence of one or
-more of the OTHERS).
+DOMAIN-LEVEL invariants discovered for one domain. Discover the DERIVATION STRUCTURE among them: which are
+FOUNDATIONAL (roots) and which stand in a relationship to one or more OTHERS. Your task is to DISCOVER the
+structure the statements actually support — NOT to confirm any preferred hierarchy. Multiple different
+structures may be valid; return the one the statements warrant, even if it is flat (all roots).
 
-Method:
-- A ROOT is foundational: it does NOT derive from any other invariant in the set — a constitutional
-  candidate for the domain (e.g. "Traceability enables accountability").
-- A DERIVED invariant is entailed by / specialises / is a consequence of one or more OTHER invariants in
-  the set. Examples: "Risk-management practices are required" DERIVES FROM the cybersecurity +
-  data-protection invariants; "A harmonized regulatory framework is required" DERIVES FROM the
-  accountability + transparency invariants. List the parents by their input index in derivesFrom.
-- Compress by RECURRENCE OF ENTAILMENT: prefer the SMALLEST set of roots from which the rest follow.
-- Ground strictly in the given statements. Do NOT invent invariants or relationships the statements do not
-  support. If two invariants are the same principle at different levels, mark the more specific one derived
-  from the more general.
-- A node's derivesFrom MUST reference OTHER indices in the set (never itself); the result MUST be acyclic.
+For each node, decide its role and — if it relates to others — the TYPED relationship to each parent:
+- role "root": foundational; stands on its own; not derived from another invariant in the set.
+- role "derived": stands in a relationship to one or more OTHER invariants. For each parent give the
+  relationship TYPE (be precise — these differ):
+    entails      — the parent LOGICALLY ENTAILS this node (this node necessarily follows from the parent).
+    specializes  — this node is a more specific case of the parent.
+    depends_on   — this node DEPENDS ON the parent to hold, without being logically entailed by it.
+    supports     — this node merely SUPPORTS / is corroborated by the parent (the WEAKEST link; use when
+                   it is not entailment, specialisation, or dependence).
+  For each parent edge also give: a specific "claim" stating the exact relationship (not a restatement),
+  and a "confidence" in [0,1] for that edge.
 
-Output STRICT JSON: {"nodes":[{"index":<input index>,"depth":"root"|"derived","derivesFrom":[<parent index>,...],"rationale":"why it is a root, or which parents entail it and how"}]}`;
+Rules:
+- Ground strictly in the given statements. Do NOT invent invariants or relationships they do not support.
+  If unsure whether A entails B or merely supports it, choose the WEAKER type.
+- A parent index MUST reference OTHER indices (never itself); the graph MUST be acyclic.
+- Prefer fewer, well-justified edges over many weak ones. A flat all-roots result is acceptable.
+
+Output STRICT JSON: {"nodes":[{"index":<i>,"role":"root"|"derived","parents":[{"index":<parent i>,"relationship":"entails|specializes|depends_on|supports","claim":"the specific relationship claim","confidence":<0-1>}],"rationale":"why this role"}]}`;
 
 interface CompressExtraction {
-  nodes: { index: number; depth?: string; derivesFrom?: number[]; rationale?: string }[];
+  nodes: {
+    index: number;
+    role?: string;
+    parents?: { index: number; relationship?: string; claim?: string; confidence?: number }[];
+    rationale?: string;
+  }[];
+}
+
+/** A proposed, TYPED, not-yet-materialised parent edge (child → parent). */
+export interface ProposedParentEdge {
+  parentCandidateId: string;
+  parentStatement: string;
+  relationship: CompressionRelationship;
+  claim: string;
+  confidence: number;
 }
 
 export interface DomainCompressionNode {
   candidateId: string;
   statement: string;
-  depth: 'root' | 'derived';
-  derivesFrom: { candidateId: string; statement: string }[];
+  role: 'root' | 'derived';
+  parents: ProposedParentEdge[];
   rationale: string;
+}
+
+function normalizeRelationship(v: unknown): CompressionRelationship {
+  const s = String(v);
+  // Unknown / uncertain → the weakest link (never over-claim entailment).
+  return (COMPRESSION_RELATIONSHIPS as readonly string[]).includes(s) ? (s as CompressionRelationship) : 'supports';
 }
 
 /**
  * Recursive compression — a SECOND-order Compare over the domain's own earned
- * invariants: find which compress INTO each other, yielding the parent-child
- * derivation hierarchy (roots = constitutional candidates; derived = downstream
- * of a root). Grounded strictly in the candidate statements, deterministic
- * (temperature 0), acyclic. The classification is persisted additively into each
- * candidate's discovery_provenance.compression so promotion can later materialise
- * it as `specializes` edges (via promoteCandidate/linkPromotedParents). Confidence
- * is NOT touched — this is structure discovery, not validity (Law XII).
+ * invariants: PROPOSE the derivation structure (roots vs derived) with TYPED,
+ * evidence-bearing parent edges. Deterministic (temp 0), strictly grounded,
+ * acyclic. The proposal is persisted additively into
+ * `discovery_provenance.compression`; it is NEVER materialised into graph edges
+ * here — materialisation requires explicit operator confirmation
+ * (`materializeCompressionEdges`). Confidence/status/promotion untouched
+ * (structure discovery, not validity — Law XII).
  */
 export async function compressDomainInvariants(
   admin: SupabaseClient,
@@ -542,8 +592,6 @@ export async function compressDomainInvariants(
   | { ok: true; hierarchy: DomainCompressionNode[]; rootCount: number; derivedCount: number }
   | { ok: false; error: string }
 > {
-  // The domain-level invariants (Compare outputs + any domain baseline), candidate
-  // OR promoted — same status breadth as Compare (promoted are the strongest).
   const { data, error } = await admin
     .from('discovery_candidates')
     .select('*')
@@ -563,12 +611,12 @@ export async function compressDomainInvariants(
 
   const items = rows.slice(0, 24);
   const user =
-    `DOMAIN: ${domain}\n\nDOMAIN INVARIANTS (find the derivation structure; cite by index):\n` +
+    `DOMAIN: ${domain}\n\nDOMAIN INVARIANTS (discover the derivation structure; cite by index):\n` +
     items.map((c, i) => `[${i}] ${c.statement}`).join('\n');
 
   let parsed: CompressExtraction;
   try {
-    const call = await callSovereign('analysis', COMPRESS_DOMAIN_SYSTEM, user, 1800, 0);
+    const call = await callSovereign('analysis', COMPRESS_DOMAIN_SYSTEM, user, 2000, 0);
     parsed = JSON.parse(extractJson(call.text)) as CompressExtraction;
   } catch (e) {
     return { ok: false, error: `compression inference failed: ${e instanceof Error ? e.message : String(e)}` };
@@ -579,25 +627,109 @@ export async function compressDomainInvariants(
   for (let idx = 0; idx < items.length; idx++) {
     const c = items[idx];
     const n = nodes.find((x) => Number(x.index) === idx);
-    const rawParents = Array.isArray(n?.derivesFrom) ? n!.derivesFrom : [];
-    // Valid other-indices only; drop self-refs + out-of-range; dedupe.
-    const parentIdxs = [
-      ...new Set(rawParents.map(Number).filter((p) => Number.isInteger(p) && p !== idx && p >= 0 && p < items.length)),
-    ];
-    const depth: 'root' | 'derived' = n && String(n.depth) === 'derived' && parentIdxs.length > 0 ? 'derived' : 'root';
-    const derivesFrom = depth === 'derived' ? parentIdxs.map((p) => ({ candidateId: items[p].id, statement: items[p].statement })) : [];
+    const rawParents = Array.isArray(n?.parents) ? n!.parents : [];
+    // Valid other-indices only; drop self-refs + out-of-range; dedupe by parent index.
+    const seen = new Set<number>();
+    const parents: ProposedParentEdge[] = [];
+    for (const p of rawParents) {
+      const pi = Number(p?.index);
+      if (!Number.isInteger(pi) || pi === idx || pi < 0 || pi >= items.length || seen.has(pi)) continue;
+      seen.add(pi);
+      parents.push({
+        parentCandidateId: items[pi].id,
+        parentStatement: items[pi].statement,
+        relationship: normalizeRelationship(p?.relationship),
+        claim: String(p?.claim ?? '').slice(0, 400),
+        confidence: Math.max(0, Math.min(1, Number(p?.confidence) || 0.5)),
+      });
+    }
+    const role: 'root' | 'derived' = n && String(n.role) === 'derived' && parents.length > 0 ? 'derived' : 'root';
     const rationale = String(n?.rationale ?? '').slice(0, 600);
-    hierarchy.push({ candidateId: c.id, statement: c.statement, depth, derivesFrom, rationale });
+    hierarchy.push({ candidateId: c.id, statement: c.statement, role, parents: role === 'derived' ? parents : [], rationale });
 
-    // Persist additively into provenance (merge, never clobber).
+    // Persist the PROPOSAL additively into provenance (merge, never clobber). NOT
+    // materialised — `materialized: false` until the operator confirms.
     const raw = rawById.get(c.id) ?? {};
     const prov = { ...((raw.discovery_provenance ?? {}) as Record<string, unknown>) };
-    prov.compression = { depth, derivesFromCandidateIds: derivesFrom.map((d) => d.candidateId), rationale };
+    prov.compression = {
+      role,
+      rationale,
+      materialized: false,
+      parents: (role === 'derived' ? parents : []).map((p) => ({
+        parentCandidateId: p.parentCandidateId,
+        relationship: p.relationship,
+        claim: p.claim,
+        confidence: p.confidence,
+      })),
+    };
     await admin.from('discovery_candidates').update({ discovery_provenance: prov }).eq('id', c.id);
   }
 
-  const rootCount = hierarchy.filter((h) => h.depth === 'root').length;
+  const rootCount = hierarchy.filter((h) => h.role === 'root').length;
   return { ok: true, hierarchy, rootCount, derivedCount: hierarchy.length - rootCount };
+}
+
+/**
+ * OPERATOR-CONFIRMED materialisation of a derived candidate's proposed typed
+ * edges into the invariant graph. Only runs on explicit operator action (route/
+ * UI) — nothing is inserted automatically on promotion (Aletheon 2026-07-21).
+ * Requires the child AND each parent to be PROMOTED (have a graph invariant id);
+ * parents not yet promoted are reported as skipped. Each edge is created with
+ * the PROPOSED relationship's edge type + the entailment claim as its rationale.
+ */
+export async function materializeCompressionEdges(
+  admin: SupabaseClient,
+  candidateId: string,
+): Promise<{ ok: true; linked: number; skipped: number } | { ok: false; error: string }> {
+  const { data: c } = await admin
+    .from('discovery_candidates')
+    .select('promoted_invariant_id, status, discovery_provenance')
+    .eq('id', candidateId)
+    .maybeSingle();
+  if (!c) return { ok: false, error: 'candidate not found' };
+  if (c.status !== 'promoted' || !c.promoted_invariant_id) {
+    return { ok: false, error: 'candidate is not promoted — promote it (and its parent roots) first' };
+  }
+  const prov = (c.discovery_provenance ?? {}) as Record<string, unknown>;
+  const comp = prov.compression as { parents?: { parentCandidateId: string; relationship: string; claim?: string }[] } | undefined;
+  const proposed = Array.isArray(comp?.parents) ? comp!.parents : [];
+  if (proposed.length === 0) return { ok: true, linked: 0, skipped: 0 };
+
+  // Resolve each parent CANDIDATE → its promoted invariant id (skip un-promoted).
+  const parentCandidateIds = proposed.map((p) => p.parentCandidateId);
+  const { data: parentRows } = await admin
+    .from('discovery_candidates')
+    .select('id, promoted_invariant_id')
+    .in('id', parentCandidateIds)
+    .not('promoted_invariant_id', 'is', null);
+  const promotedByCandidate = new Map((parentRows ?? []).map((r) => [String(r.id), String(r.promoted_invariant_id)]));
+
+  const childInvariantId = String(c.promoted_invariant_id);
+  let linked = 0;
+  let skipped = 0;
+  for (const p of proposed) {
+    const parentInvariantId = promotedByCandidate.get(p.parentCandidateId);
+    if (!parentInvariantId) { skipped += 1; continue; }
+    const edgeType = RELATIONSHIP_EDGE_TYPE[normalizeRelationship(p.relationship)];
+    try {
+      await addEdge({
+        fromInvariantId: childInvariantId,
+        toInvariantId: parentInvariantId,
+        edgeType: edgeType as never,
+        rationale: `CFS-048 recursive compression (${p.relationship}): ${String(p.claim ?? '').slice(0, 300)}`,
+      });
+      linked += 1;
+    } catch (e) {
+      // Cycle/duplicate/etc. — never fail the whole confirmation.
+      console.error(`[CFS-048] compression edge failed ${childInvariantId}→${parentInvariantId} (${edgeType}): ${e instanceof Error ? e.message : String(e)}`);
+      skipped += 1;
+    }
+  }
+  if (linked > 0) {
+    const nextProv = { ...prov, compression: { ...(comp as object), materialized: true } };
+    await admin.from('discovery_candidates').update({ discovery_provenance: nextProv }).eq('id', candidateId);
+  }
+  return { ok: true, linked, skipped };
 }
 
 // ── Stage 5 · Promotion into the canonical lifecycle (lands at `proposed`) ──
@@ -642,38 +774,11 @@ async function createSpecializesEdges(childInvariantId: string, parentIds: strin
 }
 
 /**
- * Resolve a candidate's RECURSIVE-COMPRESSION parents to their promoted invariant
- * ids. `compressDomainInvariants` records, per derived candidate, the CANDIDATE
- * ids of its parents (provenance.compression.derivesFromCandidateIds). This maps
- * those to the parents' `promoted_invariant_id`, SKIPPING any not-yet-promoted
- * parent — so promoting roots-then-derived materialises the domain→domain
- * hierarchy as `specializes` edges. (Promote roots first; a derived child
- * promoted early can be retro-linked once its roots exist.)
- */
-async function resolveCompressionParentInvariantIds(
-  admin: SupabaseClient,
-  candidate: Record<string, unknown>,
-): Promise<string[]> {
-  const prov = (candidate.discovery_provenance ?? {}) as Record<string, unknown>;
-  const comp = prov.compression as { derivesFromCandidateIds?: unknown } | undefined;
-  const parentCandidateIds = Array.isArray(comp?.derivesFromCandidateIds)
-    ? (comp!.derivesFromCandidateIds as unknown[]).filter((x): x is string => typeof x === 'string' && Boolean(x))
-    : [];
-  if (parentCandidateIds.length === 0) return [];
-  const { data } = await admin
-    .from('discovery_candidates')
-    .select('promoted_invariant_id')
-    .in('id', parentCandidateIds)
-    .not('promoted_invariant_id', 'is', null);
-  return (data ?? []).map((r) => String(r.promoted_invariant_id)).filter(Boolean);
-}
-
-/**
- * Retro-link an ALREADY-PROMOTED invariant to parents — for invariants promoted
- * before parent-linking existed, OR to complete a recursive-compression edge once
- * the parent roots are promoted. Attaches `specializes` edges to the existing
- * invariant without re-promoting. Merges explicit parents with any resolved
- * recursive-compression parents. Idempotent.
+ * Retro-link an ALREADY-PROMOTED sub-domain invariant to operator-confirmed
+ * domain parents — for invariants promoted before parent-linking existed
+ * (Investment/Market Ops etc.). Attaches `specializes` edges to the existing
+ * invariant without re-promoting. Idempotent. (Recursive-compression domain→
+ * domain edges use the TYPED, operator-confirmed `materializeCompressionEdges`.)
  */
 export async function linkPromotedParents(
   admin: SupabaseClient,
@@ -682,16 +787,15 @@ export async function linkPromotedParents(
 ): Promise<{ ok: true; linkedParents: number } | { ok: false; error: string }> {
   const { data: c } = await admin
     .from('discovery_candidates')
-    .select('domain, sub_domain, promoted_invariant_id, status, discovery_provenance')
+    .select('domain, sub_domain, promoted_invariant_id, status')
     .eq('id', candidateId)
     .maybeSingle();
   if (!c) return { ok: false, error: 'candidate not found' };
   if (c.status !== 'promoted' || !c.promoted_invariant_id) return { ok: false, error: 'candidate is not promoted — nothing to link' };
-  const compressionParents = await resolveCompressionParentInvariantIds(admin, c as Record<string, unknown>);
   const linked = await createSpecializesEdges(
     String(c.promoted_invariant_id),
-    [...parentInvariantIds, ...compressionParents],
-    `CFS-048 retro-link: invariant specializes parent (${String(c.sub_domain ?? c.domain)})`,
+    parentInvariantIds,
+    `CFS-048 retro-link: sub-domain invariant specializes domain invariant (${String(c.sub_domain ?? c.domain)})`,
   );
   return { ok: true, linkedParents: linked };
 }
@@ -787,19 +891,16 @@ export async function promoteCandidate(
       .eq('id', candidateId);
 
     // Parent-linking (Aletheon keystone): the promoted invariant `specializes`
-    // each parent, turning the registry into an ontology (a graph, not a tree).
-    // Two parent sources merge here:
-    //   1. operator-confirmed parents passed in (sub-domain → domain),
-    //   2. RECURSIVE-COMPRESSION parents auto-resolved from provenance (domain →
-    //      domain): a `derived` domain invariant specialises its roots once they
-    //      are promoted. This materialises the compressDomainInvariants hierarchy
-    //      as real edges (promote roots first; derived children link to them).
-    // Edge failures never fail the promotion (the invariant already exists).
-    const compressionParents = await resolveCompressionParentInvariantIds(admin, c as Record<string, unknown>);
+    // each OPERATOR-CONFIRMED parent passed in (sub-domain → domain), turning the
+    // registry into an ontology (a graph, not a tree). Recursive-compression
+    // (domain → domain) edges are NOT auto-created here — they are proposed by
+    // compressDomainInvariants and materialised only on explicit operator
+    // confirmation (materializeCompressionEdges), per the "confirm before graph
+    // insertion" discipline. Edge failures never fail the promotion.
     const linkedParents = await createSpecializesEdges(
       result.invariant.id,
-      [...parentInvariantIds, ...compressionParents],
-      `CFS-048: invariant specializes parent (${String(c.sub_domain ?? c.domain)})`,
+      parentInvariantIds,
+      `CFS-048: sub-domain invariant specializes domain invariant (${String(c.sub_domain ?? c.domain)})`,
     );
     return { ok: true, invariantId: result.invariant.id, linkedParents };
   } catch (e) {
@@ -843,11 +944,17 @@ function toCandidateRow(r: Record<string, unknown>): CandidateRow {
 function parseCompression(v: unknown): CandidateRow['compression'] {
   if (!v || typeof v !== 'object') return null;
   const o = v as Record<string, unknown>;
-  return {
-    depth: o.depth === 'derived' ? 'derived' : 'root',
-    derivesFromCandidateIds: Array.isArray(o.derivesFromCandidateIds) ? (o.derivesFromCandidateIds as string[]) : [],
-    rationale: String(o.rationale ?? ''),
-  };
+  const role = o.role === 'derived' || o.depth === 'derived' ? 'derived' : 'root';
+  const rawParents = Array.isArray(o.parents) ? (o.parents as Record<string, unknown>[]) : [];
+  const parents = rawParents.map((p) => ({
+    parentCandidateId: String(p.parentCandidateId ?? ''),
+    relationship: (COMPRESSION_RELATIONSHIPS as readonly string[]).includes(String(p.relationship))
+      ? (String(p.relationship) as CompressionRelationship)
+      : ('supports' as CompressionRelationship),
+    claim: String(p.claim ?? ''),
+    confidence: Math.max(0, Math.min(1, Number(p.confidence) || 0.5)),
+  })).filter((p) => p.parentCandidateId);
+  return { role, parents, rationale: String(o.rationale ?? ''), materialized: o.materialized === true };
 }
 
 /** Tolerate a model that wraps JSON in prose/fences. Exported for the canary. */

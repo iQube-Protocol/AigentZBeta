@@ -108,30 +108,52 @@ describe('Recursive compression discipline (parent-child keystone)', () => {
     expect(src).toMatch(/p < items\.length/);
   });
 
-  it('root/derived: a node is derived only when it has ≥1 valid parent, else root', () => {
-    expect(src).toMatch(/String\(n\.depth\) === 'derived' && parentIdxs\.length > 0 \? 'derived' : 'root'/);
+  it('role/derived: a node is derived only when it has ≥1 valid parent, else root', () => {
+    expect(src).toMatch(/String\(n\.role\) === 'derived' && parents\.length > 0 \? 'derived' : 'root'/);
   });
 
-  it('persists the classification ADDITIVELY into provenance (merge, never clobber)', () => {
-    expect(src).toMatch(/\.\.\.\(\(raw\.discovery_provenance \?\? \{\}\) as Record<string, unknown>\)/);
-    expect(src).toMatch(/prov\.compression = \{ depth, derivesFromCandidateIds/);
+  it('is DE-BIASED — the prompt names no worked FS example that steers which invariant is a root', () => {
+    const prompt = src.slice(src.indexOf('COMPRESS_DOMAIN_SYSTEM'), src.indexOf('interface CompressExtraction'));
+    // must not confirm a preferred ontology
+    expect(prompt).toMatch(/DISCOVER the\s+structure the statements actually support|NOT to confirm any preferred/i);
+    // no biasing worked examples naming specific FS invariants as roots/derived
+    expect(prompt).not.toMatch(/Risk-management practices are required|harmonized regulatory framework/i);
+    // a flat all-roots result is explicitly acceptable
+    expect(prompt).toMatch(/flat.*all-roots.*acceptable/i);
   });
 
-  it('does NOT touch confidence or promote/canonize (structure discovery, not validity)', () => {
-    // The function updates only discovery_provenance; no status/confidence writes.
+  it('edges are TYPED (entails/specializes/depends_on/supports); uncertain → weakest (supports)', () => {
+    expect(src).toMatch(/COMPRESSION_RELATIONSHIPS = \['entails', 'specializes', 'depends_on', 'supports'\]/);
+    // unknown/uncertain relationship coerces to the weakest link, never over-claims entailment
+    expect(src).toMatch(/normalizeRelationship[\s\S]*?: 'supports'/);
+    // each proposed edge carries a claim + confidence
+    expect(src).toMatch(/claim:.*slice\(0, 400\)/);
+    expect(src).toMatch(/confidence: Math\.max\(0, Math\.min\(1/);
+  });
+
+  it('proposals are NOT auto-materialised — persisted with materialized:false', () => {
     const fn = src.slice(src.indexOf('export async function compressDomainInvariants'));
-    const body = fn.slice(0, fn.indexOf('\n}\n'));
-    expect(body).not.toMatch(/status: 'promoted'|\.update\(\{ confidence|canonize|validate/);
+    const body = fn.slice(0, fn.indexOf('\nexport '));
+    expect(body).toMatch(/materialized: false/);
+    // structure discovery only — no promotion/canonize/confidence writes
+    expect(body).not.toMatch(/status: 'promoted'|canonize|addEdge/);
   });
 
-  it('materialises the hierarchy on promotion — resolves recursive-compression parents to promoted invariant ids, skipping un-promoted', () => {
-    expect(src).toMatch(/async function resolveCompressionParentInvariantIds/);
-    // reads the recorded parent CANDIDATE ids from provenance.compression
-    expect(src).toMatch(/comp\?\.derivesFromCandidateIds/);
-    // maps to promoted invariant ids, skipping not-yet-promoted parents
-    expect(src).toMatch(/\.in\('id', parentCandidateIds\)[\s\S]*?\.not\('promoted_invariant_id', 'is', null\)/);
-    // both promotion paths merge the compression parents into the specializes edges
-    expect(src).toMatch(/\[\.\.\.parentInvariantIds, \.\.\.compressionParents\]/);
+  it('promotion does NOT auto-insert recursive edges (operator-confirmed only)', () => {
+    const promote = src.slice(src.indexOf('export async function promoteCandidate'));
+    const body = promote.slice(0, promote.indexOf('\nexport '));
+    // the auto-merge of compression parents must be gone from promotion
+    expect(body).not.toMatch(/compressionParents|resolveCompressionParentInvariantIds/);
+  });
+
+  it('materializeCompressionEdges is operator-confirmed + typed + skips un-promoted parents', () => {
+    expect(src).toMatch(/export async function materializeCompressionEdges/);
+    // requires the child to be promoted
+    expect(src).toMatch(/candidate is not promoted — promote it/);
+    // resolves parents, skipping un-promoted
+    expect(src).toMatch(/\.not\('promoted_invariant_id', 'is', null\)/);
+    // materialises with the PROPOSED relationship's edge type (not hardcoded specializes)
+    expect(src).toMatch(/RELATIONSHIP_EDGE_TYPE\[normalizeRelationship\(p\.relationship\)\]/);
   });
 
   it('confidence is recurrence-based (coverage breadth), not model self-report', () => {
