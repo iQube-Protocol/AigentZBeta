@@ -87,7 +87,7 @@ export function listTools() {
     {
       name: 'explain_primitive',
       description:
-        'Define a metaMe / Polity constitutional primitive (e.g. "standing", "delegation", "steward", "citizenship", "Polity Passport", "Constitutional Persona") AUTHORITATIVELY, by resolving it against the live ratified invariant canon — not by inference. Use this whenever a principal asks what a protocol term means. Public + read-only; no crossing required.',
+        'Define a metaMe / Polity constitutional primitive (e.g. "standing", "delegation", "citizenship", "personhood", "authority", "reputation", "Polity Passport") AUTHORITATIVELY and CONSTITUTIONAL-FIRST. Returns Layer 1 — the verbatim ratified defining invariants (the constitutional meaning, canonical statements leading) — then Layer 2, the operational resolver model, clearly labelled as a ranking projection and NOT the definition. Also returns `distinctions` (e.g. Standing is personhood-bound and is NOT reputation). Lead your answer with Layer 1; use Layer 2 only if the principal asks how the term is calculated. Public + read-only; no crossing required.',
       inputSchema: {
         type: 'object',
         properties: { term: { type: 'string', description: 'The constitutional primitive / term to define.' } },
@@ -270,7 +270,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
     const term = typeof args.term === 'string' ? args.term.trim() : '';
     if (!term) return { ...text('A term to define is required (e.g. "standing", "delegation", "Polity Passport").'), isError: true };
     if (!ctx.irl) return { ...text('The constitutional canon is unavailable on this gateway.'), isError: true };
-    return text(await ctx.irl.resolveCanon(term));
+    return text(await ctx.irl.definePrimitive(term));
   }
 
   if (name === 'inspect_threshold_link') {
