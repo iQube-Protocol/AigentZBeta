@@ -642,10 +642,38 @@ async function createSpecializesEdges(childInvariantId: string, parentIds: strin
 }
 
 /**
- * Retro-link an ALREADY-PROMOTED sub-domain invariant to domain parents — for
- * invariants promoted before parent-linking existed (Investment/Market Ops etc.).
- * Same operator-confirmed contract; attaches `specializes` edges to the existing
- * invariant without re-promoting. Idempotent.
+ * Resolve a candidate's RECURSIVE-COMPRESSION parents to their promoted invariant
+ * ids. `compressDomainInvariants` records, per derived candidate, the CANDIDATE
+ * ids of its parents (provenance.compression.derivesFromCandidateIds). This maps
+ * those to the parents' `promoted_invariant_id`, SKIPPING any not-yet-promoted
+ * parent — so promoting roots-then-derived materialises the domain→domain
+ * hierarchy as `specializes` edges. (Promote roots first; a derived child
+ * promoted early can be retro-linked once its roots exist.)
+ */
+async function resolveCompressionParentInvariantIds(
+  admin: SupabaseClient,
+  candidate: Record<string, unknown>,
+): Promise<string[]> {
+  const prov = (candidate.discovery_provenance ?? {}) as Record<string, unknown>;
+  const comp = prov.compression as { derivesFromCandidateIds?: unknown } | undefined;
+  const parentCandidateIds = Array.isArray(comp?.derivesFromCandidateIds)
+    ? (comp!.derivesFromCandidateIds as unknown[]).filter((x): x is string => typeof x === 'string' && Boolean(x))
+    : [];
+  if (parentCandidateIds.length === 0) return [];
+  const { data } = await admin
+    .from('discovery_candidates')
+    .select('promoted_invariant_id')
+    .in('id', parentCandidateIds)
+    .not('promoted_invariant_id', 'is', null);
+  return (data ?? []).map((r) => String(r.promoted_invariant_id)).filter(Boolean);
+}
+
+/**
+ * Retro-link an ALREADY-PROMOTED invariant to parents — for invariants promoted
+ * before parent-linking existed, OR to complete a recursive-compression edge once
+ * the parent roots are promoted. Attaches `specializes` edges to the existing
+ * invariant without re-promoting. Merges explicit parents with any resolved
+ * recursive-compression parents. Idempotent.
  */
 export async function linkPromotedParents(
   admin: SupabaseClient,
@@ -654,15 +682,16 @@ export async function linkPromotedParents(
 ): Promise<{ ok: true; linkedParents: number } | { ok: false; error: string }> {
   const { data: c } = await admin
     .from('discovery_candidates')
-    .select('domain, sub_domain, promoted_invariant_id, status')
+    .select('domain, sub_domain, promoted_invariant_id, status, discovery_provenance')
     .eq('id', candidateId)
     .maybeSingle();
   if (!c) return { ok: false, error: 'candidate not found' };
   if (c.status !== 'promoted' || !c.promoted_invariant_id) return { ok: false, error: 'candidate is not promoted — nothing to link' };
+  const compressionParents = await resolveCompressionParentInvariantIds(admin, c as Record<string, unknown>);
   const linked = await createSpecializesEdges(
     String(c.promoted_invariant_id),
-    parentInvariantIds,
-    `CFS-048 retro-link: sub-domain invariant specializes domain invariant (${String(c.sub_domain ?? c.domain)})`,
+    [...parentInvariantIds, ...compressionParents],
+    `CFS-048 retro-link: invariant specializes parent (${String(c.sub_domain ?? c.domain)})`,
   );
   return { ok: true, linkedParents: linked };
 }
@@ -757,14 +786,20 @@ export async function promoteCandidate(
       .update({ status: 'promoted', promoted_invariant_id: result.invariant.id, updated_at: new Date().toISOString() })
       .eq('id', candidateId);
 
-    // Parent-linking (Aletheon keystone): the promoted sub-domain invariant
-    // `specializes` each operator-confirmed parent domain invariant, turning the
-    // registry into an ontology (a graph, not a tree). Edge failures never fail
-    // the promotion (the invariant already exists).
+    // Parent-linking (Aletheon keystone): the promoted invariant `specializes`
+    // each parent, turning the registry into an ontology (a graph, not a tree).
+    // Two parent sources merge here:
+    //   1. operator-confirmed parents passed in (sub-domain → domain),
+    //   2. RECURSIVE-COMPRESSION parents auto-resolved from provenance (domain →
+    //      domain): a `derived` domain invariant specialises its roots once they
+    //      are promoted. This materialises the compressDomainInvariants hierarchy
+    //      as real edges (promote roots first; derived children link to them).
+    // Edge failures never fail the promotion (the invariant already exists).
+    const compressionParents = await resolveCompressionParentInvariantIds(admin, c as Record<string, unknown>);
     const linkedParents = await createSpecializesEdges(
       result.invariant.id,
-      parentInvariantIds,
-      `CFS-048: sub-domain invariant specializes domain invariant (${String(c.sub_domain ?? c.domain)})`,
+      [...parentInvariantIds, ...compressionParents],
+      `CFS-048: invariant specializes parent (${String(c.sub_domain ?? c.domain)})`,
     );
     return { ok: true, invariantId: result.invariant.id, linkedParents };
   } catch (e) {

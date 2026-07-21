@@ -124,6 +124,16 @@ describe('Recursive compression discipline (parent-child keystone)', () => {
     expect(body).not.toMatch(/status: 'promoted'|\.update\(\{ confidence|canonize|validate/);
   });
 
+  it('materialises the hierarchy on promotion — resolves recursive-compression parents to promoted invariant ids, skipping un-promoted', () => {
+    expect(src).toMatch(/async function resolveCompressionParentInvariantIds/);
+    // reads the recorded parent CANDIDATE ids from provenance.compression
+    expect(src).toMatch(/comp\?\.derivesFromCandidateIds/);
+    // maps to promoted invariant ids, skipping not-yet-promoted parents
+    expect(src).toMatch(/\.in\('id', parentCandidateIds\)[\s\S]*?\.not\('promoted_invariant_id', 'is', null\)/);
+    // both promotion paths merge the compression parents into the specializes edges
+    expect(src).toMatch(/\[\.\.\.parentInvariantIds, \.\.\.compressionParents\]/);
+  });
+
   it('confidence is recurrence-based (coverage breadth), not model self-report', () => {
     expect(src).toMatch(/0\.55 \+ 0\.1 \* cov/);
   });

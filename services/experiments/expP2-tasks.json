@@ -1,0 +1,26 @@
+{
+  "domain": "financial-services",
+  "note": "EXP-P2 utility tasks — financial-services reasoning problems whose strong answers depend on GOVERNING PRINCIPLES (the class the discovered FS invariant library encodes), not on citing specific regulations. The judge is blind to which arm produced an answer and never sees the library, so it cannot reward mere restatement.",
+  "tasks": [
+    {
+      "id": "fs-crossborder-corridor",
+      "prompt": "A fintech is designing a new cross-border payments corridor between two jurisdictions. Setting aside any specific regulation, what governing principles must the design uphold to be sound, trustworthy, and durable — and why is each required? Give the principles and their rationale.",
+      "rubric": "Strong answers name and JUSTIFY: end-to-end traceability/provenance of value transfer, transparency + accountability, data protection/minimisation, separation of custody authority from beneficial ownership, and settlement finality/integrity. Reward reasoning FROM durable constraints (why each principle is unavoidable) over listing regulation names. Penalise policy name-dropping without rationale and any principle that contradicts another."
+    },
+    {
+      "id": "fs-custody-design",
+      "prompt": "You are designing a digital-asset custody service. What invariant constraints must hold for the design to be trustworthy, independent of the jurisdiction it operates in — and why? Explain the reasoning behind each.",
+      "rubric": "Strong answers identify and justify: custody authority must be separable from beneficial ownership, verifiable provenance/traceability of holdings, transparency + auditable accountability, data protection, and integrity/finality of records. Reward principled derivation; penalise vague 'be secure/compliant' answers and unjustified assertions."
+    },
+    {
+      "id": "fs-trading-surveillance",
+      "prompt": "A trading venue wants to design its market-integrity and surveillance controls from first principles. What governing invariants should the controls enforce, and why does market integrity depend on each?",
+      "rubric": "Strong answers name and justify: transparency, traceability/provenance of orders and executions, accountability mechanisms, risk-management as a consequence of the above, and data protection for participants. Reward explaining WHY integrity requires each; penalise mere enumeration or contradictions."
+    },
+    {
+      "id": "fs-payments-aml",
+      "prompt": "Design the anti-money-laundering posture for a payments platform from first principles (not by citing a specific regime). What governing principles make an AML posture effective, and why?",
+      "rubric": "Strong answers derive: provenance/traceability of value transfer as the foundation, transparency + accountability, risk-based control as a consequence, data protection balanced against traceability, and integrity of records. Reward causal reasoning (traceability → accountability → deterrence); penalise regime name-dropping without principle, and any internally contradictory claim."
+    }
+  ]
+}
