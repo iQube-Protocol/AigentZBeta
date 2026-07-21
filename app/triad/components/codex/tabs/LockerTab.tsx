@@ -27,6 +27,14 @@ const WorldIdButton = dynamic(
   { ssr: false, loading: () => <span className="text-[10px] text-sky-400">Loading…</span> },
 );
 
+// QubeTalk Peer Exchange — personhood-bound peer messaging + artifact sharing
+// between two INDEPENDENT principals (distinct from the holder↔agent "Agent
+// Channels" above). Lazy + client-only (clipboard/personaFetch).
+const QubeTalkInboxTab = dynamic(() => import('@/components/composer/QubeTalkInboxTab'), {
+  ssr: false,
+  loading: () => <span className="text-[10px] text-slate-400">Loading…</span>,
+});
+
 interface WorldIdProofBundle {
   proof: string;
   merkle_root: string;
@@ -193,6 +201,7 @@ export function LockerTab() {
   const [x409Busy, setX409Busy] = useState(false);
   const [x409Note, setX409Note] = useState<string | null>(null);
   const [qubeTalkCollapsed, setQubeTalkCollapsed] = useState(false);
+  const [peerExchangeCollapsed, setPeerExchangeCollapsed] = useState(true);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [messageSending, setMessageSending] = useState(false);
@@ -1007,6 +1016,37 @@ export function LockerTab() {
                 );
               })
             )}
+          </div>
+        )}
+      </div>
+
+      {/* QubeTalk Peer Exchange — principal ↔ principal (distinct from Agent Channels) */}
+      <div className="rounded-xl border border-indigo-700/50 bg-indigo-950/20 p-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setPeerExchangeCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-indigo-400" />
+            <span className="text-sm font-semibold text-slate-200">Peer Exchange</span>
+            <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-300">
+              QubeTalk
+            </span>
+          </div>
+          {peerExchangeCollapsed ? (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {!peerExchangeCollapsed && (
+          <div className="rounded-lg border border-indigo-500/20 bg-slate-950/40 p-3">
+            {/* Personhood-bound peer messaging + artifact sharing with another
+                principal by their Polity Public Reference. Self-contained
+                surface (own reference, open channel, messages, shared
+                artifacts, open + copy-to-locker). */}
+            <QubeTalkInboxTab />
           </div>
         )}
       </div>
