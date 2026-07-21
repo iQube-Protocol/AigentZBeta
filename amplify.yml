@@ -112,6 +112,16 @@ frontend:
         - echo "Removing source maps + non-runtime dev artifacts (never loaded at SSR runtime)..."
         - find .next -type f -name "*.map" -delete 2>/dev/null || true
         - find .next/standalone/node_modules -type f \( -name "*.d.ts" -o -name "*.md" -o -name "*.markdown" -o -iname "readme*" -o -iname "license*" -o -iname "licence*" -o -iname "changelog*" -o -name "*.map" \) -delete 2>/dev/null || true
+        # Test/doc/example DIRECTORIES + build-meta files that npm installs into
+        # every package but the SSR runtime never require()s. Module resolution
+        # uses package.json main/exports → dist/lib, never these. This is the
+        # battle-tested "modclean-safe" set; deleting it cannot change runtime
+        # behaviour and reclaims several MB — the reliable headroom under the
+        # 230686720-byte cap when the file-level sweep above isn't enough
+        # (2026-07-21: the artifact was ~260 KB over even after that sweep).
+        - echo "Removing test/doc/example dirs + build-meta from node_modules (never loaded at SSR runtime)..."
+        - find .next/standalone/node_modules -type d \( -name test -o -name tests -o -name __tests__ -o -name example -o -name examples -o -name doc -o -name docs -o -name coverage -o -name .nyc_output -o -name .github -o -name .idea \) -prune -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules -type f \( -name "*.flow" -o -name "*.coffee" -o -name "*.ts.map" -o -name ".eslintrc*" -o -name ".editorconfig" -o -name ".npmignore" -o -name ".travis.yml" -o -name "*.tsbuildinfo" -o -name ".DS_Store" \) -delete 2>/dev/null || true
         - echo "=== .next/standalone size AFTER native-binary + dev-artifact cleanup ==="
         - du -sh .next/standalone 2>/dev/null || true
         - echo "=== .next total size AFTER cleanup ==="
