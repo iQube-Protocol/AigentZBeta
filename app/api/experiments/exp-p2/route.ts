@@ -20,6 +20,7 @@ import {
   expP2Config,
   expP2AnswerStep,
   expP2JudgeStep,
+  expP2ClaimAnalysisStep,
   fetchDiscoveredLibrary,
   type ExpP2Arm,
 } from '@/services/experiments/expP2Utility';
@@ -48,7 +49,7 @@ async function requireAccess(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const gate = await requireAccess(request);
   if ('error' in gate) return gate.error;
-  const { domain, tasks } = expP2Config();
+  const { domain, tasks, manualBaselineCount } = expP2Config();
   let libraryCount = 0;
   let libraryError: string | null = null;
   try {
@@ -61,7 +62,8 @@ export async function GET(request: NextRequest) {
       ok: true,
       domain,
       tasks,
-      libraryCount,
+      libraryCount, // discovered (earned) library size
+      manualBaselineCount, // manual baseline arm size
       libraryError,
       providers: PROVIDERS.map((p) => ({ id: p, available: providerAvailable(p) })),
     },
@@ -80,6 +82,7 @@ export async function POST(request: NextRequest) {
     arm?: string;
     answer?: string;
     model?: string;
+    excludeIndex?: number;
   };
   if (!isProvider(body.provider)) return NextResponse.json({ error: 'unknown provider' }, { status: 400 });
   if (!providerAvailable(body.provider)) return NextResponse.json({ error: `${body.provider} not configured` }, { status: 400 });
@@ -93,8 +96,15 @@ export async function POST(request: NextRequest) {
   try {
     if (body.action === 'answer') {
       const arm = body.arm as ExpP2Arm;
-      if (arm !== 'cold' && arm !== 'discovered') return NextResponse.json({ error: "arm must be 'cold' or 'discovered'" }, { status: 400 });
-      const r = await expP2AnswerStep(body.provider, taskIndex, arm, model);
+      if (arm !== 'cold' && arm !== 'manual' && arm !== 'discovered') {
+        return NextResponse.json({ error: "arm must be 'cold', 'manual', or 'discovered'" }, { status: 400 });
+      }
+      // Ablation: dropping a discovered-library index (discovered arm only).
+      const excludeIndex =
+        arm === 'discovered' && Number.isInteger(body.excludeIndex) && Number(body.excludeIndex) >= 0
+          ? Number(body.excludeIndex)
+          : undefined;
+      const r = await expP2AnswerStep(body.provider, taskIndex, arm, model, excludeIndex);
       return NextResponse.json({ ok: true, ...r }, { headers: { 'Cache-Control': 'no-store' } });
     }
     if (body.action === 'judge') {
@@ -103,7 +113,13 @@ export async function POST(request: NextRequest) {
       const r = await expP2JudgeStep(body.provider, taskIndex, answer, model);
       return NextResponse.json({ ok: true, ...r }, { headers: { 'Cache-Control': 'no-store' } });
     }
-    return NextResponse.json({ error: "action must be 'answer' or 'judge'" }, { status: 400 });
+    if (body.action === 'claim-analysis') {
+      const answer = typeof body.answer === 'string' ? body.answer : '';
+      if (!answer.trim()) return NextResponse.json({ error: 'answer is required' }, { status: 400 });
+      const r = await expP2ClaimAnalysisStep(body.provider, answer, model);
+      return NextResponse.json({ ok: true, ...r }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    return NextResponse.json({ error: "action must be 'answer', 'judge', or 'claim-analysis'" }, { status: 400 });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'step failed' }, { status: 500 });
   }

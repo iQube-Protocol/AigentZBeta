@@ -1,6 +1,14 @@
 {
   "domain": "financial-services",
   "note": "EXP-P2 utility tasks — financial-services reasoning problems whose strong answers depend on GOVERNING PRINCIPLES (the class the discovered FS invariant library encodes), not on citing specific regulations. The judge is blind to which arm produced an answer and never sees the library, so it cannot reward mere restatement.",
+  "manualBaselineNote": "The MANUAL-BASELINE arm library — the expert/hand-authored FS invariant set the earned substrate is compared against (Aletheon three-arm design). EDIT this to match your ratified CRP-003 baseline before running; the statements below are an editable starting set, NOT asserted canon.",
+  "manualBaseline": [
+    "Financial systems must preserve transparency and accountability so that actions are attributable and auditable.",
+    "Financial services must protect the integrity and confidentiality of data (data protection / minimisation).",
+    "Robust cybersecurity controls are required to protect assets and infrastructure from compromise.",
+    "Risk must be identified, measured, and managed proportionately to the activity undertaken.",
+    "Regulatory and compliance obligations must be met consistently across jurisdictions (harmonisation)."
+  ],
   "tasks": [
     {
       "id": "fs-crossborder-corridor",
