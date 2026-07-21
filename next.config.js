@@ -47,22 +47,31 @@ const nextConfig = {
       // fails to load at runtime, the runtime moved off glibc — revisit here.
       "node_modules/@next/swc-linux-x64-musl/**",
       "node_modules/@swc/core-linux-x64-musl/**",
-      // arm64 native binaries — the Amplify SSR Lambda is x86_64 (Amazon Linux,
-      // glibc), so it NEVER loads any linux-arm64 prebuilt binary. Standalone's
-      // nft still traces them for every native package that ships per-arch
-      // binaries (swc, sharp, canvas), the same dead-weight class as the musl
-      // x64 excludes above — just for the other CPU arch. Dropping them is the
-      // safe, in-pattern move that reclaims the headroom that tipped the
-      // 2026-07-21 build ~260 KB past the 230686720-byte cap. If the runtime
-      // ever moves to Graviton (arm64), revisit these AND the musl/gnu split.
-      "node_modules/@next/swc-linux-arm64-gnu/**",
-      "node_modules/@next/swc-linux-arm64-musl/**",
-      "node_modules/@swc/core-linux-arm64-gnu/**",
-      "node_modules/@swc/core-linux-arm64-musl/**",
-      "node_modules/@napi-rs/canvas-linux-arm64-gnu/**",
-      "node_modules/@napi-rs/canvas-linux-arm64-musl/**",
-      "node_modules/@img/sharp-linux-arm64/**",
-      "node_modules/@img/sharp-libvips-linux-arm64/**",
+      // Build/ingest-time pack DATA that the SSR runtime never reads AND that is
+      // not browsable via any pack collections.json — so tracing it into the
+      // standalone bundle is pure dead weight against the 230686720-byte output
+      // cap. Next's node_modules trace is already minimal (the amplify.yml
+      // native-binary/source-map sweep confirmed there's little left there), so
+      // the only remaining discretionary bytes are the traced codexes/packs
+      // corpus; the pack-file route globs ALL of ./codexes/packs/**/*.{md,json}
+      // (see outputFileTracingIncludes below) and pulls these data artifacts in
+      // with it. Verified 2026-07-21: NO services/app readFileSync of any of
+      // these, and grep of every collections.json shows no UI browse path.
+      //   - canonical-invariants.seed.json (304 KB): the invariant INGEST source.
+      //     Runtime reads invariants from the DB; ontologyResolver reads
+      //     platform-ontology.md (with a built-in mirror fallback), never this.
+      //   - retrieval-index.md (149 KB): a memory-compilation DUMP artifact; the
+      //     runtime memory reads the DB, and a missing pack file is skipped at
+      //     read time.
+      //   - operation-metawill + experiment result JSONs: committed RECORD
+      //     artifacts; the Results/Report tabs read the DB (/api/experiments/*),
+      //     not these files.
+      // Excludes are applied AFTER includes and win (confirmed by the 2026-07-20
+      // /api/codex/chat updates exclude), so these override the pack-file glob.
+      "codexes/packs/irl/foundation/canonical-invariants.seed.json",
+      "codexes/packs/aigency/items/memory/retrieval-index.md",
+      "codexes/packs/agentiq/items/venture-iqube/operation-metawill-v0.2.json",
+      "codexes/packs/irl/foundation/experiments/**/*results*.json",
       // Build-time-only deps Next conservatively traces but the runtime never
       // executes: the TypeScript compiler (no runtime import in this app) and
       // browserslist's caniuse-lite data. ~11 MB more headroom under the limit.
