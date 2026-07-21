@@ -23,6 +23,7 @@ import {
   runConstitutionalDiscovery,
   compareSubDomains,
   compressDomainInvariants,
+  materializeCompressionEdges,
   suggestParents,
   promoteCandidate,
   linkPromotedParents,
@@ -117,9 +118,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     case 'compress-domain': {
-      // Recursive compression — derivation structure (roots vs derived) among the
-      // domain's earned invariants (the parent-child keystone).
+      // Recursive compression — PROPOSE the derivation structure (roots vs
+      // derived, with typed parent edges) among the domain's earned invariants.
+      // Proposals only — nothing is inserted into the graph here.
       const r = await compressDomainInvariants(admin, domain);
+      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
+    case 'materialize-edges': {
+      // OPERATOR-CONFIRMED materialisation of a derived candidate's proposed
+      // typed edges into the invariant graph (child + parents must be promoted).
+      if (!body.candidateId) return NextResponse.json({ ok: false, error: 'candidateId required' }, { status: 400 });
+      const r = await materializeCompressionEdges(admin, body.candidateId);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     case 'suggest-parents': {
@@ -146,6 +155,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     default:
-      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, compress-domain, suggest-parents, promote, link-parents, reject' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, compress-domain, materialize-edges, suggest-parents, promote, link-parents, reject' }, { status: 400 });
   }
 }

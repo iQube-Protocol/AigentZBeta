@@ -38,7 +38,12 @@ interface Candidate {
   stage?: "constitutional" | "compare";
   classification?: Classification | null;
   coverage?: string[] | null;
-  compression?: { depth: "root" | "derived"; derivesFromCandidateIds: string[]; rationale: string } | null;
+  compression?: {
+    role: "root" | "derived";
+    parents: { parentCandidateId: string; relationship: "entails" | "specializes" | "depends_on" | "supports"; claim: string; confidence: number }[];
+    rationale: string;
+    materialized: boolean;
+  } | null;
 }
 interface Preset { value: string; label: string }
 
@@ -165,7 +170,23 @@ export default function InvariantDiscoveryTab() {
       const total = roots + derived;
       const ratio = roots > 0 ? `${(total / roots).toFixed(1)}:1` : "—";
       setNotice(
-        `✓ Recursive compression: ${total} domain invariant(s) → ${roots} root(s) + ${derived} derived · depth compression ${ratio}`,
+        `✓ Recursive compression (proposed): ${total} domain invariant(s) → ${roots} root(s) + ${derived} derived · depth compression ${ratio}. Promote roots + derived, then Confirm edges to insert into the graph.`,
+      );
+      await load();
+    }
+  }, [post, load]);
+
+  // Operator-confirmed materialisation of a derived candidate's proposed typed
+  // edges into the invariant graph (nothing is auto-inserted on promotion).
+  const materializeEdges = useCallback(async (id: string) => {
+    const r = await post({ action: "materialize-edges", candidateId: id }, `materialize-${id}`);
+    if (r) {
+      const linked = Number(r.linked ?? 0);
+      const skipped = Number(r.skipped ?? 0);
+      setNotice(
+        linked > 0
+          ? `✓ Inserted ${linked} derivation edge(s) into the graph${skipped ? ` · ${skipped} skipped (parent not promoted yet)` : ""}`
+          : `No edges inserted${skipped ? ` — ${skipped} parent(s) not promoted yet (promote the root parents first)` : ""}`,
       );
       await load();
     }
@@ -398,17 +419,30 @@ export default function InvariantDiscoveryTab() {
                     )}
                     {abs && <span className={`rounded-full border px-1.5 py-0.5 text-[9px] ${abs.cls}`}>{abs.label}</span>}
                     {c.compression && (
-                      c.compression.depth === "root" ? (
-                        <span title="Foundational — does not derive from another invariant in the set; a constitutional candidate for this domain"
+                      c.compression.role === "root" ? (
+                        <span title="Foundational — proposed as a root (does not derive from another invariant in the set); a constitutional candidate for this domain"
                           className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-1.5 py-0.5 text-[9px] text-emerald-200">
                           ◆ Root
                         </span>
                       ) : (
-                        <span title={c.compression.rationale || `derives from ${c.compression.derivesFromCandidateIds.length} invariant(s)`}
+                        <span
+                          title={c.compression.parents
+                            .map((p) => `${p.relationship} (${Math.round(p.confidence * 100)}%): ${p.claim}`)
+                            .join("\n") || c.compression.rationale}
                           className="rounded-full border border-slate-500/50 bg-slate-500/10 px-1.5 py-0.5 text-[9px] text-slate-300">
-                          → Derived ({c.compression.derivesFromCandidateIds.length})
+                          → {[...new Set(c.compression.parents.map((p) => p.relationship))].join("/")} ({c.compression.parents.length})
+                          {c.compression.materialized && <span className="ml-1 text-emerald-400">✓ in graph</span>}
                         </span>
                       )
+                    )}
+                    {c.compression?.role === "derived" && c.status === "promoted" && !c.compression.materialized && (
+                      <button
+                        onClick={() => void materializeEdges(c.id)}
+                        disabled={busy !== null}
+                        title="Confirm these proposed derivation edges and insert them into the invariant graph (parents must also be promoted)"
+                        className="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-200 hover:bg-amber-500/20 disabled:opacity-50">
+                        {busy === `materialize-${c.id}` ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <GitCompare className="h-2.5 w-2.5" />} Confirm edges
+                      </button>
                     )}
                     {cv && (
                       <span title={cv.frameworks.join(" · ") || "no linked sources"}
