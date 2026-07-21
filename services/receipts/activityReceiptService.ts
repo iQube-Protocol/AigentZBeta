@@ -131,7 +131,16 @@ export type ActivityActionType =
   // constitutional anchor of record; x409/Consenti is the acceptance-proof
   // provider. Both DVN-anchorable.
   | 'agreement_formed'
-  | 'agreement_authorized';
+  | 'agreement_authorized'
+  // QubeTalk Peer Exchange (Phase 1 Increment 3, 2026-07-21) — consequential
+  // acts on a personhood-bound peer channel. shared = a sharer delivered an
+  // artifact reference into a channel; opened = the recipient viewed it;
+  // copied = the recipient materialised it into their own locker. All three
+  // carry ONLY T2-safe references (counterparty Polity Public Reference +
+  // sha256/16 channel & artifact commitments — never raw UUIDs). DVN-anchorable.
+  | 'qubetalk_artifact_shared'
+  | 'qubetalk_artifact_opened'
+  | 'qubetalk_artifact_copied';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

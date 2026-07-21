@@ -134,6 +134,14 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // (operator-approved 2026-07-17).
   'agreement_formed',
   'agreement_authorized',
+  // QubeTalk Peer Exchange (Phase 1 Increment 3, 2026-07-21) — consequential
+  // peer-channel acts (artifact shared / opened / copied-to-locker). The
+  // payload carries only T2-safe references (counterparty Polity Public
+  // Reference + sha256/16 channel & artifact commitments), so anchoring the
+  // provenance is chain-safe. Added per the permitted action-type-addition rule.
+  'qubetalk_artifact_shared',
+  'qubetalk_artifact_opened',
+  'qubetalk_artifact_copied',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
