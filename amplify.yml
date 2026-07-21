@@ -183,6 +183,15 @@ frontend:
         - du -sh .next/standalone 2>/dev/null || true
         - echo "=== .next total size AFTER cleanup ==="
         - du -sh .next 2>/dev/null || true
+        # COMPUTE COMPOSITION (bytes) — the Amplify SSR 'build output' cap measures
+        # .next/standalone + .next/static. Log each component + the biggest traced
+        # node_modules packages so we trim the ACTUAL weight, not the wrong tree.
+        - echo "=== COMPUTE COMPOSITION (bytes) ==="
+        - du -sb .next/standalone .next/static .next/standalone/node_modules .next/standalone/.next .next/standalone/codexes 2>/dev/null || true
+        - echo "=== biggest .next/standalone/node_modules packages (MB) ==="
+        - du -sm .next/standalone/node_modules/* .next/standalone/node_modules/@*/* 2>/dev/null | sort -rn | head -30 || true
+        - echo "=== biggest .next/static subtrees (MB) ==="
+        - du -sm .next/static/* 2>/dev/null | sort -rn | head -15 || true
 
   artifacts:
     baseDirectory: .next
