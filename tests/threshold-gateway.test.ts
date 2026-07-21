@@ -11,8 +11,9 @@
 import { describe, it, expect } from 'vitest';
 import { buildThresholdLink, verifyThresholdLink, THRESHOLD_LINK_SCHEMA } from '../services/threshold/thresholdLink';
 import { listTools, listPrompts, callTool, type GatewayContext } from '../services/threshold/gateway';
-import { serviceRegistrySnapshot, getService } from '../services/threshold/serviceRegistry';
+import { serviceRegistrySnapshot, getService, grantableCapabilities, CONSTITUTIONAL_ROOT_CAPABILITIES } from '../services/threshold/serviceRegistry';
 import { journeyRegistrySnapshot, getJourney, FOUNDER_OFFICE_RUNG } from '../services/threshold/journeyRegistry';
+import { crossingReceipt } from '../services/threshold/welcome';
 
 const ctx: GatewayContext = {
   origin: 'https://example.test',
@@ -169,11 +170,12 @@ describe('Authenticated dispatch (Increment 3)', () => {
     }
   });
 
-  it('get_crossing_status reports the granted scope + reachability, with no T0 ids', async () => {
+  it('get_crossing_status reports the current authority + receipt + reachability, with no T0 ids', async () => {
     const res = await callTool('get_crossing_status', {}, authedCtx);
     const body = JSON.parse(res.content[0].text as string);
     expect(body.crossed).toBe(true);
-    expect(body.grantedScope).toEqual(session.scope);
+    expect(body.currentAuthority).toEqual(session.scope);
+    expect(body.crossingReceipt.citizenship).toBe('active');
     expect(body.reachableServices).toContain('irl'); // irl caps ⊆ granted scope
     expect(JSON.stringify(body)).not.toMatch(/personaId|authProfileId|rootDid|kybe/i);
   });
@@ -193,5 +195,33 @@ describe('Authenticated dispatch (Increment 3)', () => {
     expect(body.proposal.alreadyHeld).toContain('research.read');
     expect(body.proposal.unrecognized).toContain('not.a.capability');
     expect(body.humanStep).toMatch(/cannot authorize on their behalf/i);
+  });
+});
+
+describe('Passport-first crossing (constitutional-root authority only)', () => {
+  it('a base (polity-passport) crossing grants root navigation authority — NO service capability', () => {
+    const grantable = grantableCapabilities('polity-passport');
+    for (const c of CONSTITUTIONAL_ROOT_CAPABILITIES) expect(grantable.has(c)).toBe(true);
+    // none of the service-operating capabilities may be grantable at a base crossing
+    expect(grantable.has('research.read')).toBe(false);
+    expect(grantable.has('code.read')).toBe(false);
+    expect(grantable.has('workspace.act')).toBe(false);
+  });
+
+  it('a service-initiated (irl) crossing adds ONLY that service’s capabilities on top of root', () => {
+    const grantable = grantableCapabilities('irl');
+    for (const c of CONSTITUTIONAL_ROOT_CAPABILITIES) expect(grantable.has(c)).toBe(true);
+    for (const c of getService('irl')!.requiredCapabilities) expect(grantable.has(c)).toBe(true);
+    expect(grantable.has('code.read')).toBe(false); // not devon's crossing
+  });
+
+  it('the crossing receipt reads "none yet" for a root-only session, and lists service authority once granted', () => {
+    const root = CONSTITUTIONAL_ROOT_CAPABILITIES.slice();
+    const base = crossingReceipt({ id: 's', principalPublicRef: 'p', agentAlias: 'a', agreementId: 'g', scope: root, initiatingService: 'polity-passport', expiresAt: null });
+    expect(base.serviceAuthority).toBe('none yet');
+    expect(base.citizenship).toBe('active');
+    expect(base.nextStep).toBe('choose a journey');
+    const withIrl = crossingReceipt({ id: 's', principalPublicRef: 'p', agentAlias: 'a', agreementId: 'g', scope: [...root, 'research.read'], initiatingService: 'irl', expiresAt: null });
+    expect(withIrl.serviceAuthority).toEqual(['research.read']);
   });
 });

@@ -17,6 +17,7 @@ import { serviceRegistrySnapshot, listServices, getService, knownCapabilities } 
 import { journeyRegistrySnapshot } from './journeyRegistry';
 import { buildThresholdLink, type ThresholdLinkManifest } from './thresholdLink';
 import { hasScope, type ScopedSession } from './gatewaySession';
+import { crossingReceipt, welcomePayload, WELCOME_MESSAGE } from './welcome';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -110,6 +111,7 @@ export function listTools() {
 
 export function listResources() {
   return [
+    { uri: 'metame://welcome', name: 'Constitutional Welcome & Citizenship Orientation', mimeType: 'application/json' },
     { uri: 'metame://institution/charter', name: 'metaMe Threshold — charter', mimeType: 'text/markdown' },
     { uri: 'metame://onboarding/current', name: 'The crossing — current steps', mimeType: 'text/markdown' },
     { uri: 'metame://journeys', name: 'Journey registry (user-facing)', mimeType: 'application/json' },
@@ -133,6 +135,11 @@ export function listPrompts() {
       name: 'explain_delegation_request',
       description: 'Explain, in plain language, exactly what bounded authority a crossing is asking the principal to delegate to their agent — what it may and may not do — before they authorize.',
       arguments: [{ name: 'capabilities', description: 'The requested capability scope.', required: false }],
+    },
+    {
+      name: 'constitutional_welcome',
+      description: 'Deliver the Constitutional Welcome the moment a crossing succeeds: congratulate the principal, tell them they are now a citizen of the Polity, offer the two orientation explanations (Constitutional Internet, citizenship + its limits), present the crossing receipt (service authority: none yet), and lead into the five journeys. Read metame://welcome for the canonical copy.',
+      arguments: [],
     },
     {
       name: 'choose_your_journey',
@@ -251,7 +258,11 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         principal: s.principalPublicRef, // T2 Polity Public Reference — never a persona id
         agent: s.agentAlias, // T2 alias
         initiatingService: s.initiatingService,
-        grantedScope: s.scope,
+        // Constitutional framing: the granted authority + the crossing receipt.
+        // A base crossing carries only constitutional-root navigation authority,
+        // so `receipt.serviceAuthority` reads "none yet" until a journey is chosen.
+        currentAuthority: s.scope,
+        crossingReceipt: crossingReceipt(s),
         reachableServices: reachable,
         pendingServices: pending,
         expiresAt: s.expiresAt,
@@ -308,6 +319,9 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
 }
 
 export async function readResource(uri: string, ctx: GatewayContext) {
+  if (uri === 'metame://welcome') {
+    return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(welcomePayload(ctx.session), null, 2) }] };
+  }
   if (uri === 'metame://journeys') {
     return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(journeyRegistrySnapshot(), null, 2) }] };
   }
@@ -372,6 +386,18 @@ export function getPrompt(name: string, args: Record<string, unknown>) {
       'Explain, plainly, the bounded authority this crossing asks your principal to delegate to you' +
         (caps ? ` (requested: ${caps})` : '') +
         '. State clearly what you MAY do and what you MAY NOT do (e.g. no publishing, no committing funds, no delegating another agent, no disclosing identity credentials). Ask for explicit approval before anything is authorized. Only the human authorizes.',
+    );
+  }
+  if (name === 'constitutional_welcome') {
+    return messages(
+      'Your principal has just crossed the Threshold. Deliver the Constitutional Welcome — read the `metame://welcome` resource for the canonical copy and present it faithfully:\n\n' +
+        '1. Congratulate them and state they are now a CITIZEN of the Polity (use the canonical welcome message verbatim).\n' +
+        '2. Offer the two orientation explanations — "What is the Constitutional Internet?" and "What does citizenship in the Polity mean?" — in plain language.\n' +
+        '3. Make the LIMIT explicit: citizenship establishes personhood continuity; it does NOT grant your agent broad powers. Every additional capability is authorized separately and stays bounded.\n' +
+        '4. Show the crossing receipt (Threshold crossed · Passport active · Citizenship active · Agent connection active · Service authority: none yet · Next step: choose a journey).\n' +
+        '5. Lead into the five journeys: "Where would you like to begin? Citizen · Entrepreneur · Researcher · Creative · Technical."\n\n' +
+        'The orientation can be revisited at any time. Never imply the crossing granted service authority — it did not.\n\n' +
+        WELCOME_MESSAGE,
     );
   }
   if (name === 'choose_your_journey') {
