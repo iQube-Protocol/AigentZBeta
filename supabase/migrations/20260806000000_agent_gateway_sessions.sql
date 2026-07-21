@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS public.agent_gateway_sessions (
   -- set at activation (all T2-safe / server-internal FK only):
   principal_public_ref text,                     -- T2 Polity Public Reference of the human
   agent_alias text,                              -- T2 alias of the bound agent
-  agreement_id uuid,                             -- the authorized Constitutional Agreement
+  agreement_id text,                             -- the authorized Constitutional Agreement (slug, e.g. thr-thc_…)
   granted_scope text[] NOT NULL DEFAULT '{}',    -- what the human actually authorized
   created_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz,
