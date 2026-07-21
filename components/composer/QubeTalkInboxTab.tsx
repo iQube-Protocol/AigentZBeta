@@ -55,6 +55,8 @@ interface PeerChannel {
   createdByRef: string;
   status: "active" | "revoked";
   createdAt: string;
+  /** The caller's own private nickname for this channel (never leaves their side). */
+  counterpartyLabel: string | null;
 }
 interface PeerMessage {
   id: string;
@@ -90,6 +92,11 @@ const REF_RE = /^([0-9a-f]{16}|prf_[0-9a-f]{8,})$/;
 
 function shortRef(ref: string): string {
   return ref.length > 10 ? `${ref.slice(0, 6)}…${ref.slice(-4)}` : ref;
+}
+
+/** Display name for a channel: the caller's nickname if set, else the short ref. */
+function channelName(c: PeerChannel): string {
+  return c.counterpartyLabel || shortRef(c.counterpartyRef);
 }
 
 // ── My-reference chip (the handle a counterparty needs) ──────────────────────
@@ -239,8 +246,15 @@ export default function QubeTalkInboxTab() {
               }`}
             >
               <MessageSquare className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-              <span className="flex-1 truncate">
-                <code>{shortRef(c.counterpartyRef)}</code>
+              <span className="flex-1 min-w-0 truncate">
+                {c.counterpartyLabel ? (
+                  <>
+                    <span className="text-slate-100">{c.counterpartyLabel}</span>
+                    <code className="ml-1.5 text-[9px] text-slate-500">{shortRef(c.counterpartyRef)}</code>
+                  </>
+                ) : (
+                  <code>{shortRef(c.counterpartyRef)}</code>
+                )}
               </span>
               {c.status === "revoked" && <span className="text-[10px] text-rose-400">revoked</span>}
             </button>
@@ -254,6 +268,7 @@ export default function QubeTalkInboxTab() {
               key={selected}
               channelId={selected}
               channel={channels.find((c) => c.id === selected) ?? null}
+              onRenamed={loadChannels}
             />
           ) : (
             <div className="flex h-full items-center justify-center rounded-md border border-slate-800 bg-slate-900/40 px-3 py-10 text-xs text-slate-500">
@@ -268,7 +283,7 @@ export default function QubeTalkInboxTab() {
 
 // ── One channel: messages + shared artifacts ─────────────────────────────────
 
-function ChannelPane({ channelId, channel }: { channelId: string; channel: PeerChannel | null }) {
+function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; channel: PeerChannel | null; onRenamed: () => void | Promise<void> }) {
   const [messages, setMessages] = useState<PeerMessage[]>([]);
   const [artifacts, setArtifacts] = useState<SharedArtifact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -276,6 +291,26 @@ function ChannelPane({ channelId, channel }: { channelId: string; channel: PeerC
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [busyArtifact, setBusyArtifact] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  const saveName = useCallback(async () => {
+    setSavingName(true);
+    try {
+      await jf(`/api/qubetalk/peer-channels/${channelId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: nameDraft }),
+      });
+      setRenaming(false);
+      await onRenamed();
+    } catch {
+      /* best-effort — a rename failure leaves the prior name */
+    } finally {
+      setSavingName(false);
+    }
+  }, [channelId, nameDraft, onRenamed]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -338,11 +373,43 @@ function ChannelPane({ channelId, channel }: { channelId: string; channel: PeerC
 
   return (
     <div className="space-y-3 rounded-md border border-slate-800 bg-slate-900/40 p-3">
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-slate-400">
-          Channel with <code className="text-slate-200">{channel ? shortRef(channel.counterpartyRef) : "—"}</code>
-        </div>
-        <button onClick={load} className="text-slate-500 hover:text-slate-300" title="Refresh channel">
+      <div className="flex items-center justify-between gap-2">
+        {renaming ? (
+          <div className="flex flex-1 items-center gap-1.5">
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setRenaming(false); }}
+              placeholder="Name this channel (e.g. Austin)…"
+              className="flex-1 rounded border border-slate-700 bg-slate-950/60 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/60 focus:outline-none"
+            />
+            <button onClick={saveName} disabled={savingName} className="inline-flex items-center gap-1 rounded border border-indigo-500/40 bg-indigo-500/15 px-1.5 py-1 text-[10px] text-indigo-100 hover:bg-indigo-500/25 disabled:opacity-50">
+              {savingName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Save
+            </button>
+            <button onClick={() => setRenaming(false)} className="text-slate-500 hover:text-slate-300"><X className="h-3.5 w-3.5" /></button>
+          </div>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-slate-400">
+            <span className="truncate">
+              Channel with{" "}
+              <span className="text-slate-100">{channel ? channelName(channel) : "—"}</span>
+              {channel?.counterpartyLabel && (
+                <code className="ml-1.5 text-[9px] text-slate-500">{shortRef(channel.counterpartyRef)}</code>
+              )}
+            </span>
+            {channel && (
+              <button
+                onClick={() => { setNameDraft(channel.counterpartyLabel ?? ""); setRenaming(true); }}
+                className="shrink-0 rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                title="Name this channel — a private nickname only you see (never shared, never in receipts)"
+              >
+                {channel.counterpartyLabel ? "Rename" : "Name"}
+              </button>
+            )}
+          </div>
+        )}
+        <button onClick={load} className="shrink-0 text-slate-500 hover:text-slate-300" title="Refresh channel">
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -604,7 +671,7 @@ function ShareDialog({
             >
               {channels.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {shortRef(c.counterpartyRef)}
+                  {channelName(c)}
                 </option>
               ))}
               <option value="">+ new channel (enter reference)</option>

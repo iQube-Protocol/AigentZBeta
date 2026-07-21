@@ -4,6 +4,8 @@
  *  - the pair key is order-independent so (a,b) and (b,a) are one channel.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   isPublicRefLike,
   peerPairKey,
@@ -88,5 +90,23 @@ describe('QubeTalk peer channel helpers', () => {
     expect(normalizeRights({ view: true }).copyToLocker).toBe(false);
     // Only an explicit boolean true opens the gate.
     expect(normalizeRights({ copyToLocker: true }).copyToLocker).toBe(true);
+  });
+});
+
+describe('QubeTalk channel labels — per-side, never in receipts', () => {
+  const src = readFileSync(join(__dirname, '..', 'services', 'qubetalk', 'peerChannel.ts'), 'utf8');
+
+  it('setChannelLabel writes ONLY the caller\'s own side column (per-side privacy)', () => {
+    expect(src).toMatch(/export async function setChannelLabel/);
+    // the column is chosen by whether the caller is principal A or B
+    expect(src).toMatch(/channel\.principalARef === myRef \? 'principal_a_label' : 'principal_b_label'/);
+  });
+
+  it('the label NEVER enters the receipt payload — writePeerReceipt uses the public ref, not the label', () => {
+    const fn = src.slice(src.indexOf('async function writePeerReceipt'));
+    const body = fn.slice(0, fn.indexOf('\n}\n'));
+    expect(body).not.toMatch(/label|counterpartyLabel|principal_a_label|principal_b_label/);
+    // it carries the counterparty PUBLIC ref instead
+    expect(body).toMatch(/counterparty:\$\{args\.counterpartyRef\}/);
   });
 });
