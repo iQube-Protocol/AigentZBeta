@@ -123,10 +123,38 @@ const nextConfig = {
     // (docs/) + the PRD trail (codexes/packs/agentiq/updates/). Without
     // these the Lambda bundle ships without the .md files and the route
     // returns HTTP 500 read_failed.
+    // The registry docs tab reads ONLY the DOC_ALLOWLIST paths in
+    // app/api/admin/registry/docs/route.ts (strict `find(d => d.path === docPath)`
+    // allowlist enforcement — a non-allowlisted path 404s and is never read).
+    // The old `agentiq/updates/**/*.md` glob over-traced the ENTIRE 2.8 MB update
+    // changelog (250+ files, grows every deploy) into this Lambda when the route
+    // can only ever open the ~18 curated May-2026 registry/stage docs below
+    // (~351 KB). Enumerating the exact allowlist reclaims ~2.45 MB from the
+    // 230686720-byte SSR cap. This list MUST stay in sync with DOC_ALLOWLIST: if
+    // you add a doc to the allowlist, add its path here or the route 500s
+    // (read_failed) for it. The set is a closed historical PRD/stage series, so
+    // drift is unlikely.
     "/api/admin/registry/docs": [
       "./docs/iqube-agent-legibility-profile.md",
       "./docs/iqube-score-derivation.md",
-      "./codexes/packs/agentiq/updates/**/*.md",
+      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v0.1.md",
+      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v0.2-addendum.md",
+      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v0.3-alignment.md",
+      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v1.0.md",
+      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v1.1-guardrails.md",
+      "./codexes/packs/agentiq/updates/2026-05-30_stage-0-audit-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-30_stage-1-to-2-transition.md",
+      "./codexes/packs/agentiq/updates/2026-05-30_stage-1-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-30_stage-2-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-31_stage-3-and-4-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-31_stage-5-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-31_stage-6-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-31_stage-7-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-31_stage-8-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-31_stage-9-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-a-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-b-close-report.md",
+      "./codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-c-close-report.md",
     ],
     // Copilot chat routes read the aigency + agentiq packs at runtime via
     // services/knowledge/agentiqPackSearch (aigent-z platform knowledge and
