@@ -4,7 +4,7 @@
 
 > **MoneyPenny advises, architects, and (within bounded, receipted, delegated authority) acts on money — as a specialization of the constitutional reasoning pipeline, never a parallel one.**
 
-- **Status:** Proposed — docs-first, ratify-before-build. This document is the ratification gate; **no MoneyPenny specialization code lands until it is ratified.**
+- **Status:** **RATIFIED 2026-07-21** (operator) — docs-first gate cleared; all seven open decisions resolved (§9). Build may proceed per the phase sequence (§6), gated only on operator-provided corpus sources (D2).
 - **Class:** Agent specialization + a registerable source corpus. NOT a new engine, NOT a new FS capability domain (CRP-003 already chartered that), NOT a new settlement rail. A **thin specialization** over the built Constitutional Financial Services Programme (CRP-003a) and the invariant reasoning pipeline (CFS-035/037/040/048).
 - **Constitutional parents:** **CRP-003** (Financial Services — the First Constitutional Capability Domain, CHARTERED 2026-07-15) · **CRP-003a** (Constitutional Financial Services Programme — Increments 1–3 BUILT 2026-07-17) · **CFS-048** (Invariant Discovery Engine) · **CFS-037/PRD-IRE-001** (Invariant Resolution Engine) · **CFS-035/PRD-IPE-001** (Invariant Projection Engine) · **CFS-040/PRD-KRE-001** (Knowledge Resolution Engine) · **CFS-018** ("primitives are invariant; providers are replaceable") · the Identity & Access Spine.
 - **Sibling PRD (format precedent):** PRD-THR-001 (metaMe Threshold) — this PRD mirrors its structure, reuse-map, phases, guardrails, and honest-limits discipline. It does not extend, gate, or modify Threshold scope.
@@ -96,23 +96,24 @@ The operator flagged PoTS/PoWP as possibly needing definition. They are **alread
 
 **These are NOT invented here.** The corpus references the seeded polity definitions rather than re-defining them. **Operator to confirm** that the brief's "PoTS/PoWP proof-of-… mechanisms" mean exactly these seeded meanings (the brief's shorthand could be read as "proof-of-transfer / proof-of-work-process"; the repo says Work **Potential** / Time **Saved**). Do not create a second definition — reconcile to `inv.polity.160/161` or have the operator ratify a distinct FS-scoped meaning.
 
-### 3.5 On-disk location + registration (proposed)
+### 3.5 On-disk location + registration (RATIFIED — sub-corpus, D6)
 
-Mirror how existing corpora live under `codexes/packs/*/` with `collections.json`. Proposed layout:
+**Decision (D6, ratified 2026-07-21):** the QriptoCENT Constitutional Corpus is a **sub-corpus under the existing FS foundation, NOT a standalone `codexes/packs/qriptocent/` pack**, and in the **Invariant Discovery Engine's scope ladder it is its own SUB-DOMAIN under the `finance` domain**. This keeps the FS constitutional canon in one place while giving QriptoCENT a clean ingestion boundary.
+
+Ratified layout — a new collection alongside the FS foundation docs (final parent pack a Phase-1 build detail; `codexes/packs/irl/foundation/qriptocent/` is the default):
 
 ```
-codexes/packs/qriptocent/
-  collections.json                 # registers the corpus items (col_qriptocent_corpus)
-  items/
-    protocol/                      # QriptoCENT protocol source
-    commerce/                      # Constitutional Commerce
-    payments/                      # Constitutional Payments
-    financial-services/            # Constitutional Financial Services
-    economic-governance/           # PoTS / PoWP (references inv.polity.160/161)
-    runtime/                       # Smart Wallet / Menu / Content runtime specs
+codexes/packs/irl/foundation/qriptocent/     # a SUB-CORPUS collection (not a new pack)
+  protocol/                      # QriptoCENT protocol source        → sub-domain: finance/qriptocent/protocol
+  commerce/                      # Constitutional Commerce            → finance/qriptocent/commerce
+  payments/                      # Constitutional Payments            → finance/qriptocent/payments
+  financial-services/            # Constitutional Financial Services  → finance/qriptocent/financial-services
+  economic-governance/           # PoTS / PoWP (refs inv.polity.160/161)
+  runtime/                       # Smart Wallet / Menu / Content runtime specs
+# registered as a col_qriptocent_corpus collection in the parent pack's collections.json
 ```
 
-The corpus feeds the Invariant Discovery Engine exactly as the Polity Papers did: an ingest pass (`scripts/ingest-*`) → `discovery_evidence` (Stage 1) → `callSovereign` candidate extraction (Stage 2) → synthesis (Stage 3) → validation harness (Stage 4) → publication at `proposed` (Stage 5). **This PRD proposes the corpus and its registration; it does not author the corpus content** (much of which is operator-to-provide, §3.3).
+The sub-corpus feeds the Invariant Discovery Engine exactly as the Polity Papers did — scoped to the `finance` domain / `qriptocent` sub-domain: ingest pass (`scripts/ingest-*`) → `discovery_evidence` (Stage 1) → `callSovereign` candidate extraction (Stage 2) → synthesis (Stage 3) → validation harness (Stage 4) → publication at `proposed` (Stage 5). **This PRD ratifies the sub-corpus + its scope; the corpus CONTENT is authored/ingested by the operator via the Discovery Engine (D2)** — no source is invented in its absence.
 
 ---
 
@@ -206,14 +207,14 @@ Every guardrail below already exists; MoneyPenny inherits, never re-implements t
 4. Runtime mode re-passes the 409 gate + spend cap on every money-moving act; out-of-scope/over-cap calls fail closed; receipts carry T2 refs only (no T0); DVN anchor written.
 5. Spine canaries stay green (`tests/access-spine.test.ts`, `tests/persona-spine-fetch.test.ts`); `node scripts/verify-spine.mjs` passes for any spine-touching wiring.
 
-**Open operator decisions (do not resolve unilaterally):**
-- **D1 — PoTS/PoWP naming.** Confirm the brief's "PoTS/PoWP" = the seeded `inv.polity.160` (Proof of Work **Potential**) / `inv.polity.161` (Proof of Time **Saved**), not "proof-of-transfer/work-process." Reconcile to the seeded meanings or ratify a distinct FS-scoped definition. (§3.4)
-- **D2 — QriptoCENT protocol source material.** Confirm the canonical source(s) beyond `protocol-economics.md` for the Protocol, Constitutional Commerce/Payments, and Runtime Specs (Menu/Content) — several corpus areas are **operator-to-provide** (§3.3). No source is invented in their absence.
-- **D3 — QriptoCENT vs Q¢ single source of truth.** Confirm `protocol-economics.md` remains the binding definition (Qc/Q¢ = QriptoCENT's cent unit) so the corpus does not mint a competing one. (§3.2)
-- **D4 — External-regulation citation policy.** Confirm layer-3 references (Basel/FATF/MiCA/PSD2/ISO 20022/SEC/FCA/FinCEN) are **cited authority only**, never ingested as constitutional canon. (§4)
-- **D5 — `finance` namespace.** Ratify widening `InvariantNamespace` (`types/invariants.ts`) with `finance` + its composition law (CFS-013 §3 requires a declared algebra), following the `polity` widening precedent. Until then, derived candidates have no home namespace.
-- **D6 — Corpus pack id.** Confirm `codexes/packs/qriptocent/` as the on-disk id (alternatives: a sub-corpus under an existing FS pack). Cheap to decide now.
-- **D7 — PRD id.** `PRD-MPY-001` follows the PRD-THR-001 product-PRD precedent (a directly-filed PRD, not a CFS number). Confirm, or file as a CFS-nnn per the CFS-037/040 "IRL ratified-spec filing" convention.
+**Resolved operator decisions (RATIFIED 2026-07-21):**
+- **D1 — PoTS/PoWP naming → RESOLVED.** The seeded polity definitions stand: `inv.polity.160` = Proof of Work **Potential**, `inv.polity.161` = Proof of Time **Saved**. The corpus references these; it does NOT mint a distinct FS-scoped definition. (§3.4)
+- **D2 — QriptoCENT source material → RESOLVED (operator-inbound).** The operator will provide/ingest the Protocol, Commerce/Payments, and Runtime (Menu/Content) sources **via the Invariant Discovery Engine**, adding **QriptoCENT as its own ingestion sub-domain** (under `finance`, §3.5). No source is invented in the interim; Phases 1–2 consume real sources only once ingested. (§3.3)
+- **D3 — QriptoCENT vs Q¢ SoT → RESOLVED.** `protocol-economics.md` remains the single binding definition (Q¢ = QriptoCENT's cent unit). The corpus does not mint a competing one. (§3.2)
+- **D4 — External-regulation policy → RESOLVED.** Basel/FATF/MiCA/PSD2/ISO 20022/SEC/FCA/FinCEN are **cited authority only** — never ingested as constitutional canon. (§4)
+- **D5 — `finance` namespace → RATIFIED.** Widen `InvariantNamespace` (`types/invariants.ts`) with `finance` + a declared composition law (CFS-013 §3), following the `polity` precedent. This is Phase-2 foundational work (the algebra must be authored before the derivation run lands candidates).
+- **D6 — Corpus location → RESOLVED (sub-corpus).** A **sub-corpus** under the existing FS foundation + a **`finance/qriptocent` sub-domain** in the Discovery Engine — NOT a standalone `codexes/packs/qriptocent/` pack. (§3.5)
+- **D7 — PRD id → CONFIRMED.** `PRD-MPY-001` (directly-filed product PRD, PRD-THR-001 precedent).
 
 ---
 
@@ -237,4 +238,5 @@ Agent: **MoneyPenny** — the **Constitutional Financial Services Agent** (the p
 
 ## Ratification record
 
-- [ ] **PROPOSED 2026-07-21** — authored as the specialization spec for Agent MoneyPenny, reconciled against a code-truth read of the built Constitutional Financial Services Programme (CRP-003a Increments 1–3), the Invariant Discovery Engine (CFS-048), and the grounding/resolution/projection stack (CFS-035/037/040). Awaiting operator ratification of: (1) the QriptoCENT Constitutional Corpus + its registration (§3); (2) the four-layer grounding stack + external-regulation-as-cited-authority boundary (§4); (3) the pipeline integration (§5); (4) the four-phase sequence (§6); (5) open decisions D1–D7 (§9). No corpus authoring, derivation run, or specialization code lands until this gate ratifies.
+- [x] **PROPOSED 2026-07-21** — authored as the specialization spec for Agent MoneyPenny, reconciled against a code-truth read of the built Constitutional Financial Services Programme (CRP-003a Increments 1–3), the Invariant Discovery Engine (CFS-048), and the grounding/resolution/projection stack (CFS-035/037/040).
+- [x] **RATIFIED 2026-07-21** (operator) — all seven open decisions resolved (§9): D1 polity PoTS/PoWP definitions stand; D2 sources operator-inbound via the Discovery Engine (QriptoCENT as its own sub-domain); D3 `protocol-economics.md` binding; D4 external regs cited-authority-only; D5 `finance` namespace widening ratified; D6 sub-corpus + `finance/qriptocent` sub-domain (not a standalone pack); D7 id `PRD-MPY-001`. **Build may proceed per §6**, gated only on operator-provided corpus sources (D2). This PRD is ready to hand to a parallel build session.
