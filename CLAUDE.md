@@ -109,7 +109,27 @@ When using `git merge origin/dev` before pushing to dev, **ALWAYS** pass `-m` wi
 git merge origin/dev -m "merge dev: sync before pushing <feature/fix> (<commit>)"
 ```
 
-When using auto-merge via the `claude/**` branch flow, the auto-merge generates the generic message — to override, push the session branch with a final commit message that names the change, then direct-push to dev with a descriptive merge message.
+### The auto-merge workflow is the enforcement point — keep it fixed on `main` AND `dev` (root cause of recurring generic merges)
+
+The `merge-claude-to-dev.yml` workflow is what writes the dev merge commit the operator sees in the Amplify build history. GitHub runs the copy of the workflow that lives **in the pushed `claude/**` branch**, so the merge message is only as good as the workflow version that branch carries. The **correct** step is:
+
+```yaml
+SUBJECT="$(git log -1 --pretty=%s origin/${{ github.ref_name }})"
+git merge --ff-only origin/${{ github.ref_name }} || \
+  git merge origin/${{ github.ref_name }} -m "merge ${{ github.ref_name }}: ${SUBJECT}"
+```
+
+The **broken** version is the old `git merge … --no-edit` fallback — it produces `Merge remote-tracking branch 'origin/claude/<session>' into dev`, the exact boilerplate this rule forbids.
+
+**Why it keeps regressing:** the fix has historically lived only on session branches (and `dev`), while `main` kept the stale `--no-edit` version. Any new session branch seeded from a base that lacks the fix reverts to generic merges. **To fix it once and for all, the corrected workflow must be present on BOTH `dev` and `main`.** An agent that cannot push to `main` (session branches are `claude/**`-only) MUST flag this to the operator with the exact sync command rather than leaving it — e.g.:
+
+```bash
+# operator, from a clone with push rights to main:
+git fetch origin dev main && git checkout main && \
+  git checkout origin/dev -- .github/workflows/merge-claude-to-dev.yml && \
+  git commit -m "sync auto-merge workflow: descriptive dev merge messages" && \
+  git push origin main
+```
 
 This rule **applies to every agent** working on this repo (Claude Code, Codex, Lovable, any future agent). It applies regardless of the kind of change (code, doc, config). It applies to every push. There are no exceptions.
 
@@ -192,6 +212,18 @@ When the operator needs to take any action, always provide the exact command(s) 
 - **SQL**: provide a single copyable block the operator can paste directly into the Supabase SQL editor. Never say "run this migration" without providing the exact SQL inline.
 - **Never say** "add X to Amplify", "configure Y in the dashboard", or "run script Z" without providing the exact value or the exact command.
 - If multiple commands are needed, chain them into one block with `&&` so a single paste runs everything.
+
+### Documents for review — ALWAYS provide the link, unprompted (the operator should never have to ask)
+
+Whenever you produce or update ANY document the operator may want to read or review — a PRD, spec, charter, update/session doc, report, or plan — you MUST surface a way to open it in the same message, without being asked:
+
+1. **A deep link to read it**, in this order of preference:
+   - a **published Artifact link** (render the doc via the Artifact tool — best for a clean, shareable review view), and/or
+   - the **in-app deep link** to where the doc is registered (e.g. AgentiQ cartridge → Updates tab for `agentiq/updates/*`; IRL OS cartridge → Foundation for `codexes/packs/irl/foundation/*`), built with the dev host (`dev-beta.aigentz.me`) — never a guessed URL, and
+   - the **repo file path** as the always-available fallback.
+2. **For anything the operator must run** — a migration or any SQL — paste the **exact SQL inline** in a single copyable block (this is the existing "SQL" rule above; it is not optional and applies every time a schema/data change ships). Never say "run the migration" and point at a filename without the SQL in the message.
+
+The operator has repeatedly had to ask for review links and for the SQL to run. Providing both proactively, every time, is now mandatory — treat a doc-producing or migration-producing turn as incomplete until the link(s) and any SQL are in the reply.
 
 ---
 
