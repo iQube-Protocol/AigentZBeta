@@ -27,6 +27,29 @@
 import { createHash, randomBytes } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { personaPublicRef } from '@/services/identity/personaReferences';
+import { createOrGetChannel } from '@/services/qubetalk/peerChannel';
+
+/**
+ * Invite → auto-channel: when an invitation was flagged `open_peer_channel`,
+ * open a QubeTalk peer channel between the ISSUER and the CLAIMANT the moment
+ * the claimant redeems it (both personas are now known). Best-effort — a channel
+ * failure NEVER blocks the access grant. Reuses createOrGetChannel (idempotent
+ * per unordered pair), so a re-claim does not duplicate the channel.
+ */
+async function maybeOpenInviteChannel(
+  inv: { open_peer_channel?: boolean; issuer_persona_id?: string | null },
+  claimantPersonaId: string,
+): Promise<string | null> {
+  try {
+    if (!inv.open_peer_channel || !inv.issuer_persona_id) return null;
+    if (inv.issuer_persona_id === claimantPersonaId) return null; // no self-channel
+    const res = await createOrGetChannel(inv.issuer_persona_id, personaPublicRef(claimantPersonaId));
+    return res.ok ? res.value.id : null;
+  } catch {
+    return null;
+  }
+}
 
 export const ACCESS_DOMAINS = [
   'passport',
@@ -160,6 +183,8 @@ export async function createAccessInvitation(
     /** Experiment ids/labels this invitation scopes the reviewer to. Empty =
      *  unrestricted. Only meaningful for the research-lab domain. */
     allowedExperiments?: string[];
+    /** Open a QubeTalk peer channel with the issuer when the invitee claims. */
+    openPeerChannel?: boolean;
   },
 ): Promise<{ ok: true; rawCode: string; invitation: AccessInvitationRow } | { ok: false; error: string }> {
   if (!DOMAIN_ROLES[input.domain].includes(input.role)) {
@@ -184,6 +209,10 @@ export async function createAccessInvitation(
       expires_at: expiresAt,
       issuer_persona_id: input.issuerPersonaId,
       allowed_experiments: allowedExperiments.length > 0 ? allowedExperiments : null,
+      // Only touch the new column when the feature is opted into, so invitation
+      // creation is byte-identical (and safe) on a DB that hasn't applied
+      // 20260805300000 yet.
+      ...(input.openPeerChannel === true ? { open_peer_channel: true } : {}),
     })
     .select('*')
     .single();
@@ -255,7 +284,7 @@ export async function claimAccessInvitation(
   rawCode: string,
   claimant: { personaId: string; passportId?: string | null },
 ): Promise<
-  | { ok: true; grant: { id: string; accessDomain: string; role: string; grantedAt: string }; alreadyGranted?: boolean }
+  | { ok: true; grant: { id: string; accessDomain: string; role: string; grantedAt: string }; alreadyGranted?: boolean; peerChannelId?: string }
   | { ok: false; error: string }
 > {
   const { data: inv, error } = await admin
@@ -332,9 +361,13 @@ export async function claimAccessInvitation(
     .update({ uses: nextUses, ...(nextUses >= Number(inv.max_uses) ? { status: 'exhausted' } : {}) })
     .eq('id', inv.id);
 
+  // Invite → auto-channel (best-effort; never blocks the grant).
+  const peerChannelId = await maybeOpenInviteChannel(inv as { open_peer_channel?: boolean; issuer_persona_id?: string | null }, claimant.personaId);
+
   return {
     ok: true,
     grant: { id: String(grant.id), accessDomain: String(grant.access_domain), role: String(grant.role), grantedAt: String(grant.granted_at) },
+    ...(peerChannelId ? { peerChannelId } : {}),
   };
 }
 
