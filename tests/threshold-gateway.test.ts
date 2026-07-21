@@ -208,6 +208,13 @@ describe('IRL read adapter (Increment 4a)', () => {
   const fakeIrl = {
     listDocuments: async () => ({ ok: true, overview: { artifacts: ['a', 'b'] } }),
     readDocument: async (path: string) => ({ ok: true, path, content: '# doc' }),
+    definePrimitive: async (term: string) => ({
+      ok: true,
+      term,
+      constitutionalDefinition: { layer: 1, invariants: [{ id: 'inv.constitutional.145', statement: 'Standing is operational confidence, not truth.', status: 'canonical' }] },
+      distinctions: ['Standing is NOT reputation (inv.constitutional.018).'],
+      operationalModel: { layer: 2, note: 'operational ranking, not the definition' },
+    }),
     resolveCanon: async (term: string) => ({ ok: true, term, resolved: { invariants: ['inv.constitutional.061'] } }),
     submitResult: async (input: { agreementId: string }) => ({ ok: true, id: 'res-1', agreementId: input.agreementId }),
   };
@@ -218,6 +225,10 @@ describe('IRL read adapter (Increment 4a)', () => {
     const body = JSON.parse(res.content[0].text as string);
     expect(body.ok).toBe(true);
     expect(body.term).toBe('standing');
+    // constitutional-FIRST: Layer 1 (the ratified definition) must lead, ahead
+    // of any operational/resolver model — the fix for surfacing the ranking vector.
+    expect(body.constitutionalDefinition?.layer).toBe(1);
+    expect(body.operationalModel?.layer).toBe(2);
     // it is a read-only tool — never gated behind the handshake
     expect(res.isError).toBeUndefined();
   });

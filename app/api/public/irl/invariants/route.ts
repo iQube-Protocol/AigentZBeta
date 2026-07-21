@@ -52,6 +52,15 @@ export async function GET(request: NextRequest) {
   const domain = params.get('domain');
   const q = params.get('q');
   const ontologyClassId = params.get('ontology');
+  // `ids` — fetch specific ratified invariants verbatim by id (comma-separated,
+  // capped). Additive, read-only, T2-safe: it filters the SAME already-public
+  // projection to an explicit id set — the constitutional-definition surface
+  // (explain_primitive's Layer 1) uses it to lead with the exact defining
+  // invariants rather than a fuzzy resolver ranking.
+  const idsParam = params.get('ids');
+  const ids = idsParam
+    ? idsParam.split(',').map((s: string) => s.trim()).filter(Boolean).slice(0, 50)
+    : null;
   const requested = Number(params.get('limit') ?? PUBLIC_LIMIT_CAP);
   const limit = Number.isFinite(requested) ? Math.min(requested, PUBLIC_LIMIT_CAP) : PUBLIC_LIMIT_CAP;
 
@@ -69,9 +78,17 @@ export async function GET(request: NextRequest) {
       domain: domain ?? undefined,
       q: q ?? undefined,
       ontologyClassId: ontologyClassId ?? undefined,
-      limit,
+      // When an explicit id set is requested, read the full substrate (capped)
+      // and filter to it below — the store reader has no id filter.
+      limit: ids ? PUBLIC_LIMIT_CAP : limit,
     });
-    return NextResponse.json({ ok: true, count: invariants.length, invariants, public: true });
+    const filtered = ids
+      ? (() => {
+          const want = new Set(ids);
+          return invariants.filter((inv: { id?: string }) => typeof inv.id === 'string' && want.has(inv.id));
+        })()
+      : invariants;
+    return NextResponse.json({ ok: true, count: filtered.length, invariants: filtered, public: true });
   } catch (error) {
     console.error('[api/public/irl/invariants] list failed', error);
     return NextResponse.json({ error: 'list_failed' }, { status: 500 });
