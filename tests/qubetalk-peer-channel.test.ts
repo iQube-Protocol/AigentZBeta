@@ -63,4 +63,15 @@ describe('QubeTalk peer channel helpers', () => {
     expect(r.copyToLocker).toBe(false); // non-boolean ignored
     expect(r.download).toBe(false);
   });
+
+  it('copy-to-locker is default-denied — copyToLocker must be EXPLICITLY granted', () => {
+    // The recipient-pull copy-to-locker path (2b) gates on rights.copyToLocker.
+    // An artifact shared with no rights, or with a non-boolean copyToLocker,
+    // normalises to copyToLocker=false — so the gate denies by default.
+    expect(normalizeRights(undefined).copyToLocker).toBe(false);
+    expect(normalizeRights({ copyToLocker: 'true' }).copyToLocker).toBe(false);
+    expect(normalizeRights({ view: true }).copyToLocker).toBe(false);
+    // Only an explicit boolean true opens the gate.
+    expect(normalizeRights({ copyToLocker: true }).copyToLocker).toBe(true);
+  });
 });
