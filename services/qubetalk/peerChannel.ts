@@ -60,7 +60,81 @@ export type PeerResult<T> = { ok: true; value: T } | { ok: false; error: string;
 
 const CHANNELS = 'passport_peer_channels';
 const MESSAGES = 'passport_peer_messages';
+const SHARED = 'passport_peer_shared_artifacts';
 const MISSING = 'passport_peer_channels';
+
+/**
+ * Rights envelope (PRD §6) — per shared artifact. Enforced server-side (a later
+ * increment gates locker-copy / agent-inference on these). Conservative
+ * defaults: viewable, nothing else, until the sharer explicitly grants.
+ */
+export interface RightsEnvelope {
+  view: boolean;
+  download: boolean;
+  copyToLocker: boolean;
+  annotate: boolean;
+  revise: boolean;
+  reshare: boolean;
+  agentInference: boolean;
+  confidentialNda: boolean;
+}
+
+export const DEFAULT_RIGHTS: RightsEnvelope = {
+  view: true,
+  download: false,
+  copyToLocker: false,
+  annotate: false,
+  revise: false,
+  reshare: false,
+  agentInference: false,
+  confidentialNda: false,
+};
+
+/** Coerce an untrusted rights object to the full envelope (conservative). */
+export function normalizeRights(input: unknown): RightsEnvelope {
+  const src = (input ?? {}) as Record<string, unknown>;
+  const b = (k: keyof RightsEnvelope) => (typeof src[k] === 'boolean' ? (src[k] as boolean) : DEFAULT_RIGHTS[k]);
+  return {
+    view: b('view'),
+    download: b('download'),
+    copyToLocker: b('copyToLocker'),
+    annotate: b('annotate'),
+    revise: b('revise'),
+    reshare: b('reshare'),
+    agentInference: b('agentInference'),
+    confidentialNda: b('confidentialNda'),
+  };
+}
+
+export const SHARE_RELATIONSHIPS = [
+  'artifact_share',
+  'submitted_for_review',
+  'responds_to',
+  'reviews',
+  'revises',
+  'supersedes',
+  'annotates',
+  'accepts',
+  'rejects',
+] as const;
+export type ShareRelationship = (typeof SHARE_RELATIONSHIPS)[number];
+
+export interface SharedArtifact {
+  id: string;
+  channelId: string;
+  sharedByRef: string;
+  artifactType: string;
+  artifactId: string;
+  title: string;
+  locationRef: string | null;
+  relationship: string;
+  rights: RightsEnvelope;
+  createdAt: string;
+  openedAt: string | null;
+  copiedToLockerAt: string | null;
+  /** True when the caller is the sharer. */
+  mine: boolean;
+}
 
 /**
  * A Polity Public Reference is 16 lowercase hex chars (personaPublicRef); the
@@ -239,6 +313,108 @@ export async function listMessages(
       };
     }),
   };
+}
+
+function rowToSharedArtifact(row: Record<string, unknown>, myRef: string): SharedArtifact {
+  const sharedByRef = String(row.shared_by_ref);
+  return {
+    id: String(row.id),
+    channelId: String(row.channel_id),
+    sharedByRef,
+    artifactType: String(row.artifact_type),
+    artifactId: String(row.artifact_id),
+    title: String(row.title ?? ''),
+    locationRef: (row.location_ref as string | null) ?? null,
+    relationship: String(row.relationship ?? 'artifact_share'),
+    rights: normalizeRights(row.rights),
+    createdAt: String(row.created_at),
+    openedAt: (row.opened_at as string | null) ?? null,
+    copiedToLockerAt: (row.copied_to_locker_at as string | null) ?? null,
+    mine: sharedByRef === myRef,
+  };
+}
+
+/**
+ * Share an artifact REFERENCE (+ rights envelope) into a channel the caller is a
+ * principal of. This is not a byte copy — it attaches a provenance-bearing
+ * reference the counterparty can view; locker materialisation is a later
+ * increment gated by `rights.copyToLocker`.
+ */
+export async function shareArtifact(
+  callerPersonaId: string,
+  channelId: string,
+  input: {
+    artifactType: string;
+    artifactId: string;
+    title?: string;
+    locationRef?: string | null;
+    relationship?: string;
+    rights?: unknown;
+  },
+): Promise<PeerResult<SharedArtifact>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  const myRef = personaPublicRef(callerPersonaId);
+
+  const channel = await loadOwnedChannel(admin, channelId, myRef);
+  if (!channel) return { ok: false, error: 'channel not found or caller is not a principal', code: 'not_found' };
+  if (channel.status !== 'active') return { ok: false, error: 'channel is revoked', code: 'revoked' };
+
+  const artifactType = (input.artifactType ?? '').trim();
+  const artifactId = (input.artifactId ?? '').trim();
+  if (!artifactType || !artifactId) {
+    return { ok: false, error: 'artifactType and artifactId are required', code: 'bad_artifact' };
+  }
+  const relationship = (input.relationship ?? 'artifact_share') as string;
+  if (!SHARE_RELATIONSHIPS.includes(relationship as ShareRelationship)) {
+    return { ok: false, error: `relationship '${relationship}' is not recognised`, code: 'bad_relationship' };
+  }
+
+  const insert = await admin
+    .from(SHARED)
+    .insert({
+      channel_id: channelId,
+      shared_by_ref: myRef,
+      artifact_type: artifactType,
+      artifact_id: artifactId,
+      title: (input.title ?? '').trim(),
+      location_ref: input.locationRef ? String(input.locationRef).trim() : null,
+      relationship,
+      rights: normalizeRights(input.rights),
+    })
+    .select('*')
+    .single();
+  if (insert.error) {
+    if (insert.error.message.includes(SHARED)) {
+      return { ok: false, code: 'migration_pending', error: 'peer shared-artifact table not provisioned — apply 20260805100000.' };
+    }
+    return { ok: false, error: insert.error.message };
+  }
+  return { ok: true, value: rowToSharedArtifact(insert.data as Record<string, unknown>, myRef) };
+}
+
+/** List artifacts shared into a channel the caller is a principal of, newest first. */
+export async function listSharedArtifacts(
+  callerPersonaId: string,
+  channelId: string,
+): Promise<PeerResult<SharedArtifact[]>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  const myRef = personaPublicRef(callerPersonaId);
+
+  const channel = await loadOwnedChannel(admin, channelId, myRef);
+  if (!channel) return { ok: false, error: 'channel not found or caller is not a principal', code: 'not_found' };
+
+  const { data, error } = await admin
+    .from(SHARED)
+    .select('*')
+    .eq('channel_id', channelId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    if (error.message.includes(SHARED)) return { ok: false, code: 'migration_pending', error: 'peer shared-artifact table not provisioned — apply 20260805100000.' };
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, value: (data ?? []).map((r) => rowToSharedArtifact(r as Record<string, unknown>, myRef)) };
 }
 
 /** The caller's own Polity Public Reference — the handle a counterparty needs. */

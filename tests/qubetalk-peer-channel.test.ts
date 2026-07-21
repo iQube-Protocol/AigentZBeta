@@ -4,7 +4,13 @@
  *  - the pair key is order-independent so (a,b) and (b,a) are one channel.
  */
 import { describe, it, expect } from 'vitest';
-import { isPublicRefLike, peerPairKey, QUBETALK_HUMAN_MESSAGE_TYPES } from '@/services/qubetalk/peerChannel';
+import {
+  isPublicRefLike,
+  peerPairKey,
+  QUBETALK_HUMAN_MESSAGE_TYPES,
+  normalizeRights,
+  DEFAULT_RIGHTS,
+} from '@/services/qubetalk/peerChannel';
 import { personaPublicRef } from '@/services/identity/personaReferences';
 
 describe('QubeTalk peer channel helpers', () => {
@@ -38,5 +44,23 @@ describe('QubeTalk peer channel helpers', () => {
     // Content/workflow/agent types are NOT in the Phase-1 human set.
     expect(QUBETALK_HUMAN_MESSAGE_TYPES.includes('artifact_share' as never)).toBe(false);
     expect(QUBETALK_HUMAN_MESSAGE_TYPES.includes('review_request' as never)).toBe(false);
+  });
+
+  it('rights envelope defaults are conservative — view only, everything else off', () => {
+    expect(DEFAULT_RIGHTS.view).toBe(true);
+    expect(DEFAULT_RIGHTS.copyToLocker).toBe(false);
+    expect(DEFAULT_RIGHTS.reshare).toBe(false);
+    expect(DEFAULT_RIGHTS.agentInference).toBe(false);
+    // An empty/absent rights object normalises to the conservative default.
+    expect(normalizeRights(undefined)).toEqual(DEFAULT_RIGHTS);
+    expect(normalizeRights({})).toEqual(DEFAULT_RIGHTS);
+  });
+
+  it('normalizeRights coerces untrusted input, only honouring explicit booleans', () => {
+    const r = normalizeRights({ view: true, agentInference: true, reshare: 'yes', copyToLocker: 1 });
+    expect(r.agentInference).toBe(true); // explicit boolean honoured
+    expect(r.reshare).toBe(false); // non-boolean ignored -> conservative default
+    expect(r.copyToLocker).toBe(false); // non-boolean ignored
+    expect(r.download).toBe(false);
   });
 });
