@@ -100,7 +100,7 @@ const LAYERS = [
 const EXPERIMENT_FAMILY: Record<string, string> = {
   "EXP-001": "Semantic Fidelity",
   "EXP-002": "Temporal Fidelity",
-  "EXP-003": "Computational Efficiency",
+  "EXP-003": "Reasoning Economics",
   "EXP-004": "Constitutional Sovereignty",
   "EXP-005": "Provider Choice",
 };

@@ -123,7 +123,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
   {
     id: 'EXP-003',
     layer: 'I',
-    family: 'Computational Efficiency',
+    family: 'Reasoning Economics',
     seriesId: 'FVS',
     hypothesis:
       'Initialized (invariant-grounded) reasoning reduces rediscovery cost versus cold reasoning at equal or better groundedness.',

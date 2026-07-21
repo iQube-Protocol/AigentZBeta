@@ -73,6 +73,34 @@ publication receipt as before.
 - Type-check + full canary suite run in CI (node_modules is not provisioned in the session
   sandbox).
 
+## Aletheon review corrections (addendum 2026-07-20)
+
+Applied to the shared composer (`findingsReportComposer.ts`) + registry:
+
+- **EXP-003 renamed Computational Efficiency → Reasoning Economics** (registry
+  `family`, dashboard label, authored body). The 26.7% token result is reframed
+  as the *first foundational run* of a broader reasoning-economics programme
+  (grounding, token cost, contradictions, curation, breadth, retrieval strategy,
+  merit weighting).
+- **"validated" softened** — the programme map now reads "**supported** —
+  canonical internal run complete" for the science series (FVS/PSE/IIVS) and
+  keeps "**operationally validated**" only for the instrument-validation series
+  (IV0), avoiding the external-reader implication of independent/publication-grade
+  validation.
+- **`dvn_failed` explained** — a sentence in the Trust model clarifies it means
+  the local hash-verifiable result was written but external anchoring is pending
+  remediation, never experimental invalidity.
+- **Invariant primitive reformulated** — "a versioned, provenance-bearing
+  knowledge claim governed through a validation lifecycle" (primitive distinct
+  from maturity state); "validated and canonical invariants may be curated into
+  reasoning substrates."
+- **Curation-dominates-accumulation** added as an explicit *emerging* cross-cutting
+  finding (curated sets beat unearned breadth; breadth without merit weighting
+  adds cost without gain) — connects the science to the iQube proposition,
+  flagged as pending the breadth-arm's canonical publication.
+- EXP-005's section already carries the corrected five-class taxonomy + two axes
+  (constitutional portability / operational viability) from the instrument fix.
+
 ## Doctrine
 
 The report is now composed under the same law it reports on: its section order is the
