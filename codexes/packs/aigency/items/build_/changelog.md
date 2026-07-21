@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`a10f5fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/a10f5fd83550411a56b4aae37b23b0b406df87a8) [feat] add Stage-0 instrument validation (IRV-001/IPV-001) — shake down IRE+IPE before the science (Claude, 2026-07-18T01:11:40Z)
 - [`afdd507`](https://github.com/iQube-Protocol/AigentZBeta/commit/afdd507e5c26b89eabc56c7a3bdd74d8f9e12191) [push] charter the three-experiment Validation Programme v1 (EXP-P1/P2/P3) (Claude, 2026-07-18T01:01:20Z)
 - [`76f9df6`](https://github.com/iQube-Protocol/AigentZBeta/commit/76f9df6cfda89ab50179f01419a4a35df6193f95) [push] author IRL Validation Roadmap + seed invariant-field first principles (322/323) (Claude, 2026-07-18T00:53:43Z)
 - [`81e1abd`](https://github.com/iQube-Protocol/AigentZBeta/commit/81e1abd635d7f72561823d21200bc62fa83cfcaf) [fix] fix Invariant Registry: register polity namespace + raise public cap so all 319 invariants surface (Claude, 2026-07-18T00:45:49Z)

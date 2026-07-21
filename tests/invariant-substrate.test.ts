@@ -95,10 +95,14 @@ describe('constitutional constants (CFS-001/002/003)', () => {
     expect([...ACYCLIC_EDGE_TYPES].sort()).toEqual(['depends_on', 'derives_from', 'supersedes']);
   });
 
-  it('pins the seven namespaces (incl. style CFS-011, narrative CFS-012) and the confidence ladder', () => {
-    expect(INVARIANT_NAMESPACES).toHaveLength(7);
+  it('pins the fourteen namespaces (incl. style CFS-011, narrative CFS-012, polity, finance PRD-MPY-001 D5) and the confidence ladder', () => {
+    // Base 7 (constitutional/reasoning/engineering/experience/capability/style/narrative)
+    // + five-namespace widening (2026-07-13) + polity (2026-07-17) + finance (PRD-MPY-001 D5, 2026-07-21).
+    expect(INVARIANT_NAMESPACES).toHaveLength(14);
     expect(INVARIANT_NAMESPACES).toContain('style');
     expect(INVARIANT_NAMESPACES).toContain('narrative');
+    expect(INVARIANT_NAMESPACES).toContain('polity');
+    expect(INVARIANT_NAMESPACES).toContain('finance');
     expect(CONFIDENCE_BASIS_WEIGHT.document_verified).toBe(1.0);
     expect(CONFIDENCE_BASIS_WEIGHT.principal_verified).toBe(0.85);
     expect(CONFIDENCE_BASIS_WEIGHT.agent_verified).toBe(0.6);

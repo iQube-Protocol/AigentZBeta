@@ -1,0 +1,19 @@
+{
+  "name": "QriptoCENT Constitutional Corpus",
+  "description": "A SUB-CORPUS under the IRL Financial Services foundation (PRD-MPY-001 §3.5, D6, ratified 2026-07-21). Source material from which Agent MoneyPenny's FS Invariant Library (inv.finance.*, proposed) is DERIVED by the Invariant Discovery Engine (CFS-048) — never hand-authored. In the Discovery Engine scope ladder this is the `finance/qriptocent` sub-domain under the `finance` domain. QriptoCENT = the protocol/micro-stablecoin; Q¢ (Q-cent) = its cent-unit pricing surface ($1 = 100 Q¢). The corpus CONTENT is operator-provided/ingested via the Discovery Engine (D2) — this scaffold establishes structure only; no source is invented in the interim.",
+  "collections": [
+    {
+      "id": "col_qriptocent_corpus",
+      "title": "QriptoCENT Constitutional Corpus",
+      "description": "The QriptoCENT source areas, mapped to Discovery-Engine sub-domains under finance/qriptocent (PRD-MPY-001 §3.3/§3.5). Placeholders only — source content is operator-to-provide via the Invariant Discovery Engine (D2).",
+      "items": [
+        "foundation/qriptocent/protocol/README.md",
+        "foundation/qriptocent/commerce/README.md",
+        "foundation/qriptocent/payments/README.md",
+        "foundation/qriptocent/financial-services/README.md",
+        "foundation/qriptocent/economic-governance/README.md",
+        "foundation/qriptocent/runtime/README.md"
+      ]
+    }
+  ]
+}
