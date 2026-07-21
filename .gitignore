@@ -125,3 +125,6 @@ capstone/**/env.meta
 capstone/**/principal.body
 capstone/**/principal.meta
 .claude/worktrees/
+
+# Build-generated pack corpus manifest (scripts/export-pack-corpus.mjs)
+codexes/pack-manifest.json

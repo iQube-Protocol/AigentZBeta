@@ -10,8 +10,16 @@
  * repo navigation tool.
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
+import {
+  ensureCorpusHydrated,
+  corpusReadFile,
+  corpusListMarkdown,
+} from './packCorpusStore';
+
+// Re-export so callers hydrate the corpus (remote mode) from one place before
+// invoking the synchronous search functions below.
+export { ensureCorpusHydrated };
 
 // Engineering KB (architecture, API reference, commit history)
 export const AIGENCY_ROOT = path.join(process.cwd(), 'codexes/packs/aigency');
@@ -35,30 +43,15 @@ export interface SearchResult {
 // Filesystem helpers
 // ============================================================================
 
+// Reads route through the packCorpusStore seam: local filesystem in dev/tests,
+// the in-memory corpus (hydrated from the remote blob) in the SSR Lambda. Callers
+// of the sync search functions MUST await ensureCorpusHydrated() first.
 export function readPackFile(absPath: string): string | null {
-  try {
-    return fs.readFileSync(absPath, 'utf8');
-  } catch {
-    return null;
-  }
+  return corpusReadFile(absPath);
 }
 
 function listMarkdownFiles(dir: string, root: string): string[] {
-  const results: string[] = [];
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        results.push(...listMarkdownFiles(full, root));
-      } else if (entry.name.endsWith('.md') && !entry.name.startsWith('.')) {
-        results.push(path.relative(root, full));
-      }
-    }
-  } catch {
-    // ignore unreadable dirs
-  }
-  return results;
+  return corpusListMarkdown(dir, root);
 }
 
 function classifyStatus(packRelPath: string, content: string): ItemStatus {

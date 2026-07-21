@@ -30,6 +30,7 @@ import {
   searchCodex,
   getRecentCommits,
   buildCodexExcerptsBlock,
+  ensureCorpusHydrated,
   buildRecentCommitsBlock,
   GITHUB_BLOB_BASE,
 } from './agentiqPackSearch';
@@ -286,8 +287,10 @@ async function buildNetworkOpsSnapshot(origin: string): Promise<string> {
 export async function buildAigentZPlatformKnowledge(query: string, origin: string): Promise<string> {
   const blocks: string[] = [PLATFORM_MAP];
 
-  // Pack retrieval — cheap fs keyword search, always attempted
+  // Pack retrieval — keyword search over the corpus (local FS in dev; remote
+  // in-memory corpus hydrated once per container in the SSR Lambda).
   try {
+    await ensureCorpusHydrated();
     const results = searchCodex(query, 5);
     const excerpts = buildCodexExcerptsBlock(results);
     if (excerpts) blocks.push(excerpts);

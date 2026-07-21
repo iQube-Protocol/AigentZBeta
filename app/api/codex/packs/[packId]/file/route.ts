@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
-import { promises as fs } from "fs";
+import { corpusReadPackFile } from "@/services/knowledge/packCorpusStore";
 
 function isValidPackId(packId: string): boolean {
   return /^[a-z0-9-]+$/i.test(packId);
@@ -40,15 +40,22 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pac
     return NextResponse.json({ ok: false, error: "Unsupported file type." }, { status: 400 });
   }
 
+  // Defence-in-depth against traversal even though sanitizePath already rejects
+  // absolute paths and leading "..": the resolved path must stay under the pack.
   const packRoot = path.join(process.cwd(), "codexes", "packs", packId);
   const fullPath = path.join(packRoot, safePath);
-
   if (!fullPath.startsWith(packRoot + path.sep)) {
     return NextResponse.json({ ok: false, error: "Path out of bounds." }, { status: 400 });
   }
 
   try {
-    const raw = await fs.readFile(fullPath, "utf-8");
+    // Reads through the pack-corpus seam: local FS in dev, the in-memory corpus
+    // (hydrated from the remote blob) in the SSR Lambda where the pack files are
+    // no longer bundled. A missing file surfaces as the same 404 as before.
+    const raw = await corpusReadPackFile(packId, safePath);
+    if (raw === null) {
+      return NextResponse.json({ ok: false, error: "File not found." }, { status: 404 });
+    }
     if (safePath.endsWith(".json")) {
       try {
         const data = JSON.parse(raw);
