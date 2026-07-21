@@ -13,10 +13,10 @@
  * SSR bundle lean (the platform sits near the Amplify output-size cap).
  */
 
-import { serviceRegistrySnapshot } from './serviceRegistry';
-import { journeyRegistrySnapshot, getJourney } from './journeyRegistry';
+import { serviceRegistrySnapshot, listServices, getService, knownCapabilities } from './serviceRegistry';
+import { journeyRegistrySnapshot } from './journeyRegistry';
 import { buildThresholdLink, type ThresholdLinkManifest } from './thresholdLink';
-import type { ScopedSession } from './gatewaySession';
+import { hasScope, type ScopedSession } from './gatewaySession';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -76,6 +76,35 @@ export function listTools() {
         additionalProperties: false,
       },
     },
+    // ── Authenticated crossing tools (require a scoped session from the crossing) ──
+    {
+      name: 'get_crossing_status',
+      description:
+        'After the crossing, report the current session: whether it is active, the exact capability scope the principal authorized, and which services are now reachable vs still need more scope. Requires an authenticated session (present your bearer). Reveals only the T2 principal/agent references — never persona identifiers.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'request_service_capabilities',
+      description:
+        'Check whether the crossing already holds the scope to enter a named service; if not, learn exactly which additional capabilities an incremental crossing must request. This PREPARES a request — your principal authorizes any new scope in the browser. Requires an authenticated session.',
+      inputSchema: {
+        type: 'object',
+        properties: { service: { type: 'string', description: 'A service id from list_services (e.g. irl, devon).' } },
+        required: ['service'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'propose_delegation',
+      description:
+        'Draft an incremental delegation proposal for a set of capabilities so you can explain to your principal exactly what would be requested and its bounds. This only PREPARES a proposal — you cannot grant it; your principal authorizes via a crossing in the browser. Requires an authenticated session.',
+      inputSchema: {
+        type: 'object',
+        properties: { capabilities: { type: 'array', items: { type: 'string' }, description: 'The capabilities to propose.' } },
+        required: ['capabilities'],
+        additionalProperties: false,
+      },
+    },
   ];
 }
 
@@ -123,6 +152,7 @@ export function listPrompts() {
 export const HANDSHAKE_TOOLS = new Set([
   'begin_handshake',
   'authenticate_principal',
+  'get_crossing_status',
   'get_passport_status',
   'create_or_link_agent_card',
   'request_agent_passport',
@@ -137,9 +167,26 @@ export const HANDSHAKE_TOOLS = new Set([
   'send_qubetalk_message',
 ]);
 
+/** Authenticated tools IMPLEMENTED in this increment. They are a subset of
+ *  HANDSHAKE_TOOLS (so the route still 401-challenges a bearer-less call); with a
+ *  valid session, callTool executes them instead of the "handshake required"
+ *  fallback. The remaining HANDSHAKE_TOOLS land in later increments. */
+const AUTHENTICATED_TOOLS = new Set(['get_crossing_status', 'request_service_capabilities', 'propose_delegation']);
+
 function text(value: unknown) {
   return {
     content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
+  };
+}
+
+function handshakeRequired() {
+  return {
+    ...text(
+      'This action requires the Constitutional Handshake — a scoped session your principal grants by crossing the Threshold. ' +
+        'Discover the crossing at /.well-known/oauth-protected-resource and run the OAuth authorization-code flow: your principal ' +
+        'signs in and authorizes a bounded delegation in the browser, then you present the resulting bearer here. Only the human authorizes.',
+    ),
+    isError: true,
   };
 }
 
@@ -185,15 +232,76 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
     });
   }
 
+  // ── Authenticated dispatch (Increment 3) — session-gated, read/prepare only ──
+  // These consume the scoped session minted by the crossing. They report status,
+  // resolve service eligibility, and PREPARE incremental delegations — they never
+  // mutate the principal's state (that requires a human-authorized crossing) and
+  // never touch a T0 identifier (the session carries only T2 refs).
+  if (AUTHENTICATED_TOOLS.has(name)) {
+    if (!ctx.session) return handshakeRequired();
+    const s = ctx.session;
+
+    if (name === 'get_crossing_status') {
+      const reachable = listServices().filter((svc) => svc.requiredCapabilities.every((c) => hasScope(s, c))).map((svc) => svc.id);
+      const pending = listServices()
+        .filter((svc) => !svc.requiredCapabilities.every((c) => hasScope(s, c)))
+        .map((svc) => ({ id: svc.id, missingCapabilities: svc.requiredCapabilities.filter((c) => !hasScope(s, c)) }));
+      return text({
+        crossed: true,
+        principal: s.principalPublicRef, // T2 Polity Public Reference — never a persona id
+        agent: s.agentAlias, // T2 alias
+        initiatingService: s.initiatingService,
+        grantedScope: s.scope,
+        reachableServices: reachable,
+        pendingServices: pending,
+        expiresAt: s.expiresAt,
+      });
+    }
+
+    if (name === 'request_service_capabilities') {
+      const id = typeof args.service === 'string' ? args.service.trim() : '';
+      const svc = getService(id);
+      if (!svc) return { ...text(`Unknown service: ${id || '(none)'}. Use list_services.`), isError: true };
+      const missing = svc.requiredCapabilities.filter((c) => !hasScope(s, c));
+      if (missing.length === 0) {
+        return text({ service: svc.id, title: svc.title, reachable: true, note: `Your crossing already holds the scope for ${svc.title}.` });
+      }
+      return text({
+        service: svc.id,
+        title: svc.title,
+        reachable: false,
+        missingCapabilities: missing,
+        howTo:
+          'These require an INCREMENTAL crossing: run the OAuth authorization-code flow again requesting these additional scopes. ' +
+          'Your principal authorizes them in the browser — you cannot grant them yourself. Only the human authorizes.',
+      });
+    }
+
+    if (name === 'propose_delegation') {
+      const caps = Array.isArray(args.capabilities) ? args.capabilities.filter((x): x is string => typeof x === 'string') : [];
+      const known = knownCapabilities();
+      const recognized = caps.filter((c) => known.has(c));
+      const unrecognized = caps.filter((c) => !known.has(c));
+      const alreadyHeld = recognized.filter((c) => hasScope(s, c));
+      const wouldRequest = recognized.filter((c) => !hasScope(s, c));
+      return text({
+        proposal: {
+          requestedCapabilities: recognized,
+          alreadyHeld,
+          wouldRequest,
+          unrecognized,
+          boundary:
+            'Read/participate only — a delegation proposed here can never move funds, publish, disclose identity, or delegate onward.',
+        },
+        humanStep:
+          'This is a draft to explain to your principal. To grant the new capabilities, run the crossing (OAuth authorize) requesting `wouldRequest`; ' +
+          'your principal authorizes in the browser. You cannot authorize on their behalf.',
+      });
+    }
+  }
+
   if (HANDSHAKE_TOOLS.has(name)) {
-    return {
-      ...text(
-        'This action requires the Constitutional Handshake — a scoped session your principal grants by crossing the Threshold. ' +
-          'Discover the crossing at /.well-known/oauth-protected-resource and run the OAuth authorization-code flow: your principal ' +
-          'signs in and authorizes a bounded delegation in the browser, then you present the resulting bearer here. Only the human authorizes.',
-      ),
-      isError: true,
-    };
+    return handshakeRequired();
   }
 
   return { ...text(`Unknown tool: ${name}`), isError: true };
