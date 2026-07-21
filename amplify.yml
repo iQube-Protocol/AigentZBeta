@@ -138,6 +138,14 @@ frontend:
         # keeps it pinned at the ceiling).
         - find .next/standalone/node_modules/@types -maxdepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
         - rm -rf .next/standalone/node_modules/.bin 2>/dev/null || true
+        # playwright-core (~6 MB) — the agentic-browser exec loads it via a guarded
+        # dynamic require in try/catch (degrades to "unavailable"); browser
+        # automation can't run in the SSR Lambda anyway. Biggest single traced
+        # package per the compute-composition log; ~30x the size overage. This
+        # filesystem delete is the reliable lever (config excludes proved unreliable
+        # for the packaged artifact). If a future SSR path genuinely needs headless
+        # browsing, move it to a dedicated worker rather than re-bundling this.
+        - rm -rf .next/standalone/node_modules/playwright-core 2>/dev/null || true
         # Test/doc/example DIRECTORIES + build-meta files that npm installs into
         # every package but the SSR runtime never require()s. Module resolution
         # uses package.json main/exports → dist/lib, never these. This is the

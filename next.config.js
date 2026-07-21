@@ -47,6 +47,16 @@ const nextConfig = {
       // fails to load at runtime, the runtime moved off glibc — revisit here.
       "node_modules/@next/swc-linux-x64-musl/**",
       "node_modules/@swc/core-linux-x64-musl/**",
+      // playwright-core (~6 MB) — the agentic-browser exec
+      // (services/aa-api/src/browser/exec/playwright.ts) loads it via a GUARDED
+      // dynamic require.resolve/require in try/catch that degrades to "browser
+      // control unavailable" when absent. Browser automation cannot run in an
+      // Amplify SSR Lambda anyway (no browser binary), so this 6 MB is dead weight
+      // — the single biggest traced package (2026-07-21 compute-composition log)
+      // and ~30x the size overage. Also hard-removed in amplify.yml postBuild
+      // (the reliable lever). classifierService's "playwright" is a keyword
+      // string, not an import — unaffected.
+      "node_modules/playwright-core/**",
       // Build/ingest-time pack DATA that the SSR runtime never reads AND that is
       // not browsable via any pack collections.json — so tracing it into the
       // standalone bundle is pure dead weight against the 230686720-byte output
