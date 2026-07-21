@@ -22,6 +22,7 @@ import {
   listCandidates,
   runConstitutionalDiscovery,
   compareSubDomains,
+  compressDomainInvariants,
   suggestParents,
   promoteCandidate,
   linkPromotedParents,
@@ -115,6 +116,12 @@ export async function POST(req: NextRequest) {
       const r = await compareSubDomains(admin, domain);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
+    case 'compress-domain': {
+      // Recursive compression — derivation structure (roots vs derived) among the
+      // domain's earned invariants (the parent-child keystone).
+      const r = await compressDomainInvariants(admin, domain);
+      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
     case 'suggest-parents': {
       if (!body.candidateId) return NextResponse.json({ ok: false, error: 'candidateId required' }, { status: 400 });
       const suggestions = await suggestParents(admin, body.candidateId);
@@ -139,6 +146,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     default:
-      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, suggest-parents, promote, link-parents, reject' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, compress-domain, suggest-parents, promote, link-parents, reject' }, { status: 400 });
   }
 }

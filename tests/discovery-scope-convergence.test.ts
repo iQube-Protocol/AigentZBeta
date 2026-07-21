@@ -90,6 +90,39 @@ describe('Compare discipline (Phase 2 — earned domain invariants)', () => {
     expect(src).toMatch(/\.in\('status', \['candidate', 'promoted'\]\)[\s\S]*?\.not\('sub_domain', 'is', null\)/);
     expect(src).toMatch(/\.is\('sub_domain', null\)[\s\S]*?\.in\('status', \['candidate', 'promoted'\]\)/);
   });
+});
+
+describe('Recursive compression discipline (parent-child keystone)', () => {
+  const src = readFileSync(join(__dirname, '..', 'services', 'invariants', 'discoveryEngine.ts'), 'utf8');
+
+  it('needs at least 2 domain invariants and grounds strictly (no invented relationships)', () => {
+    expect(src).toMatch(/export async function compressDomainInvariants/);
+    expect(src).toMatch(/needs at least 2 domain invariants/);
+    expect(src).toMatch(/Do NOT invent invariants or relationships/i);
+  });
+
+  it('is acyclic + drops self-references, and only accepts in-range parent indices', () => {
+    expect(src).toMatch(/MUST be acyclic/);
+    // parent-index filter: integer, not self, within [0, items.length)
+    expect(src).toMatch(/p !== idx/);
+    expect(src).toMatch(/p < items\.length/);
+  });
+
+  it('root/derived: a node is derived only when it has ≥1 valid parent, else root', () => {
+    expect(src).toMatch(/String\(n\.depth\) === 'derived' && parentIdxs\.length > 0 \? 'derived' : 'root'/);
+  });
+
+  it('persists the classification ADDITIVELY into provenance (merge, never clobber)', () => {
+    expect(src).toMatch(/\.\.\.\(\(raw\.discovery_provenance \?\? \{\}\) as Record<string, unknown>\)/);
+    expect(src).toMatch(/prov\.compression = \{ depth, derivesFromCandidateIds/);
+  });
+
+  it('does NOT touch confidence or promote/canonize (structure discovery, not validity)', () => {
+    // The function updates only discovery_provenance; no status/confidence writes.
+    const fn = src.slice(src.indexOf('export async function compressDomainInvariants'));
+    const body = fn.slice(0, fn.indexOf('\n}\n'));
+    expect(body).not.toMatch(/status: 'promoted'|\.update\(\{ confidence|canonize|validate/);
+  });
 
   it('confidence is recurrence-based (coverage breadth), not model self-report', () => {
     expect(src).toMatch(/0\.55 \+ 0\.1 \* cov/);
