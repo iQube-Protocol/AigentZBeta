@@ -165,15 +165,21 @@ export async function issueAuthorizationCode(input: {
   agreementId: string;
   grantedScope: string[];
   codeTtlMinutes?: number;
-}): Promise<{ code: string; redirectUri: string; oauthState: string | null } | null> {
+}): Promise<{ code: string; redirectUri: string; oauthState: string | null } | { error: string }> {
   const admin = getSupabaseServer();
-  if (!admin) return null;
-  const row = await getHandshakeRow(input.handshakeCode);
-  if (!row || row.status !== 'pending') return null;
-  if (!row.redirect_uri) return null; // OAuth crossing requires a bound redirect
+  if (!admin) return { error: 'session store unavailable' };
+  const { data: row, error: readErr } = await admin
+    .from(TABLE)
+    .select('status, redirect_uri, oauth_state')
+    .eq('handshake_code', input.handshakeCode)
+    .maybeSingle();
+  if (readErr) return { error: `handshake read failed: ${readErr.message}` };
+  if (!row) return { error: 'handshake not found' };
+  if (row.status !== 'pending') return { error: `handshake is '${row.status}', not pending` };
+  if (!row.redirect_uri) return { error: 'handshake has no bound redirect_uri' };
   const code = `thac_${newToken(32)}`;
   const codeExpiresAt = new Date(Date.now() + (input.codeTtlMinutes ?? 5) * 60_000).toISOString();
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from(TABLE)
     .update({
       status: 'authorized',
@@ -185,12 +191,16 @@ export async function issueAuthorizationCode(input: {
       granted_scope: input.grantedScope,
     })
     .eq('handshake_code', input.handshakeCode)
-    .eq('status', 'pending'); // idempotency guard — only a pending row issues a code
+    .eq('status', 'pending') // idempotency guard — only a pending row issues a code
+    .select('handshake_code');
   if (error) {
     // eslint-disable-next-line no-console
-    console.error('[threshold] issueAuthorizationCode failed:', error.message);
-    return null;
+    console.error('[threshold] issueAuthorizationCode update failed:', error.message);
+    // Surface the DB reason (e.g. a stale status CHECK constraint that rejects
+    // 'authorized') so the crossing is debuggable rather than a blank failure.
+    return { error: `code issue update rejected: ${error.message}` };
   }
+  if (!updated || updated.length === 0) return { error: 'handshake was no longer pending at update time' };
   return { code, redirectUri: row.redirect_uri, oauthState: row.oauth_state };
 }
 
@@ -286,22 +296,6 @@ export async function getClient(clientId: string | null | undefined): Promise<{ 
   } catch {
     return null;
   }
-}
-
-/** Internal — read a handshake row (all columns needed by the OAuth leg). */
-async function getHandshakeRow(handshakeCode: string): Promise<
-  | { status: string; redirect_uri: string | null; oauth_state: string | null }
-  | null
-> {
-  const admin = getSupabaseServer();
-  if (!admin) return null;
-  const { data, error } = await admin
-    .from(TABLE)
-    .select('status, redirect_uri, oauth_state')
-    .eq('handshake_code', handshakeCode)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data as { status: string; redirect_uri: string | null; oauth_state: string | null };
 }
 
 /** Resolve a presented bearer to its scoped session (or null). Defensive. */

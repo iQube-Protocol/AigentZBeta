@@ -95,7 +95,9 @@ export async function POST(request: NextRequest) {
     agreementId,
     grantedScope,
   });
-  if (!issued) return NextResponse.json({ ok: false, error: 'could not issue authorization code' }, { status: 503 });
+  if ('error' in issued) {
+    return NextResponse.json({ ok: false, error: `could not issue authorization code: ${issued.error}` }, { status: 503 });
+  }
 
   const redirect = new URL(issued.redirectUri);
   redirect.searchParams.set('code', issued.code);
