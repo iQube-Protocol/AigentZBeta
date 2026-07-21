@@ -38,13 +38,19 @@ import { createOrGetChannel } from '@/services/qubetalk/peerChannel';
  * per unordered pair), so a re-claim does not duplicate the channel.
  */
 async function maybeOpenInviteChannel(
-  inv: { open_peer_channel?: boolean; issuer_persona_id?: string | null },
+  inv: { open_peer_channel?: boolean; issuer_persona_id?: string | null; access_domain?: string | null },
   claimantPersonaId: string,
 ): Promise<string | null> {
   try {
     if (!inv.open_peer_channel || !inv.issuer_persona_id) return null;
     if (inv.issuer_persona_id === claimantPersonaId) return null; // no self-channel
-    const res = await createOrGetChannel(inv.issuer_persona_id, personaPublicRef(claimantPersonaId));
+    // Tag the channel's origin with the invitation's access domain so the Lab's
+    // filtered research view surfaces it (Locker shows all channels).
+    const res = await createOrGetChannel(
+      inv.issuer_persona_id,
+      personaPublicRef(claimantPersonaId),
+      inv.access_domain ? String(inv.access_domain) : undefined,
+    );
     return res.ok ? res.value.id : null;
   } catch {
     return null;
@@ -362,7 +368,7 @@ export async function claimAccessInvitation(
     .eq('id', inv.id);
 
   // Invite → auto-channel (best-effort; never blocks the grant).
-  const peerChannelId = await maybeOpenInviteChannel(inv as { open_peer_channel?: boolean; issuer_persona_id?: string | null }, claimant.personaId);
+  const peerChannelId = await maybeOpenInviteChannel(inv as { open_peer_channel?: boolean; issuer_persona_id?: string | null; access_domain?: string | null }, claimant.personaId);
 
   return {
     ok: true,
