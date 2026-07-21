@@ -86,6 +86,12 @@ const nextConfig = {
       // the output past the 230686720-byte hard cap (2026-07-17). Excluded here,
       // same philosophy as the typescript/caniuse entries above.
       "codexes/packs/aigency/items/build_/COMMITS/**",
+      // build_/PR — auto-generated per-PR log archives (~156 KB, grows every PR),
+      // same build-log class as COMMITS above. Only referenced as an EXAMPLE path
+      // in a copilot tool-description string, never a required runtime read (a
+      // missing pack file is skipped at read time). Excluded to reclaim headroom
+      // under the 230686720-byte cap as session docs + UI grow (2026-07-21).
+      "codexes/packs/aigency/items/build_/PR/**",
       // The auto-generated build changelog — same build-log class as COMMITS
       // above (grows every deploy; 374KB on 2026-07-20 when the output tipped
       // the cap by ~194KB). Same safety: a missing pack file is skipped at

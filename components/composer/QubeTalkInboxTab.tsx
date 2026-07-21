@@ -57,6 +57,8 @@ interface PeerChannel {
   createdAt: string;
   /** The caller's own private nickname for this channel (never leaves their side). */
   counterpartyLabel: string | null;
+  /** Access domain that opened the channel (e.g. 'research-lab'); drives the Lab filter. */
+  originDomain: string | null;
 }
 interface PeerMessage {
   id: string;
@@ -127,9 +129,15 @@ function MyRefChip({ myRef }: { myRef: string | null }) {
 
 // ── Inbox ────────────────────────────────────────────────────────────────────
 
-export default function QubeTalkInboxTab() {
+/**
+ * QubeTalk inbox. The Locker mounts it unfiltered (canonical). The Laboratory
+ * mounts it with `researchOnly` — a FILTERED research view (channels opened from
+ * a research-lab context). Both resolve to the SAME channel/message/receipt store
+ * (Aletheon: "do not create separate inboxes; both surfaces are one system").
+ */
+export default function QubeTalkInboxTab({ researchOnly = false }: { researchOnly?: boolean }) {
   const [myRef, setMyRef] = useState<string | null>(null);
-  const [channels, setChannels] = useState<PeerChannel[]>([]);
+  const [allChannels, setAllChannels] = useState<PeerChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -137,22 +145,29 @@ export default function QubeTalkInboxTab() {
   const [newRef, setNewRef] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // Same store; the Lab view is a filter, not a separate inbox.
+  const channels = useMemo(
+    () => (researchOnly ? allChannels.filter((c) => c.originDomain === "research-lab") : allChannels),
+    [allChannels, researchOnly],
+  );
+
   const loadChannels = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await jf<{ myRef: string; channels: PeerChannel[] }>("/api/qubetalk/peer-channels");
       setMyRef(data.myRef);
-      setChannels(data.channels ?? []);
-      // Auto-select the first channel only when nothing is selected yet
+      setAllChannels(data.channels ?? []);
+      // Auto-select the first VISIBLE channel only when nothing is selected yet
       // (functional update avoids a `selected`-dependency reload cycle).
-      if (data.channels?.length) setSelected((prev) => prev ?? data.channels[0].id);
+      const visible = researchOnly ? (data.channels ?? []).filter((c) => c.originDomain === "research-lab") : (data.channels ?? []);
+      if (visible.length) setSelected((prev) => prev ?? visible[0].id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load channels");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [researchOnly]);
 
   useEffect(() => {
     loadChannels();

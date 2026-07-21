@@ -53,6 +53,12 @@ export interface PeerChannel {
    * Never enters receipts/DVN/chain — local peer naming, not a T0/T2 field.
    */
   counterpartyLabel: string | null;
+  /**
+   * The access domain that opened this channel (e.g. 'research-lab' for a
+   * channel auto-opened by a research-partner invite); null for a manually
+   * opened channel. Drives the Lab's filtered research view. Not a T-tier field.
+   */
+  originDomain: string | null;
 }
 
 export interface PeerMessage {
@@ -224,6 +230,7 @@ function rowToChannel(row: Record<string, unknown>, myRef: string): PeerChannel 
     createdAt: String(row.created_at),
     counterpartyRef: iAmA ? b : a,
     counterpartyLabel: (myLabel ?? null) || null,
+    originDomain: (row.origin_domain as string | null) ?? null,
   };
 }
 
@@ -235,6 +242,9 @@ function rowToChannel(row: Record<string, unknown>, myRef: string): PeerChannel 
 export async function createOrGetChannel(
   callerPersonaId: string,
   counterpartyRef: string,
+  /** The access domain that opened this channel (e.g. 'research-lab'), for the
+   *  Lab's filtered view. Only set on CREATE; ignored if the channel exists. */
+  origin?: string,
 ): Promise<PeerResult<PeerChannel>> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
@@ -254,7 +264,14 @@ export async function createOrGetChannel(
 
   const insert = await admin
     .from(CHANNELS)
-    .insert({ principal_a_ref: myRef, principal_b_ref: counterpartyRef, created_by_ref: myRef })
+    .insert({
+      principal_a_ref: myRef,
+      principal_b_ref: counterpartyRef,
+      created_by_ref: myRef,
+      // Only touch the new column when provided, so channel creation stays
+      // safe on a DB that hasn't applied 20260805400000 yet.
+      ...(origin ? { origin_domain: origin } : {}),
+    })
     .select('*')
     .single();
   if (insert.error) {

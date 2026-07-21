@@ -428,7 +428,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "report" && <ExperimentReportTab />}
         {tab === "plates" && <CanonicalPlatesTab isAdmin={Boolean(accessInfo?.isAdmin)} />}
         {tab === "discovery" && <InvariantDiscoveryTab />}
-        {tab === "qubetalk" && <QubeTalkInboxTab />}
+        {tab === "qubetalk" && <QubeTalkInboxTab researchOnly />}
       </div>
     </div>
   );
