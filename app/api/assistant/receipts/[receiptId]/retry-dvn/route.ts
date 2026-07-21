@@ -8,8 +8,13 @@
  * dvn_recorded). Leaves the row as dvn_failed when the canister call
  * still errors so the operator can see the latest failure reason.
  *
- * Auth: spine — caller must own the receipt. No admin gate; the receipt
- * already belongs to the persona by construction.
+ * Auth: spine. A non-admin caller may retry ONLY receipts they own
+ * (persona-scoped). An admin caller may retry ANY dvn_failed receipt to heal
+ * the provenance trail (the DVN escalation contract) — explicit admin consent,
+ * 2026-07-20, e.g. Stage-0 records backfilled under a different persona. The
+ * re-anchor always carries the receipt's OWN persona ref, never the admin's,
+ * so provenance identity is preserved. The owner-scope gate is unchanged for
+ * non-admins.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -93,19 +98,22 @@ export async function POST(
     );
   }
 
-  // Scope lookup to the caller's personaId — operators can only retry
-  // receipts they own. RLS would also enforce this but the persona_id
-  // filter makes the contract explicit.
-  const { data, error } = await supabase
-    .from('activity_receipts')
-    .select('*')
-    .eq('id', receiptId)
-    .eq('persona_id', context.personaId)
-    .single();
+  // Non-admins may retry only receipts they own (persona-scoped). Admins may
+  // retry ANY dvn_failed receipt to heal the provenance trail (DVN escalation
+  // contract) — e.g. Stage-0 records backfilled under a different persona.
+  const isAdmin = Boolean(context.cartridgeFlags?.isAdmin);
+  let lookup = supabase.from('activity_receipts').select('*').eq('id', receiptId);
+  if (!isAdmin) lookup = lookup.eq('persona_id', context.personaId);
+  const { data, error } = await lookup.single();
 
   if (error || !data) {
     return NextResponse.json(
-      { error: 'not_found', detail: 'Receipt not found or not owned by caller.' },
+      {
+        error: 'not_found',
+        detail: isAdmin
+          ? 'Receipt not found.'
+          : 'Receipt not found or not owned by caller (an admin can retry receipts owned by another persona).',
+      },
       { status: 404, headers: { 'Cache-Control': 'no-store' } },
     );
   }
@@ -122,7 +130,10 @@ export async function POST(
     );
   }
 
-  const result = await submitActivityReceiptToDvn(record, context.personaId);
+  // Anchor with the receipt's OWN persona ref (row.persona_id) — never the
+  // admin's — so the on-chain provenance identity is the true owner's, whether
+  // the retry was triggered by the owner or by an admin healing the trail.
+  const result = await submitActivityReceiptToDvn(record, (data as DbRow).persona_id);
 
   if (result.ok && result.messageId) {
     const { error: updateErr } = await supabase
