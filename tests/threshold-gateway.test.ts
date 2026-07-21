@@ -207,7 +207,18 @@ describe('IRL read adapter (Increment 4a)', () => {
   const fakeIrl = {
     listDocuments: async () => ({ ok: true, overview: { artifacts: ['a', 'b'] } }),
     readDocument: async (path: string) => ({ ok: true, path, content: '# doc' }),
+    resolveCanon: async (term: string) => ({ ok: true, term, resolved: { invariants: ['inv.constitutional.061'] } }),
   };
+
+  it('explain_primitive resolves a term against the canon WITHOUT a session (public, read-only)', async () => {
+    const c: GatewayContext = { ...ctx, irl: fakeIrl }; // no session
+    const res = await callTool('explain_primitive', { term: 'standing' }, c);
+    const body = JSON.parse(res.content[0].text as string);
+    expect(body.ok).toBe(true);
+    expect(body.term).toBe('standing');
+    // it is a read-only tool — never gated behind the handshake
+    expect(res.isError).toBeUndefined();
+  });
 
   it('gates the read tools behind research.read — a base (root-only) crossing cannot read IRL', async () => {
     const c: GatewayContext = { ...ctx, session: rootSession, irl: fakeIrl };
