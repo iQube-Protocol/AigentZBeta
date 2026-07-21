@@ -97,6 +97,19 @@ const nextConfig = {
       // the cap by ~194KB). Same safety: a missing pack file is skipped at
       // read time; no surface depends on shipping it inside the Lambda.
       "codexes/packs/aigency/items/build_/changelog.md",
+      // aigency/index.json (45 KB) — the auto-generated commit-history index. Its
+      // ONLY runtime consumer is getRecentCommits() in
+      // services/knowledge/agentiqPackSearch.ts, which reads at most the 10 most
+      // recent entries for a copilot "recently shipped" grounding line and
+      // returns [] gracefully when the file is absent (readPackFile → null guard).
+      // It is not browsable in any collections.json. With output:'standalone' the
+      // per-route include changes don't shrink the shared bundle — only a global
+      // '*' exclude (or a postBuild filesystem delete) does — so this is the
+      // reliable lever when the artifact sits at the 230686720-byte ceiling
+      // (2026-07-21: ~10 KB over even after every other sweep). Trade-off: the
+      // copilot loses its recent-deploy-commit awareness until the corpus is
+      // moved out of the SSR bundle (the durable fix — see below).
+      "codexes/packs/aigency/index.json",
     ],
   },
   // Promoted from experimental in Next 15 — these entries carry the codex-pack
