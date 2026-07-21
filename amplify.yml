@@ -141,6 +141,30 @@ frontend:
         - echo "Removing test/doc/example dirs + build-meta from node_modules (never loaded at SSR runtime)..."
         - find .next/standalone/node_modules -type d \( -name test -o -name tests -o -name __tests__ -o -name example -o -name examples -o -name doc -o -name docs -o -name coverage -o -name .nyc_output -o -name .github -o -name .idea \) -prune -exec rm -rf {} + 2>/dev/null || true
         - find .next/standalone/node_modules -type f \( -name "*.flow" -o -name "*.coffee" -o -name "*.ts.map" -o -name ".eslintrc*" -o -name ".editorconfig" -o -name ".npmignore" -o -name ".travis.yml" -o -name "*.tsbuildinfo" -o -name ".DS_Store" \) -delete 2>/dev/null || true
+        # Pack MARKDOWN bodies: the reliable removal. Dropping the next.config
+        # include stops NEW tracing, but Next still copies the pack .md that land
+        # in .next/standalone/codexes/packs (include/exclude carry cross-route
+        # dedupe semantics; a postBuild delete does not — bytes removed here are
+        # gone from the artifact, full stop). We serve these .md from the remote
+        # corpus store at runtime (services/knowledge/packCorpusStore.ts), so
+        # deleting the ~5 MB of bundled bodies is what actually drops the artifact
+        # under the 230686720-byte cap. GATED on PACK_CORPUS_URL being pinned in
+        # .env.production — the exporter writes it ONLY after a successful,
+        # verified public upload — so we never strip the bundle unless the blob
+        # is confirmed live. The pack .json (registry metadata) is preserved.
+        # EXCLUDES: the two sync-context .md readers kept bundled on purpose
+        # (services/experiments/exp001.ts artifacts + the constitutional glossary
+        # read by ontologyResolver) have NO remote fallback, so preserve them.
+        - >
+          if grep -q "^PACK_CORPUS_URL=" .env.production 2>/dev/null; then
+            echo "Corpus blob live — removing bundled pack .md from standalone (served remotely)...";
+            find .next/standalone/codexes/packs -type f -name "*.md" \
+              ! -path "*/exp-001-living-knowledgeqube/*" \
+              ! -name "constitutional-glossary.md" \
+              -delete 2>/dev/null || true;
+          else
+            echo "PACK_CORPUS_URL not pinned — keeping bundled pack .md (corpus store falls back to FS)";
+          fi
         - echo "=== .next/standalone size AFTER native-binary + dev-artifact cleanup ==="
         - du -sh .next/standalone 2>/dev/null || true
         - echo "=== .next total size AFTER cleanup ==="
