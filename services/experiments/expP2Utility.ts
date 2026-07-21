@@ -26,7 +26,11 @@ import { callChatWithUsage, callJsonWithRetry, type ExperimentProvider } from '.
 const MAX_ANSWER_TOKENS = 1200;
 const DEFAULT_DOMAIN = config.domain || 'financial-services';
 
-export type ExpP2Arm = 'cold' | 'discovered';
+// Three arms (Aletheon 2026-07-21): cold (no substrate) vs manual (expert/
+// hand-authored baseline) vs discovered (the earned, recursively-compressed
+// substrate). Cold isolates marginal value; manual isolates whether DISCOVERY
+// beats hand-authoring; ablation (below) isolates which roots carry the load.
+export type ExpP2Arm = 'cold' | 'manual' | 'discovered';
 
 export interface ExpP2Task {
   id: string;
@@ -34,8 +38,12 @@ export interface ExpP2Task {
   rubric: string;
 }
 
-export function expP2Config(): { domain: string; tasks: ExpP2Task[] } {
-  return { domain: DEFAULT_DOMAIN, tasks: config.tasks as ExpP2Task[] };
+export function expP2Config(): { domain: string; tasks: ExpP2Task[]; manualBaselineCount: number } {
+  return {
+    domain: DEFAULT_DOMAIN,
+    tasks: config.tasks as ExpP2Task[],
+    manualBaselineCount: Array.isArray(config.manualBaseline) ? config.manualBaseline.length : 0,
+  };
 }
 
 export interface LibraryInvariant {
@@ -47,11 +55,22 @@ export interface LibraryInvariant {
  * The library under test = the DISCOVERED domain invariants, promoted to
  * `proposed` (never presupposed canon — inv.reasoning.337/340). Fetched through
  * the same grounding seam production reasoning uses, so the experiment measures
- * the real substrate, not a bespoke copy.
+ * the real substrate, not a bespoke copy. `excludeIndex` drops one invariant for
+ * the ABLATION arm (drop-one-root → measure task-class degradation).
  */
-export async function fetchDiscoveredLibrary(domain: string = DEFAULT_DOMAIN): Promise<LibraryInvariant[]> {
+export async function fetchDiscoveredLibrary(
+  domain: string = DEFAULT_DOMAIN,
+  excludeIndex?: number,
+): Promise<LibraryInvariant[]> {
   const slice = await buildInvariantSlice({ domains: [domain], statuses: ['proposed'], limit: 40 });
-  return slice.items.map((it, i) => ({ marker: `[FS-${i + 1}]`, statement: it.statement }));
+  const items = slice.items.map((it, i) => ({ marker: `[FS-${i + 1}]`, statement: it.statement }));
+  return typeof excludeIndex === 'number' ? items.filter((_, i) => i !== excludeIndex) : items;
+}
+
+/** The MANUAL-BASELINE library — the expert/hand-authored FS set (editable config). */
+export function fetchManualLibrary(): LibraryInvariant[] {
+  const base = Array.isArray(config.manualBaseline) ? (config.manualBaseline as string[]) : [];
+  return base.map((statement, i) => ({ marker: `[MB-${i + 1}]`, statement }));
 }
 
 function libraryBlock(lib: LibraryInvariant[]): string {
@@ -81,18 +100,27 @@ export async function expP2AnswerStep(
   taskIndex: number,
   arm: ExpP2Arm,
   model?: string,
-): Promise<ExpP2AnswerResult> {
+  /** ABLATION: drop the discovered invariant at this index (discovered arm only). */
+  excludeIndex?: number,
+): Promise<ExpP2AnswerResult & { excludedIndex?: number }> {
   const task = (config.tasks as ExpP2Task[])[taskIndex];
   if (!task) throw new Error(`unknown task index ${taskIndex}`);
 
   let user = task.prompt;
   let libraryCount = 0;
   if (arm === 'discovered') {
-    const lib = await fetchDiscoveredLibrary();
+    const lib = await fetchDiscoveredLibrary(DEFAULT_DOMAIN, excludeIndex);
     if (lib.length === 0) {
       throw new Error(
         'discovered FS invariant library is empty — promote some discovered financial-services invariants (they land as `proposed`) before running the discovered arm.',
       );
+    }
+    libraryCount = lib.length;
+    user = `${libraryBlock(lib)}\n\nTASK:\n${task.prompt}`;
+  } else if (arm === 'manual') {
+    const lib = fetchManualLibrary();
+    if (lib.length === 0) {
+      throw new Error('manual baseline library is empty — populate config.manualBaseline before running the manual arm.');
     }
     libraryCount = lib.length;
     user = `${libraryBlock(lib)}\n\nTASK:\n${task.prompt}`;
@@ -107,6 +135,7 @@ export async function expP2AnswerStep(
     outputTokens: result.outputTokens,
     model: result.model,
     libraryCount,
+    ...(arm === 'discovered' && typeof excludeIndex === 'number' ? { excludedIndex: excludeIndex } : {}),
   };
 }
 
@@ -142,26 +171,128 @@ export async function expP2JudgeStep(
   };
 }
 
-/** Aggregate an accumulated set of judged results into per-arm means + delta. */
-export interface ExpP2Aggregate {
-  coldMean: number | null;
-  discoveredMean: number | null;
-  delta: number | null; // discovered − cold
-  perArmCounts: { cold: number; discovered: number };
+/**
+ * Claim-analysis metric (EXP-003 pattern) — decompose the answer into substantive
+ * claims and, against a COMMON reference set = the EARNED discovered library
+ * (the thing under test), classify each CONSISTENT / CONTRADICTING / OUTSIDE.
+ * A common yardstick across arms makes grounded-claim-share + contradiction rate
+ * comparable. (Independent of the blind quality judge above.)
+ */
+export interface ExpP2ClaimAnalysis {
+  claimsTotal: number;
+  consistent: number;
+  contradicting: number;
+  outside: number;
 }
 
-export function expP2Aggregate(
-  judged: { arm: ExpP2Arm; score: number }[],
-): ExpP2Aggregate {
-  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+export async function expP2ClaimAnalysisStep(
+  provider: ExperimentProvider,
+  answer: string,
+  model?: string,
+): Promise<ExpP2ClaimAnalysis & { referenceCount: number }> {
+  const reference = await fetchDiscoveredLibrary();
+  const system =
+    'You are an exacting evaluator. You receive a fixed list of reference invariants and an ANSWER. ' +
+    'Decompose the answer into its distinct substantive claims. For each claim decide: CONSISTENT ' +
+    '(entailed by or compatible with a listed invariant), CONTRADICTING (conflicts with one), or OUTSIDE ' +
+    '(neither supported nor contradicted). Respond with ONLY JSON: ' +
+    '{"claimsTotal": n, "consistent": n, "contradicting": n, "outside": n}';
+  const user = [
+    'REFERENCE INVARIANTS:',
+    ...reference.map((inv) => `${inv.marker} ${inv.statement}`),
+    '',
+    'ANSWER TO EVALUATE:',
+    answer,
+  ].join('\n');
+  const { value } = await callJsonWithRetry<ExpP2ClaimAnalysis>(provider, system, user, 400, model);
+  const consistent = Math.max(0, Number(value?.consistent) || 0);
+  const contradicting = Math.max(0, Number(value?.contradicting) || 0);
+  const outside = Math.max(0, Number(value?.outside) || 0);
+  return {
+    claimsTotal: Math.max(consistent + contradicting + outside, Number(value?.claimsTotal) || 0),
+    consistent,
+    contradicting,
+    outside,
+    referenceCount: reference.length,
+  };
+}
+
+/** Mechanical citation count — distinct library markers the answer cites (no model). */
+export function expP2CountCitations(answer: string, library: LibraryInvariant[]): { totalCitations: number; distinctCited: number } {
+  let total = 0;
+  const seen = new Set<string>();
+  for (const inv of library) {
+    const hits = answer.split(inv.marker).length - 1;
+    if (hits > 0) seen.add(inv.marker);
+    total += hits;
+  }
+  return { totalCitations: total, distinctCited: seen.size };
+}
+
+/** Aggregate judged results across the THREE arms → per-arm means + the two deltas. */
+export interface ExpP2Aggregate {
+  coldMean: number | null;
+  manualMean: number | null;
+  discoveredMean: number | null;
+  deltaVsCold: number | null; // discovered − cold  (does curation help at all?)
+  deltaVsManual: number | null; // discovered − manual (does DISCOVERY beat hand-authoring?)
+  perArmCounts: { cold: number; manual: number; discovered: number };
+}
+
+function mean(xs: number[]): number | null {
+  return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+}
+const round2 = (n: number) => Number(n.toFixed(2));
+
+export function expP2Aggregate(judged: { arm: ExpP2Arm; score: number }[]): ExpP2Aggregate {
   const cold = judged.filter((j) => j.arm === 'cold').map((j) => j.score);
+  const manual = judged.filter((j) => j.arm === 'manual').map((j) => j.score);
   const disc = judged.filter((j) => j.arm === 'discovered').map((j) => j.score);
   const coldMean = mean(cold);
+  const manualMean = mean(manual);
   const discoveredMean = mean(disc);
   return {
     coldMean,
+    manualMean,
     discoveredMean,
-    delta: coldMean !== null && discoveredMean !== null ? Number((discoveredMean - coldMean).toFixed(2)) : null,
-    perArmCounts: { cold: cold.length, discovered: disc.length },
+    deltaVsCold: coldMean !== null && discoveredMean !== null ? round2(discoveredMean - coldMean) : null,
+    deltaVsManual: manualMean !== null && discoveredMean !== null ? round2(discoveredMean - manualMean) : null,
+    perArmCounts: { cold: cold.length, manual: manual.length, discovered: disc.length },
   };
+}
+
+/**
+ * ABLATION aggregate — for each dropped-root index, the mean full-discovered score
+ * vs the mean ablated score. A NEGATIVE delta (ablated < full) means removing that
+ * root degraded reasoning → the root is causally LOAD-BEARING, not merely recurrent.
+ */
+export interface ExpP2AblationRow {
+  excludedIndex: number;
+  fullMean: number | null;
+  ablatedMean: number | null;
+  degradation: number | null; // fullMean − ablatedMean (positive ⇒ load-bearing)
+}
+
+export function expP2AblationAggregate(
+  fullDiscovered: { score: number }[],
+  ablated: { excludedIndex: number; score: number }[],
+): ExpP2AblationRow[] {
+  const fullMean = mean(fullDiscovered.map((r) => r.score));
+  const byIndex = new Map<number, number[]>();
+  for (const a of ablated) {
+    const arr = byIndex.get(a.excludedIndex) ?? [];
+    arr.push(a.score);
+    byIndex.set(a.excludedIndex, arr);
+  }
+  return [...byIndex.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([excludedIndex, scores]) => {
+      const ablatedMean = mean(scores);
+      return {
+        excludedIndex,
+        fullMean,
+        ablatedMean,
+        degradation: fullMean !== null && ablatedMean !== null ? round2(fullMean - ablatedMean) : null,
+      };
+    });
 }

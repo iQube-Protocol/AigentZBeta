@@ -28,6 +28,30 @@ describe('EXP-P2 utility discipline', () => {
     expect(src).toMatch(/if \(arm === 'discovered'\)[\s\S]*?libraryBlock\(lib\)/);
   });
 
+  it('has THREE arms — cold / manual / discovered (Aletheon three-arm design)', () => {
+    expect(src).toMatch(/export type ExpP2Arm = 'cold' \| 'manual' \| 'discovered'/);
+    // manual arm draws from the editable hand-authored baseline
+    expect(src).toMatch(/arm === 'manual'[\s\S]*?fetchManualLibrary\(\)/);
+    // aggregate reports BOTH deltas: does curation help (vs cold) + does discovery beat manual
+    expect(src).toMatch(/deltaVsCold/);
+    expect(src).toMatch(/deltaVsManual/);
+  });
+
+  it('ablation drops one discovered root and measures degradation (causal load-bearing)', () => {
+    // fetchDiscoveredLibrary supports excludeIndex (drop-one-root)
+    expect(src).toMatch(/excludeIndex\?: number/);
+    expect(src).toMatch(/items\.filter\(\(_, i\) => i !== excludeIndex\)/);
+    // degradation = fullMean − ablatedMean (positive ⇒ the root is load-bearing)
+    expect(src).toMatch(/degradation: fullMean !== null && ablatedMean !== null \? round2\(fullMean - ablatedMean\)/);
+  });
+
+  it('claim-analysis uses a COMMON reference (the earned library) so arms are comparable', () => {
+    const fn = src.slice(src.indexOf('export async function expP2ClaimAnalysisStep'));
+    const body = fn.slice(0, fn.indexOf('\n}\n'));
+    expect(body).toMatch(/fetchDiscoveredLibrary\(\)/);
+    expect(body).toMatch(/CONSISTENT|CONTRADICTING|OUTSIDE/);
+  });
+
   it('the judge is BLIND — the judge prompt never includes the invariant library', () => {
     const judge = src.slice(src.indexOf('export async function expP2JudgeStep'));
     const body = judge.slice(0, judge.indexOf('\n}\n'));
