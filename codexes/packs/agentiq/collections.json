@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-21_moneypenny-d5-d6-foundation.md",
         "updates/2026-07-21_threshold-gateway-increment-2b.md",
         "updates/2026-07-21_threshold-gateway-increment-2a.md",
         "updates/2026-07-21_threshold-gateway-increment-1.md",
