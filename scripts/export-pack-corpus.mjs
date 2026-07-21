@@ -153,6 +153,45 @@ async function main() {
   const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(objectPath);
   console.log(`[export-pack-corpus] uploaded → ${pub.publicUrl}`);
 
+  // Bake the EXACT uploaded URL into .env.production so the runtime reads what
+  // this build uploaded, independent of whether AWS_BRANCH is set in the Lambda
+  // env. amplify.yml copies .env.production into the standalone bundle AFTER this
+  // step, and patch-standalone-dotenv loads it at runtime. packCorpusStore
+  // prefers process.env.PACK_CORPUS_URL over the branch-derived fallback.
+  try {
+    const envPath = path.join(CWD, '.env.production');
+    const line = `PACK_CORPUS_URL=${pub.publicUrl}\n`;
+    if (fs.existsSync(envPath)) {
+      const cur = fs.readFileSync(envPath, 'utf8').replace(/^PACK_CORPUS_URL=.*$/m, '').replace(/\n+$/, '\n');
+      fs.writeFileSync(envPath, cur + line);
+    } else {
+      fs.writeFileSync(envPath, line);
+    }
+    console.log('[export-pack-corpus] pinned PACK_CORPUS_URL in .env.production');
+  } catch (e) {
+    console.warn(`[export-pack-corpus] could not pin PACK_CORPUS_URL: ${e?.message || e}`);
+  }
+
+  // Self-verify the blob is PUBLICLY readable + parseable before we let the build
+  // succeed. Phase B ships a bundle WITHOUT the pack .md, so the deployed copilot
+  // depends on this URL being fetchable with no auth. If the bucket isn't public
+  // (or the URL is wrong), fail the build here so the previous revision keeps
+  // serving instead of shipping a bundle whose corpus can't be read.
+  try {
+    const check = await fetch(pub.publicUrl, { cache: 'no-store' });
+    if (!check.ok) throw new Error(`public GET ${check.status} ${check.statusText}`);
+    const parsed = await check.json();
+    const keys = Object.keys(parsed || {}).length;
+    if (keys < files.length * 0.9) {
+      throw new Error(`public blob has ${keys} keys, expected ~${files.length}`);
+    }
+    console.log(`[export-pack-corpus] verified public read OK (${keys} keys)`);
+  } catch (e) {
+    console.error(`[export-pack-corpus] FATAL: uploaded blob is not publicly readable: ${e?.message || e}`);
+    console.error('[export-pack-corpus] Ensure the `pack-corpus` bucket is PUBLIC. Aborting so the prior revision keeps serving.');
+    process.exit(1);
+  }
+
   // Best-effort AutoDrive provenance pin of the canonical subset (additive).
   let canonicalCid = null;
   const autonomysKey = process.env.AUTONOMYS_API_KEY;

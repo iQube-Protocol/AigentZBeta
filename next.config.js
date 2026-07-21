@@ -97,32 +97,34 @@ const nextConfig = {
       // the cap by ~194KB). Same safety: a missing pack file is skipped at
       // read time; no surface depends on shipping it inside the Lambda.
       "codexes/packs/aigency/items/build_/changelog.md",
-      // aigency/index.json (45 KB) — the auto-generated commit-history index. Its
-      // ONLY runtime consumer is getRecentCommits() in
-      // services/knowledge/agentiqPackSearch.ts, which reads at most the 10 most
-      // recent entries for a copilot "recently shipped" grounding line and
-      // returns [] gracefully when the file is absent (readPackFile → null guard).
-      // It is not browsable in any collections.json. With output:'standalone' the
-      // per-route include changes don't shrink the shared bundle — only a global
-      // '*' exclude (or a postBuild filesystem delete) does — so this is the
-      // reliable lever when the artifact sits at the 230686720-byte ceiling
-      // (2026-07-21: ~10 KB over even after every other sweep). Trade-off: the
-      // copilot loses its recent-deploy-commit awareness until the corpus is
-      // moved out of the SSR bundle (the durable fix — see below).
-      "codexes/packs/aigency/index.json",
     ],
   },
-  // Promoted from experimental in Next 15 — these entries carry the codex-pack
-  // markdown/JSON into the standalone Lambda bundle. A silent miss here breaks
-  // /api/codex/chat pack search and the docs tab at runtime, so it MUST stay at
-  // the top level (Next 15 ignores experimental.outputFileTracingIncludes).
+  // Promoted from experimental in Next 15 — these entries carry files the SSR
+  // runtime reads at runtime into the standalone Lambda bundle.
+  //
+  // PACK CORPUS SPLIT (Phase B, 2026-07-21): the pack MARKDOWN bodies
+  // (codexes/packs/**\/*.md, ~5 MB and growing every deploy) are NO LONGER traced
+  // — they moved to the remote pack-corpus store (Supabase blob + AutoDrive
+  // provenance; services/knowledge/packCorpusStore.ts, scripts/export-pack-corpus.mjs)
+  // and every .md reader now goes through that seam. Only the pack JSON
+  // (collections.json / index.json / meta.json — the registry's metadata, ~100 KB)
+  // stays bundled, because packRegistry.ts reads it via fs and lists pack
+  // DIRECTORIES. This is what finally decouples the corpus from the 230686720-byte
+  // SSR cap. Two tiny sync-context .md readers keep targeted includes below
+  // (exp001 + the constitutional glossary) — they read at module/sync time and
+  // can't cleanly await hydration, so their handful of files stay bundled.
   outputFileTracingIncludes: {
-    "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
-    // EXP-001 evaluation step API reads the Living KnowledgeQube artifact
-    // markdown at runtime (services/experiments/exp001.ts). Without this the
-    // Lambda ships without the files and every 'answers' step 500s.
+    // Pack JSON only — registry metadata + browsable JSON. The .md bodies are
+    // served by the corpus store (pack-file route reads via corpusReadPackFile).
+    // With output:'standalone' a file included on ANY route lands in the single
+    // shared bundle, so this one entry covers packRegistry + every JSON reader.
+    "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.json"],
+    // EXP-001 evaluation step API reads these Living KnowledgeQube .md artifacts
+    // synchronously (services/experiments/exp001.ts, EXP_DIR under irl/foundation
+    // — NOT ccrl, the previous path was stale and only worked via the old
+    // catch-all glob). Kept bundled (5 small files) rather than made async.
     "/api/experiments/exp001": [
-      "./codexes/packs/ccrl/foundation/experiments/exp-001-living-knowledgeqube/*.md",
+      "./codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube/*.md",
     ],
     // NOTE: an attempt to trace ffmpeg-static's binary (~70-80MB) into the
     // stitch/status routes here (2026-07-05) pushed the Amplify build output
@@ -132,66 +134,22 @@ const nextConfig = {
     // fetched into /tmp on first use (ffmpeg-static's own pinned release,
     // gzipped) and cached per container. Do not re-add a trace entry for
     // ffmpeg-static here.
-    // Stage 8+ docs tab — markdown reader serves the legibility profile
-    // (docs/) + the PRD trail (codexes/packs/agentiq/updates/). Without
-    // these the Lambda bundle ships without the .md files and the route
-    // returns HTTP 500 read_failed.
-    // The registry docs tab reads ONLY the DOC_ALLOWLIST paths in
-    // app/api/admin/registry/docs/route.ts (strict `find(d => d.path === docPath)`
-    // allowlist enforcement — a non-allowlisted path 404s and is never read).
-    // The old `agentiq/updates/**/*.md` glob over-traced the ENTIRE 2.8 MB update
-    // changelog (250+ files, grows every deploy) into this Lambda when the route
-    // can only ever open the ~18 curated May-2026 registry/stage docs below
-    // (~351 KB). Enumerating the exact allowlist reclaims ~2.45 MB from the
-    // 230686720-byte SSR cap. This list MUST stay in sync with DOC_ALLOWLIST: if
-    // you add a doc to the allowlist, add its path here or the route 500s
-    // (read_failed) for it. The set is a closed historical PRD/stage series, so
-    // drift is unlikely.
+    // registry docs tab: the two docs/*.md legibility files stay bundled (they
+    // are NOT under codexes/packs). The route's ~18 pack updates .md are now read
+    // via the corpus store (route branches on codexes/packs/ prefix).
     "/api/admin/registry/docs": [
       "./docs/iqube-agent-legibility-profile.md",
       "./docs/iqube-score-derivation.md",
-      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v0.1.md",
-      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v0.2-addendum.md",
-      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v0.3-alignment.md",
-      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v1.0.md",
-      "./codexes/packs/agentiq/updates/2026-05-30_prd-canonical-iqube-registry-operating-plane-v1.1-guardrails.md",
-      "./codexes/packs/agentiq/updates/2026-05-30_stage-0-audit-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-30_stage-1-to-2-transition.md",
-      "./codexes/packs/agentiq/updates/2026-05-30_stage-1-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-30_stage-2-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-31_stage-3-and-4-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-31_stage-5-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-31_stage-6-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-31_stage-7-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-31_stage-8-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-31_stage-9-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-a-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-b-close-report.md",
-      "./codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-c-close-report.md",
     ],
-    // Copilot chat routes read the aigency + agentiq packs at runtime via
-    // services/knowledge/agentiqPackSearch (aigent-z platform knowledge and
-    // the AgentiQ cartridge copilot). Without these entries the Lambda
-    // bundle ships without the pack files and searchCodex returns nothing —
-    // the copilot then answers "[NOT DOCUMENTED]" for documented topics.
-    // Scoped to aigency + agentiq only — the wildcard ./codexes/packs/**
-    // follows the alpha-knyt symlink and collides with the bundler's
-    // directory-vs-non-directory check on Amplify.
+    // Copilot chat: the aigency + agentiq pack search now reads via the corpus
+    // store, so no pack globs here. Two non-pack docs/*.md stay bundled: the
+    // ontology canon (platform-ontology.md) and the constitutional glossary,
+    // both read synchronously by services/constitutional/ontologyResolver.ts.
+    // (The glossary lives under codexes/packs/irl but is a sync-context read, so
+    // it is pinned here rather than moved to the corpus store.)
     "/api/codex/chat": [
-      "./codexes/packs/aigency/**/*.md",
-      "./codexes/packs/aigency/**/*.json",
-      "./codexes/packs/agentiq/**/*.md",
-      "./codexes/packs/agentiq/**/*.json",
-      // Canonical Ontology Service (CFS-015) parses the terminology canon at
-      // runtime; without this the resolver silently falls back to its
-      // built-in mirror.
       "./docs/platform-ontology.md",
-    ],
-    "/api/codex/chat/aigentiq": [
-      "./codexes/packs/aigency/**/*.md",
-      "./codexes/packs/aigency/**/*.json",
-      "./codexes/packs/agentiq/**/*.md",
-      "./codexes/packs/agentiq/**/*.json",
+      "./codexes/packs/irl/foundation/constitutional-glossary.md",
     ],
   },
   experimental: {

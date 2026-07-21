@@ -26,6 +26,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { corpusReadFile } from './packCorpusStore';
 import {
   searchCodex,
   getRecentCommits,
@@ -100,11 +101,17 @@ function buildRepoFileBlock(query: string): string {
     const githubUrl = `${GITHUB_BLOB_BASE}/${rel}`;
     let content: string | null = null;
     if (inlined < MAX_INLINE_FILES) {
-      try {
-        const stat = fs.statSync(abs);
-        if (stat.isFile()) content = fs.readFileSync(abs, 'utf8');
-      } catch {
-        content = null; // not on disk (e.g. untraced in Lambda) — link only
+      if (rel.startsWith('codexes/packs/')) {
+        // Pack .md bodies live in the corpus store (remote in the Lambda). The
+        // caller (buildAigentZPlatformKnowledge) has already hydrated it.
+        content = corpusReadFile(abs);
+      } else {
+        try {
+          const stat = fs.statSync(abs);
+          if (stat.isFile()) content = fs.readFileSync(abs, 'utf8');
+        } catch {
+          content = null; // not on disk (e.g. untraced in Lambda) — link only
+        }
       }
     }
 
