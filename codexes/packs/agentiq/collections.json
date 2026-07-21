@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-21_threshold-gateway-increment-1.md",
         "updates/2026-07-21_pack-corpus-remote-store.md",
         "updates/2026-07-19_prd-smarttriad-context-aware-copilot.md",
         "updates/2026-07-19_proposed-datasets-metrics-exp007-008-p1-p2.md",
