@@ -47,6 +47,12 @@ export interface PeerChannel {
   createdAt: string;
   /** The OTHER principal's ref, relative to the caller. */
   counterpartyRef: string;
+  /**
+   * The caller's OWN private nickname for this channel/counterparty (what the
+   * caller calls the other side). Per-side: only the side that set it sees it.
+   * Never enters receipts/DVN/chain — local peer naming, not a T0/T2 field.
+   */
+  counterpartyLabel: string | null;
 }
 
 export interface PeerMessage {
@@ -206,6 +212,9 @@ async function writePeerReceipt(
 function rowToChannel(row: Record<string, unknown>, myRef: string): PeerChannel {
   const a = String(row.principal_a_ref);
   const b = String(row.principal_b_ref);
+  const iAmA = a === myRef;
+  // My own private label for this channel lives on my side's column.
+  const myLabel = iAmA ? (row.principal_a_label as string | null) : (row.principal_b_label as string | null);
   return {
     id: String(row.id),
     principalARef: a,
@@ -213,7 +222,8 @@ function rowToChannel(row: Record<string, unknown>, myRef: string): PeerChannel 
     createdByRef: String(row.created_by_ref),
     status: (row.status as PeerChannel['status']) ?? 'active',
     createdAt: String(row.created_at),
-    counterpartyRef: a === myRef ? b : a,
+    counterpartyRef: iAmA ? b : a,
+    counterpartyLabel: (myLabel ?? null) || null,
   };
 }
 
@@ -276,6 +286,41 @@ export async function listChannelsForCaller(callerPersonaId: string): Promise<Pe
     return { ok: false, error: error.message };
   }
   return { ok: true, value: (data ?? []).map((r) => rowToChannel(r as Record<string, unknown>, myRef)) };
+}
+
+/**
+ * Set (or clear) the caller's OWN private nickname for a channel — the name they
+ * use to distinguish this counterparty from others. Per-side: writes only the
+ * caller's own label column, so it is never visible to the counterparty and
+ * never enters receipts/DVN/chain. Pass an empty/whitespace label to clear it.
+ */
+export async function setChannelLabel(
+  callerPersonaId: string,
+  channelId: string,
+  label: string,
+): Promise<PeerResult<PeerChannel>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  const myRef = personaPublicRef(callerPersonaId);
+
+  const channel = await loadOwnedChannel(admin, channelId, myRef);
+  if (!channel) return { ok: false, error: 'channel not found or caller is not a principal', code: 'not_found' };
+
+  const trimmed = label.trim().slice(0, 80);
+  const column = channel.principalARef === myRef ? 'principal_a_label' : 'principal_b_label';
+  const { data, error } = await admin
+    .from(CHANNELS)
+    .update({ [column]: trimmed || null })
+    .eq('id', channelId)
+    .select('*')
+    .single();
+  if (error) {
+    if (error.message.includes('principal_a_label') || error.message.includes('principal_b_label')) {
+      return { ok: false, code: 'migration_pending', error: 'channel labels not provisioned — apply 20260805200000.' };
+    }
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, value: rowToChannel(data as Record<string, unknown>, myRef) };
 }
 
 /** Verify the caller is a principal of the channel; returns the channel or null. */
