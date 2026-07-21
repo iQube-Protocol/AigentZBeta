@@ -41,14 +41,22 @@ Both composition paths now sequence off the pinned `EXPERIMENT_REGISTRY` + `SERI
 - Title generalised to "The metaMe Invariant Research Lab — Findings Report" (matches the
   canonical scope title) since the report now spans several series, not just the FVS.
 
-**Canonical regenerate (`composeCanonicalReport`) — LLM path:**
-- `gatherFindings` now also returns an ordered `pending[]` (in-scope registry members with no
-  runs) so the model can place them in sequence as *publication pending* without inventing
-  results.
-- `buildFindingsGrounding` declares the **canonical sequence must be preserved** and lists the
-  pending members with an explicit "DO NOT invent" instruction.
-- `REPORT_SYSTEM` gains an explicit **SEQUENCE** law: emit in canonical order grouped by
-  series, no appended catch-all tail, place pending members in-slot, keep intro ≡ body.
+**Canonical regenerate (`composeCanonicalReport`) — made DETERMINISTIC (addendum 2026-07-20):**
+The first version routed the canonical regenerate through a sovereign LLM
+(`callSovereign`) to rewrite the whole report. On dev it exceeded the ~30s gateway envelope
+and returned **HTTP 504 with an empty body**, so no new version was ever persisted —
+"Regenerate canonical report" appeared to do nothing and the canonical version stayed stale.
+
+Fix: extract the deterministic composer into a shared pure module
+`services/research/findingsReportComposer.ts` (`composeFindingsReport`) and use it from BOTH
+the live-draft tab AND `composeCanonicalReport`. The canonical regenerate no longer calls a
+model — it composes the exact same coherent, sequential report instantly from the
+`experiment_results` record, hashes it, and persists the next version. There is now ONE
+composition of record (no client/server drift). `gatherFindings` / `buildFindingsGrounding`
+remain (canaried) as the honest findings manifest; the `sovereignty` descriptor on a canonical
+version now reads `provider: deterministic · model: findings-report-composer`. Per-row DVN
+column defaults to `local` in the snapshot; the report *version* carries the DVN-anchorable
+publication receipt as before.
 
 ## Verification
 
@@ -58,6 +66,10 @@ Both composition paths now sequence off the pinned `EXPERIMENT_REGISTRY` + `SERI
   preserved under "Further experiments".
 - `tests/report-composition.test.ts` extended with canaries for the pending-in-sequence
   behaviour and the "CANONICAL SEQUENCE / no appended tail" grounding contract.
+- `tests/findings-report-composer.test.ts` (new) pins the shared composer directly:
+  EXP-005 in-slot as publication-pending between EXP-004 and EXP-006, canonical series order,
+  contiguous 1→N section numbering, no appended "Additional experiments" tail, orphan runs
+  under "Further experiments", and empty-record safety.
 - Type-check + full canary suite run in CI (node_modules is not provisioned in the session
   sandbox).
 

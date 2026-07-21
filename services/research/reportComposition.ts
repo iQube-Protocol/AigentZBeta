@@ -10,10 +10,13 @@
  * from the comprehensive record (or a scoped area), and every prior version is
  * verifiable via its content hash + `artifact_published` receipt.
  *
- * Composes existing organs — `deriveOverview` (the honest lifecycle), the
- * canonical `experiment_results` record, `callSovereign` (native, sovereignty-
- * receipted composition) — and never forks them. Grounded STRICTLY on the
- * manifest: the model regenerates prose, never invents results.
+ * Composition is DETERMINISTIC — `composeCanonicalReport` builds the markdown via
+ * the shared `composeFindingsReport` (the SAME composer the live-draft tab uses),
+ * grounded STRICTLY on the canonical `experiment_results` record. It never calls a
+ * model (the prior sovereign-LLM regeneration exceeded the ~30s gateway envelope
+ * and 504'd with an empty body, so no version was persisted) and never invents
+ * results. `gatherFindings` / `buildFindingsGrounding` remain as the honest
+ * findings manifest (consumed by canaries + diagnostics).
  *
  * T2 discipline: content + content_hash + grounded_on (result hashes) are T2-safe.
  */
@@ -21,8 +24,8 @@
 import { createHash } from 'crypto';
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { callSovereign } from '@/services/constitutional/modelRouter';
 import { deriveOverview } from '@/services/research/lifecycle';
+import { composeFindingsReport, type ReportRun } from '@/services/research/findingsReportComposer';
 import { EXPERIMENT_REGISTRY } from '@/types/research';
 
 export interface ExperimentFindings {
@@ -123,17 +126,6 @@ export function buildFindingsGrounding(manifest: FindingsManifest): string {
   return `CANONICAL FINDINGS TO DATE (scope: ${manifest.scope}) — ${manifest.experiments.length} experiment(s) with published runs, listed in CANONICAL SEQUENCE (report MUST preserve this order):\n\n${lines.join('\n\n')}${pendingBlock}`;
 }
 
-const REPORT_SYSTEM = [
-  'You are composing the CANONICAL Findings Report of the metaMe Invariant Research Lab.',
-  'REGENERATE THE ENTIRE REPORT as a coherent whole from the canonical findings manifest — the introduction, the framing of which experiments exist and what they COLLECTIVELY establish, a section per experiment, and cross-cutting conclusions must ALL reflect EVERY experiment present. Never describe the programme as "three experiments" if the manifest lists more; the narrative must stay coherent with the collective record.',
-  // Dogfood the platform's own composition laws (EXP-002): sequential narrative
-  // order + a global coherence field. The report is ONE ordered spine, never a
-  // narrated head with an appended out-of-order tail.
-  'SEQUENCE (mandatory): emit experiment sections in the EXACT canonical order given in the manifest, grouped under their series. Do NOT reorder, and do NOT append a catch-all "additional experiments" section at the end — every experiment sits in its canonical slot. Place each PENDING experiment in its correct sequence position, described as "publication pending", so there is never a visible gap (e.g. EXP-005 must appear between EXP-004 and EXP-006). The introduction must be a coherent programme map of ALL series and members present — intro and body must not drift.',
-  'Ground STRICTLY on the manifest: never invent a result, a number, an experiment, or a claim not present. For PENDING experiments state only their aim/hypothesis and "publication pending" — never a fabricated result. Where a run is single-model or a formal pass is open, say so. Include a short trust-model note (each run stores exact results JSON + a sha256 content commitment, DVN-anchorable).',
-  'Follow the CPS editorial arc (Problem → Opportunity → Constitutional Principle → Architecture/Findings → Implications) in standards-body register (W3C / IEEE / NIST / IBM Research), not marketing. Output Markdown.',
-].join('\n\n');
-
 export interface ComposedReport {
   markdown: string;
   contentHash: string;
@@ -141,24 +133,67 @@ export interface ComposedReport {
   sovereignty: { provider: string; model: string; degraded: boolean; sovereignFloor: boolean; stage: string; governingInvariants: string[] };
 }
 
-/** Compose (regenerate) the canonical report narrative from the collective findings. Impure. */
-export async function composeCanonicalReport(scope = 'all', maxTokens = 3500): Promise<ComposedReport> {
-  const manifest = await gatherFindings(scope);
-  const grounding = buildFindingsGrounding(manifest);
-  const result = await callSovereign('reasoning', REPORT_SYSTEM, grounding, maxTokens);
-  const markdown = result.text;
+/**
+ * Gather every in-scope canonical run grouped by experiment id — the input to
+ * the deterministic composer. Reads the SAME `experiment_results` rows as
+ * `gatherFindings`, but keeps ALL rows (including experiment ids outside the
+ * pinned registry, which the composer surfaces under "Further experiments").
+ * Per-row DVN status defaults to 'local' in the snapshot; the report version
+ * itself carries the DVN-anchorable publication receipt.
+ */
+async function gatherRunsByExp(scope: string): Promise<{ runsByExp: Record<string, ReportRun[]>; groundedOn: string[] }> {
+  const admin = getSupabaseServer();
+  const runsByExp: Record<string, ReportRun[]> = {};
+  const groundedOn: string[] = [];
+  if (!admin) return { runsByExp, groundedOn };
+  const inScope = (id: string) =>
+    scope === 'all' || id === scope || EXPERIMENT_REGISTRY.find((e) => e.id === id)?.seriesId === scope;
+  const { data } = await admin
+    .from('experiment_results')
+    .select('experiment, provider, model, aggregates, content_hash, created_at')
+    .order('created_at', { ascending: true });
+  for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+    const exp = String(r.experiment);
+    if (!inScope(exp)) continue;
+    const hash = String(r.content_hash ?? '');
+    (runsByExp[exp] ??= []).push({
+      provider: String(r.provider ?? ''),
+      model: String(r.model ?? ''),
+      aggregates: (r.aggregates ?? {}) as Record<string, unknown>,
+      contentHash: hash,
+      receiptStatus: null,
+      createdAt: (r.created_at as string) ?? new Date().toISOString(),
+    });
+    if (hash) groundedOn.push(hash);
+  }
+  return { runsByExp, groundedOn };
+}
+
+/**
+ * Regenerate the canonical report DETERMINISTICALLY from the collective findings
+ * — the SAME composer the live-draft tab uses (`composeFindingsReport`). No LLM
+ * call: the prior sovereign-model regeneration exceeded the ~30s gateway
+ * envelope and returned an empty-body 504, so no new version was ever persisted.
+ * Deterministic composition is instant, byte-reproducible for a given record,
+ * and already fully coherent (sequential, series-grouped, single ordered
+ * document). The `sovereignty` descriptor records that this artifact is a
+ * deterministic composition, not a model generation.
+ */
+export async function composeCanonicalReport(scope = 'all'): Promise<ComposedReport> {
+  const { runsByExp, groundedOn } = await gatherRunsByExp(scope);
+  const markdown = composeFindingsReport({ runsByExp, now: new Date() });
   const contentHash = createHash('sha256').update(markdown).digest('hex');
   return {
     markdown,
     contentHash,
-    groundedOn: manifest.groundedOn,
+    groundedOn,
     sovereignty: {
-      provider: result.provider,
-      model: result.model,
-      degraded: result.degraded,
-      sovereignFloor: result.sovereignFloor,
-      stage: result.stage,
-      governingInvariants: result.governingInvariants,
+      provider: 'deterministic',
+      model: 'findings-report-composer',
+      degraded: false,
+      sovereignFloor: true,
+      stage: 'composition',
+      governingInvariants: [],
     },
   };
 }
