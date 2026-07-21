@@ -15,6 +15,7 @@
 
 import { serviceRegistrySnapshot } from './serviceRegistry';
 import { buildThresholdLink, type ThresholdLinkManifest } from './thresholdLink';
+import type { ScopedSession } from './gatewaySession';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -34,6 +35,14 @@ export interface GatewayContext {
   gatewayUrl: string;
   /** Resolve a public capability-URL invitation code to its (T2-safe) metadata. */
   resolveInvitation?: (code: string) => Promise<InvitationInfo | null>;
+  /**
+   * The scoped session resolved from a presented `Authorization: Bearer` (the
+   * Constitutional Handshake bearer), or null/undefined when the Companion is
+   * unauthenticated. Additive: Increment 1's read-only tools ignore it; the
+   * authenticated crossing tools (later increments) gate on it. Its presence
+   * NEVER widens the read-only surface.
+   */
+  session?: ScopedSession | null;
 }
 
 // ── Catalogue ───────────────────────────────────────────────────────────────
