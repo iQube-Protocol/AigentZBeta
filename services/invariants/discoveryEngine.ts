@@ -376,7 +376,7 @@ interface CompareExtraction {
 export async function compareSubDomains(
   admin: SupabaseClient,
   domain: string,
-): Promise<{ ok: true; candidates: CandidateRow[]; comparedSubDomains: string[] } | { ok: false; error: string }> {
+): Promise<{ ok: true; candidates: CandidateRow[]; comparedSubDomains: string[]; inputInvariantCount: number } | { ok: false; error: string }> {
   // Gather the domain's sub-domain invariants, grouped by sub-domain. Include
   // BOTH un-promoted candidates AND promoted ones: promotion (landing a
   // sub-domain candidate in the registry as `proposed`) is the intended next
@@ -474,14 +474,17 @@ export async function compareSubDomains(
         },
       };
     });
-  if (rows.length === 0) return { ok: true, candidates: [], comparedSubDomains };
+  // Compression ratio input = the distinct sub-domain invariants that fed the
+  // compare (the recurrence substrate); output = the earned domain invariants.
+  const inputInvariantCount = subRows.length;
+  if (rows.length === 0) return { ok: true, candidates: [], comparedSubDomains, inputInvariantCount };
 
   const { data, error } = await admin.from('discovery_candidates').insert(rows).select('*');
   if (error) return { ok: false, error: error.message };
   const inserted = (data ?? []).map(toCandidateRow);
   // Convergence over the domain's whole evidence corpus.
   const evidence = await listEvidence(admin, domain);
-  return { ok: true, candidates: enrichConvergence(inserted, evidence), comparedSubDomains };
+  return { ok: true, candidates: enrichConvergence(inserted, evidence), comparedSubDomains, inputInvariantCount };
 }
 
 // ── Stage 5 · Promotion into the canonical lifecycle (lands at `proposed`) ──

@@ -42,7 +42,10 @@ interface Candidate {
 interface Preset { value: string; label: string }
 
 const CLASSIFICATION_META: Record<Classification, { label: string; cls: string }> = {
-  supported: { label: "Supported", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
+  // "Convergent", not "Supported": a compare output in this class recurs across
+  // multiple independent sub-domains that converged on the same behavioural
+  // constraint — empirical convergence, not mere agreement with a baseline.
+  supported: { label: "Convergent", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
   novel: { label: "Novel", cls: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
   specialized: { label: "Specialized", cls: "border-sky-500/40 bg-sky-500/10 text-sky-300" },
   split: { label: "Split", cls: "border-violet-500/40 bg-violet-500/10 text-violet-300" },
@@ -136,7 +139,16 @@ export default function InvariantDiscoveryTab() {
     setSubDomain(""); // compare outputs land at the domain baseline
     const r = await post({ action: "compare" }, "compare");
     if (r) {
-      setNotice(`✓ Compared ${(r.comparedSubDomains ?? []).length} sub-domains → ${(r.candidates ?? []).length} domain candidate(s) (supported / specialized / split / novel)`);
+      // Compression ratio — the reasoning-compression metric: how many
+      // independently-discovered sub-domain invariants collapsed into how many
+      // earned domain invariants (inv.reasoning.342 recurrence → compression).
+      const input = Number(r.inputInvariantCount ?? 0);
+      const output = (r.candidates ?? []).length;
+      const subs = (r.comparedSubDomains ?? []).length;
+      const ratio = output > 0 && input > 0 ? `${(input / output).toFixed(1)}:1` : "—";
+      setNotice(
+        `✓ Compressed ${input} sub-domain invariant(s) across ${subs} sub-domains → ${output} earned domain invariant(s) · compression ${ratio}`,
+      );
       await load();
     }
   }, [post, load]);
