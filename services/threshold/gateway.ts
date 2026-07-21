@@ -18,6 +18,7 @@ import { journeyRegistrySnapshot } from './journeyRegistry';
 import { buildThresholdLink, type ThresholdLinkManifest } from './thresholdLink';
 import { hasScope, type ScopedSession } from './gatewaySession';
 import { crossingReceipt, welcomePayload, WELCOME_MESSAGE } from './welcome';
+import type { IrlAdapter } from './irlAdapter';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -45,6 +46,9 @@ export interface GatewayContext {
    * NEVER widens the read-only surface.
    */
   session?: ScopedSession | null;
+  /** The IRL read adapter (public open corpus), injected by the route. Present
+   *  only where the gateway can reach the app's public routes. */
+  irl?: IrlAdapter;
 }
 
 // ── Catalogue ───────────────────────────────────────────────────────────────
@@ -103,6 +107,24 @@ export function listTools() {
         type: 'object',
         properties: { capabilities: { type: 'array', items: { type: 'string' }, description: 'The capabilities to propose.' } },
         required: ['capabilities'],
+        additionalProperties: false,
+      },
+    },
+    // ── IRL service adapter — read surface (requires research.read) ──
+    {
+      name: 'list_shared_documents',
+      description:
+        "List the Invariant Research Lab's shared research artifacts (its public open corpus index), so you can help your principal navigate them. Requires the research.read capability, granted by entering the Researcher journey / the IRL service.",
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'read_shared_document',
+      description:
+        "Read a specific shared IRL research document by its repo-relative path (e.g. foundation/PARTICIPATION_overview.md). Returns the raw markdown from IRL's public, persona-free corpus. Requires the research.read capability.",
+      inputSchema: {
+        type: 'object',
+        properties: { path: { type: 'string', description: 'Repo-relative path within the IRL pack (e.g. foundation/…​.md).' } },
+        required: ['path'],
         additionalProperties: false,
       },
     },
@@ -178,7 +200,13 @@ export const HANDSHAKE_TOOLS = new Set([
  *  HANDSHAKE_TOOLS (so the route still 401-challenges a bearer-less call); with a
  *  valid session, callTool executes them instead of the "handshake required"
  *  fallback. The remaining HANDSHAKE_TOOLS land in later increments. */
-const AUTHENTICATED_TOOLS = new Set(['get_crossing_status', 'request_service_capabilities', 'propose_delegation']);
+const AUTHENTICATED_TOOLS = new Set([
+  'get_crossing_status',
+  'request_service_capabilities',
+  'propose_delegation',
+  'list_shared_documents',
+  'read_shared_document',
+]);
 
 function text(value: unknown) {
   return {
@@ -308,6 +336,23 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
           'This is a draft to explain to your principal. To grant the new capabilities, run the crossing (OAuth authorize) requesting `wouldRequest`; ' +
           'your principal authorizes in the browser. You cannot authorize on their behalf.',
       });
+    }
+
+    // ── IRL service adapter — read surface, gated on the research.read capability ──
+    if (name === 'list_shared_documents' || name === 'read_shared_document') {
+      if (!hasScope(s, 'research.read')) {
+        return {
+          ...text(
+            'This action needs the `research.read` capability, which a base crossing does not grant. ' +
+              'Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")). Only the human authorizes.',
+          ),
+          isError: true,
+        };
+      }
+      if (!ctx.irl) return { ...text('The IRL adapter is unavailable on this gateway.'), isError: true };
+      if (name === 'list_shared_documents') return text(await ctx.irl.listDocuments());
+      const path = typeof args.path === 'string' ? args.path : '';
+      return text(await ctx.irl.readDocument(path));
     }
   }
 

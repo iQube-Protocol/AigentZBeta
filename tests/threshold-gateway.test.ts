@@ -198,6 +198,35 @@ describe('Authenticated dispatch (Increment 3)', () => {
   });
 });
 
+describe('IRL read adapter (Increment 4a)', () => {
+  const rootSession = {
+    id: 's', principalPublicRef: 'p', agentAlias: 'a', agreementId: 'g',
+    scope: [...CONSTITUTIONAL_ROOT_CAPABILITIES], initiatingService: 'polity-passport', expiresAt: null,
+  };
+  const irlSession = { ...rootSession, scope: [...CONSTITUTIONAL_ROOT_CAPABILITIES, 'research.read'], initiatingService: 'irl' };
+  const fakeIrl = {
+    listDocuments: async () => ({ ok: true, overview: { artifacts: ['a', 'b'] } }),
+    readDocument: async (path: string) => ({ ok: true, path, content: '# doc' }),
+  };
+
+  it('gates the read tools behind research.read — a base (root-only) crossing cannot read IRL', async () => {
+    const c: GatewayContext = { ...ctx, session: rootSession, irl: fakeIrl };
+    for (const t of ['list_shared_documents', 'read_shared_document']) {
+      const res = await callTool(t, { path: 'foundation/x.md' }, c);
+      expect(res.isError).toBe(true);
+      expect(res.content[0].text as string).toMatch(/research\.read/);
+    }
+  });
+
+  it('serves the read tools once the session holds research.read', async () => {
+    const c: GatewayContext = { ...ctx, session: irlSession, irl: fakeIrl };
+    const list = await callTool('list_shared_documents', {}, c);
+    expect(JSON.parse(list.content[0].text as string).ok).toBe(true);
+    const read = await callTool('read_shared_document', { path: 'foundation/PARTICIPATION_overview.md' }, c);
+    expect(JSON.parse(read.content[0].text as string).path).toBe('foundation/PARTICIPATION_overview.md');
+  });
+});
+
 describe('Passport-first crossing (constitutional-root authority only)', () => {
   it('a base (polity-passport) crossing grants root navigation authority — NO service capability', () => {
     const grantable = grantableCapabilities('polity-passport');
