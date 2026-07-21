@@ -115,9 +115,12 @@ export function listPrompts() {
 
 // ── Read-only dispatch ────────────────────────────────────────────────────────
 
-/** Tools that require the Constitutional Handshake — declared in the PRD but not
- *  yet wired. Calling one returns a structured, honest "handshake required". */
-const HANDSHAKE_TOOLS = new Set([
+/** Tools that require the Constitutional Handshake (a valid scoped bearer). Until
+ *  the Companion has crossed via the OAuth flow, the MCP route answers a call to
+ *  one of these with an HTTP 401 + WWW-Authenticate challenge (the spec trigger
+ *  for the client to run the crossing); if the transport still reaches dispatch,
+ *  callTool returns an honest "handshake required". */
+export const HANDSHAKE_TOOLS = new Set([
   'begin_handshake',
   'authenticate_principal',
   'get_passport_status',
@@ -185,8 +188,9 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
   if (HANDSHAKE_TOOLS.has(name)) {
     return {
       ...text(
-        'This action requires the Constitutional Handshake, which ships in the next Threshold Gateway increment. ' +
-          'For now you can inspect_threshold_link and list_services, and explain the crossing to your principal.',
+        'This action requires the Constitutional Handshake — a scoped session your principal grants by crossing the Threshold. ' +
+          'Discover the crossing at /.well-known/oauth-protected-resource and run the OAuth authorization-code flow: your principal ' +
+          'signs in and authorizes a bounded delegation in the browser, then you present the resulting bearer here. Only the human authorizes.',
       ),
       isError: true,
     };

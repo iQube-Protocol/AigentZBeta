@@ -20,6 +20,7 @@ import { publicOrigin } from '@/utils/publicOrigin';
 import {
   SERVER_INFO,
   PROTOCOL_VERSION,
+  HANDSHAKE_TOOLS,
   listTools,
   listResources,
   listPrompts,
@@ -127,6 +128,27 @@ export async function POST(request: NextRequest) {
     resolveInvitation,
     session,
   };
+
+  // MCP OAuth challenge: if a bearer-less Companion calls an authenticated
+  // crossing tool, answer with an HTTP 401 + WWW-Authenticate pointing at the
+  // protected-resource metadata (RFC 9728) — the spec trigger for the client to
+  // run the Constitutional Handshake. Read-only tools are never challenged.
+  if (!session) {
+    const msgs = Array.isArray(body) ? body : [body];
+    const wantsAuthTool = msgs.some(
+      (m) =>
+        (m as RpcMsg)?.method === 'tools/call' &&
+        HANDSHAKE_TOOLS.has(String(((m as RpcMsg).params as Record<string, unknown> | undefined)?.name ?? '')),
+    );
+    if (wantsAuthTool) {
+      const res = cors(NextResponse.json(err(null, -32001, 'Constitutional Handshake required'), { status: 401 }));
+      res.headers.set(
+        'WWW-Authenticate',
+        `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`,
+      );
+      return res;
+    }
+  }
 
   if (Array.isArray(body)) {
     const responses = (await Promise.all(body.map((m) => handleOne(m as RpcMsg, ctx)))).filter(Boolean);
