@@ -23,6 +23,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { personaPublicRef } from '@/services/identity/personaReferences';
+import { addLockerItemForPersona } from '@/services/passport/lockerItems';
 
 /** Human message types admitted in Phase 1 (PRD §5 "Human communication"). */
 export const QUBETALK_HUMAN_MESSAGE_TYPES = [
@@ -415,6 +416,122 @@ export async function listSharedArtifacts(
     return { ok: false, error: error.message };
   }
   return { ok: true, value: (data ?? []).map((r) => rowToSharedArtifact(r as Record<string, unknown>, myRef)) };
+}
+
+export interface CopiedToLocker {
+  artifact: SharedArtifact;
+  lockerItemId: string;
+  lockerDisplayName: string;
+  storageMode: string;
+  note?: string;
+}
+
+/**
+ * Materialise a shared artifact into the RECIPIENT's locker (a recipient-pull
+ * action: only the counterparty — never the sharer — copies into their own
+ * vault; the caller's UUID is known from their own auth). Gated on
+ * `rights.copyToLocker`. Idempotent: a second call returns the existing copy.
+ *
+ * What lands in the locker is a **provenance manifest** (the artifact reference,
+ * its channel, the sharer's public ref, the granted rights) — not the artifact
+ * bytes. Byte materialisation is deferred so gated-content exposure rules are
+ * never bypassed here; the manifest is the auditable record that the recipient
+ * accepted the share into their vault under the stated rights.
+ */
+export async function copyToLocker(
+  callerPersonaId: string,
+  channelId: string,
+  artifactId: string,
+): Promise<PeerResult<CopiedToLocker>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  const myRef = personaPublicRef(callerPersonaId);
+
+  const channel = await loadOwnedChannel(admin, channelId, myRef);
+  if (!channel) return { ok: false, error: 'channel not found or caller is not a principal', code: 'not_found' };
+
+  const { data: row, error: loadErr } = await admin
+    .from(SHARED)
+    .select('*')
+    .eq('id', artifactId)
+    .eq('channel_id', channelId)
+    .maybeSingle();
+  if (loadErr) {
+    if (loadErr.message.includes(SHARED)) return { ok: false, code: 'migration_pending', error: 'peer shared-artifact table not provisioned — apply 20260805100000.' };
+    return { ok: false, error: loadErr.message };
+  }
+  if (!row) return { ok: false, error: 'shared artifact not found in this channel', code: 'not_found' };
+
+  const shared = rowToSharedArtifact(row as Record<string, unknown>, myRef);
+
+  // The sharer cannot copy their own share into a locker via this path — it is a
+  // recipient acceptance action.
+  if (shared.mine) return { ok: false, error: 'the sharer cannot copy their own share; this is a recipient action', code: 'forbidden' };
+  if (!shared.rights.copyToLocker) {
+    return { ok: false, error: 'copy-to-locker was not granted for this artifact', code: 'not_granted' };
+  }
+
+  // Idempotent — a prior copy is returned, not duplicated.
+  if (shared.copiedToLockerAt) {
+    return {
+      ok: true,
+      value: {
+        artifact: shared,
+        lockerItemId: '',
+        lockerDisplayName: shared.title || shared.artifactType,
+        storageMode: 'existing',
+        note: 'already copied to locker',
+      },
+    };
+  }
+
+  const manifest = {
+    kind: 'qubetalk_shared_artifact_manifest',
+    version: 1,
+    channelId,
+    sharedArtifactId: shared.id,
+    artifactType: shared.artifactType,
+    artifactId: shared.artifactId,
+    title: shared.title,
+    locationRef: shared.locationRef,
+    relationship: shared.relationship,
+    sharedByRef: shared.sharedByRef,
+    acceptedByRef: myRef,
+    rights: shared.rights,
+    sharedAt: shared.createdAt,
+  };
+
+  const displayName = shared.title?.trim() || `${shared.artifactType} (via QubeTalk)`;
+  const added = await addLockerItemForPersona(callerPersonaId, {
+    displayName,
+    contentType: 'application/vnd.qubetalk.shared-artifact+json',
+    plaintext: JSON.stringify(manifest, null, 2),
+    // The recipient may re-export the manifest of what they accepted; the
+    // rights envelope still governs the underlying artifact bytes.
+    downloadable: shared.rights.download === true,
+  });
+  if (!added.ok) return { ok: false, error: added.error, code: added.code };
+
+  const stamp = await admin
+    .from(SHARED)
+    .update({ copied_to_locker_at: new Date().toISOString() })
+    .eq('id', artifactId)
+    .eq('channel_id', channelId)
+    .is('copied_to_locker_at', null)
+    .select('*')
+    .maybeSingle();
+  const stampedRow = (stamp.data as Record<string, unknown> | null) ?? { ...row, copied_to_locker_at: new Date().toISOString() };
+
+  return {
+    ok: true,
+    value: {
+      artifact: rowToSharedArtifact(stampedRow, myRef),
+      lockerItemId: added.item.itemId,
+      lockerDisplayName: added.item.displayName,
+      storageMode: added.item.storageMode,
+      note: added.note,
+    },
+  };
 }
 
 /** The caller's own Polity Public Reference — the handle a counterparty needs. */
