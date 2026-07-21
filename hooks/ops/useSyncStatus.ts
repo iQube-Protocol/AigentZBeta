@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface SyncStatusData {
   ok: boolean;
@@ -26,6 +26,17 @@ export function useSyncStatus(refreshMs = 30000) {
   const [data, setData] = useState<SyncStatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Guards the auto-repair from re-entering itself. repair() and
+  // processLayerZero() each call load() again to refresh the UI after acting;
+  // without this flag that refresh re-triggers auto-repair, and because
+  // repair() awaits load() internally, load→repair→load→repair mutually recurse
+  // and NEVER RETURN — so the .then(processLayerZero) that actually attests the
+  // pending DVN messages (the real fix) never runs. That recursion was the bug:
+  // the autofix could never complete, the refresh state flickered, and the
+  // Auto Repair button (disabled while loading) stayed disabled. The flag lets
+  // exactly one auto-repair cycle run to completion; the next 30s poll re-checks
+  // and re-triggers only if drift still persists.
+  const autoRepairInFlightRef = useRef(false);
 
   async function load() {
     try {
@@ -35,18 +46,28 @@ export function useSyncStatus(refreshMs = 30000) {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const json = await r.json();
       setData(json);
-      // NOTE: auto-repair-on-load removed. It recursed into an infinite loop
-      // whenever drift persisted: load() auto-called repair('auto'), and
-      // repair() ends by calling load() again — which re-triggered repair(),
-      // and so on. Because repair often does NOT clear the drift immediately
-      // (batch → anchor → LayerZero is eventual, and receipts can fail), the
-      // cycle never terminated. Symptoms: the refresh state flickered
-      // continuously (setLoading toggling every cycle) and the "Auto Repair"
-      // button — disabled={syncStatus.loading} — was perpetually disabled so
-      // clicks never registered. Repair is now strictly user-initiated via the
-      // Auto Repair / Process-via-LayerZero buttons. If automated healing is
-      // wanted, it needs a debounced, drift-changed-guarded background job —
-      // not a call on every status poll.
+
+      // Auto-process via proper flow if drift > 0 and not legitimate
+      if (json.drift > 0 && !json.isLegitimate && json.ok && !autoRepairInFlightRef.current) {
+        autoRepairInFlightRef.current = true;
+        console.log(`Auto-processing triggered: drift=${json.drift}`);
+        // Trigger repair which will batch → anchor → LayerZero (or just LayerZero for small drifts)
+        repair('auto').then(result => {
+          if (result.requiresLayerZero) {
+            if (result.skipBatch) {
+              console.log('Small drift, processing via LayerZero without batching...');
+            } else {
+              console.log('Batch and anchor complete, processing via LayerZero...');
+            }
+            // Now trigger LayerZero processing (attests the pending DVN messages)
+            return processLayerZero('process_pending');
+          }
+        }).catch(err => {
+          console.error('Auto-processing failed:', err);
+        }).finally(() => {
+          autoRepairInFlightRef.current = false;
+        });
+      }
     } catch (e: any) {
       setError(e?.message || 'Failed to load sync status');
     } finally {
