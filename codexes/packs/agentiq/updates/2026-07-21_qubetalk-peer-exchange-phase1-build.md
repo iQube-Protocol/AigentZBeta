@@ -68,6 +68,22 @@ the underlying peer act). Messages stay local (low-value; no receipt).
 Consequential-receipt route: `POST …/artifacts/[artifactId]/open` +
 `POST …/artifacts/[artifactId]/copy-to-locker`.
 
+### Increment 4 — minimal UI
+- `components/composer/QubeTalkInboxTab.tsx` — the inbox surface: shows the
+  caller's own Polity Public Reference (the handle to hand a counterparty), opens
+  a channel by counterparty reference, lists channels/messages/shared artifacts,
+  posts human messages, and (recipient-side) **Open** / **Copy to locker** an
+  artifact (copy shown only when `rights.copyToLocker` was granted and it isn't
+  already in the locker). Every call goes through `personaFetch` (spine-authed).
+- Exported `ShareViaQubeTalkButton` — a compact "Share via QubeTalk" affordance
+  (popover: pick/open a channel, choose rights, share). Reference-only — no bytes
+  leave the app (gated-content discipline).
+- Mounted in `InvariantExperimentLab` under a new **Exchange** section
+  (admin-gated in Phase 1, same gating as Outputs). The report tab
+  (`ExperimentReportTab`) now carries the **Share via QubeTalk** button, sharing
+  the report's identity (canonical `contentHash` when present) as a reference —
+  consistent with the report's existing copy-only confidentiality model.
+
 ## Canary
 `tests/qubetalk-peer-channel.test.ts` pins the security-relevant pure helpers:
 `isPublicRefLike` rejects a persona UUID (T0-leak guard); `peerPairKey` is
@@ -90,6 +106,7 @@ Both migrations are additive; apply once (Increment 1 + 2a tables):
   raw public ref; invite→accept→channel reusing the passport invitation/claim
   flow (once a user claims a passport, a persona is assigned; the invitee's
   persona rides the invite, and accepting the invite also accepts the channel).
-- Minimal UI: QubeTalk inbox + "Share via QubeTalk" affordance on the report.
+- Broaden the inbox beyond admin-gating to participants (Phase 1 mounts it
+  admin-only under the lab's Exchange section).
 - Byte materialisation of copied artifacts (currently manifest-only).
 - Agent-to-agent channels (Phase 3).

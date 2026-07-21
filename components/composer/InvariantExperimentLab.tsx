@@ -24,7 +24,7 @@
  */
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
-import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, FlaskConical, Home, Layers, Lock, Scale, ShieldCheck, Sparkles } from "lucide-react";
+import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, FlaskConical, Home, Layers, Lock, MessageSquare, Scale, ShieldCheck, Sparkles } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { EXPERIMENT_REGISTRY } from "@/types/research";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
@@ -43,6 +43,7 @@ import ExperimentResultsTab from "./ExperimentResultsTab";
 import ExperimentReportTab from "./ExperimentReportTab";
 import CanonicalPlatesTab from "./CanonicalPlatesTab";
 import InvariantDiscoveryTab from "./InvariantDiscoveryTab";
+import QubeTalkInboxTab from "./QubeTalkInboxTab";
 
 /** Known tab ids plus dynamic `reg:<EXPERIMENT_ID>` entries from the registry
  *  completeness guard (any registered experiment not hand-mounted below is
@@ -128,6 +129,12 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
       { id: "results", label: "Results", icon: ShieldCheck, blurb: "Canonical published experiment results — content-hashed, receipted, and DVN-anchorable." },
       { id: "report", label: "Report", icon: FileText, blurb: "Experiment reports through their lifecycle — live drafts, canonical (DVN-minted) records, and published outputs." },
       { id: "plates", label: "Canonical Plates", icon: Layers, blurb: "Canonical plates — composed constitutional artifacts (assets) from the plate pipeline." },
+    ],
+  },
+  {
+    title: "Exchange",
+    items: [
+      { id: "qubetalk", label: "QubeTalk", icon: MessageSquare, blurb: "Personhood-bound peer exchange — message and share artifacts (with a rights envelope) to another principal by their Polity Public Reference. Confidential, principal-to-principal." },
     ],
   },
 ];
@@ -421,6 +428,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "report" && <ExperimentReportTab />}
         {tab === "plates" && <CanonicalPlatesTab isAdmin={Boolean(accessInfo?.isAdmin)} />}
         {tab === "discovery" && <InvariantDiscoveryTab />}
+        {tab === "qubetalk" && <QubeTalkInboxTab />}
       </div>
     </div>
   );
