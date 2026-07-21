@@ -50,6 +50,40 @@ bounded delegation. **An agent never independently establishes an unbounded
 relationship with another agent** — it communicates under the authority and
 standing of its principal.
 
+## 2a. Reconciliation with the EXISTING implementation (must extend, not fork)
+
+Investigation (2026-07-20) found substantial existing machinery. This PRD MUST
+build on it — creating parallel tables/services is a duplication defect (and a
+`qubetalk_channels` table collision). What exists:
+
+| Concern | Existing artifact | Notes |
+|---|---|---|
+| **Locker** | `passport_locker_items` (owner-gated by `holder_persona_id`, RLS) + `passport_locker_grants` (holder → delegated-persona access) — migration `20260613300000_passport_locker_qubetalk.sql` | This IS the sovereign store. "Copy to recipient's locker" = insert a `passport_locker_items` row for the recipient + a grant. Do NOT invent a locker. |
+| **Passport channels** | `passport_qubetalk_channels` (`holder_persona_id`, `delegated_persona_id`, `channel_status`) + `GET /api/qubetalk/passport-channels` | Currently models **holder ↔ their own delegated persona** (a delegation channel), NOT peer ↔ peer between two independent principals. |
+| **Tenant QubeTalk (agent runtime)** | `qubetalk_channels` + `services/qubetalk/qubetalkPersistence.ts` + `/api/qubetalk/channels\|messages\|delegations\|invoke` + `receiptService.createQubeTalkReceipt` | Tenant/participants model for agent messaging. The name `qubetalk_channels` is TAKEN — the peer layer must use a distinct name. |
+
+**Design fork — needs operator ratification before build:** a Dele↔Austin peer
+channel is between **two independent principals**, which the existing
+`passport_qubetalk_channels` (holder↔own-delegate) does not model. Options:
+
+- **(A) Extend `passport_qubetalk_channels`** with a `channel_kind`
+  (`delegation` | `peer`) + a `counterparty_persona_id`, reusing its RLS + the
+  existing passport-channels route. Least new surface; keeps one channel table.
+- **(B) New `passport_peer_channels`** table for principal↔principal, leaving the
+  delegation channel table untouched; reuse locker + receipts. Cleanest
+  separation of two genuinely different relationship types; one new table.
+
+Recommendation: **(B)** — the delegation channel (a principal ↔ their own agent)
+and a peer channel (two sovereign principals) are different constitutional
+objects; conflating them into one table via a discriminator invites the exact
+"two things in one" confusion the ontology warns against. (B) reuses the locker
++ receipts + spine and adds exactly one peer-channel table + its messages, with a
+name that does not collide.
+
+Either way: **reuse `passport_locker_items`/`passport_locker_grants` for locker
+sharing, `receiptService`/DVN for receipts, and the identity spine for auth.**
+The peer layer is the only genuinely new surface.
+
 ## 3. Constitutional requirements (fixed now)
 
 1. **Personhood-bound channel ownership.** Channels belong to *principals*, not
