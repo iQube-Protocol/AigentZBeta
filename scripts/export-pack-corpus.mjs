@@ -126,8 +126,14 @@ async function main() {
     console.warn(`[export-pack-corpus] createBucket threw (continuing): ${e?.message || e}`);
   }
 
-  // Upload the blob (upsert) — this is the hard dependency.
-  const objectPath = `${BRANCH}/corpus.json`;
+  // Upload the blob to a BUILD-VERSIONED path so each deploy has a unique URL —
+  // the reused `<branch>/corpus.json` path let Supabase's CDN serve a STALE
+  // cached blob to both the self-verify (spurious "547 keys" failure) and the
+  // runtime (partial corpus → 404s). A per-commit path is never cached before,
+  // so verify + runtime always read exactly what THIS build uploaded. Old blobs
+  // orphan harmlessly. Falls back to a timestamp-free 'local' tag off-Amplify.
+  const version = process.env.AWS_COMMIT_ID || process.env.PACK_CORPUS_VERSION || 'local';
+  const objectPath = `${BRANCH}/corpus-${version}.json`;
   let uploaded = false;
   for (let attempt = 1; attempt <= 3 && !uploaded; attempt++) {
     const { error } = await supabase.storage
