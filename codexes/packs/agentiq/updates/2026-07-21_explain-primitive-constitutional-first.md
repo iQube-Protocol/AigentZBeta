@@ -64,7 +64,59 @@ term, three separate query tools (explain / show-canon / explain-implementation)
 and "Threshold as a constitutional linting engine" — was **not** built here
 (operator chose the bounded fix). It remains a ratify-before-build candidate.
 
+## Follow-on (same day) — anchor primitives + eligibility≠authority
+
+A second live pass ("explain the metaMe primitive; what is the Threshold?") plus
+Aletheon's review surfaced two more bounded fixes, shipped alongside the above.
+
+### The four anchor primitives now answer constitutional-first
+
+`explain_primitive` gains curated, verified-id definitions for the primitives that
+anchor the whole platform — **metaMe, Polity, Threshold** (Polity Passport was
+already curated). Each leads with real canonical invariants:
+
+- **metaMe** → `inv.polity.250` ("the constitutional experience layer — not a
+  product or application"), `inv.polity.191` (constitutional runtime), `.228`, `.227`.
+  Distinction: *metaMe is the constitutional runtime of the Polity; the Polity is
+  not a feature of metaMe.*
+- **Polity** → `inv.polity.249` (the civic institution), `.172` (by/for sovereign
+  human citizens), `.309`, `.203`. Distinction: *the IRL, Founder Office, DevOn and
+  Studio are institutions OF the Polity, not independent applications.*
+- **Threshold** → `inv.polity.236` (the crossing into a new civic order), `.235`,
+  `.248`, `.247`. Distinction: *the constitutional crossing into the Polity — before
+  it your agent operates only within its host; after it, it participates in the
+  runtime under your explicit, bounded, revocable authority.*
+
+Aliases resolve "meta me", "metame runtime", "metame threshold", "crossing", etc.
+The larger four-layer canon schema (Definition / Purpose / Consequences /
+Implementation for every term) remains an operator-ratify-before-build item; this
+just curates the four anchors.
+
+### `get_crossing_status` — eligibility ≠ authority (the contradiction Claude hit)
+
+Claude reported "IRL reachable" while a document read failed for lack of
+`research.read`. Root cause: `get_crossing_status` labelled a service
+`reachableServices` purely by scope coverage, conflating **journey eligibility /
+discovery** with **operational authority**. It now returns an explicit split:
+
+- `services.authorized` — operating capabilities actually held on the session
+  (can be operated now);
+- `services.eligible` — discoverable, `authorizationRequired: true`, with the
+  missing capabilities and `agreementRecorded` flag; an incremental crossing is
+  required before operating.
+
+Plus a `note` making Eligible ≠ authorized explicit. `reachableServices` /
+`pendingServices` are kept as back-compat id mirrors. Canary adds a base-crossing
+case proving IRL reads as **eligible / authorization-required**, never authorized.
+
+### enter-service confirmation copy
+
+The success state now reads: *"Your request has been authorized. Welcome to
+{service}, an institution of the Polity. Your agent has been granted the authority
+required to participate on your behalf, within the scope you approved."* — civic /
+institutional framing over "you've entered."
+
 ## Deploy
 
-No migration, no gate touched, no canon mutated. Read-only gateway change; ships
-with the normal dev push.
+No migration, no gate touched, no canon mutated. Read-only gateway + copy changes;
+ships with the normal dev push.

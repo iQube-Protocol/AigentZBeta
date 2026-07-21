@@ -316,10 +316,28 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
     const s = ctx.session;
 
     if (name === 'get_crossing_status') {
-      const reachable = listServices().filter((svc) => svc.requiredCapabilities.every((c) => hasScope(s, c))).map((svc) => svc.id);
-      const pending = listServices()
-        .filter((svc) => !svc.requiredCapabilities.every((c) => hasScope(s, c)))
-        .map((svc) => ({ id: svc.id, missingCapabilities: svc.requiredCapabilities.filter((c) => !hasScope(s, c)) }));
+      // Eligibility ≠ authority — the two states a service can be in, reported
+      // distinctly so a Companion never mistakes "you can enter this" for "your
+      // agent may operate here". A service is `authorized` only when the session
+      // actually holds its operating capabilities (i.e. an incremental crossing
+      // has happened); otherwise it is `eligible` — discoverable, entry offered,
+      // but no operational authority yet.
+      const svcState = listServices().map((svc) => {
+        const capabilitiesHeld = svc.requiredCapabilities.filter((c) => hasScope(s, c));
+        const capabilitiesMissing = svc.requiredCapabilities.filter((c) => !hasScope(s, c));
+        return {
+          id: svc.id,
+          title: svc.title,
+          role: svc.role,
+          status: svc.status,
+          capabilitiesHeld,
+          capabilitiesMissing,
+          authorized: capabilitiesMissing.length === 0,
+          agreementRecorded: Boolean(s.serviceAgreements?.[svc.id]),
+        };
+      });
+      const authorized = svcState.filter((x) => x.authorized);
+      const eligible = svcState.filter((x) => !x.authorized).map((x) => ({ ...x, authorizationRequired: true }));
       return text({
         crossed: true,
         principal: s.principalPublicRef, // T2 Polity Public Reference — never a persona id
@@ -330,8 +348,15 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         // so `receipt.serviceAuthority` reads "none yet" until a journey is chosen.
         currentAuthority: s.scope,
         crossingReceipt: crossingReceipt(s),
-        reachableServices: reachable,
-        pendingServices: pending,
+        services: {
+          authorized, // operational authority held on this session — can be operated now
+          eligible, // discoverable; an incremental crossing is required before operating
+        },
+        // Back-compat mirrors (older callers): the id lists of the two states.
+        reachableServices: authorized.map((x) => x.id),
+        pendingServices: eligible.map((x) => ({ id: x.id, missingCapabilities: x.capabilitiesMissing })),
+        note:
+          'Eligible ≠ authorized. A service under `eligible` is discoverable and you may request entry, but your agent holds NO operational authority within it until an incremental crossing completes — call request_service_capabilities("<id>") and your principal authorizes in the browser. Only services under `authorized` can be operated now. (Journey eligibility is discovery; operational authority is a separate, human-authorized grant.)',
         expiresAt: s.expiresAt,
       });
     }

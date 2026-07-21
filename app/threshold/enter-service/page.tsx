@@ -88,8 +88,9 @@ function EnterServiceInner() {
 
         {done ? (
           <div className="mt-5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-            You&rsquo;ve entered {upgrade?.serviceTitle ?? 'the service'}. Return to your agent — its session now holds this
-            authority.
+            Your request has been authorized. Welcome to {upgrade?.serviceTitle ?? 'the service'}, an institution of the Polity.
+            Your agent has been granted the authority required to participate on your behalf, within the scope you approved.
+            Return to your agent — its session now holds this authority.
           </div>
         ) : (
           <>

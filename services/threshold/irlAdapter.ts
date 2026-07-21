@@ -126,6 +126,46 @@ const PRIMITIVE_DEFINITIONS: Record<
       'inv.polity.306', // (canonical) structured declaration of standing anchored to root DID
       'inv.polity.316', // (canonical) observed at its own DidQube class
     ],
+    distinctions: [
+      'The Polity Passport is the constitutional credential that establishes citizenship within the Polity — a portable governance framework for bounded digital representation, not a login (inv.polity.243).',
+    ],
+  },
+  // ── The four anchor primitives (outside-in: meaning before implementation) ──
+  metame: {
+    leadIds: [
+      'inv.polity.250', // (canonical) metaMe is the constitutional experience layer — not a product or application
+      'inv.polity.191', // (canonical) metaMe Runtime is a constitutional runtime (protected time-space)
+      'inv.polity.228', // (canonical) the metaMe / AgentiQ stack is civic architecture
+      'inv.polity.227', // (canonical) the polity must remain larger than the stack; the stack accountable to the polity
+    ],
+    distinctions: [
+      'metaMe is the constitutional runtime of the Polity — the experiential environment through which a person, their agents, knowledge, authority and assets participate in the Constitutional Internet. It is not a product or application (inv.polity.250, inv.polity.191).',
+      'The Polity is the community metaMe serves; metaMe is its runtime. The Polity is not a feature of metaMe (inv.polity.227).',
+    ],
+  },
+  polity: {
+    leadIds: [
+      'inv.polity.249', // (canonical) core ontology — the Polity is the civic institution
+      'inv.polity.172', // (canonical) governed by and for sovereign human citizens
+      'inv.polity.309', // (canonical) built to protect human sovereignty in an agentic world
+      'inv.polity.203', // (canonical) the self is the unit of agency; the polity is the field of consequence
+    ],
+    distinctions: [
+      'The Polity is the constitutional community of persons and their delegated agents — the society established by the Constitutional Internet, governed by and for sovereign human citizens (inv.polity.172, inv.polity.249).',
+      'Services such as the IRL, Founder Office, DevOn and Studio are institutions OF the Polity, not independent applications. The Polity is what metaMe exists to serve.',
+    ],
+  },
+  threshold: {
+    leadIds: [
+      'inv.polity.236', // (canonical) the Constitutional Internet is the threshold into a new civic order
+      'inv.polity.235', // (canonical) the Internet has crossed the threshold from infrastructure to society
+      'inv.polity.248', // (canonical) the purpose of the Constitutional Internet
+      'inv.polity.247', // (canonical) organized around agency — the capital-formation loop
+    ],
+    distinctions: [
+      'The Threshold is the constitutional crossing into the Polity: the moment an existing person↔agent relationship becomes a constitutional relationship within metaMe. Before it, your agent operates only within its host platform; after it, it continues there while participating in the constitutional runtime under your explicit, bounded, revocable authority (grounded in inv.polity.236).',
+      'Crossing establishes a Polity Passport (personhood continuity), a constitutional persona, the agent’s bounded authority, and the beginning of the sovereignty journey. Subsequent authorities are granted progressively — each institution is entered by an incremental, human-authorized delegation.',
+    ],
   },
 };
 
@@ -142,6 +182,12 @@ function definitionKey(term: string): string | null {
     steward: 'citizenship',
     citizen: 'citizenship',
     person: 'personhood',
+    // Anchor-primitive aliases
+    'meta me': 'metame',
+    'metame runtime': 'metame',
+    'metame threshold': 'threshold',
+    crossing: 'threshold',
+    'metame primitive': 'metame',
   };
   const key = alias[t] ?? t;
   return key in PRIMITIVE_DEFINITIONS ? key : null;

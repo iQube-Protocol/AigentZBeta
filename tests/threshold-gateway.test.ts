@@ -177,8 +177,24 @@ describe('Authenticated dispatch (Increment 3)', () => {
     expect(body.crossed).toBe(true);
     expect(body.currentAuthority).toEqual(session.scope);
     expect(body.crossingReceipt.citizenship).toBe('active');
-    expect(body.reachableServices).toContain('irl'); // irl caps ⊆ granted scope
+    expect(body.reachableServices).toContain('irl'); // irl caps ⊆ granted scope (back-compat mirror)
+    // eligibility ≠ authority: with full IRL scope, IRL is AUTHORIZED (operable now)
+    expect(body.services.authorized.map((x: { id: string }) => x.id)).toContain('irl');
+    expect(body.services.eligible.map((x: { id: string }) => x.id)).not.toContain('irl');
     expect(JSON.stringify(body)).not.toMatch(/personaId|authProfileId|rootDid|kybe/i);
+  });
+
+  it('a base (root-only) crossing lists IRL as ELIGIBLE / authorization-required, never authorized', async () => {
+    const baseSession = { ...session, scope: [...CONSTITUTIONAL_ROOT_CAPABILITIES], initiatingService: 'polity-passport' };
+    const res = await callTool('get_crossing_status', {}, { ...ctx, session: baseSession });
+    const body = JSON.parse(res.content[0].text as string);
+    const irl = body.services.eligible.find((x: { id: string }) => x.id === 'irl');
+    expect(irl).toBeTruthy();
+    expect(irl.authorizationRequired).toBe(true);
+    expect(irl.capabilitiesMissing).toContain('research.read');
+    // NOT authorized — the base crossing carries navigation authority only
+    expect(body.services.authorized.map((x: { id: string }) => x.id)).not.toContain('irl');
+    expect(body.note).toMatch(/Eligible ≠ authorized/);
   });
 
   it('request_service_capabilities distinguishes reachable vs an incremental crossing', async () => {
