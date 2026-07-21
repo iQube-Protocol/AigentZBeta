@@ -35,6 +35,7 @@ import Exp004SovereigntyRunner from "./Exp004SovereigntyRunner";
 import Exp005ProviderChoiceRunner from "./Exp005ProviderChoiceRunner";
 import Exp006ProjectionRunner from "./Exp006ProjectionRunner";
 import ExpP3CapabilityRunner from "./ExpP3CapabilityRunner";
+import ExpP2UtilityRunner from "./ExpP2UtilityRunner";
 import ExperimentDesignStagePanel from "./ExperimentDesignStagePanel";
 import InstrumentValidationPanel from "./InstrumentValidationPanel";
 import ChrysalisTestTab from "./ChrysalisTestTab";
@@ -57,8 +58,7 @@ const DESIGN_STAGE_TAB_EXP: Partial<Record<LabTab, string>> = {
   entropy: "EXP-007",
   propagation: "EXP-008",
   vp1: "EXP-P1",
-  vp2: "EXP-P2",
-  // vp3 (EXP-P3) has a real harness — mounted below, not a design-stage panel.
+  // vp2 (EXP-P2) + vp3 (EXP-P3) have real harnesses — mounted below, not design-stage panels.
 };
 
 interface LabEntry {
@@ -112,7 +112,7 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
     title: "Validation Programme",
     items: [
       { id: "vp1", label: "EXP-P1 · Representation Gauntlet", icon: FlaskConical, blurb: "Representation & runtime gauntlet — the comparative programme experiment (design stage; runs via the backend harness)." },
-      { id: "vp2", label: "EXP-P2 · Projection Semantics", icon: FlaskConical, blurb: "Projection semantics — the second orthogonal-by-hypothesis-class programme experiment (design stage)." },
+      { id: "vp2", label: "EXP-P2 · Structural Invariance", icon: FlaskConical, blurb: "Do discovered invariants have operational utility as a reasoning substrate? Three arms (cold · manual baseline · earned) + root ablation, representation-vs-representation on one corpus — the empirical test of inv.reasoning.323." },
       { id: "vp3", label: "EXP-P3 · Capability Validation", icon: FlaskConical, blurb: "Consequence engineering by field projection vs baseline retrieval — real harness; runs against a sealed ≥20-change ground-truth set." },
     ],
   },
@@ -397,6 +397,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "sovereignty" && <Exp004SovereigntyRunner canRequestPublish={canRequestPublish} />}
         {tab === "provider-choice" && <Exp005ProviderChoiceRunner canRequestPublish={canRequestPublish} />}
         {tab === "projection" && <Exp006ProjectionRunner canRequestPublish={canRequestPublish} />}
+        {tab === "vp2" && <ExpP2UtilityRunner />}
         {tab === "vp3" && <ExpP3CapabilityRunner canRequestPublish={canRequestPublish} />}
         {(tab === "irv" || tab === "ipv") && (() => {
           const expId = tab === "irv" ? "IRV-001" : "IPV-001";
