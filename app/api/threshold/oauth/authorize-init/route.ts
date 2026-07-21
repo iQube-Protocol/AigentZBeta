@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient, createPendingHandshake } from '@/services/threshold/gatewaySession';
-import { getService } from '@/services/threshold/serviceRegistry';
+import { getService, knownCapabilities } from '@/services/threshold/serviceRegistry';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_request', error_description: 'redirect_uri not registered for this client' }, { status: 400 });
   }
 
-  const requestedScope = scopeStr.split(/\s+/).filter(Boolean);
+  // Cap the requested scope to the known capability vocabulary — a client cannot
+  // request (and thus cannot be granted a bearer carrying) an arbitrary scope.
+  const known = knownCapabilities();
+  const requestedScope = scopeStr.split(/\s+/).filter(Boolean).filter((s) => known.has(s));
   const svc = getService(service);
   const created = await createPendingHandshake({
     initiatingService: svc?.id ?? 'polity-passport',

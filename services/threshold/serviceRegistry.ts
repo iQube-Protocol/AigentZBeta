@@ -92,6 +92,15 @@ export function listServices(): ThresholdService[] {
   return THRESHOLD_SERVICES;
 }
 
+/** The union of every capability any service can require — the ONLY vocabulary a
+ *  crossing may request. Requested scopes outside this set are dropped before a
+ *  bearer is ever minted, so a client cannot fabricate arbitrary scope strings. */
+export function knownCapabilities(): Set<string> {
+  const all = new Set<string>();
+  for (const s of THRESHOLD_SERVICES) for (const c of s.requiredCapabilities) all.add(c);
+  return all;
+}
+
 export function getService(id: string): ThresholdService | null {
   return THRESHOLD_SERVICES.find((s) => s.id === id) ?? null;
 }

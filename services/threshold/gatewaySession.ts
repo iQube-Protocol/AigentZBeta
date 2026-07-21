@@ -224,7 +224,7 @@ export async function exchangeAuthorizationCode(input: {
 
   const bearer = `ths_${newToken(32)}`;
   const expiresAt = new Date(Date.now() + (input.sessionTtlDays ?? 30) * 86_400_000).toISOString();
-  const { error: upErr } = await admin
+  const { data: updated, error: upErr } = await admin
     .from(TABLE)
     .update({
       token_hash: sha256(bearer),
@@ -234,12 +234,16 @@ export async function exchangeAuthorizationCode(input: {
       expires_at: expiresAt,
     })
     .eq('id', data.id)
-    .eq('status', 'authorized'); // guard against code replay / double-exchange
+    .eq('status', 'authorized') // guard against code replay / double-exchange
+    .select('id');
   if (upErr) {
     // eslint-disable-next-line no-console
     console.error('[threshold] exchangeAuthorizationCode failed:', upErr.message);
     return { error: 'server_error' };
   }
+  // The conditional update matched zero rows → another exchange already claimed
+  // this code (a replay / race). Do NOT return a bearer that was never stored.
+  if (!updated || updated.length === 0) return { error: 'invalid_grant' };
   return { bearer, scope: data.granted_scope ?? [], expiresAt };
 }
 
