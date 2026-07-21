@@ -87,6 +87,9 @@ export interface CandidateRow {
   classification: CompareClassification | null;
   /** Sub-domains that manifest a Compare output (its coverage). */
   coverage: string[] | null;
+  /** Recursive-compression classification (parent-child): where this domain
+   *  invariant sits in the derivation hierarchy. Null until compressed. */
+  compression?: { depth: 'root' | 'derived'; derivesFromCandidateIds: string[]; rationale: string } | null;
   /** Enriched at read time (route/service), not stored. */
   convergence?: ConvergenceInfo;
 }
@@ -487,6 +490,116 @@ export async function compareSubDomains(
   return { ok: true, candidates: enrichConvergence(inserted, evidence), comparedSubDomains, inputInvariantCount };
 }
 
+// ── Recursive compression (parent-child keystone) ────────────────────────────
+
+const COMPRESS_DOMAIN_SYSTEM = `You are the RECURSIVE COMPRESSION stage of an Invariant Discovery Engine. You are given the
+DOMAIN-LEVEL invariants already discovered for one domain (each emerged from cross-sub-domain
+compression). Your job is to find the DERIVATION STRUCTURE among them: which invariants are FOUNDATIONAL
+(roots) and which are DERIVED (entailed by, a specialisation of, or a downstream consequence of one or
+more of the OTHERS).
+
+Method:
+- A ROOT is foundational: it does NOT derive from any other invariant in the set — a constitutional
+  candidate for the domain (e.g. "Traceability enables accountability").
+- A DERIVED invariant is entailed by / specialises / is a consequence of one or more OTHER invariants in
+  the set. Examples: "Risk-management practices are required" DERIVES FROM the cybersecurity +
+  data-protection invariants; "A harmonized regulatory framework is required" DERIVES FROM the
+  accountability + transparency invariants. List the parents by their input index in derivesFrom.
+- Compress by RECURRENCE OF ENTAILMENT: prefer the SMALLEST set of roots from which the rest follow.
+- Ground strictly in the given statements. Do NOT invent invariants or relationships the statements do not
+  support. If two invariants are the same principle at different levels, mark the more specific one derived
+  from the more general.
+- A node's derivesFrom MUST reference OTHER indices in the set (never itself); the result MUST be acyclic.
+
+Output STRICT JSON: {"nodes":[{"index":<input index>,"depth":"root"|"derived","derivesFrom":[<parent index>,...],"rationale":"why it is a root, or which parents entail it and how"}]}`;
+
+interface CompressExtraction {
+  nodes: { index: number; depth?: string; derivesFrom?: number[]; rationale?: string }[];
+}
+
+export interface DomainCompressionNode {
+  candidateId: string;
+  statement: string;
+  depth: 'root' | 'derived';
+  derivesFrom: { candidateId: string; statement: string }[];
+  rationale: string;
+}
+
+/**
+ * Recursive compression — a SECOND-order Compare over the domain's own earned
+ * invariants: find which compress INTO each other, yielding the parent-child
+ * derivation hierarchy (roots = constitutional candidates; derived = downstream
+ * of a root). Grounded strictly in the candidate statements, deterministic
+ * (temperature 0), acyclic. The classification is persisted additively into each
+ * candidate's discovery_provenance.compression so promotion can later materialise
+ * it as `specializes` edges (via promoteCandidate/linkPromotedParents). Confidence
+ * is NOT touched — this is structure discovery, not validity (Law XII).
+ */
+export async function compressDomainInvariants(
+  admin: SupabaseClient,
+  domain: string,
+): Promise<
+  | { ok: true; hierarchy: DomainCompressionNode[]; rootCount: number; derivedCount: number }
+  | { ok: false; error: string }
+> {
+  // The domain-level invariants (Compare outputs + any domain baseline), candidate
+  // OR promoted — same status breadth as Compare (promoted are the strongest).
+  const { data, error } = await admin
+    .from('discovery_candidates')
+    .select('*')
+    .eq('domain', domain)
+    .is('sub_domain', null)
+    .in('status', ['candidate', 'promoted']);
+  if (error) return { ok: false, error: error.message };
+  const rows = (data ?? []).map(toCandidateRow);
+  if (rows.length < 2) {
+    return {
+      ok: false,
+      error: `Recursive compression needs at least 2 domain invariants (found ${rows.length}). Run Compare first to earn domain invariants.`,
+    };
+  }
+  const rawById = new Map<string, Record<string, unknown>>();
+  for (const r of data ?? []) rawById.set(String(r.id), r as Record<string, unknown>);
+
+  const items = rows.slice(0, 24);
+  const user =
+    `DOMAIN: ${domain}\n\nDOMAIN INVARIANTS (find the derivation structure; cite by index):\n` +
+    items.map((c, i) => `[${i}] ${c.statement}`).join('\n');
+
+  let parsed: CompressExtraction;
+  try {
+    const call = await callSovereign('analysis', COMPRESS_DOMAIN_SYSTEM, user, 1800, 0);
+    parsed = JSON.parse(extractJson(call.text)) as CompressExtraction;
+  } catch (e) {
+    return { ok: false, error: `compression inference failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  const nodes = Array.isArray(parsed?.nodes) ? parsed.nodes : [];
+
+  const hierarchy: DomainCompressionNode[] = [];
+  for (let idx = 0; idx < items.length; idx++) {
+    const c = items[idx];
+    const n = nodes.find((x) => Number(x.index) === idx);
+    const rawParents = Array.isArray(n?.derivesFrom) ? n!.derivesFrom : [];
+    // Valid other-indices only; drop self-refs + out-of-range; dedupe.
+    const parentIdxs = [
+      ...new Set(rawParents.map(Number).filter((p) => Number.isInteger(p) && p !== idx && p >= 0 && p < items.length)),
+    ];
+    const depth: 'root' | 'derived' = n && String(n.depth) === 'derived' && parentIdxs.length > 0 ? 'derived' : 'root';
+    const derivesFrom = depth === 'derived' ? parentIdxs.map((p) => ({ candidateId: items[p].id, statement: items[p].statement })) : [];
+    const rationale = String(n?.rationale ?? '').slice(0, 600);
+    hierarchy.push({ candidateId: c.id, statement: c.statement, depth, derivesFrom, rationale });
+
+    // Persist additively into provenance (merge, never clobber).
+    const raw = rawById.get(c.id) ?? {};
+    const prov = { ...((raw.discovery_provenance ?? {}) as Record<string, unknown>) };
+    prov.compression = { depth, derivesFromCandidateIds: derivesFrom.map((d) => d.candidateId), rationale };
+    await admin.from('discovery_candidates').update({ discovery_provenance: prov }).eq('id', c.id);
+  }
+
+  const rootCount = hierarchy.filter((h) => h.depth === 'root').length;
+  return { ok: true, hierarchy, rootCount, derivedCount: hierarchy.length - rootCount };
+}
+
 // ── Stage 5 · Promotion into the canonical lifecycle (lands at `proposed`) ──
 
 /**
@@ -688,6 +801,17 @@ function toCandidateRow(r: Record<string, unknown>): CandidateRow {
     classification: (COMPARE_CLASSES.includes(String(prov.classification))
       ? (prov.classification as CompareClassification) : null),
     coverage: Array.isArray(prov.coverage) ? (prov.coverage as string[]) : null,
+    compression: parseCompression(prov.compression),
+  };
+}
+
+function parseCompression(v: unknown): CandidateRow['compression'] {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  return {
+    depth: o.depth === 'derived' ? 'derived' : 'root',
+    derivesFromCandidateIds: Array.isArray(o.derivesFromCandidateIds) ? (o.derivesFromCandidateIds as string[]) : [],
+    rationale: String(o.rationale ?? ''),
   };
 }
 

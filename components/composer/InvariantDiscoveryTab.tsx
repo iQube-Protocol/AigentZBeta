@@ -38,6 +38,7 @@ interface Candidate {
   stage?: "constitutional" | "compare";
   classification?: Classification | null;
   coverage?: string[] | null;
+  compression?: { depth: "root" | "derived"; derivesFromCandidateIds: string[]; rationale: string } | null;
 }
 interface Preset { value: string; label: string }
 
@@ -148,6 +149,23 @@ export default function InvariantDiscoveryTab() {
       const ratio = output > 0 && input > 0 ? `${(input / output).toFixed(1)}:1` : "—";
       setNotice(
         `✓ Compressed ${input} sub-domain invariant(s) across ${subs} sub-domains → ${output} earned domain invariant(s) · compression ${ratio}`,
+      );
+      await load();
+    }
+  }, [post, load]);
+
+  // Recursive compression — the parent-child keystone: find the derivation
+  // structure among the earned domain invariants (roots vs derived).
+  const compressDomain = useCallback(async () => {
+    setSubDomain(""); // operates on the domain-baseline invariants
+    const r = await post({ action: "compress-domain" }, "compress-domain");
+    if (r) {
+      const roots = Number(r.rootCount ?? 0);
+      const derived = Number(r.derivedCount ?? 0);
+      const total = roots + derived;
+      const ratio = roots > 0 ? `${(total / roots).toFixed(1)}:1` : "—";
+      setNotice(
+        `✓ Recursive compression: ${total} domain invariant(s) → ${roots} root(s) + ${derived} derived · depth compression ${ratio}`,
       );
       await load();
     }
@@ -288,6 +306,13 @@ export default function InvariantDiscoveryTab() {
                 {busy === "compare" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitCompare className="h-3.5 w-3.5" />} Compare sub-domains
               </button>
             )}
+            {!subDomain && (
+              <button onClick={() => void compressDomain()} disabled={busy !== null}
+                title="Recursive compression: find which domain invariants derive from which — the parent-child hierarchy (roots = constitutional candidates)"
+                className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-50">
+                {busy === "compress-domain" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Layers className="h-3.5 w-3.5" />} Compress (recursive)
+              </button>
+            )}
             <button onClick={() => void extract()} disabled={busy !== null || evidence.length === 0}
               className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
               {busy === "extract" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Discover {subDomain ? `${scopeLabel} ` : ""}invariants
@@ -372,6 +397,19 @@ export default function InvariantDiscoveryTab() {
                       </span>
                     )}
                     {abs && <span className={`rounded-full border px-1.5 py-0.5 text-[9px] ${abs.cls}`}>{abs.label}</span>}
+                    {c.compression && (
+                      c.compression.depth === "root" ? (
+                        <span title="Foundational — does not derive from another invariant in the set; a constitutional candidate for this domain"
+                          className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-1.5 py-0.5 text-[9px] text-emerald-200">
+                          ◆ Root
+                        </span>
+                      ) : (
+                        <span title={c.compression.rationale || `derives from ${c.compression.derivesFromCandidateIds.length} invariant(s)`}
+                          className="rounded-full border border-slate-500/50 bg-slate-500/10 px-1.5 py-0.5 text-[9px] text-slate-300">
+                          → Derived ({c.compression.derivesFromCandidateIds.length})
+                        </span>
+                      )
+                    )}
                     {cv && (
                       <span title={cv.frameworks.join(" · ") || "no linked sources"}
                         className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] ${CONVERGENCE_META[cv.tier]}`}>
