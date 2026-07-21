@@ -35,18 +35,15 @@ const IN_AMPLIFY = Boolean(process.env.AWS_APP_ID || process.env.AWS_BRANCH);
 // Canonical (ratified) pack prefixes — pinned to AutoDrive for provenance.
 const CANONICAL_PREFIXES = ['irl/foundation/', 'polity-core/'];
 
-// Dead / never-read at runtime — mirror next.config.js outputFileTracingExcludes.
-// Keeping these out of the blob holds it lean (~5 MB vs ~9 MB).
-function isExcluded(relPath) {
-  return (
-    relPath.includes('/build_/COMMITS/') ||
-    relPath.includes('/build_/PR/') ||
-    relPath.endsWith('/build_/changelog.md') ||
-    relPath.endsWith('canonical-invariants.seed.json') ||
-    relPath.endsWith('memory/retrieval-index.md') ||
-    /results.*\.json$/.test(path.basename(relPath)) ||
-    relPath.endsWith('operation-metawill-v0.2.json')
-  );
+// The blob MIRRORS THE FULL PACK CORPUS — every .md/.json the pack-file route
+// might serve. The blob has no size cap (that was the whole point of moving off
+// the SSR bundle), so nothing is excluded: the earlier "dead weight" list
+// (build_/COMMITS, build_/PR, build_/changelog, …) is in fact BROWSABLE in the
+// AgentiQ Development tabs (Changelog / PR Briefs / Recent Commits), so excluding
+// it 404'd those tabs. If a specific file ever needs to be withheld, gate it
+// here — but never withhold anything a collections.json references.
+function isExcluded(_relPath) {
+  return false;
 }
 
 function walk(dir) {
