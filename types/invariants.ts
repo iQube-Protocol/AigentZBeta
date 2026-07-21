@@ -37,7 +37,17 @@ export type InvariantNamespace =
   // constraint violation and (b) the Invariant Registry omitting all 136
   // operator-ratified polity invariants. The Polity Papers are the
   // constitutional-architecture corpus, so polity composes as constitutional.
-  | 'polity';
+  | 'polity'
+  // Finance namespace — ratified by PRD-MPY-001 §9 D5 (2026-07-21) as Phase-2
+  // foundational work for Agent MoneyPenny (the Constitutional Financial
+  // Services Agent). It is the class of the FS Invariant Library (inv.finance.*)
+  // derived from the QriptoCENT Constitutional Corpus by the Invariant Discovery
+  // Engine (CFS-048). Widened ahead of the derivation run so the finance
+  // namespace + its composition law exist before candidates land (CFS-013 §3:
+  // a class's algebra must be declared before it can enter canonical status).
+  // Same additive pattern as the polity widening; the CHECK constraints are
+  // widened in supabase/migrations/20260721000000_finance_invariant_namespace.sql.
+  | 'finance';
 
 export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
   'constitutional',
@@ -53,6 +63,7 @@ export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
   'epistemology',
   'representation',
   'polity',
+  'finance',
 ];
 
 /**
@@ -92,6 +103,20 @@ export const COMPOSITION_LAWS: Record<InvariantNamespace, CompositionLaw> = {
   // distributively as the constitutional namespace does (each unit foregrounds
   // a subset of the polity's rights/standing/delegation/presence guarantees).
   polity: 'distributive',
+  // Finance namespace composition law — PRD-MPY-001 §9 D5 (ratified 2026-07-21),
+  // declared per CFS-013 §3 before the derivation run lands any inv.finance.*
+  // candidate. NORMATIVE: financial-services invariants (spend caps, custody
+  // and settlement guarantees, principal–delegate separation, delegation-envelope
+  // bounds, consequence ordering, the x409 authorization gate) do NOT distribute
+  // across units and carry no fixed order — they bind EVERY financial act
+  // simultaneously, law-like. A settlement that satisfies four of five finance
+  // invariants is not four-fifths lawful; it is unlawful. This is the same
+  // algebra as engineering (binds every act of platform evolution), sovereignty
+  // (guarantees bind every act), and epistemology (truth rules bind every
+  // knowledge act) — the "no-partial-compliance" family. Derived candidates
+  // enter at 'proposed' and never auto-canonize (inv.reasoning.337); the
+  // operator ratifies before any finance invariant advances to 'canonical'.
+  finance: 'normative',
 };
 
 export type InvariantStatus =
