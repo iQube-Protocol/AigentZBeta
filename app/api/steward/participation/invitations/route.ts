@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
     maxUses?: number;
     expiresInDays?: number;
     allowedExperiments?: string[];
+    openPeerChannel?: boolean;
   };
   if (!body.domain || !isAccessDomain(body.domain)) {
     return NextResponse.json({ ok: false, error: 'Valid domain required' }, { status: 400 });
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
     expiresInDays: body.expiresInDays,
     issuerPersonaId: persona.personaId,
     allowedExperiments: Array.isArray(body.allowedExperiments) ? body.allowedExperiments : undefined,
+    openPeerChannel: body.openPeerChannel === true,
   });
   if (!result.ok) {
     const status = result.error.includes('access_invitations') ? 503 : 400;

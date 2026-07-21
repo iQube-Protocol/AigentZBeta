@@ -67,6 +67,7 @@ export function StewardParticipationTab() {
   const [formRecipient, setFormRecipient] = useState('');
   const [formMaxUses, setFormMaxUses] = useState(1);
   const [formExpiresDays, setFormExpiresDays] = useState(30);
+  const [formOpenPeerChannel, setFormOpenPeerChannel] = useState(false);
   // Per-invitation experiment scoping (research-lab domain). Empty = all.
   const [formExperiments, setFormExperiments] = useState<string[]>([]);
   const [formOtherExperiment, setFormOtherExperiment] = useState("");
@@ -152,6 +153,7 @@ export function StewardParticipationTab() {
           intendedRecipient: formRecipient || undefined,
           maxUses: formMaxUses,
           expiresInDays: formExpiresDays || undefined,
+          openPeerChannel: formOpenPeerChannel,
           allowedExperiments:
             domain?.id === 'research-lab'
               ? [...formExperiments, ...(formOtherExperiment.trim() ? [formOtherExperiment.trim()] : [])]
@@ -178,7 +180,7 @@ export function StewardParticipationTab() {
     } finally {
       setIssuing(false);
     }
-  }, [domain, formRole, formLabel, formRecipient, formMaxUses, formExpiresDays, load]);
+  }, [domain, formRole, formLabel, formRecipient, formMaxUses, formExpiresDays, formOpenPeerChannel, formExperiments, formOtherExperiment, load]);
 
   const revokeInvitation = useCallback(async (invitationId: string) => {
     setRevokeBusy(invitationId);
@@ -374,6 +376,18 @@ export function StewardParticipationTab() {
                 />
               </label>
             </div>
+            <label className="mt-2 flex items-start gap-2 text-[11px] text-slate-300">
+              <input
+                type="checkbox"
+                checked={formOpenPeerChannel}
+                onChange={(e) => setFormOpenPeerChannel(e.target.checked)}
+                className="mt-0.5 accent-indigo-500"
+              />
+              <span>
+                Open a <span className="text-indigo-300">QubeTalk channel with me</span> when they join
+                <span className="block text-[10px] text-slate-500">A peer channel opens automatically the moment they claim — you can message and share materials with them right away (Locker → Peer Exchange).</span>
+              </span>
+            </label>
           </div>
 
           {/* Experiment scoping — research-lab only. No selection = all
