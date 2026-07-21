@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isPublicRefLike,
   peerPairKey,
+  peerCommitment,
   QUBETALK_HUMAN_MESSAGE_TYPES,
   normalizeRights,
   DEFAULT_RIGHTS,
@@ -62,6 +63,20 @@ describe('QubeTalk peer channel helpers', () => {
     expect(r.reshare).toBe(false); // non-boolean ignored -> conservative default
     expect(r.copyToLocker).toBe(false); // non-boolean ignored
     expect(r.download).toBe(false);
+  });
+
+  it('peerCommitment is a T2-safe 16-hex commitment — deterministic, one-way, never the raw id', () => {
+    const channelId = 'c1a2b3c4-d5e6-7788-99aa-bbccddeeff00';
+    const c = peerCommitment('channel', channelId);
+    // 16 lowercase hex — the same shape as a Polity Public Reference (T2-safe).
+    expect(c).toMatch(/^[0-9a-f]{16}$/);
+    // Deterministic (idempotent receipts correlate to the same commitment).
+    expect(peerCommitment('channel', channelId)).toBe(c);
+    // Namespaced — a channel and an artifact with the same id never collide.
+    expect(peerCommitment('artifact', channelId)).not.toBe(c);
+    // The raw UUID must NEVER appear in the commitment (chain-bound payload guard).
+    expect(c).not.toContain(channelId);
+    expect(c.includes('-')).toBe(false);
   });
 
   it('copy-to-locker is default-denied — copyToLocker must be EXPLICITLY granted', () => {

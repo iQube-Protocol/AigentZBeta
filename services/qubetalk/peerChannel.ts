@@ -19,11 +19,14 @@
  * route) and derive the caller's public ref internally — the UUID never leaves.
  */
 
+import { createHash } from 'crypto';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { personaPublicRef } from '@/services/identity/personaReferences';
 import { addLockerItemForPersona } from '@/services/passport/lockerItems';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 /** Human message types admitted in Phase 1 (PRD §5 "Human communication"). */
 export const QUBETALK_HUMAN_MESSAGE_TYPES = [
@@ -149,6 +152,55 @@ export function isPublicRefLike(s: unknown): s is string {
 /** Order-independent pair key for two principal refs. (Pure — exported for the canary.) */
 export function peerPairKey(a: string, b: string): string {
   return a <= b ? `${a}:${b}` : `${b}:${a}`;
+}
+
+/**
+ * T2-safe commitment for an internal QubeTalk UUID (channel / shared-artifact
+ * row id). sha256 of a namespaced input, 16-hex — one-way, deterministic,
+ * chain-safe. Used so consequential receipts (which flow to the DVN payload)
+ * correlate to a channel/artifact WITHOUT carrying a raw UUID. (Pure — exported
+ * for the canary.) Mirrors the HMS `hms:locker:<id>` commitment discipline.
+ */
+export function peerCommitment(namespace: 'channel' | 'artifact', id: string): string {
+  return createHash('sha256').update(`qubetalk:${namespace}:${id}`).digest('hex').slice(0, 16);
+}
+
+/** Rights the sharer explicitly granted, as a short T2-safe label list. */
+function grantedRightLabels(rights: RightsEnvelope): string[] {
+  return (Object.keys(rights) as (keyof RightsEnvelope)[]).filter((k) => rights[k] === true);
+}
+
+/**
+ * Write a consequential peer-exchange receipt (best-effort — a receipt failure
+ * never breaks the underlying act). The receipt + its DVN payload carry ONLY
+ * T2-safe references: the caller's persona is hashed by the receipt/DVN layer,
+ * the counterparty appears as its Polity Public Reference, and channel/artifact
+ * appear as sha256/16 commitments. No raw UUIDs.
+ */
+async function writePeerReceipt(
+  callerPersonaId: string,
+  actionType: 'qubetalk_artifact_shared' | 'qubetalk_artifact_opened' | 'qubetalk_artifact_copied',
+  args: { channelId: string; counterpartyRef: string; artifactRowId: string; artifactType: string; summary: string; rights?: RightsEnvelope },
+): Promise<void> {
+  try {
+    await createActivityReceipt({
+      personaId: callerPersonaId,
+      activeCartridge: 'qubetalk',
+      actionType,
+      summary: args.summary.slice(0, 1000),
+      // contextShared = category labels only; each token here is T2-safe.
+      contextShared: [
+        `channel:${peerCommitment('channel', args.channelId)}`,
+        `artifact:${peerCommitment('artifact', args.artifactRowId)}`,
+        `counterparty:${args.counterpartyRef}`,
+        `type:${args.artifactType}`,
+        ...(args.rights ? [`rights:${grantedRightLabels(args.rights).join('+') || 'view'}`] : []),
+      ],
+    });
+  } catch (err) {
+    // Provenance is best-effort; the peer act already succeeded and persisted.
+    console.warn('[QubeTalk] receipt write failed (non-fatal):', err instanceof Error ? err.message : err);
+  }
 }
 
 function rowToChannel(row: Record<string, unknown>, myRef: string): PeerChannel {
@@ -391,7 +443,16 @@ export async function shareArtifact(
     }
     return { ok: false, error: insert.error.message };
   }
-  return { ok: true, value: rowToSharedArtifact(insert.data as Record<string, unknown>, myRef) };
+  const shared = rowToSharedArtifact(insert.data as Record<string, unknown>, myRef);
+  await writePeerReceipt(callerPersonaId, 'qubetalk_artifact_shared', {
+    channelId,
+    counterpartyRef: channel.counterpartyRef,
+    artifactRowId: shared.id,
+    artifactType: shared.artifactType,
+    rights: shared.rights,
+    summary: `Shared ${shared.artifactType}${shared.title ? ` "${shared.title}"` : ''} into a QubeTalk peer channel (${shared.relationship})`,
+  });
+  return { ok: true, value: shared };
 }
 
 /** List artifacts shared into a channel the caller is a principal of, newest first. */
@@ -416,6 +477,63 @@ export async function listSharedArtifacts(
     return { ok: false, error: error.message };
   }
   return { ok: true, value: (data ?? []).map((r) => rowToSharedArtifact(r as Record<string, unknown>, myRef)) };
+}
+
+/**
+ * Mark a shared artifact as OPENED by the recipient (a recipient-pull act — the
+ * sharer opening their own share is not consequential and is a no-op receipt).
+ * Idempotent: `opened_at` is stamped once; the consequential `opened` receipt is
+ * written only on the first open.
+ */
+export async function markArtifactOpened(
+  callerPersonaId: string,
+  channelId: string,
+  artifactId: string,
+): Promise<PeerResult<SharedArtifact>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  const myRef = personaPublicRef(callerPersonaId);
+
+  const channel = await loadOwnedChannel(admin, channelId, myRef);
+  if (!channel) return { ok: false, error: 'channel not found or caller is not a principal', code: 'not_found' };
+
+  const { data: row, error: loadErr } = await admin
+    .from(SHARED)
+    .select('*')
+    .eq('id', artifactId)
+    .eq('channel_id', channelId)
+    .maybeSingle();
+  if (loadErr) {
+    if (loadErr.message.includes(SHARED)) return { ok: false, code: 'migration_pending', error: 'peer shared-artifact table not provisioned — apply 20260805100000.' };
+    return { ok: false, error: loadErr.message };
+  }
+  if (!row) return { ok: false, error: 'shared artifact not found in this channel', code: 'not_found' };
+
+  const shared = rowToSharedArtifact(row as Record<string, unknown>, myRef);
+  // The sharer viewing their own share is not a consequential "opened" event.
+  if (shared.mine) return { ok: true, value: shared };
+  // Already opened → idempotent, no second receipt.
+  if (shared.openedAt) return { ok: true, value: shared };
+
+  const stamp = await admin
+    .from(SHARED)
+    .update({ opened_at: new Date().toISOString() })
+    .eq('id', artifactId)
+    .eq('channel_id', channelId)
+    .is('opened_at', null)
+    .select('*')
+    .maybeSingle();
+  const stampedRow = (stamp.data as Record<string, unknown> | null) ?? { ...row, opened_at: new Date().toISOString() };
+
+  await writePeerReceipt(callerPersonaId, 'qubetalk_artifact_opened', {
+    channelId,
+    counterpartyRef: channel.counterpartyRef,
+    artifactRowId: shared.id,
+    artifactType: shared.artifactType,
+    summary: `Opened ${shared.artifactType}${shared.title ? ` "${shared.title}"` : ''} shared into a QubeTalk peer channel`,
+  });
+
+  return { ok: true, value: rowToSharedArtifact(stampedRow, myRef) };
 }
 
 export interface CopiedToLocker {
@@ -521,6 +639,15 @@ export async function copyToLocker(
     .select('*')
     .maybeSingle();
   const stampedRow = (stamp.data as Record<string, unknown> | null) ?? { ...row, copied_to_locker_at: new Date().toISOString() };
+
+  await writePeerReceipt(callerPersonaId, 'qubetalk_artifact_copied', {
+    channelId,
+    counterpartyRef: channel.counterpartyRef,
+    artifactRowId: shared.id,
+    artifactType: shared.artifactType,
+    rights: shared.rights,
+    summary: `Copied ${shared.artifactType}${shared.title ? ` "${shared.title}"` : ''} from a QubeTalk peer channel into own locker`,
+  });
 
   return {
     ok: true,
