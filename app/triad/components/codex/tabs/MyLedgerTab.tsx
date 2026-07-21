@@ -61,7 +61,7 @@ interface ActivityReceipt {
   createdAt: string;
 }
 
-type FilterChip = 'all' | 'mycanvas' | 'myworkspace' | 'aigentme' | 'specialists';
+type FilterChip = 'all' | 'mycanvas' | 'myworkspace' | 'aigentme' | 'specialists' | 'myexperiments';
 
 const SPECIALIST_AGENT_IDS = new Set([
   'marketa', 'quill', 'kn0w1', 'aigent-c', 'aigent-z',
@@ -74,7 +74,14 @@ const CHIP_LABELS: Record<FilterChip, string> = {
   myworkspace: 'myWorkspace',
   aigentme: 'aigentMe',
   specialists: 'Specialists',
+  myexperiments: 'myExperiments',
 };
+
+// Experiment publications are DVN-receipted activity too — a distinct class.
+// They carry no intentId, so they render as standalone ActivityReceiptCards
+// (with the DVN status + Retry DVN affordance), never folded into an
+// intent-chain capsule.
+const EXPERIMENT_ACTION_TYPES = new Set(['experiment_result_published']);
 
 const CANVAS_ACTION_HINTS = new Set([
   'experience_published',
@@ -182,6 +189,7 @@ export function MyLedgerTab({ personaId, isAdmin }: Props) {
       if (activeChip === 'aigentme') return agents.includes('aigent-me');
       if (activeChip === 'specialists') return agents.some((a) => SPECIALIST_AGENT_IDS.has(a));
       if (activeChip === 'mycanvas') return CANVAS_ACTION_HINTS.has(r.actionType);
+      if (activeChip === 'myexperiments') return EXPERIMENT_ACTION_TYPES.has(r.actionType);
       if (activeChip === 'myworkspace') {
         return Boolean(r.intentId) || ['intent_queued', 'artifact_created', 'approval_granted', 'approval_rejected', 'experience_model_updated'].includes(r.actionType);
       }
