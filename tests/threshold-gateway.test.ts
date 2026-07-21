@@ -141,10 +141,57 @@ describe('Read-only dispatch', () => {
   });
 
   it('handshake tools are gated with an honest "handshake required" (no silent action)', async () => {
-    for (const t of ['begin_handshake', 'propose_delegation', 'submit_review', 'send_qubetalk_message']) {
+    for (const t of ['begin_handshake', 'submit_review', 'send_qubetalk_message']) {
       const res = await callTool(t, {}, ctx);
       expect(res.isError).toBe(true);
       expect((res.content[0].text as string)).toMatch(/Constitutional Handshake/);
     }
+  });
+});
+
+describe('Authenticated dispatch (Increment 3)', () => {
+  const session = {
+    id: 'sess',
+    principalPublicRef: 'ppr_t2commitment',
+    agentAlias: 'companion_t2alias',
+    agreementId: 'agr-1',
+    scope: ['research.read', 'research.submit', 'qubetalk.send'],
+    initiatingService: 'irl',
+    expiresAt: null,
+  };
+  const authedCtx: GatewayContext = { ...ctx, session };
+
+  it('the implemented authenticated tools still gate to handshake-required WITHOUT a session', async () => {
+    for (const t of ['get_crossing_status', 'request_service_capabilities', 'propose_delegation']) {
+      const res = await callTool(t, {}, ctx); // no session
+      expect(res.isError).toBe(true);
+      expect(res.content[0].text as string).toMatch(/Constitutional Handshake/);
+    }
+  });
+
+  it('get_crossing_status reports the granted scope + reachability, with no T0 ids', async () => {
+    const res = await callTool('get_crossing_status', {}, authedCtx);
+    const body = JSON.parse(res.content[0].text as string);
+    expect(body.crossed).toBe(true);
+    expect(body.grantedScope).toEqual(session.scope);
+    expect(body.reachableServices).toContain('irl'); // irl caps ⊆ granted scope
+    expect(JSON.stringify(body)).not.toMatch(/personaId|authProfileId|rootDid|kybe/i);
+  });
+
+  it('request_service_capabilities distinguishes reachable vs an incremental crossing', async () => {
+    const irl = await callTool('request_service_capabilities', { service: 'irl' }, authedCtx);
+    expect(JSON.parse(irl.content[0].text as string).reachable).toBe(true);
+    const devon = await callTool('request_service_capabilities', { service: 'devon' }, authedCtx);
+    const body = JSON.parse(devon.content[0].text as string);
+    expect(body.reachable).toBe(false);
+    expect(body.missingCapabilities.length).toBeGreaterThan(0);
+  });
+
+  it('propose_delegation prepares only (never grants) and drops unknown capabilities', async () => {
+    const res = await callTool('propose_delegation', { capabilities: ['research.read', 'not.a.capability'] }, authedCtx);
+    const body = JSON.parse(res.content[0].text as string);
+    expect(body.proposal.alreadyHeld).toContain('research.read');
+    expect(body.proposal.unrecognized).toContain('not.a.capability');
+    expect(body.humanStep).toMatch(/cannot authorize on their behalf/i);
   });
 });
