@@ -31,6 +31,7 @@ import {
 } from '@/services/threshold/gateway';
 import { resolveInvitation } from '@/services/threshold/resolveInvitation';
 import { resolveBearer } from '@/services/threshold/gatewaySession';
+import { makeIrlAdapter } from '@/services/threshold/irlAdapter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest) {
     gatewayUrl: `${origin}/api/threshold/mcp`,
     resolveInvitation,
     session,
+    irl: makeIrlAdapter(origin),
   };
 
   // MCP OAuth challenge: if a bearer-less Companion calls an authenticated
