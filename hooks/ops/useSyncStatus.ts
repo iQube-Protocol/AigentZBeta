@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
 interface SyncStatusData {
   ok: boolean;
@@ -26,17 +26,6 @@ export function useSyncStatus(refreshMs = 30000) {
   const [data, setData] = useState<SyncStatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Guards the auto-repair from re-entering itself. repair() and
-  // processLayerZero() each call load() again to refresh the UI after acting;
-  // without this flag that refresh re-triggers auto-repair, and because
-  // repair() awaits load() internally, load→repair→load→repair mutually recurse
-  // and NEVER RETURN — so the .then(processLayerZero) that actually attests the
-  // pending DVN messages (the real fix) never runs. That recursion was the bug:
-  // the autofix could never complete, the refresh state flickered, and the
-  // Auto Repair button (disabled while loading) stayed disabled. The flag lets
-  // exactly one auto-repair cycle run to completion; the next 30s poll re-checks
-  // and re-triggers only if drift still persists.
-  const autoRepairInFlightRef = useRef(false);
 
   async function load() {
     try {
@@ -46,10 +35,9 @@ export function useSyncStatus(refreshMs = 30000) {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const json = await r.json();
       setData(json);
-
+      
       // Auto-process via proper flow if drift > 0 and not legitimate
-      if (json.drift > 0 && !json.isLegitimate && json.ok && !autoRepairInFlightRef.current) {
-        autoRepairInFlightRef.current = true;
+      if (json.drift > 0 && !json.isLegitimate && json.ok) {
         console.log(`Auto-processing triggered: drift=${json.drift}`);
         // Trigger repair which will batch → anchor → LayerZero (or just LayerZero for small drifts)
         repair('auto').then(result => {
@@ -59,13 +47,13 @@ export function useSyncStatus(refreshMs = 30000) {
             } else {
               console.log('Batch and anchor complete, processing via LayerZero...');
             }
-            // Now trigger LayerZero processing (attests the pending DVN messages)
-            return processLayerZero('process_pending');
+            // Now trigger LayerZero processing
+            processLayerZero('process_pending').catch(err => {
+              console.error('LayerZero processing failed:', err);
+            });
           }
         }).catch(err => {
           console.error('Auto-processing failed:', err);
-        }).finally(() => {
-          autoRepairInFlightRef.current = false;
         });
       }
     } catch (e: any) {
