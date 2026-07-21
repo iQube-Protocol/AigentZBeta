@@ -29,6 +29,7 @@ import {
   type GatewayContext,
 } from '@/services/threshold/gateway';
 import { resolveInvitation } from '@/services/threshold/resolveInvitation';
+import { resolveBearer } from '@/services/threshold/gatewaySession';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -113,10 +114,18 @@ export async function POST(request: NextRequest) {
   }
 
   const origin = publicOrigin(request);
+  // Resolve the Constitutional Handshake bearer, if one is presented. Defensive:
+  // resolveBearer degrades any error (incl. an unmigrated table) to null, so an
+  // absent/invalid/expired bearer simply leaves the gateway on its read-only
+  // surface — it never fails the request.
+  const authz = request.headers.get('authorization');
+  const bearer = authz?.toLowerCase().startsWith('bearer ') ? authz.slice(7).trim() : null;
+  const session = await resolveBearer(bearer);
   const ctx: GatewayContext = {
     origin,
     gatewayUrl: `${origin}/api/threshold/mcp`,
     resolveInvitation,
+    session,
   };
 
   if (Array.isArray(body)) {
