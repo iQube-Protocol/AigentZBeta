@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { buildThresholdLink, verifyThresholdLink, THRESHOLD_LINK_SCHEMA } from '../services/threshold/thresholdLink';
 import { listTools, listPrompts, callTool, type GatewayContext } from '../services/threshold/gateway';
 import { serviceRegistrySnapshot, getService } from '../services/threshold/serviceRegistry';
+import { journeyRegistrySnapshot, getJourney, FOUNDER_OFFICE_RUNG } from '../services/threshold/journeyRegistry';
 
 const ctx: GatewayContext = {
   origin: 'https://example.test',
@@ -75,9 +76,44 @@ describe('Gateway catalogue', () => {
     expect(names).not.toContain('activate_agent_passport');
   });
 
-  it('offers the conversational crossing prompts', () => {
+  it('offers the conversational crossing prompts incl. journey selection', () => {
     const names = listPrompts().map((p) => p.name);
-    expect(names).toEqual(expect.arrayContaining(['cross_the_threshold', 'get_polity_passport', 'explain_delegation_request']));
+    expect(names).toEqual(
+      expect.arrayContaining(['cross_the_threshold', 'get_polity_passport', 'explain_delegation_request', 'choose_your_journey']),
+    );
+  });
+
+  it('advertises list_journeys ahead of the platform-facing list_services', () => {
+    const names = listTools().map((t) => t.name);
+    expect(names).toContain('list_journeys');
+    expect(names.indexOf('list_journeys')).toBeLessThan(names.indexOf('list_services'));
+  });
+});
+
+describe('Journey registry', () => {
+  it('exposes the five constitutional journeys, each converging on the Founder Office', () => {
+    const snap = journeyRegistrySnapshot();
+    expect(snap.journeys.map((j) => j.id)).toEqual(['citizen', 'entrepreneur', 'researcher', 'creative', 'technical']);
+    expect(snap.apex).toBe(FOUNDER_OFFICE_RUNG);
+    for (const j of snap.journeys) {
+      expect(j.ladder[j.ladder.length - 1]).toBe(FOUNDER_OFFICE_RUNG);
+      expect(j.unlocks).toContain('founder-office');
+      expect(j.experienceGuide).toMatch(/experience-guide$/);
+    }
+  });
+
+  it('maps journeys onto the existing participation access domains (no parallel model)', () => {
+    expect(getJourney('researcher')?.accessDomain).toBe('research-lab');
+    expect(getJourney('entrepreneur')?.accessDomain).toBe('venture-lab');
+    expect(getJourney('technical')?.unlocks).toEqual(expect.arrayContaining(['devon', 'agentiq-builder']));
+    expect(getJourney('nope')).toBeNull();
+  });
+
+  it('list_journeys returns the registry and carries no persona/T0 ids', async () => {
+    const res = await callTool('list_journeys', {}, ctx);
+    const body = JSON.parse(res.content[0].text as string);
+    expect(body.journeys.length).toBe(5);
+    expect(JSON.stringify(body)).not.toMatch(/personaId|authProfileId|rootDid|kybe/i);
   });
 });
 

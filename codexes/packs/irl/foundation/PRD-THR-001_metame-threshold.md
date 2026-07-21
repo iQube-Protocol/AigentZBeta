@@ -50,12 +50,20 @@ Threshold is the **constitutional moment a person crosses** — the agent is the
               Constitutional Persona
                         │
                         ▼
-        ┌───────────────────────────────┐
-        │ Founder Office · IRL · DevOn   │
-        │ metaMe Studio · AgentiQ Builder│
-        │ Polity services · QubeTalk · … │
-        └───────────────────────────────┘
+                Choose Your Journey
+                        │
+        ┌────────┬──────┼───────┬──────────┐
+     Citizen Entrepreneur Researcher Creative Technical
+        │        │        │        │          │
+        └────────┴──────┬─┴────────┴──────────┘
+                        ▼
+              Progressive Sovereignty
+                        │
+                        ▼
+                  Founder Office
 ```
+
+The services (IRL · DevOn · metaMe Studio · AgentiQ Builder · Polity services · QubeTalk) are **destinations within a journey**, not the first thing the principal sees. Each journey introduces them contextually as the principal climbs (see §9).
 
 ## 3. Public primitives + the actors
 
@@ -81,7 +89,9 @@ Personhood            (Polity Passport — continuity without identity exposure)
     ↓
 Constitutional Persona (Agent Card + Agent Passport + bounded delegation)
     ↓
-Service Participation  (IRL · DevOn · Founder Office · Studio · … via the familiar agent)
+Journey                (Citizen · Entrepreneur · Researcher · Creative · Technical — a chosen goal + Experience Guide)
+    ↓
+Service Participation  (services as destinations WITHIN the journey — IRL · DevOn · Studio · … via the familiar agent)
     ↓
 Standing               (polity-bound reputation for the agent's acts)
     ↓
@@ -174,7 +184,7 @@ The user gives their Companion one instruction: *"Open this Threshold Link, conn
 
 ## 8. Threshold Gateway — MCP surface
 
-**Resources:** `metame://institution/charter` · `metame://onboarding/current` · `metame://passport/status` · `metame://services` · `metame://threshold-link/{id}` · `metame://locker/shared-items` · `metame://qubetalk/channels`
+**Resources:** `metame://institution/charter` · `metame://onboarding/current` · `metame://passport/status` · `metame://journeys` · `metame://services` · `metame://threshold-link/{id}` · `metame://locker/shared-items` · `metame://qubetalk/channels`
 
 **Tools** (small; each delegates to an existing service):
 
@@ -187,17 +197,38 @@ The user gives their Companion one instruction: *"Open this Threshold Link, conn
 | `create_or_link_agent_card` | `AigentQubeRegistry` → `POST /api/codex/agentiq-os/registry-draft` |
 | `request_agent_passport` / `activate_agent_passport` | `app/api/polity-passport/submit` (`agent_participant`) |
 | `propose_delegation` | `formAgreement` + agent `acceptAgreement` (authorize returns a human URL) |
-| `list_services` / `request_service_capabilities` / `enter_service` | service registry (§9) |
+| `list_journeys` / `select_journey` | Journey Registry (§9.1) → Experience-Guide handoff |
+| `list_services` / `request_service_capabilities` / `enter_service` | Service Registry (§9.2) |
 | `accept_lab_invitation` | `claimAccessInvitation` (`participationAccess.ts`) (human claim) |
 | `list_shared_documents` / `read_shared_document` | Passport locker (`lockerItems.ts`) |
 | `join_qubetalk_channel` / `send_qubetalk_message` / `list_qubetalk_channels` | `services/qubetalk/peerChannel.ts` |
 | `submit_review` / `submit_result` | `POST /api/public/irl/experiments/submit` (x409 gate) |
 
-**Prompts** (the Companion narrates, doesn't just call functions): `cross_the_threshold` · `get_polity_passport` · `explain_delegation_request` · `prepare_agent_card` · `enter_service` (e.g. `review_research_package`).
+**Prompts** (the Companion narrates, doesn't just call functions): `cross_the_threshold` · `get_polity_passport` · `explain_delegation_request` · `choose_your_journey` · `prepare_agent_card` · `enter_service` (e.g. `review_research_package`).
 
-## 9. Service registry + discovery
+## 9. Journey selection → progressive sovereignty (the post-Passport model)
 
-After the crossing, the Companion inspects a registry (`metame://services`) rather than being shown a platform menu:
+**People don't join platforms to access services; they join to pursue goals.** So the first thing the Companion presents after the Passport is issued is **not** a service menu — it is a **journey**. There are two distinct registries:
+
+### 9.1 Journey Registry (user-facing — the UX abstraction)
+
+Immediately after the Passport is active, the Companion says *"Your Polity Passport is active. What would you like to do first?"* and presents **five constitutional journeys** (`metame://journeys`, `list_journeys`). Each journey is a **goal** that activates an **Experience Guide** and establishes a **progressive Sovereignty Ladder** — and every journey ultimately converges on the **Founder Office**, the highest rung of sovereign participation (not everyone starts there; every journey climbs toward it).
+
+| Journey | Goal | Ladder (→ apex) | Access domain* |
+|---|---|---|---|
+| **Citizen** | Participate in the constitutional internet | Citizen → Standing → Delegation → Steward → **Founder Office** | `passport` |
+| **Entrepreneur** | Build businesses | Entrepreneur → Experience Builder → Business Operations → **Founder Office** | `venture-lab` |
+| **Researcher** | Advance Invariant Intelligence research | Researcher → IRL → Publications → Steward Research → **Founder Office** | `research-lab` |
+| **Creative** | Create, publish, tell stories | Creative → Creative Studio → Publishing → metaKnyt → **Founder Office** | `metame-studio` |
+| **Technical** | Build agents & constitutional software | Developer → DevOn → AgentiQ Builder → Studio → **Founder Office** | `developer-studio` |
+
+*The journeys are a **view over existing platform structure**, not a new model: each maps to an `AccessDomain` and its `DOMAIN_ROLES` ladder in `services/passport/participationAccess.ts`. `services/threshold/journeyRegistry.ts` is the pure-data source of truth.
+
+**Experience Guides are first-class.** Each journey simply activates a different guide (`citizen-experience-guide`, `entrepreneur-experience-guide`, …). The guide already owns recommended services, progression, onboarding, achievements, delegation opportunities, and standing milestones — so Threshold needs no bespoke onboarding logic beyond the constitutional crossing. It **hands the principal to the appropriate guide**, which introduces services *contextually* as the principal climbs.
+
+### 9.2 Service Registry (platform-facing — the implementation abstraction)
+
+The Service Registry (`metame://services`, `list_services`) still exists — but as the **implementation** layer beneath the journeys, responsible for capability discovery, authorization, delegation scopes, service adapters, and routing:
 
 ```json
 { "services": [
@@ -207,7 +238,9 @@ After the crossing, the Companion inspects a registry (`metame://services`) rath
 ] }
 ```
 
-It then says: *"You are eligible to join the IRL. This requires permission to read shared research artifacts and submit review responses. Shall I request those capabilities?"* → `request_service_capabilities('irl')` forms the incremental delegation → human authorizes → `enter_service('irl')`. **Every service consumes the same constitutional persona; none re-implements onboarding.**
+Once a journey has surfaced a service in context, entry is the same incremental-delegation flow: *"You are eligible to join the IRL. This requires permission to read shared research artifacts and submit review responses. Shall I request those capabilities?"* → `request_service_capabilities('irl')` forms the incremental delegation → **human authorizes** → `enter_service('irl')`. **Every service consumes the same constitutional persona; none re-implements onboarding.**
+
+> **The shift in one line:** *Threshold → Journey Selection → Progressive Sovereignty* (services are destinations within a journey), replacing *Threshold → Service Discovery* (services as the first menu). The Journey Registry is what the principal sees; the Service Registry is how the gateway enforces.
 
 ## 10. QubeTalk handoff (Threshold crosses; QubeTalk persists)
 
@@ -229,7 +262,7 @@ MCP is excellent for reading resources, invoking crossing tools, retrieving repo
 | Identity spine | `services/identity/*`, `utils/personaSpine.tsx` |
 | A2A card shape (later) | `app/api/agents/aletheon/route.ts`, `app/api/agents/[id]/agent-card.json/route.ts` |
 
-**Net-new:** the spec-compliant remote MCP Threshold Gateway; the **Constitutional Handshake** (OAuth-façade binding + scoped session table); the signed `metame-threshold-link/v1` manifest + `/threshold/[id]` page; the **service registry**; the Agent-Passport issuance step. Everything else composes existing rails.
+**Net-new:** the spec-compliant remote MCP Threshold Gateway; the **Constitutional Handshake** (OAuth-façade binding + scoped session table); the signed `metame-threshold-link/v1` manifest + `/threshold/[id]` page; the **Journey Registry** (user-facing, a view over `AccessDomain`/`DOMAIN_ROLES`) + the **Service Registry** (platform-facing); the Agent-Passport issuance step. Everything else composes existing rails — including the Experience Guides, which each journey activates rather than re-implementing onboarding.
 
 ## 12. Connection modes
 
@@ -240,9 +273,9 @@ MCP is excellent for reading resources, invoking crossing tools, retrieving repo
 ## 13. Roadmap
 
 - **Phase 0 — this PRD (ratify-before-build).**
-- **Phase 1 — The Threshold crossing (core product):** Threshold Link · remote MCP gateway · **Constitutional Handshake** (OAuth façade + Passport) · Agent Card create/link · Agent Passport issuance · bounded delegation · revocation · service discovery · receipts. Modes A + C.
+- **Phase 1 — The Threshold crossing (core product):** Threshold Link · remote MCP gateway · **Constitutional Handshake** (OAuth façade + Passport) · Agent Card create/link · Agent Passport issuance · bounded delegation · revocation · **journey selection** (the five journeys + Experience-Guide handoff) · service discovery beneath it · receipts. Modes A + C.
 - **Phase 2 — Foundational metaMe access:** locker · QubeTalk send/receive · shared-artifact access · principal approvals · agent-activity view.
-- **Phase 3 — Service adapters:** IRL **first (flagship)**, then DevOn, Founder Office, Studio, AgentiQ Builder — each consuming the same constitutional persona.
+- **Phase 3 — Journey Experience Guides + service adapters:** wire each journey to its Experience Guide, then the service adapters those guides surface — IRL **first (flagship)**, then DevOn, Founder Office, Studio, AgentiQ Builder — each consuming the same constitutional persona.
 - **Phase 4 — A2A + external runtime interop + Mode B kit + asymmetric signing.**
 
 ## 14. First flagship crossing (IRL — Austin)

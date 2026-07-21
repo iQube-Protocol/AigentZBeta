@@ -14,6 +14,7 @@
  */
 
 import { serviceRegistrySnapshot } from './serviceRegistry';
+import { journeyRegistrySnapshot, getJourney } from './journeyRegistry';
 import { buildThresholdLink, type ThresholdLinkManifest } from './thresholdLink';
 import type { ScopedSession } from './gatewaySession';
 
@@ -53,9 +54,15 @@ export const PROTOCOL_VERSION = '2025-06-18';
 export function listTools() {
   return [
     {
+      name: 'list_journeys',
+      description:
+        'List the five constitutional journeys a principal chooses AFTER their Polity Passport is issued — Citizen, Entrepreneur, Researcher, Creative, Technical. Each is a goal (not a service menu): it activates an Experience Guide, has a progressive Sovereignty Ladder converging on the Founder Office, and progressively unlocks services. Present these first; services are destinations within a journey.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
       name: 'list_services',
       description:
-        'List the metaMe services reachable after crossing the Threshold, each with the capability scope a crossing must request. polity-passport is the constitutional root (the front door itself).',
+        'The platform-facing service registry beneath the journeys: the metaMe services reachable after crossing the Threshold, each with the capability scope a crossing must request. Prefer list_journeys for the first conversation; use this to inspect the concrete services a journey unlocks. polity-passport is the constitutional root (the front door itself).',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     },
     {
@@ -76,7 +83,8 @@ export function listResources() {
   return [
     { uri: 'metame://institution/charter', name: 'metaMe Threshold — charter', mimeType: 'text/markdown' },
     { uri: 'metame://onboarding/current', name: 'The crossing — current steps', mimeType: 'text/markdown' },
-    { uri: 'metame://services', name: 'Service registry', mimeType: 'application/json' },
+    { uri: 'metame://journeys', name: 'Journey registry (user-facing)', mimeType: 'application/json' },
+    { uri: 'metame://services', name: 'Service registry (platform-facing)', mimeType: 'application/json' },
   ];
 }
 
@@ -96,6 +104,11 @@ export function listPrompts() {
       name: 'explain_delegation_request',
       description: 'Explain, in plain language, exactly what bounded authority a crossing is asking the principal to delegate to their agent — what it may and may not do — before they authorize.',
       arguments: [{ name: 'capabilities', description: 'The requested capability scope.', required: false }],
+    },
+    {
+      name: 'choose_your_journey',
+      description: 'After the Polity Passport is issued, help the principal choose one of the five constitutional journeys (Citizen, Entrepreneur, Researcher, Creative, Technical). Present each as a goal with its Sovereignty Ladder, and let the principal pick a purpose — the services follow from the journey.',
+      arguments: [],
     },
   ];
 }
@@ -128,6 +141,10 @@ function text(value: unknown) {
 }
 
 export async function callTool(name: string, args: Record<string, unknown>, ctx: GatewayContext) {
+  if (name === 'list_journeys') {
+    return text(journeyRegistrySnapshot());
+  }
+
   if (name === 'list_services') {
     return text(serviceRegistrySnapshot());
   }
@@ -179,6 +196,9 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
 }
 
 export async function readResource(uri: string, ctx: GatewayContext) {
+  if (uri === 'metame://journeys') {
+    return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(journeyRegistrySnapshot(), null, 2) }] };
+  }
   if (uri === 'metame://services') {
     return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(serviceRegistrySnapshot(), null, 2) }] };
   }
@@ -209,8 +229,8 @@ export async function readResource(uri: string, ctx: GatewayContext) {
             '3. **Bind the agent** — create/link an Agent Card.\n' +
             '4. **Delegate** — the principal authorizes a bounded scope.\n' +
             '5. **Activate** a revocable Agent Passport.\n' +
-            '6. **Enter a service** — the initiating link determines the destination.\n\n' +
-            '_This gateway increment supports steps 1 and service discovery; the authenticated steps land next._',
+            '6. **Choose a journey** — Citizen, Entrepreneur, Researcher, Creative, or Technical. Each activates an Experience Guide and a progressive Sovereignty Ladder converging on the Founder Office; services are destinations reached within the chosen journey (see `metame://journeys`).\n\n' +
+            '_This gateway increment supports step 1, journey discovery, and service discovery; the authenticated steps land next._',
         },
       ],
     };
@@ -240,6 +260,11 @@ export function getPrompt(name: string, args: Record<string, unknown>) {
       'Explain, plainly, the bounded authority this crossing asks your principal to delegate to you' +
         (caps ? ` (requested: ${caps})` : '') +
         '. State clearly what you MAY do and what you MAY NOT do (e.g. no publishing, no committing funds, no delegating another agent, no disclosing identity credentials). Ask for explicit approval before anything is authorized. Only the human authorizes.',
+    );
+  }
+  if (name === 'choose_your_journey') {
+    return messages(
+      'Your principal\'s Polity Passport is active. Now help them choose a purpose, not a service. Call list_journeys, then present the five constitutional journeys — Citizen, Entrepreneur, Researcher, Creative, Technical — each as a goal with its progressive Sovereignty Ladder (every journey climbs toward the Founder Office). Ask which they want to pursue first. Services are destinations they reach WITHIN the journey they choose — introduce them contextually as the journey progresses, never as an upfront menu.',
     );
   }
   return messages(`Unknown prompt: ${name}`);
