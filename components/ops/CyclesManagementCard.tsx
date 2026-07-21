@@ -11,7 +11,19 @@ import {
   Shield,
   HelpCircle,
   Copy,
+  Wallet,
 } from "lucide-react";
+
+// Material ICP deposit address for funding cycle top-ups — the DEFAULT ICP
+// ledger account identifier of the controller identity (le4c3-erfdl-…). This is
+// the address to send ICP to (e.g. a Kraken withdrawal / NNS transfer) before
+// converting to cycles. It is a PUBLIC account identifier (not a secret): it is
+// the deterministic SHA-224/CRC32 derivation of the controller principal with
+// the default (all-zero) subaccount — verified to match the principal on file.
+// To then mint cycles into ONE specific canister (never spread across others):
+//   dfx ledger top-up <canister-id> --amount <ICP> --network ic
+const ICP_TOPUP_DEPOSIT_ACCOUNT =
+  "121cb100e92df4004417bf2beaec9bd53e6965490a535923370121a71b65f108";
 
 interface CanisterCyclesInfo {
   canisterId: string;
@@ -126,6 +138,47 @@ function WalletAddressCopy({ walletCanisterId }: { walletCanisterId: string }) {
         <Copy size={10} />
         {copied ? "Copied!" : "Copy"}
       </button>
+    </div>
+  );
+}
+
+function IcpDepositAddressRow() {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(ICP_TOPUP_DEPOSIT_ACCOUNT).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className="p-2.5 rounded-md border border-indigo-500/30 bg-indigo-500/5">
+      <div className="flex items-center gap-2">
+        <Wallet size={12} className="text-indigo-300 flex-shrink-0" />
+        <span className="text-[11px] text-slate-400 flex-shrink-0">
+          ICP top-up deposit address:
+        </span>
+        <span className="font-mono text-[11px] text-indigo-100 flex-1 truncate">
+          {ICP_TOPUP_DEPOSIT_ACCOUNT}
+        </span>
+        <button
+          onClick={copy}
+          title="Copy ICP deposit account identifier"
+          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-200 transition-colors flex-shrink-0"
+        >
+          <Copy size={10} />
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      <div className="mt-1.5 text-[10px] text-slate-500 leading-relaxed">
+        Send ICP here (e.g. an exchange withdrawal / NNS transfer) to fund cycle
+        top-ups — the controller identity&apos;s (le4c3-erfdl-…) ledger account.
+        ICP sitting here is not cycles yet: convert it into ONE specific canister
+        with{" "}
+        <code className="text-slate-400">
+          dfx ledger top-up &lt;canister-id&gt; --amount &lt;ICP&gt; --network ic
+        </code>{" "}
+        (targets that canister only — never spreads across the others).
+      </div>
     </div>
   );
 }
@@ -258,6 +311,8 @@ export function CyclesManagementCard({ title }: { title: string }) {
               </span>
             </div>
           </div>
+
+          <IcpDepositAddressRow />
 
           {data.identity.type === "anonymous" && (
             <div className="flex items-start gap-2 p-3 rounded-md bg-amber-900/30 border border-amber-700/50 text-amber-200 text-xs">
