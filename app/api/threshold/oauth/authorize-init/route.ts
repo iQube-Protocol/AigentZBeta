@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient, createPendingHandshake } from '@/services/threshold/gatewaySession';
-import { getService, knownCapabilities } from '@/services/threshold/serviceRegistry';
+import { getService, grantableCapabilities, CONSTITUTIONAL_ROOT_CAPABILITIES } from '@/services/threshold/serviceRegistry';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,11 +37,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_request', error_description: 'redirect_uri not registered for this client' }, { status: 400 });
   }
 
-  // Cap the requested scope to the known capability vocabulary — a client cannot
-  // request (and thus cannot be granted a bearer carrying) an arbitrary scope.
-  const known = knownCapabilities();
-  const requestedScope = scopeStr.split(/\s+/).filter(Boolean).filter((s) => known.has(s));
+  // Passport-first re-sequencing (PRD-THR-001 §9): a crossing may only be granted
+  // what its stated purpose warrants. A base crossing (polity-passport) grants
+  // constitutional-ROOT navigation authority; a service-initiated crossing may
+  // additionally grant that service's capabilities. Anything the client requests
+  // outside this set is dropped — so a bare "connect my agent" can NEVER acquire
+  // service-operating authority, regardless of what the client asked for.
   const svc = getService(service);
+  const grantable = grantableCapabilities(svc?.id ?? 'polity-passport');
+  const requested = scopeStr.split(/\s+/).filter(Boolean).filter((s) => grantable.has(s));
+  // Every crossing establishes root navigation authority even if the client
+  // requested nothing grantable (Passport ≠ delegation, but the agent still needs
+  // to orient the principal). Service capabilities are ADD-ONs, never the default.
+  const requestedScope = Array.from(new Set([...CONSTITUTIONAL_ROOT_CAPABILITIES, ...requested]));
   const created = await createPendingHandshake({
     initiatingService: svc?.id ?? 'polity-passport',
     requestedScope,

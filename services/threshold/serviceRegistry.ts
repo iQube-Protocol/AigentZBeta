@@ -101,6 +101,46 @@ export function knownCapabilities(): Set<string> {
   return all;
 }
 
+/**
+ * Constitutional-root capabilities (PRD-THR-001 §9 / passport-first re-sequencing).
+ *
+ * These are what a BASE crossing grants — constitutional *navigation* authority,
+ * NOT service-operating authority. They let the bound agent orient the principal
+ * after crossing (read status, list/select journeys, prepare delegation requests)
+ * but permit NO substantive service action: no reading/submitting research, no
+ * DevOn, no workspace, no Studio, no peer messaging, no money movement. Crossing
+ * the Threshold, choosing a journey, and entering a service are three separate
+ * constitutional events; only the third grants service capabilities.
+ *
+ * Passport ≠ delegation: the Passport establishes the principal; this minimal
+ * root delegation authorizes the agent to navigate on the principal's behalf.
+ */
+export const CONSTITUTIONAL_ROOT_CAPABILITIES = [
+  'passport.status.read',
+  'crossing.status.read',
+  'journeys.list',
+  'journey.select',
+  'delegation.propose',
+  'delegation.status.read',
+  'services.list',
+  'agent-card.self.read',
+  'agent-passport.self.read',
+] as const;
+
+/**
+ * The capabilities a crossing to `serviceId` may grant: always the constitutional
+ * root set, PLUS that service's required capabilities ONLY for a service-initiated
+ * crossing. A base crossing (`polity-passport`, the constitutional root itself)
+ * therefore grants root navigation authority and nothing more — service authority
+ * is added only when the crossing's stated purpose IS that service.
+ */
+export function grantableCapabilities(serviceId?: string | null): Set<string> {
+  const caps = new Set<string>(CONSTITUTIONAL_ROOT_CAPABILITIES);
+  const svc = serviceId ? getService(serviceId) : null;
+  if (svc && svc.id !== 'polity-passport') for (const c of svc.requiredCapabilities) caps.add(c);
+  return caps;
+}
+
 export function getService(id: string): ThresholdService | null {
   return THRESHOLD_SERVICES.find((s) => s.id === id) ?? null;
 }

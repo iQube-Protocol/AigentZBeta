@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeAuthorizationCode } from '@/services/threshold/gatewaySession';
+import { parseOAuthBody } from '@/services/threshold/oauthBody';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,23 +31,14 @@ export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }));
 }
 
-/** Accepts application/x-www-form-urlencoded (OAuth default) or JSON. Parses the
- *  urlencoded body from the raw text with URLSearchParams rather than
- *  request.formData() — the latter is unreliable for urlencoded bodies in this
- *  runtime and can silently return nothing, which would 400 every token call. */
+/** Accepts application/x-www-form-urlencoded (OAuth default) or JSON. Reads the
+ *  raw body text and delegates to the pure, unit-tested parseOAuthBody — never
+ *  request.formData(), which is unreliable for urlencoded bodies in this runtime
+ *  and silently returned nothing, 400-ing every token call. */
 async function readParams(req: NextRequest): Promise<Record<string, string>> {
   const ctype = req.headers.get('content-type') ?? '';
-  if (ctype.includes('application/json')) {
-    const j = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    return Object.fromEntries(Object.entries(j).map(([k, v]) => [k, String(v ?? '')]));
-  }
   const raw = await req.text().catch(() => '');
-  const sp = new URLSearchParams(raw);
-  const out: Record<string, string> = {};
-  sp.forEach((v, k) => {
-    out[k] = v;
-  });
-  return out;
+  return parseOAuthBody(ctype, raw);
 }
 
 export async function POST(req: NextRequest) {

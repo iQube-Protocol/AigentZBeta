@@ -242,6 +242,33 @@ Once a journey has surfaced a service in context, entry is the same incremental-
 
 > **The shift in one line:** *Threshold → Journey Selection → Progressive Sovereignty* (services are destinations within a journey), replacing *Threshold → Service Discovery* (services as the first menu). The Journey Registry is what the principal sees; the Service Registry is how the gateway enforces.
 
+### 9.3 Passport-first authority — a base crossing grants constitutional-root authority ONLY (ratified refinement)
+
+Crossing the Threshold, choosing a journey, and entering a service are **three separate constitutional events**. A base crossing must therefore grant **constitutional-root *navigation* authority** — not empty scope, and never service-operating authority:
+
+```
+passport.status.read · crossing.status.read · journeys.list · journey.select ·
+delegation.propose · delegation.status.read · services.list ·
+agent-card.self.read · agent-passport.self.read
+```
+
+These let the bound agent orient the principal after crossing (read status, list/select journeys, prepare delegation requests) but permit **no** substantive service action — no research read/submit, no DevOn, no workspace, no Studio, no peer messaging, no money movement. **`Passport ≠ delegation`**: the Passport establishes the principal; this minimal root delegation authorizes the agent to navigate. Service capabilities are added **only** by a service-initiated crossing (e.g. `service=irl`), and this is **enforced server-side** (`grantableCapabilities()`), so a client that requests "the union of everything advertised" still receives root-only at a base crossing. The discovery document advertises only the root class in `scopes_supported` and distinguishes `constitutional_root` vs `service` capability classes so clients do not over-ask at sign-up. **Service-initiated Threshold Links carry intent (`initiatingJourney`, `initiatingService`, `requestedRole`) — onboarding context, never pre-granted authority.** Acceptance: a self-serve link and an IRL-invitation link must yield the **same base constitutional state** (Passport + agent bound + navigation authority, no service authority); the only difference is the recommended next journey.
+
+### 9a. Constitutional Welcome & Citizenship Orientation (named product requirement)
+
+The Threshold must, upon a successful crossing:
+
+1. congratulate the user;
+2. state that they are now a **citizen of the Polity**;
+3. explain the Constitutional Internet (plain language);
+4. explain the rights, responsibilities and **limits** of citizenship;
+5. **distinguish citizenship from delegated agent authority** (citizenship ≠ broad agent powers);
+6. present the five journeys (Citizen · Entrepreneur · Researcher · Creative · Technical);
+7. provide a **machine-readable crossing receipt** — `Threshold crossed · Passport active · Citizenship active · Agent connection active · Service authority: none yet · Next step: choose a journey`;
+8. allow the user to revisit the orientation at any time.
+
+This is not copy; it is the moment a technical OAuth event becomes a meaningful constitutional transition. Served identically to any Companion via the `constitutional_welcome` prompt + `metame://welcome` resource; the receipt is folded into `get_crossing_status` (`crossingReceipt`), whose `serviceAuthority` reads "none yet" for a base crossing so the celebration can never imply the agent received service authority.
+
 ## 10. QubeTalk handoff (Threshold crosses; QubeTalk persists)
 
 MCP is excellent for reading resources, invoking crossing tools, retrieving reports, and submitting structured actions — but is **not** the canonical persistent peer-messaging layer. After the crossing, the gateway creates/connects the Companion to a **QubeTalk channel** (reuse `maybeOpenInviteChannel` / `createOrGetChannel`). Messages carry principal, agent, delegation receipt, message type, shared-artifact references, permissions, consequence tier, delivery receipt. `send_qubetalk_message` is one interface into that protocol. **A2A façade** (`/.well-known/agent-card.json` + task endpoint over the same gateway) is a later layer for autonomous agents; **build MCP first.**
