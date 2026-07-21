@@ -159,6 +159,7 @@ describe('Authenticated dispatch (Increment 3)', () => {
     scope: ['research.read', 'research.submit', 'qubetalk.send'],
     initiatingService: 'irl',
     expiresAt: null,
+    serviceAgreements: {},
   };
   const authedCtx: GatewayContext = { ...ctx, session };
 
@@ -201,13 +202,14 @@ describe('Authenticated dispatch (Increment 3)', () => {
 describe('IRL read adapter (Increment 4a)', () => {
   const rootSession = {
     id: 's', principalPublicRef: 'p', agentAlias: 'a', agreementId: 'g',
-    scope: [...CONSTITUTIONAL_ROOT_CAPABILITIES], initiatingService: 'polity-passport', expiresAt: null,
+    scope: [...CONSTITUTIONAL_ROOT_CAPABILITIES], initiatingService: 'polity-passport', expiresAt: null, serviceAgreements: {},
   };
   const irlSession = { ...rootSession, scope: [...CONSTITUTIONAL_ROOT_CAPABILITIES, 'research.read'], initiatingService: 'irl' };
   const fakeIrl = {
     listDocuments: async () => ({ ok: true, overview: { artifacts: ['a', 'b'] } }),
     readDocument: async (path: string) => ({ ok: true, path, content: '# doc' }),
     resolveCanon: async (term: string) => ({ ok: true, term, resolved: { invariants: ['inv.constitutional.061'] } }),
+    submitResult: async (input: { agreementId: string }) => ({ ok: true, id: 'res-1', agreementId: input.agreementId }),
   };
 
   it('explain_primitive resolves a term against the canon WITHOUT a session (public, read-only)', async () => {
@@ -236,6 +238,21 @@ describe('IRL read adapter (Increment 4a)', () => {
     const read = await callTool('read_shared_document', { path: 'foundation/PARTICIPATION_overview.md' }, c);
     expect(JSON.parse(read.content[0].text as string).path).toBe('foundation/PARTICIPATION_overview.md');
   });
+
+  it('submit_review needs research.submit AND an IRL agreement, then submits under it (4b)', async () => {
+    const submitScope = [...CONSTITUTIONAL_ROOT_CAPABILITIES, 'research.read', 'research.submit'];
+    // holds the scope but NO irl agreement yet → refused with guidance
+    const noAgr: GatewayContext = { ...ctx, session: { ...rootSession, scope: submitScope, serviceAgreements: {} }, irl: fakeIrl };
+    const blocked = await callTool('submit_review', { experiment: 'EXP-P1', provider: 'x', model: 'y', results: {} }, noAgr);
+    expect(blocked.isError).toBe(true);
+    expect(blocked.content[0].text as string).toMatch(/IRL submission agreement/i);
+    // with the incremental IRL delegation recorded → submits under that agreement
+    const withAgr: GatewayContext = { ...ctx, session: { ...rootSession, scope: submitScope, serviceAgreements: { irl: 'irlsub-abc' } }, irl: fakeIrl };
+    const ok = await callTool('submit_review', { experiment: 'EXP-P1', provider: 'x', model: 'y', results: {} }, withAgr);
+    const body = JSON.parse(ok.content[0].text as string);
+    expect(body.ok).toBe(true);
+    expect(body.agreementId).toBe('irlsub-abc');
+  });
 });
 
 describe('Passport-first crossing (constitutional-root authority only)', () => {
@@ -257,11 +274,11 @@ describe('Passport-first crossing (constitutional-root authority only)', () => {
 
   it('the crossing receipt reads "none yet" for a root-only session, and lists service authority once granted', () => {
     const root = CONSTITUTIONAL_ROOT_CAPABILITIES.slice();
-    const base = crossingReceipt({ id: 's', principalPublicRef: 'p', agentAlias: 'a', agreementId: 'g', scope: root, initiatingService: 'polity-passport', expiresAt: null });
+    const base = crossingReceipt({ id: 's', principalPublicRef: 'p', agentAlias: 'a', agreementId: 'g', scope: root, initiatingService: 'polity-passport', expiresAt: null, serviceAgreements: {} });
     expect(base.serviceAuthority).toBe('none yet');
     expect(base.citizenship).toBe('active');
     expect(base.nextStep).toBe('choose a journey');
-    const withIrl = crossingReceipt({ id: 's', principalPublicRef: 'p', agentAlias: 'a', agreementId: 'g', scope: [...root, 'research.read'], initiatingService: 'irl', expiresAt: null });
+    const withIrl = crossingReceipt({ id: 's', principalPublicRef: 'p', agentAlias: 'a', agreementId: 'g', scope: [...root, 'research.read'], initiatingService: 'irl', expiresAt: null, serviceAgreements: {} });
     expect(withIrl.serviceAuthority).toEqual(['research.read']);
   });
 });

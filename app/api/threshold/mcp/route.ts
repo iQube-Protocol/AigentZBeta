@@ -30,7 +30,7 @@ import {
   type GatewayContext,
 } from '@/services/threshold/gateway';
 import { resolveInvitation } from '@/services/threshold/resolveInvitation';
-import { resolveBearer } from '@/services/threshold/gatewaySession';
+import { resolveBearer, createUpgradeHandshake } from '@/services/threshold/gatewaySession';
 import { makeIrlAdapter } from '@/services/threshold/irlAdapter';
 
 export const runtime = 'nodejs';
@@ -129,6 +129,15 @@ export async function POST(request: NextRequest) {
     resolveInvitation,
     session,
     irl: makeIrlAdapter(origin),
+    // Incremental service crossing: pinned to THIS session so the browser
+    // authorization upgrades the exact agent session it augments.
+    beginServiceUpgrade: session
+      ? async (service, missing) => {
+          const hs = await createUpgradeHandshake({ parentSessionId: session.id, service, requestedScope: missing });
+          if (!hs) return null;
+          return { authorizeUrl: `${origin}/threshold/enter-service?code=${encodeURIComponent(hs.handshakeCode)}` };
+        }
+      : undefined,
   };
 
   // MCP OAuth challenge: if a bearer-less Companion calls an authenticated

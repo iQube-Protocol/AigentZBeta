@@ -30,6 +30,10 @@ export interface ScopedSession {
   scope: string[];
   initiatingService: string;
   expiresAt: string | null;
+  /** serviceId -> the AUTHORIZED capability-specific agreement id granted by an
+   *  incremental service crossing (e.g. irl -> the irl:experiment-result:submit
+   *  agreement). The delegated write tools use this, not the base crossing one. */
+  serviceAgreements: Record<string, string>;
 }
 
 function sha256(s: string): string {
@@ -321,7 +325,7 @@ export async function resolveBearer(bearer: string | null | undefined): Promise<
     if (!admin) return null;
     const { data, error } = await admin
       .from(TABLE)
-      .select('id, status, principal_public_ref, agent_alias, agreement_id, granted_scope, initiating_service, expires_at')
+      .select('id, status, principal_public_ref, agent_alias, agreement_id, granted_scope, initiating_service, expires_at, service_agreements')
       .eq('token_hash', sha256(bearer))
       .maybeSingle();
     if (error || !data) return null;
@@ -337,6 +341,7 @@ export async function resolveBearer(bearer: string | null | undefined): Promise<
       scope: data.granted_scope ?? [],
       initiatingService: data.initiating_service,
       expiresAt: data.expires_at,
+      serviceAgreements: (data.service_agreements as Record<string, string> | null) ?? {},
     };
   } catch (e) {
     // eslint-disable-next-line no-console
@@ -353,6 +358,112 @@ export async function revokeByHandshake(handshakeCode: string): Promise<boolean>
     .update({ status: 'revoked', revoked_at: new Date().toISOString() })
     .eq('handshake_code', handshakeCode);
   return !error;
+}
+
+// ── Incremental service crossing (session upgrade — Increment 4b) ────────────
+
+/** Begin an incremental service crossing: a `pending` handshake pinned to the
+ *  ACTIVE session it will upgrade. The human authorizes the service delegation in
+ *  the browser; on success `applyUpgrade` augments that same session (no new
+ *  bearer is minted). */
+export async function createUpgradeHandshake(input: {
+  parentSessionId: string;
+  service: string;
+  requestedScope: string[];
+  ttlMinutes?: number;
+}): Promise<{ handshakeCode: string; expiresAt: string } | null> {
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  const handshakeCode = `thu_${newToken(18)}`;
+  const expiresAt = new Date(Date.now() + (input.ttlMinutes ?? 30) * 60_000).toISOString();
+  const { error } = await admin.from(TABLE).insert({
+    handshake_code: handshakeCode,
+    status: 'pending',
+    initiating_service: input.service,
+    requested_scope: input.requestedScope,
+    upgrade_of: input.parentSessionId,
+    expires_at: expiresAt,
+  });
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('[threshold] createUpgradeHandshake failed:', error.message);
+    return null;
+  }
+  return { handshakeCode, expiresAt };
+}
+
+export interface UpgradeHandshake {
+  handshakeCode: string;
+  status: string;
+  service: string;
+  requestedScope: string[];
+  parentSessionId: string | null;
+  expiresAt: string | null;
+}
+
+/** The upgrade authorize page reads what's being asked + which session it augments. */
+export async function getUpgradeHandshake(handshakeCode: string): Promise<UpgradeHandshake | null> {
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from(TABLE)
+    .select('handshake_code, status, initiating_service, requested_scope, upgrade_of, expires_at')
+    .eq('handshake_code', handshakeCode)
+    .maybeSingle();
+  if (error || !data || !data.upgrade_of) return null; // an upgrade handshake MUST be pinned to a parent
+  return {
+    handshakeCode: data.handshake_code,
+    status: data.status,
+    service: data.initiating_service,
+    requestedScope: data.requested_scope ?? [],
+    parentSessionId: data.upgrade_of,
+    expiresAt: data.expires_at,
+  };
+}
+
+/** Apply an authorized incremental crossing: UNION the granted scope into the
+ *  parent session and record the service's authorized agreement — then close the
+ *  upgrade handshake. The parent's existing bearer now carries the new authority.
+ *  Idempotency-guarded on the pending upgrade handshake. */
+export async function applyUpgrade(input: {
+  handshakeCode: string;
+  agreementId: string;
+  grantedScope: string[];
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'session store unavailable' };
+  const hs = await getUpgradeHandshake(input.handshakeCode);
+  if (!hs) return { ok: false, error: 'upgrade handshake not found' };
+  if (hs.status !== 'pending') return { ok: false, error: `upgrade is '${hs.status}', not pending` };
+  if (!hs.parentSessionId) return { ok: false, error: 'upgrade handshake has no parent session' };
+
+  // Read the parent's current scope + service map, then union in the new grant.
+  const { data: parent, error: pErr } = await admin
+    .from(TABLE)
+    .select('id, status, granted_scope, service_agreements')
+    .eq('id', hs.parentSessionId)
+    .maybeSingle();
+  if (pErr || !parent) return { ok: false, error: 'parent session not found' };
+  if (parent.status !== 'active') return { ok: false, error: 'parent session is not active' };
+
+  const nextScope = Array.from(new Set([...(parent.granted_scope ?? []), ...input.grantedScope]));
+  const nextAgreements = { ...((parent.service_agreements as Record<string, string> | null) ?? {}), [hs.service]: input.agreementId };
+
+  const up = await admin
+    .from(TABLE)
+    .update({ granted_scope: nextScope, service_agreements: nextAgreements })
+    .eq('id', hs.parentSessionId)
+    .eq('status', 'active');
+  if (up.error) return { ok: false, error: `upgrade apply failed: ${up.error.message}` };
+
+  // Close the upgrade handshake (guard against replay).
+  const close = await admin
+    .from(TABLE)
+    .update({ status: 'active', agreement_id: input.agreementId, granted_scope: input.grantedScope })
+    .eq('handshake_code', input.handshakeCode)
+    .eq('status', 'pending');
+  if (close.error) return { ok: false, error: `upgrade close failed: ${close.error.message}` };
+  return { ok: true };
 }
 
 /** Pure scope check — a session may perform an action iff its granted scope

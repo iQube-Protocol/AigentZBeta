@@ -20,6 +20,10 @@ export interface IrlAdapter {
    *  (public, read-only, T2-safe). This is how the gateway answers "what is
    *  standing / delegation / a passport?" from the canon rather than by guessing. */
   resolveCanon(term: string): Promise<unknown>;
+  /** Submit an experiment result under an AUTHORIZED IRL delegation (CFS-042 x409
+   *  path — agreement-authorized, no persona Bearer). The agreementId is the
+   *  irl:experiment-result:submit agreement from the incremental IRL crossing. */
+  submitResult(input: { agreementId: string; experiment: string; provider: string; model: string; results: unknown; aggregates?: Record<string, unknown> }): Promise<unknown>;
 }
 
 /** Build the adapter bound to the app's public origin. */
@@ -74,6 +78,30 @@ export function makeIrlAdapter(origin: string): IrlAdapter {
         };
       } catch {
         return { ok: false, error: `could not reach the invariant canon for "${t}"`, term: t };
+      }
+    },
+    async submitResult(input) {
+      if (!input.agreementId) return { ok: false, error: 'no IRL submission agreement — enter the Researcher journey / IRL first (request_service_capabilities("irl")).' };
+      try {
+        const res = await fetch(`${origin}/api/public/irl/experiments/submit`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({
+            agreementId: input.agreementId,
+            experiment: input.experiment,
+            provider: input.provider,
+            model: input.model,
+            results: input.results,
+            aggregates: input.aggregates ?? {},
+          }),
+        });
+        const body = await res.json().catch(() => null);
+        // The CFS-042 endpoint carries its own x409/TTL/budget gate — pass its
+        // verdict straight through (ok:false with the constitutional reason).
+        return body ?? { ok: false, error: `submit failed (${res.status})` };
+      } catch {
+        return { ok: false, error: 'could not reach the IRL submission endpoint' };
       }
     },
   };

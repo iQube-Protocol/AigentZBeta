@@ -49,6 +49,9 @@ export interface GatewayContext {
   /** The IRL read adapter (public open corpus), injected by the route. Present
    *  only where the gateway can reach the app's public routes. */
   irl?: IrlAdapter;
+  /** Begin an incremental service crossing (session upgrade) — returns the human
+   *  authorize URL. Injected by the route (creates the upgrade handshake). */
+  beginServiceUpgrade?: (service: string, missingCapabilities: string[]) => Promise<{ authorizeUrl: string } | null>;
 }
 
 // ── Catalogue ───────────────────────────────────────────────────────────────
@@ -139,6 +142,23 @@ export function listTools() {
         additionalProperties: false,
       },
     },
+    {
+      name: 'submit_review',
+      description:
+        'Submit an experiment result / review to the Invariant Research Lab under your principal\'s AUTHORIZED IRL delegation. Requires the research.submit capability AND an IRL submission agreement from the incremental IRL crossing (request_service_capabilities("irl") first). Each submission re-passes the x409 gate + the delegated TTL/action budget; a receipt is issued.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          experiment: { type: 'string', description: 'One of: EXP-P1, EXP-P2, EXP-P3, IRV-001, IPV-001.' },
+          provider: { type: 'string', description: 'The model provider used.' },
+          model: { type: 'string', description: 'The model id used.' },
+          results: { description: 'The result payload (verbatim; content-hashed on submit).' },
+          aggregates: { type: 'object', description: 'Optional aggregate metrics.' },
+        },
+        required: ['experiment', 'provider', 'model', 'results'],
+        additionalProperties: false,
+      },
+    },
   ];
 }
 
@@ -217,6 +237,7 @@ const AUTHENTICATED_TOOLS = new Set([
   'propose_delegation',
   'list_shared_documents',
   'read_shared_document',
+  'submit_review',
 ]);
 
 function text(value: unknown) {
@@ -323,14 +344,18 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       if (missing.length === 0) {
         return text({ service: svc.id, title: svc.title, reachable: true, note: `Your crossing already holds the scope for ${svc.title}.` });
       }
+      // Mint the incremental service crossing link — the human authorizes THIS
+      // service's delegation in the browser, which upgrades the SAME session.
+      const upgrade = ctx.beginServiceUpgrade ? await ctx.beginServiceUpgrade(svc.id, missing) : null;
       return text({
         service: svc.id,
         title: svc.title,
         reachable: false,
         missingCapabilities: missing,
-        howTo:
-          'These require an INCREMENTAL crossing: run the OAuth authorization-code flow again requesting these additional scopes. ' +
-          'Your principal authorizes them in the browser — you cannot grant them yourself. Only the human authorizes.',
+        authorizeUrl: upgrade?.authorizeUrl ?? null,
+        howTo: upgrade?.authorizeUrl
+          ? `Give your principal this link to authorize entering ${svc.title}: ${upgrade.authorizeUrl}. They sign in and approve the delegation in the browser — you cannot grant it yourself. Once approved, your existing session gains these capabilities.`
+          : 'An incremental crossing is required, but the authorize link could not be minted on this gateway. Only the human authorizes.',
       });
     }
 
@@ -371,6 +396,33 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       if (name === 'list_shared_documents') return text(await ctx.irl.listDocuments());
       const path = typeof args.path === 'string' ? args.path : '';
       return text(await ctx.irl.readDocument(path));
+    }
+
+    // ── IRL write surface — submit a result under the AUTHORIZED IRL delegation ──
+    if (name === 'submit_review') {
+      if (!hasScope(s, 'research.submit')) {
+        return {
+          ...text('This action needs the `research.submit` capability. Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")). Only the human authorizes.'),
+          isError: true,
+        };
+      }
+      const agreementId = s.serviceAgreements?.irl;
+      if (!agreementId) {
+        return {
+          ...text('You hold research.submit but have no IRL submission agreement on this session. Have your principal authorize the incremental IRL crossing (request_service_capabilities("irl")) — that binds the irl:experiment-result:submit delegation this tool submits under.'),
+          isError: true,
+        };
+      }
+      if (!ctx.irl) return { ...text('The IRL adapter is unavailable on this gateway.'), isError: true };
+      const result = await ctx.irl.submitResult({
+        agreementId,
+        experiment: String(args.experiment ?? ''),
+        provider: String(args.provider ?? ''),
+        model: String(args.model ?? ''),
+        results: args.results,
+        aggregates: args.aggregates && typeof args.aggregates === 'object' ? (args.aggregates as Record<string, unknown>) : {},
+      });
+      return text(result);
     }
   }
 
