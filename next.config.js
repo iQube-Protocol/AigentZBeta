@@ -47,6 +47,22 @@ const nextConfig = {
       // fails to load at runtime, the runtime moved off glibc — revisit here.
       "node_modules/@next/swc-linux-x64-musl/**",
       "node_modules/@swc/core-linux-x64-musl/**",
+      // arm64 native binaries — the Amplify SSR Lambda is x86_64 (Amazon Linux,
+      // glibc), so it NEVER loads any linux-arm64 prebuilt binary. Standalone's
+      // nft still traces them for every native package that ships per-arch
+      // binaries (swc, sharp, canvas), the same dead-weight class as the musl
+      // x64 excludes above — just for the other CPU arch. Dropping them is the
+      // safe, in-pattern move that reclaims the headroom that tipped the
+      // 2026-07-21 build ~260 KB past the 230686720-byte cap. If the runtime
+      // ever moves to Graviton (arm64), revisit these AND the musl/gnu split.
+      "node_modules/@next/swc-linux-arm64-gnu/**",
+      "node_modules/@next/swc-linux-arm64-musl/**",
+      "node_modules/@swc/core-linux-arm64-gnu/**",
+      "node_modules/@swc/core-linux-arm64-musl/**",
+      "node_modules/@napi-rs/canvas-linux-arm64-gnu/**",
+      "node_modules/@napi-rs/canvas-linux-arm64-musl/**",
+      "node_modules/@img/sharp-linux-arm64/**",
+      "node_modules/@img/sharp-libvips-linux-arm64/**",
       // Build-time-only deps Next conservatively traces but the runtime never
       // executes: the TypeScript compiler (no runtime import in this app) and
       // browserslist's caniuse-lite data. ~11 MB more headroom under the limit.
