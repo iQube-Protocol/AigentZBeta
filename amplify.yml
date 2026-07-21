@@ -77,6 +77,17 @@ frontend:
         - export NEXT_PRIVATE_BUILD_WORKER=1
         - npm run build
 
+        # Pack-corpus export (Phase A — additive): upload the browsable/searchable
+        # pack markdown+JSON to Supabase Storage (fast read path) + pin the
+        # canonical subset to AutoDrive (provenance). This decouples the growing
+        # corpus from the 230686720-byte SSR bundle cap. NON-FATAL for now: the
+        # corpus is still bundled this phase (services/knowledge/packCorpusStore.ts
+        # reads local FS while the files are present), so a failed upload cannot
+        # break the deploy — it only populates + validates the blob ahead of the
+        # Phase-B flip (next.config stops tracing codexes/packs/**\/*.md).
+        - echo "=== Exporting pack corpus to remote store (non-fatal, Phase A) ==="
+        - node scripts/export-pack-corpus.mjs || echo "[export-pack-corpus] non-fatal failure in Phase A — corpus still bundled"
+
         - echo "Copying .env.production into standalone bundle..."
         - cp .env.production .next/standalone/.env.production || true
 
