@@ -71,6 +71,8 @@ function corpusBlobUrl(): string {
 let corpus: Map<string, string> | null = null;
 let hydrating: Promise<void> | null = null;
 let lastAttemptMs = 0;
+let lastError: string | null = null;
+let lastUrl: string | null = null;
 const RETRY_COOLDOWN_MS = 10_000;
 
 function absKey(packRelKey: string): string {
@@ -93,6 +95,7 @@ export async function ensureCorpusHydrated(): Promise<void> {
   hydrating = (async () => {
     lastAttemptMs = Date.now();
     const url = corpusBlobUrl();
+    lastUrl = url;
     try {
       if (!url) throw new Error('pack corpus URL not configured (NEXT_PUBLIC_SUPABASE_URL unset)');
       const res = await fetch(url, { cache: 'no-store' });
@@ -103,12 +106,14 @@ export async function ensureCorpusHydrated(): Promise<void> {
         if (typeof content === 'string') map.set(absKey(relKey), content);
       }
       corpus = map; // success — cache for the container lifetime
+      lastError = null;
       // eslint-disable-next-line no-console
       console.log(`[packCorpus] hydrated ${map.size} files from ${url}`);
     } catch (err) {
       // Non-fatal: copilot grounding degrades (empty results) rather than 500ing.
+      lastError = (err as Error).message;
       // eslint-disable-next-line no-console
-      console.error('[packCorpus] hydration failed — grounding degraded:', (err as Error).message);
+      console.error('[packCorpus] hydration failed — grounding degraded:', lastError);
       // leave corpus null so the next request (post-cooldown) retries
     } finally {
       hydrating = null;
@@ -182,4 +187,32 @@ export async function corpusReadPackFile(packId: string, relPath: string): Promi
 /** Exposed for the canary + diagnostics. */
 export function __corpusMode(): 'local-fs' | 'remote' {
   return LOCAL_CORPUS_PRESENT ? 'local-fs' : 'remote';
+}
+
+/**
+ * Diagnostic snapshot of the corpus store — used by /api/codex/corpus-status to
+ * root-cause "doc failed to load" without Lambda log access. Optionally probes
+ * whether a specific pack-relative key (e.g. "irl/foundation/.../README.md")
+ * resolves in the hydrated corpus.
+ */
+export function getCorpusStatus(probeRelKey?: string): Record<string, unknown> {
+  const keyCount = corpus?.size ?? 0;
+  const sampleKeys = corpus
+    ? Array.from(corpus.keys()).slice(0, 5).map((abs) => path.relative(PACKS_ROOT, abs))
+    : [];
+  const status: Record<string, unknown> = {
+    mode: LOCAL_CORPUS_PRESENT ? 'local-fs' : 'remote',
+    hydrated: corpus !== null,
+    keyCount,
+    url: lastUrl ?? corpusBlobUrl(),
+    lastError,
+    supabaseUrlEnv: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL),
+    packCorpusUrlEnv: Boolean(process.env.PACK_CORPUS_URL),
+    sampleKeys,
+  };
+  if (probeRelKey) {
+    status.probe = probeRelKey;
+    status.probeHit = corpus ? corpus.has(absKey(probeRelKey)) : false;
+  }
+  return status;
 }
