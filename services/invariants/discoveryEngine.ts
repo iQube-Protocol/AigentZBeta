@@ -377,12 +377,18 @@ export async function compareSubDomains(
   admin: SupabaseClient,
   domain: string,
 ): Promise<{ ok: true; candidates: CandidateRow[]; comparedSubDomains: string[] } | { ok: false; error: string }> {
-  // Gather open sub-domain candidates for the domain, grouped by sub-domain.
+  // Gather the domain's sub-domain invariants, grouped by sub-domain. Include
+  // BOTH un-promoted candidates AND promoted ones: promotion (landing a
+  // sub-domain candidate in the registry as `proposed`) is the intended next
+  // step, and a promoted sub-domain invariant is the STRONGEST input to
+  // cross-sub-domain comparison — it survived review. Excluding promoted rows
+  // made Compare spuriously fail after the operator did the right thing and
+  // promoted their sub-domain findings (only 'rejected' is excluded).
   const { data: subData, error: subErr } = await admin
     .from('discovery_candidates')
     .select('*')
     .eq('domain', domain)
-    .eq('status', 'candidate')
+    .in('status', ['candidate', 'promoted'])
     .not('sub_domain', 'is', null);
   if (subErr) return { ok: false, error: subErr.message };
   const subRows = (subData ?? []).map(toCandidateRow);
@@ -395,16 +401,24 @@ export async function compareSubDomains(
   }
   const comparedSubDomains = [...bySub.keys()];
   if (comparedSubDomains.length < 2) {
-    return { ok: false, error: 'Compare needs candidates in at least 2 sub-domains — run more sub-domain discovery first.' };
+    return {
+      ok: false,
+      error:
+        `Compare needs invariants in at least 2 sub-domains (found ${comparedSubDomains.length}). ` +
+        `Run discovery with a SUB-DOMAIN selected for at least two areas — a "Domain baseline" run ` +
+        `(no sub-domain) does not count. Promoted sub-domain invariants are included.`,
+    };
   }
 
-  // Baseline = the domain's provisional hypotheses (direct-extraction, not compare).
+  // Baseline = the domain's provisional hypotheses (direct-extraction, not
+  // compare). Same status breadth as the sub-domain set — a promoted baseline
+  // hypothesis is still a valid thing to test recurrence against.
   const { data: baseData } = await admin
     .from('discovery_candidates')
     .select('*')
     .eq('domain', domain)
     .is('sub_domain', null)
-    .eq('status', 'candidate');
+    .in('status', ['candidate', 'promoted']);
   const baseline = (baseData ?? []).map(toCandidateRow).filter((c) => c.stage !== 'compare');
 
   const subBlock = comparedSubDomains

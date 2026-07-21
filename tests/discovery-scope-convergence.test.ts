@@ -84,6 +84,13 @@ describe('Compare discipline (Phase 2 — earned domain invariants)', () => {
     expect(src).toMatch(/Do NOT invent invariants unsupported/);
   });
 
+  it('includes PROMOTED sub-domain invariants as compare inputs (promote-first workflow must not break Compare)', () => {
+    // Both the sub-domain gather and the baseline gather must admit candidate+promoted,
+    // else promoting sub-domain findings (the intended next step) empties the compare set.
+    expect(src).toMatch(/\.in\('status', \['candidate', 'promoted'\]\)[\s\S]*?\.not\('sub_domain', 'is', null\)/);
+    expect(src).toMatch(/\.is\('sub_domain', null\)[\s\S]*?\.in\('status', \['candidate', 'promoted'\]\)/);
+  });
+
   it('confidence is recurrence-based (coverage breadth), not model self-report', () => {
     expect(src).toMatch(/0\.55 \+ 0\.1 \* cov/);
   });
