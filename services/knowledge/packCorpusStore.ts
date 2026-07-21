@@ -32,10 +32,20 @@ import * as path from 'path';
 
 export const PACKS_ROOT = path.join(process.cwd(), 'codexes', 'packs');
 
-/** True in dev / tests / any bundle that still ships the corpus on disk. */
+/**
+ * True in dev / tests / any bundle that still ships the corpus MARKDOWN on disk.
+ *
+ * Must test for an actual .md FILE, not the directory: the Amplify postBuild
+ * strips the bundled pack .md (they're served remotely) but leaves the now-empty
+ * `agentiq/updates/` directory behind. A directory-existence check would then
+ * wrongly report local-FS mode and read an empty tree instead of hydrating the
+ * remote blob. Checking for ≥1 .md in updates/ flips correctly to remote mode
+ * once the bodies are stripped.
+ */
 const LOCAL_CORPUS_PRESENT = (() => {
   try {
-    return fs.existsSync(path.join(PACKS_ROOT, 'agentiq', 'updates'));
+    const dir = path.join(PACKS_ROOT, 'agentiq', 'updates');
+    return fs.readdirSync(dir).some((f) => f.endsWith('.md'));
   } catch {
     return false;
   }
