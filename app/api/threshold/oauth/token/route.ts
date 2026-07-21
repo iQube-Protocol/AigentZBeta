@@ -30,18 +30,21 @@ export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }));
 }
 
-/** Accepts either application/x-www-form-urlencoded (OAuth default) or JSON. */
+/** Accepts application/x-www-form-urlencoded (OAuth default) or JSON. Parses the
+ *  urlencoded body from the raw text with URLSearchParams rather than
+ *  request.formData() — the latter is unreliable for urlencoded bodies in this
+ *  runtime and can silently return nothing, which would 400 every token call. */
 async function readParams(req: NextRequest): Promise<Record<string, string>> {
   const ctype = req.headers.get('content-type') ?? '';
   if (ctype.includes('application/json')) {
     const j = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     return Object.fromEntries(Object.entries(j).map(([k, v]) => [k, String(v ?? '')]));
   }
-  const form = await req.formData().catch(() => null);
-  if (!form) return {};
+  const raw = await req.text().catch(() => '');
+  const sp = new URLSearchParams(raw);
   const out: Record<string, string> = {};
-  form.forEach((v, k) => {
-    out[k] = String(v);
+  sp.forEach((v, k) => {
+    out[k] = v;
   });
   return out;
 }

@@ -225,12 +225,27 @@ export async function exchangeAuthorizationCode(input: {
     .select('id, status, redirect_uri, pkce_challenge, code_expires_at, granted_scope')
     .eq('auth_code_hash', sha256(input.code))
     .maybeSingle();
-  if (error || !data) return { error: 'invalid_grant' };
-  if (data.status !== 'authorized') return { error: 'invalid_grant' };
-  if (data.code_expires_at && new Date(data.code_expires_at).getTime() < Date.now()) return { error: 'invalid_grant' };
-  if (data.redirect_uri !== input.redirectUri) return { error: 'invalid_grant' };
+  // Distinct internal reasons are logged (Amplify/CloudWatch) while the client
+  // still receives the spec-standard 'invalid_grant' — so a failed exchange is
+  // debuggable without leaking which check failed to the caller.
+  const reject = (why: string) => {
+    // eslint-disable-next-line no-console
+    console.error('[threshold] token exchange invalid_grant:', why);
+    return { error: 'invalid_grant' as const };
+  };
+  if (error) return reject(`code read failed: ${error.message}`);
+  if (!data) return reject('no row for auth_code');
+  if (data.status !== 'authorized') return reject(`status is '${data.status}', not authorized`);
+  if (data.code_expires_at && new Date(data.code_expires_at).getTime() < Date.now()) return reject('code expired');
+  // redirect_uri must match the one bound at /authorize (trailing slash tolerant).
+  const norm = (u: string | null | undefined) => (u ?? '').replace(/\/+$/, '');
+  if (norm(data.redirect_uri) !== norm(input.redirectUri)) {
+    return reject(`redirect_uri mismatch: bound='${data.redirect_uri}' presented='${input.redirectUri}'`);
+  }
   // PKCE S256 proof — the whole point: the code is useless without the verifier.
-  if (!data.pkce_challenge || sha256b64url(input.codeVerifier) !== data.pkce_challenge) return { error: 'invalid_grant' };
+  if (!data.pkce_challenge || sha256b64url(input.codeVerifier) !== data.pkce_challenge) {
+    return reject('PKCE verifier does not match challenge');
+  }
 
   const bearer = `ths_${newToken(32)}`;
   const expiresAt = new Date(Date.now() + (input.sessionTtlDays ?? 30) * 86_400_000).toISOString();
