@@ -82,7 +82,7 @@ export async function deriveOverview(): Promise<ResearchOverviewEntry[]> {
  * initiated, must ride the same `research_lifecycle_transition` action type
  * (DVN-anchorable) with governing invariants carried as invariants_used.
  */
-async function writeLifecycleReceipt(input: {
+export async function writeLifecycleReceipt(input: {
   personaId: string;
   summary: string;
   invariantSeedIds: string[];
@@ -136,7 +136,7 @@ export async function recordExperimentTransition(input: {
 
 // ─── Phase C2.2 — persisted research objects + create-kind receipts ──────────
 
-export type ResearchObjectKind = 'experiment' | 'finding' | 'publication';
+export type ResearchObjectKind = 'experiment' | 'finding' | 'publication' | 'artifact';
 
 export interface ResearchObjectRecord {
   objectKind: ResearchObjectKind;
