@@ -5164,6 +5164,147 @@
       "provenance": {
         "source": "Aletheon — reviewer-independence / role-separation boundary (operator-ratified 2026-07-21); IRL-016"
       }
+    },
+    {
+      "id": "inv.reasoning.351",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "corpus-construction",
+        "research-method",
+        "governance"
+      ],
+      "statement": "Define the domain boundary before collecting material. A corpus is assembled against an explicitly fixed domain boundary; material gathered without one cannot be judged in-domain or out, and a boundary revision discovered mid-collection re-scopes the corpus openly — never silently.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operationalized in PRD-ICA-001 §5 and the Crystal Canon charter"
+      }
+    },
+    {
+      "id": "inv.reasoning.352",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "corpus-construction",
+        "research-method"
+      ],
+      "statement": "A source is acquired only when its substantive content has been retrieved and inspected. A search result, landing page, document reference, or file-extension-bearing URL is not acquisition; only a retrieved, parsed, verified artifact — bytes, hash, content confirmed present — qualifies for corpus review.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operationalized in PRD-ICA-001 §2 (the four levels of discovery)"
+      }
+    },
+    {
+      "id": "inv.reasoning.353",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "corpus-construction",
+        "research-method",
+        "governance"
+      ],
+      "statement": "Corpus formation separates four functions — discovery (where material may exist), acquisition (proof the material exists), human approval (whether it belongs in the corpus), and invariant derivation (what reusable reasoning it yields) — and never collapses them into one judgment, human or agent.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operationalized in PRD-ICA-001 §16 (canonical design principle)"
+      }
+    },
+    {
+      "id": "inv.reasoning.354",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "corpus-construction",
+        "experiment-integrity"
+      ],
+      "statement": "Every invariant entering a crystal carries a provenance class, and only externally-sourced provenance (external-established, external-empirical) is eligible for a confirmatory experiment’s crystal. Platform-derived and platform-hypothesized material may inform operations but never enters the corpus whose test it could bias — the self-affinity exclusion.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operator instruction 2026-07-22, CRYSTAL-ENLARGEMENT_plan.md §2a"
+      }
+    },
+    {
+      "id": "inv.reasoning.355",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "corpus-construction",
+        "research-method"
+      ],
+      "statement": "Corpus sufficiency is measured by structural composition — the diversity of reasoning forms the collection carries — not by document volume. No source class may dominate a corpus merely because it is convenient to acquire.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; Crystal Canon composition target; CRYSTAL-ENLARGEMENT_plan.md §3 condition d"
+      }
+    },
+    {
+      "id": "inv.reasoning.356",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "corpus-construction",
+        "governance"
+      ],
+      "statement": "An excluded or rejected source is a recorded, reasoned decision, never a silent omission; a duplicate is linked to its canonical artifact and retained, never deleted. The corpus’s boundary is as auditable as its contents.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operationalized in PRD-ICA-001 §8–§9 (reviewWorkflowStatus, duplicate linking)"
+      }
+    },
+    {
+      "id": "inv.reasoning.357",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "experiment-integrity",
+        "research-method"
+      ],
+      "statement": "A null result is read as a finding about the mechanism only after verifying the treatment was actually administered: the mechanism ran, selection occurred, the recorded trace matches the frozen configuration, and no fallback path silently substituted. An unverified treatment classifies as implementation failure, never as a scientific null.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operationalized as PRD-EPI-001 §7’s Treatment Integrity Check"
+      }
+    },
+    {
+      "id": "inv.reasoning.358",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "experiment-integrity",
+        "research-method"
+      ],
+      "statement": "Before execution, an experiment fixes the classification a negative result may receive — scientific null, substrate insufficiency, task invalidity, implementation failure, measurement failure, coverage failure — each with objective, pre-stated criteria. No category may be invented after seeing results.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operationalized as PRD-EPI-001 §6’s failure taxonomy; sharpens inv.reasoning.346"
+      }
+    },
+    {
+      "id": "inv.reasoning.359",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "experiment-integrity"
+      ],
+      "statement": "An answer key is semantically bound to the exact task-set version it answers: sealed against that version’s content hash and frozen jointly with it. A hash mismatch blocks the freeze and is never silently tolerated.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operationalized as PRD-EPI-001 §5’s AnswerKeyArtifact hash binding (Aletheon pre-ratification review)"
+      }
+    },
+    {
+      "id": "inv.reasoning.360",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "experiment-integrity",
+        "review"
+      ],
+      "statement": "Judging is blinded: the judge never sees which arm produced an answer, the expected winner, or the hypothesis under test, and arm labels are randomized in the judging configuration. Adjacent to reviewer independence (inv.reasoning.350) but names the outcome-blinding obligation specifically.",
+      "status": "canonical",
+      "provenance": {
+        "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operationalized in PRD-EPI-001 §5 (judge-config label blinding)"
+      }
     }
   ]
 }

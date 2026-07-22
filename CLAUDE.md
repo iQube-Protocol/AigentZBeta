@@ -474,6 +474,12 @@ This is a mature, actively evolving codebase. Before writing any new code:
 2. **Reuse and extend** what's there. If something needs a new capability, modify the existing unit rather than creating a parallel one.
 3. **Move logic when refactoring** — don't copy it. The codebase should have one authoritative location for each concern.
 
+### Source-of-truth parity is canary-enforced (operator-ratified 2026-07-22)
+
+`inv.engineering.036` ("one authoritative location per concern") and `inv.engineering.037` ("a parallel implementation of an existing capability is a defect") are canonical — and enforcement, not doctrine, is where they kept failing: three independent same-day defects (EXPERIMENT_REGISTRY hand-copied as `col_experiments`; the pack-corpus local-fs sniff duplicating the `PACK_CORPUS_URL` signal; `ASSIGNABLE_EXPERIMENTS` hand-copied from the registry) were all stale duplicates of a single source of truth.
+
+**The rule:** when a surface needs a copy/projection of a registry, config list, or any single source of truth, **derive it in code** from the authoritative source. Where derivation is genuinely impossible (e.g. a docs-file mirror), **add a parity canary that fails the build on drift.** `tests/source-of-truth-parity.test.ts` is the designated home for such checks and the index of parity canaries living elsewhere — register new ones there (or cross-reference them there), never ship a hand-maintained duplicate without one.
+
 ---
 
 ## File and Component Discipline
