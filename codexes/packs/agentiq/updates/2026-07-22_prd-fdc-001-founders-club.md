@@ -162,21 +162,101 @@ The operator's own text names an **original 8-agent base roster** and, in Addend
 | 5 | **Event Curator** | Curates community events/gatherings (digital-first: AMAs, office hours, roundtables; physical events from Phase 3, §10) | *None of the ten named domains* | No Addendum-B domain owner named; functionally adjacent to Community Steward's Community Awareness today and becomes the natural collaborator of Journey Concierge once Travel Awareness activates in Phase 3. Flagged as an open question (§11) rather than assigned a domain unilaterally. |
 | 6 | **Circle Facilitator** | Facilitates founder peer circles / small-group cohorts | *None of the ten named domains* | No Addendum-B domain owner named; functionally adjacent to Community Steward's Community Awareness. Flagged as an open question (§11). |
 | 7 | **Recognition Steward** | Surfaces and narrates standing/verification events back to the founder | Standing Awareness | Same agent, second hat |
-| 8 | **Introduction Broker** | Executes the specific introductions Network Navigator's strategy identifies (the "make the connection happen" agent, distinct from Navigator's "who should connect" strategy agent) | *None of the ten named domains* | No Addendum-B domain owner named; functionally adjacent to Network Navigator's Relationship Awareness (Broker executes what Navigator plans). Flagged as an open question (§11). |
+| 8 | **Introduction Broker** | Executes the specific introductions Network Navigator's strategy identifies (the "make the connection happen" agent, distinct from Navigator's "who should connect" strategy agent) — **leverages the existing Relationship Builder capability** (`RelationshipBuilderTab`, `relationship-builder` tab, Marketa's cartridge — "partner and customer outreach... campaign composer for Marketa email dispatch") rather than building parallel outreach/matching machinery (operator, 2026-07-22) | *None of the ten named domains* | No Addendum-B domain owner named; functionally adjacent to Network Navigator's Relationship Awareness (Broker executes what Navigator plans). Remains a **separate agent** from Marketa (unlike Market Intelligence, §4.3), but consumes Relationship Builder as its outreach-execution substrate. Flagged as an open question (§11). |
 
-### 4.3 The five genuinely new agents (Addendum B)
+### 4.3 The four genuinely new agents + one reused platform agent (Addendum B)
+
+**Reconciliation update (operator, 2026-07-22):** of the five Addendum-B awareness-domain
+agents originally proposed, one — **Market Intelligence Agent** — is not a new Founders-Club
+agent at all. It is fulfilled by **Marketa** (`aigent-marketa`, the platform's existing
+constitutional marketing agent, live today as the `marketa-codex` cartridge copilot), extending
+her existing Venture Lab / Founder Office (Build-mode, §2.1 of the companion amendment) role into
+the Founders Club's Market Awareness domain, rather than standing up a competing agent for the
+same function. **Justification (operator's own reasoning):** an independent Market Intelligence
+Agent would either duplicate Marketa's existing market/campaign/partner intelligence or need to
+constantly liaise with her to stay non-duplicative and aligned — for consistency, it is better
+that Marketa herself owns Market Awareness directly, which also gives her a formal functional
+role inside the Founders Club (extending, not duplicating, the functional role she already holds
+in the Founder Office's Operational Domain, §0.8). This leaves **four** genuinely new agents:
 
 | # | Agent | Awareness domain owned | Status |
 |---|---|---|---|
 | 9 | **Ecosystem Analyst** | Ecosystem Awareness | New — fills a gap the base 8 left implicit |
 | 10 | **Community Steward** | Community Awareness | New — responsible for observing the Club's own health, including the agent-first ratio (§3) |
-| 11 | **Market Intelligence Agent** | Market Awareness | New — external market signal, distinct from internal Opportunity Awareness |
-| 12 | **Journey Concierge** | Travel Awareness | New; **out of scope for Phase 1** — no referent until physical Club events exist (§10) |
-| 13 | **Knowledge Curator** | Knowledge Awareness | New — the Club's institutional-memory agent |
+| — | **Marketa** (`aigent-marketa`, reused platform agent) | Market Awareness | **Reused, not new** — the platform's existing constitutional marketing agent, extended into the Founders Club (operator, 2026-07-22). See §4.3a. |
+| 11 | **Journey Concierge** | Travel Awareness | New persona, but wired to an **existing service surface** — the platform's Human Mobility Services (HMS) capability (`human-mobility-services` activation, `hms` tab, business/executive travel, conferences, relocation, housing) — rather than a parallel travel-agent build. See §4.3b. **Out of scope for Phase 1** — no referent until physical Club events exist (§10). |
+| 12 | **Knowledge Curator** | Knowledge Awareness | New — the Club's institutional-memory agent |
+
+### 4.3a Market Intelligence = Marketa (operator decision, 2026-07-22)
+
+Marketa is not a Founders-Club-native invention — she already exists as a live platform agent
+(`agent: { id: 'aigent-marketa', name: 'Marketa' }`, the `marketa-codex` cartridge, self-described
+as "your venture studio copilot," per `data/codex-configs.ts`). The operator's decision: rather
+than build a separate Market Intelligence Agent that would need to constantly liaise with Marketa
+to stay non-duplicative, **Marketa directly owns Market Awareness inside the Founders Club** —
+her existing campaign/partner/market intelligence surfaces (`MarketaCampaignDashboardTab`,
+`MarketaActivationEngineTab`, the `marketa` activation-catalog entry) become the source Market
+Awareness reads from, informing founders of marketing trends and market conditions the same way
+she already informs Venture Lab partner/campaign activity. This is consistent with §4.5's
+self-improving-institution principle: Marketa's second responsibility (Improve Awareness) inside
+the Club is the same kind of activity as her first (Deliver Value) inside the Operational Domain —
+one agent, two contexts, no fork.
+
+### 4.3b Journey Concierge wired to Human Mobility Services (operator decision, 2026-07-22)
+
+The platform already has a Human Mobility Services (HMS) capability — the `human-mobility-services`
+activation-catalog entry (`data/activation-catalog.ts`), covering "business mobility (executive
+relocation, global talent movement) and emergency mobility... with housing, education,
+relocation, economic, and case-management workflows," including corporate/founder travel and
+conference/travel logistics (`docs/marketa/MARKETA_ACTIVATION_ENGINE_PRD_AMENDMENT_HUMAN_MOBILITY.md`'s
+shared mobility process spine explicitly includes "business/executive travel" and "conferences,
+roadshows"). **Confirmed by direct read: no dedicated HMS agent persona exists today** — HMS
+actions (`open-mobility-case`) are handled by the generic `aigent-z` specialist, not a named HMS
+agent. The operator's decision: rather than duplicate travel-agent capability, **Journey
+Concierge is proposed as the Founders-Club-facing persona that operates the existing HMS
+capability** — filling the missing dedicated-agent gap HMS has today — consuming HMS's existing
+case-management pipeline (`cases_opened`/`cases_resolved` metrics, the same process spine) rather
+than building a parallel travel/conference-logistics service. This does not change Journey
+Concierge's Phase-3-only status (§10) — it has no referent until physical Club events/conferences
+exist — but it fixes what Journey Concierge *is* once it activates: a Club-facing front end onto
+HMS, not a new travel-booking capability.
 
 ### 4.4 Roster summary
 
-**13 agents total**: the 8-agent base roster (§4.2) plus 5 genuinely new Addendum-B agents (§4.3). Of the 10 named awareness domains, 5 are owned by base-roster agents wearing a second hat (Concierge, Scout, Navigator, Coach, Recognition Steward) and 5 are owned by the new agents. Three base-roster agents (Event Curator, Circle Facilitator, Introduction Broker) own no named awareness domain today — this PRD does not invent an eleventh/twelfth/thirteenth domain to force a fit, and instead carries the gap forward as an explicit open question (§11) for the operator to resolve (assign them to an existing domain as a co-owner, or ratify additional domains).
+**12 Founders-Club-native agents + 1 reused platform agent (Marketa) = 13 agent-functions
+total.** The 12 native agents are the 8-agent base roster (§4.2) plus 4 genuinely new
+Addendum-B agents (Ecosystem Analyst, Community Steward, Journey Concierge, Knowledge Curator).
+Market Awareness (the fifth original Addendum-B domain) is owned by Marketa — an existing
+platform agent extended into the Club, not counted among the "new" agents (§4.3a). Of the ten
+named awareness domains, five are owned by base-roster agents wearing a second hat (Concierge,
+Scout, Navigator, Coach, Recognition Steward), four by the genuinely new agents, and one
+(Market Awareness) by Marketa. Three base-roster agents (Event Curator, Circle Facilitator,
+Introduction Broker) own no named awareness domain today — this PRD does not invent an
+eleventh/twelfth/thirteenth domain to force a fit, and instead carries the gap forward as an
+explicit open question (§11) for the operator to resolve (assign them to an existing domain as a
+co-owner, or ratify additional domains).
+
+### 4.4a Liaison with Marketa — awareness, not (yet) orchestration (operator, 2026-07-22)
+
+Several Founders Club agents will liaise heavily with Marketa in the course of their ordinary
+function, beyond Market Awareness itself: **Introduction Broker** (§4.2, via Relationship
+Builder — Marketa's cartridge capability), **Opportunity Scout** and **Network Navigator** (where
+a surfaced opportunity or introduction is also a marketing/partnership lead Marketa is or should
+be tracking), and any future agent whose work touches partner/campaign/relationship activity.
+**Binding principle:** these agents must maintain explicit awareness of, and stay aligned with,
+Marketa's relationship-building and partnership-brokering activity — so that Club-side
+introductions/opportunities and Marketa's own partner pipeline never diverge or duplicate each
+other. Concretely, this means the Constitutional Awareness Graph's Relationship Awareness and
+Market Awareness domains (§7) must be mutually legible to both Marketa and the Club agents that
+touch partner/introduction work — not two independent views of the same partner relationships.
+
+**Explicitly not decided here (operator's own hedge, 2026-07-22):** whether Marketa should hold a
+**structural orchestrator role** over these collaborative/market-oriented Club agents. The
+operator raised this as a plausible future direction ("in some regards, she might be an
+orchestrator across some of these") but explicitly declined to make it a structural call in this
+revision. This PRD records the awareness/alignment requirement as binding and leaves the
+orchestrator question as an open item for §11 — a future amendment, not this one, would formalize
+Marketa as an orchestrator if the operator later ratifies that direction.
 
 ### 4.5 Self-improving-institution principle — the two constitutional responsibilities
 
@@ -307,7 +387,9 @@ Digital-first is not a sequencing preference; it is a hard gate. No phase before
 1. **Where does Founders Club live in the UI?** The natural home is a new "Community" sub-view inside the existing `FounderOfficeTab.tsx` (alongside Workspace · Discover · Validate · Architect · Blueprint, §0.8) — but adding that sub-view is a code change and explicitly out of scope for this docs-only PRD. Flagging here per this PRD's constraints rather than adding it unilaterally.
 2. **Interim matching heuristic, Phase 1 (§10):** what specific existing signals (VentureQube stage, Standing score, `ARCHETYPE_DOMAINS` overlap) compose the Phase 1 matching heuristic, pending IRE? This PRD names the constraint (explainable, signal-composed, non-black-box) but leaves the exact formula for a follow-on implementation-planning pass.
 3. **Deployment-quality metric for Portfolio Operator standing (§6.2):** what concrete, verifiable signals constitute "how well they deploy capital/attention" — follow-through rate? founder-reported time-saved? realized venture outcomes (Proof of Time Saved)? Needs an explicit definition before Phase 1 ships the role.
-4. **Ecosystem Analyst / Market Intelligence Agent data sources:** both new agents (§4.3) need named external/internal data feeds before they can be built — this PRD names their awareness domains but does not yet specify their inputs.
+4. **Ecosystem Analyst data sources:** this genuinely new agent (§4.3) needs named external/internal data feeds before it can be built — this PRD names its awareness domain but does not yet specify its inputs. (Market Intelligence's data sources are resolved, §4.3a — Marketa's existing campaign/partner/market surfaces — since she is a reused platform agent, not a new build.)
+7. **Marketa-as-orchestrator (§4.4a):** should Marketa hold a structural orchestrator role over collaborative/market-oriented Club agents (Introduction Broker, Opportunity Scout, Network Navigator) beyond the binding awareness/alignment requirement already specified? The operator explicitly declined to make this call in this revision — flagged here for a future decision, not assumed either way.
+8. **Event Curator / Journey Concierge overlap once Phase 3 activates:** §4.2 already flags Event Curator as "functionally adjacent to... Journey Concierge once Travel Awareness activates in Phase 3" — once Journey Concierge is wired to Human Mobility Services (§4.3b) and both agents are live, does Event Curator's event-curation function fold into Journey Concierge's HMS-backed conference/travel logistics, or do they stay distinct (curation vs. logistics)? Not resolved here.
 5. **Staff-exception logging mechanism (§3):** should staff-handled exceptions be logged as a new receipt type (composing the unified receipt writer, per CLAUDE.md's Artifact Production section) or as a Constitutional Awareness Graph observation under Community Awareness? Needs an operator call before Phase 1 build.
 6. **Governance home:** does Founders Club require any addition to `FOUNDER_OFFICE_CHARTER.md` itself (e.g. an explicit "Human Domain" section), or does this PRD stand as sufficient operational specification under the existing charter language? This PRD assumes the latter (§0.1) but the operator should confirm — amending a ratified constitutional-grade charter is a higher bar than ratifying a PRD.
 
@@ -325,7 +407,11 @@ Digital-first is not a sequencing preference; it is a hard gate. No phase before
 
 - [ ] Operator ratifies the **positioning decision** (§2) — Founders Club sits WITHIN the Founder Office (Human Domain, parallel to the Operational Domain), never above or beside it, and membership is derived from Founder Office participation, never independently acquired.
 - [ ] Operator ratifies the **agent-first operational philosophy** (§3) as a binding design constraint across every capability, with staff involvement as a logged exception, not a default.
-- [ ] Operator ratifies the **reconciled 13-agent roster** (§4.2–4.4) — the 8-agent base roster, the 5 new Addendum-B agents, the 5 shared-domain overlap notes, the 3 unassigned-domain agents (open question §11), and the Phase-1 exclusion of Journey Concierge.
+- [ ] Operator ratifies the **reconciled 13-agent-function roster** (§4.2–4.4) — the 8-agent base roster, the 4 new Addendum-B agents, Marketa as the reused Market Intelligence owner, the 5 shared-domain overlap notes, the 3 unassigned-domain agents (open question §11), and the Phase-1 exclusion of Journey Concierge.
+- [x] **Operator ratifies Marketa (not a new agent) as Market Awareness owner** (§4.3a) — the platform's existing constitutional marketing agent extends her Founder Office functional role into the Founders Club, rather than a competing agent being built.
+- [x] **Operator ratifies Journey Concierge as wired to the existing Human Mobility Services capability** (§4.3b) — filling HMS's missing dedicated-agent-persona gap rather than building a parallel travel/conference-logistics service; Phase-3-only status unchanged.
+- [x] **Operator ratifies Introduction Broker leveraging the existing Relationship Builder capability** (§4.2, Marketa's cartridge) for its introduction-execution work, while remaining a distinct agent from Marketa.
+- [x] **Operator ratifies the Marketa-liaison awareness principle** (§4.4a) as binding — Introduction Broker, Opportunity Scout, Network Navigator, and any future partner/market-touching agent must stay aligned with Marketa's relationship/partnership activity. **Not ratified:** whether Marketa becomes a structural orchestrator over these agents — explicitly left open (§11, item 7).
 - [ ] Operator ratifies the **self-improving-institution / two-constitutional-responsibilities principle** (§4.5) as symmetric across all thirteen agents and ten domains.
 - [ ] Operator ratifies the **Constitutional Coordinates matching model** (§5), including the honest caveat that it depends on IRE/CCR, which are themselves unratified, and the interim Phase-1 heuristic as a stopgap.
 - [ ] Operator ratifies **Portfolio Operator as a role tag on the existing archetype, not a new `OperatorArchetype` value** (§6.2), and the deployment-quality (not capital-size) standing model (§0.4, §6.2, open question 3).
@@ -338,4 +424,4 @@ Digital-first is not a sequencing preference; it is a hard gate. No phase before
 
 ---
 
-*Authored docs-only, 2026-07-22. Reconciled against `codexes/packs/polity-core/items/{FOUNDER_OFFICE_CHARTER,METACOMMONS_CHARTER,STANDING_CHARTER}.md`, `services/iqube/experienceQube.ts`, `services/standing/standingScore.ts`, `codexes/packs/irl/foundation/canonical-invariants.seed.json` (`inv.polity.162`, `inv.engineering.036/037`), `codexes/packs/irl/foundation/{CFS-037_invariant-resolution-engine,CFS-041_constitutional-field-observatory}.md`, `components/smarttriad/copilot/SmartTriadCopilotLayer.tsx`, `app/triad/components/codex/tabs/FounderOfficeTab.tsx`, `services/venture/*`, and `codexes/packs/irl/foundation/PRD-PAG-001_polity-access-gateway.md` (structural/tone reference). Builds nothing; proposes an architecture for operator ratification.*
+*Authored docs-only, 2026-07-22 (revised same day for the Marketa/Human-Mobility-Services/Relationship-Builder reconciliation, §4.3a–§4.4a). Reconciled against `codexes/packs/polity-core/items/{FOUNDER_OFFICE_CHARTER,METACOMMONS_CHARTER,STANDING_CHARTER}.md`, `services/iqube/experienceQube.ts`, `services/standing/standingScore.ts`, `codexes/packs/irl/foundation/canonical-invariants.seed.json` (`inv.polity.162`, `inv.engineering.036/037`), `codexes/packs/irl/foundation/{CFS-037_invariant-resolution-engine,CFS-041_constitutional-field-observatory}.md`, `components/smarttriad/copilot/SmartTriadCopilotLayer.tsx`, `app/triad/components/codex/tabs/FounderOfficeTab.tsx`, `services/venture/*`, `data/codex-configs.ts` (Marketa's `aigent-marketa` persona, `marketa-codex` cartridge, `RelationshipBuilderTab`/`relationship-builder` tab), `data/activation-catalog.ts` (`human-mobility-services` entry), `docs/marketa/MARKETA_ACTIVATION_ENGINE_PRD_AMENDMENT_HUMAN_MOBILITY.md`, and `codexes/packs/irl/foundation/PRD-PAG-001_polity-access-gateway.md` (structural/tone reference). Builds nothing; proposes an architecture for operator ratification.*
