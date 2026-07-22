@@ -232,6 +232,7 @@ describe('IRL read adapter (Increment 4a)', () => {
       operationalModel: { layer: 2, note: 'operational ranking, not the definition' },
     }),
     resolveCanon: async (term: string) => ({ ok: true, term, resolved: { invariants: ['inv.constitutional.061'] } }),
+    readResults: async (experiment?: string) => ({ ok: true, count: 1, results: [{ experiment: experiment ?? 'EXP-P1', hash: 'abc' }] }),
     submitResult: async (input: { agreementId: string }) => ({ ok: true, id: 'res-1', agreementId: input.agreementId }),
   };
 
@@ -246,6 +247,13 @@ describe('IRL read adapter (Increment 4a)', () => {
     expect(body.constitutionalDefinition?.layer).toBe(1);
     expect(body.operationalModel?.layer).toBe(2);
     // it is a read-only tool — never gated behind the handshake
+    expect(res.isError).toBeUndefined();
+  });
+
+  it('read_experiment_results is PUBLIC (no session) — the reviewer hash-verification surface', async () => {
+    const res = await callTool('read_experiment_results', { experiment: 'EXP-P1' }, { ...ctx, irl: fakeIrl });
+    const body = JSON.parse(res.content[0].text as string);
+    expect(body.ok).toBe(true);
     expect(res.isError).toBeUndefined();
   });
 

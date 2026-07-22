@@ -95,6 +95,16 @@ export function listTools() {
         additionalProperties: false,
       },
     },
+    {
+      name: 'read_experiment_results',
+      description:
+        'Read the PUBLISHED, hash-committed IRL experiment result records (T2-safe, no persona data) so you can independently verify them: recompute sha256 over the verbatim results JSON and compare to the anchored content hash. Optional `experiment` id filter (e.g. "EXP-P1", "IRV-001"). Public + read-only; no crossing required — this is the reviewer-exercisable verification surface.',
+      inputSchema: {
+        type: 'object',
+        properties: { experiment: { type: 'string', description: 'Optional experiment id filter, e.g. EXP-P1.' } },
+        additionalProperties: false,
+      },
+    },
     // ── Authenticated crossing tools (require a scoped session from the crossing) ──
     {
       name: 'get_crossing_status',
@@ -271,6 +281,12 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
     if (!term) return { ...text('A term to define is required (e.g. "standing", "delegation", "Polity Passport").'), isError: true };
     if (!ctx.irl) return { ...text('The constitutional canon is unavailable on this gateway.'), isError: true };
     return text(await ctx.irl.definePrimitive(term));
+  }
+
+  if (name === 'read_experiment_results') {
+    if (!ctx.irl) return { ...text('The IRL results surface is unavailable on this gateway.'), isError: true };
+    const experiment = typeof args.experiment === 'string' ? args.experiment.trim() : undefined;
+    return text(await ctx.irl.readResults(experiment));
   }
 
   if (name === 'inspect_threshold_link') {
