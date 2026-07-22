@@ -40,7 +40,21 @@ export async function POST(req: NextRequest) {
   if (redirectUris.length === 0) {
     return cors(NextResponse.json({ error: 'invalid_redirect_uri', error_description: 'redirect_uris is required' }, { status: 400 }));
   }
-  const clientName = typeof body.client_name === 'string' ? body.client_name : undefined;
+  // Input caps (security review Finding 6): this is an unauthenticated public
+  // write. Bound the row cost so it can't be used to bloat the table / index.
+  if (redirectUris.length > 8 || redirectUris.some((u) => u.length > 2048)) {
+    return cors(NextResponse.json({ error: 'invalid_redirect_uri', error_description: 'too many or over-long redirect_uris (max 8, 2048 chars each)' }, { status: 400 }));
+  }
+  // Each redirect_uri must be a well-formed absolute http(s) URL.
+  for (const u of redirectUris) {
+    try {
+      const parsed = new URL(u);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error('scheme');
+    } catch {
+      return cors(NextResponse.json({ error: 'invalid_redirect_uri', error_description: `not a valid absolute URL: ${u.slice(0, 80)}` }, { status: 400 }));
+    }
+  }
+  const clientName = typeof body.client_name === 'string' ? body.client_name.slice(0, 256) : undefined;
 
   const result = await registerClient({ clientName, redirectUris });
   if (!result) {

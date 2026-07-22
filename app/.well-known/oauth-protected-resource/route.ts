@@ -17,7 +17,9 @@ export const dynamic = 'force-dynamic';
 function withCors(res: NextResponse): NextResponse {
   res.headers.set('Access-Control-Allow-Origin', '*');
   res.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.headers.set('Cache-Control', 'public, max-age=300');
+  // Not `public` — body varies with the request host (security review Finding 1).
+  res.headers.set('Cache-Control', 'private, no-store');
+  res.headers.set('Vary', 'X-Forwarded-Host, Origin');
   return res;
 }
 

@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-21_threshold-security-hardening.md",
         "updates/2026-07-21_experiment-integrity-frozen-protocol.md",
         "updates/2026-07-21_explain-primitive-resilient-canon-reads.md",
         "updates/2026-07-21_experiment-registry-audit.md",

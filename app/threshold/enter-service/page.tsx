@@ -21,7 +21,15 @@ interface Upgrade {
 
 function EnterServiceInner() {
   const params = useSearchParams();
-  const code = params.get('code') ?? '';
+  // The handshake code arrives in the URL FRAGMENT (security review Finding 3) so
+  // it never reaches a server log or a Referer header. Read it client-side; fall
+  // back to the query param for backward compatibility with older links.
+  const [code, setCode] = useState('');
+  useEffect(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : '';
+    const fromHash = new URLSearchParams(hash).get('code');
+    setCode(fromHash || params.get('code') || '');
+  }, [params]);
   const [upgrade, setUpgrade] = useState<Upgrade | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +37,7 @@ function EnterServiceInner() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!code) return; // wait until the fragment-borne code is resolved
     let alive = true;
     (async () => {
       try {

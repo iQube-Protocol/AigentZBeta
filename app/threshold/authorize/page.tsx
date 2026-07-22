@@ -98,12 +98,22 @@ function AuthorizeInner() {
   }, [handshakeCode]);
 
   const deny = useCallback(() => {
-    if (!redirectUri) return;
-    const u = new URL(redirectUri);
+    // Open-redirect guard (security review Finding 5): only redirect back if the
+    // crossing was validated server-side. `handshakeCode` is set ONLY after
+    // authorize-init confirmed redirect_uri is registered for this client, so an
+    // attacker-supplied redirect_uri (that fails validation) never navigates.
+    if (!redirectUri || !handshakeCode) return;
+    let u: URL;
+    try {
+      u = new URL(redirectUri);
+    } catch {
+      return;
+    }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return;
     u.searchParams.set('error', 'access_denied');
     if (state) u.searchParams.set('state', state);
     window.location.href = u.toString();
-  }, [redirectUri, state]);
+  }, [redirectUri, state, handshakeCode]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
