@@ -194,7 +194,7 @@ Verified candidate artifacts sufficient to give the human reviewer real choice a
 
 ## Ratification record
 
-- [ ] Operator ratification of this PRD (status: DESIGN, awaiting sign-off)
+- [x] Operator ratification of this PRD — **RATIFIED 2026-07-22**
 - [ ] Ratification of `CRYSTAL-CANON_source-material-charter.md` (companion — names what the first campaign targets)
-- [ ] Engineering resolves the flagged `EvidenceKind` extension and domain-value decision before Phase 1 build begins
+- [x] Engineering resolves the flagged `EvidenceKind` extension and domain-value decision before Phase 1 build begins — **RESOLVED 2026-07-22**: `EvidenceKind` extended additively (`academic-literature`, `incident-report`, `disclosure-report` + CHECK-widening migration, commit `54bf6d4e`); Discovery Engine `domain` value for EXP-P1 campaigns = `constitutional-reasoning`
 - [ ] Build tracked against §14's phased programme once ratified
