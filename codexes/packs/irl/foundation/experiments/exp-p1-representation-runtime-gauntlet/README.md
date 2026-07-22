@@ -62,6 +62,7 @@ Both parties commit predictions **before** any run. Recorded here; amendable onl
 3. **Model pinning.** One target model, pinned by exact model string, identical for all arms. Temperature and sampling parameters fixed and recorded. Any provider-side model update mid-experiment voids affected runs (re-run required).
 4. **Mechanistic Difference Enumeration (MDE).** IRL's enumeration (per EXP-010 §7A) is included in the pre-registration bundle as a signed artifact: the complete list of points where Arm B's inference path differs from Arm C. Current stated content: (i) per-task intent-scoped live selection [load-bearing]; (ii) crystal state timing [non-effect under freeze]; (iii) post-call citation/standing return path [lifecycle; cannot affect the in-call answer]. **No mechanism absent from the MDE may be invoked to explain any result.**
 5. **Mechanistic Trace.** One fully worked inference per arm (corpus → selection → composition → serialization → model → evaluation), published alongside results. Enumeration and trace start at the corpus, not the prompt.
+6. **Collection-size guard (from the Austin review — locked at freeze).** `Crystal vP1` must be large enough that the **fixed Arm C slice is a genuine subset** of the collection — pre-registered constraint: **the fixed Arm C slice ⊆ 40% of `Crystal vP1`**. Rationale: if the fixed slice approaches the whole collection, Arm B's per-task live selection cannot differ from Arm C's fixed slice, the selection-neutral / selection-sensitive split (§5, P-IRL-2) has no domain to be tested on, and Arm C ≈ Arm B degenerately (not by finding). If the current 18-invariant doctrine collection is too small to satisfy this at a meaningful task set, `Crystal vP1` must be enlarged (or a neutral-domain collection substituted) **before** freeze. The slice fraction is recorded in the pre-registration bundle (§10).
 
 ## 4. Arms
 
@@ -151,6 +152,10 @@ Upon completion: all rendered prompts, raw model outputs, judge outputs, selecti
 | Mutation: B eliminates stale conclusions with less breakage/cost than hand-edit | **Objecthood/locality demonstrated** — the lifecycle claim earns its first controlled evidence. |
 | Mutation: hand-edit matches B | Update locality not yet differentiating at current crystal scale. |
 | D ≈ A | Task set or judge is broken; halt and repair before reading anything else (instrument check). |
+
+**Pre-registered domain limitation (inv.reasoning.349, agreed in advance — from the Austin review).** Phase 1 intentionally evaluates the runtime against the constitutional corpus from which it was derived (`Crystal vP1` = the platform's own doctrine collection). It is a validation of **internal coherence, not a claim of domain generality** — the task–collection affinity is by design (§3), and the maximally-friendly, self-referential domain is acknowledged as such. **No EXP-P1 outcome, however strong, may be read as evidence of domain-independent generalisation.** Domain-independent validation on a neutral-domain collection is explicitly sequenced as a distinct later phase (the EXP-P2 medicine-style framing shows the Institute can extract one). This limitation is pre-registered, not a post-hoc caveat.
+
+**Interpretation freeze (inv.reasoning.346–348).** This table is the frozen interpretation of EXP-P1. Per the frozen-protocol discipline, an outcome's meaning is fixed here **before any result exists**; the experiment may generate new hypotheses but may not redefine its own success criteria after observation. Any new insight belongs to the *next* protocol, never this one.
 
 ## 13. Roles, Environment, Logistics
 
