@@ -5304,6 +5304,19 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'ExpP1ReadinessTab', props: {} },
       metadata: { icon: 'Gauge', description: 'PRD-EPI-001 §10 — seven per-gate readiness sections for EXP-P1 (protocol-ratified derivation, live). Execution/Publication are expected red pre-run.', color: 'violet' },
     },
+    // ── Corpus Scout — PRD-ICA-001 human review workspace (steward-gated) ──
+    {
+      id: 'irl-os-corpus-scout',
+      label: 'Corpus Scout',
+      slug: 'irl-os-corpus-scout',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 5,
+      type: 'static',
+      config: { component: 'CorpusScoutTab', props: {} },
+      metadata: { icon: 'FileSearch', description: 'PRD-ICA-001 §9 — verify, review, and hand approved sources to the Discovery Engine. Retrieval → byte verification → human approval → add-evidence.', color: 'violet' },
+    },
     // ── Constitutional Evaluation — the external-researcher front door ──
     {
       id: 'irl-os-evaluation',
