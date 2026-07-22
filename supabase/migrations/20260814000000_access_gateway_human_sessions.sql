@@ -1,4 +1,4 @@
--- 20260813000000_access_gateway_human_sessions.sql
+-- 20260814000000_access_gateway_human_sessions.sql
 --
 -- Polity Access Gateway — human session row shape (PRD-PAG-001 §2.1 / §4,
 -- operator-ratified 2026-07-22, Phase 1).
