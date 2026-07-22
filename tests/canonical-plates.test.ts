@@ -119,8 +119,15 @@ describe('Publication registry — series + canonical numbering', () => {
 
   it('numbering is monotonic within a series and fresh for an unused series', () => {
     expect(PUBLICATION_REGISTER.length).toBeGreaterThanOrEqual(1);
-    expect(nextPublicationNumber('IRL')).toBe('IRL-0002');
-    expect(nextPublicationNumber('CCS')).toBe('CCS-0001');
+    // Pin the RULE (max-in-series + 1), not a literal that goes stale as the
+    // register grows — the register already holds IRL-0001 AND IRL-0002, so the
+    // next IRL number is IRL-0003. (Caught by the ISR-001 independent discovery
+    // pass, 2026-07-21: the true invariant is max+1, not the frozen literal.)
+    const maxIrl = Math.max(
+      ...PUBLICATION_REGISTER.filter((p) => p.seriesCode === 'IRL').map((p) => Number(p.number.split('-')[1])),
+    );
+    expect(nextPublicationNumber('IRL')).toBe(`IRL-${String(maxIrl + 1).padStart(4, '0')}`);
+    expect(nextPublicationNumber('CCS')).toBe('CCS-0001'); // fresh, unused series
   });
 });
 
