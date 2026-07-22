@@ -395,8 +395,25 @@ export function StewardParticipationTab() {
               tests, reports, and plates always stay admin-only. */}
           {activeDomain === 'research-lab' && (
             <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2.5">
-              <div className="text-[11px] text-slate-400 mb-1.5">
-                Experiments this invitation grants <span className="text-slate-500">(none = all)</span>
+              <div className="mb-1.5 flex items-center justify-between">
+                <div className="text-[11px] text-slate-400">
+                  Experiments this invitation grants <span className="text-slate-500">(none = all)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormExperiments((prev) =>
+                      prev.length === assignableExperiments.length
+                        ? []
+                        : assignableExperiments.map((exp) => exp.id),
+                    )
+                  }
+                  className="text-[11px] font-medium text-violet-300 hover:text-violet-200"
+                >
+                  {formExperiments.length === assignableExperiments.length && assignableExperiments.length > 0
+                    ? 'Clear all'
+                    : 'Select all'}
+                </button>
               </div>
               <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                 {assignableExperiments.map((exp) => {

@@ -29,6 +29,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { personaPublicRef } from '@/services/identity/personaReferences';
 import { createOrGetChannel } from '@/services/qubetalk/peerChannel';
+import { EXPERIMENT_REGISTRY } from '@/types/research';
 
 /**
  * Invite → auto-channel: when an invitation was flagged `open_peer_channel`,
@@ -86,24 +87,22 @@ export function isAccessDomain(v: string): v is AccessDomain {
   return (ACCESS_DOMAINS as readonly string[]).includes(v);
 }
 
-/** The runnable experiments an invitation can scope a reviewer to. Acceptance
- *  tests, reports, and plates are deliberately absent — they stay admin-only. */
-export const ASSIGNABLE_EXPERIMENTS: { id: string; label: string }[] = [
-  { id: 'EXP-001', label: 'EXP-001 · Bundle Evaluation' },
-  { id: 'EXP-002', label: 'EXP-002 · Invariant-Carried Video' },
-  { id: 'EXP-003', label: 'EXP-003 · Rediscovery Savings' },
-  { id: 'EXP-004', label: 'EXP-004 · Sovereignty' },
-  { id: 'EXP-005', label: 'EXP-005 · Provider Choice' },
-  // Invariant Intelligence Validation Series (EXP-006 runs in-app; 007/008 are
-  // design-stage, assignable so a reviewer can scope + develop them).
-  { id: 'EXP-006', label: 'EXP-006 · Projection Fidelity' },
-  { id: 'EXP-007', label: 'EXP-007 · Reasoning Entropy' },
-  { id: 'EXP-008', label: 'EXP-008 · Cross-Modal Reuse' },
-  // Validation Programme (design-stage).
-  { id: 'EXP-P1', label: 'EXP-P1 · Representation Gauntlet' },
-  { id: 'EXP-P2', label: 'EXP-P2 · Projection Semantics' },
-  { id: 'EXP-P3', label: 'EXP-P3 · Programme Arm 3' },
-];
+/**
+ * The runnable experiments an invitation can scope a reviewer to. Acceptance
+ * tests, reports, and plates are deliberately absent — they stay admin-only.
+ *
+ * DERIVED from EXPERIMENT_REGISTRY (types/research.ts) — the platform's single
+ * source of truth for experiments (the same registry the Laboratory →
+ * Experiments view and the disk-parity canary key off). This list previously
+ * hand-duplicated the registry as a static array and went stale every time an
+ * experiment was added (EXP-009/010, CCE-006/007, ISR-001 were all missing
+ * from the invitation scoping UI — operator QA, 2026-07-22). Deriving it means
+ * a new EXPERIMENT_REGISTRY entry is automatically assignable; there is no
+ * second place to remember to update.
+ */
+export const ASSIGNABLE_EXPERIMENTS: { id: string; label: string }[] = EXPERIMENT_REGISTRY.map(
+  (exp) => ({ id: exp.id, label: `${exp.id} · ${exp.family}` }),
+);
 
 /**
  * Resolve a persona's research-lab experiment access from their active grants.
