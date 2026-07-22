@@ -26,6 +26,51 @@
 > new first item in §9); the rest of this document's open questions (§8) remain
 > unresolved.
 
+> **Revision note 2 (2026-07-22, second round — all six §8 questions resolved by the
+> operator, plus one governing architectural statement).** The operator answered every
+> open question from §8 directly, and supplied a single paragraph intended to resolve
+> the shape of the whole amendment at once. Quoted in full because it is now the
+> **primary interpretive frame for this entire document** — every section below should
+> be read through it:
+>
+> > "Action Modes are an orchestration layer, not a replacement for the constitutional
+> > model. They do not replace archetypes, standing, entitlements, billing, or
+> > constitutional domains. They provide an intent-first interaction model that allows
+> > the Runtime to dynamically compose existing constitutional capabilities around what
+> > the founder is trying to accomplish right now."
+>
+> And the companion distinction the operator asked to be stated explicitly, because an
+> earlier draft of this reasoning (mine) still implicitly treated Action Modes as
+> heading toward replacing archetypes:
+>
+> > "Archetypes describe enduring constitutional characteristics. Action Modes describe
+> > temporary constitutional intent."
+>
+> The concrete resolutions (full text inline at each item, §8): (1) Safeguard is a
+> **superset of `citizen`**, not a new capability domain — no new SKU, no new
+> entitlement model. (2) Standing does **not** become mode-aware in Phase 1 — it
+> remains archetype/constitutional-activity-derived and durable; modes are ephemeral.
+> (3) `activeActionModes` is **session/runtime context state, not permanent profile
+> data** — this corrects §6's original proposal below, which modeled it closer to a
+> persistent, `research_tier`-like DB column; see the corrected §6.1 note. (4) NBE
+> reranking is **not restructured** — modes become an additional **weighting signal**
+> on the existing archetype/venture-context/standing/Experience-Guide/constitutional
+> signal set, not a replacement axis. (5) The archetype picker in
+> `ExperienceModelSetupWizard.tsx` **stays**, moved behind the scenes as constitutional
+> metadata; Action Mode selection ("What do you want to do today?") becomes the
+> user-facing UX. (6) Sequencing is **three phases**: Phase 1 = Action Modes as UX +
+> Runtime weighting signal only, zero changes to Standing/Billing/Archetypes/
+> Entitlements/Research SKU ("new front-end, existing back-end"); Phase 2 = Founders
+> Club/Community Concierge built using Action Modes; Phase 3 = mode analytics/history/
+> adaptive onboarding, gated on Phase 1–2 data proving it valuable, and **still no
+> standing-computation impact unless a future constitutional decision explicitly calls
+> for it.**
+>
+> These resolutions are recorded in place at each §8 item and reflected in the
+> corrected §5 and §6 below, rather than superseding those sections with a rewrite —
+> the original proposal is left visible, struck through in intent (not literally
+> deleted), so the correction is auditable against what it corrected.
+
 ---
 
 ## §0 Reconciliation — what already exists today
@@ -220,6 +265,42 @@ flagged as having no archetype predecessor. Whether `protector` becomes a sixth 
 without its own DB column, remains open (§8.1) — this section fixes the *names*, not the storage
 mechanics.
 
+### 2.0.1 Action Modes are views over capabilities, not capabilities themselves (operator's second-round clarification)
+
+**Action Modes are not products, and not entitlement domains. They are orchestration
+modes — an intent router over the constitutional/service domains that already exist.**
+The operator's own list of what a mode orchestrates *across*: Build, Research, Develop,
+Finance, Civic, etc. — the platform's existing **Constitutional Capability Domains**
+(the CRP-family naming already in use: `codexes/packs/irl/foundation/CFS-009...`/CRP-003
+charters the Financial Services Constitutional Capability Domain as "Domain 3"; the
+`data/codex-configs.ts` CRP-003a comment names it directly — "Domain-3 (Financial
+Intelligence, read-only) capability"). **This is a real, load-bearing naming collision
+worth flagging rather than glossing over:** "Build," "Research," and "Develop" are used
+by the operator both as **Action Mode names** (§2.1–§2.5, the UX-facing intent layer)
+*and* informally as **capability/service domain names** (the orchestration-target
+layer) — e.g. Safeguard mode orchestrates across the Legal, Civic, Identity,
+Compliance, Governance, Privacy, IP, Risk, and Financial-safeguarding domains, none of
+which is itself a fifth Action Mode.
+
+**Resolution:** the two layers are related but distinct, and this document uses them as
+follows — an Action Mode (Build/Create/Develop/Research/Safeguard) is the founder's
+**current intent**, expressed once, at the UX layer; a Constitutional Capability Domain
+(Finance/Civic/Legal/Identity/... — including the CRP-family domains already chartered)
+is a **service/entitlement territory** the Runtime composes *underneath* that intent.
+Entering Safeguard mode does not activate a new domain — it re-weights the Runtime's
+orchestration toward the Legal/Civic/Identity/Compliance/Governance/Privacy/IP/Risk/
+Financial-safeguarding domains that already exist, using their existing services and
+entitlements unchanged (per the operator's governing statement above: "Action Modes are
+views over capabilities, not capabilities themselves"). Where a mode name and a domain
+name happen to share a word (Build the mode vs. a hypothetical "Build" domain, Research
+the mode vs. a hypothetical "Research" domain), code-facing identifiers for modes and
+domains should stay in clearly distinct namespaces (e.g. `ConstitutionalActionMode`
+literal `'Build'` vs. a `ConstitutionalCapabilityDomain` identifier that is never the
+bare word alone) so the two concepts cannot be silently conflated in a schema, a query,
+or a specialist-routing table. This document does not mint a canonical domain list —
+that is the CRP charter family's job — it only fixes that Action Modes sit *above* that
+list as an orchestration/intent layer, never as a sixth entry in it.
+
 ### 2.1 Build (role: Builder)
 
 **Definition:** Building ventures, businesses, teams, products, and standing — founding and
@@ -388,31 +469,42 @@ items in §9 — it is proposed here, not yet ratified.
 
 ---
 
-## §5 Runtime behavior changes — multi-mode simultaneous activation
+## §5 Runtime behavior changes — multi-mode simultaneous activation, as a weighting signal
 
 **Current behavior:** the Runtime (NBE reranking, Experience Guide flows, capability surfacing)
 reads a single, nullable `operatorArchetype` value per persona and biases toward
 archetype-appropriate moves. One value, one bias vector, set at onboarding and rarely revisited.
 
-**Proposed behavior:** the Runtime activates capabilities per the **set of currently active
-modes** for the persona, not per a single fixed identity value.
+**Corrected proposed behavior (operator's second-round resolution to §8 item 4 —
+supersedes this section's first-draft framing below the line):** NBE reranking is
+**not restructured**. It continues to read primarily from archetype, venture context,
+Standing, Experience Guide state, and constitutional context, exactly as today. The
+**set of currently active Action Modes becomes one additional weighting signal** layered
+on top of that existing computation — not a replacement axis, and not by itself a new
+reranking algorithm.
 
-- A persona could hold `{ 'Build', 'Safeguard' }` simultaneously — e.g. building a product
-  while also serving a governance/review role — and the Runtime would surface capabilities and
-  NBEs relevant to *both* concurrently, rather than forcing a choice.
+- A persona could hold `{ 'Build', 'Research' }` simultaneously. The Runtime does not
+  switch to a mode-only ranking; it takes its existing archetype/venture/standing-driven
+  ranking and **raises the weight** of Build- and Research-relevant recommendations
+  while **slightly deprioritizing** everything else — a re-weighting pass over the
+  existing signal set, not a parallel/independent signal that competes with it.
 - Modes are proposed as **dynamic and non-permanent**: a persona's active-mode set can change
   session-to-session, or even within a session, as their current work shifts — in contrast to
   archetype, which today changes only when the operator re-runs
-  `ExperienceModelSetupWizard`'s single-select picker.
-- This does not by itself specify a new NBE reranking algorithm — it specifies the *shape* of the
-  signal (a set, not a scalar) that a future reranking pass would read. The actual reranking logic
-  change is out of scope for this document (see §8).
+  `ExperienceModelSetupWizard`'s single-select picker (§8 item 5: the wizard itself is kept,
+  just moved behind the scenes).
+- **Explicitly not required for Phase 1** (§8 item 6): no reranking algorithm change ships
+  before the Founders Club/Concierge phase. Phase 1 is "new front-end, existing back-end" —
+  Action Modes exist as UX and as a signal the *Runtime is aware of*, without the reranking
+  function itself being touched yet.
 
 **Concrete illustration.** A founder might be in Research mode in the morning, Develop mode in the
 afternoon, and Safeguard mode in the evening — and multiple modes may be active simultaneously (a
 founder could be in Build and Safeguard at once, e.g. closing a partnership while also reviewing a
-contract). The Runtime activates whichever specialist capabilities fit the current task, reading
-the active mode-set rather than a single fixed archetype value.
+contract). With Build and Research both active, Build- and Research-flavored recommendations rank
+higher and everything else ranks slightly lower — the existing archetype/standing/venture-context
+ranking is re-weighted, not replaced, and the Runtime still surfaces whichever specialist
+capabilities fit the current task on top of that re-weighted base.
 
 ---
 
@@ -429,42 +521,59 @@ transition.**
 
 - The `OperatorArchetype` enum, the `operator_archetype` DB column, `VALID_ARCHETYPES`, and every
   API that reads/writes it stay exactly as they are. **No deletion, no renaming, no narrowing.**
-- A new, separate dimension — tentatively `activeActionModes: ConstitutionalActionMode[]` — would
-  be added *alongside* `operatorArchetype` on the `ExperienceQubeMeta` (or a sibling structure),
-  not substituted for it.
-- Archetype becomes the **default/derived mode-set seed**: on first exposure to the new dimension,
-  a persona's existing `operatorArchetype` value maps via §3's table to an initial
+- **Corrected data-shape decision (operator's second-round resolution to §8 item 3 —
+  supersedes 6.2 point 1 below, which is left visible as the superseded proposal, not
+  deleted):** `activeActionModes` is **session/runtime context state, not permanent
+  profile data.** It is not identity, not access control, and — explicitly — not a new
+  column requiring a schema migration modeled on `research_tier`. It is stored
+  alongside the persona's active Experience-Guide/runtime session state (the same class
+  of ephemeral, per-session context the platform already carries, e.g. `activeActionModes:
+  ['Build', 'Research']`), not on a persistent per-persona profile table. If later usage
+  proves historical mode analytics valuable (Phase 3, §8 item 6), that becomes **event
+  telemetry** (a stream of mode-change events with timestamps), not a persisted profile
+  field — the profile stays exactly as thin as it is today.
+- Archetype remains the **default/derived mode-set seed** for a persona's *first* session in
+  the new UX: a persona's existing `operatorArchetype` value maps via §3's table to an initial
   `activeActionModes` value (e.g. `entrepreneurial → ['Build']`, `technical → ['Develop']`),
-  giving every existing persona a sensible non-empty starting mode-set with zero manual migration
-  step required of the operator. The persona can then freely add/remove modes from that seed.
+  giving every session a sensible non-empty starting mode-set with zero manual migration
+  step required of the operator. The persona can then freely add/remove modes from that seed
+  for the current session — this reseeding is a read-time derivation, not a write to the
+  archetype record itself.
 
-### 6.2 Concrete migration/coexistence mechanism (proposed, not yet built)
+### 6.2 Concrete migration/coexistence mechanism
 
-1. **Additive DB column, not a schema rewrite.** A new nullable column (or a JSON array column)
-   alongside `operator_archetype` on the `experience_qubes` table — mirroring exactly the pattern
-   already used for `research_tier` in the 2026-07-16 precedent (`supabase/migrations/
-   20260716010000_persona_plans_research_tier.sql`: a new column coexisting with existing ones,
-   CHECK-constrained, additive-only). A parallel migration for action modes would follow the same
-   shape: add, don't alter or drop.
+**Superseded proposal (first draft, kept visible for audit — see 6.1's corrected note above
+for what actually applies):** ~~Additive DB column, not a schema rewrite. A new nullable
+column (or a JSON array column) alongside `operator_archetype` on the `experience_qubes`
+table — mirroring exactly the pattern already used for `research_tier` in the 2026-07-16
+precedent (`supabase/migrations/20260716010000_persona_plans_research_tier.sql`).~~ This
+modeled Action Modes as closer to permanent profile data than the operator intends —
+`research_tier` is durable billing state; Action Modes are not. The corrected mechanism:
+
+1. **No new persistent DB column for the mode-set itself.** `activeActionModes` lives in
+   session/runtime context (§6.1), not in a `research_tier`-style additive column. If a
+   lightweight persistence layer is needed at all (e.g. to resume a session), it should use
+   whatever mechanism already carries other ephemeral runtime/session state in this codebase,
+   not a new profile-table column — a decision for whoever builds Phase 1, informed by
+   which existing session-context mechanism is the closest fit.
 2. **Archetype-to-default-mode mapping table.** §3's mapping table, expressed as code (e.g. a
    `Record<OperatorArchetype, ConstitutionalActionMode[]>` sitting next to `ARCHETYPE_DOMAINS` in
    `standingScore.ts` or as its own module) is the single source of truth for the default seed —
    never hand-duplicated at each read site, per CLAUDE.md's source-of-truth-parity discipline
    (`inv.engineering.036/037`).
-3. **Dual-read period.** During transition, any Runtime consumer reading action-mode state would
-   fall back to the archetype-derived default when no explicit `activeActionModes` value has been
-   set — i.e. read-through, not a hard cutover. This mirrors the existing pattern where
-   `upsertExperienceQube()` already falls back to `existing?.meta.operatorArchetype ?? null` when
-   an input field is undefined.
+3. **Dual-read/reseed, not a migration.** Because the mode-set is session state, not persisted
+   profile data, there is no "migration" in the schema sense — every new session simply
+   reseeds from the archetype-derived default (point 2) unless the founder has already chosen
+   modes for that session.
 4. **No forced re-onboarding.** Existing personas are never required to re-run a wizard step to
-   remain functional — the derived default keeps them fully served until/unless they choose to
-   customize their active modes.
+   remain functional — the derived default keeps them fully served every session, whether or
+   not they ever customize their active modes.
 
 ### 6.3 File-by-file impact — what changes vs what stays additive-only
 
 | File | Change under this proposal | Stays as-is |
 |---|---|---|
-| `services/iqube/experienceQube.ts` | ADD a new field/type for action modes alongside `OperatorArchetype`; ADD a migration path for the seed default | `OperatorArchetype` union, `VALID_ARCHETYPES`, `operator_archetype` column, all existing read/write functions unchanged |
+| `services/iqube/experienceQube.ts` | ADD a `ConstitutionalActionMode` type/union for reference by the session-context layer (§6.1) — no new column on `ExperienceQubeMeta`/`DbRow`, since the mode-set is session state, not profile data | `OperatorArchetype` union, `VALID_ARCHETYPES`, `operator_archetype` column, all existing read/write functions unchanged |
 | `services/standing/standingScore.ts` | Optionally ADD a mode-aware view alongside `ARCHETYPE_DOMAINS`/`ARCHETYPE_PATHWAYS` if Standing lensing should also read modes (open question, see §8) | `ARCHETYPE_DOMAINS`, `ARCHETYPE_PATHWAYS`, `pathwayTags` output, the "filter tag, not a separate score" contract — unchanged; the unified Standing score computation is untouched |
 | `components/metame/setup/ExperienceModelSetupWizard.tsx` | ADD a mode-select UI (multi-select, distinct from the archetype radio group) as a new step or an additional field on an existing step | `OPERATOR_ARCHETYPES` picker, `ARCHETYPE_DEFAULT_TYPE`, the single-select `selectArchetype()` behavior — all remain functional and are not removed; archetype selection continues to work exactly as it does today |
 | `data/activation-catalog.ts` | Optionally ADD a `modes` field to `ActivationCatalogEntry` (mirroring `sourceCartridge`) so activations can declare which action mode(s) they primarily serve, for future mode-aware activation surfacing | No existing entry's `gate`, `tabSlug`, `metrics`, or `actions` change; no entry is removed or renamed |
@@ -603,38 +712,88 @@ the operator before either document is ratified — not silently by either autho
 
 ---
 
-## §8 Open questions / operator decisions needed
+## §8 Open questions — resolved by the operator (2026-07-22, second round)
 
-This amendment surfaces the following decisions for explicit operator ratification; none are
-resolved by this document:
+All six items below were raised as open in this document's first draft and have now been
+answered directly by the operator. Each item keeps its original question for the audit
+trail, with the resolution recorded immediately under it.
 
 1. **Is Safeguard (role: Protector) a superset of `citizen`'s governance-participation sense, or a wholly new,
-   disjoint capability domain?** §2.5 flags this as unresolved. The answer materially affects
-   whether Safeguard needs its own billing/entitlement machinery (like `researcher`'s dedicated
-   SKU) or rides on existing citizen-tier access.
+   disjoint capability domain?**
+   **Resolved: a superset, not a new domain.** Action Modes are orchestration modes, not
+   entitlement domains (§2.0.1). Safeguard mode orchestrates the Runtime toward the
+   existing Legal, Civic, Identity, Compliance, Governance, Privacy, IP, Risk, and
+   Financial-safeguarding domains — it does not stand up a new one. **Consequence: no
+   new SKU, no new entitlement model.** Safeguard reuses whatever services already exist
+   underneath those domains; it is a view over them, not a capability of its own.
 2. **Should Standing-domain lensing (`ARCHETYPE_DOMAINS`/`pathwayTags`) become mode-aware, or
-   remain archetype-only?** §6.3 flags this as optional/open. A mode-aware Standing lens would let
-   a persona see "how much of my verified standing is Build-mode work" distinct from "how much is
-   Develop-mode work" even when both trace back to the same `entrepreneurial` archetype seed — but
-   this is a nontrivial extension to `computeStandingScore()`'s domain-weighting logic and was not
-   scoped as required by the operator's brief.
-3. **What is the actual data shape for `activeActionModes`?** A simple array on
-   `ExperienceQubeMeta`, a new sibling table (mirroring how `personalGuide` lives inside
-   `ExperienceQubeBlak` today), or something else — not decided here; a decision for whoever builds
-   Phase 1 of this amendment, informed by whether mode state needs to be T0/T1/T2-tiered under the
-   Identity & Access Spine rules.
+   remain archetype-only?**
+   **Resolved: no — not yet.** Standing remains tied to constitutional activity and
+   archetype/domain, and stays durable; Action Modes are ephemeral (a single afternoon in
+   Research mode must not create a new standing dimension). Operative statement, quoted
+   for reuse verbatim in any future implementation spec: **"Standing remains
+   constitutionally derived from verified contribution. Action Modes may become a
+   reporting or visualization layer in the future but shall not alter standing
+   computation in Phase 1."** `ARCHETYPE_DOMAINS`, `ARCHETYPE_PATHWAYS`, and
+   `computeStandingScore()` need zero changes under this amendment.
+3. **What is the actual data shape for `activeActionModes`?**
+   **Resolved: session/runtime context state, not permanent profile data — see the
+   corrected §6.1/§6.2 above.** Not over-engineered: an array (e.g. `activeActionModes:
+   ['Build', 'Research']`) stored alongside the persona's active Experience/runtime
+   session state, not identity, not access control, not a new DB column modeled on
+   `research_tier`. Future historical analytics, if ever built (Phase 3), is event
+   telemetry over mode-change events, not a profile field.
 4. **Does the NBE reranking algorithm need to change to consume a mode-set instead of a scalar
    archetype, and if so, what is the fallback/precedence rule when multiple modes are active
-   simultaneously?** §5 explicitly defers this; it is a nontrivial algorithmic question, not a data
-   modeling one, and this document does not propose an answer.
+   simultaneously?**
+   **Resolved: not initially.** NBE reranking keeps using archetype, venture context,
+   Standing, Experience Guide, and constitutional context as its primary signals — see
+   the corrected §5. Active Action Modes become one additional **weighting signal**:
+   recommendations matching the active mode-set are weighted up, everything else
+   slightly down. This is a re-weighting of the existing ranking, not a new or
+   replacement ranking algorithm, and there is consequently no "fallback/precedence
+   rule" to design for Phase 1 — multiple active modes simply each contribute their own
+   weighting boost, additively, with no precedence ordering required between them.
 5. **Should the `ExperienceModelSetupWizard`'s archetype radio-group be replaced, supplemented, or
-   left alone in the UI**, once action modes exist? §6.3 proposes "ADD a mode-select UI... as a new
-   step or an additional field," but does not resolve whether the archetype picker should then be
-   demoted to an advanced/optional setting, since it remains the seed source for the mode default
-   and (per §0.2) the direct input to Standing pathway tags and the researcher billing SKU.
-6. **Timeline / phase sequencing relative to PRD-FDC-001** — since that document is being authored
-   concurrently and its content is unknown to this document (§7), sequencing is an operator call
-   once both documents exist.
+   left alone in the UI**, once action modes exist?
+   **Resolved: keep the archetype picker, but move it behind the scenes.** The
+   founder-facing UX becomes "What do you want to do today?" (Action Mode selection).
+   The Runtime still resolves founder archetype, venture type, billing, tier,
+   entitlements, and constitutional profile — those become **implementation details**
+   the founder no longer has to navigate directly, not capabilities that are removed.
+   Operative framing: **"Archetype becomes constitutional metadata. Action Mode becomes
+   the UX."** — the classic separation between implementation and experience. `
+   OPERATOR_ARCHETYPES`, `ARCHETYPE_DEFAULT_TYPE`, and `selectArchetype()` all keep
+   working exactly as today; the wizard's archetype step is de-emphasized in the UI
+   layer, not deleted or functionally altered.
+6. **Timeline / phase sequencing relative to PRD-FDC-001**
+   **Resolved — three phases, operator's own sequencing:**
+   - **Phase 1.** Implement Action Modes purely as UX + Runtime orchestration
+     (weighting signal, §5). **No changes to** Standing, Billing, Archetypes,
+     Entitlements, or the Research SKU. In the operator's words: "New front-end.
+     Existing back-end."
+   - **Phase 2.** Introduce Founders Club, Community Concierge, and Concierge UX
+     (PRD-FDC-001), built using Action Modes as the intent layer.
+   - **Phase 3.** If the data proves valuable: mode analytics, mode history,
+     mode-aware reporting, adaptive onboarding, mode-aware recommendations. **Still no
+     impact on standing computation unless a future constitutional decision explicitly
+     calls for it** — Phase 3 does not implicitly reopen item 2's resolution.
+
+**The governing statement (operator, 2026-07-22 — treat as this document's primary
+architectural clarification, quoted in full in the Revision note 2 above and repeated
+here as the item every future implementation of this amendment should be checked
+against):**
+
+> "Action Modes are an orchestration layer, not a replacement for the constitutional
+> model. They do not replace archetypes, standing, entitlements, billing, or
+> constitutional domains. They provide an intent-first interaction model that allows
+> the Runtime to dynamically compose existing constitutional capabilities around what
+> the founder is trying to accomplish right now."
+
+With all six items resolved, the remaining open work is **implementation planning**, not
+further architectural decision-making — a follow-on implementation plan (its own
+phase/PRD numbering, per the last unchecked item in §9) is the next artifact, not a
+further amendment to this one.
 
 ---
 
@@ -650,18 +809,35 @@ a time — not to record a blanket ratification that has not happened.**
       to build" / "I want to create" / etc.; and each mode has an associated Role a citizen occupies
       while acting in it — Builder, Creator, Developer, Researcher, and (operator-named) **Protector**
       for Safeguard. Citizen remains the default base identity, not a peer of the five modes.
+- [x] **Operator has ratified the governing architectural statement (§8, 2026-07-22):**
+      "Action Modes are an orchestration layer, not a replacement for the constitutional
+      model... Archetypes describe enduring constitutional characteristics. Action Modes
+      describe temporary constitutional intent." Every item below is read through this
+      statement.
 - [ ] Operator has reviewed and ratified the five Constitutional Action Mode definitions (§2)
 - [ ] Operator has ratified the Build vs Develop distinction as drafted (§2.3)
-- [ ] Operator has ratified (or amended) the scope of Safeguard / Protector (§2.5, §8.1)
+- [x] **Operator has ratified the scope of Safeguard / Protector (§2.5, §8.1):** a
+      superset of `citizen`, not a new capability domain — no new SKU, no new
+      entitlement model.
 - [ ] Operator has ratified the archetype ↔ mode mapping table (§3)
 - [ ] Operator has ratified the canonical Founder Office definition (§4) as the text reused across
       documentation, onboarding flows, agent responses, and platform messaging
-- [ ] Operator has ratified the multi-mode Runtime activation model (§5)
-- [ ] Operator has ratified the backward-compatibility / migration mechanism (§6)
+- [x] **Operator has ratified the corrected, weighting-signal-only Runtime activation
+      model (§5, §8.4):** NBE reranking is not restructured; Action Modes are an
+      additional weighting signal over the existing archetype/venture/standing/
+      Experience-Guide ranking, not a replacement axis.
+- [x] **Operator has ratified the corrected backward-compatibility / migration mechanism
+      (§6, §8.3):** `activeActionModes` is session/runtime context state, not permanent
+      profile data — no new DB column, no schema migration, Standing/Billing/
+      Archetypes/Entitlements/Research-SKU untouched in Phase 1.
 - [ ] Operator has reconciled the §7.3 agent-first roster (Community Concierge, Opportunity Scout,
       Network Navigator, Founder Coach, Event Curator, Circle Facilitator, Recognition Steward,
       Introduction Broker) against whatever agent set PRD-FDC-001 defines, if the two diverge
-- [ ] Operator has resolved the open questions in §8 sufficiently to authorize a build phase
+- [x] **Operator has resolved all six open questions in §8** (Safeguard scope, Standing
+      mode-awareness, `activeActionModes` data shape, NBE reranking, the setup wizard's
+      fate, and the three-phase sequencing) sufficiently to authorize a Phase 1 build —
+      Phase 1 scope is: new front-end (Action Mode UX), existing back-end (zero changes
+      to Standing/Billing/Archetypes/Entitlements/Research SKU).
 - [ ] A follow-on implementation plan (with its own phase/PRD numbering) has been chartered
 - [ ] This document has been cross-referenced from `codexes/packs/polity-core/items/
       AMENDMENT_RECORDS.md` as a *proposal under consideration* (not as a ratified amendment) — a
