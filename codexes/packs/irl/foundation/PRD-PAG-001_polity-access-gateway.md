@@ -1,6 +1,6 @@
 # PRD-PAG-001 — Polity Access Gateway ("Sign in with Polity Passport")
 
-**metaMe IRL / iQube Protocol · Product/security architecture specification · Status: DESIGN (docs-first, ratify-before-build)**
+**metaMe IRL / iQube Protocol · Product/security architecture specification · Status: RATIFIED (operator, 2026-07-22 — Phase 1 implementation authorized)**
 **Initiative name:** *Operation Passport — Polity Access Gateway & Smart Wallet Authentication (Passwordless Constitutional Identity).*
 **Owner:** Identity & Access Spine stewards + Polity Passport Bureau · **Origin:** operator + Aletheon design session, consolidated against the already-built metaMe Threshold gateway + the identity spine, 2026-07-22
 **Governs:** the human-side authentication/authorization gateway that makes the Polity Passport the root login credential for the iQube-compliant ecosystem — the complement to the already-built agent-side Threshold gateway (PRD-THR-001). It specifies an architecture for the operator to ratify. **It builds nothing.**
@@ -273,15 +273,17 @@ Phase names retained; each reconciled so the operator sees what is genuinely new
 
 ## 10. Ratification record
 
-- [ ] Operator ratifies **PRD-PAG-001** as DESIGN (docs-first) — the Access Gateway is the **generalized Threshold gateway** (one handshake, human-OIDC + agent-MCP adapters, one session substrate), **not** a sibling service (§2.1).
-- [ ] Operator confirms the **central architectural direction** (§2.1) — generalize vs. sibling — with the honest caveat that "generalize" = same core + added human adapter + human session row, not identical routes.
-- [ ] Operator confirms **SessionQube** is a promotion of CFS-024's Session level composing existing session infra, not a parallel session store (§4).
-- [ ] Operator confirms the **tier-exposure claims table** (§5) — T1/T2 only, five-forbidden-fields enforced.
-- [ ] Operator confirms **Principal–Delegate Separation** carries to the human login path — no agent-authenticate path ever (§6.1).
-- [ ] Operator acknowledges the **Phase-C asymmetric-signing dependency** blocking external OIDC4VP presentation (Phase 4) and the custody decision (Bureau-KMS vs IC-canister) (§0.5, §7).
-- [ ] Operator confirms **username/password stays as transitional recovery**, Supabase auth is federated not replaced (§0.7).
-- [ ] Operator confirms **no protected spine / DVN file is modified** and any future implementation is gated on `scripts/verify-spine.mjs` + spine canaries (§6.3).
-- [ ] On ratification, a separate **authorized implementation pass** is chartered (not this PRD) — spine-touching work under operator approval only.
+**RATIFIED by operator direction, 2026-07-22.** Phase 1 implementation chartered the same day (services/accessGateway/* human adapter over the shared Threshold substrate, migration 20260813000000, /api/access-gateway/* routes, consent page, SessionQube projection + canaries — no protected spine/DVN file modified).
+
+- [x] Operator ratifies **PRD-PAG-001** — the Access Gateway is the **generalized Threshold gateway** (one handshake, human-OIDC + agent-MCP adapters, one session substrate), **not** a sibling service (§2.1).
+- [x] Operator confirms the **central architectural direction** (§2.1) — generalize vs. sibling — with the honest caveat that "generalize" = same core + added human adapter + human session row, not identical routes.
+- [x] Operator confirms **SessionQube** is a promotion of CFS-024's Session level composing existing session infra, not a parallel session store (§4).
+- [x] Operator confirms the **tier-exposure claims table** (§5) — T1/T2 only, five-forbidden-fields enforced.
+- [x] Operator confirms **Principal–Delegate Separation** carries to the human login path — no agent-authenticate path ever (§6.1).
+- [x] Operator acknowledges the **Phase-C asymmetric-signing dependency** blocking external OIDC4VP presentation (Phase 4) and the custody decision (Bureau-KMS vs IC-canister) (§0.5, §7).
+- [x] Operator confirms **username/password stays as transitional recovery**, Supabase auth is federated not replaced (§0.7).
+- [x] Operator confirms **no protected spine / DVN file is modified** and any future implementation is gated on `scripts/verify-spine.mjs` + spine canaries (§6.3).
+- [x] On ratification, a separate **authorized implementation pass** is chartered (not this PRD) — spine-touching work under operator approval only. *(Chartered 2026-07-22: Phase 1 only; no spine file touched.)*
 
 ---
 

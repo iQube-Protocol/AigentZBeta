@@ -48,7 +48,11 @@ export interface ScopedSession {
   serviceAgreements: Record<string, string>;
 }
 
-function sha256(s: string): string {
+/** Exported unchanged for the Access Gateway human adapter (PRD-PAG-001 §2.1) —
+ *  the human-session module MUST share this exact hash encoding so codes/bearers
+ *  it writes are resolvable by the shared substrate (exchangeAuthorizationCode
+ *  reads auth_code_hash it computes with this same function). */
+export function sha256(s: string): string {
   return createHash('sha256').update(s).digest('hex');
 }
 
@@ -57,8 +61,9 @@ function sha256b64url(s: string): string {
   return createHash('sha256').update(s).digest('base64url');
 }
 
-/** A url-safe opaque token. */
-function newToken(bytes = 32): string {
+/** A url-safe opaque token. Exported unchanged for the Access Gateway human
+ *  adapter (PRD-PAG-001 §2.1) — same entropy discipline, one implementation. */
+export function newToken(bytes = 32): string {
   return randomBytes(bytes).toString('base64url');
 }
 
