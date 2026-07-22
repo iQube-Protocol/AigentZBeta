@@ -16,6 +16,8 @@ import {
   writeLifecycleReceipt,
   type ResearchObjectRecord,
 } from '@/services/research/lifecycle';
+import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
+import { runTaskCoverageReport, type TaskDefinition } from '@/services/research/taskCoverage';
 import {
   ARTIFACT_LIFECYCLE,
   PROTOCOL_FREEZE_ARTIFACT_KINDS,
@@ -122,11 +124,28 @@ export interface FreezeGateResult {
 /** Per-kind freeze gate — PRD-EPI-001 §3 (crystal), §5 (task-set/answer-key),
  * §6 (analysis-config/interpretation-table), §7 (execution-run is never frozen
  * via this path — see recordExperimentRunLifecycle for execution transitions).
- * Each gate is a PLUGGABLE check; wire the real validators
- * (services/research/crystalReadiness.ts, taskCoverage.ts) here as they land —
- * this function is the single choke point every freeze must pass through, so a
- * gate is never bypassed by a caller that forgets to check it. */
-export async function checkFreezeGate(artifact: FrozenArtifact): Promise<FreezeGateResult> {
+ * Each gate calls the real validators (services/research/crystalReadiness.ts,
+ * taskCoverage.ts) — this function is the single choke point every freeze
+ * must pass through, so a gate is never bypassed by a caller that forgets to
+ * check it. */
+export async function checkFreezeGate(
+  artifact: FrozenArtifact,
+  opts: { tasks?: TaskDefinition[] } = {},
+): Promise<FreezeGateResult> {
+  if (artifact.kind === 'crystal-version') {
+    // PRD-EPI-001 §3.1 — Crystal Intrinsic Readiness Report. Honest today: no
+    // Track 2 content exists yet, so this will correctly report `ok: false`
+    // with zero counts until the crystal is actually enlarged — that is the
+    // gate working as designed, not a bug to route around.
+    const readiness = await runCrystalReadinessReport({ experimentId: artifact.experimentId });
+    if (!readiness.ok) {
+      const failed = readiness.checks.filter((c) => !c.passed).map((c) => `${c.name}: ${c.detail}`);
+      return {
+        ok: false,
+        error: `Crystal Intrinsic Readiness Report failed (PRD-EPI-001 §3.1) — ${failed.join('; ')}`,
+      };
+    }
+  }
   if (artifact.kind === 'answer-key') {
     const a = artifact as unknown as { taskSetId?: string; taskSetContentHash?: string };
     if (!a.taskSetId || !a.taskSetContentHash) {
@@ -144,13 +163,32 @@ export async function checkFreezeGate(artifact: FrozenArtifact): Promise<FreezeG
     }
   }
   if (artifact.kind === 'task-set') {
-    // PRD-EPI-001 §3.2: task-set freeze is gated on the Task–Crystal Coverage
-    // Report, which itself requires the crystal to already be frozen. Wire
-    // taskCoverage.runCoverageReport(experimentId) here once built; until then,
-    // fail closed rather than silently accepting an unvalidated task set.
+    // PRD-EPI-001 §3.2 — the crystal must already be frozen (IRL-016 §5's
+    // sequence gate), THEN the Task–Crystal Coverage Report runs against the
+    // caller-supplied draft tasks. No task-set content schema exists yet
+    // anywhere in the codebase (Track 2 dependency) — when the caller hasn't
+    // supplied `opts.tasks`, this falls back to the crystal-frozen check alone
+    // and says so explicitly in the error, rather than silently passing a
+    // freeze it never actually validated coverage for.
     const crystal = await getArtifact(artifact.experimentId, 'crystal-version');
     if (!crystal || crystal.lifecycle !== 'frozen') {
       return { ok: false, error: 'task-set cannot freeze before crystal-version is frozen (PRD-EPI-001 §3.2, IRL-016 §5)' };
+    }
+    if (!opts.tasks || opts.tasks.length === 0) {
+      return {
+        ok: false,
+        error: 'task-set freeze requires opts.tasks for the Task–Crystal Coverage Report (PRD-EPI-001 §3.2) — crystal is frozen, but coverage cannot be assessed without the draft task list',
+      };
+    }
+    const coverage = await runTaskCoverageReport({ experimentId: artifact.experimentId, tasks: opts.tasks });
+    if (!coverage.ok) {
+      const uncovered = coverage.taskResults.filter((t) => !t.covered).map((t) => t.taskId);
+      return {
+        ok: false,
+        error:
+          coverage.blockedReason ??
+          `Task–Crystal Coverage Report failed (PRD-EPI-001 §3.2) — uncovered tasks: ${uncovered.join(', ')}`,
+      };
     }
   }
   if (!artifact.contentHash) {
@@ -172,6 +210,10 @@ export async function freezeArtifact(input: {
   contentHash: string;
   signedBy: string[];
   governingInvariants?: string[];
+  /** Required to freeze a task-set artifact (PRD-EPI-001 §3.2) — the draft
+   * task list the Task–Crystal Coverage Report runs against. Ignored for
+   * every other artifact kind. */
+  tasks?: TaskDefinition[];
 }): Promise<{ ok: boolean; error?: string; receiptId?: string | null }> {
   const artifact = await getArtifactById(input.id);
   if (!artifact) return { ok: false, error: `unknown artifact '${input.id}'` };
@@ -188,7 +230,7 @@ export async function freezeArtifact(input: {
     contentHash: input.contentHash,
     signedBy: input.signedBy,
   };
-  const gate = await checkFreezeGate(candidate);
+  const gate = await checkFreezeGate(candidate, { tasks: input.tasks });
   if (!gate.ok) return { ok: false, error: gate.error };
 
   const frozenAt = new Date().toISOString();
