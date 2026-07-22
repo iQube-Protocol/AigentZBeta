@@ -5089,6 +5089,66 @@
       "provenance": {
         "source": "CFS-048 Phase 2 Compare — recursive-compression methodology (operator + Aletheon 2026-07-20)"
       }
+    },
+    {
+      "id": "inv.reasoning.346",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "experiment-integrity",
+        "evaluation",
+        "governance"
+      ],
+      "statement": "An experiment may generate new hypotheses, but it may not redefine its own success criteria after observation. A result feeds the NEXT protocol; it never rewrites the criteria of the protocol under which it was produced. Post-hoc redefinition of what an experiment was testing is the precise failure mode pre-registration exists to prevent.",
+      "status": "canonical",
+      "provenance": {
+        "source": "Austin-review response + Aletheon actions — experiment-integrity / frozen-protocol discipline (operator-ratified 2026-07-21)"
+      }
+    },
+    {
+      "id": "inv.reasoning.347",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "experiment-integrity",
+        "evaluation",
+        "governance"
+      ],
+      "statement": "Every experiment separates three constitutional objects: OBSERVATION (the immutable record of what happened), INTERPRETATION (what the outcome is agreed to mean, frozen at the protocol’s signature), and HYPOTHESIS GENERATION (what to test next, free to evolve). Collapsing interpretation back into observation is post-hoc reinterpretation; keeping the three distinct preserves experimental integrity and research creativity at once — an experiment may inspire the next, but its own observation and interpretation stay fixed once frozen.",
+      "status": "canonical",
+      "provenance": {
+        "source": "Austin-review response + Aletheon actions — experiment-integrity / frozen-protocol discipline (operator-ratified 2026-07-21)"
+      }
+    },
+    {
+      "id": "inv.reasoning.348",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "experiment-integrity",
+        "evaluation",
+        "sovereignty"
+      ],
+      "statement": "A validation experiment freezes its judge, its target model, and its interpretation table BEFORE any result exists. Because outcomes move materially across models and judges, an unfrozen instrument measures the instrument rather than the claim; the interpretation table is the one place where the meaning of an outcome is fixed before the outcome exists, and it may not be “improved” mid-stream.",
+      "status": "canonical",
+      "provenance": {
+        "source": "Austin-review response + Aletheon actions — experiment-integrity / frozen-protocol discipline (operator-ratified 2026-07-21)"
+      }
+    },
+    {
+      "id": "inv.reasoning.349",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "experiment-integrity",
+        "epistemology",
+        "evaluation"
+      ],
+      "statement": "A runtime evaluated against the corpus from which it was derived validates INTERNAL COHERENCE, not domain generality. The derived-domain affinity is by design and must be reported as a pre-registered limitation, with domain-independent validation sequenced as a distinct later phase — never conflated with, nor presented as, a claim of generality.",
+      "status": "canonical",
+      "provenance": {
+        "source": "Austin-review response + Aletheon actions — experiment-integrity / frozen-protocol discipline (operator-ratified 2026-07-21)"
+      }
     }
   ]
 }
