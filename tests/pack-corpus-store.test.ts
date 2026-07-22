@@ -64,6 +64,36 @@ describe('packCorpusStore (local-fs mode, as shipped in Phase A)', () => {
   });
 });
 
+describe('PACK_CORPUS_URL pins remote mode (2026-07-22 incident contract)', () => {
+  // Incident: the deployed Lambda shipped a PARTIAL pack tree — enough .md under
+  // agentiq/updates to satisfy the local-fs sniff — so the store never hydrated
+  // the remote blob and 404'd every file outside the partial tree. The contract
+  // now: when the exporter has pinned PACK_CORPUS_URL (written only after a
+  // verified public upload), the store MUST report remote mode regardless of
+  // what is on disk, and single-file reads MUST still succeed via the per-file
+  // disk fallback even when hydration is unavailable.
+  it('overrides the local-fs sniff and keeps disk reads working as fallback', async () => {
+    const { vi } = await import('vitest');
+    vi.stubEnv('PACK_CORPUS_URL', 'https://example.invalid/pack-corpus/test/corpus-test.json');
+    vi.resetModules();
+    try {
+      const mod = await import('../services/knowledge/packCorpusStore');
+      // Full corpus is on disk in the test checkout — the pin must still win.
+      expect(mod.__corpusMode()).toBe('remote');
+      // Unhydrated remote mode: the map misses, the disk fallback serves the file.
+      const abs = path.join(mod.PACKS_ROOT, 'agentiq', 'collections.json');
+      expect(mod.corpusReadFile(abs)).toBeTruthy();
+      // Listing unions the (empty) map with the disk tree — never empty on a checkout.
+      const agentiqRoot = path.join(mod.PACKS_ROOT, 'agentiq');
+      const updates = mod.corpusListMarkdown(path.join(agentiqRoot, 'updates'), agentiqRoot);
+      expect(updates.length).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
+});
+
 describe('agentiqPackSearch still works through the seam', () => {
   it('returns results for a distinctive corpus term', async () => {
     await ensureCorpusHydrated();
