@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-22_founder-office-action-modes-amendment.md",
         "updates/2026-07-21_review-surface-qa-austin.md",
         "updates/2026-07-21_threshold-security-hardening.md",
         "updates/2026-07-21_experiment-integrity-frozen-protocol.md",
