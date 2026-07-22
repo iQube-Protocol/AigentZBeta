@@ -73,6 +73,35 @@ export type ActiveCartridgeSlug =
  */
 export type OperatorArchetype = 'citizen' | 'entrepreneurial' | 'technical' | 'creative' | 'research';
 
+/**
+ * Constitutional Action Mode — Founder Office Action Modes amendment
+ * (`codexes/packs/agentiq/updates/2026-07-22_founder-office-action-modes-amendment.md`),
+ * ratified 2026-07-22, Increment 1 of PRD-FOI-001. T1 (public-safe).
+ *
+ * An Action Mode describes what a persona is CURRENTLY DOING — an
+ * orchestration/intent signal, not a new identity or capability domain.
+ * It is additive and orthogonal to `OperatorArchetype` (which describes
+ * enduring constitutional characteristics): archetype stays exactly as-is,
+ * unmodified, unremoved, un-narrowed.
+ *
+ * `activeActionModes` (zero-to-many of these, held per session) is
+ * session/runtime context state — NOT persisted profile data, NOT a new
+ * column on `ExperienceQubeMeta`/`DbRow` (amendment §6.1/§6.2, PRD-FOI-001
+ * Increment 1). It lives in the aigentMe/SmartTriad observer layer
+ * (`SmartTriadObserverContext` in `types/smartTriadContext.ts`, populated by
+ * `app/hooks/useSmartTriadContext.ts`) and, as an optional weighting signal,
+ * on the NBE reranker's `RerankContext`
+ * (`services/orchestration/nbeLlmRerank.ts`). See
+ * `services/iqube/actionModes.ts` for the mode↔role map and the
+ * archetype→default-mode-set seed.
+ */
+export type ConstitutionalActionMode = 'Build' | 'Create' | 'Develop' | 'Research' | 'Safeguard';
+
+/** Validation set for `ConstitutionalActionMode` — mirrors `VALID_ARCHETYPES`. */
+export const VALID_ACTION_MODES = new Set<ConstitutionalActionMode>([
+  'Build', 'Create', 'Develop', 'Research', 'Safeguard',
+]);
+
 /** Public-safe slice — surfaces to the browser. T1. */
 export interface ExperienceQubeMeta {
   experienceModelId: string | null;
