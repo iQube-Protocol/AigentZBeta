@@ -30,7 +30,16 @@ import type { InvariantNamespace, InvariantSemanticType } from '@/types/invarian
 
 export type DiscoveryClass = 'constitutional' | 'structural' | 'experiential';
 export type EvidenceKind =
-  | 'legislation' | 'regulation' | 'compliance' | 'standard' | 'contract' | 'policy' | 'other';
+  | 'legislation' | 'regulation' | 'compliance' | 'standard' | 'contract' | 'policy'
+  // Additive (PRD-ICA-001 §6, resolved 2026-07-22): the three source-document
+  // types Corpus Scout's acquisition campaigns surface that the original
+  // policy/regulation-oriented list didn't name — academic/practitioner
+  // literature (actuarial standards, risk-science papers), failure post-
+  // mortems (bank/insurance/operational incident reports), and financial
+  // disclosures (annual reports, risk reports, stress tests — used only in
+  // aggregation across multiple institutions, per Crystal Canon Collection H).
+  | 'academic-literature' | 'incident-report' | 'disclosure-report'
+  | 'other';
 
 /** The scope ladder (CFS-048 Phase 1a). "field" is reserved for the abstract
  *  invariant field — the industry axis is `domain`, areas beneath are sub-domains. */
