@@ -298,7 +298,7 @@ The general practice — what a programme's own recurring decisions reveal about
 
 ## Ratification record
 
-- [ ] Operator ratification of this PRD (status: DESIGN, awaiting sign-off — now incorporating both 2026-07-22 amendments above)
-- [ ] Companion amendment to `CRYSTAL-ENLARGEMENT_plan.md` (§2a exclusion rule) — see accompanying edit, ratified alongside this PRD
+- [x] Operator ratification of this PRD (incorporating both 2026-07-22 amendments above) — RATIFIED 2026-07-22
+- [x] Companion amendment to `CRYSTAL-ENLARGEMENT_plan.md` (§2a exclusion rule) — see accompanying edit, ratified alongside this PRD — RATIFIED 2026-07-22
 - [ ] Companion document `IRL-017 — Recursive Invariant Capture` — ratified alongside this PRD (§13)
-- [ ] Build tracked against §12's sequencing once ratified
+- [ ] Build tracked against §12's sequencing (in progress — §§2–7 infrastructure + §10 dashboard built 2026-07-22, pending type-check/test verification)

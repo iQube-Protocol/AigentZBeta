@@ -122,6 +122,7 @@ import CapabilityPipelineTab from "@/components/composer/CapabilityPipelineTab";
 import IRLDashboardTab from "@/components/composer/IRLDashboardTab";
 import IRLResearchCopilotTab from "@/components/composer/IRLResearchCopilotTab";
 import InvariantFieldExplorerTab from "@/components/composer/InvariantFieldExplorerTab";
+import ExpP1ReadinessTab from "@/components/composer/ExpP1ReadinessTab";
 import { PassportBureauApplyTab } from "./tabs/PassportBureauApplyTab";
 import { PassportBureauStewardTab } from "./tabs/PassportBureauStewardTab";
 import { PassportRegistryTab } from "./tabs/PassportRegistryTab";
@@ -310,6 +311,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IRLDashboardTab,
   IRLResearchCopilotTab,
   InvariantFieldExplorerTab,
+  ExpP1ReadinessTab,
   PassportBureauApplyTab,
   PassportBureauStewardTab,
   PassportRegistryTab,
