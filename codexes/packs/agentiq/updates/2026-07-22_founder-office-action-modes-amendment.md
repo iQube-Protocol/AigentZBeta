@@ -3,11 +3,13 @@
 **Date:** 2026-07-22
 **Branch:** `claude/agentiq-onboarding-docs-jrbeha`
 
-> **Status: PROPOSED — architectural amendment, not yet ratified.** Companion to
-> PRD-FDC-001 (Founders Club), authored separately. This document does not modify
-> ratified charter text; it proposes a direction for a future, explicitly-ratified
-> change. Nothing in this document authorizes code changes on its own — it is the
-> input to a decision, not the decision.
+> **Status: RATIFIED (2026-07-22), with two narrow items still open** — the canonical
+> Founder Office definition (§4, not yet explicitly confirmed) and the
+> `AMENDMENT_RECORDS.md` cross-reference (§9, an action for the authoring agent to take,
+> not an operator ratification). Every other item in §9's checklist is ratified across
+> three rounds of operator review. This document does not modify ratified charter text.
+> Nothing in this document authorizes code changes on its own until the follow-on
+> implementation plan (§9) is chartered.
 
 > **Revision note (2026-07-22, post-authoring correction, operator-ratified):** the
 > first draft of this document named the five modes with an "I " prefix (`I Build`,
@@ -814,14 +816,17 @@ a time — not to record a blanket ratification that has not happened.**
       model... Archetypes describe enduring constitutional characteristics. Action Modes
       describe temporary constitutional intent." Every item below is read through this
       statement.
-- [ ] Operator has reviewed and ratified the five Constitutional Action Mode definitions (§2)
-- [ ] Operator has ratified the Build vs Develop distinction as drafted (§2.3)
+- [x] Operator has reviewed and ratified the five Constitutional Action Mode definitions (§2)
+- [x] Operator has ratified the Build vs Develop distinction as drafted (§2.3)
 - [x] **Operator has ratified the scope of Safeguard / Protector (§2.5, §8.1):** a
       superset of `citizen`, not a new capability domain — no new SKU, no new
       entitlement model.
-- [ ] Operator has ratified the archetype ↔ mode mapping table (§3)
+- [x] Operator has ratified the archetype ↔ mode mapping table (§3)
 - [ ] Operator has ratified the canonical Founder Office definition (§4) as the text reused across
-      documentation, onboarding flows, agent responses, and platform messaging
+      documentation, onboarding flows, agent responses, and platform messaging — **not yet
+      explicitly ratified**: the operator's 2026-07-22 review confirmed every other item in this
+      checklist but did not annotate this one, so it stays open rather than assumed (flagged back
+      to the operator explicitly, not silently defaulted to ratified).
 - [x] **Operator has ratified the corrected, weighting-signal-only Runtime activation
       model (§5, §8.4):** NBE reranking is not restructured; Action Modes are an
       additional weighting signal over the existing archetype/venture/standing/
@@ -830,15 +835,20 @@ a time — not to record a blanket ratification that has not happened.**
       (§6, §8.3):** `activeActionModes` is session/runtime context state, not permanent
       profile data — no new DB column, no schema migration, Standing/Billing/
       Archetypes/Entitlements/Research-SKU untouched in Phase 1.
-- [ ] Operator has reconciled the §7.3 agent-first roster (Community Concierge, Opportunity Scout,
-      Network Navigator, Founder Coach, Event Curator, Circle Facilitator, Recognition Steward,
-      Introduction Broker) against whatever agent set PRD-FDC-001 defines, if the two diverge
+- [x] **Operator has reconciled the §7.3 agent-first roster** against PRD-FDC-001's roster
+      (`codexes/packs/agentiq/updates/2026-07-22_prd-fdc-001-founders-club.md` §4.2–4.4) — the two
+      rosters are confirmed to be the same territory, not divergent views; PRD-FDC-001 is the
+      canonical, fully-reconciled roster (13 agent-functions, including Marketa as the reused
+      Market Intelligence owner) and this amendment's §7.3 list is a subset recording, not a
+      competing one.
 - [x] **Operator has resolved all six open questions in §8** (Safeguard scope, Standing
       mode-awareness, `activeActionModes` data shape, NBE reranking, the setup wizard's
       fate, and the three-phase sequencing) sufficiently to authorize a Phase 1 build —
       Phase 1 scope is: new front-end (Action Mode UX), existing back-end (zero changes
       to Standing/Billing/Archetypes/Entitlements/Research SKU).
-- [ ] A follow-on implementation plan (with its own phase/PRD numbering) has been chartered
+- [x] **Operator has confirmed a follow-on implementation plan (its own phase/PRD numbering) is
+      the correct next step** — not yet chartered (no such document exists yet); this is
+      agreement on the path, not a claim the plan already exists.
 - [ ] This document has been cross-referenced from `codexes/packs/polity-core/items/
       AMENDMENT_RECORDS.md` as a *proposal under consideration* (not as a ratified amendment) — a
       step this document does not itself take, per the task boundary that this proposal must not

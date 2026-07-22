@@ -1,8 +1,8 @@
 # PRD-FDC-001 — Founders Club: The Human Institution of the Founder Office
 
-**metaMe IRL / iQube Protocol · Product/social-architecture specification · Status: DESIGN — NOT RATIFIED**
+**metaMe IRL / iQube Protocol · Product/social-architecture specification · Status: RATIFIED (2026-07-22) — architecture settled, awaiting a follow-on implementation plan**
 **Owner:** Founder Office stewards (Venture Lab α workstream) · **Origin:** operator design session, 2026-07-22, reconciled against the ratified Founder Office / Standing / metaCommons charters and the built VentureQube/SmartTriad substrate
-**Governs:** the social/relational (Human Domain) layer of the Founder Office — the parallel counterpart to the Founder Office's already-charter capability-discovery/opportunity-intelligence/venture-formation (Operational Domain) work. **It builds nothing.** It specifies an architecture for the operator to ratify, in the same docs-first, reconciliation-first pattern as PRD-EPI-001, PRD-ICA-001, PRD-PAG-001, and PRD-MMC-001.
+**Governs:** the social/relational (Human Domain) layer of the Founder Office — the parallel counterpart to the Founder Office's already-charter capability-discovery/opportunity-intelligence/venture-formation (Operational Domain) work. **It builds nothing.** It specifies a now-ratified architecture; a follow-on implementation plan (§13) is the next artifact before Phase 1 code work begins, in the same docs-first, reconciliation-first pattern as PRD-EPI-001, PRD-ICA-001, PRD-PAG-001, and PRD-MMC-001.
 
 > **Positioning note (binding, this PRD):** Founders Club sits **WITHIN** the Founder Office, not above it and not beside it. It is not a fifth workstream, not a new charter, and not an independently-acquired membership product. The canonical structure (operator, 2026-07-22 — shared verbatim with the companion `2026-07-22_founder-office-action-modes-amendment.md`):
 >
@@ -41,7 +41,7 @@ Nowhere does the charter mention a social/human/community layer by name — it i
 
 > "The Founder Office is the constitutional operating environment for people building meaningful ventures. It combines intelligent agents, trusted services, financial infrastructure, governance, and community into a single workspace that helps founders transform ideas into enduring enterprises while progressing on their own journey toward sovereignty."
 
-**Honesty note:** this exact sentence is not present verbatim in the ratified `FOUNDER_OFFICE_CHARTER.md` text read in full above (confirmed by direct search — no match for "constitutional operating environment" in that file). It is the operator's newer, authoritative restatement of Founder Office's purpose, supplied 2026-07-22 for this PRD and its sibling amendment, and is treated here as the operative definition going forward — consistent with, not contradicting, the ratified charter's Purpose/First Principle/Responsibilities sections quoted above. Any future amendment of the charter itself to incorporate this sentence verbatim is a separate governance action (§11, open question 6), not performed by this PRD.
+**Honesty note:** this exact sentence is not present verbatim in the ratified `FOUNDER_OFFICE_CHARTER.md` text read in full above (confirmed by direct search — no match for "constitutional operating environment" in that file). It is the operator's newer, authoritative restatement of Founder Office's purpose, supplied 2026-07-22 for this PRD and its sibling amendment, and is treated here as the operative definition going forward — consistent with, not contradicting, the ratified charter's Purpose/First Principle/Responsibilities sections quoted above. **Governance home — resolved (operator, 2026-07-22): the Charter is not amended.** The Charter stays stable; this PRD (and the sibling amendment) derive their authority from it, the same way legislation derives authority from a constitution without the constitution itself being rewritten every time a new ministry is created: `Founder Office Charter → Founder Office PRDs → Founders Club PRD → Implementation`. See §11 for the resolution recorded in full.
 
 ### 0.2 The metaCommons and Standing Charters — the layers Founders Club composes, never forks
 
@@ -127,6 +127,52 @@ This is the canonical structure (operator, 2026-07-22): a founder's path runs **
 
 Founders Club membership is **derived from Founder Office participation** — it is not an independently-acquired membership. A persona's Club presence, standing, and access follow directly from their existing Founder Office / VentureQube / Standing signals (§0.8); there is no separate "join Founders Club" transaction, fee, or gate distinct from participating in the Founder Office itself. This is the direct implication of "within, not beside": a sibling social product would need its own membership mechanic; a domain of the same institution inherits the institution's existing membership mechanic.
 
+### 2.1 UI placement (operator-ratified, 2026-07-22)
+
+**Decision: yes, add a new primary section within the Founder Office UI** — not a "Community" sub-view folded in alongside Workspace/Discover/Validate/Architect/Blueprint as §0.8/§11 originally floated, but a **second primary section, coordinate with the Operational Domain**, named **"Founders Club"**:
+
+```
+Founder Office
+
+Operational Domain
+· Workspace · Discover · Validate · Architect · Blueprint
+
+Human Domain
+· Founders Club
+```
+
+**Explicitly not named "Community."** The operator's own reasoning: "Community sounds like a feature. Founders Club is an institution. Community is something it contains." (Community is in fact one of the Club's own internal sub-bodies, §2.2 below — naming the whole section after one of its parts would be a category error.) This corrects §0.8/§11's original "Community sub-view" framing — still a code change out of scope for this docs-only PRD, but the *name* and *placement* (a coordinate primary section, not a folded-in sub-view of the Operational Domain's existing five) are now settled for whoever builds it.
+
+### 2.2 Founder Office as an institutional framework (operator's architectural reframing, 2026-07-22)
+
+**This is a deliberate elevation of altitude, not a rename of anything already ratified.** Founder Office is not merely an operating system with modules — it is becoming the **constitutional home for durable institutions**, each composed of autonomous agents, constitutional governance, and shared services. The operator's own structure:
+
+```
+Founder Office
+
+├── Operational Institutions
+│     ├── Workspace
+│     ├── Finance
+│     ├── Research
+│     └── Development
+│     └── Venture Services
+│
+└── Human Institutions
+      └── Founders Club
+            ├── Founder Circles
+            ├── Mentorship
+            ├── Networking
+            ├── Wellbeing
+            ├── Recognition
+            └── Community
+```
+
+**Reconciling "Domain" and "Institution" — two altitudes, not two competing terms.** The Operational Domain / Human Domain split (§2, already the ratified positioning) describes a **responsibilities split** — which half of Founder Office a capability's execution belongs to. "Institution" describes a **structural property** — that a domain is (or hosts) a durable, autonomous, agent-composed body with its own governance, not just a feature bag. These compose rather than conflict: **Founders Club is simultaneously the Human Domain (the responsibilities-split framing, §2) and the first Human Institution (the structural framing, this section)** — the same object described from two altitudes, exactly the pattern §4/§0.1's canonical Founder Office definition already uses for "constitutional vs. product" framing of Founder Office itself. This document does not rename "Human Domain" to "Human Institution" throughout, or vice versa — both terms stay in active use, each doing its own descriptive job.
+
+**Founders Club's internal composition, made explicit for the first time:** the operator's diagram gives Founders Club its own sub-bodies — **Founder Circles, Mentorship, Networking, Wellbeing, Recognition, Community** — which map directly onto the agent roster (§4) and its seven responsibilities (§2): Circle Facilitator → Founder Circles; Founder Coach → Mentorship; Network Navigator + Introduction Broker → Networking; Founder Coach (wellbeing check-ins) → Wellbeing; Recognition Steward → Recognition; Community Steward + Event Curator → Community. This is not a second roster — it is the same thirteen agent-functions (§4.4), organized by the sub-body they serve rather than by which awareness domain they own. Both organizing views (agent-by-awareness-domain, §4; agent-by-sub-body, this section) describe the same roster.
+
+**Why this matters beyond naming (operator's own framing, stated as something that should influence how the codebase gets structured):** if Founder Office is a platform for hosting durable institutions rather than a fixed set of features, **Founders Club is not a one-off — it is the first instance of a repeatable pattern.** The operator names plausible future siblings as illustrations, not commitments: *Founders Guild, Research Academy, Venture Exchange, Constitutional Commerce Network, Global Ambassador Programme.* None of these is chartered by this PRD — they are cited only to establish that Founders Club's architecture (an agent-composed, constitutionally-governed, sub-body-structured institution hosted within a Domain of Founder Office) should be built **generally enough that a second institution could be added later without changing Founder Office itself** — i.e. whatever mechanism seats Founders Club under the Human Domain (§2) should not be a one-off special case hard-coded for the Club specifically. This is a design-generality expectation for whoever builds Phase 1 (§10), not new scope for this PRD to specify further — no second institution is being chartered here.
+
 ## 3. Operational philosophy — agent-first, not staff-first (load-bearing constraint)
 
 This is a design constraint that governs every capability in this PRD, not a footnote:
@@ -138,7 +184,7 @@ This is a design constraint that governs every capability in this PRD, not a foo
 Concretely, for every capability specified below (agent roster §4, matching §5, standing §6, awareness graph §7, UX §9):
 
 - **Default:** an agent (Community Concierge or a specialist behind it) performs the task end-to-end and reports the outcome.
-- **Exception path:** a human staff member is looped in only when (a) the action requires a human judgment the constitutional coordinates cannot resolve (e.g. a genuinely novel legal/ethical edge case), or (b) a founder explicitly requests human contact. Every such exception must be logged as a deviation from the agent-first default, so the ratio of agent-handled to staff-handled interactions is itself an observable metric of whether the Club is honoring this constraint (folded into the Constitutional Awareness Graph, §7, as part of Community Awareness).
+- **Exception path:** a human staff member is looped in only when (a) the action requires a human judgment the constitutional coordinates cannot resolve (e.g. a genuinely novel legal/ethical edge case), or (b) a founder explicitly requests human contact. **Resolved mechanism (operator, 2026-07-22): every such exception produces a constitutional receipt** — composing the platform's unified receipt writer (CLAUDE.md's Artifact Production section), not a bespoke Founders-Club-only log. Operative principle, stated for reuse verbatim: **"Human intervention is observable."** A receipted exception is also folded into the Constitutional Awareness Graph (§7, Community Awareness) as a derived read, so the agent-handled-vs-staff-handled ratio remains observable there too — but the receipt, not the Graph entry, is the primary, governance-grade record.
 - **Anti-pattern to avoid:** designing any workflow that assumes a human community manager triages, curates, or hand-matches by default. If a capability's first draft has a human doing the matching/curating/reporting, the correct fix is to ask "what agent and what constitutional coordinates would let this be agent-first," not to staff it.
 
 ## 4. Agent family / roster — reconciled
@@ -159,7 +205,7 @@ The operator's own text names an **original 8-agent base roster** and, in Addend
 | 2 | **Opportunity Scout** | Surfaces opportunities/matches for a founder from the Commons signal stream | Opportunity Awareness | Same agent, second hat |
 | 3 | **Network Navigator** | Manages introduction strategy and relationship-graph traversal | Relationship Awareness | Same agent, second hat |
 | 4 | **Founder Coach** | Founder wellbeing / pacing / burnout-risk check-ins | Wellbeing Awareness | Same agent, second hat |
-| 5 | **Event Curator** | Curates community events/gatherings (digital-first: AMAs, office hours, roundtables; physical events from Phase 3, §10) | *None of the ten named domains* | No Addendum-B domain owner named; functionally adjacent to Community Steward's Community Awareness today and becomes the natural collaborator of Journey Concierge once Travel Awareness activates in Phase 3. Flagged as an open question (§11) rather than assigned a domain unilaterally. |
+| 5 | **Event Curator** | Curates community events/gatherings (digital-first: AMAs, office hours, roundtables; physical events from Phase 3, §10) | *None of the ten named domains* | No Addendum-B domain owner named; functionally adjacent to Community Steward's Community Awareness. **Resolved, operator 2026-07-22: stays permanently separate from Journey Concierge** — see §4.3b — different responsibilities (Event Curator decides "you should go"; Journey Concierge helps you get there), not a Phase-3 merge candidate. |
 | 6 | **Circle Facilitator** | Facilitates founder peer circles / small-group cohorts | *None of the ten named domains* | No Addendum-B domain owner named; functionally adjacent to Community Steward's Community Awareness. Flagged as an open question (§11). |
 | 7 | **Recognition Steward** | Surfaces and narrates standing/verification events back to the founder | Standing Awareness | Same agent, second hat |
 | 8 | **Introduction Broker** | Executes the specific introductions Network Navigator's strategy identifies (the "make the connection happen" agent, distinct from Navigator's "who should connect" strategy agent) — **leverages the existing Relationship Builder capability** (`RelationshipBuilderTab`, `relationship-builder` tab, Marketa's cartridge — "partner and customer outreach... campaign composer for Marketa email dispatch") rather than building parallel outreach/matching machinery (operator, 2026-07-22) | *None of the ten named domains* | No Addendum-B domain owner named; functionally adjacent to Network Navigator's Relationship Awareness (Broker executes what Navigator plans). Remains a **separate agent** from Marketa (unlike Market Intelligence, §4.3), but consumes Relationship Builder as its outreach-execution substrate. Flagged as an open question (§11). |
@@ -221,6 +267,32 @@ Concierge's Phase-3-only status (§10) — it has no referent until physical Clu
 exist — but it fixes what Journey Concierge *is* once it activates: a Club-facing front end onto
 HMS, not a new travel-booking capability.
 
+**Event Curator vs. Journey Concierge — resolved permanently separate (operator, 2026-07-22):**
+these two agents must **never** merge, in any phase — they are fundamentally different
+responsibilities, not a curation/logistics pair that happens to share a domain. **Event Curator**
+discovers opportunities, curates experiences, matches founders to gatherings, and creates
+communities — it decides *"you should go."* **Journey Concierge** executes travel — hotels,
+flights, visas, mobility, scheduling — via HMS (above) — it helps founders *get there* once the
+decision is made. This resolves the open question §4.2 previously flagged (Event Curator's
+domain-adjacency to Journey Concierge once Phase 3 activates) with a definitive answer: adjacency,
+not convergence — the two agents collaborate (Event Curator's curated gathering is the referent
+Journey Concierge's logistics then serve) but never fold into one.
+
+### 4.3c Ecosystem Analyst — inputs broadened to constitutional ecosystem awareness (operator, 2026-07-22)
+
+Ecosystem Analyst's responsibility is **constitutional ecosystem awareness**, not merely feed
+collection — its job is to maintain awareness, not just ingest signals. Its named inputs:
+
+- **Internal:** Founder Office, the Standing graph, the Venture graph, the Founders Club graph
+  (the Constitutional Awareness Graph itself, §7), the Portfolio graph, the Experience graph.
+- **External:** accelerator ecosystems, conference calendars, grant databases, research
+  institutions, VC activity, government innovation programmes, standards bodies, startup
+  communities, partner ecosystems.
+
+This resolves §11's open question on Ecosystem Analyst's data sources with a concrete, if still
+unimplemented, input list — a follow-on implementation pass still has to specify how each of these
+internal/external sources is actually ingested, but the scope is no longer undefined.
+
 ### 4.4 Roster summary
 
 **12 Founders-Club-native agents + 1 reused platform agent (Marketa) = 13 agent-functions
@@ -250,13 +322,25 @@ other. Concretely, this means the Constitutional Awareness Graph's Relationship 
 Market Awareness domains (§7) must be mutually legible to both Marketa and the Club agents that
 touch partner/introduction work — not two independent views of the same partner relationships.
 
-**Explicitly not decided here (operator's own hedge, 2026-07-22):** whether Marketa should hold a
-**structural orchestrator role** over these collaborative/market-oriented Club agents. The
-operator raised this as a plausible future direction ("in some regards, she might be an
-orchestrator across some of these") but explicitly declined to make it a structural call in this
-revision. This PRD records the awareness/alignment requirement as binding and leaves the
-orchestrator question as an open item for §11 — a future amendment, not this one, would formalize
-Marketa as an orchestrator if the operator later ratifies that direction.
+**Resolved (operator, 2026-07-22, superseding the earlier open hedge): Marketa is not the
+orchestrator — she stays exactly where she is.** She is already the market intelligence
+specialist; inside the Founders Club she becomes an **intelligence provider**, consumed by Club
+specialists, never their orchestrator. Making her an orchestrator would create unnecessary
+coupling between the Club's agent-first operating model (§3, whose sole orchestrator is Community
+Concierge, §4.1) and Marketa's existing Operational Domain role. The resolved shape:
+
+```
+Community Concierge
+  ↓ orchestrates ↓
+Opportunity Scout · Network Navigator · Introduction Broker · Founder Coach · Event Curator
+  ↓ consume intelligence from ↓
+Marketa
+```
+
+Community Concierge remains the Club's **sole** orchestrator (§4.1, §9.1 principle 12); Marketa
+supplies market/partner intelligence into that orchestration the same way she already supplies it
+into Venture Lab, without ever sitting above the Concierge in the routing hierarchy. This closes
+the question left open in an earlier revision of this document.
 
 ### 4.5 Self-improving-institution principle — the two constitutional responsibilities
 
@@ -276,7 +360,28 @@ Members, opportunities, and introductions are matched through the **Constitution
 - A founder's constitutional position is described along the same three coordinate classes CFS-037 defines: **Structural** (what kind of problem/opportunity is this — Complexity, Evidence Density, Scope, Verifiability), **Constitutional** (what relationship/trust/authority context applies — Standing, Trust, Consent, Accountability, Delegability), **Operational** (what the match is worth in practice — Time-to-Value, Repair Cost, Reuse Potential).
 - A candidate introduction/opportunity/match is proposed only when it occupies a **nearby region** in this coordinate space — "constitutional proximity," the same navigation concept CFS-041 §1 names for the Observatory ("what occupies this region? — iQubes, workflows, agent-teams near a point in constitutional space").
 - **Explainability is mandatory**: every match the Concierge or a specialist surfaces must be traceable to the specific coordinates that produced it (e.g. "surfaced because you and this founder both sit in the Time-to-Value-critical / high-Standing region of the venture-formation coordinate space, at Complexity/Scope similar to your current stage") — never "our algorithm thinks you'd like this."
-- **Honest limit, inherited from CFS-037 §13**: the Constitutional Coordinates system itself is proposed, not yet built or ratified — "no coordinate has an operationalised metric yet." Founders Club matching is therefore specified **against a future engine**, and Phase 1 (§10) must define what matching looks like in the interim (a simpler, still-explainable heuristic composed from existing signals — `buildInvariantSlice`, Standing, VentureQube stage — pending IRE ratification) rather than blocking on IRE shipping first. This PRD does not claim IRE exists; it claims Founders Club matching is architected to consume it once it does.
+- **Honest limit, inherited from CFS-037 §13**: the Constitutional Coordinates system itself is proposed, not yet built or ratified — "no coordinate has an operationalised metric yet." Founders Club matching is therefore specified **against a future engine**, and Phase 1 (§10) must define what matching looks like in the interim rather than blocking on IRE shipping first. This PRD does not claim IRE exists; it claims Founders Club matching is architected to consume it once it does.
+
+**Phase 1 interim heuristic — concrete signal list (operator-ratified, 2026-07-22):** deliberately
+explainable, deliberately not machine learning or opaque ranking. The initial signals composing a
+match:
+
+- Venture stage
+- Industry / domain
+- Geography
+- Current Action Modes (per the companion `2026-07-22_founder-office-action-modes-amendment.md`)
+- Standing
+- Current objectives
+- Active challenges
+- Shared interests
+- Constitutional compatibility
+
+Every match must be explainable in the form **"I matched you because..."**, citing which of these
+signals produced it — the same explainability bar §5's mandatory-explainability bullet above sets
+for the eventual Constitutional Coordinates engine, just composed from existing signals rather than
+resolved coordinates. **Eventually the Invariant Resolution Engine replaces this heuristic with
+true constitutional-similarity matching** (§0.6) — this list is the named Phase 1 stopgap, not a
+permanent parallel matching system.
 
 ## 6. Standing / trust model
 
@@ -290,7 +395,7 @@ Per the Standing Charter (§0.2) and `inv.polity.162` (§0.5), Founders Club int
 
 Per §0.4, **Portfolio Operator is a Founders-Club-scoped role, layered on the existing `entrepreneurial` archetype (or whichever archetype a persona already declares) as a role tag — not a new value in the `OperatorArchetype` union.**
 
-- Investors are **not** first-class citizens of the Club with capital-based standing. They hold the **Portfolio Operator** role, and their standing within that role is earned via **deployment quality** — how well they deploy capital/attention into ventures (follow-through, founder-reported time-saved, verified outcomes) — **never capital size**.
+- Investors are **not** first-class citizens of the Club with capital-based standing. They hold the **Portfolio Operator** role, and their standing within that role is earned via **deployment quality** — never capital size. **Resolved metric (operator, 2026-07-22 — deliberately constitutional, not financial):** don't measure deployed capital; measure **constitutional value creation**. Concrete, verifiable signals: introductions made, mentorship hours, founder feedback, follow-through, opportunities created, Proof of Time Saved generated, successful constitutional sponsorship, long-term founder outcomes. **Money is never the primary signal — contribution is**, consistent with the rest of the protocol's veracity/contribution model (§0.5). This resolves §11's earlier open question on the deployment-quality metric with a concrete, verifiable signal list.
 - This composes with `standingScore.ts`'s existing `ArchetypePathwayTag` pattern (§0.5): Portfolio Operator standing is read as a **pathway filter tag** over the same unified Standing score, using deployment-quality signals mapped onto the `founder`/`validation`/`recognition` declaration domains already defined in `ARCHETYPE_DOMAINS['entrepreneurial']` — not a second scoring system, and not a new domain list.
 - **Justification against the existing enum:** `OperatorArchetype` feeds platform-wide NBE reranking (per the type's own doc comment) — it is meant to answer "what kind of participant is this, everywhere in the platform." "Portfolio Operator" answers a narrower question — "what capacity is this persona operating in, inside Founders Club" — which is exactly the shape Standing's own pathway-tag design already solves for archetype-flavored views of one score. Reusing that pattern avoids forking the archetype enum for a single-cartridge concern.
 
@@ -382,16 +487,44 @@ Digital-first is not a sequencing preference; it is a hard gate. No phase before
 
 ---
 
-## 11. Open questions / operator decisions needed
+## 11. Decisions — resolved by the operator (2026-07-22, second round)
 
-1. **Where does Founders Club live in the UI?** The natural home is a new "Community" sub-view inside the existing `FounderOfficeTab.tsx` (alongside Workspace · Discover · Validate · Architect · Blueprint, §0.8) — but adding that sub-view is a code change and explicitly out of scope for this docs-only PRD. Flagging here per this PRD's constraints rather than adding it unilaterally.
-2. **Interim matching heuristic, Phase 1 (§10):** what specific existing signals (VentureQube stage, Standing score, `ARCHETYPE_DOMAINS` overlap) compose the Phase 1 matching heuristic, pending IRE? This PRD names the constraint (explainable, signal-composed, non-black-box) but leaves the exact formula for a follow-on implementation-planning pass.
-3. **Deployment-quality metric for Portfolio Operator standing (§6.2):** what concrete, verifiable signals constitute "how well they deploy capital/attention" — follow-through rate? founder-reported time-saved? realized venture outcomes (Proof of Time Saved)? Needs an explicit definition before Phase 1 ships the role.
-4. **Ecosystem Analyst data sources:** this genuinely new agent (§4.3) needs named external/internal data feeds before it can be built — this PRD names its awareness domain but does not yet specify its inputs. (Market Intelligence's data sources are resolved, §4.3a — Marketa's existing campaign/partner/market surfaces — since she is a reused platform agent, not a new build.)
-7. **Marketa-as-orchestrator (§4.4a):** should Marketa hold a structural orchestrator role over collaborative/market-oriented Club agents (Introduction Broker, Opportunity Scout, Network Navigator) beyond the binding awareness/alignment requirement already specified? The operator explicitly declined to make this call in this revision — flagged here for a future decision, not assumed either way.
-8. **Event Curator / Journey Concierge overlap once Phase 3 activates:** §4.2 already flags Event Curator as "functionally adjacent to... Journey Concierge once Travel Awareness activates in Phase 3" — once Journey Concierge is wired to Human Mobility Services (§4.3b) and both agents are live, does Event Curator's event-curation function fold into Journey Concierge's HMS-backed conference/travel logistics, or do they stay distinct (curation vs. logistics)? Not resolved here.
-5. **Staff-exception logging mechanism (§3):** should staff-handled exceptions be logged as a new receipt type (composing the unified receipt writer, per CLAUDE.md's Artifact Production section) or as a Constitutional Awareness Graph observation under Community Awareness? Needs an operator call before Phase 1 build.
-6. **Governance home:** does Founders Club require any addition to `FOUNDER_OFFICE_CHARTER.md` itself (e.g. an explicit "Human Domain" section), or does this PRD stand as sufficient operational specification under the existing charter language? This PRD assumes the latter (§0.1) but the operator should confirm — amending a ratified constitutional-grade charter is a higher bar than ratifying a PRD.
+All eight items originally raised as open questions have now been answered directly by the
+operator. Each keeps its original question for the audit trail, with the resolution recorded
+immediately under it (full detail lives at the cross-referenced section).
+
+1. **Where does Founders Club live in the UI?**
+   **Resolved: yes — a new primary "Founders Club" section, not a "Community" sub-view.** See §2.1.
+2. **Interim matching heuristic, Phase 1 (§10):**
+   **Resolved — a named, explainable signal list:** venture stage, industry/domain, geography,
+   current Action Modes, Standing, current objectives, active challenges, shared interests,
+   constitutional compatibility. See §5.
+3. **Deployment-quality metric for Portfolio Operator standing (§6.2):**
+   **Resolved — constitutional value creation, not capital deployed:** introductions made,
+   mentorship hours, founder feedback, follow-through, opportunities created, Proof of Time Saved
+   generated, successful constitutional sponsorship, long-term founder outcomes. See §6.2.
+4. **Ecosystem Analyst data sources:**
+   **Resolved — internal (Founder Office, Standing graph, Venture graph, Founders Club graph,
+   Portfolio graph, Experience graph) + external (accelerator ecosystems, conference calendars,
+   grant databases, research institutions, VC activity, government innovation programmes,
+   standards bodies, startup communities, partner ecosystems).** See §4.3c.
+5. **Staff-exception logging mechanism (§3):**
+   **Resolved — a constitutional receipt**, composing the unified receipt writer, per the
+   operative principle "human intervention is observable." See §3.
+6. **Governance home:**
+   **Resolved — the Charter is not amended.** Founders Club derives authority from
+   `FOUNDER_OFFICE_CHARTER.md` the way a PRD derives authority from a ratified constitution — the
+   Charter stays stable; PRDs (this one included) sit below it. See §0.1.
+7. **Marketa-as-orchestrator (§4.4a):**
+   **Resolved — no.** Marketa stays exactly where she is: an intelligence provider consumed by
+   Club specialists, never their orchestrator. Community Concierge remains the Club's sole
+   orchestrator. See §4.4a.
+8. **Event Curator / Journey Concierge overlap once Phase 3 activates:**
+   **Resolved — permanently separate, never merge.** Event Curator decides "you should go";
+   Journey Concierge (via HMS) helps founders get there. See §4.3b.
+
+With all eight items resolved, the remaining work is **implementation planning** for whoever
+builds Phase 1 (§10), not further architectural decision-making on this PRD's core design.
 
 ---
 
@@ -403,24 +536,28 @@ Digital-first is not a sequencing preference; it is a hard gate. No phase before
 
 ## 13. Ratification record
 
-**Status: DESIGN — NOT YET RATIFIED.** No checkbox below may be checked until the operator reviews and confirms each item.
+**Status: RATIFIED (2026-07-22), pending the follow-on implementation plan.** Every item below has been reviewed and confirmed by the operator across two rounds of revision. This PRD's architecture is settled; what remains is implementation planning (its own phase/PRD numbering), not further design ratification.
 
-- [ ] Operator ratifies the **positioning decision** (§2) — Founders Club sits WITHIN the Founder Office (Human Domain, parallel to the Operational Domain), never above or beside it, and membership is derived from Founder Office participation, never independently acquired.
-- [ ] Operator ratifies the **agent-first operational philosophy** (§3) as a binding design constraint across every capability, with staff involvement as a logged exception, not a default.
-- [ ] Operator ratifies the **reconciled 13-agent-function roster** (§4.2–4.4) — the 8-agent base roster, the 4 new Addendum-B agents, Marketa as the reused Market Intelligence owner, the 5 shared-domain overlap notes, the 3 unassigned-domain agents (open question §11), and the Phase-1 exclusion of Journey Concierge.
-- [x] **Operator ratifies Marketa (not a new agent) as Market Awareness owner** (§4.3a) — the platform's existing constitutional marketing agent extends her Founder Office functional role into the Founders Club, rather than a competing agent being built.
-- [x] **Operator ratifies Journey Concierge as wired to the existing Human Mobility Services capability** (§4.3b) — filling HMS's missing dedicated-agent-persona gap rather than building a parallel travel/conference-logistics service; Phase-3-only status unchanged.
-- [x] **Operator ratifies Introduction Broker leveraging the existing Relationship Builder capability** (§4.2, Marketa's cartridge) for its introduction-execution work, while remaining a distinct agent from Marketa.
-- [x] **Operator ratifies the Marketa-liaison awareness principle** (§4.4a) as binding — Introduction Broker, Opportunity Scout, Network Navigator, and any future partner/market-touching agent must stay aligned with Marketa's relationship/partnership activity. **Not ratified:** whether Marketa becomes a structural orchestrator over these agents — explicitly left open (§11, item 7).
-- [ ] Operator ratifies the **self-improving-institution / two-constitutional-responsibilities principle** (§4.5) as symmetric across all thirteen agents and ten domains.
-- [ ] Operator ratifies the **Constitutional Coordinates matching model** (§5), including the honest caveat that it depends on IRE/CCR, which are themselves unratified, and the interim Phase-1 heuristic as a stopgap.
-- [ ] Operator ratifies **Portfolio Operator as a role tag on the existing archetype, not a new `OperatorArchetype` value** (§6.2), and the deployment-quality (not capital-size) standing model (§0.4, §6.2, open question 3).
-- [ ] Operator ratifies the **verification-accrual gate applying to introductions/vouches** (§6.1) — unverified social claims accrue nothing to Standing, per `inv.polity.162`.
-- [ ] Operator ratifies the **Constitutional Awareness Graph as a Founders-Club-scoped instance of the existing Field/Observatory pattern** (§7.2) — not a new graph engine.
-- [ ] Operator ratifies the **Community Intelligence Engine as an IRE instance/adapter**, not a separate engine (§8).
-- [ ] Operator ratifies the **14 UX principles** (§9) as a binding design contract for any Founders Club surface.
-- [ ] Operator ratifies the **digital-first / physical-second phased rollout** (§10), including the explicit phase gates.
-- [ ] Operator resolves the **six open questions** (§11) before any implementation-planning pass begins.
+- [x] Operator ratifies the **positioning decision** (§2) — Founders Club sits WITHIN the Founder Office (Human Domain, parallel to the Operational Domain), never above or beside it, and membership is derived from Founder Office participation, never independently acquired.
+- [x] **Operator ratifies the UI placement** (§2.1) — a new primary "Founders Club" section, coordinate with the Operational Domain, explicitly not named "Community."
+- [x] **Operator ratifies the institutional-framework reframing** (§2.2) — Founder Office as a constitutional home for durable institutions (Operational Institutions / Human Institutions), Founders Club as the first Human Institution with named internal sub-bodies (Founder Circles, Mentorship, Networking, Wellbeing, Recognition, Community), and the design-generality expectation that a second institution could be hosted later without changing Founder Office itself. No second institution is chartered by this ratification.
+- [x] Operator ratifies the **agent-first operational philosophy** (§3) as a binding design constraint across every capability, with staff involvement as a logged exception (recorded as a constitutional receipt, §3), not a default.
+- [x] Operator ratifies the **reconciled 13-agent-function roster** (§4.2–4.4) — the 8-agent base roster, the 4 new Addendum-B agents, Marketa as the reused Market Intelligence owner, the 5 shared-domain overlap notes, and the Phase-1 exclusion of Journey Concierge.
+- [x] Operator ratifies Marketa (not a new agent) as Market Awareness owner (§4.3a).
+- [x] Operator ratifies Journey Concierge as wired to the existing Human Mobility Services capability (§4.3b), and its permanent separation from Event Curator (§4.3b, §11 item 8).
+- [x] Operator ratifies Introduction Broker leveraging the existing Relationship Builder capability (§4.2).
+- [x] Operator ratifies the **Ecosystem Analyst input list** (§4.3c) as its named data sources.
+- [x] **Operator ratifies Marketa as intelligence provider, not orchestrator** (§4.4a) — Community Concierge remains the Club's sole orchestrator; the liaison/awareness principle stays binding.
+- [x] Operator ratifies the **self-improving-institution / two-constitutional-responsibilities principle** (§4.5) as symmetric across all thirteen agents and ten domains.
+- [x] Operator ratifies the **Constitutional Coordinates matching model** (§5), including the honest caveat that it depends on IRE/CCR, which are themselves unratified, and the **Phase 1 interim heuristic signal list** (venture stage, industry/domain, geography, current Action Modes, Standing, current objectives, active challenges, shared interests, constitutional compatibility) as the ratified stopgap.
+- [x] Operator ratifies **Portfolio Operator as a role tag on the existing archetype, not a new `OperatorArchetype` value** (§6.2), and the **constitutional-value-creation standing metric** (introductions made, mentorship hours, founder feedback, follow-through, opportunities created, Proof of Time Saved, successful constitutional sponsorship, long-term founder outcomes) — never capital size.
+- [x] Operator ratifies the **verification-accrual gate applying to introductions/vouches** (§6.1) — unverified social claims accrue nothing to Standing, per `inv.polity.162`.
+- [x] Operator ratifies the **Constitutional Awareness Graph as a Founders-Club-scoped instance of the existing Field/Observatory pattern** (§7.2) — not a new graph engine.
+- [x] Operator ratifies the **Community Intelligence Engine as an IRE instance/adapter**, not a separate engine (§8).
+- [x] Operator ratifies the **14 UX principles** (§9) as a binding design contract for any Founders Club surface.
+- [x] Operator ratifies the **digital-first / physical-second phased rollout** (§10), including the explicit phase gates.
+- [x] Operator has resolved all **eight decisions in §11** (UI placement, Phase 1 heuristic, Portfolio Operator metric, Ecosystem Analyst inputs, staff-exception logging, governance home, Marketa-as-orchestrator, Event Curator/Journey Concierge separation).
+- [ ] A follow-on implementation plan (its own phase/PRD numbering) has been chartered — the one remaining step before Phase 1 code work begins.
 
 ---
 
