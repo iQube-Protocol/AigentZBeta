@@ -25,7 +25,13 @@ const PACK_ID = 'irl';
 
 function sanitizePath(filePath: string): string | null {
   if (path.isAbsolute(filePath)) return null;
-  const normalized = path.normalize(filePath);
+  // Accept BOTH path schemes (review-surface QA, Austin 2026-07-21): the
+  // pack-relative form this route reads (`foundation/…`) AND the repo-relative
+  // form the registry publishes as protocolRef (`codexes/packs/irl/foundation/…`).
+  // Strip a leading `./` and the `codexes/packs/irl/` pack prefix so a registry
+  // protocolRef passed verbatim resolves instead of double-prefixing → 404.
+  const stripped = filePath.trim().replace(/^\.\//, '').replace(/^codexes\/packs\/irl\//, '');
+  const normalized = path.normalize(stripped);
   if (normalized.startsWith('..')) return null;
   return normalized;
 }

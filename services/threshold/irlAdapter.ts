@@ -26,6 +26,10 @@ export interface IrlAdapter {
    *  This is the OPERATIONAL layer only — a discovery-ranking projection, not the
    *  constitutional definition. definePrimitive() wraps it as Layer 2. */
   resolveCanon(term: string): Promise<unknown>;
+  /** Read the PUBLISHED, hash-committed experiment result records (public,
+   *  T2-safe) so a reviewer can independently recompute sha256 and verify the
+   *  anchored hash through the Threshold itself. Optional experiment id filter. */
+  readResults(experiment?: string): Promise<unknown>;
   /** Submit an experiment result under an AUTHORIZED IRL delegation (CFS-042 x409
    *  path — agreement-authorized, no persona Bearer). The agreementId is the
    *  irl:experiment-result:submit agreement from the incremental IRL crossing. */
@@ -395,6 +399,22 @@ export function makeIrlAdapter(origin: string): IrlAdapter {
         source: 'live ratified invariant canon (public projection)',
         resolved: body,
         note: 'These are ratified invariants that govern the term — the authoritative definition, not an inference.',
+      };
+    },
+    // Published experiment results — the raw, hash-committed record so a reviewer
+    // can verify hashes through the Threshold (review QA §3, Austin 2026-07-21).
+    async readResults(experiment?: string) {
+      const r = await get('/api/public/irl/experiments-results');
+      if (!r.ok) return { ok: false, error: `published results unavailable (${r.status})` };
+      const body = r.body as { results?: Array<Record<string, unknown>> } | null;
+      let results = body?.results ?? [];
+      const filt = (experiment ?? '').trim().toUpperCase();
+      if (filt) results = results.filter((x) => String(x.experiment ?? '').toUpperCase() === filt);
+      return {
+        ok: true,
+        count: results.length,
+        results,
+        note: 'Published, hash-committed, DVN-anchored results (T2-safe — no persona ids). To verify: recompute sha256 over the verbatim results JSON and compare to the anchored content hash.',
       };
     },
     async submitResult(input) {
