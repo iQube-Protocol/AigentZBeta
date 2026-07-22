@@ -241,7 +241,7 @@ Docs-first; each phase is chartered separately after ratification. Net-new is na
 
 ## 8. Ratification record
 
-- [ ] Operator ratifies **PRD-MMC-001** as DESIGN (docs-first) — the metaMe Companion is the product umbrella; **"Operation Passport" is reframed as the Companion**, with **PRD-PAG-001 as its authentication + session layer** (§0.1).
+- [x] Operator ratifies **PRD-MMC-001** as DESIGN (docs-first) — the metaMe Companion is the product umbrella; **"Operation Passport" is reframed as the Companion**, with **PRD-PAG-001 as its authentication + session layer** (§0.1). — **RATIFIED 2026-07-22 (operator)**
 - [ ] Operator confirms the **runtime-first architecture** — one Companion runtime (an instance of the AgentiQ Runtime, CFS-022), many thin presentation surfaces (extension / sidebar / overlay / PWA / desktop / VS Code / MCP-in-agentic-hosts / widget) (§2, §0.5, §0.6).
 - [ ] Operator confirms the **exists/extends/new tagging** of all 15 components (§3) — most are surface projections of shipped primitives; the honest new list is short.
 - [ ] Operator confirms **SessionQube stays single** — the Companion adds browser-context fields to PAG-001's SessionQube; it does NOT define a second one (§0.1, component 13).
