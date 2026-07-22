@@ -9,6 +9,23 @@
 > change. Nothing in this document authorizes code changes on its own — it is the
 > input to a decision, not the decision.
 
+> **Revision note (2026-07-22, post-authoring correction, operator-ratified):** the
+> first draft of this document named the five modes with an "I " prefix (`I Build`,
+> `I Create`, `I Develop`, `I Research`, `I Safeguard`). The operator corrected this:
+> the "I " prefix reads as an identity statement ("I Build" ~ "I am a builder"), which
+> is exactly the identity-framing this amendment exists to move away from. The mode
+> names are now the bare words — **Build, Create, Develop, Research, Safeguard** — and
+> the intent-oriented phrasing lives in the onboarding *conversation*, not the label:
+> the question "What do you want to do?" is answered "I want to build" / "I want to
+> create" / etc. The operator also named an explicit **Role** layer — the archetype a
+> citizen occupies while executing or intending to act along a given mode — and
+> supplied the missing role name for Safeguard: **Protector**. See the new §2.0 for
+> the full three-layer framing this produces (Citizen → Action Mode → Role), the
+> renamed §2.1–§2.5 headers, and the new Role column in §3's mapping table. This
+> specific naming/framing correction is operator-ratified as of this revision (see the
+> new first item in §9); the rest of this document's open questions (§8) remain
+> unresolved.
+
 ---
 
 ## §0 Reconciliation — what already exists today
@@ -130,9 +147,9 @@ pathway tags).
 
 This has two structural costs that become more visible as the platform matures:
 
-1. **People are not one thing.** An operator building a product (`I Build`) may simultaneously
-   hold a governance/review role over other builders (`I Safeguard`) — or run customer-discovery
-   experiments (`I Research`) alongside shipping code (`I Build`). The current model forces a
+1. **People are not one thing.** An operator building a product (`Build` mode) may simultaneously
+   hold a governance/review role over other builders (`Safeguard` mode) — or run customer-discovery
+   experiments (`Research` mode) alongside shipping code (`Build` mode). The current model forces a
    single label that under-describes the actual work being done, and the label rarely changes once
    set (there is no "switch mode for this session" affordance — only a full re-run of the setup
    wizard).
@@ -163,7 +180,47 @@ several active simultaneously (see §5). Definitions below are written to be non
 the Build/Develop distinction is the pair most likely to be confused, so it gets the most detailed
 treatment.
 
-### 2.1 "I Build"
+### 2.0 Naming convention and the three-layer model (operator-ratified correction)
+
+**Mode names are the bare action words — Build, Create, Develop, Research, Safeguard — not
+`"I Build"`/`"I Create"`/etc.** An `"I "` prefix on the mode's canonical name reads as an identity
+statement ("I Build" parses like "I am a builder") — exactly the identity-framing §1 argues this
+amendment should move *away* from. The intent-oriented phrasing this amendment wants belongs in the
+onboarding **conversation**, not the mode's name: the onboarding question is
+
+> **"What do you want to do?"**
+
+and the natural answer is an intent expression — **"I want to build."** / **"I want to create."** /
+**"I want to develop."** / **"I want to research."** / **"I want to safeguard."** — never a bare
+identity claim ("I am a builder"). The distinction matters: "I Build" (as a label) is almost
+identity; "I want to build" (as a conversational answer) is action/intent. This document uses the
+bare mode name everywhere as the canonical, code-facing/data-facing value, and reserves the
+"I want to ___" phrasing for onboarding copy and conversational surfaces only.
+
+**The three-layer model this produces (operator-ratified framing):**
+
+| Layer | What it is | Values | Permanence |
+|---|---|---|---|
+| **Identity** | The default, base status every persona has | `citizen` | Fixed/default — the baseline every action mode is exercised *from* |
+| **Action Mode (intent)** | What the citizen is currently doing or intends to do | Build, Create, Develop, Research, Safeguard | Dynamic, non-permanent, zero-to-many active at once (§5) |
+| **Role (archetype)** | The role the citizen *occupies* while executing or intending to act along a given mode | Builder, Creator, Developer, Researcher, Protector | Derived from the active mode — not a separate, independently-set field |
+
+Concretely: **Citizen is the default identity every persona already has** (confirmed against the
+existing `citizen` archetype value, §3). **The five action modes are the citizen's intent types** —
+what a citizen is choosing to do right now. **The archetype roles (Builder, Creator, Developer,
+Researcher, Protector) are the roles a citizen occupies when executing or intending to act along
+those intent types** — a role is a property of being *in* a mode, not a second independent identity
+a persona separately declares. This reframes §3's archetype↔mode mapping: the existing
+`OperatorArchetype` values (`entrepreneurial`, `technical`, `creative`, `research`) already *are*
+role names in substance (a builder, a developer, a creator, a researcher) — they were simply not
+previously named that way, and had no fifth peer for Safeguard. **Protector** is the operator-named
+role for Safeguard-mode activity — "one who protects, safeguards" — filling the gap §2.5 originally
+flagged as having no archetype predecessor. Whether `protector` becomes a sixth live
+`OperatorArchetype` enum value, or Role stays a presentation-layer label derived from the active mode
+without its own DB column, remains open (§8.1) — this section fixes the *names*, not the storage
+mechanics.
+
+### 2.1 Build (role: Builder)
 
 **Definition:** Building ventures, businesses, teams, products, and standing — founding and
 growing the venture as a going concern. The verb is *building the enterprise itself* — forming the
@@ -180,7 +237,7 @@ closed), and the Standing Cartridge (`standing-cartridge` — evidence, VSP comp
 entrepreneurial = 'venture_building'` in `ExperienceModelSetupWizard.tsx` already names the
 venture-building sense directly.
 
-### 2.2 "I Create"
+### 2.2 Create (role: Creator)
 
 **Definition:** Producing cultural, editorial, or narrative artifacts — media, IP, story, brand,
 design work whose value is expressive/cultural rather than functional/technical.
@@ -191,7 +248,7 @@ outlines per `data/activation-catalog.ts`'s `metame-studio` entry), myCluster pu
 
 **Nearest archetype predecessor:** `creative`.
 
-### 2.3 "I Develop"
+### 2.3 Develop (role: Developer)
 
 **Definition:** Software, AI, automation, engineering, and technical systems and infrastructure —
 the Developer-equivalent mode. The verb is *making the technical thing exist* — writing code,
@@ -200,13 +257,13 @@ from building the venture itself (Build).
 
 **The Build vs Develop distinction, made explicit (the least obvious pair):**
 
-| | I Build | I Develop |
+| | Build (role: Builder) | Develop (role: Developer) |
 |---|---|---|
 | Object of the verb | The venture as a going concern (team, product line, traction, partnerships, standing) | The technical artifact itself (code, protocol, infrastructure, automation) |
 | Representative surfaces | Venture Lab (`venture-lab`), Marketa (`marketa`), Standing Cartridge | `aigent-z` Command Center, AgentiQ OS Build/Bind/Deploy |
 | Representative actions | `generate-venture-report`, `advance-stage`, `draft-outreach`, `launch-sequence`, `add-evidence`, `compile-vsp` | `start-dev-intent`, `validate-build`, `build-agent` |
 | Failure mode if conflated | A founder who is only Developing never gets partner/GTM support surfaced | A founder who is only Building never gets technical-debt / build-quality surfaced |
-| Analogy | The operator / venture-builder | The engineer / architect |
+| Analogy / Role | The operator / venture-builder — **Builder** | The engineer / architect — **Developer** |
 
 **Why the distinction matters operationally:** the current `data/activation-catalog.ts` already
 draws exactly this line at the activation level — `venture-lab` and `marketa` (Build motion:
@@ -224,7 +281,7 @@ the tab-activation layer.
 Develop-mode language, and `ARCHETYPE_DEFAULT_TYPE.technical = 'venture_building'` names the same
 build-loop surface (`aigent-z`) this mode targets.
 
-### 2.4 "I Research"
+### 2.4 Research (role: Researcher)
 
 **Definition:** Structured discovery — forming hypotheses, running experiments, gathering
 evidence, validating or falsifying claims against the invariant substrate. The verb is *learning
@@ -237,7 +294,7 @@ what is true*, not building, creating, or developing.
 **Nearest archetype predecessor:** `research` — a direct, uncomplicated mapping; this mode requires
 the least translation of any of the five.
 
-### 2.5 "I Safeguard" — genuinely new, not a rename
+### 2.5 Safeguard (role: Protector) — genuinely new, not a rename
 
 **This mode does not map cleanly onto any of the five existing archetype values
 (`citizen | entrepreneurial | technical | creative | research`). It is new surface area, and this
@@ -279,18 +336,20 @@ time):**
 
 ---
 
-## §3 Mapping table — archetype ↔ action mode(s)
+## §3 Mapping table — archetype ↔ action mode ↔ role
 
-One row per existing archetype value, explicit about where the mapping is inexact.
+One row per existing archetype value, explicit about where the mapping is inexact. The **Role**
+column is new (§2.0) — the operator-named archetype-role a citizen occupies while executing or
+intending to act along the mode in the adjacent column.
 
-| Archetype (`OperatorArchetype`) | Action mode(s) | Exactness |
-|---|---|---|
-| `citizen` | (none directly — see below) | **Inexact.** `citizen` today means sovereignty/identity/governance *participation* (being a citizen of the Polity), which is closer to a baseline status than an action mode. It does not map onto Build/Create/Develop/Research, and mapping it onto Safeguard would be a stretch (participation ≠ exercising a protective function). Proposal: `citizen` remains a status/default, not an action mode; a citizen with no other mode active is simply not currently doing Founder-Office-scoped work. |
-| `entrepreneurial` | `I Build` | **Exact.** Direct 1:1: `ARCHETYPE_DEFAULT_TYPE.entrepreneurial = 'venture_building'` in `ExperienceModelSetupWizard.tsx` names the venture-building sense (team, product, standing, partnerships) that "I Build" is defined around in §2.1. |
-| `technical` | `I Develop` | **Exact.** Direct 1:1: the wizard's own hint text for `technical` ("Protocol contribution, tooling, infrastructure, or development") is unambiguously the software/AI/automation/engineering scope "I Develop" is defined around in §2.3. |
-| `creative` | `I Create` | **Exact.** Direct 1:1; `ARCHETYPE_DEFAULT_TYPE.creative = 'creative'`. |
-| `research` | `I Research` | **Exact.** Direct 1:1; the most recently added archetype (2026-07-16) and the mode requiring the least translation. |
-| *(no predecessor)* | `I Safeguard` | **No archetype predecessor — new.** See §2.5. Its scope (contracts, IP, governance, compliance, privacy, identity, constitutional rights, corporate structure, trust, risk management) supersedes an earlier, narrower "civic/legal" framing and is flagged explicitly per the operator's confirmation (2026-07-22) as genuinely new surface area, not a rename of `citizen` or any other archetype. |
+| Archetype (`OperatorArchetype`) | Action mode | Role | Exactness |
+|---|---|---|---|
+| `citizen` | (none directly — see below) | *(none — Citizen is the base identity, not a role)* | **Inexact.** `citizen` today means sovereignty/identity/governance *participation* (being a citizen of the Polity), which is closer to a baseline status than an action mode. It does not map onto Build/Create/Develop/Research, and mapping it onto Safeguard would be a stretch (participation ≠ exercising a protective function). Proposal: `citizen` remains the default identity every persona has, not an action mode; a citizen with no other mode active is simply not currently doing Founder-Office-scoped work. |
+| `entrepreneurial` | Build | **Builder** | **Exact.** Direct 1:1: `ARCHETYPE_DEFAULT_TYPE.entrepreneurial = 'venture_building'` in `ExperienceModelSetupWizard.tsx` names the venture-building sense (team, product, standing, partnerships) that Build is defined around in §2.1. |
+| `technical` | Develop | **Developer** | **Exact.** Direct 1:1: the wizard's own hint text for `technical` ("Protocol contribution, tooling, infrastructure, or development") is unambiguously the software/AI/automation/engineering scope Develop is defined around in §2.3. |
+| `creative` | Create | **Creator** | **Exact.** Direct 1:1; `ARCHETYPE_DEFAULT_TYPE.creative = 'creative'`. |
+| `research` | Research | **Researcher** | **Exact.** Direct 1:1; the most recently added archetype (2026-07-16) and the mode requiring the least translation. |
+| *(no predecessor)* | Safeguard | **Protector** (operator-named, 2026-07-22) | **No archetype predecessor — new.** See §2.5. Its scope (contracts, IP, governance, compliance, privacy, identity, constitutional rights, corporate structure, trust, risk management) supersedes an earlier, narrower "civic/legal" framing and is flagged explicitly per the operator's confirmation (2026-07-22) as genuinely new surface area, not a rename of `citizen` or any other archetype. Whether `protector` becomes a live `OperatorArchetype` enum value or Role stays a derived, presentation-layer label remains open (§8.1). |
 
 ---
 
@@ -338,7 +397,7 @@ archetype-appropriate moves. One value, one bias vector, set at onboarding and r
 **Proposed behavior:** the Runtime activates capabilities per the **set of currently active
 modes** for the persona, not per a single fixed identity value.
 
-- A persona could hold `{ 'I Build', 'I Safeguard' }` simultaneously — e.g. building a product
+- A persona could hold `{ 'Build', 'Safeguard' }` simultaneously — e.g. building a product
   while also serving a governance/review role — and the Runtime would surface capabilities and
   NBEs relevant to *both* concurrently, rather than forcing a choice.
 - Modes are proposed as **dynamic and non-permanent**: a persona's active-mode set can change
@@ -375,7 +434,7 @@ transition.**
   not substituted for it.
 - Archetype becomes the **default/derived mode-set seed**: on first exposure to the new dimension,
   a persona's existing `operatorArchetype` value maps via §3's table to an initial
-  `activeActionModes` value (e.g. `entrepreneurial → ['I Build']`, `technical → ['I Develop']`),
+  `activeActionModes` value (e.g. `entrepreneurial → ['Build']`, `technical → ['Develop']`),
   giving every existing persona a sensible non-empty starting mode-set with zero manual migration
   step required of the operator. The persona can then freely add/remove modes from that seed.
 
@@ -475,7 +534,7 @@ Per the operator's framing:
 This is a responsibilities split, not a mode split — a founder's active action mode (§2) determines
 *what specialist capability* the Runtime surfaces at a given moment, while the Operational/Human
 domain split determines *which half of Founder Office* that capability lives in organizationally.
-The two dimensions compose: e.g. a founder in "I Build" mode might be served by an Operational
+The two dimensions compose: e.g. a founder in Build mode might be served by an Operational
 Domain specialist (Venture Lab KPI stewardship) or a Human Domain one (Founder Coach, Network
 Navigator) depending on what they actually need in the moment.
 
@@ -549,7 +608,7 @@ the operator before either document is ratified — not silently by either autho
 This amendment surfaces the following decisions for explicit operator ratification; none are
 resolved by this document:
 
-1. **Is "I Safeguard" a superset of `citizen`'s governance-participation sense, or a wholly new,
+1. **Is Safeguard (role: Protector) a superset of `citizen`'s governance-participation sense, or a wholly new,
    disjoint capability domain?** §2.5 flags this as unresolved. The answer materially affects
    whether Safeguard needs its own billing/entitlement machinery (like `researcher`'s dedicated
    SKU) or rides on existing citizen-tier access.
@@ -581,12 +640,19 @@ resolved by this document:
 
 ## §9 Ratification record
 
-**Status: PROPOSED. No item below is ratified. This section exists to make ratification an
-explicit, auditable, future act — not to record one that has already happened.**
+**Status: PROPOSED. Only the first item below is ratified (2026-07-22, this revision); all other
+items remain open. This section exists to make ratification an explicit, auditable act, one item at
+a time — not to record a blanket ratification that has not happened.**
 
+- [x] **Operator has ratified the mode-naming convention and the Role layer (§2.0, 2026-07-22):**
+      the five modes are named as bare words — Build, Create, Develop, Research, Safeguard — not
+      `"I ___"`; the onboarding conversation elicits intent via "What do you want to do?" → "I want
+      to build" / "I want to create" / etc.; and each mode has an associated Role a citizen occupies
+      while acting in it — Builder, Creator, Developer, Researcher, and (operator-named) **Protector**
+      for Safeguard. Citizen remains the default base identity, not a peer of the five modes.
 - [ ] Operator has reviewed and ratified the five Constitutional Action Mode definitions (§2)
 - [ ] Operator has ratified the Build vs Develop distinction as drafted (§2.3)
-- [ ] Operator has ratified (or amended) the scope of "I Safeguard" (§2.5, §8.1)
+- [ ] Operator has ratified (or amended) the scope of Safeguard / Protector (§2.5, §8.1)
 - [ ] Operator has ratified the archetype ↔ mode mapping table (§3)
 - [ ] Operator has ratified the canonical Founder Office definition (§4) as the text reused across
       documentation, onboarding flows, agent responses, and platform messaging
