@@ -43,24 +43,32 @@ body {
     fixed;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar — SLATE house style, both engines.
+   Firefox does NOT support ::-webkit-scrollbar; without scrollbar-color it
+   falls back to the default light/white scrollbar (the reported side-menu
+   regression). These two properties give Firefox the same slate thumb. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(71, 85, 105, 0.6) transparent; /* slate-600 thumb, transparent track */
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(71, 85, 105, 0.6); /* slate-600 — not white (house style) */
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(100, 116, 139, 0.8); /* slate-500 */
 }
 
 /* Hidden-but-scrollable utility — used by horizontal sub-tab carousels so
