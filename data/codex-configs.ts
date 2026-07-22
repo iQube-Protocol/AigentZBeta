@@ -5291,6 +5291,19 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'InvariantExperimentLab', props: { density: 'narrow' } },
       metadata: { icon: 'FlaskConical', description: 'Run the Foundational Series live and independently — EXP-001–005, Results, and Report. Requires research access (Sovereign/Steward) or a reviewer grant.' },
     },
+    // ── EXP-P1 Readiness — PRD-EPI-001 §10 dashboard (steward-gated) ──
+    {
+      id: 'irl-os-exp-p1-readiness',
+      label: 'EXP-P1 Readiness',
+      slug: 'irl-os-exp-p1-readiness',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 4,
+      type: 'static',
+      config: { component: 'ExpP1ReadinessTab', props: {} },
+      metadata: { icon: 'Gauge', description: 'PRD-EPI-001 §10 — seven per-gate readiness sections for EXP-P1 (protocol-ratified derivation, live). Execution/Publication are expected red pre-run.', color: 'violet' },
+    },
     // ── Constitutional Evaluation — the external-researcher front door ──
     {
       id: 'irl-os-evaluation',
