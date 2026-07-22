@@ -39,6 +39,8 @@ The source dialogue (Austin's-agent critique → Aletheon's methodology response
 
 6. **Operator's new scope decision (this session), binding from here forward:** internal/platform risk materials are **excluded from the EXP-P1 experimental corpus**. They continue to be used in-platform (the financial-services application, Agent MoneyPenny) but must never enter the crystal this experiment draws from — see §9.
 
+7. **Aletheon's review (2026-07-22) caught three genuine sequencing contradictions in the first draft of this PRD**, all fixed below: (a) §2.2's original derivation would have made `protocol-ratified` unreachable because it included artifacts (`execution-run`, `research-package`) that cannot exist before execution; (b) §3's original single readiness gate placed task coverage inside the crystal's freeze condition, directly contradicting the already-ratified crystal-before-tasks sequence (IRL-016 §5, `CRYSTAL-ENLARGEMENT_plan.md` §4 — marked "sacred" there); (c) §5's original ordering allowed an answer key to seal before its task set was finalized, risking drift between a sealed key and a task set that later changes. This is exactly the kind of independent-review catch this programme exists to reward — see the amendment log at the end of this document.
+
 ---
 
 ## 1. Objective
@@ -58,70 +60,164 @@ Everything below is additive to `types/research.ts`. None of it touches `Researc
 export const ARTIFACT_LIFECYCLE = ['draft', 'validated', 'frozen', 'executed', 'archived'] as const;
 export type ArtifactLifecycleState = (typeof ARTIFACT_LIFECYCLE)[number];
 
+// WHEN in the experiment's life an artifact is expected to exist. Informational
+// (drives §10's dashboard mapping) — the derivation in §2.2 filters by `kind`
+// against PROTOCOL_FREEZE_ARTIFACT_KINDS below, not by `phase`, so there is one
+// source of truth for the gate and `phase` never has to be kept in sync with it.
+export type ArtifactPhase = 'protocol' | 'execution' | 'evaluation' | 'publication';
+
 export interface FrozenArtifact {
   id: string;
   kind: 'crystal-version' | 'arm-config' | 'task-set' | 'answer-key' | 'judge-config'
-      | 'interpretation-table' | 'execution-run' | 'research-package';
+      | 'analysis-config' | 'interpretation-table' | 'execution-run' | 'research-package';
+  phase: ArtifactPhase;
   experimentId: string;         // FK to ResearchExperiment.id (e.g. 'EXP-P1')
   lifecycle: ArtifactLifecycleState;
-  contentHash: string | null;   // set only at 'frozen' — the commitment
+  // Two distinct hash fields, not one (Aletheon review, 2026-07-22): a single
+  // "contentHash set only at frozen" cannot describe an execution-run, whose
+  // content only exists once the run has happened but which was never a
+  // pre-registered commitment the way a protocol artifact's freeze is.
+  contentHash: string | null;    // hash of current immutable content, whenever it exists
+  commitmentHash: string | null; // the PROTOCOL commitment: set at freeze for protocol-
+                                  // phase artifacts; set when the run closes for
+                                  // execution-run; set to the export manifest hash for
+                                  // research-package.
   frozenAt: string | null;
   signedBy: string[];           // T2 refs of signatories (IRL + reviewer, per IRL-016 §2)
 }
+
+// task-set and answer-key are mutually referential by design (§5): an answer
+// key is meaningless detached from the exact task-set version it answers.
+export interface AnswerKeyArtifact extends FrozenArtifact {
+  kind: 'answer-key';
+  taskSetId: string;
+  taskSetContentHash: string;   // binds this key to one immutable task-set version
+}
+
+// The pre-execution protocol commitment — the ONLY kinds EXPERIMENT_LIFECYCLE's
+// `protocol-ratified` transition depends on (§2.2). execution-run and
+// research-package are deliberately EXCLUDED: they cannot exist, let alone
+// freeze, before the experiment runs, so including them would make
+// protocol-ratified permanently unreachable (Aletheon review, 2026-07-22).
+export const PROTOCOL_FREEZE_ARTIFACT_KINDS = [
+  'crystal-version',
+  'arm-config',
+  'task-set',
+  'answer-key',
+  'judge-config',
+  'analysis-config',
+  'interpretation-table',
+] as const;
 ```
 
 Mapped onto CFS-033 §2's tree:
 
-| CFS-033 component | This PRD's artifact `kind` | Status |
-|---|---|---|
-| Grounding Slice | `crystal-version` (the frozen `Crystal vP1` snapshot — EXP-009 mechanism) | **built** |
-| Inputs / Runtime Configuration | `arm-config` (per-arm A/B/C/D configuration) | new |
-| Task | `task-set` | new |
-| — | `answer-key` (sealed, hash-committed separately from `task-set` per §5) | new |
-| Judge Configuration | `judge-config` | **built** (generalize) |
-| Success Metrics | `interpretation-table` (pre-signed, per IRL-016 §4) | new |
-| Receipt Schema / Export Package | `research-package` (§4) | new |
-| — | `execution-run` (one row per confirmatory pass — §7) | new |
+| CFS-033 component | This PRD's artifact `kind` | Phase | Status |
+|---|---|---|---|
+| Grounding Slice | `crystal-version` (the frozen `Crystal vP1` snapshot — EXP-009 mechanism) | protocol | **built** |
+| Inputs / Runtime Configuration | `arm-config` (per-arm A/B/C/D configuration) | protocol | new |
+| Task | `task-set` | protocol | new |
+| — | `answer-key` (bound to `task-set` by hash — §5) | protocol | new |
+| Judge Configuration | `judge-config` | protocol | **built** (generalize) |
+| — | `analysis-config` (statistical treatment, frozen — §6) | protocol | new |
+| Success Metrics | `interpretation-table` (pre-signed, per IRL-016 §4) | protocol | new |
+| — | `execution-run` (one row per confirmatory pass — §7) | execution | new |
+| Receipt Schema / Export Package | `research-package` (§4) | publication | new |
 
 ### 2.2 Composition with `EXPERIMENT_LIFECYCLE` (the reconciliation IRL-016 needs operationalized)
 
-An experiment's macro `lifecycle` field (`designed → protocol-ratified → ...`) advances to `protocol-ratified` **only when every `FrozenArtifact` for that `experimentId` is at `frozen`**. This is a derivation, not a manually-set flag — mirrors how `replicated` is already derived from ≥2 distinct providers (`services/research/lifecycle.ts`, CFS-019 Phase C1). Concretely: a `deriveProtocolRatified(experimentId)` helper alongside the existing `deriveOverview` in `services/research/lifecycle.ts`.
+An experiment's macro `lifecycle` field (`designed → protocol-ratified → ...`) advances to `protocol-ratified` **only when every `FrozenArtifact` whose `kind` is in `PROTOCOL_FREEZE_ARTIFACT_KINDS` for that `experimentId` is at `frozen`** — not every artifact regardless of kind.
 
-## 3. Crystal Readiness Validation (new — neither CFS-033 nor CFS-019 name this)
+(Aletheon review, 2026-07-22: the original wording gated on ALL artifacts, including `execution-run` and `research-package`. Since neither can exist before the experiment runs, that made `protocol-ratified` — which precedes `running` in `EXPERIMENT_LIFECYCLE` — permanently unreachable. Those two kinds instead govern the later macro transitions:)
 
-Before a crystal-version artifact may transition `validated → frozen`, run an automated readiness check (not a manual review) producing a **Crystal Readiness Report**:
+| Macro transition | Depends on |
+|---|---|
+| `designed → protocol-ratified` | every `PROTOCOL_FREEZE_ARTIFACT_KINDS` artifact at `frozen` (this section) |
+| `protocol-ratified → running` | an `execution-run` artifact opened |
+| `running → evaluated` | the `execution-run` closed + judge outputs committed |
+| `evaluated → published` | a `research-package` exported and publicly reachable |
+
+This is a derivation, not a manually-set flag — mirrors how `replicated` is already derived from ≥2 distinct providers (`services/research/lifecycle.ts`, CFS-019 Phase C1). Concretely: a `deriveProtocolRatified(experimentId)` helper alongside the existing `deriveOverview` in `services/research/lifecycle.ts`, filtering artifacts by `kind ∈ PROTOCOL_FREEZE_ARTIFACT_KINDS` before checking `lifecycle === 'frozen'` on each.
+
+## 3. Crystal readiness — two separate reports, not one combined gate
+
+Aletheon review (2026-07-22): the original single "Crystal Readiness Report" placed task coverage inside the gate for `crystal-version`'s `validated → frozen` transition. That directly conflicts with the already-ratified independence sequence (`IRL-016` §5; `CRYSTAL-ENLARGEMENT_plan.md` §4, marked "sacred" there): **enlarge → FREEZE crystal → construct tasks independently.** If final tasks had to exist before the crystal could freeze, the crystal could be — even unintentionally — adapted to fit those tasks, recreating exactly the task–collection affinity problem the sequence gate exists to prevent. This section is split accordingly.
+
+### 3.1 Crystal Intrinsic Readiness Report (gates `crystal-version`: `validated → frozen`)
+
+Assesses the crystal WITHOUT reference to any task set — the crystal must stand on its own:
 
 | Check | What it verifies | Fails closed if |
 |---|---|---|
-| Selection space | Arm C's fixed slice remains a genuine `⊆40%` proper subset of the crystal (EXP-P1 §3, already ratified) | slice ≥ 40% of collection |
-| Derivation headroom | The collection contains relational/conditional/compositional invariants, not only atomic assertions (`CRYSTAL-ENLARGEMENT_plan.md` §3 condition d) | derivation-eligible invariant count below the task set's requirement |
-| Coverage | Every task (once the task set exists) has ≥1 valid grounding path through the frozen crystal — the hidden **Task Coverage Matrix** Aletheon specifies | any task has zero valid path |
+| Selection space | Arm C's fixed slice can remain a genuine `⊆40%` proper subset of the crystal (EXP-P1 §3, already ratified) | no subset choice satisfies `⊆40%` at meaningful size |
+| Derivation headroom | The collection contains relational/conditional/compositional invariants, not only atomic assertions (`CRYSTAL-ENLARGEMENT_plan.md` §3 condition d) | derivation-eligible invariant count is negligible |
 | Structural diversity | Invariant set spans multiple semantic_types / relational forms, not N repetitions of one shape | duplicate-shape ratio exceeds a documented threshold |
 | Duplicate detection | No near-duplicate invariants inflating the count | duplicates found and unresolved |
+| Provenance eligibility | Every invariant is tagged `external-established` or `external-empirical` (§9; `CRYSTAL-ENLARGEMENT_plan.md` §2a) | any `platform-derived`/`platform-hypothesized` invariant present |
+| Lifecycle/validation integrity | Every invariant carries real receipted validation counts (no zero-validation filler — `CRYSTAL-ENLARGEMENT_plan.md` §2 condition a) | zero-validation or bulk-authored entries found |
 
-This is the automated gate CRYSTAL-ENLARGEMENT_plan.md's §5 "definition of done" already lists as checkboxes — this section is what makes those checkboxes machine-verifiable rather than self-attested.
+This is the automated gate `CRYSTAL-ENLARGEMENT_plan.md`'s §5 "definition of done" already lists as checkboxes — this subsection is what makes those checkboxes machine-verifiable rather than self-attested.
+
+### 3.2 Task–Crystal Coverage Report (gates `task-set`: `validated → frozen` — NOT the crystal)
+
+Generated only AFTER: (1) `Crystal vP1` is frozen and hash-committed; (2) tasks are independently constructed against the frozen domain boundary, per EXP-P1 §5.1 (the reviewer sees the domain boundary, not the crystal contents); (3) the constructed tasks are submitted for coverage validation. It verifies:
+
+- every recall task has ≥1 valid grounding path through the frozen crystal;
+- every derivation task has a valid multi-invariant entailment path, with required premises present;
+- the expected answer is actually supported by those premises;
+- no task depends on absent material;
+- no task collapses into answerability from general model knowledge alone (which would defeat the purpose of grounding it).
+
+**Unsupported-task replacement procedure** (pre-registered, so a coverage failure can't turn into ad hoc task editing): an unsupported task is excluded and replaced using the same frozen task-construction procedure — never by hand-patching that one task — until the pre-registered task count is reached. The crystal is never altered to accommodate a task; a persistent inability to reach the target count is itself a finding about the crystal's density (mirrors `CRYSTAL-ENLARGEMENT_plan.md` §2's "no invariant is authored to hit a number").
+
+The dashboard (§10) shows **Crystal Readiness** and **Task Coverage** as two distinct states, never one combined bar.
 
 ## 4. Research Package exporter (CFS-033 §3, build now)
 
 The generalization CFS-033 already named: for any experiment, export `{hypothesis, protocol, frozen artifacts + hashes, execution receipts, raw outputs, judge outputs, statistics, interpretation table, replication status}` as one downloadable, independently-verifiable bundle. This is also the **Reviewer Package** Austin's-agent needs — one exporter serves both the "publish this" and "let an external reviewer verify this" use cases; do not build two.
 
-## 5. Task Set + sealed Answer Keys (blinded, arm-randomized)
+## 5. Task Set + sealed Answer Keys (blinded, arm-randomized, hash-bound)
 
-- `task-set` and `answer-key` are separate `FrozenArtifact` rows, hash-committed independently, so an answer key can be sealed before task-set review is even complete.
-- The judge process never sees which arm produced an answer, the expected winner, or the hypothesis under test — arm labels are randomized per the judge-config artifact. This is a config-level requirement on `judge-config`, not new judging code: the existing Independence Protocol (CFS-033 §1, generative/evaluative/constitutional roles routed to different providers) already gives the mechanism; this adds label-blinding as a required field.
+Aletheon review (2026-07-22): the original ordering allowed an answer key to seal before its task set was finalized — risky, since a key is semantically bound to one exact task-set version; sealing it early could leave a sealed key pointing at tasks that later change or get rejected in review. Corrected order:
+
+```
+draft tasks
+→ independent construction complete (per §3.2, against the frozen crystal's domain boundary only)
+→ Task–Crystal Coverage Report passes (§3.2)
+→ task set finalized, task-set hash generated
+→ answer key authored, bound to that EXACT task-set hash (AnswerKeyArtifact.taskSetContentHash)
+→ task set and answer key jointly frozen/sealed
+```
+
+`task-set` and `answer-key` remain two separate `FrozenArtifact` rows with independent `contentHash`es — but an `answer-key` row is invalid unless its `taskSetContentHash` matches its referenced `task-set` row's `contentHash` at the moment both freeze. A mismatch blocks freeze outright; it is never silently tolerated.
+
+- The judge process never sees which arm produced an answer, the expected winner, or the hypothesis under test — arm labels are randomized per the `judge-config` artifact. This is a config-level requirement, not new judging code: the existing Independence Protocol (CFS-033 §1, generative/evaluative/constitutional roles routed to different providers) already gives the mechanism; this adds label-blinding as a required field.
 - Task categories (recall vs. derivation, and within derivation: two-premise / three-plus-premise / conditional / conflict-resolution / novel-application / minimal-sufficiency / plausible-distractor) are a property of `task-set`, not a new object.
 
-## 6. Failure classification (pre-registered, part of `interpretation-table`)
+## 6. Analysis configuration + failure classification (both pre-registered)
+
+The statistical treatment must be frozen alongside the interpretation table — otherwise prompts and outputs can be frozen while the analytical treatment stays flexible, reopening exactly the post-hoc-reinterpretation risk IRL-016 exists to close (Aletheon review, 2026-07-22). A dedicated `analysis-config` artifact (§2.1) fixes, before any data exists: primary comparisons (B−C, C−D); aggregation method across repetitions; treatment of missing/invalid runs; judge-disagreement resolution; effect-size reporting; exclusion rules; threshold interpretation; correction for multiple comparisons where applicable.
 
 Before execution, the `interpretation-table` artifact fixes the categories a negative result may fall into — fixed **before** any data exists, exactly as IRL-016 §4 already requires for the interpretation table generally:
 
 `scientific-null | substrate-insufficiency | task-invalidity | implementation-failure | measurement-failure | coverage-failure`
 
-Each category needs an objective, pre-stated criterion (e.g. `coverage-failure` = the Crystal Readiness Report's coverage check would have failed for the task in question). No category may be invented after seeing results — that would be exactly the post-hoc reinterpretation IRL-016 §4 forbids.
+Each category needs an objective, pre-stated criterion (e.g. `coverage-failure` = the §3.2 Task–Crystal Coverage Report would have failed for the task in question; `implementation-failure` = the §7 Treatment Integrity Check failed). No category may be invented after seeing results — that would be exactly the post-hoc reinterpretation IRL-016 §4 forbids.
 
-## 7. Runtime observability (Arm B instrumentation)
+## 7. Treatment Integrity Check (Arm B instrumentation, formalized as a gate)
 
-For every Arm B task execution, log: candidate invariants considered, selected invariants + selection scores, exclusions, the composition/projection trace, the final rendered prompt, and hashes of every input/output. This verifies the treatment was actually administered before a B≈C null is read as a finding about the mechanism rather than about whether the mechanism ran. One `execution-run` row per pass; repeated executions (§8) are additional rows, not overwrites.
+For every Arm B task execution, log: candidate invariants considered, selected invariants + selection scores, exclusions, the composition/projection trace, the final rendered prompt, and hashes of every input/output. One `execution-run` row per pass; repeated executions (§8) are additional rows, not overwrites.
+
+Aletheon review (2026-07-22): observability alone isn't enough — it must be a formal, pre-registered **pass/fail gate**, not just a log. A B≈C outcome is **not scientifically interpretable** unless the Treatment Integrity Check passes:
+
+- the resolution/selection engine actually ran for the task;
+- candidate selection occurred (not skipped);
+- the projection was non-empty where the protocol expected it to be non-empty;
+- the recorded trace matches the frozen `arm-config`/runtime configuration exactly;
+- no fallback path silently substituted for the runtime (e.g. a static prompt shipped instead of live selection);
+- the final rendered prompt matches its recorded hash.
+
+A Treatment Integrity failure is classified `implementation-failure` (§6), never folded into a `scientific-null` — this is exactly what prevents an implementation defect from masquerading as a finding about the mechanism.
 
 ## 8. Pilot vs. confirmatory separation (IRL-016's freeze discipline, made procedural)
 
@@ -138,7 +234,21 @@ Per operator instruction: **internal/platform risk materials are excluded from t
 
 ## 10. Readiness Dashboard
 
-One IRL OS surface (Laboratory → EXP-P1 Readiness) showing red/amber/green per section: Infrastructure (this PRD's §§2–7 built), Crystal (readiness report passing — depends on Track 2), Coverage (task coverage matrix complete), Freeze (all artifacts frozen + signed), Review (reviewer package generated + reachable), Execution (confirmatory run complete). EXP-P1 cannot transition to `protocol-ratified` while any section is red — this is the human-legible face of §2.2's derivation rule.
+One IRL OS surface (Laboratory → EXP-P1 Readiness) showing red/amber/green per section — but each section gates a DIFFERENT macro transition, not one blanket bar.
+
+(Aletheon review, 2026-07-22: "EXP-P1 cannot execute until every section is green" is wrong once stated bluntly — Execution is SUPPOSED to be red until the experiment has actually run; conflating that with protocol-readiness would make the dashboard lie.)
+
+| Dashboard section | Gates |
+|---|---|
+| Infrastructure | design completion (§§2–7 built) |
+| Crystal | `crystal-version` freeze (§3.1) |
+| Coverage | `task-set` freeze (§3.2) |
+| Freeze | `protocol-ratified` (§2.2 — all `PROTOCOL_FREEZE_ARTIFACT_KINDS` frozen) |
+| Review | reviewer package reachable (§4) |
+| Execution | `running` / `evaluated` (§2.2) |
+| Publication | `published` (§2.2) |
+
+Only Infrastructure, Crystal, Coverage, Freeze, and Review need to be green for `protocol-ratified`. Execution and Publication are EXPECTED red until the experiment actually runs and is exported — their green state is a later milestone, not a precondition.
 
 ## 11. Explicitly out of scope for this PRD
 
@@ -147,17 +257,37 @@ One IRL OS surface (Laboratory → EXP-P1 Readiness) showing red/amber/green per
 - Changes to `EXPERIMENT_LIFECYCLE`, `PUBLICATION_LIFECYCLE`, or `FINDING_LIFECYCLE`.
 - A new IRL governance charter (§0.1) — IRL-016 already governs this.
 
-## 12. Sequencing
+## 12. Sequencing (amended per Aletheon review, 2026-07-22)
 
-1. Operator ratifies this PRD (or amends it).
-2. Build §§2–7 (object model, readiness validation, Research Package exporter, task/answer-key sealing, failure taxonomy, runtime observability) + §10 (dashboard) against the CFS-033 tree — this is buildable now, independent of Track 2.
-3. Operator returns with Track 2 (crystal source material); `CRYSTAL-ENLARGEMENT_plan.md` resumes.
-4. Engineering shakedown → methodology pilot → freeze → confirmatory run → replication, per §8, gated by the dashboard.
+1. Operator ratifies this PRD (or amends it further).
+2. Build the artifact model + lifecycle derivations (§2).
+3. Build Crystal Intrinsic Readiness validation (§3.1).
+4. Build task-set, answer-key, and analysis-config sealing (§5, §6).
+5. Build runtime instrumentation + the Treatment Integrity Check (§7).
+6. Build the Research Package exporter + reviewer-readable endpoints (§4).
+7. Build the lifecycle-aware Readiness Dashboard (§10).
+8. Operator resumes Track 2 — expand the external crystal (`CRYSTAL-ENLARGEMENT_plan.md`).
+9. Validate and freeze `Crystal vP1` (§3.1).
+10. Independently construct tasks (against the domain boundary only — EXP-P1 §5.1).
+11. Generate the Task–Crystal Coverage Report (§3.2).
+12. Finalize and jointly freeze: task set, answer key, arm configurations, judge configuration, analysis configuration, interpretation table (§5, §6).
+13. Run engineering shakedown on disposable artifacts (§8).
+14. Run methodology pilot on a separate disposable task batch (§8).
+15. Apply permitted pre-freeze revisions (IRL-016 §3 — everything unsigned is still mutable).
+16. Freeze the confirmatory protocol (IRL-016 §2).
+17. Execute pre-registered repetitions.
+18. Evaluate, export, publish, and replicate.
+
+Steps 1–7 are Track 1 (this PRD) and are buildable now, independent of Track 2. Steps 8–18 require Track 2's external crystal and only begin once the operator resumes that work.
 
 ---
 
+## Amendment log
+
+- **2026-07-22 — Aletheon review, pre-ratification.** Three sequencing contradictions caught and fixed in place (§0 item 7, §2.1, §2.2, §3, §5, §6, §7, §10, §12 all revised): (1) the protocol-ratified derivation originally depended on artifact kinds (`execution-run`, `research-package`) that cannot exist before execution, making the transition unreachable — fixed by introducing `PROTOCOL_FREEZE_ARTIFACT_KINDS` as the actual derivation input; (2) the crystal readiness gate originally required task coverage before the crystal could freeze, contradicting the already-ratified crystal-before-tasks sequence (IRL-016 §5) — fixed by splitting into a Crystal Intrinsic Readiness Report (gates the crystal) and a Task–Crystal Coverage Report (gates the task set, generated only after the crystal is already frozen); (3) the answer key could originally seal before its task set was finalized — fixed by binding `AnswerKeyArtifact` to an exact `taskSetContentHash` and requiring joint freeze. Also adopted: `ArtifactPhase`, the `contentHash`/`commitmentHash` split, an explicit `analysis-config` artifact, the Treatment Integrity Check as a formal gate, and the dashboard's per-section gate mapping. This is normal pre-freeze revision (IRL-016 §3 — everything unsigned remains mutable) and does not require a second ratification round; it is logged here for traceability, not as a protocol amendment (nothing here was ever frozen).
+
 ## Ratification record
 
-- [ ] Operator ratification of this PRD (status: DESIGN, awaiting sign-off)
-- [ ] Companion amendment to `CRYSTAL-ENLARGEMENT_plan.md` (§9 exclusion rule) — see accompanying edit, ratified alongside this PRD
+- [ ] Operator ratification of this PRD (status: DESIGN, awaiting sign-off — now incorporating the 2026-07-22 amendment log above)
+- [ ] Companion amendment to `CRYSTAL-ENLARGEMENT_plan.md` (§2a exclusion rule) — see accompanying edit, ratified alongside this PRD
 - [ ] Build tracked against §12's sequencing once ratified
