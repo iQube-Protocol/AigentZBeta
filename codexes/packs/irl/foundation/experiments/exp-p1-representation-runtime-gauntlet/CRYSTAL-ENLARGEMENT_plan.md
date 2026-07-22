@@ -68,6 +68,11 @@ material) are **separately chartered** — this plan's own enlargement work is p
 pending that follow-up (see `PRD-EPI-001` §0.6/§9, the companion infrastructure PRD).
 This section states only the one rule that is already decided and binding now.
 
+*(Follow-up now chartered: `CRYSTAL-CANON_source-material-charter.md` — the collection
+list, priorities, and composition target — and `PRD-ICA-001_invariant-corpus-acquisition-agent.md`
+— the acquisition agent that sources it. Both DESIGN-status, ratify-before-build, and
+neither changes this plan's method/sequence/exclusion rule above.)*
+
 ## 3. Composition requirements
 
 - **In-domain (condition c).** Enlargement stays within the defined constitutional-
