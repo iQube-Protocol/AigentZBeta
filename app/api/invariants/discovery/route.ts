@@ -51,6 +51,10 @@ const SUB_DOMAIN_PRESETS: Record<string, { value: string; label: string }[]> = {
     { value: 'banking', label: 'Banking' },
     { value: 'custody', label: 'Custody' },
     { value: 'cross-border', label: 'Cross-border' },
+    // QriptoCENT — the finance/qriptocent sub-domain (PRD-MPY-001 §3.5, D6).
+    // Source sub-corpus from which MoneyPenny's inv.finance.* library is DERIVED
+    // by the Discovery Engine — never hand-authored (col_qriptocent_corpus).
+    { value: 'qriptocent', label: 'QriptoCENT (PRD-MPY-001 D6)' },
   ],
 };
 
