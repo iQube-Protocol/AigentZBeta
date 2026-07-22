@@ -3,13 +3,14 @@
 **Date:** 2026-07-22
 **Branch:** `claude/agentiq-onboarding-docs-jrbeha`
 
-> **Status: RATIFIED (2026-07-22), with two narrow items still open** — the canonical
-> Founder Office definition (§4, not yet explicitly confirmed) and the
-> `AMENDMENT_RECORDS.md` cross-reference (§9, an action for the authoring agent to take,
-> not an operator ratification). Every other item in §9's checklist is ratified across
-> three rounds of operator review. This document does not modify ratified charter text.
-> Nothing in this document authorizes code changes on its own until the follow-on
-> implementation plan (§9) is chartered.
+> **Status: FULLY RATIFIED (2026-07-22)**, across three rounds of operator review — every
+> item in §9's checklist is now checked, including the canonical Founder Office
+> definition (§4) and the `AMENDMENT_RECORDS.md` cross-reference (added 2026-07-22). This
+> document does not modify ratified charter text — it derives authority from
+> `FOUNDER_OFFICE_CHARTER.md` without amending it (the operator's explicit governance-home
+> resolution, §8 item 6 of the companion PRD). Nothing in this document authorizes code
+> changes on its own; a follow-on implementation plan (its own phase/PRD numbering, §9)
+> is the one remaining step before Phase 1 code work begins.
 
 > **Revision note (2026-07-22, post-authoring correction, operator-ratified):** the
 > first draft of this document named the five modes with an "I " prefix (`I Build`,
@@ -822,11 +823,9 @@ a time — not to record a blanket ratification that has not happened.**
       superset of `citizen`, not a new capability domain — no new SKU, no new
       entitlement model.
 - [x] Operator has ratified the archetype ↔ mode mapping table (§3)
-- [ ] Operator has ratified the canonical Founder Office definition (§4) as the text reused across
-      documentation, onboarding flows, agent responses, and platform messaging — **not yet
-      explicitly ratified**: the operator's 2026-07-22 review confirmed every other item in this
-      checklist but did not annotate this one, so it stays open rather than assumed (flagged back
-      to the operator explicitly, not silently defaulted to ratified).
+- [x] Operator has ratified the canonical Founder Office definition (§4) as the text reused across
+      documentation, onboarding flows, agent responses, and platform messaging (confirmed 2026-07-22,
+      third round — the one item left open after the second round is now explicitly ratified).
 - [x] **Operator has ratified the corrected, weighting-signal-only Runtime activation
       model (§5, §8.4):** NBE reranking is not restructured; Action Modes are an
       additional weighting signal over the existing archetype/venture/standing/
@@ -849,10 +848,11 @@ a time — not to record a blanket ratification that has not happened.**
 - [x] **Operator has confirmed a follow-on implementation plan (its own phase/PRD numbering) is
       the correct next step** — not yet chartered (no such document exists yet); this is
       agreement on the path, not a claim the plan already exists.
-- [ ] This document has been cross-referenced from `codexes/packs/polity-core/items/
-      AMENDMENT_RECORDS.md` as a *proposal under consideration* (not as a ratified amendment) — a
-      step this document does not itself take, per the task boundary that this proposal must not
-      modify `AMENDMENT_RECORDS.md`
+- [x] **This document has been cross-referenced from `codexes/packs/polity-core/items/
+      AMENDMENT_RECORDS.md`** as a *proposal under consideration* (status `operator_ratified_prd`,
+      under the "Drafts / Work-in-progress (NOT ratified)" table — NOT ratified as a *charter
+      amendment*, per the operator's explicit governance-home resolution that the Charter itself
+      stays unamended). Done 2026-07-22 at the operator's explicit instruction ("Yes").
 
 Until every box above is checked by the operator, this document has no effect on the ratified
 Founder Office Charter, the live `OperatorArchetype` system, or any production code path.
