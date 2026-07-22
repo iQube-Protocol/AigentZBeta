@@ -15,7 +15,8 @@ import { randomUUID, createHash } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { retrieveArtifact, sniffMagicBytes } from './retrieval';
 import { inspectArtifact } from './inspection';
-import type { CandidateSourceRow, ResolutionChain } from './types';
+import { classifyStructuralValue } from './intelligence';
+import type { CandidateSourceRow, ResolutionChain, StructuralValueTag } from './types';
 
 export interface CreateCandidateSourceInput {
   url: string;
@@ -78,6 +79,7 @@ function toCandidateSourceRow(r: Record<string, unknown>): CandidateSourceRow {
     extractionStatus: r.extraction_status as CandidateSourceRow['extractionStatus'],
     normalizedText: String(r.normalized_text ?? ''),
     extractionWarnings: Array.isArray(r.extraction_warnings) ? (r.extraction_warnings as string[]) : [],
+    structuralTags: Array.isArray(r.structural_tags) ? (r.structural_tags as StructuralValueTag[]) : [],
     duplicateOfSourceId: (r.duplicate_of_source_id as string | null) ?? null,
     humanReviewNotes: (r.human_review_notes as string | null) ?? null,
     evidenceRowId: (r.evidence_row_id as string | null) ?? null,
@@ -144,6 +146,7 @@ export async function createCandidateSource(
       extraction_status: 'failed' as const,
       normalized_text: '',
       extraction_warnings: [`retrieval failed: ${retrieval.failureClass ?? 'unknown'}`],
+      structural_tags: [] as StructuralValueTag[],
     };
     const { data, error } = await admin.from('corpus_candidate_sources').insert(row).select('*').single();
     if (error || !data) return { ok: false, error: error?.message ?? 'insert failed' };
@@ -169,6 +172,9 @@ export async function createCandidateSource(
     extraction_status: inspection.ok ? (passed ? ('ok' as const) : ('below-threshold' as const)) : ('failed' as const),
     normalized_text: inspection.normalizedText,
     extraction_warnings: inspection.extractionWarnings,
+    // Phase 3 lightweight intelligence (§14.3) — HEURISTIC structural-value
+    // tags (§8), advisory review metadata only, never a review decision.
+    structural_tags: classifyStructuralValue(inspection.normalizedText).tags,
   };
 
   const { data, error } = await admin.from('corpus_candidate_sources').insert(row).select('*').single();

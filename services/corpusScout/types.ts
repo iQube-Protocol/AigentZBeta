@@ -47,6 +47,17 @@ export const APPROVED_FOR_INGESTION: ReadonlySet<ReviewWorkflowStatus> = new Set
   'approved_exp_p1', 'approved_general_finance',
 ]);
 
+/** PRD-ICA-001 §8's structural-value classification vocabulary. Tags assist
+ *  human review, never replace it — assigned HEURISTICALLY (keyword/pattern
+ *  matching, no ML/LLM) by `services/corpusScout/intelligence.ts`. */
+export const STRUCTURAL_VALUE_TAGS = [
+  'causal', 'conditional', 'relational', 'mathematical', 'probabilistic',
+  'temporal', 'threshold-based', 'feedback', 'trade-off', 'constraint',
+  'failure-derived', 'governance', 'definitional', 'empirical-association',
+] as const;
+
+export type StructuralValueTag = (typeof STRUCTURAL_VALUE_TAGS)[number];
+
 export interface ResolutionChain {
   discoveryUrl: string;
   downloadUrl: string;
@@ -112,6 +123,8 @@ export interface CandidateSourceRow {
   extractionStatus: 'pending' | 'ok' | 'below-threshold' | 'failed';
   normalizedText: string;
   extractionWarnings: string[];
+  /** HEURISTIC structural-value tags (§8) — advisory review metadata only. */
+  structuralTags: StructuralValueTag[];
   duplicateOfSourceId: string | null;
   humanReviewNotes: string | null;
   evidenceRowId: string | null;
