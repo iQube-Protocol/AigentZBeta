@@ -221,11 +221,22 @@ export function makeIrlAdapter(origin: string): IrlAdapter {
         lastStatus = res.status;
         // Retry only on transient server errors; 4xx is a real answer, don't retry.
         if (res.status >= 500 && attempt < retries) continue;
-        let body: unknown = null;
-        try {
-          body = await res.json();
-        } catch {
-          body = await res.text().catch(() => null);
+        // Read the body EXACTLY ONCE. The previous code called res.json() first and
+        // fell back to res.text() in the catch — but res.json() consumes the stream,
+        // so the subsequent res.text() throws "body already read" and the body is
+        // lost. That silently NULLED every raw-markdown response: /api/public/irl/doc
+        // returns text/markdown, so read_shared_document returned {ok:true,
+        // content:null} on documents that resolved 200 (Austin QA ①a, 2026-07-22).
+        // Read text once, then parse JSON only when the endpoint declares JSON.
+        const rawText = await res.text().catch(() => null);
+        const ct = res.headers.get('content-type') || '';
+        let body: unknown = rawText;
+        if (rawText != null && (ct.includes('application/json') || ct.includes('+json'))) {
+          try {
+            body = JSON.parse(rawText);
+          } catch {
+            body = rawText;
+          }
         }
         return { ok: res.ok, status: res.status, body };
       } catch {
