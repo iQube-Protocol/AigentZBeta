@@ -16,7 +16,7 @@
 
 import type { NbeCandidate } from '@/services/orchestration/nbeCatalog';
 import type { InferredStrategy } from '@/services/strategy/strategyInference';
-import type { ActiveCartridgeSlug, ExperienceStage, OperatorArchetype } from '@/services/iqube/experienceQube';
+import type { ActiveCartridgeSlug, ConstitutionalActionMode, ExperienceStage, OperatorArchetype } from '@/services/iqube/experienceQube';
 import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
 import { citeInvariants, type InvariantSlice } from '@/services/invariants';
 import { groundReasoning } from '@/services/invariants/engine';
@@ -52,6 +52,13 @@ Rules:
   1. clears the persona's biggest current blocker, OR
   2. directly serves the inferred-strategy headline / primary goal, OR
   3. unlocks compounding moves (e.g. workspace draft → outreach).
+- When "activeActionModes" is present, also bias toward candidates matching
+  the persona's currently active Constitutional Action Mode(s) (e.g.
+  Build → venture/partner motion, Develop → technical/build-loop moves,
+  Research → discovery/validation moves, Create → editorial/narrative
+  moves, Safeguard → legal/compliance/governance/risk moves), ranking
+  everything else slightly lower — an additional weighting pass on top of
+  the rules above, never a replacement for them.
 - When a "liveContext" string is provided, treat it as a fresh signal
   from a capability tool (e.g. web-search, owned-content-scan). Use it
   to break ties or boost a candidate whose rationale lines up with the
@@ -104,6 +111,16 @@ interface RerankContext {
    * formation moves; Creative → content/cultural moves).
    */
   operatorArchetype?: OperatorArchetype | null;
+  /**
+   * Founder Office Action Modes amendment (ratified 2026-07-22) — the
+   * persona's currently active Constitutional Action Modes, when known.
+   * Per the amendment's §5/§8 resolution this is an ADDITIONAL WEIGHTING
+   * SIGNAL layered on top of the existing archetype/venture/standing-driven
+   * ranking, never a replacement axis or a parallel reranking algorithm —
+   * see the SYSTEM_PROMPT rule below. Session/runtime state, not persisted
+   * profile data (`services/iqube/actionModes.ts`).
+   */
+  activeActionModes?: ConstitutionalActionMode[];
   /**
    * Optional Capability Gateway pre-flight summary (e.g. web-search
    * digest, owned-content-scan finding). Surfaces as a `liveContext`
@@ -232,6 +249,7 @@ function summariseForPrompt(
         primaryGoal: ctx.primaryGoal,
         experienceGoals: ctx.experienceGoals.slice(0, 16),
         ...(ctx.operatorArchetype ? { operatorArchetype: ctx.operatorArchetype } : {}),
+        ...(ctx.activeActionModes?.length ? { activeActionModes: ctx.activeActionModes } : {}),
       },
       strategy: ctx.strategy
         ? {
