@@ -67,6 +67,8 @@ Per Aletheon's proposal, two living registers, each entry carrying: the candidat
 
 These registers live as sections of this document until volume justifies a dedicated pack file; do not build new infrastructure for them prematurely. Populated by the first Invariant Retrospective (§3), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme — see the retrospective record at the end of this section.
 
+> **RATIFIED (operator, 2026-07-22).** Every row below marked `proposed` was ratified and canonized the same day as `inv.reasoning.351–360` (seed + Appendix A). Mapping: domain-boundary → 351 · acquisition-requires-retrieval → 352 · four-corpus-functions → 353 · self-affinity/provenance-eligibility → 354 · composition-over-volume → 355 · auditable-exclusions → 356 · treatment-integrity → 357 · failure-classification → 358 · answer-key-binding → 359 · blind-judging → 360. The table cells retain `proposed` as the historical record of what the retrospective produced; the canon is authoritative for current status.
+
 ### 2.1 Corpus Construction Invariant Register
 
 | Candidate (proposed statement) | Source incident (2026-07-22 programme) | Existing-canon reuse check | Class | Status |
@@ -111,7 +113,8 @@ The three incidents: (a) `EXPERIMENT_REGISTRY` hand-duplicated as `col_experimen
 
 ### 2.4 Retrospective record
 
-- **2026-07-22 — First Invariant Retrospective.** Run over the EXP-P1 infrastructure/corpus programme (`PRD-EPI-001`, `PRD-ICA-001`, `PRD-EPI-001`'s Track 1 build, the Crystal Canon, and this session's defect log). 17 candidates reviewed across both registers; 8 already covered by existing canon (cited, not duplicated); 8 genuinely-new candidates registered `proposed`; 1 rejected as a local preference. Headline finding: the most-violated pattern (source-of-truth duplication) is already canonical (`inv.engineering.036/037`) and needs enforcement, not re-ratification. No candidate was canonized — per §0.3, this retrospective is a discovery method, not a ratification shortcut; the operator ratifies the `proposed` candidates through the normal lifecycle.
+- **2026-07-22 — First Invariant Retrospective.** Run over the EXP-P1 infrastructure/corpus programme (`PRD-EPI-001`, `PRD-ICA-001`, the Track 1 build, the Crystal Canon, and this session's defect log). **18** candidates reviewed across both registers; **7** already covered by existing canon (cited, not duplicated); **10** genuinely-new candidates registered `proposed`; **1** rejected as a local preference. *(Correction: the first write-up of this record said "17 reviewed / 8 covered / 8 new" — a tally error against the register's own rows (6+2 in §2.1, 4+5 in §2.2, +1 rejected). The tables were always the authoritative record; the summary line is corrected here rather than silently rewritten.)* Headline finding: the most-violated pattern (source-of-truth duplication) is already canonical (`inv.engineering.036/037`) and needs enforcement, not re-ratification. No candidate was canonized by the retrospective itself — per §0.3, a retrospective is a discovery method, not a ratification shortcut.
+- **2026-07-22 — Operator ratification (same day).** The operator ratified the register's 10 `proposed` candidates → canonized as `inv.reasoning.351–360` (seed + Appendix A; see the ratification banner at the top of §2), and approved §2.3's enforcement recommendation → `inv.engineering.037` is now canary-enforced via `tests/source-of-truth-parity.test.ts` + a CLAUDE.md rule ("source-of-truth parity is canary-enforced"). Question 8's loop is closed for this retrospective: validated invariants became canon entries, a build-failing check, and an agent instruction — not a lessons-learned document.
 
 ## 3. The Invariant Retrospective — a standing practice
 
