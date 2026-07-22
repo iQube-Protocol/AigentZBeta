@@ -195,17 +195,48 @@ function definitionKey(term: string): string | null {
 
 /** Build the adapter bound to the app's public origin. */
 export function makeIrlAdapter(origin: string): IrlAdapter {
-  const get = async (path: string) => {
-    const res = await fetch(`${origin}${path}`, { cache: 'no-store' });
-    const ok = res.ok;
-    let body: unknown = null;
-    try {
-      body = await res.json();
-    } catch {
-      body = await res.text().catch(() => null);
+  // Resilient JSON fetch — the canon reads are same-origin server-to-server calls
+  // that intermittently blip on Lambda cold starts / Supabase latency. A single
+  // transient failure must NOT surface to the agent as "could not reach the canon"
+  // (the flaky-connector symptom, 2026-07-21), so: bounded timeout + a couple of
+  // retries with small backoff on a network error, timeout, or 5xx.
+  const resilientFetch = async (
+    url: string,
+    init?: RequestInit,
+    opts: { retries?: number; timeoutMs?: number } = {},
+  ) => {
+    const retries = opts.retries ?? 2;
+    const timeoutMs = opts.timeoutMs ?? 9000;
+    let lastStatus = 0;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { cache: 'no-store', ...init, signal: controller.signal });
+        clearTimeout(timer);
+        lastStatus = res.status;
+        // Retry only on transient server errors; 4xx is a real answer, don't retry.
+        if (res.status >= 500 && attempt < retries) continue;
+        let body: unknown = null;
+        try {
+          body = await res.json();
+        } catch {
+          body = await res.text().catch(() => null);
+        }
+        return { ok: res.ok, status: res.status, body };
+      } catch {
+        clearTimeout(timer);
+        // Network error / abort (timeout) — back off briefly and retry.
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+          continue;
+        }
+      }
     }
-    return { ok, status: res.status, body };
+    return { ok: false, status: lastStatus || 0, body: null };
   };
+
+  const get = (path: string) => resilientFetch(`${origin}${path}`);
 
   return {
     // The IRL research overview is the shared-artifact index (public).
@@ -265,13 +296,42 @@ export function makeIrlAdapter(origin: string): IrlAdapter {
         };
       };
 
+      // Layer-1 by canon TEXT SEARCH — the resilient path (the one that answered
+      // "Founder Office" while the ids path blipped). Used un-curated, and as the
+      // fallback for a curated term whose ids read transiently fails.
+      const qSearch = async (query: string) => {
+        const searched = await get(`/api/public/irl/invariants?q=${encodeURIComponent(query)}&limit=40`);
+        const rows = ((searched.ok && (searched.body as { invariants?: unknown })?.invariants) || []) as Array<Record<string, unknown>>;
+        const rank = (s: string) => (s === 'canonical' ? 0 : s === 'validated' ? 1 : s === 'proposed' ? 2 : 3);
+        const lower = query.toLowerCase();
+        return rows
+          .map((r) => ({
+            id: String(r.id ?? ''),
+            statement: String(r.statement ?? ''),
+            status: String(r.status ?? ''),
+            namespace: String(r.namespace ?? ''),
+          }))
+          .sort((a, b) => {
+            const aLead = a.statement.toLowerCase().startsWith(lower) ? 0 : 1;
+            const bLead = b.statement.toLowerCase().startsWith(lower) ? 0 : 1;
+            return aLead - bLead || rank(a.status) - rank(b.status);
+          })
+          .slice(0, 6);
+      };
+
       const key = definitionKey(t);
       if (key) {
         const def = PRIMITIVE_DEFINITIONS[key];
-        const invariants = await canonByIds(def.leadIds);
+        // Best-effort Layer 1: curated ids first; if that read blips, fall back to
+        // the resilient text search. The `distinctions` below are held IN THE
+        // GATEWAY (not fetched), so the load-bearing constitutional guards
+        // (e.g. Standing is personhood-bound and is NOT reputation) ALWAYS answer
+        // even if every canon read is momentarily unavailable — never a hard fail.
+        let invariants = await canonByIds(def.leadIds);
+        let retrievedVia = 'curated defining invariants (by id)';
         if (!invariants.length) {
-          // Canon unreachable — fail honestly rather than inventing a definition.
-          return { ok: false, error: `could not reach the invariant canon to define "${t}"`, term: t };
+          invariants = await qSearch(t);
+          retrievedVia = 'canon text search (ids read temporarily unavailable — retry for the full curated set)';
         }
         return {
           ok: true,
@@ -279,36 +339,20 @@ export function makeIrlAdapter(origin: string): IrlAdapter {
           source: 'live ratified invariant canon (public projection)',
           constitutionalDefinition: {
             layer: 1,
-            meaning: 'The constitutional meaning of the term, stated by the ratified invariants that govern it (definition-first, canonical statements lead).',
+            meaning: invariants.length
+              ? 'The constitutional meaning of the term, stated by the ratified invariants that govern it (definition-first, canonical statements lead).'
+              : 'The canon read is momentarily unavailable; the constitutional distinctions below are the authoritative guards for this term (held in the gateway, not fetched). Retry for the full ratified statements.',
             invariants,
+            retrievedVia,
           },
           distinctions: def.distinctions ?? [],
           operationalModel: { layer: 2, ...(await operationalLayer()) },
-          note: 'Answered constitutional-first: Layer 1 is the ratified definition (the "what"); Layer 2 is the operational model (the "how"). These are the canon, not an inference.',
+          note: 'Answered constitutional-first: Layer 1 is the ratified definition (the "what") plus the load-bearing distinctions; Layer 2 is the operational model (the "how"). These are the canon, not an inference.',
         };
       }
 
-      // Fallback for an un-curated term: search the canon by text, lead with the
-      // highest-authority statements. Still the canon, still verbatim — just not
-      // a hand-ordered lead set.
-      const searched = await get(`/api/public/irl/invariants?q=${encodeURIComponent(t)}&limit=40`);
-      const rows = ((searched.ok && (searched.body as { invariants?: unknown })?.invariants) || []) as Array<Record<string, unknown>>;
-      const rank = (s: string) => (s === 'canonical' ? 0 : s === 'validated' ? 1 : s === 'proposed' ? 2 : 3);
-      const lower = t.toLowerCase();
-      const sorted = rows
-        .map((r) => ({
-          id: String(r.id ?? ''),
-          statement: String(r.statement ?? ''),
-          status: String(r.status ?? ''),
-          namespace: String(r.namespace ?? ''),
-        }))
-        .sort((a, b) => {
-          // Prefer statements whose subject IS the term, then by authority.
-          const aLead = a.statement.toLowerCase().startsWith(lower) ? 0 : 1;
-          const bLead = b.statement.toLowerCase().startsWith(lower) ? 0 : 1;
-          return aLead - bLead || rank(a.status) - rank(b.status);
-        })
-        .slice(0, 6);
+      // Un-curated term: resilient text search, highest-authority first.
+      const sorted = await qSearch(t);
       if (!sorted.length) {
         return {
           ok: true,
@@ -316,7 +360,7 @@ export function makeIrlAdapter(origin: string): IrlAdapter {
           source: 'live ratified invariant canon (public projection)',
           constitutionalDefinition: null,
           operationalModel: { layer: 2, ...(await operationalLayer()) },
-          note: `No ratified invariant directly defines "${t}". The operational resolver projection is provided, but there is no canonical definition for this term — treat it as a canon gap, not a definition.`,
+          note: `No ratified invariant matched "${t}" (or the canon read is momentarily unavailable). The operational resolver projection is provided; retry, or treat as a canon gap if it persists.`,
         };
       }
       return {
@@ -338,25 +382,20 @@ export function makeIrlAdapter(origin: string): IrlAdapter {
     async resolveCanon(term: string) {
       const t = (term ?? '').trim();
       if (!t) return { ok: false, error: 'a term to define is required (e.g. "standing", "delegation", "Polity Passport").' };
-      try {
-        const res = await fetch(`${origin}/api/public/irl/resolve`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          cache: 'no-store',
-          body: JSON.stringify({ intent: `Define the constitutional meaning of "${t}" as a metaMe / Polity protocol primitive.` }),
-        });
-        const body = await res.json().catch(() => null);
-        if (!res.ok || !body?.ok) return { ok: false, error: `canon unavailable for "${t}" (${res.status})`, term: t };
-        return {
-          ok: true,
-          term: t,
-          source: 'live ratified invariant canon (public projection)',
-          resolved: body,
-          note: 'These are ratified invariants that govern the term — the authoritative definition, not an inference.',
-        };
-      } catch {
-        return { ok: false, error: `could not reach the invariant canon for "${t}"`, term: t };
-      }
+      const r = await resilientFetch(`${origin}/api/public/irl/resolve`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ intent: `Define the constitutional meaning of "${t}" as a metaMe / Polity protocol primitive.` }),
+      });
+      const body = r.body as { ok?: boolean } | null;
+      if (!r.ok || !body?.ok) return { ok: false, error: `canon unavailable for "${t}" (${r.status})`, term: t };
+      return {
+        ok: true,
+        term: t,
+        source: 'live ratified invariant canon (public projection)',
+        resolved: body,
+        note: 'These are ratified invariants that govern the term — the authoritative definition, not an inference.',
+      };
     },
     async submitResult(input) {
       if (!input.agreementId) return { ok: false, error: 'no IRL submission agreement — enter the Researcher journey / IRL first (request_service_capabilities("irl")).' };
