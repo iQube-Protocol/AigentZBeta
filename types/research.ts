@@ -527,3 +527,83 @@ export function isLegalExperimentTransition(
   if (to === 'running' && fi >= EXPERIMENT_LIFECYCLE.indexOf('protocol-ratified')) return true;
   return false;
 }
+
+// ─── Frozen artifacts — PRD-EPI-001 §2 (EXP-P1 Experimental Infrastructure) ──
+//
+// A per-EXPERIMENT sub-object model, one altitude BELOW EXPERIMENT_LIFECYCLE.
+// Additive only — none of this touches ResearchExperiment, EXPERIMENT_REGISTRY,
+// or EXPERIMENT_LIFECYCLE above. Persisted via services/research/artifacts.ts,
+// which stores each FrozenArtifact as a `research_objects` row with
+// object_kind='artifact' (payload carries the fields below) — reusing the
+// existing durable-lab-record table rather than a parallel one.
+
+/** The per-artifact freeze lifecycle. Deliberately distinct vocabulary from
+ * EXPERIMENT_LIFECYCLE (composes with it — see PROTOCOL_FREEZE_ARTIFACT_KINDS
+ * and deriveProtocolRatified in services/research/lifecycle.ts) so the two
+ * never collide on a status string. */
+export const ARTIFACT_LIFECYCLE = ['draft', 'validated', 'frozen', 'executed', 'archived'] as const;
+export type ArtifactLifecycleState = (typeof ARTIFACT_LIFECYCLE)[number];
+
+/** WHEN in the experiment's life an artifact is expected to exist. Informational
+ * (drives the Readiness Dashboard's section mapping, PRD-EPI-001 §10) — the
+ * protocol-ratified derivation filters by `kind` against
+ * PROTOCOL_FREEZE_ARTIFACT_KINDS below, not by `phase`, so there is one source
+ * of truth for the gate and `phase` never has to be kept in sync with it. */
+export type ArtifactPhase = 'protocol' | 'execution' | 'evaluation' | 'publication';
+
+export type FrozenArtifactKind =
+  | 'crystal-version'
+  | 'arm-config'
+  | 'task-set'
+  | 'answer-key'
+  | 'judge-config'
+  | 'analysis-config'
+  | 'interpretation-table'
+  | 'execution-run'
+  | 'research-package';
+
+export interface FrozenArtifact {
+  id: string; // T2-safe slug, e.g. 'EXP-P1:crystal-version:v1'
+  kind: FrozenArtifactKind;
+  phase: ArtifactPhase;
+  experimentId: string; // FK to ResearchExperiment.id (e.g. 'EXP-P1')
+  lifecycle: ArtifactLifecycleState;
+  /** Hash of current immutable content, whenever it exists (protocol artifacts
+   * get this at freeze; execution-run gets it when the run closes; research-
+   * package gets its export-manifest hash — PRD-EPI-001 §2.1). */
+  contentHash: string | null;
+  /** The PROTOCOL commitment — set at freeze for protocol-phase artifacts; set
+   * when the run closes for execution-run; set to the export manifest hash for
+   * research-package. Kept distinct from contentHash because a single
+   * "set only at frozen" field cannot describe an execution-run, whose content
+   * only exists once the run has happened (Aletheon review, 2026-07-22). */
+  commitmentHash: string | null;
+  frozenAt: string | null;
+  signedBy: string[]; // T2 refs of signatories (IRL + reviewer, per IRL-016 §2)
+}
+
+/** task-set and answer-key are mutually referential by design (PRD-EPI-001
+ * §5): an answer key is meaningless detached from the exact task-set version
+ * it answers. An answer-key row is invalid unless taskSetContentHash matches
+ * its referenced task-set row's contentHash at the moment both freeze. */
+export interface AnswerKeyArtifact extends FrozenArtifact {
+  kind: 'answer-key';
+  taskSetId: string;
+  taskSetContentHash: string;
+}
+
+/** The pre-execution protocol commitment — the ONLY kinds an experiment's
+ * `protocol-ratified` transition depends on. execution-run and
+ * research-package are deliberately EXCLUDED: they cannot exist, let alone
+ * freeze, before the experiment runs, so including them would make
+ * protocol-ratified permanently unreachable (Aletheon review, 2026-07-22;
+ * PRD-EPI-001 §2.2). */
+export const PROTOCOL_FREEZE_ARTIFACT_KINDS = [
+  'crystal-version',
+  'arm-config',
+  'task-set',
+  'answer-key',
+  'judge-config',
+  'analysis-config',
+  'interpretation-table',
+] as const satisfies readonly FrozenArtifactKind[];
