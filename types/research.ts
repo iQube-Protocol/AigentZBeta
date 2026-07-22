@@ -236,6 +236,64 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p3-capability-validation/README.md',
     governingInvariants: ['inv.reasoning.322', 'inv.reasoning.313'],
   },
+  // ─── Constitutional Knowledge Evolution (the institute's first longitudinal
+  //     series — dynamical, not static). DESIGN (deferred 2026-07-14). ──────────
+  {
+    id: 'EXP-009',
+    layer: 'I',
+    family: 'Constitutional Knowledge Evolution (Longitudinal)',
+    seriesId: 'CKE',
+    hypothesis:
+      'Validated action changes Standing; changed Standing reorganizes the knowledge substrate; the reorganized substrate changes subsequent reasoning — a dynamical loop, not a static Knowledge→Reasoning→Measurement pipeline. Sub-experiments 9A/9B compare standing-weighted vs confidence-weighted retrieval.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-009-constitutional-knowledge-evolution/README.md',
+    governingInvariants: ['inv.epistemology.131', 'inv.epistemology.132'],
+  },
+  // ─── The Representation Gauntlet (co-designed with an external reviewer; the
+  //     externally-countersigned four-arm design that VP1/EXP-P1 froze). DESIGN. ─
+  {
+    id: 'EXP-010',
+    layer: 'I',
+    family: 'Representation Gauntlet (Comparative, externally co-designed)',
+    seriesId: 'RGP',
+    hypothesis:
+      'Two separable claims: (A) compressed validated knowledge at inference improves reasoning economy (likely true, not novel — EXP-003 shows it); (B) invariant REPRESENTATION + runtime beats conventional context engineering at equal token budget under externally-specified controls. Only (B) is distinctively ours; the four-arm design is the object EXP-P1 countersigned and froze.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-010-representation-gauntlet/README.md',
+    governingInvariants: ['inv.epistemology.132', 'inv.epistemology.133', 'inv.reasoning.085'],
+  },
+  // ─── Constitutional Computing Experiments (CCE) — executed demonstrations that
+  //     Constitutional Computing is an executable engineering discipline. ────────
+  {
+    id: 'CCE-006',
+    layer: 'II',
+    family: 'Constitutional Capability Convergence (Executed — CVR-001)',
+    seriesId: 'CCE',
+    hypothesis:
+      'A Constitutional Capability Pipeline can identify constitutional inconsistencies within its own output and converge on a corrected result — the first empirical evidence that Constitutional Computing is an executable engineering discipline, not merely an architectural philosophy.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/cce-006-constitutional-capability-convergence/README.md',
+    governingInvariants: ['inv.cybernetics.108', 'inv.reasoning.311'],
+  },
+  {
+    id: 'CCE-007',
+    layer: 'II',
+    family: 'Constitutional Reconciliation Loop (Executed — CFS-030)',
+    seriesId: 'CCE',
+    hypothesis:
+      "The platform's own infrastructure can detect its validation failure, dispatch a correction to an external executor, and revalidate the corrected result end-to-end — a full detect → correct → revalidate → deploy cycle through in-platform mechanism, with no manual re-authoring step.",
+    protocolRef: 'codexes/packs/irl/foundation/experiments/cce-007-constitutional-reconciliation-loop/README.md',
+    governingInvariants: ['inv.cybernetics.108', 'inv.cybernetics.109'],
+  },
+  // ─── Invariant Software Engineering (ISE) — a new research line studying
+  //     software itself (ISR-001 charter + Stage-0 freeze, 2026-07-21). DESIGN. ──
+  {
+    id: 'ISR-001',
+    layer: 'I',
+    family: 'Invariant Software Reduction (Structural/Capability, applied to software)',
+    seriesId: 'ISE',
+    hypothesis:
+      'A software capability has a minimum sufficient causal structure derivable from an explicit invariant set, so it can be reduced/re-projected while provably preserving behaviour, constitutional properties, robustness and evolvability. Four arms (existing / conventional optimisation / IRE-flattened / IPE-projected) scored on Effective Invariant Compression = ISCR × BPS. Amplify SSR pruning is Phase Zero.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/isr-001-invariant-software-reduction/README.md',
+    governingInvariants: ['inv.reasoning.322', 'inv.reasoning.324'],
+  },
 ];
 
 export const SERIES_REGISTRY: ResearchSeries[] = [
@@ -273,6 +331,34 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     claim: 'Three orthogonal experiments — Comparative (does it beat context engineering?), Structural (is the substrate real?), Capability (what does it enable?) — each answering one hypothesis class, together a more complete validation than any alone.',
     members: ['EXP-P1', 'EXP-P2', 'EXP-P3'],
     charterRef: 'codexes/packs/irl/foundation/IRL_VALIDATION_ROADMAP.md',
+  },
+  {
+    id: 'CKE',
+    name: 'Constitutional Knowledge Evolution',
+    claim: 'Knowledge is dynamical, not static: validated action changes Standing, changed Standing reorganizes the substrate, and the reorganized substrate changes subsequent reasoning — the institute’s first longitudinal series.',
+    members: ['EXP-009'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/exp-009-constitutional-knowledge-evolution/README.md',
+  },
+  {
+    id: 'RGP',
+    name: 'Representation Gauntlet Programme',
+    claim: 'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally-specified controls — the two-claim decomposition co-designed with an external reviewer, whose four-arm design VP1 froze.',
+    members: ['EXP-010'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/exp-010-representation-gauntlet/README.md',
+  },
+  {
+    id: 'CCE',
+    name: 'Constitutional Computing Experiments',
+    claim: 'Constitutional Computing is an executable engineering discipline: a capability pipeline can detect its own constitutional inconsistencies, dispatch corrections, and revalidate — demonstrated end-to-end (CCE-006 convergence, CCE-007 reconciliation loop).',
+    members: ['CCE-006', 'CCE-007'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/cce-006-constitutional-capability-convergence/README.md',
+  },
+  {
+    id: 'ISE',
+    name: 'Invariant Software Engineering',
+    claim: 'Software itself has a minimum sufficient causal structure derivable from an explicit invariant set — so a capability can be reduced or re-projected while provably preserving behaviour, constitutional properties and evolvability. Begins with ISR-001.',
+    members: ['ISR-001'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/isr-001-invariant-software-reduction/RESEARCH-LINE_invariant-software-engineering.md',
   },
 ];
 

@@ -410,7 +410,14 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
       'designed', 'protocol-ratified', 'running', 'evaluated', 'published', 'replicated',
     ]);
     expect(PUBLICATION_LIFECYCLE).toEqual(['draft', 'internal', 'canonical', 'superseded']);
-    expect(EXPERIMENT_REGISTRY.map((e) => e.id)).toEqual(['EXP-001', 'EXP-002', 'EXP-003', 'EXP-004']);
+    // The pinned experiment holdings (order is meaning — a new experiment is a
+    // deliberate registry update, so this pin must move with it). Kept in sync
+    // with the disk-parity guard below so the Lab can never silently drop one.
+    expect(EXPERIMENT_REGISTRY.map((e) => e.id)).toEqual([
+      'EXP-001', 'EXP-002', 'EXP-003', 'EXP-004', 'EXP-005', 'EXP-006', 'EXP-007', 'EXP-008',
+      'IRV-001', 'IPV-001', 'EXP-P1', 'EXP-P2', 'EXP-P3',
+      'EXP-009', 'EXP-010', 'CCE-006', 'CCE-007', 'ISR-001',
+    ]);
     // Every registry member belongs to a registered series; every governing
     // invariant exists in the seed crystal (no invented ids).
     const seriesIds = new Set(SERIES_REGISTRY.map((s) => s.id));
@@ -424,6 +431,26 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     expect(isLegalExperimentTransition('published', 'running')).toBe(true);
     expect(isLegalExperimentTransition('designed', 'published')).toBe(false);
     expect(isLegalExperimentTransition('designed', 'running')).toBe(false);
+  });
+
+  // Reliability guard (operator 2026-07-21): every experiment that has a design
+  // doc on disk MUST be in EXPERIMENT_REGISTRY — otherwise it silently never
+  // surfaces in the Laboratory → Experiments view (the completeness guard only
+  // iterates the registry). This is the drift that hid EXP-009/010, CCE-006/007
+  // and ISR-001. Derives the id from the directory prefix (exp-p1-… → EXP-P1).
+  it('every experiment design doc on disk is registered (Laboratory can never silently drop one)', async () => {
+    const { EXPERIMENT_REGISTRY } = await import('@/types/research');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const dir = path.join(process.cwd(), 'codexes/packs/irl/foundation/experiments');
+    const registered = new Set(EXPERIMENT_REGISTRY.map((e) => e.id));
+    const onDisk = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name.split('-').slice(0, 2).join('-').toUpperCase()); // exp-p1-… → EXP-P1
+    for (const id of onDisk) {
+      expect(registered.has(id), `${id} has a doc on disk but is missing from EXPERIMENT_REGISTRY`).toBe(true);
+    }
   });
 
   it('Constitutional Cybernetics (CFS-019): glossary term resolves with its governing invariants', async () => {

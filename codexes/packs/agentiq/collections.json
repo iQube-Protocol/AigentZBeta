@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-21_experiment-registry-audit.md",
         "updates/2026-07-21_explain-primitive-constitutional-first.md",
         "updates/2026-07-21_threshold-increment-4b-incremental-crossing-submit.md",
         "updates/2026-07-21_threshold-increment-4a-irl-read-adapter.md",
