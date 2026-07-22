@@ -65,10 +65,53 @@ The deepest recursive level is a reading, not a new claim: `IRL-016` (governance
 
 Per Aletheon's proposal, two living registers, each entry carrying: the candidate statement, its provenance (which programme/incident surfaced it), an existing-canon reuse check (does an invariant already cover this — if so, cite it and do not duplicate), a classification (`constitutional` | `structural` | `procedural`), and validation status (`proposed` until the normal lifecycle promotes it).
 
-- **Corpus Construction Invariant Register** — seeded from §1.1's candidates.
-- **Experimental Design Invariant Register** — seeded from §1.2's candidates, cross-referenced against `IRL-016`/`PRD-EPI-001` wherever a candidate is already captured there (most of them are — see §1.2).
+These registers live as sections of this document until volume justifies a dedicated pack file; do not build new infrastructure for them prematurely. Populated by the first Invariant Retrospective (§3), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme — see the retrospective record at the end of this section.
 
-These registers live as sections of this document until volume justifies a dedicated pack file; do not build new infrastructure for them prematurely.
+### 2.1 Corpus Construction Invariant Register
+
+| Candidate (proposed statement) | Source incident (2026-07-22 programme) | Existing-canon reuse check | Class | Status |
+|---|---|---|---|---|
+| Define the domain boundary before collecting material. | The Corpus Scout build caught Aletheon's Crystal Canon header ("Domain: Financial Risk & Value Systems") contradicting `Crystal vP1`'s actual constitutional-reasoning domain — a boundary error that would have mis-scoped the whole corpus. | No invariant states this. Genuinely new. | procedural | **proposed** |
+| A source is acquired only when its substantive content is retrieved and inspected — a link, title, or `.pdf`-looking URL is not acquisition. | `PRD-ICA-001` §2 (four levels of discovery); reinforced by the earlier reader/corpus-store 404s where a path resolved but the body was absent. | No invariant states this. Genuinely new. | procedural | **proposed** |
+| Discovery, acquisition, human approval, and invariant derivation are four distinct functions, never collapsed into one judgment. | `PRD-ICA-001` §16 canonical design principle. | Adjacent to `inv.engineering.036` (one authoritative location per concern) but that governs code locations, not the acquisition-function separation. New as stated. | structural | **proposed** |
+| Every invariant carries a provenance class; only externally-sourced provenance is eligible for a confirmatory crystal (self-affinity exclusion). | `CRYSTAL-ENLARGEMENT_plan.md` §2a (operator instruction), motivated by Austin's-agent self-affinity critique. | No invariant states this. Genuinely new. | structural | **proposed** |
+| Corpus breadth is measured by structural composition, not document volume — no source class may dominate by convenience. | Crystal Canon §3 balance target (shift governance material from ~70–80% to ~20%). | No invariant states this. Genuinely new. | structural | **proposed** |
+| An excluded/rejected source is a recorded, reasoned decision — never a silent omission; duplicates are linked, never deleted. | Corpus Scout `reviewWorkflowStatus` + never-delete-duplicate rule (`PRD-ICA-001` §8). | Kin to the "no silent caps" discipline in prior work but unstated as an invariant. New. | procedural | **proposed** |
+| Freeze the corpus before constructing confirmatory tasks against it. | The crystal-before-tasks sequence gate. | **ALREADY COVERED** — `IRL-016` §5 + `inv.reasoning.350`. Cite, do not duplicate. | — | *covered (no new invariant)* |
+| Only validated invariants enter the crystal; documents are never ingested directly. | The discovery pipeline (documents → candidates → validation → crystal). | **ALREADY COVERED** — `inv.reasoning.335` (evidence-first provenance) + `inv.reasoning.337` (proposed until validated). Cite. | — | *covered (no new invariant)* |
+
+*Rejected as a local preference, not an invariant (retrospective question 4):* "English-only sources for EXP-P1" — a campaign parameter of one experiment, not a cross-context regularity. Not registered.
+
+### 2.2 Experimental Design Invariant Register
+
+| Candidate (proposed statement) | Source incident (2026-07-22 programme) | Existing-canon reuse check | Class | Status |
+|---|---|---|---|---|
+| Verify the treatment was actually administered before reading a null as a finding about the mechanism. | `PRD-EPI-001` §7 Treatment Integrity Check (built this session). | Sharpens `inv.reasoning.347/.348` but names a distinct, mechanically-checkable obligation none of them state. **The strongest genuinely-new candidate this retrospective surfaced.** | structural | **proposed** |
+| A negative result is classified — scientific-null vs substrate/task/implementation/measurement/coverage failure — against criteria fixed before data exists. | `PRD-EPI-001` §6 failure taxonomy. | Downstream of `inv.reasoning.346` (frozen success criteria) but the failure-partition is new as a stated rule. | structural | **proposed** |
+| An answer key is bound to the exact task-set version it answers; a hash mismatch blocks the freeze. | `PRD-EPI-001` §5 answer-key hash-binding (added on Aletheon's pre-ratification review). | No invariant states this. Genuinely new. | procedural | **proposed** |
+| Judging is blinded to arm identity and expected outcome. | `PRD-EPI-001` §5. | Adjacent to `inv.reasoning.350` (reviewer independence); the outcome-blinding specificity is new. | procedural | **proposed** |
+| Pre-register success/failure/interpretation criteria before execution. | `PRD-EPI-001` §6. | **ALREADY COVERED** — `inv.reasoning.346` + `IRL-016` §4. | — | *covered* |
+| Freeze protocol artifacts (instrument, materials) before execution. | `PRD-EPI-001` §2/§5; `IRL-016` §2. | **ALREADY COVERED** — `inv.reasoning.348` (freeze the instrument). | — | *covered* |
+| The observation is immutable; raw results are preserved independent of their interpretation. | `IRL-016` §4. | **ALREADY COVERED** — `inv.reasoning.347` (the three constitutional objects). | — | *covered* |
+| An experiment may generate successor hypotheses but never redefine its own success criteria after observation. | `IRL-016` §2/§4. | **ALREADY COVERED** — `inv.reasoning.346`. | — | *covered* |
+| Independent verification and reproducible execution are required before a result is trusted. | `CFS-033`; `IRL-016` §5. | **ALREADY COVERED** — `inv.polity.162` (verified over claimed) + `inv.reasoning.350`. | — | *covered* |
+
+*Note the shape:* Layer 2 is ~70% already-covered — the experimental-design invariants were largely canonized across `IRL-016` and `inv.reasoning.346–350` earlier this session, so the retrospective mostly confirms coverage and surfaces a small number of genuinely-new procedural/structural candidates (chiefly the Treatment-Integrity and failure-classification obligations). That is itself the healthy outcome: a maturing programme's retrospectives should find *fewer* new candidates over time, not more.
+
+### 2.3 The cross-cutting finding — an already-canonical invariant was repeatedly violated (retrospective questions 2 + 8)
+
+The single most-recurring root cause across this session's defects was **not a missing invariant** — it was three independent violations of one that is **already canonical**:
+
+- **`inv.engineering.036`** — *"One authoritative location per concern."*
+- **`inv.engineering.037`** — *"A parallel implementation of an existing capability is a defect."*
+
+The three incidents: (a) `EXPERIMENT_REGISTRY` hand-duplicated as `col_experiments` markdown (Laboratory experiments drifted out of sync); (b) the pack-corpus mode-detection sniff duplicated the "is this a remote deploy" signal that `PACK_CORPUS_URL` already carried (404s on newer docs); (c) `ASSIGNABLE_EXPERIMENTS` hand-duplicated `EXPERIMENT_REGISTRY` in the invitation UI (missing experiments). Each is a textbook `inv.engineering.037` violation.
+
+**The operational output (question 8 — how a validated invariant changes the OS):** the gap was **enforcement, not doctrine**. The fixes built the enforcement the canonical invariant lacked — the disk-parity canary (`tests/constitutional-contracts.test.ts`), deriving `ASSIGNABLE_EXPERIMENTS` from the registry, and pinning corpus mode to the single `PACK_CORPUS_URL` signal. The retrospective's recommendation is therefore NOT to canonize a new invariant but to **treat `inv.engineering.037` as canary-enforceable** wherever a source of truth exists, so a future duplication fails the build rather than reaching production. That is the highest-leverage change this retrospective identifies.
+
+### 2.4 Retrospective record
+
+- **2026-07-22 — First Invariant Retrospective.** Run over the EXP-P1 infrastructure/corpus programme (`PRD-EPI-001`, `PRD-ICA-001`, `PRD-EPI-001`'s Track 1 build, the Crystal Canon, and this session's defect log). 17 candidates reviewed across both registers; 8 already covered by existing canon (cited, not duplicated); 8 genuinely-new candidates registered `proposed`; 1 rejected as a local preference. Headline finding: the most-violated pattern (source-of-truth duplication) is already canonical (`inv.engineering.036/037`) and needs enforcement, not re-ratification. No candidate was canonized — per §0.3, this retrospective is a discovery method, not a ratification shortcut; the operator ratifies the `proposed` candidates through the normal lifecycle.
 
 ## 3. The Invariant Retrospective — a standing practice
 
