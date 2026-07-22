@@ -42,6 +42,32 @@ accrual discipline). Sources, in order of preference:
 that satisfies the guard at a meaningful task set, that is itself a finding about the
 domain's density — reported, not papered over.
 
+## 2a. Source scope — internal risk materials EXCLUDED (operator instruction, 2026-07-22)
+
+**metaMe-authored / internal platform risk materials must never enter the EXP-P1
+crystal.** They remain available for platform operations (the financial-services
+application, Agent MoneyPenny's `inv.finance.*` derivation from the QriptoCENT
+sub-corpus — `col_qriptocent_corpus`) but are excluded from this experiment's corpus
+to avoid self-affinity: the crystal must be tested against structure IRL did not
+author, not against its own doctrine restated.
+
+Every invariant entering the crystal carries a provenance tag:
+
+`external-established | external-empirical | platform-derived | platform-hypothesized`
+
+**Only `external-established` and `external-empirical` invariants are eligible for
+`Crystal vP1`.** `platform-derived` and `platform-hypothesized` invariants may inform
+platform operation but are never promoted into this experiment's collection. Where
+feasible, EXP-P1 results should be reportable both with and without any
+platform-originated invariant (an internal ablation: does the result depend on
+self-authored doctrine, or does it survive on independently-sourced structure alone?).
+
+The source-material lanes themselves (which external corpora, what domain boundary,
+target composition across risk/actuarial/valuation/market-structure/failure-case
+material) are **separately chartered** — this plan's own enlargement work is paused
+pending that follow-up (see `PRD-EPI-001` §0.6/§9, the companion infrastructure PRD).
+This section states only the one rule that is already decided and binding now.
+
 ## 3. Composition requirements
 
 - **In-domain (condition c).** Enlargement stays within the defined constitutional-
