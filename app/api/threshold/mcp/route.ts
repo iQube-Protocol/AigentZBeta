@@ -135,7 +135,11 @@ export async function POST(request: NextRequest) {
       ? async (service, missing) => {
           const hs = await createUpgradeHandshake({ parentSessionId: session.id, service, requestedScope: missing });
           if (!hs) return null;
-          return { authorizeUrl: `${origin}/threshold/enter-service?code=${encodeURIComponent(hs.handshakeCode)}` };
+          // Deliver the handshake code in the URL FRAGMENT, not the query string
+          // (security review Finding 3): fragments are never sent to servers or in
+          // Referer headers, so the capability code stays out of access logs and
+          // any third-party Referer leak. The enter-service page reads it client-side.
+          return { authorizeUrl: `${origin}/threshold/enter-service#code=${encodeURIComponent(hs.handshakeCode)}` };
         }
       : undefined,
   };

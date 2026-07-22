@@ -16,8 +16,20 @@
  *  - Service-role only (deny-all RLS on the table).
  */
 
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { grantableCapabilities } from '@/services/threshold/serviceRegistry';
+
+/** Constant-time string equality (security review Finding 8). Length-guarded:
+ *  unequal lengths short-circuit false (timingSafeEqual requires equal-length
+ *  buffers). Used for the PKCE challenge compare so verification time does not
+ *  vary with how many leading characters match. */
+function constantTimeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 const TABLE = 'agent_gateway_sessions';
 const CLIENTS_TABLE = 'agent_gateway_clients';
@@ -247,7 +259,8 @@ export async function exchangeAuthorizationCode(input: {
     return reject(`redirect_uri mismatch: bound='${data.redirect_uri}' presented='${input.redirectUri}'`);
   }
   // PKCE S256 proof — the whole point: the code is useless without the verifier.
-  if (!data.pkce_challenge || sha256b64url(input.codeVerifier) !== data.pkce_challenge) {
+  // Constant-time compare (Finding 8) so verification time is challenge-independent.
+  if (!data.pkce_challenge || !constantTimeEqual(sha256b64url(input.codeVerifier), data.pkce_challenge)) {
     return reject('PKCE verifier does not match challenge');
   }
 
@@ -446,7 +459,14 @@ export async function applyUpgrade(input: {
   if (pErr || !parent) return { ok: false, error: 'parent session not found' };
   if (parent.status !== 'active') return { ok: false, error: 'parent session is not active' };
 
-  const nextScope = Array.from(new Set([...(parent.granted_scope ?? []), ...input.grantedScope]));
+  // Defense-in-depth (security review Finding 7): re-validate the granted scope
+  // against what the service is actually allowed to grant, INSIDE applyUpgrade —
+  // never trust the caller to have clamped it. Any capability outside the
+  // service's grantable set is dropped before it can union into a live bearer.
+  const grantable = grantableCapabilities(hs.service);
+  const safeGranted = input.grantedScope.filter((c) => grantable.has(c));
+
+  const nextScope = Array.from(new Set([...(parent.granted_scope ?? []), ...safeGranted]));
   const nextAgreements = { ...((parent.service_agreements as Record<string, string> | null) ?? {}), [hs.service]: input.agreementId };
 
   const up = await admin
@@ -456,10 +476,12 @@ export async function applyUpgrade(input: {
     .eq('status', 'active');
   if (up.error) return { ok: false, error: `upgrade apply failed: ${up.error.message}` };
 
-  // Close the upgrade handshake (guard against replay).
+  // Close the upgrade handshake to a TERMINAL status (Finding 7) — 'revoked', not
+  // 'active'. The row has a null token_hash so it never resolves as a bearer, but
+  // it must not linger as an `active`-status row; this also guards against replay.
   const close = await admin
     .from(TABLE)
-    .update({ status: 'active', agreement_id: input.agreementId, granted_scope: input.grantedScope })
+    .update({ status: 'revoked', agreement_id: input.agreementId, granted_scope: safeGranted })
     .eq('handshake_code', input.handshakeCode)
     .eq('status', 'pending');
   if (close.error) return { ok: false, error: `upgrade close failed: ${close.error.message}` };

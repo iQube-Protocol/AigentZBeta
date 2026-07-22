@@ -17,7 +17,11 @@ export const dynamic = 'force-dynamic';
 function withCors(res: NextResponse): NextResponse {
   res.headers.set('Access-Control-Allow-Origin', '*');
   res.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.headers.set('Cache-Control', 'public, max-age=300');
+  // Not `public` — the body is derived from the request host; a shared/CDN cache
+  // must never serve one client a document built from another's Host header
+  // (security review Finding 1). Vary pins any cache to the host if one ignores it.
+  res.headers.set('Cache-Control', 'private, no-store');
+  res.headers.set('Vary', 'X-Forwarded-Host, Origin');
   return res;
 }
 

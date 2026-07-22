@@ -128,6 +128,12 @@ const envVars = [
   'MARKETA_DISCOVERY_SOURCES',
   // Polity Passport Bureau — credential HMAC signing (Phase A stub)
   'PASSPORT_BUREAU_CREDENTIAL_SECRET',
+  // Public origin pin — makes publicOrigin() independent of the spoofable
+  // x-forwarded-host header (security review 2026-07-21, Finding 1). Set to the
+  // deployed host, e.g. https://dev-beta.aigentz.me. THRESHOLD_TRUSTED_HOSTS is
+  // an optional comma-separated allowlist of hosts x-forwarded-host may match.
+  'NEXT_PUBLIC_APP_URL',
+  'THRESHOLD_TRUSTED_HOSTS',
   // Pairwise External Service References — keyed HMAC derivation for the
   // three-level persona reference model. When unset, external-ref issuance
   // is disabled (private UUIDs + Polity public refs still work).

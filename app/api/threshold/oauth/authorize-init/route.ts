@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient, createPendingHandshake } from '@/services/threshold/gatewaySession';
-import { getService, grantableCapabilities, CONSTITUTIONAL_ROOT_CAPABILITIES } from '@/services/threshold/serviceRegistry';
+import { getService, CONSTITUTIONAL_ROOT_CAPABILITIES } from '@/services/threshold/serviceRegistry';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,19 +37,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_request', error_description: 'redirect_uri not registered for this client' }, { status: 400 });
   }
 
-  // Passport-first re-sequencing (PRD-THR-001 §9): a crossing may only be granted
-  // what its stated purpose warrants. A base crossing (polity-passport) grants
-  // constitutional-ROOT navigation authority; a service-initiated crossing may
-  // additionally grant that service's capabilities. Anything the client requests
-  // outside this set is dropped — so a bare "connect my agent" can NEVER acquire
-  // service-operating authority, regardless of what the client asked for.
+  // Passport-first re-sequencing (PRD-THR-001 §9) + security review Finding 4:
+  // the INITIAL client-driven crossing grants constitutional-ROOT navigation
+  // authority ONLY. Service-operating capabilities are NEVER folded into this
+  // screen from a client-supplied `service` — they are granted exclusively via
+  // the incremental, human-authorized service crossing (request_service_capabilities
+  // → /threshold/enter-service → /api/threshold/service/complete → applyUpgrade),
+  // which is gated on a validated upgrade handshake pinned to the caller's session.
+  // This keeps the advertised two-step consent honest: a self-service "connect my
+  // agent" can never acquire service authority in one click by asserting a service id.
+  // `service` is retained only for the crossing's DISPLAY context (initiatingService).
   const svc = getService(service);
-  const grantable = grantableCapabilities(svc?.id ?? 'polity-passport');
-  const requested = scopeStr.split(/\s+/).filter(Boolean).filter((s) => grantable.has(s));
-  // Every crossing establishes root navigation authority even if the client
-  // requested nothing grantable (Passport ≠ delegation, but the agent still needs
-  // to orient the principal). Service capabilities are ADD-ONs, never the default.
-  const requestedScope = Array.from(new Set([...CONSTITUTIONAL_ROOT_CAPABILITIES, ...requested]));
+  const scopeCount = scopeStr.split(/\s+/).filter(Boolean).length;
+  const requestedScope = Array.from(new Set([...CONSTITUTIONAL_ROOT_CAPABILITIES]));
+  if (scopeCount > CONSTITUTIONAL_ROOT_CAPABILITIES.length) {
+    // The client asked for more than root at the initial crossing — not granted
+    // here by design. Surfaced (not an error) so the agent can route to the
+    // incremental service crossing instead.
+    // eslint-disable-next-line no-console
+    console.log('[threshold] authorize-init: service scope requested at base crossing — granting root only (Finding 4).');
+  }
   const created = await createPendingHandshake({
     initiatingService: svc?.id ?? 'polity-passport',
     requestedScope,
