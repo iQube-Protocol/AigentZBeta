@@ -5149,6 +5149,21 @@
       "provenance": {
         "source": "Austin-review response + Aletheon actions — experiment-integrity / frozen-protocol discipline (operator-ratified 2026-07-21)"
       }
+    },
+    {
+      "id": "inv.reasoning.350",
+      "namespace": "reasoning",
+      "semantic_type": "principle",
+      "contexts": [
+        "experiment-integrity",
+        "governance",
+        "review"
+      ],
+      "statement": "Protocol design is the responsibility of the originating research team; the independent reviewer evaluates, challenges, and replicates it — never jointly optimises it before execution. A reviewer recommendation is an input to the design, not an amendment to it: adopting a reviewer’s constraint as a principle is legitimate, but letting the reviewer author the design collapses the independence that makes the review worth having. Reviewer contributions that change the protocol belong to a successor experiment, after the current one concludes.",
+      "status": "canonical",
+      "provenance": {
+        "source": "Aletheon — reviewer-independence / role-separation boundary (operator-ratified 2026-07-21); IRL-016"
+      }
     }
   ]
 }
