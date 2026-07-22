@@ -23,7 +23,8 @@ import exp003Config from '@/services/experiments/exp003-tasks.json';
 export type PublishableExperiment =
   | 'EXP-001' | 'EXP-002' | 'EXP-003' | 'EXP-004'
   | 'EXP-P1' | 'EXP-P2' | 'EXP-P3'
-  | 'IRV-001' | 'IPV-001';
+  | 'IRV-001' | 'IPV-001'
+  | 'ISR-001';
 
 export interface PublishResultInput {
   /** Any valid experiment id (shape-validated by the caller + DB CHECK). */
