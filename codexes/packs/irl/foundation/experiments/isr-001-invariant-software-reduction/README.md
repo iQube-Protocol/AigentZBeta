@@ -240,9 +240,9 @@ ISR-001 results publish through the **same canonical, receipted pipeline** as ev
 
 ## Ratification record
 
-- [ ] **DESIGN drafted 2026-07-21** by operator direction (Aletheon's Invariant Software Reduction question; Phase Zero = the Amplify SSR pruning, `agentiq/updates/2026-07-21_pack-corpus-remote-store.md`).
-- [ ] Target selected + frozen (recommended: Canonical Plate manifest workflow); behavioural oracle + constitutional canary + perturbation + change-scenario sets sealed and hashed.
-- [ ] Invariant set discovered (≥2 independent runs) + hash-committed; four-class preservation contract signed.
+- [x] **DESIGN drafted 2026-07-21** by operator direction (Aletheon's Invariant Software Reduction question; Phase Zero = the Amplify SSR pruning, `agentiq/updates/2026-07-21_pack-corpus-remote-store.md`). **Operator-ratified 2026-07-21.**
+- [x] Target selected + frozen (Canonical Plate manifest workflow); behavioural oracle + constitutional canary + perturbation + change-scenario sets sealed and hashed — see `STAGE-0_freeze-and-invariant-discovery.md` (bundle `b3f7e135…` at commit `03f4610e`).
+- [~] Invariant set discovered + hash-committed; four-class preservation contract signed — **pass 1 complete** (`STAGE-0_…`); independent pass 2 pending before arms.
 - [ ] Arms A/B/C/D built in an isolated workspace; scoring module + bootstrap-CI stats built.
 - [ ] Predictions locked; interpretation table signed; pre-registration bundle hashed + published.
 - [ ] `EXPERIMENTS` allow-list + `publishResult` union widened to include `ISR-001` (CFS-042 §8 prerequisite).
