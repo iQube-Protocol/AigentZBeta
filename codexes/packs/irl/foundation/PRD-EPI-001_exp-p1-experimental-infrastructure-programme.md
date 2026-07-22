@@ -4,7 +4,7 @@
 **Owner:** Invariant Research Lab (IRL) · **Origin:** operator + Aletheon design session, consolidated against Austin's-agent review, 2026-07-22
 **Governs:** the infrastructure EXP-P1 needs to produce a result that is trustworthy in EITHER direction — not an experiment tuned to succeed.
 
-> Scope note (operator instruction, this session): this PRD charters **Track 1 — Infrastructure** only. Track 2 — crystal source-material expansion — is separately chartered in `CRYSTAL-ENLARGEMENT_plan.md` and is explicitly **PAUSED**: the operator is deferring the source-material work to a follow-up session. Nothing in this PRD should be read as authorizing crystal-content work; §9 states the one binding rule that carries forward now (internal risk materials excluded from the EXP-P1 corpus) and leaves the rest for that follow-up.
+> Scope note (operator instruction, this session): this PRD charters **Track 1 — Infrastructure**, with a bounded **Track 0 — Recursive Invariant Capture** (§13, added 2026-07-22, full practice chartered in `IRL-017`). Track 2 — crystal source-material expansion — is separately chartered in `CRYSTAL-ENLARGEMENT_plan.md` and is explicitly **PAUSED**: the operator is deferring the source-material work to a follow-up session. Nothing in this PRD should be read as authorizing crystal-content work; §9 states the one binding rule that carries forward now (internal risk materials excluded from the EXP-P1 corpus) and leaves the rest for that follow-up.
 
 ---
 
@@ -282,12 +282,23 @@ Steps 1–7 are Track 1 (this PRD) and are buildable now, independent of Track 2
 
 ---
 
+## 13. Track 0 — Recursive Invariant Capture (Aletheon addition, 2026-07-22)
+
+The general practice — what a programme's own recurring decisions reveal about corpus construction and experimental design, and how that gets captured without contaminating the programme's actual scientific evidence — is chartered separately in `IRL-017 — Recursive Invariant Capture` (standing practice for every major IRL programme, not EXP-P1-specific). This section is EXP-P1's bounded application of it.
+
+- At each of this programme's major milestones (infrastructure build-out §§2–7, crystal freeze §3.1, task-set freeze §3.2, confirmatory run §8), run the Invariant Retrospective (IRL-017 §3) and populate IRL-017 §2's two registers with anything EXP-P1 surfaces.
+- **Safeguard (IRL-017 §4, itself just IRL-016 §2's successor-experiment principle applied recursively): a meta-invariant discovered while building EXP-P1 may govern future IRL programmes, but it must never alter EXP-P1's own frozen protocol after ratification.** It becomes a candidate for the *next* programme's charter, never a backdoor amendment to this one.
+- This track produces operational/procedural learning, never scientific evidence for EXP-P1's structural hypothesis (IRL-017 §6) — the two evidential registers (constitutional/operational vs. scientific/structural) stay separate in every report this programme produces.
+
 ## Amendment log
 
 - **2026-07-22 — Aletheon review, pre-ratification.** Three sequencing contradictions caught and fixed in place (§0 item 7, §2.1, §2.2, §3, §5, §6, §7, §10, §12 all revised): (1) the protocol-ratified derivation originally depended on artifact kinds (`execution-run`, `research-package`) that cannot exist before execution, making the transition unreachable — fixed by introducing `PROTOCOL_FREEZE_ARTIFACT_KINDS` as the actual derivation input; (2) the crystal readiness gate originally required task coverage before the crystal could freeze, contradicting the already-ratified crystal-before-tasks sequence (IRL-016 §5) — fixed by splitting into a Crystal Intrinsic Readiness Report (gates the crystal) and a Task–Crystal Coverage Report (gates the task set, generated only after the crystal is already frozen); (3) the answer key could originally seal before its task set was finalized — fixed by binding `AnswerKeyArtifact` to an exact `taskSetContentHash` and requiring joint freeze. Also adopted: `ArtifactPhase`, the `contentHash`/`commitmentHash` split, an explicit `analysis-config` artifact, the Treatment Integrity Check as a formal gate, and the dashboard's per-section gate mapping. This is normal pre-freeze revision (IRL-016 §3 — everything unsigned remains mutable) and does not require a second ratification round; it is logged here for traceability, not as a protocol amendment (nothing here was ever frozen).
 
+- **2026-07-22 — Track 0 added.** §13 added (Recursive Invariant Capture), scope note updated, cross-referencing the new standing-practice document `IRL-017`. Bounded to EXP-P1's application of that practice; the general practice itself is chartered in IRL-017, not restated here.
+
 ## Ratification record
 
-- [ ] Operator ratification of this PRD (status: DESIGN, awaiting sign-off — now incorporating the 2026-07-22 amendment log above)
+- [ ] Operator ratification of this PRD (status: DESIGN, awaiting sign-off — now incorporating both 2026-07-22 amendments above)
 - [ ] Companion amendment to `CRYSTAL-ENLARGEMENT_plan.md` (§2a exclusion rule) — see accompanying edit, ratified alongside this PRD
+- [ ] Companion document `IRL-017 — Recursive Invariant Capture` — ratified alongside this PRD (§13)
 - [ ] Build tracked against §12's sequencing once ratified
