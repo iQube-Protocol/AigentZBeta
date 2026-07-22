@@ -33,6 +33,15 @@ import * as path from 'path';
 export const PACKS_ROOT = path.join(process.cwd(), 'codexes', 'packs');
 
 /**
+ * The exporter writes PACK_CORPUS_URL into .env.production ONLY after a
+ * verified public upload of the full corpus blob (scripts/export-pack-corpus.mjs
+ * — the same gate the amplify.yml strip step keys on). Its presence is therefore
+ * the AUTHORITATIVE signal that this is a Phase-B deploy whose source of truth
+ * is the remote blob — and it must override any filesystem sniffing.
+ */
+const PINNED_REMOTE = Boolean(process.env.PACK_CORPUS_URL);
+
+/**
  * True in dev / tests / any bundle that still ships the corpus MARKDOWN on disk.
  *
  * Must test for an actual .md FILE, not the directory: the Amplify postBuild
@@ -41,8 +50,18 @@ export const PACKS_ROOT = path.join(process.cwd(), 'codexes', 'packs');
  * wrongly report local-FS mode and read an empty tree instead of hydrating the
  * remote blob. Checking for ≥1 .md in updates/ flips correctly to remote mode
  * once the bodies are stripped.
+ *
+ * PINNED_REMOTE SHORT-CIRCUIT (2026-07-22 incident): the deployed Lambda shipped
+ * a PARTIAL pack tree — enough .md under agentiq/updates to satisfy this sniff
+ * (Next's file tracer statically resolves the literal path this very check
+ * names, so the check can self-satisfy) — which flipped the store to local-fs,
+ * skipped remote hydration entirely, and 404'd every file outside the partial
+ * tree (newer experiment docs; Austin QA ①b — corpus-status probe showed
+ * mode:local-fs + packCorpusUrlEnv:true + probeHit:false). When the blob URL is
+ * pinned, the blob IS the corpus: never let a lucky disk hit veto hydration.
  */
 const LOCAL_CORPUS_PRESENT = (() => {
+  if (PINNED_REMOTE) return false;
   try {
     const dir = path.join(PACKS_ROOT, 'agentiq', 'updates');
     return fs.readdirSync(dir).some((f) => f.endsWith('.md'));
@@ -154,22 +173,48 @@ export function corpusReadFile(absPath: string): string | null {
       return null;
     }
   }
-  return corpus?.get(absPath) ?? null;
+  const hit = corpus?.get(absPath);
+  if (hit !== undefined) return hit;
+  // Remote-mode miss (or hydration failed/cooling down): fall back to disk.
+  // Covers the deliberately-bundled sync-context files (exp-001 artifacts,
+  // constitutional-glossary) and any partially-traced tree — a disk read that
+  // also misses still returns null, so behaviour only ever improves.
+  try {
+    return fs.readFileSync(absPath, 'utf8');
+  } catch {
+    return null;
+  }
 }
 
 /** List .md files under `dir`, returned relative to `root` (drop-in for the legacy lister). */
 export function corpusListMarkdown(dir: string, root: string): string[] {
   if (LOCAL_CORPUS_PRESENT) return listFsMarkdown(dir, root);
-  if (!corpus) return [];
-  const prefix = dir.endsWith(path.sep) ? dir : dir + path.sep;
+  // Remote mode: list from the hydrated map, UNIONED with whatever is on disk —
+  // if hydration failed (corpus null) a partially-traced tree still yields
+  // partial results instead of none, and the deliberately-bundled files stay
+  // listable. Dedupe keeps the two sources from double-listing.
+  const seen = new Set<string>();
   const out: string[] = [];
-  for (const abs of corpus.keys()) {
-    if (
-      abs.startsWith(prefix) &&
-      abs.endsWith('.md') &&
-      !path.basename(abs).startsWith('.')
-    ) {
-      out.push(path.relative(root, abs));
+  if (corpus) {
+    const prefix = dir.endsWith(path.sep) ? dir : dir + path.sep;
+    for (const abs of corpus.keys()) {
+      if (
+        abs.startsWith(prefix) &&
+        abs.endsWith('.md') &&
+        !path.basename(abs).startsWith('.')
+      ) {
+        const rel = path.relative(root, abs);
+        if (!seen.has(rel)) {
+          seen.add(rel);
+          out.push(rel);
+        }
+      }
+    }
+  }
+  for (const rel of listFsMarkdown(dir, root)) {
+    if (!seen.has(rel)) {
+      seen.add(rel);
+      out.push(rel);
     }
   }
   return out;
@@ -202,6 +247,7 @@ export function getCorpusStatus(probeRelKey?: string): Record<string, unknown> {
     : [];
   const status: Record<string, unknown> = {
     mode: LOCAL_CORPUS_PRESENT ? 'local-fs' : 'remote',
+    pinnedRemote: PINNED_REMOTE,
     hydrated: corpus !== null,
     keyCount,
     url: lastUrl ?? corpusBlobUrl(),
@@ -212,7 +258,19 @@ export function getCorpusStatus(probeRelKey?: string): Record<string, unknown> {
   };
   if (probeRelKey) {
     status.probe = probeRelKey;
-    status.probeHit = corpus ? corpus.has(absKey(probeRelKey)) : false;
+    // Report BOTH sources: the hydrated map AND the disk (the read path falls
+    // back to disk on a map miss). The old map-only probeHit reported false in
+    // local-fs mode even when the read would succeed — a lying diagnostic.
+    const mapHit = corpus ? corpus.has(absKey(probeRelKey)) : false;
+    let fsHit = false;
+    try {
+      fsHit = fs.existsSync(absKey(probeRelKey));
+    } catch {
+      fsHit = false;
+    }
+    status.probeMapHit = mapHit;
+    status.probeFsHit = fsHit;
+    status.probeHit = mapHit || fsHit;
   }
   return status;
 }
