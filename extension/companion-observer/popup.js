@@ -23,7 +23,13 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
 });
 
 const COMPANION_WINDOW_ID_KEY = 'companionWindowId';
-const COMPANION_POPUP_WIDTH = 780; // ~2x the narrowed rail+wallet width (23.25rem each)
+// The Companion page (app/(embed)/triad/embed/companion/page.tsx) is now a
+// SINGLE w-[23.25rem] (372px) surface that toggles between wallet/companion,
+// not two side-by-side panels -- so the popup window only needs to fit one
+// panel's width, plus a small buffer for the popup window's own chrome
+// (title bar / border) so nothing gets clipped or forces a horizontal
+// scrollbar.
+const COMPANION_POPUP_WIDTH = 400;
 
 /**
  * Opens (or refocuses) a small floating popup window hosting the SAME
