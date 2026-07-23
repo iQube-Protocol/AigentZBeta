@@ -22,6 +22,19 @@
  * over existing receipts via `resolveCompanionContext()` — and the T1
  * identity chip. NO browser observation of any kind (PRD §6 Phase 1 / §4):
  * nothing here reads tabs, pages, selections, history, or clipboard.
+ *
+ * WIDTH (2026-07-23, operator-directed): this page is the extension's
+ * "Manage permissions" surface, meant to sit as a narrow docked overlay
+ * beside whatever page the operator is browsing (mirroring metame.live's
+ * own narrow-docked wallet treatment, an operator-supplied reference
+ * screenshot) — not stretch full-bleed like a standalone page. The
+ * Companion rail and the wallet are both pinned to the SAME fixed width
+ * (`w-[23.25rem]`, `SmartWalletDrawer`'s own `embeddedWidth="fixed"` class —
+ * reused rather than inventing a new width unit) and the whole two-column
+ * shell is right-anchored (outer flex container `justify-end` around an
+ * inner `w-fit` wrapper) so it never stretches to fill a wide viewport.
+ * Mirrors the canonical narrow embed pattern already established at
+ * `app/(embed)/triad/embed/wallet/page.tsx`.
  */
 
 "use client";
@@ -81,9 +94,15 @@ function CompanionShell() {
   const identity = ctx?.identity ?? null;
 
   return (
-    <div className="flex h-screen min-h-0 bg-slate-950 text-slate-100">
+    <div className="flex h-screen min-h-0 justify-end bg-slate-950 text-slate-100">
+      {/* Narrow docked shell — Companion rail + wallet pinned to the SAME
+          fixed width (SmartWalletDrawer's own w-[23.25rem] class) and
+          right-anchored, so the whole thing reads as a compact overlay
+          beside the operator's current page rather than a full-bleed
+          standalone page. */}
+      <div className="flex h-full w-fit min-h-0">
       {/* Companion rail — identity chip + Phase 1 Timeline (read-only) */}
-      <div className="flex w-72 shrink-0 flex-col border-r border-slate-800 bg-slate-900/40">
+      <div className="flex w-[23.25rem] shrink-0 flex-col border-r border-slate-800 bg-slate-900/40">
         <div className="border-b border-slate-800 px-4 py-3">
           <div className="text-sm font-semibold text-slate-200">
             metaMe Companion
@@ -155,14 +174,17 @@ function CompanionShell() {
         </div>
       </div>
 
-      {/* Embedded wallet — canonical embedded-mode mount (never overlay) */}
-      <div className="min-h-0 flex-1">
+      {/* Embedded wallet — canonical embedded-mode mount (never overlay).
+          `embeddedWidth="fixed"` matches the rail's own w-[23.25rem] so the
+          two panels read as one compact, equal-width docked strip. */}
+      <div className="min-h-0 w-[23.25rem] shrink-0">
         {walletOpen ? (
           <SmartWalletDrawer
             open={true}
             onClose={() => setWalletOpen(false)}
             variant="embedded"
-            embeddedWidth="fill"
+            embeddedWidth="fixed"
+            allowWideLayout={false}
             agent={{ id: "companion", name: "metaMe Companion" }}
             codexMode={true}
             personaId={personaId}
@@ -178,6 +200,7 @@ function CompanionShell() {
             </button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
