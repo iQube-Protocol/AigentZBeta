@@ -1,0 +1,60 @@
+-- ILLUSTRATIVE SKETCH ONLY — DO NOT RUN, DO NOT RENAME TO .sql
+--
+-- This file is deliberately named with a leading underscore and a
+-- `.sql.example` extension (not `.sql`, not timestamp-prefixed) so no
+-- migration runner picks it up automatically. It is NOT a migration.
+--
+-- PRD-MMC-IMPL-001 Increment 2 (§2) — server-side consent/grant API routes.
+-- See: codexes/packs/agentiq/updates/2026-07-23_prd-mmc-impl-001-companion-phase2-implementation-plan.md
+--
+-- Per the plan's own scope: "This SQL is NOT presented as ready-to-run...
+-- the builder of Increment 2 writes the real migration file (with a real
+-- timestamp) and runs it, following this sketch's shape, not inventing a
+-- new RLS design." No live Supabase connection and no node_modules exist
+-- in the authoring sandbox for this pass, so this sketch is handed off,
+-- not executed.
+--
+-- Shape mirrors supabase/migrations/20260710000000_persona_agent_assignments.sql
+-- verbatim: persona_id is T0 (server-internal only, never returned to a
+-- browser caller — see app/api/companion/observer/_lib/store.ts's own
+-- header), RLS gates reads to the owning persona, and all writes are
+-- service-role only (the two API routes in this increment are the only
+-- write path — no direct client writes).
+
+-- BEGIN;
+--
+-- CREATE TABLE IF NOT EXISTS public.companion_observer_grants (
+--   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   persona_id   UUID NOT NULL REFERENCES public.personas(id) ON DELETE CASCADE,  -- T0
+--   capability   TEXT NOT NULL,
+--   scope        TEXT NOT NULL CHECK (scope IN ('global', 'site')),
+--   site_domain  TEXT NULL,
+--   granted_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   revoked_at   TIMESTAMPTZ NULL
+-- );
+--
+-- CREATE INDEX IF NOT EXISTS idx_cog_persona
+--   ON public.companion_observer_grants (persona_id);
+--
+-- COMMENT ON TABLE public.companion_observer_grants IS
+--   'PRD-MMC-001 §4 Observer capability grants — per-persona, per-capability,
+--    revocable consent state. Rows are never deleted on revoke; revoked_at
+--    is set instead, preserving an audit trail (mirrors the DVN pipeline''s
+--    own never-silently-drop discipline).';
+--
+-- -- ─── RLS — owners read their own grants; service role writes ──────────────
+-- ALTER TABLE public.companion_observer_grants ENABLE ROW LEVEL SECURITY;
+--
+-- DROP POLICY IF EXISTS companion_observer_grants_owner_read ON public.companion_observer_grants;
+-- CREATE POLICY companion_observer_grants_owner_read ON public.companion_observer_grants
+--   FOR SELECT USING (
+--     auth.role() = 'service_role'
+--     OR persona_id IN (SELECT id FROM public.personas WHERE auth_profile_id = auth.uid())
+--   );
+--
+-- DROP POLICY IF EXISTS companion_observer_grants_service_write ON public.companion_observer_grants;
+-- CREATE POLICY companion_observer_grants_service_write ON public.companion_observer_grants
+--   FOR ALL USING (auth.role() = 'service_role')
+--   WITH CHECK (auth.role() = 'service_role');
+--
+-- COMMIT;
