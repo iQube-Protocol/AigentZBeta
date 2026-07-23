@@ -43,8 +43,15 @@ import {
 } from '@/services/corpusScout/intelligence';
 import { DomainConstitutionPanel } from '@/components/corpusScout/DomainConstitutionPanel';
 
-const DEFAULT_CAMPAIGN_DOMAIN = 'constitutional-reasoning';
+const DEFAULT_CAMPAIGN_DOMAIN = 'financial-services';
 const PREVIEW_CHARS = 1500;
+
+/** Domains with a ratified Constitutional Coverage Model (Constitutional
+ *  Discovery amendment) — prepopulated so a steward never has to type the
+ *  name of an already-chartered domain. "Custom…" reveals a free-text input
+ *  for a domain not yet chartered (e.g. medicine, media). */
+const KNOWN_DOMAINS = ['financial-services'] as const;
+const CUSTOM_DOMAIN_OPTION = '__custom__';
 
 type ReviewDecision =
   | 'approve_exp_p1'
@@ -100,6 +107,7 @@ export function CorpusScoutTab() {
   // Submit form
   const [formUrl, setFormUrl] = useState('');
   const [formDomain, setFormDomain] = useState(DEFAULT_CAMPAIGN_DOMAIN);
+  const [customDomainMode, setCustomDomainMode] = useState(false);
   const [formSubDomain, setFormSubDomain] = useState('');
   const [formTitle, setFormTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -291,11 +299,33 @@ export function CorpusScoutTab() {
           </label>
           <label className="text-[11px] text-slate-400">
             Campaign domain
-            <input
-              value={formDomain}
-              onChange={(e) => setFormDomain(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100"
-            />
+            {customDomainMode ? (
+              <input
+                value={formDomain}
+                onChange={(e) => setFormDomain(e.target.value)}
+                placeholder="e.g. medicine, media"
+                autoFocus
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500"
+              />
+            ) : (
+              <select
+                value={KNOWN_DOMAINS.includes(formDomain as (typeof KNOWN_DOMAINS)[number]) ? formDomain : CUSTOM_DOMAIN_OPTION}
+                onChange={(e) => {
+                  if (e.target.value === CUSTOM_DOMAIN_OPTION) {
+                    setCustomDomainMode(true);
+                    setFormDomain('');
+                  } else {
+                    setFormDomain(e.target.value);
+                  }
+                }}
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100"
+              >
+                {KNOWN_DOMAINS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+                <option value={CUSTOM_DOMAIN_OPTION}>Custom…</option>
+              </select>
+            )}
           </label>
           <label className="text-[11px] text-slate-400">
             Source lane / sub-domain (optional)

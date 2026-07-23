@@ -100,6 +100,8 @@ export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneC
   const [busy, setBusy] = useState<string | null>(null);
   const [discoveryBusy, setDiscoveryBusy] = useState<string | null>(null);
   const [discoveryResults, setDiscoveryResults] = useState<Record<string, string>>({});
+  const [domainDiscoveryBusy, setDomainDiscoveryBusy] = useState(false);
+  const [domainDiscoveryResult, setDomainDiscoveryResult] = useState<string | null>(null);
 
   const [purposeDraft, setPurposeDraft] = useState("");
   const [pillarKeyDraft, setPillarKeyDraft] = useState("");
@@ -191,6 +193,31 @@ export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneC
     },
     [domain, onDiscoveryComplete],
   );
+
+  const runDomainDiscovery = useCallback(async () => {
+    setDomainDiscoveryBusy(true);
+    setDomainDiscoveryResult("Running Agent B/C across every ratified institution…");
+    try {
+      const res = await personaFetch("/api/corpus-scout/institution-discovery/domain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setDomainDiscoveryResult(data?.error || `Domain discovery failed (HTTP ${res.status})`);
+        return;
+      }
+      setDomainDiscoveryResult(
+        `${data.institutionsAttempted} institution(s) attempted — ${data.totalSubmitted} candidate(s) submitted from ${data.totalFound} found.`,
+      );
+      onDiscoveryComplete?.();
+    } catch (e) {
+      setDomainDiscoveryResult(e instanceof Error ? e.message : "Domain discovery failed");
+    } finally {
+      setDomainDiscoveryBusy(false);
+    }
+  }, [domain, onDiscoveryComplete]);
 
   const ratifiedPillarOptions = useMemo(
     () => (constitution?.pillars ?? []).map((p) => ({ key: p.pillarKey, label: p.pillarLabel })),
@@ -353,7 +380,19 @@ export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneC
 
           {/* Institutional Registry (§3) — generated FROM the pillars above */}
           <div className="space-y-1.5 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
-            <span className="text-xs font-semibold text-slate-300">Institutional Registry — per pillar</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-300">Institutional Registry — per pillar</span>
+              <button
+                onClick={() => void runDomainDiscovery()}
+                disabled={domainDiscoveryBusy || (constitution?.institutions ?? []).every((i) => i.status !== "ratified")}
+                className="ml-auto inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 px-2 py-1 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 disabled:opacity-40"
+                title="Run Agent B/C for every ratified institution in this domain — one click, no manual URLs"
+              >
+                {domainDiscoveryBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                Run discovery — entire domain
+              </button>
+            </div>
+            {domainDiscoveryResult && <p className="text-[10px] text-slate-400">{domainDiscoveryResult}</p>}
             {ratifiedPillarOptions.length === 0 ? (
               <p className="text-[10px] italic text-slate-500">Propose a pillar first — institutions attach to an existing pillar.</p>
             ) : (
@@ -376,25 +415,25 @@ export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneC
                         </button>
                       )}
                     </div>
-                    {i.seedUrl ? (
-                      <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-1">
+                    <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-1">
+                      {i.seedUrl ? (
                         <a href={i.seedUrl} target="_blank" rel="noreferrer" className="truncate text-[10px] text-sky-300 underline">
                           {i.seedUrl}
                         </a>
-                        {i.status === "ratified" && (
-                          <button
-                            onClick={() => void runDiscovery(i.pillarKey, i.institutionName)}
-                            disabled={discoveryBusy !== null}
-                            className="ml-auto rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/20 disabled:opacity-40"
-                            title="§4/§5 Agent B/C — institution-targeted discovery from this seed URL"
-                          >
-                            {discoveryBusy === `${i.pillarKey}:${i.institutionName}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "Run discovery"}
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-[10px] italic text-slate-500">No seed URL — not yet eligible for Agent B/C discovery.</p>
-                    )}
+                      ) : (
+                        <span className="text-[10px] italic text-slate-500">no seed URL yet — will try the canonical registry when discovery runs</span>
+                      )}
+                      {i.status === "ratified" && (
+                        <button
+                          onClick={() => void runDiscovery(i.pillarKey, i.institutionName)}
+                          disabled={discoveryBusy !== null}
+                          className="ml-auto rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/20 disabled:opacity-40"
+                          title="§4/§5 Agent B/C — institution-targeted discovery; resolves a seed URL from the canonical registry automatically if none is set"
+                        >
+                          {discoveryBusy === `${i.pillarKey}:${i.institutionName}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "Run discovery"}
+                        </button>
+                      )}
+                    </div>
                     {discoveryResults[`${i.pillarKey}:${i.institutionName}`] && (
                       <p className="border-t border-white/5 pt-1 text-[10px] text-slate-400">
                         {discoveryResults[`${i.pillarKey}:${i.institutionName}`]}
