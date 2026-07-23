@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>metaMe Companion — Observer</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        width: 260px;
+        padding: 12px;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      h1 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 8px;
+      }
+      button {
+        display: block;
+        width: 100%;
+        margin-bottom: 8px;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #1e293b;
+        background: rgba(15, 23, 42, 0.4);
+        color: #e2e8f0;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      button:hover {
+        background: rgba(30, 41, 59, 0.6);
+      }
+      #status {
+        font-size: 11px;
+        color: #94a3b8;
+        margin-top: 4px;
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>metaMe Companion Observer</h1>
+    <button id="connectBtn">Connect to metaMe</button>
+    <button id="manageBtn">Manage permissions</button>
+    <div id="status">Not connected.</div>
+    <script src="constants.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
