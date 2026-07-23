@@ -6,6 +6,8 @@
 
 **Origin:** operator session instruction, 2026-07-23 — "focused on flow as the priority," Movement I selected as the first increment on the builder's recommendation (Capture is the one movement nothing else in the flow can happen without — Organize/Act/Project all presuppose something has already been captured).
 
+**Naming note (operator, 2026-07-23): Recognize → Constitute, not "upload → capture."** "Capture" is retained as the section label for continuity with SPEC-MMC-001 §3's own naming, but the plan's own increments describe two genuinely distinct things happening, not one: the browser-side right-click is a **Recognition** event — a human deciding "this matters" — and the Workspace Inbox landing is where **Constitution** actually happens: the object stops being "content on the web" and becomes an object within the runtime (identity, provenance, ledger eligibility, standing opportunity). **Capture is the interaction; constitutionalization is the operation.** This is not a cosmetic rename — §0.8 below states the invariant this distinction protects, and it is why Increment 2's ingest route (not the extension) is where a captured thing actually crosses the threshold.
+
 ---
 
 ## §0 Reconciliation — what already exists, what Capture adds, and the two real gaps that shape this plan's scope
@@ -52,6 +54,16 @@ Corpus Scout's pipeline (`app/api/corpus-scout/candidates/route.ts` → `createC
 ### 0.7 The extension CAN be authored and live-tested in this environment — established precedent, not re-derived
 
 PRD-MMC-IMPL-001 §7 (Increment 6) already established, by actually doing it, that a Manifest V3 extension can be authored and loaded into the pre-installed Chromium under `xvfb-run` + an isolated `playwright-core` install, with its background service worker confirmed live. This plan's extension-side increment (§2, Increment 4) reuses that exact recipe rather than re-deriving whether it's possible.
+
+### 0.8 The governing invariant this plan serves, and what the extension actually is
+
+Stated once, plainly, because it governs every increment above rather than being a property of any one of them:
+
+> **Nothing enters the Constitutional Runtime except by an explicit act of constitutionalization.**
+
+This is not new doctrine invented for Capture — it is the same law already implicit in `assertObservationRespectsGrants`'s fail-closed design (§0.4), in the Identity & Access Spine's "never a raw fetch, never an unauthenticated write" discipline, and in SPEC-MMC-001 §9's own "an object crossing the Threshold automatically gains provenance, constitutional identity, workspace assignment" framing. Capture is the first movement to make it operationally visible: the Workspace Inbox (Increment 3) is not a holding area or a generic "recent items" list — it is the constitutional point at which something ceases to be "content on the web" and becomes an object within the runtime. Increment 2's ingest route is where that transition actually happens (server-side, consent-re-verified, persona-scoped); the extension (Increment 4) never constitutes anything itself, it only recognizes and hands off.
+
+That reframes what the browser extension is *for*. It is not gaining a "capture feature" the way a browser extension gains a feature. Its job is to **mediate movement between two epistemic environments** — the conventional web (abundant, unstructured, unattributed) and the constitutional runtime (governed, attributable, actionable). Every increment in this plan is in service of that mediation, not of making the extension "do more."
 
 ---
 
@@ -204,6 +216,7 @@ Turn SPEC-MMC-001's Movement I (§3, §6, §9 "Pull Across") into a concrete, fi
 - **The literal drag-based "Pull Across" gesture** — a right-click context menu satisfies the movement's substance (constitutionalize, don't upload) without requiring a drag-and-drop implementation; the gesture itself is a follow-on UX pass.
 - **Any change to `types/companionObserver.ts`, `services/companion/observerContext.ts`, existing `app/api/companion/observer/*` routes, `services/iqube/{experienceQube,intentQube}.ts`, `services/venture/ventureQubeService.ts`, or `services/content/pdfExtractionService.ts`** — every increment composes with these, none modifies them.
 - **Any live, logged-in end-to-end run against a real metaMe deployment** — this sandbox has no real Supabase session/cookie to authenticate against (same limitation named in PRD-MMC-IMPL-001 §7/§7.1).
+- **A Recognition Agent between the Workspace Inbox and Assign** (operator observation, 2026-07-23) — the natural next intelligence layer this Inbox enables: `Pull Across → Workspace Inbox → Recognition Agent → Suggested Destinations → operator confirms`, surfacing something like "this looks like evidence for your Financial Services corpus" or "this appears related to Venture Alpha" before the operator manually picks Intent/Venture. Explicitly deferred — Increment 3 as scoped ships the two manual quick-actions only, with no inference layer. Named here so the Inbox's data shape (Increment 1/2) isn't accidentally built in a way that would need reworking to host this later; no field or route in this plan should be read as ruling it out.
 
 ---
 
@@ -237,7 +250,11 @@ Increment 4's PDF branch defers extraction to the server, but this plan does not
 - [ ] Operator ratifies Increment 5's scope (§2) — a new sibling canary file mirroring `tests/companion-observer.test.ts`'s shape.
 - [ ] Operator has reviewed §5's four open engineering questions and delegates each to the builder of the relevant increment (5.1 → Increment 3 builder; 5.2 → Increment 1 builder, default 20,000 unless a reason to change surfaces; 5.3 → Increment 2 builder, default to a clear 4xx over a silently-empty capture; 5.4 → confirmed no exemption, per this plan's stated position, unless the operator says otherwise here).
 - [ ] This document is cross-referenced from SPEC-MMC-001's own future ratification record as "the separate authorized implementation pass" its §11 names for whichever Movement is prioritized first (Movement I, per operator instruction).
+- [x] **Operator ratifies the "Recognize → Constitute" naming distinction and the governing invariant** (§0.8: "Nothing enters the Constitutional Runtime except by an explicit act of constitutionalization") as framing this plan and its siblings (Discovery, Threshold, future Projection work) operate under. — **RATIFIED 2026-07-23 (operator)**
+- [x] **Operator confirms the Recognition Agent (§4) stays explicitly out of scope for this pass** — named as a natural future increment the Inbox's data shape should not preclude, not something to build now. — **RATIFIED 2026-07-23 (operator)**
 
 ---
 
 *Authored docs-only, 2026-07-23. Reconciles `codexes/packs/irl/foundation/SPEC-MMC-001_constitutional-flow.md` (DESIGN) into a Movement-I-only build sequence, following the exact structural and evidentiary discipline of PRD-MMC-IMPL-001/002. Every file reference verified by direct read or grep at authoring time via a dedicated research pass: `extension/companion-observer/{manifest.json,background.js,content.js}`, `types/companionObserver.ts`, `services/companion/observerContext.ts`, `app/api/companion/observer/observation/route.ts`, `services/iqube/{experienceQube,intentQube}.ts`, `services/venture/ventureQubeService.ts`, `services/research/lifecycle.ts`, `app/api/research/objects/route.ts`, `app/api/corpus-scout/candidates/route.ts`, `services/corpusScout/{provenance,ingestionBroker}.ts`, `services/content/pdfExtractionService.ts`. No code was written; no `npm`/`tsc`/`vitest` command was run. Builds nothing; proposes a build sequence for operator ratification.*
+
+*Amended 2026-07-23, same day, on operator review: added §0.8 (the "Recognize → Constitute" naming distinction and the governing invariant "Nothing enters the Constitutional Runtime except by an explicit act of constitutionalization"), the strategic reframing of the extension as a constitutional membrane rather than a feature-gaining browser extension, and the Recognition Agent as a named-but-deferred future increment (§4). No increment's file list, scope, or dependency graph changed — this amendment is framing and one forward-looking non-goal, not new build scope.*
