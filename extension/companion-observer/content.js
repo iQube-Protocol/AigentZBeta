@@ -40,6 +40,19 @@ async function checkGrant(capability) {
  * ONLY fields whose capability the background worker confirms is granted.
  */
 async function buildObservation() {
+  // Refresh the background worker's grant cache from the server FIRST. The
+  // worker's `grantStateCache` is only populated at Connect time or on an
+  // explicit REFRESH_GRANTS message (background.js) -- granting/revoking a
+  // capability through the Companion web panel writes straight to the
+  // server and never touches this cache on its own. Without this refresh,
+  // every checkGrant() below silently answers against stale, pre-grant
+  // state -- the real reason Overlay kept showing "no observation" even
+  // after granting Current-tab and reloading the tab (2026-07-23). Failure
+  // here (no connection, network error) is non-fatal -- checkGrant() below
+  // just falls back to whatever the cache already had, same as before this
+  // refresh existed.
+  await sendMessage({ type: 'REFRESH_GRANTS' });
+
   const grantedCapabilities = [];
   const observation = { grantedCapabilities, observedAt: new Date().toISOString() };
 
