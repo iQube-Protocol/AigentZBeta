@@ -9,29 +9,20 @@
  * has no bundler and no shared-module system across these three execution
  * contexts.
  *
- * ── COMPANION_APP_ORIGIN — PLACEHOLDER, MUST BE SET BY THE DEPLOYER ────────
+ * ── COMPANION_APP_ORIGIN ────────────────────────────────────────────────
  *
- * No fixed production/staging origin for the Companion app exists in this
- * repo's source. `utils/publicOrigin.ts` (read in full before writing this
- * file) resolves the app's public origin from `NEXT_PUBLIC_APP_URL` /
- * `NEXT_PUBLIC_BASE_URL` at request time — it is an environment value, never
- * a literal baked into a source file, and CLAUDE.md's "No Guessing or
- * Hallucinating" rule forbids inventing one here. `dev-beta.aigentz.me` is
- * named in CLAUDE.md prose as the dev host for OTHER surfaces, but was not
- * found declared as this app's `NEXT_PUBLIC_APP_URL` value in `.env.example`
- * or any committed env file — so it is NOT used here as a guessed constant.
- *
- * The value below is a local-dev placeholder ONLY. A deployer shipping this
- * extension for real MUST:
- *   1. Replace `COMPANION_APP_ORIGIN` below with the real Companion app
- *      origin (whatever `NEXT_PUBLIC_APP_URL` resolves to for the target
- *      environment).
- *   2. Update `host_permissions` in `manifest.json` to match that same
- *      origin (Chrome enforces that a background fetch target is covered by
- *      a declared host permission — the placeholder `*://localhost/*` only
- *      covers local dev).
+ * Set to the operator-confirmed dev deployment origin, 2026-07-23:
+ * https://dev-beta.aigentz.me (the same dev host CLAUDE.md already names for
+ * other surfaces; not found declared as a literal `NEXT_PUBLIC_APP_URL` in
+ * any committed env file, so it was NOT assumed here until the operator
+ * explicitly confirmed it — per CLAUDE.md's "No Guessing" rule).
+ * `host_permissions` in `manifest.json` is updated to match. If this
+ * extension is ever pointed at a different environment (staging/production/
+ * another dev deployment), both this constant and that manifest entry must
+ * be updated together — Chrome enforces that a background fetch target is
+ * covered by a declared host permission.
  */
-const COMPANION_APP_ORIGIN = 'http://localhost:3000';
+const COMPANION_APP_ORIGIN = 'https://dev-beta.aigentz.me';
 
 const COMPANION_OBSERVER_API_BASE = `${COMPANION_APP_ORIGIN}/api/companion/observer`;
 const COMPANION_EMBED_URL = `${COMPANION_APP_ORIGIN}/triad/embed/companion`;
