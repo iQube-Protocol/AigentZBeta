@@ -22,20 +22,68 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
   });
 });
 
-document.getElementById('manageBtn').addEventListener('click', async () => {
-  // Opens Chrome's native side panel (docked beside the current tab) instead
-  // of navigating to a new tab, so the operator keeps their place on
-  // whatever page they were on. Falls back to a new tab if sidePanel isn't
-  // available (older Chrome, or a non-Chromium browser loading this
-  // extension) rather than silently doing nothing.
-  try {
-    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (chrome.sidePanel && activeTab?.windowId != null) {
-      await chrome.sidePanel.open({ windowId: activeTab.windowId });
-      return;
+const COMPANION_WINDOW_ID_KEY = 'companionWindowId';
+const COMPANION_POPUP_WIDTH = 780; // ~2x the narrowed rail+wallet width (23.25rem each)
+
+/**
+ * Opens (or refocuses) a small floating popup window hosting the SAME
+ * sidepanel.html document Chrome's native side panel used — reusing that
+ * document keeps the CSP frame-ancestors allowlist scoped to exactly the one
+ * chrome-extension:// origin already permitted (configs/embed/policy.v1.json);
+ * nothing new is exposed.
+ *
+ * Deliberately NOT chrome.sidePanel: that API docks into the browser window
+ * and reflows/pushes the current page's viewport to make room for it — by
+ * design, not a bug, but not what "overlay on top of the page" means. A
+ * separate OS-level popup window positioned at the screen edge leaves the
+ * operator's current page untouched. Trade-off, stated plainly: it's a real
+ * window, not part of the page's own DOM, so it can be moved/closed
+ * independently and won't auto-resize if the main browser window resizes.
+ */
+async function openOrFocusCompanionWindow() {
+  const { [COMPANION_WINDOW_ID_KEY]: existingId } = await chrome.storage.local.get([
+    COMPANION_WINDOW_ID_KEY,
+  ]);
+  if (typeof existingId === 'number') {
+    try {
+      await chrome.windows.update(existingId, { focused: true });
+      return; // already open — just brought to front
+    } catch {
+      // Window no longer exists (operator closed it) — fall through and
+      // create a fresh one.
     }
-  } catch (err) {
-    console.warn('[metaMe Observer] sidePanel.open failed, falling back to a new tab:', err);
   }
-  chrome.tabs.create({ url: COMPANION_EMBED_URL });
+
+  let left = 0;
+  let top = 0;
+  let height = 900;
+  try {
+    const current = await chrome.windows.getCurrent();
+    top = current.top ?? 0;
+    height = current.height ?? 900;
+    left = (current.left ?? 0) + (current.width ?? COMPANION_POPUP_WIDTH) - COMPANION_POPUP_WIDTH;
+  } catch (err) {
+    console.warn('[metaMe Observer] could not read current window bounds, using defaults:', err);
+  }
+
+  const created = await chrome.windows.create({
+    url: 'sidepanel.html',
+    type: 'popup',
+    width: COMPANION_POPUP_WIDTH,
+    height,
+    top,
+    left: Math.max(0, left),
+  });
+  if (created?.id != null) {
+    await chrome.storage.local.set({ [COMPANION_WINDOW_ID_KEY]: created.id });
+  }
+}
+
+document.getElementById('manageBtn').addEventListener('click', async () => {
+  try {
+    await openOrFocusCompanionWindow();
+  } catch (err) {
+    console.warn('[metaMe Observer] floating window failed, falling back to a new tab:', err);
+    chrome.tabs.create({ url: COMPANION_EMBED_URL });
+  }
 });

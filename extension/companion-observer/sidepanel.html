@@ -5,14 +5,23 @@
     <title>metaMe Companion</title>
     <style>
       /*
-       * Chrome's Side Panel API only accepts a LOCAL extension page as
-       * `side_panel.default_path` — it cannot point directly at an external
-       * https:// URL. This page's only job is to iframe the real Companion
-       * page (dev-beta.aigentz.me/triad/embed/companion, already narrowed to
-       * match this panel's width — see app/(embed)/triad/embed/companion/page.tsx)
-       * so the operator's actual Companion + wallet UI renders inside Chrome's
-       * native docked side panel, beside whatever tab they're on, instead of
-       * navigating them to a new tab and losing their place.
+       * (2026-07-23 revision) NOT hosted via chrome.sidePanel anymore — that
+       * API docks into the browser window and pushes/reflows the current
+       * page's viewport to make room, which reads as "resizing my page,"
+       * not "an overlay on top of it." This same document is now opened as
+       * a separate floating popup window instead (see popup.js's
+       * `openOrFocusCompanionWindow`), positioned at the screen edge so it
+       * sits beside the operator's page without touching its layout.
+       *
+       * This page's only job is still to iframe the real Companion page
+       * (dev-beta.aigentz.me/triad/embed/companion, already narrowed to
+       * match this window's width — see
+       * app/(embed)/triad/embed/companion/page.tsx) — a plain popup window
+       * can't point `url:` at an external https:// origin directly in a way
+       * that keeps the CSP frame-ancestors allowlist narrow, so this local
+       * extension document (chrome-extension://<pinned-id>/sidepanel.html,
+       * already the one origin allowlisted in
+       * configs/embed/policy.v1.json) is the iframe host either way.
        */
       html, body {
         margin: 0;
