@@ -5,12 +5,20 @@
  * See: codexes/packs/agentiq/updates/2026-07-23_prd-mmc-impl-002-companion-phase3-implementation-plan.md §3.
  *
  * A SMALL, EXPLICIT domain → shape table — NOT a general-purpose arbitrary-
- * app classifier (plan §4 non-goal, ratified). Exactly two illustrative
- * entries: `github.com`/`*.github.com` → `'github-repo'`; one illustrative
- * banking-class domain (`coinbase.com`, per the plan's own stated example —
- * "if genuinely unsure, use coinbase.com as the stated illustrative
- * example") → `'banking'`. Expanding this table is a natural follow-up, not
- * blocked by this pass — but this pass ships only these two.
+ * app classifier (plan §4 non-goal, ratified). Two illustrative shapes:
+ * `github.com`/`*.github.com` → `'github-repo'`; a banking-class domain set
+ * → `'banking'` (QriptoCENT/Wallet/Standing/Passport/Delegations). Expanding
+ * this table is a natural follow-up, not blocked by the ratifying pass.
+ *
+ * 2026-07-23 addition: the platform's own domains (`metame.com`,
+ * `dev-beta.aigentz.me`) were added to the BANKING set, not a new shape --
+ * being on the platform's own site is exactly the "wallet/standing/passport"
+ * context the banking card already composes, so it's a genuine semantic fit,
+ * not an arbitrary stretch. `google.com` was deliberately NOT added: it
+ * doesn't fit either shape's data model, and forcing it into one would
+ * violate this file's own ratified principle below (no fabricated card for
+ * an unmapped domain) -- for google.com, the honest "no overlay available"
+ * empty state is the correct behavior, not a bug.
  *
  * Pure, no I/O. Returns `null` for any unmapped domain — the caller renders
  * an honest "no overlay available for this page" rather than a fabricated
@@ -22,7 +30,13 @@ export type OverlayShape = 'github-repo' | 'banking';
 const GITHUB_DOMAIN_RE = /(^|\.)github\.com$/i;
 
 /** Illustrative banking-class domain set — deliberately small (plan §4). */
-const BANKING_DOMAINS = new Set<string>(['coinbase.com', 'www.coinbase.com']);
+const BANKING_DOMAINS = new Set<string>([
+  'coinbase.com',
+  'www.coinbase.com',
+  'metame.com',
+  'www.metame.com',
+  'dev-beta.aigentz.me',
+]);
 
 export function shapeForDomain(domain: string | null | undefined): OverlayShape | null {
   if (!domain) return null;
