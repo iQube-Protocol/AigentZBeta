@@ -10,7 +10,16 @@
  *   - deep links    → `buildCodexUrl()` (`utils/codex-nav.ts`) — the
  *                     canonical helper, never a second link builder.
  *   - feed/timeline → GET /api/assistant/receipts (existing read; the
- *                     receipt writer + DVN pipeline are untouched).
+ *                     receipt writer + DVN pipeline are untouched), PLUS
+ *                     (PRD-MMC-IMPL-002 §3 Increment 3, "Universal
+ *                     Notifications") GET /api/companion/notifications —
+ *                     delegation status transitions and a "standing
+ *                     increased" comparison, folded into the SAME feed as
+ *                     tagged (`isNotification`) items. See
+ *                     `mapNotificationsToFeed` below; the route itself is
+ *                     the server hop this client-side module needs to reach
+ *                     the service-role-only `delegationGrantStore` /
+ *                     `computeStandingScore` reads.
  *
  * Client-side module: presentation surfaces are client-mounted; every spine
  * call goes through `personaFetch` per CLAUDE.md "Client-side spine fetches"
@@ -54,6 +63,14 @@ export function buildCompanionDeepLinkUrl(
 // ─── Feed mapping (pure — Timeline as a READ over existing receipts) ────────
 
 /**
+ * Receipt `actionType` values that are notification-class rather than
+ * generic receipted activity (PRD-MMC-IMPL-002 §3 Increment 3). Re-tags an
+ * item `mapReceiptsToFeed` was already going to emit — never a second read
+ * of the receipts endpoint, and never a new receipt type.
+ */
+const NOTIFICATION_ACTION_TYPES: ReadonlySet<string> = new Set(['passport_status_changed']);
+
+/**
  * Project already-browser-serialised receipt rows (the exact payload
  * `GET /api/assistant/receipts` returns) into CompanionFeedItems. Defensive
  * and lossy BY DESIGN: only the whitelisted T1 fields survive — anything
@@ -69,16 +86,87 @@ export function mapReceiptsToFeed(receipts: unknown): CompanionFeedItem[] {
     const id = typeof r.id === 'string' ? r.id : undefined;
     const occurredAt = typeof r.createdAt === 'string' ? r.createdAt : undefined;
     if (!id || !occurredAt) continue;
+    const kind = typeof r.actionType === 'string' ? r.actionType : 'activity';
     items.push({
       id,
-      kind: typeof r.actionType === 'string' ? r.actionType : 'activity',
+      kind,
       title: typeof r.summary === 'string' ? r.summary : '(no summary)',
       occurredAt,
       ...(typeof r.activeCartridge === 'string' && r.activeCartridge
         ? { cartridge: r.activeCartridge }
         : {}),
+      ...(NOTIFICATION_ACTION_TYPES.has(kind) ? { isNotification: true } : {}),
     });
   }
+  return items;
+}
+
+/** Human-readable label for a delegation status transition. */
+function delegationStatusTitle(status: string): string {
+  switch (status) {
+    case 'active':
+      return 'Delegation active';
+    case 'revoked':
+      return 'Delegation revoked';
+    case 'expired':
+      return 'Delegation expired';
+    default:
+      return `Delegation ${status}`;
+  }
+}
+
+/**
+ * Project `GET /api/companion/notifications`'s response into
+ * CompanionFeedItems — delegation status transitions and a "standing
+ * increased" item, both tagged `isNotification: true` (PRD-MMC-IMPL-002 §3
+ * Increment 3). Defensive and lossy by the same discipline as
+ * `mapReceiptsToFeed`: only whitelisted T1 fields survive.
+ *
+ * `resolvedAt` backstops `occurredAt` for the `standing_increased` item,
+ * which has no single underlying event timestamp — a score increase is
+ * DETECTED at resolution time, not dated to a specific moment ("observed,
+ * never asserted").
+ */
+export function mapNotificationsToFeed(data: unknown, resolvedAt: string): CompanionFeedItem[] {
+  if (!data || typeof data !== 'object') return [];
+  const d = data as Record<string, unknown>;
+  const items: CompanionFeedItem[] = [];
+
+  const delegation = d.delegation as Record<string, unknown> | null | undefined;
+  if (
+    delegation &&
+    typeof delegation.grantId === 'string' &&
+    typeof delegation.status === 'string'
+  ) {
+    const occurredAt =
+      (typeof delegation.updatedAt === 'string' && delegation.updatedAt) ||
+      (typeof delegation.createdAt === 'string' && delegation.createdAt) ||
+      resolvedAt;
+    items.push({
+      id: `delegation-status:${delegation.grantId}:${delegation.status}`,
+      kind: 'delegation_status',
+      title: delegationStatusTitle(delegation.status),
+      occurredAt,
+      isNotification: true,
+    });
+  }
+
+  const standing = d.standing as Record<string, unknown> | null | undefined;
+  if (standing && standing.increased === true && typeof standing.currentScore === 'number') {
+    const previousScore =
+      typeof standing.previousScore === 'number' ? standing.previousScore : null;
+    items.push({
+      id: `standing-increased:${resolvedAt}`,
+      kind: 'standing_increased',
+      title:
+        previousScore !== null
+          ? `Standing increased (${previousScore} → ${standing.currentScore})`
+          : `Standing increased to ${standing.currentScore}`,
+      occurredAt: resolvedAt,
+      isNotification: true,
+    });
+  }
+
   return items;
 }
 
@@ -148,6 +236,28 @@ export async function resolveCompanionContext(
       }
     } catch {
       // non-fatal — empty feed
+    }
+
+    // Universal Notifications (PRD-MMC-IMPL-002 §3 Increment 3) — delegation
+    // status transitions + "standing increased", folded into the SAME feed
+    // as tagged (isNotification) items rather than a parallel feed. Best-
+    // effort: a failure here still leaves the receipts-based feed intact.
+    try {
+      const notifRes = await personaFetch('/api/companion/notifications', {
+        cache: 'no-store',
+        personaIdHint,
+      });
+      if (notifRes.ok) {
+        const notifData = await notifRes.json();
+        const notifItems = mapNotificationsToFeed(notifData, resolvedAt);
+        if (notifItems.length > 0) {
+          feed = [...feed, ...notifItems].sort(
+            (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+          );
+        }
+      }
+    } catch {
+      // non-fatal — feed just lacks the notification items
     }
   }
 
