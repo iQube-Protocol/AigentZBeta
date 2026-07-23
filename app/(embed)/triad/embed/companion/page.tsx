@@ -33,6 +33,7 @@ import dynamic from "next/dynamic";
 import { useCodexEmbedAuthBridge } from "../codex/_lib/useCodexEmbedAuthBridge";
 import { resolveCompanionContext } from "@/services/companion/runtime";
 import type { CompanionRuntimeContext } from "@/types/companion";
+import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
 
 const SmartWalletDrawer = dynamic(
   () => import("@/app/components/content/SmartWalletDrawer"),
@@ -131,6 +132,24 @@ function CompanionShell() {
               {identity
                 ? "No receipted activity yet."
                 : "Sign in to see your receipted activity."}
+            </div>
+          )}
+
+          {/* Observer permissions — PRD-MMC-IMPL-001 Increment 4. Mounts
+              only when identity is resolved, mirroring the Timeline
+              section's own `identity ?` conditional above: an
+              unauthenticated visitor sees no grant UI, fails closed like
+              every other part of this shell. No browser observation
+              happens here — this manages consent GRANTS only (PRD-MMC-001
+              §4 Phase 2; no observation source exists yet, plan §0.2). */}
+          <div className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Observer permissions
+          </div>
+          {identity && personaId ? (
+            <ObserverGrantPanel personaIdHint={personaId} />
+          ) : (
+            <div className="text-xs text-slate-500">
+              Sign in to manage what the Observer may see.
             </div>
           )}
         </div>
