@@ -1125,9 +1125,15 @@ function FloatingCopilot({
             </div>
           </div>
 
-          {/* Quick prompts strip — above input, below messages */}
+          {/* Quick prompts strip — above input, below messages. Single-row
+              horizontal carousel (overflow-x-auto, no wrap), not a wrapped
+              grid — on a narrow/compressed viewport (e.g. the Companion
+              extension's docked side panel) a wrapped strip can eat several
+              rows of vertical space that belong to the conversation itself.
+              Standard rule for every copilot mounted through this shared
+              component (2026-07-23, operator-directed). */}
           {visibleQuickPrompts && (
-            <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-wrap flex-shrink-0">
+            <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-nowrap overflow-x-auto no-scrollbar flex-shrink-0">
               {/* Clear pill — only renders when any chip is pulsing a
                   chat-driven suggestion AND the parent wired an
                   onClearHighlights callback. Mirrors the right-pane
@@ -1141,7 +1147,7 @@ function FloatingCopilot({
                   onClick={onClearHighlights}
                   title="Clear pulsing capsule suggestions"
                   aria-label="Clear pulsing capsule suggestions"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/40 hover:bg-emerald-500/20 hover:text-white"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/40 hover:bg-emerald-500/20 hover:text-white flex-shrink-0"
                 >
                   Clear
                 </button>
@@ -1160,7 +1166,7 @@ function FloatingCopilot({
                     key={i}
                     onClick={() => onQuickPrompt(qp)}
                     title={typeof qp !== "string" ? qp.prompt : undefined}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${base}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors flex-shrink-0 ${base}`}
                   >
                     {label}
                   </button>
