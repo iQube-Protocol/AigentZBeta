@@ -2,7 +2,7 @@
 
 **Status: DESIGN — docs-first, ratify-before-build.** Amends `PRD-ICA-001_invariant-corpus-acquisition-agent.md` (RATIFIED 2026-07-22), specifically §5 (source-planning), §7 (discovery priority order), §10 (agent architecture), §12 (readiness metrics). Does not touch the already-built back half (retrieval, inspection, provenance, deduplication, review workspace, `add-evidence` handoff) at all — this is entirely a front-half amendment.
 
-**Origin:** operator design note, 2026-07-23 — a direct answer to "where is the automation of Corpus Scout?" The proposal reframes discovery itself as constitutional (coverage-obligation-driven) rather than search-driven (popularity/relevance-driven), and inserts a new agent — the **Domain Architect** — ahead of the existing Agent A.
+**Origin:** operator design note, 2026-07-23 — a direct answer to "where is the automation of Corpus Scout?" The proposal reframes discovery itself as constitutional (obligation-driven) rather than search-driven (popularity/relevance-driven), and inserts a new agent — the **Domain Architect** — ahead of the existing Agent A. A second round of operator refinement (same day) sharpened the terminology and named what this amendment actually is: not a document-discovery pipeline, but **constitutional epistemology** — knowledge acquired by satisfying constitutional obligations before exploring statistical possibility.
 
 ---
 
@@ -21,32 +21,88 @@ PRD-ICA-001 already leans institution-first in spirit — §7's discovery priori
 
 **The one load-bearing gap `assessLaneCoverage()` has today:** it only knows what lanes exist because a candidate was already submitted into them. It has no concept of a *required* lane list, so it can describe the corpus but can't say what's *missing*. That's exactly Gap Detection's job (§6 below), and it's an additive parameter on an existing function, not a new subsystem.
 
-**What's genuinely new here:**
-1. A **Domain Coverage Model** — an explicit, ratified, per-domain list of required coverage lanes (not a freeform string a submitter happens to type).
-2. An **Institutional Registry** — a structured, per-lane list of authoritative institutions, itself human-reviewed.
-3. **Gap Detection** as a hard gate ("is every lane satisfied?"), not just a descriptive metric.
-4. **Open (general-search) discovery demoted to a last-resort, per-lane gap-filler**, explicitly gated behind coverage saturation — never primary acquisition.
-5. A new **Agent 0, Domain Architect**, ahead of PRD-ICA-001 §10's existing Agent A.
+**What's genuinely new here (updated after the second refinement pass):**
+1. A **Domain Definition** — a plain, ratified statement of what the domain *is*, so "does this belong?" has an answer to appeal to.
+2. A **Constitutional Coverage Model** — an explicit, ratified, per-domain list of required internal pillars (not a freeform string a submitter happens to type, and not just "coverage" in the generic search/dataset sense — see §2's naming rationale).
+3. A **Constitutional Dependency Registry** — external domains that govern, measure, or constrain this one without being part of it (renamed from "Adjacent Domain Registry" — see §2.3's naming rationale).
+4. **Law I of Constitutional Discovery** — the formalized discriminator between the two: everything either *constitutes* the domain or *constrains* it.
+5. An **Institutional Registry** — a structured, per-pillar list of authoritative institutions, itself human-reviewed.
+6. **Gap Detection** as a hard gate ("is every pillar satisfied?"), not just a descriptive metric — plus an explicit **steward saturation confirmation** step, distinct from the algorithmic gate (§6.1).
+7. **Open (general-search) discovery demoted to a last-resort, per-pillar gap-filler**, gated behind BOTH algorithmic completeness and steward-confirmed saturation — never primary acquisition.
+8. A new **Agent 0, Domain Architect**, ahead of PRD-ICA-001 §10's existing Agent A.
 
 ---
 
-## §1 Why coverage-first, not search-first
+## §1 Constitutional epistemology, not document discovery
 
-Restated precisely because it's the load-bearing idea: the Discovery Engine is trying to answer *"what is the canonical body of knowledge for this domain?"* — a completeness question. A search engine answers *"what's relevant/popular for this query?"* — a ranking question. Those produce different corpora even when they overlap heavily. A coverage-obligation-driven acquisition process is auditable and repeatable in a way a query-driven one structurally cannot be: two runs of the same coverage model against the same institutional registry converge on the same gaps; two runs of the same keyword search do not.
+The Discovery Engine is trying to answer *"what is the canonical body of knowledge for this domain?"* — a completeness question. A search engine answers *"what's relevant/popular for this query?"* — a ranking question. Those produce different corpora even when they overlap heavily. A coverage-obligation-driven acquisition process is auditable and repeatable in a way a query-driven one structurally cannot be: two runs of the same coverage model against the same institutional registry converge on the same gaps; two runs of the same keyword search do not.
 
-This is the same discipline already governing this codebase's invariant work — reasoning constrained by structure outperforms reasoning constrained by search recall — applied one layer downstream, to what gets *fed into* that reasoning in the first place.
+Most AI knowledge-acquisition systems, implicitly or explicitly, run:
+
+```
+Search → Knowledge
+```
+
+This architecture runs a different shape entirely:
+
+```
+Constitutional obligations → Canonical institutions → Evidence → Knowledge
+```
+
+That's not a stronger search algorithm — it's a different epistemology. **Knowledge is acquired by satisfying constitutional obligations before exploring statistical possibility.** This is the same discipline already governing this codebase's invariant-reasoning work — reasoning constrained by structure outperforms reasoning constrained by search recall — applied one layer earlier: not just constraining *how the system reasons*, but constraining *how it acquires the knowledge it will reason over*.
+
+### §1.1 The architectural claim — a constitutional graph of domains, not just corpora
+
+This is the single most important structural claim in this amendment, so it's stated on its own rather than buried under an illustrative example: **the Discovery Engine doesn't just build corpora — it builds a constitutional graph of domains.** Each domain is internally complete via its own Constitutional Coverage Model (§2.2); the Constitutional Dependency Registry (§2.3) captures the edges *between* domains. When invariant compression eventually runs across multiple domain crystals, those edges are what let the system ask *"does this invariant propagate, or is it owned by one domain?"* — a question a flat, ungoverned lane list has no way to represent.
+
+This generalizes past financial services: every future domain — medicine, energy, aerospace, constitutional computing — gets a Domain Definition, an internal Constitutional Coverage Model, and an explicit graph of what constitutionally depends on or governs it from outside. The full pipeline, updated to reflect this:
+
+```
+Domain
+  ↓
+Domain Definition
+  ↓
+Constitutional Coverage Model
+  ↓
+Constitutional Dependency Registry
+  ↓
+Institution Registry
+  ↓
+Canonical Sources
+  ↓
+Evidence
+  ↓
+Invariant Discovery
+```
+
+Everything from "Evidence" onward is the already-built back half (retrieval → inspection → provenance → review → `add-evidence` → the existing Discovery Engine Stages 1–5). Everything above it is new, specified below.
 
 ## §2 Agent 0 — Domain Architect (new, precedes Agent A)
 
-**Question it answers:** *what does completeness mean for this domain?* Nothing downstream can define "gap" until this exists.
+**Question it answers:** *what does completeness mean for this domain?* But that question is itself downstream of a prior one — *what is this domain?* — which is why Agent 0 now produces **three** outputs, not two.
 
-**Amended 2026-07-23 (operator refinement): Agent 0 produces TWO outputs, not one** — a **Domain Coverage Model** (what's internal to the domain) and an **Adjacent Domain Registry** (what constitutionally governs, measures, or constrains the domain without being part of it). Collapsing these into one flat lane list — the original draft of this section — was the defect: it would have made the Financial Services corpus permanently incomplete-by-construction for its own internal pillars, while conflating genuinely external governing bodies (Contract Law, Accounting) with the domain itself.
+### §2.0 Law I of Constitutional Discovery
 
-**The distinguishing test:** is this lane *constituted by* the domain, or does it *govern/support* the domain from outside? Insurance has its own regulators (NAIC, PRA, EIOPA, state insurance commissioners), its own international standard-setter (IAIS), its own solvency frameworks and actuarial science — it **is** financial services, not adjacent to it. Contract Law and Accounting do not constitute financial services; they govern and measure it, and their invariants likely turn out to be shared across many domains, not owned by this one.
+Formalizing the distinguishing test from the first refinement pass, because it's this clean:
 
-### §2.1 Domain Coverage Model — internal pillars (financial services, illustrative)
+> **Law I of Constitutional Discovery** — Every lane, for every domain, either **constitutes** the domain or **constrains** it. There is no third case.
 
-| Lane | Completeness definition (illustrative) |
+This is the discriminator Agent 0 applies when deciding whether a candidate lane belongs in the Constitutional Coverage Model (§2.2) or the Constitutional Dependency Registry (§2.3). Insurance has its own regulators (NAIC, PRA, EIOPA, state insurance commissioners), its own international standard-setter (IAIS), its own solvency frameworks and actuarial science — it **constitutes** financial services. Contract Law and Accounting do not constitute financial services; they **constrain** it — Accounting *measures* it, Identity *identifies through* it — and their invariants likely turn out to be shared across many domains, not owned by this one.
+
+### §2.1 Domain Definition (new artifact)
+
+Before asking "what does completeness mean," the system has to answer "what is this domain?" — otherwise stewards can argue indefinitely about whether a candidate lane belongs. The Domain Definition is a short, ratified, plain-language statement that the Constitutional Coverage Model is then constrained by. Illustrative first instance:
+
+> **Domain:** Financial Services
+> **Purpose:** The systems governing the creation, movement, management, measurement, transfer, protection, and regulation of financial value.
+
+Everything in §2.2 has to trace back to this sentence; everything that doesn't trace back to it, but still bears on it, is a candidate for §2.3 under Law I.
+
+### §2.2 Constitutional Coverage Model (renamed from "Domain Coverage Model")
+
+**Naming note:** "Coverage Model" alone is ambiguous — it could mean search coverage, document coverage, or dataset coverage. "Constitutional Coverage Model" states plainly that this defines the *obligations that constitute a domain*, not a corpus-size target. Internal pillars, financial services (illustrative):
+
+| Pillar | Completeness definition (illustrative) |
 |---|---|
 | Banking | Core prudential/banking-regulation text per named jurisdiction in scope |
 | Payments | Governing payment-systems rules and settlement-finality frameworks |
@@ -57,11 +113,11 @@ This is the same discipline already governing this codebase's invariant work —
 | Insurance | Solvency frameworks, actuarial standards, IAIS recommendations |
 | Financial Infrastructure | Market-infrastructure and systemic-risk oversight frameworks |
 
-### §2.2 Adjacent Domain Registry — external constitutional dependencies (illustrative)
+### §2.3 Constitutional Dependency Registry (renamed from "Adjacent Domain Registry")
 
-Each entry names the relationship, not just the domain — the edge is the point:
+**Naming note:** "Adjacent" implies a spatial relationship — neighboring domains that happen to sit nearby. The actual relationship is constitutional, not spatial: Accounting *measures* financial services; Identity *identifies through* it. Those are dependencies, not neighbors — a distinction that matters most once other domains exist and need to name their own dependencies on, say, Identity or Law, which aren't "adjacent" to medicine or aerospace in any spatial sense either. Each entry names the relationship, not just the domain — the edge is the point:
 
-| Adjacent domain | Relationship to Financial Services |
+| Constitutional dependency | Relationship to Financial Services |
 |---|---|
 | Contract Law | governed by |
 | Corporate Law | governed by |
@@ -72,19 +128,15 @@ Each entry names the relationship, not just the domain — the edge is the point
 | Privacy & Data Protection | constrained by |
 | Consumer Protection | supervised by |
 
-**Scope discipline for this pass:** an Adjacent Domain Registry entry is lightweight — a name and a relationship label, recording the *edge*, not triggering full acquisition of that adjacent domain's own corpus. Each adjacent domain gets its own full Domain Coverage Model only when/if its own domain-crystal build begins — at which point it reuses this exact same apparatus (Agent 0 → A → B → C → Gap Detection), per PRD-ICA-001 §16's "reusable acquisition front end for every future domain crystal" principle. This pass does not acquire Contract Law or Accounting source material; it only records that the relationship exists.
+**Scope discipline for this pass:** a Constitutional Dependency Registry entry is lightweight — a name and a relationship label, recording the *edge*, not triggering full acquisition of that dependency's own corpus. Each dependency gets its own full Constitutional Coverage Model only when/if its own domain-crystal build begins — at which point it reuses this exact same apparatus (Agent 0 → A → B → C → Gap Detection), per PRD-ICA-001 §16's "reusable acquisition front end for every future domain crystal" principle. This pass does not acquire Contract Law or Accounting source material; it only records that the dependency exists.
 
-### §2.3 The bigger structural principle
-
-The Discovery Engine doesn't just build corpora — it builds a **constitutional graph of domains**. Each domain is internally complete via its own Coverage Model; the Adjacent Domain Registry captures the edges between domains. When invariant compression eventually runs across multiple domain crystals, those edges are what let the system ask "does this invariant propagate, or is it owned by one domain?" — a question a flat, ungoverned lane list has no way to represent. This generalizes past financial services: every future domain (medicine, energy, aerospace, constitutional computing) gets both an internal Coverage Model and an explicit graph of what governs it from outside.
-
-**Not auto-finalized.** Agent 0 *proposes* both outputs; a steward reviews and ratifies them before Source Planning proceeds — mirroring PRD-ICA-001's existing human-approval ethos (§9/§11) rather than introducing a new "auto-decide" path.
+**Not auto-finalized.** Agent 0 *proposes* all three outputs (Domain Definition, Constitutional Coverage Model, Constitutional Dependency Registry); a steward reviews and ratifies them before Source Planning proceeds — mirroring PRD-ICA-001's existing human-approval ethos (§9/§11) rather than introducing a new "auto-decide" path.
 
 ## §3 Agent A — Source Planner, reframed (not replaced)
 
-PRD-ICA-001 §5 already assigns this agent "target source types, likely primary institutions" — this amendment gives it a *required* input to work from (the ratified Coverage Model) instead of a floating brief, and a concrete output: an **Institutional Registry** — the per-lane authority list, keyed against §2.1's internal pillars (not a separate lane taxonomy). Illustrative first instance:
+PRD-ICA-001 §5 already assigns this agent "target source types, likely primary institutions" — this amendment gives it a *required* input to work from (the ratified Constitutional Coverage Model) instead of a floating brief, and a concrete output: an **Institutional Registry** — the per-pillar authority list, keyed against §2.2's internal pillars (not a separate lane taxonomy). Illustrative first instance:
 
-| Lane (from §2.1) | Authorities |
+| Pillar (from §2.2) | Authorities |
 |---|---|
 | Banking | BIS, national/regional banking supervisors (e.g. FCA, ECB) |
 | Payments | FATF, BIS Committee on Payments and Market Infrastructures |
@@ -93,9 +145,9 @@ PRD-ICA-001 §5 already assigns this agent "target source types, likely primary 
 | Financial Crime / AML | FATF, FinCEN, CFTC |
 | Insurance | IAIS, NAIC, PRA, EIOPA |
 | Financial Infrastructure | IMF, World Bank, BIS |
-| Cross-cutting standards | ISO, NIST, W3C (where a lane's frameworks reference open technical standards) |
+| Cross-cutting standards | ISO, NIST, W3C (where a pillar's frameworks reference open technical standards) |
 
-Like the Coverage Model, the Institutional Registry is steward-editable — the agent proposes, a human curates which institutions count as authoritative for a given lane. This is a judgment call the same way PRD-ICA-001 §11 already treats "MAY NOT... approve its own sources."
+Like the Constitutional Coverage Model, the Institutional Registry is steward-editable — the agent proposes, a human curates which institutions count as authoritative for a given pillar. This is a judgment call the same way PRD-ICA-001 §11 already treats "MAY NOT... approve its own sources."
 
 ## §4 Agent B — Discovery Agent, reframed
 
@@ -107,13 +159,27 @@ Recursive traversal from an institution's page → publication page → download
 
 ## §6 Gap Detection — new hard gate, extends an existing function
 
-Compares the Coverage Model's required lanes against what's actually **resolved and approved** per lane. Implemented as an additive extension to the already-built `assessLaneCoverage()` (`services/corpusScout/intelligence.ts`): add an optional `requiredLanes` parameter so the function can report not just "here's what exists" (today's behavior, unchanged for callers that don't pass it) but "here's what's still missing" against a ratified Coverage Model. Surfaces in `CorpusScoutTab.tsx`'s existing "Source-lane coverage" table — an added "required, not yet satisfied" row/callout, not a new UI.
+Compares the Constitutional Coverage Model's required pillars against what's actually **resolved and approved** per pillar. Implemented as an additive extension to the already-built `assessLaneCoverage()` (`services/corpusScout/intelligence.ts`): add an optional `requiredLanes` parameter so the function can report not just "here's what exists" (today's behavior, unchanged for callers that don't pass it) but "here's what's still missing" against a ratified Constitutional Coverage Model. Surfaces in `CorpusScoutTab.tsx`'s existing "Source-lane coverage" table — an added "required, not yet satisfied" row/callout, not a new UI.
 
-**Only once every lane clears this gate does Open Discovery become available.**
+This is an **algorithmic** check — it can only ever confirm "at least one approved source exists per pillar." It cannot judge whether the *institutional* corpus for a pillar is actually exhausted. That's a distinct, human question — §6.1.
 
-## §7 Open Discovery — demoted to a last-resort, per-lane gap-filler
+### §6.1 Steward saturation confirmation (new, second refinement pass) — the gate before the gate
 
-Once Gap Detection reports a lane saturated from the Institutional Registry alone, general search (a search API, or a human pasting a found URL — either is fine here, this is explicitly the low-stakes path) becomes available **for that lane specifically** — never as a global "search this domain" action. Every candidate acquired this way is tagged via PRD-ICA-001 §8's already-named `acquisitionMethod` field (e.g. `institutional-registry` vs. `open-discovery-gap-fill`), so the review workspace and any future audit can always see which acquisition path produced which evidence. Because this path is now explicitly scoped, clearly labeled, and only reachable after coverage saturation, a general-purpose search API is an acceptable choice for it — the earlier open question ("what search backend?") is resolved by this reframing: don't build search-based *primary* acquisition at all; build institution-first; add search only as a small, clearly-tagged, gated last resort, later.
+"Complete" (§6, algorithmic — every pillar has at least one approved source) and "saturated" (has the Institutional Registry for this pillar actually been exhausted?) are different questions — the first is countable, the second is scientific judgment. Inserting an explicit step between them:
+
+```
+Gap Detection reports "complete"  (algorithmic)
+        ↓
+Steward explicitly confirms: "the institutional corpus for this pillar is saturated"  (scientific judgment)
+        ↓
+Open Discovery unlocks for that pillar
+```
+
+Concretely: a per-pillar "Confirm saturation" action in the review workspace (a boolean + steward id + timestamp, recorded alongside the existing lane-coverage data — no new subsystem), separate from `reviewWorkflowStatus`. **Open Discovery never unlocks from Gap Detection alone; it requires this explicit steward action too.** Never inferred from a threshold or a count.
+
+## §7 Open Discovery — demoted to a last-resort, per-pillar gap-filler
+
+Once a pillar clears BOTH Gap Detection (§6) and steward saturation confirmation (§6.1), general search (a search API, or a human pasting a found URL — either is fine here, this is explicitly the low-stakes path) becomes available **for that pillar specifically** — never as a global "search this domain" action. Every candidate acquired this way is tagged via PRD-ICA-001 §8's already-named `acquisitionMethod` field (e.g. `institutional-registry` vs. `open-discovery-gap-fill`), so the review workspace and any future audit can always see which acquisition path produced which evidence. Because this path is now explicitly scoped, clearly labeled, and only reachable after a human has confirmed the institutional corpus is exhausted, a general-purpose search API is an acceptable choice for it — the earlier open question ("what search backend?") is resolved by this reframing: don't build search-based *primary* acquisition at all; build institution-first; add search only as a small, clearly-tagged, doubly-gated last resort, later.
 
 ## §8 Non-goals for this pass
 
@@ -121,13 +187,14 @@ Once Gap Detection reports a lane saturated from the Institutional Registry alon
 - No change to the already-built back half (retrieval/inspection/provenance/dedup/review/ingestion) — it's reused as-is by Agent C's output.
 - No decision yet on the exact browser-automation mechanism for Agent B/C (`services/aa-api/src/browser/*` reuse vs. something dedicated) — still flagged per PRD-ICA-001 §0.4, now with a narrower task to evaluate it against.
 - No general search-API selection yet — deferred to §7's gap-filler phase, which is explicitly last, not first.
+- No automatic saturation inference (§6.1) — always an explicit steward action, never a threshold or count triggering it silently.
 
 ## §9 Implementation phases (mirrors PRD-ICA-001 §14's own phasing style)
 
-1. **Coverage Model + Adjacent Domain Registry + Institutional Registry** — data model + steward review/ratify UI (reusing `CorpusScoutTab`'s existing review-panel pattern), no crawling yet. Financial services as the first ratified instance, per §2.1/§2.2/§3's tables above.
-2. **Gap Detection** — extend `assessLaneCoverage()` with the `requiredLanes` parameter; surface missing coverage in the existing lane-coverage table.
+1. **Domain Definition + Constitutional Coverage Model + Constitutional Dependency Registry + Institutional Registry** — data model + steward review/ratify UI (reusing `CorpusScoutTab`'s existing review-panel pattern), no crawling yet. Financial services as the first ratified instance, per §2.1/§2.2/§2.3/§3's tables above.
+2. **Gap Detection + steward saturation confirmation** — extend `assessLaneCoverage()` with the `requiredLanes` parameter; surface missing coverage in the existing lane-coverage table; add the per-pillar "Confirm saturation" steward action (§6.1).
 3. **Agent B/C automation** — institution-targeted discovery + recursive resolution (the actual crawler), evaluating `services/aa-api/src/browser/*` reuse first, per §0.4.
-4. **Open Discovery gap-filler** — gated behind Phase 2's saturation signal, per-lane scoped, tagged via `acquisitionMethod`.
+4. **Open Discovery gap-filler** — gated behind BOTH Phase 2 signals (algorithmic completeness AND steward saturation confirmation), per-pillar scoped, tagged via `acquisitionMethod`.
 
 Build proceeds phase by phase after ratification, same discipline as every other increment this session.
 
@@ -135,8 +202,9 @@ Build proceeds phase by phase after ratification, same discipline as every other
 
 ## Ratification record
 
-- [ ] Operator confirms Agent 0 (Domain Architect) producing BOTH the Domain Coverage Model (§2.1, internal pillars) and the Adjacent Domain Registry (§2.2, external constitutional dependencies), steward-ratified, not auto-finalized.
-- [ ] Operator confirms the is-a vs. governs/supports distinguishing test (§2), and that Adjacent Domain Registry entries stay lightweight (name + relationship label) rather than triggering full acquisition of the adjacent domain's own corpus.
-- [ ] Operator confirms the reframed Agent A (Institutional Registry keyed to §2.1's pillars, steward-editable) and Agent B (institution-targeted navigation as primary mode, not open search).
-- [ ] Operator confirms Gap Detection as a hard gate (extends `assessLaneCoverage()`) and that Open Discovery only unlocks after coverage saturation, per lane.
-- [ ] Operator confirms the illustrative financial-services tables (§2.1/§2.2/§3) as the first instance, and the §9 phasing.
+- [ ] Operator confirms Agent 0 (Domain Architect) producing THREE outputs — Domain Definition (§2.1), Constitutional Coverage Model (§2.2), Constitutional Dependency Registry (§2.3) — all steward-ratified, not auto-finalized.
+- [ ] Operator confirms Law I of Constitutional Discovery (§2.0) as the formal discriminator between the two, and the renamed terminology throughout (Constitutional Coverage Model, Constitutional Dependency Registry).
+- [ ] Operator confirms §1.1's architectural claim (constitutional graph of domains) as the central structural principle of this amendment.
+- [ ] Operator confirms the reframed Agent A (Institutional Registry keyed to §2.2's pillars, steward-editable) and Agent B (institution-targeted navigation as primary mode, not open search).
+- [ ] Operator confirms Gap Detection (§6, algorithmic) AND the separate steward saturation confirmation (§6.1, judgment) as the two-step gate before Open Discovery unlocks.
+- [ ] Operator confirms the illustrative financial-services tables (§2.1/§2.2/§2.3/§3) as the first instance, and the §9 phasing.
