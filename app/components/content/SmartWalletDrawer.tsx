@@ -30,6 +30,8 @@ import { PaymentRequestsPanel } from "../wallet/PaymentRequestsPanel";
 import { PersonaEditModal } from "../wallet/PersonaEditModal";
 import { PersonaQuickAddModal } from "../wallet/PersonaQuickAddModal";
 import { PersonaSetupWizard } from "../wallet/PersonaSetupWizard";
+import { MoneyPennyWalletArchitect } from "../wallet/MoneyPennyWalletArchitect";
+import { MoneyPennyWalletRuntime } from "../wallet/MoneyPennyWalletRuntime";
 import { TransactionModal } from "../wallet/TransactionModal";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import { UnlockModal } from "../wallet/UnlockModal";
@@ -103,6 +105,8 @@ import {
   Loader2,
   ShieldCheck,
   Download,
+  Compass,
+  Cpu,
 } from "lucide-react";
 const WorldIdButton = dynamic(
   () => import("@/components/passport/WorldIdButton").then((m) => ({ default: m.WorldIdButton })),
@@ -391,6 +395,11 @@ export default function SmartWalletDrawer({
   ]);
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
+  // Sub-mode within the "MoneyPenny" (avatar) tab — additive PRD-MPY-001
+  // wallet surface: Chat (existing avatar iframe, default/unchanged),
+  // Architect (proposal drafting), Runtime (read-only shadow-preview
+  // trace). See MoneyPennyWalletArchitect / MoneyPennyWalletRuntime.
+  const [moneyPennyMode, setMoneyPennyMode] = useState<'chat' | 'architect' | 'runtime'>('chat');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
@@ -656,17 +665,22 @@ export default function SmartWalletDrawer({
     generateDid();
   }, [agent?.fioHandle, activePersona?.fioHandle]);
 
-  // Request/release avatar based on copilot state and mode
+  // Request/release avatar based on copilot state and mode. The live
+  // MetaAvatar iframe is a fixed-position overlay anchored to
+  // avatarAnchorRef's bounding rect (see app/(shell)/layout.tsx) — it must
+  // only be requested while the "MoneyPenny" tab's Chat sub-mode is showing,
+  // otherwise it would render on top of the Architect/Runtime panels that
+  // share the same anchor section.
   useEffect(() => {
-    if (open && copilotOpen && copilotMode === 'avatar') {
+    if (open && copilotOpen && copilotMode === 'avatar' && moneyPennyMode === 'chat') {
       requestAvatar('copilot', 'aigent-moneypenny');
     } else {
       releaseAvatar('copilot');
     }
-    
+
     // Cleanup on unmount
     return () => releaseAvatar('copilot');
-  }, [open, copilotOpen, copilotMode, requestAvatar, releaseAvatar, agent?.id]);
+  }, [open, copilotOpen, copilotMode, moneyPennyMode, requestAvatar, releaseAvatar, agent?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3135,30 +3149,83 @@ export default function SmartWalletDrawer({
               )}
             </div>
             ) : (
-              // "MoneyPenny" avatar mode: this is an embedded MetaAvatar iframe
-              // (useMetaAvatar / requestAvatar('copilot', 'aigent-moneypenny')
-              // above), not a fetch() call from this component — it does not
-              // hit /api/moneypenny/chat or any other route in this file, so
-              // there is no divergent grounded/ungrounded path to reconcile
-              // HERE. Whatever chat backend the avatar host itself calls is
-              // outside this repo's API layer and out of scope for this pass;
-              // flagging it so a future session doesn't assume parity with
-              // the "Copilot" tab's grounding above.
+              // "MoneyPenny" avatar mode: PRD-MPY-001 exposes three modes —
+              // Advisor (Chat, the pre-existing embedded MetaAvatar iframe
+              // below — unchanged), Architect (proposal drafting), and
+              // Runtime (read-only constitutional-service shadow preview).
+              // The sub-nav below is additive; Chat stays the default and
+              // its content/behavior is untouched.
               <section
                 ref={avatarAnchorRef}
-                className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[290px] flex-1 min-h-0 flex flex-col items-center justify-center"
+                className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[290px] flex-1 min-h-0 flex flex-col overflow-hidden"
               >
-                <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
-                <p className="text-sm text-white/40 text-center mb-4">
-                  MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.
-                </p>
-                <button
-                  onClick={refreshAvatar}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Refresh Avatar
-                </button>
+                <div className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5 mb-3 flex-shrink-0 self-center">
+                  <button
+                    onClick={() => setMoneyPennyMode('chat')}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
+                      moneyPennyMode === 'chat' ? 'bg-cyan-500/20 text-cyan-400' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <User className="w-3 h-3" />
+                    Chat
+                  </button>
+                  <button
+                    onClick={() => setMoneyPennyMode('architect')}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
+                      moneyPennyMode === 'architect' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <Compass className="w-3 h-3" />
+                    Architect
+                  </button>
+                  <button
+                    onClick={() => setMoneyPennyMode('runtime')}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
+                      moneyPennyMode === 'runtime' ? 'bg-violet-500/20 text-violet-300' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <Cpu className="w-3 h-3" />
+                    Runtime
+                  </button>
+                </div>
+
+                {moneyPennyMode === 'chat' && (
+                  // This is an embedded MetaAvatar iframe (useMetaAvatar /
+                  // requestAvatar('copilot', 'aigent-moneypenny') above), not
+                  // a fetch() call from this component — it does not hit
+                  // /api/moneypenny/chat or any other route in this file, so
+                  // there is no divergent grounded/ungrounded path to
+                  // reconcile HERE. Whatever chat backend the avatar host
+                  // itself calls is outside this repo's API layer and out of
+                  // scope for this pass; flagging it so a future session
+                  // doesn't assume parity with the "Copilot" tab's grounding
+                  // above.
+                  <div className="flex-1 min-h-0 flex flex-col items-center justify-center">
+                    <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
+                    <p className="text-sm text-white/40 text-center mb-4">
+                      MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.
+                    </p>
+                    <button
+                      onClick={refreshAvatar}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Refresh Avatar
+                    </button>
+                  </div>
+                )}
+
+                {moneyPennyMode === 'architect' && (
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    <MoneyPennyWalletArchitect personaIdHint={effectivePersonaId} />
+                  </div>
+                )}
+
+                {moneyPennyMode === 'runtime' && (
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    <MoneyPennyWalletRuntime personaIdHint={effectivePersonaId} />
+                  </div>
+                )}
               </section>
             )}
           </div>
