@@ -29,6 +29,11 @@
  *      401 that slips past that check (clock skew, server-side session
  *      revocation). This closes the gap this file's header previously
  *      flagged as "NOT SOLVED" for token refresh/expiry.
+ *   6. Register the "Pull Across → metaMe" context-menu item (SPEC-MMC-001
+ *      §3 Movement I / §9; PRD-MMC-IMPL-003 Increment 4) and, on click,
+ *      build a `CapturedObject` payload, run the client-side consent
+ *      pre-check, and POST it to `/api/companion/capture` — reusing the
+ *      SAME auth/refresh machinery item 5 already built.
  */
 
 importScripts('constants.js', 'observerConsentExt.js');
@@ -289,6 +294,176 @@ async function connectToMetaMe() {
   const refreshResult = await refreshGrantsFromServer();
   return { ok: true, refreshed: refreshResult };
 }
+
+// ─── Capture — "Pull Across" (SPEC-MMC-001 §3 Movement I / §9; ────────────
+// PRD-MMC-IMPL-003 Increment 4). The context-menu trigger that recognizes
+// something on the Legacy Internet ("this matters") and hands it to the
+// runtime to constitutionalize (POST /api/companion/capture) — the
+// extension identifies and hands off, it never constitutionalizes anything
+// itself (PRD-MMC-IMPL-003 §0.8's governing invariant).
+//
+// Implementation note vs. the plan's original sketch: `chrome.contextMenus`
+// only exists in the background service worker, so `onClicked` calls
+// `performCapture` directly rather than round-tripping through a
+// `CAPTURE_REQUEST` runtime message to itself — simpler, same outcome, no
+// content-script involvement needed for the primary paths below.
+// ────────────────────────────────────────────────────────────────────────
+
+/** Runs INSIDE the target tab via chrome.scripting.executeScript (same
+ *  isolated-serialized-function pattern as extractSupabaseSessionFromPage) —
+ *  cannot close over any variable from this file. */
+function extractPageTextFromPage() {
+  return document.body ? document.body.innerText : '';
+}
+
+async function extractPageText(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({ target: { tabId }, func: extractPageTextFromPage });
+    return (results && results[0] && results[0].result) || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function isPdfUrl(url) {
+  return typeof url === 'string' && /\.pdf(\?|#|$)/i.test(url);
+}
+
+function siteDomainFromUrl(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Builds a `CapturedObject`-shaped payload (mirrors `types/companionCapture.ts`
+ * field-for-field — hand-synced, same known-risk duplication flagged in
+ * constants.js) from a context-menu click. Branches on what Chrome's
+ * `contextMenus` API actually gave us, cheapest/most-specific signal first:
+ * an explicit text selection, then an image, then a PDF URL (server derives
+ * `contentText` for these — PRD-MMC-IMPL-003 §0.5), else the whole page's
+ * visible text via `chrome.scripting.executeScript` (the SAME `activeTab`
+ * user-gesture grant the context-menu click itself just provided).
+ */
+async function buildCapture(info, tab) {
+  const sourceUrl = tab && tab.url ? tab.url : undefined;
+  const title = tab && tab.title ? tab.title : undefined;
+  const capturedAt = new Date().toISOString();
+
+  if (info.selectionText) {
+    return { sourceKind: 'selection', sourceUrl, title, contentText: info.selectionText.slice(0, CAPTURED_CONTENT_MAX_CHARS), capturedAt };
+  }
+  if (info.mediaType === 'image' && info.srcUrl) {
+    const label = info.altText || title || 'Captured image';
+    return { sourceKind: 'image', sourceUrl: info.srcUrl, title: label, contentText: label, capturedAt };
+  }
+  if (isPdfUrl(sourceUrl)) {
+    // No contentText -- the server extracts it from sourceUrl via
+    // services/content/pdfExtractionService.ts. The extension only
+    // identifies and hands off.
+    return { sourceKind: 'pdf', sourceUrl, title, capturedAt };
+  }
+  const pageText = tab && tab.id ? await extractPageText(tab.id) : '';
+  return { sourceKind: 'webpage', sourceUrl, title, contentText: pageText.slice(0, CAPTURED_CONTENT_MAX_CHARS), capturedAt };
+}
+
+/** Transient badge feedback on the extension icon — no new permission
+ *  needed (the `action` API is already available via manifest.json's
+ *  `action` key). Best-effort UX signal only; never gates anything. */
+function setCaptureBadge(text, color) {
+  try {
+    chrome.action.setBadgeText({ text });
+    chrome.action.setBadgeBackgroundColor({ color });
+    setTimeout(() => {
+      chrome.action.setBadgeText({ text: '' });
+    }, 2500);
+  } catch (err) {
+    /* badge is cosmetic only -- never block capture on this failing */
+  }
+}
+
+/**
+ * The full capture flow: build the payload, run the CLIENT-SIDE consent
+ * pre-check (`assertCaptureRespectsGrants`, mirrored in
+ * observerConsentExt.js — the server independently re-validates against its
+ * own stored grant state regardless, defense in depth, same discipline as
+ * `forwardObservationToServer`), then POST to
+ * `/api/companion/capture` using the SAME `ensureFreshToken`/Bearer-token
+ * mechanism the Observer calls already use.
+ */
+async function performCapture(info, tab) {
+  const capture = await buildCapture(info, tab);
+  const siteDomain = siteDomainFromUrl(capture.sourceUrl);
+
+  try {
+    assertCaptureRespectsGrants(capture, grantStateCache, siteDomain);
+  } catch (err) {
+    console.warn('[metaMe Companion] capture refused:', err && err.message ? err.message : err);
+    setCaptureBadge('✗', '#dc2626');
+    return { ok: false, reason: String(err && err.message ? err.message : err) };
+  }
+
+  const fresh = await ensureFreshToken();
+  if (!fresh.ok) {
+    console.warn('[metaMe Companion] capture failed -- no auth session:', fresh.reason);
+    setCaptureBadge('✗', '#dc2626');
+    return { ok: false, reason: fresh.reason };
+  }
+
+  const postCapture = (token) =>
+    fetchWithTimeout(COMPANION_CAPTURE_API_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(capture),
+      cache: 'no-store',
+    });
+
+  try {
+    let res = await postCapture(fresh.session.accessToken);
+
+    if (res.status === 401 && fresh.session.refreshToken) {
+      const forced = await ensureFreshToken({ force: true });
+      if (!forced.ok) {
+        setCaptureBadge('✗', '#dc2626');
+        return { ok: false, reason: forced.reason };
+      }
+      res = await postCapture(forced.session.accessToken);
+    }
+
+    if (!res.ok) {
+      console.warn('[metaMe Companion] capture rejected by server:', res.status);
+      setCaptureBadge('✗', '#dc2626');
+      return { ok: false, reason: `http-${res.status}` };
+    }
+
+    setCaptureBadge('✓', '#16a34a');
+    return { ok: true };
+  } catch (err) {
+    console.warn('[metaMe Companion] capture network error:', err);
+    setCaptureBadge('✗', '#dc2626');
+    return { ok: false, reason: String(err) };
+  }
+}
+
+const PULL_ACROSS_MENU_ID = 'metame-pull-across';
+
+// Registered on install/update only (not on every worker wake) -- avoids
+// "duplicate id" errors chrome.contextMenus.create throws if called more
+// than once for the same id within a worker's lifetime.
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: PULL_ACROSS_MENU_ID,
+    title: 'Pull Across → metaMe',
+    contexts: ['page', 'selection', 'image'],
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId !== PULL_ACROSS_MENU_ID) return;
+  void performCapture(info, tab);
+});
 
 // ─── Message relay — the content script's only path to grant state ────────
 

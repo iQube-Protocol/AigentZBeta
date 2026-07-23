@@ -259,3 +259,56 @@ describe('CaptureInboxPanel.tsx — personaFetch-only discipline', () => {
     expect(source).not.toMatch(/>\s*\{personaIdHint\}\s*</);
   });
 });
+
+// ─── 6. Extension — structural canary (Increment 4) ────────────────────────
+//
+// extension/companion-observer/*.js is plain JS run in a service-worker/
+// content-script context (chrome.*, importScripts()) that vitest cannot
+// execute -- same constraint PRD-MMC-IMPL-001 §7 already documented. These
+// are structural regression checks only; the actual behavioral verification
+// (a real Manifest V3 extension loaded into a live Chromium under xvfb,
+// exercising the consent gate + POST body shape + PDF/image branches) is
+// recorded in PRD-MMC-IMPL-003 §2 Increment 4, mirroring PRD-MMC-IMPL-001
+// §7.1's own "verified for real, not asserted" acceptance record.
+
+describe('extension/companion-observer — Capture structural canary', () => {
+  const manifest = readFileSync(join(process.cwd(), 'extension', 'companion-observer', 'manifest.json'), 'utf8');
+  const constants = readFileSync(join(process.cwd(), 'extension', 'companion-observer', 'constants.js'), 'utf8');
+  const consentExt = readFileSync(join(process.cwd(), 'extension', 'companion-observer', 'observerConsentExt.js'), 'utf8');
+  const background = readFileSync(join(process.cwd(), 'extension', 'companion-observer', 'background.js'), 'utf8');
+
+  it('manifest declares the contextMenus permission', () => {
+    expect(JSON.parse(manifest).permissions).toContain('contextMenus');
+  });
+
+  it('constants.js mirrors CAPTURE_SOURCE_KINDS/SOURCE_KIND_TO_CAPABILITY', () => {
+    expect(constants).toContain("const CAPTURE_SOURCE_KINDS = ['webpage', 'selection', 'pdf', 'image'];");
+    expect(constants).toContain('pdf: \'downloads\'');
+  });
+
+  it('observerConsentExt.js mirrors assertCaptureRespectsGrants', () => {
+    expect(consentExt).toContain('function assertCaptureRespectsGrants(capture, state, siteDomain)');
+  });
+
+  it('background.js registers the Pull Across context menu and wires onClicked to performCapture', () => {
+    expect(background).toContain("chrome.contextMenus.create({");
+    expect(background).toContain('id: PULL_ACROSS_MENU_ID');
+    expect(background).toContain('chrome.contextMenus.onClicked.addListener');
+    expect(background).toContain('void performCapture(info, tab)');
+  });
+
+  it('background.js PDF branch never extracts contentText client-side', () => {
+    // buildCapture's pdf branch must return before any contentText
+    // assignment -- the server derives it via pdfExtractionService.
+    const pdfBranch = background.slice(background.indexOf('if (isPdfUrl(sourceUrl))'), background.indexOf('const pageText ='));
+    expect(pdfBranch).not.toMatch(/contentText:/);
+  });
+
+  it('background.js runs the client-side consent pre-check before any POST', () => {
+    const fnBody = background.slice(background.indexOf('async function performCapture'));
+    const gateIdx = fnBody.indexOf('assertCaptureRespectsGrants(');
+    const postIdx = fnBody.indexOf('postCapture(fresh.session.accessToken)');
+    expect(gateIdx).toBeGreaterThan(-1);
+    expect(postIdx).toBeGreaterThan(gateIdx);
+  });
+});

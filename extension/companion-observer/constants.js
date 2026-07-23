@@ -61,3 +61,20 @@ const SCOPE_SUPPORT = {
 };
 
 const PAGE_DOCUMENT_EXCERPT_MAX_CHARS = 2000;
+
+// ─── Hand-synced mirror of types/companionCapture.ts (PRD-MMC-IMPL-003) ────
+// Same deliberate, hand-maintained duplication risk flagged above for the
+// Observer constants, applied here to Capture's source-kind/capability
+// mapping. Keep in sync with types/companionCapture.ts by hand.
+const CAPTURE_SOURCE_KINDS = ['webpage', 'selection', 'pdf', 'image'];
+
+const SOURCE_KIND_TO_CAPABILITY = {
+  webpage: 'page-document',
+  selection: 'selection',
+  pdf: 'downloads',
+  image: 'page-document',
+};
+
+const CAPTURED_CONTENT_MAX_CHARS = 20000;
+
+const COMPANION_CAPTURE_API_URL = `${COMPANION_APP_ORIGIN}/api/companion/capture`;
