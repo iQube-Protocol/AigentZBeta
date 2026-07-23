@@ -137,6 +137,10 @@ export function CorpusScoutTab() {
     () => assessLaneCoverage(candidates, ratifiedPillarKeys),
     [candidates, ratifiedPillarKeys],
   );
+  const laneCoverageByPillar = useMemo(
+    () => Object.fromEntries(laneCoverage.map((row) => [row.lane, { total: row.total, approved: row.approved }])),
+    [laneCoverage],
+  );
   const duplicateGroups: DuplicateGroup[] = useMemo(() => findDuplicateCandidates(candidates), [candidates]);
   const visible = useMemo(
     () => (statusFilter === 'all' ? candidates : candidates.filter((c) => c.reviewWorkflowStatus === statusFilter)),
@@ -255,7 +259,11 @@ export function CorpusScoutTab() {
           ahead of acquisition: Domain Definition, Constitutional Coverage Model,
           Constitutional Dependency Registry, Institutional Registry. Upstream of
           the submission form below, not a replacement for it. */}
-      <DomainConstitutionPanel domain={formDomain} onRatifiedPillarsChange={setRatifiedPillarKeys} />
+      <DomainConstitutionPanel
+        domain={formDomain}
+        onRatifiedPillarsChange={setRatifiedPillarKeys}
+        laneCoverageByPillar={laneCoverageByPillar}
+      />
 
       {/* Submit a candidate URL */}
       <div className="space-y-2 rounded-xl border border-violet-500/30 bg-violet-500/5 p-3">

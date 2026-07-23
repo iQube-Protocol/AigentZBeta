@@ -53,6 +53,9 @@ function toPillarRow(r: Record<string, unknown>): CoveragePillarRow {
     ratifiedAt: (r.ratified_at as string | null) ?? null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
+    saturationConfirmed: Boolean(r.saturation_confirmed),
+    saturationConfirmedBy: (r.saturation_confirmed_by as string | null) ?? null,
+    saturationConfirmedAt: (r.saturation_confirmed_at as string | null) ?? null,
   };
 }
 
@@ -179,6 +182,44 @@ export async function ratifyCoveragePillar(
     .select('*')
     .single();
   if (error || !data) return { ok: false, error: error?.message ?? `no pillar '${pillarKey}' found for '${domain}'` };
+  return { ok: true, pillar: toPillarRow(data as Record<string, unknown>) };
+}
+
+/** §6.1 — steward confirms the institutional corpus for a RATIFIED pillar is
+ *  saturated (the gate before the gate: distinct from, and required in
+ *  addition to, Gap Detection's algorithmic "≥1 approved source" check in
+ *  `intelligence.ts`). Refuses on an unratified/nonexistent pillar — you
+ *  cannot judge saturation of a pillar that isn't yet a constitutional
+ *  obligation. Never inferred from a threshold; always this explicit call. */
+export async function confirmPillarSaturation(
+  admin: SupabaseClient,
+  domain: string,
+  pillarKey: string,
+  stewardPersonaId: string,
+): Promise<Result<{ pillar: CoveragePillarRow }>> {
+  const { data: pillar } = await admin
+    .from('corpus_coverage_pillars')
+    .select('status')
+    .eq('domain', domain)
+    .eq('pillar_key', pillarKey)
+    .maybeSingle();
+  if (!pillar) return { ok: false, error: `no pillar '${pillarKey}' found for '${domain}'` };
+  if (pillar.status !== 'ratified') {
+    return { ok: false, error: `pillar '${pillarKey}' must be ratified before its saturation can be confirmed` };
+  }
+
+  const { data, error } = await admin
+    .from('corpus_coverage_pillars')
+    .update({
+      saturation_confirmed: true,
+      saturation_confirmed_by: stewardPersonaId,
+      saturation_confirmed_at: new Date().toISOString(),
+    })
+    .eq('domain', domain)
+    .eq('pillar_key', pillarKey)
+    .select('*')
+    .single();
+  if (error || !data) return { ok: false, error: error?.message ?? 'update failed' };
   return { ok: true, pillar: toPillarRow(data as Record<string, unknown>) };
 }
 

@@ -184,6 +184,12 @@ export interface CoveragePillarRow {
   ratifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** §6.1 — steward judgment that the Institutional Registry for this pillar
+   *  is exhausted. Distinct from (and required in addition to) Gap
+   *  Detection's algorithmic "≥1 approved source" check. Never inferred. */
+  saturationConfirmed: boolean;
+  saturationConfirmedBy: string | null;
+  saturationConfirmedAt: string | null;
 }
 
 /** §2.3 — Constitutional Dependency Registry: an external domain that

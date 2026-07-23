@@ -19,6 +19,13 @@
  * lets the parent wire the ratified pillar keys straight into
  * `assessLaneCoverage()`'s `requiredLanes` parameter (Gap Detection, §6).
  *
+ * Phase 2 addition: each ratified pillar also surfaces the §6.1 steward
+ * saturation-confirmation gate — a distinct judgment ("is the institutional
+ * corpus for this pillar exhausted?") from Gap Detection's algorithmic "≥1
+ * approved source" check. `laneCoverageByPillar` (optional) threads the
+ * parent's already-computed lane coverage down so the gate shows real
+ * context, never a second fetch.
+ *
  * Spine discipline: every call goes through `personaFetch` (CLAUDE.md
  * PARAMOUNT) — never raw fetch. House style: translucent slate
  * (`bg-slate-900/40`, `border-slate-800`).
@@ -29,7 +36,16 @@ import { ShieldCheck, Loader2, Plus, ChevronDown, ChevronRight } from "lucide-re
 import { personaFetch } from "@/utils/personaSpine";
 
 interface DefinitionRow { domain: string; purpose: string; status: "proposed" | "ratified" }
-interface PillarRow { domain: string; pillarKey: string; pillarLabel: string; completenessDefinition: string; status: "proposed" | "ratified" }
+interface PillarRow {
+  domain: string;
+  pillarKey: string;
+  pillarLabel: string;
+  completenessDefinition: string;
+  status: "proposed" | "ratified";
+  saturationConfirmed: boolean;
+  saturationConfirmedBy: string | null;
+  saturationConfirmedAt: string | null;
+}
 interface DependencyRow { domain: string; dependencyName: string; relationship: string; status: "proposed" | "ratified" }
 interface InstitutionRow { domain: string; pillarKey: string; institutionName: string; status: "proposed" | "ratified" }
 
@@ -44,6 +60,11 @@ interface Constitution {
 export interface DomainConstitutionPanelProps {
   domain: string;
   onRatifiedPillarsChange?: (pillarKeys: string[]) => void;
+  /** Gap Detection context (§6) keyed by pillarKey — already computed by the
+   *  parent's `assessLaneCoverage()` call, passed down so the §6.1 saturation
+   *  action can show "N approved sources" without a second fetch. Optional —
+   *  the confirm action itself never depends on this being present. */
+  laneCoverageByPillar?: Record<string, { total: number; approved: number }>;
 }
 
 function StatusChip({ status }: { status: "proposed" | "ratified" }) {
@@ -60,7 +81,7 @@ function StatusChip({ status }: { status: "proposed" | "ratified" }) {
   );
 }
 
-export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange }: DomainConstitutionPanelProps) {
+export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneCoverageByPillar }: DomainConstitutionPanelProps) {
   const [open, setOpen] = useState(true);
   const [constitution, setConstitution] = useState<Constitution | null>(null);
   const [loading, setLoading] = useState(true);
@@ -189,22 +210,51 @@ export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange }: Dom
           {/* Constitutional Coverage Model (§2.2) */}
           <div className="space-y-1.5 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
             <span className="text-xs font-semibold text-slate-300">Constitutional Coverage Model — internal pillars</span>
-            {(constitution?.pillars ?? []).map((p) => (
-              <div key={p.pillarKey} className="flex flex-wrap items-center gap-2 rounded bg-white/5 px-2 py-1 text-[11px]">
-                <span className="font-medium text-slate-200">{p.pillarLabel}</span>
-                <span className="text-slate-500">{p.completenessDefinition}</span>
-                <StatusChip status={p.status} />
-                {p.status !== "ratified" && (
-                  <button
-                    onClick={() => void act("ratify-pillar", { pillarKey: p.pillarKey })}
-                    disabled={busy !== null}
-                    className="ml-auto rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40"
-                  >
-                    Ratify
-                  </button>
-                )}
-              </div>
-            ))}
+            {(constitution?.pillars ?? []).map((p) => {
+              const coverage = laneCoverageByPillar?.[p.pillarKey];
+              return (
+                <div key={p.pillarKey} className="space-y-1 rounded bg-white/5 px-2 py-1.5 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-slate-200">{p.pillarLabel}</span>
+                    <span className="text-slate-500">{p.completenessDefinition}</span>
+                    <StatusChip status={p.status} />
+                    {p.status !== "ratified" && (
+                      <button
+                        onClick={() => void act("ratify-pillar", { pillarKey: p.pillarKey })}
+                        disabled={busy !== null}
+                        className="ml-auto rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40"
+                      >
+                        Ratify
+                      </button>
+                    )}
+                  </div>
+                  {p.status === "ratified" && (
+                    <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-1">
+                      <span className="text-[10px] text-slate-500">
+                        §6 Gap Detection:{' '}
+                        {coverage
+                          ? `${coverage.approved} approved / ${coverage.total} submitted`
+                          : 'no coverage data yet'}
+                      </span>
+                      {p.saturationConfirmed ? (
+                        <span className="rounded border border-indigo-500/40 bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-300">
+                          §6.1 saturation confirmed
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => void act("confirm-saturation", { pillarKey: p.pillarKey })}
+                          disabled={busy !== null}
+                          className="ml-auto rounded border border-indigo-500/40 bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-40"
+                          title="§6.1 — steward judgment that the Institutional Registry for this pillar is exhausted. Distinct from Gap Detection."
+                        >
+                          Confirm saturation
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3">
               <input value={pillarKeyDraft} onChange={(e) => setPillarKeyDraft(e.target.value)} placeholder="pillar key (e.g. banking)" className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500" />
               <input value={pillarLabelDraft} onChange={(e) => setPillarLabelDraft(e.target.value)} placeholder="label (e.g. Banking)" className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500" />
