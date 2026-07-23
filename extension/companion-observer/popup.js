@@ -11,6 +11,21 @@
 
 const statusEl = document.getElementById('status');
 
+// Reflect a persisted session on open — chrome.storage.local survives
+// extension reloads/updates (only clearing it or disconnecting removes it),
+// but this popup previously always rendered "Not connected." until the
+// operator clicked Connect again, regardless of whether a still-valid
+// session was already sitting in storage. Checked on every popup open.
+chrome.runtime.sendMessage({ type: 'GET_CONNECTION_STATUS' }, (response) => {
+  if (response && response.connected) {
+    statusEl.textContent = 'Connected.';
+  } else if (response && response.reason === 'no-auth-session') {
+    statusEl.textContent = 'Not connected.';
+  } else if (response) {
+    statusEl.textContent = `Not connected: ${response.reason}`;
+  }
+});
+
 document.getElementById('connectBtn').addEventListener('click', async () => {
   statusEl.textContent = 'Connecting…';
   chrome.runtime.sendMessage({ type: 'CONNECT_METAME' }, (response) => {
