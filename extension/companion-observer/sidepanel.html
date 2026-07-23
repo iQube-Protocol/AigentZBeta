@@ -5,23 +5,23 @@
     <title>metaMe Companion</title>
     <style>
       /*
-       * (2026-07-23 revision) NOT hosted via chrome.sidePanel anymore — that
-       * API docks into the browser window and pushes/reflows the current
-       * page's viewport to make room, which reads as "resizing my page,"
-       * not "an overlay on top of it." This same document is now opened as
-       * a separate floating popup window instead (see popup.js's
-       * `openOrFocusCompanionWindow`), positioned at the screen edge so it
-       * sits beside the operator's page without touching its layout.
+       * (2026-07-23) Hosted via chrome.sidePanel (manifest.json's
+       * side_panel.default_path), opened from popup.js's manageBtn handler
+       * via chrome.sidePanel.open({ windowId }). A floating popup-window
+       * variant was tried in between and reverted the same day — it read as
+       * "a popup" rather than an integrated panel. Accepted trade-off,
+       * unchanged from the original discussion: the side panel docks into
+       * the browser window and reflows/pushes the host page's viewport to
+       * make room for it — that's inherent to chrome.sidePanel, not a bug.
        *
-       * This page's only job is still to iframe the real Companion page
-       * (dev-beta.aigentz.me/triad/embed/companion, already narrowed to
-       * match this window's width — see
-       * app/(embed)/triad/embed/companion/page.tsx) — a plain popup window
-       * can't point `url:` at an external https:// origin directly in a way
-       * that keeps the CSP frame-ancestors allowlist narrow, so this local
+       * This page's only job is to iframe the real Companion page
+       * (dev-beta.aigentz.me/triad/embed/companion — see
+       * app/(embed)/triad/embed/companion/page.tsx). chrome.sidePanel can't
+       * point `url:` at an external https:// origin directly in a way that
+       * keeps the CSP frame-ancestors allowlist narrow, so this local
        * extension document (chrome-extension://<pinned-id>/sidepanel.html,
        * already the one origin allowlisted in
-       * configs/embed/policy.v1.json) is the iframe host either way.
+       * configs/embed/policy.v1.json) is the iframe host.
        */
       html, body {
         margin: 0;
