@@ -17,6 +17,7 @@
  *   ratify-definition    {}
  *   propose-pillar       { pillarKey, pillarLabel, completenessDefinition }
  *   ratify-pillar        { pillarKey }
+ *   confirm-saturation   { pillarKey }  -- §6.1, requires an already-ratified pillar
  *   propose-dependency   { dependencyName, relationship }
  *   ratify-dependency    { dependencyName }
  *   propose-institution  { pillarKey, institutionName }
@@ -35,6 +36,7 @@ import {
   ratifyDomainDefinition,
   upsertCoveragePillar,
   ratifyCoveragePillar,
+  confirmPillarSaturation,
   upsertDependencyEntry,
   ratifyDependencyEntry,
   upsertInstitutionEntry,
@@ -46,7 +48,7 @@ export const maxDuration = 30;
 
 const ACTIONS = [
   'propose-definition', 'ratify-definition',
-  'propose-pillar', 'ratify-pillar',
+  'propose-pillar', 'ratify-pillar', 'confirm-saturation',
   'propose-dependency', 'ratify-dependency',
   'propose-institution', 'ratify-institution',
 ] as const;
@@ -120,6 +122,11 @@ export async function POST(req: NextRequest) {
     case 'ratify-pillar': {
       if (!body.pillarKey?.trim()) return NextResponse.json({ ok: false, error: 'pillarKey is required' }, { status: 400 });
       const r = await ratifyCoveragePillar(admin, domain, body.pillarKey, persona.personaId);
+      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
+    case 'confirm-saturation': {
+      if (!body.pillarKey?.trim()) return NextResponse.json({ ok: false, error: 'pillarKey is required' }, { status: 400 });
+      const r = await confirmPillarSaturation(admin, domain, body.pillarKey, persona.personaId);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     case 'propose-dependency': {
