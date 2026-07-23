@@ -245,10 +245,10 @@ Docs-first; each phase is chartered separately after ratification. Net-new is na
 - [ ] Operator confirms the **runtime-first architecture** — one Companion runtime (an instance of the AgentiQ Runtime, CFS-022), many thin presentation surfaces (extension / sidebar / overlay / PWA / desktop / VS Code / MCP-in-agentic-hosts / widget) (§2, §0.5, §0.6).
 - [ ] Operator confirms the **exists/extends/new tagging** of all 15 components (§3) — most are surface projections of shipped primitives; the honest new list is short.
 - [ ] Operator confirms **SessionQube stays single** — the Companion adds browser-context fields to PAG-001's SessionQube; it does NOT define a second one (§0.1, component 13).
-- [ ] Operator ratifies the **Observer guardrails** (§4) — progressive per-capability consent, revocation, T0-never-leaves, no off-device browsing data without a grant, "observed never asserted", minimum-disclosure to observed sites — **before Phase 2 begins**.
-- [ ] Operator confirms **Principal–Delegate Separation** carries to every Companion surface — no agent-authenticate path ever (§4.3).
-- [ ] Operator confirms **no protected spine / DVN file is modified** and any future implementation is gated on `scripts/verify-spine.mjs` + spine canaries (§4.4).
-- [ ] Operator confirms the **phased rollout** defers all browser observation to Phase 2, gated on §4 ratification (§6).
+- [x] Operator ratifies the **Observer guardrails** (§4) — progressive per-capability consent (§4.1's capability-grant table), revocation, "observed never asserted" (§4.2), T0-never-leaves-the-wallet and no off-device browsing data without an explicit per-capability grant (§4.2), Principal–Delegate Separation on every Companion surface (§4.3), and the spine-as-sole-resolver / protected-files-untouched constraint (§4.4) — **RATIFIED 2026-07-22 (operator, explicit review of §4 in full)**. This is the gate §6's phased rollout names as the precondition for Phase 2 (real browser observation) — that gate is now clear.
+- [x] Operator confirms **Principal–Delegate Separation** carries to every Companion surface — no agent-authenticate path ever (§4.3). — covered by the §4 ratification above (explicit subsection of §4).
+- [x] Operator confirms **no protected spine / DVN file is modified** and any future implementation is gated on `scripts/verify-spine.mjs` + spine canaries (§4.4). — covered by the §4 ratification above (explicit subsection of §4).
+- [x] Operator confirms the **phased rollout** defers all browser observation to Phase 2, gated on §4 ratification (§6). — the named gate condition (§4 ratified) is now met.
 - [ ] On ratification, a separate **authorized implementation pass** is chartered (not this PRD) — spine-touching and Observer work under operator approval only.
 
 ---
