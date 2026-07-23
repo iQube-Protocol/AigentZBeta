@@ -22,7 +22,7 @@
  * persona — a spine endpoint).
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { personaFetch } from "@/utils/personaSpine";
 
 interface StepTrace {
@@ -62,11 +62,96 @@ const DOMAIN_LABEL: Record<Domain, string> = {
   market: "Market Operations",
 };
 
+// P4-2: MoneyPenny's own capability/agent refs, matching the route's
+// defaults (app/api/moneypenny/runtime/route.ts) -- so the agreement formed
+// here is the one the runtime route's step-3 gate actually looks up.
+const MONEYPENNY_CAPABILITY_REF = "cap-moneypenny-financial-services";
+const MONEYPENNY_AGENT_REF = "agent-moneypenny";
+const MONEYPENNY_AGREEMENT_ID = `agr-${MONEYPENNY_CAPABILITY_REF}-${MONEYPENNY_AGENT_REF}`;
+
+interface AgreementRow {
+  agreementId: string;
+  displayLabel: string;
+  status: string;
+  capabilityRef: string | null;
+  selectedAgentRef: string | null;
+}
+
 export function RuntimePanel() {
   const [intent, setIntent] = useState("Which settlement rail best fits a recurring micro-transaction stream?");
   const [result, setResult] = useState<RuntimeResult | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // P4-2: agreement lifecycle over the EXISTING generic
+  // /api/constitutional/agreement route -- no new agreement machinery. A
+  // human clicks Form/Accept/Authorize here; MoneyPenny's own server code
+  // never calls authorizeAgreement on her own behalf (enforced by
+  // tests/moneypenny-runtime-authority-boundary.test.ts).
+  const [agreements, setAgreements] = useState<AgreementRow[]>([]);
+  const [agrBusy, setAgrBusy] = useState(false);
+  const [agrNote, setAgrNote] = useState<string | null>(null);
+
+  const loadAgreements = useCallback(async () => {
+    try {
+      const res = await personaFetch("/api/constitutional/agreement", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.agreements)) setAgreements(data.agreements as AgreementRow[]);
+    } catch {
+      /* best-effort */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAgreements();
+  }, [loadAgreements]);
+
+  const doAgreement = useCallback(
+    async (action: "form" | "accept" | "authorize") => {
+      setAgrBusy(true);
+      setAgrNote(null);
+      try {
+        const body: Record<string, unknown> =
+          action === "form"
+            ? {
+                action,
+                agreementId: MONEYPENNY_AGREEMENT_ID,
+                displayLabel: `MoneyPenny Runtime — ${MONEYPENNY_CAPABILITY_REF}`,
+                capabilityRef: MONEYPENNY_CAPABILITY_REF,
+                selectedAgentRef: MONEYPENNY_AGENT_REF,
+                delegatedAuthority: {
+                  band: "L2",
+                  allowedActions: ["knowledge_retrieval", "analysis"],
+                  // Domain 3 only in this increment -- fund transfer stays
+                  // forbidden until Runtime's later increments unlock it.
+                  forbiddenActions: ["transfer"],
+                  allowedSurfaces: ["financial-services"],
+                  ttlHours: 8,
+                  maxActions: 5,
+                  valueCeiling: null,
+                },
+                settlementTerms: null,
+                verificationRequirements: ["F-201 Source Diversity", "F-202 Evidence Attribution", "F-203 Confidence Calibration"],
+                governingInvariants: ["PRD-MPY-001", "CRP-003a"],
+              }
+            : { action, agreementId: MONEYPENNY_AGREEMENT_ID };
+        const res = await personaFetch("/api/constitutional/agreement", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        setAgrNote(res.ok ? `${action} ok — status now '${data?.agreement?.status ?? "?"}'` : `${action} failed: ${data?.error ?? res.status}`);
+        await loadAgreements();
+      } catch (e) {
+        setAgrNote(e instanceof Error ? e.message : `${action} error`);
+      } finally {
+        setAgrBusy(false);
+      }
+    },
+    [loadAgreements],
+  );
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -162,6 +247,30 @@ export function RuntimePanel() {
           </ol>
         </div>
       )}
+
+      <div className={`${PANEL} space-y-3 p-4`}>
+        <div className="text-sm font-medium text-white/90">Constitutional Agreement</div>
+        <p className="text-xs text-white/60">
+          MoneyPenny may form and accept her own side of an agreement — only a human clicking Authorize below binds
+          it. The delegated call above stays a shadow-block until an agreement here is authorized.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => void doAgreement("form")} disabled={agrBusy} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10 disabled:opacity-50">Form</button>
+          <button onClick={() => void doAgreement("accept")} disabled={agrBusy} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10 disabled:opacity-50">Accept</button>
+          <button onClick={() => void doAgreement("authorize")} disabled={agrBusy} className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50">Authorize</button>
+        </div>
+        {agrNote && <div className="text-xs text-white/70">{agrNote}</div>}
+        {agreements.length > 0 && (
+          <ul className="mt-2 space-y-1 border-t border-white/10 pt-2">
+            {agreements.map((a) => (
+              <li key={a.agreementId} className="flex items-center justify-between text-xs">
+                <span className="text-white/70">{a.displayLabel}</span>
+                <span className="text-white/40">{a.capabilityRef} · {a.status}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
