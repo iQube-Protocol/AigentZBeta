@@ -26,6 +26,13 @@
  * parent's already-computed lane coverage down so the gate shows real
  * context, never a second fetch.
  *
+ * Phase 3 addition: each ratified institution with a `seedUrl` gets a "Run
+ * discovery" action — triggers Agent B/C (`institutionNavigator.ts` via
+ * `/api/corpus-scout/institution-discovery`) to navigate from that seed URL
+ * to candidate documents and submit them through the SAME back half every
+ * manually-submitted URL goes through. `onDiscoveryComplete` lets the parent
+ * refresh its candidate list without this panel owning that fetch.
+ *
  * Spine discipline: every call goes through `personaFetch` (CLAUDE.md
  * PARAMOUNT) — never raw fetch. House style: translucent slate
  * (`bg-slate-900/40`, `border-slate-800`).
@@ -47,7 +54,7 @@ interface PillarRow {
   saturationConfirmedAt: string | null;
 }
 interface DependencyRow { domain: string; dependencyName: string; relationship: string; status: "proposed" | "ratified" }
-interface InstitutionRow { domain: string; pillarKey: string; institutionName: string; status: "proposed" | "ratified" }
+interface InstitutionRow { domain: string; pillarKey: string; institutionName: string; status: "proposed" | "ratified"; seedUrl: string | null }
 
 interface Constitution {
   domain: string;
@@ -65,6 +72,10 @@ export interface DomainConstitutionPanelProps {
    *  action can show "N approved sources" without a second fetch. Optional —
    *  the confirm action itself never depends on this being present. */
   laneCoverageByPillar?: Record<string, { total: number; approved: number }>;
+  /** Called after an Agent B/C discovery run submits candidates, so the
+   *  parent's candidate list (and therefore lane coverage) refreshes without
+   *  this panel needing to own or duplicate that fetch. */
+  onDiscoveryComplete?: () => void;
 }
 
 function StatusChip({ status }: { status: "proposed" | "ratified" }) {
@@ -81,12 +92,14 @@ function StatusChip({ status }: { status: "proposed" | "ratified" }) {
   );
 }
 
-export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneCoverageByPillar }: DomainConstitutionPanelProps) {
+export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneCoverageByPillar, onDiscoveryComplete }: DomainConstitutionPanelProps) {
   const [open, setOpen] = useState(true);
   const [constitution, setConstitution] = useState<Constitution | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [discoveryBusy, setDiscoveryBusy] = useState<string | null>(null);
+  const [discoveryResults, setDiscoveryResults] = useState<Record<string, string>>({});
 
   const [purposeDraft, setPurposeDraft] = useState("");
   const [pillarKeyDraft, setPillarKeyDraft] = useState("");
@@ -96,6 +109,7 @@ export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneC
   const [depRelDraft, setDepRelDraft] = useState("");
   const [instPillarDraft, setInstPillarDraft] = useState("");
   const [instNameDraft, setInstNameDraft] = useState("");
+  const [instSeedUrlDraft, setInstSeedUrlDraft] = useState("");
 
   const load = useCallback(async () => {
     if (!domain.trim()) return;
@@ -146,6 +160,36 @@ export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneC
       }
     },
     [domain, load],
+  );
+
+  const runDiscovery = useCallback(
+    async (pillarKey: string, institutionName: string) => {
+      const key = `${pillarKey}:${institutionName}`;
+      setDiscoveryBusy(key);
+      setDiscoveryResults((prev) => ({ ...prev, [key]: "Running §4/§5 Agent B/C…" }));
+      try {
+        const res = await personaFetch("/api/corpus-scout/institution-discovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain, pillarKey, institutionName }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.ok) {
+          setDiscoveryResults((prev) => ({ ...prev, [key]: data?.error || `Discovery failed (HTTP ${res.status})` }));
+          return;
+        }
+        setDiscoveryResults((prev) => ({
+          ...prev,
+          [key]: `${data.submitted} candidate(s) submitted from ${data.pagesFetched} page(s) fetched (acquisitionMethod: institutional-registry).`,
+        }));
+        onDiscoveryComplete?.();
+      } catch (e) {
+        setDiscoveryResults((prev) => ({ ...prev, [key]: e instanceof Error ? e.message : "Discovery failed" }));
+      } finally {
+        setDiscoveryBusy(null);
+      }
+    },
+    [domain, onDiscoveryComplete],
   );
 
   const ratifiedPillarOptions = useMemo(
@@ -315,24 +359,50 @@ export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneC
             ) : (
               <>
                 {(constitution?.institutions ?? []).map((i) => (
-                  <div key={`${i.pillarKey}-${i.institutionName}`} className="flex flex-wrap items-center gap-2 rounded bg-white/5 px-2 py-1 text-[11px]">
-                    <span className="rounded border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-300">
-                      {ratifiedPillarOptions.find((p) => p.key === i.pillarKey)?.label ?? i.pillarKey}
-                    </span>
-                    <span className="font-medium text-slate-200">{i.institutionName}</span>
-                    <StatusChip status={i.status} />
-                    {i.status !== "ratified" && (
-                      <button
-                        onClick={() => void act("ratify-institution", { pillarKey: i.pillarKey, institutionName: i.institutionName })}
-                        disabled={busy !== null}
-                        className="ml-auto rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40"
-                      >
-                        Ratify
-                      </button>
+                  <div key={`${i.pillarKey}-${i.institutionName}`} className="space-y-1 rounded bg-white/5 px-2 py-1.5 text-[11px]">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-300">
+                        {ratifiedPillarOptions.find((p) => p.key === i.pillarKey)?.label ?? i.pillarKey}
+                      </span>
+                      <span className="font-medium text-slate-200">{i.institutionName}</span>
+                      <StatusChip status={i.status} />
+                      {i.status !== "ratified" && (
+                        <button
+                          onClick={() => void act("ratify-institution", { pillarKey: i.pillarKey, institutionName: i.institutionName })}
+                          disabled={busy !== null}
+                          className="ml-auto rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40"
+                        >
+                          Ratify
+                        </button>
+                      )}
+                    </div>
+                    {i.seedUrl ? (
+                      <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-1">
+                        <a href={i.seedUrl} target="_blank" rel="noreferrer" className="truncate text-[10px] text-sky-300 underline">
+                          {i.seedUrl}
+                        </a>
+                        {i.status === "ratified" && (
+                          <button
+                            onClick={() => void runDiscovery(i.pillarKey, i.institutionName)}
+                            disabled={discoveryBusy !== null}
+                            className="ml-auto rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/20 disabled:opacity-40"
+                            title="§4/§5 Agent B/C — institution-targeted discovery from this seed URL"
+                          >
+                            {discoveryBusy === `${i.pillarKey}:${i.institutionName}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "Run discovery"}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] italic text-slate-500">No seed URL — not yet eligible for Agent B/C discovery.</p>
+                    )}
+                    {discoveryResults[`${i.pillarKey}:${i.institutionName}`] && (
+                      <p className="border-t border-white/5 pt-1 text-[10px] text-slate-400">
+                        {discoveryResults[`${i.pillarKey}:${i.institutionName}`]}
+                      </p>
                     )}
                   </div>
                 ))}
-                <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3">
                   <select
                     value={instPillarDraft}
                     onChange={(e) => setInstPillarDraft(e.target.value)}
@@ -344,11 +414,12 @@ export function DomainConstitutionPanel({ domain, onRatifiedPillarsChange, laneC
                     ))}
                   </select>
                   <input value={instNameDraft} onChange={(e) => setInstNameDraft(e.target.value)} placeholder="institution (e.g. FATF)" className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500" />
+                  <input value={instSeedUrlDraft} onChange={(e) => setInstSeedUrlDraft(e.target.value)} placeholder="seed URL (optional, e.g. publications page)" className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500" />
                 </div>
                 <button
                   onClick={() => {
-                    void act("propose-institution", { pillarKey: instPillarDraft, institutionName: instNameDraft });
-                    setInstNameDraft("");
+                    void act("propose-institution", { pillarKey: instPillarDraft, institutionName: instNameDraft, seedUrl: instSeedUrlDraft });
+                    setInstNameDraft(""); setInstSeedUrlDraft("");
                   }}
                   disabled={busy !== null || !instPillarDraft || !instNameDraft.trim()}
                   className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-300 hover:text-white disabled:opacity-40"

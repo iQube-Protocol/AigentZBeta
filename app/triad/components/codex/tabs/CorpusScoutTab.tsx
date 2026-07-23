@@ -12,6 +12,10 @@
  *     never a decision), and the reviewer actions (§9).
  *   - Lane coverage (§12) so one source lane cannot silently dominate.
  *   - Exact-duplicate groups (byte-identical mirrors/re-submissions only).
+ *   - Constitutional substrate + Agent B/C institution-targeted discovery
+ *     (Constitutional Discovery amendment, mounted via `DomainConstitutionPanel`
+ *     above) — "Run discovery" on a ratified institution submits resolved
+ *     candidates through this SAME review workspace, never a side channel.
  *
  * Spine discipline: every call goes through `personaFetch` (CLAUDE.md
  * PARAMOUNT) — never raw fetch, never authedFetchHeaders.
@@ -263,6 +267,7 @@ export function CorpusScoutTab() {
         domain={formDomain}
         onRatifiedPillarsChange={setRatifiedPillarKeys}
         laneCoverageByPillar={laneCoverageByPillar}
+        onDiscoveryComplete={() => void load()}
       />
 
       {/* Submit a candidate URL */}

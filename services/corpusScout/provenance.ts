@@ -5,6 +5,12 @@
  *
  * A candidate that fails byte/content verification is still recorded here,
  * flagged `needs_retrieval_fix` — never silently dropped (PRD-ICA-001 §2, §12).
+ *
+ * `createCandidateSource` is the SAME back half both entry points use:
+ * a manual URL submission (`acquisitionMethod` defaults to `'direct-url'`)
+ * and Agent B/C's institution-targeted discovery (`institutionNavigator.ts`
+ * passes `'institutional-registry'` + a `discoveryUrl`) — no second ingestion
+ * mechanism, per the Constitutional Discovery amendment §5's explicit intent.
  * Structural-value classification, relevance scoring, and full duplicate/
  * version resolution (Phase 3, §14) are explicitly out of scope for this
  * build — only a lightweight duplicate-URL check runs here (surfaced, not
@@ -23,6 +29,18 @@ export interface CreateCandidateSourceInput {
   campaignDomain: string;
   campaignSubDomain?: string | null;
   title?: string;
+  /** §7's already-named tagging field. Defaults to `'direct-url'` (Level 4,
+   *  manual submission) — the institution navigator (`institutionNavigator.ts`,
+   *  Agent B/C) passes `'institutional-registry'` so the review workspace and
+   *  any future audit can always see which acquisition path produced which
+   *  evidence. Never `'open-discovery-gap-fill'` from this code path — that
+   *  tag belongs to §7 Open Discovery, not yet built. */
+  acquisitionMethod?: string;
+  /** Where discovery started (an institution's seed/listing URL) when this
+   *  candidate wasn't a direct manual submission. Recorded on
+   *  `resolutionChain.discoveryUrl`; defaults to `url` when omitted, matching
+   *  the existing Level-4-direct-URL behavior exactly. */
+  discoveryUrl?: string;
 }
 
 export interface CandidateSourceFilter {
@@ -112,7 +130,7 @@ export async function createCandidateSource(
     .limit(1)
     .maybeSingle();
 
-  const retrieval = await retrieveArtifact(url);
+  const retrieval = await retrieveArtifact(url, input.discoveryUrl);
   const now = new Date().toISOString();
   const sourceId = makeSourceId(url);
   const baseRow = {
@@ -127,7 +145,7 @@ export async function createCandidateSource(
     canonical_url: url,
     license_status: 'unknown',
     provenance_class: null,
-    acquisition_method: 'direct-url',
+    acquisition_method: input.acquisitionMethod?.trim() || 'direct-url',
     resolution_chain: retrieval.resolutionChain,
     duplicate_of_source_id: (existingByUrl?.source_id as string | undefined) ?? null,
     human_review_notes: null,

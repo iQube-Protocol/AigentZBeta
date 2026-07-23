@@ -20,7 +20,7 @@
  *   confirm-saturation   { pillarKey }  -- §6.1, requires an already-ratified pillar
  *   propose-dependency   { dependencyName, relationship }
  *   ratify-dependency    { dependencyName }
- *   propose-institution  { pillarKey, institutionName }
+ *   propose-institution  { pillarKey, institutionName, seedUrl? }  -- seedUrl is Agent B's starting point (§4)
  *   ratify-institution   { pillarKey, institutionName }
  *
  * No auto-ratification path exists — every `ratify-*` action requires the
@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
     dependencyName?: string;
     relationship?: string;
     institutionName?: string;
+    seedUrl?: string;
   };
 
   if (!isAction(body.action)) {
@@ -145,7 +146,12 @@ export async function POST(req: NextRequest) {
       if (!body.pillarKey?.trim() || !body.institutionName?.trim()) {
         return NextResponse.json({ ok: false, error: 'pillarKey and institutionName are required' }, { status: 400 });
       }
-      const r = await upsertInstitutionEntry(admin, { domain, pillarKey: body.pillarKey, institutionName: body.institutionName });
+      const r = await upsertInstitutionEntry(admin, {
+        domain,
+        pillarKey: body.pillarKey,
+        institutionName: body.institutionName,
+        seedUrl: body.seedUrl,
+      });
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     case 'ratify-institution': {
