@@ -59,6 +59,8 @@ import { useCodexEmbedAuthBridge } from "../codex/_lib/useCodexEmbedAuthBridge";
 import { resolveCompanionContext } from "@/services/companion/runtime";
 import type { CompanionRuntimeContext } from "@/types/companion";
 import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
+import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPanel";
+import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
 
 const SmartWalletDrawer = dynamic(
   () => import("@/app/components/content/SmartWalletDrawer"),
@@ -89,7 +91,7 @@ function CompanionShell() {
 
   const [ctx, setCtx] = useState<CompanionRuntimeContext | null>(null);
   const [walletOpen, setWalletOpen] = useState(true);
-  const [activeSurface, setActiveSurface] = useState<"wallet" | "companion">("wallet");
+  const [activeSurface, setActiveSurface] = useState<"wallet" | "companion" | "search" | "overlay">("wallet");
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +147,28 @@ function CompanionShell() {
           >
             Companion
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveSurface("search")}
+            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+              activeSurface === "search"
+                ? "bg-slate-800 text-slate-100"
+                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+            }`}
+          >
+            Search
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSurface("overlay")}
+            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+              activeSurface === "overlay"
+                ? "bg-slate-800 text-slate-100"
+                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+            }`}
+          >
+            Overlay
+          </button>
         </div>
 
         {activeSurface === "wallet" ? (
@@ -173,6 +197,31 @@ function CompanionShell() {
               </div>
             )}
           </div>
+        ) : activeSurface === "search" ? (
+          /* Universal Search — PRD-MMC-IMPL-002 Increment 1. Mounts only
+             when identity is resolved, mirroring the Companion rail's own
+             `identity && personaId ?` gate below: an unauthenticated
+             visitor sees a sign-in prompt, fails closed like every other
+             part of this shell. */
+          identity && personaId ? (
+            <CompanionSearchPanel personaIdHint={personaId} />
+          ) : (
+            <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-xs text-slate-500">
+              Sign in to search across research, the registry, and the
+              capability graph.
+            </div>
+          )
+        ) : activeSurface === "overlay" ? (
+          /* Constitutional Overlay — PRD-MMC-IMPL-002 Increment 2. Mounts
+             only when identity is resolved, mirroring every other gated
+             surface in this shell. */
+          identity && personaId ? (
+            <CompanionOverlayPanel personaIdHint={personaId} />
+          ) : (
+            <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-xs text-slate-500">
+              Sign in to see the Constitutional Overlay for this page.
+            </div>
+          )
         ) : (
           /* Companion rail — identity chip + Phase 1 Timeline (read-only) +
              Observer permissions. */

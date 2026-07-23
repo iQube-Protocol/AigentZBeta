@@ -154,6 +154,51 @@ async function ensureFreshToken({ force = false } = {}) {
 }
 
 /**
+ * Forwards a locally consent-checked observation to the new
+ * `POST /api/companion/observer/observation` endpoint (PRD-MMC-IMPL-002
+ * Increment 2, Step 1) — closes the gap this file's `OBSERVATION` handler
+ * previously flagged: "No live, authenticated Companion API session exists
+ * to forward this to." Uses the SAME `fetchWithTimeout` helper (10s timeout)
+ * and the SAME cached auth session token as `refreshGrantsFromServer()`.
+ *
+ * Fails silently/gracefully on network error — mirrors this file's existing
+ * fail-closed style: a failed forward never throws back into the message
+ * handler that already told the content script "ok: true" for the local
+ * consent check. The server independently re-validates consent against its
+ * own stored grant state regardless of what this worker's local cache says
+ * (defense in depth, PRD-MMC-IMPL-002 §3 Increment 2 Step 1) — so a forward
+ * failure here only means "the Overlay has stale/no context," never a
+ * consent-safety gap.
+ */
+async function forwardObservationToServer(observation) {
+  const fresh = await ensureFreshToken();
+  if (!fresh.ok) return { ok: false, reason: fresh.reason };
+
+  const postObservation = (token) =>
+    fetchWithTimeout(`${COMPANION_OBSERVER_API_BASE}/observation`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(observation),
+      cache: 'no-store',
+    });
+
+  try {
+    let res = await postObservation(fresh.session.accessToken);
+
+    if (res.status === 401 && fresh.session.refreshToken) {
+      const forced = await ensureFreshToken({ force: true });
+      if (!forced.ok) return { ok: false, reason: forced.reason };
+      res = await postObservation(forced.session.accessToken);
+    }
+
+    if (!res.ok) return { ok: false, reason: `http-${res.status}` };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: String(err) };
+  }
+}
+
+/**
  * Refreshes `grantStateCache` from the real Companion API. Fails CLOSED: any
  * error (no session, network failure, non-2xx) leaves the existing cache
  * untouched rather than clearing it to "everything granted" — the safe
@@ -273,10 +318,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: false, error: String(err && err.message ? err.message : err) });
         return false;
       }
-      // No live, authenticated Companion API session exists to forward this
-      // to in this pass (§7's own honest limit) — the observation is simply
-      // acknowledged as consent-valid. A future pass POSTs it to an
-      // observation-ingest endpoint (not yet defined by Increments 1-5).
+      // PRD-MMC-IMPL-002 Increment 2, Step 1: forward the locally-checked
+      // observation to the real Companion API. The server independently
+      // re-validates consent against its OWN stored grant state (defense in
+      // depth) — this local check is not the only gate. Async: the content
+      // script gets its "ok: true" ack immediately from the local check
+      // above; the forward happens best-effort in the background and its
+      // own failure is logged, never surfaced as a rejection of the local
+      // consent decision.
+      forwardObservationToServer(message.observation).then((result) => {
+        if (!result.ok) {
+          console.warn('[metaMe Companion] observation forward failed:', result.reason);
+        }
+      });
       sendResponse({ ok: true });
       return false;
     }
