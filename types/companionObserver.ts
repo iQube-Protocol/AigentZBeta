@@ -129,3 +129,63 @@ export function emptyObserverGrantState(): ObserverGrantState {
   }
   return state;
 }
+
+// ─── Context Engine input contract (PRD-MMC-IMPL-001 Increment 3) ──────────
+
+/**
+ * Max length, in characters, of `pageDocumentExcerpt` below. This is a page
+ * EXCERPT for grounding, never the full raw DOM — the minimum-disclosure
+ * discipline PRD-MMC-001 §0.9/§4.2 requires. 2,000 chars is the documented
+ * floor; a constructing caller MUST NOT exceed it.
+ */
+export const PAGE_DOCUMENT_EXCERPT_MAX_CHARS = 2000;
+
+/**
+ * The shape of a single "browser context" observation — what a future
+ * extension's content script would populate and hand to the Context Engine
+ * (`services/companion/observerContext.ts`) before it feeds the existing,
+ * unmodified IRE (`resolveConstitutionalField`, `services/invariants/resolution.ts`).
+ *
+ * CONSENT DISCIPLINE (enforced at runtime, not by this type): every optional
+ * field below corresponds to exactly one `ObserverCapability` and MUST be
+ * populated ONLY when that capability is present and unrevoked in
+ * `grantedCapabilities` (i.e. `isCapabilityGranted` on the caller's
+ * `ObserverGrantState` returns true for it):
+ *
+ *   - `currentTabDomain`, `currentTabTitle` ⟶ requires `'current-tab'`
+ *   - `selectionText`                        ⟶ requires `'selection'`
+ *   - `pageDocumentExcerpt`                  ⟶ requires `'page-document'`
+ *
+ * TypeScript cannot express "field X present iff capability Y is granted" —
+ * there is no type-level enforcement of this rule. The enforcement point is
+ * `assertObservationRespectsGrants` (`services/companion/observerContext.ts`),
+ * which every caller MUST invoke before using an observation for anything.
+ * An observation object that violates this discipline is a caller bug, not a
+ * type error — treat it with the same seriousness as a T0 leak.
+ *
+ * MINIMUM DISCLOSURE: `pageDocumentExcerpt` MUST be capped at
+ * `PAGE_DOCUMENT_EXCERPT_MAX_CHARS` (2,000 chars) — this is a page excerpt for
+ * grounding purposes, never the full raw DOM.
+ *
+ * NO REAL PRODUCER EXISTS YET: nothing in this codebase currently constructs
+ * a live `BrowserContextObservation` from an actual page — that is the job of
+ * a future, environment-specific browser-extension pass (PRD-MMC-IMPL-001 §4)
+ * which cannot be built or verified in this sandbox. This type is the
+ * contract that pass must satisfy, not a claim that it exists.
+ */
+export interface BrowserContextObservation {
+  /** The capabilities this observation's populated fields were derived under
+   *  — the exact snapshot `assertObservationRespectsGrants` checks against. */
+  grantedCapabilities: ObserverCapability[];
+  /** Requires `'current-tab'`. The active tab's domain only — never the full URL. */
+  currentTabDomain?: string;
+  /** Requires `'current-tab'`. The active tab's page title. */
+  currentTabTitle?: string;
+  /** Requires `'selection'`. The user's explicit text selection only. */
+  selectionText?: string;
+  /** Requires `'page-document'`. A page excerpt, capped at
+   *  `PAGE_DOCUMENT_EXCERPT_MAX_CHARS` — never the full raw DOM. */
+  pageDocumentExcerpt?: string;
+  /** ISO timestamp the observation was captured. */
+  observedAt: string;
+}
