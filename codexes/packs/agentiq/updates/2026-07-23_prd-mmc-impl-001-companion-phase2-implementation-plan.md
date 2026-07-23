@@ -258,6 +258,26 @@ This increment therefore both authors the extension's source AND smoke-tests it 
 
 **Non-goals, restated:** no bundler config, no packaging step, no browser load/test, no claim of a working extension. `assertObservationRespectsGrants` (Increment 3) is called before any observed value is used — the consent-enforcement choke point is reused, never reimplemented in extension code.
 
+### §7.1 Token refresh/expiry — closed 2026-07-23
+
+The gap named in §7's authentication design decision above ("token refresh/expiry handling is explicitly NOT solved by this increment") is now closed, per explicit operator authorization ("OK let's handle that now").
+
+**Design:** a new server route, `POST /api/companion/observer/refresh-session` (`app/api/companion/observer/refresh-session/route.ts`), accepts `{ refreshToken }` and calls Supabase's `auth.refreshSession({ refresh_token })` via a **request-scoped** client (`createClient(url, anonKey)`, deliberately NOT `getSupabaseServer()`'s cached singleton — `refreshSession` mutates a client's internal session state, and the singleton is shared across concurrent requests; a fresh client per call avoids cross-request contamination). It does NOT gate on `getActivePersona(request)` — the caller's access_token may already be expired, so the refresh_token itself is the credential. Returns `{ accessToken, refreshToken, expiresAt }`. The Supabase project URL/anon key stay entirely server-side; the extension never receives or embeds them, matching the minimum-disclosure shape of every other Companion API call.
+
+**Extension changes (`extension/companion-observer/background.js`):** `extractSupabaseSessionFromPage()` (renamed from `extractSupabaseTokenFromPage()`) now extracts the full `{ accessToken, refreshToken, expiresAt }` trio from the page's `localStorage` session blob, handling both the modern flat Supabase-js shape and the legacy `currentSession`-nested shape. The trio is cached under a new `metameAuthSession` storage key (replacing the old `metameAuthToken` string). `ensureFreshToken()` proactively calls the refresh route when `expiresAt` is within 60 seconds of now (or immediately, via a `force` flag); `refreshGrantsFromServer()` calls it before every request and additionally retries exactly once on a 401 that slips past the proactive check (clock skew, server-side session revocation) — never more than one retry, never silently treating a failure as "everything granted."
+
+No `chrome.alarms` periodic background polling was added — refresh is checked lazily on each use, which is sufficient for this increment's scope and avoids a new manifest permission.
+
+**Verified for real, not asserted** — reusing the exact `xvfb-run` + isolated `playwright-core` + pre-installed Chromium (`/opt/pw-browsers/chromium-1194`) recipe from §7 above, against the actual extension directory (not a throwaway test extension this time):
+1. Loaded the real extension; confirmed `ensureFreshToken`/`performRefresh`/`refreshGrantsFromServer`/`connectToMetaMe` exist as callable functions in the live background service worker's global scope.
+2. Seeded `chrome.storage.local` with a session expiring in 10s (inside the 60s margin) and a mocked `fetch` standing in for the two Companion API calls; confirmed a proactive refresh fired, the new token trio was persisted, and the grants call used the NEW access token.
+3. Seeded a session expiring in 1 hour; confirmed NO refresh call fired and the cached access token was used directly.
+4. Seeded a session that looked fresh by the extension's own clock but had the mocked `/grants` endpoint return 401 anyway; confirmed exactly one forced refresh-and-retry occurred, using the newly-refreshed token on the second attempt.
+5. Seeded an expired session with no `refreshToken`; confirmed the code falls through gracefully (no crash, no infinite loop) rather than treating the absence of a refresh path as a hard failure.
+6. Separately, on a real local page origin, confirmed `extractSupabaseSessionFromPage()`'s parsing logic correctly extracts the full trio from both the modern flat session shape and the legacy `currentSession`-nested shape, and returns `null` when no session key exists in `localStorage`.
+
+All six checks passed with genuine captured output (not paraphrased assertions). One check was NOT attempted: driving `connectToMetaMe()`'s `chrome.scripting.executeScript` step end-to-end against a real tab — this requires `activeTab`'s user-gesture grant (a real popup-button click), which a scripted test harness calling the function directly does not have; that specific plumbing is pre-existing (unmodified by this pass) and is exactly what the real-browser test in the reply below asks the operator to click through by hand.
+
 ---
 
 ## §5 Open engineering questions requiring a build-time decision
