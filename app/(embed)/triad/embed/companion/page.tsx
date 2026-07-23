@@ -91,7 +91,10 @@ function CompanionShell() {
 
   const [ctx, setCtx] = useState<CompanionRuntimeContext | null>(null);
   const [walletOpen, setWalletOpen] = useState(true);
-  const [activeSurface, setActiveSurface] = useState<"wallet" | "companion" | "search" | "overlay">("wallet");
+  // Companion is the default/first surface (2026-07-23, operator-directed):
+  // it's the identity/Timeline/permissions home base most operators reach
+  // for first, wallet balance detail being a secondary action from there.
+  const [activeSurface, setActiveSurface] = useState<"wallet" | "companion" | "search" | "overlay">("companion");
 
   useEffect(() => {
     let cancelled = false;
@@ -127,17 +130,6 @@ function CompanionShell() {
         <div className="flex shrink-0 items-center gap-1 border-b border-slate-800 bg-slate-900/60 px-2 py-1.5">
           <button
             type="button"
-            onClick={() => setActiveSurface("wallet")}
-            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-              activeSurface === "wallet"
-                ? "bg-slate-800 text-slate-100"
-                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
-            }`}
-          >
-            Wallet
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveSurface("companion")}
             className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
               activeSurface === "companion"
@@ -146,6 +138,17 @@ function CompanionShell() {
             }`}
           >
             Companion
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSurface("wallet")}
+            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+              activeSurface === "wallet"
+                ? "bg-slate-800 text-slate-100"
+                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+            }`}
+          >
+            Wallet
           </button>
           <button
             type="button"
