@@ -40,6 +40,19 @@ async function checkGrant(capability) {
  * ONLY fields whose capability the background worker confirms is granted.
  */
 async function buildObservation() {
+  // Refresh the background worker's grant cache from the server FIRST. The
+  // worker's `grantStateCache` is only populated at Connect time or on an
+  // explicit REFRESH_GRANTS message (background.js) -- granting/revoking a
+  // capability through the Companion web panel writes straight to the
+  // server and never touches this cache on its own. Without this refresh,
+  // every checkGrant() below silently answers against stale, pre-grant
+  // state -- the real reason Overlay kept showing "no observation" even
+  // after granting Current-tab and reloading the tab (2026-07-23). Failure
+  // here (no connection, network error) is non-fatal -- checkGrant() below
+  // just falls back to whatever the cache already had, same as before this
+  // refresh existed.
+  await sendMessage({ type: 'REFRESH_GRANTS' });
+
   const grantedCapabilities = [];
   const observation = { grantedCapabilities, observedAt: new Date().toISOString() };
 
@@ -66,13 +79,7 @@ async function buildObservation() {
   return observation;
 }
 
-async function main() {
-  // Message-passing smoke check — a plain ping/pong proving the content
-  // script and background service worker can talk to each other, entirely
-  // independent of any real grant/API state.
-  const pong = await sendMessage({ type: 'PING' });
-  console.log('[metaMe Observer] ping/pong result:', pong);
-
+async function observeAndSend() {
   const observation = await buildObservation();
   console.log('[metaMe Observer] observation built (fields gated by live grant check):', observation);
 
@@ -80,4 +87,25 @@ async function main() {
   console.log('[metaMe Observer] background observation handling result:', result);
 }
 
+async function main() {
+  // Message-passing smoke check — a plain ping/pong proving the content
+  // script and background service worker can talk to each other, entirely
+  // independent of any real grant/API state.
+  const pong = await sendMessage({ type: 'PING' });
+  console.log('[metaMe Observer] ping/pong result:', pong);
+
+  await observeAndSend();
+}
+
 main();
+
+// Re-observe whenever this tab regains focus/visibility, not just once at
+// page load. Without this, granting a capability (e.g. "Current tab") while
+// a tab is already open has no effect until the operator reloads that tab —
+// the stored observation stays the stale pre-grant one, gated fields never
+// appear, and the Overlay looks broken even though the grant is correct.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    void observeAndSend();
+  }
+});

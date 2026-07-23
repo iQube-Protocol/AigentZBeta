@@ -4994,6 +4994,38 @@ export const IRL_CARTRIDGE: CodexConfig = {
       config: { component: 'InvariantFieldExplorerTab', props: {} },
       metadata: { icon: 'Network', description: 'Computational Epistemology made visible — the live enables/constrains/contradicts field + consequence forecast (CFS-019 Phase E first slice)', color: 'violet' },
     },
+    // ── Corpus Scout + EXP-P1 Readiness — PRIMARY HOME (2026-07-23,
+    // operator-directed). These are internal experimentation instruments;
+    // metaMe IRL (this cartridge) is their canonical home, not IRL OS. The
+    // irl-os-corpus-scout / irl-os-exp-p1-readiness entries in
+    // IRL_OS_CARTRIDGE below are kept (not removed) — admin-visible there
+    // too, deliberately stubbed as the future access point IF invariant
+    // aggregation opens beyond admin (cohort/token/payment-gated), but not
+    // built now. Both stay adminOnly: true in both cartridges either way.
+    {
+      id: 'irl-corpus-scout',
+      label: 'Corpus Scout',
+      slug: 'irl-corpus-scout',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 4,
+      type: 'static',
+      config: { component: 'CorpusScoutTab', props: {} },
+      metadata: { icon: 'FileSearch', description: 'PRD-ICA-001 §9 — verify, review, and hand approved sources to the Discovery Engine. Retrieval → byte verification → human approval → add-evidence.', color: 'violet' },
+    },
+    {
+      id: 'irl-exp-p1-readiness',
+      label: 'EXP-P1 Readiness',
+      slug: 'irl-exp-p1-readiness',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 5,
+      type: 'static',
+      config: { component: 'ExpP1ReadinessTab', props: {} },
+      metadata: { icon: 'Gauge', description: 'PRD-EPI-001 §10 — seven per-gate readiness sections for EXP-P1 (protocol-ratified derivation, live). Execution/Publication are expected red pre-run.', color: 'violet' },
+    },
     // ── Living Knowledge ──────────────────────────────────────────
     {
       id: 'irl-invariant-registry',
@@ -5318,6 +5350,11 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'FlaskConical', description: 'Run the Foundational Series live and independently — EXP-001–005, Results, and Report. Requires research access (Sovereign/Steward) or a reviewer grant.' },
     },
     // ── EXP-P1 Readiness — PRD-EPI-001 §10 dashboard (steward-gated) ──
+    // Canonical/primary home moved to metaMe IRL (irl-cartridge's
+    // 'irl-exp-p1-readiness', added 2026-07-23) — this entry is kept
+    // deliberately, not removed: a stub for a future cohort/token/payment-
+    // gated access point if invariant aggregation opens beyond admin.
+    // adminOnly: true today either way; not built out beyond that flag.
     {
       id: 'irl-os-exp-p1-readiness',
       label: 'EXP-P1 Readiness',
@@ -5331,6 +5368,11 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Gauge', description: 'PRD-EPI-001 §10 — seven per-gate readiness sections for EXP-P1 (protocol-ratified derivation, live). Execution/Publication are expected red pre-run.', color: 'violet' },
     },
     // ── Corpus Scout — PRD-ICA-001 human review workspace (steward-gated) ──
+    // Canonical/primary home moved to metaMe IRL (irl-cartridge's
+    // 'irl-corpus-scout', added 2026-07-23) — this entry is kept
+    // deliberately, not removed: a stub for a future cohort/token/payment-
+    // gated access point if invariant aggregation opens beyond admin.
+    // adminOnly: true today either way; not built out beyond that flag.
     {
       id: 'irl-os-corpus-scout',
       label: 'Corpus Scout',
