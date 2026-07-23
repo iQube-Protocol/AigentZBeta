@@ -2496,6 +2496,32 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      // PRD-FDC-001 (Founders Club, ratified 2026-07-22) — the Human Domain
+      // counterpart to the Founder Office tab above (Operational Domain).
+      // A second PRIMARY section, coordinate with Founder Office, per §2.1 —
+      // explicitly NOT a sub-view folded into FounderOfficeTab's own
+      // Workspace/Discover/Validate/Architect/Blueprint switcher, and
+      // explicitly NOT named "Community" (Community is one of the Club's own
+      // internal sub-bodies, §2.2 — naming the section after one of its parts
+      // would be a category error).
+      id: 'founders-club',
+      label: 'Founders Club',
+      slug: 'founders-club',
+      enabled: true,
+      adminOnly: false,
+      order: 0.5,
+      type: 'static',
+      config: {
+        component: 'FoundersClubTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Users',
+        description: 'The Human Domain of the Founder Office — connection, collaboration, opportunity, wellbeing, recognition, community, and mentoring',
+        color: 'violet'
+      }
+    },
+    {
       // CRP-003a Increment 3 — the first Founder Office Capability Suite.
       // Runs the canonical constitutional service pattern (N1 agreement gate +
       // N2 12-step pipeline) on a Domain-3 (Financial Intelligence, read-only)
