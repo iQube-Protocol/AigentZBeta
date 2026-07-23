@@ -219,6 +219,11 @@ export interface InstitutionalRegistryRow {
   ratifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** §4/§9 phase 3 — Agent B's starting point for institution-targeted
+   *  navigation (the institution's own publications listing page).
+   *  Steward-provided, never search-derived. Null until a steward adds one —
+   *  an institution with no seedUrl isn't yet eligible for Agent B/C. */
+  seedUrl: string | null;
 }
 
 /** The full constitutional substrate for one domain — what `GET

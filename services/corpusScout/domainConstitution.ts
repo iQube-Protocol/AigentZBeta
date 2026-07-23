@@ -84,6 +84,7 @@ function toInstitutionRow(r: Record<string, unknown>): InstitutionalRegistryRow 
     ratifiedAt: (r.ratified_at as string | null) ?? null,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
+    seedUrl: (r.seed_url as string | null) ?? null,
   };
 }
 
@@ -274,7 +275,7 @@ export async function ratifyDependencyEntry(
  *  across two tables). */
 export async function upsertInstitutionEntry(
   admin: SupabaseClient,
-  input: { domain: string; pillarKey: string; institutionName: string },
+  input: { domain: string; pillarKey: string; institutionName: string; seedUrl?: string | null },
 ): Promise<Result<{ institution: InstitutionalRegistryRow }>> {
   const { data: pillar } = await admin
     .from('corpus_coverage_pillars')
@@ -293,6 +294,7 @@ export async function upsertInstitutionEntry(
         domain: input.domain,
         pillar_key: input.pillarKey,
         institution_name: input.institutionName,
+        seed_url: input.seedUrl?.trim() || null,
         status: 'proposed',
         ratified_by: null,
         ratified_at: null,

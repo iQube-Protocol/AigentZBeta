@@ -2,13 +2,20 @@
  * Corpus Scout (PRD-ICA-001) — Retrieval Agent (§10 agent D) + the byte-level
  * MIME check that belongs alongside it (§7).
  *
- * Scope for THIS build: a DIRECT document URL only. Recursive multi-hop link
- * resolution (search result → landing page → download link, §7's Resolver
- * Agent, agent C) is explicitly deferred — see the task's scope note and
- * PRD-ICA-001 §0.4 (evaluate `services/aa-api/src/browser/*` fit first, do
- * not build now). `resolutionChain` here therefore only records same-URL
- * redirects encountered while fetching the given direct URL, never
- * cross-page traversal.
+ * `retrieveArtifact()` itself still only fetches ONE URL (following same-URL
+ * redirects, never cross-page link traversal) — it validates and hashes
+ * bytes, it does not discover them. Multi-hop discovery (institution page ->
+ * publication listing -> download link -> final artifact) is the
+ * Constitutional Discovery amendment's Agent B/C, built in
+ * `institutionNavigator.ts`, which resolves a final document URL via HTML
+ * link-following and then calls `retrieveArtifact(documentUrl, seedUrl)` —
+ * same validation path, an honest `discoveryUrl` recorded on the chain.
+ *
+ * `followRedirects()` below is the shared redirect-following mechanic both
+ * modules use (evaluated per PRD-ICA-001 §0.4: a dedicated lightweight
+ * fetch, not `services/aa-api/src/browser/*`'s interactive session/mount/
+ * takeover machinery, which is built for user-facing live browsing, not a
+ * bounded backend HTML-link crawl).
  *
  * Never throws — every failure path returns a structured RetrievalResult
  * (PRD-ICA-001 §12). Uses Node's built-in `fetch` (no axios/node-fetch dep).
@@ -19,7 +26,60 @@ import type { RetrievalResult, RetrievalFailureClass, ResolutionChain } from './
 
 const TIMEOUT_MS = 20_000;
 const MAX_REDIRECTS = 3;
-const USER_AGENT = 'CorpusScout/1.0 (+metaMe IRL invariant corpus acquisition; PRD-ICA-001)';
+export const USER_AGENT = 'CorpusScout/1.0 (+metaMe IRL invariant corpus acquisition; PRD-ICA-001)';
+
+export type FollowRedirectsFailure = 'timeout' | 'redirect-loop' | 'unknown';
+
+/**
+ * Manual same-or-cross-host redirect follower shared by `retrieveArtifact`
+ * (artifact bytes) and the Constitutional Discovery amendment's Agent B/C
+ * institution navigator (`institutionNavigator.ts`, HTML link discovery) —
+ * one redirect-following mechanic, two different consumers of the final
+ * response (Extend, Don't Duplicate). Never throws; aborts after
+ * `timeoutMs` and caps at `maxRedirects`.
+ */
+export async function followRedirects(
+  url: string,
+  opts: { timeoutMs?: number; maxRedirects?: number; accept?: string } = {},
+): Promise<
+  | { ok: true; response: Response; finalUrl: string; redirectCount: number }
+  | { ok: false; failureClass: FollowRedirectsFailure; redirectCount: number; finalUrl: string }
+> {
+  const timeoutMs = opts.timeoutMs ?? TIMEOUT_MS;
+  const maxRedirects = opts.maxRedirects ?? MAX_REDIRECTS;
+  let currentUrl = url;
+  let redirectCount = 0;
+
+  try {
+    for (;;) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      let res: Response;
+      try {
+        res = await fetch(currentUrl, {
+          redirect: 'manual',
+          signal: controller.signal,
+          headers: { 'User-Agent': USER_AGENT, Accept: opts.accept ?? '*/*' },
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location');
+        if (!location) return { ok: false, failureClass: 'unknown', redirectCount, finalUrl: currentUrl };
+        redirectCount += 1;
+        if (redirectCount > maxRedirects) return { ok: false, failureClass: 'redirect-loop', redirectCount, finalUrl: currentUrl };
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+      return { ok: true, response: res, finalUrl: currentUrl, redirectCount };
+    }
+  } catch (e) {
+    const isAbort = e instanceof Error && e.name === 'AbortError';
+    return { ok: false, failureClass: isAbort ? 'timeout' : 'unknown', redirectCount, finalUrl: currentUrl };
+  }
+}
 
 /** A `.pdf`-looking URL is not sufficient proof of a valid PDF (PRD-ICA-001
  *  §7's explicit non-goal) — used only as one signal in the mismatch check,
@@ -66,49 +126,19 @@ function failure(failureClass: RetrievalFailureClass, resolutionChain: Resolutio
  * and flags a MIME mismatch when a `.pdf`-looking URL (or a `Content-Type`
  * claiming PDF) actually returns HTML bytes.
  */
-export async function retrieveArtifact(url: string): Promise<RetrievalResult> {
+export async function retrieveArtifact(url: string, discoveryUrl?: string): Promise<RetrievalResult> {
   const resolutionChain: ResolutionChain = {
-    discoveryUrl: url,
+    discoveryUrl: discoveryUrl ?? url,
     downloadUrl: url,
     resolvedArtifactUrl: url,
     redirectCount: 0,
   };
 
-  let currentUrl = url;
-  let response: Response;
-
-  try {
-    for (;;) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-      let res: Response;
-      try {
-        res = await fetch(currentUrl, {
-          redirect: 'manual',
-          signal: controller.signal,
-          headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-
-      if (res.status >= 300 && res.status < 400) {
-        const location = res.headers.get('location');
-        if (!location) return failure('unknown', resolutionChain);
-        resolutionChain.redirectCount += 1;
-        if (resolutionChain.redirectCount > MAX_REDIRECTS) return failure('redirect-loop', resolutionChain);
-        currentUrl = new URL(location, currentUrl).toString();
-        resolutionChain.resolvedArtifactUrl = currentUrl;
-        continue;
-      }
-      response = res;
-      resolutionChain.resolvedArtifactUrl = currentUrl;
-      break;
-    }
-  } catch (e) {
-    const isAbort = e instanceof Error && e.name === 'AbortError';
-    return failure(isAbort ? 'timeout' : 'unknown', resolutionChain);
-  }
+  const followed = await followRedirects(url);
+  resolutionChain.redirectCount = followed.redirectCount;
+  resolutionChain.resolvedArtifactUrl = followed.finalUrl;
+  if (!followed.ok) return failure(followed.failureClass, resolutionChain);
+  const response = followed.response;
 
   if (response.status === 401) return failure('login-required', resolutionChain);
   if (response.status === 402) return failure('paywall', resolutionChain);
@@ -126,7 +156,7 @@ export async function retrieveArtifact(url: string): Promise<RetrievalResult> {
 
   const artifactHash = createHash('sha256').update(bytes).digest('hex');
   const { isPdf, isHtml } = sniffMagicBytes(bytes);
-  const expectsPdf = urlLooksLikePdf(currentUrl) || Boolean(contentType?.toLowerCase().includes('pdf'));
+  const expectsPdf = urlLooksLikePdf(followed.finalUrl) || Boolean(contentType?.toLowerCase().includes('pdf'));
 
   // The explicit PRD-ICA-001 §7 case: a `.pdf`-looking URL / declared PDF
   // content-type that is actually an HTML body (landing page, error page,

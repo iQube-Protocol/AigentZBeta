@@ -9,9 +9,13 @@
  *      returns a record — a verification failure is recorded as
  *      `needs_retrieval_fix`, never silently dropped (§12).
  *
- * Scope note: accepts a DIRECT document URL only. Multi-hop resolution from a
- * search query/landing page to a final artifact (the Resolver Agent, §10
- * agent C) is explicitly out of scope for this build — see PRD-ICA-001 §0.4.
+ * Scope note: accepts a DIRECT document URL only (manual submission,
+ * `acquisitionMethod: 'direct-url'`). Multi-hop resolution from an
+ * institution's seed URL to a final artifact (the Resolver Agent, §10 agent
+ * C) is a separate entry point — `POST /api/corpus-scout/institution-discovery`
+ * (Constitutional Discovery amendment §4/§5) — that calls the same
+ * `createCandidateSource` back half with `acquisitionMethod:
+ * 'institutional-registry'`, never a second ingestion mechanism.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
