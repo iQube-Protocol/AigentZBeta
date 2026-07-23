@@ -1,5 +1,11 @@
 -- ILLUSTRATIVE SKETCH ONLY — DO NOT RUN, DO NOT RENAME TO .sql
 --
+-- SUPERSEDED 2026-07-23 by the real, timestamped migration:
+--   supabase/migrations/20260815000000_companion_observer_grants.sql
+-- Kept in place (not deleted) so the authoring history — sketch first,
+-- promoted to a real migration once the operator asked for it — stays
+-- legible. Do not run this file; run the migration above instead.
+--
 -- This file is deliberately named with a leading underscore and a
 -- `.sql.example` extension (not `.sql`, not timestamp-prefixed) so no
 -- migration runner picks it up automatically. It is NOT a migration.
