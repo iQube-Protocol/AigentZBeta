@@ -202,9 +202,15 @@ Build proceeds phase by phase after ratification, same discipline as every other
 
 ## Ratification record
 
-- [ ] Operator confirms Agent 0 (Domain Architect) producing THREE outputs — Domain Definition (§2.1), Constitutional Coverage Model (§2.2), Constitutional Dependency Registry (§2.3) — all steward-ratified, not auto-finalized.
-- [ ] Operator confirms Law I of Constitutional Discovery (§2.0) as the formal discriminator between the two, and the renamed terminology throughout (Constitutional Coverage Model, Constitutional Dependency Registry).
-- [ ] Operator confirms §1.1's architectural claim (constitutional graph of domains) as the central structural principle of this amendment.
-- [ ] Operator confirms the reframed Agent A (Institutional Registry keyed to §2.2's pillars, steward-editable) and Agent B (institution-targeted navigation as primary mode, not open search).
-- [ ] Operator confirms Gap Detection (§6, algorithmic) AND the separate steward saturation confirmation (§6.1, judgment) as the two-step gate before Open Discovery unlocks.
-- [ ] Operator confirms the illustrative financial-services tables (§2.1/§2.2/§2.3/§3) as the first instance, and the §9 phasing.
+**Status: RATIFIED 2026-07-23** — operator gave full go-ahead on all seven points plus explicit "Implementation Direction: Proceed to Phase 1" (see below).
+
+- [x] Operator confirms Agent 0 (Domain Architect) producing THREE outputs — Domain Definition (§2.1), Constitutional Coverage Model (§2.2), Constitutional Dependency Registry (§2.3) — all steward-ratified, not auto-finalized.
+- [x] Operator confirms Law I of Constitutional Discovery (§2.0) as the formal discriminator between the two, and the renamed terminology throughout (Constitutional Coverage Model, Constitutional Dependency Registry).
+- [x] Operator confirms §1.1's architectural claim (constitutional graph of domains) as the central structural principle of this amendment.
+- [x] Operator confirms the reframed Agent A (Institutional Registry keyed to §2.2's pillars, steward-editable) and Agent B (institution-targeted navigation as primary mode, not open search).
+- [x] Operator confirms Gap Detection (§6, algorithmic) AND the separate steward saturation confirmation (§6.1, judgment) as the two-step gate before Open Discovery unlocks.
+- [x] Operator confirms the illustrative financial-services tables (§2.1/§2.2/§2.3/§3) as the first instance, and the §9 phasing.
+
+**Implementation direction (operator, 2026-07-23):** proceed to Phase 1. Objective is establishing the constitutional substrate, not crawling. Deliverables: Domain Definition data model, Constitutional Coverage Model data model, Constitutional Dependency Registry data model, steward ratification workflow, Gap Detection extensions, Institutional Registry generation from the Coverage Model. No acquisition or browser automation in this phase. Standing implementation principle: reasoning should never compensate for missing constitutional structure — constitutional structure precedes automation. Sequence: Define → Ratify → Discover → Verify → Reason.
+
+**Phase 1 build (this pass):** `supabase/migrations/20260817000000_corpus_domain_constitution.sql` (4 tables + ratified financial-services seed), `services/corpusScout/types.ts` (+ratification row types), `services/corpusScout/domainConstitution.ts` (propose/ratify CRUD for all four artifacts), `services/corpusScout/intelligence.ts` (`assessLaneCoverage()` `requiredLanes` extension — Gap Detection), `app/api/corpus-scout/domain-constitution/route.ts` (admin-gated GET + 8-action POST), `components/corpusScout/DomainConstitutionPanel.tsx` (steward ratification UI), `CorpusScoutTab.tsx` wiring (panel mounted above the submission form; lane-coverage table now flags ratified pillars with zero sources as constitutional gaps). Steward saturation confirmation (§6.1) and Agent B/C automation (§9 phases 3-4) remain out of scope for this pass.

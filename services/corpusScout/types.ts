@@ -139,3 +139,88 @@ export function isProvenanceClass(v: unknown): v is ProvenanceClass {
 export function isReviewWorkflowStatus(v: unknown): v is ReviewWorkflowStatus {
   return typeof v === 'string' && (REVIEW_WORKFLOW_STATUSES as readonly string[]).includes(v);
 }
+
+/**
+ * Constitutional Discovery amendment (PRD-ICA-001 amendment, RATIFIED
+ * 2026-07-23) — the substrate Agent 0 (Domain Architect) produces ahead of
+ * any acquisition. See `codexes/packs/agentiq/updates/
+ * 2026-07-23_prd-ica-001-amendment-constitutional-discovery-domain-architect.md`.
+ *
+ * One shared two-state lifecycle across all four artifacts (§2/§3): an agent
+ * or steward PROPOSES, a steward RATIFIES. No auto-ratification path.
+ */
+export type RatificationStatus = 'proposed' | 'ratified';
+
+export const RATIFICATION_STATUSES: readonly RatificationStatus[] = ['proposed', 'ratified'];
+
+export function isRatificationStatus(v: unknown): v is RatificationStatus {
+  return v === 'proposed' || v === 'ratified';
+}
+
+/** §2.1 — what the domain IS. One row per domain. */
+export interface DomainDefinitionRow {
+  id: string;
+  domain: string;
+  purpose: string;
+  status: RatificationStatus;
+  ratifiedBy: string | null;
+  ratifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** §2.2 — Constitutional Coverage Model: a pillar that CONSTITUTES the domain
+ *  (Law I, §2.0). `pillarKey` doubles as the `campaignSubDomain` lane key so
+ *  Gap Detection (§6) can match submitted candidates against ratified pillars
+ *  without a second taxonomy. */
+export interface CoveragePillarRow {
+  id: string;
+  domain: string;
+  pillarKey: string;
+  pillarLabel: string;
+  completenessDefinition: string;
+  status: RatificationStatus;
+  ratifiedBy: string | null;
+  ratifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** §2.3 — Constitutional Dependency Registry: an external domain that
+ *  CONSTRAINS this one (Law I, §2.0) without being part of it. `relationship`
+ *  is the edge label (e.g. "governed by", "measured by") — never omitted. */
+export interface DependencyRegistryRow {
+  id: string;
+  domain: string;
+  dependencyName: string;
+  relationship: string;
+  status: RatificationStatus;
+  ratifiedBy: string | null;
+  ratifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** §3 — Institutional Registry, generated FROM (keyed to) a ratified
+ *  Coverage Model pillar. */
+export interface InstitutionalRegistryRow {
+  id: string;
+  domain: string;
+  pillarKey: string;
+  institutionName: string;
+  status: RatificationStatus;
+  ratifiedBy: string | null;
+  ratifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** The full constitutional substrate for one domain — what `GET
+ *  /api/corpus-scout/domain-constitution?domain=` returns. */
+export interface DomainConstitution {
+  domain: string;
+  definition: DomainDefinitionRow | null;
+  pillars: CoveragePillarRow[];
+  dependencies: DependencyRegistryRow[];
+  institutions: InstitutionalRegistryRow[];
+}

@@ -37,6 +37,7 @@ import {
   type DuplicateGroup,
   type LaneCoverageRow,
 } from '@/services/corpusScout/intelligence';
+import { DomainConstitutionPanel } from '@/components/corpusScout/DomainConstitutionPanel';
 
 const DEFAULT_CAMPAIGN_DOMAIN = 'constitutional-reasoning';
 const PREVIEW_CHARS = 1500;
@@ -86,6 +87,11 @@ export function CorpusScoutTab() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | ReviewWorkflowStatus>('all');
+  // Gap Detection (Constitutional Discovery amendment §6) — the ratified
+  // Coverage Model pillar keys for the current campaign domain, fed into
+  // assessLaneCoverage()'s requiredLanes so the lane-coverage table can show
+  // what's still missing, not just what exists.
+  const [ratifiedPillarKeys, setRatifiedPillarKeys] = useState<string[]>([]);
 
   // Submit form
   const [formUrl, setFormUrl] = useState('');
@@ -127,7 +133,10 @@ export function CorpusScoutTab() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const laneCoverage: LaneCoverageRow[] = useMemo(() => assessLaneCoverage(candidates), [candidates]);
+  const laneCoverage: LaneCoverageRow[] = useMemo(
+    () => assessLaneCoverage(candidates, ratifiedPillarKeys),
+    [candidates, ratifiedPillarKeys],
+  );
   const duplicateGroups: DuplicateGroup[] = useMemo(() => findDuplicateCandidates(candidates), [candidates]);
   const visible = useMemo(
     () => (statusFilter === 'all' ? candidates : candidates.filter((c) => c.reviewWorkflowStatus === statusFilter)),
@@ -242,6 +251,12 @@ export function CorpusScoutTab() {
         </div>
       )}
 
+      {/* Constitutional Discovery amendment (§2) — the substrate Agent 0 produces
+          ahead of acquisition: Domain Definition, Constitutional Coverage Model,
+          Constitutional Dependency Registry, Institutional Registry. Upstream of
+          the submission form below, not a replacement for it. */}
+      <DomainConstitutionPanel domain={formDomain} onRatifiedPillarsChange={setRatifiedPillarKeys} />
+
       {/* Submit a candidate URL */}
       <div className="space-y-2 rounded-xl border border-violet-500/30 bg-violet-500/5 p-3">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
@@ -332,25 +347,52 @@ export function CorpusScoutTab() {
                   <th className="py-1 pr-3">Total</th>
                   <th className="py-1 pr-3">Pending</th>
                   <th className="py-1 pr-3">Approved</th>
-                  <th className="py-1">Closed</th>
+                  <th className="py-1 pr-3">Closed</th>
+                  <th className="py-1">Constitutional gap</th>
                 </tr>
               </thead>
               <tbody>
-                {laneCoverage.map((row) => (
-                  <tr key={row.lane} className="border-t border-slate-800 text-slate-300">
-                    <td className="py-1 pr-3">{row.lane}</td>
-                    <td className="py-1 pr-3">{row.total}</td>
-                    <td className="py-1 pr-3 text-amber-300">{row.pending}</td>
-                    <td className="py-1 pr-3 text-emerald-300">{row.approved}</td>
-                    <td className="py-1 text-slate-500">{row.closed}</td>
-                  </tr>
-                ))}
+                {laneCoverage.map((row) => {
+                  const isGap = row.required && row.total === 0;
+                  return (
+                    <tr
+                      key={row.lane}
+                      className={`border-t border-slate-800 text-slate-300 ${isGap ? 'bg-rose-500/10' : ''}`}
+                    >
+                      <td className="py-1 pr-3">
+                        {row.lane}
+                        {row.required && (
+                          <span className="ml-1.5 rounded border border-violet-500/30 bg-violet-500/10 px-1 py-0.5 text-[9px] text-violet-300">
+                            ratified pillar
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1 pr-3">{row.total}</td>
+                      <td className="py-1 pr-3 text-amber-300">{row.pending}</td>
+                      <td className="py-1 pr-3 text-emerald-300">{row.approved}</td>
+                      <td className="py-1 pr-3 text-slate-500">{row.closed}</td>
+                      <td className="py-1">
+                        {isGap ? (
+                          <span className="rounded border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-[10px] text-rose-300">
+                            no sources yet
+                          </span>
+                        ) : row.required ? (
+                          <span className="text-[10px] text-emerald-400">covered</span>
+                        ) : (
+                          <span className="text-[10px] text-slate-600">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
         <p className="text-[10px] text-slate-500">
           §12 coverage control — watch that no single lane (e.g. regulatory sources) silently dominates the corpus.
+          Gap Detection (Constitutional Discovery amendment §6): rows flagged “ratified pillar” with zero sources are
+          constitutional gaps — a ratified Coverage Model pillar with no institutional source yet.
         </p>
       </div>
 
