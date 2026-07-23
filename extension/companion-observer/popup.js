@@ -22,6 +22,20 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
   });
 });
 
-document.getElementById('manageBtn').addEventListener('click', () => {
+document.getElementById('manageBtn').addEventListener('click', async () => {
+  // Opens Chrome's native side panel (docked beside the current tab) instead
+  // of navigating to a new tab, so the operator keeps their place on
+  // whatever page they were on. Falls back to a new tab if sidePanel isn't
+  // available (older Chrome, or a non-Chromium browser loading this
+  // extension) rather than silently doing nothing.
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (chrome.sidePanel && activeTab?.windowId != null) {
+      await chrome.sidePanel.open({ windowId: activeTab.windowId });
+      return;
+    }
+  } catch (err) {
+    console.warn('[metaMe Observer] sidePanel.open failed, falling back to a new tab:', err);
+  }
   chrome.tabs.create({ url: COMPANION_EMBED_URL });
 });
