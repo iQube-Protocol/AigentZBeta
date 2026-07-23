@@ -40,7 +40,11 @@ export type AnalyzeFn = (
   domain: FinancialDomain,
 ) => Promise<{ summary: string; confidence: IntelligenceConfidence } | null>;
 
-export const FINANCIAL_GROUNDING_NAMESPACES = ['constitutional', 'epistemology', 'engineering'];
+// PRD-MPY-001 Phase 3 (P3-3) — includes `finance` (the FS Invariant Library
+// derived from the QriptoCENT Corpus) so every domain (intelligence,
+// investment, market) grounds step 7 execution in real financial-services
+// invariants, not just the platform-general namespaces.
+export const FINANCIAL_GROUNDING_NAMESPACES = ['constitutional', 'epistemology', 'engineering', 'finance'];
 
 const DOMAIN_LABEL: Record<FinancialDomain, string> = {
   intelligence: 'Financial Intelligence',
