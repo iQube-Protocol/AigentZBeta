@@ -284,13 +284,31 @@ export async function federateSearch(
   personaId: string,
   origin: string,
 ): Promise<CompanionSearchResult[]> {
+  // Each source degrades to [] on failure (a federated search must never
+  // fail wholesale because one source errored) -- but a silently-swallowed
+  // error is indistinguishable from "this source genuinely has no match",
+  // which made a narrow-looking result set impossible to diagnose from the
+  // client alone (operator report, 2026-07-23: "iQube" returned nothing
+  // while "exp 006" did). Logging which source actually threw turns that
+  // ambiguity into a visible fact in the server logs.
+  const guard = <T>(label: string, p: Promise<T[]>): Promise<T[]> =>
+    p.catch((err) => {
+      console.error(`[CompanionSearch] source "${label}" failed:`, err);
+      return [];
+    });
+
   const [research, registryIQube, registryAsset, registryLibrary, capability] = await Promise.all([
-    searchResearch(query).catch(() => []),
-    searchRegistryIQube(query).catch(() => []),
-    searchRegistryAsset(query).catch(() => []),
-    searchRegistryLibrary(query, personaId, origin).catch(() => []),
-    Promise.resolve(searchCapability(query)).catch(() => []),
+    guard('research', searchResearch(query)),
+    guard('registry-iqube', searchRegistryIQube(query)),
+    guard('registry-asset', searchRegistryAsset(query)),
+    guard('registry-library', searchRegistryLibrary(query, personaId, origin)),
+    guard('capability', Promise.resolve(searchCapability(query))),
   ]);
+
+  console.log(
+    `[CompanionSearch] "${query}": research=${research.length} registry-iqube=${registryIQube.length} ` +
+      `registry-asset=${registryAsset.length} registry-library=${registryLibrary.length} capability=${capability.length}`,
+  );
 
   return rankSearchResults(
     [...research, ...registryIQube, ...registryAsset, ...registryLibrary, ...capability],
