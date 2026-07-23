@@ -557,12 +557,18 @@ export default function SmartWalletDrawer({
     }
     
     try {
-      // Call the wallet copilot API
-      const response = await fetch('/api/wallet-copilot', {
+      // Wallet Copilot is grounded through the same MoneyPenny backend as the
+      // "MoneyPenny" tab / avatar mode (app/api/moneypenny/chat/route.ts) —
+      // it shares the common invariant/Canon grounding + domain knowledge,
+      // not a standalone ungrounded implementation (previously
+      // /api/wallet-copilot, a bare OpenAI call with no invariant grounding).
+      const response = await fetch('/api/moneypenny/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: localReply ? [...baseMessages, localReply] : baseMessages,
+          agent_class: 'moneypenny',
+          tenant_id: 'wallet-copilot',
           context: {
             walletBalance: bals.qctArb ? Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18) : 0,
             personaId: effectivePersonaId,
@@ -570,10 +576,10 @@ export default function SmartWalletDrawer({
           }
         }),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        const message = data.message || "I'm here to help! What would you like to know?";
+        const message = data.message || data.response || "I'm here to help! What would you like to know?";
         const content = localIntent.handled ? `More detail: ${message}` : message;
         setCopilotMessages(prev => [...prev, { role: 'assistant', content }]);
       } else {
@@ -3129,6 +3135,15 @@ export default function SmartWalletDrawer({
               )}
             </div>
             ) : (
+              // "MoneyPenny" avatar mode: this is an embedded MetaAvatar iframe
+              // (useMetaAvatar / requestAvatar('copilot', 'aigent-moneypenny')
+              // above), not a fetch() call from this component — it does not
+              // hit /api/moneypenny/chat or any other route in this file, so
+              // there is no divergent grounded/ungrounded path to reconcile
+              // HERE. Whatever chat backend the avatar host itself calls is
+              // outside this repo's API layer and out of scope for this pass;
+              // flagging it so a future session doesn't assume parity with
+              // the "Copilot" tab's grounding above.
               <section
                 ref={avatarAnchorRef}
                 className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[290px] flex-1 min-h-0 flex flex-col items-center justify-center"

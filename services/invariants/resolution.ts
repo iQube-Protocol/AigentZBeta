@@ -284,3 +284,55 @@ export function describeResolvedField(field: ResolvedConstitutionalField): strin
     ` · confidence ${field.confidence.toFixed(2)}`
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Citable-invariant projection — the minimal reusable grounding assembly.
+//
+// codex/chat (app/api/codex/chat/route.ts, SmartTriad Phase 2 block) resolves
+// a message through resolveConstitutionalField and folds the top slice items
+// into a "Governing platform invariants" system-prompt block, cited by seed
+// id. That formatting was inlined in codex/chat's giant buildSystemPrompt —
+// this is the same projection + formatting, factored out ONCE here so any
+// new grounded copilot (e.g. MoneyPenny, app/api/moneypenny/chat/route.ts)
+// reuses it instead of re-deriving or hand-copying the block (CLAUDE.md
+// "Extend, Don't Duplicate" / inv.engineering.036/037).
+// ─────────────────────────────────────────────────────────────────────────
+
+/** A T1-safe, citable invariant — seed id + statement only. */
+export interface CitableInvariant {
+  seedId: string;
+  statement: string;
+}
+
+/**
+ * Resolve the message's constitutional field and project it into a compact,
+ * citable list (seedId + statement) — the same shape codex/chat folds into
+ * its system prompt. Read-only, best-effort: a resolution failure yields an
+ * empty list rather than throwing, so a grounding hiccup never blocks the
+ * chat turn it would otherwise ground.
+ */
+export async function resolveCitableInvariants(
+  intentText: string,
+  limit = 8,
+): Promise<CitableInvariant[]> {
+  if (!intentText || !intentText.trim()) return [];
+  try {
+    const field = await resolveConstitutionalField(intentText);
+    const items = (field.snapshot?.slice.items ?? []).slice(0, limit);
+    return items.map((i) => ({ seedId: String(i.seedId ?? i.id), statement: String(i.statement) }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Format a citable-invariant list as the "cite by seed id" system-prompt
+ * block (same convention as codex/chat's `platformInvariants` block). An
+ * empty list yields an empty string — callers must never fabricate a block
+ * when resolution found nothing relevant; honesty over completeness.
+ */
+export function formatCitableInvariantsBlock(invariants: CitableInvariant[]): string {
+  if (invariants.length === 0) return '';
+  const lines = invariants.map((inv) => `- [${inv.seedId}] ${inv.statement}`);
+  return `### Governing platform invariants (IRE-resolved for this message — cite by seed id when they ground a claim)\n${lines.join('\n')}`;
+}
