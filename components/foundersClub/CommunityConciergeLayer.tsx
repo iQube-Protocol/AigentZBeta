@@ -18,12 +18,18 @@
  * the busy-pulse are inherited for free from the shared component — this
  * file does not reimplement them.
  *
- * ── Scope note (Increment 2 acceptance bar) ─────────────────────────────
+ * ── Scope note (Increment 2 + Increment 3 acceptance bar) ────────────────
  * This is a SHELL: the copilot chrome, the single-face pattern, and a
- * routing scaffold that can name and dispatch toward each of the 8
- * base-roster agents (`services/founders-club/agentRoster.ts`) — not each
- * specialist's full, deep capability build. Concretely, of the 8 roster
- * agents:
+ * routing scaffold that can name and dispatch toward each roster agent
+ * (`services/founders-club/agentRoster.ts`) — not each specialist's full,
+ * deep capability build. The quick-prompt chip strip below is generated
+ * entirely from `foundersClubSpecialists()`, so Increment 3's four roster
+ * additions (Ecosystem Analyst, Community Steward, Knowledge Curator,
+ * Marketa's Market Awareness extension) automatically surface as chips
+ * here with no change to this file's routing logic — `seedPromptFor`'s
+ * existing stub-routing fallback (name + function, no specialist logic)
+ * already covers them exactly like the Increment 2 stub agents below.
+ * Concretely, of the full roster:
  *
  *   - Opportunity Scout  — REAL logic: runs the actual Phase 1 interim
  *     matching heuristic (`services/founders-club/matchingHeuristic.ts`,
@@ -36,11 +42,15 @@
  *     prop is supplied, narrates it deterministically (qualified/bucket) —
  *     no LLM call needed to produce the narration.
  *   - Community Concierge, Network Navigator, Founder Coach, Event Curator,
- *     Circle Facilitator, Introduction Broker — STUB routing only: the chip
+ *     Circle Facilitator, Introduction Broker, Ecosystem Analyst, Community
+ *     Steward, Knowledge Curator, Marketa — STUB routing only: the chip
  *     seeds a prompt naming the specialist and its function (from the
  *     registry) and sends it to the Concierge chat turn; no dedicated
  *     specialist business logic (event calendars, wellbeing check-in
- *     engines, outreach-execution wiring, etc.) is built in this increment.
+ *     engines, outreach-execution wiring, ecosystem-data ingestion,
+ *     agent-first-ratio computation, institutional-memory retrieval, or
+ *     cross-agent Marketa data fetching) is built in this or the prior
+ *     increment.
  *
  * ── Known follow-up (verify once both increments have merged) ──────────
  * `services/founders-club/matchingHeuristic.ts` imports

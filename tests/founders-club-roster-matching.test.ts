@@ -1,17 +1,29 @@
 /**
- * Founders Club — 8-agent roster + Phase 1 matching heuristic canary.
+ * Founders Club — full 12-agent roster + Phase 1 matching heuristic canary.
  *
- * PRD-FDC-001 (Founders Club) §4.2/§5, built as Increment 2 of the
+ * PRD-FDC-001 (Founders Club) §4.2/§4.3/§4.3a/§4.3c/§5, built as Increment 2
+ * (8-agent base roster) and Increment 3 (Ecosystem Analyst, Community
+ * Steward, Knowledge Curator, Marketa's Market Awareness extension) of the
  * implementation plan (`codexes/packs/agentiq/updates/
  * 2026-07-22_prd-foi-001-implementation-plan.md`).
  *
  * Verifies, per this session's own required acceptance bar:
- *   1. The roster registry has exactly 8 entries with the exact names PRD-
- *      FDC-001 §4.2 lists (no silent drift from that ratified list).
- *   2. The three no-named-domain agents (Event Curator, Circle Facilitator,
- *      Introduction Broker) are represented accurately — `awarenessDomain
- *      === null` — never asserting a domain PRD-FDC-001 does not name.
- *   3. `computeFoundersClubMatch`'s rationale string is always non-empty,
+ *   1. The roster registry has exactly 12 entries (8 base + 4 Increment 3
+ *      additions) with the exact names PRD-FDC-001 §4.2/§4.3 lists (no
+ *      silent drift from that ratified list).
+ *   2. The three no-named-domain base-roster agents (Event Curator, Circle
+ *      Facilitator, Introduction Broker) are represented accurately —
+ *      `awarenessDomain === null` — never asserting a domain PRD-FDC-001
+ *      does not name.
+ *   3. Every other agent (the five base-roster domain-owners plus
+ *      Increment 3's four new domain-owners) carries a non-null named
+ *      awareness domain.
+ *   4. Marketa's entry is flagged as a reused platform agent (not a new
+ *      one) referencing the existing `aigent-marketa` persona — never a
+ *      duplicate persona.
+ *   5. Journey Concierge is absent from the roster — it remains Phase-3-
+ *      gated and out of scope for Increment 3 (PRD-FDC-001 §4.3b/§10).
+ *   6. `computeFoundersClubMatch`'s rationale string is always non-empty,
  *      whether or not any signal actually contributed to the score
  *      (PRD-FDC-001 §5's mandatory explainability requirement).
  */
@@ -28,7 +40,7 @@ import {
   type FoundersClubMatchCandidate,
 } from '../services/founders-club/matchingHeuristic';
 
-const RATIFIED_ROSTER_NAMES = [
+const RATIFIED_BASE_ROSTER_NAMES = [
   'Community Concierge',
   'Opportunity Scout',
   'Network Navigator',
@@ -39,20 +51,28 @@ const RATIFIED_ROSTER_NAMES = [
   'Introduction Broker',
 ];
 
+const RATIFIED_INCREMENT_3_AGENT_NAMES = [
+  'Ecosystem Analyst',
+  'Community Steward',
+  'Knowledge Curator',
+  'Marketa',
+];
+
 const NO_NAMED_DOMAIN_AGENT_IDS: FoundersClubAgentId[] = [
   'event-curator',
   'circle-facilitator',
   'introduction-broker',
 ];
 
-describe('Founders Club agent roster (PRD-FDC-001 §4.2)', () => {
-  it('has exactly 8 entries', () => {
-    expect(FOUNDERS_CLUB_AGENT_ROSTER).toHaveLength(8);
+describe('Founders Club agent roster (PRD-FDC-001 §4.2/§4.3)', () => {
+  it('has exactly 12 entries (8 base-roster + 4 Increment 3 additions)', () => {
+    expect(FOUNDERS_CLUB_AGENT_ROSTER).toHaveLength(12);
   });
 
-  it('matches the ratified 8-agent base roster names exactly, no more, no fewer', () => {
+  it('matches the ratified 12-agent roster names exactly, no more, no fewer', () => {
     const names = FOUNDERS_CLUB_AGENT_ROSTER.map((a) => a.name).sort();
-    expect(names).toEqual([...RATIFIED_ROSTER_NAMES].sort());
+    const expected = [...RATIFIED_BASE_ROSTER_NAMES, ...RATIFIED_INCREMENT_3_AGENT_NAMES].sort();
+    expect(names).toEqual(expected);
   });
 
   it('has ids that are unique', () => {
@@ -74,11 +94,11 @@ describe('Founders Club agent roster (PRD-FDC-001 §4.2)', () => {
     }
   });
 
-  it('assigns a named awareness domain to the five base-roster agents that own one', () => {
+  it('assigns a named awareness domain to every other agent (5 base-roster + 4 Increment 3 domain-owners = 9)', () => {
     const withDomain = FOUNDERS_CLUB_AGENT_ROSTER.filter(
       (a) => !NO_NAMED_DOMAIN_AGENT_IDS.includes(a.id),
     );
-    expect(withDomain).toHaveLength(5);
+    expect(withDomain).toHaveLength(9);
     for (const agent of withDomain) {
       expect(agent.awarenessDomain).not.toBeNull();
       expect(typeof agent.awarenessDomain).toBe('string');
@@ -87,12 +107,43 @@ describe('Founders Club agent roster (PRD-FDC-001 §4.2)', () => {
 
   it('foundersClubSpecialists() excludes only the orchestrator', () => {
     const specialists = foundersClubSpecialists();
-    expect(specialists).toHaveLength(7);
+    expect(specialists).toHaveLength(11);
     expect(specialists.some((a) => a.id === 'community-concierge')).toBe(false);
   });
 
   it('getFoundersClubAgent returns undefined for an unknown id (no silent fallback)', () => {
     expect(getFoundersClubAgent('not-a-real-agent' as FoundersClubAgentId)).toBeUndefined();
+  });
+
+  it('registers Increment 3\'s three genuinely-new agents with their named awareness domains', () => {
+    const ecosystemAnalyst = getFoundersClubAgent('ecosystem-analyst');
+    const communitySteward = getFoundersClubAgent('community-steward');
+    const knowledgeCurator = getFoundersClubAgent('knowledge-curator');
+
+    expect(ecosystemAnalyst?.awarenessDomain).toBe('Ecosystem Awareness');
+    expect(communitySteward?.awarenessDomain).toBe('Community Awareness');
+    expect(knowledgeCurator?.awarenessDomain).toBe('Knowledge Awareness');
+
+    for (const agent of [ecosystemAnalyst, communitySteward, knowledgeCurator]) {
+      expect(agent?.isReusedPlatformAgent).toBeFalsy();
+      expect(agent?.reusedPersonaId).toBeUndefined();
+    }
+  });
+
+  it('flags Marketa as a reused platform agent referencing the existing aigent-marketa persona, not a new one', () => {
+    const marketa = getFoundersClubAgent('marketa');
+    expect(marketa).toBeDefined();
+    expect(marketa?.awarenessDomain).toBe('Market Awareness');
+    expect(marketa?.isReusedPlatformAgent).toBe(true);
+    expect(marketa?.reusedPersonaId).toBe('aigent-marketa');
+    expect(marketa?.isOrchestrator).toBe(false);
+  });
+
+  it('does not include Journey Concierge — Phase-3-gated, explicitly out of scope through Increment 3 (PRD-FDC-001 §4.3b/§10)', () => {
+    expect(FOUNDERS_CLUB_AGENT_ROSTER.some((a) => a.name === 'Journey Concierge')).toBe(false);
+    expect(
+      FOUNDERS_CLUB_AGENT_ROSTER.some((a) => (a.id as string) === 'journey-concierge'),
+    ).toBe(false);
   });
 });
 
