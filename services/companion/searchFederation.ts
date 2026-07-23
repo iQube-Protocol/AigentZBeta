@@ -102,7 +102,18 @@ export function rankSearchResults(
 
 // ─── Source 1 — IRL research overview ──────────────────────────────────────
 
-export const RESEARCH_TARGET: CompanionSearchTarget = { slug: 'irl-cartridge', tab: 'irl-dashboard' };
+// 'irl-os' (NOT 'irl-cartridge') — the intentionally public-facing twin.
+// 'irl-cartridge' is the INTERNAL research cartridge; its 'irl-dashboard' tab
+// carries no `adminOnly` flag of its own (only individual instruments inside
+// it, like Corpus Scout, do), so a non-admin persona deep-linked there via
+// this target rendered `IRLDashboardTab` WITHOUT `publicMode: true` --
+// exactly the prop that exists to keep that shared component's non-public
+// data out of a non-admin's view. 'irl-os'/'irl-os-dashboard' runs the same
+// component WITH `publicMode: true` (data/codex-configs.ts), which is the
+// variant actually vetted for exactly this kind of externally-reachable
+// deep link. Bug found 2026-07-23 (operator report: a non-admin persona's
+// search hit reached the internal cartridge).
+export const RESEARCH_TARGET: CompanionSearchTarget = { slug: 'irl-os', tab: 'irl-os-dashboard' };
 
 function readSeriesList(overview: Record<string, unknown>): ResearchSeries[] {
   return Array.isArray(overview.series) ? (overview.series as ResearchSeries[]) : [];
