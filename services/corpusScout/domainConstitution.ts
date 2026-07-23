@@ -25,6 +25,7 @@ import type {
   InstitutionalRegistryRow,
   RatificationStatus,
 } from './types';
+import { resolveCanonicalHomepage } from './canonicalInstitutionHomepages';
 
 type Result<T> = { ok: true } & T | { ok: false; error: string };
 
@@ -88,7 +89,15 @@ function toInstitutionRow(r: Record<string, unknown>): InstitutionalRegistryRow 
   };
 }
 
-/** The full constitutional substrate for one domain. */
+/**
+ * The full constitutional substrate for one domain. Opportunistically
+ * backfills any ratified institution's missing `seedUrl` from the curated
+ * canonical registry (`ensureInstitutionSeedUrl`) before returning — so a
+ * ratified domain like financial-services shows fully populated the moment
+ * a steward opens it, never requiring a manual URL paste first. Best-effort:
+ * an institution not in the canonical registry is returned as-is (`seedUrl:
+ * null`) and stays manually-editable, never blocking the rest of the load.
+ */
 export async function getDomainConstitution(
   admin: SupabaseClient,
   domain: string,
@@ -100,12 +109,21 @@ export async function getDomainConstitution(
     admin.from('corpus_institutional_registry').select('*').eq('domain', domain).order('institution_name', { ascending: true }),
   ]);
 
+  const institutions = ((institutionsRes.data ?? []) as Record<string, unknown>[]).map(toInstitutionRow);
+  const backfilled = await Promise.all(
+    institutions.map(async (institution) => {
+      if (institution.seedUrl || institution.status !== 'ratified') return institution;
+      const resolved = await ensureInstitutionSeedUrl(admin, domain, institution.pillarKey, institution.institutionName);
+      return resolved.ok ? { ...institution, seedUrl: resolved.seedUrl } : institution;
+    }),
+  );
+
   return {
     domain,
     definition: definitionRes.data ? toDefinitionRow(definitionRes.data as Record<string, unknown>) : null,
     pillars: ((pillarsRes.data ?? []) as Record<string, unknown>[]).map(toPillarRow),
     dependencies: ((dependenciesRes.data ?? []) as Record<string, unknown>[]).map(toDependencyRow),
-    institutions: ((institutionsRes.data ?? []) as Record<string, unknown>[]).map(toInstitutionRow),
+    institutions: backfilled,
   };
 }
 
@@ -287,6 +305,12 @@ export async function upsertInstitutionEntry(
     return { ok: false, error: `pillar '${input.pillarKey}' does not exist in the Coverage Model for '${input.domain}' — propose the pillar first` };
   }
 
+  // Auto-resolve from the curated canonical registry when the steward
+  // doesn't supply one — a directory lookup, not a search (see
+  // `canonicalInstitutionHomepages.ts`). A steward-supplied value always
+  // wins; canonical resolution only fills the gap.
+  const seedUrl = input.seedUrl?.trim() || resolveCanonicalHomepage(input.institutionName) || null;
+
   const { data, error } = await admin
     .from('corpus_institutional_registry')
     .upsert(
@@ -294,7 +318,7 @@ export async function upsertInstitutionEntry(
         domain: input.domain,
         pillar_key: input.pillarKey,
         institution_name: input.institutionName,
-        seed_url: input.seedUrl?.trim() || null,
+        seed_url: seedUrl,
         status: 'proposed',
         ratified_by: null,
         ratified_at: null,
@@ -306,6 +330,45 @@ export async function upsertInstitutionEntry(
     .single();
   if (error || !data) return { ok: false, error: error?.message ?? 'upsert failed' };
   return { ok: true, institution: toInstitutionRow(data as Record<string, unknown>) };
+}
+
+/** Discovery-time safety net: an institution row proposed before canonical
+ *  resolution existed (or seeded directly via migration) may still carry a
+ *  null `seed_url`. Resolves it from the curated registry and PERSISTS the
+ *  result onto the row (so it becomes visible, auditable provenance — not a
+ *  silent runtime-only fallback), or returns an honest failure if the
+ *  institution isn't in the curated list. Never calls a search API. */
+export async function ensureInstitutionSeedUrl(
+  admin: SupabaseClient,
+  domain: string,
+  pillarKey: string,
+  institutionName: string,
+): Promise<Result<{ seedUrl: string }>> {
+  const { data, error } = await admin
+    .from('corpus_institutional_registry')
+    .select('seed_url')
+    .eq('domain', domain)
+    .eq('pillar_key', pillarKey)
+    .eq('institution_name', institutionName)
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: error?.message ?? `no institution '${institutionName}' found for pillar '${pillarKey}' in '${domain}'` };
+
+  const existing = (data.seed_url as string | null) ?? null;
+  if (existing) return { ok: true, seedUrl: existing };
+
+  const resolved = resolveCanonicalHomepage(institutionName);
+  if (!resolved) {
+    return { ok: false, error: `no seedUrl for '${institutionName}' and it isn't in the canonical registry — provide one manually (Agent B never falls back to search)` };
+  }
+
+  const { error: updateError } = await admin
+    .from('corpus_institutional_registry')
+    .update({ seed_url: resolved, updated_at: new Date().toISOString() })
+    .eq('domain', domain)
+    .eq('pillar_key', pillarKey)
+    .eq('institution_name', institutionName);
+  if (updateError) return { ok: false, error: updateError.message };
+  return { ok: true, seedUrl: resolved };
 }
 
 export async function ratifyInstitutionEntry(
