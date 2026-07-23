@@ -33,6 +33,7 @@ import {
   type SpecialistContext,
 } from '@/services/agents/specialistRouter';
 import { groundReasoning } from '@/services/invariants/engine';
+import type { InvariantNamespace } from '@/types/invariants';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 /**
@@ -48,13 +49,19 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
  */
 async function buildSpecialistInvariantSlice(
   domains: string[],
+  namespaces?: InvariantNamespace[],
 ): Promise<{ packetSlice: SpecialistContext['invariantSlice']; invariantIds: string[] }> {
   try {
     // CFS-035 Phase 1 — grounded through the engine's Reasoning face (groundReasoning)
     // rather than a hand-rolled slice, so every grounded surface shares one seam.
+    // `namespaces` (PRD-MPY-001 Phase 3) scopes a specialist to its own
+    // invariant library (e.g. MoneyPenny -> 'finance') instead of the
+    // platform-wide slice every other specialist still gets by omitting it.
     const scoped = domains.length
-      ? (await groundReasoning({ domains, limit: 8 })).slice
-      : null;
+      ? (await groundReasoning({ domains, namespaces, limit: 8 })).slice
+      : namespaces
+        ? (await groundReasoning({ namespaces, limit: 8 })).slice
+        : null;
     const slice = scoped && scoped.items.length > 0
       ? scoped
       : (await groundReasoning({ limit: 8 })).slice;
@@ -298,8 +305,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       activeCartridge,
       ...(qube?.meta.activeCartridges ?? []),
     ].filter((d, i, a): d is string => Boolean(d) && a.indexOf(d) === i);
+    // PRD-MPY-001 Phase 3 — MoneyPenny's Advisor mode grounds in the `finance`
+    // namespace (the FS Invariant Library) rather than the platform-wide
+    // slice every other specialist gets by omitting `namespaces`.
+    const specialistNamespaces: InvariantNamespace[] | undefined =
+      resolvedSpecialistId === 'moneypenny' ? ['finance'] : undefined;
     const { packetSlice: invariantSlice, invariantIds: groundingInvariantIds } =
-      await buildSpecialistInvariantSlice(groundingDomains);
+      await buildSpecialistInvariantSlice(groundingDomains, specialistNamespaces);
 
     const specialistContext: SpecialistContext = {
       activeCartridge,

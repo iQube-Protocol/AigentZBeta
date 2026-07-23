@@ -97,10 +97,14 @@ export async function runMoneyPennyChat(params: MoneyPennyChatParams): Promise<M
 
   // Invariant Resolution Engine (CFS-037) — resolve the invariants relevant
   // to THIS message, exactly like codex/chat's SmartTriad Phase 2 block.
-  // Best-effort: resolveCitableInvariants never throws (see resolution.ts),
-  // and formatCitableInvariantsBlock returns '' when nothing was resolved —
+  // Scoped to the `finance` namespace (PRD-MPY-001 Phase 3) — the FS
+  // Invariant Library derived from the QriptoCENT Corpus — so MoneyPenny
+  // cites real inv.finance.* invariants instead of the platform-wide slice.
+  // resolveCitableInvariants falls back to the unscoped slice if the
+  // finance-scoped one comes back empty (small library, early on), and
+  // formatCitableInvariantsBlock returns '' when nothing was resolved —
   // never fabricate a citation block from nothing.
-  const citable = await resolveCitableInvariants(messageText);
+  const citable = await resolveCitableInvariants(messageText, 8, { namespaces: ['finance'] });
   const invariantBlock = formatCitableInvariantsBlock(citable);
 
   const contextStr = context
