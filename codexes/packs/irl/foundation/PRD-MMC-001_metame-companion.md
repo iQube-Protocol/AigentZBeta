@@ -249,7 +249,7 @@ Docs-first; each phase is chartered separately after ratification. Net-new is na
 - [x] Operator confirms **Principal–Delegate Separation** carries to every Companion surface — no agent-authenticate path ever (§4.3). — covered by the §4 ratification above (explicit subsection of §4).
 - [x] Operator confirms **no protected spine / DVN file is modified** and any future implementation is gated on `scripts/verify-spine.mjs` + spine canaries (§4.4). — covered by the §4 ratification above (explicit subsection of §4).
 - [x] Operator confirms the **phased rollout** defers all browser observation to Phase 2, gated on §4 ratification (§6). — the named gate condition (§4 ratified) is now met.
-- [ ] On ratification, a separate **authorized implementation pass** is chartered (not this PRD) — spine-touching and Observer work under operator approval only.
+- [x] On ratification, a separate **authorized implementation pass** is chartered (not this PRD) — spine-touching and Observer work under operator approval only. — **`codexes/packs/agentiq/updates/2026-07-23_prd-mmc-impl-001-companion-phase2-implementation-plan.md` (PRD-MMC-IMPL-001), authored 2026-07-23 and fully ratified by the operator the same day.** Five increments (capability-grant data model, spine-authenticated grant/revoke/list routes, Context Engine input contract into the existing IRE, grant-management UI, canary tests) — none of which builds or claims to test a real browser extension, per that plan's own explicit sandbox-limitation framing.
 
 ---
 
