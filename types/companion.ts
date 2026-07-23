@@ -128,22 +128,45 @@ export interface CompanionDeepLink {
  * receipt (`GET /api/assistant/receipts`) into a surface-renderable feed
  * item. The receipt writer and the DVN pipeline are untouched (PARAMOUNT —
  * PRD §4.4): this is a view, never a new receipt type and never a
- * mechanism change. Constitutional-notification DELIVERY (push to a
- * browser surface, PRD component 12) is Phase 3 and absent here.
+ * mechanism change.
+ *
+ * Phase 3 (PRD-MMC-IMPL-002 §3 Increment 3, "Universal Notifications")
+ * additively marks a subset of feed items as notification-class via
+ * `isNotification` / `kind` — still the SAME Timeline, never a second feed.
+ * A future UI pass keys off `isNotification` (or the specific `kind` value)
+ * to render the unread-style dot/badge described there; this contract only
+ * carries the data, no rendering decision. Known notification `kind` values
+ * emitted by `services/companion/runtime.ts` today: `'passport_status_changed'`
+ * (re-tagged, not re-read, from the existing receipts feed),
+ * `'delegation_status'`, and `'standing_increased'` (both NEW reads, folded
+ * in from `GET /api/companion/notifications`) — `kind` stays a plain
+ * `string` (not a closed union) so this list can grow without a type edit.
  */
 export interface CompanionFeedItem {
-  /** Receipt id (already browser-serialised by the receipts endpoint). */
+  /** Receipt id (already browser-serialised by the receipts endpoint), or a
+   *  stable synthetic id for a non-receipt notification item. */
   id: string;
-  /** Receipt action type, passed through verbatim (T1-safe). */
+  /** Receipt action type, passed through verbatim (T1-safe), or a
+   *  notification-class kind (see the notification kinds noted above). */
   kind: string;
   /** Human-readable summary from the receipt (T1-safe). */
   title: string;
-  /** ISO timestamp (receipt createdAt). */
+  /** ISO timestamp (receipt createdAt, or best-effort "observed at" for a
+   *  derived notification item that has no single underlying event time —
+   *  e.g. `standing_increased`, which is detected, not timestamped). */
   occurredAt: string;
   /** Originating cartridge slug, when the receipt carries one. */
   cartridge?: string;
   /** Optional deep link into the surface that produced the entry. */
   deepLink?: CompanionDeepLink;
+  /**
+   * True for a first-class notification item (Increment 3) as opposed to a
+   * generic receipted-activity item. Additive/optional so no existing
+   * consumer of this contract needs to change: absent/false renders exactly
+   * as today. A future UI pass reads this to apply the unread-style
+   * dot/badge treatment.
+   */
+  isNotification?: boolean;
 }
 
 // ─── Capture (PRD component 9 — user-initiated ONLY in Phase 1) ─────────────

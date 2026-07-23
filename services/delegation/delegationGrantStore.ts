@@ -205,6 +205,58 @@ export async function revokeActiveGrant(personaId: string, reason: string): Prom
   }
 }
 
+/** T1-safe projection of a delegation_grants row's status transition — no
+ *  persona_id, no handoff payload, just enough to render a notification
+ *  ("Delegation active/revoked/expired") with a timestamp. */
+export interface LatestGrantEvent {
+  grantId: string;
+  status: 'active' | 'revoked' | 'expired';
+  createdAt: string;
+  updatedAt: string;
+  revokedAt: string | null;
+  revokeReason: string | null;
+}
+
+/**
+ * Most recent delegation_grants row (any status) for a persona — the latest
+ * status TRANSITION (grant created / revoked / expired), for surfaces that
+ * need to notice a CHANGE (Companion Universal Notifications,
+ * PRD-MMC-IMPL-002 Increment 3) rather than just "is one active right now"
+ * (hasActiveDelegation, above). Same soft-fail discipline as the rest of
+ * this store: a missing migration or query error reads as "no event" rather
+ * than throwing.
+ */
+export async function latestGrantEvent(personaId: string): Promise<LatestGrantEvent | null> {
+  if (!personaId) return null;
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  try {
+    const { data, error } = await admin
+      .from('delegation_grants')
+      .select('grant_id, status, created_at, updated_at, revoked_at, revoke_reason')
+      .eq('persona_id', personaId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      softFail('latest-event', error.message);
+      return null;
+    }
+    if (!data) return null;
+    return {
+      grantId: data.grant_id,
+      status: data.status,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      revokedAt: data.revoked_at,
+      revokeReason: data.revoke_reason,
+    };
+  } catch (e) {
+    softFail('latest-event', e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
 /** Flip a single grant to expired (called when a read finds it past TTL). */
 export async function markGrantExpired(grantId: string): Promise<void> {
   const admin = getSupabaseServer();
