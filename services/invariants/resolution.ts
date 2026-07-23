@@ -314,12 +314,28 @@ export interface CitableInvariant {
 export async function resolveCitableInvariants(
   intentText: string,
   limit = 8,
+  extra?: Partial<GroundingContext>,
 ): Promise<CitableInvariant[]> {
   if (!intentText || !intentText.trim()) return [];
   try {
-    const field = await resolveConstitutionalField(intentText);
+    const field = await resolveConstitutionalField(intentText, extra);
     const items = (field.snapshot?.slice.items ?? []).slice(0, limit);
-    return items.map((i) => ({ seedId: String(i.seedId ?? i.id), statement: String(i.statement) }));
+    if (items.length > 0) {
+      return items.map((i) => ({ seedId: String(i.seedId ?? i.id), statement: String(i.statement) }));
+    }
+    // A namespace-scoped slice can come back thin/empty while the scoped
+    // library is small (e.g. `finance` with only a handful of invariants) —
+    // fall back to the unscoped resolution rather than showing no citations
+    // at all. Same empty-perception discipline resolveConstitutionalField
+    // itself already applies (line ~236) — never let a narrow scope produce
+    // a worse result than no scope would have.
+    if (extra?.namespaces && extra.namespaces.length > 0) {
+      const unscoped = await resolveConstitutionalField(intentText);
+      return (unscoped.snapshot?.slice.items ?? [])
+        .slice(0, limit)
+        .map((i) => ({ seedId: String(i.seedId ?? i.id), statement: String(i.statement) }));
+    }
+    return [];
   } catch {
     return [];
   }
