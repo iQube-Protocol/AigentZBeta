@@ -110,3 +110,24 @@ function assertObservationRespectsGrants(observation, state) {
     }
   }
 }
+
+/**
+ * Mirrors `services/companion/captureConsent.ts`'s `assertCaptureRespectsGrants`
+ * (PRD-MMC-IMPL-003 Increment 1/4). A sibling assertion for a sibling payload
+ * shape — same double-gate discipline as the Observer's own consent check:
+ * this is the CLIENT-SIDE pre-check `background.js`'s capture flow runs
+ * before POSTing; the server (`POST /api/companion/capture`) re-validates
+ * against the persona's real, DB-stored grant state regardless (defense in
+ * depth — never trusting this local check alone).
+ */
+function assertCaptureRespectsGrants(capture, state, siteDomain) {
+  const capability = SOURCE_KIND_TO_CAPABILITY[capture.sourceKind];
+  if (!isCapabilityGranted(state, capability, siteDomain)) {
+    throw new Error(
+      `assertCaptureRespectsGrants: capture sourceKind '${capture.sourceKind}' requires capability ` +
+        `'${capability}', which is not currently granted` +
+        (siteDomain ? ` for site '${siteDomain}'` : '') +
+        '. Recognition is not enough on its own — refusing to constitutionalize this capture.',
+    );
+  }
+}
