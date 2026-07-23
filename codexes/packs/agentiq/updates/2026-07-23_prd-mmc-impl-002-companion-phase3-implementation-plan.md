@@ -80,7 +80,7 @@ No "standing increased" event exists anywhere today — that emission is new (§
 
 ## §6 Ratification Record
 
-- [ ] Operator confirms Increment 1 (Universal Search) scope as described — federated façade over the four named existing reads, keyword-match ranking only, folded into the existing popup's toggle pattern.
-- [ ] Operator confirms Increment 2 (Constitutional Overlay) scope — including that it requires building the previously-deferred observation-ingest endpoint first, and that the domain-shape mapping ships with only an illustrative first set (GitHub + one banking example), not a general classifier.
-- [ ] Operator confirms Increment 3 (Universal Notifications) scope — an extension of the existing Timeline feed with a new "standing increased" event, not a separate notification system or native OS push.
-- [ ] Operator confirms the §4 non-goals (no OS push, no ML search ranking, illustrative-only overlay domain set).
+- [x] Operator confirms Increment 1 (Universal Search) scope as described — federated façade over the four named existing reads, keyword-match ranking only, folded into the existing popup's toggle pattern. — **RATIFIED 2026-07-23 (operator)**
+- [x] Operator confirms Increment 2 (Constitutional Overlay) scope — including that it requires building the previously-deferred observation-ingest endpoint first, and that the domain-shape mapping ships with only an illustrative first set (GitHub + one banking example), not a general classifier. — **RATIFIED 2026-07-23 (operator)**
+- [x] Operator confirms Increment 3 (Universal Notifications) scope — an extension of the existing Timeline feed with a new "standing increased" event, not a separate notification system or native OS push. — **RATIFIED 2026-07-23 (operator)**
+- [x] Operator confirms the §4 non-goals (no OS push, no ML search ranking, illustrative-only overlay domain set). — **RATIFIED 2026-07-23 (operator)**
