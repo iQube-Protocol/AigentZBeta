@@ -76,15 +76,28 @@ export interface LaneCoverageRow {
   /** Everything else — rejected_*, duplicate, superseded. */
   closed: number;
   byStatus: Partial<Record<ReviewWorkflowStatus, number>>;
+  /** Gap Detection (Constitutional Discovery amendment §6): true when this
+   *  lane matches a ratified Constitutional Coverage Model pillar key. Absent
+   *  entirely for callers that don't pass `requiredLanes` — existing
+   *  behavior is unchanged. */
+  required?: boolean;
 }
 
 /**
  * Per-lane counts by review status — the §12 coverage-control view, so one
  * lane (e.g. regulatory sources) cannot silently dominate the corpus while
  * others sit empty. Pure aggregation over rows the caller already holds.
+ *
+ * `requiredLanes` (optional, additive — Constitutional Discovery amendment
+ * §6 "Gap Detection"): when supplied, every required lane gets a row even if
+ * zero candidates have been submitted for it yet (total: 0), so the function
+ * can answer "what's still missing" against a ratified Coverage Model, not
+ * just "what exists." Existing callers that omit this parameter see
+ * byte-for-byte the same output as before this parameter existed.
  */
 export function assessLaneCoverage(
   candidates: ReadonlyArray<Pick<CandidateSourceRow, 'campaignSubDomain' | 'reviewWorkflowStatus'>>,
+  requiredLanes?: readonly string[],
 ): LaneCoverageRow[] {
   const lanes = new Map<string, LaneCoverageRow>();
   for (const c of candidates) {
@@ -100,6 +113,20 @@ export function assessLaneCoverage(
     else if (PENDING_STATUSES.has(c.reviewWorkflowStatus)) row.pending += 1;
     else row.closed += 1;
   }
+
+  if (requiredLanes && requiredLanes.length > 0) {
+    for (const requiredLane of requiredLanes) {
+      const lane = requiredLane.trim();
+      if (!lane) continue;
+      let row = lanes.get(lane);
+      if (!row) {
+        row = { lane, total: 0, pending: 0, approved: 0, closed: 0, byStatus: {} };
+        lanes.set(lane, row);
+      }
+      row.required = true;
+    }
+  }
+
   return [...lanes.values()].sort((a, b) => b.total - a.total || a.lane.localeCompare(b.lane));
 }
 
