@@ -830,6 +830,9 @@ export function SmartTriadCopilotLayer({
           tenantConfig={tenantConfig}
           onModelChange={handleModelChange}
           personaId={personaId}
+          agentName={agent?.name}
+          agentId={agent?.id}
+          agentSubtitle={agentSubtitle}
         />
       )}
     </div>
@@ -1424,6 +1427,9 @@ function EmbeddedCopilot({
   tenantConfig,
   onModelChange,
   personaId,
+  agentName,
+  agentId,
+  agentSubtitle,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -1451,21 +1457,34 @@ function EmbeddedCopilot({
   tenantConfig?: any;
   onModelChange: (model: string, provider: string) => void;
   personaId?: string;
+  agentName?: string;
+  agentId?: string;
+  agentSubtitle?: string;
 }) {
-  
+
   return (
     <div className={`h-full flex flex-col ${panelClassName}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b">
-        <div className="flex items-center gap-2">
-          <Bot className="w-4 h-4 text-cyan-600" />
-          <h3 className="font-medium text-sm text-foreground">SmartTriad Copilot</h3>
+      {/* Header — mirrors FloatingCopilot's header (agent identity, slate
+          house style). Falls back to "SmartTriad Copilot" only when no
+          agentName is supplied, so consumers that don't pass an agent
+          identity keep working unchanged. */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800 bg-slate-900/40">
+        <div className="flex items-center gap-2 min-w-0">
+          <Bot className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+          <span className="font-medium text-sm text-slate-100 truncate">
+            {agentName ?? "SmartTriad Copilot"}
+          </span>
+          {agentSubtitle && (
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 truncate">
+              {agentSubtitle}
+            </span>
+          )}
         </div>
         {enableAdvancedRendering && (
-          <span className="text-xs text-cyan-600">Advanced</span>
+          <span className="text-xs text-cyan-400 flex-shrink-0">Advanced</span>
         )}
       </div>
-      
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.map((message) => (
@@ -1480,10 +1499,10 @@ function EmbeddedCopilot({
         ))}
         <div ref={messagesEndRef} />
       </div>
-      
+
       {/* Input */}
       {!disablePromptInput && (
-        <div className={`p-3 border-t ${inputPanelClassName}`}>
+        <div className={`p-3 border-t border-slate-800 ${inputPanelClassName}`}>
           <div className="flex gap-2">
             <input
               ref={inputRef}
@@ -1499,7 +1518,7 @@ function EmbeddedCopilot({
                 }
               }}
               placeholder={promptPlaceholder}
-              className={`flex-1 px-3 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm ${inputPanelInputClassName}`}
+              className={`flex-1 px-3 py-2 bg-slate-900/40 border border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm text-slate-100 placeholder:text-slate-500 ${inputPanelInputClassName}`}
               disabled={isProcessing}
             />
             <button
@@ -1516,10 +1535,10 @@ function EmbeddedCopilot({
           </div>
         </div>
       )}
-      
+
       {/* Footer */}
       {footerContent && (
-        <div className="p-3 border-t bg-muted/50">
+        <div className="p-3 border-t border-slate-800 bg-slate-900/40">
           {footerContent}
         </div>
       )}
