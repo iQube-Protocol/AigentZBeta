@@ -52,6 +52,7 @@ export const RUNTIME_AGENT_IDS = [
   "aigent-moneypenny",
   "aigent-nakamoto",
   "aigent-marketa",
+  "aigent-community-concierge",
 ] as const;
 
 const AGENT_ALIASES: Record<string, (typeof RUNTIME_AGENT_IDS)[number]> = {
@@ -75,6 +76,9 @@ const AGENT_ALIASES: Record<string, (typeof RUNTIME_AGENT_IDS)[number]> = {
   nakamoto: "aigent-nakamoto",
   "aigent-marketa": "aigent-marketa",
   marketa: "aigent-marketa",
+  "aigent-community-concierge": "aigent-community-concierge",
+  "community concierge": "aigent-community-concierge",
+  "community-concierge": "aigent-community-concierge",
 };
 
 function normalizeProviderId(raw?: string): LlmProviderId | null {

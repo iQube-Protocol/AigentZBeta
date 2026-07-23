@@ -1990,8 +1990,14 @@ function buildSystemPrompt(
   knowledgeInit?: KnowledgeManifest | null,
   latestUserMessage?: string,
 ): string {
-  // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
-  const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
+  // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1').
+  // Fall back via defaultAgentIdForPersona (not a hardcoded 'aigent-kn0w1') so any
+  // aigent-*-prefixed persona unknown to RUNTIME_AGENT_IDS (e.g. SmartTriad-instantiated
+  // cartridge faces like 'aigent-community-concierge') keeps its OWN id — and therefore
+  // its own personas[] system prompt — instead of silently collapsing onto Kn0w1's
+  // KNYT-lore-flavoured prompt. Bug found 2026-07-23: Founders Club's Community Concierge
+  // was narrating "the metaKnyts universe" because this line discarded its persona id.
+  const resolvedPersonaId = normalizeAgentId(aigentId) ?? defaultAgentIdForPersona(aigentId ?? '');
   const personaConfig =
     personas[resolvedPersonaId as keyof typeof personas] ??
     personas['aigent-kn0w1'];
