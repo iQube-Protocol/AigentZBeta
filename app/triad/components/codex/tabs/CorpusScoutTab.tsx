@@ -571,6 +571,12 @@ export function CorpusScoutTab() {
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-300 hover:text-white"
                   >
                     {previewOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />} Content preview
+                    {c.normalizedText && (
+                      <span className="ml-1 font-mono text-slate-500">
+                        ({Math.min(c.normalizedText.length, PREVIEW_CHARS).toLocaleString()} of {c.normalizedText.length.toLocaleString()} chars
+                        {c.pageCount ? ` · ${c.pageCount}p` : ''})
+                      </span>
+                    )}
                   </button>
                   {!c.evidenceRowId && (
                     <button
