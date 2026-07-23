@@ -259,21 +259,21 @@ If an operator has two browser tabs open to `/triad/embed/companion` (or, eventu
 
 ## §6 Ratification record
 
-**Status: UNRATIFIED. This implementation plan requires explicit operator sign-off before any Increment above begins code work — per PRD-MMC-001 §8's own final ratification-record item naming a follow-on implementation plan as the one remaining gate.**
+**Status: RATIFIED 2026-07-23 (operator). Every increment below is authorized to begin code work.**
 
-- [ ] Operator ratifies the §0 reconciliation — that Increment 1 adds a NEW sibling type file (`types/companionObserver.ts`) rather than editing `types/companion.ts` in place, preserving `tests/companion-runtime.test.ts` unchanged and correct.
-- [ ] Operator ratifies the hard sandbox-limitation framing (§0.2) — that no increment in this plan builds, packages, or tests a real browser extension, and that the actual extension manifest/content-script/background-worker is explicitly deferred to a separate, environment-specific pass.
-- [ ] Operator ratifies §0.4's decision — the capability-grant management UI mounts inside the existing `/triad/embed/companion` shell, not a new host page, with the component itself written surface-agnostic for later reuse in an extension-sidebar surface.
-- [ ] Operator ratifies Increment 1's file list and scope (§2) — the `ObserverCapability`/`ObserverCapabilityGrant`/`ObserverGrantState` types and the pure grant/revoke state-machine functions.
-- [ ] Operator ratifies Increment 2's file list and scope (§2) — the two spine-authenticated API routes and the illustrative (not-run) migration sketch mirroring `persona_agent_assignments`'s RLS pattern.
-- [ ] Operator ratifies Increment 3's file list and scope (§2) — the `BrowserContextObservation` shape, the consent-enforcement choke point (`assertObservationRespectsGrants`), and the composition into the existing, unmodified `resolveConstitutionalField`/`GroundingContext`.
-- [ ] Operator ratifies Increment 4's file list and scope (§2) — `ObserverGrantPanel.tsx` and the one additive rail section in the existing Companion embed page.
-- [ ] Operator ratifies Increment 5's scope (§2) — a new sibling canary file mirroring `tests/companion-runtime.test.ts`'s shape, with `tests/companion-runtime.test.ts` itself left unmodified.
-- [ ] Operator ratifies the §3 sequencing rationale, in particular that the real extension build is placed after all five increments and treated as a separate, environment-specific pass rather than interleaved.
-- [ ] Operator has reviewed §5's four open engineering questions and either resolves them here or explicitly delegates each to the builder of the relevant increment.
-- [ ] This document is cross-referenced from PRD-MMC-001's own ratification record (§8) as the "separate authorized implementation pass" it names — a small follow-up edit to that document once this plan itself is ratified, not performed by this docs-only authoring pass.
+- [x] Operator ratifies the §0 reconciliation — that Increment 1 adds a NEW sibling type file (`types/companionObserver.ts`) rather than editing `types/companion.ts` in place, preserving `tests/companion-runtime.test.ts` unchanged and correct.
+- [x] Operator ratifies the hard sandbox-limitation framing (§0.2) — that no increment in this plan builds, packages, or tests a real browser extension, and that the actual extension manifest/content-script/background-worker is explicitly deferred to a separate, environment-specific pass.
+- [x] Operator ratifies §0.4's decision — the capability-grant management UI mounts inside the existing `/triad/embed/companion` shell, not a new host page, with the component itself written surface-agnostic for later reuse in an extension-sidebar surface.
+- [x] Operator ratifies Increment 1's file list and scope (§2) — the `ObserverCapability`/`ObserverCapabilityGrant`/`ObserverGrantState` types and the pure grant/revoke state-machine functions.
+- [x] Operator ratifies Increment 2's file list and scope (§2) — the two spine-authenticated API routes and the illustrative (not-run) migration sketch mirroring `persona_agent_assignments`'s RLS pattern.
+- [x] Operator ratifies Increment 3's file list and scope (§2) — the `BrowserContextObservation` shape, the consent-enforcement choke point (`assertObservationRespectsGrants`), and the composition into the existing, unmodified `resolveConstitutionalField`/`GroundingContext`.
+- [x] Operator ratifies Increment 4's file list and scope (§2) — `ObserverGrantPanel.tsx` and the one additive rail section in the existing Companion embed page.
+- [x] Operator ratifies Increment 5's scope (§2) — a new sibling canary file mirroring `tests/companion-runtime.test.ts`'s shape, with `tests/companion-runtime.test.ts` itself left unmodified.
+- [x] Operator ratifies the §3 sequencing rationale, in particular that the real extension build is placed after all five increments and treated as a separate, environment-specific pass rather than interleaved.
+- [x] Operator has reviewed §5's four open engineering questions and **delegates each to the builder of the relevant increment** (5.1 grant-storage granularity → Increment 2 builder; 5.2 whether `history` needs a structurally stronger consent flow → Increment 4 builder, default to the plan's as-scoped single-warning-string approach unless the builder flags a reason to escalate; 5.3 client-and/or-server enforcement point for `assertObservationRespectsGrants` → the future extension-pass builder; 5.4 cross-tab live sync → Increment 4 builder, default to the plan's manual-refresh-only minimal bar) — none resolved definitively here, all explicitly delegated rather than silently deferred.
+- [x] This document is cross-referenced from PRD-MMC-001's own ratification record (§8) as the "separate authorized implementation pass" it names — done in the same commit that ratifies this plan.
 
-Until every box above is checked, this document authorizes no code change. It is a plan for a plan-following session to execute, not itself an authorization to begin Increment 1.
+All boxes checked 2026-07-23. Increments 1–5 are authorized to begin, in the dependency order §3 specifies (1 first; 2 and 3 may proceed in parallel once 1 lands; 4 after 1+2; 5 last).
 
 ---
 
