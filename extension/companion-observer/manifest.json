@@ -5,7 +5,7 @@
   "description": "PRD-MMC-IMPL-001 Increment 6: consent-gated browser context Observer for the metaMe Companion. Reads only what a persona has explicitly granted (types/companionObserver.ts) and hands it to the Companion API — never a raw page dump.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
-    "*://localhost/*"
+    "https://dev-beta.aigentz.me/*"
   ],
   "background": {
     "service_worker": "background.js"
