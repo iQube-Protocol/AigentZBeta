@@ -1,8 +1,8 @@
 /**
- * metaMe Companion — Capture canary (PRD-MMC-IMPL-003 Increment 1).
+ * metaMe Companion — Capture canary (PRD-MMC-IMPL-003 Increments 1-2).
  *
  * Mirrors `tests/companion-observer.test.ts`'s exact shape and rigor. Locks
- * the contracts Increment 1 exists to keep:
+ * the contracts Increments 1-2 exist to keep:
  *
  *  1. TIER LAW — `types/companionCapture.ts` (a browser-serialisable module)
  *     declares NO forbidden T0 field.
@@ -14,12 +14,20 @@
  *     capability is not granted (per source kind) and passes when it is,
  *     including site-scope isolation for the two site-scoped capabilities.
  *
- * Increments 2-4 (routes, UI, extension) are not built yet — their canaries
- * land with those increments, same sequencing `tests/companion-observer.test.ts`
- * followed for Increments 2/4/etc.
+ *  4. API ROUTES (Increment 2) fail CLOSED on a null `getActivePersona` —
+ *     401, no Supabase read/write attempted.
+ *
+ *  5. ASSIGN ROUTE COMPOSITION — the assign route imports the REAL
+ *     `createIntentQube`/`createVentureQube` constructors by name (a
+ *     structural canary that fails loudly if a future edit swaps in a
+ *     parallel insert instead, `inv.engineering.037` style), and only
+ *     supports `'intent'`/`'venture'` destinations.
+ *
+ * Increments 3-4 (Workspace inbox UI, extension) are not built yet — their
+ * canaries land with those increments.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -111,5 +119,122 @@ describe('assertCaptureRespectsGrants', () => {
     expect(() =>
       assertCaptureRespectsGrants({ sourceKind: 'webpage' }, state, 'other.com'),
     ).toThrow();
+  });
+});
+
+// ─── 4. API routes — fail closed, no T0 in response body (Increment 2) ─────
+
+vi.mock('@/services/identity/getActivePersona', () => ({
+  getActivePersona: vi.fn(),
+}));
+vi.mock('@/app/api/_lib/supabaseServer', () => ({
+  getSupabaseServer: vi.fn(),
+}));
+
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+const mockedGetActivePersona = getActivePersona as unknown as ReturnType<typeof vi.fn>;
+const mockedGetSupabaseServer = getSupabaseServer as unknown as ReturnType<typeof vi.fn>;
+
+const FORBIDDEN_T0_FIELDS = ['personaId', 'authProfileId', 'rootDid', 'kybeAttestation'] as const;
+
+function collectKeys(value: unknown, out: Set<string> = new Set()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const v of value) collectKeys(v, out);
+  } else if (value && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value)) {
+      out.add(k);
+      collectKeys(v, out);
+    }
+  }
+  return out;
+}
+
+function makeRequest(url: string, init?: RequestInit) {
+  return new Request(url, init) as unknown as import('next/server').NextRequest;
+}
+
+describe('GET/POST /api/companion/capture — fail closed', () => {
+  beforeEach(() => {
+    mockedGetActivePersona.mockReset();
+    mockedGetSupabaseServer.mockReset();
+  });
+
+  it('GET returns 401 with no Supabase call attempted when getActivePersona resolves null', async () => {
+    mockedGetActivePersona.mockResolvedValueOnce(null);
+    const { GET } = await import('@/app/api/companion/capture/route');
+
+    const res = await GET(makeRequest('http://localhost:3000/api/companion/capture'));
+    expect(res.status).toBe(401);
+    expect(mockedGetSupabaseServer).not.toHaveBeenCalled();
+
+    const body = await res.json();
+    const keys = collectKeys(body);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden)).toBe(false);
+    }
+  });
+
+  it('POST returns 401 with no Supabase call attempted when getActivePersona resolves null', async () => {
+    mockedGetActivePersona.mockResolvedValueOnce(null);
+    const { POST } = await import('@/app/api/companion/capture/route');
+
+    const res = await POST(
+      makeRequest('http://localhost:3000/api/companion/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceKind: 'webpage', contentText: 'hello', capturedAt: '2026-07-23T00:00:00Z' }),
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(mockedGetSupabaseServer).not.toHaveBeenCalled();
+
+    const body = await res.json();
+    const keys = collectKeys(body);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden)).toBe(false);
+    }
+  });
+});
+
+describe('POST /api/companion/capture/[captureId]/assign — fail closed + composition canary', () => {
+  beforeEach(() => {
+    mockedGetActivePersona.mockReset();
+    mockedGetSupabaseServer.mockReset();
+  });
+
+  it('returns 401 with no Supabase call attempted when getActivePersona resolves null', async () => {
+    mockedGetActivePersona.mockResolvedValueOnce(null);
+    const { POST } = await import('@/app/api/companion/capture/[captureId]/assign/route');
+
+    const res = await POST(
+      makeRequest('http://localhost:3000/api/companion/capture/abc/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destination: 'intent' }),
+      }),
+      { params: Promise.resolve({ captureId: 'abc' }) },
+    );
+    expect(res.status).toBe(401);
+    expect(mockedGetSupabaseServer).not.toHaveBeenCalled();
+  });
+
+  it('imports the REAL createIntentQube/createVentureQube constructors (never a parallel insert)', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'app', 'api', 'companion', 'capture', '[captureId]', 'assign', 'route.ts'),
+      'utf8',
+    );
+    expect(source).toMatch(/import\s*\{\s*createIntentQube\s*\}\s*from\s*'@\/services\/iqube\/intentQube'/);
+    expect(source).toMatch(/import\s*\{\s*createVentureQube\s*\}\s*from\s*'@\/services\/venture\/ventureQubeService'/);
+  });
+
+  it('only supports intent/venture destinations — everything else is a named 400, never a silent no-op', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'app', 'api', 'companion', 'capture', '[captureId]', 'assign', 'route.ts'),
+      'utf8',
+    );
+    expect(source).toContain("SUPPORTED_DESTINATIONS: CaptureAssignDestination[] = ['intent', 'venture']");
+    expect(source).toContain('destination-not-yet-supported');
   });
 });
