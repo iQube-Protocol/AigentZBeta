@@ -26,6 +26,9 @@ const ARCHITECT_ROUTE_PATH = join(process.cwd(), 'app/api/moneypenny/architect/r
 const PANEL_PATH = join(process.cwd(), 'app/(shell)/moneypenny/components/RuntimePanel.tsx');
 const RECEIPT_SERVICE_PATH = join(process.cwd(), 'services/receipts/activityReceiptService.ts');
 const DVN_PIPELINE_PATH = join(process.cwd(), 'services/dvn/activityReceiptDvnPipeline.ts');
+const WALLET_RUNTIME_PATH = join(process.cwd(), 'app/components/wallet/MoneyPennyWalletRuntime.tsx');
+const WALLET_ARCHITECT_PATH = join(process.cwd(), 'app/components/wallet/MoneyPennyWalletArchitect.tsx');
+const WALLET_DRAWER_PATH = join(process.cwd(), 'app/components/content/SmartWalletDrawer.tsx');
 
 describe('MoneyPenny Runtime route — authority boundary', () => {
   it('never imports or calls authorizeAgreement', () => {
@@ -95,5 +98,54 @@ describe('RuntimePanel — client-side agreement lifecycle', () => {
     expect(src).toContain('"form"');
     expect(src).toContain('"accept"');
     expect(src).toContain('"authorize"');
+  });
+});
+
+describe('MoneyPenny wallet surface (SmartWalletDrawer) — Architect/Runtime, same authority boundary', () => {
+  it('MoneyPennyWalletRuntime uses personaFetch, never raw fetch, for the spine-authenticated runtime call', () => {
+    const src = readFileSync(WALLET_RUNTIME_PATH, 'utf8');
+    // no raw global fetch( -- personaFetch only (its lowercase never matches "Fetch(")
+    expect(src).not.toMatch(/[^A-Za-z]fetch\(/);
+    expect(src).toContain('personaFetch(');
+  });
+
+  it('MoneyPennyWalletRuntime never imports or calls authorizeAgreement, and never renders a Form/Accept/Authorize control', () => {
+    const src = readFileSync(WALLET_RUNTIME_PATH, 'utf8');
+    expect(src).not.toContain('authorizeAgreement');
+    expect(src).not.toContain('acceptAgreement');
+    expect(src).not.toContain('"form"');
+    expect(src).not.toContain('"accept"');
+    expect(src).not.toContain('"authorize"');
+  });
+
+  it('MoneyPennyWalletRuntime never requests authoritative mode -- always shadow, always Financial Intelligence', () => {
+    const src = readFileSync(WALLET_RUNTIME_PATH, 'utf8');
+    expect(src).not.toContain("mode: 'authoritative'");
+    expect(src).not.toContain('mode: "authoritative"');
+    expect(src).toMatch(/domain:\s*["']intelligence["']/);
+    expect(src).toMatch(/mode:\s*["']shadow["']/);
+  });
+
+  it('MoneyPennyWalletRuntime deep-links to the full cartridge for the Agreement lifecycle instead of duplicating it', () => {
+    const src = readFileSync(WALLET_RUNTIME_PATH, 'utf8');
+    expect(src).toContain('/moneypenny');
+  });
+
+  it('MoneyPennyWalletArchitect uses personaFetch, never raw fetch, and never imports settlement/authorize/accept', () => {
+    const src = readFileSync(WALLET_ARCHITECT_PATH, 'utf8');
+    expect(src).not.toMatch(/[^A-Za-z]fetch\(/);
+    expect(src).toContain('personaFetch(');
+    expect(src).not.toContain('authorizeAgreement');
+    expect(src).not.toContain('acceptAgreement');
+    expect(src.toLowerCase()).not.toContain('settlementexecutor');
+  });
+
+  it('SmartWalletDrawer wires both wallet panels into the MoneyPenny tab additively (Chat sub-mode untouched)', () => {
+    const src = readFileSync(WALLET_DRAWER_PATH, 'utf8');
+    expect(src).toContain('MoneyPennyWalletArchitect');
+    expect(src).toContain('MoneyPennyWalletRuntime');
+    // The pre-existing Chat/avatar copy must still be present verbatim --
+    // this is the additive-only canary for the wallet surface.
+    expect(src).toContain('MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.');
   });
 });
