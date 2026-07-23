@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "metaMe Companion — Constitutional Observer",
+  "version": "0.1.0",
+  "description": "PRD-MMC-IMPL-001 Increment 6: consent-gated browser context Observer for the metaMe Companion. Reads only what a persona has explicitly granted (types/companionObserver.ts) and hands it to the Companion API — never a raw page dump.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "*://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["constants.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "metaMe Companion Observer"
+  }
+}
