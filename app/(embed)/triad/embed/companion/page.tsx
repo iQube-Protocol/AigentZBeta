@@ -23,21 +23,30 @@
  * identity chip. NO browser observation of any kind (PRD §6 Phase 1 / §4):
  * nothing here reads tabs, pages, selections, history, or clipboard.
  *
- * WIDTH + SURFACE TOGGLE (2026-07-23, operator-directed, revised): this page
- * is the extension's "Manage permissions" surface, opened as a narrow
- * floating popup window beside whatever page the operator is browsing (see
+ * WIDTH + SURFACE TOGGLE (2026-07-23, operator-directed, twice-revised):
+ * this page is the extension's "Manage permissions" surface, opened as a
+ * floating popup window dedicated solely to it (see
  * `extension/companion-observer/popup.js`'s `openOrFocusCompanionWindow`) —
- * not a full-bleed standalone page. Originally built as two side-by-side
- * fixed-width panels (Companion rail + wallet), but at that combined width
- * the wallet was visibly cropped in the popup window. Revised to a SINGLE
- * `w-[23.25rem]` surface (`SmartWalletDrawer`'s own `embeddedWidth="fixed"`
- * class, reused rather than inventing a new width unit) that TOGGLES between
- * the wallet and the Companion rail (identity chip + Timeline + Observer
- * permissions) via a small segmented control at the top — never both at
- * once. Mirrors the canonical narrow embed pattern already established at
- * `app/(embed)/triad/embed/wallet/page.tsx`, and the toggle-between-modes
- * pattern `SmartWalletDrawer` already uses internally for its own
- * Copilot/MoneyPenny modes — same idea, one level up.
+ * not a full-bleed standalone page, and never sharing a viewport with
+ * anything else. History of the two revisions:
+ *   1. Originally two side-by-side fixed-width panels (Companion rail +
+ *      wallet) — at that combined width the wallet was visibly cropped in
+ *      the popup window.
+ *   2. Revised to a SINGLE `w-[23.25rem]` surface that TOGGLES between the
+ *      wallet and the Companion rail (identity chip + Timeline + Observer
+ *      permissions) via a small segmented control at the top — never both
+ *      at once. But the fixed rem width didn't exactly match the popup
+ *      window's actual content-area size (a small buffer intentionally
+ *      added to the window's requested width, to avoid clipping, showed up
+ *      as a visible gap instead once content and window stopped matching
+ *      pixel-for-pixel).
+ * Now: the outer container and `SmartWalletDrawer` (`embeddedWidth="fill"`)
+ * both simply fill whatever width the host window actually provides —
+ * correct by construction regardless of platform-specific window-chrome
+ * insets, since this page never needs to share space with anything wider.
+ * The toggle-between-modes idea itself mirrors the pattern `SmartWalletDrawer`
+ * already uses internally for its own Copilot/MoneyPenny modes — same idea,
+ * one level up.
  */
 
 "use client";
@@ -98,10 +107,19 @@ function CompanionShell() {
   const identity = ctx?.identity ?? null;
 
   return (
-    <div className="flex h-screen min-h-0 justify-end bg-slate-950 text-slate-100">
-      {/* Single narrow surface, right-anchored — toggles between the wallet
-          and the Companion rail rather than showing both side by side. */}
-      <div className="flex h-full w-[23.25rem] min-h-0 shrink-0 flex-col border-l border-slate-800 bg-slate-900/40">
+    <div className="flex h-screen min-h-0 bg-slate-950 text-slate-100">
+      {/* Single surface, fills whatever width the host window actually is —
+          this page is now ALWAYS hosted in a popup window dedicated solely
+          to it (extension/companion-observer/popup.js's
+          openOrFocusCompanionWindow), never sharing a viewport with
+          anything wider, so there's no reason to clamp to a fixed rem width
+          and hope it happens to match the window's real content-area size
+          (it didn't — a small buffer added to the popup window's requested
+          width, to avoid clipping, showed up as a visible gap instead once
+          the window and this fixed width stopped matching exactly). Filling
+          the container completely removes that class of mismatch entirely,
+          regardless of platform-specific window-chrome insets. */}
+      <div className="flex h-full min-h-0 w-full flex-col bg-slate-900/40">
         {/* Surface toggle — always visible regardless of which surface is
             active, so there's a way back from either side. */}
         <div className="flex shrink-0 items-center gap-1 border-b border-slate-800 bg-slate-900/60 px-2 py-1.5">
@@ -137,7 +155,7 @@ function CompanionShell() {
                 open={true}
                 onClose={() => setWalletOpen(false)}
                 variant="embedded"
-                embeddedWidth="fixed"
+                embeddedWidth="fill"
                 allowWideLayout={false}
                 agent={{ id: "companion", name: "metaMe Companion" }}
                 codexMode={true}
