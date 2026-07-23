@@ -59,9 +59,18 @@ Nothing here is redesigned. Increment 3 is purely: give this existing workspace 
 
 ---
 
+## §6 Ratification amendment (2026-07-23) — canonical home moves to metaMe IRL
+
+Operator ratified the plan with one amendment to Increment 1, superseding the "reorder within IRL OS" framing:
+
+- **Corpus Scout and EXP-P1 Readiness are internal experimentation instruments.** Their **primary/canonical home is `irl-cartridge` (metaMe IRL, the internal lab)**, not `irl-os-cartridge` (the intentionally public-facing twin). Added `irl-corpus-scout` and `irl-exp-p1-readiness` to `irl-cartridge`'s Laboratory group (`data/codex-configs.ts`, order 4/5, right after Invariant Field) — same components (`CorpusScoutTab`, `ExpP1ReadinessTab`), new tab-config entries.
+- **The `irl-os-*` copies are kept, not removed** — deliberately stubbed as a future access point in case invariant aggregation opens beyond admin (cohort-gated, token-gated, or payment-gated access). Nothing beyond a documenting comment was built for that future gate — both copies stay `adminOnly: true` in both cartridges today, exactly as before.
+- **Non-admin visibility was re-verified, not re-built**: `CodexPanelDynamic.tsx`'s `getEnabledTabs` already excludes `adminOnly` tabs from both the nav AND the top-level `activeTab` resolution (a direct deep-link to a gated slug falls back to the cartridge's first tab rather than rendering gated content) — so "admin-gated but should also be invisible to non-admins" was already the actual behavior; no code change was needed for that half of the ask.
+- Increments 2 (domain filter + picker) and 3 (mount `InvariantDiscoveryTab`) are **ratified as originally scoped** — apply to the Laboratory tabs regardless of which cartridge hosts them.
+
 ## Ratification record
 
-- [ ] Operator confirms Increment 1 (reorder Corpus Scout near/before Invariant Registry) — exact target position (immediately before Invariant Registry vs. some other slot) confirmed.
-- [ ] Operator confirms Increment 2 (domain filter + picker on Corpus Scout, sourced from existing data, no new domain registry).
-- [ ] Operator confirms Increment 3 (mount `InvariantDiscoveryTab` as its own adjacent Laboratory tab, generalize its hardcoded domain to a picker) — including the label to use for the mounted tab (e.g. "Invariant Discovery").
-- [ ] Operator confirms the §4 non-goals (no file upload, no auto-domain-classification, no tab merge).
+- [x] Increment 1 (placement) — **RATIFIED 2026-07-23 (operator), amended**: canonical home is `irl-cartridge`, not a reorder within `irl-os-cartridge`. See §6.
+- [x] Increment 2 (domain filter + picker on Corpus Scout, sourced from existing data, no new domain registry) — **RATIFIED 2026-07-23 (operator)**.
+- [x] Increment 3 (mount `InvariantDiscoveryTab` as its own adjacent Laboratory tab, generalize its hardcoded domain to a picker) — **RATIFIED 2026-07-23 (operator)**. Label: "Invariant Discovery" (default, not yet contested).
+- [x] §4 non-goals (no file upload, no auto-domain-classification, no tab merge) — **RATIFIED 2026-07-23 (operator)**.
