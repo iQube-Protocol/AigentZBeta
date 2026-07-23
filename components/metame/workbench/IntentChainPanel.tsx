@@ -14,7 +14,7 @@
  */
 
 import React from "react";
-import { Loader2, ArrowRight, ExternalLink, FileText, Sparkles, Link2, ChevronDown, PlusCircle, CheckCircle2, Mail, X as XIcon } from "lucide-react";
+import { Loader2, ArrowRight, ExternalLink, FileText, Sparkles, Link2, ChevronDown, PlusCircle, CheckCircle2, Mail, CalendarPlus, X as XIcon } from "lucide-react";
 
 export interface TimelineEventDto {
   eventId: string;
@@ -937,15 +937,25 @@ function ActRow({
 /**
  * After a child intent is approved, offer an inline draft-and-send
  * affordance so the operator can execute the artifact without leaving
- * the chain panel.
+ * the chain panel — SPEC-MMC-001 §3 Movement IV (Project), PRD-MMC-IMPL-005
+ * Increment 1.
  *
- * Flow: "Draft email" → mini inline form → create-artifact(gmail-draft)
- * → ArtifactSendButton appears inline → connectors/execute → approval
- * popup → sent. Self-contained; no cross-tab communication needed.
+ * Flow: pick a kind → mini inline form → create-artifact(...) →
+ * ArtifactSendButton appears inline → connectors/execute → approval
+ * popup (when the underlying connector requires it) → sent. Self-contained;
+ * no cross-tab communication needed.
  *
- * Destination is inferred from the child intent name. Falls back to
- * destination=runtime (Marketa) when the Gmail connector is unavailable.
+ * Three kinds, all reusing the SAME already-live, already-authenticated
+ * connectors (PRD-MMC-IMPL-005 §0.1) — never a new route, never a new
+ * connector: 'email' (unchanged from before this pass — same
+ * `isEmailIntent`-gated visibility, same request shape, same
+ * `gmail-draft`/`gmail` call), 'calendar' (`calendar-block`/`calendar`),
+ * 'doc' (`google-doc`/`drive`). GitHub PR / Slack / external CRM / browser
+ * automation are explicitly NOT here — PRD-MMC-IMPL-005 §0.2 names them as
+ * needing new external credentials this pass does not provision.
  */
+type ProjectKind = 'email' | 'calendar' | 'doc';
+
 function PostApprovalDraftButton({
   child,
   isDark,
@@ -955,15 +965,24 @@ function PostApprovalDraftButton({
 }) {
   type Phase = 'idle' | 'form' | 'creating' | 'done' | 'error';
   const [phase, setPhase] = React.useState<Phase>('idle');
+  const [activeKind, setActiveKind] = React.useState<ProjectKind | null>(null);
   const [to, setTo] = React.useState('');
   const [subject, setSubject] = React.useState(child.intentName);
   const [body, setBody] = React.useState('');
+  const [calendarStart, setCalendarStart] = React.useState('');
+  const [calendarEnd, setCalendarEnd] = React.useState('');
   const [errMsg, setErrMsg] = React.useState<string | null>(null);
   // After creation, hold the artifact data so ArtifactSendButton can render.
   const [artifact, setArtifact] = React.useState<{
     connectorId: string; connectorLabel: string;
     actionInput: Record<string, unknown>; intentId: string;
   } | null>(null);
+  // Calendar (private event, no attendees) and Doc (no share suggestion)
+  // both eager-create with NO actionConnectorId -- there is nothing further
+  // to send, unlike email (always google.gmail.send) or an external-invite
+  // calendar event. This holds that "already done" outcome distinctly from
+  // the ArtifactSendButton case.
+  const [createdLink, setCreatedLink] = React.useState<{ message: string; locationUrl: string | null } | null>(null);
 
   const baseBtn = "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] transition disabled:opacity-50";
   const inputCls = `w-full rounded border px-2 py-1 text-[11px] bg-transparent outline-none ${
@@ -972,36 +991,80 @@ function PostApprovalDraftButton({
       : "border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-violet-400"
   }`;
 
+  const openForm = (kind: ProjectKind) => {
+    setActiveKind(kind);
+    setPhase('form');
+  };
+
   const create = async () => {
     setPhase('creating');
     setErrMsg(null);
     try {
       const { personaFetch } = await import("@/utils/personaSpine");
+      const payload =
+        activeKind === 'calendar'
+          ? {
+              // Field names match create-artifact's calendar-destination
+              // contract exactly (summary/startIso/endIso) -- verified by
+              // direct read, not guessed. No attendeeEmails in this minimal
+              // form, so this always takes the eager-create (private event,
+              // no approval) branch.
+              artifactType: 'calendar-block' as const,
+              destination: 'calendar' as const,
+              title: subject || child.intentName,
+              sourceIntentId: child.intentId,
+              connectorInput: {
+                summary: subject || child.intentName,
+                startIso: calendarStart ? new Date(calendarStart).toISOString() : '',
+                endIso: calendarEnd ? new Date(calendarEnd).toISOString() : '',
+              },
+            }
+          : activeKind === 'doc'
+            ? {
+                artifactType: 'google-doc' as const,
+                destination: 'drive' as const,
+                title: subject || child.intentName,
+                sourceIntentId: child.intentId,
+                connectorInput: { title: subject || child.intentName },
+              }
+            : {
+                // 'email' -- unchanged request shape from before this pass.
+                artifactType: 'gmail-draft' as const,
+                destination: 'gmail' as const,
+                title: subject || child.intentName,
+                sourceIntentId: child.intentId,
+                connectorInput: { to: to.trim(), subject: subject || child.intentName, bodyText: body },
+              };
       const res = await personaFetch('/api/assistant/create-artifact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          artifactType: 'gmail-draft',
-          destination: 'gmail',
-          title: subject || child.intentName,
-          sourceIntentId: child.intentId,
-          connectorInput: { to: to.trim(), subject: subject || child.intentName, bodyText: body },
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({})) as {
         actionConnectorId?: string; actionConnectorLabel?: string;
         actionInput?: Record<string, unknown>; intentId?: string;
+        message?: string; locationUrl?: string | null;
         error?: string; detail?: string; hint?: string;
       };
-      if (!res.ok || !data.actionConnectorId) {
+      if (!res.ok) {
         throw new Error(data.hint || data.detail || data.error || `create-artifact failed (${res.status})`);
       }
-      setArtifact({
-        connectorId: data.actionConnectorId,
-        connectorLabel: data.actionConnectorLabel ?? 'Send draft',
-        actionInput: data.actionInput ?? { to: to.trim(), subject, bodyText: body },
-        intentId: child.intentId,
-      });
+      if (data.actionConnectorId) {
+        // Approval-gated follow-up exists (email send, calendar invite with
+        // external attendees, doc share) -- same ArtifactSendButton path
+        // this component already used before this pass.
+        setArtifact({
+          connectorId: data.actionConnectorId,
+          connectorLabel: data.actionConnectorLabel ?? 'Send',
+          actionInput: data.actionInput ?? payload.connectorInput,
+          intentId: child.intentId,
+        });
+      } else {
+        // Eager-created with nothing further to send (private calendar
+        // event, doc with no share suggestion) -- this IS the completed
+        // outcome, not an error.
+        setCreatedLink({ message: data.message ?? 'Created.', locationUrl: data.locationUrl ?? null });
+      }
       setPhase('done');
     } catch (err) {
       setErrMsg(err instanceof Error ? err.message : String(err));
@@ -1022,80 +1085,134 @@ function PostApprovalDraftButton({
     );
   }
 
+  if (phase === 'done' && createdLink) {
+    return (
+      <span className={`inline-flex items-center gap-1.5 text-[11px] ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>
+        <CheckCircle2 className="w-3 h-3" />
+        {createdLink.locationUrl ? (
+          <a href={createdLink.locationUrl} target="_blank" rel="noreferrer" className="underline hover:no-underline">
+            {createdLink.message}
+          </a>
+        ) : (
+          createdLink.message
+        )}
+      </span>
+    );
+  }
+
   if (phase === 'form' || phase === 'creating' || phase === 'error') {
+    const formLabel = activeKind === 'calendar' ? 'Create calendar event' : activeKind === 'doc' ? 'Create Google Doc' : 'Draft email';
+    const canSubmit = activeKind === 'email' ? !!to.trim() : activeKind === 'calendar' ? !!calendarStart && !!calendarEnd : true;
     return (
       <div className={`mt-2 rounded border p-2 space-y-1.5 ${
         isDark ? "border-slate-700/60 bg-slate-900/40" : "border-slate-200 bg-slate-50"
       }`}>
         <div className="flex items-center justify-between">
           <span className={`text-[10px] uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Draft email
+            {formLabel}
           </span>
           <button type="button" onClick={() => setPhase('idle')} className={`p-0.5 rounded hover:opacity-70 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
             <XIcon className="w-3 h-3" />
           </button>
         </div>
+        {activeKind === 'email' && (
+          <input
+            className={inputCls}
+            placeholder="To (email address)"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            disabled={phase === 'creating'}
+            autoFocus
+          />
+        )}
         <input
           className={inputCls}
-          placeholder="To (email address)"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          disabled={phase === 'creating'}
-          autoFocus
-        />
-        <input
-          className={inputCls}
-          placeholder="Subject"
+          placeholder={activeKind === 'calendar' ? 'Event title' : activeKind === 'doc' ? 'Doc title' : 'Subject'}
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           disabled={phase === 'creating'}
+          autoFocus={activeKind !== 'email'}
         />
-        <textarea
-          className={`${inputCls} resize-none`}
-          rows={3}
-          placeholder="Body (optional — you can fill it in Gmail)"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          disabled={phase === 'creating'}
-        />
+        {activeKind === 'email' && (
+          <textarea
+            className={`${inputCls} resize-none`}
+            rows={3}
+            placeholder="Body (optional — you can fill it in Gmail)"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            disabled={phase === 'creating'}
+          />
+        )}
+        {activeKind === 'calendar' && (
+          <>
+            <input
+              type="datetime-local"
+              className={inputCls}
+              value={calendarStart}
+              onChange={(e) => setCalendarStart(e.target.value)}
+              disabled={phase === 'creating'}
+            />
+            <input
+              type="datetime-local"
+              className={inputCls}
+              value={calendarEnd}
+              onChange={(e) => setCalendarEnd(e.target.value)}
+              disabled={phase === 'creating'}
+            />
+          </>
+        )}
         {errMsg && (
           <p className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{errMsg}</p>
         )}
         <div className="flex gap-1">
           <button
             type="button"
-            disabled={phase === 'creating' || !to.trim()}
+            disabled={phase === 'creating' || !canSubmit}
             onClick={() => void create()}
             className={`${baseBtn} ${isDark
               ? "border-violet-500/50 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
               : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100"
             }`}
           >
-            {phase === 'creating'
-              ? <><Loader2 className="w-3 h-3 animate-spin" /> Creating…</>
-              : <><Mail className="w-3 h-3" /> Create draft</>}
+            {phase === 'creating' ? (
+              <><Loader2 className="w-3 h-3 animate-spin" /> Creating…</>
+            ) : activeKind === 'calendar' ? (
+              <><CalendarPlus className="w-3 h-3" /> Create event</>
+            ) : activeKind === 'doc' ? (
+              <><FileText className="w-3 h-3" /> Create doc</>
+            ) : (
+              <><Mail className="w-3 h-3" /> Create draft</>
+            )}
           </button>
         </div>
       </div>
     );
   }
 
-  // idle — show the "Draft email" affordance only when the intent name
-  // suggests an email task. For other intent types, omit to keep the UI clean.
+  // idle — "Draft email" keeps its pre-existing, unchanged gate (only shown
+  // when the intent name suggests an email task). Calendar/Doc have no
+  // reliable name-heuristic equivalent (PRD-MMC-IMPL-005 §5.1) so they're
+  // always offered.
   const isEmailIntent = /email|gmail|outreach|message|draft/i.test(child.intentName);
-  if (!isEmailIntent) return null;
+  const idleBtn = `${baseBtn} ${isDark
+    ? "border-slate-600 text-slate-400 hover:border-violet-500/40 hover:text-violet-300"
+    : "border-slate-300 text-slate-500 hover:border-violet-400 hover:text-violet-700"
+  }`;
 
   return (
-    <button
-      type="button"
-      onClick={() => setPhase('form')}
-      className={`${baseBtn} ${isDark
-        ? "border-slate-600 text-slate-400 hover:border-violet-500/40 hover:text-violet-300"
-        : "border-slate-300 text-slate-500 hover:border-violet-400 hover:text-violet-700"
-      }`}
-    >
-      <Mail className="w-3 h-3" /> Draft email
-    </button>
+    <div className="flex flex-wrap items-center gap-1.5">
+      {isEmailIntent && (
+        <button type="button" onClick={() => openForm('email')} className={idleBtn}>
+          <Mail className="w-3 h-3" /> Draft email
+        </button>
+      )}
+      <button type="button" onClick={() => openForm('calendar')} className={idleBtn}>
+        <CalendarPlus className="w-3 h-3" /> Create calendar event
+      </button>
+      <button type="button" onClick={() => openForm('doc')} className={idleBtn}>
+        <FileText className="w-3 h-3" /> Create Google Doc
+      </button>
+    </div>
   );
 }
 
