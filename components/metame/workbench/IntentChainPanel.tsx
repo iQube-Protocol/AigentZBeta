@@ -473,15 +473,18 @@ function ChainTimeline({
           )}
         </div>
         {canAct && (
-          <ChainActionRow
-            intentId={intentId!}
-            isDark={isDark}
-            alreadyApproved={alreadyApproved}
-            pendingChildren={childIntents.filter(
-              (c) => c.status === "awaiting_approval" || c.status === "in_progress",
-            )}
-            onAdvanced={onAdvanced!}
-          />
+          <>
+            <ChainActionRow
+              intentId={intentId!}
+              isDark={isDark}
+              alreadyApproved={alreadyApproved}
+              pendingChildren={childIntents.filter(
+                (c) => c.status === "awaiting_approval" || c.status === "in_progress",
+              )}
+              onAdvanced={onAdvanced!}
+            />
+            <ActRow intentId={intentId!} isDark={isDark} onAdvanced={onAdvanced!} />
+          </>
         )}
       </div>
 
@@ -670,6 +673,42 @@ function RecommendationItem({
   );
 }
 
+/**
+ * SPEC-MMC-001 §3 Movement III (Act) / PRD-MMC-IMPL-004 Increment 1.
+ *
+ * Four curated (specialistId, prompt) pairs — NOT a new capability, NOT a
+ * new route. Each button calls the SAME, unmodified
+ * `POST /api/assistant/ask-agent` every other specialist consult already
+ * uses, threading this intent's own `intentId` (which pulls the real
+ * IntentQube server-side, including a capture-originated Intent's
+ * content-derived rationale — PRD-MMC-IMPL-003). The mapping is a build-time
+ * default (PRD-MMC-IMPL-004 §5.2), not an architectural commitment.
+ */
+type ActVerb = "delegate" | "summarize" | "research" | "classify";
+
+const ACT_VERB_CONFIG: Record<ActVerb, { label: string; specialistId: string; prompt: string }> = {
+  delegate: {
+    label: "Delegate",
+    specialistId: "aigent-z",
+    prompt: "Route this to the right specialist and tell me who, and why.",
+  },
+  summarize: {
+    label: "Summarize",
+    specialistId: "aigent-c",
+    prompt: "Summarize this in 3-5 concise bullet points.",
+  },
+  research: {
+    label: "Research",
+    specialistId: "researcher",
+    prompt: "Research this and report the key findings, with sources where you can.",
+  },
+  classify: {
+    label: "Classify",
+    specialistId: "aigent-c",
+    prompt: "Classify what kind of work this is, and which domain or venture it best belongs to.",
+  },
+};
+
 function ChainActionRow({
   intentId,
   isDark,
@@ -803,6 +842,84 @@ function ChainActionRow({
         {pending === "cancel" ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
         Cancel
       </button>
+      {error && (
+        <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * SPEC-MMC-001 §3 Movement III (Act) / PRD-MMC-IMPL-004 Increment 1.
+ * Renders below ChainActionRow's own Approve/Complete/Cancel row — its own
+ * row so Act reads as a distinct, secondary action set, not a fifth
+ * lifecycle button. Hidden once the intent is terminal, same rule the
+ * lifecycle row already follows.
+ */
+function ActRow({
+  intentId,
+  isDark,
+  onAdvanced,
+}: {
+  intentId: string;
+  isDark: boolean;
+  onAdvanced: () => void;
+}) {
+  const [pending, setPending] = React.useState<ActVerb | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const fireAct = async (verb: ActVerb) => {
+    setPending(verb);
+    setError(null);
+    try {
+      const { personaFetch } = await import("@/utils/personaSpine");
+      const { specialistId, prompt } = ACT_VERB_CONFIG[verb];
+      const res = await personaFetch("/api/assistant/ask-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ specialistId, intentId, prompt }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `${verb} failed (${res.status})`);
+      }
+      // ask-agent already emits a specialist_consulted receipt tagged to
+      // this intentId -- refetching the chain surfaces it via the EXISTING
+      // receipt-row rendering, same as any other specialist consult.
+      onAdvanced();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const actBtn = isDark
+    ? "border-slate-600 text-slate-300 hover:border-violet-500/50 hover:text-violet-200"
+    : "border-slate-300 text-slate-600 hover:border-violet-400 hover:text-violet-700";
+  const baseBtn = "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] transition disabled:opacity-50 disabled:cursor-not-allowed";
+
+  return (
+    <div className="mt-1.5 pt-1.5 border-t border-slate-800/60 flex flex-wrap items-center gap-1.5">
+      <span className={`text-[10px] uppercase tracking-wider ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+        Act
+      </span>
+      {(Object.keys(ACT_VERB_CONFIG) as ActVerb[]).map((verb) => (
+        <button
+          key={verb}
+          type="button"
+          disabled={!!pending}
+          onClick={(e) => {
+            e.stopPropagation();
+            void fireAct(verb);
+          }}
+          className={`${baseBtn} ${actBtn}`}
+          title={ACT_VERB_CONFIG[verb].prompt}
+        >
+          {pending === verb ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+          {ACT_VERB_CONFIG[verb].label}
+        </button>
+      ))}
       {error && (
         <span className={`text-[10px] ${isDark ? "text-rose-400" : "text-rose-600"}`}>{error}</span>
       )}
