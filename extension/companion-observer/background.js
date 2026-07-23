@@ -340,6 +340,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true; // async response
     }
 
+    case 'GET_CONNECTION_STATUS': {
+      // Popup-load check — reuses ensureFreshToken (not a new auth path) so
+      // a session persisted in chrome.storage.local from an earlier connect
+      // is reflected as "Connected" immediately, and proactively refreshed
+      // if it's expiring soon, instead of the popup always defaulting to
+      // "Not connected" until the operator clicks Connect again.
+      ensureFreshToken().then((result) => sendResponse({ connected: result.ok, reason: result.ok ? undefined : result.reason }));
+      return true; // async response
+    }
+
     case 'REFRESH_GRANTS': {
       refreshGrantsFromServer().then(sendResponse);
       return true; // async response
