@@ -40,32 +40,60 @@ This is the same discipline already governing this codebase's invariant work —
 
 **Question it answers:** *what does completeness mean for this domain?* Nothing downstream can define "gap" until this exists.
 
-**Output:** a **Domain Coverage Model** — a named, versioned list of required lanes for a domain, each with a plain-language completeness definition. Illustrative first instance (financial services, matching PRD-ICA-001's own first domain):
+**Amended 2026-07-23 (operator refinement): Agent 0 produces TWO outputs, not one** — a **Domain Coverage Model** (what's internal to the domain) and an **Adjacent Domain Registry** (what constitutionally governs, measures, or constrains the domain without being part of it). Collapsing these into one flat lane list — the original draft of this section — was the defect: it would have made the Financial Services corpus permanently incomplete-by-construction for its own internal pillars, while conflating genuinely external governing bodies (Contract Law, Accounting) with the domain itself.
+
+**The distinguishing test:** is this lane *constituted by* the domain, or does it *govern/support* the domain from outside? Insurance has its own regulators (NAIC, PRA, EIOPA, state insurance commissioners), its own international standard-setter (IAIS), its own solvency frameworks and actuarial science — it **is** financial services, not adjacent to it. Contract Law and Accounting do not constitute financial services; they govern and measure it, and their invariants likely turn out to be shared across many domains, not owned by this one.
+
+### §2.1 Domain Coverage Model — internal pillars (financial services, illustrative)
 
 | Lane | Completeness definition (illustrative) |
 |---|---|
-| Regulation | At least one binding regulatory text per named jurisdiction in scope |
-| Standards | The current version of each named standards body's relevant standard |
-| Academic literature | Peer-reviewed coverage of each named structural mechanism |
-| Industry guidance | Current guidance from each named industry body |
-| International bodies | Current recommendations from each named international body |
-| Protocol specifications | The canonical spec text for each named open protocol |
-| Case law | Landmark rulings where the lane is legally load-bearing |
-| Open standards | The current published version |
-| Reference implementations | At least one maintained, publicly inspectable implementation |
+| Banking | Core prudential/banking-regulation text per named jurisdiction in scope |
+| Payments | Governing payment-systems rules and settlement-finality frameworks |
+| Capital Markets | Securities-issuance and trading-conduct regulation |
+| Asset Management | Fund-governance and fiduciary-duty frameworks |
+| Digital Assets | Named jurisdictions' digital-asset/crypto-asset regulatory frameworks |
+| Financial Crime / AML | AML/CFT recommendations and enforcement frameworks |
+| Insurance | Solvency frameworks, actuarial standards, IAIS recommendations |
+| Financial Infrastructure | Market-infrastructure and systemic-risk oversight frameworks |
 
-**Not auto-finalized.** Agent 0 *proposes* the coverage model; a steward reviews and ratifies it before Source Planning proceeds — mirroring PRD-ICA-001's existing human-approval ethos (§9/§11) rather than introducing a new "auto-decide" path.
+### §2.2 Adjacent Domain Registry — external constitutional dependencies (illustrative)
+
+Each entry names the relationship, not just the domain — the edge is the point:
+
+| Adjacent domain | Relationship to Financial Services |
+|---|---|
+| Contract Law | governed by |
+| Corporate Law | governed by |
+| Accounting & Audit | measured by |
+| Taxation | constrained by |
+| Identity & Personhood | identifies through |
+| Cybersecurity | secured by |
+| Privacy & Data Protection | constrained by |
+| Consumer Protection | supervised by |
+
+**Scope discipline for this pass:** an Adjacent Domain Registry entry is lightweight — a name and a relationship label, recording the *edge*, not triggering full acquisition of that adjacent domain's own corpus. Each adjacent domain gets its own full Domain Coverage Model only when/if its own domain-crystal build begins — at which point it reuses this exact same apparatus (Agent 0 → A → B → C → Gap Detection), per PRD-ICA-001 §16's "reusable acquisition front end for every future domain crystal" principle. This pass does not acquire Contract Law or Accounting source material; it only records that the relationship exists.
+
+### §2.3 The bigger structural principle
+
+The Discovery Engine doesn't just build corpora — it builds a **constitutional graph of domains**. Each domain is internally complete via its own Coverage Model; the Adjacent Domain Registry captures the edges between domains. When invariant compression eventually runs across multiple domain crystals, those edges are what let the system ask "does this invariant propagate, or is it owned by one domain?" — a question a flat, ungoverned lane list has no way to represent. This generalizes past financial services: every future domain (medicine, energy, aerospace, constitutional computing) gets both an internal Coverage Model and an explicit graph of what governs it from outside.
+
+**Not auto-finalized.** Agent 0 *proposes* both outputs; a steward reviews and ratifies them before Source Planning proceeds — mirroring PRD-ICA-001's existing human-approval ethos (§9/§11) rather than introducing a new "auto-decide" path.
 
 ## §3 Agent A — Source Planner, reframed (not replaced)
 
-PRD-ICA-001 §5 already assigns this agent "target source types, likely primary institutions" — this amendment gives it a *required* input to work from (the ratified Coverage Model) instead of a floating brief, and a concrete output: an **Institutional Registry** — the per-lane authority list. Illustrative first instance:
+PRD-ICA-001 §5 already assigns this agent "target source types, likely primary institutions" — this amendment gives it a *required* input to work from (the ratified Coverage Model) instead of a floating brief, and a concrete output: an **Institutional Registry** — the per-lane authority list, keyed against §2.1's internal pillars (not a separate lane taxonomy). Illustrative first instance:
 
-| Lane | Authorities |
+| Lane (from §2.1) | Authorities |
 |---|---|
-| International regulation | FATF, BIS, IMF, World Bank |
-| Financial regulation | SEC, CFTC, FinCEN, FCA, MiCA, ESMA |
-| Standards | ISO, NIST, W3C |
-| Academic | MIT, Stanford, Oxford (illustrative — expand per domain) |
+| Banking | BIS, national/regional banking supervisors (e.g. FCA, ECB) |
+| Payments | FATF, BIS Committee on Payments and Market Infrastructures |
+| Capital Markets | SEC, ESMA |
+| Digital Assets | MiCA (EU framework), FinCEN |
+| Financial Crime / AML | FATF, FinCEN, CFTC |
+| Insurance | IAIS, NAIC, PRA, EIOPA |
+| Financial Infrastructure | IMF, World Bank, BIS |
+| Cross-cutting standards | ISO, NIST, W3C (where a lane's frameworks reference open technical standards) |
 
 Like the Coverage Model, the Institutional Registry is steward-editable — the agent proposes, a human curates which institutions count as authoritative for a given lane. This is a judgment call the same way PRD-ICA-001 §11 already treats "MAY NOT... approve its own sources."
 
@@ -96,7 +124,7 @@ Once Gap Detection reports a lane saturated from the Institutional Registry alon
 
 ## §9 Implementation phases (mirrors PRD-ICA-001 §14's own phasing style)
 
-1. **Coverage Model + Institutional Registry** — data model + steward review/ratify UI (reusing `CorpusScoutTab`'s existing review-panel pattern), no crawling yet. Financial services as the first ratified instance, per §2/§3's tables above.
+1. **Coverage Model + Adjacent Domain Registry + Institutional Registry** — data model + steward review/ratify UI (reusing `CorpusScoutTab`'s existing review-panel pattern), no crawling yet. Financial services as the first ratified instance, per §2.1/§2.2/§3's tables above.
 2. **Gap Detection** — extend `assessLaneCoverage()` with the `requiredLanes` parameter; surface missing coverage in the existing lane-coverage table.
 3. **Agent B/C automation** — institution-targeted discovery + recursive resolution (the actual crawler), evaluating `services/aa-api/src/browser/*` reuse first, per §0.4.
 4. **Open Discovery gap-filler** — gated behind Phase 2's saturation signal, per-lane scoped, tagged via `acquisitionMethod`.
@@ -107,7 +135,8 @@ Build proceeds phase by phase after ratification, same discipline as every other
 
 ## Ratification record
 
-- [ ] Operator confirms Agent 0 (Domain Architect) and the Coverage Model concept, including that it is steward-ratified, not auto-finalized.
-- [ ] Operator confirms the reframed Agent A (Institutional Registry, steward-editable) and Agent B (institution-targeted navigation as primary mode, not open search).
+- [ ] Operator confirms Agent 0 (Domain Architect) producing BOTH the Domain Coverage Model (§2.1, internal pillars) and the Adjacent Domain Registry (§2.2, external constitutional dependencies), steward-ratified, not auto-finalized.
+- [ ] Operator confirms the is-a vs. governs/supports distinguishing test (§2), and that Adjacent Domain Registry entries stay lightweight (name + relationship label) rather than triggering full acquisition of the adjacent domain's own corpus.
+- [ ] Operator confirms the reframed Agent A (Institutional Registry keyed to §2.1's pillars, steward-editable) and Agent B (institution-targeted navigation as primary mode, not open search).
 - [ ] Operator confirms Gap Detection as a hard gate (extends `assessLaneCoverage()`) and that Open Discovery only unlocks after coverage saturation, per lane.
-- [ ] Operator confirms the illustrative financial-services Coverage Model + Institutional Registry tables (§2/§3) as the first instance, and the §9 phasing.
+- [ ] Operator confirms the illustrative financial-services tables (§2.1/§2.2/§3) as the first instance, and the §9 phasing.
