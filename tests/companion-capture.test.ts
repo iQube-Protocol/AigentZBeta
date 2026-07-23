@@ -238,3 +238,24 @@ describe('POST /api/companion/capture/[captureId]/assign — fail closed + compo
     expect(source).toContain('destination-not-yet-supported');
   });
 });
+
+// ─── 5. CaptureInboxPanel — client-side spine discipline (Increment 3) ─────
+
+describe('CaptureInboxPanel.tsx — personaFetch-only discipline', () => {
+  const source = readFileSync(
+    join(process.cwd(), 'components', 'companion', 'CaptureInboxPanel.tsx'),
+    'utf8',
+  );
+
+  it('uses personaFetch, never raw fetch or authedFetchHeaders', () => {
+    expect(source).toContain('personaFetch(');
+    expect(source).not.toMatch(/[^A-Za-z]fetch\(/);
+    expect(source).not.toContain('authedFetchHeaders');
+  });
+
+  it('never renders personaIdHint as a JSX text node', () => {
+    // The prop is only ever passed through to personaFetch calls -- it
+    // should never appear directly between JSX tags as visible text.
+    expect(source).not.toMatch(/>\s*\{personaIdHint\}\s*</);
+  });
+});
