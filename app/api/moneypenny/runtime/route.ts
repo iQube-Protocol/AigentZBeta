@@ -33,6 +33,7 @@ import {
 } from '@/app/api/dev-command-center/_lib/persona';
 import { runConstitutionalServicePattern } from '@/services/constitutional/constitutionalServicePipeline';
 import type { FinancialDomain } from '@/services/constitutional/financialIntelligenceExecutor';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 const DOMAINS: FinancialDomain[] = ['intelligence', 'investment', 'market'];
 
@@ -76,6 +77,23 @@ export async function POST(request: NextRequest) {
     domain,
     mode,
   });
+
+  // P4-4: an authoritative run is a real (non-shadow) act — DVN-anchorable
+  // provenance, same discipline as every other consequential receipt in this
+  // codebase. Fire-and-forget: a receipt failure must never fail the call
+  // that already executed.
+  if (mode === 'authoritative' && result.executed) {
+    void createActivityReceipt({
+      personaId: pr.persona.personaId,
+      actionType: 'finance_authoritative_execution',
+      activeCartridge: 'moneypenny',
+      summary: `MoneyPenny Runtime authoritative execution [${domain}] agr=${result.agreementId ?? 'none'}: ${intent.slice(0, 140)}`,
+      agentsInvoked: [MONEYPENNY_AGENT_REF],
+      invariantsUsed: result.execution?.evidenceRefs ?? [],
+      contextShared: ['domain', 'agreement_id', 'evidence_refs'],
+      policyEnvelopeId: result.agreementId,
+    }).catch((e) => console.error('[moneypenny runtime] finance_authoritative_execution receipt failed:', e));
+  }
 
   return NextResponse.json({
     ...result,

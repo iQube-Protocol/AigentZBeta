@@ -24,6 +24,8 @@ import { describe, it, expect } from 'vitest';
 const ROUTE_PATH = join(process.cwd(), 'app/api/moneypenny/runtime/route.ts');
 const ARCHITECT_ROUTE_PATH = join(process.cwd(), 'app/api/moneypenny/architect/route.ts');
 const PANEL_PATH = join(process.cwd(), 'app/(shell)/moneypenny/components/RuntimePanel.tsx');
+const RECEIPT_SERVICE_PATH = join(process.cwd(), 'services/receipts/activityReceiptService.ts');
+const DVN_PIPELINE_PATH = join(process.cwd(), 'services/dvn/activityReceiptDvnPipeline.ts');
 
 describe('MoneyPenny Runtime route — authority boundary', () => {
   it('never imports or calls authorizeAgreement', () => {
@@ -50,6 +52,24 @@ describe('MoneyPenny Runtime route — authority boundary', () => {
     expect(src).not.toContain('body.selectedAgentRef');
     expect(src).toMatch(/capabilityRef\s*=\s*MONEYPENNY_CAPABILITY_REF/);
     expect(src).toMatch(/selectedAgentRef\s*=\s*MONEYPENNY_AGENT_REF/);
+  });
+});
+
+describe('MoneyPenny Runtime route — P4-4 receipt + DVN provenance', () => {
+  it('emits a finance_authoritative_execution receipt only for authoritative+executed runs', () => {
+    const src = readFileSync(ROUTE_PATH, 'utf8');
+    expect(src).toContain("actionType: 'finance_authoritative_execution'");
+    expect(src).toMatch(/mode === 'authoritative' && result\.executed/);
+  });
+
+  it('finance_authoritative_execution is a declared ActivityActionType', () => {
+    const src = readFileSync(RECEIPT_SERVICE_PATH, 'utf8');
+    expect(src).toContain("| 'finance_authoritative_execution'");
+  });
+
+  it('finance_authoritative_execution is DVN-anchorable', () => {
+    const src = readFileSync(DVN_PIPELINE_PATH, 'utf8');
+    expect(src).toContain("'finance_authoritative_execution'");
   });
 });
 

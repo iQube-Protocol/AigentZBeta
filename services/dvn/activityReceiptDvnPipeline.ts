@@ -142,6 +142,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'qubetalk_artifact_shared',
   'qubetalk_artifact_opened',
   'qubetalk_artifact_copied',
+  // MoneyPenny Runtime (PRD-MPY-001 Phase 4, P4-4) — an authoritative
+  // constitutional-service-pattern run on Domain 3 (Financial Intelligence).
+  // Anchoring makes the execution trail tamper-evident. Added per the
+  // permitted action-type-addition rule.
+  'finance_authoritative_execution',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

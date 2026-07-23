@@ -140,7 +140,13 @@ export type ActivityActionType =
   // sha256/16 channel & artifact commitments — never raw UUIDs). DVN-anchorable.
   | 'qubetalk_artifact_shared'
   | 'qubetalk_artifact_opened'
-  | 'qubetalk_artifact_copied';
+  | 'qubetalk_artifact_copied'
+  // MoneyPenny Runtime (PRD-MPY-001 Phase 4, P4-4) — an authoritative run of
+  // the constitutional service pattern completed on Domain 3 (Financial
+  // Intelligence). Real Reach accrual happened (step 11), never a fund
+  // movement (Domain 3 carries no settlement terms). DVN-anchorable so the
+  // financial-services execution trail is tamper-evident.
+  | 'finance_authoritative_execution';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
