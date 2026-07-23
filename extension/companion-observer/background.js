@@ -84,6 +84,21 @@ function persistAuthSession(session) {
   return chrome.storage.local.set({ [STORAGE_KEY_AUTH_SESSION]: session });
 }
 
+const API_FETCH_TIMEOUT_MS = 10000;
+
+/**
+ * `fetch` with a hard timeout — every network call this worker makes to the
+ * Companion API goes through this. Without it, a slow or hung server
+ * response leaves the calling promise (and therefore the popup's "Connecting…"
+ * state) pending forever with no way out. Mirrors the same discipline
+ * `app/api/_lib/supabaseServer.ts`'s `getTimedFetch` already applies
+ * server-side — this is that same guarantee on the extension's side of the
+ * same API calls.
+ */
+function fetchWithTimeout(url, init = {}) {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(API_FETCH_TIMEOUT_MS) });
+}
+
 /**
  * Calls the server-side refresh proxy (`POST /api/companion/observer/
  * refresh-session`, added alongside this pass) with the cached
@@ -94,7 +109,7 @@ function persistAuthSession(session) {
  */
 async function performRefresh(session) {
   try {
-    const res = await fetch(`${COMPANION_OBSERVER_API_BASE}/refresh-session`, {
+    const res = await fetchWithTimeout(`${COMPANION_OBSERVER_API_BASE}/refresh-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: session.refreshToken }),
@@ -149,7 +164,7 @@ async function refreshGrantsFromServer() {
   if (!fresh.ok) return { ok: false, reason: fresh.reason };
 
   const callGrants = (token) =>
-    fetch(`${COMPANION_OBSERVER_API_BASE}/grants`, {
+    fetchWithTimeout(`${COMPANION_OBSERVER_API_BASE}/grants`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     });
