@@ -34,12 +34,25 @@ export interface CompanionOverlayPanelProps {
   personaIdHint: string;
 }
 
+type OverlayEmptyReason = "no-observation" | "no-domain-observed" | "grant-revoked" | "domain-unmapped" | null;
+
 interface OverlayResponse {
   ok: boolean;
   domain: string | null;
   shape: "github-repo" | "banking" | null;
   card: OverlayCard | null;
+  reason: OverlayEmptyReason;
 }
+
+const EMPTY_REASON_COPY: Record<Exclude<OverlayEmptyReason, null>, string> = {
+  "no-observation":
+    "No page context shared yet. Go to Companion → Observer permissions and share “Current tab”, then reopen this tab.",
+  "no-domain-observed":
+    "“Current tab” isn't shared, so the Overlay can't see what page you're on. Go to Companion → Observer permissions to share it.",
+  "grant-revoked":
+    "“Current tab” was revoked for this site, so the Overlay has no page context to show.",
+  "domain-unmapped": "No overlay available for this page",
+};
 
 async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   const body = await res.json().catch(() => null);
@@ -203,8 +216,8 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
             <BankingCard card={data.card} domain={data.domain} />
           ) : (
             <div className="text-xs text-slate-500">
-              No overlay available for this page
-              {data.domain ? ` (${data.domain})` : ""}.
+              {data.reason ? EMPTY_REASON_COPY[data.reason] : "No overlay available for this page"}
+              {data.reason === "domain-unmapped" && data.domain ? ` (${data.domain}).` : data.reason === "domain-unmapped" ? "." : ""}
             </div>
           )
         ) : null}

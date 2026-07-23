@@ -68,9 +68,23 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const domain = domainStillGranted ? observation!.currentTabDomain! : null;
   const shape = shapeForDomain(domain);
 
+  // Distinguishes WHY there's no card — "domain isn't in the illustrative
+  // demo set" (expected, working as scoped) reads identically to "you never
+  // granted Current-tab observation" without this, leaving the operator no
+  // way to discover the fix from the Overlay panel alone.
+  const reason: 'no-observation' | 'no-domain-observed' | 'grant-revoked' | 'domain-unmapped' | null = shape
+    ? null
+    : !observation
+      ? 'no-observation'
+      : !observation.currentTabDomain
+        ? 'no-domain-observed'
+        : !domainStillGranted
+          ? 'grant-revoked'
+          : 'domain-unmapped';
+
   if (!shape) {
     return NextResponse.json(
-      { ok: true, domain, shape: null, card: null },
+      { ok: true, domain, shape: null, card: null, reason },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   }
@@ -78,7 +92,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const card = await composeOverlayCard(shape, persona, observation?.currentTabTitle);
 
   return NextResponse.json(
-    { ok: true, domain, shape, card },
+    { ok: true, domain, shape, card, reason: null },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

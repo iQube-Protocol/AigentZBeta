@@ -66,8 +66,17 @@ import type { CompanionSearchResult, CompanionSearchTarget } from '@/types/compa
 
 // ─── Ranking ────────────────────────────────────────────────────────────────
 
+// Collapses case AND punctuation/whitespace differences (hyphens, underscores,
+// multiple spaces) to a single space, so a query like "exp 006" matches a
+// title like "Reasoning Entropy Reduction (EXP-006)" — plain substring
+// matching on the raw strings missed this (space vs hyphen), which read as
+// "search returns no results" for an exact, just-differently-punctuated id.
+function normalize(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 function matchIndex(haystack: string, needle: string): number {
-  return haystack.toLowerCase().indexOf(needle);
+  return normalize(haystack).indexOf(normalize(needle));
 }
 
 function matches(result: Pick<CompanionSearchResult, 'title' | 'subtitle'>, needle: string): boolean {
