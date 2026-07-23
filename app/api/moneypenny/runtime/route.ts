@@ -1,7 +1,5 @@
 /**
- * /api/moneypenny/runtime — PRD-MPY-001 Phase 4, Runtime mode. Increment
- * P4-1: MoneyPenny becomes a driving agent of the built constitutional
- * service pipeline, starting inert-safe.
+ * /api/moneypenny/runtime — PRD-MPY-001 Phase 4, Runtime mode.
  *
  * Mirrors `/api/constitutional/service-pipeline`'s integration pattern
  * verbatim (same spine-resolution helper, same single call into
@@ -10,12 +8,22 @@
  * capability/agent refs so her agreements are separately attributable
  * from the generic FinancialServicesTab demo ones.
  *
- * SAFETY CLAMP (this increment only): `mode` is hard-coded to 'shadow'
- * server-side regardless of what the request body asks for. The
- * authoritative path is deliberately not wired yet — that's later
- * increments (P4-3 for Domain 3, gated further for Domains 1/2 behind the
- * money-moving grade check that doesn't exist yet, PRD-MPY-001 §7/CLAUDE.md
- * money-moving discipline).
+ * capabilityRef/selectedAgentRef are NOT read from the request body —
+ * they are ALWAYS MoneyPenny's own fixed refs. Accepting client-supplied
+ * refs would let a caller point the 409 gate at an unrelated agreement
+ * (e.g. one authorized elsewhere with settlementTerms attached) while
+ * still claiming `domain: 'intelligence'` here; pinning the refs closes
+ * that off structurally rather than trusting the request.
+ *
+ * SAFETY CLAMP — authoritative mode is allowed ONLY for Domain 3
+ * (Financial Intelligence). `runFinancialCapability`'s intelligence
+ * executor is read-only/advice-only (CRP-003 F-201-203) and MoneyPenny's
+ * own agreement never carries settlementTerms (RuntimePanel's Form action
+ * always sends `settlementTerms: null`), so step 9 (Settlement) stays
+ * 'skipped' even in authoritative mode — no settlement intent can bind,
+ * let alone a transfer. Investment/Market (Domains 1/2) stay hard-clamped
+ * to 'shadow' until the money-moving grade gate exists (P4-5/P4-6,
+ * PRD-MPY-001 §7 / CLAUDE.md money-moving discipline).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -47,13 +55,18 @@ export async function POST(request: NextRequest) {
   const intent = String(body.intent ?? '').trim();
   if (!intent) return NextResponse.json({ ok: false, error: 'intent required' }, { status: 400 });
 
-  const capabilityRef = String(body.capabilityRef ?? '').trim() || MONEYPENNY_CAPABILITY_REF;
-  const selectedAgentRef = String(body.selectedAgentRef ?? '').trim() || MONEYPENNY_AGENT_REF;
+  // Always MoneyPenny's own fixed refs -- never taken from the request body.
+  const capabilityRef = MONEYPENNY_CAPABILITY_REF;
+  const selectedAgentRef = MONEYPENNY_AGENT_REF;
   const domain: FinancialDomain = DOMAINS.includes(body.domain as FinancialDomain) ? (body.domain as FinancialDomain) : 'intelligence';
 
-  // P4-1 safety clamp: shadow only, no matter what the request asked for.
+  // P4-3: authoritative mode is allowed only for Domain 3 (Financial
+  // Intelligence) -- Investment/Market stay shadow-clamped until the
+  // money-moving grade gate exists (P4-5/P4-6).
   const requestedMode = body.mode === 'authoritative' ? 'authoritative' : 'shadow';
-  const clamped = requestedMode !== 'shadow';
+  const authoritativeAllowed = domain === 'intelligence';
+  const mode = requestedMode === 'authoritative' && authoritativeAllowed ? 'authoritative' : 'shadow';
+  const clamped = requestedMode === 'authoritative' && !authoritativeAllowed;
 
   const result = await runConstitutionalServicePattern({
     intent,
@@ -61,11 +74,13 @@ export async function POST(request: NextRequest) {
     selectedAgentRef,
     requestingPersonaId: pr.persona.personaId,
     domain,
-    mode: 'shadow',
+    mode,
   });
 
   return NextResponse.json({
     ...result,
-    ...(clamped ? { clamped: true, clampReason: 'MoneyPenny Runtime P4-1: authoritative mode not yet enabled' } : {}),
+    ...(clamped
+      ? { clamped: true, clampReason: 'MoneyPenny Runtime P4-3: authoritative mode is Financial-Intelligence-only until the money-moving gate ships' }
+      : {}),
   });
 }

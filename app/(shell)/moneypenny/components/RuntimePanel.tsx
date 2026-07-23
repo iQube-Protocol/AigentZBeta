@@ -3,16 +3,17 @@
 /**
  * RuntimePanel — PRD-MPY-001 Phase 4, Runtime mode.
  *
- * Increment P4-1: MoneyPenny becomes a driving agent of the built
- * constitutional service pipeline (`/api/moneypenny/runtime`), starting
- * inert-safe — domain limited to Financial Intelligence (Domain 3,
- * read-only), and the route itself hard-clamps `mode` to 'shadow'
- * regardless of what this panel sends. No settlement is possible on this
- * domain (step 9 always 'skipped' for intelligence).
+ * MoneyPenny becomes a driving agent of the built constitutional service
+ * pipeline (`/api/moneypenny/runtime`). Domain limited to Financial
+ * Intelligence (Domain 3, read-only) in this panel — Investment/Market are
+ * shown but disabled; they unlock behind the money-moving grade gate
+ * (P4-5/P4-6), never silently.
  *
- * Investment/Market are shown but disabled in this increment — they unlock
- * in later increments (P4-2 agreement lifecycle, P4-3 authoritative flip)
- * behind their own gates, never silently.
+ * P4-3: an authoritative run is offered ONLY once an authorized agreement
+ * exists for MoneyPenny's capability/agent refs (see the Constitutional
+ * Agreement section below). The route independently re-enforces
+ * Domain-3-only authoritative execution server-side — this toggle is a
+ * convenience, not the safety boundary.
  *
  * Trace-viewer styling mirrors FinancialServicesTab.tsx's STATUS_STYLE
  * pattern exactly (Extend, Don't Duplicate) — the reference integration
@@ -91,6 +92,15 @@ export function RuntimePanel() {
   const [agreements, setAgreements] = useState<AgreementRow[]>([]);
   const [agrBusy, setAgrBusy] = useState(false);
   const [agrNote, setAgrNote] = useState<string | null>(null);
+  const [domain, setDomain] = useState<Domain>("intelligence");
+  const [authoritative, setAuthoritative] = useState(false);
+
+  // P4-3: the authoritative toggle is only offered once MoneyPenny's own
+  // agreement is authorized -- the route re-enforces this server-side
+  // regardless, but there is no point offering a toggle that will 409.
+  const hasAuthorizedAgreement = agreements.some(
+    (a) => a.agreementId === MONEYPENNY_AGREEMENT_ID && a.status === "authorized",
+  );
 
   const loadAgreements = useCallback(async () => {
     try {
@@ -153,6 +163,8 @@ export function RuntimePanel() {
     [loadAgreements],
   );
 
+  const canRunAuthoritative = authoritative && domain === "intelligence" && hasAuthorizedAgreement;
+
   const run = useCallback(async () => {
     setRunning(true);
     setError(null);
@@ -161,7 +173,7 @@ export function RuntimePanel() {
       const res = await personaFetch("/api/moneypenny/runtime", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent, domain: "intelligence" }),
+        body: JSON.stringify({ intent, domain, mode: canRunAuthoritative ? "authoritative" : "shadow" }),
       });
       const data = (await res.json()) as RuntimeResult;
       if (!res.ok) setError(data?.error || `runtime call failed (${res.status})`);
@@ -171,7 +183,7 @@ export function RuntimePanel() {
     } finally {
       setRunning(false);
     }
-  }, [intent]);
+  }, [intent, domain, canRunAuthoritative]);
 
   return (
     <div className="space-y-4 text-white/90">
@@ -179,9 +191,9 @@ export function RuntimePanel() {
         <h3 className="text-sm font-medium text-white/90">MoneyPenny Runtime — Constitutional Preview</h3>
         <p className="mt-1 text-xs text-white/60">
           Runs the same built 12-step constitutional service pattern the platform's Financial Services suite uses,
-          with MoneyPenny as the driving agent. This increment is shadow-only — every trace step is observed, nothing
-          executes for real, and no fund movement is possible (Financial Intelligence never carries settlement
-          terms).
+          with MoneyPenny as the driving agent. Shadow mode observes every step with no side effects; an authoritative
+          run (once the agreement below is authorized) accrues real Reach, but still cannot move funds — Financial
+          Intelligence never carries settlement terms, on this route or any other agreement reachable from it.
         </p>
       </div>
 
@@ -191,7 +203,8 @@ export function RuntimePanel() {
             <button
               key={d}
               disabled={d !== "intelligence"}
-              title={d !== "intelligence" ? "Not yet enabled — Runtime is Financial-Intelligence-only in this increment" : undefined}
+              onClick={() => d === "intelligence" && setDomain(d)}
+              title={d !== "intelligence" ? "Not yet enabled — Runtime is Financial-Intelligence-only until the money-moving gate ships" : undefined}
               className={
                 d === "intelligence"
                   ? "rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-200"
@@ -211,12 +224,24 @@ export function RuntimePanel() {
             className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 p-2 text-sm text-white/90 outline-none focus:border-emerald-500/30"
           />
         </label>
+        <label
+          className={`flex items-center gap-1.5 text-xs ${hasAuthorizedAgreement ? "text-white/70" : "text-white/30"}`}
+          title={hasAuthorizedAgreement ? undefined : "Authorize the agreement below first"}
+        >
+          <input
+            type="checkbox"
+            checked={authoritative}
+            disabled={!hasAuthorizedAgreement}
+            onChange={(e) => setAuthoritative(e.target.checked)}
+          />
+          Authoritative (real Reach accrual — still no settlement possible on this domain)
+        </label>
         <button
           onClick={() => void run()}
           disabled={running || !intent.trim()}
           className="rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-sm text-violet-200 hover:bg-violet-500/25 disabled:opacity-50"
         >
-          {running ? "Running…" : "Run (shadow)"}
+          {running ? "Running…" : canRunAuthoritative ? "Run (authoritative)" : "Run (shadow)"}
         </button>
         {error && <div className="text-xs text-rose-300">{error}</div>}
       </div>
