@@ -1,13 +1,17 @@
 /**
  * MoneyPenny Runtime — Principal-Delegate Separation canary (PRD-MPY-001
- * Phase 4, Increment P4-2).
+ * Phase 4, Increments P4-2/P4-3).
  *
  * MoneyPenny may form and accept her own side of a Constitutional Agreement
  * (see moneyPennyArchitect / the RuntimePanel's Form+Accept buttons), but
  * only a human, acting through the browser, may authorize one. This test
  * pins that boundary structurally: the Runtime route must never import or
- * call `authorizeAgreement`, and the P4-1 shadow-mode clamp (mode is always
- * 'shadow' server-side regardless of the request body) must still hold.
+ * call `authorizeAgreement`; that authoritative execution is gated to
+ * Domain 3 (Financial Intelligence) only, since that's the only domain
+ * whose executor is read-only and whose fixed agreement never carries
+ * settlementTerms; and that capabilityRef/selectedAgentRef are never read
+ * from the request body (a client-supplied ref could otherwise point the
+ * 409 gate at an unrelated, settlement-bearing agreement).
  *
  * Mirrors the readFileSync source-scan style of
  * tests/irl-run-lifecycle.test.ts's "route never imports X" canaries.
@@ -32,9 +36,20 @@ describe('MoneyPenny Runtime route — authority boundary', () => {
     expect(src.toLowerCase()).not.toContain('settlementexecutor');
   });
 
-  it('still hard-clamps mode to shadow server-side (P4-1 safety clamp intact)', () => {
+  it('gates authoritative mode to Domain 3 (Financial Intelligence) only', () => {
     const src = readFileSync(ROUTE_PATH, 'utf8');
-    expect(src).toMatch(/mode:\s*'shadow'/);
+    expect(src).toMatch(/authoritativeAllowed\s*=\s*domain\s*===\s*'intelligence'/);
+    // the pipeline call passes the computed, domain-gated `mode` variable —
+    // never a hardcoded 'shadow' string (that would silently un-do P4-3).
+    expect(src).not.toMatch(/mode:\s*'shadow'/);
+  });
+
+  it('never reads capabilityRef/selectedAgentRef from the request body — always MoneyPenny\'s fixed refs', () => {
+    const src = readFileSync(ROUTE_PATH, 'utf8');
+    expect(src).not.toContain('body.capabilityRef');
+    expect(src).not.toContain('body.selectedAgentRef');
+    expect(src).toMatch(/capabilityRef\s*=\s*MONEYPENNY_CAPABILITY_REF/);
+    expect(src).toMatch(/selectedAgentRef\s*=\s*MONEYPENNY_AGENT_REF/);
   });
 });
 
