@@ -47,6 +47,7 @@ import { MyWorkbenchTab } from "./tabs/MyWorkbenchTab";
 import { MyWorkspaceTab } from "./tabs/MyWorkspaceTab";
 import { MyCartridgeTab } from "./tabs/MyCartridgeTab";
 import { MyLedgerTab } from "./tabs/MyLedgerTab";
+import { MyResearchTab } from "./tabs/MyResearchTab";
 import { PersonalCartridgeTab } from "./tabs/PersonalCartridgeTab";
 import { CartridgeCatalogueAdminTab } from "./tabs/CartridgeCatalogueAdminTab";
 import { InvestorDirectoryTab } from "./tabs/InvestorDirectoryTab";
@@ -238,6 +239,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MyWorkspaceTab,
   MyCartridgeTab,
   MyLedgerTab,
+  MyResearchTab,
   PersonalCartridgeTab,
   CartridgeCatalogueAdminTab,
   InvestorDirectoryTab,
