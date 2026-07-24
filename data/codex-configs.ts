@@ -3107,7 +3107,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       activationId: 'mycanvas',
       group: 'mycluster',
-      order: 4,
+      order: 5,
       type: 'static',
       config: { component: 'MyCartridgeTab', props: {} },
       metadata: {
@@ -3145,6 +3145,22 @@ export const METAME_CODEX: CodexConfig = {
       metadata: {
         icon: 'FlaskConical',
         description: 'Live research programme state — experiments, lifecycle, recent findings',
+        color: 'violet',
+      },
+    },
+    {
+      id: 'mysoftware',
+      label: 'mySoftware',
+      slug: 'my-software',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycluster',
+      order: 4,
+      type: 'static',
+      config: { component: 'MySoftwareTab', props: {} },
+      metadata: {
+        icon: 'Code',
+        description: 'Software, agents, and capabilities you have built through the Developer strand',
         color: 'violet',
       },
     },
