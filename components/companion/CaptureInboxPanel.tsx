@@ -8,20 +8,26 @@
  * object within the runtime. Constitution already happened server-side
  * (`POST /api/companion/capture`) by the time a row appears here — this
  * panel is where the operator decides what happens next (Movement II,
- * Organize): "Bring into Intent" / "Bring into Venture", the only two
- * destinations this pass supports (§0.3). Once assigned, a capture never
- * reappears in this list — its home is the destination now, not a lingering
- * duplicate here (mirrors SPEC-MMC-001 §0.2's Content Capsule Containment
- * spirit).
+ * Organize): Intent or Venture, the only two destinations this pass
+ * supports (§0.3). Once assigned, a capture never reappears in this list —
+ * its home is the destination now, not a lingering duplicate here (mirrors
+ * SPEC-MMC-001 §0.2's Content Capsule Containment spirit).
+ *
+ * Each destination offers two paths: mint a brand-new Intent/Venture from
+ * the capture, or attach it to one the persona already has (the existing-
+ * object picker, 2026-07-24 follow-on — the original pass only ever
+ * created new objects, with no way to land a capture in something that
+ * already existed).
  *
  * Surface-agnostic: takes only `personaIdHint`, same discipline as
  * `ObserverGrantPanel.tsx` — a future extension-sidebar surface could mount
  * this exact component unchanged.
  *
  * Data flow: `personaFetch` ONLY (CLAUDE.md PARAMOUNT client-spine-fetch
- * rule) against the Increment 2 routes:
+ * rule) against the Increment 2 routes plus the 2026-07-24 follow-on:
  *   GET  /api/companion/capture                    → list inbox captures
- *   POST /api/companion/capture/[id]/assign         → bind to Intent/Venture
+ *   GET  /api/companion/capture/destinations        → existing Intents/Ventures for the picker
+ *   POST /api/companion/capture/[id]/assign         → bind to Intent/Venture (new or existing)
  * Never a raw `fetch`, never `authedFetchHeaders`.
  *
  * T0/T1 discipline: `personaIdHint` is used ONLY as a `personaFetch` query
@@ -37,9 +43,15 @@ import { useCallback, useEffect, useState } from "react";
 import { FileText, MousePointer2, FileType, Image as ImageIcon, Sparkles, Rocket } from "lucide-react";
 
 import { personaFetch } from "@/utils/personaSpine";
-import type { CaptureSourceKind, CapturedObjectRecord } from "@/types/companionCapture";
+import type {
+  CaptureIntentDestination,
+  CaptureSourceKind,
+  CaptureVentureDestination,
+  CapturedObjectRecord,
+} from "@/types/companionCapture";
 
 const CAPTURE_ENDPOINT = "/api/companion/capture";
+const DESTINATIONS_ENDPOINT = "/api/companion/capture/destinations";
 
 export interface CaptureInboxPanelProps {
   /** T1 persona hint threaded onto every `personaFetch` call. Never
@@ -67,6 +79,14 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [captures, setCaptures] = useState<CapturedObjectRecord[]>([]);
   const [pendingIds, setPendingIds] = useState<Record<string, boolean>>({});
+  // Existing-object picker (2026-07-24, operator-reported gap): before this,
+  // "Bring into Intent"/"Bring into Venture" always minted a brand-new
+  // object — there was no way to land a capture in something the persona
+  // already has. Fetched alongside the inbox; refreshed after every assign
+  // so a just-created object is immediately available as an "existing"
+  // target for the next capture in the same session.
+  const [intents, setIntents] = useState<CaptureIntentDestination[]>([]);
+  const [ventures, setVentures] = useState<CaptureVentureDestination[]>([]);
 
   const setPending = (id: string, value: boolean) => {
     setPendingIds((prev) => ({ ...prev, [id]: value }));
@@ -91,19 +111,35 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
     }
   }, [personaIdHint]);
 
+  const loadDestinations = useCallback(async () => {
+    try {
+      const res = await personaFetch(DESTINATIONS_ENDPOINT, { personaIdHint, cache: "no-store" });
+      if (!res.ok) return;
+      const body = (await res.json()) as {
+        intents: CaptureIntentDestination[];
+        ventures: CaptureVentureDestination[];
+      };
+      setIntents(body.intents ?? []);
+      setVentures(body.ventures ?? []);
+    } catch {
+      // Non-fatal — the picker just falls back to "create new" only.
+    }
+  }, [personaIdHint]);
+
   useEffect(() => {
     void loadCaptures();
-  }, [loadCaptures]);
+    void loadDestinations();
+  }, [loadCaptures, loadDestinations]);
 
   const assign = useCallback(
-    async (captureId: string, destination: "intent" | "venture") => {
+    async (captureId: string, destination: "intent" | "venture", existingId?: string) => {
       setPending(captureId, true);
       try {
         const res = await personaFetch(`${CAPTURE_ENDPOINT}/${captureId}/assign`, {
           method: "POST",
           personaIdHint,
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ destination }),
+          body: JSON.stringify({ destination, ...(existingId ? { existingId } : {}) }),
         });
         if (!res.ok) {
           setError(await readErrorMessage(res, `Failed to bring this into ${destination} (${res.status}).`));
@@ -113,13 +149,14 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
         // rather than re-fetching the whole list.
         setCaptures((prev) => prev.filter((c) => c.id !== captureId));
         setError(null);
+        if (!existingId) void loadDestinations(); // a just-created object becomes a future "existing" target
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
         setPending(captureId, false);
       }
     },
-    [personaIdHint],
+    [personaIdHint, loadDestinations],
   );
 
   return (
@@ -162,7 +199,7 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
                     ) : null}
                   </div>
                 </div>
-                <div className="mt-2 flex items-center gap-2 border-t border-slate-800 pt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-2">
                   <button
                     type="button"
                     disabled={isPending}
@@ -170,8 +207,25 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
                     className="inline-flex items-center gap-1 rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-900 disabled:opacity-50"
                   >
                     <Sparkles className="h-3 w-3" />
-                    {isPending ? "…" : "Bring into Intent"}
+                    {isPending ? "…" : "Bring into new Intent"}
                   </button>
+                  {intents.length > 0 ? (
+                    <select
+                      disabled={isPending}
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) void assign(capture.id, "intent", e.target.value);
+                      }}
+                      className="rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 disabled:opacity-50"
+                    >
+                      <option value="">…or attach to existing Intent</option>
+                      {intents.map((intent) => (
+                        <option key={intent.id} value={intent.id}>
+                          {intent.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                   <button
                     type="button"
                     disabled={isPending}
@@ -179,8 +233,25 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
                     className="inline-flex items-center gap-1 rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-900 disabled:opacity-50"
                   >
                     <Rocket className="h-3 w-3" />
-                    {isPending ? "…" : "Bring into Venture"}
+                    {isPending ? "…" : "Bring into new Venture"}
                   </button>
+                  {ventures.length > 0 ? (
+                    <select
+                      disabled={isPending}
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) void assign(capture.id, "venture", e.target.value);
+                      }}
+                      className="rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 disabled:opacity-50"
+                    >
+                      <option value="">…or attach to existing Venture</option>
+                      {ventures.map((venture) => (
+                        <option key={venture.id} value={venture.id}>
+                          {venture.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                 </div>
               </div>
             );
