@@ -57,21 +57,56 @@ interface InventoryAgent {
 const PRIVATE_COPY_WARNING =
   "Private Persona UUID copied. Keep it private — use it for recovery, support, and platform configuration, not third-party services.";
 
+/** Legacy fallback for contexts where the async Clipboard API is unavailable
+ *  or denied (e.g. a cross-origin iframe without an `allow="clipboard-write"`
+ *  grant — see extension/companion-observer/sidepanel.html). Synchronous, so
+ *  it still runs within the click's user-activation window. */
+function legacyCopy(value: string): boolean {
+  const el = document.createElement("textarea");
+  el.value = value;
+  el.style.position = "fixed";
+  el.style.opacity = "0";
+  document.body.appendChild(el);
+  el.focus();
+  el.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  document.body.removeChild(el);
+  return ok;
+}
+
 function CopyButton({ value, title, warn }: { value: string; title: string; warn?: boolean }) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   return (
     <button
-      title={title}
-      onClick={() => {
-        navigator.clipboard.writeText(value);
-        setCopied(true);
-        setTimeout(() => setCopied(false), warn ? 2500 : 1200);
+      title={state === "failed" ? "Copy failed — your browser blocked clipboard access here" : title}
+      onClick={async () => {
+        let ok = false;
+        try {
+          await navigator.clipboard.writeText(value);
+          ok = true;
+        } catch {
+          // Cross-origin iframe (e.g. the Companion side panel) without a
+          // clipboard-write grant rejects here — fall back rather than
+          // silently claim success (the prior bug: setCopied ran
+          // unconditionally, showing a checkmark even when nothing was
+          // actually copied).
+          ok = legacyCopy(value);
+        }
+        setState(ok ? "copied" : "failed");
+        setTimeout(() => setState("idle"), warn ? 2500 : 1200);
       }}
       className="p-0.5 shrink-0"
       aria-label={title}
     >
-      {copied ? (
+      {state === "copied" ? (
         <Check className="w-3 h-3 text-emerald-400" />
+      ) : state === "failed" ? (
+        <X className="w-3 h-3 text-rose-400" />
       ) : (
         <Copy className="w-3 h-3 text-white/40 hover:text-white" />
       )}

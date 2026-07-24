@@ -38,7 +38,17 @@
     </style>
   </head>
   <body>
-    <iframe id="companionFrame" title="metaMe Companion"></iframe>
+    <!--
+      allow="clipboard-write" is required: this iframe is cross-origin
+      (chrome-extension://<id> parent, https://dev-beta.aigentz.me child),
+      and browsers deny navigator.clipboard.writeText() by default inside a
+      cross-origin iframe unless the parent explicitly grants it here. Every
+      "copy" button rendered inside the Companion (persona UUID included,
+      app/components/identity/PersonaReferencesInventory.tsx's CopyButton)
+      was silently failing without this — operator report, 2026-07-24: copy
+      worked from the main app (no iframe boundary) but not from Companion.
+    -->
+    <iframe id="companionFrame" title="metaMe Companion" allow="clipboard-write"></iframe>
     <script src="constants.js"></script>
     <script src="sidepanel.js"></script>
   </body>
