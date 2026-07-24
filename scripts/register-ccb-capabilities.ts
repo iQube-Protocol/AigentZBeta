@@ -4,9 +4,19 @@
  * Constitutional Acceptance (CFS-032 §4) for the three capabilities this
  * workstream produced a Constitutional Capability Brief (CFS-049) for:
  * metaMe Companion, the Financial Services Capability Suite, and MoneyPenny's
- * Constitutional Runtime. Calls the existing `registerCapability()` service
- * three times — idempotent, safe to re-run — closing the "Registered" line
- * on each Brief's Completion Receipt.
+ * Constitutional Runtime — plus a fourth, added 2026-07-24 per the mySoftware
+ * "broaden to Capability Registry" decision (SPEC-MMC-002 §6.2 amendment):
+ * the Constitutional Video/Audio pipeline, which shipped without ever going
+ * through the narrow softwarePilot/artifact_records path (see that amendment
+ * for why `artifact_records` alone can't surface real feature work like this)
+ * and so had no way to appear in mySoftware until registered here. No CCB
+ * exists yet for this fourth capability — `briefUrl` is honestly omitted
+ * rather than pointing at a document that doesn't exist.
+ *
+ * Calls the existing `registerCapability()` service once per capability —
+ * idempotent, safe to re-run — closing the "Registered" line on each CCB's
+ * Completion Receipt (for the first three) and making the fourth visible in
+ * mySoftware's registry-backed section for the first time.
  *
  * Usage:
  *   npx tsx scripts/register-ccb-capabilities.ts --personaId=<your-persona-uuid>
@@ -66,6 +76,14 @@ const CAPABILITIES: RegisterCapabilityInput[] = [
       "MoneyPenny's Constitutional Financial Services Agent Runtime mode -- a domain-scoped driving agent over the built service pipeline. Financial Intelligence runs authoritative on this ref; Investment/Market run authoritative on a second, independent ref (cap-moneypenny-financial-services-settlement) gated additionally by a World-ID-verified Polity Passport.",
     governingInvariants: ["PRD-MPY-001", "CRP-003a", "CFS-043"],
     briefUrl: "codexes/packs/agentiq/updates/2026-07-24_ccb-moneypenny-runtime.md",
+    reuseDisposition: "compose",
+  },
+  {
+    capabilityId: "constitutional-video-audio-pipeline",
+    displayLabel: "Constitutional Video & Audio Pipeline",
+    description:
+      "Invariant-grounded short-form video generation: a 4-segment video brief generator + orchestrator grounded in CFS-011 Style Invariants and CFS-012 Narrative Invariants, an audio pipeline (TTS extraction, mux route, audio-preserving stitch), and a Coherent Bundle Generation skill with opt-in judgement and an integrated-artefacts bundle preset. Shipped as direct feature development (not via the softwarePilot/produce-software path), so it never appears in artifact_records -- registered here so it's visible in mySoftware at all.",
+    governingInvariants: ["CFS-011", "CFS-012", "CVR-002", "CVR-003"],
     reuseDisposition: "compose",
   },
 ];

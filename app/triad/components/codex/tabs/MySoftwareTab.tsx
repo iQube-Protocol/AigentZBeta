@@ -21,9 +21,17 @@
  *     migration ran keep `actor_commitment: null` and correctly never
  *     appear here — that is honest, not a bug (nothing was guessed).
  *
- * Best-effort Capability Registry enrichment (`/api/constitutional/
- * capability-registry`, admin-gated) is silently skipped for non-admin
- * viewers and never blocks rendering — same as Phase 1.
+ * PRIMARY section (SPEC-MMC-002 §6.2 amendment, 2026-07-24 — "broaden to
+ * Capability Registry"): the caller's OWN registered capabilities, via
+ * `/api/constitutional/capability-registry/mine` (persona-scoped, no admin
+ * gate — cross-references the caller's own `capability_registered` receipts
+ * against the registry). This exists because most real capability work never
+ * touches `dev_loop_sessions` or `artifact_records` at all — it ships as
+ * ordinary feature development — so those two sources alone under-represent
+ * "software I've built." A capability only appears here once someone has
+ * actually run `registerCapability()` for it (Constitutional Acceptance,
+ * CFS-032 §4) — registration is a real ceremony, not automatic on shipping;
+ * this section is not a substitute for that step, only its display surface.
  *
  * Deep links (SPEC-MMC-002 §6.2 bullet 5): every card links back into
  * aigentZ → Command Center. THIS IS AN IN-CARTRIDGE TAB SWITCH, not a
@@ -71,16 +79,24 @@ interface SessionsListResponse {
   error?: string;
 }
 
-interface RegisteredCapabilitySummary {
+/** Mirrors app/api/constitutional/capability-registry/mine/route.ts's MyCapabilitySummary. */
+interface MyCapabilitySummary {
   capabilityId: string;
   displayLabel: string;
+  description: string | null;
+  standing: number;
   standingBand: string;
-  object?: { payload?: { prNumber?: number | null; mergeCommit?: string | null } };
+  lifecycleState: string;
+  reuseDisposition: string | null;
+  briefUrl: string | null;
+  packId: string | null;
+  registeredReceiptId: string | null;
+  createdAt: string;
 }
 
-interface CapabilityRegistryResponse {
-  ok?: boolean;
-  capabilities?: RegisteredCapabilitySummary[];
+interface MyCapabilityRegistryResponse {
+  capabilities?: MyCapabilitySummary[];
+  error?: string;
 }
 
 /** Mirrors app/api/artifact/records/mine/route.ts's MySoftwareArtifactSummary. */
@@ -117,25 +133,17 @@ function receiptClassCounts(receipts: DevLoopReceipt[]): Record<DevReceiptClass,
   return counts;
 }
 
-/** Best-effort match: a session's generated pack/receipts may carry a PR
- *  number or merge commit that also appears on a registered capability's
- *  provenance payload. No FK exists — this is a display-only correlation,
- *  never a hard join, and never blocks rendering when it can't be found. */
+/** Best-effort match: a session's generated pack may carry the same packId
+ *  as one of the caller's own registered capabilities. No FK exists — this
+ *  is a display-only correlation, never a hard join, and never blocks
+ *  rendering when it can't be found. */
 function findMatchingCapability(
   session: DevLoopSessionSummary,
-  capabilities: RegisteredCapabilitySummary[],
-): RegisteredCapabilitySummary | null {
+  capabilities: MyCapabilitySummary[],
+): MyCapabilitySummary | null {
   if (capabilities.length === 0) return null;
   const sessionText = JSON.stringify(session);
-  return (
-    capabilities.find((c) => {
-      const pr = c.object?.payload?.prNumber;
-      const commit = c.object?.payload?.mergeCommit;
-      if (pr != null && sessionText.includes(String(pr))) return true;
-      if (commit && sessionText.includes(commit)) return true;
-      return false;
-    }) ?? null
-  );
+  return capabilities.find((c) => c.packId && sessionText.includes(c.packId)) ?? null;
 }
 
 interface Props {
@@ -160,9 +168,9 @@ function navigateToMyLedger(e: React.MouseEvent) {
   window.dispatchEvent(new CustomEvent("codex:navigate-tab", { detail: { tab: "my-ledger" } }));
 }
 
-export function MySoftwareTab({ personaId, isAdmin }: Props) {
+export function MySoftwareTab({ personaId }: Props) {
   const [sessions, setSessions] = useState<DevLoopSessionSummary[] | null>(null);
-  const [capabilities, setCapabilities] = useState<RegisteredCapabilitySummary[]>([]);
+  const [capabilities, setCapabilities] = useState<MyCapabilitySummary[]>([]);
   const [artifactRecords, setArtifactRecords] = useState<MySoftwareArtifactSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -208,16 +216,16 @@ export function MySoftwareTab({ personaId, isAdmin }: Props) {
       /* best-effort only */
     }
 
-    // Best-effort capability-registry enrichment — admin-gated route, so a
-    // 403 for a non-admin viewer is expected and silently ignored (never
-    // blocks the session list from rendering).
+    // PRIMARY section (SPEC-MMC-002 §6.2 amendment): the caller's own
+    // registered capabilities. No admin gate — persona-scoped. Best-effort:
+    // a failure here never blocks the dev-loop session list from rendering.
     try {
-      const capRes = await personaFetch("/api/constitutional/capability-registry", {
+      const capRes = await personaFetch("/api/constitutional/capability-registry/mine", {
         personaIdHint: personaId,
         cache: "no-store",
       });
       if (capRes.ok) {
-        const capJson = (await capRes.json()) as CapabilityRegistryResponse;
+        const capJson = (await capRes.json()) as MyCapabilityRegistryResponse;
         setCapabilities(capJson.capabilities ?? []);
       }
     } catch {
@@ -247,6 +255,69 @@ export function MySoftwareTab({ personaId, isAdmin }: Props) {
         </button>
       </div>
 
+      {/* PRIMARY (SPEC-MMC-002 §6.2 amendment): the caller's own registered
+         capabilities — full item-model detail where the registry has it.
+         Renders above the process-level sections below, since this is the
+         actual "software I've built" answer for anything that shipped
+         outside the narrow DCC/softwarePilot pipeline. Empty when the
+         caller has registered nothing yet — not an error, just nothing to
+         show (registration is a real ceremony, see module header). */}
+      {capabilities.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="text-[10px] uppercase font-semibold text-slate-500">
+            My registered capabilities
+          </div>
+          {capabilities.map((cap) => (
+            <div
+              key={cap.capabilityId}
+              className="flex flex-col gap-1.5 rounded border border-violet-500/30 bg-violet-500/[0.04] px-3 py-2"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-200">{cap.displayLabel}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-300">
+                    {cap.standingBand}
+                  </span>
+                  <span className="rounded border border-slate-700 bg-slate-800/40 px-1.5 py-0.5 text-[10px] text-slate-400">
+                    {cap.lifecycleState}
+                  </span>
+                </div>
+              </div>
+              {cap.description && <p className="text-[11px] text-slate-400">{cap.description}</p>}
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>
+                  Registered {new Date(cap.createdAt).toLocaleDateString()}
+                  {cap.reuseDisposition ? ` · ${cap.reuseDisposition}` : ""}
+                </span>
+                <div className="flex items-center gap-3">
+                  {cap.briefUrl && (
+                    cap.briefUrl.startsWith("http") ? (
+                      <a
+                        href={cap.briefUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-violet-400 hover:text-violet-300"
+                      >
+                        Read the brief
+                      </a>
+                    ) : (
+                      <span className="font-mono text-slate-600" title={cap.briefUrl}>
+                        {cap.briefUrl.split("/").pop()}
+                      </span>
+                    )
+                  )}
+                  {cap.registeredReceiptId && (
+                    <a href="#" onClick={navigateToMyLedger} className="text-slate-400 hover:text-slate-300">
+                      Inspect receipt
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {loading && !sessions && (
         <div className="flex items-center gap-2 text-sm text-slate-400">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -261,7 +332,8 @@ export function MySoftwareTab({ personaId, isAdmin }: Props) {
       )}
 
       {sessions && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 border-t border-slate-800 pt-3">
+          <div className="text-[10px] uppercase font-semibold text-slate-500">In-progress builds</div>
           {sessions.length === 0 && (
             <div className="text-xs text-slate-500">
               No dev-loop sessions yet. Start one in aigentZ → Command Center.
@@ -377,10 +449,9 @@ export function MySoftwareTab({ personaId, isAdmin }: Props) {
 
       <div className="flex items-center gap-1 border-t border-slate-800 pt-3 text-[11px] text-slate-500">
         <ExternalLink className="h-3 w-3" />
-        Build your own software in aigentZ → Command Center.
-        {!isAdmin && capabilities.length === 0 && (
-          <span> Capability standing badges require admin access to the Capability Registry.</span>
-        )}
+        Build your own software in aigentZ → Command Center. Capabilities appear above once someone
+        registers them into the Capability Registry (Constitutional Acceptance, CFS-032 §4) — shipping
+        code alone doesn't add it here.
       </div>
     </div>
   );
