@@ -260,6 +260,44 @@ describe('CaptureInboxPanel.tsx — personaFetch-only discipline', () => {
   });
 });
 
+// ─── 5b. Companion embed page — Workbench (the fifth extension surface) ───
+//
+// Operator correction, 2026-07-24: the Constitutional Flow's Capture UI
+// belongs INSIDE the extension itself (the companion embed page BOTH the
+// docked side panel and the popup window load), not only in the full app's
+// myCluster nav. This pins that the embed page mounts the SAME
+// CaptureInboxPanel as a fifth "Workbench" segmented-control surface,
+// alongside Wallet/Companion/Search/Overlay.
+
+describe('Companion embed page (/triad/embed/companion) — Workbench surface', () => {
+  const source = readFileSync(
+    join(process.cwd(), 'app', '(embed)', 'triad', 'embed', 'companion', 'page.tsx'),
+    'utf8',
+  );
+
+  it('imports and mounts CaptureInboxPanel', () => {
+    expect(source).toContain('import { CaptureInboxPanel }');
+    expect(source).toContain('<CaptureInboxPanel personaIdHint={personaId} />');
+  });
+
+  it('declares workbench as a fifth activeSurface option, alongside the existing four', () => {
+    expect(source).toMatch(
+      /useState<"wallet" \| "companion" \| "search" \| "overlay" \| "workbench">/,
+    );
+  });
+
+  it('gates the Workbench mount on resolved identity, same as Search/Overlay', () => {
+    // The button's className ternary also contains this literal string, so
+    // anchor on the render-branch form specifically (`) : activeSurface ===
+    // "workbench" ? (`), not the first (button) occurrence.
+    const idx = source.indexOf('activeSurface === "workbench" ? (');
+    expect(idx).toBeGreaterThan(-1);
+    const section = source.slice(idx, idx + 1400);
+    expect(section).toContain('identity && personaId');
+    expect(section).toContain('<CaptureInboxPanel personaIdHint={personaId} />');
+  });
+});
+
 // ─── 6. Extension — structural canary (Increment 4) ────────────────────────
 //
 // extension/companion-observer/*.js is plain JS run in a service-worker/
