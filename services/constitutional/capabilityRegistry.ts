@@ -84,6 +84,11 @@ export interface RegisterCapabilityInput {
   governingInvariants?: string[];
   /** How future work should treat it: 'compose' (default) | 'extend' | 'reference'. */
   reuseDisposition?: string;
+  /** The capability's Constitutional Capability Brief (CFS-049) — the repo
+   *  path (or published Artifact URL) a reader lands on to learn what this
+   *  capability does, where to find it, and how to use it. Optional: not
+   *  every registered capability has a Brief yet. */
+  briefUrl?: string;
 }
 
 /** PURE — builds the capability's ConstitutionalObject exactly as the
@@ -95,6 +100,7 @@ export function buildCapabilityObject(input: RegisterCapabilityInput): Constitut
     prNumber: input.prNumber ?? null,
     mergeCommit: input.mergeCommit ?? null,
     reuseDisposition: input.reuseDisposition ?? 'compose',
+    briefUrl: input.briefUrl ?? null,
   };
   const receiptIds = [
     ...(input.validationReceiptIds ?? []),
