@@ -354,12 +354,15 @@ export function ExperimentRegistryTab() {
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold text-slate-200">Experiment / Constitutional / Invariant Registry</h2>
+            <h2 className="text-sm font-semibold text-slate-200">Experiment / Constitutional / Invariant Pipeline</h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Candidate research threads, candidate constitutional principles, candidate structural invariants, and
-              the research backlog — status, dependencies, and review history. Admin-only today (CFS-051); a
-              swappable gate (<code className="text-slate-400">canManageRegistry</code>) is the widening point for
-              cohort/token-gated public proposal access.
+              An informal idea pipeline, NOT the formal experiment/invariant registry — that process (ratification,
+              protocol freeze, canonization) is unchanged and lives entirely elsewhere. This is where candidate
+              research threads, candidate constitutional principles, candidate structural invariants, and the
+              research backlog sit — with status, dependencies, and review history — before a human runs them
+              through the existing formal process to promote them in. Admin-only today (CFS-051); a swappable gate
+              (<code className="text-slate-400">canManageRegistry</code>) is the widening point for cohort/token-gated
+              public proposal access.
             </p>
           </div>
           <button onClick={load} className="shrink-0 flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-300">

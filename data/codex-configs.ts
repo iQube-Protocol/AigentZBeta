@@ -5271,7 +5271,7 @@ export const IRL_CARTRIDGE: CodexConfig = {
     // proposal access (operator framing) — not built here.
     {
       id: 'irl-experiment-registry',
-      label: 'Experiment Registry',
+      label: 'Experiment Pipeline',
       slug: 'irl-experiment-registry',
       enabled: true,
       adminOnly: true,
@@ -5279,7 +5279,7 @@ export const IRL_CARTRIDGE: CodexConfig = {
       order: 6,
       type: 'static',
       config: { component: 'ExperimentRegistryTab', props: {} },
-      metadata: { icon: 'ListTodo', description: 'CFS-051 — candidate experiments, candidate constitutional principles, candidate structural invariants, and the research backlog: status, dependencies, review history.', color: 'violet' },
+      metadata: { icon: 'ListTodo', description: 'CFS-051 — the informal idea pipeline that feeds the formal, ratified experiment/invariant registry: candidate experiments, candidate constitutional principles, candidate structural invariants, and the research backlog, before anything enters the official process unchanged elsewhere.', color: 'violet' },
     },
     // ── Living Knowledge ──────────────────────────────────────────
     {
