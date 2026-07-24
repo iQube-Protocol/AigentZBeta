@@ -31,6 +31,7 @@ const SOURCE_LABEL: Record<CompanionSearchResult["source"], string> = {
   "registry-library": "Registry · Library",
   capability: "Capability",
   "my-software": "mySoftware",
+  moneypenny: "MoneyPenny",
 };
 
 export interface CompanionSearchPanelProps {

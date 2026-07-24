@@ -30,7 +30,79 @@ MoneyPenny's wallet-agent sync shipped as a background increment (task #143) —
 
 ## Companion integration
 
-**Gap, not yet built.** MoneyPenny has no Companion-specific integration today. She's reachable indirectly — the Capability Graph search source in `services/companion/searchFederation.ts` could in principle surface her registered capability (once/if `cap-moneypenny-financial-services` is registered — it's one of the four capabilities queued in `scripts/register-ccb-capabilities.ts`, not yet run) — but there is no MoneyPenny-specific Companion affordance (no MoneyPenny quick-action, no MoneyPenny-aware Overlay content). This is a real, open gap if Companion↔MoneyPenny cohesion is wanted.
+**Update 2026-07-24 (later same day, operator-approved close-out of this gap):**
+
+**Companion Search — built.** `services/companion/searchFederation.ts` gained a
+seventh federated source, `searchMoneyPenny(query)`, wired into
+`federateSearch()`'s `Promise.all`/log line/final spread exactly like the six
+existing sources. It is pure and synchronous (no new read, same "index a
+known list" shape as `searchCapability`) — and, per CLAUDE.md source-of-truth
+discipline, it does not hand-copy MoneyPenny's ten panel names: it iterates
+`MONEYPENNY_CARTRIDGE.tabs` (`data/codex-configs.ts`) directly, so her titles,
+descriptions, and tab slugs can never drift from the cartridge she actually
+ships (the same import pattern already used by
+`services/devCommandCenter/stageGroundData.ts` and
+`services/composer/runtimeProjectionShared.ts`). Each result deep-links to
+`{ slug: 'moneypenny', tab: <real tab slug> }` via the existing
+`buildCodexUrl()` path in `CompanionSearchPanel.tsx`. `'moneypenny'` was added
+to `CompanionSearchSource` (`types/companionSearch.ts`) and to
+`SOURCE_LABEL` (`components/companion/CompanionSearchPanel.tsx`) — the same
+two-spot addition the mySoftware source made hours earlier. A citizen typing
+"hft", "portfolio", "strategies", "x402", or "fio" into Companion Search now
+gets a MoneyPenny result deep-linking into the matching tab (hft-console,
+portfolio, strategies, x402, identity respectively).
+
+**Companion Overlay — investigated, no new code shipped (finding: not a
+narrow gap; a different architecture entirely).** The hypothesis in the
+original gap note above — that registering `cap-moneypenny-financial-services`
+in the Capability Registry would let Overlay's "generic" mechanism surface
+MoneyPenny automatically — does not hold, on direct inspection of
+`services/companion/overlayMapping.ts`, `overlayComposition.ts`, and
+`app/api/companion/overlay/route.ts`:
+
+- Overlay is **not** a general capability-registry matcher. It is a small,
+  explicit `domain → shape` table (`shapeForDomain()`) with exactly two
+  hardcoded shapes today: `'github-repo'` and `'banking'`. A domain that
+  isn't `github.com`/`*.github.com` or in the small `BANKING_DOMAINS` set
+  renders the honest `"domain-unmapped"` empty state — by design, not a bug
+  (the file's own header explicitly rules out an "arbitrary-app classifier").
+- Even within the one shape that *does* touch the capability system
+  (`'github-repo'`), the lookup is `recommendProducers('software', 'operational')`
+  — a **hardcoded** capability id (`'software'`) and tier, not a live query
+  against whatever capabilities happen to be registered. `recommendProducers`'s
+  own signature requires a `capability: CapabilityId` chosen in advance
+  (`services/capability/capabilityGraph.ts`); a free-text or domain-driven
+  "find whichever capability matches" query isn't something it can answer.
+- `CapabilityId` (`types/capabilityGraph.ts`) is `ArtifactProfileId |
+  'deployment-execution'` — a closed enum that does not include
+  `'cap-moneypenny-financial-services'` at all. That id belongs to a
+  *different* registry (the Constitutional Capability Brief / CCB registry
+  `scripts/register-ccb-capabilities.ts` writes to), which `capabilityGraph.ts`'s
+  producer-recommendation system does not read from.
+- The `'banking'` shape — the one shape whose domain set already includes the
+  platform's own domains (`metame.com`, `dev-beta.aigentz.me`, so MoneyPenny's
+  cartridge pages already render *a* banking card today) — does **no**
+  capability lookup at all. `composeBankingCard()` only returns
+  standing/identifiability/cartridgeFlags; there is no field in
+  `BankingOverlayCard` for "matched capability."
+
+**Conclusion:** there is no narrow, low-risk fix available here (e.g. adding
+a domain to an allowlist) — the domains MoneyPenny would need are already in
+`BANKING_DOMAINS`, so that specific gap doesn't exist. The actual gap is
+architectural: the banking shape has no capability-matching field to plug
+into, and the one shape that does capability-match is hardcoded to a
+different capability id in a different registry. Building that would mean
+adding a new field to `BankingOverlayCard` and a new capability-matching path
+— a new Overlay content shape, which CLAUDE.md's Change Sizing section
+("no speculative features," "no over-engineering") rules out absent an
+explicit operator ask. **No Overlay code was written.** Running the CCB
+registration script closes the CCB-registry-visibility gap (MoneyPenny's
+runtime becomes discoverable via `/api/constitutional/capability-registry`
+and mySoftware, as already noted below) — it does **not**, on its own, cause
+her to appear in the Companion Overlay. If MoneyPenny-aware Overlay content
+is wanted, it needs its own scoped design (a third Overlay shape or a
+capability field on the banking shape) and an explicit operator go-ahead,
+not an assumption that registration alone closes it.
 
 ## Shared runtime
 
@@ -43,14 +115,14 @@ MoneyPenny's own cartridge now has real intra-cartridge navigation (the four-dom
 ## Remaining gaps (honest list)
 
 1. **Live verification owed**: Venture Lab Phase 1 regroup, MoneyPenny Phase 2 regroup, wallet-agent sync currency — none re-checked live this review.
-2. **Companion↔MoneyPenny integration** — does not exist yet.
-3. **CCB registration** — script written, not yet run by the operator (blocks MoneyPenny's capability from being discoverable/receipted as "hers").
+2. ~~**Companion↔MoneyPenny integration** — does not exist yet.~~ **Closed 2026-07-24 (Companion Search half)**: `searchMoneyPenny` ships as the 7th federated source. **Investigated, not built (Overlay half)**: Overlay's domain→shape mechanism is not generic and does not gain MoneyPenny visibility from CCB registration alone — see "Companion integration" above for the full finding. A MoneyPenny-aware Overlay shape remains a real, scoped-but-unbuilt option if wanted.
+3. **CCB registration** — script written, not yet run by the operator (blocks MoneyPenny's capability from being discoverable/receipted as "hers" in the Capability Registry / mySoftware — and, per today's Overlay investigation, registration alone still would not surface her in Overlay).
 4. **Domains 1/2 (money-moving) remain shadow-only** — a deliberate, unresolved pause point, not a bug. Any move past it needs its own explicit go-ahead and ceremony review, same discipline as SPEC-MMC-002 Phase 3's Deploy/Run actions.
-5. **No test-suite/typecheck run** across the MoneyPenny increments this session (consistent with this sandbox's pre-existing `npm install` limitation, noted throughout today's other work) — this review is a documentation-level checkpoint, not a QA pass.
+5. **No test-suite/typecheck run** across the MoneyPenny increments this session (consistent with this sandbox's pre-existing `npm install` limitation, noted throughout today's other work) — this review is a documentation-level checkpoint, not a QA pass. The new `searchMoneyPenny` source was verified by hand-simulating its match logic against the real `MONEYPENNY_CARTRIDGE.tabs` data (see the follow-up implementation commit), not by a live test run.
 
 ## Outstanding implementation tasks
 
 - Run the CCB registration script (operator, blocked on migration + personaId, both now provided).
 - Live-verify the two nav regroups (Venture Lab, MoneyPenny) on dev.
-- Decide whether to build Companion↔MoneyPenny integration, and if so scope it (likely: a Companion Search source, an Overlay content type, or both).
+- ~~Decide whether to build Companion↔MoneyPenny integration, and if so scope it~~ — **decided 2026-07-24**: Search source shipped; Overlay content deliberately not built (no narrow gap found; would require a new content shape — needs its own operator go-ahead if wanted).
 - Any decision to progress Domains 1/2 toward authoritative needs its own explicit operator-authorized ceremony design — not assumed by this review.

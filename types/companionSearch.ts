@@ -25,7 +25,8 @@ export type CompanionSearchSource =
   | 'registry-asset'
   | 'registry-library'
   | 'capability'
-  | 'my-software';
+  | 'my-software'
+  | 'moneypenny';
 
 /** Static, identifier-free routing metadata for `buildCodexUrl(target.slug, { tab: target.tab, ... })`. */
 export interface CompanionSearchTarget {
