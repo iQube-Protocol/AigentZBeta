@@ -61,6 +61,7 @@ import type { CompanionRuntimeContext } from "@/types/companion";
 import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
 import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPanel";
 import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
+import { CaptureInboxPanel } from "@/components/companion/CaptureInboxPanel";
 
 const SmartWalletDrawer = dynamic(
   () => import("@/app/components/content/SmartWalletDrawer"),
@@ -94,7 +95,7 @@ function CompanionShell() {
   // Wallet is the default/first surface (2026-07-23, operator-directed,
   // reverted same day): wallet is the sign-in / identity surface most of
   // this shell's other reads depend on, so it belongs first again.
-  const [activeSurface, setActiveSurface] = useState<"wallet" | "companion" | "search" | "overlay">("wallet");
+  const [activeSurface, setActiveSurface] = useState<"wallet" | "companion" | "search" | "overlay" | "workspace">("wallet");
 
   useEffect(() => {
     let cancelled = false;
@@ -172,6 +173,17 @@ function CompanionShell() {
           >
             Overlay
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveSurface("workspace")}
+            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+              activeSurface === "workspace"
+                ? "bg-slate-800 text-slate-100"
+                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+            }`}
+          >
+            Workspace
+          </button>
         </div>
 
         {activeSurface === "wallet" ? (
@@ -223,6 +235,31 @@ function CompanionShell() {
           ) : (
             <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-xs text-slate-500">
               Sign in to see the Constitutional Overlay for this page.
+            </div>
+          )
+        ) : activeSurface === "workspace" ? (
+          /* Workspace — Movement I (Capture), PRD-MMC-IMPL-003. This is the
+             fifth companion surface: the Constitutional Flow's landing point
+             INSIDE the extension itself, not a link out to the full app's
+             myCluster nav (operator correction, 2026-07-24 — the whole point
+             of Constitutional Flow is that the extension IS where captured
+             material from the legacy internet gets reviewed and organized,
+             never a detour to a different app surface). Named "Workspace"
+             to match SPEC-MMC-001's own terminology throughout ("Workspace
+             is the membrane every incoming object passes through", §4/§6)
+             and PRD-MMC-IMPL-003's "Workspace Inbox" naming -- corrected
+             same day after this surface first shipped under a different,
+             invented label.
+             Mounts the SAME CaptureInboxPanel MyWorkspaceTab's Inbox sub-tab
+             uses (composition, not duplication) — an assigned capture still
+             shows up in myLedger too, both are views over the same server
+             state. Mounts only when identity is resolved, mirroring every
+             other gated surface here. */
+          identity && personaId ? (
+            <CaptureInboxPanel personaIdHint={personaId} />
+          ) : (
+            <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-xs text-slate-500">
+              Sign in to see what you've pulled across from the web.
             </div>
           )
         ) : (
