@@ -26,21 +26,34 @@
  * viewers and never blocks rendering — same as Phase 1.
  *
  * Deep links (SPEC-MMC-002 §6.2 bullet 5): every card links back into
- * aigentZ → Command Center via `buildCodexUrl()` (CLAUDE.md Inter-Cartridge
- * Navigation rule), propagating `personaId`. The Command Center
- * (`DevCommandCenterTab.tsx`) hydrates only the caller's MOST RECENT
- * session on mount — it has no `sessionId`/query-param resume affordance
- * today, so this deep link honestly lands on Command Center generally, not
- * on a specific past session. `artifact_records` rows have no originating
- * Builder/Studio surface wired yet either (the software-production pilot
- * doesn't attach one) — they link to the same Command Center tab as the
- * closest reasonable destination, not a fabricated more-specific one.
+ * aigentZ → Command Center. THIS IS AN IN-CARTRIDGE TAB SWITCH, not a
+ * cross-cartridge navigation — mySoftware and Command Center are both tabs
+ * of the SAME `metame` codex (`data/codex-configs.ts`'s `agentz` and
+ * `mycluster` groups). The correct mechanism is the existing
+ * `codex:navigate-tab` CustomEvent (`CodexPanelDynamic.tsx`'s handler,
+ * already used by e.g. `LockerTab.tsx`) — dispatching it swaps the active
+ * tab in place with no page reload. An earlier version of this file used
+ * `buildCodexUrl()` + a plain `<a href>`, which (a) is the CROSS-cartridge
+ * mechanism (every other real usage in this repo targets a DIFFERENT codex
+ * slug — see `AlphaProgrammeTab.tsx`), so using it here forced a full page
+ * navigation that looked like the app "popping out"; and (b) pointed at
+ * `tab: 'dev-command-center'`, which is not a tab slug that exists on the
+ * `metame` codex at all — metaMe's own Command Center mirror has
+ * `slug: 'aigent-z'` (`data/codex-configs.ts`, id
+ * `metame-agentz-command-center`; `'dev-command-center'` is a DIFFERENT
+ * top-level codex's tab). Both bugs are fixed below.
+ *
+ * The Command Center (`DevCommandCenterTab.tsx`) hydrates only the caller's
+ * MOST RECENT session on mount — it has no `sessionId` resume affordance
+ * today, so this still honestly lands on Command Center generally, not a
+ * specific past session. `artifact_records` rows have no originating
+ * Builder/Studio surface wired yet either — they link to the same tab as
+ * the closest reasonable destination, not a fabricated more-specific one.
  */
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Code, Loader2, RefreshCw, ExternalLink, Package } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
-import { buildCodexUrl } from "@/utils/codex-nav";
 import { STAGE_ORDER, getStageLabel } from "@/services/devCommandCenter/devLoop";
 import type { DevLoopStage, DevLoopReceipt, DevReceiptClass } from "@/types/devCommandCenter";
 
@@ -130,18 +143,21 @@ interface Props {
   isAdmin?: boolean;
 }
 
-/** Deep link into aigentZ → Command Center (SPEC-MMC-002 §6.2 bullet 5) —
- *  see the module header for why this is a general landing, not a
- *  session/artifact-specific resume link. Same codex (`metame`), different
- *  tab group, so this still carries personaId per CLAUDE.md's
- *  Inter-Cartridge Navigation rule even though it never leaves the codex. */
-function commandCenterDeepLink(personaId?: string): string {
-  return buildCodexUrl("metame", {
-    tab: "dev-command-center",
-    personaId,
-    from: "metame",
-    fromTab: "my-software",
-  });
+/** In-cartridge tab switch to aigentZ → Command Center (SPEC-MMC-002 §6.2
+ *  bullet 5) — see the module header for why this is a `codex:navigate-tab`
+ *  dispatch (no page reload) at the `aigent-z` slug, not a `buildCodexUrl`
+ *  href (that's the cross-cartridge mechanism, and pointed at a slug this
+ *  codex doesn't have). Mirrors `LockerTab.tsx`'s existing usage. */
+function navigateToCommandCenter(e: React.MouseEvent) {
+  e.preventDefault();
+  window.dispatchEvent(new CustomEvent("codex:navigate-tab", { detail: { tab: "aigent-z" } }));
+}
+
+/** Same mechanism, targeting myLedger (`slug: 'my-ledger'` — already correct
+ *  on this codex, unlike Command Center's slug). */
+function navigateToMyLedger(e: React.MouseEvent) {
+  e.preventDefault();
+  window.dispatchEvent(new CustomEvent("codex:navigate-tab", { detail: { tab: "my-ledger" } }));
 }
 
 export function MySoftwareTab({ personaId, isAdmin }: Props) {
@@ -285,10 +301,10 @@ export function MySoftwareTab({ personaId, isAdmin }: Props) {
                   </span>
                 </div>
                 <a
-                  href={commandCenterDeepLink(personaId)}
+                  href="#"
+                  onClick={navigateToCommandCenter}
                   className="flex w-fit items-center gap-1 text-[11px] text-violet-400 hover:text-violet-300"
                 >
-                  <ExternalLink className="h-3 w-3" />
                   Continue in Command Center
                 </a>
               </div>
@@ -338,20 +354,16 @@ export function MySoftwareTab({ personaId, isAdmin }: Props) {
               </div>
               <div className="flex items-center gap-3 text-[11px]">
                 <a
-                  href={commandCenterDeepLink(personaId)}
+                  href="#"
+                  onClick={navigateToCommandCenter}
                   className="flex items-center gap-1 text-violet-400 hover:text-violet-300"
                 >
-                  <ExternalLink className="h-3 w-3" />
                   Continue in Command Center
                 </a>
                 {record.receiptId && (
                   <a
-                    href={buildCodexUrl("metame", {
-                      tab: "my-ledger",
-                      personaId,
-                      from: "metame",
-                      fromTab: "my-software",
-                    })}
+                    href="#"
+                    onClick={navigateToMyLedger}
                     className="flex items-center gap-1 text-slate-400 hover:text-slate-300"
                   >
                     Inspect receipt {record.receiptId.slice(0, 10)}…
