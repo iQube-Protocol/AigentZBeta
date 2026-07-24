@@ -348,6 +348,25 @@ describe('extension/companion-observer — Capture structural canary', () => {
     expect(pdfBranch).not.toMatch(/contentText:/);
   });
 
+  it('background.js refreshes grantStateCache from the server BEFORE the consent pre-check (2026-07-24 fix)', () => {
+    // Reproduces, in performCapture, the exact fix content.js's
+    // buildObservation() already carries for Observation/Overlay
+    // (2026-07-23): grantStateCache is only populated at Connect time or on
+    // an explicit REFRESH_GRANTS message, so a capability granted through
+    // the Companion web panel is invisible to a stale local cache until
+    // this refresh runs. Missing it here reproduced the exact same bug for
+    // Capture (2026-07-24, operator-reported: every capability showed
+    // "Shared" in the panel, capture still refused).
+    const fnBody = background.slice(
+      background.indexOf('async function performCapture'),
+      background.indexOf('const PULL_ACROSS_MENU_ID'),
+    );
+    const refreshIdx = fnBody.indexOf('refreshGrantsFromServer()');
+    const gateIdx = fnBody.indexOf('assertCaptureRespectsGrants(');
+    expect(refreshIdx).toBeGreaterThan(-1);
+    expect(gateIdx).toBeGreaterThan(refreshIdx);
+  });
+
   it('background.js runs the client-side consent pre-check before any POST', () => {
     const fnBody = background.slice(background.indexOf('async function performCapture'));
     const gateIdx = fnBody.indexOf('assertCaptureRespectsGrants(');

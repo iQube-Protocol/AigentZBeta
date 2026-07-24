@@ -392,8 +392,22 @@ function setCaptureBadge(text, color) {
  * `forwardObservationToServer`), then POST to
  * `/api/companion/capture` using the SAME `ensureFreshToken`/Bearer-token
  * mechanism the Observer calls already use.
+ *
+ * Refreshes `grantStateCache` from the server FIRST — the same fix
+ * `buildObservation()` (content.js) already carries and explains in its own
+ * comment: `grantStateCache` is only populated at Connect time or on an
+ * explicit REFRESH_GRANTS message; granting a capability through the
+ * Companion web panel writes straight to the server and never touches this
+ * cache on its own. Missing this refresh here (Capture) reproduced the exact
+ * same bug already fixed for Observation/Overlay on 2026-07-23 — capture
+ * refusing with a stale "not granted" verdict even though the panel showed
+ * every capability as Shared (2026-07-24, operator-reported). Best-effort:
+ * failure here is non-fatal, `assertCaptureRespectsGrants` below just falls
+ * back to whatever the cache already had, same as before this call existed.
  */
 async function performCapture(info, tab) {
+  await refreshGrantsFromServer();
+
   const capture = await buildCapture(info, tab);
   const siteDomain = siteDomainFromUrl(capture.sourceUrl);
 
