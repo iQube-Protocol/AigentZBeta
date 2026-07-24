@@ -69,7 +69,11 @@ const SOURCE_KIND_ICON: Record<CaptureSourceKind, typeof FileText> = {
 async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   const body = await res.json().catch(() => null);
   if (body && typeof body === "object" && "error" in body && typeof (body as { error?: unknown }).error === "string") {
-    return (body as { error: string }).error;
+    const b = body as { error: string; detail?: unknown };
+    // `detail` (e.g. the underlying Postgres error) is dropped by every prior
+    // version of this reader -- surfacing it is the difference between a
+    // dead-end "assign-persist-failed" and an actionable message.
+    return typeof b.detail === "string" && b.detail.trim().length > 0 ? `${b.error}: ${b.detail}` : b.error;
   }
   return fallback;
 }
