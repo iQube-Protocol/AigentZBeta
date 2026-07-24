@@ -2476,6 +2476,24 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
     category: 'build',
     tags: ['venture-lab', 'alpha-knyt', 'agentiq', 'build', 'planning']
   },
+  // SPEC-VLM-001 Phase 1 (2026-07-24) — the five-domain regroup, CFS-050
+  // Sovereignty Navigation's first applied test case. Eleven flat top-level
+  // tabs collapse into five intent-driven domains via the Standard Cartridge
+  // Navigation Framework (the same TabGroup/group mechanism IRL OS, Polity
+  // Core, and Marketa already use) -- re-grouping only, per SPEC-VLM-001 §11:
+  // every tab below keeps its own id/slug/component/adminOnly unchanged,
+  // gaining only a `group` + a re-sequenced `order` local to that group.
+  tabGroups: [
+    { id: 'operate',    label: 'Operate',    icon: 'Rocket',    order: 0 },
+    { id: 'connect',    label: 'Connect',    icon: 'Users',     order: 1 },
+    { id: 'service',    label: 'Service',    icon: 'Landmark',  order: 2 },
+    { id: 'grow',       label: 'Grow',       icon: 'TrendingUp', order: 3 },
+    // adminOnly on the GROUP itself, not just its children: every current
+    // Administer tab (AgentiQ OS, Plan Pricing, Docs) is adminOnly:true --
+    // without this, a non-admin founder would see an "Administer" pill that
+    // renders nothing when clicked (its enabledTabs would filter to empty).
+    { id: 'administer', label: 'Administer', icon: 'Settings',  order: 4, adminOnly: true },
+  ],
   tabs: [
     {
       id: 'founder-office',
@@ -2483,6 +2501,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'founder-office',
       enabled: true,
       adminOnly: false,
+      group: 'operate',
       order: 0,
       type: 'static',
       config: {
@@ -2509,7 +2528,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'founders-club',
       enabled: true,
       adminOnly: false,
-      order: 0.5,
+      group: 'connect',
+      order: 0,
       type: 'static',
       config: {
         component: 'FoundersClubTab',
@@ -2532,7 +2552,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'financial-services',
       enabled: true,
       adminOnly: false,
-      order: 0.5,
+      group: 'service',
+      order: 0,
       type: 'static',
       config: {
         component: 'FinancialServicesTab',
@@ -2550,7 +2571,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'commercial-funnel',
       enabled: true,
       adminOnly: false,
-      order: 1,
+      group: 'operate',
+      order: 2,
       type: 'static',
       config: {
         component: 'VentureFunnelTab',
@@ -2568,7 +2590,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'alpha-programme',
       enabled: true,
       adminOnly: true,
-      order: 2,
+      group: 'grow',
+      order: 1,
       type: 'static',
       config: {
         component: 'AlphaProgrammeTab',
@@ -2586,7 +2609,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'agentiq-os-vl',
       enabled: true,
       adminOnly: true,
-      order: 2,
+      group: 'administer',
+      order: 0,
       type: 'static',
       config: {
         component: 'AgentiQOSTab',
@@ -2604,7 +2628,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'relationship-builder',
       enabled: true,
       adminOnly: false,
-      order: 3,
+      group: 'connect',
+      order: 1,
       type: 'static',
       config: {
         component: 'RelationshipBuilderTab',
@@ -2622,7 +2647,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'alpha-docs',
       enabled: true,
       adminOnly: true,
-      order: 4,
+      group: 'administer',
+      order: 2,
       type: 'static',
       config: {
         component: 'AlphaDocsTab',
@@ -2640,7 +2666,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'plan-pricing',
       enabled: true,
       adminOnly: true,
-      order: 4.5,
+      group: 'administer',
+      order: 1,
       type: 'static',
       config: {
         component: 'PlanPriceConfigAdminTab',
@@ -2658,7 +2685,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'growth-matrix',
       enabled: true,
       adminOnly: false,
-      order: 5,
+      group: 'grow',
+      order: 0,
       type: 'static',
       config: {
         component: 'VentureLabGrowthMatrixTab',
@@ -2676,7 +2704,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'portfolio',
       enabled: true,
       adminOnly: false,
-      order: 6,
+      group: 'operate',
+      order: 1,
       type: 'static',
       config: {
         component: 'VentureLabPortfolioTab',
