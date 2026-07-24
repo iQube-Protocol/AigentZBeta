@@ -1,17 +1,17 @@
 /**
  * MoneyPenny Runtime — Principal-Delegate Separation canary (PRD-MPY-001
- * Phase 4, Increments P4-2/P4-3).
+ * Phase 4, Increments P4-2/P4-3/P4-5/P4-6).
  *
  * MoneyPenny may form and accept her own side of a Constitutional Agreement
  * (see moneyPennyArchitect / the RuntimePanel's Form+Accept buttons), but
  * only a human, acting through the browser, may authorize one. This test
  * pins that boundary structurally: the Runtime route must never import or
- * call `authorizeAgreement`; that authoritative execution is gated to
- * Domain 3 (Financial Intelligence) only, since that's the only domain
- * whose executor is read-only and whose fixed agreement never carries
- * settlementTerms; and that capabilityRef/selectedAgentRef are never read
+ * call `authorizeAgreement`; capabilityRef/selectedAgentRef are never read
  * from the request body (a client-supplied ref could otherwise point the
- * 409 gate at an unrelated, settlement-bearing agreement).
+ * 409 gate at an unrelated, settlement-bearing agreement); and — since
+ * P4-5/P4-6 — Investment/Market resolve to a DISTINCT capabilityRef from
+ * Financial Intelligence, so the two risk tiers are gated by two
+ * independent agreements, never one shared 409 lookup.
  *
  * Mirrors the readFileSync source-scan style of
  * tests/irl-run-lifecycle.test.ts's "route never imports X" canaries.
@@ -29,6 +29,8 @@ const DVN_PIPELINE_PATH = join(process.cwd(), 'services/dvn/activityReceiptDvnPi
 const WALLET_RUNTIME_PATH = join(process.cwd(), 'app/components/wallet/MoneyPennyWalletRuntime.tsx');
 const WALLET_ARCHITECT_PATH = join(process.cwd(), 'app/components/wallet/MoneyPennyWalletArchitect.tsx');
 const WALLET_DRAWER_PATH = join(process.cwd(), 'app/components/content/SmartWalletDrawer.tsx');
+const AGREEMENT_SERVICE_PATH = join(process.cwd(), 'services/constitutional/constitutionalAgreement.ts');
+const PERSONHOOD_PROOF_PATH = join(process.cwd(), 'services/passport/personhoodProof.ts');
 
 describe('MoneyPenny Runtime route — authority boundary', () => {
   it('never imports or calls authorizeAgreement', () => {
@@ -41,20 +43,56 @@ describe('MoneyPenny Runtime route — authority boundary', () => {
     expect(src.toLowerCase()).not.toContain('settlementexecutor');
   });
 
-  it('gates authoritative mode to Domain 3 (Financial Intelligence) only', () => {
+  it('P4-6: resolves a DISTINCT capabilityRef for Investment/Market than Financial Intelligence', () => {
     const src = readFileSync(ROUTE_PATH, 'utf8');
-    expect(src).toMatch(/authoritativeAllowed\s*=\s*domain\s*===\s*'intelligence'/);
-    // the pipeline call passes the computed, domain-gated `mode` variable —
-    // never a hardcoded 'shadow' string (that would silently un-do P4-3).
-    expect(src).not.toMatch(/mode:\s*'shadow'/);
+    expect(src).toContain("const MONEYPENNY_SETTLEMENT_CAPABILITY_REF = 'cap-moneypenny-financial-services-settlement';");
+    expect(src).toMatch(/capabilityRef\s*=\s*domain\s*===\s*'intelligence'\s*\?\s*MONEYPENNY_CAPABILITY_REF\s*:\s*MONEYPENNY_SETTLEMENT_CAPABILITY_REF/);
+  });
+
+  it('P4-5/P4-6: no code-level domain clamp — mode passes straight through, the 409 gate is the boundary', () => {
+    const src = readFileSync(ROUTE_PATH, 'utf8');
+    expect(src).not.toMatch(/authoritativeAllowed/);
+    expect(src).toMatch(/const mode = body\.mode === 'authoritative' \? 'authoritative' : 'shadow';/);
   });
 
   it('never reads capabilityRef/selectedAgentRef from the request body — always MoneyPenny\'s fixed refs', () => {
     const src = readFileSync(ROUTE_PATH, 'utf8');
     expect(src).not.toContain('body.capabilityRef');
     expect(src).not.toContain('body.selectedAgentRef');
-    expect(src).toMatch(/capabilityRef\s*=\s*MONEYPENNY_CAPABILITY_REF/);
     expect(src).toMatch(/selectedAgentRef\s*=\s*MONEYPENNY_AGENT_REF/);
+  });
+});
+
+describe('P4-5 — the money-moving grade gate (graded proof-of-humanity)', () => {
+  it('authorizeAgreement enforces the world-id requirement against a persisted, existing signal', () => {
+    const src = readFileSync(AGREEMENT_SERVICE_PATH, 'utf8');
+    expect(src).toContain("import { PROOF_REQUIREMENT } from '@/services/constitutional/guidedOnboarding';");
+    expect(src).toContain("import { hasVerifiedWorldIdPassport } from '@/services/passport/personhoodProof';");
+    expect(src).toContain('requirements.includes(PROOF_REQUIREMENT.world_id)');
+    expect(src).toContain('hasVerifiedWorldIdPassport(personaId)');
+    // Fails CLOSED: an agreement carrying the world-id requirement without a
+    // verified passport must refuse, never fall through to authorization.
+    expect(src).toMatch(/if\s*\(!verified\)\s*\{\s*return\s*\{\s*ok:\s*false,/);
+  });
+
+  it('hasVerifiedWorldIdPassport reads the SAME persisted column the verify-worldid route stamps -- no new verification store', () => {
+    const src = readFileSync(PERSONHOOD_PROOF_PATH, 'utf8');
+    expect(src).toContain("from('polity_passport_records')");
+    expect(src).toContain("'world_id_verified_at'");
+    expect(src).toContain("eq('revoked', false)");
+  });
+});
+
+describe('P4-6 — RuntimePanel forms the settlement-tier agreement with the world-id requirement', () => {
+  it('imports PROOF_REQUIREMENT and requires world_id on the settlement agreement, never on the intelligence one', () => {
+    const src = readFileSync(PANEL_PATH, 'utf8');
+    expect(src).toContain('import { PROOF_REQUIREMENT } from "@/services/constitutional/guidedOnboarding";');
+    expect(src).toContain('verificationRequirements: [PROOF_REQUIREMENT.world_id]');
+  });
+
+  it('domain buttons are no longer disabled -- Investment/Market are selectable', () => {
+    const src = readFileSync(PANEL_PATH, 'utf8');
+    expect(src).not.toMatch(/disabled=\{d !== "intelligence"\}/);
   });
 });
 

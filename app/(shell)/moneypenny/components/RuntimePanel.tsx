@@ -4,16 +4,25 @@
  * RuntimePanel — PRD-MPY-001 Phase 4, Runtime mode.
  *
  * MoneyPenny becomes a driving agent of the built constitutional service
- * pipeline (`/api/moneypenny/runtime`). Domain limited to Financial
- * Intelligence (Domain 3, read-only) in this panel — Investment/Market are
- * shown but disabled; they unlock behind the money-moving grade gate
- * (P4-5/P4-6), never silently.
+ * pipeline (`/api/moneypenny/runtime`).
  *
- * P4-3: an authoritative run is offered ONLY once an authorized agreement
- * exists for MoneyPenny's capability/agent refs (see the Constitutional
- * Agreement section below). The route independently re-enforces
- * Domain-3-only authoritative execution server-side — this toggle is a
- * convenience, not the safety boundary.
+ * P4-5/P4-6 — THE MONEY-MOVING GATE, real flip (operator-authorised
+ * 2026-07-24). Investment/Market are now selectable. Each domain has its
+ * OWN Constitutional Agreement: Domain 3 keeps the original agreement
+ * (`settlementTerms: null`, unchanged); Investment/Market share a SECOND,
+ * settlement-tier agreement carrying real `settlementTerms` + a
+ * `valueCeiling` + `verificationRequirements: [world-id-verified-authorizer]`.
+ * `authorizeAgreement` now REFUSES to authorize that second agreement unless
+ * the human holds a live, World-ID-verified Polity Passport — that is the
+ * real safety boundary, not this panel. `settlementExecutor` only ever binds
+ * a hash-committed settlement INTENT; it never signs or broadcasts a
+ * transfer (see its own file header) — actual fund movement stays a
+ * separate, operator-supervised wallet step.
+ *
+ * The authoritative toggle is offered once the DOMAIN-APPROPRIATE agreement
+ * is authorized; the route independently re-enforces the real gate
+ * server-side regardless — this toggle is a convenience, not the safety
+ * boundary.
  *
  * Trace-viewer styling mirrors FinancialServicesTab.tsx's STATUS_STYLE
  * pattern exactly (Extend, Don't Duplicate) — the reference integration
@@ -25,6 +34,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { personaFetch } from "@/utils/personaSpine";
+import { PROOF_REQUIREMENT } from "@/services/constitutional/guidedOnboarding";
 
 interface StepTrace {
   step: number;
@@ -41,8 +51,6 @@ interface RuntimeResult {
   blockedAtStep: number | null;
   agreementId: string | null;
   trace: StepTrace[];
-  clamped?: boolean;
-  clampReason?: string;
   error?: string;
 }
 
@@ -70,6 +78,15 @@ const MONEYPENNY_CAPABILITY_REF = "cap-moneypenny-financial-services";
 const MONEYPENNY_AGENT_REF = "agent-moneypenny";
 const MONEYPENNY_AGREEMENT_ID = `agr-${MONEYPENNY_CAPABILITY_REF}-${MONEYPENNY_AGENT_REF}`;
 
+// P4-6: a SECOND, distinct capabilityRef + agreement for the money-moving
+// domains (Investment/Market) -- matches the route's
+// MONEYPENNY_SETTLEMENT_CAPABILITY_REF exactly. Keeping it separate from the
+// Domain-3 agreement above means the two risk tiers are gated independently
+// (see the route's file header for why sharing one capabilityRef would be
+// unsafe).
+const MONEYPENNY_SETTLEMENT_CAPABILITY_REF = "cap-moneypenny-financial-services-settlement";
+const MONEYPENNY_SETTLEMENT_AGREEMENT_ID = `agr-${MONEYPENNY_SETTLEMENT_CAPABILITY_REF}-${MONEYPENNY_AGENT_REF}`;
+
 interface AgreementRow {
   agreementId: string;
   displayLabel: string;
@@ -95,11 +112,28 @@ export function RuntimePanel() {
   const [domain, setDomain] = useState<Domain>("intelligence");
   const [authoritative, setAuthoritative] = useState(false);
 
-  // P4-3: the authoritative toggle is only offered once MoneyPenny's own
-  // agreement is authorized -- the route re-enforces this server-side
-  // regardless, but there is no point offering a toggle that will 409.
+  // P4-6: the settlement-tier agreement's declared amount/ceiling -- an
+  // operator-set, real (but conservative-by-default) value, never a
+  // silently-invented one. Defaults to a zero-value settlement intent (the
+  // safest possible first real flip: proves the whole 409 → world-id →
+  // settlement-intent chain end to end with no economic stake) with a small
+  // non-zero ceiling available for a deliberate next test. Q¢ convention:
+  // integer cents ($1 = 100 Q¢, CLAUDE.md).
+  const [settlementAmountQc, setSettlementAmountQc] = useState(0);
+  const [valueCeilingQc, setValueCeilingQc] = useState(1000);
+
+  // P4-6: which agreement gates the CURRENTLY SELECTED domain -- Domain 3
+  // keeps its own (unchanged) agreement; Investment/Market share the
+  // settlement-tier agreement (see the route's file header for why these
+  // must be two distinct capabilityRefs/agreements, never one).
+  const activeAgreementId = domain === "intelligence" ? MONEYPENNY_AGREEMENT_ID : MONEYPENNY_SETTLEMENT_AGREEMENT_ID;
+
+  // P4-3/P4-6: the authoritative toggle is only offered once the
+  // DOMAIN-APPROPRIATE agreement is authorized -- the route re-enforces this
+  // (and, for money-moving, the World-ID grade) server-side regardless, but
+  // there is no point offering a toggle that will 409.
   const hasAuthorizedAgreement = agreements.some(
-    (a) => a.agreementId === MONEYPENNY_AGREEMENT_ID && a.status === "authorized",
+    (a) => a.agreementId === activeAgreementId && a.status === "authorized",
   );
 
   const loadAgreements = useCallback(async () => {
@@ -122,30 +156,54 @@ export function RuntimePanel() {
       setAgrBusy(true);
       setAgrNote(null);
       try {
+        const isMoneyMoving = domain !== "intelligence";
         const body: Record<string, unknown> =
           action === "form"
-            ? {
-                action,
-                agreementId: MONEYPENNY_AGREEMENT_ID,
-                displayLabel: `MoneyPenny Runtime — ${MONEYPENNY_CAPABILITY_REF}`,
-                capabilityRef: MONEYPENNY_CAPABILITY_REF,
-                selectedAgentRef: MONEYPENNY_AGENT_REF,
-                delegatedAuthority: {
-                  band: "L2",
-                  allowedActions: ["knowledge_retrieval", "analysis"],
-                  // Domain 3 only in this increment -- fund transfer stays
-                  // forbidden until Runtime's later increments unlock it.
-                  forbiddenActions: ["transfer"],
-                  allowedSurfaces: ["financial-services"],
-                  ttlHours: 8,
-                  maxActions: 5,
-                  valueCeiling: null,
-                },
-                settlementTerms: null,
-                verificationRequirements: ["F-201 Source Diversity", "F-202 Evidence Attribution", "F-203 Confidence Calibration"],
-                governingInvariants: ["PRD-MPY-001", "CRP-003a"],
-              }
-            : { action, agreementId: MONEYPENNY_AGREEMENT_ID };
+            ? isMoneyMoving
+              ? {
+                  action,
+                  agreementId: MONEYPENNY_SETTLEMENT_AGREEMENT_ID,
+                  displayLabel: `MoneyPenny Runtime — ${MONEYPENNY_SETTLEMENT_CAPABILITY_REF}`,
+                  capabilityRef: MONEYPENNY_SETTLEMENT_CAPABILITY_REF,
+                  selectedAgentRef: MONEYPENNY_AGENT_REF,
+                  delegatedAuthority: {
+                    band: "L2",
+                    allowedActions: ["knowledge_retrieval", "analysis", "settlement"],
+                    forbiddenActions: [],
+                    allowedSurfaces: ["financial-services"],
+                    ttlHours: 8,
+                    maxActions: 5,
+                    valueCeiling: valueCeilingQc,
+                  },
+                  settlementTerms: { rail: "qc", amount: settlementAmountQc, currency: "QC" },
+                  // Money-moving grade (CFS-043 §6 / PRD-MPY-001 §7): authorize
+                  // will REFUSE unless the human holds a live, World-ID-verified
+                  // Polity Passport (constitutionalAgreement.ts).
+                  verificationRequirements: [PROOF_REQUIREMENT.world_id],
+                  governingInvariants: ["PRD-MPY-001", "CRP-003a"],
+                }
+              : {
+                  action,
+                  agreementId: MONEYPENNY_AGREEMENT_ID,
+                  displayLabel: `MoneyPenny Runtime — ${MONEYPENNY_CAPABILITY_REF}`,
+                  capabilityRef: MONEYPENNY_CAPABILITY_REF,
+                  selectedAgentRef: MONEYPENNY_AGENT_REF,
+                  delegatedAuthority: {
+                    band: "L2",
+                    allowedActions: ["knowledge_retrieval", "analysis"],
+                    // Domain 3 is read-only -- fund transfer stays forbidden on
+                    // this agreement, unchanged since P4-1.
+                    forbiddenActions: ["transfer"],
+                    allowedSurfaces: ["financial-services"],
+                    ttlHours: 8,
+                    maxActions: 5,
+                    valueCeiling: null,
+                  },
+                  settlementTerms: null,
+                  verificationRequirements: ["F-201 Source Diversity", "F-202 Evidence Attribution", "F-203 Confidence Calibration"],
+                  governingInvariants: ["PRD-MPY-001", "CRP-003a"],
+                }
+            : { action, agreementId: activeAgreementId };
         const res = await personaFetch("/api/constitutional/agreement", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -160,10 +218,10 @@ export function RuntimePanel() {
         setAgrBusy(false);
       }
     },
-    [loadAgreements],
+    [loadAgreements, domain, activeAgreementId, settlementAmountQc, valueCeilingQc],
   );
 
-  const canRunAuthoritative = authoritative && domain === "intelligence" && hasAuthorizedAgreement;
+  const canRunAuthoritative = authoritative && hasAuthorizedAgreement;
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -191,9 +249,11 @@ export function RuntimePanel() {
         <h3 className="text-sm font-medium text-white/90">MoneyPenny Runtime — Constitutional Preview</h3>
         <p className="mt-1 text-xs text-white/60">
           Runs the same built 12-step constitutional service pattern the platform's Financial Services suite uses,
-          with MoneyPenny as the driving agent. Shadow mode observes every step with no side effects; an authoritative
-          run (once the agreement below is authorized) accrues real Reach, but still cannot move funds — Financial
-          Intelligence never carries settlement terms, on this route or any other agreement reachable from it.
+          with MoneyPenny as the driving agent. Shadow mode observes every step with no side effects. An authoritative
+          run on Financial Intelligence accrues real Reach but never carries settlement terms. An authoritative run on
+          Investment/Market binds a hash-committed settlement <em>intent</em> once the settlement-tier agreement below
+          is authorized — authorizing that agreement requires a World-ID-verified Polity Passport (money-moving grade).
+          Settlement never signs or broadcasts a transfer; actual fund movement stays a separate, supervised wallet step.
         </p>
       </div>
 
@@ -202,13 +262,11 @@ export function RuntimePanel() {
           {(["intelligence", "investment", "market"] as Domain[]).map((d) => (
             <button
               key={d}
-              disabled={d !== "intelligence"}
-              onClick={() => d === "intelligence" && setDomain(d)}
-              title={d !== "intelligence" ? "Not yet enabled — Runtime is Financial-Intelligence-only until the money-moving gate ships" : undefined}
+              onClick={() => setDomain(d)}
               className={
-                d === "intelligence"
+                domain === d
                   ? "rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-200"
-                  : "rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/30 cursor-not-allowed"
+                  : "rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/60 hover:bg-white/10"
               }
             >
               {DOMAIN_LABEL[d]}
@@ -224,6 +282,33 @@ export function RuntimePanel() {
             className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 p-2 text-sm text-white/90 outline-none focus:border-emerald-500/30"
           />
         </label>
+        {domain !== "intelligence" && (
+          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-white/10 bg-black/20 p-2">
+            <label className="text-xs text-white/60">
+              Settlement amount (Q¢)
+              <input
+                type="number"
+                min={0}
+                value={settlementAmountQc}
+                onChange={(e) => setSettlementAmountQc(Math.max(0, Number(e.target.value) || 0))}
+                className="mt-1 block w-24 rounded border border-white/10 bg-black/30 px-2 py-1 text-sm text-white/90"
+              />
+            </label>
+            <label className="text-xs text-white/60">
+              Spend ceiling (Q¢)
+              <input
+                type="number"
+                min={0}
+                value={valueCeilingQc}
+                onChange={(e) => setValueCeilingQc(Math.max(0, Number(e.target.value) || 0))}
+                className="mt-1 block w-24 rounded border border-white/10 bg-black/30 px-2 py-1 text-sm text-white/90"
+              />
+            </label>
+            <span className="text-[11px] text-white/40">
+              rail qc — Form the agreement below to bind these terms (a 0-amount run proves the chain with no economic stake)
+            </span>
+          </div>
+        )}
         <label
           className={`flex items-center gap-1.5 text-xs ${hasAuthorizedAgreement ? "text-white/70" : "text-white/30"}`}
           title={hasAuthorizedAgreement ? undefined : "Authorize the agreement below first"}
@@ -234,7 +319,8 @@ export function RuntimePanel() {
             disabled={!hasAuthorizedAgreement}
             onChange={(e) => setAuthoritative(e.target.checked)}
           />
-          Authoritative (real Reach accrual — still no settlement possible on this domain)
+          Authoritative
+          {domain === "intelligence" ? " (real Reach accrual — no settlement possible on this domain)" : " (binds a settlement intent — requires World ID)"}
         </label>
         <button
           onClick={() => void run()}
@@ -255,11 +341,6 @@ export function RuntimePanel() {
               {result.blockedAtStep ? ` · blocked@${result.blockedAtStep}` : ""}
             </div>
           </div>
-          {result.clamped && (
-            <div className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200">
-              {result.clampReason}
-            </div>
-          )}
           <ol className="space-y-1">
             {(result.trace ?? []).map((s) => (
               <li key={s.step} className="flex items-start gap-2 text-xs">
@@ -274,10 +355,15 @@ export function RuntimePanel() {
       )}
 
       <div className={`${PANEL} space-y-3 p-4`}>
-        <div className="text-sm font-medium text-white/90">Constitutional Agreement</div>
+        <div className="text-sm font-medium text-white/90">
+          Constitutional Agreement <span className="text-white/40">— {DOMAIN_LABEL[domain]}</span>
+        </div>
         <p className="text-xs text-white/60">
-          MoneyPenny may form and accept her own side of an agreement — only a human clicking Authorize below binds
-          it. The delegated call above stays a shadow-block until an agreement here is authorized.
+          MoneyPenny may form and accept her own side of the agreement for the selected domain — only a human
+          clicking Authorize below binds it. Financial Intelligence and Investment/Market use two SEPARATE
+          agreements (each with its own capability ref), so authorizing one never opens the other. The delegated
+          call above stays a shadow-block until the agreement for the selected domain is authorized — and for
+          Investment/Market, Authorize itself refuses unless you hold a World-ID-verified Polity Passport.
         </p>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => void doAgreement("form")} disabled={agrBusy} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10 disabled:opacity-50">Form</button>
@@ -289,7 +375,10 @@ export function RuntimePanel() {
           <ul className="mt-2 space-y-1 border-t border-white/10 pt-2">
             {agreements.map((a) => (
               <li key={a.agreementId} className="flex items-center justify-between text-xs">
-                <span className="text-white/70">{a.displayLabel}</span>
+                <span className={a.agreementId === activeAgreementId ? "text-white/90" : "text-white/50"}>
+                  {a.displayLabel}
+                  {a.agreementId === activeAgreementId ? " (active for this domain)" : ""}
+                </span>
                 <span className="text-white/40">{a.capabilityRef} · {a.status}</span>
               </li>
             ))}
