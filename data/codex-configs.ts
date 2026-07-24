@@ -3103,6 +3103,22 @@ export const METAME_CODEX: CodexConfig = {
         color: 'violet',
       },
     },
+    {
+      id: 'myresearch',
+      label: 'myResearch',
+      slug: 'my-research',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycluster',
+      order: 4,
+      type: 'static',
+      config: { component: 'MyResearchTab', props: {} },
+      metadata: {
+        icon: 'FlaskConical',
+        description: 'Live research programme state — experiments, lifecycle, recent findings',
+        color: 'violet',
+      },
+    },
 
     // ── Order of Metayé group (activation-gated; auto-granted) ───────────────
     // Mirrors the KNYT codex Order group + sub-tabs via the subTabs mechanism.
