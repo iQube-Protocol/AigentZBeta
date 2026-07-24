@@ -5262,6 +5262,25 @@ export const IRL_CARTRIDGE: CodexConfig = {
       config: { component: 'ExpP1ReadinessTab', props: {} },
       metadata: { icon: 'Gauge', description: 'PRD-EPI-001 §10 — seven per-gate readiness sections for EXP-P1 (protocol-ratified derivation, live). Execution/Publication are expected red pre-run.', color: 'violet' },
     },
+    // ── Experiment / Constitutional / Invariant Registry (CFS-051,
+    // Strand 1 build 2026-07-24) — the living register of candidate
+    // experiments, candidate constitutional principles, candidate
+    // structural invariants, and the research backlog. Admin-only today;
+    // the gate (services/research/registryAccess.ts::canManageRegistry) is
+    // a documented, swappable widening point for cohort/token-gated public
+    // proposal access (operator framing) — not built here.
+    {
+      id: 'irl-experiment-registry',
+      label: 'Experiment Registry',
+      slug: 'irl-experiment-registry',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 6,
+      type: 'static',
+      config: { component: 'ExperimentRegistryTab', props: {} },
+      metadata: { icon: 'ListTodo', description: 'CFS-051 — candidate experiments, candidate constitutional principles, candidate structural invariants, and the research backlog: status, dependencies, review history.', color: 'violet' },
+    },
     // ── Living Knowledge ──────────────────────────────────────────
     {
       id: 'irl-invariant-registry',
