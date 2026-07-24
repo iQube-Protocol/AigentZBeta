@@ -22,6 +22,9 @@
  *      tests/pack-corpus-store.test.ts (2026-07-22 incident contract)
  *  - PROTOCOL_FREEZE_ARTIFACT_KINDS ⊄ execution artifacts:
  *      tests/prd-epi-001-artifact-model.test.ts
+ *  - ActivityActionType (TS) ⊆ activity_receipts_action_type_check (SQL, latest
+ *    rebuild) -- the "2026-07-15 constraint-drift incident" class of bug:
+ *      tests/activity-receipts-action-type-parity.test.ts
  */
 
 import { describe, it, expect } from 'vitest';

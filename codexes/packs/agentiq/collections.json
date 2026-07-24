@@ -40,6 +40,8 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-24_moneypenny-cohesion-review.md",
+        "updates/2026-07-24_spec-mmc-002-phase3-mysoftware-core-actions.md",
         "updates/2026-07-24_ccb-metame-companion.md",
         "updates/2026-07-24_ccb-financial-services-capability-suite.md",
         "updates/2026-07-24_ccb-moneypenny-runtime.md",

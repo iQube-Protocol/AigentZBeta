@@ -112,6 +112,12 @@ export type ActivityActionType =
   // production. Both DVN-anchorable.
   | 'capability_registered'
   | 'capability_operationally_validated'
+  // Capability lifecycle — Archive (SPEC-MMC-002 §6.3 Phase 3, 2026-07-24): a
+  // capability's own registrant transitioned its lifecycle_state to
+  // 'deprecated' (a pure status-flag update — no execution, no deployment,
+  // no external side effect). DVN-anchorable, same tamper-evident-memory
+  // rationale as capability_registered/capability_operationally_validated.
+  | 'capability_deprecated'
   | 'research_lifecycle_transition'
   // Foundational Validation Series — canonical result publication (Experiment
   // Lab). Summary carries the sha256 content commitment of the results JSON;
