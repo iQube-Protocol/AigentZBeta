@@ -160,27 +160,48 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<OverlayResponse | null>(null);
 
-  const load = useCallback(async () => {
-    setStatus((prev) => (prev === "ready" ? prev : "loading"));
-    setError(null);
-    try {
-      const res = await personaFetch(OVERLAY_ENDPOINT, { personaIdHint, cache: "no-store" });
-      if (!res.ok) {
-        setError(await readErrorMessage(res, `Failed to load overlay (${res.status}).`));
-        setStatus("error");
-        return;
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!opts?.silent) {
+        setStatus((prev) => (prev === "ready" ? prev : "loading"));
+        setError(null);
       }
-      const body = (await res.json()) as OverlayResponse;
-      setData(body);
-      setStatus("ready");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setStatus("error");
-    }
-  }, [personaIdHint]);
+      try {
+        const res = await personaFetch(OVERLAY_ENDPOINT, { personaIdHint, cache: "no-store" });
+        if (!res.ok) {
+          if (!opts?.silent) {
+            setError(await readErrorMessage(res, `Failed to load overlay (${res.status}).`));
+            setStatus("error");
+          }
+          return;
+        }
+        const body = (await res.json()) as OverlayResponse;
+        setData(body);
+        setStatus("ready");
+      } catch (err) {
+        if (!opts?.silent) {
+          setError(err instanceof Error ? err.message : String(err));
+          setStatus("error");
+        }
+      }
+    },
+    [personaIdHint],
+  );
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  // The observation this reads is refreshed by the content script on every
+  // page load/tab switch, but this panel itself only ever fetched once on
+  // mount -- navigating to a new page while the panel stayed open required
+  // clicking Refresh manually (same class of gap as the Workspace Inbox,
+  // 2026-07-24). Poll silently while mounted instead.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void load({ silent: true });
+    }, 5000);
+    return () => clearInterval(interval);
   }, [load]);
 
   return (
