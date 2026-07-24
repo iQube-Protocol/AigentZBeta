@@ -30,7 +30,15 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
   statusEl.textContent = 'Connecting…';
   chrome.runtime.sendMessage({ type: 'CONNECT_METAME' }, (response) => {
     if (response && response.ok) {
-      statusEl.textContent = 'Connected. Grants refreshed from server.';
+      // personaFound surfaces the exact gap that silently broke every
+      // subsequent API call for an operator with more than one persona
+      // (2026-07-24): a valid token with no persona hint resolves against
+      // getActivePersona's "first owned persona" fallback server-side, not
+      // whichever persona is actually active in the tab. Flag it honestly
+      // here rather than only in a service-worker console.
+      statusEl.textContent = response.personaFound
+        ? 'Connected. Grants refreshed from server.'
+        : 'Connected, but no active persona id was found on the page — capture/grants may resolve to the wrong persona. Make sure a persona is selected on dev-beta.aigentz.me, then Connect again.';
     } else {
       statusEl.textContent = `Not connected: ${response ? response.reason : 'no response'}`;
     }

@@ -367,6 +367,36 @@ describe('extension/companion-observer — Capture structural canary', () => {
     expect(gateIdx).toBeGreaterThan(refreshIdx);
   });
 
+  it('background.js attaches x-persona-id on every server-bound call (2026-07-24 persona-mismatch fix)', () => {
+    // getActivePersona's resolver falls through to "first owned persona"
+    // when no hint is supplied at all -- a Bearer token alone is not enough
+    // for any account with more than one persona. Fixed by extracting the
+    // active persona id alongside the auth session at Connect time and
+    // attaching it via withPersonaHeader on every call this worker makes
+    // (grants refresh, observation forward, capture POST).
+    expect(background).toContain('function withPersonaHeader(headers)');
+    expect(background).toContain("headers['x-persona-id'] = personaId");
+    const withPersonaHeaderCallCount = (background.match(/await withPersonaHeader\(/g) || []).length;
+    expect(withPersonaHeaderCallCount).toBe(3); // callGrants, postObservation, postCapture
+  });
+
+  it('background.js extracts personaId in the same in-page function as the auth session', () => {
+    const fnBody = background.slice(
+      background.indexOf('function extractSupabaseSessionFromPage'),
+      background.indexOf('async function connectToMetaMe'),
+    );
+    expect(fnBody).toContain("localStorage.getItem('currentPersonaId')");
+    expect(fnBody).toContain('personaId,');
+  });
+
+  it('connectToMetaMe persists the extracted persona id', () => {
+    const fnBody = background.slice(
+      background.indexOf('async function connectToMetaMe'),
+      background.indexOf("// ─── Capture"),
+    );
+    expect(fnBody).toContain('persistActivePersonaId(session.personaId ?? null)');
+  });
+
   it('background.js runs the client-side consent pre-check before any POST', () => {
     const fnBody = background.slice(background.indexOf('async function performCapture'));
     const gateIdx = fnBody.indexOf('assertCaptureRespectsGrants(');
