@@ -60,6 +60,7 @@ import { listAssets } from '@/services/registry/persistence';
 import { listGoogleConnectorAssetSummaries } from '@/services/registry/googleConnectorCatalog';
 import { listIQubes, resolveIQube } from '@/services/registry/resolver';
 import { buildCapabilityGraph } from '@/services/capability/capabilityGraph';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { ResearchExperiment, ResearchSeries } from '@/types/research';
 import type { RegistryPublicView } from '@/types/registry-canonical';
 import type { CompanionSearchResult, CompanionSearchTarget } from '@/types/companionSearch';
@@ -284,6 +285,56 @@ export function searchCapability(query: string): CompanionSearchResult[] {
   return out;
 }
 
+// ─── Source 6 — mySoftware: the caller's own Dev Command Center sessions ───
+
+// Routes into the metaMe myCluster mySoftware tab (the codex hosting
+// `group: 'mycluster'` is METAME_CODEX, slug 'metame' — data/codex-configs.ts).
+export const MY_SOFTWARE_TARGET: CompanionSearchTarget = { slug: 'metame', tab: 'mysoftware' };
+
+interface DevLoopSessionRow {
+  session_id: string;
+  state: { intent?: { goal?: string | null } | null; stage?: string } | null;
+}
+
+/**
+ * Reads the CALLER'S OWN `dev_loop_sessions` rows — same read pattern as
+ * `app/api/dev-command-center/sessions/route.ts` (getSupabaseServer(),
+ * filter `.eq('persona_id', personaId)`), never a parallel resolver. Scoped
+ * by persona_id equality: a caller can only ever under-return (empty), never
+ * see another persona's sessions. Best-effort source — degrades to [] on
+ * any failure, same contract as every other federateSearch source.
+ */
+export async function searchMySoftware(query: string, personaId: string): Promise<CompanionSearchResult[]> {
+  if (!personaId) return [];
+  const admin = getSupabaseServer();
+  if (!admin) return [];
+  try {
+    const { data, error } = await admin
+      .from('dev_loop_sessions')
+      .select('session_id, state')
+      .eq('persona_id', personaId)
+      .order('updated_at', { ascending: false })
+      .limit(50);
+    if (error) return [];
+
+    const out: CompanionSearchResult[] = [];
+    for (const row of (data ?? []) as DevLoopSessionRow[]) {
+      const title = row.state?.intent?.goal?.trim() || 'Untitled dev-loop session';
+      const candidate: CompanionSearchResult = {
+        source: 'my-software',
+        title,
+        subtitle: row.state?.stage,
+        ref: row.session_id,
+        target: MY_SOFTWARE_TARGET,
+      };
+      if (matches(candidate, query)) out.push(candidate);
+    }
+    return out;
+  } catch {
+    return []; // best-effort source — a federated search degrades, never fails, on one source's error
+  }
+}
+
 // ─── Full fan-out — the one entry point `/api/companion/search` calls ─────
 
 export async function federateSearch(
@@ -304,21 +355,23 @@ export async function federateSearch(
       return [];
     });
 
-  const [research, registryIQube, registryAsset, registryLibrary, capability] = await Promise.all([
+  const [research, registryIQube, registryAsset, registryLibrary, capability, mySoftware] = await Promise.all([
     guard('research', searchResearch(query)),
     guard('registry-iqube', searchRegistryIQube(query)),
     guard('registry-asset', searchRegistryAsset(query)),
     guard('registry-library', searchRegistryLibrary(query, personaId, origin)),
     guard('capability', Promise.resolve(searchCapability(query))),
+    guard('my-software', searchMySoftware(query, personaId)),
   ]);
 
   console.log(
     `[CompanionSearch] "${query}": research=${research.length} registry-iqube=${registryIQube.length} ` +
-      `registry-asset=${registryAsset.length} registry-library=${registryLibrary.length} capability=${capability.length}`,
+      `registry-asset=${registryAsset.length} registry-library=${registryLibrary.length} capability=${capability.length} ` +
+      `my-software=${mySoftware.length}`,
   );
 
   return rankSearchResults(
-    [...research, ...registryIQube, ...registryAsset, ...registryLibrary, ...capability],
+    [...research, ...registryIQube, ...registryAsset, ...registryLibrary, ...capability, ...mySoftware],
     query,
   );
 }

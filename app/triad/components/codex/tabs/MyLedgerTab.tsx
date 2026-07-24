@@ -61,7 +61,7 @@ interface ActivityReceipt {
   createdAt: string;
 }
 
-type FilterChip = 'all' | 'mycanvas' | 'myworkspace' | 'aigentme' | 'specialists' | 'myexperiments';
+type FilterChip = 'all' | 'mycanvas' | 'myworkspace' | 'aigentme' | 'specialists' | 'myexperiments' | 'mysoftware';
 
 const SPECIALIST_AGENT_IDS = new Set([
   'marketa', 'quill', 'kn0w1', 'aigent-c', 'aigent-z',
@@ -75,6 +75,7 @@ const CHIP_LABELS: Record<FilterChip, string> = {
   aigentme: 'aigentMe',
   specialists: 'Specialists',
   myexperiments: 'myExperiments',
+  mysoftware: 'mySoftware',
 };
 
 // Experiment publications are DVN-receipted activity too — a distinct class.
@@ -82,6 +83,22 @@ const CHIP_LABELS: Record<FilterChip, string> = {
 // (with the DVN status + Retry DVN affordance), never folded into an
 // intent-chain capsule.
 const EXPERIMENT_ACTION_TYPES = new Set(['experiment_result_published']);
+
+// Dev Command Center (CDE, CFS-020) receipts — the Developer-strand's own
+// receipted vocabulary (services/devCommandCenter/devLoop.ts
+// devReceiptClassFor's three classes, plus Constitutional Acceptance /
+// Standing accrual from the Capability Registry, CFS-032). Like
+// EXPERIMENT_ACTION_TYPES, these carry no intentId and render as standalone
+// ActivityReceiptCards.
+const SOFTWARE_ACTION_TYPES = new Set([
+  'implementation_pack_generated',
+  'constitutional_validation_recorded',
+  'remediation_recorded',
+  'deployment_proposed',
+  'deployment_authorized',
+  'capability_registered',
+  'capability_operationally_validated',
+]);
 
 const CANVAS_ACTION_HINTS = new Set([
   'experience_published',
@@ -190,6 +207,7 @@ export function MyLedgerTab({ personaId, isAdmin }: Props) {
       if (activeChip === 'specialists') return agents.some((a) => SPECIALIST_AGENT_IDS.has(a));
       if (activeChip === 'mycanvas') return CANVAS_ACTION_HINTS.has(r.actionType);
       if (activeChip === 'myexperiments') return EXPERIMENT_ACTION_TYPES.has(r.actionType);
+      if (activeChip === 'mysoftware') return SOFTWARE_ACTION_TYPES.has(r.actionType);
       if (activeChip === 'myworkspace') {
         return Boolean(r.intentId) || ['intent_queued', 'artifact_created', 'approval_granted', 'approval_rejected', 'experience_model_updated'].includes(r.actionType);
       }

@@ -24,7 +24,8 @@ export type CompanionSearchSource =
   | 'registry-iqube'
   | 'registry-asset'
   | 'registry-library'
-  | 'capability';
+  | 'capability'
+  | 'my-software';
 
 /** Static, identifier-free routing metadata for `buildCodexUrl(target.slug, { tab: target.tab, ... })`. */
 export interface CompanionSearchTarget {
