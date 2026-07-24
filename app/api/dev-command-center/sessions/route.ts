@@ -6,6 +6,10 @@
  *        (`?sessionId=` for a specific one). Strictly caller-owned: rows are
  *        filtered by the resolved persona. persona_id (T0) is NEVER included
  *        in the response — the DB ownership key stays server-internal.
+ * GET ?list=true → { sessions: DevLoopSessionSummary[] } — ALL of the
+ *        caller's sessions, newest-updated first, summarized (no full
+ *        state jsonb round-trip needed by the myCluster mySoftware tab —
+ *        see PRD-MMC-IMPL-007). Same ownership filter, same T0 discipline.
  * POST { session: DevLoopState } → { ok: true } — upsert keyed on session_id.
  *        An upsert against a session_id owned by another persona is a 403.
  *        The state jsonb is T2-guarded: serialized state carrying a T0
@@ -22,7 +26,19 @@ import { resolvePersonaOrTimeout, PERSONA_TIMEOUT_MESSAGE } from '@/app/api/dev-
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { isDevLoopStage, findForbiddenStateKey } from '@/services/devCommandCenter/devLoop';
 import { recordServerCall } from '@/services/devCommandCenter/requestTelemetry';
-import type { DevLoopState } from '@/types/devCommandCenter';
+import type { DevLoopState, DevLoopStage, DevLoopReceipt } from '@/types/devCommandCenter';
+
+/** Summarized shape returned by `?list=true` — never the full state jsonb,
+ *  never persona_id. Enough for the mySoftware tab to render a card per
+ *  session without a second per-session fetch. */
+export interface DevLoopSessionSummary {
+  sessionId: string;
+  stage: DevLoopStage;
+  title: string;
+  startedAt: string;
+  updatedAt: string;
+  receipts: DevLoopReceipt[];
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +51,32 @@ export async function GET(request: NextRequest) {
 
   const client = getSupabaseServer();
   if (!client) return NextResponse.json({ error: 'storage_unavailable' }, { status: 503 });
+
+  if (request.nextUrl.searchParams.get('list') === 'true') {
+    const { data, error } = await client
+      .from('dev_loop_sessions')
+      .select('session_id, stage, state, created_at, updated_at')
+      .eq('persona_id', persona.personaId)
+      .order('updated_at', { ascending: false });
+    if (error) {
+      console.error('[api/dev-command-center/sessions] list read failed:', error.message);
+      return NextResponse.json({ error: 'read_failed' }, { status: 500 });
+    }
+    // Only session_id/stage/state/timestamps leave the server — never persona_id (T0).
+    const sessions: DevLoopSessionSummary[] = (data ?? []).map((row) => {
+      const state = row.state as DevLoopState;
+      return {
+        sessionId: String(row.session_id),
+        stage: (row.stage as DevLoopStage) ?? state?.stage,
+        title: state?.intent?.goal?.trim() || 'Untitled dev-loop session',
+        startedAt: state?.startedAt ?? String(row.created_at),
+        updatedAt: String(row.updated_at),
+        receipts: state?.receipts ?? [],
+      };
+    });
+    recordServerCall({ method: 'GET', path: '/api/dev-command-center/sessions?list=true', status: 200, ms: Date.now() - t0 });
+    return NextResponse.json({ sessions });
+  }
 
   const sessionId = request.nextUrl.searchParams.get('sessionId');
   let query = client
