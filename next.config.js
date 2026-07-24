@@ -87,6 +87,46 @@ const nextConfig = {
       // browserslist's caniuse-lite data. ~11 MB more headroom under the limit.
       "node_modules/typescript/**",
       "node_modules/caniuse-lite/**",
+      // shiki (+ its oniguruma/regex engine) — a CLIENT-ONLY rendering
+      // dependency. It arrives transitively via
+      // @copilotkit/react-ui -> @copilotkitnext/react -> streamdown (the
+      // chat markdown/code-block renderer), never imported directly by any
+      // app file (verified 2026-07-24: zero direct `shiki`/`@shikijs`
+      // imports anywhere under app/components/services). The two server
+      // routes that DO use CopilotKit (app/api/copilotkit/[[...path]]/route.ts,
+      // app/api/copilotkit/system/route.ts) import ONLY from
+      // @copilotkit/runtime — never react-ui, @copilotkitnext, or streamdown
+      // — so nothing server-executed calls into shiki. @shikijs alone traced
+      // at ~11 MB (2026-07-24 compute-composition log), ~14x the byte
+      // overage that tipped the last 12 builds past the 230686720-byte cap;
+      // the rest of this list is its supporting oniguruma/regex engine,
+      // none of which is a general-purpose utility used elsewhere in this
+      // app (confirmed against package-lock.json: none of these packages
+      // have any other dependent in this repo's tree). If a future
+      // server-rendered surface genuinely needs shiki (e.g. SSR syntax
+      // highlighting), the runtime will fail with "module not found" for
+      // shiki/@shikijs — that is the signal to revisit this exclude, not to
+      // silently re-add it.
+      "node_modules/shiki/**",
+      "node_modules/@shikijs/**",
+      "node_modules/oniguruma-to-es/**",
+      "node_modules/oniguruma-parser/**",
+      "node_modules/regex/**",
+      "node_modules/regex-recursion/**",
+      "node_modules/regex-utilities/**",
+      // NOTE: the broader hast/mdast utility cluster (hast-util-to-html,
+      // ccount, zwitch, comma/space-separated-tokens, stringify-entities,
+      // character-entities-html4, html-void-elements) is deliberately NOT
+      // excluded here even though it rides in via the same streamdown chain
+      // — package-lock.json shows react-markdown (a separately-resolvable
+      // package) among its other requesters, and this sandbox has no
+      // installed node_modules to verify react-markdown's own usage is
+      // ALSO client-only before excluding shared dependencies. The six
+      // entries above (shiki/@shikijs + its oniguruma/regex engine) have
+      // exactly one requester each (streamdown, verified against
+      // package-lock.json) and already reclaim ~11+ MB — comfortably enough
+      // headroom on their own; leave the ambiguous cluster for a follow-up
+      // pass with an actual build to verify against.
       // Auto-generated deploy-trigger commit briefs (~8 MB, 1900+ files and
       // growing every deploy). They are bundled by the codexes-pack tracing
       // include below, but the copilot skips them by default
