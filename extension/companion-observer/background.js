@@ -40,6 +40,16 @@ importScripts('constants.js', 'observerConsentExt.js');
 
 const STORAGE_KEY_GRANT_STATE = 'observerGrantState';
 const STORAGE_KEY_AUTH_SESSION = 'metameAuthSession'; // { accessToken, refreshToken, expiresAt }
+// The ACTIVE persona id, extracted from the page's own localStorage at the
+// same moment as the auth session (extractSupabaseSessionFromPage). Without
+// this, every server call this worker makes carries a valid Bearer token but
+// no persona hint at all, and getActivePersona's resolver falls through to
+// its step-4 fallback ("first owned persona, sorted") -- silently the WRONG
+// persona for any account with more than one (2026-07-24, operator-reported:
+// grants showed "Shared" in the Companion panel for the active persona, but
+// this worker's own refreshed cache stayed permanently empty for every
+// capability -- traced to exactly this missing hint).
+const STORAGE_KEY_ACTIVE_PERSONA_ID = 'metamePersonaId';
 const EXPIRY_SAFETY_MARGIN_SECONDS = 60;
 
 /** @type {Record<string, Array<{capability:string,scope:string,siteDomain?:string,grantedAt:string,revokedAt?:string}>>} */
@@ -87,6 +97,30 @@ function grantsArrayToState(grants) {
 
 function persistAuthSession(session) {
   return chrome.storage.local.set({ [STORAGE_KEY_AUTH_SESSION]: session });
+}
+
+function persistActivePersonaId(personaId) {
+  return chrome.storage.local.set({ [STORAGE_KEY_ACTIVE_PERSONA_ID]: personaId });
+}
+
+async function getStoredPersonaId() {
+  const { [STORAGE_KEY_ACTIVE_PERSONA_ID]: personaId } = await chrome.storage.local.get([
+    STORAGE_KEY_ACTIVE_PERSONA_ID,
+  ]);
+  return personaId || null;
+}
+
+/**
+ * Mirrors `personaFetch`'s own `x-persona-id` attach (`utils/personaSpine.tsx`)
+ * — the same header, the same convention `getActivePersona`'s resolver
+ * already honours (priority 2, "existing platform convention"). Every
+ * server-bound call this worker makes must go through this, or it silently
+ * resolves against the wrong persona for any multi-persona account.
+ */
+async function withPersonaHeader(headers) {
+  const personaId = await getStoredPersonaId();
+  if (personaId) headers['x-persona-id'] = personaId;
+  return headers;
 }
 
 const API_FETCH_TIMEOUT_MS = 10000;
@@ -179,10 +213,10 @@ async function forwardObservationToServer(observation) {
   const fresh = await ensureFreshToken();
   if (!fresh.ok) return { ok: false, reason: fresh.reason };
 
-  const postObservation = (token) =>
+  const postObservation = async (token) =>
     fetchWithTimeout(`${COMPANION_OBSERVER_API_BASE}/observation`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: await withPersonaHeader({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }),
       body: JSON.stringify(observation),
       cache: 'no-store',
     });
@@ -213,9 +247,9 @@ async function refreshGrantsFromServer() {
   const fresh = await ensureFreshToken();
   if (!fresh.ok) return { ok: false, reason: fresh.reason };
 
-  const callGrants = (token) =>
+  const callGrants = async (token) =>
     fetchWithTimeout(`${COMPANION_OBSERVER_API_BASE}/grants`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: await withPersonaHeader({ Authorization: `Bearer ${token}` }),
       cache: 'no-store',
     });
 
@@ -251,7 +285,14 @@ async function refreshGrantsFromServer() {
  *  function is serialized and executed in the page's own context, so it
  *  cannot close over any variable from this file. Returns the full session
  *  (access_token + refresh_token + expires_at), not just the access token —
- *  the refresh_token is what makes proactive refresh possible at all. */
+ *  the refresh_token is what makes proactive refresh possible at all.
+ *
+ *  ALSO extracts the ACTIVE persona id, mirroring personaFetch's own
+ *  fallback (utils/personaSpine.tsx: `localStorage.getItem('currentPersonaId')
+ *  || sessionStorage.getItem('currentPersonaId')`). Without this, every
+ *  future call this worker makes carries a valid token but no persona hint,
+ *  and getActivePersona silently resolves to "first owned persona" server-
+ *  side instead of the one actually active in this tab. */
 function extractSupabaseSessionFromPage() {
   const key = Object.keys(localStorage).find((k) => k.includes('auth-token'));
   if (!key) return null;
@@ -259,10 +300,13 @@ function extractSupabaseSessionFromPage() {
     const parsed = JSON.parse(localStorage.getItem(key));
     const session = parsed?.currentSession ?? parsed;
     if (!session?.access_token) return null;
+    const personaId =
+      localStorage.getItem('currentPersonaId') || sessionStorage.getItem('currentPersonaId') || null;
     return {
       accessToken: session.access_token,
       refreshToken: session.refresh_token ?? null,
       expiresAt: typeof session.expires_at === 'number' ? session.expires_at : null,
+      personaId,
     };
   } catch {
     return null;
@@ -291,8 +335,14 @@ async function connectToMetaMe() {
   if (!session?.accessToken) return { ok: false, reason: 'no-token-found-in-page' };
 
   await persistAuthSession(session);
+  // Persist the ACTIVE persona id extracted at the same time — without
+  // this, every subsequent server call this worker makes resolves through
+  // getActivePersona's "first owned persona" fallback instead of the one
+  // actually active in the tab (see extractSupabaseSessionFromPage's own
+  // comment for the full explanation).
+  await persistActivePersonaId(session.personaId ?? null);
   const refreshResult = await refreshGrantsFromServer();
-  return { ok: true, refreshed: refreshResult };
+  return { ok: true, refreshed: refreshResult, personaFound: Boolean(session.personaId) };
 }
 
 // ─── Capture — "Pull Across" (SPEC-MMC-001 §3 Movement I / §9; ────────────
@@ -426,10 +476,10 @@ async function performCapture(info, tab) {
     return { ok: false, reason: fresh.reason };
   }
 
-  const postCapture = (token) =>
+  const postCapture = async (token) =>
     fetchWithTimeout(COMPANION_CAPTURE_API_URL, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: await withPersonaHeader({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }),
       body: JSON.stringify(capture),
       cache: 'no-store',
     });
