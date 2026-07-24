@@ -252,6 +252,14 @@ export async function produceSoftwareArtifact(
       receiptId: null, // operational tier — no receipt by contract
       // CVR-003: persist WHICH invariants grounded this production.
       citedInvariantIds: groundingOf(artifact).invariantIds,
+      // SPEC-MMC-002 §6.2: persist the T2-safe actor commitment the route
+      // already computed and passed to this pilot (args.actorCommitment) —
+      // closes the ownership gap named in PRD-MMC-IMPL-007 §0.2/§0.3. Soft-
+      // fails forward (artifactRecordStore.ts) until the 20260819000000
+      // migration is applied. `delegate` above is untouched (still defaults
+      // to 'operator') — actor_commitment, not delegate, is the real
+      // per-persona ownership key going forward.
+      actorCommitment: args.actorCommitment,
       sovereignty: {
         source: 'implementation-pack',
         packId: pack.id,
