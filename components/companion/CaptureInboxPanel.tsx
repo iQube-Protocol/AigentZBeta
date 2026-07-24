@@ -96,24 +96,35 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
     setPendingIds((prev) => ({ ...prev, [id]: value }));
   };
 
-  const loadCaptures = useCallback(async () => {
-    setStatus((prev) => (prev === "ready" ? prev : "loading"));
-    setError(null);
-    try {
-      const res = await personaFetch(CAPTURE_ENDPOINT, { personaIdHint, cache: "no-store" });
-      if (!res.ok) {
-        setError(await readErrorMessage(res, `Failed to load your Inbox (${res.status}).`));
-        setStatus("error");
-        return;
+  const loadCaptures = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!opts?.silent) {
+        setStatus((prev) => (prev === "ready" ? prev : "loading"));
+        setError(null);
       }
-      const body = (await res.json()) as { captures: CapturedObjectRecord[] };
-      setCaptures((body.captures ?? []).filter((c) => c.status === "inbox"));
-      setStatus("ready");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setStatus("error");
-    }
-  }, [personaIdHint]);
+      try {
+        const res = await personaFetch(CAPTURE_ENDPOINT, { personaIdHint, cache: "no-store" });
+        if (!res.ok) {
+          // A silent poll tick never surfaces a transient network hiccup as
+          // an error banner -- only the initial/manual load does.
+          if (!opts?.silent) {
+            setError(await readErrorMessage(res, `Failed to load your Inbox (${res.status}).`));
+            setStatus("error");
+          }
+          return;
+        }
+        const body = (await res.json()) as { captures: CapturedObjectRecord[] };
+        setCaptures((body.captures ?? []).filter((c) => c.status === "inbox"));
+        setStatus("ready");
+      } catch (err) {
+        if (!opts?.silent) {
+          setError(err instanceof Error ? err.message : String(err));
+          setStatus("error");
+        }
+      }
+    },
+    [personaIdHint],
+  );
 
   const loadDestinations = useCallback(async () => {
     try {
@@ -134,6 +145,19 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
     void loadCaptures();
     void loadDestinations();
   }, [loadCaptures, loadDestinations]);
+
+  // The extension posts a capture directly to the server -- there is no live
+  // channel back to an already-open Workspace panel, so a capture pulled
+  // across while this tab is open previously never appeared until the panel
+  // remounted (operator-reported, 2026-07-24: "have to change sub tab and
+  // come back for it to refresh"). Poll silently while mounted instead of
+  // requiring a manual remount.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void loadCaptures({ silent: true });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [loadCaptures]);
 
   const assign = useCallback(
     async (captureId: string, destination: "intent" | "venture", existingId?: string) => {
