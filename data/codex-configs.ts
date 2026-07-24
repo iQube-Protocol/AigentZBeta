@@ -3041,7 +3041,7 @@ export const METAME_CODEX: CodexConfig = {
     //                 artifacts (formerly myWorkbench's content).
     {
       id: 'mycanvas',
-      label: 'myCluster',
+      label: 'myCanvas',
       slug: 'mycanvas',
       enabled: true,
       activationId: 'mycanvas',
@@ -3078,7 +3078,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       activationId: 'mycanvas',
       group: 'mycluster',
-      order: 3,
+      order: 4,
       type: 'static',
       config: { component: 'MyCartridgeTab', props: {} },
       metadata: {
@@ -3110,7 +3110,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       activationId: 'mycanvas',
       group: 'mycluster',
-      order: 4,
+      order: 3,
       type: 'static',
       config: { component: 'MyResearchTab', props: {} },
       metadata: {
