@@ -40,6 +40,9 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-24_ccb-metame-companion.md",
+        "updates/2026-07-24_ccb-financial-services-capability-suite.md",
+        "updates/2026-07-24_ccb-moneypenny-runtime.md",
         "updates/2026-07-24_moneypenny-p4-5-p4-6-money-moving-gate.md",
         "updates/2026-07-24_prd-mmc-impl-006-myresearch-tab-implementation-plan.md",
         "updates/2026-07-23_prd-mmc-impl-005-companion-phase6-project-implementation-plan.md",
