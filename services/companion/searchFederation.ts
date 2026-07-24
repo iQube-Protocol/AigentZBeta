@@ -32,6 +32,11 @@
  *     whatever wrote `user_library.user_id` for a given account, the result
  *     is an empty (not incorrect-account) list — a librarian scoped by id
  *     equality can only ever under-return, never leak another caller's rows.
+ *   - MoneyPenny panels → `MONEYPENNY_CARTRIDGE.tabs` (`data/codex-configs.ts`)
+ *     itself — iterated directly, not hand-copied, so her panel
+ *     titles/descriptions/slugs can never drift from the cartridge she
+ *     actually ships. Pure, synchronous, no I/O — same "no live table" shape
+ *     as `searchCapability`/`buildCapabilityGraph()` below.
  *   - Capability graph → `buildCapabilityGraph()` (`services/capability/capabilityGraph.ts`),
  *     the PURE, synchronous producer/edge builder — deliberately NOT
  *     `recommendProducers()`. `recommendProducers(capability, tier)` answers
@@ -60,6 +65,7 @@ import { listAssets } from '@/services/registry/persistence';
 import { listGoogleConnectorAssetSummaries } from '@/services/registry/googleConnectorCatalog';
 import { listIQubes, resolveIQube } from '@/services/registry/resolver';
 import { buildCapabilityGraph } from '@/services/capability/capabilityGraph';
+import { MONEYPENNY_CARTRIDGE } from '@/data/codex-configs';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { ResearchExperiment, ResearchSeries } from '@/types/research';
 import type { RegistryPublicView } from '@/types/registry-canonical';
@@ -335,6 +341,32 @@ export async function searchMySoftware(query: string, personaId: string): Promis
   }
 }
 
+// ─── Source 7 — MoneyPenny: her own cartridge panels ───────────────────────
+
+// Routes into the moneypenny-codex cartridge (MONEYPENNY_CARTRIDGE,
+// data/codex-configs.ts) -- real slug/tabs DERIVED directly from that
+// cartridge's own `tabs` array (label / metadata.description / slug), never
+// hand-copied -- CLAUDE.md "Extend, Don't Duplicate" source-of-truth-parity
+// discipline: `services/devCommandCenter/stageGroundData.ts` and
+// `services/composer/runtimeProjectionShared.ts` already establish that a
+// services/ module importing `data/codex-configs.ts` is a safe, precedented
+// pattern, so there is no reason to fork a second, driftable copy of her ten
+// tab titles here.
+export function searchMoneyPenny(query: string): CompanionSearchResult[] {
+  const out: CompanionSearchResult[] = [];
+  for (const tab of MONEYPENNY_CARTRIDGE.tabs) {
+    const candidate: CompanionSearchResult = {
+      source: 'moneypenny',
+      title: tab.label,
+      subtitle: tab.metadata?.description,
+      ref: tab.slug,
+      target: { slug: MONEYPENNY_CARTRIDGE.slug, tab: tab.slug },
+    };
+    if (matches(candidate, query)) out.push(candidate);
+  }
+  return out;
+}
+
 // ─── Full fan-out — the one entry point `/api/companion/search` calls ─────
 
 export async function federateSearch(
@@ -355,23 +387,25 @@ export async function federateSearch(
       return [];
     });
 
-  const [research, registryIQube, registryAsset, registryLibrary, capability, mySoftware] = await Promise.all([
-    guard('research', searchResearch(query)),
-    guard('registry-iqube', searchRegistryIQube(query)),
-    guard('registry-asset', searchRegistryAsset(query)),
-    guard('registry-library', searchRegistryLibrary(query, personaId, origin)),
-    guard('capability', Promise.resolve(searchCapability(query))),
-    guard('my-software', searchMySoftware(query, personaId)),
-  ]);
+  const [research, registryIQube, registryAsset, registryLibrary, capability, mySoftware, moneyPenny] =
+    await Promise.all([
+      guard('research', searchResearch(query)),
+      guard('registry-iqube', searchRegistryIQube(query)),
+      guard('registry-asset', searchRegistryAsset(query)),
+      guard('registry-library', searchRegistryLibrary(query, personaId, origin)),
+      guard('capability', Promise.resolve(searchCapability(query))),
+      guard('my-software', searchMySoftware(query, personaId)),
+      guard('moneypenny', Promise.resolve(searchMoneyPenny(query))),
+    ]);
 
   console.log(
     `[CompanionSearch] "${query}": research=${research.length} registry-iqube=${registryIQube.length} ` +
       `registry-asset=${registryAsset.length} registry-library=${registryLibrary.length} capability=${capability.length} ` +
-      `my-software=${mySoftware.length}`,
+      `my-software=${mySoftware.length} moneypenny=${moneyPenny.length}`,
   );
 
   return rankSearchResults(
-    [...research, ...registryIQube, ...registryAsset, ...registryLibrary, ...capability, ...mySoftware],
+    [...research, ...registryIQube, ...registryAsset, ...registryLibrary, ...capability, ...mySoftware, ...moneyPenny],
     query,
   );
 }
