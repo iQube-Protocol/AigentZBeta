@@ -117,6 +117,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // action-type-addition rule.
   'capability_registered',
   'capability_operationally_validated',
+  // Capability lifecycle — Archive (SPEC-MMC-002 §6.3 Phase 3, 2026-07-24): a
+  // registrant deprecated their own capability. Anchoring keeps the
+  // acceptance→accrual→deprecation arc tamper-evident end to end. Added per
+  // the permitted action-type-addition rule.
+  'capability_deprecated',
   'research_lifecycle_transition',
   // Artifact Runtime (CFS-025 Phase 2) — a constitutional-tier artifact was
   // PUBLISHED; anchoring makes the publication commitment tamper-evident.
