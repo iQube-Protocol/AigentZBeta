@@ -38,6 +38,22 @@ export interface SaveArtifactRecordInput {
    *  `grounded.invariantIds`). T2-safe public knowledge-object ids. Requires
    *  migration 20260714000000 (cited_invariant_ids column); omitted → not sent. */
   citedInvariantIds?: string[];
+  /** SPEC-MMC-002 §6.2 — T2-safe one-way commitment of the producing persona
+   *  (`actorCommitmentFor(personaId)` below). NEVER the personaId itself.
+   *  Requires migration 20260819000000; omitted → not sent, and the row's
+   *  `actor_commitment` stays NULL (unattributed, same as every pre-Phase-2
+   *  row — never guessed or backfilled). */
+  actorCommitment?: string;
+  /** SPEC-MMC-002 §3 taxonomy label (application/agent/capability/cartridge/
+   *  tool/workflow/code_project). Requires migration 20260819000000;
+   *  omitted → not sent. */
+  artefactType?: string;
+  /** Where the artifact runs, when known. Requires migration 20260819000000;
+   *  omitted → not sent. */
+  runtimeHost?: string;
+  /** Per-artefact ACL/visibility model. Requires migration 20260819000000;
+   *  omitted → not sent. */
+  permissions?: unknown;
 }
 
 export interface ArtifactRecordRow {
@@ -55,7 +71,35 @@ export interface ArtifactRecordRow {
   /** CVR-003 (migration 20260714000000). jsonb array of invariant ids; absent
    *  on rows written before the column landed. */
   cited_invariant_ids?: unknown;
+  /** SPEC-MMC-002 §6.2 (migration 20260819000000). T2-safe one-way persona
+   *  commitment; NULL on rows written before this migration OR before a
+   *  caller started supplying it (soft-fail-forward, same as every other
+   *  additive column here). NEVER the personaId — never send this to the
+   *  browser (see the `mine` route's projection, which omits it entirely). */
+  actor_commitment?: string | null;
+  /** SPEC-MMC-002 §3 taxonomy (migration 20260819000000). Nullable. */
+  artefact_type?: string | null;
+  /** SPEC-MMC-002 §3 "Runtime or host" (migration 20260819000000). Nullable. */
+  runtime_host?: string | null;
+  /** SPEC-MMC-002 §3 "Permissions" (migration 20260819000000). Nullable. */
+  permissions?: unknown;
   created_at: string;
+}
+
+/**
+ * Server-computed, one-way, T2-safe commitment to the acting persona — the
+ * ONLY subject handle `artifact_records.actor_commitment` (or any produce-*
+ * route) ever expresses. Same derivation every produce-* route already
+ * applies locally (produce-software, produce-research, composition/publish,
+ * homecoming/agent/produce all hand-copy this identical one-liner today —
+ * a pre-existing duplication this pass does not fully remediate). Factored
+ * here so the mySoftware `mine` read route (SPEC-MMC-002 §6.2) can share the
+ * identical formula rather than hand-copying it a fifth time (CLAUDE.md
+ * "Extend, Don't Duplicate" / source-of-truth parity) — a full dedup pass
+ * across all five call sites is a reasonable follow-up, not attempted here.
+ */
+export function actorCommitmentFor(personaId: string): string {
+  return createHash('sha256').update(`artifact:actor:${personaId}`).digest('hex').slice(0, 16);
 }
 
 /** Persist a produced (non-disposable) artifact. Returns the record id or null (soft-fail). */
@@ -82,6 +126,13 @@ export async function saveArtifactRecord(input: SaveArtifactRecordInput): Promis
         ...(input.citedInvariantIds && input.citedInvariantIds.length > 0
           ? { cited_invariant_ids: input.citedInvariantIds }
           : {}),
+        // SPEC-MMC-002 §6.2: sent only when supplied — on a DB that predates
+        // 20260819000000, an attributed save soft-fails (logged) while every
+        // caller that doesn't pass these keeps working unchanged.
+        ...(input.actorCommitment ? { actor_commitment: input.actorCommitment } : {}),
+        ...(input.artefactType ? { artefact_type: input.artefactType } : {}),
+        ...(input.runtimeHost ? { runtime_host: input.runtimeHost } : {}),
+        ...(input.permissions !== undefined ? { permissions: input.permissions } : {}),
       })
       .select('id')
       .single();
@@ -140,13 +191,18 @@ export async function promoteArtifactRecord(id: string, receiptId: string): Prom
   }
 }
 
-/** List produced artifacts, newest first (optionally by delegate). */
-export async function listArtifactRecords(opts: { delegate?: string; limit?: number } = {}): Promise<ArtifactRecordRow[]> {
+/** List produced artifacts, newest first (optionally by delegate and/or
+ *  actorCommitment — SPEC-MMC-002 §6.2's per-persona "mine" filter). Both
+ *  filters are additive/AND'd; `delegate`'s existing behavior is unchanged. */
+export async function listArtifactRecords(
+  opts: { delegate?: string; actorCommitment?: string; limit?: number } = {},
+): Promise<ArtifactRecordRow[]> {
   const admin = getSupabaseServer();
   if (!admin) return [];
   try {
     let q = admin.from('artifact_records').select('*').order('created_at', { ascending: false }).limit(opts.limit ?? 50);
     if (opts.delegate) q = q.eq('delegate', opts.delegate);
+    if (opts.actorCommitment) q = q.eq('actor_commitment', opts.actorCommitment);
     const { data, error } = await q;
     if (error) {
       softFail('list', error.message);
