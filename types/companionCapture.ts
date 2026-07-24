@@ -146,3 +146,27 @@ export interface CapturedObjectRecord extends CapturedObject {
    *  `status` is `'assigned'`. */
   assignedRefId?: string;
 }
+
+// ─── Existing-object picker (2026-07-24) ────────────────────────────────
+//
+// Assign originally only ever created a brand-new Intent/Venture from a
+// capture (§0.3's two supported destinations) — there was no way to
+// attach a capture to something the persona already has. These are the
+// T1-safe shapes `GET /api/companion/capture/destinations` returns for
+// that picker; no `personaId` anywhere, same discipline as
+// `CapturedObjectRecord` above.
+
+/** One entry in the "attach to an existing Intent" picker list. */
+export interface CaptureIntentDestination {
+  id: string;
+  name: string;
+  status: string;
+}
+
+/** One entry in the "attach to an existing Venture" picker list. */
+export interface CaptureVentureDestination {
+  id: string;
+  name: string;
+  slug: string;
+  stage: string;
+}

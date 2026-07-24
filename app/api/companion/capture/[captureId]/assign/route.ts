@@ -16,6 +16,17 @@
  * existing plan-tier limit (PRD-MMC-IMPL-003 §5.4) — same function, same
  * failure mode as any other venture creation.
  *
+ * ATTACH TO AN EXISTING OBJECT (2026-07-24 follow-on): body may carry an
+ * optional `existingId`. When present, creation is skipped entirely and the
+ * capture is bound to that already-existing Intent/Venture instead — this
+ * closes the gap where every "Bring into Venture" was needlessly minting a
+ * new venture (and hitting the plan-tier cap) even when the operator
+ * already had one to land the capture in. Ownership of `existingId` is
+ * verified server-side (`getIntentQube` + a manual persona check;
+ * `getVentureQube` is already persona-scoped) — never trusted from the
+ * client's claim alone. See `GET /api/companion/capture/destinations` for
+ * the picker list this id comes from.
+ *
  * Fails closed: `getActivePersona` returning null produces a 401 with NO
  * Supabase read/write attempted.
  */
@@ -25,8 +36,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { CaptureAssignDestination } from '@/types/companionCapture';
-import { createIntentQube } from '@/services/iqube/intentQube';
-import { createVentureQube } from '@/services/venture/ventureQubeService';
+import { createIntentQube, getIntentQube } from '@/services/iqube/intentQube';
+import { createVentureQube, getVentureQube } from '@/services/venture/ventureQubeService';
 import { getCapturedObjectForPersona, markCapturedObjectAssigned } from '../../_lib/store';
 
 export const dynamic = 'force-dynamic';
@@ -64,6 +75,18 @@ export async function POST(
   }
   const body = (rawBody ?? {}) as Record<string, unknown>;
   const destination = body.destination as CaptureAssignDestination | undefined;
+  // 2026-07-24: attach-to-an-existing-object follow-on (operator-reported
+  // gap — this route previously always minted a NEW Intent/Venture, with
+  // no way to land a capture in something the persona already has, which
+  // also meant every "Bring into Venture" click was needlessly subject to
+  // the venture-tier creation cap even when the operator already had a
+  // venture to attach to). When present, `existingId` skips creation
+  // entirely -- ownership is verified server-side, never trusted from the
+  // client's claim alone.
+  const existingId =
+    typeof body.existingId === 'string' && body.existingId.trim().length > 0
+      ? body.existingId.trim()
+      : undefined;
 
   if (!destination || !SUPPORTED_DESTINATIONS.includes(destination)) {
     return badRequest(
@@ -86,7 +109,21 @@ export async function POST(
 
   let refId: string;
 
-  if (destination === 'intent') {
+  if (existingId) {
+    if (destination === 'intent') {
+      const existingIntent = await getIntentQube(existingId);
+      if (!existingIntent || existingIntent.personaId !== persona.personaId) {
+        return badRequest('intent-not-found', 'not found or not owned by you');
+      }
+      refId = existingIntent.id;
+    } else {
+      const existingVenture = await getVentureQube(persona.personaId, existingId);
+      if (!existingVenture) {
+        return badRequest('venture-not-found', 'not found or not owned by you');
+      }
+      refId = existingVenture.id;
+    }
+  } else if (destination === 'intent') {
     // NOTE: no IntentType value literally means "captured" -- 'create_artifact'
     // is the closest existing fit (a capture becoming something to act on),
     // per PRD-MMC-IMPL-003's own honest scoping. Never fork a new IntentType
