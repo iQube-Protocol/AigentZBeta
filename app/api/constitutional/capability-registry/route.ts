@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
         ? body.governingInvariants.filter((x): x is string => typeof x === 'string')
         : undefined,
       reuseDisposition: typeof body.reuseDisposition === 'string' ? body.reuseDisposition : undefined,
+      briefUrl: typeof body.briefUrl === 'string' ? body.briefUrl : undefined,
     });
     if (!result.ok) return NextResponse.json({ ok: false, error: result.reason }, { status: 400 });
     return NextResponse.json({
