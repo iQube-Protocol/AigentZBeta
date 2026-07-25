@@ -171,6 +171,16 @@ CREATE TABLE IF NOT EXISTS public.research_backlog_items (
   linked_experiment_ids text[] NOT NULL DEFAULT '{}',
   linked_hypothesis_ids text[] NOT NULL DEFAULT '{}',
   review_history jsonb NOT NULL DEFAULT '[]',
+  -- Honest provenance note, same as the three sibling tables above. This
+  -- column was MISSING from the original 2026-07-24 authoring of this file
+  -- while the seed migration (20260820000100) and the whole TypeScript layer
+  -- (types/researchRegistry.ts's BacklogItem.sourceNote, registryStore.ts's
+  -- insert + EDITABLE_FIELDS.backlog) all already referenced it — so the
+  -- seed failed with `column "source_note" ... does not exist` on the
+  -- operator's first real run (2026-07-25). Added here so a FRESH install is
+  -- correct; migration 20260821000000 carries the ALTER for databases that
+  -- already ran this file before the fix.
+  source_note text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
