@@ -93,6 +93,50 @@ function formatBytes(n: number | null): string {
 
 interface IngestionInfo { ok: boolean; error?: string; evidenceRowId?: string }
 
+/**
+ * Defensive response reader — replaces bare `await res.json()` at every call
+ * site in this tab (operator report, 2026-07-25: the Corpus Scout tab showed
+ * "JSON.parse: unexpected end of data at line 1 column 1 of the JSON data"
+ * with no indication of what actually failed).
+ *
+ * Root cause of the BAD MESSAGE (not of the underlying failure): `res.json()`
+ * was called BEFORE checking `res.ok`. Every path through
+ * `/api/corpus-scout/candidates` returns well-formed JSON with a real status
+ * (401/403/500/400), and `listCandidateSources` soft-fails to `[]` — so an
+ * EMPTY body means the response never came from the route at all: a
+ * gateway/Lambda-level failure (timeout, crash, 502) that returns no body, or
+ * an HTML error page. In either case `res.json()` throws first and the real
+ * HTTP status — the only diagnostic that matters — is discarded, leaving a
+ * parser message that names neither the status nor the route.
+ *
+ * This reads the body as TEXT first, so the status is always reportable and
+ * a non-JSON body is quoted rather than swallowed. Same discipline as
+ * `CaptureInboxPanel`'s `readErrorMessage` (2026-07-24).
+ */
+// Return type deliberately mirrors `res.json()`'s own `Promise<any>` — this
+// helper REPLACES that call, so narrowing here would cascade type errors into
+// three existing, unchanged call sites (`data.candidates`, `data.candidate`,
+// `data.ingestion`). Not a new `any`: it is the exact contract the code the
+// line replaces already had (CLAUDE.md's TypeScript rule permits `any` where
+// the existing code already used it in that context).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function readJsonOrThrow(res: Response, label: string): Promise<any> {
+  const raw = await res.text();
+  if (raw.trim().length === 0) {
+    throw new Error(
+      `${label}: server returned an empty response (HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}). ` +
+        'Every route path returns JSON, so an empty body points at a gateway/function-level failure rather than the route itself.',
+    );
+  }
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      `${label}: server returned a non-JSON response (HTTP ${res.status}): ${raw.slice(0, 200)}${raw.length > 200 ? '…' : ''}`,
+    );
+  }
+}
+
 export function CorpusScoutTab() {
   const [candidates, setCandidates] = useState<CandidateSourceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +174,7 @@ export function CorpusScoutTab() {
     setLoadError(null);
     try {
       const res = await personaFetch('/api/corpus-scout/candidates', { cache: 'no-store' });
-      const data = await res.json();
+      const data = await readJsonOrThrow(res, 'Load candidates');
       if (!res.ok || !data?.ok) {
         setLoadError(data?.error || `Failed to load candidates (HTTP ${res.status})`);
         return;
@@ -175,7 +219,7 @@ export function CorpusScoutTab() {
           title: formTitle.trim() || undefined,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonOrThrow(res, 'Submit candidate');
       if (!res.ok || !data?.ok) {
         setSubmitError(data?.error || `Submission failed (HTTP ${res.status})`);
         return;
@@ -215,7 +259,7 @@ export function CorpusScoutTab() {
           duplicateOfSourceId: decision === 'mark_duplicate' ? reviewDupOf.trim() : undefined,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonOrThrow(res, 'Review decision');
       if (!res.ok || !data?.ok) {
         setReviewErrors((prev) => ({ ...prev, [sourceId]: data?.error || `Review failed (HTTP ${res.status})` }));
         return;
