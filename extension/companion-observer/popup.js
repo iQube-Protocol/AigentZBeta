@@ -5,8 +5,12 @@
  * Deliberately minimal, per the plan's own scope: this popup does NOT
  * duplicate `components/companion/ObserverGrantPanel.tsx` (Increment 4).
  * Grant management stays a single UI, hosted in the existing
- * `/triad/embed/companion` shell — "Manage permissions" below opens that
- * page in the docked side panel.
+ * `/triad/embed/companion` shell — "Open Companion" below opens that shell
+ * (Wallet/Companion/Search/Overlay/Workspace) in the docked side panel.
+ * Named for what it does (opens the whole Companion experience), not just
+ * the grants sub-surface it happens to also host — renamed from "Manage
+ * permissions" (2026-07-25) after the operator flagged that label as
+ * undersold.
  *
  * Two things this popup DOES own, both from SPEC-MMC-003's Phase 1 pass:
  *
