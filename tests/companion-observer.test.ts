@@ -521,6 +521,57 @@ describe('Companion Overlay — generic (unmapped-domain) card', () => {
     expect(card.cartridgeFlags).toEqual({ isAdmin: false, isPartner: false });
   });
 
+  /**
+   * DOMAIN SEARCH HINT (found 2026-07-25, live-verifying Gmail). Gmail's tab
+   * title is the inbox content ("Inbox (72,138)"), never the word "Gmail",
+   * so title-only search silently missed the real, already-registered Gmail
+   * connector assets. Locks the fix: `domainSearchHint` for the small,
+   * explicit Google Workspace host table, and `buildGenericSearchCandidates`
+   * (the pure core `composeGenericOverlayCard`'s I/O shell delegates to) —
+   * both directly testable without any Supabase/search-federation I/O.
+   */
+  describe('domain search hint (Gmail under-coverage fix)', () => {
+    it('domainSearchHint returns the product name for known Google Workspace hosts, null otherwise', async () => {
+      const { domainSearchHint } = await import('@/services/companion/overlayMapping');
+      expect(domainSearchHint('mail.google.com')).toBe('Gmail');
+      expect(domainSearchHint('drive.google.com')).toBe('Google Drive');
+      expect(domainSearchHint('docs.google.com')).toBe('Google Docs');
+      expect(domainSearchHint('calendar.google.com')).toBe('Google Calendar');
+      expect(domainSearchHint('tasks.google.com')).toBe('Google Tasks');
+      // Case/whitespace-insensitive, like shapeForDomain.
+      expect(domainSearchHint('  MAIL.GOOGLE.COM  ')).toBe('Gmail');
+      // Not in the table -> null, falls back to title-only search.
+      expect(domainSearchHint('www.google.com')).toBeNull();
+      expect(domainSearchHint('example.com')).toBeNull();
+      expect(domainSearchHint(null)).toBeNull();
+      expect(domainSearchHint(undefined)).toBeNull();
+    });
+
+    it('buildGenericSearchCandidates puts the domain hint first when present, and still falls back to title alone', async () => {
+      const { buildGenericSearchCandidates } = await import('@/services/companion/overlayComposition');
+
+      // THE EXACT REPORTED CASE: Gmail's title alone would have produced [],
+      // silently missing the real Gmail connector assets. The hint fixes it.
+      expect(buildGenericSearchCandidates('mail.google.com', 'Inbox (72,138)')).toEqual([
+        'Gmail',
+        'Inbox (72,138)',
+      ]);
+
+      // No hint for this domain -> title-only, unchanged from before the fix.
+      expect(buildGenericSearchCandidates('example.com', 'Some Page Title')).toEqual(['Some Page Title']);
+
+      // No title -> hint alone, not an empty candidate list.
+      expect(buildGenericSearchCandidates('mail.google.com', undefined)).toEqual(['Gmail']);
+
+      // Neither -> genuinely nothing to search, not a fabricated candidate.
+      expect(buildGenericSearchCandidates('example.com', undefined)).toEqual([]);
+      expect(buildGenericSearchCandidates(null, null)).toEqual([]);
+
+      // Hint and title happen to collide (case-insensitively) -> deduped to one.
+      expect(buildGenericSearchCandidates('mail.google.com', 'gmail')).toEqual(['Gmail']);
+    });
+  });
+
   // A route-level integration test (mocking loadLatestObservation/
   // loadGrantState/isCapabilityGranted) is deliberately NOT added here: this
   // file already imports the REAL `isCapabilityGranted` for its own direct

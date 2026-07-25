@@ -36,6 +36,7 @@ import {
   repoNameCandidateFromTitle,
   capabilityIdsForShape,
   routeForCapability,
+  domainSearchHint,
   type CapabilityRoute,
   type OverlayShape,
 } from '@/services/companion/overlayMapping';
@@ -134,6 +135,15 @@ export interface BankingOverlayCard {
  *     `rankSearchResults`) — never a second matching implementation, just a
  *     different query source (page title vs. an extracted repo name).
  *     Empty title or zero hits degrades to `[]`, never a fabricated match.
+ *
+ *     UPDATE 2026-07-25 (found live-verifying Gmail): title-only search
+ *     under-covers domains whose tab title is the document/inbox CONTENT
+ *     rather than the product name (Gmail's title is "Inbox (72,138)", never
+ *     "Gmail"). `domainSearchHint` (`overlayMapping.ts`) adds a second query
+ *     candidate for a small, explicit table of Google Workspace hosts. Both
+ *     candidates are searched and results merged/deduped by `ref` — never a
+ *     new matching implementation, just a second real query alongside the
+ *     first. A domain outside that table degrades to title-only, unchanged.
  */
 export interface GenericOverlayCard {
   shape: 'generic';
@@ -274,25 +284,66 @@ export async function composeOverlayCard(
  * See the `GenericOverlayCard` doc comment for what this does and does not
  * fabricate.
  */
+/**
+ * PURE — the query candidates for the generic card's registry search, in
+ * priority order (domain hint first when present, since it's a certain
+ * product-name signal vs. the title's incidental one). Deduped
+ * case-insensitively so a domain hint that happens to equal the title
+ * (unlikely, but possible) doesn't search twice. Exported for direct,
+ * I/O-free testing — this is the one place the "which queries do we try"
+ * decision is made; the I/O shell below just executes each and merges.
+ */
+export function buildGenericSearchCandidates(
+  domain: string | null | undefined,
+  currentTabTitle: string | null | undefined,
+): string[] {
+  const hint = domainSearchHint(domain);
+  const title = (currentTabTitle ?? '').trim();
+  const raw = [hint, title.length > 0 ? title : null].filter((c): c is string => Boolean(c));
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const candidate of raw) {
+    const key = candidate.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(candidate);
+  }
+  return out;
+}
+
+async function searchAllSourcesFor(query: string): Promise<CompanionSearchResult[]> {
+  const [iqubeMatches, assetMatches, research] = await Promise.all([
+    searchRegistryIQube(query).catch(() => []),
+    searchRegistryAsset(query).catch(() => []),
+    searchResearch(query).catch(() => []),
+  ]);
+  return rankSearchResults([...iqubeMatches, ...assetMatches, ...research], query);
+}
+
 export async function composeGenericOverlayCard(
   persona: ActivePersonaContext,
   currentTabTitle: string | undefined,
   domain: string,
 ): Promise<GenericOverlayCard> {
-  const query = (currentTabTitle ?? '').trim();
+  const candidates = buildGenericSearchCandidates(domain, currentTabTitle);
 
-  const [standing, titleMatches] = await Promise.all([
+  const [standing, perCandidateResults] = await Promise.all([
     buildStandingSummary(persona.personaId),
-    query.length === 0
-      ? Promise.resolve<CompanionSearchResult[]>([])
-      : Promise.all([
-          searchRegistryIQube(query).catch(() => []),
-          searchRegistryAsset(query).catch(() => []),
-          searchResearch(query).catch(() => []),
-        ]).then(([iqubeMatches, assetMatches, research]) =>
-          rankSearchResults([...iqubeMatches, ...assetMatches, ...research], query).slice(0, 5),
-        ),
+    Promise.all(candidates.map((q) => searchAllSourcesFor(q))),
   ]);
+
+  // Merge in candidate priority order, deduping by ref -- a result matched
+  // by the (more certain) domain hint keeps its earlier position over the
+  // same result also matching the (incidental) title.
+  const seenRefs = new Set<string>();
+  const titleMatches: CompanionSearchResult[] = [];
+  for (const results of perCandidateResults) {
+    for (const result of results) {
+      if (seenRefs.has(result.ref)) continue;
+      seenRefs.add(result.ref);
+      titleMatches.push(result);
+    }
+  }
 
   return {
     shape: 'generic',
@@ -300,6 +351,6 @@ export async function composeGenericOverlayCard(
     standing,
     identifiability: persona.identifiability,
     cartridgeFlags: persona.cartridgeFlags,
-    titleMatches,
+    titleMatches: titleMatches.slice(0, 5),
   };
 }

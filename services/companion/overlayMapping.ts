@@ -186,3 +186,49 @@ export function repoNameCandidateFromTitle(title: string | null | undefined): st
   candidate = candidate.trim();
   return candidate.length > 0 ? candidate : null;
 }
+
+/**
+ * DOMAIN → PRODUCT SEARCH HINT (found 2026-07-25, live-verifying the generic
+ * card on mail.google.com).
+ *
+ * The generic overlay card's registry search (`composeGenericOverlayCard`,
+ * `overlayComposition.ts`) uses the page's OWN title as its query. That
+ * degrades honestly for most pages (no title match -> no fabricated match),
+ * but for Gmail specifically it under-covers the exact case the operator
+ * named as the most-used one: the tab title is the INBOX CONTENT ("Inbox
+ * (72,138)"), never the word "Gmail" — so a real, already-registered
+ * `Gmail · Create draft` / `Gmail · Send` asset (services/google/
+ * connectors.ts) never matches, not because the registry sweep is
+ * incomplete, but because the query itself never contained "Gmail".
+ *
+ * This is the SAME class of problem `repoNameCandidateFromTitle` above
+ * already solves for GitHub (deriving a smarter query from a raw title) —
+ * here the smarter query comes from the DOMAIN instead, for the handful of
+ * Google Workspace product hosts whose own tab titles are usually the
+ * document/inbox content, not the product name. Small, explicit, honest:
+ * every value here names a real product with real registered connector
+ * assets (services/google/connectors.ts); an unlisted domain returns `null`
+ * and the generic card falls back to title-only search, same as before.
+ *
+ * `docs.google.com` hosts Docs, Sheets, Slides, AND Forms under one
+ * hostname (distinguished only by URL path, e.g. /spreadsheets/,
+ * /presentation/) — mapped to the coarser `'Google Docs'` rather than
+ * guessing which one from the domain alone. A Sheets or Slides FILE page
+ * (title = the file's own name) therefore still won't precision-match its
+ * specific product's connectors — a known, named limitation, not a silent
+ * one. Path-based disambiguation is a real follow-on, not built here.
+ */
+const GOOGLE_WORKSPACE_DOMAIN_HINTS: Record<string, string> = {
+  'mail.google.com': 'Gmail',
+  'drive.google.com': 'Google Drive',
+  'docs.google.com': 'Google Docs',
+  'calendar.google.com': 'Google Calendar',
+  'tasks.google.com': 'Google Tasks',
+};
+
+/** PURE — the product search hint for a domain, or `null` for anything not
+ *  in the table above (falls back to title-only search). */
+export function domainSearchHint(domain: string | null | undefined): string | null {
+  if (!domain) return null;
+  return GOOGLE_WORKSPACE_DOMAIN_HINTS[domain.trim().toLowerCase()] ?? null;
+}
