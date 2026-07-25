@@ -1,13 +1,13 @@
 # SPEC-HMC-001 — Homecoming: Constitutional Agent Continuity Specification
 
-**metaMe IRL / iQube Protocol / AgentiQ · Chrysalis Foundation companion specification · Status: DESIGN — docs-only, awaiting explicit operator ratification**
+**metaMe IRL / iQube Protocol / AgentiQ · Chrysalis Foundation companion specification · Status: RATIFIED (operator-directed, 2026-07-25) — Phase 1 (continuity assessment substrate, §14.1) shipped; Phases 2+ (migration execution) NOT authorised**
 **Title:** *Homecoming — Constitutional Agent Continuity Specification*
 **Companion to:** **CFS-023 (Chrysalis Homecoming: Constitutional Agent Sovereignty)** — this SPEC operationalizes CFS-023's **Agent** and **Knowledge** sovereignties (sovereignties 3 and 4 of `CONSTITUTIONAL_SOVEREIGNTIES`) into concrete migration-lifecycle mechanics. It does not re-derive CFS-023's conceptual architecture; it is the mechanics layer underneath it, exactly the role SPEC-VLM-001 plays under CFS-050.
 **Extension of:** CFS-023 Workstream 1 (Knowledge Homecoming — the ChatGPT-export intake precedent) and Workstream 2 (Agent Homecoming — the genesis → passport → persona pipeline); composes CFS-043 (Agent-Guided Passport & Delegation Onboarding) and CFS-042 (External Result Submission) for the human-authorization mechanics; composes the Identity & Access Spine (`services/identity/getActivePersona.ts`, `services/identity/personaReferences.ts`) for ownership.
 **Owner:** AgentiQ Runtime stewards + Identity & Access Spine stewards — same ownership as CFS-023.
 **Origin:** operator direction, 2026-07-24, Strand 2 of a 4-strand operator programme. Verbatim: *"This is now a standalone programme. Its purpose is not importing chats. Its purpose is preserving agency."* Objectives named explicitly: Claude AI migration, Claude Code migration, ChatGPT migration, Codex migration, Agent migration, Memory migration, Behavioural continuity, Working context continuity, Project continuity, Artefact continuity, Relationship continuity. Authored by Claude Code, reconciled against the shipped CFS-023 substrate the same day.
 
-> **Governance note (binding, this SPEC):** Docs-first, same regime as SPEC-MMC-001 and SPEC-MMC-002. This document cannot ratify itself. The operator's framing quote above is a real and valuable directional signal — it is not the same artifact as a dated, line-item ratification record of *this specific document's* content. This filing's status is honestly **DESIGN**. §13 below is the ratification record, unchecked, awaiting the operator's explicit pass.
+> **Governance note (binding, this SPEC):** Docs-first, same regime as SPEC-MMC-001 and SPEC-MMC-002. This document could not ratify itself, and did not: it was filed **DESIGN** on 2026-07-24 with §13 unchecked, and remained so until the operator's explicit pass. **The operator ratified this SPEC and authorised Phase 1 implementation on 2026-07-25**, relayed to the implementing agent as an explicit direction to proceed to build (no verbatim operator quote is reproduced here — this filing does not invent one; the ratification is recorded as operator-directed and dated, per the "No Guessing or Hallucinating" doctrine). Following the SPEC-MMC-002 precedent, that ratification authorises *design and build to proceed* on the scope named in §14.1; it does **not** waive any substantive constraint this document states — §11's honest limits stand, the §13 line-item on host-specific parsers stands as a separate gate, and Principal–Delegate Separation (§2, §5, §8, §9.2 component 6) is not relaxed in any degree by it. §14 records what Phase 1 actually shipped and what it deliberately did not.
 
 > **Companion documents (read alongside):** `CFS-023_chrysalis-homecoming.md` — **THIS SPEC'S UMBRELLA**; read it first, since every architectural noun here (sovereignties, workstreams, the Constitutional Presence ladder, the Homecoming Test) is CFS-023's, cited not re-derived. `CFS-043_agent-guided-passport-delegation.md` — Passport's role and the Principal–Delegate Separation invariant. `CFS-042_external-result-submission.md` — the first instance of agent-guided, human-authorized delegation. `types/homecoming.ts`, `services/homecoming/constitutionalPresence.ts`, `services/homecoming/chatgptImport.ts`, `services/homecoming/delegateStanding.ts` — the shipped substrate this SPEC extends. `codexes/packs/irl/foundation/appendix-a_canonical-invariants.md` — the invariant corpus items 320–332 (reasoning) and 36–37 (engineering) cited throughout §2.
 
@@ -251,8 +251,51 @@ This SPEC is Strand 2 of a four-strand operator programme the operator has ident
 
 ## 13. Ratification record
 
-- [ ] Operator has read and ratified this SPEC (§0–§12) as written.
-- [ ] Operator confirms the numbering decision (§0.5): SPEC-HMC-001, companion to CFS-023, not a new CFS-0xx.
-- [ ] Operator confirms §9 (Constitutional Agent Reconstitution) as the working answer to the named sub-concept, or directs revision.
-- [ ] No invariant listed in §2 is proposed as newly `canonical` by this document — all are cited from existing corpus entries (`canonical`) or existing `proposed` CFS-043 candidates; this filing changes no invariant's status.
-- [ ] Build authorization for host-specific parsers (Claude AI, Claude Code, Codex) is a SEPARATE gate, not granted by this document's ratification (docs-only charter, per the operator's explicit charter for this strand).
+- [x] Operator has read and ratified this SPEC (§0–§12) as written. — operator-directed, 2026-07-25.
+- [x] Operator confirms the numbering decision (§0.5): SPEC-HMC-001, companion to CFS-023, not a new CFS-0xx. — no revision directed; the filing proceeds under this number.
+- [x] Operator confirms §9 (Constitutional Agent Reconstitution) as the working answer to the named sub-concept, or directs revision. — confirmed as written; no revision directed. §9.2's six components are the contract Phase 1's assessment dimensions map onto (§14.1).
+- [x] No invariant listed in §2 is proposed as newly `canonical` by this document — all are cited from existing corpus entries (`canonical`) or existing `proposed` CFS-043 candidates; this filing changes no invariant's status. — re-verified at ratification; still true, and still true of the Phase 1 code, which writes no invariant and changes no invariant status.
+- [x] Build authorization for host-specific parsers (Claude AI, Claude Code, Codex) is a SEPARATE gate, not granted by this document's ratification. — **affirmed and still binding.** The 2026-07-25 ratification authorises §14.1's read-only assessment substrate ONLY. No parser for Claude AI, Claude Code, or Codex is authorised, and none was built. `MIGRATION_SOURCE_HOSTS` in `types/homecoming.ts` names the four hosts and `migrationSourceParserExists()` reports honestly that only `chatgpt-export` has one.
+- [x] Phase 1 (§14.1) build authorised and shipped 2026-07-25 — read-only continuity assessment substrate, no migration execution, no auto-authorization path. Canary-enforced (`tests/homecoming.test.ts`).
+- [ ] Phase 2+ (migration execution: cross-host transfer, working-context import, re-authorization ceremony wiring) — **NOT authorised.** Requires its own operator gate. §14.2 states what remains unbuilt.
+
+---
+
+## 14. Phase 1 — what shipped (2026-07-25)
+
+Added after ratification, recording what the authorised build actually produced and — with equal weight — what it did not. Session record: `codexes/packs/agentiq/updates/2026-07-25_spec-hmc-001-phase1-continuity-assessment.md`.
+
+### 14.1 Scope built — the continuity ASSESSMENT substrate, and only that
+
+Phase 1 deliberately does not build the six-stage lifecycle as an engine. It builds the read-only substrate that answers, for one delegate: **which continuity dimensions are satisfiable from real platform state today, and which are not.**
+
+| Artefact | What it is |
+|---|---|
+| `types/homecoming.ts` §8 | The §3 lifecycle and the §9/§10 taxonomy as real typed contracts — `MIGRATION_LIFECYCLE_STAGES` (order-pinned, with a per-stage `humanAct` flag), `resolveMigrationStage` (contiguous, mirroring `resolvePresenceLevel`), `ASSESSABLE_STAGE_CEILING`, `AGENT_CONTINUITY_DIMENSIONS`, `CONTINUITY_DIMENSION_SPEC` (each dimension bound to its stage and its §9.2 component numbers), `MIGRATION_SOURCE_HOSTS` + `migrationSourceParserExists`. Extends CFS-023's contract file per §0.3 — no parallel constant set was created. |
+| `services/homecoming/agentContinuity.ts` | The read-only assessor. Pure `assembleContinuity()` (canary-tested) over best-effort reads that compose `assessDelegate`, `readDelegateStanding`, `listArtifactRecords`, the `homecoming` KB domain, and the `invariants` substrate. No new store, no DB migration. |
+| `GET /api/homecoming/agent/continuity` | Spine-gated + admin-gated (the same gate the five sibling `/api/homecoming/agent/*` routes carry). `GET` only — no mutating handler exists. |
+| `tests/homecoming.test.ts` | Extended with contract pins, pure-assembler tests, and structural canaries. |
+
+### 14.2 The honest assessability finding — 2 of 5 dimensions have no platform state
+
+| Dimension | Verdict | Reason |
+|---|---|---|
+| artefact | **assessable**, delegate-scoped | `artifact_records.delegate` is a real per-delegate key; receipt-anchoring is countable |
+| relationship | **assessable** for the half that transfers | earned standing (§9.2 component 3) is readable; bounded authority (component 6) is by design never carried forward |
+| behavioural | **corpus-scoped only** | neither `codex_kb_documents` (domain `homecoming`) nor `invariants` carries a delegate binding, so no per-delegate claim is honest. Stamped `scope: 'corpus'`. |
+| working-context | **not assessable today** | `journey_states` is keyed on `persona_id` — a HUMAN persona; `agent_persona` rows are not journey subjects. A delegate has no current-intent record anywhere. The principal's journey row is deliberately NOT substituted. |
+| project | **not assessable today** | same root gap, one scope narrower — no venture/intent scoping key exists for a delegate |
+
+This sharpens §11's honest-limits list rather than contradicting it: the SPEC anticipated that Component 3 depends on a CRM persona existing; Phase 1 found the harder constraint that Component 4 has no delegate-scoped store at all. Building one is a schema decision needing its own operator gate — flagged, not assumed.
+
+### 14.3 §9.2 component 6 is enforced structurally, not by convention
+
+Three independent mechanisms, so no single edit can reintroduce an auto-authorization path:
+
+1. **Hard cap.** The assessment resolves at most `ASSESSABLE_STAGE_CEILING` (stage 4). Stages 5–6 are passed to the resolver as unconditionally unsatisfied. A fully sovereign delegate still assesses to stage 4 — canary-pinned.
+2. **Derived, not asserted.** A canary proves every stage above the ceiling carries `humanAct: true`, so the cap cannot drift out of alignment with the taxonomy.
+3. **Structural canaries over raw source.** The service and route are grepped for the Constitutional Agreement / guided-onboarding modules and their form/accept/authorize verbs, for every write verb, for receipt writing and standing accrual, and for T0 identifiers in any response block. The grep deliberately includes comments — it fired on this SPEC's own implementation twice during the build, and the canary was kept strict rather than softened both times.
+
+### 14.4 Still unbuilt after Phase 1
+
+Migration execution (any stage transition); parsers for Claude AI, Claude Code, or Codex (§13 line item — still a separate gate, still unmet); chat/transcript import beyond the already-shipped ChatGPT path; cross-host data transfer or any write to another vendor's system; working-context and project continuity (blocked on the §14.2 store gap); re-authorization ceremony wiring (stage 5 — a human act in the browser, which Phase 1 must never perform). No UI surface was built; the assessment is API-only.
