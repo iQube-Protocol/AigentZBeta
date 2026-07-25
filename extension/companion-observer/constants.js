@@ -16,11 +16,14 @@
  * other surfaces; not found declared as a literal `NEXT_PUBLIC_APP_URL` in
  * any committed env file, so it was NOT assumed here until the operator
  * explicitly confirmed it — per CLAUDE.md's "No Guessing" rule).
- * `host_permissions` in `manifest.json` is updated to match. If this
- * extension is ever pointed at a different environment (staging/production/
- * another dev deployment), both this constant and that manifest entry must
- * be updated together — Chrome enforces that a background fetch target is
- * covered by a declared host permission.
+ * `manifest.json`'s `host_permissions` covers all http/https origins
+ * (widened 2026-07-25 so the observer-healing sweep can re-inject into
+ * already-open tabs on any site, not just this one — see background.js's
+ * `healObserverInOpenTabs` note) — broad enough that background `fetch()`
+ * calls to this origin are covered regardless of what it's set to. Only
+ * THIS CONSTANT needs updating if the extension is ever pointed at a
+ * different environment (staging/production/another dev deployment); the
+ * manifest entry no longer needs a matching edit.
  */
 const COMPANION_APP_ORIGIN = 'https://dev-beta.aigentz.me';
 

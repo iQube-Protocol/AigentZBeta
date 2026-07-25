@@ -364,12 +364,24 @@ function extractPersonaHintFromPage() {
  * a tab that is actually on the Companion app's own origin.
  *
  * Without this, `chrome.scripting.executeScript` (which `activeTab` permits
- * against WHATEVER tab happens to be active, independent of the manifest's
- * single `host_permissions` entry) would run the localStorage scan on an
- * unrelated site — scanning that site's storage for any key containing
+ * against WHATEVER tab happens to be active) would run the localStorage scan
+ * on an unrelated site — scanning that site's storage for any key containing
  * "auth-token" and, on a hit, persisting a foreign site's bearer token as
  * this extension's metaMe session. Found and fixed 2026-07-25 while building
  * SPEC-MMC-003 §3.3's pairing gate; the origin check is the fix.
+ *
+ * UPDATE (2026-07-25, same day): `manifest.json`'s `host_permissions`
+ * WIDENED from a single `dev-beta.aigentz.me` entry to all-http/https
+ * wildcards (matching `content_scripts.matches`), so that
+ * `healObserverInOpenTabs` below can re-inject the observer into ALREADY-OPEN
+ * tabs on ANY site, not just the Companion app's own origin (a real bug: the
+ * heal silently failed on every non-dev-beta tab, permission-denied and
+ * swallowed by that function's own catch block — the operator's Gmail/
+ * claude.ai tabs never healed after a reload). THIS FUNCTION is now the
+ * ONLY thing standing between that broader permission grant and the
+ * auth-extraction code below running against an arbitrary site — there is
+ * no longer an incidental narrow-host_permissions backstop. Do not weaken
+ * or bypass it.
  */
 function isCompanionAppUrl(url) {
   return typeof url === 'string' && url.startsWith(`${COMPANION_APP_ORIGIN}/`);
@@ -442,12 +454,13 @@ async function probeActivePersona() {
 async function connectToMetaMe(confirmedPersonaId) {
   if (!confirmedPersonaId) return { ok: false, reason: 'persona-confirmation-required' };
 
-  // activeTab: this only works when the user invokes the connect action
-  // (popup button click, a user gesture) while the metaMe tab is the active
-  // tab in the current window — the least-privileged way to get one-shot
-  // scripting access to that tab without a broad host_permissions grant.
-  // The origin check inside getCompanionAppTab additionally refuses to
-  // inject into any tab that is not the Companion app itself.
+  // Requires the connect action to be a user gesture (popup button click)
+  // with the metaMe tab active. NOTE (2026-07-25): `host_permissions` is now
+  // broad (`http://*/*` + `https://*/*`, widened so the observer-healing
+  // sweep can reach already-open tabs anywhere), so this path NO LONGER
+  // relies on a narrow host grant to keep it off other origins — the origin
+  // check inside `getCompanionAppTab` is the ONLY thing refusing to run the
+  // auth-material scan against a non-Companion tab. Keep it.
   const tabResult = await getCompanionAppTab();
   if (!tabResult.ok) return { ok: false, reason: tabResult.reason };
 
@@ -735,10 +748,25 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // The fix is the standard MV3 remedy: on install/update/startup, inject the
 // SAME files the manifest already declares into the tabs that missed it.
 //
-// NOT A PRIVILEGE EXPANSION. `manifest.json` already declares these two
-// files as `content_scripts` matching `http://*/*` + `https://*/*`, so this
-// injects exactly what Chrome would have injected on the next navigation —
-// only sooner. It is deliberately UNRELATED to `isCompanionAppUrl` /
+// NOT A PRIVILEGE EXPANSION RELATIVE TO WHAT'S ALREADY DECLARED.
+// `manifest.json` already declares these two files as `content_scripts`
+// matching `http://*/*` + `https://*/*`, so this injects exactly what Chrome
+// would have injected on the next navigation — only sooner.
+//
+// SAME-DAY FOLLOW-UP FIX (2026-07-25): the healing loop below initially
+// still failed silently on every non-`dev-beta.aigentz.me` tab (Gmail,
+// claude.ai, ...) because `chrome.scripting.executeScript` -- unlike
+// declarative `content_scripts` injection -- separately requires the
+// TARGET tab's origin to be covered by `host_permissions`, which at the
+// time only listed the Companion app's own origin (needed for the UNRELATED
+// auth-extraction guard below). The operator hit this directly: a claude.ai
+// tab open across an extension reload never healed, and Refresh correctly
+// kept showing the same stale stored observation. Fixed by widening
+// `manifest.json`'s `host_permissions` to match `content_scripts.matches`
+// exactly -- the content script was already declared to run everywhere;
+// this just lets the RE-injection path reach everywhere it already runs.
+//
+// This is deliberately UNRELATED to `isCompanionAppUrl` /
 // `getCompanionAppTab`, which guard a different act: reading auth material
 // OUT of a page (see that guard's own note). Reading nothing and injecting
 // the declared observer is not that act, and conflating the two would break
