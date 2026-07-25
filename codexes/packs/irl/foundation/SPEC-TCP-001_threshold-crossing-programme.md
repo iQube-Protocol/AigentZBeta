@@ -1,6 +1,6 @@
 # SPEC-TCP-001 — Threshold Crossing Programme: Universal Constitutional Onboarding
 
-**metaMe IRL / iQube Protocol / AgentiQ · Onboarding-programme specification · Status: DRAFT — DOCS-ONLY, AWAITING RATIFICATION. No code may change under this SPEC until the decision register in §20 is resolved. Two of its central mechanisms (§14 specialist-journey activation, §13's Companion criteria) rest on platform state that does not exist today — §0.6 and §0.7 name both, and neither may be papered over in an implementation pass.**
+**metaMe IRL / iQube Protocol / AgentiQ · Onboarding-programme specification · Status: DRAFT (AMENDED 2026-07-25 — five operator refinements, §22) — DOCS-ONLY, AWAITING RATIFICATION. No code may change under this SPEC until the decision register in §20 is resolved. Two of its central mechanisms (§14 specialist-journey activation, §13's Companion criteria) rest on platform state that does not exist today — §0.6 and §0.7 name both, and neither may be papered over in an implementation pass.**
 **Title:** *The Threshold Crossing Programme — one constitutional onboarding, multiple entry points, one threshold, many specialist journeys*
 **Companion to:** **SPEC-COS-001** (`SPEC-COS-001_constitutional-onboarding-specification.md`) — the ratified substrate this programme is layered on; **PRD-THR-001** (`PRD-THR-001_metame-threshold.md`) — the third-party-agent crossing and the Journey Registry; **SPEC-MMC-003** (`SPEC-MMC-003_mcp-assisted-companion-deployment.md`) — the seven-stage Companion deployment flow this SPEC's §15 defers to entirely; **SPEC-HMC-001** (`SPEC-HMC-001_constitutional-agent-continuity.md`) — Homecoming, the sibling strand §17 reframes; **CFS-051** (`CFS-051_experiment-constitutional-registry.md`) — the Experiment / Constitutional / Invariant Pipeline; **PRD-MMC-001** (`PRD-MMC-001_metame-companion.md`) — the Companion umbrella; **CFS-043 / CFS-043a** — Principal–Delegate Separation and the guided-onboarding script; **CFS-050** — Sovereignty Navigation.
 **Extension of:** **SPEC-COS-001.** This SPEC **extends** that specification; it does **not** supersede it, and it does not restate its seven-layer substrate. SPEC-COS-001 answers *"where does an arrival stand, and which surfaces may be active?"* — and shipped a resolver that answers it (`services/onboarding/substrateState.ts`). This SPEC answers the question that resolver cannot: *"what does the arrival actually **do**, on which surface, in what order, and when are they done?"* §2 states the boundary precisely.
@@ -30,7 +30,75 @@ SPEC-COS-001 (RATIFIED 2026-07-25) states the seven-layer substrate (Claude → 
 
 So the honest position for §11 is: **the onboarding state exists as a server read; the "every copilot can guide the user to the next stage" behaviour does not exist in any form.** §11 is new work, not a wiring exercise.
 
-### 0.3 There is **no guided-tour, walkthrough, spotlight, or coach-mark mechanism anywhere in this repository** — §8, §9 and §10 are entirely new build
+### 0.3 CORRECTION (operator, 2026-07-25) — a guided-tour mechanism DOES exist, in the metaMe Runtime Shell thin client. It is the reference implementation and MUST be audited before any new framework is chosen
+
+**Withdrawn claim.** The original §0.3 asserted that *"there is no guided-tour, walkthrough, spotlight, or coach-mark mechanism anywhere in this repository"* and concluded from that absence that *"§8, §9 and §10 are entirely new build."* The **search itself stands** — nothing tour-shaped exists in `iQube-Protocol/AigentZBeta`, and the two nearest things here are still not tours (the table below is retained unchanged). **The conclusion was wrong.** A shipped, production guided tour runs today in the **metaMe Runtime Shell thin client** (Lovable/Vite project, `src/components/tour/`) — the surface serving the "Welcome to your metaMe Runtime" dialog with *Explore on my own* / *Start guide*.
+
+**The defect class, named so it is not repeated:** a repo-scoped search was used to license a platform-scoped claim. *"Not in this tree"* is a finding; *"does not exist"* is a conclusion that a single-tree search cannot support. The platform spans at least the main tree, the thin client, and the extension. Every existence claim in this corpus must state which trees were searched — and an absence claim that spans them must actually span them.
+
+**Binding rule that follows (proposed, D-22): reuse before replacement.** The existing metaMe Runtime Shell tour SHALL be treated as the **reference implementation** for the guide mechanism. Claude Code SHALL audit it (§0.3a) before selecting or introducing any new tour framework, and any proposal to replace rather than adopt it must state which specific requirement the existing implementation cannot meet.
+
+**The implementation, as read from source supplied by the operator (2026-07-25):**
+
+| File | Role | Size |
+|---|---|---|
+| `src/components/tour/WelcomeModal.tsx` | First-run welcome dialog — *Start guide* / *Explore on my own* | 64 lines |
+| `src/components/tour/VisitorTour.tsx` | The 12-step tour: step definitions, shell-staging effects, controlled advancement | 453 lines |
+| `src/components/tour/TourHelpButton.tsx` | The `?` restart affordance, with a one-per-page-load attention pulse | 47 lines |
+| `src/hooks/use-tour-state.ts` | Visibility / run / completion state | 96 lines |
+| `src/pages/Index.tsx` | Mount point — `WelcomeModal` + `VisitorTour key={runKey}`, and the `metame:tour:restart` window-event listener | 107 lines |
+
+Tour anchors and quick-action attributes are wired in `src/components/SmartMenuSubmenu.tsx` and `src/components/SmartMenuPromptBar.tsx`.
+
+**Note on the sibling repo:** `iQube-Protocol/metamert` — the closest match reachable from a session scoped to this org — is an **earlier sibling** of that project (same Vite/Lovable `src/` layout, same `RuntimeFrame`/`RuntimeHeader`/`SmartMenu` family) from before the SmartMenu split and before the tour landed. It contains no `src/components/tour/`, no `use-tour-state.ts`, and no `react-joyride` dependency. It is **not** the source of the shipped tour, and must not be cited as such.
+
+---
+
+### 0.3a Audit of the reference implementation (nine questions, answered from source)
+
+| # | Question | Finding |
+|---|---|---|
+| 1 | **Where does it live?** | `src/components/tour/` in the metaMe Runtime Shell thin client — a **separate repository** from the main tree. Any shared framework must therefore be extracted or re-expressed, not imported across the boundary as-is. |
+| 2 | **Which library?** | **`react-joyride`**, on its newer API surface — named `Joyride` export, `options` and `onEvent` props, `ACTIONS`/`EVENTS`/`STATUS` constants, `EventData`/`Step` types. Not the classic default-export + `callback` form. |
+| 3 | **How are steps represented?** | A **static `Step[]` array of 12 entries** in `useMemo(… , [])`. Each carries `target`, `placement`, `title`, `content` (a plain string), and a custom `data: { action: TourAction }` discriminant naming the side effect to run. Hardcoded, not data-driven, not derived from any registry or journey state. |
+| 4 | **How is targeting done?** | CSS attribute selectors over **`data-tour="…"` DOM attributes** — `runtime-area`, `smart-menu`, `smart-menu-prompt`, `quick-action-{knyt,cartridge,signin,wallet,settings}`, `trust-dots`, `help-button`. A stable, framework-neutral anchor contract. |
+| 5 | **How is state represented?** | **App-owned, not Joyride-owned** — `use-tour-state.ts` holds `hasSeen / showWelcome / running / runKey` and persists **two localStorage flags**: `metame.tour.visitor.completed` and `metame.tour.visitor.skipped`. `runKey` increments to force a clean Joyride remount on restart. **Device-local; not persona-bound; not server-persisted; emits no event and no receipt.** |
+| 6 | **How is completion represented?** | Binary and **conflated**: `hasSeen = completed \|\| skipped`. Finishing and declining are recorded in different keys but are **equivalent downstream**. There is no progress, no resume point, no step-level completion — `restart()` always returns to step 0. |
+| 7 | **Does it navigate across tabs/surfaces?** | **Yes, and this is the strongest reusable idea in it.** `runStepEffect` drives the shell for each step — `activateMode('be'\|'play'\|'earn')`, `setSubmenuType('quickActions')`, and `sendIframeAction('wallet'\|'persona'\|'settings', {…})`, a **postMessage across the iframe boundary** into a runtime it does not own. It also calls `pauseIdleTimer()` on an 800 ms interval so the shell's idle collapse cannot yank an anchor mid-step. The tour is an **actor that opens the surface each card describes**, not a passive overlay. |
+| 8 | **Can TTS/STT compose onto it?** | **Partly — a real asset and a real gap.** Asset: `title` and `content` are **plain strings**, not JSX, so every step is directly narratable with no extraction step. Gap: there is **no step-lifecycle seam** — advancement is driven internally by Joyride's `STEP_AFTER` + `ACTIONS.NEXT`, and nothing exposes "step entered / step ready / step complete" to a caller. Voice-primary narration needs the ability to *await* narration before advancing; that hook does not exist and would have to be added. |
+| 9 | **How coupled is it to Vite / React-Router / its DOM?** | **Routing coupling: none.** The tour never navigates a route — the shell is single-page (`Index.tsx`) and everything happens through context + postMessage. Real couplings are (a) the `useShell()` action vocabulary, (b) the `data-tour` anchor contract, (c) plain `document.querySelector` + `offsetParent` polling, (d) `window.setInterval` and `localStorage` — all client-only, all portable to a Next.js client component behind `'use client'` (and `readFlag` already guards `localStorage` in try/catch). **It is portable in principle.** The dependency that does not travel is the ShellContext action vocabulary, which is thin-client-specific. |
+
+**Engineering quality — the part worth preserving verbatim.** `VisitorTour` runs Joyride in **controlled** mode (`stepIndex` + `goToStep`) rather than letting the library advance itself, and every transition (a) runs the step's staging effect, (b) **polls for the anchor with `waitForElement` (2 s / 50 ms, requiring `offsetParent !== null`)**, (c) scrolls it into view, (d) waits a **settle delay — 420 ms for drawer-opening steps, 220 ms otherwise** — before handing control back. If an anchor never materialises it **skips that single step** instead of cascading forward. It also mirrors `activeMode`/`viewState` into refs to defeat stale closures, and guards `ensureMode` against re-activating the current mode (which would hit the tap-active-to-collapse branch and fold the menu away).
+
+Those are precisely the failure modes that make naïve tour integrations flicker, mis-position, or silently skip steps. **They are solved here, and any replacement that does not solve them is a regression regardless of which library it uses.**
+
+**One incidental finding:** `VisitorTour.tsx` imports `DEEP_LINK_DISPATCH` from `@/lib/smart-menu-config` and never uses it — a dead import, cosmetic, noted for the thin-client backlog rather than this SPEC.
+
+---
+
+### 0.3b What this changes for §8–§10 — and the split it forces
+
+**What is genuinely reusable:** the anchor contract (`data-tour`), the controlled-advancement + anchor-wait + settle discipline, the staging-effect model (each step opens the surface it describes), and the cross-boundary drive via postMessage. The plain-string `title`/`content` shape is directly narratable.
+
+**What cannot serve the programme as-is, and why it is not a criticism of the implementation** — it was built to introduce a *visitor* to a runtime, which it does well. TCP asks for something categorically different:
+
+| TCP requirement | Reference implementation | Gap |
+|---|---|---|
+| Steps derived from constitutional state, so completed rungs are skipped | Static 12-step array, every visitor sees all 12 | **Structural** — needs a definition format + a resolver input |
+| Resumable progress ("you are on step 7") | Binary `hasSeen`; restart always goes to step 0 | **Structural** |
+| Progress observable by the platform / attributable to a persona | Two localStorage flags, device-local, no event | **Structural** |
+| "Completed" distinguishable from "declined" | `hasSeen = completed \|\| skipped` — conflated | **Semantic** — TCP must keep these distinct (§1.1) |
+| Voice-primary narration that gates advancement | No step-lifecycle seam | **Additive** — a seam, not a rewrite |
+| Captions | None | **New build**, as §0.4 already states |
+| One runtime + N declarative definitions | One bespoke component, one hardcoded script | **Structural** |
+
+**The gaps are not evenly distributed, and that is the finding.** Everything in the *experiential* column — highlight, narrate, stage the surface, advance safely — is solved. Everything in the *objective* column — durable, attributable, resumable, state-derived progress — is absent, because a localStorage flag is the correct engineering choice for a visitor tour and the wrong one for a constitutional record.
+
+That asymmetry is exactly the operator's Constitutional Activation / Guided Configuration split (§1.1). The reference implementation is a strong candidate for the **Guided Configuration** layer and no candidate at all for the **Constitutional Activation** layer — and reading it makes clear those were never one thing.
+
+---
+
+### 0.3c The original repo-scoped search (retained — still accurate for the main tree)
 
 Verified against the root `package.json` and all thirteen workspace manifests under `apps/*` and `packages/*`, and against `node_modules`: there is **no** `driver.js`, `shepherd.js`, `intro.js`, `react-joyride`, `reactour`, `@reactour/*`, `onborda`, `nextstepjs`, or any equivalent. In code there are no `data-tour`/`data-guide` attributes, no element-highlighting overlay, and no step-sequencer that drives a user across tabs. Every `currentStep`/`stepIndex` hit is multi-step **form** state inside a modal dialog. The only literal "tour" strings in the repo are two capsule titles (`"capsule: World intro tour"`, `"capsule: Discovery tour"`) — unrelated content labels.
 
@@ -138,6 +206,31 @@ The operator's clarification — *"Technical Founder Operator … this IS the de
 >
 > Every entry point converges on the same constitutional infrastructure before diverging.
 
+### 1.1 Two layers, not one — Constitutional Activation and Guided Configuration (operator refinement, 2026-07-25)
+
+**"Threshold Crossing" was doing two jobs, and conflating them is what made §13 unimplementable and D-8 contradictory.** The refinement separates them:
+
+| Layer | Question it answers | Nature | Authority |
+|---|---|---|---|
+| **Constitutional Activation** | *Is this citizen constitutionally active?* | **Objective.** A set of facts the platform either observes or honestly cannot (§13). | Binding. Gates specialist-journey activation (§14). |
+| **Guided Configuration** | *Has this citizen been shown how to operate?* | **Experiential.** A guided pass through the capabilities, at the citizen's pace, in one sitting or progressively. | **Never gates anything.** May be completed, deferred indefinitely, or explicitly declined. |
+
+**Threshold Crossed moves to the end** — it is no longer a synonym for either layer, but the **terminal state of both**:
+
+> **Threshold Crossed** = Constitutional Activation complete **AND** Guided Configuration either completed **or** explicitly declined.
+
+**Three consequences, all load-bearing:**
+
+1. **This resolves D-8.** The delegation contradiction existed because one list mixed constitutional facts with experiential completion. Under the split, Delegation is a **Constitutional Activation** criterion and is *required-when-an-agent-is-bound* rather than universally required — so a direct human arrival with no agent can complete Activation. Guide completion lives entirely in Guided Configuration and gates nothing. Neither layer needs the other weakened.
+
+2. **"Declined" must stay distinguishable from "completed."** The reference implementation collapses these (`hasSeen = completed || skipped`, §0.3a Q6) — correct for a visitor tour, wrong here. A citizen who declined guidance and one who completed it are both Threshold Crossed, and the platform must be able to tell them apart: the first should still be offered guidance later; the second should not be re-prompted. A single boolean cannot carry that.
+
+3. **Only Constitutional Activation is receipt-eligible.** Guided Configuration is a UX record, not a constitutional fact. Anchoring "watched the tour" would put a preference into the provenance trail. D-17's receipt question applies to Activation and to the Threshold Crossed terminal state — never to guide progress.
+
+**Naming note:** this split does not resolve D-4's three-way "Experience Guide" collision. *Guided Configuration* names the **layer**; the mechanism that delivers it still needs the non-colliding name D-4 asks for.
+
+---
+
 **Scope boundary, stated once and binding throughout: this specification ENDS at Threshold Crossing.** It does not define the Technical Founder Operator, Research, or Creative specialist programmes. Those begin *after* the threshold, and each requires its own charter. §14 defines only the *activation gate* between them and this programme.
 
 ---
@@ -211,7 +304,7 @@ PATH C — invitation (QR variant does NOT exist today, §0.10)
 **Two constraints that ratification does not relax:**
 
 1. **Delegation is the human-only gate, always.** `authorizeAgreement` refuses anyone but the owning human persona. No Stage-A completion mechanism, no Companion install orchestration, and no MCP assist may perform, pre-perform, batch, or imply that step. CFS-043 §2 is untouched by this SPEC.
-2. **"Delegation active" as a *completion* criterion conflicts with the shipped model** and must be reconciled before build (**D-8**). `services/onboarding/substrateState.ts` marks the delegation layer `optional: true` and states in its own evidence string that it "never gates a later layer" — the ratified accession-ladder behaviour of 2026-07-20. Making it a hard Stage-A gate would mean a direct human arrival who has no agent to delegate to could never complete Stage A. The recommended resolution is in §20.
+2. **"Delegation active" as a *completion* criterion conflicted with the shipped model** — reconciled by the §1.1 layer split, pending operator confirmation (**D-8**). `services/onboarding/substrateState.ts` marks the delegation layer `optional: true` and states in its own evidence string that it "never gates a later layer" — the ratified accession-ladder behaviour of 2026-07-20. Making it a hard Stage-A gate would mean a direct human arrival who has no agent to delegate to could never complete Stage A. **§1.1's resolution:** Delegation is a Constitutional Activation criterion, *required-when-an-agent-is-bound* rather than universally — so the direct human arrival completes Activation, and no shipped behaviour is weakened. See §20 D-8.
 
 **Progressive-activation conformance:** Stage A's surfaces are exactly the ones `activeSurfaces()` already reveals through the `passport` gate (`passport-apply`, `delegation-authorize`, `aigentme-capsules`). Stage A introduces no new activation logic — it names an ordering over surfaces the shipped function already governs.
 
@@ -273,9 +366,11 @@ The Experience Qube is **not a single form**. It is progressively constructed th
 
 Each guide is launchable on its own, at any time, from the capability it describes — not only during onboarding, and not only in sequence.
 
-**Verified status: none of these guides exists, and no mechanism to build one exists (§0.3).** The capabilities themselves are real and their surfaces are known — `app/(embed)/triad/embed/companion/page.tsx`, `AigentMeWelcomeSplitTab.tsx`, `FounderOfficeTab.tsx`, `components/composer/ComposerStudio.tsx`, `IRLResearchCopilotTab.tsx`, `MoneyPennyTab.tsx` / `MoneyPennyPanelTab.tsx`, `VentureLabPortfolioTab.tsx` — but nothing narrates, highlights, or sequences them.
+**Verified status (CORRECTED, §0.3): none of these guides exists — but a mechanism to build one DOES exist**, as the shipped metaMe Runtime Shell Visitor Tour. It is the reference implementation (D-22: reuse before replacement) and must be audited against §0.3a before any alternative is proposed. The capabilities themselves are real and their surfaces are known — `app/(embed)/triad/embed/companion/page.tsx`, `AigentMeWelcomeSplitTab.tsx`, `FounderOfficeTab.tsx`, `components/composer/ComposerStudio.tsx`, `IRLResearchCopilotTab.tsx`, `MoneyPennyTab.tsx` / `MoneyPennyPanelTab.tsx`, `VentureLabPortfolioTab.tsx` — but nothing narrates, highlights, or sequences them.
 
 **Design constraint (proposed):** a guide is **content over a mechanism**, not a bespoke component per capability. One guide runtime; one guide definition format; N definitions. Building nine independent walkthrough components would be the `inv.engineering.037` defect on delivery day one. D-12 gates the mechanism's shape.
+
+**This constraint is also the one axis on which the reference implementation does not conform** — it is one bespoke component with one hardcoded twelve-step script (§0.3a Q3). Extracting *runtime* from *definition* is therefore the first real design task, and it is a refactor of something that works rather than a green-field build.
 
 ---
 
@@ -293,14 +388,33 @@ The emphasis is on **listening and interacting** over reading.
 
 **Each guide must:**
 
-| Requirement | Buildable from | Status |
-|---|---|---|
-| Highlight the active control | — | **New build (§0.3)** |
-| Move the user through tabs and surfaces | `utils/codex-nav.ts::buildCodexUrl` (`tab`, `personaSessionToken`, `shell`, `from`/`fromTab`) | Plumbing exists |
-| Narrate via text-to-speech | `POST /api/skills/tts` + `app/hooks/useTTSPlayer.ts` + `components/shared/ListenButton.tsx` | **Compose — do not rebuild (§0.4)** |
-| Optionally display captions | — | **New build; `useTTSPlayer` has no caption/position seam (§0.4)** |
-| Pause for interaction | — | **New build** |
-| Confirm completion before progressing | — | **New build.** No completion state for anything guide-shaped is persisted anywhere |
+**Every capability below is labelled Existing · Composable · New**, so the spec stops reading as more green-field than it is (operator refinement, 2026-07-25):
+
+| Requirement | Category | Buildable from | Notes |
+|---|---|---|---|
+| Highlight the active control | **Existing** | metaMe Runtime Shell `VisitorTour` — spotlight + halo, recoloured; `data-tour` anchor contract | Shipped and working (§0.3a). Not in the main tree — extraction, not invention |
+| Stage the surface each card describes | **Existing** | `runStepEffect` + `sendIframeAction` postMessage; anchor-wait + settle discipline | The hardest part, already solved (§0.3a Q7) |
+| Move the user through tabs and surfaces | **Composable** | `utils/codex-nav.ts::buildCodexUrl` (`tab`, `personaSessionToken`, `shell`, `from`/`fromTab`) | Main-tree plumbing; the reference implementation never routes, so this is genuinely additive |
+| Narrate via text-to-speech | **Composable** | `POST /api/skills/tts` + `app/hooks/useTTSPlayer.ts` + `components/shared/ListenButton.tsx` | Compose — do not rebuild (§0.4). Step `title`/`content` are plain strings, so directly narratable |
+| Voice input ("interacting over reading") | **Composable** | `POST /api/skills/stt` + `hooks/useSpeechRecognition.ts` + `components/ui/MicButton.tsx` | Already powers ~20 surfaces |
+| Pause for interaction / await narration | **New** | — | Needs a **step-lifecycle seam** the reference implementation does not expose (§0.3a Q8). A seam, not a rewrite |
+| Optionally display captions | **New** | — | `useTTSPlayer` has no caption/position seam (§0.4) |
+| One runtime + N declarative definitions | **New** | — | The reference implementation is one component + one hardcoded script (§0.3a Q3). This is the extraction task |
+| Steps derived from constitutional state | **New** | `services/onboarding/substrateState.ts` as the input | So a citizen is not walked through a rung they already hold |
+| Resumable, persona-bound, observable progress | **New** | — | Reference state is two device-local localStorage flags (§0.3a Q5). Belongs to Constitutional Activation's discipline, not the tour's |
+| Confirm completion before progressing | **New** | — | No completion state for anything guide-shaped is persisted in the main tree |
+
+**The framework is specified by contract, not by library name (operator refinement, 2026-07-25).** This SPEC does not mandate `react-joyride`, nor any successor. What it mandates is the **behavioural contract** any Guided Experience Framework must satisfy — because those behaviours, not the library, are what make a guide trustworthy:
+
+1. **Declarative definitions.** Steps are data, not code. One runtime, N definitions.
+2. **A stable anchor contract.** Targeting is by explicit, framework-neutral attribute (the shipped `data-tour` convention), never by DOM structure or class names.
+3. **Controlled advancement with anchor verification.** The runtime advances only once the next anchor is present and visible; a missing anchor skips one step rather than cascading. *(Shipped behaviour — see §0.3a; a replacement that loses this is a regression.)*
+4. **Staging effects.** A step may open the surface it describes, including across an iframe/postMessage boundary, and the runtime must hold that surface open for the step's duration.
+5. **A step-lifecycle seam.** Entered / ready / complete must be observable to a caller, so narration, captions, and interaction gating can compose onto any step.
+6. **Externalised copy.** Narration text is authored data, subject to `TTS_MAX_CHARS`, never inline component strings.
+7. **State the runtime does not own.** Progress is reported outward; the host decides what is durable, persona-bound, or receipt-eligible.
+
+A library is an implementation detail beneath this contract. The shipped implementation satisfies 2, 3, and 4 today, partly satisfies 1, and does not yet satisfy 5, 6, or 7.
 
 **Binding constraints on any implementation (proposed):**
 
@@ -374,31 +488,47 @@ export function activeSurfaces(layers: SubstrateLayer[]): SubstrateSurfaceId[]
 
 ---
 
-## 13. Threshold Crossing — the completion definition
+## 13. Threshold Crossing — the completion definition (RESTRUCTURED per §1.1)
 
-**Threshold Crossing is achieved when all six are true:**
+**Two layers, evaluated separately; Threshold Crossed is the terminal state of both.**
+
+### 13.1 Constitutional Activation — objective, binding, gates §14
+
+Achieved when all six are true:
 
 1. Passport active
-2. Delegation active
+2. Delegation active — **required-when-an-agent-is-bound**, not universally (§1.1, D-8)
 3. aigentMe active
 4. Companion installed
 5. Companion paired
 6. Initial constitutional configuration complete
 
-**The user is then constitutionally active.**
+**The citizen is then constitutionally active.** This is the objective layer; every criterion is a fact the platform either observes or honestly reports it cannot (table below).
 
-**Verified evaluability, criterion by criterion — this table is the reason §13 is not implementable today:**
+### 13.2 Guided Configuration — experiential, never gates
+
+Achieved when the citizen has completed a guided pass through the capabilities — **or has explicitly declined one**. It has **no** gating power over Constitutional Activation, specialist-journey activation, or any surface. Its two terminal states must remain distinguishable (§1.1 consequence 2): a citizen who *declined* may be offered guidance again; a citizen who *completed* should not be re-prompted. Recording both as one boolean — the reference implementation's `hasSeen = completed || skipped` (§0.3a Q6) — would lose exactly the distinction this SPEC needs.
+
+**Guided Configuration is not receipt-eligible.** It is a UX record, not a constitutional fact (§1.1 consequence 3).
+
+### 13.3 Threshold Crossed — the terminal state
+
+> **Threshold Crossed** = Constitutional Activation complete **AND** Guided Configuration completed **or** explicitly declined.
+
+Nothing may report Threshold Crossed on the strength of one layer alone.
+
+**Verified evaluability of the Constitutional Activation criteria — this table is the reason §13.1 is not implementable today:**
 
 | # | Criterion | Observable? | Evidence |
 |---|---|---|---|
 | 1 | Passport active | **Yes** | `resolveParticipationSelfView` → `passportIssued` |
-| 2 | Delegation active | **Yes, but conflicts** | `delegationActive` is observed — but the shipped layer is `optional: true` and "never gates" (§4, D-8) |
+| 2 | Delegation active | **Yes — conflict resolved by §1.1** | `delegationActive` is observed. The shipped layer is `optional: true` and "never gates"; §1.1 reconciles this by making it *required-when-an-agent-is-bound* within Constitutional Activation rather than a universal gate (D-8) |
 | 3 | aigentMe active | **No — derived** | Derived from Passport issuance; Capsule engagement is persisted nowhere (§0.8, D-10) |
 | 4 | Companion installed | **No** | No table, column, or signal records it (§0.7, D-9) |
 | 5 | Companion paired | **No** | Pairing state lives in `chrome.storage.local` only (§0.7, D-9) |
 | 6 | Initial configuration complete | **No** | "Initial" is undefined — §6 lists seven modules and calls them independent and reorderable, so a completion subset must be chosen (D-7) |
 
-**Four of six criteria are not evaluable.** Any implementation that reports "Threshold Crossed" before D-7, D-8, D-9 and D-10 are resolved would be asserting a constitutional state it cannot observe — the precise class of failure SPEC-COS-001's resolver was built to avoid, and which its `not-resolvable-today` dial exists to make visible.
+**Four of six Constitutional Activation criteria are not evaluable.** Any implementation that reports "Threshold Crossed" before D-7, D-8, D-9 and D-10 are resolved would be asserting a constitutional state it cannot observe — the precise class of failure SPEC-COS-001's resolver was built to avoid, and which its `not-resolvable-today` dial exists to make visible.
 
 **Receipt posture (proposed, D-17):** if Threshold Crossing is to be receipted, it composes the existing unified receipt writer and, if anchored, the existing DVN pipeline with a new **action type only** — the one change CLAUDE.md's DVN Pipeline Protection section permits unilaterally. No payload-shape change, no state-machine change, no `hashPersonaRef` change. Any receipt carries a T2 `personaPublicRef` (`services/identity/personaReferences.ts`) and **never** a `personaId`.
 
@@ -517,7 +647,7 @@ A migrated relationship that lands nowhere in particular has been imported, not 
 | **2** | **SPEC-HMC-001** — Homecoming & Constitutional Agent Continuity (`codexes/packs/irl/foundation/SPEC-HMC-001_constitutional-agent-continuity.md`) | Reframed by §17. A homecoming lands *into* the Companion. Its Phase 1 (continuity assessment) shipped; Phases 2+ are not authorised and are not authorised by this document either. |
 | **3** | **SPEC-COS-001** — Constitutional Onboarding Specification (`codexes/packs/irl/foundation/SPEC-COS-001_constitutional-onboarding-specification.md`) | **Direct parent.** This SPEC extends it (§2). |
 | **4-A** | **SPEC-MMC-003** — MCP-Assisted Companion Deployment (`codexes/packs/irl/foundation/SPEC-MMC-003_mcp-assisted-companion-deployment.md`) | Owns §15 entirely. Its §3.2 store-listing gap is this programme's hardest external dependency. |
-| **4-B** | **MoneyPenny cohesion review** (`codexes/packs/agentiq/updates/2026-07-24_moneypenny-cohesion-review.md`) + **PRD-MPY-001** | §8's Financial Services and MoneyPenny guides consume its conclusions. |
+| **4-B** | **MoneyPenny cohesion review** (`codexes/packs/agentiq/updates/2026-07-24_moneypenny-cohesion-review.md`) + **PRD-MPY-001** | §8's Financial Services and MoneyPenny guides consume its conclusions. **Checkpoint, not a redesign (operator, 2026-07-25):** this SPEC consumes the review's conclusions when authoring those two guide scripts. It does not restructure the Financial Services surface, alter the Domain 1/2 shadow posture, or reopen PRD-MPY-001. Any FS surface change is that programme's work, not this one's. |
 | — | **SPEC-CDR-001** — Constitutional Domain **& Context** Resolution (`codexes/packs/irl/foundation/SPEC-CDR-001_constitutional-domain-resolution.md`; DRAFT — direction ratified 2026-07-25, §10 decisions still open) | Owns the §5 gap. Its Context Resolution layer (§12–§14, added by the operator's 2026-07-25 refinement) is the mechanism that answers "what should *this citizen* see here" — the exact question a Companion-hosted onboarding needs answered on every page. **D-11 records this as a dependency, not a thing to solve here.** |
 
 ---
@@ -555,7 +685,7 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-9** | Make Companion install + pairing server-observable — persist surface provenance (SPEC-MMC-003 §3.6's held migration) or add an explicit pairing record | Adopt the smaller: persist the already-stamped `x-companion-surface`. Exact SQL to the operator inline at charter time | **Open — BLOCKING for §13** |
 | **D-10** | Make aigentMe engagement observed rather than derived (§0.8), or accept "derived" and label it everywhere it surfaces | Accept `derived` for Phase 1 and label it; upgrade only if §13 needs a hard signal | **Open** |
 | **D-11** | Confirm SPEC-CDR-001 owns the §5 gap — both its Domain Resolution layer (what kind of thing is this page) and its Context Resolution layer (what should *this citizen* see here) — and that this SPEC builds neither a second classifier nor a second context composer | Adopt. Also adopt SPEC-CDR-001 §6.2's abstention rule verbatim: abstention is preferable to fabricated context | **Open** |
-| **D-12** | The guide mechanism's shape: one guide runtime + N declarative definitions, vs. bespoke components per capability | Adopt one runtime + N definitions (`inv.engineering.037`) | **Open — BLOCKING for §8** |
+| **D-12** | **(REWRITTEN 2026-07-25.)** Determine whether the **existing metaMe Runtime Shell guided-tour mechanism can serve as the shared Guided Experience Framework** — adopted, extracted, or adapted — rather than selecting or implementing a new one. The audit is §0.3a; the contract it must satisfy is §9's seven-point framework contract | Adopt reuse-before-replacement (D-22). The implementation satisfies the anchor contract, controlled advancement, and staging discipline today; it lacks declarative definitions, a step-lifecycle seam, and externalised copy. Recommend **extract and extend**, not replace — and require any replacement proposal to name the specific requirement the existing implementation cannot meet | **Open — BLOCKING for §8** |
 | **D-13** | Caption/transcript tier: build the `useTTSPlayer` caption seam, or ship voice-primary without captions | **Build it.** A voice-primary guide with no caption tier is inaccessible; it is a build item, not an assumption | **Open** |
 | **D-14** | Operator approves the Companion Guide script against the Companion capability set current on its build date (§10) | Adopt as a standing requirement for every guide, not only the first | **Open** |
 | **D-15** | Completion percentage: define it over evaluable criteria only, or defer it until D-7/D-9 land | Defer. A percentage that silently excludes unobservable criteria is a fabricated number | **Open** |
@@ -564,6 +694,9 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-18** | Confirm Build and Safeguard are Action Modes, not journeys — and that "aigentMe-led" means observer-layer reflection, not a ladder (§14.2) | Adopt (§14.2's reading is read from shipped code) | **Open** |
 | **D-19** | May a delegated agent select a journey on the principal's behalf, or is selection human-only? | **Requires an operator ruling.** If agent-permitted, it composes `requireAuthorizedAgreement` — never a new gate | **Open — BLOCKING for §14** |
 | **D-20** | Charter the journey-selection store, write path, `select_journey` tool, migration, and resolver extension (§14.3, five items) | Adopt as a **separate charter**, not a phase of this SPEC. Nothing in §14 is implementable before it lands | **Open — BLOCKING for §14** |
+| **D-21** | Adopt the **Constitutional Activation (objective) / Guided Configuration (experiential)** split, with **Threshold Crossed** as the terminal state of both (§1.1, §13) | Adopt. It resolves D-8 without weakening either layer, and keeps "declined" distinguishable from "completed" | **Open — BLOCKING for §13** |
+| **D-22** | Adopt **reuse before replacement**: the shipped metaMe Runtime Shell tour is the **reference implementation**; it SHALL be audited (§0.3a) before any new tour framework is selected, and any replacement proposal must name the requirement it cannot meet | Adopt (`inv.engineering.037`). The original §0.3 absence claim is withdrawn | **Open — BLOCKING for §8, §9** |
+| **D-23** | Whether the Guided Experience Framework is **extracted into the main tree**, **kept in the thin client and consumed**, or **re-expressed as a shared package** — the two trees are separate repositories (§0.3a Q1) | **Requires an operator/architecture decision. Do not guess.** Each option has a different ownership and drift profile; a hand-copied second implementation is the one answer the parity discipline forbids | **Open — BLOCKING for §8** |
 
 ### 20.1 Explicitly NOT authorised by ratifying this SPEC
 
@@ -574,6 +707,9 @@ Every decision below must be resolved before implementation. **No code changes u
 - The specialist programmes themselves (§19).
 - A second onboarding-state resolver, a second progressive-activation function, a second MCP server, or a second domain classifier (§2, §11, §15, §5).
 - Reporting "Threshold Crossed" while D-7/D-8/D-9/D-10 remain open (§13).
+- Selecting, adding, or implementing a new guided-tour framework before the reference implementation has been audited and dispositioned (D-12, D-22, D-23).
+- Hand-copying the thin client's tour into the main tree as a second implementation — `inv.engineering.036`/`037` forbids exactly this (D-23).
+- Receipting or anchoring Guided Configuration progress (§13.2).
 
 ---
 
@@ -587,8 +723,9 @@ Recorded so the first build slice is deliberately narrow. **Not authorised until
 | **P1** | **Observer surface.** Extend `services/onboarding/substrateState.ts` with stage/prerequisite/rationale fields (same `SubstrateResolution` dial), and give the route its first real consumer. No new resolver. **No completion percentage.** | D-15, D-16 |
 | **P2** | **Companion install + pairing observability.** Persist the already-stamped `x-companion-surface` (migration, exact SQL inline to the operator). Makes §13 criteria 4–5 evaluable. | D-9 |
 | **P3** | **Threshold definition.** Define "initial configuration complete"; reconcile the delegation criterion; compute and expose Threshold Crossing state. Receipt only if D-17 says so. | D-7, D-8, D-10, D-17 |
-| **P4** | **Guide runtime.** One runtime + declarative definitions: highlight, navigate (`buildCodexUrl`), narrate (`useTTSPlayer` → `/api/skills/tts`), captions, pause-for-interaction, confirm-completion. | D-4, D-12, D-13 |
-| **P5** | **The Companion Guide** — the first definition on P4's runtime, script approved against the capability set current on its build date. | D-14, and P4 |
+| **P4a** | **Reference-implementation audit and disposition.** Read the shipped metaMe Runtime Shell tour against §9's seven-point contract; decide extract / consume / re-express (D-23). **No new framework selected before this completes.** | D-12, D-22, D-23 |
+| **P4b** | **Guide runtime.** One runtime + declarative definitions, built by extending the disposition P4a chose: highlight, stage-the-surface, navigate (`buildCodexUrl`), narrate (`useTTSPlayer` → `/api/skills/tts`), captions, step-lifecycle seam, pause-for-interaction, confirm-completion. | D-4, D-13, and P4a |
+| **P5** | **The Companion Guide** — the first definition on P4b's runtime, script approved against the capability set current on its build date. | D-14, and P4 |
 | **P6** | **Stage B in the Companion.** Host §6's modules on the surface D-5 selects. | D-5, D-6, and P2 |
 | **P7** | **Entry paths B and C** hardened to the §3 convergence contract. | D-2, D-3 |
 | **P8** | **Journey selection** — the separate charter of §14.3 (store, write path, `select_journey` tool, migration, resolver extension). | D-19, D-20 |
@@ -611,13 +748,17 @@ No new resolver, no new percentage, no new authority mechanism, no new table.
 
 ## 22. Ratification record
 
+- [x] **AMENDED 2026-07-25** — five operator refinements applied: (1) §0.3's "no guided-tour mechanism exists" claim **withdrawn**, replaced with the reference-implementation framing plus a source audit (§0.3a/§0.3b); (2) capabilities labelled **Existing / Composable / New** in §9; (3) the framework specified by **behavioural contract, not library name** (§9); (4) the **Constitutional Activation / Guided Configuration** split adopted, with **Threshold Crossed** as the terminal state of both (§1.1, §13) — which also resolves D-8; (5) MoneyPenny retained as a **checkpoint, not a redesign** — no FS surface restructuring enters this SPEC. Three decisions added: D-21, D-22, D-23.
 - [ ] **PROPOSED 2026-07-25** — operator's Threshold Crossing Programme specification (seventeen sections plus two in-line amendments), reconciled by Claude Code against SPEC-COS-001, PRD-THR-001, SPEC-MMC-003, SPEC-HMC-001, CFS-043/043a, CFS-050, CFS-051, SPEC-CDR-001, and the shipped platform.
-- [ ] Operator resolves the §20 decision register (D-1 … D-20). Six are marked BLOCKING and gate §4, §6, §8–§10, §13, and §14.
-- [ ] Operator rules on **D-8** — whether Delegation is a hard Threshold criterion or remains optional-but-required-when-an-agent-is-bound. This is the one decision that changes whether a direct human arrival can cross at all.
+- [ ] Operator resolves the §20 decision register (D-1 … D-23). Nine are marked BLOCKING and gate §4, §6, §8–§10, §13, and §14.
+- [ ] Operator confirms **D-21** (the §1.1 layer split), which carries the recommended **D-8** resolution: Delegation is a Constitutional Activation criterion, required-when-an-agent-is-bound rather than universally, so a direct human arrival can still cross.
+- [ ] Operator rules on **D-23** — extract the guide framework into the main tree, consume it from the thin client, or re-express it as a shared package. The two trees are separate repositories and a hand-copied duplicate is not an option.
 - [ ] Operator charters the **journey-selection store** (§14.3 / D-20) as separate work. §14 is not implementable before it.
 - [ ] Operator confirms **§17's architectural observation** — the Companion as the constitutional home of the citizen, and the Homecoming reframing — as binding architecture rather than description.
 - [ ] Operator confirms the **§16 success criteria** enter CFS-051 as `proposed` (empirical) except criterion 5 (governance rule), per the hypothesis-vs-canon discipline.
 
 ---
+
+*Amended docs-only, 2026-07-25 (see §22). The guided-tour findings in §0.3/§0.3a/§0.3b were read from metaMe Runtime Shell source supplied by the operator: `src/components/tour/{WelcomeModal,VisitorTour,TourHelpButton}.tsx`, `src/hooks/use-tour-state.ts`, `src/pages/Index.tsx`. That tree was not searched directly — the claims above describe those five files and nothing beyond them.*
 
 *Authored docs-only, 2026-07-25. Builds nothing. Every existence claim above was verified against source in the main tree: `services/onboarding/substrateState.ts`, `app/api/onboarding/substrate-state/route.ts`, `tests/onboarding-substrate.test.ts`, `services/constitutional/guidedOnboarding.ts`, `services/constitutional/constitutionalAgreement.ts`, `services/threshold/{gateway,journeyRegistry,serviceRegistry,welcome}.ts`, `app/api/threshold/mcp/route.ts`, `services/iqube/{experienceQube,actionModes}.ts`, `types/experienceGuide.ts`, `types/companion.ts`, `services/companion/{overlayMapping,runtime}.ts`, `services/passport/{participationAccess,participationSelfView}.ts`, `extension/companion-observer/*`, `app/(embed)/triad/embed/companion/page.tsx`, `app/api/skills/{tts,stt}/route.ts`, `services/audio/ttsSynthesis.ts`, `app/hooks/useTTSPlayer.ts`, `components/shared/ListenButton.tsx`, `components/ui/MicButton.tsx`, `app/triad/components/codex/AccessionProgressBar.tsx`, `app/invite/[code]/page.tsx`, `supabase/migrations/{20260402000000_experience_model_journey_state,20260815000000_companion_observer_grants}.sql`, and the root plus thirteen workspace `package.json` files. Where something does not exist, this document says so rather than describing it.*
