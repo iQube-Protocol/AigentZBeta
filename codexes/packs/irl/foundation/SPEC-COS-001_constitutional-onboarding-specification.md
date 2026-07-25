@@ -1,12 +1,12 @@
 # SPEC-COS-001 — Constitutional Onboarding Specification
 
-**metaMe IRL / iQube Protocol / AgentiQ · Platform-architecture specification · Status: DESIGN (docs-only, ratify-before-build)**
+**metaMe IRL / iQube Protocol / AgentiQ · Platform-architecture specification · Status: RATIFIED (operator-directed, 2026-07-25) — Phase 1 shipped (§12: substrate-state resolver + progressive surface activation seam)**
 **Title:** *The Constitutional Onboarding Specification — the one substrate every arrival crosses, before any specialist journey begins*
 **Composes:** **PRD-THR-001** (`metame-threshold.md`) — the concrete implementation of this substrate's top four layers for a *third-party-agent-mediated* arrival; **CFS-043** / **CFS-043a** (agent-guided passport & delegation onboarding — the Principal–Delegate Separation safeguard); **CFS-050** (Sovereignty Navigation — the progressive-agency ladder this spec's "progressive surface activation" section extends into the onboarding context); **SPEC-VLM-001** (Venture Lab & MoneyPenny Reorganisation — Founder Office as the reference-implementation landing surface); **PRD-MMC-001** (metaMe Companion — the Edge Companion's actual shipped capability set); the Identity & Access Spine (`services/identity/getActivePersona.ts`, `utils/personaSpine.tsx`); `services/constitutional/guidedOnboarding.ts` and `services/constitutional/constitutionalAgreement.ts` (the executable primitives every layer below composes, never forks).
 **Owner:** operator (intent, substrate shape) + Aigent Z workstream (reconciliation against the shipped platform and against PRD-THR-001).
 **Origin:** operator's own canonical substrate diagram (Strand 3 of a 4-strand operator programme, 2026-07-24), reconciled by Claude Code against PRD-THR-001 (already committed to this repo by a concurrent session in the same window) and every other piece of shipped onboarding infrastructure named above.
 
-> **Governance note (binding, this SPEC):** Docs-first, ratify-before-build — the same regime as SPEC-MMC-002 and SPEC-VLM-001. A specification cannot ratify itself; nothing in this document authorises a code change. Every mechanism named below is either (a) an **already-shipped primitive** cited by file path, (b) a **specification already filed and reconciled** (PRD-THR-001, CFS-043/043a, CFS-050, SPEC-VLM-001, PRD-MMC-001), or (c) a **new architectural framing** over those primitives — never a proposal to fork, duplicate, or weaken any of them. This document is the operator's substrate diagram, made precise and reconciled against what already exists — it is not a new build authorisation.
+> **Governance note (binding, this SPEC):** Docs-first, ratify-before-build — the same regime as SPEC-MMC-002 and SPEC-VLM-001. A specification cannot ratify itself; nothing in this document authorised a code change **until the operator ratified it on 2026-07-25** (§Ratification record). That ratification authorises *design and build to proceed* on the Phase 1 scope recorded in §12. It does **NOT** waive: (a) the Principal–Delegate Separation safeguard (CFS-043 §2) — no build under this SPEC may introduce an agent-authorize path, and the Phase 1 canary asserts none exists; (b) the Identity & Access Spine's T0/T1/T2 exposure tiers — every surface built under this SPEC resolves identity through `getActivePersona` and serialises no T0 identifier; (c) PRD-THR-001's own §13 phase gating, CFS-043 §7, or PRD-MMC-001's Phase-2 guardrails — each remains separately gated on its own terms; (d) the "Extend, Don't Duplicate" / CS-001 discipline — Phase 1 composes the shipped Threshold and CFS-043 primitives and forks none of them. Every mechanism named below is either (a) an **already-shipped primitive** cited by file path, (b) a **specification already filed and reconciled** (PRD-THR-001, CFS-043/043a, CFS-050, SPEC-VLM-001, PRD-MMC-001), or (c) a **new architectural framing** over those primitives — never a proposal to fork, duplicate, or weaken any of them. This document is the operator's substrate diagram, made precise and reconciled against what already exists — it is not a new build authorisation.
 
 ---
 
@@ -264,6 +264,8 @@ never re-implements.
 
 ## 11. Out of scope
 
+**Scope note (2026-07-25):** this section states the scope of the *specification pass*. It was accurate while the SPEC was in DESIGN. The operator's 2026-07-25 ratification authorised the Phase 1 build recorded in §12 — which is deliberately the *smallest honest slice* of what §1–§10 describe, and which adds no table, no data model, and no new authority mechanism. Everything §11 lists below remains out of scope for any *further* build under this SPEC without its own charter.
+
 - No code changes. No new API routes, tables, or resolvers.
 - No re-specification of PRD-THR-001's Handshake mechanics, MCP tool catalogue, or Threshold Link schema — cite that document.
 - No re-specification of CFS-043/CFS-043a's Principal–Delegate Separation mechanics — cite those documents.
@@ -273,10 +275,54 @@ never re-implements.
 
 ---
 
+## 12. Phase 1 — what shipped (2026-07-25)
+
+Phase 1 is the **substrate-state resolver + the progressive surface activation seam**, and nothing more. It answers two questions and mutates nothing: *where on the substrate does this caller currently stand?* and *given that, which surfaces may be active?* Everything else in §1–§10 remains description, not build.
+
+### 12.1 Built (genuinely new)
+
+| File | What it is |
+|---|---|
+| `services/onboarding/substrateState.ts` | The resolver. `resolveSubstrateLayers` (PURE) resolves the seven §1 layers to `crossed` / `available` / `blocked` / `not-applicable`, each carrying **how** it was resolved (`observed` / `declared` / `derived` / `not-resolvable-today`) and the evidence behind it. `activeSurfaces` (PURE, no I/O) is §4's doctrine as one testable function over the `SUBSTRATE_SURFACES` table. `nextAction` (PURE) returns the single next action. `getSubstrateState` is the thin I/O shell that composes the readers below. |
+| `app/api/onboarding/substrate-state/route.ts` | `GET` only. Spine-gated (`getActivePersona`), `personaFetch`-compatible, T1-safe. No `POST`. |
+| `tests/onboarding-substrate.test.ts` | The canary — 22 assertions, peer of `tests/threshold-gateway.test.ts`. |
+| `services/passport/participationSelfView.ts` | The **extracted** body of `GET /api/participation/my-access` (see §12.3) — a refactor, not a new capability. |
+
+### 12.2 Composed (NOT rebuilt) — the proof this is not a parallel implementation
+
+| Substrate concern | Composed from | Not done here |
+|---|---|---|
+| Who is the caller | `getActivePersona` (spine) | No parallel resolver. The route resolves the caller **once** and passes it down, so no two reads can disagree about who asked (the 2026-07-20 `AccessionProgressBar` incident class). |
+| Passport / access / delegation | `resolveParticipationSelfView` — the same implementation `/api/participation/my-access` serves | No `polity_passport_records`, `access_grants`, or delegation query appears in the resolver; the canary asserts their absence. |
+| Journeys + the apex ladder | `services/threshold/journeyRegistry.ts` (PRD-THR-001 §9.1, pure data) | No journey list, ladder, or Founder-Office apex is restated. `ARCHETYPE_JOURNEY` is a projection, canary-checked against the live registry. |
+| Constitutional-root capability vocabulary | `services/threshold/serviceRegistry.ts` | No capability strings are invented. |
+| Passport surfaces (deep links) | `passportDeepLinks()` (CFS-043a, `guidedOnboarding.ts`) | No URL is constructed or guessed; layers with no verified deep link return `null` rather than a plausible-looking path. |
+| Experience state / archetype | `getExperienceQube` (T1 `meta` slice only) | The BlakQube `blak` slice is never read. |
+| Delegation authority | *nothing* — deliberately | The resolver imports neither `constitutionalAgreement` nor `delegationGrantStore`. **No code path can advance a layer.** Advancing Delegation remains `authorizeAgreement`, human-only (CFS-043 §2). Canary-asserted, both as an import ban and an invocation ban. |
+
+### 12.3 One refactor, one reason
+
+`GET /api/participation/my-access` held the only correct person-level observation of passport + access + delegation (the DidQube observation levels ratified 2026-07-20). A second consumer needed it. Copying it would have been the CS-001 defect this SPEC's §1 invariant exists to forbid — so the body was **moved** into `services/passport/participationSelfView.ts` and the route now calls it. The route's response shape is byte-identical; the observation now has exactly one authoritative location.
+
+### 12.4 Honest gaps — what is NOT resolvable today
+
+Per CLAUDE.md's "No Guessing or Hallucinating", two layers have no platform state to resolve against, and the resolver says so on the wire rather than inventing a signal:
+
+- **Journey (layer 7) — `not-resolvable-today`.** `journey.select` exists as a constitutional-root capability, but **no store persists a selected journey for a persona.** The layer therefore never reads as `crossed`, and the downstream `specialist-journey` surface consequently **never activates** (canary-asserted over the full observation cross-product). A journey *recommendation* is derivable from the ExperienceQube archetype; a *selection* is not. Closing this needs a journey-selection store — separately chartered, not assumed here.
+- **Agent Me (layer 5) — `derived`, and labelled so.** aigentMe reachability is derived from Passport issuance (§2.2: aigentMe is the operating home of the Constitutional Persona the Passport establishes). Actual *engagement* with the four Capsules is persisted nowhere today.
+- **Companion (layer 1) — `declared`, never observed.** The arrival channel is what the caller says it is; metaMe holds no state about an external agent. A direct arrival marks this layer `not-applicable` — **absent, not replaced** (§2.3).
+
+### 12.5 Deliberately NOT in Phase 1
+
+No UI or tab (the substrate state is a service + route this pass); no MCP gateway work (Threshold owns that); no specialist-journey implementation; no journey-selection store; **no database migration** — Phase 1 adds no table, column, or constraint.
+
+---
+
 ## Ratification record
 
-- [ ] PROPOSED 2026-07-24 — operator's canonical substrate diagram (§1), reconciled against PRD-THR-001, CFS-043/043a, CFS-050, SPEC-VLM-001, and PRD-MMC-001.
-- [ ] Operator ratifies the **One Onboarding Substrate** invariant (§9).
-- [ ] Operator confirms the reconciliation table (§2.1) and the direct-arrival path (§2.3) as the intended single picture.
-- [ ] Operator confirms Studio's downstream-destination boundary (§3) as binding architecture, not merely descriptive.
-- [ ] No build authorized by this document; any implementation proceeds only under a separately chartered, ratified pass, per the same discipline PRD-THR-001 §13 and CFS-043 §7 already apply to their own build items.
+- [x] PROPOSED 2026-07-24 — operator's canonical substrate diagram (§1), reconciled against PRD-THR-001, CFS-043/043a, CFS-050, SPEC-VLM-001, and PRD-MMC-001.
+- [x] **RATIFIED 2026-07-25 (operator-directed).** The operator ratified this SPEC and authorised Phase 1 (§12) to be built. As with SPEC-MMC-002 §7, this authorises *design and build to proceed on the recorded scope*; it does **not** waive the Principal–Delegate Separation safeguard (CFS-043 §2), the Identity & Access Spine's T0/T1/T2 exposure tiers, the phase gating PRD-THR-001 §13 / CFS-043 §7 / PRD-MMC-001 apply to their own build items, or the "Extend, Don't Duplicate" / CS-001 discipline. Each of those was satisfied by composition, not exemption (§12.2), and is canary-enforced (`tests/onboarding-substrate.test.ts`).
+- [x] Operator ratifies the **One Onboarding Substrate** invariant (§9) — a governance/architecture principle asserting how the platform's onboarding surfaces must relate to each other, not an empirical claim, so `canonical` is the correct status per the hypothesis-vs-canon discipline.
+- [x] Operator confirms the reconciliation table (§2.1) and the direct-arrival path (§2.3) as the intended single picture. Phase 1 implements exactly this: one resolver serving both arrival channels, forking only at the topmost rung.
+- [x] Operator confirms Studio's downstream-destination boundary (§3) as binding architecture, not merely descriptive. Phase 1 encodes it structurally: no Studio-class surface can appear in `activeSurfaces` before its gate layer is crossed.
+- [x] Phase 1 (§12) shipped 2026-07-25 — substrate-state resolver, progressive-activation function, spine-gated read-only route, 22-assertion canary. No new table, no new authority mechanism, no agent-authorize path. Everything beyond §12's recorded scope still requires its own charter, per the same discipline PRD-THR-001 §13 and CFS-043 §7 apply to their own build items.
