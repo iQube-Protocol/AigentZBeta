@@ -26,10 +26,72 @@ console.log('[metaMe Observer] content script injected on', location.href);
 // running) but noisy in every page console on browser startup.
 window.__metameObserverLoaded = true;
 
-/** Wraps `chrome.runtime.sendMessage` in a Promise for async/await use. */
+/**
+ * How long to wait for the background service worker before giving up on a
+ * single message. MV3 tears the worker down after ~30s idle and restarts it
+ * on demand; a normal round-trip (including a cold start) is well under this.
+ */
+const MESSAGE_TIMEOUT_MS = 4000;
+
+/**
+ * Wraps `chrome.runtime.sendMessage` in a Promise for async/await use.
+ *
+ * ALWAYS SETTLES. Never rejects, never hangs. Resolves `null` on any failure
+ * so callers treat "no answer" exactly like "no data", which every caller
+ * here already handles (checkGrant coerces with Boolean, the REFRESH_GRANTS
+ * call ignores its result, observeAndSend checks `result && result.ok`).
+ *
+ * THE BUG THIS FIXES (operator, 2026-07-25: "it works until about four or
+ * five tab changes and then it just gets stuck... refresh isn't doing
+ * anything at all"). The previous version had no timeout, no
+ * `chrome.runtime.lastError` check, and no try/catch:
+ *
+ *   - MV3 kills the background worker after ~30s idle. If it died mid-call,
+ *     the callback never fired and the promise NEVER SETTLED.
+ *   - After an extension reload, content scripts left in open tabs have an
+ *     INVALIDATED extension context; `chrome.runtime.sendMessage` then throws
+ *     synchronously ("Extension context invalidated"), which rejected the
+ *     promise with nothing to catch it.
+ *
+ * Either way `observeAndSend` awaited forever, and because every subsequent
+ * observation runs through the same awaits, that tab's observer was dead for
+ * good — no reload of the panel, no Refresh, and no tab switch could revive
+ * it. That is exactly the "works a few times then permanently stuck"
+ * signature, and why Refresh appeared to do nothing at all rather than
+ * showing stale data.
+ */
 function sendMessage(message) {
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage(message, (response) => resolve(response));
+    let settled = false;
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+
+    // Hard ceiling: a worker that never answers must not wedge this tab.
+    const timer = setTimeout(() => {
+      console.warn('[metaMe Observer] background did not respond in time — continuing without it');
+      settle(null);
+    }, MESSAGE_TIMEOUT_MS);
+
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        // Reading lastError is REQUIRED — leaving it unread also logs an
+        // "Unchecked runtime.lastError" console error on every failed call.
+        if (chrome.runtime.lastError) {
+          console.warn('[metaMe Observer] message failed:', chrome.runtime.lastError.message);
+          settle(null);
+          return;
+        }
+        settle(response ?? null);
+      });
+    } catch (err) {
+      // Invalidated extension context (post-reload orphan) throws here.
+      console.warn('[metaMe Observer] extension context unavailable:', err?.message ?? err);
+      settle(null);
+    }
   });
 }
 
@@ -151,12 +213,29 @@ async function observeAndSend() {
   if (result && result.ok) lastSentSignature = signature;
 }
 
+/**
+ * Runs `observeAndSend` without ever letting a rejection escape.
+ *
+ * Every call site here is fire-and-forget, so an unhandled rejection would
+ * be invisible AND would leave the observer looking dead with no clue why.
+ * `sendMessage` no longer rejects, but the DOM reads inside `buildObservation`
+ * (`document.body.innerText`, `window.getSelection`) can still throw on an
+ * unusual page — and one such page must not silently end observation.
+ */
+function safeObserve() {
+  return Promise.resolve()
+    .then(() => observeAndSend())
+    .catch((err) => {
+      console.warn('[metaMe Observer] observation failed (continuing):', err?.message ?? err);
+    });
+}
+
 /** Debounced entry point for every event-driven re-observation. */
 function scheduleObserve() {
   if (observeTimer) clearTimeout(observeTimer);
   observeTimer = setTimeout(() => {
     observeTimer = null;
-    void observeAndSend();
+    void safeObserve();
   }, OBSERVE_DEBOUNCE_MS);
 }
 
@@ -190,13 +269,17 @@ async function main() {
   // Page-load observation still happens normally for the foreground tab
   // (a tab you navigate is visible by definition), so nothing regresses.
   if (document.visibilityState === 'visible') {
-    await observeAndSend();
+    await safeObserve();
   } else {
     console.log('[metaMe Observer] tab is hidden at injection — not claiming to be the current tab');
   }
 }
 
-main();
+// Never let a failure in the initial pass kill the listeners registered
+// below it — they are what recover the tab on the next visibility change.
+void Promise.resolve()
+  .then(main)
+  .catch((err) => console.warn('[metaMe Observer] initial pass failed (listeners still active):', err?.message ?? err));
 
 // Re-observe whenever this tab regains focus/visibility, not just once at
 // page load. Without this, granting a capability (e.g. "Current tab") while
@@ -222,7 +305,7 @@ document.addEventListener('visibilitychange', () => {
 // guard and every live grant check apply identically — this message cannot
 // make a hidden tab observe, and grants nothing a page load wouldn't.
 chrome.runtime.onMessage.addListener((message) => {
-  if (message?.type === 'RE_OBSERVE') void observeAndSend();
+  if (message?.type === 'RE_OBSERVE') void safeObserve();
   // No response needed; returning false keeps the channel synchronous.
   return false;
 });

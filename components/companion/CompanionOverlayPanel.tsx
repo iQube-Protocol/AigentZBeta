@@ -402,18 +402,34 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
   // clicking Refresh manually (same class of gap as the Workspace Inbox,
   // 2026-07-24). Poll silently while mounted instead.
   useEffect(() => {
+    // Guards against overlapping cycles: setInterval fires on schedule
+    // regardless of whether the previous cycle finished, so a slow round-trip
+    // would otherwise stack requests indefinitely and look like a hang.
+    let inFlight = false;
+    let cancelled = false;
+
     const interval = setInterval(() => {
+      if (inFlight) return;
+      inFlight = true;
       // Re-observe first, same as Refresh. Polling that only re-READ could
       // never notice you'd moved to a different page while the panel stayed
       // open — the stored observation simply doesn't change on its own. The
       // content script's identical-payload suppression means a poll on an
       // unchanged page costs no write, so this stays cheap.
       void (async () => {
-        await requestFreshObservation();
-        await load({ silent: true });
+        try {
+          await requestFreshObservation();
+          if (!cancelled) await load({ silent: true });
+        } finally {
+          inFlight = false;
+        }
       })();
     }, 5000);
-    return () => clearInterval(interval);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [requestFreshObservation, load]);
 
   return (

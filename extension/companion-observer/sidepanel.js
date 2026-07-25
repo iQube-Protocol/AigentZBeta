@@ -54,13 +54,28 @@ window.addEventListener('message', (event) => {
   if (event.origin !== COMPANION_APP_ORIGIN) return;
   if (event.data?.type !== REOBSERVE_REQUEST) return;
 
-  chrome.runtime.sendMessage({ type: 'REQUEST_ACTIVE_TAB_REOBSERVE' }, (result) => {
-    // Always answer, even on failure — the panel waits on this and must not
-    // hang when there is no observable active tab (e.g. a chrome:// page).
-    const ok = Boolean(result?.ok) && !chrome.runtime.lastError;
-    companionFrame.contentWindow?.postMessage(
-      { type: REOBSERVE_DONE, ok },
-      COMPANION_APP_ORIGIN,
-    );
-  });
+  // ALWAYS answers exactly once. The panel awaits this reply, so a silent
+  // drop would leave it waiting on its own timeout every cycle. Same MV3
+  // hazard as content.js's sendMessage: the background worker can be torn
+  // down mid-call and the callback then never fires at all.
+  let answered = false;
+  const answer = (ok) => {
+    if (answered) return;
+    answered = true;
+    clearTimeout(timer);
+    companionFrame.contentWindow?.postMessage({ type: REOBSERVE_DONE, ok }, COMPANION_APP_ORIGIN);
+  };
+  const timer = setTimeout(() => answer(false), 3000);
+
+  try {
+    chrome.runtime.sendMessage({ type: 'REQUEST_ACTIVE_TAB_REOBSERVE' }, (result) => {
+      // Reading lastError is required; it also suppresses the "Unchecked
+      // runtime.lastError" console noise on every failed call.
+      const failed = Boolean(chrome.runtime.lastError);
+      answer(!failed && Boolean(result?.ok));
+    });
+  } catch (err) {
+    console.warn('[metaMe Companion] re-observe relay failed:', err?.message ?? err);
+    answer(false);
+  }
 });
