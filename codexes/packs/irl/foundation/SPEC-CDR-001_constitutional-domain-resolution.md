@@ -421,6 +421,84 @@ This makes profile generation a **projection of existing machinery** rather than
 
 ---
 
+## 13a. Authorization — the third stage (operator, 2026-07-25)
+
+### 13a.1 Elevating D-20 from a constraint to a stage
+
+D-20 forbade the resolver from authorising. The operator's response identifies why that constraint kept feeling load-bearing: **authorization is not a rule about Context Resolution, it is a stage of its own.** It belongs to neither Context Resolution nor the Overlay.
+
+Three independent questions, three stages:
+
+| Stage | Question | Owner |
+|---|---|---|
+| **Domain Resolution** | *What is this?* | This SPEC (§§2–6) |
+| **Context Resolution** | *Given this subject and this citizen, what experience should be composed?* | This SPEC (§12) |
+| **Authorization** | *What actions may constitutionally occur?* | **The Identity & Access Spine — NOT this SPEC** |
+
+### 13a.2 This SPEC does not own Authorization, and must not
+
+Authorization already exists, is already canonical, and is explicitly protected: `evaluateAccess` (`services/access/evaluateAccess.ts`), `requireAuthorizedAgreement` (`services/constitutional/constitutionalAgreement.ts`), and the spine's own resolution path. CLAUDE.md lists several of these among the files that **must not be modified without operator approval**, and states the rule this stage exists to honour: *"Do not build parallel resolvers, parallel gates, or parallel decision logic."*
+
+**This SPEC's entire contribution to the Authorization stage is to name it and stay out of it.** Naming it matters because an unnamed stage is one that gets absorbed by a neighbour — which is precisely how a composition layer quietly becomes an access-control layer.
+
+### 13a.3 Composition never grants authority (proposed, binding — supersedes and subsumes D-20)
+
+> **Composition never grants authority. Presentation never grants authority. Only the Identity & Access Spine grants authority, evaluated at the point of action.**
+
+Corollaries:
+
+1. A capability module appearing in a composed context is **not** a statement that its actions are permitted.
+2. A module absent from a composed context is **not** an authorisation denial — it is a presentation decision, and the spine must still deny independently if the action is attempted by another route.
+3. Hiding is a UX decision; permitting is a constitutional one. They may disagree without either being wrong.
+
+### 13a.4 Authorization is evaluated at the point of action, never cached from composition (proposed, D-22)
+
+A subtle hazard the three-stage split exposes: if authorization were evaluated *during* Context Resolution and carried forward in the Resolved Context, the result would be a time-of-check/time-of-use gap. A delegation can be revoked, a plan tier can lapse, an agreement can expire, and Standing can change between the moment a context is composed and the moment the citizen clicks. A context that carried "permitted: true" would be asserting a fact that had since become false.
+
+**Therefore: a Resolved Context MUST NOT carry authorization verdicts.** It may carry what to *show*; the spine decides what may *happen*, at the moment it is asked. This also composes correctly with §12.2's rule that Resolved Contexts are ephemeral and never cached across citizens — a cached authorization verdict would be strictly worse than a cached context.
+
+---
+
+## 13b. Two constitutional invariants this architecture exposes (operator, 2026-07-25)
+
+The operator observed that the Domain/Context split "accidentally exposes two very clean invariants." Both are proposed here as **candidate structural invariants**, and — per CFS-051 — the correct home for them is the `research_candidate_invariants` register at status `candidate`, not inline canonization in this document. This SPEC proposes; it does not canonize.
+
+### CDR-INV-1 — Domain Profile universality
+
+> **Every citizen observing the same subject receives the same Domain Profile.**
+
+If that does not hold, the object is not a Domain Profile. This is **definitional, not empirical** — it is a structural rule about what the artifact *is*, in the same class as CLAUDE.md's engineering invariants, not a hypothesis about the world requiring experimental support. Ratifying it would place it in the canonical class directly.
+
+**It is directly canary-able**, which is what makes it valuable rather than merely elegant: resolve the same subject for N distinct citizens, assert byte-identical profiles. Any persona-derived field introduced by a future change (§12.2's hazard) fails that test immediately and loudly.
+
+### CDR-INV-2 — Context divergence legitimacy
+
+> **Two citizens observing the same subject may legitimately receive different Resolved Contexts.**
+
+Because Context depends on Passport, Standing, delegation, plan tier, permissions and active work — all of which are constitutional state.
+
+**Note the asymmetry, which matters for implementation:** CDR-INV-1 is a *constraint* (must hold; testable by canary). CDR-INV-2 is a *permission* (may hold; not testable the same way). Its function is protective — it prevents a future reviewer from treating context divergence as a bug and "fixing" it by enforcing uniformity, which would collapse Context Resolution back into Domain Resolution and undo the separation §12.2 exists to enforce. An invariant that licenses variation is unusual, and worth stating precisely for that reason.
+
+---
+
+## 13c. Named future direction — Activity Context (NOT adopted)
+
+The operator: *"What sits between Context and execution? … Activity Context."* The observation is that these four facts together produce a materially different experience than the subject alone:
+
+> I'm in Founder Office · I'm looking at Coinbase · I'm researching Treasury · I'm acting through MoneyPenny
+
+Which suggests Context Resolution will eventually compose:
+
+```
+Domain Context  +  Citizen Context  +  Activity Context  =  Resolved Context
+```
+
+explaining why the *same* citizen may legitimately see different constitutional experiences on the *same* subject depending on what they are trying to accomplish — a case CDR-INV-2 permits but does not currently model.
+
+**Recorded as a direction, explicitly NOT adopted (D-23), on the operator's own instruction ("I'd leave this as a future direction rather than adding it now").** §12.3 already lists "current task / intent" as a context input, which is the seed of Activity Context; this SPEC does not elevate it into a named third composition term. Doing so would design against an unratified concept.
+
+---
+
 ## 14. Revised layer summary
 
 ```
@@ -486,6 +564,10 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-19** | Whether "temporal state" is a Context Resolution input | **Unresolved — no temporal-state primitive located. Do not guess** (§12.3) | **Open** |
 | **D-20** | Context Resolution is composition only, never an authorisation boundary (§12.4) | Adopt — a resolver that also permits would be a parallel access gate | **Open** |
 | **D-21** | Human Mobility extension must satisfy HMS T0 identifier-isolation (PSC-001) BEFORE any profile is generated (§13) | Adopt as a precondition, not a follow-on | **Open** |
+| **D-22** | Authorization is a distinct STAGE (§13a), owned by the Identity & Access Spine, never by this SPEC; verdicts evaluated at point of action and never carried in a Resolved Context | Adopt — supersedes and subsumes D-20 | **Open** |
+| **D-23** | Activity Context as a third composition term | **Direction noted, explicitly NOT adopted** (§13c), per operator instruction | **Deferred** |
+| **D-24** | Register CDR-INV-1 (Domain Profile universality) and CDR-INV-2 (Context divergence legitimacy) as candidate structural invariants in CFS-051's register at status `candidate` | Adopt — definitional, so canonical-class if ratified, not hypothesis-class | **Open** |
+| **D-25** | Resolution service framed as constitutional middleware consumed by every Capability Suite (§1.1), with Financial Services as first implementation and Human Mobility as second | Adopt | **Open** |
 
 ### 10.1 Explicitly NOT authorised by ratifying this SPEC
 
@@ -496,7 +578,10 @@ Every decision below must be resolved before implementation. **No code changes u
 - Waiving D1 (CFS-016), the Identity & Access Spine rules, or the DVN-pipeline-protection paramounts
 - Defining, implying, or designing toward a `DomainQube` iQube type (D-17)
 - Extending the architecture to Human Mobility ahead of the HMS identifier-isolation precondition (D-21)
-- Treating Context Resolution as an access gate (D-20)
+- Treating Context Resolution as an access gate (D-20, D-22)
+- Any modification to `evaluateAccess`, `requireAuthorizedAgreement`, or any spine file (§13a.2)
+- Canonizing CDR-INV-1 / CDR-INV-2 inline — they enter CFS-051's register as candidates (D-24)
+- Adopting Activity Context as a composition term (D-23)
 
 ---
 
