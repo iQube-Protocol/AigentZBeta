@@ -252,3 +252,193 @@ export function knowledgeSourceIsNew(source: KnowledgeHomecomingSource): boolean
 export const CONSTITUTIONALIZATION_IDIOMS = ['invariant-extraction', 'meta-blak-split'] as const;
 
 export type ConstitutionalizationIdiom = (typeof CONSTITUTIONALIZATION_IDIOMS)[number];
+
+// ---------------------------------------------------------------------------
+// §8 Agent continuity (SPEC-HMC-001) — the per-migration-event contracts.
+//
+//     SPEC-HMC-001 is the mechanics layer under CFS-023's `agent` + `knowledge`
+//     sovereignties (the same relation SPEC-VLM-001 has to CFS-050). It defines
+//     no new sovereignty, ladder, or invariant class — so its contracts live
+//     HERE, in the CFS-023 contract file, never in a parallel constant set.
+//     Order constants are constitutional data, canary-pinned like §1–§7 above.
+// ---------------------------------------------------------------------------
+
+/**
+ * The six states one continuity event (one delegate, one source host, one
+ * migration) moves through — SPEC-HMC-001 §3. Order is meaning, and it is the
+ * per-event form of HOMECOMING_WORKSTREAMS' programme-level ordering: knowledge
+ * (constitutionalize) before agent (reconstitute presence) before native
+ * operation. Pinned by canary.
+ */
+export const MIGRATION_LIFECYCLE_STAGES = [
+  'origin-observed', // 1 — source host/session identified, its material located
+  'constitutionalized', // 2 — parsed by a host-specific pure parser into the `homecoming` KB domain; principles PROPOSED
+  'principal-ratified', // 3 — the HUMAN decides which proposed invariants become durable (Law XI)
+  'presence-reconstituted', // 4 — Constitutional Presence re-climbed CONTIGUOUSLY on the destination host
+  'delegation-reauthorized', // 5 — the HUMAN re-grants bounded authority (Principal–Delegate Separation)
+  'native', // 6 — operates fully in-platform; the source host is inert history
+] as const;
+
+export type MigrationLifecycleStage = (typeof MIGRATION_LIFECYCLE_STAGES)[number];
+
+/**
+ * What proves each stage, and — load-bearing — whether the stage is a HUMAN act.
+ *
+ * `humanAct: true` marks the two stages SPEC-HMC-001 §3 names as the precise
+ * mechanical difference between "importing chats" and "preserving agency":
+ * stage 3 (the principal ratifies what is preserved, Law XI) and stage 5 (the
+ * principal re-authorizes bounded authority, Principal–Delegate Separation).
+ * Neither can be observed from platform state alone and NEITHER may ever be
+ * performed by an agent on its own behalf. Stage 6 depends on stage 5, so it
+ * inherits the same human dependency.
+ */
+export const MIGRATION_STAGE_SIGNAL: Record<
+  MigrationLifecycleStage,
+  { index: number; proof: string; humanAct: boolean }
+> = {
+  'origin-observed': {
+    index: 0,
+    proof: 'source material for this delegate is located and consented-to (Companion capture or an operator-provided export)',
+    humanAct: false,
+  },
+  constitutionalized: {
+    index: 1,
+    proof: 'source material is ingested into the `homecoming` KB domain and its governing principles are PROPOSED into the invariants substrate',
+    humanAct: false,
+  },
+  'principal-ratified': {
+    index: 2,
+    proof: 'the human principal has ratified which proposed invariants become durable (Law XI — humans define semantics)',
+    humanAct: true,
+  },
+  'presence-reconstituted': {
+    index: 3,
+    proof: 'the delegate has climbed the Constitutional Presence ladder CONTIGUOUSLY on the destination host (assessDelegate)',
+    humanAct: false,
+  },
+  'delegation-reauthorized': {
+    index: 4,
+    proof: 'the human principal has FRESHLY re-authorized bounded authority on the new host — never inherited by assertion',
+    humanAct: true,
+  },
+  native: {
+    index: 5,
+    proof: 'the delegate operates fully in-platform under the re-authorized scope; the source host is an inert historical record',
+    humanAct: true,
+  },
+};
+
+/** The numeric index of a lifecycle stage (0–5), or -1 if unknown. Pure. */
+export function migrationStageIndex(stage: string): number {
+  return (MIGRATION_LIFECYCLE_STAGES as readonly string[]).indexOf(stage);
+}
+
+/**
+ * Resolve the highest CONTIGUOUS lifecycle stage from per-stage satisfaction —
+ * the same contiguity discipline as `resolvePresenceLevel`, for the same reason:
+ * SPEC-HMC-001 §3 states that an event which skips stage 3 or stage 5 "has not
+ * achieved continuity — it has performed an import." A gap stops the climb, so
+ * a later stage can never be credited over a missing earlier one. Returns null
+ * when not even stage 1 holds. Pure, deterministic.
+ */
+export function resolveMigrationStage(
+  satisfied: Partial<Record<MigrationLifecycleStage, boolean>>,
+): MigrationLifecycleStage | null {
+  let reached: MigrationLifecycleStage | null = null;
+  for (const stage of MIGRATION_LIFECYCLE_STAGES) {
+    if (!satisfied[stage]) break; // contiguity: first gap stops the climb
+    reached = stage;
+  }
+  return reached;
+}
+
+/**
+ * The ceiling a READ-ONLY assessment of platform state may ever resolve to.
+ *
+ * Stage 4 (`presence-reconstituted`) is the last stage provable from observable
+ * artifacts. Stages 5–6 turn on a human act (see MIGRATION_STAGE_SIGNAL's
+ * `humanAct`) that no assessment can observe and no agent may perform on its own
+ * behalf. An assessment surface that reported stage 5 as reached would be
+ * asserting a human authorization that did not happen — the exact backdoor
+ * SPEC-HMC-001 §9.2 component 6 forbids. Canary-pinned.
+ */
+export const ASSESSABLE_STAGE_CEILING: MigrationLifecycleStage = 'presence-reconstituted';
+
+/** True iff the stage requires a human act (never agent-performable). Pure. */
+export function stageRequiresHumanAct(stage: MigrationLifecycleStage): boolean {
+  return MIGRATION_STAGE_SIGNAL[stage].humanAct;
+}
+
+/**
+ * The five-part continuity taxonomy — SPEC-HMC-001 §9/§10, the operator's own
+ * naming. Finer-grained than CFS-023's single `continuity` Homecoming Test
+ * dimension (HOMECOMING_TEST_DIMENSIONS above), which it decomposes rather than
+ * replaces. Order pinned.
+ */
+export const AGENT_CONTINUITY_DIMENSIONS = [
+  'behavioural', // the reasoning substrate that generates behaviour (Personal + Domain Invariants)
+  'working-context', // current intent + in-flight commitments — resume, don't restart cold
+  'project', // working context scoped to a specific venture/intent
+  'artefact', // what the delegate produced stays attributed to the SAME delegate
+  'relationship', // earned standing carried forward; authority freshly re-granted
+] as const;
+
+export type AgentContinuityDimension = (typeof AGENT_CONTINUITY_DIMENSIONS)[number];
+
+/**
+ * Each continuity dimension bound to (a) the lifecycle stage that owns it and
+ * (b) the §9.2 Constitutional Agent Reconstitution component(s) it realises.
+ * This is SPEC-HMC-001 §10's mapping table as data — the doc's table and this
+ * constant are the same claim, so `tests/homecoming.test.ts` pins the mapping.
+ */
+export const CONTINUITY_DIMENSION_SPEC: Record<
+  AgentContinuityDimension,
+  { stage: MigrationLifecycleStage; reconstitutionComponents: readonly number[]; proof: string }
+> = {
+  behavioural: {
+    stage: 'principal-ratified',
+    reconstitutionComponents: [1, 2], // Personal Invariants intact · Domain Invariants intact
+    proof: 'constitutionalized source material exists in the `homecoming` KB domain AND its extracted principles have been ratified by the human principal',
+  },
+  'working-context': {
+    stage: 'presence-reconstituted',
+    reconstitutionComponents: [4], // working context intact
+    proof: "the delegate's current intent and in-flight commitments are re-derivable on the destination host",
+  },
+  project: {
+    stage: 'presence-reconstituted',
+    reconstitutionComponents: [4], // working context, scoped to one venture/intent
+    proof: "the delegate's venture/intent-scoped working context is re-derivable on the destination host",
+  },
+  artefact: {
+    stage: 'native',
+    reconstitutionComponents: [5], // artefact provenance intact
+    proof: 'artifacts the delegate produced remain attributed to the SAME delegate identity, never orphaned',
+  },
+  relationship: {
+    stage: 'delegation-reauthorized',
+    reconstitutionComponents: [3, 6], // earned standing carried forward · authority FRESHLY re-granted
+    proof: 'earned standing carries forward AND the human principal has freshly re-authorized bounded scope',
+  },
+};
+
+/**
+ * The third-party agent hosts SPEC-HMC-001 §10 names as migration objectives.
+ * `chatgpt-export` is deliberately spelled to match KNOWLEDGE_HOMECOMING_SOURCES[0]
+ * — it is the SAME source class, not a second name for it (parity canary-pinned).
+ */
+export const MIGRATION_SOURCE_HOSTS = ['chatgpt-export', 'claude-ai', 'claude-code', 'codex'] as const;
+
+export type MigrationSourceHost = (typeof MIGRATION_SOURCE_HOSTS)[number];
+
+/**
+ * True iff a shipped parser exists for this host's source material today.
+ * ONLY `chatgpt-export` does (`services/homecoming/chatgptImport.ts`). The other
+ * three are named objectives with no parser — SPEC-HMC-001 §11's first honest
+ * limit, and explicitly NOT authorised to be built by that SPEC's ratification.
+ * Reporting this honestly is the point: never let a surface imply coverage that
+ * does not exist.
+ */
+export function migrationSourceParserExists(host: MigrationSourceHost): boolean {
+  return host === 'chatgpt-export';
+}
