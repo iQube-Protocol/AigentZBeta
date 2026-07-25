@@ -1,6 +1,6 @@
 # SPEC-CDR-001 — Constitutional Domain & Context Resolution
 
-**metaMe IRL / iQube Protocol / AgentiQ · Platform resolution-architecture specification · Status: RATIFIED (operator-directed, 2026-07-25) — "This is now ratified and cleared to proceed to dev." Architecture and all architectural decisions in §10 are ratified. **P1 and P2 SHIPPED 2026-07-25**; D-15 was ratified with an explicit operator seed list (§10.3). TWO decisions remain open — D-12 (gates P5/P6) and D-8 (soft, interim ruling: treat `ire://` as documentary) — see §10.2.**
+**metaMe IRL / iQube Protocol / AgentiQ · Platform resolution-architecture specification · Status: RATIFIED (operator-directed, 2026-07-25) — "This is now ratified and cleared to proceed to dev." Architecture and all architectural decisions in §10 are ratified. **P1 and P2 SHIPPED 2026-07-25**; D-15 ratified with an explicit operator seed list (§10.3) and D-12 ratified in favour of the existing IDE (§8.2, §13), unblocking P5/P6. **Only D-8 remains open, and it is soft** (interim ruling: treat `ire://` as documentary) — see §10.2.**
 **Title:** *Constitutional Domain & Context Resolution — domain profiles, resolver precedence, context composition, and capability presentation for websites, applications, agents, tools, services and workflows*
 **Companion to:** CRP-003 (Financial Services Constitutional Capability Domain) · CRP-003a (Constitutional Financial Services Programme) · PRD-MPY-001 (MoneyPenny) · PRD-MMC-001 (metaMe Companion) · PRD-IRE-001 (Invariant Resolution Engine) · CFS-051 (Experiment / Constitutional / Invariant Pipeline)
 **Extension of:** the Companion Overlay's existing domain→shape mapping (`services/companion/overlayMapping.ts`) and the shipped `FinancialDomain` execution taxonomy (`services/constitutional/financialIntelligenceExecutor.ts`). This SPEC introduces a resolution *layer* between them. It does not introduce a new financial ontology.
@@ -329,8 +329,13 @@ Concretely: a `market-operations` module renders on a shadow-only domain and mus
 ### 8.1 The Overlay
 Stops classifying; starts consuming. `shapeForDomain` becomes a **profile lookup**, not a hostname→shape switch. Renames `banking` → `financial-context` **only as part of the profile-registry change** — the operator's judgement that the rename alone "would still encode decisions the charter is meant to settle" is accepted and recorded. The `github-repo` shape is untouched by this SPEC and remains a separate, non-financial context.
 
-### 8.2 The discovery engine (IDE)
-Gains a new output artifact: the domain profile. It already reasons in domain / sub-domain / evidence / candidate-invariant / confidence terms, so this is a new *projection* of existing machinery, not a new engine. **Open (D-12):** the operator's directive uses "IDE"; the codebase has IRE (Resolution), IPE (Projection), KRE (Knowledge), CFO (Observatory). Which existing engine owns profile generation — or whether "Invariant Discovery Engine" is a distinct component — must be settled before any build. This SPEC does not guess.
+### 8.2 The discovery engine (IDE) — **D-12 RATIFIED 2026-07-25**
+
+**Correction to this SPEC's earlier premise.** The original text said the operator's directive used "IDE" while "the codebase has IRE, IPE, KRE, CFO" — implying the IDE did not exist and the name had to be mapped onto one of the other four. **That was wrong.** `services/invariants/discoveryEngine.ts` **is** the Invariant Discovery Engine (CFS-048 Phase 0), live behind `/api/invariants/discovery`, with a five-stage pipeline (Evidence Collection → Candidate Extraction → Synthesis → Validation → Canonical Publication), a `discovery_evidence` store, `DiscoveryScopeLevel` of `'domain' | 'sub-domain' | 'capability'`, cross-evidence convergence, sub-domain comparison, and a `promoteCandidate` path that lands candidates at `proposed` and never auto-canonises.
+
+**The question the correction reframes (operator, 2026-07-25):** it was never *"which engine should generate Domain Profiles?"* — it is *"which existing constitutional pipeline should EMIT Domain Profiles as one of its artifacts?"* Those are materially different questions, and only the second one has a clean answer.
+
+**RATIFIED:** the **IDE emits Candidate Domain Profiles as discovery artifacts.** It is not replaced, not duplicated, and — see §13.1 — **not renamed**. Domain Profiles become an additional output of the pipeline that already synthesises evidence, which is exactly the "new projection of existing machinery, not a new engine" this section always intended.
 
 ### 8.3 The Financial Services programme (CRP-003a)
 Gains an explicit statement that its three execution domains are the canonical taxonomy, and a proposed governance-domain class that does **not** alter its execution surface. No change to shadow/authoritative posture. No change to the Domain 1/2 pause point.
@@ -415,7 +420,82 @@ Applied to the two live domains:
 | Execution domains: intelligence · investment · market | Sub-domains: emergency mobility · business mobility |
 | ↓ capabilities → invariants → governance constraints → Domain Profile | ↓ capabilities → invariants → governance constraints → Domain Profile |
 
-This makes profile generation a **projection of existing machinery** rather than a new engine — consistent with §8.2. It also sharpens D-12: whichever engine owns this is producing constitutional structure, not just invariant sets, which is a materially larger remit than "discovery" implies and should be named accordingly.
+This makes profile generation a **projection of existing machinery** rather than a new engine — consistent with §8.2, and ratified as such on 2026-07-25 (D-12).
+
+### 13.1 The one-directional pipeline (RATIFIED, binding)
+
+```text
+Evidence
+    ↓
+Invariant Discovery Engine
+    ↓
+Candidate Invariants
+    ↓
+Candidate Constitutional Structure
+    ↓
+Provisional Domain Profile
+    ↓
+Human Verification
+    ↓
+Verified Domain Profile
+    ↓
+IRE consumes
+    ↓
+IPE projects
+```
+
+**Nothing downstream generates structure.** That single sentence is the load-bearing constraint, and it is what makes the four engines' responsibilities clean:
+
+| Engine | Responsibility | Prohibition |
+|---|---|---|
+| **IDE** (`services/invariants/discoveryEngine.ts`) | **Produces** constitutional knowledge — candidate invariants, constitutional relationships, governance constraints, Domain Profiles | — |
+| **IRE** (`services/invariants/resolution.ts`) | **Consumes** constitutional knowledge; resolves the correct constitutional field for an intent | Never produces it |
+| **IPE** (`services/invariants/engine.ts`, `projectionBridge.ts`) | **Consumes** resolved fields; produces projections | Never discovers, never resolves |
+| **KRE** (`services/invariants/knowledgeResolution.ts`) | Decides whether to reuse existing knowledge; **may request** discovery | **Cannot perform** discovery — "recommend, never silently create" (Law XI) is its existing constitutional invariant and is untouched |
+
+Routing generation into the IRE or IPE would put a cycle in a pipeline whose entire design is one-directional — the resolver producing what it resolves. Routing it into the KRE would break "recommend, never auto", the rule that exists to prevent the CS-001 duplicate-capability defect at the knowledge level.
+
+### 13.2 The IDE is NOT renamed (operator, 2026-07-25)
+
+An earlier reading held that producing constitutional structure is a materially larger remit than "discovery" implies, and that the engine should be renamed accordingly. **The operator ruled against this, and the reasoning is adopted here:**
+
+> The IDE is still discovering invariants. The Domain Profile is not an independent discovery — it is a **projection of discovered invariants into an operational artifact.**
+
+```text
+Evidence  →  Invariant Discovery  →  Constitutional Structure  →  Operational Artifact
+```
+
+The Domain Profile belongs to the third and fourth boxes. It does not redefine what the engine fundamentally does; the engine is still discovering, and simply emits another artifact. The correct statement is *"the IDE becomes the constitutional-structure producer **because** constitutional structure is derived from discovered invariants"* — not *"the IDE is now a constitutional modelling engine."* That second framing is a bridge too far and must not enter this corpus.
+
+### 13.3 Discovery Artifacts — the missing abstraction (operator, 2026-07-25)
+
+Rather than saying "the IDE produces Domain Profiles" — which makes profiles special — the output set is formalised as one class:
+
+```text
+Invariant Discovery Engine
+    ↓
+Discovery Artifacts
+    • Candidate Invariants
+    • Candidate Relationships
+    • Candidate Governance Constraints
+    • Candidate Domain Profiles
+    ↓
+Verification
+    ↓
+Canonical Publication
+```
+
+**Everything the IDE produces follows exactly the same governance lifecycle.** Domain Profiles are not an exception to it; they are a member of it.
+
+### 13.4 The binding statement (operator wording, verbatim)
+
+> **The IDE emits Candidate Domain Profiles as discovery artifacts. Candidate Domain Profiles follow the same verification and promotion lifecycle as other IDE outputs and SHALL NOT become canonical without verification.**
+
+This is the wording that governs. Any implementation, doc, or surface that says "the IDE generates Domain Profiles" is using the wrong terminology and should be corrected to the above.
+
+### 13.5 Abstention, restated at the generator
+
+The abstention rule (§6.2) binds the generator as well as the resolver. Where confidence is insufficient, the IDE does not fabricate, does not infer, and does not best-guess. It returns **unknown**, or **provisional — verification required**. A generated profile enters at `assertionProvenance: 'discovered'` with a mandatory `confidence` (D-6, enforced by the type union shipped in P2) and at `verificationStatus: 'provisional'`; only human verification moves it to `verified`. This mirrors the IDE's own `proposed`-until-validated discipline (`inv.reasoning.337`) rather than inventing a second governance path for profiles.
 
 **Human Mobility caution:** HMS carries its own paramount rules (PSC-001; the T0 identifier-isolation regime in CLAUDE.md, where `caseId` and `personaId` must never reach a network- or chain-bound structure). A Human Mobility Domain Profile is network-bound by construction. **Any extension of this architecture to HMS must satisfy the HMS identifier-isolation rules before a single profile is generated** — flagged now, not deferred, because §12.2's caching rules make it consequential (D-21).
 
@@ -620,8 +700,8 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-9** | Four-level resolver precedence, strictly ordered | Adopt | **RATIFIED** |
 | **D-10** | L3 abstention forms; "abstention preferable to fabricated context" as binding | Adopt | **RATIFIED** |
 | **D-11** | Presentation/execution firewall — modules must not imply executability | Adopt | **RATIFIED** |
-| **D-12** | Which engine owns profile generation (IRE / IPE / KRE / CFO / a distinct Discovery Engine) | **Unresolved — do not guess** | **Open** |
-| **D-13** | Whether the Horizen agent-classification pilot (§8.4) is authorised | Defer until D-2/D-3/D-12 resolved | **RATIFIED** |
+| **D-12** | Which engine owns profile generation | **RATIFIED 2026-07-25.** The **IDE (CFS-048, `services/invariants/discoveryEngine.ts`) emits Candidate Domain Profiles as discovery artifacts** — not replaced, not duplicated, **not renamed** (§13.2). Profiles join the existing Discovery Artifact class and its verification/promotion lifecycle (§13.3); they SHALL NOT become canonical without verification (§13.4). The pipeline stays one-directional: nothing downstream generates structure (§13.1). §8.2's earlier premise — that no IDE existed in the codebase — was factually wrong and is corrected there | **RATIFIED** |
+| **D-13** | Whether the Horizen agent-classification pilot (§8.4) is authorised | Ratified as *deferred until D-2/D-3/D-12 resolved*. **All three are now resolved (2026-07-25)**, so the deferral condition is met and this reverts to a live operator call. §10.3's ruling is relevant: the pilot's subjects are likely **agents**, not hostnames, which puts P6 nearer the critical path than its phase number suggests | **Deferral discharged — awaiting an operator decision** |
 | **D-14** | Whether `financial-context` is the ratified overlay-context name | Adopt (§4.3: a rendering context, not a domain) | **RATIFIED** |
 | **D-15** | Seed registry membership — which hostnames, at which provenance/verification | Operator list supplied and ratified 2026-07-25 (§10.3). Five hostnames, three profiles, all `verified` / `financial-context`. Re-entered as explicit seeds, NOT inherited from `BANKING_DOMAINS`. No Horizen hostname | **RATIFIED** |
 | **D-16** | Resolver lives at `services/resolution/`, NOT under `services/companion/` — it is a platform service with many consumers (§1.1) | Adopt | **RATIFIED** |
@@ -645,10 +725,10 @@ Ratification (2026-07-25) approves the architecture and every decision whose ans
 | # | Why it cannot be resolved by ratification alone | What it gates | What is needed |
 |---|---|---|---|
 | **D-15** | ~~Seed registry membership is a **list of real hostnames** with real provenance/verification.~~ **RESOLVED 2026-07-25** — the operator supplied the list (§10.3) and explicitly re-entered the five hosts as ratified seeds rather than inheriting them. | ~~P2~~ — **unblocked, P2 SHIPPED** | — |
-| **D-12** | Which engine owns profile generation. The directive says "IDE"; the codebase has IRE, IPE, KRE, CFO. Naming the wrong one would misroute the whole discovery path. | **P5, P6** | An operator/steward decision, or an explicit "investigate and report" authorisation |
+| **D-12** | ~~Which engine owns profile generation.~~ **RESOLVED 2026-07-25.** The premise was wrong — the IDE *does* exist (CFS-048). The operator reframed the question from *"which engine should generate profiles"* to *"which existing pipeline should emit them as an artifact"*, and ratified the IDE (§8.2, §13). | ~~P5, P6~~ — **unblocked** | — |
 | **D-8** | Whether `invariantFieldRef`'s `ire://` scheme resolves or is documentary. Requires reading PRD-IRE-001 against the shipped resolver. | Profile-schema completeness (soft) | Either an operator answer or authorisation to investigate. **Interim: treat as documentary**, so nothing depends on resolvability |
 
-**P1 and P2 are both SHIPPED (2026-07-25).** P1 depended only on D-1; P2 was unblocked by the D-15 ratification below. **D-12 (P5, P6) and D-8 (soft) remain the open items.**
+**P1 and P2 are both SHIPPED (2026-07-25).** P1 depended only on D-1; P2 was unblocked by the D-15 ratification below. **D-12 was ratified the same day (§8.2, §13), unblocking P5 and P6.** **D-8 is the only decision still open**, and it is soft — the interim ruling treats `ire://` as documentary, so nothing depends on its resolvability.
 
 **D-19 (temporal state)** stays `Deferred`, not blocking: §12.3 already lists the context inputs that do exist, and no surface needs a temporal input to function.
 
@@ -702,7 +782,7 @@ The same five hostnames carry over — **but not by inheritance.** They are re-e
 
 ## 11. Post-ratification sequencing (indicative only)
 
-Recorded so each build slice stays deliberately narrow. As of 2026-07-25: **P1 and P2 are shipped**; every later phase remains gated on the decisions in its row, and **D-12 still blocks P5 and P6**.
+Recorded so each build slice stays deliberately narrow. As of 2026-07-25: **P1 and P2 are shipped**, and **no decision blocks any remaining phase** — D-12's ratification cleared the last one. Later phases remain sequenced by dependency (P3 wants a registry to resolve against; P5's generator is the IDE; P6 additionally needs D-13's pilot authorisation; P8 needs the HMS identifier-isolation precondition and steward sign-off).
 
 | Phase | Scope | Gated on | Status |
 |---|---|---|---|
@@ -710,8 +790,8 @@ Recorded so each build slice stays deliberately narrow. As of 2026-07-25: **P1 a
 | **P2** | Profile registry replacing the hostname `Set`; curated/first-party seed only; rename `banking` → `financial-context` | D-1, D-5, D-6, D-7, D-14, D-15 | **SHIPPED 2026-07-25** — `services/resolution/domainProfileRegistry.ts` (3 profiles / 5 hostnames, aliases share one object); `BANKING_DOMAINS` deleted and `shapeForDomain` now derives from the registry; `banking` → `financial-context` through composition, panel and capability table; canaries cover membership, migration equivalence, alias identity, provenance, verification, no-discovered/no-provisional, authority + evidence presence, T0-absence in `verifiedBy`, abstention, and the legacy identifier's removal |
 | **P3** | Resolver with L1/L2/L4 only — no provisional path | D-9, D-11 | Not started |
 | **P4** | Capability-module composition | D-2, D-3, D-4, D-11 | Not started |
-| **P5** | L3 provisional discovery + abstention UI | D-10, D-12 | **Blocked** — D-12 |
-| **P6** | Agent classification (Horizen) | D-13 | **Blocked** — D-13 deferred pending D-12 |
+| **P5** | L3 provisional discovery + abstention UI — the IDE emits Candidate Domain Profiles at `discovered`/`provisional`; the Overlay abstains visibly rather than rendering an unverified guess | D-10, D-12 | **Unblocked** (D-12 ratified) — not started |
+| **P6** | Agent classification (Horizen) — the same generator, `subjectType: 'agent'` | D-13 | **Unblocked by D-12**; D-13 (whether the pilot is authorised) is the remaining gate. Note §10.3: the pilot likely begins with **agent** profiles rather than hostname profiles, so this may sit on the pilot's critical path |
 | **P7** | Context Resolution layer (§12) — after Domain Resolution is stable, never before | D-16, D-18, D-20 | Not started |
 | **P8** | Second production domain (Human Mobility) to prove generality (§1.2) | D-21 + HMS steward sign-off | Not started |
 

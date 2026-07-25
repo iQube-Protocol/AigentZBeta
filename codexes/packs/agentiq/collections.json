@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-25_cdr-001-d12-ide-emits-domain-profiles.md",
         "updates/2026-07-25_cdr-001-p2-domain-profile-registry.md",
         "updates/2026-07-25_spec-tcp-001-guided-tour-correction.md",
         "updates/2026-07-25_cdr-001-p1-execution-taxonomy.md",
