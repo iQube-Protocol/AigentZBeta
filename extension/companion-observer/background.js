@@ -829,13 +829,35 @@ async function healObserverInOpenTabs(trigger) {
   // Best-effort and last: a failure here (no active tab, privileged origin,
   // no content script) leaves whatever the visible tab already wrote, which
   // is still correct — this only removes the dependence on timing.
+  await reObserveActiveTab();
+}
+
+/**
+ * Ask the CURRENTLY ACTIVE tab to re-observe, and resolve once it has.
+ *
+ * Two callers, one implementation: the tail of `healObserverInOpenTabs`
+ * above (so a healing sweep ends with the right tab having written last),
+ * and the Overlay panel's Refresh button (relayed in from the side panel —
+ * see the `REQUEST_ACTIVE_TAB_REOBSERVE` handler below).
+ *
+ * Grants nothing: the content script's `observeAndSend` applies the same
+ * visibility guard and the same live `checkGrant()` calls it does on a page
+ * load, and the server re-validates independently. This only changes WHEN an
+ * observation is taken, never what may be in it.
+ *
+ * Never throws. Returns whether a tab was actually asked, so the caller can
+ * report honestly instead of implying a refresh happened when it didn't.
+ */
+async function reObserveActiveTab() {
   try {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (activeTab?.id && isInjectableUrl(activeTab.url)) {
-      await chrome.tabs.sendMessage(activeTab.id, { type: 'RE_OBSERVE' });
-    }
-  } catch {
-    // No receiver / privileged origin / tab closed — nothing to correct.
+    if (!activeTab?.id || !isInjectableUrl(activeTab.url)) return { ok: false, reason: 'no-observable-active-tab' };
+    await chrome.tabs.sendMessage(activeTab.id, { type: 'RE_OBSERVE' });
+    return { ok: true };
+  } catch (err) {
+    // No content script in that tab (privileged origin, or never injected),
+    // or the tab closed mid-flight.
+    return { ok: false, reason: String(err && err.message ? err.message : err) };
   }
 }
 
@@ -908,6 +930,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // and had no persona hint); the popup is its only consumer, so there
       // is one status path here, not two.
       verifyCompanion().then(sendResponse);
+      return true; // async response
+    }
+
+    case 'REQUEST_ACTIVE_TAB_REOBSERVE': {
+      // Relayed by sidepanel.js on behalf of the Overlay panel's Refresh
+      // button. The panel is a WEB PAGE (dev-beta.aigentz.me) inside the
+      // side panel's iframe and has no chrome.* access of its own, so it
+      // cannot ask a tab to re-observe directly — that gap is exactly why
+      // Refresh only ever re-read the stored row and looked broken whenever
+      // the row was wrong (operator, three rounds, 2026-07-25).
+      //
+      // sidepanel.js validates the message came from the Companion origin
+      // before relaying; this handler grants nothing beyond what a page
+      // load already does (see reObserveActiveTab).
+      reObserveActiveTab().then(sendResponse);
       return true; // async response
     }
 

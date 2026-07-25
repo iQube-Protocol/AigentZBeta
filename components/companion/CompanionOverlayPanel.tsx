@@ -341,6 +341,57 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
     [personaIdHint],
   );
 
+  /**
+   * Ask the extension to re-observe the ACTIVE TAB before re-reading.
+   *
+   * WHY THIS EXISTS: this panel is a web page inside the extension side
+   * panel's iframe — it has no `chrome.*` access, so on its own it can only
+   * re-fetch the STORED observation. That made Refresh a no-op whenever the
+   * stored row was wrong or stale: it faithfully re-read the same bad row,
+   * which the operator correctly read as "Refresh doesn't work" (three
+   * rounds, 2026-07-25). The extension's `sidepanel.html` parent IS an
+   * extension document and can do the hop; it validates our origin strictly
+   * before relaying (see `extension/companion-observer/sidepanel.js`).
+   *
+   * Degrades cleanly OUTSIDE the extension (plain web embed, no parent, or
+   * an older extension without the bridge): nothing answers, the timeout
+   * fires, and we fall through to the same plain re-fetch Refresh always
+   * did. So this never makes the button worse than before, only better where
+   * the bridge exists — no surface detection needed.
+   */
+  const requestFreshObservation = useCallback(async (): Promise<void> => {
+    if (typeof window === "undefined" || window.parent === window) return;
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener("message", onMessage);
+        clearTimeout(timer);
+        resolve();
+      };
+      const onMessage = (event: MessageEvent) => {
+        // The reply comes from the extension page hosting this iframe. We
+        // can't hardcode its chrome-extension:// origin, so we verify it is
+        // our own parent and carries the expected marker — and it conveys
+        // only a boolean, never data we render.
+        if (event.source !== window.parent) return;
+        if ((event.data as { type?: string } | null)?.type !== "metame-companion:reobserve-done") return;
+        finish();
+      };
+      const timer = setTimeout(finish, 1200);
+      window.addEventListener("message", onMessage);
+      window.parent.postMessage({ type: "metame-companion:request-reobserve" }, "*");
+    });
+  }, []);
+
+  /** Refresh button handler: re-observe first (best effort), then re-read. */
+  const refresh = useCallback(async () => {
+    await requestFreshObservation();
+    await load();
+  }, [requestFreshObservation, load]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -352,10 +403,18 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
   // 2026-07-24). Poll silently while mounted instead.
   useEffect(() => {
     const interval = setInterval(() => {
-      void load({ silent: true });
+      // Re-observe first, same as Refresh. Polling that only re-READ could
+      // never notice you'd moved to a different page while the panel stayed
+      // open — the stored observation simply doesn't change on its own. The
+      // content script's identical-payload suppression means a poll on an
+      // unchanged page costs no write, so this stays cheap.
+      void (async () => {
+        await requestFreshObservation();
+        await load({ silent: true });
+      })();
     }, 5000);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [requestFreshObservation, load]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -364,7 +423,7 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
           <div className="text-sm font-semibold text-slate-200">Overlay</div>
           <button
             type="button"
-            onClick={() => void load()}
+            onClick={() => void refresh()}
             className="rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-900"
           >
             Refresh
